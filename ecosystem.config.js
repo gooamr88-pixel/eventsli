@@ -17,6 +17,8 @@ const fs = require('node:fs');
  *    `@supabase/supabase-js` declares `node >=22`, and it is the library the
  *    entire API talks to the database through — not somewhere to be
  *    "probably fine" on an unsupported runtime, on an app that moves money.
+ *    Note what this costs the backend below: fork mode instead of cluster,
+ *    because pm2 silently ignores `interpreter` for cluster apps.
  *
  *    So Eventsli runs on its own Node 22, installed with nvm and exposed at a
  *    stable path. `/usr/local/bin/node22` is a symlink created once at
@@ -39,14 +41,28 @@ module.exports = {
       cwd: './backend',
       interpreter,
       /**
-       * TWO, not `max`. Cluster mode is safe here — this API serves no inbound
-       * WebSockets (Supabase Realtime is an OUTBOUND client connection), so
-       * there is no sticky-session requirement — but the box has two cores and
-       * fancy-rsvp is already running two cluster workers on them. `max` would
-       * read the core count and claim them again.
+       * FORK, NOT CLUSTER — and it is the Node version that forces it.
+       *
+       * pm2 records `interpreter` for a cluster app and then ignores it. Cluster
+       * workers are spawned by the God process with `cluster.fork()`, so they
+       * inherit the DAEMON's Node — which on this box is the system 20.20.2 the
+       * other two projects need. `pm2 describe` shows
+       * `/usr/local/bin/node22` and the process runs on 20 anyway; the proof was
+       * in the log, where @supabase/supabase-js printed its "Node.js 20 and
+       * below are deprecated" warning on every boot.
+       *
+       * Fork mode honours the interpreter, so the API actually runs on 22. The
+       * cost is one worker instead of two: a crash is a ~1s outage while pm2
+       * restarts it, and the API uses one core rather than two. On a box whose
+       * two cores are already shared with four other processes, and at launch
+       * traffic, that is the cheaper side of the trade — an unsupported runtime
+       * under the code that moves money is the expensive one.
+       *
+       * Clustering comes back the day it is worth a second pm2 daemon with its
+       * own PM2_HOME on Node 22. It is not worth it yet.
        */
-      instances: 2,
-      exec_mode: 'cluster',
+      instances: 1,
+      exec_mode: 'fork',
       autorestart: true,
       watch: false,
       max_memory_restart: '1G',

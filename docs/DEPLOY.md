@@ -14,6 +14,14 @@ this guide may disturb them:
 | `roya-platform` | `/var/www/roya-platform` | 5001 |
 | **`eventsli`** | **`/var/www/eventsli`** | **3100 (frontend), 5100 (backend)** |
 
+Both Eventsli processes run in **fork** mode, not cluster. That is not a
+preference — pm2 records `interpreter` on a cluster app and then ignores it,
+because cluster workers are spawned by the God process with `cluster.fork()`
+and inherit the *daemon's* Node. The daemon is on the system's 20.20.2, so a
+clustered API would silently run on Node 20 while `pm2 describe` claimed
+otherwise. The tell is in the log: `@supabase/supabase-js` prints a "Node.js 20
+and below are deprecated" warning on every boot.
+
 Everything runs under one `pm2` daemon as **root**, and nginx fronts all of it.
 
 Four things follow, and each is a command this guide deliberately does **not**
@@ -273,9 +281,11 @@ server {
 }
 
 server {
-    listen 443 ssl;
-    listen [::]:443 ssl;
-    http2 on;
+    # `listen … http2`, not the standalone `http2 on;` directive — that one
+    # arrived in nginx 1.25.1 and this box runs 1.24.0, where it fails the
+    # config test with `unknown directive "http2"`.
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
     server_name eventsli.com www.eventsli.com;
 
     # Already issued and valid — certbot has run for this domain before.
