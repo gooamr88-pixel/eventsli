@@ -367,7 +367,27 @@ other projects keep serving — which is why it runs before the reload, not afte
 
 ## 7. Verify
 
-Each of these has caught a real failure in this project.
+### Testing before DNS has moved
+
+`--resolve` forces the connection to this box while still sending
+`eventsli.com` as the hostname — so nginx picks the right server block and the
+certificate matches. It tests the entire stack without waiting for a DNS change
+to propagate, and it is how the first deployment was verified while the domain
+still pointed at Hostinger's parking page:
+
+```bash
+R="--resolve eventsli.com:443:127.0.0.1"
+curl -sI $R https://eventsli.com/ | head -3
+curl -sI $R https://eventsli.com/ | grep -i content-security-policy
+curl -s  $R https://eventsli.com/api/v1/public/event-categories | head -c 100
+curl -s  $R https://eventsli.com/robots.txt | head -5
+curl -s  $R https://eventsli.com/sitemap.xml | grep -c "<loc>"
+curl -sI $R https://eventsli.com/og-default.png | head -1
+```
+
+Drop the `$R` once DNS points here — the same commands then test the real path.
+
+### Each of these has caught a real failure in this project
 
 ```bash
 # 1. Through nginx, not just loopback
