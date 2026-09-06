@@ -1,186 +1,164 @@
-# Deploying Eventsli to the Hostinger VPS
+# Deploying Eventsli
 
-Ubuntu 22.04/24.04, one box, two Node processes behind nginx.
-`eventsli.com` → nginx → Next.js on :3000, and `/api/*` → the API on :5000.
+Target: the Hostinger VPS at `187.77.1.72` (`srv1603748`), Ubuntu 24.04 LTS.
+App root: `/var/www/eventsli`. Public host: `https://eventsli.com`.
 
-> **Read this first.** Three things in this guide are not optional and are the
-> ones that break a launch: the Stripe **live webhook secret** (the value in
-> your notes is a `stripe listen` CLI secret and will reject every production
-> event), `REVALIDATE_SECRET` being **identical** in both `.env` files, and
-> `NEXT_PUBLIC_*` being present **at build time** rather than only at runtime.
+## This box is shared, and that shapes everything below
 
----
+Eventsli is the **third** application on it. Two were there first and nothing in
+this guide may disturb them:
 
-## Before every push
-
-```bash
-npm run secrets      # nothing git would commit carries a live credential
-npm run preflight    # the above, plus checks, lint, both test suites, the build
-```
-
-`npm run secrets` asks **git** which files it would commit — not the filesystem
-— so `backend/.env` existing on your machine is fine and `backend/.env` being
-tracked is a hard stop. A leaked `sk_live_` key is not fixed by deleting the
-file afterwards: GitHub keeps the history and bots scrape new pushes within
-seconds, so it has to be rotated.
-
----
-
-## 0. Before you touch the server
-
-### Rotate the keys that have been sitting in plain text
-
-`ملف التقرير المالي eventsli/New Text Document.txt` holds the live Stripe secret
-key, the Supabase `service_role` JWT and the database password. That file is on
-a laptop, in a folder that syncs, and has been for weeks. It is now excluded
-from git (`.gitignore`, verified with `git check-ignore`), which stops it
-spreading further — it does not undo where it has already been.
-
-Rotate all three, then put the new values only in `backend/.env` on the VPS:
-
-| Key | Where | What breaks until you update `.env` |
+| What | Where | Ports |
 |---|---|---|
-| `sk_live_…` | Stripe → Developers → API keys → **Roll** | Every payment |
-| `service_role` JWT | Supabase → Settings → API → **Reset** | The whole API |
-| Database password | Supabase → Settings → Database | Migration scripts only |
+| `fancy-rsvp` | `/var/www/fancy` | 3000 (frontend), 5000 (backend, 2 cluster workers) |
+| `roya-platform` | `/var/www/roya-platform` | 5001 |
+| **`eventsli`** | **`/var/www/eventsli`** | **3100 (frontend), 5100 (backend)** |
 
-The **publishable** key (`pk_live_…`), the Google client ID and the Supabase
-project URL are public by design and do not need rotating.
+Everything runs under one `pm2` daemon as **root**, and nginx fronts all of it.
 
-### Create the live Stripe webhook
+Four things follow, and each is a command this guide deliberately does **not**
+contain:
 
-The `whsec_d273fc…` in your notes came from `stripe listen` on your laptop. It
-signs events forwarded by the CLI and **nothing else**. In production, a webhook
-signed with it fails verification, which means an order is paid and never
-fulfilled — the buyer is charged and gets no ticket.
+- **No `ufw` changes.** The firewall is already active and correct: 22, 80/443,
+  and 5001. Eventsli's 3100 and 5100 are never opened — they are reachable only
+  over loopback, through nginx, which is what you want.
+- **No global Node upgrade.** The system node is 20.20.2 and the other two
+  projects run on it. Eventsli gets its own Node 22 (step 1).
+- **No touching `sites-enabled/` beyond the one `eventsli` file.** In particular
+  `reject-all` is the `default_server` answering anything not matching a known
+  hostname with `444`. Leave it — it is why hitting the bare IP closes the
+  connection.
+- **No new system user.** `pm2` already runs as root for the other apps. A
+  separate user would need a second pm2 daemon and its own startup unit.
+  Consistency with the box wins; the honest cost is that a remote-code bug in a
+  dependency lands as root rather than in one directory.
 
-1. Stripe Dashboard → Developers → **Webhooks** → Add endpoint
-2. URL: `https://eventsli.com/api/v1/payments/webhook`
-3. Events: `checkout.session.completed`, `checkout.session.expired`,
-   `payment_intent.payment_failed`, `charge.refunded`, `account.updated`
-4. Copy the endpoint's **Signing secret** — that is your production
-   `STRIPE_WEBHOOK_SECRET`.
+---
 
-### Point DNS at the box
+## Before you touch the server
 
-At your registrar, two A records to the VPS IP:
+### 1. Point the DNS back at this box
+
+`eventsli.com` currently resolves to `2.57.91.91` — **Hostinger's parking page**
+(`Server: hcdn`), not this VPS. Nothing works until that changes.
+
+In **hPanel → Domains → eventsli.com → DNS**. These are records in a web form,
+not shell commands:
 
 ```
-eventsli.com        A   <VPS_IP>
-www.eventsli.com    A   <VPS_IP>
+Type   Name    Value
+A      @       187.77.1.72
+A      www     187.77.1.72
 ```
 
-Wait for it to resolve before running certbot — it fails otherwise:
+If the domain has Hostinger **CDN** or **website parking** on, turn it off —
+port 80 must reach this box directly or certificate renewal fails.
+
+Confirm before step 6:
 
 ```bash
-dig +short eventsli.com
+dig +short eventsli.com        # must print 187.77.1.72
+```
+
+### 2. The Stripe live webhook
+
+Dashboard → Developers → **Webhooks** → endpoint at
+`https://eventsli.com/api/v1/payments/webhook`, events:
+`checkout.session.completed`, `checkout.session.expired`,
+`payment_intent.payment_failed`, `charge.refunded`, `account.updated`.
+
+Its **Signing secret** is `STRIPE_WEBHOOK_SECRET`. A `whsec_` from
+`stripe listen` is a CLI-local secret that rejects every production event — the
+symptom is buyers charged with no ticket.
+
+### 3. Rotate the keys that have been sitting in plain text
+
+The live Stripe key, the Supabase `service_role` JWT and the database password
+have been in a Desktop folder for weeks. That folder is now excluded from git,
+which stops it spreading further; it does not undo where it has been.
+
+Doing this **before** step 3 means writing `.env` once. After means writing it
+twice, with a reload in between:
+
+```bash
+nano /var/www/eventsli/backend/.env
+pm2 reload eventsli-backend --update-env
 ```
 
 ---
 
-## 1. Prepare the server
+## 1. Node 22, for this app only
 
-SSH in as root, then create a non-root user to run the app. Node should not run
-as root: a remote-code bug in a dependency then owns the box rather than one
-directory.
+`@supabase/supabase-js` declares `node >=22`, and it is the library the whole API
+reaches the database through. Node 20 also left support in April 2026, so it
+receives no security patches — not a runtime for something that moves money.
+
+Install with `nvm` so the system node stays 20 for `fancy` and `roya`:
 
 ```bash
-ssh root@<VPS_IP>
-
-adduser --disabled-password --gecos "" eventsli
-usermod -aG sudo eventsli
-mkdir -p /home/eventsli/.ssh
-cp ~/.ssh/authorized_keys /home/eventsli/.ssh/
-chown -R eventsli:eventsli /home/eventsli/.ssh
-chmod 700 /home/eventsli/.ssh && chmod 600 /home/eventsli/.ssh/authorized_keys
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+export NVM_DIR="$HOME/.nvm" && . "$NVM_DIR/nvm.sh"
+nvm install 22
 ```
 
-Base packages:
+Then expose it at a **stable** path. `ecosystem.config.js` looks for exactly this
+symlink and falls back to pm2's own interpreter when it is absent, so the
+version-specific nvm path never has to be committed:
 
 ```bash
-apt update && apt upgrade -y
-apt install -y curl git nginx ufw
-
-# Node 22 LTS — the engines field requires >=22
-curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
-apt install -y nodejs
-npm install -g pm2
-
-node -v    # expect v22.x
+ln -sfn "$(nvm which 22)" /usr/local/bin/node22
+/usr/local/bin/node22 -v          # expect v22.x
 ```
 
-Firewall. Note what is **not** opened: 3000 and 5000 stay closed, so the only
-way to either process is through nginx.
+Confirm nothing moved for the other projects:
 
 ```bash
-ufw allow OpenSSH
-ufw allow 'Nginx Full'
-ufw --force enable
-ufw status
-```
-
-Swap, if the plan has 2 GB or less. `next build` is memory-hungry and is killed
-by the OOM reaper without it — which looks like a build that mysteriously stops.
-
-```bash
-fallocate -l 2G /swapfile && chmod 600 /swapfile
-mkswap /swapfile && swapon /swapfile
-echo '/swapfile none swap sw 0 0' >> /etc/fstab
+node -v                            # still v20.20.2
+pm2 list                           # fancy and roya still online
 ```
 
 ---
 
-## 2. Get the code
+## 2. The code
 
 ```bash
-su - eventsli
-cd ~
-git clone https://github.com/gooamr88-pixel/eventsli.git
-cd eventsli
-npm install                 # workspaces: installs backend and frontend together
-```
+mkdir -p /var/www/eventsli
+git clone https://github.com/gooamr88-pixel/eventsli.git /var/www/eventsli
+cd /var/www/eventsli
 
-For a **private** repo, use a deploy key so the server never holds your GitHub
-password:
-
-```bash
-ssh-keygen -t ed25519 -C "eventsli-vps" -f ~/.ssh/id_ed25519 -N ""
-cat ~/.ssh/id_ed25519.pub
-# GitHub → repo → Settings → Deploy keys → Add, read-only
-git clone git@github.com:gooamr88-pixel/eventsli.git
+# npm from the Node 22 install, so anything native builds against the right ABI
+export NVM_DIR="$HOME/.nvm" && . "$NVM_DIR/nvm.sh" && nvm use 22
+npm install
+mkdir -p logs
 ```
 
 ---
 
 ## 3. The two `.env` files
 
-**They are not in the repository and must never be.** Create them on the server.
+They are not in the repository and must never be. Create them here.
 
-### `backend/.env`
-
-```bash
-nano ~/eventsli/backend/.env
-```
+### `/var/www/eventsli/backend/.env`
 
 ```ini
-PORT=5000
+PORT=5100
 NODE_ENV=production
 
 FRONTEND_URL=https://eventsli.com,https://www.eventsli.com
 BACKEND_URL=https://eventsli.com
 
-# Generate FRESH ones on the server — never reuse the laptop's:
+# Generate FRESH on this server, three DIFFERENT values:
 #   openssl rand -base64 48
-JWT_SECRET=<paste>
-QR_JWT_SECRET=<paste a DIFFERENT one>
-IP_HASH_SALT=<paste a third>
+JWT_SECRET=
+QR_JWT_SECRET=
+IP_HASH_SALT=
 
 SUPABASE_URL=https://qvoyxwszojwyyelsjskm.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=<the ROTATED service_role JWT>
+SUPABASE_SERVICE_ROLE_KEY=
 
 PAYMENTS_STRIPE_ENABLED=true
-STRIPE_SECRET_KEY=<the ROTATED sk_live_ key>
-STRIPE_WEBHOOK_SECRET=<the LIVE endpoint's signing secret — not the CLI's>
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
 STRIPE_CONNECT_CLIENT_ID=
 STRIPE_FEE_PCT=2.9
 STRIPE_FEE_FIXED_CENTS=30
@@ -195,151 +173,144 @@ DEFAULT_MAX_TICKETS_PER_ORDER=10
 MANUAL_INVOICE_DUE_DAYS=7
 MANUAL_INVOICE_MIN_HOURS_BEFORE_EVENT=24
 
-BREVO_API_KEY=<the Brevo key>
+BREVO_API_KEY=
 BREVO_FROM_EMAIL=info@eventsli.com
 BREVO_FROM_NAME=Eventsli
 
 GOOGLE_CLIENT_ID=652713460612-t771u7c092ci6i1dcilfcif8t63c3oe5.apps.googleusercontent.com
 
-# The SAME value goes in frontend/.env. openssl rand -hex 32
-REVALIDATE_SECRET=<paste>
+# openssl rand -hex 32 — the SAME value goes in frontend/.env
+REVALIDATE_SECRET=
 
 LOG_LEVEL=info
 SCHEDULER_ENABLED=true
 ```
 
-Three notes on that file:
+`JWT_SECRET` and `QR_JWT_SECRET` must **differ**: a leaked ticket-signing key
+must not also mint logins.
 
-- **`JWT_SECRET` and `QR_JWT_SECRET` must differ.** A leaked ticket-signing key
-  must not also mint logins.
-- **`SCHEDULER_ENABLED=true` on exactly one box.** With `pm2` in cluster mode
-  the scheduler runs in every worker; that is fine for these jobs (they are
-  idempotent) but if you ever add a second VPS, only one may have it on.
-- **`FRONTEND_URL` takes both hostnames.** Miss `www` and CORS refuses every
-  request from it.
-
-### `frontend/.env`
-
-```bash
-nano ~/eventsli/frontend/.env
-```
+### `/var/www/eventsli/frontend/.env`
 
 ```ini
 NEXT_PUBLIC_API_URL=https://eventsli.com/api/v1
-INTERNAL_API_URL=http://127.0.0.1:5000/api/v1
+INTERNAL_API_URL=http://127.0.0.1:5100/api/v1
 
-# Character-for-character identical to backend/.env
-REVALIDATE_SECRET=<the same value>
+REVALIDATE_SECRET=<character-for-character identical to the backend's>
 
 NEXT_PUBLIC_SITE_URL=https://eventsli.com
 NEXT_PUBLIC_SUPABASE_URL=https://qvoyxwszojwyyelsjskm.supabase.co
 NEXT_PUBLIC_GOOGLE_CLIENT_ID=652713460612-t771u7c092ci6i1dcilfcif8t63c3oe5.apps.googleusercontent.com
 ```
 
-Lock both down:
-
 ```bash
-chmod 600 ~/eventsli/backend/.env ~/eventsli/frontend/.env
+chmod 600 /var/www/eventsli/backend/.env /var/www/eventsli/frontend/.env
 ```
 
-> **`NEXT_PUBLIC_*` is compiled in, not read at runtime.** These values are
-> baked into the JavaScript bundle by `next build`, so the file must be correct
-> *before* you build. Change one and you must rebuild — restarting is not
-> enough. `NEXT_PUBLIC_SUPABASE_URL` is stricter still: `next.config.mjs`
-> **refuses to build** without it, because it is compiled into the image
-> allowlist and the CSP, and a build without it ships a site where every event
-> cover is silently blocked.
+> **`NEXT_PUBLIC_*` is compiled in, not read at runtime.** These are baked into
+> the JavaScript by `next build`, so the file must be right *before* you build.
+> Change one and you must rebuild — a restart is not enough.
+> `NEXT_PUBLIC_SUPABASE_URL` is stricter: `next.config.mjs` **refuses to build**
+> without it, because it is compiled into the image allowlist and the CSP, and a
+> build without it ships a site where every event cover is silently blocked.
 
 ---
 
 ## 4. Database
 
-The schema lives in `supabase/migrations/`, applied in filename order. Against
-the hosted project, run them from the Supabase SQL editor, or from the server:
+Schema lives in `supabase/migrations/`, applied in filename order — from the
+Supabase SQL editor, or here:
 
 ```bash
-cd ~/eventsli/backend
-# Needs SUPABASE_DB_PASSWORD in .env; see scripts/db.js for how the
-# connection string is derived from SUPABASE_URL.
+cd /var/www/eventsli/backend
 node scripts/apply-migration.js ../supabase/migrations/<file>.sql
-node scripts/verify-schema.js
+node scripts/verify-schema.js      # reports what the live DB actually has
 ```
-
-`verify-schema.js` is the check that matters — it reports what the live database
-actually has, rather than what the migrations say it should.
 
 ---
 
 ## 5. Build and start
 
 ```bash
-cd ~/eventsli
+cd /var/www/eventsli
+export NVM_DIR="$HOME/.nvm" && . "$NVM_DIR/nvm.sh" && nvm use 22
+
 npm run build --workspace=frontend
 pm2 start ecosystem.config.js
 pm2 save
-pm2 startup systemd -u eventsli --hp /home/eventsli
-# then run the command it prints, as root
 ```
 
-Check both are alive before touching nginx:
+`pm2 startup` is already configured on this box for the other apps, so `pm2 save`
+is enough to bring Eventsli back after a reboot.
+
+Check before touching nginx:
 
 ```bash
-pm2 status
-curl -s localhost:5000/api/v1/public/event-categories | head -c 200
-curl -sI localhost:3000 | head -1
-pm2 logs --lines 50
+pm2 list                                  # the 4 existing + 3 new, all online
+curl -s localhost:5100/api/v1/public/event-categories | head -c 200
+curl -sI localhost:3100 | head -1
+pm2 logs eventsli-backend --lines 30 --nostream
 ```
 
 ---
 
 ## 6. nginx
 
+The existing `/etc/nginx/sites-available/eventsli` is **dead** — it serves a
+static site from `/var/www/eventwaw`, a directory that does not exist. It is the
+old platform this project replaces. Back it up, then replace it:
+
 ```bash
-sudo nano /etc/nginx/sites-available/eventsli
+cp /etc/nginx/sites-available/eventsli /etc/nginx/sites-available/eventsli.old
+nano /etc/nginx/sites-available/eventsli
 ```
 
 ```nginx
 server {
     listen 80;
+    listen [::]:80;
     server_name eventsli.com www.eventsli.com;
-    location / { return 301 https://$host$request_uri; }
+    return 301 https://$host$request_uri;
 }
 
 server {
-    listen 443 ssl http2;
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
     server_name eventsli.com www.eventsli.com;
 
-    # certbot fills these in
+    # Already issued and valid — certbot has run for this domain before.
     ssl_certificate     /etc/letsencrypt/live/eventsli.com/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/eventsli.com/privkey.pem;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_ecdh_curve      secp384r1;
+    ssl_prefer_server_ciphers on;
 
-    # A ticket QR and a cover image are the big ones; nothing here is larger.
+    # A cover image is the largest thing anyone uploads.
     client_max_body_size 6M;
 
-    # The app sets its own CSP, HSTS and Permissions-Policy per response.
-    # Do NOT add security headers here as well: a second Content-Security-Policy
-    # is enforced as the INTERSECTION of the two, and one without the per-request
-    # nonce blocks the inline scripts React needs — a site that renders and does
-    # not work.
+    # ── DO NOT ADD SECURITY HEADERS HERE ───────────────────────────────────
+    # The app sets its own CSP, HSTS and Permissions-Policy per response, and
+    # the CSP carries a PER-REQUEST NONCE. Two CSP headers are enforced as
+    # their INTERSECTION, so a nonce-free one added here blocks the inline
+    # scripts React needs — the site renders perfectly and nothing works.
 
-    # ── The API ────────────────────────────────────────────────────────────
     location /api/ {
-        proxy_pass http://127.0.0.1:5000;
+        proxy_pass http://127.0.0.1:5100;
         proxy_http_version 1.1;
         proxy_set_header Host              $host;
         proxy_set_header X-Real-IP         $remote_addr;
         # Rate limits and audit rows key on the client address. Without this
-        # every request looks like it came from 127.0.0.1 — one rate-limit
-        # bucket for the whole internet, and a useless audit log.
+        # every request looks like 127.0.0.1 — one rate-limit bucket for the
+        # whole internet, and a useless audit log.
         proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_read_timeout 60s;
     }
 
-    # Stripe signs the RAW body. Any rewriting here breaks signature
+    # Stripe signs the RAW body. Buffering or rewriting it breaks signature
     # verification, and the symptom is paid orders that are never fulfilled.
     location = /api/v1/payments/webhook {
-        proxy_pass http://127.0.0.1:5000;
+        proxy_pass http://127.0.0.1:5100;
         proxy_http_version 1.1;
         proxy_set_header Host              $host;
         proxy_set_header X-Real-IP         $remote_addr;
@@ -348,23 +319,20 @@ server {
         proxy_request_buffering off;
     }
 
-    # ── Next's immutable assets ────────────────────────────────────────────
     location /_next/static/ {
-        proxy_pass http://127.0.0.1:3000;
-        proxy_cache_valid 200 365d;
+        proxy_pass http://127.0.0.1:3100;
         add_header Cache-Control "public, max-age=31536000, immutable";
     }
 
     # The gate's service worker. Never cached by a proxy, or a tablet at a door
     # keeps running last month's build with no way to update it.
     location = /gate-sw.js {
-        proxy_pass http://127.0.0.1:3000;
+        proxy_pass http://127.0.0.1:3100;
         add_header Cache-Control "no-cache, no-store, must-revalidate";
     }
 
-    # ── Everything else ────────────────────────────────────────────────────
     location / {
-        proxy_pass http://127.0.0.1:3000;
+        proxy_pass http://127.0.0.1:3100;
         proxy_http_version 1.1;
         proxy_set_header Host              $host;
         proxy_set_header X-Real-IP         $remote_addr;
@@ -376,110 +344,98 @@ server {
 }
 ```
 
-```bash
-sudo ln -s /etc/nginx/sites-available/eventsli /etc/nginx/sites-enabled/
-sudo rm -f /etc/nginx/sites-enabled/default
-sudo nginx -t && sudo systemctl reload nginx
-```
-
-### Certificate
+The symlink in `sites-enabled/` already exists, so:
 
 ```bash
-sudo apt install -y certbot python3-certbot-nginx
-sudo certbot --nginx -d eventsli.com -d www.eventsli.com
-sudo systemctl status certbot.timer     # renewal is automatic
+nginx -t && systemctl reload nginx
 ```
+
+`nginx -t` checks **every** site on the box. If it fails nothing reloads and the
+other projects keep serving — which is why it runs before the reload, not after.
 
 ---
 
-## 7. Verify the live site
+## 7. Verify
 
-Run these in order. Each one has caught a real failure in this project.
+Each of these has caught a real failure in this project.
 
 ```bash
-# 1. The API answers through nginx, not just on loopback
+# 1. Through nginx, not just loopback
 curl -s https://eventsli.com/api/v1/public/event-categories | head -c 200
 
-# 2. The CSP carries a nonce. If `nonce-` is missing, the site renders and
-#    NOTHING on it works — no seat map, no checkout, no sign-in state.
+# 2. THE IMPORTANT ONE. If `nonce-` is missing, the site renders and NOTHING
+#    on it works — no seat map, no checkout, no sign-in state.
 curl -sI https://eventsli.com/ | grep -i content-security-policy
 
-# 3. HSTS is present (production only)
 curl -sI https://eventsli.com/ | grep -i strict-transport
-
-# 4. robots.txt disallows the private routes and points at the sitemap
-curl -s https://eventsli.com/robots.txt
-
-# 5. The sitemap has real events in it, not just the ten static pages
-curl -s https://eventsli.com/sitemap.xml | grep -c "<loc>"
-
-# 6. The share card resolves
+curl -s  https://eventsli.com/robots.txt | head -5
+curl -s  https://eventsli.com/sitemap.xml | grep -c "<loc>"
 curl -sI https://eventsli.com/og-default.png | head -1
+
+# 3. The other two projects are untouched
+curl -sI https://fancyrsvp.com | head -1
+curl -sI https://nabda-capital-group.com | head -1
 ```
 
-Then in a browser, with devtools open:
+Then in a browser with devtools open:
 
-- **`/` — the console must be clean of CSP violations.** One
+- **`/`** — the console must have **no CSP violations**. One
   `GET /auth/me 401` for a signed-out visitor is expected and correct.
-- **`/events`** — click an event, choose seats, reach the checkout.
+- **`/events`** → an event → choose seats → reach the checkout.
 - **`/gate/login`** — sign a device in and scan one real ticket.
-- **A test purchase with a real card**, refunded afterwards. Nothing else proves
-  the webhook secret is right, and a wrong one means charged buyers with no
-  tickets.
+- **A real card purchase, refunded after.** Nothing else proves the webhook
+  secret is right, and a wrong one means charged buyers with no tickets.
 
 ---
 
-## 8. Deploying an update
+## Updating
 
 ```bash
-cd ~/eventsli
+cd /var/www/eventsli
+export NVM_DIR="$HOME/.nvm" && . "$NVM_DIR/nvm.sh" && nvm use 22
 git pull
 npm install
 npm run build --workspace=frontend
 pm2 reload ecosystem.config.js --update-env
-pm2 logs --lines 30
+pm2 logs eventsli-backend --lines 30 --nostream
 ```
 
-`reload`, not `restart`: it replaces workers one at a time, so requests in
-flight are not dropped.
-
-**Rebuild after changing any `NEXT_PUBLIC_*`.** They are compiled into the
-bundle; `pm2 reload` alone leaves the old value in the JavaScript.
-
-If a migration is part of the release, apply it **before** reloading — the new
-code expects the new schema.
+`reload`, not `restart` — workers are replaced one at a time, so requests in
+flight are not dropped. Rebuild after changing any `NEXT_PUBLIC_*`. Apply
+migrations **before** reloading.
 
 ### Rolling back
 
 ```bash
-cd ~/eventsli
+cd /var/www/eventsli
 git log --oneline -5
 git checkout <previous-sha>
 npm install && npm run build --workspace=frontend
 pm2 reload ecosystem.config.js --update-env
 ```
 
-A migration does not roll back with the code. If the release included one,
-decide deliberately whether to reverse it.
+A migration does not roll back with the code. If the release had one, decide
+deliberately whether to reverse it.
 
 ---
 
-## 9. Housekeeping
+## Before real traffic
+
+**Delete the 94 test events** published in the database — "Fulfilment Test",
+"Gate Test", "Manual Test". They are on the homepage, in `/events`, and in
+`sitemap.xml`, which invites Google to index 94 pages that are not real. They
+are leftovers from this project's own probes.
+
+Optional but cheap: this box has **no swap** and two cores. `next build` is the
+memory-hungry step and currently succeeds with ~4.5 GB free — but a future build
+competing with the other projects would be killed by the OOM reaper, which looks
+like a build that stops with no error.
 
 ```bash
-pm2 install pm2-logrotate                        # logs fill a small disk in weeks
-pm2 set pm2-logrotate:max_size 20M
-pm2 set pm2-logrotate:retain 14
-
-sudo apt install -y unattended-upgrades          # security patches
-sudo dpkg-reconfigure --priority=low unattended-upgrades
+fallocate -l 2G /swapfile && chmod 600 /swapfile
+mkswap /swapfile && swapon /swapfile
+echo '/swapfile none swap sw 0 0' >> /etc/fstab
 ```
-
-Before you point real traffic at it, **delete the 94 test events** that are
-published in the database — "Fulfilment Test", "Gate Test", "Manual Test". They
-are on the homepage, in `/events`, and in `sitemap.xml`, which invites Google to
-index 94 pages that are not real. They are leftovers from this project's own
-probes.
 
 ---
 
@@ -487,11 +443,13 @@ probes.
 
 | Symptom | Cause |
 |---|---|
-| Page renders, nothing is interactive | The CSP has no nonce. Check `curl -sI` for `nonce-` and that `proxy.ts` is running — the middleware must not be excluded by nginx |
-| `next build` fails on `NEXT_PUBLIC_SUPABASE_URL` | Working as designed. `frontend/.env` is missing or unreadable |
-| Every request refused with a CORS error | `FRONTEND_URL` is missing a hostname — it needs both `eventsli.com` and `www.` |
-| Cover images blocked, page otherwise fine | Built with the wrong `NEXT_PUBLIC_SUPABASE_URL`. Fix it and **rebuild** |
+| Page renders, nothing interactive | CSP has no nonce. `curl -sI` and look for `nonce-`; check nginx adds no CSP of its own |
+| `next build` fails on `NEXT_PUBLIC_SUPABASE_URL` | Working as designed — `frontend/.env` missing or unreadable |
+| Every request refused with CORS | `FRONTEND_URL` is missing a hostname; it needs both apex and `www` |
+| Covers blocked, page otherwise fine | Built with the wrong `NEXT_PUBLIC_SUPABASE_URL`. Fix and **rebuild** |
 | Paid orders never fulfilled | `STRIPE_WEBHOOK_SECRET` is the CLI's, not the live endpoint's |
 | A new event 404s for a minute | `REVALIDATE_SECRET` differs between the two `.env` files |
-| Rate limits trip almost immediately | `X-Forwarded-For` is not set in the nginx block |
-| The build is killed with no error | Out of memory. Add the swap file from step 1 |
+| Rate limits trip immediately | `X-Forwarded-For` missing from the nginx block |
+| `EADDRINUSE` on start | Something else took 3100/5100 — `ss -tlnp \| grep -E ':(3100\|5100)'` |
+| pm2 starts on the wrong Node | `/usr/local/bin/node22` is missing, so `ecosystem.config.js` fell back to pm2's interpreter. Recreate the symlink, `pm2 delete eventsli-backend eventsli-frontend`, start again |
+| Certificate renewal fails | DNS is not pointing here. `dig +short eventsli.com` must be `187.77.1.72` |
