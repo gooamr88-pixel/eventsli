@@ -190,6 +190,14 @@ function handle401({ body, response, noRedirect }) {
   // The session is a backend-issued httpOnly JWT with a fixed expiry and no
   // refresh exchange — there is nothing to renew, so this is terminal.
   const next = encodeURIComponent(window.location.pathname + window.location.search);
+  /**
+   * Next 16.3's lint prefers `useRouter().push()` here. It cannot apply: this
+   * is a plain module, not a component, so there is no router to reach — and
+   * a hard navigation is what is wanted anyway. The session is gone; the React
+   * tree and every cache in it have to go with it, or the next page renders
+   * from stale state that believes somebody is still signed in.
+   */
+  // eslint-disable-next-line @next/next/no-location-assign-relative-destination
   window.location.href = `/login?reason=expired&next=${next}`;
 
   // Never resolves. A redirect is in flight, and resolving would let the caller
@@ -252,5 +260,8 @@ export const del = (path, options) => apiFetch(path, { ...options, method: 'DELE
  */
 export async function logout() {
   try { await post('/auth/logout', undefined, { noRedirect: true }); } catch { /* leave anyway */ }
+  // Same reasoning as handle401 above: a module, not a component, and a hard
+  // navigation on purpose.
+  // eslint-disable-next-line @next/next/no-location-assign-relative-destination
   if (!IS_SERVER) window.location.href = '/login';
 }

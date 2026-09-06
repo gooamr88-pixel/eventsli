@@ -80,6 +80,13 @@ function SessionList({ sessions, error, onChanged }) {
       //
       // A hard navigation, not router.push: the session is gone server-side, so
       // the whole client tree and its cached auth state have to go with it.
+      //
+      // Next 16.3 added a lint rule preferring router.push here. It is right in
+      // general and wrong in this one case, which is the whole reason the rule
+      // is disabled by name rather than the line rewritten: a soft navigation
+      // keeps the React tree alive, and with it useAuth's module-level store —
+      // so the page after "sign out everywhere" would still say who you were.
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
       if (session.current) { window.location.assign('/login'); return; }
       onChanged();
     } catch (err) {
