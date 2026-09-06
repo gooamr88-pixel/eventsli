@@ -73,11 +73,12 @@ export default async function EventsPage({ searchParams }) {
       {/* The masthead sits on the sunken tone and the results on the page
           tone, which is what separates "the controls" from "the answer"
           without drawing a rule between them. */}
-      <section className="es-band--sunken fx-section fx-section--sm">
-        <div className="fx-container fx-container--xl fx-stack">
+      <section className="es-band--field fx-section fx-section--sm relative overflow-hidden">
+        <div aria-hidden className="es-bloom -top-40 -right-24 size-[30rem]" />
+        <div className="fx-container fx-container--xl fx-stack relative">
           <div className="fx-stack fx-stack--sm">
-            <p className="es-eyebrow">Canada &amp; the United States</p>
-            <h1 className="text-3xl">Events</h1>
+            <p className="es-eyebrow text-accent">Canada &amp; the United States</p>
+            <h1 className="text-4xl">Events</h1>
           </div>
 
           {/* GET, so the query lands in the URL and the result is shareable. */}
@@ -107,7 +108,13 @@ export default async function EventsPage({ searchParams }) {
         </div>
       </section>
 
-      <section className="es-band fx-section fx-section--sm">
+      {/* SUNKEN, not the page tone, and this follows from EventCard being a
+          `--flush` card now: it has no border and separates from its ground by
+          tone alone. Against `bg` that is 2.4 in perceptual lightness — the
+          card would be a shadow with nothing under it. Against `bg-sunken` it
+          is 7.5. Card grids live on the sunken band throughout the storefront
+          for this reason; the homepage's "On soon" does the same. */}
+      <section className="es-band--sunken fx-section fx-section--sm">
         <div className="fx-container fx-container--xl fx-stack">
 
           {/* A count, which the page did not have. "24 events" tells a reader
@@ -115,7 +122,7 @@ export default async function EventsPage({ searchParams }) {
               twenty cards to twelve does not. `aria-live` so it is announced
               after a filter changes the page rather than only being visible. */}
           {events.length > 0 && (
-            <p className="text-sm text-subtle" aria-live="polite">
+            <p className="text-muted" aria-live="polite">
               {events.length} {events.length === 1 ? 'event' : 'events'}
               {active ? ` in ${label(active)}` : ''}
               {q ? ` matching “${q}”` : ''}

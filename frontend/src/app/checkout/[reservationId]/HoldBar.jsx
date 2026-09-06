@@ -37,12 +37,17 @@ export default function HoldBar({ formatted, expired, remaining }) {
       // minute. The two threshold changes below carry the urgency instead.
       aria-live="polite"
     >
-      <span className="text-sm text-muted">
+      <span className="text-muted">
         {expired ? 'Your seats have been released' : 'Seats held for'}
       </span>
       {!expired && (
+        /* `text-xl`, up from `text-lg`. This is a number that is counting down
+           on a page where the person is typing card details: it has to be
+           readable in peripheral vision, from a glance, without leaving the
+           field they are in. The three tones already carry urgency; the size
+           is what makes the glance work at all. */
         <span
-          className={`es-nums font-mono text-lg ${urgent ? 'text-danger' : warning ? 'text-warning' : 'text-accent'}`}
+          className={`es-nums font-mono text-xl font-medium ${urgent ? 'text-danger' : warning ? 'text-warning' : 'text-accent'}`}
         >
           {formatted}
         </span>

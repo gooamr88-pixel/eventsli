@@ -202,19 +202,33 @@ export default function SeatPicker({ slug, currency, purchaseMode, maxPerOrder }
 
   return (
     <div className="fx-stack">
-      <SeatMapCanvas
-        className="h-[52vh] min-h-[340px]"
-        tables={map.tables}
-        seats={map.seats}
-        selectedSeatIds={selectedIds}
-        selectedTableIds={selectedTableIds}
-        purchaseMode={purchaseMode}
-        onSelectSeat={toggleSeat}
-        // Anything reaching this callback is already visible, and a private
-        // table is only visible once its key is held — so there is nothing left
-        // to unlock at click time.
-        onSelectTable={chooseTable}
-      />
+      {/* The map is PRESENTED, not placed.
+
+          This is the one screen that is only this product — the whole pitch on
+          the homepage is that you pick the chair — and it was a bare canvas
+          sitting directly on the page tone, the same treatment a loading
+          skeleton got. On a plate, against the sunken band, the room reads as
+          an object you are looking into rather than a diagram someone dropped
+          in.
+
+          `bg-surface` on the plate rather than the page ground: the floor of
+          the room should be the lightest thing on the screen, because every
+          seat colour was chosen to sit on it. */}
+      <div className="es-plate bg-surface p-3 sm:p-4">
+        <SeatMapCanvas
+          className="h-[58vh] min-h-[380px]"
+          tables={map.tables}
+          seats={map.seats}
+          selectedSeatIds={selectedIds}
+          selectedTableIds={selectedTableIds}
+          purchaseMode={purchaseMode}
+          onSelectSeat={toggleSeat}
+          // Anything reaching this callback is already visible, and a private
+          // table is only visible once its key is held — so there is nothing left
+          // to unlock at click time.
+          onSelectTable={chooseTable}
+        />
+      </div>
 
       <div className="fx-row fx-row--between">
         <Legend />
@@ -224,7 +238,7 @@ export default function SeatPicker({ slug, currency, purchaseMode, maxPerOrder }
              deliberately no "unlock" button here: without the table's id, which
              only the organizer's invitation carries, there is nothing to
              unlock. Saying so beats a control that cannot work. */
-          <p className="text-xs text-subtle">
+          <p className="text-sm text-subtle">
             {map.hiddenTableCount} reserved {map.hiddenTableCount === 1 ? 'table' : 'tables'}
             {' '}not shown · open your invitation link to see yours
           </p>
@@ -267,16 +281,25 @@ function SelectionBar({ count, subtotal, currency, label, busy, onContinue, onCl
         <div className="fx-min0">
           {count > 0 ? (
             <>
-              <p className="text-sm text-ink">
-                {label || `${count} ${count === 1 ? 'seat' : 'seats'}`}
-                {label && <span className="text-muted"> · {count} seats</span>}
+              {/* The money leads. This pair was 13px over 10.4px — the running
+                  total of what you are about to spend, set two steps below the
+                  venue address on the page before it. The subtotal is now the
+                  larger of the two and the seat description supports it,
+                  because the number is what a person checks before pressing
+                  Continue. */}
+              <p className="es-nums text-lg font-medium text-ink">
+                {subtotal === null
+                  ? 'Price at checkout'
+                  : formatMoney(subtotal, currency)}
               </p>
-              <p className="es-nums text-xs text-subtle">
-                {subtotal === null ? 'Price shown at checkout' : `${formatMoney(subtotal, currency)} before tax and fees`}
+              <p className="text-sm text-muted">
+                {label || `${count} ${count === 1 ? 'seat' : 'seats'}`}
+                {label && ` · ${count} seats`}
+                {subtotal !== null && ' · before tax and fees'}
               </p>
             </>
           ) : (
-            <p className="text-sm text-subtle">Tap a seat to choose it</p>
+            <p className="text-muted">Tap a seat to choose it</p>
           )}
         </div>
 
@@ -306,7 +329,10 @@ function SelectionBar({ count, subtotal, currency, label, busy, onContinue, onCl
 
 function Legend() {
   return (
-    <ul className="fx-row text-xs text-muted">
+    /* Was `text-xs` — 10.4px on a phone. This is the key to the only piece of
+       information on the screen that is carried by colour alone, so it is the
+       last thing that should have been set at the smallest size in the app. */
+    <ul className="fx-row fx-row--gap text-sm text-muted">
       <Swatch color="var(--es-seat-available)">Available</Swatch>
       <Swatch color="var(--es-seat-selected)">Selected</Swatch>
       <Swatch color="var(--es-seat-sold)">Taken</Swatch>
@@ -316,8 +342,11 @@ function Legend() {
 
 function Swatch({ color, children }) {
   return (
-    <li className="fx-row gap-1.5">
-      <span className="inline-block h-3 w-3 rounded-full" style={{ background: color }} />
+    <li className="fx-row gap-2">
+      <span
+        className="inline-block size-3.5 rounded-full"
+        style={{ background: color }}
+      />
       {children}
     </li>
   );

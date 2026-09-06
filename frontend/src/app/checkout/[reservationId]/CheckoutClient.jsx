@@ -136,28 +136,36 @@ export default function CheckoutClient({ reservationId }) {
 
   return (
     <div className="fx-stack">
-      <h1 className="text-xl">Your order</h1>
+      <h1 className="text-2xl">Your order</h1>
 
       {/* `remaining` is passed down rather than recomputed there: reading
           Date.now() during a render is impure, and the value already exists
           on the same one-second beat as the text beside it. */}
       <HoldBar formatted={formatted} expired={expired} remaining={remaining} />
 
-      <section className="fx-stack fx-stack--sm es-card p-5">
-        <p className="text-sm text-muted">
+      {/* The summary is the one object on this page the buyer is actually
+          agreeing to, so it is a plate rather than a card — the same
+          treatment the seat map and the ticket stub get. The three panels
+          below it stay cards: they are controls, and if everything is
+          presented then nothing is. */}
+      <section className="es-plate bg-surface fx-stack fx-stack--sm p-6">
+        <p className="text-muted">
           Admits {quote.admits} {quote.admits === 1 ? 'person' : 'people'}
         </p>
 
         <dl className="fx-stack fx-stack--sm">
           {quote.lines.map((line) => (
-            <div key={line.label} className="fx-row fx-row--between text-sm">
+            <div key={line.label} className="fx-row fx-row--between">
               <dt className="fx-min0 text-muted">{line.label}</dt>
               <dd className="es-nums text-ink">{formatMoney(line.amountCents, quote.currency)}</dd>
             </div>
           ))}
-          <div className="fx-row fx-row--between border-t border-border-base pt-3">
+          {/* The total was `text-lg` — 17.6px — one step above the line items
+              it sums. It is the number the whole page exists to state, and it
+              now gets the display treatment prices get everywhere else. */}
+          <div className="fx-row fx-row--between items-baseline border-t border-border-base pt-4">
             <dt className="font-medium text-ink">Total</dt>
-            <dd className="es-nums text-lg font-medium text-ink">
+            <dd className="es-price">
               {formatMoney(quote.totalCents, quote.currency)}
             </dd>
           </div>
@@ -196,11 +204,11 @@ export default function CheckoutClient({ reservationId }) {
       </section>
 
       <form onSubmit={pay} className="fx-stack fx-stack--sm es-card p-5">
-        <h2 className="text-base">Where should the tickets go?</h2>
+        <h2 className="text-lg">Where should the tickets go?</h2>
         {/* Guest checkout is a first-class path — the API takes an optional
             email rather than requiring an account, and asking someone to
             register before they can pay is where conversion goes to die. */}
-        <p className="text-xs text-subtle">
+        <p className="text-sm text-subtle">
           You do not need an account. Signed in? We will use your account email.
         </p>
         <input
@@ -224,7 +232,9 @@ export default function CheckoutClient({ reservationId }) {
             records the acceptance against the VERSION they were shown rather
             than as a boolean. It only records it when we send the flag, so a
             checkout that never asks is one where nobody ever agreed. */}
-        <label className="fx-row items-start gap-2 text-xs text-muted">
+        {/* Was `text-xs` — 10.4px on a phone for the sentence that carries
+            legal consent, beside a checkbox that records it. */}
+        <label className="fx-row items-start gap-2.5 text-sm text-muted">
           <input
             type="checkbox" required checked={buyer.acceptTerms}
             onChange={(e) => setBuyer((b) => ({ ...b, acceptTerms: e.target.checked }))}

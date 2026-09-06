@@ -32,6 +32,31 @@ function ratio(a, b) {
 }
 
 /**
+ * CIE L*, the perceptual lightness axis — 0 is black, 100 is white.
+ *
+ * ADDED 2026-09-06, and it measures the thing this file previously could not
+ * see. WCAG contrast ratio answers "can someone read this", and it is heavily
+ * COMPRESSED at the light end: #f8fafc against #f1f5f9 is 1.05:1, and so is
+ * every other pair of near-whites, so the number cannot tell a deliberate
+ * tone change from no tone change at all.
+ *
+ * That blind spot had a real cost. The light theme shipped three grounds
+ * inside 1.8 L* of each other, page.jsx documented a five-band alternating
+ * rhythm across them, and every contrast check passed at 17:1 while the bands
+ * were invisible. The gate said the page was fine because the only question
+ * it knew how to ask was whether the text was legible.
+ */
+function lightness(hex) {
+  const y = luminance(hex);
+  return y <= 0.008856 ? 903.3 * y : 116 * y ** (1 / 3) - 16;
+}
+
+/** How far apart two grounds are, perceptually. */
+function toneGap(a, b) {
+  return Math.abs(lightness(a) - lightness(b));
+}
+
+/**
  * The palette, READ OUT OF globals.css.
  *
  * The first version of this file carried its own copy of the values. It found
@@ -82,12 +107,32 @@ function readThemes() {
   // a byte-identical copy of it by construction — see the note in globals.css.
   const dark = { ...light, ...declarations(blockAfter(src, ':root[data-theme="dark"]')) };
 
-  /** One `var()` hop, then it must be a hex. */
+  /**
+   * Follow `var()` hops until a hex.
+   *
+   * This used to allow exactly ONE hop, which was true of every role when it
+   * was written and stopped being true the moment a band scope could say
+   * `--es-bg: var(--es-bg-deep)` — a role pointing at another role, which
+   * points at a primitive. Two hops threw "resolves to var(--es-forest-900),
+   * which is not a hex" and the gate failed on correct CSS.
+   *
+   * Each hop is looked up in the scope first and then in `:root`, which is
+   * what the cascade actually does for an inherited custom property: a band
+   * overrides what it names and inherits the rest. The depth cap turns a
+   * circular definition into a legible error rather than a hang.
+   */
   const resolve = (scope, name) => {
-    const raw = scope[name];
-    if (!raw) throw new Error(`contrast: ${name} is not declared`);
-    const ref = raw.match(/^var\((--[\w-]+)\)$/);
-    const value = ref ? light[ref[1]] : raw;
+    let value = scope[name];
+    if (!value) throw new Error(`contrast: ${name} is not declared`);
+
+    for (let hop = 0; hop < 8; hop += 1) {
+      const ref = value.match(/^var\((--[\w-]+)\)$/);
+      if (!ref) break;
+      const next = scope[ref[1]] ?? light[ref[1]];
+      if (!next) throw new Error(`contrast: ${name} -> ${ref[1]}, which is not declared`);
+      value = next;
+    }
+
     if (!/^#[0-9a-f]{3,8}$/i.test(value)) {
       throw new Error(`contrast: ${name} resolves to \`${value}\`, which is not a hex`);
     }
@@ -105,7 +150,40 @@ function readThemes() {
     'on-accent': resolve(scope, '--es-text-on-accent'),
   });
 
-  return { light: roles(light), dark: roles(dark) };
+  /**
+   * A BAND is a scope too, and until 2026-09-06 none of them was measured.
+   *
+   * `.es-band--ink` inverts nine text roles inside itself and had never been
+   * checked by anything — it happened to be correct, which is luck, not a
+   * gate. `.es-band--field` then added a second one. A band that redefines
+   * `--es-text-muted` is exactly as able to fail AA as a theme is, and it is
+   * MORE likely to: whoever writes one is looking at the heading.
+   *
+   * Bands inherit from the light scope and override part of it, so that is
+   * how the scope is built here. The band must declare its own `--es-bg`
+   * (see the note in globals.css) or it has no ground to be measured
+   * against and this throws.
+   */
+  // A band is measured ONCE PER THEME, and the first run of this proved why.
+  // `.es-band--field` sets `--es-bg: var(--es-bg-deep)`, and `--es-bg-deep`
+  // is itself a role with a different value in each theme (forest-900 in
+  // light, forest-800 in dark). Resolving the band against the light scope
+  // only, then comparing it to the DARK page, reported the field band as 2.6
+  // L* from its own background — a failure that described a combination that
+  // never renders. The band inherits from whichever theme it sits in, so
+  // that is what it is resolved against.
+  const band = (scope, selector) => (
+    { ...scope, ...declarations(blockAfter(src, selector)) }
+  );
+
+  return {
+    light: roles(light),
+    dark: roles(dark),
+    'ink@light': roles(band(light, '.es-band--ink {')),
+    'ink@dark': roles(band(dark, '.es-band--ink {')),
+    'field@light': roles(band(light, '.es-band--field {')),
+    'field@dark': roles(band(dark, '.es-band--field {')),
+  };
 }
 
 const THEMES = readThemes();
@@ -117,9 +195,33 @@ const TEXT_ROLES = ['ink', 'muted', 'subtle', 'accent'];
  *  uses a text role at a large size is listed rather than assumed. */
 const AA_BODY = 4.5;
 
+/**
+ * The floor for two grounds that are meant to read as different bands.
+ *
+ * 3.0 is not a standards number — there is no WCAG rule for this, because
+ * WCAG is about legibility and this is about whether a design decision is
+ * visible at all. It is the point below which a tone change stops being
+ * perceptible on a normal screen. The old light theme sat at 1.8 and the old
+ * dark theme at 2.5; both are why the app read as one flat sheet.
+ *
+ * Only ADJACENT tones in the alternation are checked. `surface` on `bg` is
+ * deliberately below this — a white card on the paper ground is carried by
+ * its border, and card grids sit on `bg-sunken`, where the gap is 7.5.
+ */
+const TONE_FLOOR = 3.0;
+
+/** The ground pairs a page actually alternates between, per theme. */
+const TONE_PAIRS = [
+  ['light', 'bg', 'bg-sunken'],
+  ['light', 'bg-sunken', 'surface'],
+  ['dark', 'bg', 'bg-sunken'],
+  ['dark', 'bg', 'surface'],
+];
+
 function check() {
   const failures = [];
   const rows = [];
+  const tones = [];
 
   for (const [theme, palette] of Object.entries(THEMES)) {
     for (const ground of GROUNDS) {
@@ -148,23 +250,69 @@ function check() {
     }
   }
 
-  return { rows, failures };
+  // ── Tone separation ───────────────────────────────────────────────────
+  // Everything above asks "is this readable". This asks "is this visible",
+  // which is the question the flat version of this palette passed by
+  // default because nothing was posing it.
+  for (const [theme, a, b] of TONE_PAIRS) {
+    const gap = toneGap(THEMES[theme][a], THEMES[theme][b]);
+    const pass = gap >= TONE_FLOOR;
+    tones.push({ theme, a, b, gap, pass });
+    if (!pass) {
+      failures.push(
+        `${theme}: bg-${a} and bg-${b} are ${gap.toFixed(1)} L* apart `
+        + `(needs ${TONE_FLOOR}) — these two bands look identical`,
+      );
+    }
+  }
+
+  // A dark band has to separate from the page it interrupts, in the theme it
+  // interrupts it in. On a light page that is trivially true; on a dark page
+  // a --field band is otherwise just more dark theme, which is the whole
+  // failure this band exists to fix, reintroduced one theme over.
+  for (const [theme, scope] of [['light', 'field@light'], ['dark', 'field@dark']]) {
+    const gap = toneGap(THEMES[scope].bg, THEMES[theme].bg);
+    const pass = gap >= TONE_FLOOR;
+    tones.push({
+      theme, a: 'band--field', b: 'page bg', gap, pass,
+    });
+    if (!pass) {
+      failures.push(
+        `${theme}: .es-band--field and the page ground are ${gap.toFixed(1)} L* apart `
+        + `(needs ${TONE_FLOOR}) — the field band does not read as a band here`,
+      );
+    }
+  }
+
+  return { rows, tones, failures };
 }
 
-module.exports = { luminance, ratio, check, THEMES, AA_BODY };
+module.exports = {
+  luminance, lightness, ratio, toneGap, check, THEMES, AA_BODY, TONE_FLOOR,
+};
 
 if (require.main === module) {
-  const { rows, failures } = check();
+  const { rows, tones, failures } = check();
 
   for (const row of rows) {
     console.log(
-      `  ${row.pass ? 'pass' : 'FAIL'}  ${row.theme.padEnd(5)} ${String(row.role).padEnd(10)}`
+      `  ${row.pass ? 'pass' : 'FAIL'}  ${row.theme.padEnd(11)} ${String(row.role).padEnd(10)}`
       + ` on ${String(row.ground).padEnd(14)} ${row.ratio.toFixed(2)}:1`,
     );
   }
 
+  console.log('\n  tone separation (perceptual lightness, floor '
+    + `${TONE_FLOOR.toFixed(1)} L*)`);
+  for (const t of tones) {
+    console.log(
+      `  ${t.pass ? 'pass' : 'FAIL'}  ${t.theme.padEnd(11)} ${String(t.a).padEnd(12)}`
+      + ` vs ${String(t.b).padEnd(12)} ${t.gap.toFixed(1)} L*`,
+    );
+  }
+
   if (failures.length === 0) {
-    console.log('\ncontrast: every text role meets AA on every ground, in both themes');
+    console.log('\ncontrast: every text role meets AA on every ground, in both themes '
+      + 'and both dark bands; every alternating pair is perceptibly apart');
     process.exit(0);
   }
 

@@ -62,6 +62,52 @@
   --es-zinc-900: #18181b;
   --es-zinc-950: #09090b;
 
+  /* ── Sand: the warm paper the light theme now stands on ─────────────
+     ADDED 2026-09-06, and the reason is a measurement rather than a
+     preference. The light theme's three grounds were slate-50, slate-100
+     and #fff — 1.05:1 apart, which in perceptual terms is ΔL* 1.8. Below
+     about ΔL* 3 two grounds are the same colour to the eye, so the band
+     alternation this file and page.jsx both describe did not exist on
+     screen: every "rhythm" was a comment.
+
+     Sand is warm because the ink stays cool. Slate text on a warm ground
+     is a real pairing; slate text on a cool ground one shade off white is
+     the thing that reads as a wireframe. */
+  --es-sand-50:  #fdfcfa;
+  --es-sand-100: #faf8f4;
+  --es-sand-200: #f3efe7;
+  --es-sand-300: #efe9de;
+  --es-sand-400: #e4dccc;
+  --es-sand-500: #ded6c6;
+  --es-sand-600: #c3b9a4;
+
+  /* ── Forest: the emerald field ──────────────────────────────────────
+     Not a step on the emerald ramp — those are all saturated enough to be
+     a fill and none of them is dark enough to be a GROUND. This is the
+     tone a full-bleed band uses so the brand can occupy area instead of
+     only colouring links. See .es-band--field. */
+  --es-forest-950: #071512;
+  --es-forest-900: #0a1f1a;
+  --es-forest-800: #0e2a23;
+  --es-forest-700: #123029;
+
+  /* ── Ink: the dark theme's grounds, lifted off pure black ───────────
+     ADDED 2026-09-06 for the same reason as sand. The dark ladder was
+     zinc-950 over #000000 — ΔL* 2.5, so the dark theme had the identical
+     invisible-band problem as the light one, with the extra fault that
+     `bg-sunken` was pure black and therefore had nowhere lower to go.
+
+     These are neutral with a trace of blue so they sit under emerald
+     without going brown. Declared as primitives because the dark palette
+     is written out TWICE below (media query and [data-theme]) and a raw
+     hex in both is a value that can drift between the two copies. */
+  --es-ink-900: #232329;
+  --es-ink-950: #161619;
+  --es-ink-975: #0b0b0d;
+  --es-ink-raised: #2b2b32;
+  --es-ink-border: #2e2e36;
+  --es-ink-subtle: #9494a0;
+
   /* ── Semantic ───────────────────────────────────────────────────────
      Separate from the brand hue on purpose. A green "success" that is
      also the accent means a saved-successfully toast and a primary button
@@ -75,12 +121,17 @@
      Every component takes its colour from a role, never from a scale
      value. Only the roles are redefined in dark, so a component written
      once works in both themes without knowing they exist. */
-  --es-bg:            var(--es-slate-50);
-  --es-bg-sunken:     var(--es-slate-100);
+  --es-bg:            var(--es-sand-100);
+  --es-bg-sunken:     var(--es-sand-300);
+  /* The fourth ground, and the only one that is not a near-white. A page
+     gets its rhythm from the DARK band, not from 2% differences between
+     three papers — so `bg` and `bg-sunken` are now ΔL* 5.1 apart (from
+     1.8) and this one is ΔL* 88 from either. */
+  --es-bg-deep:       var(--es-forest-900);
   --es-surface:       #ffffff;
   --es-surface-raised:#ffffff;
-  --es-border:        var(--es-slate-200);
-  --es-border-strong: var(--es-slate-300);
+  --es-border:        var(--es-sand-400);
+  --es-border-strong: var(--es-sand-500);
 
   --es-text:          var(--es-slate-900);
   --es-text-muted:    var(--es-slate-600);
@@ -109,9 +160,20 @@
      already in the ramp, so the identity does not move — the brand emerald
      is still the brand emerald in `theme-color`, in the icon and in the
      seat map. What changed is the shade that carries TEXT. */
-  --es-accent:        var(--es-emerald-700);
-  --es-accent-hover:  var(--es-emerald-800);
-  --es-accent-wash:   var(--es-emerald-50);
+  /* AMENDED 2026-09-06: 700 -> 800, and it is the one trade the warm
+     ground cost. On the old slate-50 page emerald-700 measured 5.00:1;
+     on sand-300 it measures 4.42:1 and fails the same AA bar the note
+     above was written about. emerald-800 measures 6.36:1 there and
+     7.68:1 on white.
+
+     The identity does not move again: `theme-color`, the icon, the seat
+     map and every FILL still carry emerald-500/600/700. Only the shade
+     that carries text and the primary button changed. */
+  --es-accent:        var(--es-emerald-800);
+  --es-accent-hover:  var(--es-emerald-900);
+  /* emerald-50 (#ecfdf5) is a cold mint and it read as a bruise on the
+     warm ground. Mixed toward sand instead. */
+  --es-accent-wash:   #e7f3ee;
   --es-accent-edge:   var(--es-emerald-200);
 
   /* CORRECTION 1 of 3, carried over from the old tokens.
@@ -145,15 +207,34 @@
   --es-font-serif: var(--font-dm-serif), Georgia, 'Times New Roman', serif;
   --es-font-mono:  var(--font-dm-mono), ui-monospace, 'Cascadia Code', Consolas, monospace;
 
-  --es-text-xs:   clamp(0.65rem, 0.6rem + 0.2vw, 0.72rem);
-  --es-text-sm:   clamp(0.78rem, 0.74rem + 0.2vw, 0.82rem);
-  --es-text-base: clamp(0.85rem, 0.82rem + 0.2vw, 0.92rem);
-  --es-text-md:   clamp(0.95rem, 0.9rem + 0.25vw, 1.05rem);
-  --es-text-lg:   clamp(1.1rem, 1rem + 0.4vw, 1.25rem);
-  --es-text-xl:   clamp(1.3rem, 1.15rem + 0.6vw, 1.55rem);
-  --es-text-2xl:  clamp(1.6rem, 1.3rem + 1vw, 2rem);
-  --es-text-3xl:  clamp(2rem, 1.6rem + 1.5vw, 2.8rem);
-  --es-text-4xl:  clamp(2.4rem, 1.8rem + 2.5vw, 3.5rem);
+  /* REBUILT 2026-09-06. The ported ramp was a dense-dashboard ramp and
+     this is a storefront. Measured at 390px it resolved to:
+
+       text-xs 10.4px   text-sm 12.6px   text-base 13.9px
+
+     and `text-sm` is used 282 times and `text-xs` 81 — between them the
+     de-facto body size of the whole app. A 56px serif headline sitting
+     over 13px grey supporting text is the signature of a template, and it
+     is most of what "looks cheap" actually was.
+
+     The floor moves to 12px and body copy to 16-17px. The fluid clamp()
+     shape is unchanged; only the ends moved. Because the scale is mapped
+     onto the UTILITY names in `@theme inline` below, every one of those
+     363 call sites corrects itself with no JSX edit — which is why this is
+     eight lines rather than a sweep.
+
+     5xl is new: one genuine display step, so a hero headline is not the
+     same size as a section heading. */
+  --es-text-xs:   clamp(0.75rem, 0.72rem + 0.14vw, 0.8125rem);
+  --es-text-sm:   clamp(0.875rem, 0.85rem + 0.12vw, 0.9375rem);
+  --es-text-base: clamp(1rem, 0.97rem + 0.15vw, 1.0625rem);
+  --es-text-md:   clamp(1.0625rem, 1.02rem + 0.22vw, 1.1875rem);
+  --es-text-lg:   clamp(1.25rem, 1.19rem + 0.3vw, 1.4375rem);
+  --es-text-xl:   clamp(1.5rem, 1.38rem + 0.6vw, 1.875rem);
+  --es-text-2xl:  clamp(1.875rem, 1.66rem + 1.07vw, 2.5rem);
+  --es-text-3xl:  clamp(2.375rem, 1.99rem + 1.92vw, 3.5rem);
+  --es-text-4xl:  clamp(2.875rem, 2.28rem + 2.98vw, 4.75rem);
+  --es-text-5xl:  clamp(3.5rem, 2.7rem + 4vw, 6rem);
 
   --es-leading-tight:   1.15;
   --es-leading-snug:    1.3;
@@ -248,19 +329,22 @@
    both themes without knowing either exists. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --es-bg:            var(--es-zinc-950);
-    --es-bg-sunken:     #000000;
-    --es-surface:       var(--es-zinc-900);
-    --es-surface-raised:var(--es-zinc-800);
-    --es-border:        var(--es-zinc-800);
+    --es-bg:            var(--es-ink-950);
+    --es-bg-sunken:     var(--es-ink-975);
+    --es-bg-deep:       var(--es-forest-800);
+    --es-surface:       var(--es-ink-900);
+    --es-surface-raised:var(--es-ink-raised);
+    --es-border:        var(--es-ink-border);
     --es-border-strong: var(--es-zinc-700);
 
     --es-text:          var(--es-zinc-100);
     --es-text-muted:    var(--es-zinc-400);
     /* zinc-500 (#71717a) measured 3.67:1 on --es-surface, under AA for body
        text. Off-ramp for the same reason the light theme's is: zinc has no
-       step between 500 and 400 that clears it, and 400 is already muted. */
-    --es-text-subtle:   #8a8a94;
+       step between 500 and 400 that clears it, and 400 is already muted.
+       Lifted again 2026-09-06 (#8a8a94 -> ink-subtle) because `surface`
+       moved up to #232329 and the old value fell to 4.57:1 against it. */
+    --es-text-subtle:   var(--es-ink-subtle);
     --es-text-on-accent:var(--es-zinc-950);
 
     --es-accent:        var(--es-emerald-400);
@@ -311,16 +395,17 @@
    properties inherit, so declaring them on a descendant of :root works the
    same as declaring them on :root; only the SUBTREE differs. */
 :root[data-theme="dark"], .fx-gate {
-  --es-bg:            var(--es-zinc-950);
-  --es-bg-sunken:     #000000;
-  --es-surface:       var(--es-zinc-900);
-  --es-surface-raised:var(--es-zinc-800);
-  --es-border:        var(--es-zinc-800);
+  --es-bg:            var(--es-ink-950);
+  --es-bg-sunken:     var(--es-ink-975);
+  --es-bg-deep:       var(--es-forest-800);
+  --es-surface:       var(--es-ink-900);
+  --es-surface-raised:var(--es-ink-raised);
+  --es-border:        var(--es-ink-border);
   --es-border-strong: var(--es-zinc-700);
 
   --es-text:          var(--es-zinc-100);
   --es-text-muted:    var(--es-zinc-400);
-  --es-text-subtle:   #8a8a94;
+  --es-text-subtle:   var(--es-ink-subtle);
   --es-text-on-accent:var(--es-zinc-950);
 
   --es-accent:        var(--es-emerald-400);
@@ -367,6 +452,7 @@
 @theme inline {
   --color-bg:            var(--es-bg);
   --color-bg-sunken:     var(--es-bg-sunken);
+  --color-bg-deep:       var(--es-bg-deep);
   --color-surface:       var(--es-surface);
   --color-surface-raised:var(--es-surface-raised);
   --color-border-base:   var(--es-border);
@@ -405,6 +491,7 @@
   --text-2xl:  var(--es-text-2xl);
   --text-3xl:  var(--es-text-3xl);
   --text-4xl:  var(--es-text-4xl);
+  --text-5xl:  var(--es-text-5xl);
 
   --radius-sm:  var(--es-radius-sm);
   --radius-md:  var(--es-radius-md);
@@ -1161,11 +1248,18 @@
    the part they looked at. */
 .es-band          { background: var(--es-bg); }
 .es-band--sunken  { background: var(--es-bg-sunken); }
+
+/* Both dark bands declare `--es-bg` and paint `background: var(--es-bg)`
+   rather than naming a primitive in the `background` line. That is what
+   lets scripts/contrast.js MEASURE them: it reads custom properties, so a
+   ground written only as a `background:` value is invisible to it — which
+   is how .es-band--ink sat unchecked from the day it was written. A band
+   is a ground; it says so in the property the gate reads. */
 .es-band--ink {
-  background: var(--es-zinc-950);
+  --es-bg:         var(--es-zinc-950);
   --es-text:       var(--es-zinc-100);
   --es-text-muted: var(--es-zinc-400);
-  --es-text-subtle:#8a8a94;
+  --es-text-subtle:var(--es-ink-subtle);
   --es-border:     var(--es-zinc-800);
   --es-border-strong: var(--es-zinc-700);
   --es-surface:    var(--es-zinc-900);
@@ -1174,7 +1268,180 @@
   --es-accent-hover: var(--es-emerald-300);
   --es-accent-wash:#0a2b21;
   --es-text-on-accent: var(--es-zinc-950);
+  background: var(--es-bg);
   color: var(--es-text);
+}
+
+/* ── .es-band--field — the brand as a GROUND ────────────────────────────
+   ADDED 2026-09-06. The measurement that produced it: emerald appeared 62
+   times as text and 14 times as a fill across 135 files, and there were
+   five dark bands in the entire app. The brand was a link colour. It never
+   occupied area, so no page ever opened on anything but white.
+
+   This is the emerald equivalent of --ink, and the difference between them
+   is not decoration. `--ink` is a neutral full stop; `--field` is the
+   brand speaking, and a page uses it for the two moments that ARE the
+   brand — the hero and the closing call to action.
+
+   Like --ink it inverts the text roles rather than setting `color` alone.
+   Setting only `color` leaves every `text-muted` child reading slate-600
+   on near-black at 2.6:1 — the failure that looks fine to whoever built it
+   because the heading is the part they looked at.
+
+   `--es-accent` becomes emerald-400 here: a 700 button on a 900 ground is
+   two greens nobody can separate. On this band the accent is the bright
+   one and the text on it is the dark one. */
+.es-band--field {
+  --es-bg:            var(--es-bg-deep);
+  --es-bg-sunken:     var(--es-forest-950);
+  --es-surface:       var(--es-forest-700);
+  --es-surface-raised:var(--es-forest-700);
+  --es-text:          #ffffff;
+  --es-text-muted:    #b7d8cc;
+  --es-text-subtle:   #8fbfae;
+  --es-border:        rgba(255, 255, 255, 0.14);
+  --es-border-strong: rgba(255, 255, 255, 0.28);
+  --es-accent:        var(--es-emerald-400);
+  --es-accent-hover:  var(--es-emerald-300);
+  --es-accent-wash:   var(--es-forest-700);
+  --es-accent-edge:   rgba(52, 211, 153, 0.35);
+  --es-text-on-accent:var(--es-forest-900);
+  background: var(--es-bg);
+  color: var(--es-text);
+}
+
+/* ── .es-bloom — the one atmospheric effect in the system ───────────────
+   A single soft emerald light, for use inside a --field band. It is a
+   radial-gradient on a positioned child rather than a `background-image`
+   on the band, because a band's background is `var(--es-bg)` and the gate
+   reads that property — putting a gradient there would make the ground
+   unmeasurable again.
+
+   `pointer-events: none` and no content: it is atmosphere, and it must
+   never intercept a click meant for the call to action sitting on it. */
+.es-bloom {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--es-emerald-400) 16%, transparent),
+    transparent 68%
+  );
+}
+
+/* ── .es-display — the one oversized type treatment ─────────────────────
+   `--es-text-5xl` exists so that exactly one thing on a page can be the
+   first note. Before this, the homepage h1 and a section h2 were two steps
+   apart on a scale whose top step was 56px, so the page opened at roughly
+   the volume it continued at.
+
+   `text-wrap: balance` is already on h1-h4 in the base layer; the extra
+   here is the tighter measure. A display line longer than about 14
+   characters per line stops reading as a headline and starts reading as a
+   paragraph in a large font. */
+.es-display {
+  font-family: var(--es-font-serif);
+  font-size: var(--es-text-5xl);
+  line-height: 1.02;
+  letter-spacing: -0.025em;
+  text-wrap: balance;
+  max-width: 14ch;
+}
+.es-display--wide { max-width: 20ch; }
+
+/* ── .es-figure — an image with a shape of its own ──────────────────────
+   `.es-plate` is the shadow and the radius; this adds the thing a plate
+   kept needing at every call site — a declared aspect ratio, so the box
+   reserves its own height and the page does not jump when the image
+   arrives. `--es-figure-ar` rather than a fixed value because a cover
+   (16/10), a hero (3/1) and a ticket stub are the same component.
+
+   `background` is the sunken tone, not transparent: while the image loads,
+   an empty figure should read as a slot, and a transparent one reads as a
+   hole. */
+.es-figure {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  width: 100%;
+  aspect-ratio: var(--es-figure-ar, 16 / 10);
+  border-radius: var(--es-figure-r, var(--es-radius-lg));
+  background: var(--es-bg-sunken);
+}
+.es-figure > img,
+.es-figure > svg { display: block; width: 100%; height: 100%; object-fit: cover; }
+
+/* ── .es-marquee — the asymmetric block that is not a card grid ─────────
+   WHY THIS EXISTS. Four marketing pages and three homepage sections were
+   the same object: a heading over a grid of bordered rectangles. That is
+   fine once and reads as a template by the third time, which is most of
+   what "every section looks the same" was.
+
+   A marquee is a held left column and a list of rows on the right. The
+   ROWS carry hairlines instead of boxes, so a set of three steps reads as
+   a sequence rather than as three unrelated cards — which is also what the
+   content actually is.
+
+   Single column below `md`, and the index stays in its own track there so
+   the numbers still line up. */
+.es-marquee {
+  display: grid;
+  gap: var(--fx-gap-lg);
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+}
+@media (width >= 48rem) {
+  .es-marquee { grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr); }
+}
+.es-marquee__row {
+  display: grid;
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+  gap: var(--fx-gap);
+  align-items: start;
+  padding-block: clamp(1.25rem, 2.5vw, 1.875rem);
+  border-top: 1px solid var(--es-border);
+}
+.es-marquee__row:last-child { border-bottom: 1px solid var(--es-border); }
+/* The numeral is furniture, not a heading. It is sand-600 rather than a
+   text role because it must sit UNDER the title it labels — a numeral at
+   full ink weight competes with the words beside it. */
+.es-marquee__index {
+  font-family: var(--es-font-serif);
+  font-size: var(--es-text-xl);
+  line-height: 1;
+  color: var(--es-sand-600);
+  min-width: 2.5ch;
+}
+
+/* ── .es-price — the number the page is actually about ──────────────────
+   On the event page the price was `text-sm`, which resolved to 12.6px on a
+   phone: the single most consulted fact on the screen, set smaller than
+   the venue address under it. Mono and tabular for the same reason every
+   other figure in this app is. */
+.es-price {
+  font-family: var(--es-font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--es-text-2xl);
+  line-height: 1.05;
+  letter-spacing: -0.01em;
+  color: var(--es-text);
+}
+.es-price--lg { font-size: var(--es-text-3xl); }
+
+/* ── .es-card--flush — a card that trusts the ground ────────────────────
+   Now that `bg-sunken` and `surface` are 7.5 L* apart, a card sitting on
+   the sunken band no longer needs a hairline to be a card; the tone does
+   it. Six of these read as six surfaces, where six bordered boxes read as
+   a table someone drew. Keeps the shadow, drops the border. */
+.es-card--flush {
+  border-color: transparent;
+  box-shadow: var(--es-shadow-sm);
+}
+.es-card--flush.es-card--interactive:hover,
+.es-card--flush.es-card--interactive:focus-visible {
+  box-shadow: var(--es-shadow-lg);
+  border-color: transparent;
 }
 
 /* ── .es-rule — the hairline that separates without a border ────────────

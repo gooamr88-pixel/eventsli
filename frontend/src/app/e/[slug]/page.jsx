@@ -117,29 +117,61 @@ export default async function EventPage({ params }) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd(event)) }}
       />
 
-      {event.coverUrl && (
-        <div className="relative aspect-[21/9] w-full overflow-hidden bg-bg-sunken sm:aspect-[3/1]">
-          <Image
-            src={event.coverUrl}
-            alt=""
-            fill
-            sizes="100vw"
-            priority
-            className="object-cover"
-          />
+      {/* ── The masthead ──────────────────────────────────────────────
+          The title used to sit in the left column of the body, under a bare
+          `aspect-[21/9]` strip of cover art. Two things were wrong with that:
+          the art was PLACED rather than presented — a full-bleed band with a
+          hard bottom edge and nothing on it — and the title, the one thing
+          that tells you whether you are on the right page, opened below the
+          fold on a phone once the strip had taken its share.
+
+          One band now carries both. With cover art it is the art plus a
+          scrim; without it, the field tone. Either way the band is
+          `.es-band--field`, so the text roles inside it are already inverted
+          and measured — a scrim over an unknown photograph is the classic
+          place white text quietly fails, and here `text-muted` is
+          `#b7d8cc` against a dark ground rather than slate-600. */}
+      <section className="es-band--field relative flex min-h-[clamp(17rem,30vw,24rem)] items-end overflow-hidden">
+        {event.coverUrl ? (
+          <>
+            <Image
+              src={event.coverUrl}
+              alt=""
+              fill
+              sizes="100vw"
+              priority
+              className="object-cover"
+            />
+            {/* The scrim is what makes the title legible over art nobody has
+                seen. Bottom-weighted, because that is where the text is. */}
+            <div
+              aria-hidden
+              className="absolute inset-0 bg-gradient-to-t from-bg-deep via-bg-deep/70 to-bg-deep/10"
+            />
+          </>
+        ) : (
+          <div aria-hidden className="es-bloom -top-40 right-16 size-[32rem]" />
+        )}
+
+        <div className="fx-gutter relative w-full pb-10 pt-16">
+          <div className="fx-container fx-container--xl fx-stack fx-stack--sm">
+            <p className="es-eyebrow text-accent">
+              {fmt(starts, { weekday: 'long', month: 'long', day: 'numeric' })}
+            </p>
+            <h1 className="max-w-[20ch] text-3xl">{event.title}</h1>
+          </div>
         </div>
-      )}
+      </section>
 
       <section className="fx-section fx-section--sm">
         <div className="fx-container fx-container--xl">
-          <div className="fx-grid fx-grid--2">
+          <div className="grid gap-[var(--fx-gap-lg)] lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
             <div className="fx-stack">
-              <p className="es-eyebrow">
-                {fmt(starts, { weekday: 'long', month: 'long', day: 'numeric' })}
-              </p>
-              <h1 className="text-4xl">{event.title}</h1>
-
-              <dl className="fx-stack fx-stack--sm text-sm">
+              {/* Was `text-sm` on the whole list — 12.6px on a phone for the
+                  when and the where, which are the two facts a person opens
+                  this page to check. Now the list inherits body size and each
+                  row is a ruled pair, so the labels scan down one edge. */}
+              <dl className="fx-stack fx-stack--sm">
                 <Row term="When">
                   {fmt(starts, { dateStyle: 'medium', timeStyle: 'short' })}
                   {' – '}
@@ -159,7 +191,7 @@ export default async function EventPage({ params }) {
               </dl>
 
               {event.description && (
-                <div className="fx-break max-w-[62ch] whitespace-pre-line text-md text-muted">
+                <div className="fx-break max-w-[62ch] whitespace-pre-line text-md leading-relaxed text-muted">
                   {event.description}
                 </div>
               )}
@@ -180,26 +212,44 @@ export default async function EventPage({ params }) {
                 to `stretch`, which makes this column as tall as the description
                 beside it, and a sticky element the full height of its scroll
                 container never has anywhere to stick to. */}
-            <aside className="fx-stack lg:sticky lg:top-20 lg:self-start">
-              <div className="es-card fx-stack p-5">
+            {/* `lg:-mt-28` lifts the box over the masthead band above it.
+                That overlap is the one piece of deliberate asymmetry on the
+                page and it does real work: it puts the price physically on
+                top of the art, which is the pairing the reader is deciding
+                about, and it stops the right column starting on the same
+                horizontal line as the left — which is what made the old
+                layout read as two lists side by side.
+
+                The sticky note below still applies. `self-start` is what
+                makes sticky work at all: a grid item defaults to `stretch`,
+                which makes this column as tall as the description beside it,
+                and a sticky element the full height of its scroll container
+                never has anywhere to stick to. */}
+            <aside className="fx-stack lg:-mt-28 lg:sticky lg:top-20 lg:self-start">
+              <div className="es-plate bg-surface fx-stack p-6">
                 {cheapest.length > 0 && (
-                  <p className="es-nums text-xl">
-                    {formatPrice(Math.min(...cheapest), event.currency)}
-                    {cheapest.length > 1 && <span className="text-sm text-subtle"> and up</span>}
-                  </p>
+                  <div className="fx-stack fx-stack--sm gap-1">
+                    <p className="es-eyebrow">From</p>
+                    <p className="es-price">
+                      {formatPrice(Math.min(...cheapest), event.currency)}
+                      {cheapest.length > 1 && (
+                        <span className="ml-2 font-sans text-sm text-subtle">and up</span>
+                      )}
+                    </p>
+                  </div>
                 )}
 
                 {event.tiers?.length > 0 && (
                   <ul className="fx-stack fx-stack--sm">
                     {event.tiers.map((tier) => (
-                      <li key={tier.id} className="fx-row fx-row--between border-t border-border-base pt-2 first:border-0 first:pt-0">
+                      <li key={tier.id} className="fx-row fx-row--between border-t border-border-base pt-3 first:border-0 first:pt-0">
                         <span className="fx-min0">
-                          <span className="block text-sm text-ink">{tier.name}</span>
+                          <span className="block text-ink">{tier.name}</span>
                           {tier.description && (
-                            <span className="block text-xs text-subtle">{tier.description}</span>
+                            <span className="block text-sm text-subtle">{tier.description}</span>
                           )}
                         </span>
-                        <span className="es-nums text-sm text-ink">
+                        <span className="es-nums font-medium text-ink">
                           {formatPrice(tier.priceCents, event.currency)}
                         </span>
                       </li>
@@ -210,13 +260,16 @@ export default async function EventPage({ params }) {
                 <CallToAction event={event} soldOut={soldOut} />
 
                 {event.availability && !soldOut && (
-                  <p className="text-center text-xs text-subtle">
-                    {event.availability.seatsAvailable} of {event.availability.seatsTotal} seats left
+                  <p className="text-center text-sm text-subtle">
+                    <span className="es-nums font-medium text-ink">
+                      {event.availability.seatsAvailable}
+                    </span>
+                    {' '}of {event.availability.seatsTotal} seats left
                   </p>
                 )}
               </div>
 
-              <p className="text-center text-xs text-subtle">
+              <p className="text-center text-sm text-subtle">
                 Up to {event.maxTicketsPerOrder} tickets per order · seats held for 35 minutes
               </p>
             </aside>
@@ -235,7 +288,7 @@ export default async function EventPage({ params }) {
 function CallToAction({ event, soldOut }) {
   if (event.displayOnly) {
     return (
-      <p className="rounded-[--es-radius-md] bg-bg-sunken px-4 py-3 text-center text-sm text-muted" role="status">
+      <p className="rounded-[--es-radius-md] bg-bg-sunken px-4 py-3 text-center text-muted" role="status">
         This event is listed for information. Tickets are not sold here.
       </p>
     );
@@ -243,7 +296,7 @@ function CallToAction({ event, soldOut }) {
 
   if (soldOut) {
     return (
-      <p className="rounded-[--es-radius-md] bg-bg-sunken px-4 py-3 text-center text-sm text-muted" role="status">
+      <p className="rounded-[--es-radius-md] bg-bg-sunken px-4 py-3 text-center text-muted" role="status">
         Sold out
       </p>
     );
@@ -261,12 +314,20 @@ function CallToAction({ event, soldOut }) {
 
 function Row({ term, children }) {
   return (
-    <div className="fx-row items-start">
+    /* A ruled row rather than a bare flex pair. Three facts stacked with no
+       separation read as one paragraph that happens to have bold words in it;
+       a hairline above each makes them three answers to three questions.
+
+       Grid rather than flex so the label column is one shared track: with
+       `w-20` on a flex child the values still started at slightly different
+       places once a label wrapped on a narrow phone. */
+    <div className="grid grid-cols-[minmax(0,auto)_minmax(0,1fr)] items-start gap-x-4 border-t border-border-base pt-3 first:border-0 first:pt-0">
       {/* `.es-eyebrow` in the subtle colour rather than the accent: these are
-          five labels stacked down the left of the facts list, and five accent
-          runs down one column reads as five links. The accent is reserved for
-          the one eyebrow above the title, which is the page's first note. */}
-      <dt className="es-eyebrow w-20 flex-none text-subtle">
+          labels stacked down the left of the facts list, and several accent
+          runs down one column reads as several links. The accent is reserved
+          for the one eyebrow above the title, which is the page's first
+          note. */}
+      <dt className="es-eyebrow w-20 text-subtle">
         {term}
       </dt>
       <dd className="fx-min0 fx-break text-ink">{children}</dd>

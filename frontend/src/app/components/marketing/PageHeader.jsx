@@ -9,14 +9,23 @@
  */
 export default function PageHeader({ eyebrow, title, lede, children }) {
   return (
-    /* On the SUNKEN tone, and every marketing page's first `Band` is on the
-       page tone — so the alternation that gives the homepage its rhythm holds
-       on the smaller pages too without each of them having to arrange it.
-       A page where the masthead and the first section share a ground has no
-       visible start to its content. */
-    <section className="es-band--sunken fx-section fx-section--sm">
-      <div className="fx-container fx-container--xl fx-stack">
-        {eyebrow && <p className="es-eyebrow">{eyebrow}</p>}
+    /* On the FIELD tone, up from sunken.
+       Every marketing page's first `Band` is on the page tone, so the
+       alternation that gives the homepage its rhythm holds on the smaller
+       pages too without each of them having to arrange it. A page where the
+       masthead and the first section share a ground has no visible start to
+       its content.
+
+       Sunken did that job correctly and quietly: it was 1.8 apart from the
+       page tone, which is to say invisible, and every one of these pages
+       therefore opened on the same flat sheet as the section under it. The
+       field makes the masthead the thing it always claimed to be, and it
+       matches the homepage — a reader arriving at /trust from / should be on
+       the same site. */
+    <section className="es-band--field fx-section fx-section--sm relative overflow-hidden">
+      <div aria-hidden className="es-bloom -top-40 -right-24 size-[30rem]" />
+      <div className="fx-container fx-container--xl fx-stack relative">
+        {eyebrow && <p className="es-eyebrow text-accent">{eyebrow}</p>}
         <h1 className="max-w-[20ch] text-4xl">{title}</h1>
         {lede && <p className="max-w-[54ch] text-lg text-muted">{lede}</p>}
         {children}

@@ -38,9 +38,14 @@ export default function EventCard({ event, priority = false, headingLevel = 3 })
   return (
     <Link
       href={`/e/${event.slug}`}
-      className="es-card es-card--interactive group"
+      className="es-card es-card--flush es-card--interactive group"
     >
-      <div className="relative aspect-[16/10] w-full overflow-hidden bg-bg-sunken">
+      {/* `.es-figure` rather than a hand-written `aspect-[16/10] bg-bg-sunken`:
+          the ratio, the radius and the loading ground are one decision made in
+          globals.css instead of three utilities repeated at every call site
+          that shows a cover. The radius is squared off at the top because the
+          card's own `overflow: hidden` already clips it. */}
+      <div className="es-figure" style={{ '--es-figure-r': '0px' }}>
         {event.coverUrl ? (
           <Image
             src={event.coverUrl}
@@ -57,9 +62,16 @@ export default function EventCard({ event, priority = false, headingLevel = 3 })
           /* No cover is a normal state, not an error: an event may publish
              without artwork. A typographic placeholder built from the title
              beats a broken image and beats a stock photo of a crowd that is
-             not this crowd. */
-          <div className="flex h-full items-center justify-center px-4">
-            <span className="line-clamp-2 text-center font-serif text-xl text-subtle">
+             not this crowd.
+
+             It sits on the FIELD tone rather than on the sunken grey it used
+             to use. A card whose art is missing was previously a pale grey
+             rectangle — visibly the one that failed — and on the new sunken
+             band it would have been nearly the same tone as the band itself.
+             On the field it reads as a deliberate cover, which is what a
+             typographic cover is. */
+          <div className="es-band--field flex h-full items-end p-4">
+            <span className="line-clamp-3 font-serif text-xl leading-tight text-ink">
               {event.title}
             </span>
           </div>
@@ -77,20 +89,23 @@ export default function EventCard({ event, priority = false, headingLevel = 3 })
         )}
       </div>
 
-      <div className="fx-stack fx-stack--sm p-4">
+      <div className="fx-stack fx-stack--sm p-5">
         <p className="es-eyebrow">
           {DATE.format(new Date(event.startsAt))}
         </p>
         <Heading className="fx-break text-lg leading-snug">{event.title}</Heading>
-        <p className="fx-truncate text-sm text-muted">
+        <p className="fx-truncate text-muted">
           {event.venue || event.organizer?.name || '—'}
         </p>
 
-        <div className="fx-row fx-row--between">
+        <div className="fx-row fx-row--between pt-1">
+          {/* The price was `text-sm`, which resolved to 12.6px on a phone —
+              the fact people scan a listing FOR, set smaller than the venue
+              line above it. */}
           {price ? (
-            <p className="es-nums text-sm font-medium text-ink">{price}</p>
+            <p className="es-nums text-md font-medium text-ink">{price}</p>
           ) : (
-            <p className="text-sm text-subtle">
+            <p className="text-muted">
               {event.displayOnly ? 'Details only' : 'Tickets available'}
             </p>
           )}

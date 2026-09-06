@@ -17,7 +17,12 @@
  * `ink` is for a closing call to action and there should be at most one per
  * page: two dark blocks and neither of them is the end.
  */
-const TONES = { base: 'es-band', sunken: 'es-band--sunken', ink: 'es-band--ink' };
+const TONES = {
+  base: 'es-band',
+  sunken: 'es-band--sunken',
+  ink: 'es-band--ink',
+  field: 'es-band--field',
+};
 
 export function Band({ id, title, lede, children, flush, tone = 'base' }) {
   return (
@@ -44,15 +49,30 @@ export function Band({ id, title, lede, children, flush, tone = 'base' }) {
  */
 export function Steps({ steps }) {
   return (
-    <ol className="fx-grid fx-grid--3">
+    /* RULED ROWS, not a grid of cards.
+       Every band on every marketing page used to be the same object: a
+       heading over three or four bordered rectangles. Steps looked like
+       Points looked like the FAQ, so four pages read as one template with
+       the words swapped — which is most of what "every page looks the same"
+       was, and none of it was a colour problem.
+
+       A sequence is the one thing here that genuinely has an order, so it
+       gets the shape that shows one: rows sharing hairlines, reading top to
+       bottom. Boxes side by side say "these three are alternatives". */
+    <ol className="min-w-0">
       {steps.map((step, i) => (
-        <li
-          key={step.title}
-          className="es-card fx-stack fx-stack--sm p-5"
-        >
-          <p className="es-eyebrow">{String(i + 1).padStart(2, '0')}</p>
-          <h3 className="text-lg">{step.title}</h3>
-          <p className="text-sm text-muted">{step.body}</p>
+        <li key={step.title} className="es-marquee__row">
+          <span className="es-marquee__index" aria-hidden>
+            {String(i + 1).padStart(2, '0')}
+          </span>
+          <div className="fx-stack fx-stack--sm">
+            {/* The number is decorative for a sighted reader — the visual
+                order carries it — but it is still real content for a screen
+                reader, which is why the `<ol>` does the work and the span is
+                aria-hidden rather than the other way round. */}
+            <h3 className="text-lg">{step.title}</h3>
+            <p className="text-muted">{step.body}</p>
+          </div>
         </li>
       ))}
     </ol>
@@ -73,15 +93,17 @@ export function Points({ points, columns = 'fx-grid--3', headingLevel = 3 }) {
   const Heading = headingLevel === 2 ? 'h2' : 'h3';
 
   return (
-    <ul className={`fx-grid ${columns}`}>
+    /* Claims, not cards — see the note on Steps. A short accent rule does
+       the separating a border was doing, without drawing a box around a
+       sentence, and it is the one place the brand colour appears in the
+       body of a marketing page. */
+    <ul className={`fx-grid ${columns} fx-grid--gap-lg`}>
       {points.map((point) => (
-        <li
-          key={point.title}
-          className="es-card fx-stack fx-stack--sm p-5"
-        >
+        <li key={point.title} className="fx-stack fx-stack--sm">
+          <span aria-hidden className="block h-[3px] w-8 rounded-full bg-accent" />
           <Heading className="text-lg">{point.title}</Heading>
-          <p className="text-sm text-muted">{point.body}</p>
-          {point.detail && <p className="text-xs text-subtle">{point.detail}</p>}
+          <p className="text-muted">{point.body}</p>
+          {point.detail && <p className="text-sm text-subtle">{point.detail}</p>}
         </li>
       ))}
     </ul>
@@ -102,15 +124,17 @@ export function Faq({ items }) {
       {items.map((item) => (
         <details
           key={item.q}
-          className="es-card group p-4"
+          className="es-card group p-5"
         >
-          <summary className="cursor-pointer list-none text-ink marker:content-['']">
-            <span className="fx-row fx-row--between">
-              <span className="fx-min0">{item.q}</span>
-              <span aria-hidden className="text-subtle transition-transform group-open:rotate-45">+</span>
+          {/* `fx-touch` on the summary: a question is a tap target, and its
+              line box on a phone is about 24px. */}
+          <summary className="fx-touch w-full cursor-pointer list-none text-ink marker:content-['']">
+            <span className="fx-row fx-row--between w-full">
+              <span className="fx-min0 font-medium">{item.q}</span>
+              <span aria-hidden className="text-xl text-subtle transition-transform group-open:rotate-45">+</span>
             </span>
           </summary>
-          <p className="mt-3 max-w-[62ch] text-sm text-muted">{item.a}</p>
+          <p className="mt-3 max-w-[62ch] text-muted">{item.a}</p>
         </details>
       ))}
     </div>

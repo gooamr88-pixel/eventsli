@@ -7,43 +7,40 @@ import HeroSeatMap, { SEAT_LEGEND } from './components/marketing/HeroSeatMap';
  * ─────────────────────────────────────────────────────────────────────────────
  * THE HOMEPAGE.
  *
- * ── What this was ────────────────────────────────────────────────────────
- * Ninety-four lines and two bands: a paragraph, a heading, a button, and a row
- * of event cards. Everything on it was the same tone on the same ground, there
- * was no image anywhere, and the product's one distinguishing feature — that
- * you pick the seat yourself, on a map, before you pay — was asserted in a
- * subordinate clause and never shown.
+ * ── What was wrong with the last version ─────────────────────────────────
+ * It already had five bands and a header comment describing their
+ * alternation. The alternation was real in the source and invisible on the
+ * screen: `--es-bg` and `--es-bg-sunken` measured 1.8 apart in perceptual
+ * lightness, and anything under about 3 is the same colour to the eye. So the
+ * page was five identical sheets of near-white with a rule between them, and
+ * every claim about rhythm in this comment was describing something nobody
+ * could see. scripts/contrast.js now measures that directly and fails the
+ * build under 3.0 — see the tone-separation block there.
  *
- * That is what "looks cheap" is, mechanically. Not bad colours and not bad
- * type: the palette below is unchanged and so is the type scale. A page reads
- * as cheap when it makes a claim it does not illustrate and when every band on
- * it has the same weight, so the eye has nowhere to land and nothing to do but
- * read.
+ * ── The band rhythm, now that tone can carry it ──────────────────────────
+ * Five bands. No two consecutive bands share a tone, and the page OPENS and
+ * CLOSES on the emerald field:
  *
- * ── The band rhythm ──────────────────────────────────────────────────────
- * Five bands, and the ONLY structural rule is that no two consecutive bands
- * share a tone. Declared here so the alternation can be checked by reading
- * this file rather than by scrolling the rendered page:
- *
- *   1  hero          light   what is this, and what does it look like
+ *   1  hero          field   the brand, and the product, shown
  *   2  on soon       sunken  what can I buy right now
- *   3  how it works  light   what would I actually do
+ *   3  how it works  paper   what would I actually do
  *   4  what you get  sunken  why this rather than the other one
- *   5  closing       light band, INK block — the button
+ *   5  closing       field   the button
  *
- * The closing call to action is a dark BLOCK inside a light band rather than a
- * dark full-bleed band. A full-bleed dark band at the bottom of a light page
- * reads as a theme switch — as though a different site started. Contained, the
- * same colour reads as punctuation, which is what a final call to action is.
- * There is exactly one on the page for that reason; a second would make
- * neither of them the end.
+ * ── Overturning the old note about the closing band ──────────────────────
+ * The previous version made its closing call to action a dark BLOCK contained
+ * inside a light band, and argued that a full-bleed dark band at the bottom of
+ * a light page "reads as a theme switch — as though a different site started".
+ * That was correct WHEN THE PAGE OPENED ON WHITE. It is not correct now: the
+ * hero is a field band, so a field band at the end is the other half of a
+ * bookend and reads as the page closing where it opened. The argument did not
+ * become wrong; its premise moved.
  *
- * ── Why there are no photographs ─────────────────────────────────────────
- * `public/` holds six files and none of them is a picture of an event, and a
- * stock photo of a crowd is a photo of a crowd that is not this crowd — the
- * same reason EventCard draws a typographic placeholder instead of one. So the
- * hero shows the product: a seat map, drawn by the module that draws the real
- * seat map. See HeroSeatMap.
+ * ── Why there are still no photographs ───────────────────────────────────
+ * Unchanged, and it survives the redesign. `public/` holds six files and none
+ * of them is a picture of an event; a stock photo of a crowd is a photo of a
+ * crowd that is not this crowd. The hero shows the product instead — a seat
+ * map drawn by the module that draws the real one. See HeroSeatMap.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 export const revalidate = 60;
@@ -112,22 +109,30 @@ export default async function HomePage() {
 
   return (
     <main>
-      {/* ── 1 · Hero ───────────────────────────────────────────────── */}
-      <section className="es-band fx-section fx-section--lg">
-        <div className="fx-container fx-container--xl">
-          <div className="grid items-center gap-[var(--fx-gap-lg)] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
+      {/* ── 1 · Hero — the field ───────────────────────────────────── */}
+      <section className="es-band--field fx-section fx-section--lg relative overflow-hidden">
+        {/* Atmosphere, and the only decorative element on the page. It is a
+            positioned child rather than a gradient on the band because the
+            band's `background` is the property contrast.js reads to know what
+            ground the text sits on. */}
+        <div
+          aria-hidden
+          className="es-bloom -top-44 -right-28 size-[38rem]"
+        />
+
+        <div className="fx-container fx-container--xl relative">
+          <div className="grid items-center gap-[var(--fx-gap-lg)] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.04fr)]">
             <div className="fx-stack es-rise">
-              <p className="es-eyebrow">Canada &amp; the United States</p>
+              <p className="es-eyebrow text-accent">Canada &amp; the United States</p>
 
-              {/* `text-4xl`, which is the top of the scale and tops out at
-                  3.5rem. The old h1 sat two steps down at `text-3xl` for no
-                  reason — a homepage headline that is the same size as a
-                  section heading gives the page no first note. */}
-              <h1 className="max-w-[16ch] text-4xl">
-                Find something to go to.
-              </h1>
+              {/* `.es-display`, which is `--es-text-5xl` — 56px on a phone and
+                  96px on a desktop. The old h1 was `text-4xl` at the top of a
+                  scale that stopped at 56px, so the headline and the section
+                  headings below it were one step apart and the page had no
+                  first note. */}
+              <h1 className="es-display">Find something to go to.</h1>
 
-              <p className="max-w-[46ch] text-lg text-muted">
+              <p className="max-w-[42ch] text-lg text-muted">
                 Pick your seat on the map, pay once, and arrive with the ticket on
                 your phone.
               </p>
@@ -165,7 +170,7 @@ export default async function HomePage() {
                       className="inline-block size-2.5 rounded-full"
                       style={{ background: `var(--es-seat-${entry.state})` }}
                     />
-                    <span className="text-xs text-subtle">{entry.label}</span>
+                    <span className="text-sm text-muted">{entry.label}</span>
                   </li>
                 ))}
               </ul>
@@ -174,11 +179,14 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* ── 2 · On soon ────────────────────────────────────────────── */}
+      {/* ── 2 · On soon — sunken, so the cards lift off it ──────────── */}
       <section className="es-band--sunken fx-section fx-section--sm">
         <div className="fx-container fx-container--xl fx-stack">
-          <div className="fx-row fx-row--between">
-            <h2 className="text-2xl">On soon</h2>
+          <div className="fx-row fx-row--between items-end">
+            <div className="fx-stack fx-stack--sm">
+              <p className="es-eyebrow">On sale now</p>
+              <h2 className="text-2xl">On soon</h2>
+            </div>
             <Link href="/events" className="es-btn es-btn--ghost es-btn--sm">
               Browse all <span aria-hidden>→</span>
             </Link>
@@ -203,52 +211,71 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* ── 3 · How it works ───────────────────────────────────────── */}
-      <section className="es-band fx-section fx-section--sm">
-        <div className="fx-container fx-container--xl fx-stack">
-          <p className="es-eyebrow">Three steps</p>
-          <h2 className="max-w-[20ch] text-2xl">From a link to a seat in about a minute.</h2>
+      {/* ── 3 · How it works — a marquee, NOT a third card grid ─────── */}
+      <section className="es-band fx-section">
+        <div className="fx-container fx-container--xl">
+          <div className="es-marquee">
+            <div className="fx-stack fx-stack--sm">
+              <p className="es-eyebrow">Three steps</p>
+              <h2 className="text-2xl">From a link to a seat in about a minute.</h2>
+            </div>
 
-          {/* An ordered list, because the order IS the meaning. A div with a
-              styled number in it says "1" to a sighted reader and nothing at
-              all to a screen reader; the number here is real content. */}
-          <ol className="fx-grid fx-grid--3">
-            {STEPS.map((step, i) => (
-              <li key={step.title} className="es-card fx-stack fx-stack--sm p-5">
-                <p className="es-eyebrow">{String(i + 1).padStart(2, '0')}</p>
-                <h3 className="text-lg">{step.title}</h3>
-                <p className="text-sm text-muted">{step.body}</p>
-              </li>
-            ))}
-          </ol>
+            {/* An ordered list, because the order IS the meaning. A div with a
+                styled number in it says "1" to a sighted reader and nothing at
+                all to a screen reader; the number here is real content. */}
+            <ol className="min-w-0">
+              {STEPS.map((step, i) => (
+                <li key={step.title} className="es-marquee__row">
+                  <span className="es-marquee__index" aria-hidden>
+                    {String(i + 1).padStart(2, '0')}
+                  </span>
+                  <div className="fx-stack fx-stack--sm">
+                    <h3 className="text-lg">{step.title}</h3>
+                    <p className="text-muted">{step.body}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </div>
         </div>
       </section>
 
-      {/* ── 4 · What you get ───────────────────────────────────────── */}
+      {/* ── 4 · What you get — sunken, claims rather than boxes ─────── */}
       <section className="es-band--sunken fx-section fx-section--sm">
         <div className="fx-container fx-container--xl fx-stack">
-          <p className="es-eyebrow">What you get</p>
-          <h2 className="max-w-[24ch] text-2xl">Four things, and each one is a behaviour.</h2>
+          <div className="fx-stack fx-stack--sm">
+            <p className="es-eyebrow">What you get</p>
+            <h2 className="max-w-[24ch] text-2xl">Four things, and each one is a behaviour.</h2>
+          </div>
 
-          <ul className="fx-grid fx-grid--2">
+          {/* No cards. Four bordered rectangles here and three in the band
+              above is what made every section read as the same object; a short
+              accent rule does the same separating job without drawing a box
+              around a sentence. */}
+          <ul className="fx-grid fx-grid--2 fx-grid--gap-lg">
             {POINTS.map((point) => (
-              <li key={point.title} className="es-card fx-stack fx-stack--sm p-5">
+              <li key={point.title} className="fx-stack fx-stack--sm">
+                <span aria-hidden className="block h-[3px] w-8 rounded-full bg-accent" />
                 <h3 className="text-lg">{point.title}</h3>
-                <p className="text-sm text-muted">{point.body}</p>
+                <p className="text-muted">{point.body}</p>
               </li>
             ))}
           </ul>
         </div>
       </section>
 
-      {/* ── 5 · Closing ────────────────────────────────────────────── */}
-      <section className="es-band fx-section fx-section--sm">
-        <div className="fx-container fx-container--xl">
-          <div className="es-band--ink fx-stack rounded-[--es-radius-xl] p-8 text-center sm:p-12">
-            <h2 className="mx-auto max-w-[20ch] text-3xl">
+      {/* ── 5 · Closing — the field returns ────────────────────────── */}
+      <section className="es-band--field fx-section relative overflow-hidden">
+        <div
+          aria-hidden
+          className="es-bloom -bottom-60 left-1/2 size-[44rem] -translate-x-1/2"
+        />
+        <div className="fx-container fx-container--md relative">
+          <div className="fx-stack items-center text-center">
+            <h2 className="es-display es-display--wide">
               There is something on this week.
             </h2>
-            <p className="mx-auto max-w-[44ch] text-muted">
+            <p className="max-w-[44ch] text-lg text-muted">
               Browse what is selling now, or find a ticket you already bought.
             </p>
             <div className="fx-row fx-row--center fx-row--gap pt-2">
