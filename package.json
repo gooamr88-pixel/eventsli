@@ -19,7 +19,9 @@
     "test:backend": "npm test --workspace=backend",
     "test:frontend": "npm test --workspace=frontend",
     "lint:frontend": "npm run lint --workspace=frontend",
-    "check:frontend": "npm run check --workspace=frontend"
+    "check:frontend": "npm run check --workspace=frontend",
+    "secrets": "node scripts/secretScan.js",
+    "preflight": "npm run secrets && npm run check:frontend && npm run lint:frontend && npm run test:backend && npm run test:frontend && npm run build:frontend"
   },
   "engines": {
     "node": ">=22.0.0"

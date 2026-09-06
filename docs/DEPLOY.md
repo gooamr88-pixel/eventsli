@@ -11,6 +11,21 @@ Ubuntu 22.04/24.04, one box, two Node processes behind nginx.
 
 ---
 
+## Before every push
+
+```bash
+npm run secrets      # nothing git would commit carries a live credential
+npm run preflight    # the above, plus checks, lint, both test suites, the build
+```
+
+`npm run secrets` asks **git** which files it would commit — not the filesystem
+— so `backend/.env` existing on your machine is fine and `backend/.env` being
+tracked is a hard stop. A leaked `sk_live_` key is not fixed by deleting the
+file afterwards: GitHub keeps the history and bots scrape new pushes within
+seconds, so it has to be rotated.
+
+---
+
 ## 0. Before you touch the server
 
 ### Rotate the keys that have been sitting in plain text
