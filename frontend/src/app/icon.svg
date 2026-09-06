@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Eventsli">
+  <!--
+    The favicon, as a file convention: Next serves this at /icon.svg and links it
+    in <head> on every page. SVG rather than a .ico so it stays crisp on a
+    high-density display and weighs a few hundred bytes.
+
+    A ticket stub with a perforation. It reads at 16px, which is the only size
+    that matters — the mark is not the logo, it is the thing somebody has to
+    pick out of twenty browser tabs.
+
+    #059669 is --es-emerald-600, the same value as the theme colour in the root
+    layout. It is written literally because this file is served on its own and
+    never sees a stylesheet.
+  -->
+  <rect width="32" height="32" rx="7" fill="#059669"/>
+  <path
+    d="M8 11.5h6.2a1.8 1.8 0 0 0 3.6 0H24v3.1a1.4 1.4 0 0 0 0 2.8v3.1h-6.2a1.8 1.8 0 0 0-3.6 0H8v-3.1a1.4 1.4 0 0 0 0-2.8z"
+    fill="#ffffff"
+  />
+</svg>

@@ -1,0 +1,204 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# ── A note on `npm ci` and where it runs ──
+# This repo is an npm workspace: the lockfile and node_modules live at the ROOT,
+# and backend/ has neither. Every job below therefore installs from the root.
+# Installing from backend/ fails outright — `npm ci` refuses to run without a
+# lockfile beside it — which is how these jobs were configured and why none of
+# them could ever have gone green.
+#
+# Test steps still run with `working-directory: backend`, so the script names
+# stay the ones a developer types; Node resolves up into the root node_modules.
+
+jobs:
+  backend:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22        # keep in sync with deployment/README.md
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+
+      # Blocking, and set at `moderate` rather than `high` because the tree is
+      # currently clean at that level and staying there is cheap. Never waved
+      # through with `|| true`, which is how an audit step stops meaning
+      # anything. When a transitive advisory has no upstream fix, pin it with an
+      # `overrides` entry in the root package.json and record why in
+      # docs/SECURITY-ADVISORIES.md — do not lower this threshold.
+      - run: npm audit --audit-level=moderate
+
+      - run: npm test
+        working-directory: backend
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+
+      # Milliseconds each, and no dev server or build required. They catch the
+      # three failures that are invisible at runtime: an fx-* class made inert
+      # by an inline style (no error, no warning, simply does nothing at any
+      # viewport), a backtick inside a CSS comment (a parse error, not a style
+      # bug), and a file on its way to becoming the next 166KB page.
+      - name: Static checks
+        run: npm run check
+        working-directory: frontend
+
+      # A separate step from the build on purpose. Next 16 dropped the `eslint`
+      # key from next.config.mjs, and a lint failure buried inside a compile log
+      # is one people learn to scroll past.
+      - name: Lint
+        run: npx eslint .
+        working-directory: frontend
+        env:
+          CI: 'true'
+
+      - name: Unit tests
+        run: npm test
+        working-directory: frontend
+
+      # The build is the only thing that catches a server/client boundary
+      # mistake, and it type-checks proxy.ts on the way through.
+      - name: Build
+        run: npx next build
+        working-directory: frontend
+        env:
+          # The build must not need a live API. Every page that fetches does so
+          # inside a try/catch that degrades to an empty state, and this proves
+          # it: an unreachable host here means a failed build if any page ever
+          # stops doing that.
+          NEXT_PUBLIC_API_URL: http://127.0.0.1:5000/api/v1
+          INTERNAL_API_URL: http://127.0.0.1:5000/api/v1
+          NEXT_PUBLIC_SITE_URL: https://eventsli.com
+          # Not a secret — it is the public project URL and is already
+          # NEXT_PUBLIC_. It is required because the hostname is compiled into
+          # the CSP and the next/image allowlist, and a build without it ships a
+          # site where every cover image is silently blocked. next.config.mjs
+          # refuses to build rather than fall back, so this line is what proves
+          # that refusal is wired up.
+          NEXT_PUBLIC_SUPABASE_URL: https://qvoyxwszojwyyelsjskm.supabase.co
+
+  integration:
+    name: Integration tests
+    runs-on: ubuntu-latest
+    # ── Why this job exists ──
+    # `npm test` runs the pure units. Every property that actually protects
+    # money and stock — a seat held once under concurrency, a refused map save
+    # rolling back, a stranger unable to transfer someone's ticket — lives in
+    # test/integration and needs a database. Those tests existed and CI never
+    # ran them, so nothing stopped a change that broke one from being merged.
+    #
+    # It runs against a local Supabase stack, not the project's own: no secrets,
+    # so it works on a fork's pull request, and no test row is ever written to
+    # the production database.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      # Boots Postgres and PostgREST and applies every migration in order to a
+      # database that has never existed before. Which also makes this the
+      # "migrations apply cleanly" check, on the real Supabase image rather than
+      # a bare Postgres with a hand-stubbed auth schema.
+      - name: Start the local stack
+        run: supabase start
+
+      - name: Point the API at it
+        run: |
+          eval "$(supabase status -o env)"
+          {
+            echo "SUPABASE_URL=$API_URL"
+            echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
+          } >> "$GITHUB_ENV"
+
+      # The suite seeds organizers who must accept the current terms, so a
+      # missing seed row surfaces here as one clear failure rather than a dozen
+      # confusing ones.
+      - name: Check the seed landed
+        run: |
+          supabase db psql -c \
+            "DO \$\$ BEGIN
+               IF NOT EXISTS (SELECT 1 FROM terms_versions WHERE is_current) THEN
+                 RAISE EXCEPTION 'no current terms version — the seed migration did not run';
+               END IF;
+             END \$\$;"
+
+      - name: Run them
+        run: npm run test:integration
+        working-directory: backend
+        env:
+          NODE_ENV: test
+          # Throwaway, generated per run, so a copied CI secret is never a thing
+          # that exists. Two DIFFERENT values: the suite asserts that a session
+          # token cannot be replayed as a ticket QR, and it cannot make that
+          # assertion if both are signed with the same key.
+          JWT_SECRET: ci-session-${{ github.run_id }}-${{ github.run_attempt }}
+          QR_JWT_SECRET: ci-qr-${{ github.run_id }}-${{ github.run_attempt }}
+          IP_HASH_SALT: ci-salt-${{ github.run_id }}
+          PAYMENTS_STRIPE_ENABLED: 'false'
+          FRONTEND_URL: http://localhost:3000
+          BACKEND_URL: http://localhost:5000
+
+      # Runs even on failure: a container left holding port 54322 wedges the
+      # next job on a self-hosted runner.
+      - name: Stop the stack
+        if: always()
+        run: supabase stop --no-backup
+
+  migrations:
+    name: Migrations apply to an empty database
+    runs-on: ubuntu-latest
+    # Kept alongside the integration job on purpose. That job proves the
+    # migrations apply too, but only as a side effect of a Docker stack with a
+    # dozen ways to be slow or flaky. This one is thirty seconds of psql and
+    # says plainly whether the SQL itself is sound.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd pg_isready --health-interval 10s
+          --health-timeout 5s --health-retries 5
+        ports: ['5432:5432']
+    steps:
+      - uses: actions/checkout@v4
+      # The base schema references auth.users, which Supabase provides and a
+      # bare Postgres does not. A minimal stand-in lets CI prove the migrations
+      # are internally consistent without booting the whole Supabase stack.
+      - name: Stub the Supabase auth schema
+        run: |
+          PGPASSWORD=postgres psql -h localhost -U postgres -c \
+            "CREATE SCHEMA IF NOT EXISTS auth;
+             CREATE TABLE IF NOT EXISTS auth.users (id uuid PRIMARY KEY);"
+      - name: Apply every migration in order
+        run: |
+          for f in supabase/migrations/*.sql; do
+            echo "── $f"
+            PGPASSWORD=postgres psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f "$f"
+          done

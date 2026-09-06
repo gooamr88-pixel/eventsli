@@ -1,0 +1,55 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# Local Supabase — what `supabase start` boots, on a laptop and in CI.
+#
+# The integration suite talks to PostgREST over HTTP, not to Postgres directly,
+# so proving the migrations apply is not enough: a policy, a schema-cache miss
+# or an ambiguous embedded join is invisible to psql and fatal to the API. This
+# config gives that suite a real stack to run against, with no project secrets
+# and nothing written to the production database.
+#
+# Everything the API does not use is off. The suite needs Postgres and the REST
+# gateway; Studio, Storage, Realtime, the edge runtime and the mail catcher are
+# minutes of container pulls for nothing.
+#
+# `auth` stays ON despite the API using its own identity (see
+# 20260829140000_own_auth.sql). Not for GoTrue itself — for the `auth` schema it
+# creates at boot, which the base migration still references.
+# ═══════════════════════════════════════════════════════════════════════════
+
+project_id = "eventsli"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public"]
+extra_search_path = ["public", "extensions"]
+# Above any single page the suite reads. A silent truncation here reads as
+# missing data in a test and sends you looking in the wrong place.
+max_rows = 5000
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 16
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+
+[studio]
+enabled = false
+
+[storage]
+enabled = false
+
+[realtime]
+enabled = false
+
+[inbucket]
+enabled = false
+
+[analytics]
+enabled = false
+
+[edge_runtime]
+enabled = false

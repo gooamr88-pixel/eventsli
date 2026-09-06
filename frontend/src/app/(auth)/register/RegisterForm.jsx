@@ -1,0 +1,143 @@
+'use client';
+
+import { useState } from 'react';
+import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { post } from '../../utils/apiClient';
+import { setAuthUser } from '../../hooks/useAuth';
+import { safeNext } from '../login/LoginForm';
+import Field from '../../components/forms/Field';
+import FormError from '../../components/forms/FormError';
+import SubmitButton from '../../components/forms/SubmitButton';
+import GoogleSignIn from '../../components/forms/GoogleSignIn';
+
+/** The API's rule, mirrored so it can be shown BEFORE the round trip:
+ *  12 characters, no composition requirements. */
+const MIN_PASSWORD = 12;
+
+/**
+ * Create an account.
+ *
+ * `POST /auth/register` ISSUES A SESSION as well as creating the profile, so
+ * this does not sign in afterwards.
+ *
+ * It did, briefly, and the bug is worth recording because it was invisible from
+ * the outside: register-then-login created TWO session rows for one sign-up.
+ * The second cookie overwrote the first, so everything appeared to work — but
+ * the orphan lived on until it expired, and it showed up on the account's
+ * "Where you are signed in" list as a device the person had never used and
+ * could not account for. Found by counting sessions against a live API rather
+ * than by anything failing.
+ */
+export default function RegisterForm() {
+  const router = useRouter();
+  const params = useSearchParams();
+  const next = safeNext(params.get('next'));
+
+  const [form, setForm] = useState({ fullName: '', email: '', password: '', phone: '' });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+
+  const tooShort = form.password.length > 0 && form.password.length < MIN_PASSWORD;
+
+  function arrive(user) {
+    setAuthUser(user);
+    router.push(next);
+    router.refresh();
+  }
+
+  async function submit(e) {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      // One call. The response is the profile AND the session cookie.
+      arrive(await post('/auth/register', {
+        fullName: form.fullName,
+        email: form.email,
+        password: form.password,
+        // Sent only when given: the API rejects an empty string as a malformed
+        // phone number rather than treating it as absent.
+        ...(form.phone.trim() ? { phone: form.phone.trim() } : {}),
+      }, { noRedirect: true }));
+    } catch (err) {
+      setError(err);
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="fx-stack">
+      <div className="fx-stack fx-stack--sm">
+        <h1 className="text-2xl">Create an account</h1>
+        <p className="text-sm text-muted">
+          Your tickets in one place — and it is how you start selling your own events.
+        </p>
+      </div>
+
+      <form onSubmit={submit} className="fx-stack fx-stack--sm">
+        <Field
+          label="Full name" name="fullName" autoComplete="name" required
+          minLength={2} maxLength={120}
+          value={form.fullName}
+          onChange={(e) => setForm((f) => ({ ...f, fullName: e.target.value }))}
+        />
+        <Field
+          label="Email" type="email" name="email" autoComplete="email" required
+          value={form.email}
+          onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+        />
+        <Field
+          label="Password" type="password" name="password"
+          autoComplete="new-password" required minLength={MIN_PASSWORD}
+          // Length over composition, matching the API — which follows current
+          // NIST guidance. Demanding a symbol and a digit reliably produces
+          // `Password1!`, which is harder to remember and easier to guess than
+          // a longer phrase.
+          hint={`At least ${MIN_PASSWORD} characters. A short phrase works well.`}
+          error={tooShort ? `${MIN_PASSWORD - form.password.length} more to go.` : null}
+          value={form.password}
+          onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+        />
+        <Field
+          label="Phone" type="tel" name="phone" autoComplete="tel"
+          hint="Optional. Only shared with the organizer of an event you buy from."
+          value={form.phone}
+          onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+        />
+
+        <FormError error={error} />
+
+        <SubmitButton busy={busy} busyLabel="Creating your account…" disabled={tooShort}>
+          Create account
+        </SubmitButton>
+      </form>
+
+      <p className="text-center text-sm text-muted">
+        Already have one?{' '}
+        <Link
+          href={`/login${next !== '/' ? `?next=${encodeURIComponent(next)}` : ''}`}
+          className="text-accent"
+        >
+          Sign in
+        </Link>
+      </p>
+
+      <div className="fx-row fx-row--center gap-3" aria-hidden="true">
+        <span className="h-px flex-1 bg-border-base" />
+        <span className="text-xs text-subtle">or</span>
+        <span className="h-px flex-1 bg-border-base" />
+      </div>
+
+      {/* Google both creates and signs in, so one control covers both. The API
+          returns `newAccount` to say which happened. */}
+      <GoogleSignIn text="signup_with" onSuccess={arrive} onError={setError} />
+
+      <p className="text-center text-xs text-subtle">
+        By continuing you agree to the{' '}
+        <Link href="/terms" className="text-accent">terms</Link> and the{' '}
+        <Link href="/privacy" className="text-accent">privacy policy</Link>.
+      </p>
+    </div>
+  );
+}

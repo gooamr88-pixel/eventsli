@@ -1,0 +1,27 @@
+{
+  "name": "eventsli",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Eventsli — event ticketing platform with interactive seat maps",
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "overrides": {
+    "qs": "^6.16.0"
+  },
+  "scripts": {
+    "dev:backend": "npm run dev --workspace=backend",
+    "dev:frontend": "npm run dev --workspace=frontend",
+    "start:backend": "npm start --workspace=backend",
+    "start:frontend": "npm start --workspace=frontend",
+    "build:frontend": "npm run build --workspace=frontend",
+    "test:backend": "npm test --workspace=backend",
+    "test:frontend": "npm test --workspace=frontend",
+    "lint:frontend": "npm run lint --workspace=frontend",
+    "check:frontend": "npm run check --workspace=frontend"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}

@@ -1,0 +1,707 @@
+@import "tailwindcss";
+
+/* ═══════════════════════════════════════════════════════════════════════
+   EVENTSLI — the design system, in one file.
+
+   THE RULE: no `:root` custom property is declared anywhere else in this
+   codebase. Not in a component, not in a CSS module, not inline.
+
+   That rule is the whole reason this file exists. The previous platform
+   loaded nine stylesheets in sequence — tokens, bridge, motion, polish,
+   styles, theme, landing, light-theme, mobile-ios — each redefining
+   values the last one set. Winning a cascade fight then required
+   `!important`, of which it accumulated 366, and one of the nine
+   (theme.css) had `@deprecated` written on it by hand and was still
+   loaded on every page.
+
+   The palette, the type scale, the z-index map, the motion curves and the
+   focus rings below are ported from that platform's tokens.css, which was
+   the one layer of the nine written with real care. Three corrections
+   were made on the way in; each is noted where it applies.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── Brand: emerald ─────────────────────────────────────────────────
+     700 is the primary in light and 400 in dark. The token file arrived
+     with 600 in light and already knew a 600-on-near-black button fails
+     contrast; it had not measured the other direction, where white ON
+     600 is 3.77:1 and 600 as link text is worse. Both are AA failures on
+     the brand's most-used colour. See --es-accent below. */
+  --es-emerald-50:  #ecfdf5;
+  --es-emerald-100: #d1fae5;
+  --es-emerald-200: #a7f3d0;
+  --es-emerald-300: #6ee7b7;
+  --es-emerald-400: #34d399;
+  --es-emerald-500: #10b981;
+  --es-emerald-600: #059669;
+  --es-emerald-700: #047857;
+  --es-emerald-800: #065f46;
+  --es-emerald-900: #064e3b;
+
+  /* ── Neutrals ───────────────────────────────────────────────────────
+     Slate in light (cool, sits under emerald without going muddy), zinc
+     in dark. Two families rather than one because a slate this cool goes
+     blue at #09090B, and a zinc this warm goes grey at #F8FAFC. */
+  --es-slate-50:  #f8fafc;
+  --es-slate-100: #f1f5f9;
+  --es-slate-200: #e2e8f0;
+  --es-slate-300: #cbd5e1;
+  --es-slate-400: #94a3b8;
+  --es-slate-500: #64748b;
+  --es-slate-600: #475569;
+  --es-slate-700: #334155;
+  --es-slate-800: #1e293b;
+  --es-slate-900: #0f172a;
+
+  --es-zinc-50:  #fafafa;
+  --es-zinc-100: #f4f4f5;
+  --es-zinc-200: #e4e4e7;
+  --es-zinc-400: #a1a1aa;
+  --es-zinc-700: #3f3f46;
+  --es-zinc-800: #27272a;
+  --es-zinc-900: #18181b;
+  --es-zinc-950: #09090b;
+
+  /* ── Semantic ───────────────────────────────────────────────────────
+     Separate from the brand hue on purpose. A green "success" that is
+     also the accent means a saved-successfully toast and a primary button
+     are the same colour, and neither reads as the thing it is. */
+  --es-success: #16a34a;
+  --es-warning: #f59e0b;
+  --es-danger:  #ef4444;
+  --es-info:    #3b82f6;
+
+  /* ── Roles — what components actually reference ─────────────────────
+     Every component takes its colour from a role, never from a scale
+     value. Only the roles are redefined in dark, so a component written
+     once works in both themes without knowing they exist. */
+  --es-bg:            var(--es-slate-50);
+  --es-bg-sunken:     var(--es-slate-100);
+  --es-surface:       #ffffff;
+  --es-surface-raised:#ffffff;
+  --es-border:        var(--es-slate-200);
+  --es-border-strong: var(--es-slate-300);
+
+  --es-text:          var(--es-slate-900);
+  --es-text-muted:    var(--es-slate-600);
+  /* OFF-RAMP, and deliberately.
+
+     slate-500 (#64748b) measures 4.34:1 on --es-bg-sunken — under AA for
+     body text, which is what this role is used for: a card's supporting
+     line, a timestamp, a hint under a field. The ramp has no step between
+     500 and 600 that clears 4.5, and taking slate-600 would make `subtle`
+     and `muted` the same colour and delete a level of hierarchy.
+
+     So the ROLE takes a value the ramp does not have. Measured by
+     scripts/contrast.js, which checks every text role against every ground
+     in both themes — this failed on three of them. */
+  --es-text-subtle:   #556377;
+  --es-text-on-accent:#ffffff;
+
+  /* emerald-600 (#059669) was here and it failed AA twice over.
+
+     As TEXT it measured 3.44–3.77:1 depending on the ground — every link,
+     every eyebrow label. And white ON it, which is every primary button and
+     the active filter pill, measured 3.77:1. Both are body-sized, so both
+     need 4.5.
+
+     emerald-700 clears it in every combination (5.01–5.48) and is a colour
+     already in the ramp, so the identity does not move — the brand emerald
+     is still the brand emerald in `theme-color`, in the icon and in the
+     seat map. What changed is the shade that carries TEXT. */
+  --es-accent:        var(--es-emerald-700);
+  --es-accent-hover:  var(--es-emerald-800);
+  --es-accent-wash:   var(--es-emerald-50);
+  --es-accent-edge:   var(--es-emerald-200);
+
+  /* CORRECTION 1 of 3, carried over from the old tokens.
+     `--border-focus`, `--shadow-accent` and `--accent-subtle` were all
+     still `rgba(79,70,229,…)` — indigo, from an identity two rebrands
+     ago. Every focus ring and every button shadow on the platform was
+     purple underneath a green skin. They are emerald here. */
+  --es-focus-ring-color: var(--es-emerald-600);
+  --es-shadow-accent: 0 4px 16px rgba(5, 150, 105, 0.20);
+  --es-accent-subtle: rgba(5, 150, 105, 0.12);
+
+  /* ── Seat map ───────────────────────────────────────────────────────
+     Named here rather than in the seat-map stylesheet because a seat's
+     colour is the single most load-bearing piece of information on the
+     purchase page, and it has to survive a theme switch intact. */
+  --es-seat-available: var(--es-emerald-500);
+  --es-seat-selected:  var(--es-emerald-700);
+  --es-seat-held:      var(--es-warning);
+  --es-seat-sold:      var(--es-slate-400);
+  --es-seat-blocked:   var(--es-slate-300);
+
+  /* ── Type ───────────────────────────────────────────────────────────
+     CORRECTION 2 of 3: the old index.html still pulled Cormorant
+     Garamond from Google Fonts on every page after the tokens had already
+     moved to DM Serif Display. A whole font downloaded and never used.
+
+     CORRECTION 3 of 3: the August spec called for `--font-ar` and an
+     Arabic family. The product is English-only and there is no Arabic
+     identity, so there is one stack. */
+  --es-font-sans:  var(--font-dm-sans), -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --es-font-serif: var(--font-dm-serif), Georgia, 'Times New Roman', serif;
+  --es-font-mono:  var(--font-dm-mono), ui-monospace, 'Cascadia Code', Consolas, monospace;
+
+  --es-text-xs:   clamp(0.65rem, 0.6rem + 0.2vw, 0.72rem);
+  --es-text-sm:   clamp(0.78rem, 0.74rem + 0.2vw, 0.82rem);
+  --es-text-base: clamp(0.85rem, 0.82rem + 0.2vw, 0.92rem);
+  --es-text-md:   clamp(0.95rem, 0.9rem + 0.25vw, 1.05rem);
+  --es-text-lg:   clamp(1.1rem, 1rem + 0.4vw, 1.25rem);
+  --es-text-xl:   clamp(1.3rem, 1.15rem + 0.6vw, 1.55rem);
+  --es-text-2xl:  clamp(1.6rem, 1.3rem + 1vw, 2rem);
+  --es-text-3xl:  clamp(2rem, 1.6rem + 1.5vw, 2.8rem);
+  --es-text-4xl:  clamp(2.4rem, 1.8rem + 2.5vw, 3.5rem);
+
+  --es-leading-tight:   1.15;
+  --es-leading-snug:    1.3;
+  --es-leading-normal:  1.5;
+  --es-leading-relaxed: 1.7;
+
+  --es-tracking-tight:  -0.02em;
+  --es-tracking-wide:    0.02em;
+  --es-tracking-widest:  0.1em;
+
+  /* ── Z-index, as a named map ────────────────────────────────────────
+     Ported verbatim. Every z-index in the codebase reads from this; a
+     bare number in a component is how stacking wars start. */
+  --es-z-base:        1;
+  --es-z-above:       5;
+  --es-z-card:       10;
+  --es-z-sticky:    100;
+  --es-z-dropdown:  200;
+  --es-z-overlay:   500;
+  --es-z-navbar:   1000;
+  --es-z-mobile-menu: 1010;
+  --es-z-modal:    5000;
+  --es-z-toast:    8000;
+  --es-z-max:      9999;
+
+  /* ── Radius, shadow ─────────────────────────────────────────────────*/
+  --es-radius-sm:   6px;
+  --es-radius-md:  10px;
+  --es-radius-lg:  14px;
+  --es-radius-xl:  20px;
+  --es-radius-2xl: 24px;
+  --es-radius-full: 9999px;
+
+  --es-shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.05);
+  --es-shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.08), 0 1px 2px rgba(15, 23, 42, 0.04);
+  --es-shadow-md: 0 4px 12px rgba(15, 23, 42, 0.10), 0 1px 3px rgba(15, 23, 42, 0.06);
+  --es-shadow-lg: 0 8px 30px rgba(15, 23, 42, 0.15), 0 2px 6px rgba(15, 23, 42, 0.08);
+  --es-shadow-xl: 0 16px 50px rgba(15, 23, 42, 0.20), 0 4px 12px rgba(15, 23, 42, 0.10);
+
+  /* ── Motion ─────────────────────────────────────────────────────────
+     Ported verbatim. Named curves rather than `ease-in-out` everywhere:
+     `--es-ease-spring` on a card lift and `--es-ease-bounce` on a button
+     press are what the old platform's interactions actually felt like,
+     and that was the best thing about it. */
+  --es-duration-fast:   150ms;
+  --es-duration-normal: 300ms;
+  --es-duration-slow:   500ms;
+
+  --es-ease-default: cubic-bezier(0.4, 0, 0.2, 1);
+  --es-ease-in:      cubic-bezier(0.4, 0, 1, 1);
+  --es-ease-out:     cubic-bezier(0, 0, 0.2, 1);
+  --es-ease-spring:  cubic-bezier(0.16, 1, 0.3, 1);
+  --es-ease-bounce:  cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  --es-transition-fast:   var(--es-duration-fast) var(--es-ease-default);
+  --es-transition-normal: var(--es-duration-normal) var(--es-ease-default);
+  --es-transition-spring: var(--es-duration-normal) var(--es-ease-spring);
+}
+
+/* ── Dark ──────────────────────────────────────────────────────────────
+   Three states, not two. An explicit choice stamps `data-theme` on <html>;
+   the default "system" setting stamps nothing, and only
+   prefers-color-scheme separates light from dark there. So the media
+   query is guarded with :not([data-theme="light"]) — otherwise an
+   explicit light choice loses to a dark OS — and the [data-theme="dark"]
+   block repeats it so the toggle wins in the other direction too.
+
+   ONLY roles are redefined. A component that reads --es-surface works in
+   both themes without knowing either exists. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --es-bg:            var(--es-zinc-950);
+    --es-bg-sunken:     #000000;
+    --es-surface:       var(--es-zinc-900);
+    --es-surface-raised:var(--es-zinc-800);
+    --es-border:        var(--es-zinc-800);
+    --es-border-strong: var(--es-zinc-700);
+
+    --es-text:          var(--es-zinc-100);
+    --es-text-muted:    var(--es-zinc-400);
+    /* zinc-500 (#71717a) measured 3.67:1 on --es-surface, under AA for body
+       text. Off-ramp for the same reason the light theme's is: zinc has no
+       step between 500 and 400 that clears it, and 400 is already muted. */
+    --es-text-subtle:   #8a8a94;
+    --es-text-on-accent:var(--es-zinc-950);
+
+    --es-accent:        var(--es-emerald-400);
+    --es-accent-hover:  var(--es-emerald-300);
+    --es-accent-wash:   #0a2b21;
+    --es-accent-edge:   #12513e;
+
+    --es-focus-ring-color: var(--es-emerald-400);
+    --es-shadow-accent: 0 4px 16px rgba(52, 211, 153, 0.20);
+    --es-accent-subtle: rgba(52, 211, 153, 0.14);
+
+    --es-seat-available: var(--es-emerald-400);
+    --es-seat-selected:  var(--es-emerald-200);
+    --es-seat-held:      var(--es-warning);
+    --es-seat-sold:      var(--es-zinc-700);
+    --es-seat-blocked:   var(--es-zinc-800);
+
+    --es-shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.5);
+    --es-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.6), 0 1px 2px rgba(0, 0, 0, 0.4);
+    --es-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.6), 0 1px 3px rgba(0, 0, 0, 0.4);
+    --es-shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.7), 0 2px 6px rgba(0, 0, 0, 0.5);
+    --es-shadow-xl: 0 16px 50px rgba(0, 0, 0, 0.8), 0 4px 12px rgba(0, 0, 0, 0.5);
+  }
+}
+
+/* `.fx-gate` rides along on this selector rather than getting a copy of it.
+
+   The gate is the one subtree that PINS a theme instead of following the
+   viewer's: a tablet at a venue door, at night, held by someone who did not
+   choose the OS setting and cannot change it between guests. A white screen
+   there is not a preference, it is a torch pointed at the operator.
+
+   Adding the class here costs one selector and keeps the dark palette declared
+   exactly twice — once for the media query, once for the explicit choice — so
+   a token added below can never be added to two of three copies. Custom
+   properties inherit, so declaring them on a descendant of :root works the
+   same as declaring them on :root; only the SUBTREE differs. */
+:root[data-theme="dark"], .fx-gate {
+  --es-bg:            var(--es-zinc-950);
+  --es-bg-sunken:     #000000;
+  --es-surface:       var(--es-zinc-900);
+  --es-surface-raised:var(--es-zinc-800);
+  --es-border:        var(--es-zinc-800);
+  --es-border-strong: var(--es-zinc-700);
+
+  --es-text:          var(--es-zinc-100);
+  --es-text-muted:    var(--es-zinc-400);
+  --es-text-subtle:   #8a8a94;
+  --es-text-on-accent:var(--es-zinc-950);
+
+  --es-accent:        var(--es-emerald-400);
+  --es-accent-hover:  var(--es-emerald-300);
+  --es-accent-wash:   #0a2b21;
+  --es-accent-edge:   #12513e;
+
+  --es-focus-ring-color: var(--es-emerald-400);
+  --es-shadow-accent: 0 4px 16px rgba(52, 211, 153, 0.20);
+  --es-accent-subtle: rgba(52, 211, 153, 0.14);
+
+  --es-seat-available: var(--es-emerald-400);
+  --es-seat-selected:  var(--es-emerald-200);
+  --es-seat-held:      var(--es-warning);
+  --es-seat-sold:      var(--es-zinc-700);
+  --es-seat-blocked:   var(--es-zinc-800);
+
+  --es-shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --es-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.6), 0 1px 2px rgba(0, 0, 0, 0.4);
+  --es-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.6), 0 1px 3px rgba(0, 0, 0, 0.4);
+  --es-shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.7), 0 2px 6px rgba(0, 0, 0, 0.5);
+  --es-shadow-xl: 0 16px 50px rgba(0, 0, 0, 0.8), 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Tailwind bridge.
+
+   `@theme inline` is what makes `bg-surface`, `text-muted`, `rounded-lg`
+   and the rest resolve to the tokens above. It is a second place the same
+   names are written, not a second source of truth — the values here are
+   all `var(--es-*)` references, so a token can never disagree with the
+   utility that uses it.
+   ═══════════════════════════════════════════════════════════════════════ */
+@theme inline {
+  --color-bg:            var(--es-bg);
+  --color-bg-sunken:     var(--es-bg-sunken);
+  --color-surface:       var(--es-surface);
+  --color-surface-raised:var(--es-surface-raised);
+  --color-border-base:   var(--es-border);
+  --color-border-strong: var(--es-border-strong);
+
+  --color-ink:        var(--es-text);
+  --color-muted:      var(--es-text-muted);
+  --color-subtle:     var(--es-text-subtle);
+  --color-on-accent:  var(--es-text-on-accent);
+
+  --color-accent:      var(--es-accent);
+  --color-accent-hover:var(--es-accent-hover);
+  --color-accent-wash: var(--es-accent-wash);
+  --color-accent-edge: var(--es-accent-edge);
+
+  --color-success: var(--es-success);
+  --color-warning: var(--es-warning);
+  --color-danger:  var(--es-danger);
+  --color-info:    var(--es-info);
+
+  --font-sans:  var(--es-font-sans);
+  --font-serif: var(--es-font-serif);
+  --font-mono:  var(--es-font-mono);
+
+  /* The type scale becomes the UTILITY names, so `text-2xl` IS this scale and
+     there is nothing else for a component to reach for. The alternative —
+     `text-[length:--es-text-2xl]` at every call site — leaves Tailwind's own
+     `text-2xl` sitting there as a second, unrelated scale that looks correct
+     and is not. `--text-md` has no Tailwind default; it is ours. */
+  --text-xs:   var(--es-text-xs);
+  --text-sm:   var(--es-text-sm);
+  --text-base: var(--es-text-base);
+  --text-md:   var(--es-text-md);
+  --text-lg:   var(--es-text-lg);
+  --text-xl:   var(--es-text-xl);
+  --text-2xl:  var(--es-text-2xl);
+  --text-3xl:  var(--es-text-3xl);
+  --text-4xl:  var(--es-text-4xl);
+
+  --radius-sm:  var(--es-radius-sm);
+  --radius-md:  var(--es-radius-md);
+  --radius-lg:  var(--es-radius-lg);
+  --radius-xl:  var(--es-radius-xl);
+  --radius-2xl: var(--es-radius-2xl);
+
+  --shadow-xs: var(--es-shadow-xs);
+  --shadow-sm: var(--es-shadow-sm);
+  --shadow-md: var(--es-shadow-md);
+  --shadow-lg: var(--es-shadow-lg);
+  --shadow-xl: var(--es-shadow-xl);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Breakpoints — four, and never a fifth.
+
+   640 · 768 · 1024 · 1280. These ARE Tailwind v4's defaults; re-declaring
+   them changes no generated utility, it makes the scale a greppable
+   declaration instead of a framework default. The previous platform had
+   twelve — 480, 560, 600, 640, 700, 768, 860, 900, 950, 992, 1024, 1100 —
+   which is what happens when each file invents its own.
+
+   `.98` on every max-width, not a whole pixel. At fractional CSS-pixel
+   widths (browser zoom, Windows display scaling, iOS pinch) a 767/768
+   pair leaves a band where NEITHER rule matches and both branches are off
+   at once.
+
+   HARD CONSTRAINT: a custom property cannot appear in a media condition.
+   `@media (max-width: var(--bp-md))` is invalid CSS and is dropped in
+   silence. Inside THIS file the supported reference is Tailwind's
+   build-time theme() function:  @media (width >= theme(--breakpoint-md))
+   JavaScript reads the same four from src/app/lib/breakpoints.js.
+   ═══════════════════════════════════════════════════════════════════════ */
+@theme {
+  --breakpoint-sm: 40rem;   /*  640px */
+  --breakpoint-md: 48rem;   /*  768px */
+  --breakpoint-lg: 64rem;   /* 1024px */
+  --breakpoint-xl: 80rem;   /* 1280px */
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Layout primitives — the fx-* system, ported from fancy.
+
+   THE ONE RULE THAT MATTERS: a class can never beat an inline style.
+   `className="fx-section"` next to `style={{ padding: "100px 48px" }}`
+   does not error, does not warn, and does nothing at any viewport — the
+   class is simply inert. Using one of these means DELETING the inline
+   padding / maxWidth / margin / gridTemplateColumns / gap key.
+
+   Do not "fix" that with !important. Winning over inline styles would
+   mean applying .fx-section to an element with deliberate asymmetric
+   padding silently destroys it — trading a loud, greppable failure for a
+   quiet visual one. scripts/responsiveCheck.js fails the build instead.
+   ═══════════════════════════════════════════════════════════════════════ */
+:root {
+  --fx-pad-x: clamp(16px, 4vw, 48px);
+  --fx-pad-y:    clamp(48px, 7vw, 96px);
+  --fx-pad-y-xs: clamp(16px, 2.5vw, 32px);
+  --fx-pad-y-sm: clamp(28px, 4vw, 56px);
+  --fx-pad-y-lg: clamp(64px, 9vw, 128px);
+
+  --fx-gap:    clamp(16px, 2.5vw, 32px);
+  --fx-gap-sm: clamp(8px, 1.5vw, 16px);
+  --fx-gap-lg: clamp(24px, 4vw, 48px);
+
+  --fx-w-xs: 32rem;  --fx-w-sm: 40rem;  --fx-w-md: 48rem;
+  --fx-w-lg: 64rem;  --fx-w-xl: 72rem;  --fx-w-2xl: 80rem;
+  --fx-w-wide: 96rem;
+
+  --fx-safe-l: env(safe-area-inset-left, 0px);
+  --fx-safe-r: env(safe-area-inset-right, 0px);
+  --fx-safe-b: env(safe-area-inset-bottom, 0px);
+  --fx-safe-t: env(safe-area-inset-top, 0px);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   THE PRIMITIVES SIT IN `@layer components`, AND THE LAYER IS THE POINT.
+
+   Tailwind v4 puts every utility in `@layer utilities`. A rule written
+   OUTSIDE any layer beats every layered rule regardless of specificity —
+   that is what cascade layers do — so an unlayered `.fx-stack { gap }`
+   silently defeats a `gap-1.5` written beside it. Two call sites in this
+   codebase said exactly that (`fx-stack fx-stack--sm gap-1.5`) and the
+   utility was dead in both.
+
+   In `components` the order is base → components → utilities, so a
+   primitive is the default and a utility is the override — which is what
+   somebody writing the two together plainly means.
+   ═══════════════════════════════════════════════════════════════════════ */
+@layer components {
+
+/* ── .fx-section — a full-bleed band with fluid gutters ─────────────── */
+.fx-section {
+  padding-top: var(--fx-pad-y);
+  padding-bottom: var(--fx-pad-y);
+  padding-left: max(var(--fx-pad-x), var(--fx-safe-l));
+  padding-right: max(var(--fx-pad-x), var(--fx-safe-r));
+}
+.fx-section--xs { padding-top: var(--fx-pad-y-xs); padding-bottom: var(--fx-pad-y-xs); }
+.fx-section--sm { padding-top: var(--fx-pad-y-sm); padding-bottom: var(--fx-pad-y-sm); }
+.fx-section--lg { padding-top: var(--fx-pad-y-lg); padding-bottom: var(--fx-pad-y-lg); }
+.fx-section--tight-bottom { padding-bottom: var(--fx-pad-y-sm); }
+.fx-section--flush-top    { padding-top: 0; }
+.fx-section--flush-bottom { padding-bottom: 0; }
+
+/* Horizontal gutters only, for a band managing its own vertical space. */
+.fx-gutter {
+  padding-left: max(var(--fx-pad-x), var(--fx-safe-l));
+  padding-right: max(var(--fx-pad-x), var(--fx-safe-r));
+}
+
+/* ── .fx-container — a centred measure ──────────────────────────────────
+   No horizontal padding: .fx-section already supplied it, and a container
+   inside a section that padded itself too would double-gutter to 40px at
+   320px. For a container NOT inside a section, add .fx-gutter.
+
+   `min-width: 0` is load-bearing. A grid or flex child defaults to
+   min-width:auto, which floors it at its min-content width and pushes the
+   page wide — the single most common cause of "I set 1fr and it still
+   overflows". */
+.fx-container {
+  width: 100%;
+  min-width: 0;
+  max-width: var(--fx-w, var(--fx-w-xl));
+  margin-inline: auto;
+}
+.fx-container--xs  { --fx-w: var(--fx-w-xs); }
+.fx-container--sm  { --fx-w: var(--fx-w-sm); }
+.fx-container--md  { --fx-w: var(--fx-w-md); }
+.fx-container--lg  { --fx-w: var(--fx-w-lg); }
+.fx-container--xl  { --fx-w: var(--fx-w-xl); }
+.fx-container--2xl { --fx-w: var(--fx-w-2xl); }
+.fx-container--wide{ --fx-w: var(--fx-w-wide); }
+.fx-container--full{ --fx-w: none; }
+
+/* ── .fx-grid — intrinsically responsive ────────────────────────────────
+   `min(var(--fx-col), 100%)` is the entire point, not decoration. Plain
+   `repeat(auto-fit, minmax(280px, 1fr))` STILL overflows a container
+   narrower than 280px, because minmax()'s min is a hard floor. Capping
+   that floor at the container's own width means a track can never be
+   wider than the space it sits in, so an .fx-grid cannot contribute
+   horizontal overflow at any viewport — which is what makes the 320px
+   arithmetic trivial: the grid's min-content width is just the largest
+   min-content width among its items.
+
+   auto-fit collapses empty tracks, so a lone item stretches full width.
+   auto-fill (.fx-grid--fill) keeps them, so a single search result stays
+   card-width instead of becoming a slab. */
+.fx-grid {
+  display: grid;
+  gap: var(--fx-gap-y, var(--fx-gap)) var(--fx-gap-x, var(--fx-gap));
+  grid-template-columns: repeat(auto-fit, minmax(min(var(--fx-col, 280px), 100%), 1fr));
+  min-width: 0;
+}
+.fx-grid--fill {
+  grid-template-columns: repeat(auto-fill, minmax(min(var(--fx-col, 280px), 100%), 1fr));
+}
+.fx-grid--2 { --fx-col: 560px; }
+.fx-grid--3 { --fx-col: 340px; }
+.fx-grid--4 { --fx-col: 260px; }
+.fx-grid--5 { --fx-col: 200px; }
+.fx-grid--6 { --fx-col: 160px; }
+.fx-grid--gap-sm { --fx-gap: var(--fx-gap-sm); }
+.fx-grid--gap-lg { --fx-gap: var(--fx-gap-lg); }
+.fx-grid > *, .fx-min0 { min-width: 0; }
+
+/* ── .fx-stack / .fx-row ────────────────────────────────────────────────
+   .fx-row WRAPS by default, and that is not an option. A nowrap flex row
+   has a min-content width equal to the SUM of its children's, so a
+   three-button toolbar cannot fit 280px however small the buttons get.
+   A row that genuinely must not wrap scrolls instead. */
+.fx-stack { display: flex; flex-direction: column; gap: var(--fx-gap); min-width: 0; }
+.fx-stack--sm { --fx-gap: var(--fx-gap-sm); }
+.fx-stack--lg { --fx-gap: var(--fx-gap-lg); }
+
+.fx-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--fx-gap-sm);
+  min-width: 0;
+}
+.fx-row--between { justify-content: space-between; }
+.fx-row--center  { justify-content: center; }
+.fx-row--gap     { gap: var(--fx-gap); }
+.fx-row--scroll {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ── Overflow escape hatches ────────────────────────────────────────────
+   For content that genuinely cannot reflow: a wide table, a seat map, a
+   code block. Anything inside .fx-scroll-x contributes zero to its
+   parent's min-content width. */
+.fx-scroll-x {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+}
+
+/* `overflow-wrap: break-word` prevents VISUAL overflow but does not
+   reduce an element's min-content contribution. Only `anywhere` does, so
+   any arithmetic that assumes text collapses needs this class on it. */
+.fx-break    { overflow-wrap: anywhere; word-break: break-word; }
+.fx-truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+
+/* ── Safe areas ─────────────────────────────────────────────────────────
+   Physical left/right rather than logical inline-start/end. env() insets
+   describe physical screen edges — the notch is on the left of the device
+   whatever the writing direction — so a logical property would put the
+   gutter on the wrong edge the moment anything is not LTR. */
+.fx-safe-bottom { padding-bottom: max(var(--fx-safe-b), 0px); }
+.fx-safe-top    { padding-top: max(var(--fx-safe-t), 0px); }
+.fx-safe-inset  {
+  padding-left: max(var(--fx-safe-l), 0px);
+  padding-right: max(var(--fx-safe-r), 0px);
+}
+.fx-safe-float-b { bottom: calc(var(--fx-safe-b) + 16px); }
+.fx-safe-float-t { top: calc(var(--fx-safe-t) + 16px); }
+.fx-safe-scroll-b { scroll-padding-bottom: calc(var(--fx-safe-b) + 16px); }
+
+/* ── The gate ───────────────────────────────────────────────────────────
+   The tokens come from the dark block above; this is only the paint and
+   the shape.
+
+   `color-scheme: dark` is not decoration either — it is what makes the
+   browser's own furniture (form controls, the scrollbar, the tap
+   highlight) dark inside this subtree. Without it a light-themed tablet
+   renders a white scrollbar down the side of a black screen.
+
+   100dvh, not 100vh: on a phone or tablet browser 100vh is the tallest
+   the viewport ever gets, so the action bar sits under the address bar
+   until the operator scrolls — at a door, with one hand. */
+.fx-gate {
+  color-scheme: dark;
+  background: var(--es-bg);
+  color: var(--es-text);
+  min-height: 100dvh;
+}
+
+}   /* end @layer components */
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Base
+
+   IN `@layer base`, FOR THE SAME REASON THE PRIMITIVES ARE LAYERED, and
+   this one shipped a real bug.
+
+   `a { color: inherit }` is an element selector — specificity (0,0,1),
+   lower than any class. Unlayered, none of that matters: it beat every
+   colour utility in the app, so EVERY LINK IGNORED ITS OWN COLOUR and
+   inherited from `body` instead. `text-accent`, `text-muted`,
+   `text-on-accent` — all inert on an `<a>`.
+
+   It was caught by Lighthouse, which reported a contrast failure of
+   1.74:1 on the active filter pill: white-on-emerald text rendering as
+   near-white on emerald because `text-on-accent` never applied. Chrome
+   confirmed it — the token resolved to #09090b and the computed colour
+   was #f4f4f5, the inherited one.
+
+   The heading rule did the same to headings: `h1,h2,h3,h4 { font-family;
+   letter-spacing }` defeated `font-mono` and every `tracking-*` written
+   on a heading.
+   ═══════════════════════════════════════════════════════════════════════ */
+@layer base {
+
+/* A guard, NOT a fix. It hides overflow rather than removing it, and
+   hidden overflow is unreachable rather than scrollable. Never move this
+   to `body`: declaring it there makes <body> a scroll container on
+   phones, which breaks every `position: sticky` and every `100dvh`.
+   To find what it is hiding, add .fx-debug-overflow to <html>. */
+html { overflow-x: clip; }
+
+body {
+  background: var(--es-bg);
+  color: var(--es-text);
+  font-family: var(--es-font-sans);
+  /* `md`, not `base`. The ported scale runs small — `--es-text-base` tops out
+     around 14.7px — which was tolerable on the old platform's dense dashboard
+     and is not on a storefront people read on a phone. The SCALE is kept as it
+     was; only which step body copy sits on is moved. */
+  font-size: var(--es-text-md);
+  line-height: var(--es-leading-normal);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--es-font-serif);
+  line-height: var(--es-leading-tight);
+  letter-spacing: var(--es-tracking-tight);
+  text-wrap: balance;
+}
+
+/* Digits that line up in a column — prices, seat numbers, order totals,
+   the hold countdown. Proportional figures make a price list ripple. */
+.es-nums, table td, table th { font-variant-numeric: tabular-nums; }
+
+a { color: inherit; text-decoration: none; }
+
+/* WCAG 2.4.7. :focus-visible, so a mouse click does not draw a ring but a
+   Tab key does. `outline` rather than `box-shadow` because a shadow is
+   clipped by any ancestor with overflow hidden — which is most cards.
+   Nothing in this codebase sets `outline: none`, deliberately. */
+:focus-visible {
+  outline: 2px solid var(--es-focus-ring-color);
+  outline-offset: 2px;
+  transition: outline-offset var(--es-duration-fast) var(--es-ease-bounce);
+}
+
+/* iOS Safari zooms the whole page when a focused control computes below
+   16px. It is not a preference and there is no opt-out: the viewport
+   scales, the layout jumps, and the buyer has to pinch back out to see
+   the field they just tapped. On a checkout form that is the difference
+   between a sale and a bounce. */
+@media (pointer: coarse) {
+  input, select, textarea { font-size: max(16px, 1em); }
+}
+
+/* WCAG 2.3.3. Not `animation: none` — a zero-length animation still
+   fires its events, so a component waiting on animationend still
+   proceeds instead of hanging. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+}   /* end @layer base */
+
+/* Lifts the overflow guard and outlines every element, so whatever is
+   pushing the page wide becomes visible. Add the class to <html> in
+   devtools; it is never applied by the app.
+
+   Deliberately UNLAYERED: it has to beat everything, which is the one
+   case where unlayered is the right answer rather than an accident. */
+.fx-debug-overflow { overflow-x: visible !important; }
+.fx-debug-overflow * { outline: 1px solid rgba(239, 68, 68, 0.4); }

@@ -1,0 +1,274 @@
+const { supabase } = require('../config/supabase');
+const pricing = require('../services/pricingService');
+const stripeSvc = require('../services/stripeService');
+const tickets = require('../services/ticketService');
+const { sendOk, sendFail, ERROR_STATUS } = require('../utils/responseEnvelope');
+const logger = require('../utils/logger');
+const accessTokens = require('../services/accessTokens');
+// Ticket delivery and retrieval live in one place; three callers need them and
+// a second copy would drift.
+const ticketCtrl = require('./ticketController');
+
+const statusFor = (code) => ERROR_STATUS[code] || 400;
+
+// ─── GET /public/reservations/:reservationId/quote ──────────────────────────
+/**
+ * Every amount the buyer will pay, itemised (BRD §04, §21).
+ *
+ * Recomputed from the database on each call rather than cached with the hold:
+ * an admin can change the tax or commission while someone is at the checkout
+ * screen, and the number they are shown must be the number they are charged.
+ */
+async function quote(req, res, next) {
+  try {
+    const q = await pricing.quoteReservation(req.params.reservationId);
+    return sendOk(res, pricing.publicBreakdown(q));
+  } catch (err) {
+    if (err.code) {
+      return sendFail(res, { status: statusFor(err.code), error: err.code, message: err.message });
+    }
+    return next(err);
+  }
+}
+
+// ─── POST /public/reservations/:reservationId/checkout ──────────────────────
+async function createSession(req, res, next) {
+  try {
+    if (!stripeSvc.enabled()) {
+      return sendFail(res, {
+        status: 402, error: 'PAYMENT_REQUIRED',
+        message: 'Card payments are not available for this event right now.',
+      });
+    }
+
+    const q = await pricing.quoteReservation(req.params.reservationId);
+
+    // Guests must identify themselves — the ticket has to reach someone, and a
+    // refund conversation with the organizer needs a name attached to it.
+    const buyer = {
+      userId: req.user?.id || null,
+      name: (req.body.name || req.user?.access?.fullName || '').trim(),
+      email: (req.body.email || req.user?.email || '').trim().toLowerCase(),
+      phone: (req.body.phone || '').trim(),
+    };
+    if (!buyer.email) {
+      return sendFail(res, {
+        status: 400, error: 'VALIDATION_ERROR',
+        message: 'Enter an email address — your tickets are sent there.',
+      });
+    }
+
+    // BRD §02 — the buyer accepts the terms before paying. Recorded against the
+    // version they were shown, not a boolean.
+    const terms = require('../services/termsService');
+    if (req.body.acceptTerms) {
+      const current = await terms.currentVersion('buyer');
+      await terms.accept({
+        userId: buyer.userId, termsId: current.id, eventId: q.event.id, req,
+      }).catch((e) => logger.warn({ err: e.message }, 'buyer terms acceptance not recorded'));
+    }
+
+    const payable = await stripeSvc.organizerCanReceive(q.event.organizer_id);
+    if (!payable.ok) {
+      // The buyer is not told which organizer setting is missing — that is the
+      // organizer's business, and it is not something the buyer can act on.
+      logger.warn({ eventId: q.event.id, reason: payable.reason }, 'checkout blocked: organizer cannot receive');
+      return sendFail(res, {
+        status: 403, error: payable.reason,
+        message: 'This event cannot take payments at the moment. Please try again later.',
+      });
+    }
+
+    const origin = safeOrigin(req);
+    const session = await stripeSvc.createCheckoutSession({
+      reservationId: req.params.reservationId,
+      quote: q,
+      buyer,
+      origin,
+      accountId: payable.accountId,
+    });
+
+    // Stashed so the webhook can attribute the order without trusting anything
+    // the browser sends back.
+    await supabase.from('reservations')
+      .update({ attendee_data: { buyer } })
+      .eq('id', req.params.reservationId);
+
+    return sendOk(res, { checkoutUrl: session.url, sessionId: session.id });
+  } catch (err) {
+    if (err.code && ERROR_STATUS[err.code]) {
+      return sendFail(res, { status: statusFor(err.code), error: err.code, message: err.message });
+    }
+    return next(err);
+  }
+}
+
+/**
+ * The redirect target must come from OUR allowlist, never from the request.
+ *
+ * `origin` and `referer` are attacker-controlled: echoing either into
+ * success_url turns our checkout into an open redirect that a phishing page can
+ * point at itself, wearing our domain in the link the buyer clicked.
+ */
+function safeOrigin(req) {
+  const allowed = String(process.env.FRONTEND_URL || '')
+    .split(',').map((s) => s.trim().replace(/\/$/, '')).filter(Boolean);
+
+  const claimed = String(req.headers.origin || '').replace(/\/$/, '');
+  return allowed.includes(claimed) ? claimed : allowed[0] || 'http://localhost:3000';
+}
+
+// ─── GET /public/checkout/:sessionId ────────────────────────────────────────
+/**
+ * The success page.
+ *
+ * Fulfils synchronously if the webhook has not landed yet. The webhook is the
+ * authority and will arrive, but it can be seconds behind the redirect, and a
+ * buyer staring at "processing..." after paying assumes it failed. Both paths
+ * call the same idempotent function, so whichever gets there first wins and the
+ * other returns the same order.
+ */
+async function checkoutResult(req, res, next) {
+  try {
+    const session = await stripeSvc.retrieveSession(req.params.sessionId);
+
+    if (session.payment_status !== 'paid') {
+      return sendOk(res, { status: session.payment_status, order: null });
+    }
+
+    const reservationId = session.metadata?.reservation_id;
+    const { data: existing } = await supabase
+      .from('orders')
+      .select('id, currency, buyer_total_cents, quantity')
+      .eq('reservation_id', reservationId)
+      .maybeSingle();
+
+    let orderId = existing?.id;
+    if (!orderId) {
+      const result = await fulfillFromSession(session);
+      if (!result.ok) {
+        return sendFail(res, {
+          status: statusFor(result.error), error: result.error, message: result.message,
+        });
+      }
+      orderId = result.order_id;
+    }
+
+    const { data: order } = await supabase
+      .from('orders')
+      .select('id, currency, buyer_total_cents, quantity, guest_email, created_at, paid_at')
+      .eq('id', orderId).single();
+
+    /**
+     * A Stripe session id is NOT a durable credential.
+     *
+     * It arrives in the URL bar, and from there it reaches browser history, the
+     * `Referer` header of every third-party asset on the success page, and any
+     * analytics running there. Serving QR codes to whoever holds one means
+     * anyone who later reads that URL has a working ticket.
+     *
+     * So it buys a short window — long enough for the success page to render
+     * and survive a refresh, and nothing after that. Beyond it the order still
+     * shows, but the codes come from the emailed link or a signed-in account.
+     */
+    const paidAt = new Date(order.paid_at || order.created_at).getTime();
+    const withinWindow = Date.now() - paidAt < ticketCtrl.SESSION_TICKET_WINDOW_MINUTES * 60_000;
+
+    // Issued so the page can keep working without ever going back to the
+    // session id — and so a refresh an hour later still shows the tickets.
+    const accessToken = accessTokens.issueOrderToken(orderId);
+
+    return sendOk(res, {
+      status: 'paid',
+      order: {
+        id: order.id,
+        currency: order.currency,
+        totalCents: order.buyer_total_cents,
+        // Masked. The success page already knows who is looking at it; printing
+        // the full address means anyone who reads this URL learns it too.
+        email: maskEmail(order.guest_email),
+        createdAt: order.created_at,
+      },
+      accessToken,
+      tickets: withinWindow ? await tickets.forOrder(orderId) : [],
+      ticketsWithheld: !withinWindow,
+      ...(withinWindow ? {} : {
+        message: 'For security, entry codes are not shown on this link any more. '
+               + 'Open the link in your confirmation email, or sign in to see them.',
+      }),
+    });
+  } catch (err) { return next(err); }
+}
+
+/** `someone@example.com` → `so•••••@example.com` */
+function maskEmail(addr) {
+  if (!addr || !addr.includes('@')) return null;
+  const [user, domain] = addr.split('@');
+  const head = user.slice(0, 2);
+  return `${head}${'•'.repeat(Math.max(3, user.length - 2))}@${domain}`;
+}
+
+/**
+ * Shared by the webhook and the success page.
+ *
+ * The breakdown is RECOMPUTED here rather than read from the session: what we
+ * store must be what our own arithmetic says, and re-deriving it means a
+ * tampered or stale session cannot write false numbers into the ledger.
+ */
+async function fulfillFromSession(session) {
+  const reservationId = session.metadata?.reservation_id;
+  if (!reservationId) {
+    return { ok: false, error: 'VALIDATION_ERROR', message: 'That payment carries no reservation.' };
+  }
+
+  const { data: reservation } = await supabase
+    .from('reservations').select('attendee_data, state').eq('id', reservationId).maybeSingle();
+
+  // A hold already converted is the normal retry case, and quoteReservation
+  // would refuse it. Let the RPC answer instead — it returns the original order.
+  let breakdown = null;
+  if (reservation?.state === 'active') {
+    const q = await pricing.quoteReservation(reservationId);
+    breakdown = q.breakdown;
+  }
+
+  const buyer = reservation?.attendee_data?.buyer || {};
+
+  const { data: result, error } = await supabase.rpc('fulfill_checkout', {
+    p_reservation_id: reservationId,
+    p_channel: 'stripe',
+    p_breakdown: breakdown || {},
+    p_buyer: {
+      user_id: buyer.userId || null,
+      name: buyer.name || session.customer_details?.name || null,
+      email: buyer.email || session.customer_details?.email || null,
+      phone: buyer.phone || null,
+    },
+    p_stripe: {
+      session_id: session.id,
+      payment_intent_id: typeof session.payment_intent === 'string'
+        ? session.payment_intent : session.payment_intent?.id || null,
+    },
+  });
+
+  if (error) {
+    logger.error({ err: error.message, reservationId }, 'fulfilment failed');
+    return { ok: false, error: 'CONFLICT', message: 'We could not complete that order.' };
+  }
+
+  // Deliver the tickets. Deliberately AFTER fulfilment and never awaited into
+  // the result: the order is complete whether or not the email lands, and a
+  // provider outage must not roll back a payment we have already taken.
+  if (result?.ok && !result.already_fulfilled) {
+    // One implementation, in ticketController. The copy that used to live here
+    // embedded `profiles ( email )` on `orders`, which is ambiguous — there are
+    // two foreign keys to profiles, `user_id` and `recorded_by` — so PostgREST
+    // refused it and EVERY ticket email failed silently. It never surfaced
+    // because this path only runs after a real Stripe fulfilment.
+    ticketCtrl.sendTicketEmail(result.order_id).catch((e) =>
+      logger.error({ err: e.message, orderId: result.order_id }, 'ticket email failed'));
+  }
+  return result;
+}
+
+module.exports = { quote, createSession, checkoutResult, fulfillFromSession };

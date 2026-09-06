@@ -1,0 +1,53 @@
+# ── Secrets ──────────────────────────────────────────────────────────────
+# Never commit these. Production values live on the VPS only.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# The owner's working notes. This folder holds the LIVE Stripe secret key, the
+# Supabase service_role JWT and the database password in plain text — it is the
+# single most dangerous thing in this tree and it must never reach a remote.
+# Excluded by name AND by the two patterns below, because a folder named in
+# Arabic is easy to mistype and a near-miss here is silent.
+ملف التقرير المالي eventsli/
+*التقرير المالي*
+**/New Text Document.txt
+
+# ── Dependencies ─────────────────────────────────────────────────────────
+node_modules/
+.pnp
+.pnp.js
+
+# ── Next.js ──────────────────────────────────────────────────────────────
+.next/
+out/
+build/
+next-env.d.ts
+
+# ── Logs ─────────────────────────────────────────────────────────────────
+logs/
+*.log
+npm-debug.log*
+yarn-error.log*
+
+# ── Supabase CLI local state ─────────────────────────────────────────────
+supabase/.temp/
+supabase/.branches/
+
+# ── Test output ──────────────────────────────────────────────────────────
+coverage/
+test-results/
+playwright-report/
+
+# ── OS / editor ──────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# ── Scratch ──────────────────────────────────────────────────────────────
+scratch/
+*.local

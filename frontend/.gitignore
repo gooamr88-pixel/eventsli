@@ -1,0 +1,12 @@
+# Next
+/.next/
+/out/
+next-env.d.ts
+
+# Local env — REVALIDATE_SECRET lives here and must match backend/.env
+.env
+.env.local
+.env*.local
+
+# Test output
+/coverage/
