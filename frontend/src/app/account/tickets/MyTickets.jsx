@@ -7,6 +7,7 @@ import { describeError } from '../../utils/errors';
 import { formatMoney } from '../../utils/money';
 import TicketStub from '../../components/TicketStub';
 import TransferDialog from './TransferDialog';
+import { Loading } from '../../components/Feedback';
 
 /**
  * Every ticket this account has, grouped by the order that bought it.
@@ -45,11 +46,11 @@ export default function MyTickets() {
     );
   }
 
-  if (!orders) return <p className="text-sm text-subtle">Loading your tickets…</p>;
+  if (!orders) return <Loading variant="list" />;
 
   if (orders.length === 0) {
     return (
-      <div className="rounded-[--es-radius-lg] border border-dashed border-border-strong p-10 text-center">
+      <div className="es-empty">
         <p className="text-muted">No tickets yet.</p>
         <Link href="/events" className="mt-2 inline-block text-sm text-accent">
           Find something to go to

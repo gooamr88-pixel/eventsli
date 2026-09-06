@@ -40,7 +40,7 @@ export default function FindTicketForm() {
 
   if (sent) {
     return (
-      <div className="fx-stack fx-stack--sm rounded-[--es-radius-lg] border border-border-base bg-surface p-5">
+      <div className="fx-stack fx-stack--sm es-card p-5">
         <p className="text-ink">Check your inbox.</p>
         <p className="text-sm text-muted">
           If an order exists for <span className="text-ink">{email}</span>, the link is on its
@@ -67,7 +67,7 @@ export default function FindTicketForm() {
         autoComplete="email"
         placeholder="you@example.com"
         aria-label="Email address"
-        className="rounded-[--es-radius-md] border border-border-strong bg-surface px-3 py-2.5 text-sm text-ink placeholder:text-subtle"
+        className="es-input"
       />
 
       {error && (
@@ -77,7 +77,7 @@ export default function FindTicketForm() {
       <button
         type="submit"
         disabled={busy || email.trim().length < 5}
-        className="rounded-[--es-radius-md] bg-accent px-4 py-2.5 text-sm font-medium text-on-accent transition-colors hover:bg-accent-hover disabled:opacity-40"
+        className="es-btn es-btn--primary"
       >
         {busy ? 'Sending…' : 'Send my tickets'}
       </button>

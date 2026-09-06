@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { get } from '../../../../utils/apiClient';
-import { describeError } from '../../../../utils/errors';
 import { formatMoney } from '../../../../utils/money';
+import { Loading, ErrorNotice } from '../../../../components/Feedback';
 
 /**
  * Every order, both channels.
@@ -69,7 +69,7 @@ export default function Orders({ eventId }) {
           onChange={(e) => setQ(e.target.value)}
           placeholder="Name or email"
           aria-label="Search orders"
-          className="fx-min0 flex-1 rounded-[--es-radius-md] border border-border-strong bg-surface px-3 py-2 text-sm text-ink placeholder:text-subtle"
+          className="fx-min0 flex-1 es-input"
         />
         <button type="submit" className="rounded-[--es-radius-md] border border-border-strong px-3 py-2 text-sm text-ink">
           Search
@@ -77,18 +77,18 @@ export default function Orders({ eventId }) {
       </form>
 
       {error ? (
-        <p className="text-sm text-muted">{describeError(error).recovery}</p>
+        <ErrorNotice error={error} />
       ) : !rows ? (
-        <p className="text-sm text-subtle">Loading…</p>
+        <Loading variant="list" />
       ) : rows.length === 0 ? (
-        <div className="rounded-[--es-radius-lg] border border-dashed border-border-strong p-8 text-center">
+        <div className="es-empty">
           <p className="text-muted">No orders match.</p>
         </div>
       ) : (
         /* Tables have unbounded min-content width — the sum of their columns —
            so this one scrolls in its own container rather than pushing the page
            sideways on a phone. */
-        <div className="fx-scroll-x rounded-[--es-radius-lg] border border-border-base bg-surface">
+        <div className="fx-scroll-x es-card">
           <table className="w-full min-w-[640px] text-sm">
             <thead>
               <tr className="border-b border-border-base text-left">
@@ -137,7 +137,7 @@ function Totals({ meta }) {
   return (
     <div className="fx-grid fx-grid--3">
       {entries.map(([currency, t]) => (
-        <div key={currency} className="fx-stack fx-stack--sm rounded-[--es-radius-lg] border border-border-base bg-surface p-4">
+        <div key={currency} className="fx-stack fx-stack--sm es-card p-4">
           <p className="font-mono text-[10px] uppercase tracking-[0.09em] text-subtle">
             {currency} · everything matching, not just this page
           </p>

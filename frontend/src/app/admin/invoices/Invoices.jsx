@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { get, post } from '../../utils/apiClient';
-import { describeError } from '../../utils/errors';
 import { formatMoney } from '../../utils/money';
 import FormError from '../../components/forms/FormError';
+import { Loading, Empty, ErrorNotice } from '../../components/Feedback';
 
 /**
  * Commission invoices, across every event.
@@ -66,13 +66,14 @@ export default function Invoices() {
       </div>
 
       {error ? (
-        <p className="text-sm text-muted">{describeError(error).recovery}</p>
+        <ErrorNotice error={error} />
       ) : !rows ? (
-        <p className="text-sm text-subtle">Loading…</p>
+        <Loading variant="list" />
       ) : rows.length === 0 ? (
-        <div className="rounded-[--es-radius-lg] border border-dashed border-border-strong p-8 text-center">
-          <p className="text-muted">Nothing here.</p>
-        </div>
+        <Empty
+          title="No invoices in this state."
+          hint="Try another filter — an invoice only appears once its event has finished."
+        />
       ) : (
         <ul className="fx-stack fx-stack--sm">
           {rows.map((invoice) => (
@@ -111,7 +112,7 @@ function InvoiceRow({ invoice, onChanged }) {
   }
 
   return (
-    <li className="fx-stack fx-stack--sm rounded-[--es-radius-lg] border border-border-base bg-surface p-4">
+    <li className="fx-stack fx-stack--sm es-card p-4">
       <div className="fx-row fx-row--between">
         <div className="fx-min0">
           <p className="fx-break text-ink">{invoice.event?.title || 'Event'}</p>
@@ -163,7 +164,7 @@ function InvoiceRow({ invoice, onChanged }) {
               onChange={(e) => setNote(e.target.value)}
               placeholder="Note for the audit log"
               aria-label="Settlement note"
-              className="rounded-[--es-radius-md] border border-border-strong bg-surface px-3 py-2 text-sm text-ink placeholder:text-subtle"
+              className="es-input"
             />
             <div className="fx-row fx-row--between">
               <button type="button" onClick={() => setConfirming(false)} className="text-sm text-muted hover:text-ink">
@@ -173,7 +174,7 @@ function InvoiceRow({ invoice, onChanged }) {
                 type="button"
                 disabled={busy}
                 onClick={settle}
-                className="rounded-[--es-radius-md] bg-accent px-4 py-2 text-sm font-medium text-on-accent disabled:opacity-40"
+                className="es-btn es-btn--primary"
               >
                 {busy ? 'Settling…' : 'Money received — settle it'}
               </button>

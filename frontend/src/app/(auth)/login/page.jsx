@@ -1,5 +1,6 @@
 import { Suspense } from 'react';
 import LoginForm from './LoginForm';
+import { Loading } from '../../components/Feedback';
 
 export const metadata = {
   title: 'Sign in',
@@ -10,7 +11,7 @@ export default function LoginPage() {
   return (
     // useSearchParams needs a Suspense boundary, or the whole route opts out of
     // static rendering and the build says so.
-    <Suspense fallback={<p className="text-sm text-subtle">Loading…</p>}>
+    <Suspense fallback={<Loading variant="card" />}>
       <LoginForm />
     </Suspense>
   );

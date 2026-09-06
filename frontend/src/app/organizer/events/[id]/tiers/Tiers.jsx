@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { get, post, patch, del } from '../../../../utils/apiClient';
-import { describeError } from '../../../../utils/errors';
 import { formatMoney } from '../../../../utils/money';
 import Field from '../../../../components/forms/Field';
 import FormError from '../../../../components/forms/FormError';
 import SubmitButton from '../../../../components/forms/SubmitButton';
+import { Loading, ErrorNotice } from '../../../../components/Feedback';
 
 /**
  * Ticket types — the named price bands.
@@ -42,8 +42,8 @@ export default function Tiers({ eventId }) {
 
   const refresh = () => setReload((n) => n + 1);
 
-  if (error) return <p className="text-sm text-muted">{describeError(error).recovery}</p>;
-  if (!tiers) return <p className="text-sm text-subtle">Loading…</p>;
+  if (error) return <ErrorNotice error={error} />;
+  if (!tiers) return <Loading variant="list" />;
 
   return (
     <div className="fx-stack">
@@ -56,7 +56,7 @@ export default function Tiers({ eventId }) {
       </div>
 
       {tiers.length === 0 ? (
-        <div className="rounded-[--es-radius-lg] border border-dashed border-border-strong p-8 text-center">
+        <div className="es-empty">
           <p className="text-muted">No ticket types yet.</p>
         </div>
       ) : (
@@ -105,7 +105,7 @@ function TierRow({ eventId, tier, onChanged }) {
   }
 
   return (
-    <li className="fx-stack fx-stack--sm rounded-[--es-radius-lg] border border-border-base bg-surface p-4">
+    <li className="fx-stack fx-stack--sm es-card p-4">
       <div className="fx-row fx-row--between">
         <div className="fx-min0">
           <p className="fx-break text-ink">{tier.name}</p>
@@ -199,7 +199,7 @@ function TierForm({ eventId, onDone, onCancel }) {
   return (
     <form
       onSubmit={submit}
-      className="fx-stack fx-stack--sm rounded-[--es-radius-lg] border border-border-base bg-surface p-4"
+      className="fx-stack fx-stack--sm es-card p-4"
     >
       <Field
         label="Name" name="name" required maxLength={80} autoFocus

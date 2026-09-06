@@ -9,6 +9,7 @@ import { describeError, isSelectionLost } from '../../../utils/errors';
 import { formatMoney } from '../../../utils/money';
 import { useReservation } from '../../../hooks/useReservation';
 import { useTableAccess } from './useTableAccess';
+import { Loading } from '../../../components/Feedback';
 
 /**
  * The buyer's half of the seat map: selection, the private-table gate, and the
@@ -186,7 +187,7 @@ export default function SeatPicker({ slug, currency, purchaseMode, maxPerOrder }
   if (!map) {
     return (
       <div className="grid h-[420px] place-items-center rounded-[--es-radius-lg] border border-border-base bg-bg-sunken">
-        <p className="text-sm text-subtle">Loading the seat map…</p>
+        <Loading variant="card" />
       </div>
     );
   }
@@ -261,7 +262,7 @@ function SelectionBar({ count, subtotal, currency, label, busy, onContinue, onCl
   return (
     /* Sticky to the bottom: on a phone the map fills the screen, so an action
        bar above it scrolls away the moment you start choosing. */
-    <div className="fx-safe-bottom sticky bottom-0 z-[--es-z-sticky] rounded-[--es-radius-lg] border border-border-base bg-surface p-3 shadow-lg">
+    <div className="fx-safe-bottom sticky bottom-0 z-[--es-z-sticky] es-card p-3 shadow-lg">
       <div className="fx-row fx-row--between">
         <div className="fx-min0">
           {count > 0 ? (
@@ -281,7 +282,7 @@ function SelectionBar({ count, subtotal, currency, label, busy, onContinue, onCl
 
         <div className="fx-row">
           {count > 0 && (
-            <button type="button" onClick={onClear} className="text-sm text-muted hover:text-ink">
+            <button type="button" onClick={onClear} className="es-btn es-btn--ghost es-btn--sm">
               Clear
             </button>
           )}
@@ -289,7 +290,11 @@ function SelectionBar({ count, subtotal, currency, label, busy, onContinue, onCl
             type="button"
             disabled={count === 0 || busy}
             onClick={onContinue}
-            className="rounded-[--es-radius-md] bg-accent px-4 py-2.5 text-sm font-medium text-on-accent transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+            /* `aria-busy` as well as `disabled`, and the label changes rather
+               than being replaced by a spinner: a spinner alone announces
+               nothing, and this is the control that spends money. */
+            aria-busy={busy || undefined}
+            className="es-btn es-btn--primary"
           >
             {busy ? 'Holding…' : 'Continue'}
           </button>

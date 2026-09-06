@@ -70,7 +70,7 @@ export default function CreateProfile({ onCreated }) {
             id="org-country"
             value={form.country}
             onChange={(e) => setForm((f) => ({ ...f, country: e.target.value }))}
-            className="rounded-[--es-radius-md] border border-border-strong bg-surface px-3 py-2.5 text-sm text-ink"
+            className="es-input"
           >
             {COUNTRIES.map(([code, name]) => (
               <option key={code} value={code}>{name}</option>

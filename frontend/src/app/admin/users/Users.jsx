@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { get, post, patch } from '../../utils/apiClient';
-import { describeError } from '../../utils/errors';
 import { useAuth } from '../../hooks/useAuth';
 import FormError from '../../components/forms/FormError';
+import { Loading, Empty, ErrorNotice } from '../../components/Feedback';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -82,7 +82,7 @@ export default function Users() {
           onChange={(e) => setQ(e.target.value)}
           placeholder="Name or email"
           aria-label="Search people"
-          className="fx-min0 flex-1 rounded-[--es-radius-md] border border-border-strong bg-surface px-3 py-2 text-sm text-ink placeholder:text-subtle"
+          className="fx-min0 flex-1 es-input"
         />
         <button type="submit" className="rounded-[--es-radius-md] border border-border-strong px-3 py-2 text-sm text-ink">
           Search
@@ -90,13 +90,14 @@ export default function Users() {
       </form>
 
       {error ? (
-        <p className="text-sm text-muted">{describeError(error).recovery}</p>
+        <ErrorNotice error={error} />
       ) : !rows ? (
-        <p className="text-sm text-subtle">Loading…</p>
+        <Loading variant="list" />
       ) : rows.length === 0 ? (
-        <div className="rounded-[--es-radius-lg] border border-dashed border-border-strong p-8 text-center">
-          <p className="text-muted">Nobody matches.</p>
-        </div>
+        <Empty
+          title="Nobody matches."
+          hint="Search by email or name. Partial matches count."
+        />
       ) : (
         <ul className="fx-stack fx-stack--sm">
           {rows.map((row) => (
@@ -155,7 +156,7 @@ function UserRow({ row, me, onChanged }) {
   const startReason = (kind, path) => { setConfirming({ kind, path }); setReason(''); setError(null); };
 
   return (
-    <li className="fx-stack fx-stack--sm rounded-[--es-radius-lg] border border-border-base bg-surface p-4">
+    <li className="fx-stack fx-stack--sm es-card p-4">
       <div className="fx-row fx-row--between">
         <div className="fx-min0">
           <p className="fx-truncate text-ink">
@@ -182,7 +183,7 @@ function UserRow({ row, me, onChanged }) {
                 disabled={busy !== null}
                 onChange={(e) => act(`/admin/users/${row.id}/role`, { role: e.target.value }, 'patch')}
                 aria-label={`Role for ${row.email}`}
-                className="rounded-[--es-radius-md] border border-border-strong bg-surface px-2 py-1.5 text-sm text-ink disabled:opacity-40"
+                className="es-input es-input--sm"
               >
                 {ROLES.map(([v, l]) => (
                   <option
@@ -262,7 +263,7 @@ function UserRow({ row, me, onChanged }) {
             maxLength={1000}
             value={reason}
             onChange={(e) => setReason(e.target.value)}
-            className="rounded-[--es-radius-md] border border-border-strong bg-surface px-3 py-2 text-sm text-ink"
+            className="es-input"
           />
           <p className="text-xs text-subtle">Kept in the audit log.</p>
           <div className="fx-row fx-row--between">

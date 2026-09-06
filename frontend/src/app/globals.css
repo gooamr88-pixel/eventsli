@@ -193,6 +193,29 @@
   --es-shadow-lg: 0 8px 30px rgba(15, 23, 42, 0.15), 0 2px 6px rgba(15, 23, 42, 0.08);
   --es-shadow-xl: 0 16px 50px rgba(15, 23, 42, 0.20), 0 4px 12px rgba(15, 23, 42, 0.10);
 
+  /* Two shadows that are not a step on the ramp above, because they do a
+     different job. The ramp separates a surface from the page by a few
+     pixels; these two make an IMAGE read as an object.
+
+     The observation is fancy's and it is the single largest reason its
+     pages look like a product and these ones looked like a wireframe: a
+     screenshot with a 1px border reads as something somebody pasted in,
+     and the identical pixels under a long, low shadow read as software
+     being shown to you. Same image, different claim about it.
+
+     `plate`  — cover art or a ticket held as a physical thing.
+     `window` — a screenshot presented in a frame (see .es-plate below).
+
+     Both are long (large blur, negative spread) and start well below the
+     element, which is what separates "lifted" from "glowing". */
+  --es-shadow-plate:
+    0 46px 92px -26px rgba(15, 23, 42, 0.32),
+    0 10px 24px -10px rgba(15, 23, 42, 0.16),
+    0 0 0 1px rgba(15, 23, 42, 0.05);
+  --es-shadow-window:
+    0 54px 110px -34px rgba(15, 23, 42, 0.30),
+    0 14px 34px -14px rgba(15, 23, 42, 0.14);
+
   /* ── Motion ─────────────────────────────────────────────────────────
      Ported verbatim. Named curves rather than `ease-in-out` everywhere:
      `--es-ease-spring` on a card lift and `--es-ease-bounce` on a button
@@ -260,6 +283,18 @@
     --es-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.6), 0 1px 3px rgba(0, 0, 0, 0.4);
     --es-shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.7), 0 2px 6px rgba(0, 0, 0, 0.5);
     --es-shadow-xl: 0 16px 50px rgba(0, 0, 0, 0.8), 0 4px 12px rgba(0, 0, 0, 0.5);
+
+    /* On a near-black ground a shadow cannot separate anything — there is
+       no lighter surface for it to fall on. So the hairline carries the
+       edge instead and goes from 5% black to 8% WHITE, and the shadow
+       stays only to keep the object from sitting flat on the page. */
+    --es-shadow-plate:
+      0 46px 92px -26px rgba(0, 0, 0, 0.75),
+      0 10px 24px -10px rgba(0, 0, 0, 0.55),
+      0 0 0 1px rgba(255, 255, 255, 0.08);
+    --es-shadow-window:
+      0 54px 110px -34px rgba(0, 0, 0, 0.72),
+      0 14px 34px -14px rgba(0, 0, 0, 0.5);
   }
 }
 
@@ -308,6 +343,16 @@
   --es-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.6), 0 1px 3px rgba(0, 0, 0, 0.4);
   --es-shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.7), 0 2px 6px rgba(0, 0, 0, 0.5);
   --es-shadow-xl: 0 16px 50px rgba(0, 0, 0, 0.8), 0 4px 12px rgba(0, 0, 0, 0.5);
+
+  /* Same reasoning as the media-query block above: on a dark ground the
+     hairline carries the edge, so it inverts to white at 8%. */
+  --es-shadow-plate:
+    0 46px 92px -26px rgba(0, 0, 0, 0.75),
+    0 10px 24px -10px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(255, 255, 255, 0.08);
+  --es-shadow-window:
+    0 54px 110px -34px rgba(0, 0, 0, 0.72),
+    0 14px 34px -14px rgba(0, 0, 0, 0.5);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -372,6 +417,8 @@
   --shadow-md: var(--es-shadow-md);
   --shadow-lg: var(--es-shadow-lg);
   --shadow-xl: var(--es-shadow-xl);
+  --shadow-plate:  var(--es-shadow-plate);
+  --shadow-window: var(--es-shadow-window);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -429,6 +476,20 @@
   --fx-w-xs: 32rem;  --fx-w-sm: 40rem;  --fx-w-md: 48rem;
   --fx-w-lg: 64rem;  --fx-w-xl: 72rem;  --fx-w-2xl: 80rem;
   --fx-w-wide: 96rem;
+
+  /* The minimum comfortable hit area — WCAG 2.5.8 asks for 24×24 and every
+     platform guideline asks for 44. Named here so the next control is not
+     28px because nobody looked the number up.
+
+     fancy carries this as `--fx-touch` too, and also carries a "reading
+     floor" set (`--fx-micro/--fx-label/--fx-meta/--fx-body`) that is NOT
+     ported. Those exist there because its dashboard is written in ~5,770
+     inline `style={{}}` objects, where a class cannot beat a `fontSize` and
+     the only reachable fix is a property the call site reads. This codebase
+     has twelve inline styles and a type scale already mapped onto the
+     utility names, so importing them would be a second type scale competing
+     with `--es-text-*` — the exact duplication this file exists to prevent. */
+  --fx-touch: 44px;
 
   --fx-safe-l: env(safe-area-inset-left, 0px);
   --fx-safe-r: env(safe-area-inset-right, 0px);
@@ -585,6 +646,77 @@
 .fx-safe-float-t { top: calc(var(--fx-safe-t) + 16px); }
 .fx-safe-scroll-b { scroll-padding-bottom: calc(var(--fx-safe-b) + 16px); }
 
+/* ── .fx-touch — the minimum hit area ───────────────────────────────────
+   A text link in a nav is as tall as its line box, which on a phone is
+   about 20px. Two of them stacked are 20px apart and both are missed. */
+.fx-touch {
+  min-height: var(--fx-touch);
+  display: inline-flex;
+  align-items: center;
+}
+.fx-touch--icon { min-width: var(--fx-touch); justify-content: center; }
+
+/* ── Visibility by breakpoint ───────────────────────────────────────────
+   NO `!important`, unlike the codebase these came from, and the difference
+   is source order rather than a compromise. Each pair is one class name at
+   equal specificity (0,1,0), so the rule inside the media query wins simply
+   by coming second — which is also why these must stay adjacent. Splitting
+   a pair puts an unrelated rule between them and the toggle stops working
+   in one direction only, which is the hardest kind of bug to see.
+
+   `revert`, not `block`: the element keeps whatever display its own tag or
+   utility class gives it. Forcing `block` here turns every `fx-row` that is
+   also `fx-hide-below-md` into a block at 768px and collapses the row. */
+.fx-only-below-md { display: revert; }
+@media (width >= 48rem) { .fx-only-below-md { display: none; } }
+
+.fx-hide-below-md { display: none; }
+@media (width >= 48rem) { .fx-hide-below-md { display: revert; } }
+
+.fx-hide-below-lg { display: none; }
+@media (width >= 64rem) { .fx-hide-below-lg { display: revert; } }
+
+.fx-hide-from-lg { display: revert; }
+@media (width >= 64rem) { .fx-hide-from-lg { display: none; } }
+
+/* ── .fx-disclose — chrome that collapses on a phone ────────────────────
+   A filter bar, a set of secondary controls: worth a column on a desktop,
+   worth a tap on a phone. The summary button exists only below md; above
+   it the body is always open and the button is gone, so no state has to be
+   synchronised across the breakpoint. */
+.fx-disclose__body { display: none; }
+.fx-disclose__body--open { display: block; margin-top: var(--fx-gap-sm); }
+@media (width >= 48rem) {
+  .fx-disclose__body { display: block; }
+  .fx-disclose__summary { display: none; }
+}
+
+/* ── .fx-sticky-actions — a bar that survives scrolling ─────────────────
+   The seat picker and the checkout both end in a decision the person has
+   to be able to reach without scrolling back to it. Sticky on a phone,
+   static on a desktop where the whole form is already visible.
+
+   `bottom` clears the home indicator: max() of the design offset and the
+   real inset, so it is 16px on a device with no inset and 16px above the
+   bar on one that has it. */
+.fx-sticky-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: var(--es-z-sticky);
+  background: var(--es-surface);
+  border-top: 1px solid var(--es-border);
+  padding: var(--fx-gap-sm) max(var(--fx-pad-x), var(--fx-safe-l));
+  padding-bottom: max(var(--fx-gap-sm), calc(var(--fx-safe-b) + 8px));
+}
+@media (width >= 48rem) {
+  .fx-sticky-actions {
+    position: static;
+    background: transparent;
+    border-top: 0;
+    padding-inline: 0;
+  }
+}
+
 /* ── The gate ───────────────────────────────────────────────────────────
    The tokens come from the dark block above; this is only the paint and
    the shape.
@@ -602,6 +734,482 @@
   background: var(--es-bg);
   color: var(--es-text);
   min-height: 100dvh;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   THE COMPONENT VOCABULARY — es-*
+
+   WHY THIS EXISTS. Before it, the primary button was written out in full
+   at every call site:
+
+     rounded-[--es-radius-md] bg-accent px-5 py-2.5 text-sm font-medium
+     text-on-accent transition-colors hover:bg-accent-hover
+
+   Nine utilities, copied by hand. The homepage, the login form and the
+   checkout each carried their own copy, and they had already drifted —
+   px-5/py-2.5 on the homepage, px-4/py-2 in the forms. Nothing was broken
+   enough to notice, which is exactly the problem: a button that is 4px
+   shorter on one page than another is invisible in review and is most of
+   what "looks cheap" actually means. The eyebrow label and the two badge
+   pills had each been copied twice already at 105 lines of component.
+
+   These are CLASSES, not React components, deliberately. A `<Button>`
+   would have to grow a prop for every variant the app needs and would
+   stop `<Link>`, `<button>` and `<a>` sharing one look. A class applies to
+   all three and composes with a utility written beside it — which works
+   because these sit in `@layer components` and utilities win (see the
+   note on the layer above).
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── .es-btn ────────────────────────────────────────────────────────────
+   `inline-flex` + `min-height` rather than vertical padding: padding makes
+   the height depend on the line box, so a button with an icon in it grows
+   and one beside it does not. A floor makes every button in a row agree.
+
+   `white-space: nowrap` because a two-word label that wraps turns a 40px
+   control into a 60px one and breaks the row it sits in. If a label is
+   long enough to wrap, the label is wrong. */
+.es-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: var(--fx-touch);
+  padding-inline: 1.25rem;
+  border-radius: var(--es-radius-md);
+  border: 1px solid transparent;
+  font-family: var(--es-font-sans);
+  font-size: var(--es-text-base);
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color var(--es-transition-fast),
+    border-color var(--es-transition-fast),
+    color var(--es-transition-fast),
+    transform var(--es-transition-fast);
+}
+
+/* 1px down on press, and nothing on hover. A button that MOVES on hover
+   makes a toolbar shimmer as the pointer crosses it; one that moves on
+   press confirms the press. The reduced-motion block below zeroes the
+   duration, not the transform, so the confirmation survives for someone
+   who asked for less motion — it is feedback, not decoration. */
+.es-btn:active { transform: translateY(1px); }
+
+.es-btn--primary {
+  background: var(--es-accent);
+  color: var(--es-text-on-accent);
+}
+.es-btn--primary:hover { background: var(--es-accent-hover); }
+
+/* The outline button. `--es-border-strong`, not `--es-border`: at 1px on a
+   near-white page the softer one is invisible and the control reads as
+   text somebody forgot to style. */
+.es-btn--secondary {
+  background: var(--es-surface);
+  border-color: var(--es-border-strong);
+  color: var(--es-text);
+}
+.es-btn--secondary:hover { background: var(--es-bg-sunken); }
+
+.es-btn--ghost {
+  background: transparent;
+  color: var(--es-text-muted);
+  padding-inline: 0.75rem;
+}
+.es-btn--ghost:hover { background: var(--es-bg-sunken); color: var(--es-text); }
+
+/* Sizes adjust the INLINE padding and the type only. The 44px floor is not
+   negotiable at any size — a small button is a narrower target, never a
+   shorter one. */
+.es-btn--sm { padding-inline: 0.875rem; font-size: var(--es-text-sm); }
+.es-btn--lg { padding-inline: 1.75rem; font-size: var(--es-text-md); }
+.es-btn--block { display: flex; width: 100%; }
+
+.es-btn:disabled,
+.es-btn[aria-disabled='true'] {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ── .es-input ──────────────────────────────────────────────────────────
+   The same drift as the button, in the same three places: the search box on
+   /events was `px-3 py-2 text-sm`, the form Field was `px-3 py-2.5 text-sm`,
+   and they sit next to each other on nothing — which is the only reason
+   nobody noticed a 4px difference in the height of the app's two text boxes.
+
+   `min-height: var(--fx-touch)`, matching .es-btn, so a search box and the
+   button beside it are the same height without either of them being told
+   what that height is. A row of a 40px input and a 44px button is the most
+   common misaligned pair on the web and it is always this.
+
+   NO font-size here below 16px on a coarse pointer — the base layer already
+   floors every input at 16px on touch, which is what stops iOS Safari
+   zooming the page on focus. Setting `font-size: var(--es-text-sm)` in this
+   rule would be a class beating that, and the zoom comes back. */
+.es-input {
+  width: 100%;
+  min-width: 0;
+  min-height: var(--fx-touch);
+  padding-inline: 0.75rem;
+  border-radius: var(--es-radius-md);
+  border: 1px solid var(--es-border-strong);
+  background: var(--es-surface);
+  color: var(--es-text);
+  font-family: inherit;
+  font-size: var(--es-text-base);
+  transition: border-color var(--es-transition-fast), box-shadow var(--es-transition-fast);
+}
+/* The one place a control is allowed to be shorter than the touch floor: a
+   `<select>` sitting INSIDE a table row, where it is one of several controls
+   on a line that already has a 44px row height around it. The target is the
+   row; this is the affordance in it. Nothing standalone may use it. */
+.es-input--sm {
+  min-height: 2rem;
+  padding-inline: 0.5rem;
+}
+/* NO `font-size` HERE, and it was written once before being removed. The base
+   layer floors every input at 16px on a coarse pointer, which is what stops
+   iOS Safari zooming the page on focus. This class is in `components`, which
+   beats `base` — so a `font-size: var(--es-text-sm)` here is a class quietly
+   turning that protection off for one control, on the exact devices it was
+   written for. The box gets smaller; the text does not. */
+
+.es-input::placeholder { color: var(--es-text-subtle); }
+.es-input:hover { border-color: var(--es-accent-edge); }
+/* `aria-invalid`, not a `.es-input--error` class. The attribute is what a
+   screen reader reads, so styling from it means the red border and the
+   announcement can never disagree — one of them being set without the other
+   stops being possible. */
+.es-input[aria-invalid='true'] { border-color: var(--es-danger); }
+.es-input:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ── .es-eyebrow — the tracked micro-label ──────────────────────────────
+   Mono, uppercase, wide tracking, accent colour. Three call sites had
+   their own copy of this at four utilities each.
+
+   The tracking is what makes it work and also what makes it need a
+   `padding-right`: letter-spacing is applied AFTER the last character too,
+   so a centred eyebrow sits visibly left of centre. `margin-right: -0.1em`
+   would fix the centring and break the box; the padding is on the safe
+   side of that trade. */
+.es-eyebrow {
+  font-family: var(--es-font-mono);
+  font-size: var(--es-text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--es-tracking-widest);
+  padding-right: var(--es-tracking-widest);
+  color: var(--es-accent);
+}
+
+/* ── .es-pill — a status badge ──────────────────────────────────────────
+   The neutral one. Tone variants set their own two colours and nothing
+   else, so a pill can never disagree with another pill about its shape. */
+.es-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  border-radius: var(--es-radius-full);
+  padding: 0.25rem 0.625rem;
+  background: var(--es-bg-sunken);
+  color: var(--es-text-muted);
+  font-family: var(--es-font-mono);
+  font-size: var(--es-text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--es-tracking-wide);
+  white-space: nowrap;
+}
+.es-pill--accent  { background: var(--es-accent-wash); color: var(--es-accent); }
+.es-pill--danger  { background: color-mix(in srgb, var(--es-danger) 12%, transparent);  color: var(--es-danger); }
+.es-pill--warning { background: color-mix(in srgb, var(--es-warning) 16%, transparent); color: var(--es-text); }
+
+/* `--warning` takes `--es-text`, not the warning colour, and that is a
+   contrast finding rather than a preference: amber #f59e0b as TEXT is
+   2.14:1 on white. It is a fine fill and an illegible foreground. The
+   fill carries the meaning and the text stays readable. */
+
+/* ── .es-card ───────────────────────────────────────────────────────────
+   Only `transition-shadow`, not `all`. `all` animates the colour change on
+   an internal hover at the same 300ms and the card feels laggy. */
+/* THE DISPLAY IS IN `:where()`, AND THAT IS THE WHOLE POINT OF THIS RULE.
+
+   A card is CHROME — a ground, a hairline, a radius. How its contents are
+   arranged belongs to `fx-stack` / `fx-row` / a grid, written at the call
+   site where the arrangement is actually decided. But a card still needs a
+   display of its own, because most of them are an `<a>`, and an inline
+   anchor cannot take the padding or the radius.
+
+   Both were true and they collided. `.es-card { display: flex;
+   flex-direction: column }` turned `className="es-card fx-row"` into a
+   COLUMN: same specificity as `.fx-row`, declared later in this layer,
+   so it won a fight it has no business being in. Changing it to
+   `display: block` did not fix that — it still beat `.fx-row` by source
+   order, just in the other direction.
+
+   `:where()` has specificity (0,0,0). So these are what a card does when
+   nothing else says otherwise, and they lose to EVERY layout class written
+   beside them — which is exactly the relationship a chrome class should
+   have with a layout class, and it cannot be reintroduced by someone
+   reordering this file.
+
+   `overflow` is in here for the same reason and it had already broken
+   something: `.es-card { overflow: hidden }` beat `.fx-scroll-x`'s
+   `overflow-x: auto` by source order, which silently removed horizontal
+   scrolling from the orders table — the one real `<table>` in this app, on a
+   phone, where it is the only way to reach the columns. The clipping still
+   happens where it is wanted (EventCard's cover art, which has no overflow
+   class of its own and so gets this one). */
+:where(.es-card) {
+  display: block;
+  overflow: hidden;
+}
+
+.es-card {
+  background: var(--es-surface);
+  border: 1px solid var(--es-border);
+  border-radius: var(--es-radius-lg);
+  transition: box-shadow var(--es-transition-normal), border-color var(--es-transition-normal);
+}
+.es-card--interactive:hover,
+.es-card--interactive:focus-visible {
+  box-shadow: var(--es-shadow-md);
+  border-color: var(--es-border-strong);
+}
+
+/* ── .es-skeleton — the shape of what is coming ─────────────────────────
+   AUDITED 2026-09-06: twenty-four surfaces in this app said `Loading…` in
+   13px grey text and nothing else — every organizer page, every admin page,
+   the payouts panel, the map editor. That single choice is most of why the
+   dashboard read as unfinished. A page that says "Loading…" tells you it is
+   busy; a page that shows the shape of the table about to arrive tells you
+   what you are waiting FOR, and the arrival does not move the layout.
+
+   The sweep, not a pulse. A pulse fades the whole block in and out, which on
+   a page with nine of them reads as a fault light. A sweep travels once
+   across each block and is legible as "working" at a glance.
+
+   Under `prefers-reduced-motion` the block below collapses the duration to
+   0.01ms, so this becomes a STATIC grey rectangle — which is still the
+   correct thing to show, because the shape was the point and the movement
+   was never carrying information. */
+@keyframes es-sweep {
+  from { background-position: 200% 0; }
+  to   { background-position: -200% 0; }
+}
+.es-skeleton {
+  border-radius: var(--es-radius-sm);
+  background-color: var(--es-bg-sunken);
+  background-image: linear-gradient(
+    90deg,
+    transparent 20%,
+    color-mix(in srgb, var(--es-surface) 70%, transparent) 50%,
+    transparent 80%
+  );
+  background-size: 200% 100%;
+  animation: es-sweep 1.4s linear infinite;
+  /* A skeleton is furniture, not content. Without this it is read aloud as a
+     run of empty elements between the heading and the real answer. */
+  pointer-events: none;
+}
+/* A line of body text. `em`, not px, so a skeleton standing in for a heading
+   inherits the heading's size rather than being told it twice. */
+.es-skeleton--text { height: 1em; }
+.es-skeleton--line { height: 0.75em; border-radius: var(--es-radius-full); }
+
+/* ── .es-notice — something the page needs to say ───────────────────────
+   Twenty-six of these were written by hand, each choosing its own padding
+   and its own tint. The tints were the part that mattered: a `bg-danger/10`
+   panel with `text-muted` inside it is slate-600 on a pink wash, which is
+   the failure nobody checks because the wash looks obviously coloured.
+
+   `border-inline-start`, not a full border. A 3px edge on the leading side
+   is what separates a notice from a card at a glance, and it is logical
+   rather than physical so it lands on the correct side under RTL. */
+.es-notice {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  border-radius: var(--es-radius-md);
+  border-inline-start: 3px solid var(--es-border-strong);
+  background: var(--es-bg-sunken);
+  padding: 0.75rem 1rem;
+  color: var(--es-text-muted);
+  font-size: var(--es-text-sm);
+}
+/* The first line is the claim and takes the full-contrast ink; the rest is
+   the explanation. Selecting the child means a call site cannot forget it. */
+.es-notice > :first-child { color: var(--es-text); }
+
+.es-notice--info {
+  border-color: var(--es-accent);
+  background: var(--es-accent-wash);
+}
+.es-notice--warning {
+  border-color: var(--es-warning);
+  background: color-mix(in srgb, var(--es-warning) 10%, var(--es-surface));
+}
+.es-notice--danger {
+  border-color: var(--es-danger);
+  background: color-mix(in srgb, var(--es-danger) 8%, var(--es-surface));
+}
+/* Mixed INTO `--es-surface` rather than laid over it at 10% alpha. An alpha
+   tint takes the colour of whatever is behind it, so the same notice was one
+   shade on `bg` and another on `bg-sunken`, and on a card inside a band it
+   was a third. Mixing produces one opaque value that is the same everywhere
+   — and, unlike the alpha version, one that contrast.js could measure. */
+
+/* ── .es-empty — nothing here, and what to do about it ──────────────────
+   Sixteen hand-rolled versions, each a dashed box with a sentence in it.
+   The dashed border is kept — it reads as a slot waiting to be filled
+   rather than as a card that failed — but an empty state's real job is the
+   ACTION, which several of the sixteen omitted entirely. */
+.es-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--fx-gap-sm);
+  border: 1px dashed var(--es-border-strong);
+  border-radius: var(--es-radius-lg);
+  padding: clamp(2rem, 5vw, 3.5rem) 1.5rem;
+  text-align: center;
+}
+
+/* ── .es-stat — one number, presented ───────────────────────────────────
+   The organizer's landing page had no numbers on it at all: it opened on a
+   flat list of event titles, so "how is it selling" — the only question
+   anybody opens a dashboard to ask — was four clicks away.
+
+   The value is `--es-font-mono` and `tabular-nums` because a column of these
+   with proportional figures ripples, and a number that moves as it updates
+   reads as unstable. */
+.es-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  background: var(--es-surface);
+  border: 1px solid var(--es-border);
+  border-radius: var(--es-radius-lg);
+  padding: 1rem 1.25rem;
+}
+.es-stat__label {
+  font-family: var(--es-font-mono);
+  font-size: var(--es-text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--es-tracking-wide);
+  color: var(--es-text-subtle);
+}
+.es-stat__value {
+  font-family: var(--es-font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--es-text-2xl);
+  line-height: var(--es-leading-tight);
+  color: var(--es-text);
+}
+.es-stat__note { font-size: var(--es-text-sm); color: var(--es-text-muted); }
+
+/* ── .es-tab — the underlined nav both shells use ───────────────────────
+   Written out twice, identically, in the two organizer layouts. The active
+   state is a 2px underline AND the ink colour, never colour alone —
+   `--es-text` against `--es-text-muted` is two greys, which is not a cue.
+   `aria-current="page"` carries it for a screen reader. */
+.es-tab {
+  min-height: var(--fx-touch);
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  padding-inline: 0.25rem;
+  border-bottom: 2px solid transparent;
+  font-size: var(--es-text-sm);
+  color: var(--es-text-muted);
+  transition: color var(--es-transition-fast), border-color var(--es-transition-fast);
+}
+.es-tab:hover { color: var(--es-text); }
+.es-tab[aria-current='page'] {
+  border-bottom-color: var(--es-accent);
+  color: var(--es-text);
+}
+
+/* ── .es-plate — an image PRESENTED rather than placed ──────────────────
+   See the note on --es-shadow-plate. This is the frame half of it: the
+   long shadow, a real corner radius, and `isolation` so the child's own
+   transform cannot escape the rounded corners on a hover zoom.
+
+   `--es-plate-r` is a custom property rather than a fixed radius so a
+   caller can tighten it for a ticket stub without a second class. */
+.es-plate {
+  position: relative;
+  isolation: isolate;
+  border-radius: var(--es-plate-r, var(--es-radius-xl));
+  overflow: hidden;
+  box-shadow: var(--es-shadow-plate);
+}
+.es-plate--window { box-shadow: var(--es-shadow-window); }
+
+/* ── Band tones ─────────────────────────────────────────────────────────
+   A page is a sequence of full-bleed bands and the ONLY thing that gives
+   a long page rhythm is that consecutive bands do not share a tone. Three
+   tones, one class each, so the alternation is visible by reading the page
+   file top to bottom instead of by scrolling the rendered page.
+
+   `--ink` inverts the text roles inside itself rather than setting a
+   colour on the band. Setting `color` alone leaves every `text-muted`
+   child reading slate-600 on near-black, which is 2.6:1 — the failure
+   mode where a band looks fine to whoever built it because the heading is
+   the part they looked at. */
+.es-band          { background: var(--es-bg); }
+.es-band--sunken  { background: var(--es-bg-sunken); }
+.es-band--ink {
+  background: var(--es-zinc-950);
+  --es-text:       var(--es-zinc-100);
+  --es-text-muted: var(--es-zinc-400);
+  --es-text-subtle:#8a8a94;
+  --es-border:     var(--es-zinc-800);
+  --es-border-strong: var(--es-zinc-700);
+  --es-surface:    var(--es-zinc-900);
+  --es-bg-sunken:  var(--es-zinc-800);
+  --es-accent:     var(--es-emerald-400);
+  --es-accent-hover: var(--es-emerald-300);
+  --es-accent-wash:#0a2b21;
+  --es-text-on-accent: var(--es-zinc-950);
+  color: var(--es-text);
+}
+
+/* ── .es-rule — the hairline that separates without a border ────────────
+   A 1px line that fades out at both ends. A full-width border cuts the
+   page; this reads as a pause. */
+.es-rule {
+  height: 1px;
+  border: 0;
+  background: linear-gradient(
+    to right,
+    transparent,
+    var(--es-border-strong) 20%,
+    var(--es-border-strong) 80%,
+    transparent
+  );
+}
+
+/* ── Entry motion ───────────────────────────────────────────────────────
+   ONE animation, used for band entry, and it is opt-in per element.
+
+   Not a scroll-triggered reveal. fancy removed its `ScrollReveal` for the
+   reason that applies here too: it server-renders everything below the
+   fold at `opacity: 0`, so a crawler, a reader-mode extension and anyone
+   whose JavaScript has not arrived yet get a blank page. This runs on
+   load, from CSS, and the element is visible in the HTML either way.
+
+   The reduced-motion block near the end of this file already collapses
+   the duration to 0.01ms, so nothing here needs its own guard. */
+@keyframes es-rise {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: none; }
+}
+.es-rise {
+  animation: es-rise var(--es-duration-slow) var(--es-ease-spring) both;
+  animation-delay: var(--es-rise-delay, 0ms);
 }
 
 }   /* end @layer components */

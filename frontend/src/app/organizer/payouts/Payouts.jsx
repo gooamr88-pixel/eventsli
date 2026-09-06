@@ -3,10 +3,10 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { get, post } from '../../utils/apiClient';
-import { describeError } from '../../utils/errors';
 import { useOrganizer } from '../../hooks/useOrganizer';
 import FormError from '../../components/forms/FormError';
 import CreateProfile from '../CreateProfile';
+import { Loading, ErrorNotice } from '../../components/Feedback';
 
 /**
  * Stripe Connect.
@@ -62,7 +62,7 @@ export default function Payouts() {
     }
   }
 
-  if (loading) return <p className="text-sm text-subtle">Loading…</p>;
+  if (loading) return <Loading variant="card" />;
   if (!organizer) return <CreateProfile onCreated={refresh} />;
 
   return (
@@ -133,7 +133,7 @@ export default function Payouts() {
             type="button"
             onClick={startOnboarding}
             disabled={busy}
-            className="mt-3 rounded-[--es-radius-md] bg-accent px-4 py-2.5 text-sm font-medium text-on-accent transition-colors hover:bg-accent-hover disabled:opacity-40"
+            className="mt-3 es-btn es-btn--primary"
           >
             {busy ? 'Opening Stripe…' : status?.connected ? 'Continue with Stripe' : 'Connect with Stripe'}
           </button>
@@ -141,7 +141,7 @@ export default function Payouts() {
       )}
 
       {error && !status && (
-        <p className="text-sm text-muted">{describeError(error).recovery}</p>
+        <ErrorNotice error={error} />
       )}
 
       <p className="text-xs text-subtle">

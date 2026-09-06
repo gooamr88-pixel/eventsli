@@ -9,6 +9,7 @@ import { formatMoney } from '../../utils/money';
 import { useReservation } from '../../hooks/useReservation';
 import { useCountdown } from '../../hooks/useCountdown';
 import HoldBar from './HoldBar';
+import { Loading } from '../../components/Feedback';
 
 /**
  * The last screen before Stripe.
@@ -129,7 +130,7 @@ export default function CheckoutClient({ reservationId }) {
   }
 
   if (error && !quote) return <Fatal error={error} slug={reservation?.slug} />;
-  if (!quote) return <p className="text-sm text-subtle">Loading your order…</p>;
+  if (!quote) return <Loading variant="card" />;
 
   const discount = quote.lines.find((l) => l.amountCents < 0);
 
@@ -142,7 +143,7 @@ export default function CheckoutClient({ reservationId }) {
           on the same one-second beat as the text beside it. */}
       <HoldBar formatted={formatted} expired={expired} remaining={remaining} />
 
-      <section className="fx-stack fx-stack--sm rounded-[--es-radius-lg] border border-border-base bg-surface p-5">
+      <section className="fx-stack fx-stack--sm es-card p-5">
         <p className="text-sm text-muted">
           Admits {quote.admits} {quote.admits === 1 ? 'person' : 'people'}
         </p>
@@ -163,11 +164,11 @@ export default function CheckoutClient({ reservationId }) {
         </dl>
       </section>
 
-      <section className="fx-stack fx-stack--sm rounded-[--es-radius-lg] border border-border-base bg-surface p-5">
+      <section className="fx-stack fx-stack--sm es-card p-5">
         {discount ? (
           <div className="fx-row fx-row--between">
             <p className="text-sm text-ink">{discount.label} applied</p>
-            <button type="button" onClick={removePromo} disabled={busy === 'promo'} className="text-sm text-muted hover:text-ink">
+            <button type="button" onClick={removePromo} disabled={busy === 'promo'} className="es-btn es-btn--ghost es-btn--sm">
               Remove
             </button>
           </div>
@@ -178,12 +179,12 @@ export default function CheckoutClient({ reservationId }) {
               onChange={(e) => setPromoCode(e.target.value)}
               placeholder="Discount code"
               aria-label="Discount code"
-              className="fx-min0 flex-1 rounded-[--es-radius-md] border border-border-strong bg-bg px-3 py-2 text-sm text-ink placeholder:text-subtle"
+              className="es-input fx-min0 flex-1"
             />
             <button
               type="submit"
               disabled={busy === 'promo' || promoCode.trim().length < 2}
-              className="rounded-[--es-radius-md] border border-border-strong px-3 py-2 text-sm text-ink disabled:opacity-40"
+              className="es-btn es-btn--secondary"
             >
               Apply
             </button>
@@ -194,7 +195,7 @@ export default function CheckoutClient({ reservationId }) {
         )}
       </section>
 
-      <form onSubmit={pay} className="fx-stack fx-stack--sm rounded-[--es-radius-lg] border border-border-base bg-surface p-5">
+      <form onSubmit={pay} className="fx-stack fx-stack--sm es-card p-5">
         <h2 className="text-base">Where should the tickets go?</h2>
         {/* Guest checkout is a first-class path — the API takes an optional
             email rather than requiring an account, and asking someone to
@@ -206,7 +207,7 @@ export default function CheckoutClient({ reservationId }) {
           type="text" name="name" value={buyer.name} autoComplete="name"
           onChange={(e) => setBuyer((b) => ({ ...b, name: e.target.value }))}
           placeholder="Full name" aria-label="Full name"
-          className="rounded-[--es-radius-md] border border-border-strong bg-bg px-3 py-2 text-sm text-ink placeholder:text-subtle"
+          className="es-input"
         />
         {/* Required, because the API refuses without one — "Enter an email
             address — your tickets are sent there." Catching it in the browser
@@ -216,7 +217,7 @@ export default function CheckoutClient({ reservationId }) {
           type="email" name="email" value={buyer.email} autoComplete="email" required
           onChange={(e) => setBuyer((b) => ({ ...b, email: e.target.value }))}
           placeholder="Email for your tickets" aria-label="Email"
-          className="rounded-[--es-radius-md] border border-border-strong bg-bg px-3 py-2 text-sm text-ink placeholder:text-subtle"
+          className="es-input"
         />
 
         {/* BRD §02 — the buyer accepts the terms before paying, and the API
@@ -241,14 +242,15 @@ export default function CheckoutClient({ reservationId }) {
         <button
           type="submit"
           disabled={busy === 'pay' || expired}
-          className="rounded-[--es-radius-md] bg-accent px-4 py-3 text-sm font-medium text-on-accent transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+          aria-busy={busy === 'pay' || undefined}
+          className="es-btn es-btn--primary es-btn--lg es-btn--block"
         >
           {busy === 'pay' ? 'Taking you to payment…' : `Pay ${formatMoney(quote.totalCents, quote.currency)}`}
         </button>
 
         <button
           type="button" onClick={abandon} disabled={busy === 'release'}
-          className="text-center text-sm text-muted hover:text-ink"
+          className="es-btn es-btn--ghost es-btn--block"
         >
           Release my seats
         </button>
@@ -291,7 +293,7 @@ function Fatal({ error, slug }) {
       <p className="text-muted">{recovery}</p>
       <Link
         href={slug ? `/e/${slug}/seats` : '/events'}
-        className="self-start rounded-[--es-radius-md] bg-accent px-4 py-2 text-sm font-medium text-on-accent"
+        className="es-btn es-btn--primary self-start"
       >
         {slug ? 'Choose seats again' : 'Browse events'}
       </Link>

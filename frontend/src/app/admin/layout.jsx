@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '../hooks/useAuth';
+import { Loading, Empty } from '../components/Feedback';
 
 /**
  * The admin shell.
@@ -31,35 +32,31 @@ export default function AdminLayout({ children }) {
         <div className="fx-row fx-row--between">
           <h1 className="text-2xl">Administration</h1>
           {user?.isSuperAdmin && (
-            <span className="rounded-full bg-accent-wash px-3 py-1 font-mono text-[10px] uppercase tracking-[0.09em] text-accent">
+            <span className="es-pill es-pill--accent">
               Super admin
             </span>
           )}
         </div>
 
         {loading ? (
-          <p className="text-sm text-subtle">Loading…</p>
+          <Loading variant="text" />
         ) : !user?.isAdmin ? (
-          <div className="rounded-[--es-radius-lg] border border-border-base bg-surface p-8 text-center">
-            <p className="text-ink">This area is for platform staff.</p>
-            <Link href="/" className="mt-2 inline-block text-sm text-accent">
-              Back to events
-            </Link>
-          </div>
+          /* A refusal, not an error. `.es-empty` rather than a card: the
+             dashed edge says "nothing here for you" where a solid card says
+             "here is a thing", and the second is what made this read as a
+             broken page rather than a closed door. */
+          <Empty
+            title="This area is for platform staff."
+            hint="If you organise events, your dashboard is under Organizer."
+            action={{ href: '/', label: 'Back to events' }}
+          />
         ) : (
           <>
             <nav className="fx-row fx-row--scroll border-b border-border-base" aria-label="Admin">
               {TABS.map(([href, label]) => {
                 const active = href === '/admin' ? pathname === href : pathname?.startsWith(href);
                 return (
-                  <Link
-                    key={href}
-                    href={href}
-                    aria-current={active ? 'page' : undefined}
-                    className={`whitespace-nowrap border-b-2 px-1 pb-2 text-sm transition-colors ${
-                      active ? 'border-accent text-ink' : 'border-transparent text-muted hover:text-ink'
-                    }`}
-                  >
+                  <Link key={href} href={href} aria-current={active ? 'page' : undefined} className="es-tab">
                     {label}
                   </Link>
                 );

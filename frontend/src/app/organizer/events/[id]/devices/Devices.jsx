@@ -3,10 +3,10 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { get, post, patch } from '../../../../utils/apiClient';
-import { describeError } from '../../../../utils/errors';
 import Field from '../../../../components/forms/Field';
 import FormError from '../../../../components/forms/FormError';
 import SubmitButton from '../../../../components/forms/SubmitButton';
+import { Loading, ErrorNotice } from '../../../../components/Feedback';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -51,8 +51,8 @@ export default function Devices({ eventId }) {
 
   const refresh = () => setReload((n) => n + 1);
 
-  if (error) return <p className="text-sm text-muted">{describeError(error).recovery}</p>;
-  if (!devices) return <p className="text-sm text-subtle">Loading…</p>;
+  if (error) return <ErrorNotice error={error} />;
+  if (!devices) return <Loading variant="list" />;
 
   return (
     <div className="fx-stack">
@@ -92,7 +92,7 @@ export default function Devices({ eventId }) {
       )}
 
       {devices.length === 0 ? (
-        <div className="rounded-[--es-radius-lg] border border-dashed border-border-strong p-8 text-center">
+        <div className="es-empty">
           <p className="text-muted">No devices yet.</p>
         </div>
       ) : (
@@ -170,7 +170,7 @@ function DeviceRow({ eventId, device, onChanged }) {
   }
 
   return (
-    <li className="fx-stack fx-stack--sm rounded-[--es-radius-lg] border border-border-base bg-surface p-4">
+    <li className="fx-stack fx-stack--sm es-card p-4">
       <div className="fx-row fx-row--between">
         <div className="fx-min0">
           <p className="fx-break text-ink">{device.label}</p>
@@ -233,7 +233,7 @@ function NewDevice({ eventId, onCreated }) {
   }
 
   return (
-    <form onSubmit={submit} className="fx-stack fx-stack--sm rounded-[--es-radius-lg] border border-border-base bg-surface p-4">
+    <form onSubmit={submit} className="fx-stack fx-stack--sm es-card p-4">
       <Field
         label="What is it" name="label" required minLength={1} maxLength={60} autoFocus
         hint="e.g. Main door, Side entrance"

@@ -8,6 +8,7 @@ import Field from '../../../components/forms/Field';
 import FormError from '../../../components/forms/FormError';
 import SubmitButton from '../../../components/forms/SubmitButton';
 import CreateProfile from '../../CreateProfile';
+import { Loading } from '../../../components/Feedback';
 
 /**
  * Create an event.
@@ -101,7 +102,7 @@ export default function NewEventForm() {
     }
   }
 
-  if (loading) return <p className="text-sm text-subtle">Loading…</p>;
+  if (loading) return <Loading variant="card" />;
   if (!organizer) return <CreateProfile onCreated={refresh} />;
 
   return (
@@ -181,7 +182,7 @@ export default function NewEventForm() {
             id="ev-description" rows={5}
             value={form.description}
             onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-            className="rounded-[--es-radius-md] border border-border-strong bg-surface px-3 py-2.5 text-sm text-ink placeholder:text-subtle"
+            className="es-input"
           />
         </div>
 
@@ -202,7 +203,7 @@ function Select({ label: text, value, onChange, options, hint }) {
       <label htmlFor={id} className="text-sm text-ink">{text}</label>
       <select
         id={id} value={value} onChange={(e) => onChange(e.target.value)}
-        className="rounded-[--es-radius-md] border border-border-strong bg-surface px-3 py-2.5 text-sm text-ink"
+        className="es-input"
       >
         {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
       </select>

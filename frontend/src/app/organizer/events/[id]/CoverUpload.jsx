@@ -90,7 +90,7 @@ export default function CoverUpload({ event, onChanged }) {
   }
 
   return (
-    <section className="fx-stack fx-stack--sm rounded-[--es-radius-lg] border border-border-base bg-surface p-5">
+    <section className="fx-stack fx-stack--sm es-card p-5">
       <div className="fx-row fx-row--between">
         <h3 className="text-lg">Cover image</h3>
         {event.cover && editable && (

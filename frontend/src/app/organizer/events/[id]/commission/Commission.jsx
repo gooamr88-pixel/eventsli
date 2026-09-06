@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { get, post } from '../../../../utils/apiClient';
-import { describeError } from '../../../../utils/errors';
 import { formatMoney } from '../../../../utils/money';
 import Field from '../../../../components/forms/Field';
 import FormError from '../../../../components/forms/FormError';
 import SubmitButton from '../../../../components/forms/SubmitButton';
+import { Loading, ErrorNotice } from '../../../../components/Feedback';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -45,8 +45,8 @@ export default function Commission({ eventId }) {
     return () => { cancelled = true; };
   }, [eventId, reload]);
 
-  if (error) return <p className="text-sm text-muted">{describeError(error).recovery}</p>;
-  if (!data) return <p className="text-sm text-subtle">Loading…</p>;
+  if (error) return <ErrorNotice error={error} />;
+  if (!data) return <Loading variant="card" />;
 
   const locked = data.gate?.locked;
 
@@ -76,7 +76,7 @@ export default function Commission({ eventId }) {
       </div>
 
       {data.invoices.length === 0 ? (
-        <div className="rounded-[--es-radius-lg] border border-dashed border-border-strong p-8 text-center">
+        <div className="es-empty">
           <p className="text-muted">No invoices yet.</p>
           <p className="mt-1 text-sm text-subtle">
             One is raised once you have recorded door sales.
@@ -149,7 +149,7 @@ function InvoiceRow({ eventId, invoice, onChanged }) {
   }
 
   return (
-    <li className="fx-stack fx-stack--sm rounded-[--es-radius-lg] border border-border-base bg-surface p-4">
+    <li className="fx-stack fx-stack--sm es-card p-4">
       <div className="fx-row fx-row--between">
         <div className="fx-min0">
           <p className="text-ink">

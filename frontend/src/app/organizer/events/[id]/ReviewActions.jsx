@@ -43,7 +43,7 @@ export default function ReviewActions({ event, onChanged }) {
   }
 
   return (
-    <section className="fx-stack fx-stack--sm rounded-[--es-radius-lg] border border-border-base bg-surface p-5">
+    <section className="fx-stack fx-stack--sm es-card p-5">
       <h3 className="text-lg">Going on sale</h3>
 
       {!event.review?.termsAccepted && canSubmit && (
@@ -126,7 +126,7 @@ export default function ReviewActions({ event, onChanged }) {
                 maxLength={1000}
                 placeholder="Why? Buyers may be shown this."
                 aria-label="Reason for cancelling"
-                className="rounded-[--es-radius-md] border border-border-strong bg-bg px-3 py-2 text-sm text-ink placeholder:text-subtle"
+                className="es-input"
               />
               <div className="fx-row fx-row--between">
                 <button

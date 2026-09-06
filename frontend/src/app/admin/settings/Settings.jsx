@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { get, patch } from '../../utils/apiClient';
-import { describeError } from '../../utils/errors';
 import FormError from '../../components/forms/FormError';
+import { Loading, ErrorNotice } from '../../components/Feedback';
 
 /**
  * Platform settings.
@@ -34,8 +34,8 @@ export default function Settings() {
     return () => { cancelled = true; };
   }, [reload]);
 
-  if (error) return <p className="text-sm text-muted">{describeError(error).recovery}</p>;
-  if (!settings) return <p className="text-sm text-subtle">Loading…</p>;
+  if (error) return <ErrorNotice error={error} />;
+  if (!settings) return <Loading variant="card" />;
 
   const keys = Object.keys(settings).sort();
 
@@ -96,7 +96,7 @@ function SettingRow({ settingKey, value, onChanged }) {
   }
 
   return (
-    <li className="fx-stack fx-stack--sm rounded-[--es-radius-lg] border border-border-base bg-surface p-4">
+    <li className="fx-stack fx-stack--sm es-card p-4">
       <form onSubmit={save} className="fx-stack fx-stack--sm">
         <label htmlFor={`set-${settingKey}`} className="font-mono text-sm text-ink">
           {settingKey}
@@ -130,7 +130,7 @@ function SettingRow({ settingKey, value, onChanged }) {
             <button
               type="submit"
               disabled={busy || malformed}
-              className="rounded-[--es-radius-md] bg-accent px-4 py-2 text-sm font-medium text-on-accent disabled:opacity-40"
+              className="es-btn es-btn--primary"
             >
               {busy ? 'Saving…' : 'Save'}
             </button>

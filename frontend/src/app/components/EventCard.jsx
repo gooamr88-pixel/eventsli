@@ -38,7 +38,7 @@ export default function EventCard({ event, priority = false, headingLevel = 3 })
   return (
     <Link
       href={`/e/${event.slug}`}
-      className="group flex flex-col overflow-hidden rounded-[--es-radius-lg] border border-border-base bg-surface transition-shadow hover:shadow-md focus-visible:shadow-md"
+      className="es-card es-card--interactive group"
     >
       <div className="relative aspect-[16/10] w-full overflow-hidden bg-bg-sunken">
         {event.coverUrl ? (
@@ -66,14 +66,19 @@ export default function EventCard({ event, priority = false, headingLevel = 3 })
         )}
 
         {event.displayOnly && (
-          <span className="absolute left-3 top-3 rounded-full bg-surface/90 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.09em] text-muted backdrop-blur">
+          /* `bg-surface/90 backdrop-blur` overrides .es-pill's flat fill: this
+             one sits ON the cover art, where an opaque chip is a hole punched
+             in the picture and a fully transparent one is unreadable over a
+             light photo. The utility wins over the component class because
+             utilities are a later cascade layer — see globals.css. */
+          <span className="es-pill absolute left-3 top-3 bg-surface/90 backdrop-blur">
             Listing
           </span>
         )}
       </div>
 
       <div className="fx-stack fx-stack--sm p-4">
-        <p className="font-mono text-xs uppercase tracking-[0.1em] text-accent">
+        <p className="es-eyebrow">
           {DATE.format(new Date(event.startsAt))}
         </p>
         <Heading className="fx-break text-lg leading-snug">{event.title}</Heading>
@@ -93,11 +98,7 @@ export default function EventCard({ event, priority = false, headingLevel = 3 })
               the difference between clicking and not. `availability` is only
               present on the single-event payload, so a listing that lacks it
               simply says nothing rather than guessing. */}
-          {event.availability?.soldOut && (
-            <span className="rounded-full bg-bg-sunken px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.09em] text-muted">
-              Sold out
-            </span>
-          )}
+          {event.availability?.soldOut && <span className="es-pill">Sold out</span>}
         </div>
       </div>
     </Link>

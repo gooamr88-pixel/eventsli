@@ -38,7 +38,7 @@ export default function GlobalError({ error, reset }) {
             <button
               type="button"
               onClick={reset}
-              className="rounded-[--es-radius-md] bg-accent px-4 py-2 text-sm font-medium text-on-accent transition-colors hover:bg-accent-hover"
+              className="es-btn es-btn--primary"
             >
               Try again
             </button>

@@ -31,21 +31,21 @@ export default function EventLayout({ children }) {
   return (
     <div className="fx-stack">
       <nav className="fx-row fx-row--scroll border-b border-border-base" aria-label="Event">
-        <Link href="/organizer" className="whitespace-nowrap pb-2 pr-2 text-sm text-muted hover:text-ink">
-          ← All events
+        {/* Not an `.es-tab`: it leaves this nav rather than selecting within
+            it, so it must never be able to show the active underline — a
+            "back" link that can look selected is a nav that lies about where
+            you are. `pr-3` and a hairline separate it from the tab set. */}
+        <Link
+          href="/organizer"
+          className="fx-touch mr-1 whitespace-nowrap border-r border-border-base pr-3 text-sm text-muted hover:text-ink"
+        >
+          <span aria-hidden>←</span> All events
         </Link>
         {TABS.map(([suffix, label]) => {
           const href = `${base}${suffix}`;
           const active = pathname === href;
           return (
-            <Link
-              key={href}
-              href={href}
-              aria-current={active ? 'page' : undefined}
-              className={`whitespace-nowrap border-b-2 px-1 pb-2 text-sm transition-colors ${
-                active ? 'border-accent text-ink' : 'border-transparent text-muted hover:text-ink'
-              }`}
-            >
+            <Link key={href} href={href} aria-current={active ? 'page' : undefined} className="es-tab">
               {label}
             </Link>
           );

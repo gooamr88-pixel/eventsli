@@ -76,7 +76,7 @@ export default function UnlockTableDialog({ slug, tableId, onClose, onUnlocked }
         role="dialog"
         aria-modal="true"
         aria-labelledby="unlock-title"
-        className="fx-stack w-full max-w-sm rounded-[--es-radius-lg] border border-border-base bg-surface p-5 shadow-xl"
+        className="fx-stack w-full max-w-sm es-card p-5 shadow-xl"
       >
         <div>
           {/* No table name, because we do not have one: the table is absent
@@ -99,7 +99,7 @@ export default function UnlockTableDialog({ slug, tableId, onClose, onUnlocked }
             autoComplete="off"
             aria-label="Table password"
             aria-invalid={error ? 'true' : undefined}
-            className="rounded-[--es-radius-md] border border-border-strong bg-bg px-3 py-2 text-sm text-ink"
+            className="es-input"
           />
 
           {error && (
@@ -115,7 +115,7 @@ export default function UnlockTableDialog({ slug, tableId, onClose, onUnlocked }
             <button
               type="submit"
               disabled={busy || password.length === 0}
-              className="rounded-[--es-radius-md] bg-accent px-4 py-2 text-sm font-medium text-on-accent transition-colors hover:bg-accent-hover disabled:opacity-40"
+              className="es-btn es-btn--primary"
             >
               {busy ? 'Checking…' : 'Unlock'}
             </button>

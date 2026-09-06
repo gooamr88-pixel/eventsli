@@ -73,7 +73,7 @@ export default function ContactPage() {
           {SELF_SERVE.map((item) => (
             <li
               key={item.title}
-              className="fx-stack fx-stack--sm rounded-[--es-radius-lg] border border-border-base bg-surface p-5"
+              className="fx-stack fx-stack--sm es-card p-5"
             >
               <h3 className="text-md text-ink">{item.title}</h3>
               <p className="text-sm text-muted">{item.body}</p>
@@ -115,7 +115,7 @@ export default function ContactPage() {
           ))}
         </dl>
 
-        <div className="fx-stack fx-stack--sm max-w-[62ch] rounded-[--es-radius-lg] border border-border-base bg-surface p-5">
+        <div className="fx-stack fx-stack--sm max-w-[62ch] es-card p-5">
           <h3 className="text-md text-ink">What to include</h3>
           <p className="text-sm text-muted">
             The order reference or the event name, and the email address you used to buy. With

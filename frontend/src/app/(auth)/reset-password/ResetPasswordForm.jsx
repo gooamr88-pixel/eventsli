@@ -55,7 +55,7 @@ export default function ResetPasswordForm() {
         </p>
         <Link
           href="/forgot-password"
-          className="self-start rounded-[--es-radius-md] bg-accent px-4 py-2.5 text-sm font-medium text-on-accent"
+          className="es-btn es-btn--primary self-start"
         >
           Send a new link
         </Link>
@@ -73,7 +73,7 @@ export default function ResetPasswordForm() {
         </p>
         <Link
           href="/login"
-          className="self-start rounded-[--es-radius-md] bg-accent px-4 py-2.5 text-sm font-medium text-on-accent"
+          className="es-btn es-btn--primary self-start"
         >
           Sign in
         </Link>

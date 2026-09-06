@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { get, post, patch } from '../../../../utils/apiClient';
-import { describeError } from '../../../../utils/errors';
 import Field from '../../../../components/forms/Field';
 import FormError from '../../../../components/forms/FormError';
 import SubmitButton from '../../../../components/forms/SubmitButton';
+import { Loading, ErrorNotice } from '../../../../components/Feedback';
 
 /**
  * Discount codes.
@@ -40,8 +40,8 @@ export default function Promos({ eventId }) {
 
   const refresh = () => setReload((n) => n + 1);
 
-  if (error) return <p className="text-sm text-muted">{describeError(error).recovery}</p>;
-  if (!promos) return <p className="text-sm text-subtle">Loading…</p>;
+  if (error) return <ErrorNotice error={error} />;
+  if (!promos) return <Loading variant="list" />;
 
   return (
     <div className="fx-stack">
@@ -54,7 +54,7 @@ export default function Promos({ eventId }) {
       </div>
 
       {promos.length === 0 ? (
-        <div className="rounded-[--es-radius-lg] border border-dashed border-border-strong p-8 text-center">
+        <div className="es-empty">
           <p className="text-muted">No codes yet.</p>
         </div>
       ) : (
@@ -106,7 +106,7 @@ function PromoRow({ eventId, promo, onChanged }) {
   const used = promo.usedCount ?? promo.timesUsed ?? 0;
 
   return (
-    <li className="fx-stack fx-stack--sm rounded-[--es-radius-lg] border border-border-base bg-surface p-4">
+    <li className="fx-stack fx-stack--sm es-card p-4">
       <div className="fx-row fx-row--between">
         <div className="fx-min0">
           <p className="font-mono text-ink">{promo.code}</p>
@@ -166,7 +166,7 @@ function PromoForm({ eventId, onDone, onCancel }) {
   const valueInvalid = form.discountValue !== '' && !(Number(form.discountValue) > 0);
 
   return (
-    <form onSubmit={submit} className="fx-stack fx-stack--sm rounded-[--es-radius-lg] border border-border-base bg-surface p-4">
+    <form onSubmit={submit} className="fx-stack fx-stack--sm es-card p-4">
       <Field
         label="Code" name="code" required minLength={2} maxLength={40} autoFocus
         hint="What the buyer types. Case does not matter."
@@ -179,7 +179,7 @@ function PromoForm({ eventId, onDone, onCancel }) {
         <select
           id="promo-type" value={form.discountType}
           onChange={(e) => setForm((f) => ({ ...f, discountType: e.target.value }))}
-          className="rounded-[--es-radius-md] border border-border-strong bg-surface px-3 py-2.5 text-sm text-ink"
+          className="es-input"
         >
           <option value="percentage">Percentage off</option>
           <option value="fixed">Fixed amount off</option>

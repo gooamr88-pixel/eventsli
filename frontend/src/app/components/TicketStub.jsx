@@ -15,7 +15,7 @@ export default function TicketStub({ ticket, qrSrc }) {
   const void_ = ticket.status === 'void';
 
   return (
-    <article className="fx-row items-start gap-4 rounded-[--es-radius-lg] border border-border-base bg-surface p-4">
+    <article className="fx-row items-start gap-4 es-card p-4">
       <div className="relative flex-none">
         {/* A plain img, not next/image: this is a same-origin API response with
             no fixed dimensions to optimise, and routing it through the image

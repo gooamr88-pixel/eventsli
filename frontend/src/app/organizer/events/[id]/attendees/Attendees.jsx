@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { get } from '../../../../utils/apiClient';
-import { describeError } from '../../../../utils/errors';
+import { Loading, ErrorNotice } from '../../../../components/Feedback';
 
 /**
  * The door list.
@@ -82,7 +82,7 @@ export default function Attendees({ eventId }) {
           onChange={(e) => setQ(e.target.value)}
           placeholder="Name or email"
           aria-label="Search the door list"
-          className="fx-min0 flex-1 rounded-[--es-radius-md] border border-border-strong bg-surface px-3 py-2 text-sm text-ink placeholder:text-subtle"
+          className="fx-min0 flex-1 es-input"
         />
         <button type="submit" className="rounded-[--es-radius-md] border border-border-strong px-3 py-2 text-sm text-ink">
           Search
@@ -90,11 +90,11 @@ export default function Attendees({ eventId }) {
       </form>
 
       {error ? (
-        <p className="text-sm text-muted">{describeError(error).recovery}</p>
+        <ErrorNotice error={error} />
       ) : !rows ? (
-        <p className="text-sm text-subtle">Loading…</p>
+        <Loading variant="list" />
       ) : rows.length === 0 ? (
-        <div className="rounded-[--es-radius-lg] border border-dashed border-border-strong p-8 text-center">
+        <div className="es-empty">
           <p className="text-muted">Nobody matches.</p>
         </div>
       ) : (

@@ -2,11 +2,11 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { get, post, del } from '../../utils/apiClient';
-import { describeError } from '../../utils/errors';
 import { useAuth, signOut } from '../../hooks/useAuth';
 import Field from '../../components/forms/Field';
 import FormError from '../../components/forms/FormError';
 import SubmitButton from '../../components/forms/SubmitButton';
+import { Loading, ErrorNotice } from '../../components/Feedback';
 
 const MIN_PASSWORD = 12;
 
@@ -44,7 +44,7 @@ export default function Security() {
   return (
     <div className="fx-stack">
       {user && (
-        <section className="fx-stack fx-stack--sm rounded-[--es-radius-lg] border border-border-base bg-surface p-5">
+        <section className="fx-stack fx-stack--sm es-card p-5">
           <h2 className="text-lg">Account</h2>
           <dl className="fx-stack fx-stack--sm text-sm">
             <Row term="Name">{user.fullName}</Row>
@@ -111,7 +111,7 @@ function SessionList({ sessions, error, onChanged }) {
   }
 
   return (
-    <section className="fx-stack fx-stack--sm rounded-[--es-radius-lg] border border-border-base bg-surface p-5">
+    <section className="fx-stack fx-stack--sm es-card p-5">
       <div className="fx-row fx-row--between">
         <h2 className="text-lg">Where you are signed in</h2>
         {sessions?.length > 1 && (
@@ -127,9 +127,9 @@ function SessionList({ sessions, error, onChanged }) {
       </div>
 
       {error ? (
-        <p className="text-sm text-muted">{describeError(error).recovery}</p>
+        <ErrorNotice error={error} />
       ) : !sessions ? (
-        <p className="text-sm text-subtle">Loading…</p>
+        <Loading variant="list" />
       ) : (
         <ul className="fx-stack fx-stack--sm">
           {sessions.map((s) => (
@@ -197,7 +197,7 @@ function ChangePassword() {
   }
 
   return (
-    <section className="fx-stack fx-stack--sm rounded-[--es-radius-lg] border border-border-base bg-surface p-5">
+    <section className="fx-stack fx-stack--sm es-card p-5">
       <h2 className="text-lg">Change your password</h2>
 
       {done ? (

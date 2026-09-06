@@ -16,7 +16,7 @@ export default function SubmitButton({ busy, busyLabel, children, ...props }) {
       type="submit"
       disabled={busy || props.disabled}
       aria-busy={busy || undefined}
-      className="rounded-[--es-radius-md] bg-accent px-4 py-2.5 text-sm font-medium text-on-accent transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+      className="es-btn es-btn--primary"
       {...props}
     >
       {busy ? (busyLabel || 'Working…') : children}

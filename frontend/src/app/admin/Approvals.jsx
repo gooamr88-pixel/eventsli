@@ -3,8 +3,8 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { get, post } from '../utils/apiClient';
-import { describeError } from '../utils/errors';
 import FormError from '../components/forms/FormError';
+import { Loading, Empty, ErrorNotice } from '../components/Feedback';
 
 /**
  * The review queue. BRD §16 — an organizer submits, only an admin publishes.
@@ -33,8 +33,8 @@ export default function Approvals() {
     return () => { cancelled = true; };
   }, [reload]);
 
-  if (error) return <p className="text-sm text-muted">{describeError(error).recovery}</p>;
-  if (!events) return <p className="text-sm text-subtle">Loading…</p>;
+  if (error) return <ErrorNotice error={error} />;
+  if (!events) return <Loading variant="list" />;
 
   return (
     <div className="fx-stack">
@@ -46,9 +46,10 @@ export default function Approvals() {
       </div>
 
       {events.length === 0 ? (
-        <div className="rounded-[--es-radius-lg] border border-dashed border-border-strong p-10 text-center">
-          <p className="text-muted">Nothing waiting.</p>
-        </div>
+        <Empty
+          title="Nothing waiting."
+          hint="Submitted events land here. An organizer cannot sell until one is approved."
+        />
       ) : (
         <ul className="fx-stack fx-stack--sm">
           {events.map((event) => (
@@ -79,7 +80,7 @@ function ReviewRow({ event, onDone }) {
   }
 
   return (
-    <li className="fx-stack fx-stack--sm rounded-[--es-radius-lg] border border-border-base bg-surface p-4">
+    <li className="fx-stack fx-stack--sm es-card p-4">
       <div className="fx-row fx-row--between">
         <div className="fx-min0">
           <p className="fx-break text-ink">{event.title}</p>
@@ -120,7 +121,7 @@ function ReviewRow({ event, onDone }) {
             maxLength={1000}
             value={reason}
             onChange={(e) => setReason(e.target.value)}
-            className="rounded-[--es-radius-md] border border-border-strong bg-surface px-3 py-2 text-sm text-ink"
+            className="es-input"
           />
           {/* Said plainly, because a reviewer typing this needs to know the
               organizer reads it and can act on it. */}
@@ -153,7 +154,7 @@ function ReviewRow({ event, onDone }) {
             type="button"
             disabled={busy}
             onClick={() => act('approve')}
-            className="rounded-[--es-radius-md] bg-accent px-4 py-2 text-sm font-medium text-on-accent transition-colors hover:bg-accent-hover disabled:opacity-40"
+            className="es-btn es-btn--primary"
           >
             {busy ? 'Publishing…' : 'Approve and publish'}
           </button>

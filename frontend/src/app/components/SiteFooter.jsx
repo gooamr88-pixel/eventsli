@@ -25,7 +25,20 @@ export default function SiteFooter() {
   if (pathname?.startsWith('/gate') || pathname?.startsWith('/checkout')) return null;
 
   return (
-    <footer className="mt-16 border-t border-border-base bg-bg-sunken">
+    /* THE INK BLOCK, and the page's last note.
+
+       Every band above this one is paper or sunken, so the footer is the one
+       place on the site where the tone inverts — which is what makes the page
+       end rather than just stop. `.es-band--ink` re-points the text roles
+       inside itself, so `text-muted` on a link below is zinc-400 on near-black
+       (7.76:1) rather than slate-600 on near-black (2.6:1). Setting `color`
+       alone on a dark footer is the single most common contrast failure on a
+       site, precisely because the headings look right.
+
+       No `mt-16`: the band above supplies its own bottom padding, and adding a
+       margin here on top of it gives the footer a gap that changes size
+       depending on which page it is under. */
+    <footer className="es-band--ink">
       <div className="fx-gutter">
         <div className="fx-container fx-container--xl fx-section fx-section--sm">
           <div className="fx-grid fx-grid--4">

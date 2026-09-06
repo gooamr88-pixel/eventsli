@@ -134,10 +134,10 @@ export default async function EventPage({ params }) {
         <div className="fx-container fx-container--xl">
           <div className="fx-grid fx-grid--2">
             <div className="fx-stack">
-              <p className="font-mono text-xs uppercase tracking-[0.1em] text-accent">
+              <p className="es-eyebrow">
                 {fmt(starts, { weekday: 'long', month: 'long', day: 'numeric' })}
               </p>
-              <h1 className="text-3xl">{event.title}</h1>
+              <h1 className="text-4xl">{event.title}</h1>
 
               <dl className="fx-stack fx-stack--sm text-sm">
                 <Row term="When">
@@ -165,8 +165,23 @@ export default async function EventPage({ params }) {
               )}
             </div>
 
-            <aside className="fx-stack">
-              <div className="fx-stack rounded-[--es-radius-lg] border border-border-base bg-surface p-5">
+            {/* STICKY, from `lg` up.
+
+                The description on a well-filled event page runs past the fold,
+                and when it does, the price and the buy button scroll off with
+                the top of the page — so the reader finishes the part that
+                convinced them and has to scroll back up to act on it. Sticking
+                the box means the decision is reachable from wherever the answer
+                was found.
+
+                `top-20` clears the 4rem masthead, which is itself sticky: at
+                `top-0` the box would slide under it and lose its first line.
+                `self-start` is what makes it work at all — a grid item defaults
+                to `stretch`, which makes this column as tall as the description
+                beside it, and a sticky element the full height of its scroll
+                container never has anywhere to stick to. */}
+            <aside className="fx-stack lg:sticky lg:top-20 lg:self-start">
+              <div className="es-card fx-stack p-5">
                 {cheapest.length > 0 && (
                   <p className="es-nums text-xl">
                     {formatPrice(Math.min(...cheapest), event.currency)}
@@ -220,7 +235,7 @@ export default async function EventPage({ params }) {
 function CallToAction({ event, soldOut }) {
   if (event.displayOnly) {
     return (
-      <p className="rounded-[--es-radius-md] bg-bg-sunken px-4 py-3 text-center text-sm text-muted">
+      <p className="rounded-[--es-radius-md] bg-bg-sunken px-4 py-3 text-center text-sm text-muted" role="status">
         This event is listed for information. Tickets are not sold here.
       </p>
     );
@@ -228,7 +243,7 @@ function CallToAction({ event, soldOut }) {
 
   if (soldOut) {
     return (
-      <p className="rounded-[--es-radius-md] bg-bg-sunken px-4 py-3 text-center text-sm text-muted">
+      <p className="rounded-[--es-radius-md] bg-bg-sunken px-4 py-3 text-center text-sm text-muted" role="status">
         Sold out
       </p>
     );
@@ -237,7 +252,7 @@ function CallToAction({ event, soldOut }) {
   return (
     <Link
       href={`/e/${event.slug}/seats`}
-      className="block rounded-[--es-radius-md] bg-accent px-4 py-3 text-center text-sm font-medium text-on-accent transition-colors hover:bg-accent-hover"
+      className="es-btn es-btn--primary es-btn--block es-btn--lg"
     >
       Choose your seats
     </Link>
@@ -247,7 +262,11 @@ function CallToAction({ event, soldOut }) {
 function Row({ term, children }) {
   return (
     <div className="fx-row items-start">
-      <dt className="w-20 flex-none font-mono text-[11px] uppercase tracking-[0.09em] text-subtle">
+      {/* `.es-eyebrow` in the subtle colour rather than the accent: these are
+          five labels stacked down the left of the facts list, and five accent
+          runs down one column reads as five links. The accent is reserved for
+          the one eyebrow above the title, which is the page's first note. */}
+      <dt className="es-eyebrow w-20 flex-none text-subtle">
         {term}
       </dt>
       <dd className="fx-min0 fx-break text-ink">{children}</dd>

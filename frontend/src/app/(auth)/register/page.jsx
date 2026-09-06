@@ -1,5 +1,6 @@
 import { Suspense } from 'react';
 import RegisterForm from './RegisterForm';
+import { Loading } from '../../components/Feedback';
 
 export const metadata = {
   title: 'Create an account',
@@ -9,7 +10,7 @@ export const metadata = {
 
 export default function RegisterPage() {
   return (
-    <Suspense fallback={<p className="text-sm text-subtle">Loading…</p>}>
+    <Suspense fallback={<Loading variant="card" />}>
       <RegisterForm />
     </Suspense>
   );

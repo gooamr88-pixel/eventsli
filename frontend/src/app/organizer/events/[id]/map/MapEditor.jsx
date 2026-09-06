@@ -8,6 +8,7 @@ import { WORLD } from '../../../../components/seating/seatingGeometry';
 import EditorCanvas from './EditorCanvas';
 import TablePanel from './TablePanel';
 import { useMapDraft, keyOf, MAX_TABLES } from './useMapDraft';
+import { Loading } from '../../../../components/Feedback';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -102,7 +103,7 @@ export default function MapEditor({ eventId }) {
 
   const selected = tables.find((t) => keyOf(t) === selectedKey) || null;
 
-  if (loading) return <p className="text-sm text-subtle">Loading the map…</p>;
+  if (loading) return <Loading variant="card" />;
 
   if (loadError) {
     const { title, recovery } = describeError(loadError);
@@ -144,7 +145,7 @@ export default function MapEditor({ eventId }) {
           <button
             type="button" onClick={save}
             disabled={saving || !dirty || problems.length > 0}
-            className="rounded-[--es-radius-md] bg-accent px-4 py-2 text-sm font-medium text-on-accent transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+            className="es-btn es-btn--primary"
           >
             {saving ? 'Saving…' : 'Save map'}
           </button>

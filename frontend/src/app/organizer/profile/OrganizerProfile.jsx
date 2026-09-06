@@ -7,6 +7,7 @@ import Field from '../../components/forms/Field';
 import FormError from '../../components/forms/FormError';
 import SubmitButton from '../../components/forms/SubmitButton';
 import CreateProfile from '../CreateProfile';
+import { Loading } from '../../components/Feedback';
 
 /**
  * The organizer profile.
@@ -53,7 +54,7 @@ export default function OrganizerProfile() {
     }
   }
 
-  if (loading) return <p className="text-sm text-subtle">Loading…</p>;
+  if (loading) return <Loading variant="card" />;
   if (!organizer) return <CreateProfile onCreated={refresh} />;
 
   return (
@@ -84,7 +85,7 @@ export default function OrganizerProfile() {
         </SubmitButton>
       </form>
 
-      <dl className="fx-stack fx-stack--sm rounded-[--es-radius-lg] border border-border-base bg-surface p-5 text-sm">
+      <dl className="fx-stack fx-stack--sm es-card p-5 text-sm">
         <Row term="Country" value={organizer.country}
           note="Fixed. It sets your payout account and your events’ currency — contact support to move." />
         <Row term="Payouts"

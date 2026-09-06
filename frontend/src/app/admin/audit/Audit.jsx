@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { get } from '../../utils/apiClient';
-import { describeError } from '../../utils/errors';
+import { Loading, ErrorNotice } from '../../components/Feedback';
 
 /**
  * Every administrative act, with its actor and its reason.
@@ -48,8 +48,8 @@ export default function Audit() {
     return () => { cancelled = true; };
   }, []);
 
-  if (error) return <p className="text-sm text-muted">{describeError(error).recovery}</p>;
-  if (!rows) return <p className="text-sm text-subtle">Loading…</p>;
+  if (error) return <ErrorNotice error={error} />;
+  if (!rows) return <Loading variant="list" />;
 
   return (
     <div className="fx-stack">

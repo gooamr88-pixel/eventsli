@@ -30,10 +30,7 @@ export default function OrganizerLayout({ children }) {
       <div className="fx-container fx-container--wide fx-stack">
         <div className="fx-row fx-row--between">
           <h1 className="text-2xl">Organizer</h1>
-          <Link
-            href="/organizer/events/new"
-            className="rounded-[--es-radius-md] bg-accent px-4 py-2 text-sm font-medium text-on-accent transition-colors hover:bg-accent-hover"
-          >
+          <Link href="/organizer/events/new" className="es-btn es-btn--primary">
             New event
           </Link>
         </div>
@@ -46,14 +43,7 @@ export default function OrganizerLayout({ children }) {
               ? pathname === href
               : pathname?.startsWith(href);
             return (
-              <Link
-                key={href}
-                href={href}
-                aria-current={active ? 'page' : undefined}
-                className={`whitespace-nowrap border-b-2 px-1 pb-2 text-sm transition-colors ${
-                  active ? 'border-accent text-ink' : 'border-transparent text-muted hover:text-ink'
-                }`}
-              >
+              <Link key={href} href={href} aria-current={active ? 'page' : undefined} className="es-tab">
                 {label}
               </Link>
             );

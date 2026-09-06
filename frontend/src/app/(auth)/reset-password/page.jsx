@@ -1,5 +1,6 @@
 import { Suspense } from 'react';
 import ResetPasswordForm from './ResetPasswordForm';
+import { Loading } from '../../components/Feedback';
 
 export const metadata = {
   title: 'Choose a new password',
@@ -9,7 +10,7 @@ export const metadata = {
 
 export default function ResetPasswordPage() {
   return (
-    <Suspense fallback={<p className="text-sm text-subtle">Loading…</p>}>
+    <Suspense fallback={<Loading variant="card" />}>
       <ResetPasswordForm />
     </Suspense>
   );

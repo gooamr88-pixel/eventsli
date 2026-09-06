@@ -7,6 +7,7 @@ import { describeError } from '../../../utils/errors';
 import StatusPill from '../../StatusPill';
 import ReviewActions from './ReviewActions';
 import CoverUpload from './CoverUpload';
+import { Loading } from '../../../components/Feedback';
 
 /**
  * One event, from the organizer's side.
@@ -52,7 +53,7 @@ export default function EventOverview({ eventId }) {
     );
   }
 
-  if (!event) return <p className="text-sm text-subtle">Loading…</p>;
+  if (!event) return <Loading variant="card" />;
 
   const money = event.fees;
 
@@ -112,7 +113,7 @@ export default function EventOverview({ eventId }) {
 
       <CoverUpload event={event} onChanged={refresh} />
 
-      <section className="fx-stack fx-stack--sm rounded-[--es-radius-lg] border border-border-base bg-surface p-5">
+      <section className="fx-stack fx-stack--sm es-card p-5">
         <h3 className="text-lg">What you will be charged</h3>
         <p className="text-sm text-muted">
           Set by us, and shown in full before you can publish.
@@ -146,7 +147,7 @@ export default function EventOverview({ eventId }) {
         </p>
       </section>
 
-      <section className="fx-stack fx-stack--sm rounded-[--es-radius-lg] border border-border-base bg-surface p-5">
+      <section className="fx-stack fx-stack--sm es-card p-5">
         <h3 className="text-lg">Rules</h3>
         <dl className="fx-stack fx-stack--sm text-sm">
           <Money term="Tickets per order" value={event.rules.maxTicketsPerOrder} />

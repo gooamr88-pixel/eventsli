@@ -68,7 +68,7 @@ export default function TransferDialog({ ticket, event, onClose, onDone }) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="transfer-title"
-        className="fx-stack w-full max-w-sm rounded-[--es-radius-lg] border border-border-base bg-surface p-5 shadow-xl"
+        className="fx-stack w-full max-w-sm es-card p-5 shadow-xl"
       >
         <div>
           <h2 id="transfer-title" className="text-lg">Give this ticket away</h2>

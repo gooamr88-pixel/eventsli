@@ -1,5 +1,6 @@
 import { Suspense } from 'react';
 import Payouts from './Payouts';
+import { Loading } from '../../components/Feedback';
 
 export const metadata = {
   title: 'Payouts',
@@ -8,7 +9,7 @@ export const metadata = {
 
 export default function PayoutsPage() {
   return (
-    <Suspense fallback={<p className="text-sm text-subtle">Loading…</p>}>
+    <Suspense fallback={<Loading variant="card" />}>
       <Payouts />
     </Suspense>
   );

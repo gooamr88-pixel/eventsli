@@ -32,9 +32,10 @@ export default function Field({
         // say "invalid" rather than leaving the red border as the only signal.
         aria-describedby={[hint && hintId, error && errorId].filter(Boolean).join(' ') || undefined}
         aria-invalid={error ? 'true' : undefined}
-        className={`rounded-[--es-radius-md] border bg-surface px-3 py-2.5 text-sm text-ink placeholder:text-subtle ${
-          error ? 'border-danger' : 'border-border-strong'
-        }`}
+        // The red border comes from `.es-input[aria-invalid]` above, driven by
+        // the same attribute the screen reader reads — so the two cannot be
+        // set independently and disagree.
+        className="es-input"
         {...props}
       />
 

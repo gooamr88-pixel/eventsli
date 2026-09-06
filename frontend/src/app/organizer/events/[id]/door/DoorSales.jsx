@@ -3,12 +3,12 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { get, post } from '../../../../utils/apiClient';
-import { describeError } from '../../../../utils/errors';
 import { formatMoney } from '../../../../utils/money';
 import SeatMapCanvas from '../../../../components/seating/SeatMapCanvas';
 import Field from '../../../../components/forms/Field';
 import FormError from '../../../../components/forms/FormError';
 import SubmitButton from '../../../../components/forms/SubmitButton';
+import { Loading, ErrorNotice } from '../../../../components/Feedback';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -103,8 +103,8 @@ export default function DoorSales({ eventId }) {
     }
   }
 
-  if (loadError) return <p className="text-sm text-muted">{describeError(loadError).recovery}</p>;
-  if (!event) return <p className="text-sm text-subtle">Loading…</p>;
+  if (loadError) return <ErrorNotice error={loadError} />;
+  if (!event) return <Loading variant="card" />;
 
   return (
     <div className="fx-stack">
@@ -158,7 +158,7 @@ export default function DoorSales({ eventId }) {
       )}
 
       {hasSelection && (
-        <div className="fx-stack fx-stack--sm rounded-[--es-radius-lg] border border-border-base bg-surface p-5">
+        <div className="fx-stack fx-stack--sm es-card p-5">
           <p className="text-sm text-ink">
             {selectedTable
               ? `Table ${selectedTable.label}`
@@ -230,7 +230,7 @@ export default function DoorSales({ eventId }) {
       <section className="fx-stack fx-stack--sm">
         <h3 className="text-lg">Recorded so far</h3>
         {!sales ? (
-          <p className="text-sm text-subtle">Loading…</p>
+          <Loading variant="card" />
         ) : sales.length === 0 ? (
           <p className="text-sm text-muted">Nothing yet.</p>
         ) : (

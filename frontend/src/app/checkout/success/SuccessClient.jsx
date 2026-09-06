@@ -103,7 +103,7 @@ export default function SuccessClient() {
         <p className="text-muted">Nothing was charged.</p>
         <Link
           href={reservation?.slug ? `/e/${reservation.slug}/seats` : '/events'}
-          className="self-start rounded-[--es-radius-md] bg-accent px-4 py-2 text-sm font-medium text-on-accent"
+          className="es-btn es-btn--primary self-start"
         >
           Try again
         </Link>
@@ -125,7 +125,7 @@ export default function SuccessClient() {
       </div>
 
       {ticketsWithheld ? (
-        <div className="rounded-[--es-radius-lg] border border-border-base bg-surface p-5">
+        <div className="es-card p-5">
           <p className="text-sm text-muted">{message}</p>
           <Link href="/account/tickets" className="mt-2 inline-block text-sm text-accent">
             Open my tickets

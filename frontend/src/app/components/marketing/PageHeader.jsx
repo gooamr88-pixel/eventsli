@@ -9,13 +9,16 @@
  */
 export default function PageHeader({ eyebrow, title, lede, children }) {
   return (
-    <section className="fx-section fx-section--sm">
+    /* On the SUNKEN tone, and every marketing page's first `Band` is on the
+       page tone — so the alternation that gives the homepage its rhythm holds
+       on the smaller pages too without each of them having to arrange it.
+       A page where the masthead and the first section share a ground has no
+       visible start to its content. */
+    <section className="es-band--sunken fx-section fx-section--sm">
       <div className="fx-container fx-container--xl fx-stack">
-        {eyebrow && (
-          <p className="font-mono text-xs uppercase tracking-[0.1em] text-accent">{eyebrow}</p>
-        )}
-        <h1 className="max-w-[20ch] text-3xl">{title}</h1>
-        {lede && <p className="max-w-[58ch] text-md text-muted">{lede}</p>}
+        {eyebrow && <p className="es-eyebrow">{eyebrow}</p>}
+        <h1 className="max-w-[20ch] text-4xl">{title}</h1>
+        {lede && <p className="max-w-[54ch] text-lg text-muted">{lede}</p>}
         {children}
       </div>
     </section>

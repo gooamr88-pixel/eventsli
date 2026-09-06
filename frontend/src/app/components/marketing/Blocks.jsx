@@ -6,13 +6,28 @@
  * to keep straight for no benefit.
  */
 
-/** A titled band. `id` so the footer and the in-page links can aim at it. */
-export function Band({ id, title, lede, children, flush }) {
+/**
+ * A titled band. `id` so the footer and the in-page links can aim at it.
+ *
+ * `tone` is what gives a long marketing page its rhythm, and the ONLY rule is
+ * that consecutive bands do not share one. The default is the page tone, so a
+ * page alternates by passing `tone="sunken"` on every second band — visible by
+ * reading the page file rather than by scrolling the rendered page.
+ *
+ * `ink` is for a closing call to action and there should be at most one per
+ * page: two dark blocks and neither of them is the end.
+ */
+const TONES = { base: 'es-band', sunken: 'es-band--sunken', ink: 'es-band--ink' };
+
+export function Band({ id, title, lede, children, flush, tone = 'base' }) {
   return (
-    <section id={id} className={`fx-section fx-section--sm ${flush ? 'fx-section--flush-top' : ''}`}>
+    <section
+      id={id}
+      className={`${TONES[tone] || TONES.base} fx-section fx-section--sm ${flush ? 'fx-section--flush-top' : ''}`}
+    >
       <div className="fx-container fx-container--xl fx-stack">
-        {title && <h2 className="text-xl">{title}</h2>}
-        {lede && <p className="max-w-[58ch] text-muted">{lede}</p>}
+        {title && <h2 className="text-2xl">{title}</h2>}
+        {lede && <p className="max-w-[58ch] text-lg text-muted">{lede}</p>}
         {children}
       </div>
     </section>
@@ -33,10 +48,10 @@ export function Steps({ steps }) {
       {steps.map((step, i) => (
         <li
           key={step.title}
-          className="fx-stack fx-stack--sm rounded-[--es-radius-lg] border border-border-base bg-surface p-5"
+          className="es-card fx-stack fx-stack--sm p-5"
         >
-          <p className="font-mono text-sm text-accent">{String(i + 1).padStart(2, '0')}</p>
-          <h3 className="text-md text-ink">{step.title}</h3>
+          <p className="es-eyebrow">{String(i + 1).padStart(2, '0')}</p>
+          <h3 className="text-lg">{step.title}</h3>
           <p className="text-sm text-muted">{step.body}</p>
         </li>
       ))}
@@ -62,9 +77,9 @@ export function Points({ points, columns = 'fx-grid--3', headingLevel = 3 }) {
       {points.map((point) => (
         <li
           key={point.title}
-          className="fx-stack fx-stack--sm rounded-[--es-radius-lg] border border-border-base bg-surface p-5"
+          className="es-card fx-stack fx-stack--sm p-5"
         >
-          <Heading className="text-md text-ink">{point.title}</Heading>
+          <Heading className="text-lg">{point.title}</Heading>
           <p className="text-sm text-muted">{point.body}</p>
           {point.detail && <p className="text-xs text-subtle">{point.detail}</p>}
         </li>
@@ -87,7 +102,7 @@ export function Faq({ items }) {
       {items.map((item) => (
         <details
           key={item.q}
-          className="group rounded-[--es-radius-lg] border border-border-base bg-surface p-4"
+          className="es-card group p-4"
         >
           <summary className="cursor-pointer list-none text-ink marker:content-['']">
             <span className="fx-row fx-row--between">
