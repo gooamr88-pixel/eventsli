@@ -18,6 +18,16 @@ const router = express.Router();
 // nothing below is protected by row-level security.
 router.use(requireAuth, requireRole('organizer'), requireActiveOrganizer);
 
+/** True for a time zone this runtime can format in — the same check every reader of the column makes. */
+function isTimeZone(value) {
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: String(value) }).format(0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 const dateRules = [
   body('startsAt').isISO8601().withMessage('Enter a valid start date and time.'),
   body('endsAt').isISO8601().withMessage('Enter a valid end date and time.')
@@ -36,10 +46,17 @@ router.post(
   body('country').isString().trim().isLength({ min: 2, max: 2 })
     .withMessage('Country must be a two-letter code, e.g. CA or US.'),
   body('timezone').isString().trim().notEmpty()
-    .withMessage('Choose the time zone the event runs in.'),
+    .withMessage('Choose the time zone the event runs in.')
+    // A real IANA zone, or nothing. "Toronto" used to be accepted and stored,
+    // and every later `Intl.DateTimeFormat(…, { timeZone })` on that event —
+    // the public page, the ticket, the emails — then threw a RangeError.
+    .custom(isTimeZone).withMessage('Choose a time zone from the list, e.g. America/Toronto.'),
   ...dateRules,
   body('listingType').optional().isIn(['ticketed', 'display_only']),
   body('purchaseMode').optional().isIn(['seat_only', 'table_only', 'seat_and_table']),
+  body('maxTicketsPerOrder').optional().isInt({ min: 1, max: 100 })
+    .withMessage('Tickets per order must be between 1 and 100.'),
+  body('allowTicketTransfer').optional().isBoolean(),
   // Against the exported list, never a literal array. A second copy of these
   // values is a second thing to forget when one is added to the enum.
   body('category').optional().isIn(EVENT_CATEGORIES)
@@ -61,6 +78,8 @@ router.patch(
   body('title').optional().isString().trim().isLength({ min: 3, max: 200 }),
   body('startsAt').optional().isISO8601(),
   body('endsAt').optional().isISO8601(),
+  body('timezone').optional().custom(isTimeZone)
+    .withMessage('Choose a time zone from the list, e.g. America/Toronto.'),
   body('country').optional().isString().trim().isLength({ min: 2, max: 2 }),
   body('feeBearer').optional().isIn(['buyer', 'organizer']),
   body('listingType').optional().isIn(['ticketed', 'display_only']),

@@ -757,8 +757,12 @@
 .fx-only-below-md { display: revert; }
 @media (width >= 48rem) { .fx-only-below-md { display: none; } }
 
-.fx-hide-below-md { display: none; }
-@media (width >= 48rem) { .fx-hide-below-md { display: revert; } }
+/* Below md only. It used to be `display: none` everywhere and `revert` from
+   md up — and `revert` is the BROWSER default, so on `<nav class="fx-row
+   fx-hide-below-md">` it undid `.fx-row`'s flex (this rule is later in the
+   file) and the desktop header links ran together with no gap. Hiding only
+   where it should hide leaves every other class's display alone. */
+@media (width < 48rem) { .fx-hide-below-md { display: none; } }
 
 .fx-hide-below-lg { display: none; }
 @media (width >= 64rem) { .fx-hide-below-lg { display: revert; } }
@@ -1548,6 +1552,17 @@
   .es-nav-content {
     margin-inline-start: var(--es-nav-w);
     padding-bottom: 0;
+  }
+}
+
+/* A sticky action bar inside the dashboard, on a phone, has to stick ABOVE
+   the fixed bottom bar. At `bottom: 0` it sat underneath it, so "Create draft
+   event" was hidden until the very end of the form. (From 48rem up the bar is
+   static — see .fx-sticky-actions.) */
+@media (width < 48rem) {
+  .es-nav-content .fx-sticky-actions {
+    bottom: calc(var(--es-nav-bar-h) + var(--fx-safe-b));
+    padding-bottom: var(--fx-gap-sm);
   }
 }
 

@@ -133,7 +133,10 @@ function SiteNav({ pathname }) {
                 pressing it did anything. */}
             <button
               type="button"
-              className="es-btn es-btn--ghost fx-touch--icon fx-only-below-md"
+              // `md:hidden`, a utility, not `.fx-only-below-md`: that is a
+              // component-layer rule earlier in the file than `.es-btn`, whose
+              // `display: inline-flex` won — so the burger showed on desktops.
+              className="es-btn es-btn--ghost fx-touch--icon md:hidden"
               aria-expanded={menuOpen}
               aria-controls="site-menu"
               aria-label={menuOpen ? 'Close the menu' : 'Open the menu'}
@@ -155,7 +158,7 @@ function SiteNav({ pathname }) {
         <nav
           id="site-menu"
           aria-label="Main"
-          className="fx-only-below-md border-t border-border-base bg-surface"
+          className="border-t border-border-base bg-surface md:hidden"
         >
           <div className="fx-gutter">
             <ul className="fx-stack fx-stack--sm py-3">

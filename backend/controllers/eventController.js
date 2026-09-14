@@ -50,6 +50,12 @@ async function create(req, res, next) {
         purchase_mode: req.body.purchaseMode || 'seat_only',
         category: req.body.category || 'other',
         fee_bearer: req.body.feeBearer || 'buyer',
+        // Only when sent, so the column defaults still decide otherwise. Both
+        // were settable by PATCH alone, and no organizer screen sends a PATCH.
+        ...(req.body.maxTicketsPerOrder !== undefined
+          ? { max_tickets_per_order: Number(req.body.maxTicketsPerOrder) } : {}),
+        ...(req.body.allowTicketTransfer !== undefined
+          ? { allow_ticket_transfer: req.body.allowTicketTransfer === true || req.body.allowTicketTransfer === 'true' } : {}),
         ...financials,
         status: 'draft',
       })
