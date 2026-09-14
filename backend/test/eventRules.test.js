@@ -95,10 +95,17 @@ test('cancelled and completed are terminal', () => {
   }
 });
 
-test('suspension is the admin\'s act, cancellation the organizer\'s', () => {
+test('suspension and cancellation are both the admin\'s act (BRD §17)', () => {
   assert.equal(transitionActor('published', 'suspended'), 'admin');
-  assert.equal(transitionActor('published', 'cancelled'), 'organizer');
   assert.equal(canTransition('suspended', 'published'), true, 'suspension must be reversible');
+
+  // Every edge into `cancelled`, not a sample: the organizer shipped with this
+  // power once, and a single edge left behind would bring it back.
+  const cancelEdges = Object.keys(TRANSITIONS).filter((from) => canTransition(from, 'cancelled'));
+  assert.ok(cancelEdges.length > 0);
+  for (const from of cancelEdges) {
+    assert.equal(transitionActor(from, 'cancelled'), 'admin', `${from}→cancelled must be the admin's`);
+  }
 });
 
 test('a published event cannot slip back into review', () => {

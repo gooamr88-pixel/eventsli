@@ -10,9 +10,20 @@ import { formatPriceRange } from '../utils/money';
  * shipping it to the browser would cost bytes for nothing.
  */
 
-const DATE = new Intl.DateTimeFormat('en-US', {
-  weekday: 'short', month: 'short', day: 'numeric',
-});
+/**
+ * In the EVENT's timezone. A shared formatter used the reader's zone, so a
+ * late show in Vancouver could read as the next day to someone in Toronto.
+ */
+function eventDate(event) {
+  const opts = { weekday: 'short', month: 'short', day: 'numeric' };
+  try {
+    return new Intl.DateTimeFormat('en-US', { ...opts, timeZone: event.timezone || undefined })
+      .format(new Date(event.startsAt));
+  } catch {
+    // An unrecognised zone name throws; the reader's zone beats a crashed list.
+    return new Intl.DateTimeFormat('en-US', opts).format(new Date(event.startsAt));
+  }
+}
 
 /**
  * @param {object}  props
@@ -45,7 +56,7 @@ export default function EventCard({ event, priority = false, headingLevel = 3 })
           globals.css instead of three utilities repeated at every call site
           that shows a cover. The radius is squared off at the top because the
           card's own `overflow: hidden` already clips it. */}
-      <div className="es-figure" style={{ '--es-figure-r': '0px' }}>
+      <div className="es-figure es-figure--square">
         {event.coverUrl ? (
           <Image
             src={event.coverUrl}
@@ -91,7 +102,7 @@ export default function EventCard({ event, priority = false, headingLevel = 3 })
 
       <div className="fx-stack fx-stack--sm p-5">
         <p className="es-eyebrow">
-          {DATE.format(new Date(event.startsAt))}
+          {eventDate(event)}
         </p>
         <Heading className="fx-break text-lg leading-snug">{event.title}</Heading>
         <p className="fx-truncate text-muted">

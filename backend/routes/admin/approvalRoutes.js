@@ -45,6 +45,17 @@ router.post(
   c.unsuspend,
 );
 
+// BRD §17 — only an admin cancels. It is terminal, so the reason is required
+// and goes into the audit trail with it.
+router.post(
+  '/events/:eventId/cancel',
+  param('eventId').isUUID(),
+  body('reason').isString().trim().isLength({ min: 10, max: 1000 })
+    .withMessage('Record why this event is being cancelled.'),
+  validate,
+  c.cancel,
+);
+
 // BRD 18 - a super admin can reopen a gate that an overdue invoice closed.
 // Time-boxed: a permanent override is a lock quietly removed.
 router.post(

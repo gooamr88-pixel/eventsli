@@ -80,14 +80,16 @@ const SELLING = [
       + 'formality — it is what keeps the listings on this platform worth trusting.',
   },
   {
-    title: 'Sell, and watch it',
-    body: 'Orders, attendees, promo codes and door sales in one place, with the money broken '
-      + 'down line by line rather than as one net figure.',
+    title: 'Share it, sell it, watch it',
+    body: 'A link and a QR code for the event and for each ticket type. Orders, attendees, '
+      + 'promo codes and door sales in one place, with the money broken down line by line '
+      + 'rather than as one net figure.',
   },
   {
     title: 'Run the door',
-    body: 'Register a tablet with a PIN and scan. It works with no signal at the venue and '
-      + 'uploads by itself when the connection returns.',
+    body: 'Register a tablet with a PIN, or add your door team by email so each person signs in '
+      + 'with their own account. Scanning works with no signal at the venue and uploads by '
+      + 'itself when the connection returns.',
   },
 ];
 
@@ -106,9 +108,10 @@ const FAQ = [
   },
   {
     q: 'Can I get a refund?',
-    a: 'Refunds are the organizer’s decision and are made by the organizer, because the money '
-      + 'went to them. Contact them first. If an event is cancelled outright, the tickets '
-      + 'stop admitting anyone and the organizer is responsible for refunding them.',
+    a: 'Tickets are non-refundable by default. Any refund is arranged between you and the '
+      + 'organizer, because the money went to them — so contact them first; Eventsli does not '
+      + 'issue refunds itself. If an event is cancelled, its tickets stop admitting anyone and '
+      + 'stay in your account as a record.',
   },
   {
     q: 'Can I transfer my ticket to someone else?',

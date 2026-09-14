@@ -61,6 +61,19 @@ const KEEP = ['terms_versions', 'platform_settings', 'schema_migrations', 'job_l
 
 (async () => {
   const commit = process.argv.includes('--commit');
+
+  // `--commit` alone is one remembered flag from wiping production. Committing
+  // also requires naming the project being wiped, so the command cannot be
+  // pasted from shell history into a terminal whose .env points elsewhere.
+  if (commit) {
+    const ref = (process.env.SUPABASE_URL || '').match(/https:\/\/([a-z0-9]+)\.supabase\.co/)?.[1];
+    const named = process.argv.find((a) => a.startsWith('--project='))?.slice('--project='.length);
+    if (!ref || named !== ref) {
+      console.error(`Refusing to commit: pass --project=${ref || '<project ref>'} to confirm which database is wiped.`);
+      process.exit(1);
+    }
+  }
+
   const db = await connect({ quiet: false });
 
   const { rows: all } = await db.query(`

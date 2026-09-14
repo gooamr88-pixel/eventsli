@@ -23,6 +23,7 @@ const TABLES = [
   'ledger_entries', 'invoices',
   'scanner_access', 'scan_devices', 'scans',
   'sessions', 'webhook_events', 'admin_audit', 'promo_codes',
+  'event_staff', 'email_verifications',
 ];
 
 // Business rules that live in the database. If one of these is absent, the rule
@@ -43,6 +44,9 @@ const FUNCTIONS = [
   'check_in_ticket', 'undo_check_in', 'scanner_is_locked', 'event_checkin_stats',
   'record_manual_sale', 'raise_commission_invoice', 'settle_invoice',
   'manual_commission_owed', 'mark_overdue_invoices',
+  // The dashboards — one round trip each.
+  'event_sales_summary', 'organizer_dashboard_summary', 'platform_overview',
+  'verify_email_code',
 ];
 
 const COLUMNS = [
@@ -63,6 +67,11 @@ const COLUMNS = [
   ['scans', 'occurred_at'],
   ['orders', 'manual_method'],
   ['invoices', 'covers_to'],
+  // BRD §21 — a guest's acceptance is recordable.
+  ['terms_acceptances', 'email'],
+  ['terms_acceptances', 'reservation_id'],
+  // A door-team member scans through a device row of their own.
+  ['scan_devices', 'staff_id'],
 ];
 
 (async () => {
@@ -101,6 +110,27 @@ const COLUMNS = [
     );
     const fns = new Set(fRows.map((r) => r.routine_name));
     for (const f of FUNCTIONS) report(fns.has(f), f);
+
+    console.log('\n── the Data API roles reach nothing ──');
+    // The browser never talks to Supabase, so `anon` and `authenticated` have no
+    // legitimate caller. Until 2026-09-14 both could EXECUTE every SECURITY
+    // DEFINER function here — fulfill_checkout and settle_invoice included —
+    // with the public anon key. Checked against privileges, not by calling
+    // anything: a probe that invoked settle_invoice would be the exploit.
+    const { rows: leaks } = await client.query(`
+      SELECT 'table ' || c.relname AS what FROM pg_class c
+       WHERE c.relnamespace = 'public'::regnamespace AND c.relkind IN ('r', 'p')
+         AND (has_table_privilege('anon', c.oid, 'SELECT') OR has_table_privilege('anon', c.oid, 'INSERT')
+           OR has_table_privilege('authenticated', c.oid, 'SELECT') OR NOT c.relrowsecurity)
+      UNION ALL
+      SELECT 'function ' || p.proname FROM pg_proc p
+       WHERE p.pronamespace = 'public'::regnamespace
+         AND NOT EXISTS (SELECT 1 FROM pg_depend d
+                          WHERE d.classid = 'pg_proc'::regclass AND d.objid = p.oid AND d.deptype = 'e')
+         AND (has_function_privilege('anon', p.oid, 'EXECUTE')
+           OR has_function_privilege('authenticated', p.oid, 'EXECUTE'))`);
+    report(leaks.length === 0, 'anon/authenticated locked out, RLS on everywhere',
+      leaks.length ? leaks.map((l) => l.what).join(', ') : '');
 
     console.log('\n── the ledger is genuinely append-only ──');
     // Exercised, not merely present. A trigger that exists and a trigger that

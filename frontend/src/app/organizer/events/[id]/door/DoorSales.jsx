@@ -4,29 +4,34 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { get, post } from '../../../../utils/apiClient';
 import { formatMoney } from '../../../../utils/money';
+import { useToast } from '../../../../components/ui/Toast';
 import SeatMapCanvas from '../../../../components/seating/SeatMapCanvas';
+import { SectionHeader, Panel } from '../../../../components/ui/Page';
+import DataTable from '../../../../components/ui/DataTable';
 import Field from '../../../../components/forms/Field';
 import FormError from '../../../../components/forms/FormError';
 import SubmitButton from '../../../../components/forms/SubmitButton';
-import { Loading, ErrorNotice } from '../../../../components/Feedback';
+import { Loading, ErrorNotice, Notice } from '../../../../components/Feedback';
+import { useEventContext } from '../EventContext';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
  * Recording a sale taken outside the platform — cash at the door, a transfer.
  *
- * QUOTED BEFORE RECORDED, always. `POST …/manual-sales/quote` returns what the
- * buyer pays AND the commission this creates, and the second number is the
- * point: an organizer taking cash is creating a debt to us in that moment, and
- * they should see it then rather than a week later on an invoice they did not
- * expect.
+ * QUOTED BEFORE RECORDED, always: the quote returns what the buyer pays AND the
+ * commission this creates, and the second number is the point — an organizer
+ * taking cash is creating a debt to Eventsli in that moment.
  *
- * The seat map here is the BUYER's component in its normal mode. Door staff are
- * picking real seats out of real stock, so anything else would be a second
- * implementation of the one thing that must not have two.
+ * The seat map is the BUYER's component in its normal mode. Door staff pick real
+ * seats out of real stock, so anything else would be a second implementation of
+ * the one thing that must not have two.
  * ─────────────────────────────────────────────────────────────────────────────
  */
+const BLANK_BUYER = { buyerName: '', buyerEmail: '', method: 'cash', note: '' };
+
 export default function DoorSales({ eventId }) {
-  const [event, setEvent] = useState(null);
+  const event = useEventContext()?.event;
+  const toast = useToast();
   const [map, setMap] = useState(null);
   const [sales, setSales] = useState(null);
   const [loadError, setLoadError] = useState(null);
@@ -35,23 +40,20 @@ export default function DoorSales({ eventId }) {
   const [selectedSeats, setSelectedSeats] = useState([]);
   const [selectedTable, setSelectedTable] = useState(null);
   const [quote, setQuote] = useState(null);
-  const [buyer, setBuyer] = useState({ buyerName: '', buyerEmail: '', method: 'cash', note: '' });
+  const [buyer, setBuyer] = useState(BLANK_BUYER);
   const [busy, setBusy] = useState(null);
   const [error, setError] = useState(null);
-  const [done, setDone] = useState(null);
+
+  const slug = event?.slug;
 
   useEffect(() => {
+    if (!slug) return undefined;
     let cancelled = false;
     (async () => {
       try {
-        const ev = await get(`/events/${eventId}`, { cache: 'no-store' });
-        if (cancelled) return;
-        setEvent(ev);
-
         const [publicMap, list] = await Promise.all([
-          get(`/public/events/${ev.slug}/seat-map`, { cache: 'no-store', noRedirect: true })
-            .catch(() => null),
-          get(`/events/${eventId}/manual-sales?limit=25`, { cache: 'no-store' }).catch(() => []),
+          get(`/public/events/${slug}/seat-map`, { cache: 'no-store', noRedirect: true }).catch(() => null),
+          get(`/events/${eventId}/manual-sales?limit=25`, { cache: 'no-store' }),
         ]);
         if (cancelled) return;
         setMap(publicMap);
@@ -62,12 +64,10 @@ export default function DoorSales({ eventId }) {
       }
     })();
     return () => { cancelled = true; };
-  }, [eventId, reload]);
+  }, [eventId, slug, reload]);
 
-  const selection = selectedTable
-    ? { tableId: selectedTable.id }
-    : { seatIds: selectedSeats.map((s) => s.id) };
-  const hasSelection = selectedTable || selectedSeats.length > 0;
+  const selection = selectedTable ? { tableId: selectedTable.id } : { seatIds: selectedSeats.map((s) => s.id) };
+  const hasSelection = Boolean(selectedTable) || selectedSeats.length > 0;
 
   async function getQuote() {
     setBusy('quote');
@@ -87,14 +87,16 @@ export default function DoorSales({ eventId }) {
     setBusy('record');
     setError(null);
     try {
-      const result = await post(`/events/${eventId}/manual-sales`, {
-        ...selection, ...buyer,
-      }, { noRedirect: true });
-      setDone(result);
+      const result = await post(`/events/${eventId}/manual-sales`, { ...selection, ...buyer }, { noRedirect: true });
+      toast.success(
+        `Recorded ${result.ticketCount} ${result.ticketCount === 1 ? 'ticket' : 'tickets'}. `
+        + `${formatMoney(result.commissionOwedCents, event.currency)} added to what you owe.`,
+        { title: 'Sale recorded' },
+      );
       setSelectedSeats([]);
       setSelectedTable(null);
       setQuote(null);
-      setBuyer({ buyerName: '', buyerEmail: '', method: 'cash', note: '' });
+      setBuyer(BLANK_BUYER);
       setReload((n) => n + 1);
     } catch (err) {
       setError(err);
@@ -104,158 +106,119 @@ export default function DoorSales({ eventId }) {
   }
 
   if (loadError) return <ErrorNotice error={loadError} />;
-  if (!event) return <Loading variant="card" />;
+  if (!event || (!map && !sales)) return <Loading variant="card" label="Loading the door" />;
 
   return (
     <div className="fx-stack">
-      <div className="fx-stack fx-stack--sm">
-        <h2 className="text-xl">Sales at the door</h2>
-        <p className="max-w-[62ch] text-muted">
-          Record a ticket you sold yourself. The seat comes out of the same stock as an
-          online sale, so it cannot be sold twice.
-        </p>
-      </div>
+      <SectionHeader
+        title="Sales at the door"
+        lede="Record a ticket you sold yourself. The seat comes out of the same stock as an online sale, so it cannot be sold twice."
+        actions={<Link href={`/organizer/events/${eventId}/commission`} className="es-btn es-btn--secondary es-btn--sm">What I owe</Link>}
+      />
 
-      {done && (
-        <div className="rounded-[--es-radius-md] bg-success/10 px-4 py-3">
-          <p className="text-sm text-ink">
-            Recorded — {done.ticketCount} {done.ticketCount === 1 ? 'ticket' : 'tickets'}.
-          </p>
-          <p className="mt-1 text-sm text-muted">
-            Commission of {formatMoney(done.commissionOwedCents, event.currency)} added to
-            what you owe. <Link href={`/organizer/events/${eventId}/commission`} className="text-accent">
-              See your invoices
-            </Link>.
-          </p>
-        </div>
+      {event.status !== 'published' && (
+        <Notice tone="warning" title="This event is not on sale.">
+          <p>Door sales can only be recorded against an event that is published.</p>
+        </Notice>
       )}
 
       {map?.map ? (
-        <SeatMapCanvas
-          className="h-[42vh] min-h-[300px]"
-          tables={map.tables}
-          seats={map.seats}
-          purchaseMode={event.purchaseMode}
-          selectedSeatIds={new Set(selectedSeats.map((s) => s.id))}
-          selectedTableIds={new Set(selectedTable ? [selectedTable.id] : [])}
-          onSelectSeat={(seat) => {
-            setQuote(null);
-            setSelectedTable(null);
-            setSelectedSeats((c) => (c.some((s) => s.id === seat.id)
-              ? c.filter((s) => s.id !== seat.id)
-              : [...c, seat]));
-          }}
-          onSelectTable={(table) => {
-            setQuote(null);
-            setSelectedSeats([]);
-            setSelectedTable((c) => (c?.id === table.id ? null : table));
-          }}
-        />
+        <div className="es-plate bg-surface p-3">
+          <SeatMapCanvas
+            className="h-[48vh] min-h-[320px]"
+            tables={map.tables}
+            seats={map.seats}
+            purchaseMode={event.purchaseMode}
+            selectedSeatIds={new Set(selectedSeats.map((s) => s.id))}
+            selectedTableIds={new Set(selectedTable ? [selectedTable.id] : [])}
+            onSelectSeat={(seat) => {
+              setQuote(null);
+              setSelectedTable(null);
+              setSelectedSeats((c) => (c.some((s) => s.id === seat.id) ? c.filter((s) => s.id !== seat.id) : [...c, seat]));
+            }}
+            onSelectTable={(table) => {
+              setQuote(null);
+              setSelectedSeats([]);
+              setSelectedTable((c) => (c?.id === table.id ? null : table));
+            }}
+          />
+        </div>
       ) : (
-        <p className="rounded-[--es-radius-md] bg-bg-sunken px-4 py-3 text-sm text-muted">
-          This event has no seat map, so there is nothing to sell from here.
-        </p>
+        <Notice title="No seat map yet.">
+          <p>Door sales pick seats from the map. <Link href={`/organizer/events/${eventId}/map`} className="text-accent">Build the map</Link> first.</p>
+        </Notice>
       )}
 
       {hasSelection && (
-        <div className="fx-stack fx-stack--sm es-card p-5">
-          <p className="text-sm text-ink">
-            {selectedTable
-              ? `Table ${selectedTable.label}`
-              : `${selectedSeats.length} ${selectedSeats.length === 1 ? 'seat' : 'seats'}`}
-          </p>
-
+        <Panel
+          title={selectedTable ? `Table ${selectedTable.label}` : `${selectedSeats.length} ${selectedSeats.length === 1 ? 'seat' : 'seats'} chosen`}
+          action={<button type="button" className="es-btn es-btn--ghost es-btn--sm" onClick={() => { setSelectedSeats([]); setSelectedTable(null); setQuote(null); }}>Clear</button>}
+        >
           {quote ? (
             <>
               <dl className="fx-stack fx-stack--sm text-sm">
                 <Line term="Buyer pays" value={formatMoney(quote.buyerPaysCents, quote.currency)} strong />
                 <Line term="Tickets" value={formatMoney(quote.subtotalCents, quote.currency)} />
-                {quote.eventTaxCents > 0 && (
-                  <Line term="Tax" value={formatMoney(quote.eventTaxCents, quote.currency)} />
-                )}
-                {/* The number that makes this page worth having. */}
+                {quote.eventTaxCents > 0 && <Line term="Tax" value={formatMoney(quote.eventTaxCents, quote.currency)} />}
                 <Line
-                  term="You will owe us"
+                  term="You will owe Eventsli"
                   value={formatMoney(quote.commissionOwedCents, quote.currency)}
-                  note="Invoiced separately. The money never passes through us on this route."
+                  note="Invoiced separately — this money never passes through us."
                   strong
                 />
               </dl>
 
               <form onSubmit={record} className="fx-stack fx-stack--sm border-t border-border-base pt-4">
-                <Field
-                  label="Who bought it" name="buyerName" required minLength={2} maxLength={120}
-                  value={buyer.buyerName}
-                  onChange={(e) => setBuyer((b) => ({ ...b, buyerName: e.target.value }))}
-                />
-                <Field
-                  label="Their email" type="email" name="buyerEmail"
-                  hint="Optional — but without it they get no ticket by email."
-                  value={buyer.buyerEmail}
-                  onChange={(e) => setBuyer((b) => ({ ...b, buyerEmail: e.target.value }))}
-                />
-                <Field
-                  label="How they paid" name="method" required minLength={2} maxLength={60}
-                  hint="e.g. cash, e-transfer"
-                  value={buyer.method}
-                  onChange={(e) => setBuyer((b) => ({ ...b, method: e.target.value }))}
-                />
-                <Field
-                  label="Note" name="note" maxLength={500}
-                  value={buyer.note}
-                  onChange={(e) => setBuyer((b) => ({ ...b, note: e.target.value }))}
-                />
-
+                <div className="fx-grid fx-grid--2">
+                  <Field label="Who bought it" name="buyerName" required minLength={2} maxLength={120}
+                    value={buyer.buyerName} onChange={(e) => setBuyer((b) => ({ ...b, buyerName: e.target.value }))} />
+                  <Field label="Their email" type="email" name="buyerEmail" hint="Optional — without it they get no ticket by email."
+                    value={buyer.buyerEmail} onChange={(e) => setBuyer((b) => ({ ...b, buyerEmail: e.target.value }))} />
+                  <Field label="How they paid" name="method" required minLength={2} maxLength={60} hint="e.g. cash, e-transfer"
+                    value={buyer.method} onChange={(e) => setBuyer((b) => ({ ...b, method: e.target.value }))} />
+                  <Field label="Note" name="note" maxLength={500}
+                    value={buyer.note} onChange={(e) => setBuyer((b) => ({ ...b, note: e.target.value }))} />
+                </div>
                 <FormError error={error} />
-
-                <SubmitButton busy={busy === 'record'} busyLabel="Recording…">
-                  Record this sale
-                </SubmitButton>
+                <div>
+                  <SubmitButton busy={busy === 'record'} busyLabel="Recording…">Record this sale</SubmitButton>
+                </div>
               </form>
             </>
           ) : (
             <>
               <FormError error={error} />
-              <SubmitButton
-                type="button" busy={busy === 'quote'} busyLabel="Working it out…"
-                onClick={getQuote}
-              >
-                Work out the price
-              </SubmitButton>
+              <div>
+                <SubmitButton type="button" busy={busy === 'quote'} busyLabel="Working it out…" onClick={getQuote}>
+                  Work out the price
+                </SubmitButton>
+              </div>
             </>
           )}
-        </div>
+        </Panel>
       )}
 
       <section className="fx-stack fx-stack--sm">
-        <h3 className="text-lg">Recorded so far</h3>
-        {!sales ? (
-          <Loading variant="card" />
-        ) : sales.length === 0 ? (
-          <p className="text-sm text-muted">Nothing yet.</p>
+        <h3 className="text-lg text-ink">Recorded so far</h3>
+        {!sales?.length ? (
+          <p className="text-sm text-muted">Nothing recorded at the door yet.</p>
         ) : (
-          <ul className="fx-stack fx-stack--sm">
-            {sales.map((sale) => (
-              <li key={sale.id} className="fx-row fx-row--between rounded-[--es-radius-md] border border-border-base bg-surface p-3">
-                <div className="fx-min0">
-                  <p className="fx-truncate text-sm text-ink">{sale.buyer.name || 'Unnamed'}</p>
-                  <p className="text-xs text-subtle">
-                    {sale.seats} × · {sale.method} · {new Intl.DateTimeFormat('en-US', {
-                      dateStyle: 'medium', timeStyle: 'short',
-                    }).format(new Date(sale.recordedAt))}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="es-nums text-sm text-ink">
-                    {formatMoney(sale.buyerPaidCents, sale.currency)}
-                  </p>
-                  <p className="es-nums text-xs text-subtle">
-                    owe {formatMoney(sale.commissionOwedCents, sale.currency)}
-                  </p>
-                </div>
-              </li>
-            ))}
-          </ul>
+          <DataTable
+            caption="Door sales"
+            rows={sales}
+            columns={[
+              { key: 'buyer', label: 'Buyer', primary: true, render: (s) => <span className="fx-break text-ink">{s.buyer?.name || 'No name given'}</span> },
+              { key: 'seats', label: 'Tickets', align: 'end', render: (s) => <span className="es-nums">{s.seats}</span> },
+              { key: 'method', label: 'Paid by', render: (s) => s.method },
+              { key: 'paid', label: 'Paid', align: 'end', render: (s) => <span className="es-nums">{formatMoney(s.buyerPaidCents, s.currency)}</span> },
+              { key: 'owed', label: 'Commission', align: 'end', render: (s) => <span className="es-nums text-muted">{formatMoney(s.commissionOwedCents, s.currency)}</span> },
+              {
+                key: 'when',
+                label: 'When',
+                render: (s) => new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(s.recordedAt)),
+              },
+            ]}
+          />
         )}
       </section>
     </div>

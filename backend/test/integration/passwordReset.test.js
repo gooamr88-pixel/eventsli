@@ -34,6 +34,8 @@ before(async () => {
     email: EMAIL, password: OLD, fullName: 'Reset Test',
   });
   ids.profile = res.body.data.id;
+  // Confirmed as the emailed code would, so the account can sign in later.
+  await supabase.from('profiles').update({ email_verified_at: new Date().toISOString() }).eq('id', ids.profile);
 });
 
 after(async () => {

@@ -54,11 +54,13 @@ async function requireDevice(req, res, next) {
    * 500, and the failure mode of a scanner that cannot reach the database must
    * be a closed door rather than an open one.
    */
-  const device = await scanSvc.getActiveDevice(claims.deviceId);
+  const device = await scanSvc.getActiveDevice(claims.deviceId, { staffUserId: claims.staffUserId });
   if (!device) {
     return sendFail(res, {
       status: 401, error: 'SESSION_REVOKED',
-      message: 'This device has been switched off by the organizer.',
+      message: claims.staffUserId
+        ? 'You are no longer on the door team for this event.'
+        : 'This device has been switched off by the organizer.',
     });
   }
 
@@ -70,7 +72,10 @@ async function requireDevice(req, res, next) {
   // device moved between events cannot keep scanning the old one on an old
   // token. They agree in every normal case; when they do not, the database is
   // the one that is current.
-  req.device = { deviceId: device.id, eventId: device.eventId };
+  // `staffUserId` is set when a named door-team member is scanning, and null
+  // for a shared tablet. Either way the permissions are the same and narrow:
+  // scan, undo and gate status, for this one event.
+  req.device = { deviceId: device.id, eventId: device.eventId, staffUserId: device.staffUserId };
   return next();
 }
 

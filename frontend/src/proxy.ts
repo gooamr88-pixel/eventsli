@@ -40,7 +40,7 @@ const SESSION_COOKIE = 'eventsli_session';
 const PROTECTED = ['/account', '/organizer', '/admin'];
 
 /** Signed-IN visitors are sent away from these. */
-const AUTH_ONLY = ['/login', '/register'];
+const AUTH_ONLY = ['/login', '/register', '/verify-email'];
 
 /**
  * The gate has its own principal — a DEVICE with a PIN, not a person — so a

@@ -166,7 +166,11 @@ router.post(
   body('email').optional().isEmail().normalizeEmail(),
   body('name').optional().isString().trim().isLength({ max: 120 }),
   body('phone').optional().isString().trim().matches(/^[0-9+\-() ]{7,20}$/),
-  body('acceptTerms').optional().isBoolean(),
+  // BRD §21 — required, and only a real JSON `true` counts. `optional()` here
+  // let a checkout without the buyer's agreement through for as long as the
+  // page happened to send it.
+  body('acceptTerms').custom((v) => v === true)
+    .withMessage('Accept the terms to continue to payment.'),
   validate,
   checkout.createSession,
 );

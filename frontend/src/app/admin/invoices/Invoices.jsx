@@ -1,9 +1,16 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { get, post } from '../../utils/apiClient';
+import { useState } from 'react';
+import Link from 'next/link';
+import { post } from '../../utils/apiClient';
+import { describeError } from '../../utils/errors';
 import { formatMoney } from '../../utils/money';
-import FormError from '../../components/forms/FormError';
+import { useApi } from '../../hooks/useApi';
+import { useToast } from '../../components/ui/Toast';
+import { useConfirm } from '../../components/ui/Confirm';
+import { PageHeader } from '../../components/ui/Page';
+import { Segmented, Pagination } from '../../components/ui/Filters';
+import DataTable from '../../components/ui/DataTable';
 import { Loading, Empty, ErrorNotice } from '../../components/Feedback';
 
 /**
@@ -18,180 +25,144 @@ import { Loading, Empty, ErrorNotice } from '../../components/Feedback';
  * attached and is still unpaid. The link opens in a new tab because checking it
  * is the whole job.
  */
-export default function Invoices() {
-  const [status, setStatus] = useState('');
-  const [rows, setRows] = useState(null);
-  const [error, setError] = useState(null);
-  const [reload, setReload] = useState(0);
+const STATUSES = [
+  { value: '', label: 'All' },
+  { value: 'open', label: 'Unpaid' },
+  { value: 'submitted', label: 'Proof in' },
+  { value: 'paid', label: 'Settled' },
+];
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const query = new URLSearchParams({ limit: '50' });
-      if (status) query.set('status', status);
-      try {
-        const data = await get(`/admin/invoices?${query}`, { cache: 'no-store' });
-        if (!cancelled) { setRows(Array.isArray(data) ? data : []); setError(null); }
-      } catch (err) {
-        if (!cancelled) setError(err);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [status, reload]);
+export default function Invoices() {
+  const toast = useToast();
+  const confirm = useConfirm();
+  const [status, setStatus] = useState('');
+  const [page, setPage] = useState(1);
+  const [busyId, setBusyId] = useState(null);
+
+  const query = new URLSearchParams({ limit: '25', page: String(page) });
+  if (status) query.set('status', status);
+  const { data, error, loading, reload } = useApi(`/admin/invoices?${query}`, { raw: true });
+  const rows = data?.data || [];
+
+  async function settle(invoice) {
+    const answer = await confirm({
+      title: `Settle ${invoice.number}?`,
+      body: (
+        <>
+          <p>
+            Confirm you have received {formatMoney(invoice.amountCents, invoice.currency)}. This marks it paid and
+            reopens that event&rsquo;s gate.
+          </p>
+          <p>Check the receipt first — submitting proof did not reopen anything on its own.</p>
+        </>
+      ),
+      confirmLabel: 'Money received — settle it',
+      reason: { label: 'Note for the audit log', minLength: 0, hint: 'Optional — e.g. the transfer reference.' },
+    });
+    if (!answer) return;
+
+    setBusyId(invoice.id);
+    try {
+      const result = await post(`/admin/invoices/${invoice.id}/settle`, {
+        note: answer.reason || undefined,
+      }, { noRedirect: true });
+      toast.success(result?.gateReopened
+        ? 'Scanning is back on for that event — nothing else to do.'
+        : 'Something else is still outstanding, so scanning stays off.', { title: `${invoice.number} settled` });
+      reload();
+    } catch (err) {
+      const { title, recovery } = describeError(err);
+      toast.error(recovery, { title });
+    } finally {
+      setBusyId(null);
+    }
+  }
 
   return (
     <div className="fx-stack">
-      <div className="fx-stack fx-stack--sm">
-        <h2 className="text-xl">Commission invoices</h2>
-        <p className="max-w-[62ch] text-muted">
-          Raised against door sales only. Card sales settle themselves — the money passed
-          through us and the fee was already taken.
-        </p>
-      </div>
+      <PageHeader
+        eyebrow="Console"
+        title="Commission invoices"
+        lede="Raised against door sales only. Card sales settle themselves — the money passed through us and the fee was already taken."
+      />
 
-      <div className="fx-row fx-row--scroll" role="group" aria-label="Status">
-        {[['', 'All'], ['open', 'Unpaid'], ['submitted', 'Proof in'], ['paid', 'Settled']].map(([v, l]) => (
-          <button
-            key={v || 'all'}
-            type="button"
-            onClick={() => setStatus(v)}
-            aria-pressed={status === v}
-            className={`whitespace-nowrap rounded-full border px-3 py-1.5 text-sm transition-colors ${
-              status === v ? 'border-accent bg-accent text-on-accent' : 'border-border-strong text-muted hover:text-ink'
-            }`}
-          >
-            {l}
-          </button>
-        ))}
-      </div>
+      <Segmented label="Status" value={status} onChange={(v) => { setStatus(v); setPage(1); }} options={STATUSES} />
 
       {error ? (
         <ErrorNotice error={error} />
-      ) : !rows ? (
-        <Loading variant="list" />
+      ) : loading && !data ? (
+        <Loading variant="list" rows={4} label="Loading invoices" />
       ) : rows.length === 0 ? (
-        <Empty
-          title="No invoices in this state."
-          hint="Try another filter — an invoice only appears once its event has finished."
-        />
+        <Empty title="No invoices in this state." hint="Try another filter — an invoice only appears once an event has door sales." />
       ) : (
-        <ul className="fx-stack fx-stack--sm">
-          {rows.map((invoice) => (
-            <InvoiceRow key={invoice.id} invoice={invoice} onChanged={() => setReload((n) => n + 1)} />
-          ))}
-        </ul>
+        <>
+          <DataTable
+            caption="Commission invoices"
+            rows={rows}
+            columns={[
+              {
+                key: 'event',
+                label: 'Event',
+                primary: true,
+                render: (i) => (
+                  <span className="fx-stack fx-stack--sm gap-0.5">
+                    {i.event?.id
+                      ? <Link href={`/admin/events/${i.event.id}`} className="fx-break text-ink hover:text-accent">{i.event.title}</Link>
+                      : <span className="text-ink">Event</span>}
+                    <span className="text-sm text-muted">{i.organizer?.name} · {i.number}</span>
+                  </span>
+                ),
+              },
+              { key: 'sales', label: 'Door sales', align: 'end', render: (i) => <span className="es-nums">{i.orderCount}</span> },
+              { key: 'amount', label: 'Amount', align: 'end', render: (i) => <span className="es-nums text-ink">{formatMoney(i.amountCents, i.currency)}</span> },
+              {
+                key: 'due',
+                label: 'Due',
+                render: (i) => (
+                  <span className="fx-stack fx-stack--sm gap-0.5">
+                    <span>{when(i.dueAt)}</span>
+                    <InvoiceStatus invoice={i} />
+                  </span>
+                ),
+              },
+              {
+                key: 'actions',
+                label: 'Actions',
+                hideLabel: true,
+                align: 'end',
+                render: (i) => (
+                  <span className="fx-row justify-end">
+                    {i.proofUrl && (
+                      <a href={i.proofUrl} target="_blank" rel="noreferrer noopener" className="es-btn es-btn--ghost es-btn--sm">
+                        Receipt
+                      </a>
+                    )}
+                    {!['paid', 'waived'].includes(i.status) && (
+                      <button type="button" className="es-btn es-btn--primary es-btn--sm" disabled={busyId === i.id} onClick={() => settle(i)}>
+                        {busyId === i.id ? 'Settling…' : 'Settle'}
+                      </button>
+                    )}
+                  </span>
+                ),
+              },
+            ]}
+          />
+          <Pagination pagination={data.pagination} onPage={setPage} />
+        </>
       )}
     </div>
   );
 }
 
-function InvoiceRow({ invoice, onChanged }) {
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState(null);
-  const [result, setResult] = useState(null);
-  const [note, setNote] = useState('');
-  const [confirming, setConfirming] = useState(false);
-
-  const settled = ['paid', 'waived'].includes(invoice.status);
-
-  async function settle() {
-    setBusy(true);
-    setError(null);
-    try {
-      const data = await post(`/admin/invoices/${invoice.id}/settle`, {
-        note: note.trim() || undefined,
-      }, { noRedirect: true });
-      setResult(data);
-      onChanged();
-    } catch (err) {
-      setError(err);
-    } finally {
-      setBusy(false);
-      setConfirming(false);
-    }
-  }
-
-  return (
-    <li className="fx-stack fx-stack--sm es-card p-4">
-      <div className="fx-row fx-row--between">
-        <div className="fx-min0">
-          <p className="fx-break text-ink">{invoice.event?.title || 'Event'}</p>
-          <p className="text-sm text-muted">
-            {invoice.organizer?.name} · {invoice.number} · {invoice.orderCount} door sales
-          </p>
-          <p className="text-xs text-subtle">
-            Due {when(invoice.dueAt)}
-            {invoice.isOverdue && <span className="text-danger"> · overdue, gate is shut</span>}
-          </p>
-        </div>
-        <p className="es-nums whitespace-nowrap text-ink">
-          {formatMoney(invoice.amountCents, invoice.currency)}
-        </p>
-      </div>
-
-      {invoice.proofUrl && (
-        <a
-          href={invoice.proofUrl}
-          target="_blank"
-          rel="noreferrer noopener"
-          className="text-sm text-accent"
-        >
-          Open the receipt they submitted →
-        </a>
-      )}
-
-      {result && (
-        <p className="rounded-[--es-radius-md] bg-success/10 px-3 py-2 text-sm text-muted">
-          Settled.{' '}
-          {result.gateReopened
-            ? 'Scanning is back on for that event — nothing else to do.'
-            : 'Something else is still outstanding, so scanning stays off.'}
-        </p>
-      )}
-
-      <FormError error={error} />
-
-      {!settled && !result && (
-        confirming ? (
-          <div className="fx-stack fx-stack--sm rounded-[--es-radius-md] bg-bg-sunken p-3">
-            <p className="text-sm text-ink">Confirm you have received the money?</p>
-            <p className="text-sm text-muted">
-              This marks it paid and reopens that event&apos;s gate. Check the receipt
-              first — submitting proof did not reopen anything on its own.
-            </p>
-            <input
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="Note for the audit log"
-              aria-label="Settlement note"
-              className="es-input"
-            />
-            <div className="fx-row fx-row--between">
-              <button type="button" onClick={() => setConfirming(false)} className="text-sm text-muted hover:text-ink">
-                Not yet
-              </button>
-              <button
-                type="button"
-                disabled={busy}
-                onClick={settle}
-                className="es-btn es-btn--primary"
-              >
-                {busy ? 'Settling…' : 'Money received — settle it'}
-              </button>
-            </div>
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setConfirming(true)}
-            className="self-start rounded-[--es-radius-md] border border-border-strong px-4 py-2 text-sm text-ink transition-colors hover:bg-bg-sunken"
-          >
-            Settle
-          </button>
-        )
-      )}
-    </li>
-  );
+function InvoiceStatus({ invoice }) {
+  if (invoice.isOverdue) return <span className="es-pill es-pill--danger self-start">Overdue · gate shut</span>;
+  const [label, tone] = {
+    open: ['Unpaid', 'es-pill--warning'],
+    submitted: ['Proof in', ''],
+    paid: ['Settled', 'es-pill--accent'],
+    waived: ['Waived', ''],
+  }[invoice.status] || [invoice.status, ''];
+  return <span className={`es-pill ${tone} self-start`}>{label}</span>;
 }
 
 function when(iso) {

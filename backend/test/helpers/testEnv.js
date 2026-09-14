@@ -19,6 +19,37 @@ process.env.DISABLE_RATE_LIMIT = 'true';
 
 require('dotenv').config();
 
+/**
+ * NEVER AGAINST PRODUCTION BY ACCIDENT.
+ *
+ * These tests create and delete users, events, orders and ledger rows. They
+ * read the database from `backend/.env`, which on a developer machine points at
+ * the LIVE project — so for months a plain `npm run test:integration` wrote test
+ * rows into production and deleted them again. That is one failed `after()`
+ * away from leaving debris, and one bug in a cleanup query away from deleting
+ * something real.
+ *
+ * Local stacks run freely (CI uses `supabase start`, which is 127.0.0.1). A
+ * remote project is refused unless EVENTSLI_TEST_REMOTE_DB names its project
+ * ref exactly — a deliberate act, not a default, and it cannot be satisfied by
+ * a copied `=true`.
+ */
+{
+  const LOCAL_HOSTS = new Set(['127.0.0.1', 'localhost', '[::1]', 'host.docker.internal']);
+  let host = '';
+  try { host = new URL(process.env.SUPABASE_URL || '').hostname; } catch { /* reported below */ }
+  if (!LOCAL_HOSTS.has(host)) {
+    const ref = host.split('.')[0];
+    if (!ref || process.env.EVENTSLI_TEST_REMOTE_DB !== ref) {
+      throw new Error(
+        `Refusing to run integration tests against "${host || 'an unset SUPABASE_URL'}". `
+        + 'Point SUPABASE_URL at a local stack (supabase start), or set '
+        + 'EVENTSLI_TEST_REMOTE_DB to that project ref if you really mean it.',
+      );
+    }
+  }
+}
+
 // dotenv does not override an already-set variable, so a stray
 // DISABLE_RATE_LIMIT=false in .env cannot undo the line above — but NODE_ENV
 // could arrive as 'production' from a shell and silently re-enable limiting.

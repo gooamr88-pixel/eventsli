@@ -58,14 +58,14 @@ async function createSession(req, res, next) {
       });
     }
 
-    // BRD §02 — the buyer accepts the terms before paying. Recorded against the
-    // version they were shown, not a boolean.
-    const terms = require('../services/termsService');
-    if (req.body.acceptTerms) {
-      const current = await terms.currentVersion('buyer');
-      await terms.accept({
-        userId: buyer.userId, termsId: current.id, eventId: q.event.id, req,
-      }).catch((e) => logger.warn({ err: e.message }, 'buyer terms acceptance not recorded'));
+    // BRD §21 — the buyer sees and accepts the terms BEFORE paying. Refused
+    // here, not only by the checkbox in the page: the route validator already
+    // demands it, and this repeats the check so no other caller can skip it.
+    if (req.body.acceptTerms !== true) {
+      return sendFail(res, {
+        status: 403, error: 'TERMS_NOT_ACCEPTED',
+        message: 'Accept the terms to continue to payment.',
+      });
     }
 
     const payable = await stripeSvc.organizerCanReceive(q.event.organizer_id);
@@ -78,6 +78,22 @@ async function createSession(req, res, next) {
         message: 'This event cannot take payments at the moment. Please try again later.',
       });
     }
+
+    // Recorded against the version they were shown, and FAIL CLOSED. This used
+    // to be `.catch(logger.warn)`: every guest acceptance failed (the table
+    // required an account) and the payment went ahead regardless, so the rule
+    // was recorded for nobody without one. A checkout we cannot evidence the
+    // terms for does not start.
+    const terms = require('../services/termsService');
+    const current = await terms.currentVersion('buyer');
+    await terms.accept({
+      userId: buyer.userId,
+      email: buyer.email,
+      reservationId: req.params.reservationId,
+      termsId: current.id,
+      eventId: q.event.id,
+      req,
+    });
 
     const origin = safeOrigin(req);
     const session = await stripeSvc.createCheckoutSession({

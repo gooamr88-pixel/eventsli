@@ -82,6 +82,7 @@ function askSecret(prompt) {
       `UPDATE profiles
           SET password_hash = $2, password_algo = 'pbkdf2', password_updated_at = now(),
               role = $3, is_blocked = false, failed_login_count = 0, locked_until = NULL,
+              email_verified_at = COALESCE(email_verified_at, now()),
               updated_at = now()
         WHERE email = $1`,
       [email, hash, role],

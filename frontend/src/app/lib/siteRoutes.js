@@ -63,6 +63,7 @@ export const PRIVATE_PREFIXES = [
   '/register',
   '/forgot-password',
   '/reset-password',
+  '/verify-email',
   '/api',
 ];
 

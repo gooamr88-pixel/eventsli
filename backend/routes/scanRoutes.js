@@ -59,4 +59,29 @@ router.post(
 
 router.get('/status', requireDevice, c.status);
 
+// ─── The door team: a person, with their own account ───────────────────────
+// Alongside PIN devices, not instead of them. A session cookie proves who they
+// are; membership of the event's door team decides whether they may scan it,
+// and the token they get back is scoped to that one event.
+const { requireAuth } = require('../middleware/auth');
+const staff = require('../controllers/staffController');
+
+const staffLoginLimiter = makeLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  name: 'staff-scan-login',
+  message: 'Too many attempts. Wait a few minutes and try again.',
+});
+
+router.get('/assignments', requireAuth, staff.assignments);
+
+router.post(
+  '/staff-login',
+  staffLoginLimiter,
+  requireAuth,
+  body('eventId').isUUID().withMessage('Choose the event you are scanning.'),
+  validate,
+  staff.staffLogin,
+);
+
 module.exports = router;

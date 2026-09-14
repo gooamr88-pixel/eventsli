@@ -160,6 +160,7 @@ app.use('/api/v1/payments', require('./routes/paymentRoutes'));
 app.use('/api/v1/scan', require('./routes/scanRoutes'));
 app.use('/api/v1/admin', require('./routes/admin/approvalRoutes'));
 app.use('/api/v1/admin', require('./routes/admin/userRoutes'));
+app.use('/api/v1/admin', require('./routes/admin/insightRoutes'));
 
 // ─── 404 ────────────────────────────────────────────────────────────────────
 app.use((req, res) => sendFail(res, {

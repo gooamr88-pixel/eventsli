@@ -1,7 +1,7 @@
-const jwt = require('jsonwebtoken');
 const { supabase } = require('../config/supabase');
 const { hashPassword, verifyPassword } = require('../utils/crypto');
 const { decodeQrToken } = require('./ticketService');
+const scanTokens = require('./scanTokens');
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -15,10 +15,10 @@ const { decodeQrToken } = require('./ticketService');
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
-const DEVICE_TOKEN_TYPE = 'scan_device';
-// Long enough to cover a festival weekend without a re-login at the door,
-// short enough that a stolen tablet stops working before the next event.
-const DEVICE_TOKEN_DAYS = 7;
+// Token signing and reading live in scanTokens.js, which has no database and is
+// therefore testable. A tablet's token lasts seven days — a festival weekend
+// without a re-login, short enough that a stolen one dies before the next event.
+const { DEVICE_TOKEN_TYPE } = scanTokens;
 
 async function registerDevice({ eventId, label, pin }) {
   const { data, error } = await supabase
@@ -31,10 +31,13 @@ async function registerDevice({ eventId, label, pin }) {
 }
 
 async function listDevices(eventId) {
+  // Shared tablets only. A door-team member's own device row is how their
+  // scans are recorded, and is managed by removing the person, not the row.
   const { data } = await supabase
     .from('scan_devices')
     .select('id, label, is_active, last_seen_at, created_at')
     .eq('event_id', eventId)
+    .is('staff_id', null)
     .order('created_at');
   return (data || []).map((d) => ({
     id: d.id, label: d.label, isActive: d.is_active,
@@ -61,11 +64,13 @@ async function setDeviceActive(deviceId, isActive) {
 async function authenticateDevice({ deviceId, pin }) {
   const { data: device } = await supabase
     .from('scan_devices')
-    .select('id, event_id, label, pin_hash, is_active')
+    .select('id, event_id, label, pin_hash, is_active, staff_id')
     .eq('id', deviceId)
     .maybeSingle();
 
-  if (!device || !device.is_active) {
+  // A device that belongs to a door-team member is reached with that person's
+  // account and never with a PIN — refused exactly like a revoked one.
+  if (!device || !device.is_active || device.staff_id) {
     // Still spend the hash, so a revoked device is not identifiable by how
     // quickly it is refused.
     await verifyPassword(String(pin || ''), 'pbkdf2$210000$AAAA$AAAA');
@@ -79,11 +84,7 @@ async function authenticateDevice({ deviceId, pin }) {
     .update({ last_seen_at: new Date().toISOString() }).eq('id', device.id);
 
   return {
-    token: jwt.sign(
-      { typ: DEVICE_TOKEN_TYPE, did: device.id, eid: device.event_id },
-      process.env.JWT_SECRET,
-      { algorithm: 'HS256', expiresIn: `${DEVICE_TOKEN_DAYS}d` },
-    ),
+    token: scanTokens.signDeviceToken({ deviceId: device.id, eventId: device.event_id }),
     device: { id: device.id, label: device.label, eventId: device.event_id },
   };
 }
@@ -100,27 +101,36 @@ async function authenticateDevice({ deviceId, pin }) {
  * request; and the safe answer for a door that cannot check its own credentials
  * is "no".
  */
-async function getActiveDevice(deviceId) {
+async function getActiveDevice(deviceId, { staffUserId = null } = {}) {
   if (!deviceId) return null;
   const { data, error } = await supabase
     .from('scan_devices')
-    .select('id, event_id, label, is_active')
+    .select(`id, event_id, label, is_active, staff_id,
+             event_staff ( user_id, revoked_at, profiles!event_staff_user_id_fkey ( is_blocked ) )`)
     .eq('id', deviceId)
     .maybeSingle();
 
   if (error || !data || !data.is_active) return null;
-  return { id: data.id, eventId: data.event_id, label: data.label };
+
+  // The token and the row must agree about what kind of principal this is: a
+  // PIN token cannot ride a person's device, and a person's token cannot ride
+  // a shared tablet.
+  if (Boolean(data.staff_id) !== Boolean(staffUserId)) return null;
+
+  if (data.staff_id) {
+    // A person is re-checked on every scan, like a device: removed from the
+    // team, or their account blocked, and the next scan is refused.
+    const staff = Array.isArray(data.event_staff) ? data.event_staff[0] : data.event_staff;
+    const person = Array.isArray(staff?.profiles) ? staff.profiles[0] : staff?.profiles;
+    if (!staff || staff.revoked_at || staff.user_id !== staffUserId || person?.is_blocked) return null;
+  }
+
+  return { id: data.id, eventId: data.event_id, label: data.label, staffUserId: staffUserId || null };
 }
 
+/** Either gate credential — see scanTokens.js. */
 function verifyDeviceToken(token) {
-  try {
-    const claims = jwt.verify(String(token), process.env.JWT_SECRET, { algorithms: ['HS256'] });
-    // The type check is what stops a session cookie authenticating a gate.
-    if (claims.typ !== DEVICE_TOKEN_TYPE) return null;
-    return { deviceId: claims.did, eventId: claims.eid };
-  } catch {
-    return null;
-  }
+  return scanTokens.verifyScanToken(token);
 }
 
 /**

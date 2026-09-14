@@ -27,12 +27,20 @@ const { configured, verifyIdToken } = require('./googleTokens');
 async function findOrCreate({ email, name }) {
   const { data: existing } = await supabase
     .from('profiles')
-    .select('id, email, full_name, role, is_blocked')
+    .select('id, email, full_name, role, is_blocked, email_verified_at')
     .eq('email', email)
     .maybeSingle();
 
   if (existing) {
     if (existing.is_blocked) throw fail('ACCOUNT_BANNED', 'This account has been suspended.');
+    // Google has just proved this person holds the address (verifyIdToken
+    // refuses an unverified one), so a password sign-up that never typed its
+    // code is confirmed by this sign-in rather than left stuck.
+    if (!existing.email_verified_at) {
+      await supabase.from('profiles')
+        .update({ email_verified_at: new Date().toISOString() })
+        .eq('id', existing.id);
+    }
     return { user: existing, created: false };
   }
 

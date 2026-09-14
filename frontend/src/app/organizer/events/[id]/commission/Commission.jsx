@@ -1,96 +1,74 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { get, post } from '../../../../utils/apiClient';
+import { useState } from 'react';
+import { post } from '../../../../utils/apiClient';
 import { formatMoney } from '../../../../utils/money';
+import { useApi } from '../../../../hooks/useApi';
+import { useToast } from '../../../../components/ui/Toast';
+import { SectionHeader, StatCard, Panel } from '../../../../components/ui/Page';
 import Field from '../../../../components/forms/Field';
 import FormError from '../../../../components/forms/FormError';
 import SubmitButton from '../../../../components/forms/SubmitButton';
-import { Loading, ErrorNotice } from '../../../../components/Feedback';
+import { Loading, Empty, ErrorNotice, Notice } from '../../../../components/Feedback';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
- * What the organizer owes us, and what happens if they do not pay.
+ * What the organizer owes Eventsli on door sales, and what happens if it is not
+ * paid (BRD §18).
  *
- * THE TWO CHANNELS ANSWER DIFFERENT QUESTIONS, and the difference is the whole
- * design. On the card path the money passed through us and Stripe already took
- * our fee, so the position closes at zero — there is nothing to collect and
- * nothing here. On the manual path the money never came near us: the commission
- * is a RECEIVABLE, and a receivable that reads as zero is one nobody collects.
+ * THE TWO CHANNELS ANSWER DIFFERENT QUESTIONS. On the card path the money passed
+ * through Stripe and our fee was already taken, so there is nothing to collect.
+ * On the manual path the money never came near us: the commission is a
+ * RECEIVABLE. So this page exists for door sales only, and always shows the debt
+ * and its consequence together.
  *
- * So this page exists for door sales only, and it always shows the debt and its
- * consequence together (BRD §18). Discovering the second at the door, with a
- * queue outside, is the failure the layout is arranged to prevent.
- *
- * SUBMITTING PROOF DOES NOT REOPEN THE GATE. Reopening on the claim alone would
- * make the proof decorative — anyone could type a URL and scan. Only settlement
- * does, and settlement is an admin's act.
+ * SUBMITTING PROOF DOES NOT REOPEN THE GATE. Only settlement does, and settlement
+ * is an admin's act — otherwise the proof would be decorative.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 export default function Commission({ eventId }) {
-  const [data, setData] = useState(null);
-  const [error, setError] = useState(null);
-  const [reload, setReload] = useState(0);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const result = await get(`/events/${eventId}/commission`, { cache: 'no-store' });
-        if (!cancelled) { setData(result); setError(null); }
-      } catch (err) {
-        if (!cancelled) setError(err);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [eventId, reload]);
+  const { data, error, loading, reload } = useApi(`/events/${eventId}/commission`);
 
   if (error) return <ErrorNotice error={error} />;
-  if (!data) return <Loading variant="card" />;
+  if (loading && !data) return <Loading variant="stats" rows={2} label="Loading commission" />;
 
-  const locked = data.gate?.locked;
+  const gate = data.gate;
+  const overdue = data.invoices.filter((i) => i.isOverdue && !['paid', 'waived'].includes(i.status)).length;
 
   return (
     <div className="fx-stack">
-      <div className="fx-stack fx-stack--sm">
-        <h2 className="text-xl">Commission on door sales</h2>
-        <p className="max-w-[62ch] text-muted">
-          Tickets you sold yourself — cash, transfer, anything outside the platform. The
-          money never reached us, so our commission on those sales is invoiced to you.
-          Card sales are already settled and do not appear here.
-        </p>
+      <SectionHeader
+        title="Commission on door sales"
+        lede="Sales you took yourself never passed through Eventsli, so our commission on them is invoiced to you. Card sales are already settled and do not appear here."
+      />
+
+      <div className="fx-grid fx-grid--2">
+        <StatCard
+          label="Outstanding"
+          value={formatMoney(data.owedCents, data.currency)}
+          note={overdue ? `${overdue} overdue` : 'Nothing overdue'}
+          icon="percent"
+        />
+        <StatCard
+          label="Scanning"
+          value={gate?.override ? 'Allowed for now' : gate?.locked ? 'Switched off' : 'Working'}
+          note={gate?.locked ? 'It reopens by itself once the invoice is settled' : gate?.override ? 'A temporary override from Eventsli' : 'No invoice is overdue'}
+          icon="scan"
+        />
       </div>
 
-      {/* The debt and the consequence, in one place. */}
-      <div className={`fx-row fx-row--between rounded-[--es-radius-lg] border p-5 ${
-        locked ? 'border-danger/40 bg-danger/5' : 'border-border-base bg-surface'
-      }`}
-      >
-        <div className="fx-min0">
-          <p className="text-sm text-muted">Outstanding</p>
-          <p className="es-nums text-2xl text-ink">
-            {formatMoney(data.owedCents, data.currency)}
-          </p>
-        </div>
-        <GateState gate={data.gate} />
-      </div>
+      {gate?.locked && !gate?.override && (
+        <Notice tone="danger" title="Nobody can be admitted until this is settled.">
+          <p>Pay by bank transfer and submit the receipt below. Scanning reopens by itself as soon as Eventsli confirms the transfer.</p>
+        </Notice>
+      )}
 
       {data.invoices.length === 0 ? (
-        <div className="es-empty">
-          <p className="text-muted">No invoices yet.</p>
-          <p className="mt-1 text-sm text-subtle">
-            One is raised once you have recorded door sales.
-          </p>
-        </div>
+        <Empty title="No invoices." hint="One is raised once you have recorded sales at the door." />
       ) : (
         <ul className="fx-stack fx-stack--sm">
           {data.invoices.map((invoice) => (
-            <InvoiceRow
-              key={invoice.id}
-              eventId={eventId}
-              invoice={invoice}
-              onChanged={() => setReload((n) => n + 1)}
-            />
+            <InvoiceCard key={invoice.id} eventId={eventId} invoice={invoice} onChanged={reload} />
           ))}
         </ul>
       )}
@@ -98,130 +76,80 @@ export default function Commission({ eventId }) {
   );
 }
 
-function GateState({ gate }) {
-  if (gate?.override) {
-    // BRD §18 — a super admin can override, time-boxed. A permanent override is
-    // a lock quietly removed, so it is shown as the temporary thing it is.
-    return (
-      <span className="whitespace-nowrap rounded-full bg-warning/15 px-3 py-1 text-sm text-warning">
-        Scanning temporarily allowed
-      </span>
-    );
-  }
-  if (gate?.locked) {
-    return (
-      <span className="whitespace-nowrap rounded-full bg-danger/15 px-3 py-1 text-sm text-danger">
-        Scanning is off
-      </span>
-    );
-  }
-  return (
-    <span className="whitespace-nowrap rounded-full bg-success/15 px-3 py-1 text-sm text-success">
-      Scanning works
-    </span>
-  );
-}
-
-function InvoiceRow({ eventId, invoice, onChanged }) {
+function InvoiceCard({ eventId, invoice, onChanged }) {
+  const toast = useToast();
   const [proofUrl, setProofUrl] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
-  const [submitted, setSubmitted] = useState(false);
 
-  const settled = invoice.status === 'paid' || invoice.status === 'waived';
-  const awaitingReview = invoice.status === 'submitted' || submitted;
+  const settled = ['paid', 'waived'].includes(invoice.status);
+  const awaitingReview = invoice.status === 'submitted';
 
   async function submitProof(e) {
     e.preventDefault();
     setBusy(true);
     setError(null);
     try {
-      await post(`/events/${eventId}/invoices/${invoice.id}/proof`, {
-        proofUrl: proofUrl.trim(),
-      }, { noRedirect: true });
-      setSubmitted(true);
+      await post(`/events/${eventId}/invoices/${invoice.id}/proof`, { proofUrl: proofUrl.trim() }, { noRedirect: true });
+      toast.success('Receipt sent. We will confirm the transfer.');
       onChanged();
     } catch (err) {
       setError(err);
-    } finally {
       setBusy(false);
     }
   }
 
   return (
-    <li className="fx-stack fx-stack--sm es-card p-4">
-      <div className="fx-row fx-row--between">
-        <div className="fx-min0">
-          <p className="text-ink">
-            Invoice {invoice.number}
-            <span className="text-muted"> · {invoice.orderCount} door sales</span>
-          </p>
+    <li>
+      <Panel
+        title={`Invoice ${invoice.number}`}
+        action={<InvoiceStatus status={invoice.status} overdue={invoice.isOverdue} />}
+      >
+        <div className="fx-row fx-row--between">
           <p className="text-sm text-muted">
-            Due {when(invoice.dueAt)}
-            {invoice.isOverdue && <span className="text-danger"> · overdue</span>}
+            {invoice.orderCount} door {invoice.orderCount === 1 ? 'sale' : 'sales'} · due {when(invoice.dueAt)}
           </p>
+          <p className="es-nums text-lg text-ink">{formatMoney(invoice.amountCents, invoice.currency)}</p>
         </div>
-        <div className="fx-row">
-          <span className="es-nums whitespace-nowrap text-ink">
-            {formatMoney(invoice.amountCents, invoice.currency)}
-          </span>
-          <StatusChip status={invoice.status} overdue={invoice.isOverdue} />
-        </div>
-      </div>
 
-      {settled ? (
-        <p className="text-sm text-muted">
-          Settled {invoice.confirmedAt ? when(invoice.confirmedAt) : ''}. Nothing further to do.
-        </p>
-      ) : awaitingReview ? (
-        <div className="rounded-[--es-radius-md] bg-info/10 px-3 py-2.5">
-          <p className="text-sm text-ink">Proof received — we are checking it</p>
-          {/* Said plainly, because the alternative is an organizer standing at a
-              door believing the gate reopened. */}
-          <p className="mt-1 text-sm text-muted">
-            Scanning stays off until we confirm the transfer. It reopens by itself the
-            moment we do — there is no separate unlock.
-          </p>
-        </div>
-      ) : (
-        <form onSubmit={submitProof} className="fx-stack fx-stack--sm">
-          <p className="text-sm text-muted">
-            Pay by bank transfer, then paste a link to the receipt.
-          </p>
-          <Field
-            label="Link to your receipt"
-            type="url"
-            required
-            placeholder="https://…"
-            value={proofUrl}
-            onChange={(e) => setProofUrl(e.target.value)}
-          />
-          <FormError error={error} />
-          <SubmitButton busy={busy} busyLabel="Sending…" disabled={proofUrl.trim().length < 8}>
-            Submit proof
-          </SubmitButton>
-        </form>
-      )}
+        {settled ? (
+          <p className="text-sm text-muted">Settled{invoice.confirmedAt ? ` ${when(invoice.confirmedAt)}` : ''}. Nothing further to do.</p>
+        ) : awaitingReview ? (
+          <Notice tone="info" title="Receipt received — we are checking it.">
+            <p>Scanning stays as it is until we confirm the transfer. There is no separate unlock step.</p>
+          </Notice>
+        ) : (
+          <form onSubmit={submitProof} className="fx-stack fx-stack--sm border-t border-border-base pt-3">
+            <Field
+              label="Link to your transfer receipt"
+              type="url"
+              required
+              placeholder="https://…"
+              hint="Pay by bank transfer first, then paste a link to the receipt."
+              value={proofUrl}
+              onChange={(e) => setProofUrl(e.target.value)}
+            />
+            <FormError error={error} />
+            <div>
+              <SubmitButton busy={busy} busyLabel="Sending…" disabled={proofUrl.trim().length < 8}>Submit receipt</SubmitButton>
+            </div>
+          </form>
+        )}
+      </Panel>
     </li>
   );
 }
 
-function StatusChip({ status, overdue }) {
-  const [label, look] = overdue && ['open', 'submitted'].includes(status)
-    ? ['Overdue', 'bg-danger/15 text-danger']
-    : {
-      open: ['Unpaid', 'bg-warning/15 text-warning'],
-      submitted: ['In review', 'bg-info/15 text-info'],
-      paid: ['Paid', 'bg-success/15 text-success'],
-      waived: ['Waived', 'bg-bg-sunken text-muted'],
-      overdue: ['Overdue', 'bg-danger/15 text-danger'],
-    }[status] || [status, 'bg-bg-sunken text-muted'];
-
-  return (
-    <span className={`whitespace-nowrap rounded-full px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.09em] ${look}`}>
-      {label}
-    </span>
-  );
+function InvoiceStatus({ status, overdue }) {
+  if (overdue && ['open', 'submitted'].includes(status)) return <span className="es-pill es-pill--danger">Overdue</span>;
+  const [label, tone] = {
+    open: ['Unpaid', 'es-pill--warning'],
+    submitted: ['In review', ''],
+    paid: ['Paid', 'es-pill--accent'],
+    waived: ['Waived', ''],
+    overdue: ['Overdue', 'es-pill--danger'],
+  }[status] || [status, ''];
+  return <span className={`es-pill ${tone}`}>{label}</span>;
 }
 
 function when(iso) {

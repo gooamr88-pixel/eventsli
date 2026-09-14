@@ -1,9 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
-import { get, post } from '../utils/apiClient';
-import FormError from '../components/forms/FormError';
+import { post } from '../utils/apiClient';
+import { describeError } from '../utils/errors';
+import { useApi } from '../hooks/useApi';
+import { useToast } from '../components/ui/Toast';
+import { useConfirm } from '../components/ui/Confirm';
+import { PageHeader } from '../components/ui/Page';
+import DataTable from '../components/ui/DataTable';
 import { Loading, Empty, ErrorNotice } from '../components/Feedback';
 
 /**
@@ -16,150 +21,117 @@ import { Loading, Empty, ErrorNotice } from '../components/Feedback';
  * copy here says so.
  */
 export default function Approvals() {
-  const [events, setEvents] = useState(null);
-  const [error, setError] = useState(null);
-  const [reload, setReload] = useState(0);
+  const toast = useToast();
+  const confirm = useConfirm();
+  const { data, error, loading, reload } = useApi('/admin/approvals?limit=50');
+  const [busyId, setBusyId] = useState(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const data = await get('/admin/approvals?limit=50', { cache: 'no-store' });
-        if (!cancelled) { setEvents(Array.isArray(data) ? data : []); setError(null); }
-      } catch (err) {
-        if (!cancelled) setError(err);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [reload]);
-
-  if (error) return <ErrorNotice error={error} />;
-  if (!events) return <Loading variant="list" />;
-
-  return (
-    <div className="fx-stack">
-      <div className="fx-stack fx-stack--sm">
-        <h2 className="text-xl">Waiting for review</h2>
-        <p className="max-w-[60ch] text-muted">
-          Nothing goes on sale until it is approved here.
-        </p>
-      </div>
-
-      {events.length === 0 ? (
-        <Empty
-          title="Nothing waiting."
-          hint="Submitted events land here. An organizer cannot sell until one is approved."
-        />
-      ) : (
-        <ul className="fx-stack fx-stack--sm">
-          {events.map((event) => (
-            <ReviewRow key={event.id} event={event} onDone={() => setReload((n) => n + 1)} />
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
-function ReviewRow({ event, onDone }) {
-  const [mode, setMode] = useState(null);
-  const [reason, setReason] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState(null);
-
-  async function act(what, body) {
-    setBusy(true);
-    setError(null);
+  async function act(event, what, body) {
+    setBusyId(event.id);
     try {
       await post(`/admin/events/${event.id}/${what}`, body, { noRedirect: true });
-      onDone();
+      toast.success(what === 'approve'
+        ? `“${event.title}” is published.`
+        : `“${event.title}” went back to the organizer.`);
+      reload();
     } catch (err) {
-      setError(err);
-      setBusy(false);
+      const { title, recovery } = describeError(err);
+      toast.error(recovery, { title });
+    } finally {
+      setBusyId(null);
     }
   }
 
+  async function approve(event) {
+    const ok = await confirm({
+      title: `Publish “${event.title}”?`,
+      body: <p>It goes on sale straight away, at the prices and fees it was submitted with.</p>,
+      confirmLabel: 'Approve and publish',
+    });
+    if (ok) act(event, 'approve');
+  }
+
+  async function reject(event) {
+    const answer = await confirm({
+      title: `Ask for changes to “${event.title}”?`,
+      body: <p>The organizer sees your note on their event, can fix it and submit again.</p>,
+      confirmLabel: 'Send it back',
+      reason: { label: 'What needs changing?', minLength: 3, hint: 'Shown to the organizer and kept in the audit log.' },
+    });
+    if (answer) act(event, 'reject', { reason: answer.reason });
+  }
+
+  const events = Array.isArray(data) ? data : [];
+
   return (
-    <li className="fx-stack fx-stack--sm es-card p-4">
-      <div className="fx-row fx-row--between">
-        <div className="fx-min0">
-          <p className="fx-break text-ink">{event.title}</p>
-          <p className="text-sm text-muted">
-            {event.organizer?.name}
-            {' · '}
-            {new Intl.DateTimeFormat('en-US', {
-              dateStyle: 'medium', timeStyle: 'short', timeZone: event.timezone || 'UTC',
-            }).format(new Date(event.startsAt))}
-            {' · '}{event.country} {event.currency}
-            {event.listingType === 'display_only' && ' · listing only'}
-          </p>
-        </div>
-        <Link
-          href={`/e/${event.slug}`}
-          target="_blank"
-          rel="noreferrer"
-          className="whitespace-nowrap text-sm text-accent"
-        >
-          Preview →
-        </Link>
-      </div>
+    <div className="fx-stack">
+      <PageHeader
+        eyebrow="Console"
+        title="Waiting for review"
+        lede="Nothing goes on sale until it is approved here."
+        actions={<Link href="/admin/events" className="es-btn es-btn--secondary">Every event</Link>}
+      />
 
-      <FormError error={error} />
-
-      {mode === 'reject' ? (
-        <form
-          onSubmit={(e) => { e.preventDefault(); act('reject', { reason: reason.trim() }); }}
-          className="fx-stack fx-stack--sm rounded-[--es-radius-md] bg-bg-sunken p-3"
-        >
-          <label htmlFor={`why-${event.id}`} className="text-sm text-ink">
-            What needs changing?
-          </label>
-          <textarea
-            id={`why-${event.id}`}
-            rows={3}
-            required
-            maxLength={1000}
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            className="es-input"
-          />
-          {/* Said plainly, because a reviewer typing this needs to know the
-              organizer reads it and can act on it. */}
-          <p className="text-xs text-subtle">
-            The organizer sees this on their event and can fix it and submit again.
-          </p>
-          <div className="fx-row fx-row--between">
-            <button type="button" onClick={() => setMode(null)} className="text-sm text-muted hover:text-ink">
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={busy || reason.trim().length < 3}
-              className="rounded-[--es-radius-md] bg-warning px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
-            >
-              {busy ? 'Sending…' : 'Send it back'}
-            </button>
-          </div>
-        </form>
+      {error ? (
+        <ErrorNotice error={error} />
+      ) : loading && !data ? (
+        <Loading variant="list" rows={3} label="Loading the queue" />
+      ) : events.length === 0 ? (
+        <Empty title="Nothing waiting." hint="Submitted events land here. An organizer cannot sell until one is approved." />
       ) : (
-        <div className="fx-row fx-row--between">
-          <button
-            type="button"
-            onClick={() => setMode('reject')}
-            className="text-sm text-muted hover:text-warning"
-          >
-            Ask for changes
-          </button>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => act('approve')}
-            className="es-btn es-btn--primary"
-          >
-            {busy ? 'Publishing…' : 'Approve and publish'}
-          </button>
-        </div>
+        <DataTable
+          caption="Events waiting for review"
+          rows={events}
+          columns={[
+            {
+              key: 'event',
+              label: 'Event',
+              primary: true,
+              render: (e) => (
+                <span className="fx-stack fx-stack--sm gap-0.5">
+                  <Link href={`/admin/events/${e.id}`} className="fx-break text-ink hover:text-accent">{e.title}</Link>
+                  <span className="text-sm text-muted">{e.organizer?.name || 'Unknown organizer'}</span>
+                </span>
+              ),
+            },
+            {
+              key: 'when',
+              label: 'Starts',
+              render: (e) => new Intl.DateTimeFormat('en-US', {
+                dateStyle: 'medium', timeStyle: 'short', timeZone: e.timezone || 'UTC',
+              }).format(new Date(e.startsAt)),
+            },
+            {
+              key: 'kind',
+              label: 'Kind',
+              render: (e) => (
+                <span className="fx-row gap-1">
+                  <span className="es-pill">{e.country} · {e.currency}</span>
+                  {e.listingType === 'display_only' && <span className="es-pill">Listing only</span>}
+                  {e.listingType !== 'display_only' && !e.canReceivePayouts && <span className="es-pill es-pill--warning">Payouts not ready</span>}
+                </span>
+              ),
+            },
+            {
+              key: 'actions',
+              label: 'Actions',
+              hideLabel: true,
+              align: 'end',
+              render: (e) => (
+                <span className="fx-row justify-end">
+                  <Link href={`/e/${e.slug}`} target="_blank" rel="noreferrer" className="es-btn es-btn--ghost es-btn--sm">Preview</Link>
+                  <button type="button" className="es-btn es-btn--secondary es-btn--sm" disabled={busyId === e.id} onClick={() => reject(e)}>
+                    Ask for changes
+                  </button>
+                  <button type="button" className="es-btn es-btn--primary es-btn--sm" disabled={busyId === e.id} onClick={() => approve(e)}>
+                    {busyId === e.id ? 'Working…' : 'Approve'}
+                  </button>
+                </span>
+              ),
+            },
+          ]}
+        />
       )}
-    </li>
+    </div>
   );
 }

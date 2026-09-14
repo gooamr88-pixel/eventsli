@@ -231,6 +231,64 @@ async function sendTicketTransferred({ to, event, direction, counterparty }) {
 }
 
 /**
+ * The sign-up code.
+ *
+ * The code is the subject line's first word as well as the body's headline:
+ * most phones show a notification's subject, and a person switching back from
+ * their mail app should not have to open the message to read six digits.
+ */
+async function sendVerificationCode({ to, name, code, minutes }) {
+  const spaced = `${code.slice(0, 3)} ${code.slice(3)}`;
+  return send({
+    to,
+    subject: `${code} is your Eventsli code`,
+    html: shell('Confirm your email', `
+      <p>Hi ${escapeHtml(name || 'there')},</p>
+      <p>Enter this code to finish setting up your Eventsli account:</p>
+      <p style="margin:24px 0;font-size:32px;font-weight:700;letter-spacing:6px;font-family:ui-monospace,Consolas,monospace;color:#0E1613">
+        ${escapeHtml(spaced)}
+      </p>
+      <p style="font-size:13px;color:#5E6D66">
+        It works once and expires in ${Number(minutes) || 10} minutes. If you did not create an
+        account, you can ignore this email — nothing happens without the code.
+      </p>`),
+  });
+}
+
+/**
+ * Added to an event's door team.
+ *
+ * Says exactly what they can do — scan this one event — and where to go, so
+ * the email is the instructions rather than a notification to go and find some.
+ */
+async function sendDoorTeamAdded({ to, name, eventTitle, organizerName, startsAt, timezone, gateUrl }) {
+  const when = startsAt
+    ? new Date(startsAt).toLocaleString('en-CA', { dateStyle: 'full', timeStyle: 'short', timeZone: timezone || 'UTC' })
+    : null;
+  return send({
+    to,
+    subject: `You can scan tickets for ${eventTitle}`,
+    html: shell('You are on the door team', `
+      <p>Hi ${escapeHtml(name || 'there')},</p>
+      <p>
+        ${escapeHtml(organizerName || 'The organizer')} added you to the door team for
+        <strong>${escapeHtml(eventTitle)}</strong>${when ? ` on ${escapeHtml(when)}` : ''}.
+        You can scan tickets for this event with your own Eventsli account.
+      </p>
+      <p style="margin:24px 0">
+        <a href="${gateUrl}" style="background:${BRAND};color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;display:inline-block">
+          Open the scanner
+        </a>
+      </p>
+      <p style="font-size:13px;color:#5E6D66">
+        On the phone or tablet you will scan with, open the link, choose
+        <strong>My account</strong> and pick this event. You can scan and undo a scan for this
+        event only — nothing else changes about your account.
+      </p>`),
+  });
+}
+
+/**
  * Every value interpolated into an email is escaped.
  *
  * An event title is organizer-controlled text going into HTML that lands in
@@ -257,4 +315,6 @@ module.exports = {
   sendEventRejected,
   sendEventApproved,
   sendTicketTransferred,
+  sendVerificationCode,
+  sendDoorTeamAdded,
 };

@@ -92,13 +92,13 @@ export default function CoverUpload({ event, onChanged }) {
   return (
     <section className="fx-stack fx-stack--sm es-card p-5">
       <div className="fx-row fx-row--between">
-        <h3 className="text-lg">Cover image</h3>
+        <h2 className="text-lg text-ink">Cover image</h2>
         {event.cover && editable && (
           <button
             type="button"
             onClick={remove}
             disabled={busy}
-            className="text-sm text-muted hover:text-danger disabled:opacity-40"
+            className="es-btn es-btn--ghost es-btn--sm"
           >
             Remove
           </button>
@@ -140,9 +140,7 @@ export default function CoverUpload({ event, onChanged }) {
           />
           <label
             htmlFor={`cover-${event.id}`}
-            className={`self-start rounded-[--es-radius-md] border border-border-strong px-4 py-2 text-sm text-ink transition-colors hover:bg-bg-sunken ${
-              busy ? 'pointer-events-none opacity-40' : 'cursor-pointer'
-            }`}
+            className={`es-btn es-btn--secondary self-start ${busy ? 'pointer-events-none opacity-50' : ''}`}
           >
             {busy ? 'Uploading…' : event.cover ? 'Replace image' : 'Choose an image'}
           </label>

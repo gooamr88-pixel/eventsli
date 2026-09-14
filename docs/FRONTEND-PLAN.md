@@ -288,6 +288,7 @@ are reachable from a page below.
 | Page | Endpoints |
 |---|---|
 | `/login` `/register` | `POST /auth/login` · `/auth/register` · `/auth/google` |
+| `/verify-email` | `POST /auth/verify-email` · `/auth/resend-verification` — register and an `EMAIL_NOT_VERIFIED` sign-in both land here |
 | `/forgot-password` `/reset-password` | `POST /auth/forgot-password` · `/auth/reset-password` |
 | everywhere | `GET /auth/me` · `POST /auth/logout` |
 | `/account/tickets` | `GET /tickets` · `POST /tickets/:id/transfer` |
@@ -300,7 +301,7 @@ are reachable from a page below.
 | `/organizer/onboarding` | `POST /organizer` · `GET /organizer/me` · `PATCH /organizer` |
 | `/organizer/payouts` | `POST /organizer/stripe/onboard` · `GET /organizer/stripe/status` |
 | `/organizer` | `GET /events` |
-| `/organizer/events/new` · `/[id]/edit` | `POST /events` · `GET/PATCH /events/:id` · `POST …/accept-terms` · `POST …/submit` · `POST …/cancel` |
+| `/organizer/events/new` · `/[id]/edit` | `POST /events` · `GET/PATCH /events/:id` · `POST …/accept-terms` · `POST …/submit` — no cancel: BRD §17, only an admin cancels |
 | `/[id]/edit` — cover | `POST …/cover-upload` → browser `PUT` to the signed URL → `PUT …/cover` · `DELETE …/cover` |
 | `/[id]/tiers` | `GET/POST/PATCH/DELETE /events/:id/tiers[/:tierId]` |
 | `/[id]/tables` | `GET/POST/PATCH/DELETE /events/:id/table-categories[/:categoryId]` |
@@ -317,7 +318,7 @@ are reachable from a page below.
 
 | Page | Endpoints |
 |---|---|
-| `/admin/approvals` | `GET /admin/approvals` · `POST /admin/events/:id/{approve,reject,suspend,unsuspend}` |
+| `/admin/approvals` | `GET /admin/approvals` · `POST /admin/events/:id/{approve,reject,suspend,unsuspend,cancel}` |
 | `/admin/events/[id]` | `PATCH /admin/events/:id/fees` · `GET …/fees/preview` · `POST …/scanner-override` |
 | `/admin/invoices` | `GET /admin/invoices` · `POST /admin/events/:id/invoices` · `POST /admin/invoices/:id/settle` |
 | `/admin/users` | `GET /admin/users` · `GET /admin/users/:id` · `PATCH …/role` · `POST …/block` · `POST …/unblock` |
@@ -571,7 +572,7 @@ kills the caller too. Register alone now yields exactly one session, flagged
 | `/organizer/payouts` | Stripe Connect, re-read from Stripe on every visit — never from our own flags |
 | `/organizer/profile` | The one editable field, and why `country` is not one |
 | `/organizer/events/new` | Create an event. **Not a wizard** — see below |
-| `/organizer/events/[id]` | Overview, the review pipeline, cancellation, cover upload |
+| `/organizer/events/[id]` | Overview, the review pipeline, cover upload (cancellation moved to the admin console — BRD §17) |
 | `/organizer/events/[id]/tiers` · `/tables` | Ticket types and table categories |
 
 **Not a multi-step wizard, deliberately.** `POST /events` needs five things, and

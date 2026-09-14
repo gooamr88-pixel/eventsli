@@ -20,6 +20,9 @@ export default function SeatMapCanvas({
   seats = [],
   selectedSeatIds = new Set(),
   selectedTableIds = new Set(),
+  // A tier to pick out: its seats stay bright, the rest are dimmed. Never a
+  // restriction — dimmed seats are still selectable.
+  highlightTierId = null,
   onSelectSeat,
   onSelectTable,
   purchaseMode = 'seat_only',
@@ -74,6 +77,7 @@ export default function SeatMapCanvas({
             seats={seatsByTable.get(table.id) || []}
             selectedSeatIds={selectedSeatIds}
             isTableSelected={selectedTableIds.has(table.id)}
+            highlightTierId={highlightTierId}
             canPickSeats={canPickSeats}
             canPickTables={canPickTables}
             onSelectSeat={onSelectSeat}
@@ -108,7 +112,7 @@ function MapButton({ onClick, label, children }) {
 }
 
 function Table({
-  table, seats, selectedSeatIds, isTableSelected,
+  table, seats, selectedSeatIds, isTableSelected, highlightTierId,
   canPickSeats, canPickTables, onSelectSeat, onSelectTable, wasDragged,
 }) {
   const pos = toWorld(table.position);
@@ -156,6 +160,8 @@ function Table({
             available={available}
             selected={selected}
             dimmed={isTableSelected}
+            outsideFocus={Boolean(highlightTierId && seat && seat.tierId !== highlightTierId)}
+            inFocus={Boolean(highlightTierId && seat && seat.tierId === highlightTierId)}
             clickable={canPickSeats && available && seat && !isTableSelected}
             onClick={(e) => {
               e.stopPropagation();
@@ -212,7 +218,9 @@ function TableBody({ body, selected, clickable, onClick, label }) {
   );
 }
 
-function Seat({ point, number, tableLabel, available, selected, dimmed, clickable, onClick }) {
+function Seat({
+  point, number, tableLabel, available, selected, dimmed, outsideFocus, inFocus, clickable, onClick,
+}) {
   const fill = selected
     ? 'var(--es-seat-selected)'
     : available
@@ -244,12 +252,14 @@ function Seat({ point, number, tableLabel, available, selected, dimmed, clickabl
       <circle
         r={SEAT_RADIUS}
         fill={fill}
-        stroke={selected ? 'var(--es-accent)' : 'none'}
-        strokeWidth={selected ? 2.5 : 0}
+        // A ring as well as the dimming of everything else, so the picked-out
+        // tier does not rely on a difference in brightness alone.
+        stroke={selected || (inFocus && available) ? 'var(--es-accent)' : 'none'}
+        strokeWidth={selected ? 2.5 : inFocus && available ? 1.5 : 0}
         // Sold and held seats are collapsed to one look on purpose: the API
         // reports only `available`, because whether a seat is held or sold is
         // our business and to a buyer both mean "not yours".
-        opacity={dimmed ? 0.35 : available || selected ? 1 : 0.45}
+        opacity={dimmed || (outsideFocus && !selected) ? 0.3 : available || selected ? 1 : 0.45}
         style={{ pointerEvents: 'none', transition: 'fill 150ms var(--es-ease-default)' }}
       />
     </g>

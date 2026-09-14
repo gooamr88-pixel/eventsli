@@ -28,9 +28,20 @@ import { useAuth, signOut } from '../hooks/useAuth';
  * error to the console of a tablet that may have no signal at all. Hooks cannot
  * be skipped; components can.
  */
+/**
+ * The organizer dashboard and the admin console are the other two: each has
+ * its own shell with a sidebar pinned to the top of the viewport, and a sticky
+ * site header above it would sit on top of the sidebar's brand and first items.
+ */
+export const APP_SHELL_PREFIXES = ['/gate', '/organizer', '/admin'];
+
+export function inAppShell(pathname) {
+  return APP_SHELL_PREFIXES.some((p) => pathname === p || pathname?.startsWith(`${p}/`));
+}
+
 export default function SiteHeader() {
   const pathname = usePathname();
-  if (pathname?.startsWith('/gate')) return null;
+  if (inAppShell(pathname)) return null;
   return <SiteNav pathname={pathname} />;
 }
 

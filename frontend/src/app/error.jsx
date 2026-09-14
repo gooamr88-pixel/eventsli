@@ -23,11 +23,11 @@ export default function GlobalError({ error, reset }) {
   return (
     <main className="fx-section">
       <div className="fx-container fx-container--sm fx-stack">
-        <p className="font-mono text-xs uppercase tracking-[0.1em] text-danger">
+        <p className="es-eyebrow text-danger">
           {tone === 'fatal' ? 'Stopped here' : 'Something broke'}
         </p>
-        <h1 className="text-2xl">{title}</h1>
-        <p className="text-muted">{recovery}</p>
+        <h1 className="text-3xl">{title}</h1>
+        <p className="text-lg text-muted">{recovery}</p>
 
         <div className="fx-row">
           {/* `reset` re-renders the failed segment in place. Offered only when
@@ -43,10 +43,7 @@ export default function GlobalError({ error, reset }) {
               Try again
             </button>
           )}
-          <Link
-            href="/"
-            className="rounded-[--es-radius-md] border border-border-strong px-4 py-2 text-sm text-ink transition-colors hover:bg-bg-sunken"
-          >
+          <Link href="/events" className="es-btn es-btn--secondary">
             Back to events
           </Link>
         </div>

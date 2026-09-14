@@ -38,6 +38,9 @@ const ERROR_STATUS = {
   FORBIDDEN: 403,
   ACCOUNT_BANNED: 403,
   ORGANIZER_BANNED: 403,
+  EMAIL_NOT_VERIFIED: 403,        // the right password, an unconfirmed address
+  INVALID_CODE: 400,
+  CODE_EXPIRED: 410,
 
   // events
   EVENT_NOT_FOUND: 404,

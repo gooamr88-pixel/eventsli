@@ -99,28 +99,35 @@ const ACCOUNTS = [
   },
   {
     title: 'Credential endpoints are rate limited',
-    body: 'Sign-in, password reset and device sign-in are all throttled per address. A door '
-      + 'PIN is short by necessity, so it is limited hardest of the three.',
+    body: 'Sign-in, password reset, email verification codes and door sign-in are all throttled '
+      + 'per address. A door PIN is short by necessity, so it is limited hardest.',
+  },
+  {
+    title: 'An address is proven before it is trusted',
+    body: 'A new account is not signed in until it enters the six-digit code we email it. The '
+      + 'code expires in ten minutes, works once, and dies after five wrong guesses; only a '
+      + 'keyed hash of it is ever stored.',
   },
 ];
 
 const DOOR = [
   {
-    title: 'A tablet is its own principal',
-    body: 'Door staff do not sign in as a person. A device is registered by the organizer with '
-      + 'its own PIN, so nobody at the door needs the organizer’s password and a lost tablet '
-      + 'is dealt with on its own.',
+    title: 'Two ways in, both narrow',
+    body: 'A door runs from a shared tablet registered with its own PIN, or from named door '
+      + 'staff signing in with their own accounts. Nobody at the door needs the organizer’s '
+      + 'password, and either kind of session can scan that event and nothing else — no orders, '
+      + 'no money, no settings.',
   },
   {
-    title: 'Revoking a device takes effect at once',
-    body: 'Not at its next sign-in. The moment the organizer switches a device off, the token '
-      + 'it is already holding stops working — every scan re-checks that the device is still '
-      + 'active.',
+    title: 'Revoking takes effect at once',
+    body: 'Not at the next sign-in. The moment the organizer switches a device off or removes '
+      + 'someone from the door team, the session they already hold stops working — every scan '
+      + 're-checks that it is still allowed.',
     detail: 'A revocation that only takes effect later is a false assurance, which is worse than no button.',
   },
   {
-    title: 'A tablet opens one event',
-    body: 'The event is inside the device’s token and is never read from the request, so one '
+    title: 'A door session opens one event',
+    body: 'The event is inside the session’s token and is never read from the request, so one '
       + 'venue’s scanner cannot admit another venue’s guests — or reverse their admissions — '
       + 'by changing a field.',
   },

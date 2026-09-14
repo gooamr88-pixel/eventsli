@@ -24,6 +24,20 @@ const ids = {};
 let seatIds = [];
 const BUYER = `tbuyer-${stamp}@eventsli-test.invalid`;
 
+/**
+ * Registers, confirms the address as the emailed code would, and signs in.
+ * Registering no longer signs anyone in on its own.
+ */
+async function registerAndSignIn({ email, fullName }) {
+  const password = 'a-perfectly-long-passphrase';
+  const reg = await call('POST', '/auth/register', { email, password, fullName });
+  assert.equal(reg.status, 201, JSON.stringify(reg.body));
+  await supabase.from('profiles').update({ email_verified_at: new Date().toISOString() }).eq('id', reg.body.data.id);
+  const login = await call('POST', '/auth/login', { email, password });
+  assert.equal(login.status, 200, JSON.stringify(login.body));
+  return { id: reg.body.data.id, cookie: login.cookie.split(';')[0] };
+}
+
 const call = async (method, path, body, headers = {}) => {
   const res = await fetch(`${baseUrl}${path}`, {
     method, headers: { 'content-type': 'application/json', ...headers },
@@ -241,12 +255,9 @@ test('a buyer who later registers still sees the tickets they bought as a guest'
   // Matched on the purchase address as well as the account id — otherwise
   // someone who signs up after buying sees an empty list and assumes their
   // purchase vanished.
-  const reg = await call('POST', '/auth/register', {
-    email: BUYER, password: 'a-perfectly-long-passphrase', fullName: 'Ticket Buyer',
-  });
-  assert.equal(reg.status, 201, JSON.stringify(reg.body));
-  ids.buyerAccount = reg.body.data.id;
-  const cookie = reg.cookie.split(';')[0];
+  const buyer = await registerAndSignIn({ email: BUYER, fullName: 'Ticket Buyer' });
+  ids.buyerAccount = buyer.id;
+  const { cookie } = buyer;
 
   const res = await call('GET', '/tickets', null, { cookie });
   assert.equal(res.status, 200);
@@ -256,11 +267,11 @@ test('a buyer who later registers still sees the tickets they bought as a guest'
 });
 
 test('a different account sees none of them', async () => {
-  const other = await call('POST', '/auth/register', {
-    email: `stranger-${stamp}@eventsli-test.invalid`,
-    password: 'a-perfectly-long-passphrase', fullName: 'A Stranger',
+  const stranger = await registerAndSignIn({
+    email: `stranger-${stamp}@eventsli-test.invalid`, fullName: 'A Stranger',
   });
-  const cookie = other.cookie.split(';')[0];
+  const { cookie } = stranger;
+  const other = { body: { data: { id: stranger.id } } };
 
   const res = await call('GET', '/tickets', null, { cookie });
   assert.equal(res.status, 200);

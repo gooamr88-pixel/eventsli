@@ -1,122 +1,87 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import Link from 'next/link';
-import { get, post } from '../../../utils/apiClient';
-import { describeError } from '../../../utils/errors';
-import StatusPill from '../../StatusPill';
+import { useEventContext } from './EventContext';
 import ReviewActions from './ReviewActions';
 import CoverUpload from './CoverUpload';
-import { Loading } from '../../../components/Feedback';
+import EventStats from './EventStats';
+import LaunchChecklist from './LaunchChecklist';
+import { Loading, Notice } from '../../../components/Feedback';
 
 /**
  * One event, from the organizer's side.
  *
+ * The event itself comes from the event layout (see EventContext) — it used to
+ * be fetched again here, on the same page load, for the same row.
+ *
  * The money settings are READ ONLY here and that is BRD §05/§06, not an
  * oversight: `eventRules.js` keeps two field-authority maps, and every rate
  * lives in the admin one. `feeBearer` is the single financial field an
- * organizer controls (BRD §04) — it decides who pays the payment fee, never how
- * much the platform takes.
+ * organizer controls (BRD §04).
  *
  * They are shown in full anyway. BRD §21 requires an organizer to SEE every
  * amount they will bear before they can publish, and a number you cannot edit
  * is still a number you have to be told.
  */
-export default function EventOverview({ eventId }) {
-  const [event, setEvent] = useState(null);
-  const [error, setError] = useState(null);
-  const [reload, setReload] = useState(0);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const data = await get(`/events/${eventId}`, { cache: 'no-store' });
-        if (!cancelled) { setEvent(data); setError(null); }
-      } catch (err) {
-        if (!cancelled) setError(err);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [eventId, reload]);
-
-  const refresh = useCallback(() => setReload((n) => n + 1), []);
-
-  if (error) {
-    const { title, recovery } = describeError(error);
-    return (
-      <div className="fx-stack fx-stack--sm">
-        <p className="font-medium text-ink">{title}</p>
-        <p className="text-sm text-muted">{recovery}</p>
-        <Link href="/organizer" className="text-sm text-accent">Back to your events</Link>
-      </div>
-    );
-  }
+export default function EventOverview() {
+  const ctx = useEventContext();
+  const event = ctx?.event;
 
   if (!event) return <Loading variant="card" />;
 
   const money = event.fees;
+  const hasSales = !['draft', 'pending_review', 'rejected'].includes(event.status);
 
   return (
     <div className="fx-stack">
-      <div className="fx-row fx-row--between">
-        <div className="fx-min0">
-          <h2 className="fx-break text-xl">{event.title}</h2>
-          <p className="text-sm text-muted">
-            {new Intl.DateTimeFormat('en-US', {
-              dateStyle: 'full', timeStyle: 'short', timeZone: event.timezone,
-            }).format(new Date(event.startsAt))}
-            {' '}<span className="text-subtle">({event.timezone})</span>
-          </p>
-        </div>
-        <StatusPill status={event.status} />
-      </div>
-
       {/* BRD §16 — the review verdict, and what to do about it. A rejected
           event CAN go round again, which is the part a bare "rejected" hides. */}
       {event.review?.rejectionReason && event.status === 'rejected' && (
-        <div className="rounded-[--es-radius-md] bg-warning/10 px-4 py-3">
-          <p className="text-sm text-ink">Changes were asked for</p>
-          <p className="mt-1 text-sm text-muted">{event.review.rejectionReason}</p>
-          <p className="mt-1 text-xs text-subtle">
-            Make them and submit again — this is not a final decision.
-          </p>
-        </div>
+        <Notice tone="warning" title="Changes were asked for">
+          <p>{event.review.rejectionReason}</p>
+          <p>Make them and submit again — this is not a final decision.</p>
+        </Notice>
       )}
 
       {event.status === 'suspended' && (
-        <div className="rounded-[--es-radius-md] bg-danger/10 px-4 py-3">
-          <p className="text-sm text-ink">This event has been suspended</p>
-          {event.suspendedReason && (
-            <p className="mt-1 text-sm text-muted">{event.suspendedReason}</p>
-          )}
-          <p className="mt-1 text-xs text-subtle">
-            It is off sale. An admin can put it back — this is not a cancellation.
-          </p>
-        </div>
+        <Notice tone="danger" title="This event has been suspended">
+          {event.suspendedReason && <p>{event.suspendedReason}</p>}
+          <p>It is off sale. Eventsli can put it back — this is not a cancellation.</p>
+        </Notice>
       )}
 
+      {/* BRD §17 — cancelled by Eventsli, never by the organizer. BRD §09 —
+          tickets are non-refundable by default and any refund is between the
+          organizer and the buyer; nothing here promises one either way. */}
       {event.status === 'cancelled' && (
-        <div className="rounded-[--es-radius-md] bg-bg-sunken px-4 py-3">
-          <p className="text-sm text-ink">Cancelled</p>
-          {event.cancelledReason && (
-            <p className="mt-1 text-sm text-muted">{event.cancelledReason}</p>
-          )}
-          <p className="mt-1 text-xs text-subtle">
-            Tickets already sold are kept as a record. Contacting buyers and any refund
-            is yours to arrange.
-          </p>
+        <Notice title="Cancelled by Eventsli">
+          {event.cancelledReason && <p>{event.cancelledReason}</p>}
+          <p>Tickets already sold are kept as a record and buyers can still see them.</p>
+        </Notice>
+      )}
+
+      {hasSales && <EventStats eventId={event.id} currency={event.currency} />}
+
+      {['draft', 'rejected', 'pending_review'].includes(event.status) ? (
+        <div className="grid gap-[var(--fx-gap)] lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+          <LaunchChecklist event={event} />
+          <div id="going-on-sale" className="scroll-mt-20">
+            <ReviewActions event={event} onChanged={ctx.refresh} />
+          </div>
+        </div>
+      ) : (
+        <div id="going-on-sale" className="scroll-mt-20">
+          <ReviewActions event={event} onChanged={ctx.refresh} />
         </div>
       )}
 
-      <ReviewActions event={event} onChanged={refresh} />
-
-      <CoverUpload event={event} onChanged={refresh} />
+      <div id="cover" className="scroll-mt-20">
+        <CoverUpload event={event} onChanged={ctx.refresh} />
+      </div>
 
       <section className="fx-stack fx-stack--sm es-card p-5">
-        <h3 className="text-lg">What you will be charged</h3>
+        <h2 className="text-lg">What you will be charged</h2>
         <p className="text-sm text-muted">
-          Set by us, and shown in full before you can publish.
+          Set by Eventsli, and shown in full before you can publish.
         </p>
 
         <dl className="fx-stack fx-stack--sm text-sm">
@@ -148,7 +113,7 @@ export default function EventOverview({ eventId }) {
       </section>
 
       <section className="fx-stack fx-stack--sm es-card p-5">
-        <h3 className="text-lg">Rules</h3>
+        <h2 className="text-lg">Rules</h2>
         <dl className="fx-stack fx-stack--sm text-sm">
           <Money term="Tickets per order" value={event.rules.maxTicketsPerOrder} />
           <Money

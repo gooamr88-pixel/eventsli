@@ -61,9 +61,12 @@ async function makeUser(key, role) {
   if (!created?.data?.id) throw new Error(`register ${key}: ${JSON.stringify(created)}`);
   ids[key] = created.data.id;
 
-  if (role && role !== 'attendee') {
-    await supabase.from('profiles').update({ role }).eq('id', ids[key]);
-  }
+  // Confirmed as the emailed code would, so the account can sign in — and
+  // promoted, when a role was asked for.
+  await supabase.from('profiles').update({
+    email_verified_at: new Date().toISOString(),
+    ...(role && role !== 'attendee' ? { role } : {}),
+  }).eq('id', ids[key]);
   // Sign in AFTER the role is set, so the session carries the right context.
   cookies[key] = (await login(key)).cookie;
   return ids[key];

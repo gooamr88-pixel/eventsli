@@ -170,11 +170,9 @@ async function reject(req, res, next) {
 
 // ─── POST /admin/events/:eventId/suspend ────────────────────────────────────
 /**
- * BRD §17 — suspension is the admin's tool; cancellation is the organizer's.
- *
  * Suspending pulls a live event out of public view for a breach or a legal
- * problem, and is reversible. It does NOT tell buyers the event is off, because
- * as far as anyone knows it may still happen — only the organizer can say that.
+ * problem, and is reversible. It is not a cancellation: the event may still
+ * happen. Cancelling is also the admin's (BRD §17), and is terminal — below.
  */
 async function suspend(req, res, next) {
   try {
@@ -240,6 +238,69 @@ async function unsuspend(req, res, next) {
   }
 }
 
+// ─── POST /admin/events/:eventId/cancel ─────────────────────────────────────
+/**
+ * BRD §17 — only an admin cancels an event. The organizer cannot.
+ *
+ * Nothing is deleted. Sold tickets stay, the event stays, and a buyer can still
+ * see what they bought and that it was called off; deleting would destroy the
+ * only record of a transaction that really happened.
+ *
+ * This moves no money and promises none. BRD §09 makes tickets non-refundable
+ * by default and puts any refund between the organizer and the buyer, with
+ * Eventsli not responsible for it — so no refund is issued or implied here.
+ */
+async function cancel(req, res, next) {
+  try {
+    const reason = String(req.body.reason || '').trim();
+    const { data: event } = await supabase
+      .from('events').select('id, status').eq('id', req.params.eventId).maybeSingle();
+
+    if (!event) {
+      return sendFail(res, { status: 404, error: 'EVENT_NOT_FOUND', message: 'That event does not exist.' });
+    }
+    if (!events.canTransition(event.status, 'cancelled')) {
+      return sendFail(res, {
+        status: 409, error: 'CONFLICT',
+        message: `An event that is ${event.status} cannot be cancelled.`,
+      });
+    }
+
+    const now = new Date().toISOString();
+    const { data, error } = await supabase
+      .from('events')
+      .update({ status: 'cancelled', cancelled_at: now, cancelled_reason: reason, updated_at: now })
+      .eq('id', event.id)
+      .eq('status', event.status)   // optimistic lock: the event may have moved
+      .select('id, status, cancelled_at, cancelled_reason')
+      .single();
+
+    if (error || !data) {
+      return sendFail(res, { status: 409, error: 'CONFLICT', message: 'This event changed while you were reviewing it.' });
+    }
+
+    // Scanning stops immediately — a cancelled event must not admit anyone. Not
+    // best-effort in spirit: logged at error level so a door left open is loud.
+    const { error: lockError } = await supabase.from('scanner_access').upsert({
+      event_id: event.id,
+      is_locked: true,
+      locked_reason: 'event_cancelled',
+      locked_at: now,
+      updated_at: now,
+    }, { onConflict: 'event_id' });
+    if (lockError) logger.error({ err: lockError, eventId: event.id }, 'CANCELLED EVENT SCANNER NOT LOCKED');
+
+    await audit(req, 'event.cancelled', event.id, { reason, from: event.status });
+    logger.info({ eventId: event.id, by: req.user.id }, 'event cancelled by admin');
+    return sendOk(res, {
+      id: data.id, status: data.status,
+      cancelledAt: data.cancelled_at, cancelledReason: data.cancelled_reason,
+    });
+  } catch (err) {
+    return next(err);
+  }
+}
+
 /**
  * Best-effort audit trail (BRD §19).
  *
@@ -263,4 +324,4 @@ async function audit(req, action, targetId, payload) {
   }
 }
 
-module.exports = { queue, approve, reject, suspend, unsuspend };
+module.exports = { queue, approve, reject, suspend, unsuspend, cancel };

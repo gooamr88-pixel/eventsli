@@ -59,6 +59,9 @@ async function mine(req, res, next) {
           title: order.events.title,
           slug: order.events.slug,
           startsAt: order.events.starts_at,
+          // Selected above but never returned, so My tickets printed a Toronto
+          // show in the reader's own zone.
+          timezone: order.events.timezone,
           venue: order.events.venue_name,
           // BRD §17 — a cancelled event keeps its tickets and says so.
           cancelled: order.events.status === 'cancelled',

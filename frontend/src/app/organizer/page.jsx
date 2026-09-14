@@ -1,10 +1,10 @@
-import EventList from './EventList';
+import Dashboard from './dashboard/Dashboard';
 
 export const metadata = {
-  title: 'Your events',
+  title: 'Dashboard',
   robots: { index: false, follow: false },
 };
 
 export default function OrganizerHome() {
-  return <EventList />;
+  return <Dashboard />;
 }

@@ -242,8 +242,8 @@ export default function CheckoutClient({ reservationId }) {
           />
           <span>
             I agree to the <Link href="/terms" className="text-accent">terms</Link> and the{' '}
-            <Link href="/privacy" className="text-accent">privacy policy</Link>. Refunds are set
-            by the organizer.
+            <Link href="/privacy" className="text-accent">privacy policy</Link>. Tickets are
+            non-refundable by default; any refund is between me and the organizer.
           </span>
         </label>
 

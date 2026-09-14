@@ -38,8 +38,9 @@ const SELF_SERVE = [
   },
   {
     title: 'A refund, a date change, a question about the event itself',
-    body: 'That is the organizer’s, not ours — the money went to them and the event is theirs '
-      + 'to run. Their name is on the event page and on your ticket email.',
+    body: 'Tickets are non-refundable by default, and any refund is between you and the organizer '
+      + '— the money went to them and the event is theirs to run. Their name is on the event page '
+      + 'and on your ticket email.',
     href: '/events',
     cta: 'Find the event',
   },

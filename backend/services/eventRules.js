@@ -114,10 +114,13 @@ const TRANSITIONS = Object.freeze({
 /**
  * Who may make each move.
  *
- * The load-bearing line is `published→cancelled: organizer`. An admin may
- * SUSPEND an event — pull it from view for a breach — but does not cancel it
- * on the organizer's behalf: the organizer owes their buyers that conversation
- * (BRD §17), and cancelling for them would hide who actually decided.
+ * The load-bearing lines are the five edges into `cancelled`, and every one of
+ * them is the ADMIN's. Final Business Rules §17: the organizer cannot cancel an
+ * event; cancellation is done through the admin. An earlier revision of this
+ * file gave those edges to the organizer, and the organizer endpoint shipped —
+ * the opposite of the rule. There is no organizer route to cancel any more.
+ *
+ * An admin also SUSPENDS (reversible, a pull from view). Cancelling is terminal.
  */
 const TRANSITION_ACTOR = Object.freeze({
   'draft→pending_review':     'organizer',
@@ -128,11 +131,11 @@ const TRANSITION_ACTOR = Object.freeze({
   'published→suspended':      'admin',
   'suspended→published':      'admin',
   'published→completed':      'system',     // a job, once ends_at passes
-  'draft→cancelled':          'organizer',
-  'pending_review→cancelled': 'organizer',
-  'rejected→cancelled':       'organizer',
-  'published→cancelled':      'organizer',
-  'suspended→cancelled':      'organizer',
+  'draft→cancelled':          'admin',      // BRD §17 — every cancel is the admin's
+  'pending_review→cancelled': 'admin',
+  'rejected→cancelled':       'admin',
+  'published→cancelled':      'admin',
+  'suspended→cancelled':      'admin',
 });
 
 function canTransition(from, to) {

@@ -161,3 +161,40 @@ export async function signIn({ deviceId, pin }) {
   saveSession(session);
   return session;
 }
+
+/**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * The second way in: a DOOR-TEAM MEMBER, with their own Eventsli account.
+ *
+ * The site's session cookie proves who they are (sent with `credentials:
+ * 'include'` by apiFetch); the API then decides which events they may scan and
+ * hands back a gate token scoped to ONE of them. From there on this is the same
+ * Bearer token, the same queue and the same scanner as a PIN device — so every
+ * rule above still holds, and removing them from the team refuses their next scan.
+ *
+ * Their token lasts one shift (sixteen hours), not a device's seven days.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+export function listAssignments() {
+  return apiFetch('/scan/assignments', { noRedirect: true, cache: 'no-store' });
+}
+
+export async function signInAsStaff({ eventId }) {
+  const data = await apiFetch('/scan/staff-login', {
+    method: 'POST',
+    noRedirect: true,
+    body: JSON.stringify({ eventId }),
+  });
+
+  const session = {
+    token: data.token,
+    deviceId: data.device.id,
+    label: data.device.label,
+    eventId: data.device.eventId,
+    staff: true,
+    eventTitle: data.event?.title || null,
+    signedInAt: new Date().toISOString(),
+  };
+  saveSession(session);
+  return session;
+}

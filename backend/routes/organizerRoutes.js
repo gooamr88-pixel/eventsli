@@ -1,8 +1,9 @@
 const express = require('express');
-const { body } = require('express-validator');
+const { body, query } = require('express-validator');
 const validate = require('../middleware/validate');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, requireRole } = require('../middleware/auth');
 const c = require('../controllers/organizerController');
+const stats = require('../controllers/statsController');
 
 const router = express.Router();
 
@@ -21,6 +22,16 @@ router.post(
 );
 
 router.get('/me', requireAuth, c.me);
+
+// The dashboard home: every event's numbers in one round trip.
+router.get(
+  '/dashboard',
+  requireAuth,
+  requireRole('organizer'),
+  query('days').optional().isIn(['7', '30', '90']),
+  validate,
+  stats.organizerDashboard,
+);
 
 router.patch(
   '/',

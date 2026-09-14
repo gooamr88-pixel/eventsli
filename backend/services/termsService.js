@@ -38,13 +38,22 @@ async function currentVersion(audience) {
  * Records an acceptance. Idempotent on (user, version, event) so a double-click
  * on "I agree" does not create two rows, and a retry after a network blip lands
  * on the same one.
+ *
+ * A GUEST has no user id and is identified by email, as their order is. The
+ * unique key cannot dedupe a NULL user, so a guest who retries gets a second
+ * row — which is the honest record: they were shown the terms twice.
  */
-async function accept({ userId, termsId, eventId = null, req }) {
+async function accept({ userId = null, email = null, reservationId = null, termsId, eventId = null, req }) {
+  if (!userId && !email) {
+    throw new Error('could not record acceptance: nobody to record it against');
+  }
   const { data, error } = await supabase
     .from('terms_acceptances')
     .upsert(
       {
         user_id: userId,
+        email: email || null,
+        reservation_id: reservationId,
         terms_id: termsId,
         event_id: eventId,
         accepted_at: new Date().toISOString(),

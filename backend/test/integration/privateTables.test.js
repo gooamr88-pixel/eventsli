@@ -222,9 +222,11 @@ test('a session cookie cannot be replayed as a table key', async () => {
     password: 'a-perfectly-long-passphrase',
     fullName: 'Token Test',
   });
-  const setCookie = reg.body ? null : null;
+  assert.equal(reg.status, 201);
   const { data: p } = await supabase.from('profiles')
     .select('id').eq('email', `tok-${stamp}@eventsli-test.invalid`).maybeSingle();
+  // Confirmed as the emailed code would, so the account can sign in.
+  await supabase.from('profiles').update({ email_verified_at: new Date().toISOString() }).eq('id', p.id);
 
   const login = await fetch(`${baseUrl}/auth/login`, {
     method: 'POST', headers: { 'content-type': 'application/json' },

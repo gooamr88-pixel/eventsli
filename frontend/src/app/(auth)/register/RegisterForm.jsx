@@ -18,16 +18,11 @@ const MIN_PASSWORD = 12;
 /**
  * Create an account.
  *
- * `POST /auth/register` ISSUES A SESSION as well as creating the profile, so
- * this does not sign in afterwards.
- *
- * It did, briefly, and the bug is worth recording because it was invisible from
- * the outside: register-then-login created TWO session rows for one sign-up.
- * The second cookie overwrote the first, so everything appeared to work — but
- * the orphan lived on until it expired, and it showed up on the account's
- * "Where you are signed in" list as a device the person had never used and
- * could not account for. Found by counting sessions against a live API rather
- * than by anything failing.
+ * `POST /auth/register` creates the profile and emails a 6-digit code; it does
+ * NOT sign anyone in until that code is entered on /verify-email, which then
+ * issues the one session. So this never calls /auth/login afterwards — an
+ * earlier version signed in after registering and left an orphaned second
+ * session on the account's "Where you are signed in" list.
  */
 export default function RegisterForm() {
   const router = useRouter();
@@ -51,15 +46,22 @@ export default function RegisterForm() {
     setBusy(true);
     setError(null);
     try {
-      // One call. The response is the profile AND the session cookie.
-      arrive(await post('/auth/register', {
+      const account = await post('/auth/register', {
         fullName: form.fullName,
         email: form.email,
         password: form.password,
         // Sent only when given: the API rejects an empty string as a malformed
         // phone number rather than treating it as absent.
         ...(form.phone.trim() ? { phone: form.phone.trim() } : {}),
-      }, { noRedirect: true }));
+      }, { noRedirect: true });
+
+      if (account?.verificationRequired) {
+        const query = new URLSearchParams({ email: account.email || form.email, sent: '1' });
+        if (next !== '/') query.set('next', next);
+        router.push(`/verify-email?${query}`);
+        return;
+      }
+      arrive(account);
     } catch (err) {
       setError(err);
       setBusy(false);

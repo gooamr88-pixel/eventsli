@@ -2,7 +2,8 @@ const { supabase } = require('../config/supabase');
 const { hashPassword, verifyPassword } = require('../utils/crypto');
 const sessions = require('../services/sessionService');
 const rbac = require('../services/rbacService');
-const { sendOk, sendFail } = require('../utils/responseEnvelope');
+const { sendOk, sendFail, ERROR_STATUS } = require('../utils/responseEnvelope');
+const verification = require('../services/emailVerificationService');
 const logger = require('../utils/logger');
 
 /**
@@ -59,13 +60,82 @@ async function register(req, res, next) {
       throw new Error(error.message);
     }
 
-    await sessions.issue(res, {
-      userId: data.id, email: data.email, role: data.role, req,
-    });
+    // NO SESSION YET. The address has to be confirmed first — otherwise anyone
+    // can sign up as anyone, and tickets and receipts go to whatever was typed.
+    // The code is sent without holding up the response; `issue` never throws.
+    verification.issue({ user: data, req });
 
     return sendOk(res, {
       id: data.id, email: data.email, fullName: data.full_name, role: data.role,
+      verificationRequired: true,
     }, { status: 201 });
+  } catch (err) {
+    return next(err);
+  }
+}
+
+// ─── POST /auth/verify-email ────────────────────────────────────────────────
+/**
+ * The code from the email. On success the account is confirmed AND signed in:
+ * the person has just proved both the password (at sign-up or sign-in) and the
+ * inbox, and making them type the password again straight after is friction
+ * that buys nothing.
+ */
+async function verifyEmail(req, res, next) {
+  try {
+    const result = await verification.verify({ emailAddress: req.body.email, code: req.body.code });
+
+    if (result.error === 'ALREADY_VERIFIED') {
+      return sendFail(res, {
+        status: 409, error: 'CONFLICT',
+        message: 'This email is already confirmed. Sign in instead.',
+      });
+    }
+    if (!result.ok) {
+      const expired = result.error === 'CODE_EXPIRED';
+      return sendFail(res, {
+        status: ERROR_STATUS[result.error] || 400,
+        error: result.error,
+        message: expired
+          ? 'That code has expired. Send yourself a new one.'
+          : `That code is not right.${result.remaining ? ` ${result.remaining} ${result.remaining === 1 ? 'try' : 'tries'} left.` : ''}`,
+        ...(result.remaining !== undefined ? { meta: { remaining: result.remaining } } : {}),
+      });
+    }
+
+    const { user } = result;
+    rbac.invalidate(user.id);
+    await supabase.from('profiles')
+      .update({ last_login_at: new Date().toISOString(), failed_login_count: 0, locked_until: null })
+      .eq('id', user.id);
+    await sessions.issue(res, { userId: user.id, email: user.email, role: user.role, req });
+
+    return sendOk(res, { id: user.id, email: user.email, fullName: user.full_name, role: user.role });
+  } catch (err) {
+    return next(err);
+  }
+}
+
+// ─── POST /auth/resend-verification ─────────────────────────────────────────
+/**
+ * ALWAYS the same answer, like forgot-password — whether the address exists,
+ * is already confirmed, or is inside the one-minute cooldown.
+ */
+async function resendVerification(req, res, next) {
+  try {
+    const { data: user } = await supabase
+      .from('profiles')
+      .select('id, email, full_name, is_blocked, email_verified_at')
+      .eq('email', String(req.body.email).trim().toLowerCase())
+      .maybeSingle();
+
+    if (user && !user.is_blocked && !user.email_verified_at) verification.issue({ user, req });
+
+    return sendOk(res, {
+      sent: true,
+      message: 'If that email is waiting to be confirmed, a new code is on its way.',
+      cooldownSeconds: 60,
+    });
   } catch (err) {
     return next(err);
   }
@@ -79,7 +149,7 @@ async function login(req, res, next) {
 
     const { data: user, error } = await supabase
       .from('profiles')
-      .select('id, email, full_name, role, password_hash, is_blocked, failed_login_count, locked_until')
+      .select('id, email, full_name, role, password_hash, is_blocked, failed_login_count, locked_until, email_verified_at')
       .eq('email', email)
       .maybeSingle();
 
@@ -122,6 +192,21 @@ async function login(req, res, next) {
 
       if (lock) logger.warn({ userId: user.id }, 'account locked after repeated failed logins');
       return sendFail(res, { status: 401, error: 'UNAUTHENTICATED', message: CREDENTIALS_REJECTED });
+    }
+
+    // The right password on an address that was never confirmed. Checked AFTER
+    // the password, so this answer is only ever given to someone who already
+    // proved they know it — it cannot be used to learn which addresses exist.
+    if (!user.email_verified_at) {
+      await supabase.from('profiles')
+        .update({ failed_login_count: 0, locked_until: null })
+        .eq('id', user.id);
+      verification.issue({ user, req });
+      return sendFail(res, {
+        status: 403, error: 'EMAIL_NOT_VERIFIED',
+        message: 'Confirm your email to finish signing in. We have sent you a code.',
+        meta: { email: user.email },
+      });
     }
 
     // Success: clear the counter, and quietly upgrade the hash if the cost has
@@ -366,7 +451,7 @@ async function googleSignIn(req, res, next) {
 }
 
 module.exports = {
-  register, login, logout, logoutAll, me,
+  register, verifyEmail, resendVerification, login, logout, logoutAll, me,
   listSessions, endSession, changePassword,
   forgotPassword, resetPassword, googleSignIn,
   MAX_FAILED_LOGINS, LOCKOUT_MINUTES,

@@ -95,9 +95,20 @@ session cookie would mean two session systems layered on one login.
 - Every check **fails closed**: a lookup error denies rather than allows.
 - Lockout is account-scoped as well as IP-scoped — an IP limiter alone is
   bypassed by spreading attempts across addresses.
+- **Email is verified before the first session.** Registering issues no cookie;
+  it emails a six-digit code (`crypto.randomInt`, stored only as an HMAC keyed
+  with `JWT_SECRET`, 10-minute TTL, 5 attempts, 60-second resend cooldown).
+  Signing in to an unconfirmed account with the RIGHT password returns
+  `403 EMAIL_NOT_VERIFIED` and sends a fresh code; a wrong password is still a
+  plain 401, so the check leaks nothing to someone guessing. `verify_email_code`
+  locks the row, so two parallel guesses cannot both spend attempt five.
+  Resend answers identically for real and unknown addresses. Accounts that
+  existed before migration `20260915090000` and Google sign-ins count as
+  verified.
 
 ```
-POST /auth/register  /auth/login  /auth/logout  /auth/logout-all
+POST /auth/register  /auth/verify-email  /auth/resend-verification
+POST /auth/login     /auth/logout  /auth/logout-all
 GET  /auth/me        /auth/sessions
 POST /auth/change-password        DELETE /auth/sessions/:jti
 ```
@@ -111,9 +122,9 @@ node scripts/apply-migration.js ../supabase/migrations/<file>.sql
 
 ## Events
 
-An organizer submits; only an admin publishes (BRD §16). An organizer cancels;
-an admin suspends (BRD §17) — a suspended event may come back, a cancelled one
-never does, and nothing is ever deleted.
+An organizer submits; only an admin publishes (BRD §16). Only an admin cancels
+— the organizer cannot (BRD §17) — and an admin may also suspend: a suspended
+event may come back, a cancelled one never does, and nothing is ever deleted.
 
 Two things are enforced structurally rather than by convention:
 
@@ -132,9 +143,8 @@ and no environment.
 POST /organizer                      GET/PATCH /organizer/me
 POST /events                         GET /events            GET/PATCH /events/:id
 POST /events/:id/accept-terms        POST /events/:id/submit
-POST /events/:id/cancel
 GET  /admin/approvals
-POST /admin/events/:id/approve   /reject   /suspend   /unsuspend
+POST /admin/events/:id/approve   /reject   /suspend   /unsuspend   /cancel
 ```
 
 ## Seats and tables
@@ -415,6 +425,74 @@ POST  /admin/organizers/:id/ban|unban
 
 Every action is written to `admin_audit` with its reason. "An admin did it" is
 not an answer when the organizer telephones.
+
+## The organizer dashboard and the admin console
+
+Both run in one shell (`frontend/src/app/components/shell/AppShell.jsx`): a
+sidebar from `lg` up, a drawer plus a bottom tab bar below it. The navigation is
+data (`organizer/nav/organizerNav.js`, `admin/nav/adminNav.js`), so the sidebar,
+the drawer and the bar can never disagree, and every existing route and deep link
+underneath is unchanged. The per-event tab strip is gone; the event id stays in
+the path, so switching events keeps the section you were in.
+
+```
+GET /organizer/dashboard ?days=7|30|90     GET /events/:id/stats ?days=
+GET /admin/overview ?days=                 GET /admin/events ?status ?organizerId ?when ?q
+GET /admin/events/:id                      GET /admin/organizers ?banned ?payouts ?q
+```
+
+Every number is ONE round trip: `organizer_dashboard_summary`,
+`event_sales_summary` and `platform_overview` are SQL functions, and money is
+grouped by currency — USD and CAD are never added together.
+
+## Share & QR
+
+```
+GET /events/:id/share                      GET /events/:id/share/qr.png ?tier ?size=lg ?download=1
+```
+
+The server builds every URL from the event's slug (`services/shareLinks.js`);
+the browser can only NAME a tier, and a tier that is not this event's is a 404,
+never silently replaced with the event link. A client that chose what a QR
+encodes could put any address on a poster under an organizer's name.
+
+## The door team
+
+People with their own Eventsli accounts, allowed to scan ONE event — beside PIN
+devices, not instead of them. No new role: membership is a row in `event_staff`,
+so the permission is per event by construction.
+
+```
+GET/POST /events/:id/staff    DELETE /events/:id/staff/:staffId
+GET /scan/assignments         POST /scan/staff-login { eventId }
+```
+
+A member scans through a device row of their own, so check-in, undo, the scan log
+and revocation need no second code path. Their token is `scan_staff`, lasts one
+shift (16h), and is re-checked on every scan: removed from the team, or account
+blocked, and the next scan is refused. PIN login refuses any device that belongs
+to a person.
+
+Adding someone — or re-adding someone who was removed — emails them the event,
+its start time in the event's zone, and a link to `/gate/login`
+(`sendDoorTeamAdded`). The email is sent after the row is written and never
+awaited by the request, so a mail outage cannot fail the add; the response's
+`notified` says whether an email was attempted.
+
+## The Data API is closed
+
+The browser never talks to Supabase, so the `anon` and `authenticated` roles
+have no legitimate caller. Until 2026-09-14 both could EXECUTE every SECURITY
+DEFINER function — `fulfill_checkout`, `settle_invoice`, `check_in_ticket`
+included — with the project's public anon key. Migration
+`20260914090000_lock_down_api_roles.sql` revokes every table, sequence and
+function grant from both roles, enables RLS explicitly (it had only come from a
+project-level trigger), fixes default privileges, and rolls itself back if
+anything is still reachable. `scripts/verify-schema.js` re-checks it.
+
+`test/helpers/testEnv.js` refuses to run the integration suite against a
+non-local database unless `EVENTSLI_TEST_REMOTE_DB` names the project ref, and
+`reset-platform.js --commit` requires `--project=<ref>`.
 
 ## Before the first real sale
 

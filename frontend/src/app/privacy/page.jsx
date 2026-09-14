@@ -27,6 +27,7 @@ const COLLECTED = [
   ['What you bought', 'The event, the seats, the amount, and when. We are required to keep this as a financial record.'],
   ['A hashed form of your IP address', 'Recorded when you sign in or accept terms, as evidence of when that happened. It is hashed with a secret, so it cannot be read back as an address.'],
   ['Your sign-in sessions', 'So you can see where you are signed in and end a session on a device you no longer have.'],
+  ['Email verification codes', 'When you create an account we email a six-digit code to prove the address is yours. Only a keyed hash of the code is stored, it expires after ten minutes, and it works once.'],
 ];
 
 const SHARED = [

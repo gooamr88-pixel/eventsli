@@ -51,6 +51,14 @@ export default function LoginForm() {
     try {
       arrive(await post('/auth/login', form, { noRedirect: true }));
     } catch (err) {
+      // The right password on an address that was never confirmed. The API has
+      // already sent a fresh code, so this goes straight to where it is typed.
+      if (err?.code === 'EMAIL_NOT_VERIFIED') {
+        const query = new URLSearchParams({ email: err.meta?.email || form.email, sent: '1' });
+        if (next !== '/') query.set('next', next);
+        router.push(`/verify-email?${query}`);
+        return;
+      }
       setError(err);
       setBusy(false);
     }

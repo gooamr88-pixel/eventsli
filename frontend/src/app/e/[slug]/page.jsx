@@ -89,10 +89,23 @@ export async function generateMetadata({ params }) {
   };
 }
 
-export default async function EventPage({ params }) {
+export default async function EventPage({ params, searchParams }) {
   const { slug } = await params;
+  const { tier: tierParam } = (await searchParams) || {};
   const event = await loadEvent(slug);
   if (!event) notFound();
+
+  /**
+   * `?tier=` — the deep link an organizer shares from Share & QR.
+   *
+   * Honoured only when it names one of THIS event's tiers, as returned by the
+   * API; anything else is ignored rather than echoed. The server built the link
+   * and checked the tier belongs to the event before it ever became a QR code,
+   * and this is the same check on the way back in.
+   */
+  const focusTier = typeof tierParam === 'string'
+    ? (event.tiers || []).find((t) => t.id === tierParam) || null
+    : null;
 
   const starts = new Date(event.startsAt);
   const ends = new Date(event.endsAt);
@@ -239,10 +252,23 @@ export default async function EventPage({ params }) {
                   </div>
                 )}
 
+                {focusTier && (
+                  <p className="es-notice es-notice--info" role="status">
+                    <span>You were sent here for <strong>{focusTier.name}</strong>.</span>
+                  </p>
+                )}
+
                 {event.tiers?.length > 0 && (
                   <ul className="fx-stack fx-stack--sm">
                     {event.tiers.map((tier) => (
-                      <li key={tier.id} className="fx-row fx-row--between border-t border-border-base pt-3 first:border-0 first:pt-0">
+                      <li
+                        key={tier.id}
+                        id={`tier-${tier.id}`}
+                        aria-current={focusTier?.id === tier.id ? 'true' : undefined}
+                        className={`fx-row fx-row--between border-t border-border-base pt-3 first:border-0 first:pt-0 ${
+                          focusTier?.id === tier.id ? '-mx-3 rounded-[--es-radius-md] bg-accent-wash px-3 pb-3' : ''
+                        }`}
+                      >
                         <span className="fx-min0">
                           <span className="block text-ink">{tier.name}</span>
                           {tier.description && (
@@ -257,7 +283,7 @@ export default async function EventPage({ params }) {
                   </ul>
                 )}
 
-                <CallToAction event={event} soldOut={soldOut} />
+                <CallToAction event={event} soldOut={soldOut} tierId={focusTier?.id} />
 
                 {event.availability && !soldOut && (
                   <p className="text-center text-sm text-subtle">
@@ -285,7 +311,7 @@ export default async function EventPage({ params }) {
  * gets no buy button at all rather than a disabled one, because a dead control
  * is a question ("why can't I click this?") the page then has to answer.
  */
-function CallToAction({ event, soldOut }) {
+function CallToAction({ event, soldOut, tierId }) {
   if (event.displayOnly) {
     return (
       <p className="rounded-[--es-radius-md] bg-bg-sunken px-4 py-3 text-center text-muted" role="status">
@@ -304,7 +330,8 @@ function CallToAction({ event, soldOut }) {
 
   return (
     <Link
-      href={`/e/${event.slug}/seats`}
+      // The tier travels with the buyer, so the seat picker can start from it.
+      href={`/e/${event.slug}/seats${tierId ? `?tier=${encodeURIComponent(tierId)}` : ''}`}
       className="es-btn es-btn--primary es-btn--block es-btn--lg"
     >
       Choose your seats

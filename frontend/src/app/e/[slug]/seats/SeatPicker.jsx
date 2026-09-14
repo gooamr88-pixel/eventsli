@@ -32,8 +32,10 @@ export default function SeatPicker({ slug, currency, purchaseMode, maxPerOrder }
    * on the map to click. See useTableAccess.js for the full shape of this.
    */
   const invitedTableId = searchParams.get('table');
+  const tierParam = searchParams.get('tier');
 
   const [map, setMap] = useState(null);
+  const [showAllTiers, setShowAllTiers] = useState(false);
   const [loadError, setLoadError] = useState(null);
   const [selectedSeats, setSelectedSeats] = useState([]);
   const [selectedTable, setSelectedTable] = useState(null);
@@ -96,6 +98,15 @@ export default function SeatPicker({ slug, currency, purchaseMode, maxPerOrder }
     () => new Map((map?.seats || []).map((s) => [s.id, s])),
     [map],
   );
+
+  /**
+   * `?tier=` — the buyer followed a ticket-type link from the organizer's
+   * Share & QR. Only a tier that is in THIS map's payload counts; anything else
+   * is ignored. Its seats stay bright and every other seat is dimmed, but
+   * nothing is made unselectable: the link is a pointer, not a restriction.
+   */
+  const focusTier = tierParam ? (map?.tiers || []).find((t) => t.id === tierParam) || null : null;
+  const highlightTierId = focusTier && !showAllTiers ? focusTier.id : null;
 
   const selectedIds = useMemo(() => new Set(selectedSeats.map((s) => s.id)), [selectedSeats]);
   const selectedTableIds = useMemo(
@@ -202,6 +213,24 @@ export default function SeatPicker({ slug, currency, purchaseMode, maxPerOrder }
 
   return (
     <div className="fx-stack">
+      {focusTier && (
+        <div className="es-notice es-notice--info fx-row fx-row--between" role="status">
+          <span className="fx-min0">
+            {showAllTiers
+              ? <>Showing every seat. You came here for <strong>{focusTier.name}</strong>.</>
+              : <>Showing <strong>{focusTier.name}</strong> seats. Other seats are dimmed but you can still choose them.</>}
+          </span>
+          <button
+            type="button"
+            className="es-btn es-btn--ghost es-btn--sm"
+            onClick={() => setShowAllTiers((v) => !v)}
+            aria-pressed={!showAllTiers}
+          >
+            {showAllTiers ? `Highlight ${focusTier.name}` : 'Show every seat'}
+          </button>
+        </div>
+      )}
+
       {/* The map is PRESENTED, not placed.
 
           This is the one screen that is only this product — the whole pitch on
@@ -221,6 +250,7 @@ export default function SeatPicker({ slug, currency, purchaseMode, maxPerOrder }
           seats={map.seats}
           selectedSeatIds={selectedIds}
           selectedTableIds={selectedTableIds}
+          highlightTierId={highlightTierId}
           purchaseMode={purchaseMode}
           onSelectSeat={toggleSeat}
           // Anything reaching this callback is already visible, and a private

@@ -1,13 +1,13 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { post } from '../../../utils/apiClient';
-import { describeError } from '../../../utils/errors';
 import FormError from '../../../components/forms/FormError';
 import SubmitButton from '../../../components/forms/SubmitButton';
 
 /**
- * Accept the terms, submit for review, cancel.
+ * Accept the terms, submit for review.
  *
  * BRD §16 — an organizer SUBMITS; only an admin publishes. `draft → published`
  * simply does not exist as an edge, so there is no button here that could
@@ -21,13 +21,10 @@ import SubmitButton from '../../../components/forms/SubmitButton';
 export default function ReviewActions({ event, onChanged }) {
   const [busy, setBusy] = useState(null);
   const [error, setError] = useState(null);
-  const [cancelling, setCancelling] = useState(false);
-  const [reason, setReason] = useState('');
 
   const canSubmit = ['draft', 'rejected'].includes(event.status);
-  // BRD §17 — cancellation is the organizer's act, and it is available from
-  // every state an event can still be in. A completed one is history.
-  const canCancel = !['cancelled', 'completed'].includes(event.status);
+  // An event that is over, one way or the other, has nothing left to call off.
+  const canContact = !['cancelled', 'completed'].includes(event.status);
 
   async function run(what, path, body) {
     setBusy(what);
@@ -108,54 +105,13 @@ export default function ReviewActions({ event, onChanged }) {
 
       <FormError error={error} />
 
-      {canCancel && (
-        <div className="border-t border-border-base pt-4">
-          {cancelling ? (
-            <div className="fx-stack fx-stack--sm">
-              <p className="text-sm text-ink">Cancel this event?</p>
-              <p className="text-sm text-muted">
-                Sales stop and scanning is switched off. Tickets already sold are kept —
-                buyers can still see what they bought. <strong className="text-ink">
-                Contacting them and arranging any refund is yours</strong>, and this
-                cannot be undone.
-              </p>
-              <textarea
-                rows={3}
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                maxLength={1000}
-                placeholder="Why? Buyers may be shown this."
-                aria-label="Reason for cancelling"
-                className="es-input"
-              />
-              <div className="fx-row fx-row--between">
-                <button
-                  type="button"
-                  onClick={() => setCancelling(false)}
-                  className="text-sm text-muted hover:text-ink"
-                >
-                  Keep it
-                </button>
-                <button
-                  type="button"
-                  disabled={busy === 'cancel'}
-                  onClick={() => run('cancel', `/events/${event.id}/cancel`, { reason: reason || undefined })}
-                  className="rounded-[--es-radius-md] bg-danger px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
-                >
-                  {busy === 'cancel' ? 'Cancelling…' : 'Cancel the event'}
-                </button>
-              </div>
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setCancelling(true)}
-              className="text-sm text-muted hover:text-danger"
-            >
-              Cancel this event
-            </button>
-          )}
-        </div>
+      {/* BRD §17 — the organizer cannot cancel an event; only Eventsli can.
+          So there is no button here, only where to go. */}
+      {canContact && (
+        <p className="border-t border-border-base pt-4 text-sm text-muted">
+          Need to call this event off? Only Eventsli can cancel an event.{' '}
+          <Link href="/contact" className="text-accent">Contact us</Link>.
+        </p>
       )}
     </section>
   );

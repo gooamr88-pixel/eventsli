@@ -53,7 +53,11 @@ before(async () => {
     body: JSON.stringify({ email, password: PASSWORD, fullName: 'Sales Test' }),
   });
   ids.profile = (await reg.json()).data.id;
-  await supabase.from('profiles').update({ role: 'organizer' }).eq('id', ids.profile);
+  // Confirmed as the emailed code would, so the account can sign in. The code
+  // path itself is tested in authFlow.test.js.
+  await supabase.from('profiles')
+    .update({ role: 'organizer', email_verified_at: new Date().toISOString() })
+    .eq('id', ids.profile);
 
   const login = await fetch(`${baseUrl}/auth/login`, {
     method: 'POST',

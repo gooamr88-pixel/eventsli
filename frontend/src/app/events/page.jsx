@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { serverFetch } from '../utils/apiClient';
 import EventCard from '../components/EventCard';
+import { categoryLabel } from '../lib/categories';
 
 /**
  * Browse.
@@ -18,17 +19,8 @@ export const metadata = {
   description: 'Concerts, festivals, conferences and sports across Canada and the United States.',
 };
 
-/** Labels for the API's enum. The VALUES come from the API — this map only
- *  gives each one a display name, so a category added server-side still
- *  appears here (titlecased) instead of vanishing from the filter. */
-const LABELS = {
-  music: 'Music', festival: 'Festivals', nightlife: 'Nightlife', sports: 'Sports',
-  arts: 'Arts', comedy: 'Comedy', film: 'Film', food_drink: 'Food & drink',
-  business: 'Business', community: 'Community', education: 'Learning',
-  family: 'Family', other: 'Other',
-};
-
-const label = (c) => LABELS[c] || c.replace(/_/g, ' ').replace(/^./, (m) => m.toUpperCase());
+/** Display names for the API's enum — see lib/categories.js. */
+const label = categoryLabel;
 
 async function load(params) {
   const query = new URLSearchParams();

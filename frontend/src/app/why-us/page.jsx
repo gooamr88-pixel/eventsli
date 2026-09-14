@@ -38,14 +38,14 @@ const REASONS = [
     body: 'A card payment is charged directly to your own Stripe account. There is no escrow '
       + 'balance, no payout request, and no week where your takings are on our books. '
       + 'Stripe pays you out on its normal schedule.',
-    detail: 'Commission is invoiced separately, so you can always see what is a fee and what is a sale.',
+    detail: 'Our commission is taken as its own line at the charge, so you can always see what is a fee and what is a sale. Only door sales are invoiced.',
   },
   {
     title: 'The door works without wifi',
     body: 'A venue with thick walls and four hundred phones on one access point is the normal '
       + 'case, not the edge case. Scans are held on the tablet with the door’s own clock and '
       + 'upload themselves later — and a queue uploaded twice still admits each guest once.',
-    detail: 'Any tablet or phone with a camera. Nothing to install.',
+    detail: 'Any tablet or phone with a camera. Nothing to install. Run it from a PIN-locked tablet or give named door staff their own sign-in.',
   },
   {
     title: 'One ticket, one admission',

@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { CONTACT_EMAIL, FOOTER_GROUPS } from '../lib/siteRoutes';
+import { inAppShell } from './SiteHeader';
 
 /**
  * The footer.
@@ -21,8 +22,10 @@ export default function SiteFooter() {
   const pathname = usePathname();
 
   // The gate is a tablet at a door; the checkout is somebody holding seats with
-  // a countdown running. Neither wants a column of exit links.
-  if (pathname?.startsWith('/gate') || pathname?.startsWith('/checkout')) return null;
+  // a countdown running. Neither wants a column of exit links. The dashboard and
+  // the console have their own shell, and a footer below a fixed sidebar would
+  // sit half underneath it.
+  if (inAppShell(pathname) || pathname?.startsWith('/checkout')) return null;
 
   return (
     /* THE INK BLOCK, and the page's last note.

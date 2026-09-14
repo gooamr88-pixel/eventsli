@@ -20,6 +20,23 @@ require('../helpers/testEnv');
 
 const { supabase } = require('../../config/supabase');
 const app = require('../../app');
+const codes = require('../../services/emailCodes');
+
+/**
+ * Plants a code we know, as the newest live one. The real code only exists in
+ * an email, and the email is not what is under test here.
+ */
+async function plantCode(userId, code) {
+  await supabase.from('email_verifications')
+    .update({ consumed_at: new Date().toISOString() })
+    .eq('user_id', userId).is('consumed_at', null);
+  const { error } = await supabase.from('email_verifications').insert({
+    user_id: userId,
+    code_hash: codes.hashCode({ userId, code }),
+    expires_at: new Date(Date.now() + 10 * 60_000).toISOString(),
+  });
+  if (error) throw new Error(error.message);
+}
 
 let server;
 let baseUrl;
@@ -61,20 +78,95 @@ after(async () => {
   await new Promise((r) => server.close(r));
 });
 
-test('register issues an httpOnly session cookie', async () => {
+// ── Sign-up and email confirmation ───────────────────────────────────────────
+
+test('register creates the account but signs nobody in', async () => {
   const call = makeClient();
   const res = await call('POST', '/auth/register', {
     email: EMAIL, password: PASSWORD, fullName: 'Test Person',
   });
 
   assert.equal(res.status, 201, JSON.stringify(res.body));
-  assert.equal(res.body.success, true);
   assert.equal(res.body.data.email, EMAIL);
+  assert.equal(res.body.data.verificationRequired, true);
   created.push(res.body.data.id);
 
+  assert.equal(res.rawCookie, null, 'no session until the address is confirmed');
+});
+
+test('the right password on an unconfirmed address is refused, and says why', async () => {
+  const call = makeClient();
+  const res = await call('POST', '/auth/login', { email: EMAIL, password: PASSWORD });
+  assert.equal(res.status, 403);
+  assert.equal(res.body.error, 'EMAIL_NOT_VERIFIED');
+  assert.equal(res.rawCookie, null);
+});
+
+test('a WRONG password on an unconfirmed address does not reveal that it is unconfirmed', async () => {
+  const call = makeClient();
+  const res = await call('POST', '/auth/login', { email: EMAIL, password: 'not-the-right-passphrase' });
+  assert.equal(res.status, 401);
+  assert.equal(res.body.error, 'UNAUTHENTICATED');
+});
+
+test('a wrong code is refused and counts down', async () => {
+  await plantCode(created[0], '111111');
+  const call = makeClient();
+  const res = await call('POST', '/auth/verify-email', { email: EMAIL, code: '222222' });
+  assert.equal(res.status, 400);
+  assert.equal(res.body.error, 'INVALID_CODE');
+  assert.equal(res.body.meta.remaining, 4);
+});
+
+test('five wrong guesses kill the code — even the right one stops working', async () => {
+  await plantCode(created[0], '111111');
+  const call = makeClient();
+  for (let i = 0; i < 4; i += 1) {
+    // eslint-disable-next-line no-await-in-loop
+    const res = await call('POST', '/auth/verify-email', { email: EMAIL, code: '999999' });
+    assert.equal(res.body.error, 'INVALID_CODE');
+  }
+  const fifth = await call('POST', '/auth/verify-email', { email: EMAIL, code: '999999' });
+  assert.equal(fifth.status, 410);
+  assert.equal(fifth.body.error, 'CODE_EXPIRED');
+
+  const right = await call('POST', '/auth/verify-email', { email: EMAIL, code: '111111' });
+  assert.equal(right.body.error, 'CODE_EXPIRED', 'a dead code must stay dead');
+});
+
+test('a code for an address with no account gets the same answer as a wrong one', async () => {
+  const call = makeClient();
+  const res = await call('POST', '/auth/verify-email', {
+    email: `nobody-${Date.now()}@eventsli-test.invalid`, code: '123456',
+  });
+  assert.equal(res.status, 400);
+  assert.equal(res.body.error, 'INVALID_CODE');
+});
+
+test('asking for a new code answers the same whether or not the address exists', async () => {
+  const call = makeClient();
+  const real = await call('POST', '/auth/resend-verification', { email: EMAIL });
+  const fake = await call('POST', '/auth/resend-verification', { email: `nobody-${Date.now()}@eventsli-test.invalid` });
+  assert.equal(real.status, 200);
+  assert.equal(fake.status, 200);
+  assert.equal(real.body.message, fake.body.message);
+});
+
+test('the right code confirms the address and signs in — once', async () => {
+  await plantCode(created[0], '654321');
+  const call = makeClient();
+  // Pasted with a space, the way an email client groups it.
+  const res = await call('POST', '/auth/verify-email', { email: EMAIL, code: '654 321' });
+  assert.equal(res.status, 200, JSON.stringify(res.body));
   assert.match(res.rawCookie, /eventsli_session=/);
   assert.match(res.rawCookie, /HttpOnly/i, 'JavaScript must not be able to read it');
   assert.match(res.rawCookie, /SameSite=Lax/i);
+
+  const me = await call('GET', '/auth/me');
+  assert.equal(me.status, 200);
+
+  const again = await call('POST', '/auth/verify-email', { email: EMAIL, code: '654321' });
+  assert.equal(again.status, 409, 'an already-confirmed address is not confirmed twice');
 });
 
 test('the password is never stored in the clear', async () => {

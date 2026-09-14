@@ -1,132 +1,116 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { get } from '../../../../utils/apiClient';
-import { Loading, ErrorNotice } from '../../../../components/Feedback';
+import { useState } from 'react';
+import { useApi } from '../../../../hooks/useApi';
+import { SectionHeader, Panel } from '../../../../components/ui/Page';
+import { Segmented, SearchBox, Pagination } from '../../../../components/ui/Filters';
+import DataTable from '../../../../components/ui/DataTable';
+import Ring from '../../../../components/charts/Ring';
+import { percent } from '../../../../components/charts/chartMath';
+import { Loading, Empty, ErrorNotice } from '../../../../components/Feedback';
 
 /**
- * The door list.
+ * The door list — one row per ticket.
  *
  * NO QR CODES, and that is the API's decision rather than an omission. This
- * list is paginated, screenshot-able, and read by anyone the organizer shares a
- * screen with — so the credential that admits someone does not belong in it.
- * Scanning has its own device authentication, and the gate app is where codes
- * are read.
+ * list can be screenshotted and shared, so the credential that admits someone
+ * does not belong in it. The gate reads codes; this answers "who is coming, and
+ * who is in".
  *
- * The counters come from the API over the whole event, not from the rows on
- * screen: "142 of 300 admitted" has to be true regardless of which page is open.
+ * The admission time is `checkedInAt`. The page used to read `scannedAt`, which
+ * the API never sends — so every guest read "Not yet" however long they had been
+ * inside.
  */
-const CHECKED = [['', 'Everyone'], ['true', 'Admitted'], ['false', 'Not yet']];
+const CHECKED = [
+  { value: '', label: 'Everyone' },
+  { value: 'true', label: 'In' },
+  { value: 'false', label: 'Not yet' },
+];
 
 export default function Attendees({ eventId }) {
   const [checkedIn, setCheckedIn] = useState('');
-  const [q, setQ] = useState('');
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
 
-  const [rows, setRows] = useState(null);
-  const [meta, setMeta] = useState(null);
-  const [error, setError] = useState(null);
+  const query = new URLSearchParams({ limit: '50', page: String(page) });
+  if (checkedIn) query.set('checkedIn', checkedIn);
+  if (search) query.set('q', search);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const query = new URLSearchParams({ limit: '100' });
-      if (checkedIn) query.set('checkedIn', checkedIn);
-      if (search) query.set('q', search);
-
-      try {
-        const result = await get(`/events/${eventId}/attendees?${query}`, {
-          cache: 'no-store', raw: true,
-        });
-        if (!cancelled) {
-          setRows(result.data || []);
-          setMeta(result.meta || null);
-          setError(null);
-        }
-      } catch (err) {
-        if (!cancelled) setError(err);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [eventId, checkedIn, search]);
+  const { data, error, loading } = useApi(`/events/${eventId}/attendees?${query}`, { raw: true });
+  const rows = data?.data || [];
+  const meta = data?.meta;
+  const share = meta ? percent(meta.admitted, meta.valid + meta.admitted) : null;
 
   return (
     <div className="fx-stack">
-      <div className="fx-row fx-row--between">
-        <h2 className="text-xl">Door list</h2>
-        {meta && (
-          <p className="es-nums text-sm text-muted">
-            <span className="text-ink">{meta.admitted}</span> of {meta.valid} admitted
-          </p>
-        )}
-      </div>
+      <SectionHeader title="Door list" lede="Everyone holding a ticket, and whether they have walked in yet." />
 
-      <form onSubmit={(e) => { e.preventDefault(); setSearch(q.trim()); }} className="fx-row">
-        <div className="fx-row fx-row--scroll" role="group" aria-label="Filter">
-          {CHECKED.map(([v, l]) => (
-            <button
-              key={v || 'all'}
-              type="button"
-              onClick={() => setCheckedIn(v)}
-              aria-pressed={checkedIn === v}
-              className={`whitespace-nowrap rounded-full border px-3 py-1.5 text-sm transition-colors ${
-                checkedIn === v ? 'border-accent bg-accent text-on-accent' : 'border-border-strong text-muted hover:text-ink'
-              }`}
-            >
-              {l}
-            </button>
-          ))}
-        </div>
-        <input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Name or email"
-          aria-label="Search the door list"
-          className="fx-min0 flex-1 es-input"
-        />
-        <button type="submit" className="rounded-[--es-radius-md] border border-border-strong px-3 py-2 text-sm text-ink">
-          Search
-        </button>
-      </form>
+      {meta && (
+        <Panel>
+          <Ring
+            fraction={meta.valid + meta.admitted ? meta.admitted / (meta.valid + meta.admitted) : 0}
+            value={share === null ? '—' : `${share}%`}
+            caption={`${meta.admitted} in · ${meta.valid} still to arrive`}
+          />
+        </Panel>
+      )}
+
+      <div className="fx-stack fx-stack--sm">
+        <Segmented label="Filter" value={checkedIn} onChange={(v) => { setCheckedIn(v); setPage(1); }} options={CHECKED} />
+        <SearchBox label="Search the door list" placeholder="Name or email" value={search} onSearch={(v) => { setSearch(v); setPage(1); }} />
+      </div>
 
       {error ? (
         <ErrorNotice error={error} />
-      ) : !rows ? (
-        <Loading variant="list" />
+      ) : loading && !data ? (
+        <Loading variant="list" rows={5} label="Loading the door list" />
       ) : rows.length === 0 ? (
-        <div className="es-empty">
-          <p className="text-muted">Nobody matches.</p>
-        </div>
+        <Empty title="Nobody matches." hint={search || checkedIn ? 'Try another filter, or clear the search.' : 'Tickets appear here once they sell.'} />
       ) : (
-        <ul className="fx-stack fx-stack--sm">
-          {rows.map((a) => (
-            <li
-              key={a.ticketId}
-              className="fx-row fx-row--between rounded-[--es-radius-md] border border-border-base bg-surface p-3"
-            >
-              <div className="fx-min0">
-                <p className="fx-truncate text-sm text-ink">{a.name || 'Unnamed'}</p>
-                <p className="fx-truncate text-xs text-subtle">
-                  {a.email || 'no email'}
-                  {a.seat && ` · ${a.seat}`}
-                  {a.channel === 'manual' && ' · door sale'}
-                </p>
-              </div>
-              {a.scannedAt ? (
-                <span className="whitespace-nowrap text-xs text-success">
-                  In at {new Intl.DateTimeFormat('en-US', { timeStyle: 'short' }).format(new Date(a.scannedAt))}
-                </span>
-              ) : (
-                <span className="whitespace-nowrap text-xs text-subtle">Not yet</span>
-              )}
-            </li>
-          ))}
-        </ul>
+        <>
+          <DataTable
+            caption="Door list"
+            rowKey={(a) => a.ticketId}
+            rows={rows}
+            columns={[
+              {
+                key: 'guest',
+                label: 'Guest',
+                primary: true,
+                render: (a) => (
+                  <span className="fx-stack fx-stack--sm gap-0.5">
+                    <span className="fx-break text-ink">{a.name || 'No name given'}</span>
+                    <span className="fx-break text-sm text-muted">
+                      {a.email || 'No email'}
+                      {a.transferred && ` · transferred from ${a.transferred.from}`}
+                    </span>
+                  </span>
+                ),
+              },
+              { key: 'seat', label: 'Seat', render: (a) => [a.table && `Table ${a.table}`, a.seat].filter(Boolean).join(' · ') || '—' },
+              { key: 'tier', label: 'Ticket', render: (a) => a.tier || (a.channel === 'manual' ? 'Door sale' : '—') },
+              {
+                key: 'status',
+                label: 'At the door',
+                align: 'end',
+                render: (a) => (a.checkedIn ? (
+                  <span className="es-pill es-pill--accent">
+                    In{a.checkedInAt ? ` · ${new Intl.DateTimeFormat('en-US', { timeStyle: 'short' }).format(new Date(a.checkedInAt))}` : ''}
+                  </span>
+                ) : a.status === 'void' ? (
+                  <span className="es-pill es-pill--danger">Void</span>
+                ) : (
+                  <span className="es-pill">Not yet</span>
+                )),
+              },
+            ]}
+          />
+          <Pagination pagination={data.pagination} onPage={setPage} />
+        </>
       )}
 
-      <p className="text-xs text-subtle">
-        Entry codes are not shown here — this list can be screenshotted and shared. The
-        gate app reads them.
+      <p className="text-sm text-subtle">
+        Entry codes are not shown here — this list can be screenshotted and shared. Scanning happens at the gate.
       </p>
     </div>
   );

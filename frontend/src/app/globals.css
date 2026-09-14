@@ -1478,6 +1478,703 @@
   animation: es-rise var(--es-duration-slow) var(--es-ease-spring) both;
   animation-delay: var(--es-rise-delay, 0ms);
 }
+/* A beat behind its neighbour, so two blocks do not arrive as one. Was an
+   inline style on the homepage hero. */
+.es-rise--late { --es-rise-delay: 120ms; }
+
+/* ── .es-legend-dot — a seat state, as a key beside a map ────────────────
+   Classes rather than an inline background per state: the colour is a token
+   that re-tones in dark mode, and the key should re-tone with it. */
+.es-legend-dot {
+  display: inline-block;
+  width: 0.625rem;
+  height: 0.625rem;
+  flex: none;
+  border-radius: var(--es-radius-full);
+  background: var(--es-seat-available);
+}
+.es-legend-dot--selected { background: var(--es-seat-selected); }
+.es-legend-dot--sold     { background: var(--es-seat-sold); }
+
+/* A figure whose container already clips the corners (a flush card). Was an
+   inline `--es-figure-r: 0px` on EventCard. */
+.es-figure--square { --es-figure-r: 0px; }
+
+/* ══ .es-nav-* — the organizer shell ════════════════════════════════════
+   A sidebar at lg and up; an off-canvas drawer plus a bottom tab bar below
+   it.
+
+   WHY THIS IS HERE AND NOT BESIDE THE COMPONENT.
+
+   The navigation renders from `organizer/layout.jsx`, which is a different
+   component function from every page it wraps. A scoped style block never
+   reaches an element rendered by another function, so these classes would
+   compile to selectors matching nothing at any viewport — an unstyled
+   sidebar and a bottom bar visible on a 27-inch monitor. The same reason
+   the `fx-*` primitives live here.
+
+   NO `!important` ANYWHERE, which is a departure from the codebase this
+   pattern came from — that one wrote `display: flex !important` on the
+   mobile bar and `display: none !important` on the sidebar to beat its own
+   inline styles. `importantCheck.js` forbids it, and these rules do not
+   need it, because the base state written below is the MOBILE one and the
+   media query ADDS the desktop state. Nothing has to be beaten. Worth
+   stating, because the inverted version is the tempting one to write and it
+   only works with `!important`.
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* Two numbers the shell is built from, declared where both the panel and
+   the gutter that clears it can read them — a sidebar 264px wide and a
+   content wrapper indented 240px is a 24px strip of unreachable page, and
+   that is exactly the bug two hard-coded numbers produce. */
+:root {
+  --es-nav-w: 264px;
+  --es-nav-bar-h: 60px;
+}
+
+/* The gutter the fixed sidebar occupies. On the wrapper, not on each page:
+   the sidebar is `position: fixed` and would otherwise sit on top of
+   content that has no idea it exists.
+
+   Below lg there is no gutter, but there IS a bottom bar — and the last row
+   of any list has to clear it, or the final order in a table is
+   permanently unreachable. */
+.es-nav-content {
+  min-height: 100dvh;
+  padding-bottom: calc(var(--es-nav-bar-h) + var(--fx-safe-b));
+}
+
+@media (width >= 64rem) {
+  .es-nav-content {
+    margin-inline-start: var(--es-nav-w);
+    padding-bottom: 0;
+  }
+}
+
+/* ── The panel ─────────────────────────────────────────────────────────
+   `height`, not `min-height`, and the one word is load-bearing.
+
+   A min-height lets the box grow to its content, so nothing ever overflows
+   the BOX — the box overflows the VIEWPORT instead, and `overflow-y: auto`
+   has nothing to scroll, because from the box's own point of view
+   everything fits. Being fixed, the page's scrollbar cannot reach it
+   either. This panel runs to roughly 900px of content, so on the 1366×768
+   laptop that is the most common Windows screen the last group and the
+   sign-out button would not be reachable by any means.
+
+   `dvh` rather than `vh` so the drawer is not sized against a phone URL bar
+   that has already scrolled away. */
+.es-nav {
+  position: fixed;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  z-index: 59;      /* ABOVE the bottom bar — see the note on .es-nav-bar */
+  width: var(--es-nav-w);
+  /* A 264px drawer on a 320px phone leaves 56px of page behind it, which is
+     not enough to read as "there is something under this". */
+  max-width: 88vw;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--es-bg);
+  border-inline-end: 1px solid var(--es-border);
+  overflow-y: auto;
+  /* Without this a flick that reaches the end of the drawer keeps going and
+     scrolls the page underneath it. */
+  overscroll-behavior: contain;
+  transform: translateX(-100%);
+  /* A closed drawer is off-screen, and off-screen is not gone: every link in
+     it stayed in the tab order, so a keyboard user tabbed through fifteen
+     invisible destinations before reaching the page. visibility removes it
+     from both the tab order and the accessibility tree. The delay lets the
+     slide-out finish before it disappears. */
+  visibility: hidden;
+  transition:
+    transform var(--es-duration-normal) var(--es-ease-spring),
+    visibility 0s linear var(--es-duration-normal);
+}
+
+.es-nav--open {
+  transform: translateX(0);
+  box-shadow: var(--es-shadow-xl);
+  visibility: visible;
+  transition: transform var(--es-duration-normal) var(--es-ease-spring);
+}
+
+@media (width >= 64rem) {
+  .es-nav { transform: none; box-shadow: none; visibility: visible; }
+}
+
+.es-nav__head,
+.es-nav__foot {
+  flex-shrink: 0;
+  padding: 1rem;
+}
+
+.es-nav__head { border-block-end: 1px solid var(--es-border); }
+
+.es-nav__foot {
+  border-block-start: 1px solid var(--es-border);
+  /* The panel is exactly 100dvh with sign-out as its last child, so on a
+     phone that button lands under the home indicator unless the inset is
+     paid right here. */
+  padding-block-end: max(1rem, var(--fx-safe-b));
+}
+
+.es-nav__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0.75rem;
+}
+
+.es-nav__group-label {
+  padding: 1rem 0.75rem 0.375rem;
+  font-size: var(--es-text-xs);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--es-text-subtle);
+}
+
+/* ── One destination ───────────────────────────────────────────────────
+   The active marker is an inline-start EDGE and not only a background,
+   because a background swap disappears entirely under forced colours while
+   a border does not. */
+.es-nav__item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  min-height: var(--fx-touch);
+  padding: 0.5rem 0.75rem;
+  border: 0;
+  border-inline-start: 3px solid transparent;
+  border-radius: var(--es-radius-md);
+  background: transparent;
+  color: var(--es-text-muted);
+  font: inherit;
+  font-size: var(--es-text-sm);
+  text-align: start;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background var(--es-transition-fast), color var(--es-transition-fast);
+}
+
+.es-nav__item:hover {
+  background: var(--es-bg-sunken);
+  color: var(--es-text);
+}
+
+.es-nav__item[aria-current="page"] {
+  background: var(--es-accent-wash);
+  border-inline-start-color: var(--es-accent);
+  color: var(--es-accent);
+  font-weight: 600;
+}
+
+/* Refused at the door, with the reason in its own title. Rendered as a
+   `<span>` rather than a disabled anchor: a disabled link is still
+   followable from the keyboard in several browsers. */
+.es-nav__item[aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.es-nav__item[aria-disabled="true"]:hover {
+  background: transparent;
+  color: var(--es-text-muted);
+}
+
+.es-nav__icon  { display: flex; flex-shrink: 0; }
+.es-nav__label { flex: 1; min-width: 0; }
+
+.es-nav__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  min-width: 18px;
+  height: 18px;
+  padding-inline: 6px;
+  border-radius: var(--es-radius-full);
+  background: var(--es-accent);
+  color: var(--es-text-on-accent);
+  font-size: var(--es-text-xs);
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* ── The scrim behind an open drawer ───────────────────────────────────
+   z-index 58 — ABOVE the bottom bar at 55, not below it. Below, the bar
+   painted over the scrim, so the bottom 60px of the screen was not part of
+   it: a tap there did not dismiss the drawer, it switched section, behind
+   an open drawer, with no visible effect until you closed it and found
+   yourself somewhere else. */
+.es-nav-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 58;
+  border: 0;
+  padding: 0;
+  background: rgb(0 0 0 / 0.45);
+  cursor: pointer;
+}
+@media (width >= 64rem) { .es-nav-scrim { display: none; } }
+
+/* ── The bottom tab bar ────────────────────────────────────────────────
+   The highest-frequency destinations plus More, inside one thumb's reach.
+   Derived from the same list the sidebar renders, never a second one. */
+.es-nav-bar {
+  position: fixed;
+  inset-block-end: 0;
+  inset-inline: 0;
+  z-index: 55;
+  display: flex;
+  justify-content: space-around;
+  align-items: stretch;
+  background: var(--es-bg);
+  border-block-start: 1px solid var(--es-border);
+  padding: 4px 4px max(4px, var(--fx-safe-b));
+  box-shadow: 0 -4px 16px rgb(15 23 42 / 0.06);
+}
+@media (width >= 64rem) { .es-nav-bar { display: none; } }
+
+.es-nav-bar__tab {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: var(--fx-touch);
+  padding: 4px;
+  border: 0;
+  background: none;
+  color: var(--es-text-muted);
+  font: inherit;
+  font-size: var(--es-text-xs);
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+.es-nav-bar__tab[aria-current="page"]  { color: var(--es-accent); }
+.es-nav-bar__tab[aria-disabled="true"] { opacity: 0.4; cursor: not-allowed; }
+
+/* A label under a 20px icon in a fifth of a 320px screen has about 60px.
+   Truncating is deliberate rather than a fallback: a label that wraps to
+   two lines changes the bar's height and shifts every other tab's icon. */
+.es-nav-bar__tab > span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── The impersonation banner ──────────────────────────────────────────
+   Sticky rather than fixed: it has to push the page down, not cover the top
+   of it. An admin looking at somebody else's account needs telling at every
+   scroll position, and needs the way out in the same place.
+
+   It carries NO colours of its own — it is used with `.es-band--field`,
+   which redefines every text role against the deep ground. A `background`
+   written here instead would be a ground the contrast gate cannot see,
+   which is exactly how a band goes years unmeasured. */
+.es-impersonating {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 60;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 0.625rem var(--fx-pad-x);
+  border-block-end: 2px solid var(--es-accent-edge);
+  font-size: var(--es-text-sm);
+  font-weight: 600;
+  text-align: center;
+}
+
+/* ══ The app shell: brand, app bar, page head ════════════════════════════
+   The organizer dashboard and the admin console share one shell. Below lg
+   the sidebar becomes a drawer, so a slim bar carries the menu button and
+   the name of the section you are in. */
+.es-nav__brand {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  text-decoration: none;
+}
+.es-nav__brand-name {
+  font-family: var(--es-font-serif);
+  font-size: var(--es-text-xl);
+  line-height: var(--es-leading-tight);
+  letter-spacing: var(--es-tracking-tight);
+  color: var(--es-text);
+}
+.es-nav__brand-role {
+  font-family: var(--es-font-mono);
+  font-size: var(--es-text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--es-tracking-widest);
+  color: var(--es-accent);
+}
+.es-nav__note {
+  padding: 0.25rem 0.75rem 0.5rem;
+  font-size: var(--es-text-xs);
+  color: var(--es-text-subtle);
+}
+
+.es-appbar {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-height: 56px;
+  padding: 0.25rem var(--fx-pad-x);
+  padding-block-start: max(0.25rem, var(--fx-safe-t));
+  background: var(--es-bg);
+  border-block-end: 1px solid var(--es-border);
+}
+@media (width >= 64rem) { .es-appbar { display: none; } }
+
+.es-app-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fx-gap);
+  padding: var(--fx-pad-y-xs) var(--fx-pad-x) var(--fx-pad-y-sm);
+  max-width: var(--fx-w-2xl);
+}
+
+.es-page-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--fx-gap-sm);
+}
+.es-page-head__title {
+  font-size: var(--es-text-2xl);
+  line-height: var(--es-leading-tight);
+  color: var(--es-text);
+}
+.es-page-head__lede { max-width: 62ch; color: var(--es-text-muted); }
+
+/* ── .es-btn--danger ──────────────────────────────────────────────────────
+   Its own fill rather than --es-danger: white on #ef4444 is 3.76:1 and
+   fails AA at button size. Red-700 carries white at 6.5:1, and the pair is
+   fixed in both themes because a destructive action should not change
+   colour with the viewer's OS setting. */
+:root {
+  --es-danger-fill: #b91c1c;
+  --es-danger-fill-hover: #991b1b;
+  --es-text-on-danger: #ffffff;
+}
+.es-btn--danger {
+  background: var(--es-danger-fill);
+  color: var(--es-text-on-danger);
+}
+.es-btn--danger:hover { background: var(--es-danger-fill-hover); }
+
+/* ── .es-segmented — a row of filters, one of them on ─────────────────── */
+.es-segmented {
+  display: flex;
+  gap: 0.375rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-block: 2px;
+}
+.es-segmented__option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: var(--fx-touch);
+  padding-inline: 0.875rem;
+  border-radius: var(--es-radius-full);
+  border: 1px solid var(--es-border-strong);
+  background: var(--es-surface);
+  color: var(--es-text-muted);
+  font: inherit;
+  font-size: var(--es-text-sm);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--es-transition-fast), color var(--es-transition-fast);
+}
+.es-segmented__option:hover { color: var(--es-text); }
+/* `aria-current` too: the same control is used as a row of links (the account
+   tabs), where the selected one is the current page rather than a pressed
+   toggle. */
+.es-segmented__option[aria-pressed="true"],
+.es-segmented__option[aria-current="page"] {
+  background: var(--es-accent);
+  border-color: var(--es-accent);
+  color: var(--es-text-on-accent);
+}
+.es-segmented__count {
+  font-family: var(--es-font-mono);
+  font-size: var(--es-text-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── .es-table — a real table on a desktop, a stack of cards on a phone ──
+   One markup for both. Below md the header row is visually hidden (still
+   read by a screen reader), each row becomes a card, and every cell shows
+   its column name from data-label. A table that only scrolls sideways on a
+   phone hides every column but the first behind a gesture nobody finds. */
+.es-table-wrap {
+  background: var(--es-surface);
+  border: 1px solid var(--es-border);
+  border-radius: var(--es-radius-lg);
+  overflow-x: auto;
+}
+.es-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: var(--es-text-sm);
+}
+.es-table th {
+  padding: 0.625rem 0.875rem;
+  border-block-end: 1px solid var(--es-border);
+  text-align: start;
+  font-family: var(--es-font-mono);
+  font-size: var(--es-text-xs);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: var(--es-tracking-wide);
+  white-space: nowrap;
+  color: var(--es-text-subtle);
+}
+.es-table td {
+  padding: 0.75rem 0.875rem;
+  border-block-end: 1px solid var(--es-border);
+  vertical-align: middle;
+  color: var(--es-text);
+}
+.es-table tbody tr:last-child td { border-block-end: 0; }
+.es-table [data-align="end"] { text-align: end; }
+
+@media (width < 48rem) {
+  .es-table--stack thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .es-table--stack,
+  .es-table--stack tbody,
+  .es-table--stack tr,
+  .es-table--stack td { display: block; width: 100%; }
+  .es-table--stack tr {
+    padding: 0.75rem 0.875rem;
+    border-block-end: 1px solid var(--es-border);
+  }
+  .es-table--stack tbody tr:last-child { border-block-end: 0; }
+  .es-table--stack td {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1rem;
+    padding: 0.25rem 0;
+    border: 0;
+    text-align: end;
+  }
+  .es-table--stack td::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    text-align: start;
+    font-family: var(--es-font-mono);
+    font-size: var(--es-text-xs);
+    text-transform: uppercase;
+    letter-spacing: var(--es-tracking-wide);
+    color: var(--es-text-subtle);
+  }
+  .es-table--stack td[data-primary] {
+    display: block;
+    padding-block-end: 0.5rem;
+    text-align: start;
+    font-size: var(--es-text-base);
+  }
+  .es-table--stack td[data-primary]::before { content: none; }
+}
+
+/* ── .es-dialog — the native <dialog>, dressed ─────────────────────────── */
+.es-dialog {
+  width: min(32rem, calc(100vw - 2rem));
+  max-height: calc(100dvh - 2rem);
+  margin: auto;
+  padding: 0;
+  border: 1px solid var(--es-border);
+  border-radius: var(--es-radius-xl);
+  background: var(--es-surface);
+  color: var(--es-text);
+  box-shadow: var(--es-shadow-xl);
+  overflow: auto;
+}
+.es-dialog::backdrop { background: rgb(0 0 0 / 0.5); }
+.es-dialog__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1.5rem;
+}
+.es-dialog__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding: 1rem 1.5rem;
+  border-block-start: 1px solid var(--es-border);
+  background: var(--es-bg);
+}
+
+/* ── .es-toast — confirmation that something happened ────────────────────
+   Above the bottom tab bar on a phone, bottom-right on a desktop. */
+@keyframes es-toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+.es-toast-region {
+  position: fixed;
+  z-index: var(--es-z-toast);
+  inset-inline: 0;
+  inset-block-end: calc(var(--es-nav-bar-h) + var(--fx-safe-b) + 0.75rem);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding-inline: var(--fx-pad-x);
+  pointer-events: none;
+}
+@media (width >= 64rem) {
+  .es-toast-region {
+    inset-inline-start: auto;
+    inset-inline-end: 1.5rem;
+    inset-block-end: 1.5rem;
+    align-items: flex-end;
+  }
+}
+.es-toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  width: min(26rem, 100%);
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--es-border);
+  border-inline-start: 3px solid var(--es-accent);
+  border-radius: var(--es-radius-md);
+  background: var(--es-surface-raised);
+  color: var(--es-text);
+  box-shadow: var(--es-shadow-lg);
+  font-size: var(--es-text-sm);
+  animation: es-toast-in var(--es-duration-normal) var(--es-ease-spring);
+}
+.es-toast--danger { border-inline-start-color: var(--es-danger); }
+
+/* ── Charts — every mark takes a token, so a theme switch recolours them ── */
+.es-chart { display: block; width: 100%; overflow: visible; }
+.es-chart__bar { fill: var(--es-accent); }
+.es-chart__bar:hover { fill: var(--es-accent-hover); }
+.es-chart__bar--empty { fill: var(--es-border); }
+.es-chart__grid { stroke: var(--es-border); stroke-width: 1; }
+.es-chart__track { fill: none; stroke: var(--es-bg-sunken); }
+.es-chart__ring { fill: none; stroke: var(--es-accent); stroke-linecap: round; }
+.es-chart__axis {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-family: var(--es-font-mono);
+  font-size: var(--es-text-xs);
+  color: var(--es-text-subtle);
+}
+
+/* ── .es-progress — the native <progress>, which a screen reader already
+   understands, in the brand colour ─────────────────────────────────────── */
+.es-progress {
+  appearance: none;
+  display: block;
+  width: 100%;
+  height: 0.5rem;
+  border: 0;
+  border-radius: var(--es-radius-full);
+  background: var(--es-bg-sunken);
+  overflow: hidden;
+}
+.es-progress::-webkit-progress-bar { background: var(--es-bg-sunken); }
+.es-progress::-webkit-progress-value { background: var(--es-accent); border-radius: var(--es-radius-full); }
+.es-progress::-moz-progress-bar { background: var(--es-accent); border-radius: var(--es-radius-full); }
+
+/* ── Stat card additions ────────────────────────────────────────────────── */
+.es-stat__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.es-stat__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--es-radius-md);
+  background: var(--es-accent-wash);
+  color: var(--es-accent);
+}
+.es-stat--link {
+  text-decoration: none;
+  transition: border-color var(--es-transition-fast), box-shadow var(--es-transition-fast);
+}
+.es-stat--link:hover { border-color: var(--es-border-strong); box-shadow: var(--es-shadow-sm); }
+
+/* ── .es-qr — a QR code shown on screen ─────────────────────────────────── */
+.es-qr {
+  display: block;
+  width: 100%;
+  max-width: 11rem;
+  aspect-ratio: 1;
+  border: 1px solid var(--es-border);
+  border-radius: var(--es-radius-md);
+  background: var(--es-surface);
+}
+
+/* ── .es-otp — six boxes for a one-time code ──────────────────────────────
+   Sized with clamp so six boxes and five gaps fit the 280px a 320px phone
+   leaves inside the auth column: 6 × 40px + 5 × 6px = 270px at the floor. */
+.es-otp {
+  display: flex;
+  justify-content: center;
+  gap: clamp(0.375rem, 2vw, 0.625rem);
+}
+.es-otp__box {
+  width: clamp(2.5rem, 12vw, 3.25rem);
+  height: clamp(3rem, 14vw, 3.75rem);
+  padding: 0;
+  text-align: center;
+  font-family: var(--es-font-mono);
+  font-size: var(--es-text-xl);
+  font-variant-numeric: tabular-nums;
+  border: 1px solid var(--es-border-strong);
+  border-radius: var(--es-radius-md);
+  background: var(--es-surface);
+  color: var(--es-text);
+  caret-color: var(--es-accent);
+  transition: border-color var(--es-transition-fast), box-shadow var(--es-transition-fast);
+}
+.es-otp__box:focus {
+  outline: none;
+  border-color: var(--es-accent);
+  box-shadow: 0 0 0 3px var(--es-accent-subtle);
+}
+.es-otp__box[aria-invalid='true'] { border-color: var(--es-danger); }
 
 }   /* end @layer components */
 

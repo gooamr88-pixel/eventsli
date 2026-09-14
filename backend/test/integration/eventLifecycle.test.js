@@ -52,13 +52,19 @@ before(async () => {
     email: ORG_EMAIL, password: PASSWORD, fullName: 'Org Owner',
   });
   cleanup.profiles.push(o.body.data.id);
+  // Registering no longer signs in: confirm the address as the emailed code
+  // would, then sign in.
+  await supabase.from('profiles').update({ email_verified_at: new Date().toISOString() }).eq('id', o.body.data.id);
+  await organizer('POST', '/auth/login', { email: ORG_EMAIL, password: PASSWORD });
 
   const a = await admin('POST', '/auth/register', {
     email: ADMIN_EMAIL, password: PASSWORD, fullName: 'Admin Person',
   });
   cleanup.profiles.push(a.body.data.id);
   // Promoted directly: there is no self-service path to admin, by design.
-  await supabase.from('profiles').update({ role: 'admin' }).eq('id', a.body.data.id);
+  await supabase.from('profiles')
+    .update({ role: 'admin', email_verified_at: new Date().toISOString() })
+    .eq('id', a.body.data.id);
   await admin('POST', '/auth/login', { email: ADMIN_EMAIL, password: PASSWORD });
 });
 
@@ -243,13 +249,37 @@ test('an admin suspends; the event stays, hidden', async () => {
   await admin('POST', `/admin/events/${eventId}/unsuspend`);
 });
 
-test('the organizer cancels, and nothing is deleted', async () => {
+test('the organizer cannot cancel their own event (BRD §17)', async () => {
   const res = await organizer('POST', `/events/${eventId}/cancel`, {
     reason: 'The venue double-booked us.',
+  });
+  assert.notEqual(res.status, 200, 'there must be no organizer path to cancellation');
+
+  const viaAdminRoute = await organizer('POST', `/admin/events/${eventId}/cancel`, {
+    reason: 'The venue double-booked us.',
+  });
+  assert.equal(viaAdminRoute.status, 403);
+
+  const { data } = await supabase.from('events').select('status').eq('id', eventId).single();
+  assert.equal(data.status, 'published', 'the refused attempts must change nothing');
+});
+
+test('an admin cancel needs a real reason', async () => {
+  const res = await admin('POST', `/admin/events/${eventId}/cancel`, { reason: 'no' });
+  assert.equal(res.status, 400);
+});
+
+test('the admin cancels, and nothing is deleted', async () => {
+  const res = await admin('POST', `/admin/events/${eventId}/cancel`, {
+    reason: 'The venue double-booked the organizer.',
   });
   assert.equal(res.status, 200, JSON.stringify(res.body));
   assert.equal(res.body.data.status, 'cancelled');
   assert.match(res.body.data.cancelledReason, /double-booked/);
+
+  const { data: trail } = await supabase
+    .from('admin_audit').select('action').eq('target_id', eventId).eq('action', 'event.cancelled');
+  assert.equal(trail.length, 1, 'a cancellation must be on the audit trail');
 
   // The record survives — a buyer must still be able to see what they bought.
   const { data } = await supabase.from('events').select('id, status').eq('id', eventId).single();
@@ -276,6 +306,8 @@ test('one organizer cannot see another organizer\'s event', async () => {
     email: `stranger-${stamp}@eventsli-test.invalid`, password: PASSWORD, fullName: 'A Stranger',
   });
   cleanup.profiles.push(s.body.data.id);
+  await supabase.from('profiles').update({ email_verified_at: new Date().toISOString() }).eq('id', s.body.data.id);
+  await stranger('POST', '/auth/login', { email: `stranger-${stamp}@eventsli-test.invalid`, password: PASSWORD });
   const so = await stranger('POST', '/organizer', { displayName: 'Other Co', country: 'US' });
   cleanup.organizers.push(so.body.data.id);
 

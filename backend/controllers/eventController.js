@@ -236,68 +236,8 @@ async function acceptTerms(req, res, next) {
   }
 }
 
-// ─── POST /events/:eventId/cancel ───────────────────────────────────────────
-/**
- * BRD §17 (revised) — cancellation belongs to the ORGANIZER.
- *
- * Nothing is deleted. Sold tickets stay, the event stays, and the buyer can
- * still see what they bought and that it was called off. Deleting would destroy
- * the record of a transaction that really happened, and the buyer's only
- * evidence of it.
- */
-async function cancel(req, res, next) {
-  try {
-    const { data: event } = await supabase
-      .from('events').select('id, status').eq('id', req.params.eventId).single();
-
-    if (!events.canTransition(event.status, 'cancelled')) {
-      return sendFail(res, {
-        status: 409, error: 'CONFLICT',
-        message: `An event that is ${event.status} cannot be cancelled.`,
-      });
-    }
-
-    // An admin may suspend, not cancel: the organizer owes their buyers the
-    // conversation, and cancelling on their behalf hides who decided.
-    if (!req.user.access.organizerId || req.user.access.organizerId !== req.event?.organizer_id) {
-      if (req.user.access.isAdmin) {
-        return sendFail(res, {
-          status: 403, error: 'FORBIDDEN',
-          message: 'Admins suspend events; only the organizer can cancel one.',
-        });
-      }
-    }
-
-    const { data, error } = await supabase
-      .from('events')
-      .update({
-        status: 'cancelled',
-        cancelled_at: new Date().toISOString(),
-        cancelled_reason: req.body.reason ? String(req.body.reason).slice(0, 1000) : null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', event.id)
-      .eq('status', event.status)
-      .select(SELECT)
-      .single();
-
-    if (error) throw new Error(error.message);
-
-    // Scanning stops immediately — a cancelled event must not admit anyone.
-    await supabase.from('scanner_access').upsert({
-      event_id: event.id,
-      is_locked: true,
-      locked_reason: 'event_cancelled',
-      locked_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'event_id' });
-
-    logger.info({ eventId: event.id, by: req.user.id }, 'event cancelled by organizer');
-    return sendOk(res, shape(data));
-  } catch (err) {
-    return next(err);
-  }
-}
+// Cancellation is not here. BRD §17: the organizer cannot cancel an event —
+// see `admin/approvalController.cancel`.
 
 function shape(e) {
   return {
@@ -348,4 +288,4 @@ function shape(e) {
   };
 }
 
-module.exports = { create, list, get, update, submitForReview, acceptTerms, cancel, shape };
+module.exports = { create, list, get, update, submitForReview, acceptTerms, shape, SELECT };

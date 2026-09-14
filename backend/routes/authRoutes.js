@@ -48,6 +48,47 @@ router.post(
   c.register,
 );
 
+// ─── Email verification ────────────────────────────────────────────────────
+/**
+ * Twelve guesses per quarter hour per address and IP, on top of the five a
+ * single code allows before it dies. Six digits is a small space; this is what
+ * keeps it from being a searchable one.
+ */
+const verifyLimiter = makeLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 12,
+  name: 'verify-email',
+  keyGenerator: (req) => `${req.ip}|${String(req.body?.email || '').toLowerCase()}`,
+  message: 'Too many attempts. Wait a few minutes, then send yourself a new code.',
+});
+
+// Each resend is an email to an inbox. Six an hour is generous for a person
+// and useless for someone trying to flood a stranger.
+const resendLimiter = makeLimiter({
+  windowMs: 60 * 60 * 1000,
+  max: 6,
+  name: 'resend-verification',
+  keyGenerator: (req) => `${req.ip}|${String(req.body?.email || '').toLowerCase()}`,
+  message: 'Too many codes requested. Please wait before asking for another.',
+});
+
+router.post(
+  '/verify-email',
+  verifyLimiter,
+  body('email').isEmail().normalizeEmail().withMessage('Enter a valid email address.'),
+  body('code').isString().trim().matches(/^[\d\s-]{6,9}$/).withMessage('Enter the 6-digit code from the email.'),
+  validate,
+  c.verifyEmail,
+);
+
+router.post(
+  '/resend-verification',
+  resendLimiter,
+  body('email').isEmail().normalizeEmail().withMessage('Enter a valid email address.'),
+  validate,
+  c.resendVerification,
+);
+
 router.post(
   '/login',
   credentialLimiter,

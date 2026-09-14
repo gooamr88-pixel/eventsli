@@ -31,6 +31,9 @@ const PURE_MODULES = [
   'utils/slug.js',               // URL slugs
   'utils/responseEnvelope.js',   // the response shape and error-code table
   'middleware/pagination.js',    // the list contract
+  'services/scanTokens.js',      // the two gate credentials
+  'services/shareLinks.js',      // the only place a shared link is built
+  'services/emailCodes.js',      // one-time email codes
 ];
 
 /**

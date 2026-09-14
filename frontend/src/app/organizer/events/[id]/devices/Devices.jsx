@@ -59,9 +59,10 @@ export default function Devices({ eventId }) {
       <div className="fx-stack fx-stack--sm">
         <h2 className="text-xl">Scanning</h2>
         <p className="max-w-[62ch] text-muted">
-          Register each tablet or phone that will scan at the door. Staff sign the device
-          in with its PIN — there are no individual logins, so a shift change needs
-          nothing.
+          Register each shared tablet or phone that will scan at the door. Staff sign the
+          device in with its PIN, so a shift change needs nothing. For named people who
+          scan with their own account, use the{' '}
+          <Link href={`/organizer/events/${eventId}/staff`} className="text-accent">door team</Link>.
         </p>
       </div>
 

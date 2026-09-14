@@ -42,6 +42,12 @@ export const ERRORS = Object.freeze(Object.fromEntries([
     'Contact support if you think that is a mistake.', 'fatal'),
   E('ORGANIZER_BANNED', 'Your organizer account is suspended',
     'You can still see and settle what you owe, but nothing new can go on sale. Contact support.', 'fatal'),
+  E('EMAIL_NOT_VERIFIED', 'Confirm your email first',
+    'We have sent a 6-digit code to your inbox. Enter it to finish signing in.'),
+  E('INVALID_CODE', 'That code is not right',
+    'Check the latest email from us and type the six digits again.'),
+  E('CODE_EXPIRED', 'That code has expired',
+    'Codes last ten minutes. Send yourself a new one and use that instead.'),
 
   // ── Events ────────────────────────────────────────────────────────────────
   E('EVENT_NOT_FOUND', 'Event not found',
@@ -56,8 +62,10 @@ export const ERRORS = Object.freeze(Object.fromEntries([
     'Browse what is on next.', 'fatal'),
   E('PRICE_LOCKED_AFTER_SALE', 'Prices are locked',
     'Tickets have already sold at the current price, so it cannot change. Add a new tier instead.'),
-  E('TERMS_NOT_ACCEPTED', 'Accept the organizer terms first',
-    'Review the terms for this event, then submit it again.'),
+  // Both audiences meet this one — an organizer submitting an event and a buyer
+  // at checkout (BRD §21) — so it names neither.
+  E('TERMS_NOT_ACCEPTED', 'Accept the terms first',
+    'Read and accept the terms, then try again.'),
 
   // ── Inventory ─────────────────────────────────────────────────────────────
   // The seat-map codes are the ones a buyer meets most, and every one of them

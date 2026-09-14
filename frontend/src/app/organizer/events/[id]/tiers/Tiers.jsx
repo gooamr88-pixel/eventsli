@@ -1,12 +1,19 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { get, post, patch, del } from '../../../../utils/apiClient';
+import { useState } from 'react';
+import { post, del } from '../../../../utils/apiClient';
+import { describeError } from '../../../../utils/errors';
 import { formatMoney } from '../../../../utils/money';
+import { useApi } from '../../../../hooks/useApi';
+import { useToast } from '../../../../components/ui/Toast';
+import { useConfirm } from '../../../../components/ui/Confirm';
+import { SectionHeader, Panel } from '../../../../components/ui/Page';
+import DataTable from '../../../../components/ui/DataTable';
 import Field from '../../../../components/forms/Field';
 import FormError from '../../../../components/forms/FormError';
 import SubmitButton from '../../../../components/forms/SubmitButton';
-import { Loading, ErrorNotice } from '../../../../components/Feedback';
+import { Loading, Empty, ErrorNotice, Notice } from '../../../../components/Feedback';
+import { useEventContext } from '../EventContext';
 
 /**
  * Ticket types — the named price bands.
@@ -20,155 +27,123 @@ import { Loading, ErrorNotice } from '../../../../components/Feedback';
  * piece of money arithmetic in the whole frontend, and it is here rather than
  * in `utils/money.js` on purpose: that module formats and does not compute, and
  * this is an input parse, not a calculation on a total.
+ *
+ * Prices are shown in THE EVENT'S currency. They were formatted as USD for every
+ * event — a Toronto event read "$25" where it meant CA$25.
  */
 export default function Tiers({ eventId }) {
-  const [tiers, setTiers] = useState(null);
-  const [error, setError] = useState(null);
-  const [reload, setReload] = useState(0);
+  const currency = useEventContext()?.event?.currency || 'USD';
+  const toast = useToast();
+  const confirm = useConfirm();
+  const { data, error, loading, reload } = useApi(`/events/${eventId}/tiers`);
   const [creating, setCreating] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const data = await get(`/events/${eventId}/tiers`, { cache: 'no-store' });
-        if (!cancelled) { setTiers(Array.isArray(data) ? data : []); setError(null); }
-      } catch (err) {
-        if (!cancelled) setError(err);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [eventId, reload]);
+  async function remove(tier) {
+    const ok = await confirm({
+      title: `Delete “${tier.name}”?`,
+      tone: 'danger',
+      body: (
+        <p>
+          If any seats are priced by it, this is refused — they would otherwise fall back to costing
+          nothing. A type that has sold tickets cannot be deleted either.
+        </p>
+      ),
+      confirmLabel: 'Delete ticket type',
+    });
+    if (!ok) return;
+    try {
+      await del(`/events/${eventId}/tiers/${tier.id}`, { noRedirect: true });
+      toast.success(`“${tier.name}” was deleted.`);
+      reload();
+    } catch (err) {
+      const { title, recovery } = describeError(err);
+      toast.error(recovery, { title });
+    }
+  }
 
-  const refresh = () => setReload((n) => n + 1);
-
-  if (error) return <ErrorNotice error={error} />;
-  if (!tiers) return <Loading variant="list" />;
+  const tiers = Array.isArray(data) ? data : [];
 
   return (
     <div className="fx-stack">
-      <div className="fx-stack fx-stack--sm">
-        <h2 className="text-xl">Ticket types</h2>
-        <p className="max-w-[60ch] text-muted">
-          Every seat needs a price. A seat with no ticket type and no override sells for
-          nothing — so an event with a seat map needs at least one of these.
-        </p>
-      </div>
+      <SectionHeader
+        title="Ticket types"
+        lede="The prices seats are sold at. A price locks once a ticket of that type has sold."
+        actions={!creating && (
+          <button type="button" className="es-btn es-btn--primary" onClick={() => setCreating(true)}>
+            Add a ticket type
+          </button>
+        )}
+      />
 
-      {tiers.length === 0 ? (
-        <div className="es-empty">
-          <p className="text-muted">No ticket types yet.</p>
-        </div>
-      ) : (
-        <ul className="fx-stack fx-stack--sm">
-          {tiers.map((tier) => (
-            <TierRow key={tier.id} eventId={eventId} tier={tier} onChanged={refresh} />
-          ))}
-        </ul>
-      )}
-
-      {creating ? (
+      {creating && (
         <TierForm
           eventId={eventId}
-          onDone={() => { setCreating(false); refresh(); }}
+          currency={currency}
+          onDone={(name) => { setCreating(false); toast.success(`“${name}” was added.`); reload(); }}
           onCancel={() => setCreating(false)}
         />
+      )}
+
+      {error ? (
+        <ErrorNotice error={error} />
+      ) : loading && !data ? (
+        <Loading variant="list" rows={3} label="Loading ticket types" />
+      ) : tiers.length === 0 ? (
+        <>
+          <Notice tone="warning" title="Every seat needs a price.">
+            <p>A seat with no ticket type and no override sells for nothing, so an event with a seat map needs at least one.</p>
+          </Notice>
+          {!creating && <Empty title="No ticket types yet." hint="Add General Admission, VIP, Early bird — whatever this event sells." />}
+        </>
       ) : (
-        <button
-          type="button"
-          onClick={() => setCreating(true)}
-          className="self-start rounded-[--es-radius-md] border border-border-strong px-4 py-2 text-sm text-ink transition-colors hover:bg-bg-sunken"
-        >
-          Add a ticket type
-        </button>
+        <DataTable
+          caption="Ticket types"
+          rows={tiers}
+          columns={[
+            {
+              key: 'name',
+              label: 'Ticket type',
+              primary: true,
+              render: (t) => (
+                <span className="fx-stack fx-stack--sm gap-0.5">
+                  <span className="fx-break font-medium text-ink">{t.name}</span>
+                  {t.description && <span className="text-sm text-muted">{t.description}</span>}
+                </span>
+              ),
+            },
+            { key: 'price', label: 'Price', align: 'end', render: (t) => <span className="es-nums">{formatMoney(t.priceCents, currency)}</span> },
+            {
+              key: 'sold',
+              label: 'Sold',
+              render: (t) => (
+                t.quantity === null ? (
+                  // null is not "none left" — it is "bounded by the seat map".
+                  <span className="text-muted">{t.soldCount} sold · limited by the seat map</span>
+                ) : (
+                  <span className="fx-stack fx-stack--sm gap-1">
+                    <span className="es-nums text-sm">{t.soldCount} of {t.quantity}</span>
+                    <progress className="es-progress" max={t.quantity} value={Math.min(t.soldCount, t.quantity)} aria-label={`${t.soldCount} of ${t.quantity} sold`} />
+                  </span>
+                )
+              ),
+            },
+            {
+              key: 'actions',
+              label: 'Actions',
+              hideLabel: true,
+              align: 'end',
+              render: (t) => (
+                <button type="button" onClick={() => remove(t)} className="text-sm text-muted hover:text-ink">Delete</button>
+              ),
+            },
+          ]}
+        />
       )}
     </div>
   );
 }
 
-function TierRow({ eventId, tier, onChanged }) {
-  const [confirming, setConfirming] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState(null);
-
-  async function remove() {
-    setBusy(true);
-    setError(null);
-    try {
-      await del(`/events/${eventId}/tiers/${tier.id}`, { noRedirect: true });
-      onChanged();
-    } catch (err) {
-      setError(err);
-      setBusy(false);
-      setConfirming(false);
-    }
-  }
-
-  return (
-    <li className="fx-stack fx-stack--sm es-card p-4">
-      <div className="fx-row fx-row--between">
-        <div className="fx-min0">
-          <p className="fx-break text-ink">{tier.name}</p>
-          {tier.description && <p className="text-sm text-muted">{tier.description}</p>}
-          <p className="text-xs text-subtle">
-            {tier.soldCount} sold
-            {/* null is not "none left" — it is "bounded by the seat map".
-                Rendering it as 0 shows an event as sold out. */}
-            {tier.quantity === null
-              ? ' · limited by the seat map'
-              : ` · ${tier.remaining} of ${tier.quantity} left`}
-          </p>
-        </div>
-        <div className="fx-row">
-          <span className="es-nums whitespace-nowrap text-ink">
-            {formatMoney(tier.priceCents, 'USD')}
-          </span>
-          <button
-            type="button"
-            onClick={() => setConfirming(true)}
-            className="text-sm text-muted hover:text-danger"
-          >
-            Delete
-          </button>
-        </div>
-      </div>
-
-      {confirming && (
-        <div className="fx-stack fx-stack--sm rounded-[--es-radius-md] bg-bg-sunken p-3">
-          <p className="text-sm text-ink">Delete “{tier.name}”?</p>
-          {/* The API refuses while seats point at it, and the reason is worth
-              stating: `seats.tier_id` is ON DELETE SET NULL and the price
-              resolution ends in COALESCE(…, 0), so the database would accept
-              the delete and silently reprice every one of those seats to zero. */}
-          <p className="text-sm text-muted">
-            If any seats are priced by it, this is refused — they would otherwise fall
-            back to costing nothing.
-          </p>
-          <FormError error={error} />
-          <div className="fx-row fx-row--between">
-            <button
-              type="button"
-              onClick={() => setConfirming(false)}
-              className="text-sm text-muted hover:text-ink"
-            >
-              Keep it
-            </button>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={remove}
-              className="rounded-[--es-radius-md] bg-danger px-3 py-1.5 text-sm font-medium text-white disabled:opacity-40"
-            >
-              {busy ? 'Deleting…' : 'Delete'}
-            </button>
-          </div>
-        </div>
-      )}
-    </li>
-  );
-}
-
-function TierForm({ eventId, onDone, onCancel }) {
+function TierForm({ eventId, currency, onDone, onCancel }) {
   const [form, setForm] = useState({ name: '', description: '', price: '', quantity: '' });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -189,7 +164,7 @@ function TierForm({ eventId, onDone, onCancel }) {
         // zero, which would mean sold out.
         ...(form.quantity ? { quantity: Number(form.quantity) } : {}),
       }, { noRedirect: true });
-      onDone();
+      onDone(form.name);
     } catch (err) {
       setError(err);
       setBusy(false);
@@ -197,46 +172,46 @@ function TierForm({ eventId, onDone, onCancel }) {
   }
 
   return (
-    <form
-      onSubmit={submit}
-      className="fx-stack fx-stack--sm es-card p-4"
-    >
-      <Field
-        label="Name" name="name" required maxLength={80} autoFocus
-        hint="What a buyer sees, e.g. General Admission."
-        value={form.name}
-        onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-      />
-      <Field
-        label="Description" name="description" maxLength={500}
-        value={form.description}
-        onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-      />
-      <Field
-        label="Price" name="price" inputMode="decimal" required
-        hint="In dollars. 0 is allowed — that makes it free."
-        error={priceInvalid ? 'Enter an amount like 25 or 25.50.' : null}
-        value={form.price}
-        onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))}
-      />
-      <Field
-        label="How many" name="quantity" type="number" min={1}
-        hint="Leave empty to let the seat map decide."
-        value={form.quantity}
-        onChange={(e) => setForm((f) => ({ ...f, quantity: e.target.value }))}
-      />
+    <Panel title="New ticket type">
+      <form onSubmit={submit} className="fx-stack fx-stack--sm">
+        <div className="fx-grid fx-grid--2">
+          <Field
+            label="Name" name="name" required maxLength={80} autoFocus
+            hint="What a buyer sees, e.g. General Admission."
+            value={form.name}
+            onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+          />
+          <Field
+            label={`Price (${currency})`} name="price" inputMode="decimal" required
+            hint="0 is allowed — that makes it free."
+            error={priceInvalid ? 'Enter an amount like 25 or 25.50.' : null}
+            value={form.price}
+            onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))}
+          />
+        </div>
+        <Field
+          label="Description" name="description" maxLength={500}
+          hint="Optional — what is included."
+          value={form.description}
+          onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+        />
+        <Field
+          label="How many" name="quantity" type="number" min={1}
+          hint="Leave empty to let the seat map decide."
+          value={form.quantity}
+          onChange={(e) => setForm((f) => ({ ...f, quantity: e.target.value }))}
+        />
 
-      <FormError error={error} />
+        <FormError error={error} />
 
-      <div className="fx-row fx-row--between">
-        <button type="button" onClick={onCancel} className="text-sm text-muted hover:text-ink">
-          Cancel
-        </button>
-        <SubmitButton busy={busy} busyLabel="Adding…" disabled={priceInvalid || !form.price}>
-          Add
-        </SubmitButton>
-      </div>
-    </form>
+        <div className="fx-row">
+          <SubmitButton busy={busy} busyLabel="Adding…" disabled={priceInvalid || !form.price}>
+            Add ticket type
+          </SubmitButton>
+          <button type="button" onClick={onCancel} className="es-btn es-btn--ghost">Cancel</button>
+        </div>
+      </form>
+    </Panel>
   );
 }
 

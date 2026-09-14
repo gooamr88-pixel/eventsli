@@ -105,14 +105,8 @@ router.post('/:eventId/accept-terms', verifyEventOwner, c.acceptTerms);
 // BRD §16 — an organizer submits; only an admin publishes.
 router.post('/:eventId/submit', verifyEventOwner, c.submitForReview);
 
-// BRD §17 — cancellation is the organizer's act, not the admin's.
-router.post(
-  '/:eventId/cancel',
-  verifyEventOwner,
-  body('reason').optional().isString().trim().isLength({ max: 1000 }),
-  validate,
-  c.cancel,
-);
+// BRD §17 — there is deliberately no cancel route here. The organizer cannot
+// cancel an event; POST /admin/events/:eventId/cancel is the only way.
 
 // BRD §26 — the seat map. Tables are sellable stock, not decoration.
 router.get('/:eventId/venue-map', verifyEventOwner, seatMap.getMap);
@@ -143,6 +137,48 @@ router.patch(
   body('isActive').isBoolean(),
   validate,
   scan.updateDevice,
+);
+
+// ─── The door team — people with their own accounts, beside the devices ────
+// Scan-only and scoped to this event; see services/staffService.js.
+const staff = require('../controllers/staffController');
+
+router.get('/:eventId/staff', verifyEventOwner, staff.list);
+router.post(
+  '/:eventId/staff',
+  verifyEventOwner,
+  // normalizeEmail, because registration stores addresses normalised the same
+  // way — a lookup that skipped it would miss "first.last@gmail.com".
+  body('email').isEmail().normalizeEmail().withMessage('Enter the email of their Eventsli account.'),
+  validate,
+  staff.add,
+);
+router.delete('/:eventId/staff/:staffId', verifyEventOwner, param('staffId').isUUID(), validate, staff.revoke);
+
+// ─── The event's numbers ───────────────────────────────────────────────────
+const stats = require('../controllers/statsController');
+
+router.get(
+  '/:eventId/stats',
+  verifyEventOwner,
+  query('days').optional().isIn(['7', '30', '90']),
+  validate,
+  stats.eventStats,
+);
+
+// ─── Share & QR ────────────────────────────────────────────────────────────
+// The browser names a tier; the server builds and validates the URL.
+const share = require('../controllers/shareController');
+
+router.get('/:eventId/share', verifyEventOwner, share.info);
+router.get(
+  '/:eventId/share/qr.png',
+  verifyEventOwner,
+  query('tier').optional().isUUID(),
+  query('size').optional().isIn(['sm', 'lg']),
+  query('download').optional().isIn(['1']),
+  validate,
+  share.qr,
 );
 
 // ─── Manual sales and the commission they create (BRD §03, §18, §20) ────────

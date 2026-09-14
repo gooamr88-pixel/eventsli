@@ -3,11 +3,22 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { get, PUBLIC_API_URL } from '../../utils/apiClient';
-import { describeError } from '../../utils/errors';
 import { formatMoney } from '../../utils/money';
 import TicketStub from '../../components/TicketStub';
 import TransferDialog from './TransferDialog';
-import { Loading } from '../../components/Feedback';
+import { Loading, Empty, ErrorNotice, Notice } from '../../components/Feedback';
+
+/** In the EVENT's timezone, with the zone named — a ticket is read before travelling. */
+function eventTime(event) {
+  const opts = { dateStyle: 'medium', timeStyle: 'short' };
+  try {
+    const text = new Intl.DateTimeFormat('en-US', { ...opts, timeZone: event.timezone || undefined })
+      .format(new Date(event.startsAt));
+    return event.timezone ? `${text} (${event.timezone})` : text;
+  } catch {
+    return new Intl.DateTimeFormat('en-US', opts).format(new Date(event.startsAt));
+  }
+}
 
 /**
  * Every ticket this account has, grouped by the order that bought it.
@@ -36,26 +47,17 @@ export default function MyTickets() {
     return () => { cancelled = true; };
   }, [reload]);
 
-  if (error) {
-    const { title, recovery } = describeError(error);
-    return (
-      <div className="fx-stack fx-stack--sm">
-        <p className="font-medium text-ink">{title}</p>
-        <p className="text-sm text-muted">{recovery}</p>
-      </div>
-    );
-  }
+  if (error) return <ErrorNotice error={error} />;
 
-  if (!orders) return <Loading variant="list" />;
+  if (!orders) return <Loading variant="list" label="Loading your tickets" />;
 
   if (orders.length === 0) {
     return (
-      <div className="es-empty">
-        <p className="text-muted">No tickets yet.</p>
-        <Link href="/events" className="mt-2 inline-block text-sm text-accent">
-          Find something to go to
-        </Link>
-      </div>
+      <Empty
+        title="No tickets yet."
+        hint="Tickets you buy with this email address — signed in or as a guest — appear here."
+        action={<Link href="/events" className="es-btn es-btn--primary es-btn--sm">Find something to go to</Link>}
+      />
     );
   }
 
@@ -73,9 +75,7 @@ export default function MyTickets() {
                 ) : (order.event?.title || 'Event')}
               </h2>
               <p className="text-sm text-muted">
-                {order.event?.startsAt && new Intl.DateTimeFormat('en-US', {
-                  dateStyle: 'medium', timeStyle: 'short',
-                }).format(new Date(order.event.startsAt))}
+                {order.event?.startsAt && eventTime(order.event)}
                 {order.event?.venue && ` · ${order.event.venue}`}
               </p>
             </div>
@@ -88,10 +88,12 @@ export default function MyTickets() {
               them would erase the buyer's own record of what they paid for, at
               exactly the moment they need it to talk to the organizer. */}
           {order.event?.cancelled && (
-            <p className="rounded-[--es-radius-md] bg-danger/10 px-3 py-2.5 text-sm text-muted">
-              This event was cancelled. Your tickets are kept as a record — any refund is
-              arranged with the organizer.
-            </p>
+            <Notice tone="danger" title="This event was cancelled.">
+              <p>
+                Your tickets no longer admit anyone and are kept here as a record. Tickets are
+                non-refundable by default; any refund is arranged between you and the organizer.
+              </p>
+            </Notice>
           )}
 
           <div className="fx-stack fx-stack--sm">
