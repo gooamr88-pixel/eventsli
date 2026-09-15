@@ -1,106 +1,194 @@
 'use client';
 
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import Link from 'next/link';
 import { post } from '../../../utils/apiClient';
+import { useToast } from '../../../components/ui/Toast';
 import FormError from '../../../components/forms/FormError';
 import SubmitButton from '../../../components/forms/SubmitButton';
+import NavIcon from '../../../components/shell/NavIcon';
+import FeeSummary from './FeeSummary';
 
 /**
- * Accept the terms, submit for review.
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Going on sale: accept the terms, then submit for review.
  *
  * BRD §16 — an organizer SUBMITS; only an admin publishes. `draft → published`
- * simply does not exist as an edge, so there is no button here that could
- * create it.
+ * does not exist as an edge, so there is no button here that could create it.
  *
- * BRD §21 — submitting requires an accepted terms version on record, and the
- * database enforces it as a CHECK constraint, not as a rule in a controller. So
- * "accept the terms" is a real step with a real consequence rather than a
- * checkbox: the API answers `TERMS_NOT_ACCEPTED` and names the version.
+ * BRD §21 — the organizer sees every amount they bear and accepts the terms,
+ * recorded against a version, before the event can be submitted.
+ *
+ * THE BUG THIS SCREEN HAD. "Accept and continue" recorded the acceptance, then
+ * re-read the event — whose `termsAccepted` came from a column only Submit
+ * wrote. So the terms box came straight back, Submit stayed disabled, and
+ * accepting looked like it did nothing, however many times it was clicked.
+ * The API now stamps the event when the terms are accepted and returns it; this
+ * component hands that event straight to the page (`onChanged(event)`), so the
+ * next step unlocks from the server's own answer rather than a second guess.
+ *
+ * The fees are shown HERE, beside the checkbox that agrees to them, rather than
+ * further down the overview where they used to be.
+ * ─────────────────────────────────────────────────────────────────────────────
  */
 export default function ReviewActions({ event, onChanged }) {
+  const toast = useToast();
+  const agreeId = useId();
+  const [agreed, setAgreed] = useState(false);
   const [busy, setBusy] = useState(null);
   const [error, setError] = useState(null);
 
   const canSubmit = ['draft', 'rejected'].includes(event.status);
+  const accepted = Boolean(event.review?.termsAccepted);
   // An event that is over, one way or the other, has nothing left to call off.
   const canContact = !['cancelled', 'completed'].includes(event.status);
 
-  async function run(what, path, body) {
-    setBusy(what);
+  async function acceptTerms() {
+    setBusy('terms');
     setError(null);
     try {
-      await post(path, body, { noRedirect: true });
-      onChanged();
+      const result = await post(`/events/${event.id}/accept-terms`, undefined, { noRedirect: true });
+      toast.success(`Recorded against version ${result?.version ?? '—'} of the organizer agreement.`, {
+        title: 'Terms accepted',
+      });
+      onChanged?.(result?.event);
     } catch (err) {
       setError(err);
+      // A refusal usually means this page is behind the server — re-read it.
+      if (err?.code === 'CONFLICT') onChanged?.();
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function submit() {
+    setBusy('submit');
+    setError(null);
+    try {
+      const updated = await post(`/events/${event.id}/submit`, undefined, { noRedirect: true });
+      toast.success('Eventsli reviews it next — usually within a day. You will get an email either way.', {
+        title: 'Submitted for review',
+      });
+      onChanged?.(updated);
+    } catch (err) {
+      setError(err);
+      // New terms published since the page loaded, or an edit elsewhere: the
+      // re-read brings the terms step back rather than leaving a dead button.
+      if (['TERMS_NOT_ACCEPTED', 'CONFLICT'].includes(err?.code)) onChanged?.();
     } finally {
       setBusy(null);
     }
   }
 
   return (
-    <section className="fx-stack fx-stack--sm es-card p-5">
-      <h2 className="text-lg">Going on sale</h2>
-
-      {!event.review?.termsAccepted && canSubmit && (
-        <div className="fx-stack fx-stack--sm rounded-(--es-radius-md) bg-bg-sunken p-4">
-          <p className="text-sm text-ink">Accept the organizer terms for this event</p>
-          <p className="text-sm text-muted">
-            They cover the commission, the fees, refunds and what you are responsible
-            for. Acceptance is recorded against the version you were shown.
-          </p>
-          <div className="fx-row">
-            <a
-              href="/terms/organizer"
-              target="_blank"
-              rel="noreferrer"
-              className="text-sm text-accent"
-            >
-              Read them →
-            </a>
-          </div>
-          <SubmitButton
-            type="button"
-            busy={busy === 'terms'}
-            busyLabel="Recording…"
-            onClick={() => run('terms', `/events/${event.id}/accept-terms`)}
-          >
-            Accept and continue
-          </SubmitButton>
-        </div>
-      )}
+    <section className="es-card fx-stack fx-stack--sm p-5" aria-labelledby={`${agreeId}-title`}>
+      <div className="es-panel-head">
+        <h2 id={`${agreeId}-title`} className="es-panel-head__title">Going on sale</h2>
+        {canSubmit && (
+          <span className="es-status" data-tone={accepted ? 'success' : 'neutral'}>
+            {accepted ? 'Ready to submit' : 'Step 1 of 2'}
+          </span>
+        )}
+      </div>
 
       {canSubmit && (
-        <div className="fx-stack fx-stack--sm">
-          <p className="text-sm text-muted">
-            {event.status === 'rejected'
-              ? 'Submit it again once you have made the changes.'
-              : 'We review every event before it goes on sale. It usually takes a day.'}
-          </p>
-          <SubmitButton
-            type="button"
-            busy={busy === 'submit'}
-            busyLabel="Submitting…"
-            disabled={!event.review?.termsAccepted}
-            onClick={() => run('submit', `/events/${event.id}/submit`)}
-          >
-            Submit for review
-          </SubmitButton>
-        </div>
+        <ol className="es-steps">
+          <li className="es-steps__item" data-state={accepted ? 'done' : 'current'}>
+            <span className="es-steps__marker" aria-hidden="true">
+              {accepted ? <NavIcon name="tick" size={16} /> : '1'}
+            </span>
+            <div className="es-steps__body">
+              <p className="es-steps__title">
+                Review the fees and accept the terms
+                {accepted && <span className="sr-only"> — done</span>}
+              </p>
+
+              {accepted ? (
+                <p className="text-sm text-muted">
+                  Accepted for this event.{' '}
+                  <Link href="/terms/organizer" target="_blank" rel="noreferrer" className="text-accent hover:text-accent-hover">
+                    Read the agreement<span className="sr-only"> (opens in a new tab)</span>
+                  </Link>
+                </p>
+              ) : (
+                <>
+                  <p className="text-sm text-muted">
+                    What Eventsli charges on this event. Rates are set by Eventsli; who pays the
+                    payment fee is yours to choose in the details below.
+                  </p>
+                  <div className="rounded-(--es-radius-md) bg-bg-sunken px-4 py-3">
+                    <FeeSummary event={event} compact />
+                  </div>
+                  <label htmlFor={agreeId} className="es-check">
+                    <input
+                      id={agreeId}
+                      type="checkbox"
+                      className="es-check__box"
+                      checked={agreed}
+                      onChange={(e) => setAgreed(e.target.checked)}
+                    />
+                    <span className="text-sm text-ink">
+                      I have read the{' '}
+                      <Link href="/terms/organizer" target="_blank" rel="noreferrer" className="text-accent underline underline-offset-2 hover:text-accent-hover">
+                        organizer agreement<span className="sr-only"> (opens in a new tab)</span>
+                      </Link>{' '}
+                      and accept these fees for this event.
+                    </span>
+                  </label>
+                  <div>
+                    <SubmitButton
+                      type="button"
+                      busy={busy === 'terms'}
+                      busyLabel="Recording…"
+                      disabled={!agreed || busy === 'submit'}
+                      onClick={acceptTerms}
+                    >
+                      Accept terms
+                    </SubmitButton>
+                  </div>
+                </>
+              )}
+            </div>
+          </li>
+
+          <li className="es-steps__item" data-state={accepted ? 'current' : 'upcoming'}>
+            <span className="es-steps__marker" aria-hidden="true">2</span>
+            <div className="es-steps__body">
+              <p className="es-steps__title">Submit for review</p>
+              <p className="text-sm text-muted">
+                {event.status === 'rejected'
+                  ? 'Submit it again once you have made the changes Eventsli asked for.'
+                  : 'Eventsli reviews every event before it goes on sale. It usually takes a day.'}
+              </p>
+              <div>
+                <SubmitButton
+                  type="button"
+                  busy={busy === 'submit'}
+                  busyLabel="Submitting…"
+                  disabled={!accepted || busy === 'terms'}
+                  onClick={submit}
+                >
+                  {event.status === 'rejected' ? 'Submit again' : 'Submit for review'}
+                </SubmitButton>
+              </div>
+              {!accepted && <p className="text-xs text-subtle">Accept the terms first.</p>}
+            </div>
+          </li>
+        </ol>
       )}
 
       {event.status === 'pending_review' && (
-        <p className="rounded-(--es-radius-md) bg-info/10 px-3 py-2.5 text-sm text-muted">
-          With us for review. You will get an email either way.
-        </p>
+        <div className="es-notice es-notice--info">
+          <p>With Eventsli for review.</p>
+          <p>You will get an email either way. Editing the details takes it out of the queue until you submit again.</p>
+        </div>
       )}
 
       {event.status === 'published' && (
-        <p className="rounded-(--es-radius-md) bg-success/10 px-3 py-2.5 text-sm text-muted">
-          <span className="text-ink">On sale.</span> Prices are locked for any ticket type
-          that has already sold — buyers must get what they paid for.
-        </p>
+        <div className="es-notice es-notice--info">
+          <p>On sale.</p>
+          <p>Prices are locked for any ticket type that has already sold — buyers get what they paid for.</p>
+        </div>
       )}
 
       <FormError error={error} />
@@ -110,7 +198,7 @@ export default function ReviewActions({ event, onChanged }) {
       {canContact && (
         <p className="border-t border-border-base pt-4 text-sm text-muted">
           Need to call this event off? Only Eventsli can cancel an event.{' '}
-          <Link href="/contact" className="text-accent">Contact us</Link>.
+          <Link href="/contact" className="text-accent hover:text-accent-hover">Contact us</Link>.
         </p>
       )}
     </section>

@@ -119,7 +119,7 @@ export default function Users() {
 
   return (
     <div className="fx-stack">
-      <PageHeader eyebrow="Console" title="Accounts" lede="Everyone with an account, their role, and whether they can sign in or sell." />
+      <PageHeader eyebrow="People" title="Accounts" lede="Everyone with an account, their role, and whether they can sign in or sell." />
 
       <div className="fx-stack fx-stack--sm">
         <div className="fx-row">

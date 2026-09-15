@@ -36,7 +36,7 @@ export default function Audit() {
 
   return (
     <div className="fx-stack">
-      <PageHeader eyebrow="Console" title="Audit" lede="Who did what, why, and what it changed. Nothing here can be edited or removed." />
+      <PageHeader eyebrow="Governance" title="Audit log" lede="Who did what, why, and what it changed. Nothing here can be edited or removed." />
 
       <div className="fx-stack fx-stack--sm gap-1.5 max-w-sm">
         <label htmlFor="audit-action" className="text-sm text-ink">Kind of action</label>

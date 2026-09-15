@@ -86,7 +86,7 @@ export default function Invoices() {
   return (
     <div className="fx-stack">
       <PageHeader
-        eyebrow="Console"
+        eyebrow="Money"
         title="Commission invoices"
         lede="Raised against door sales only. Card sales settle themselves — the money passed through us and the fee was already taken."
       />

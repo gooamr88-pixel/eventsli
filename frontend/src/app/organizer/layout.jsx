@@ -82,20 +82,31 @@ export default function OrganizerLayout({ children }) {
         <AppShell
           role="Organizer"
           label="Organizer"
+          home="/organizer"
           groups={organizerNavGroups({ eventId })}
           tabKeys={ORGANIZER_TABS}
           head={(
             <>
-              {/* The money action, always one tap away. */}
-              <Link href="/organizer/events/new" className="es-btn es-btn--primary es-btn--block">
+              {/* The money action, always one tap away. Its label is a nav
+                  label, so the tablet rail shows the icon alone. */}
+              <Link href="/organizer/events/new" className="es-btn es-btn--primary es-btn--block es-nav__cta">
                 <NavIcon name="plus" size={18} />
-                Create event
+                <span className="es-nav__label">Create event</span>
               </Link>
-              <EventSwitcher events={events} currentId={eventId} />
+              <div className="es-nav__rail-hide">
+                <EventSwitcher events={events} currentId={eventId} />
+              </div>
             </>
+          )}
+          appbarAction={(
+            <Link href="/organizer/events/new" className="es-btn es-btn--primary es-btn--sm md:hidden">
+              <NavIcon name="plus" size={18} />
+              Create
+            </Link>
           )}
           foot={(
             <ShellFoot
+              user={user}
               links={[
                 ...(user?.isAdmin ? [{ href: '/admin/overview', label: 'Admin console', icon: 'shield' }] : []),
                 { href: '/', label: 'View the site', icon: 'globe' },

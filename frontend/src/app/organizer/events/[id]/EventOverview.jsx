@@ -6,47 +6,62 @@ import CoverUpload from './CoverUpload';
 import EventStats from './EventStats';
 import LaunchChecklist from './LaunchChecklist';
 import EventDetailsEditor from './EventDetailsEditor';
-import { formatMoney } from '../../../utils/money';
+import FeeSummary from './FeeSummary';
+import { Panel } from '../../../components/ui/Page';
 import { Loading, Notice } from '../../../components/Feedback';
 
 /**
+ * ─────────────────────────────────────────────────────────────────────────────
  * One event, from the organizer's side.
  *
- * The event itself comes from the event layout (see EventContext) — it used to
- * be fetched again here, on the same page load, for the same row.
+ * The event itself comes from the event layout (see EventContext).
  *
- * The money settings are READ ONLY here and that is BRD §05/§06, not an
- * oversight: `eventRules.js` keeps two field-authority maps, and every rate
- * lives in the admin one. `feeBearer` is the single financial field an
- * organizer controls (BRD §04).
+ * ARRANGED BY WHAT THE ORGANIZER IS DOING, not by what data exists:
+ *   · before it is on sale — what is left, and the terms + submit step, side by
+ *     side at the top, because that is the job;
+ *   · once it is selling — the numbers first;
+ *   · then the editable details, with the cover and the charges beside them.
  *
- * They are shown in full anyway. BRD §21 requires an organizer to SEE every
- * amount they will bear before they can publish, and a number you cannot edit
- * is still a number you have to be told.
+ * What was removed, and why: a "Rules" card repeated three fields the details
+ * form directly above it already edits, and "What you will be charged" sat at
+ * the very bottom, far from the terms that agree to it. The charges now appear
+ * beside the checkbox before acceptance, and in the side column after.
+ *
+ * The money settings are READ ONLY for an organizer and that is BRD §05/§06:
+ * every rate lives in the admin's field map. `feeBearer` is the single financial
+ * field an organizer controls (BRD §04), and it is edited in the details form.
+ * ─────────────────────────────────────────────────────────────────────────────
  */
+const PRE_LAUNCH = ['draft', 'rejected', 'pending_review'];
+
 export default function EventOverview() {
   const ctx = useEventContext();
   const event = ctx?.event;
 
   if (!event) return <Loading variant="card" />;
 
-  const money = event.fees;
-  const hasSales = !['draft', 'pending_review', 'rejected'].includes(event.status);
+  const preLaunch = PRE_LAUNCH.includes(event.status);
+  const finished = ['cancelled', 'completed'].includes(event.status);
+  // Before acceptance the charges are shown inside the terms step itself.
+  const feesInTermsStep = ['draft', 'rejected'].includes(event.status) && !event.review?.termsAccepted;
 
   return (
     <div className="fx-stack">
       {/* BRD §16 — the review verdict, and what to do about it. A rejected
           event CAN go round again, which is the part a bare "rejected" hides. */}
       {event.review?.rejectionReason && event.status === 'rejected' && (
-        <Notice tone="warning" title="Changes were asked for">
-          <p>{event.review.rejectionReason}</p>
-          <p>Make them in <a href="#details" className="text-accent underline">Event details</a> below and submit again — this is not a final decision.</p>
+        <Notice tone="warning" title="Eventsli asked for changes">
+          <p className="fx-break">{event.review.rejectionReason}</p>
+          <p>
+            Make them in <a href="#details" className="text-accent underline">Event details</a> and
+            submit again — this is not a final decision.
+          </p>
         </Notice>
       )}
 
       {event.status === 'suspended' && (
         <Notice tone="danger" title="This event has been suspended">
-          {event.suspendedReason && <p>{event.suspendedReason}</p>}
+          {event.suspendedReason && <p className="fx-break">{event.suspendedReason}</p>}
           <p>It is off sale. Eventsli can put it back — this is not a cancellation.</p>
         </Notice>
       )}
@@ -56,94 +71,66 @@ export default function EventOverview() {
           organizer and the buyer; nothing here promises one either way. */}
       {event.status === 'cancelled' && (
         <Notice title="Cancelled by Eventsli">
-          {event.cancelledReason && <p>{event.cancelledReason}</p>}
+          {event.cancelledReason && <p className="fx-break">{event.cancelledReason}</p>}
           <p>Tickets already sold are kept as a record and buyers can still see them.</p>
         </Notice>
       )}
 
-      {hasSales && <EventStats eventId={event.id} currency={event.currency} />}
+      {!preLaunch && <EventStats eventId={event.id} currency={event.currency} />}
 
-      {['draft', 'rejected', 'pending_review'].includes(event.status) ? (
-        <div className="grid gap-[var(--fx-gap)] lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+      {preLaunch && (
+        <div className="es-split es-split--even">
           <LaunchChecklist event={event} />
-          <div id="going-on-sale" className="scroll-mt-20">
+          <div id="going-on-sale" className="scroll-mt-24">
             <ReviewActions event={event} onChanged={ctx.refresh} />
           </div>
         </div>
-      ) : (
-        <div id="going-on-sale" className="scroll-mt-20">
-          <ReviewActions event={event} onChanged={ctx.refresh} />
-        </div>
       )}
 
-      {!['cancelled', 'completed'].includes(event.status) && (
-        <div id="details" className="scroll-mt-20">
-          <EventDetailsEditor event={event} onSaved={ctx.refresh} />
+      <div className="es-split">
+        <div className="fx-stack fx-min0">
+          {finished ? (
+            <Panel title="How it was sold">
+              <dl className="es-deflist">
+                <Row term="Tickets per order" value={event.rules.maxTicketsPerOrder} />
+                <Row term="Transfers" value={event.rules.allowTicketTransfer ? 'Allowed, once' : 'Off'} />
+                <Row term="Purchase mode" value={readable(event.purchaseMode)} />
+              </dl>
+            </Panel>
+          ) : (
+            <div id="details" className="scroll-mt-24">
+              <EventDetailsEditor event={event} onSaved={ctx.refresh} />
+            </div>
+          )}
         </div>
-      )}
 
-      <div id="cover" className="scroll-mt-20">
-        <CoverUpload event={event} onChanged={ctx.refresh} />
+        <div className="fx-stack fx-min0">
+          <div id="cover" className="scroll-mt-24">
+            <CoverUpload event={event} onChanged={ctx.refresh} />
+          </div>
+
+          {!preLaunch && (
+            <div id="going-on-sale" className="scroll-mt-24">
+              <ReviewActions event={event} onChanged={ctx.refresh} />
+            </div>
+          )}
+
+          {!feesInTermsStep && (
+            <Panel title="What you are charged" description="Set by Eventsli, and agreed when the terms were accepted.">
+              <FeeSummary event={event} />
+            </Panel>
+          )}
+        </div>
       </div>
-
-      <section className="fx-stack fx-stack--sm es-card p-5">
-        <h2 className="text-lg">What you will be charged</h2>
-        <p className="text-sm text-muted">
-          Set by Eventsli, and shown in full before you can publish.
-        </p>
-
-        <dl className="fx-stack fx-stack--sm text-sm">
-          <Money term="Eventsli commission" value={`${money.commissionPct}%`}
-            note="Of the ticket price. Always yours." />
-          {money.commissionTaxPct > 0 && (
-            <Money term="Tax on commission" value={`${money.commissionTaxPct}%`} />
-          )}
-          <Money
-            term="Payment fee"
-            value={money.paymentFeeMode === 'auto'
-              ? 'Matched to what the card costs'
-              : `${money.paymentFeePct}% + ${formatMoney(money.paymentFeeFixedCents, event.currency)}`}
-            note={money.feeBearer === 'buyer'
-              ? 'Added to the buyer’s total.'
-              : 'Taken from your proceeds.'}
-          />
-          {money.eventTaxPct > 0 && (
-            <Money term="Event tax" value={`${money.eventTaxPct}%`}
-              note="Added to the buyer’s total. You remit it." />
-          )}
-        </dl>
-
-        <p className="text-xs text-subtle">
-          The commission and the payment fee are separate on purpose: one is our margin,
-          the other recovers what the card costs. Merged into a single number, neither
-          question has an answer.
-        </p>
-      </section>
-
-      <section className="fx-stack fx-stack--sm es-card p-5">
-        <h2 className="text-lg">Rules</h2>
-        <dl className="fx-stack fx-stack--sm text-sm">
-          <Money term="Tickets per order" value={event.rules.maxTicketsPerOrder} />
-          <Money
-            term="Transfers"
-            value={event.rules.allowTicketTransfer ? 'Allowed, once' : 'Off'}
-            note="A buyer may pass a ticket on one time."
-          />
-          <Money term="Purchase mode" value={readable(event.purchaseMode)} />
-        </dl>
-      </section>
     </div>
   );
 }
 
-function Money({ term, value, note }) {
+function Row({ term, value }) {
   return (
-    <div className="fx-row fx-row--between border-t border-border-base pt-2 first:border-0 first:pt-0">
-      <dt className="fx-min0">
-        <span className="block text-ink">{term}</span>
-        {note && <span className="block text-xs text-subtle">{note}</span>}
-      </dt>
-      <dd className="es-nums whitespace-nowrap text-ink">{value}</dd>
+    <div className="es-deflist__row">
+      <dt className="text-muted">{term}</dt>
+      <dd className="es-nums text-right text-ink">{value}</dd>
     </div>
   );
 }

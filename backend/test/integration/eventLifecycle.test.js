@@ -171,20 +171,54 @@ test('an unknown field is rejected, not quietly dropped', async () => {
 // ── BRD §16 / §21 — review and terms ────────────────────────────────────────
 
 test('submitting without accepting the terms is refused', async () => {
+  const seen = await organizer('GET', `/events/${eventId}`);
+  assert.equal(seen.body.data.review.termsAccepted, false);
+
   const res = await organizer('POST', `/events/${eventId}/submit`);
   assert.equal(res.status, 403);
   assert.equal(res.body.error, 'TERMS_NOT_ACCEPTED');
   assert.equal(res.body.meta.version, 1);
 });
 
-test('accepting the terms then submitting moves it to review', async () => {
+test('REGRESSION: an accepted draft reads as accepted BEFORE it is submitted', async () => {
+  // The dashboard shows Submit only when `review.termsAccepted` is true. That
+  // flag came from a column only `submit` wrote, so accepting changed nothing
+  // the page could see and Submit stayed locked behind itself.
   const accept = await organizer('POST', `/events/${eventId}/accept-terms`);
-  assert.equal(accept.status, 200);
+  assert.equal(accept.status, 200, JSON.stringify(accept.body));
   assert.equal(accept.body.data.version, 1);
+  assert.equal(accept.body.data.event.review.termsAccepted, true, 'the answer must carry the updated event');
+  assert.equal(accept.body.data.event.status, 'draft', 'accepting is not submitting');
 
+  const seen = await organizer('GET', `/events/${eventId}`);
+  assert.equal(seen.body.data.review.termsAccepted, true, 'a reload must show the acceptance');
+
+  const { data: row } = await supabase
+    .from('events').select('status, terms_accepted_id').eq('id', eventId).single();
+  assert.equal(row.terms_accepted_id, accept.body.data.termsId);
+  assert.equal(row.status, 'draft');
+
+  const { data: ledger } = await supabase
+    .from('terms_acceptances').select('id').eq('event_id', eventId).eq('terms_id', accept.body.data.termsId);
+  assert.equal(ledger.length, 1, 'the acceptance itself is still recorded');
+
+  // A double click lands on the same record.
+  const again = await organizer('POST', `/events/${eventId}/accept-terms`);
+  assert.equal(again.status, 200, JSON.stringify(again.body));
+  const { data: ledgerAfter } = await supabase
+    .from('terms_acceptances').select('id').eq('event_id', eventId).eq('terms_id', accept.body.data.termsId);
+  assert.equal(ledgerAfter.length, 1);
+});
+
+test('accepting the terms then submitting moves it to review', async () => {
   const res = await organizer('POST', `/events/${eventId}/submit`);
   assert.equal(res.status, 200, JSON.stringify(res.body));
   assert.equal(res.body.data.status, 'pending_review');
+  assert.equal(res.body.data.review.termsAccepted, true);
+
+  // Past the terms step: there is nothing left to accept.
+  const late = await organizer('POST', `/events/${eventId}/accept-terms`);
+  assert.equal(late.status, 409, JSON.stringify(late.body));
 });
 
 test('editing an event under review withdraws it, and it has to be resubmitted', async () => {

@@ -61,7 +61,7 @@ export default function AdminEvents() {
   return (
     <div className="fx-stack">
       <PageHeader
-        eyebrow="Administration"
+        eyebrow="Events"
         title="All events"
         lede="Every event, in every state. Open one to review it, change its settings, suspend or cancel it."
       />

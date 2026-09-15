@@ -43,7 +43,7 @@ export default function Overview() {
   return (
     <div className="fx-stack">
       <PageHeader
-        eyebrow="Administration"
+        eyebrow="Platform"
         title="Overview"
         lede="Sales, commission, and everything waiting on an admin."
         actions={<Segmented label="Period" value={days} onChange={setDays} options={PERIODS} />}

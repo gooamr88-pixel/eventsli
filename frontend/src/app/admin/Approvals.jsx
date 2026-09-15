@@ -81,10 +81,9 @@ export default function Approvals() {
   return (
     <div className="fx-stack">
       <PageHeader
-        eyebrow="Console"
+        eyebrow="Events"
         title="Waiting for review"
-        lede="Nothing goes on sale until it is approved here."
-        actions={<Link href="/admin/events" className="es-btn es-btn--secondary">Every event</Link>}
+        lede="Nothing goes on sale until it is approved here. Open an event to see exactly what will be sold."
       />
 
       {error ? (

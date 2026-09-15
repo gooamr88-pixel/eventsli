@@ -10,7 +10,8 @@ import { adminNavGroups, ADMIN_TABS } from './nav/adminNav';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
- * The admin console shell.
+ * The admin console shell — the same shell as the organizer dashboard, so the
+ * two halves of the product look and move alike.
  *
  * `proxy.ts` bounces anyone without a session cookie and every endpoint under
  * /admin is behind `requireRole('admin')`, so this adds no gate of its own —
@@ -32,7 +33,7 @@ export default function AdminLayout({ children }) {
           <Empty
             title="This area is for platform staff."
             hint="If you organise events, your dashboard is under Organizer."
-            action={{ href: '/', label: 'Back to events' }}
+            action={{ href: user?.isOrganizer ? '/organizer' : '/', label: user?.isOrganizer ? 'Go to your dashboard' : 'Back to events' }}
           />
         </div>
       </main>
@@ -45,10 +46,12 @@ export default function AdminLayout({ children }) {
         <AppShell
           role={user?.isSuperAdmin ? 'Super admin' : 'Admin'}
           label="Administration"
+          home="/admin/overview"
           groups={adminNavGroups()}
           tabKeys={ADMIN_TABS}
           foot={(
             <ShellFoot
+              user={user}
               links={[
                 ...(user?.isOrganizer ? [{ href: '/organizer', label: 'Organizer dashboard', icon: 'calendar' }] : []),
                 { href: '/', label: 'View the site', icon: 'globe' },

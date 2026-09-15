@@ -62,7 +62,8 @@ export default function EventsBrowser() {
       <PageHeader
         title="Your events"
         lede="An event stays a draft until you submit it, so nothing goes on sale by accident."
-        actions={<Link href="/organizer/events/new" className="es-btn es-btn--primary">Create event</Link>}
+        // From lg the sidebar's Create event sits beside this; one is enough.
+        actions={<Link href="/organizer/events/new" className="es-btn es-btn--primary lg:hidden">Create event</Link>}
       />
 
       <OrganizerNotices organizer={organizer} />

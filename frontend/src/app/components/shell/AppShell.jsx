@@ -1,35 +1,45 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import NavIcon from './NavIcon';
+import Logo from '../brand/Logo';
 import { resolveNav, pickTabs, currentLabel } from './navModel';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
- * The dashboard shell: a sidebar from lg up; a drawer, an app bar and a bottom
- * tab bar below it. Shared by the organizer dashboard and the admin console.
+ * The dashboard shell, shared by the organizer dashboard and the admin console
+ * so the two read as one product: the same emerald sidebar, the same logo, the
+ * same way to the other side and out.
  *
- * The arrangement is fancy's, and so are the four behaviours that are really
- * bug fixes rather than styling:
+ *   phone    an app bar, a bottom tab bar, and a drawer
+ *   tablet   an icon rail (always there) and the same drawer for labels
+ *   laptop+  the full sidebar
+ * The arrangement is CSS (.es-nav-* in globals.css); this component renders one
+ * markup for all three.
  *
- *   · Real <Link>s, never onClick + router.push — so middle-click, cmd-click
- *     and "open in new tab" work on every destination.
- *   · A disabled destination is a <span> with its reason in `title`, not a
- *     disabled anchor, which several browsers still follow from the keyboard.
+ * Four behaviours are really bug fixes rather than styling, and are fancy's:
+ *   · Real <Link>s, never onClick + router.push — middle-click and "open in new
+ *     tab" work on every destination.
+ *   · A disabled destination is a <span> with its reason in `title`.
  *   · The bottom bar is picked BY KEY from the same list the sidebar renders.
- *   · The drawer closes when the route changes — adjusted during render, not in
- *     an effect, so the new page is never painted with the old drawer over it.
+ *   · The drawer closes when the route changes — adjusted during render, so the
+ *     new page is never painted with the old drawer over it.
  *
- * What is NOT fancy's: no inline styles, and no !important. The CSS in
- * globals.css writes the mobile state as the base and ADDS the desktop state in
- * a media query, so nothing has to be beaten.
+ * And one that is not fancy's: opening the drawer moves focus into it, and
+ * closing it returns focus to the button that opened it. Before, a keyboard
+ * user opened the menu and was still standing on the page behind the scrim.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-export default function AppShell({ role, label, groups, tabKeys = [], head, foot, children }) {
+export default function AppShell({
+  role, label, home = '/', groups, tabKeys = [], head, foot, appbarAction, children,
+}) {
   const pathname = usePathname() || '';
   const [open, setOpen] = useState(false);
+  const navRef = useRef(null);
+  const menuRef = useRef(null);
+  const wasOpen = useRef(false);
 
   const [lastPath, setLastPath] = useState(pathname);
   if (pathname !== lastPath) {
@@ -38,6 +48,13 @@ export default function AppShell({ role, label, groups, tabKeys = [], head, foot
   }
 
   useEffect(() => {
+    if (open) {
+      navRef.current?.focus({ preventScroll: true });
+    } else if (wasOpen.current && navRef.current?.contains(document.activeElement)) {
+      menuRef.current?.focus({ preventScroll: true });
+    }
+    wasOpen.current = open;
+
     if (!open) return undefined;
     const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
     window.addEventListener('keydown', onKey);
@@ -57,18 +74,26 @@ export default function AppShell({ role, label, groups, tabKeys = [], head, foot
         Skip to content
       </a>
 
-      <aside id="app-nav" className={`es-nav ${open ? 'es-nav--open' : ''}`} aria-label={label}>
-        <div className="es-nav__head fx-stack fx-stack--sm">
-          <Link href="/" className="es-nav__brand">
-            <span className="es-nav__brand-name">Eventsli</span>
-            <span className="es-nav__brand-role">{role}</span>
-          </Link>
+      <aside
+        id="app-nav"
+        ref={navRef}
+        tabIndex={-1}
+        className={`es-nav es-band--field ${open ? 'es-nav--open' : ''}`}
+        aria-label={label}
+      >
+        <div className="es-nav__head">
+          <div className="es-nav__brand">
+            <Link href={home} aria-label={`Eventsli — ${role} home`} className="fx-touch">
+              <Logo />
+            </Link>
+            <span className="es-nav__role">{role}</span>
+          </div>
           {head}
         </div>
 
         <nav className="es-nav__body" aria-label={label}>
           {resolved.map((group) => (
-            <div key={group.id}>
+            <div key={group.id} className="es-nav__group">
               {group.label && (
                 <p id={`nav-group-${group.id}`} className="es-nav__group-label">{group.label}</p>
               )}
@@ -85,7 +110,7 @@ export default function AppShell({ role, label, groups, tabKeys = [], head, foot
           ))}
         </nav>
 
-        {foot && <div className="es-nav__foot fx-stack fx-stack--sm">{foot}</div>}
+        {foot && <div className="es-nav__foot">{foot}</div>}
       </aside>
 
       {open && (
@@ -95,6 +120,7 @@ export default function AppShell({ role, label, groups, tabKeys = [], head, foot
       <div className="es-nav-content">
         <header className="es-appbar">
           <button
+            ref={menuRef}
             type="button"
             className="es-btn es-btn--ghost fx-touch--icon"
             aria-expanded={open}
@@ -104,8 +130,11 @@ export default function AppShell({ role, label, groups, tabKeys = [], head, foot
           >
             <NavIcon name="menu" />
           </button>
-          <p className="fx-truncate fx-min0 text-sm text-ink">{here || role}</p>
-          <Link href="/" className="fx-touch font-serif text-lg text-ink">Eventsli</Link>
+          <Link href={home} aria-label={`Eventsli — ${role} home`} className="fx-touch">
+            <Logo size="sm" mark />
+          </Link>
+          <p className="fx-truncate fx-min0 flex-1 text-sm font-medium text-ink">{here || role}</p>
+          {appbarAction}
         </header>
 
         <main id="app-main" className="es-app-main">

@@ -1450,61 +1450,58 @@
    inline `--es-figure-r: 0px` on EventCard. */
 .es-figure--square { --es-figure-r: 0px; }
 
-/* ══ .es-nav-* — the organizer shell ════════════════════════════════════
-   A sidebar at lg and up; an off-canvas drawer plus a bottom tab bar below
-   it.
+/* ══ .es-nav-* — the dashboard shell ═══════════════════════════════════════
+   One shell for the organizer dashboard and the admin console, in three
+   arrangements, each chosen for the screen rather than squeezed onto it:
 
-   WHY THIS IS HERE AND NOT BESIDE THE COMPONENT.
+     phone   (< md)     an app bar, a bottom tab bar, and a drawer
+     tablet  (md → lg)  a 76px icon rail that is always there, plus the drawer
+                        for labels — a bottom tab bar on a 900px iPad reads
+                        as a phone app blown up
+     laptop+ (≥ lg)     the full sidebar
 
-   The navigation renders from `organizer/layout.jsx`, which is a different
-   component function from every page it wraps. A scoped style block never
-   reaches an element rendered by another function, so these classes would
-   compile to selectors matching nothing at any viewport — an unstyled
-   sidebar and a bottom bar visible on a 27-inch monitor. The same reason
-   the `fx-*` primitives live here.
+   The sidebar is the EMERALD FIELD (.es-band--field on the element, see
+   AppShell). It used to be the same sand as the page, so the only thing
+   separating navigation from content was a hairline, and the product's colour
+   appeared nowhere in either console. The field band inverts every text role
+   inside itself and is already measured by scripts/contrast.js in both themes.
 
-   NO `!important` ANYWHERE, which is a departure from the codebase this
-   pattern came from — that one wrote `display: flex !important` on the
-   mobile bar and `display: none !important` on the sidebar to beat its own
-   inline styles. `importantCheck.js` forbids it, and these rules do not
-   need it, because the base state written below is the MOBILE one and the
-   media query ADDS the desktop state. Nothing has to be beaten. Worth
-   stating, because the inverted version is the tempting one to write and it
-   only works with `!important`.
+   WHY THIS IS HERE AND NOT BESIDE THE COMPONENT. The navigation renders from
+   the layouts, which are different component functions from every page they
+   wrap; a scoped style never reaches them.
+
+   NO !important ANYWHERE. The base state written below is the PHONE one and
+   each media query ADDS the next arrangement, so nothing has to be beaten.
    ══════════════════════════════════════════════════════════════════════ */
 
-/* Two numbers the shell is built from, declared where both the panel and
-   the gutter that clears it can read them — a sidebar 264px wide and a
-   content wrapper indented 240px is a 24px strip of unreachable page, and
-   that is exactly the bug two hard-coded numbers produce. */
+/* The numbers the shell is built from, declared where both the panel and the
+   gutter that clears it read them — a sidebar 264px wide and a content wrapper
+   indented 240px is a strip of unreachable page. */
 :root {
-  --es-nav-w: 264px;
+  --es-nav-w: 272px;
+  --es-rail-w: 76px;
   --es-nav-bar-h: 60px;
 }
 
-/* The gutter the fixed sidebar occupies. On the wrapper, not on each page:
-   the sidebar is `position: fixed` and would otherwise sit on top of
-   content that has no idea it exists.
-
-   Below lg there is no gutter, but there IS a bottom bar — and the last row
-   of any list has to clear it, or the final order in a table is
-   permanently unreachable. */
+/* The gutter the fixed navigation occupies, on the wrapper rather than on each
+   page. Below md there is no gutter but there IS a bottom bar, and the last row
+   of any list has to clear it. */
 .es-nav-content {
   min-height: 100dvh;
   padding-bottom: calc(var(--es-nav-bar-h) + var(--fx-safe-b));
 }
-
-@media (width >= 64rem) {
+@media (width >= 48rem) {
   .es-nav-content {
-    margin-inline-start: var(--es-nav-w);
+    margin-inline-start: var(--es-rail-w);
     padding-bottom: 0;
   }
 }
+@media (width >= 64rem) {
+  .es-nav-content { margin-inline-start: var(--es-nav-w); }
+}
 
-/* A sticky action bar inside the dashboard, on a phone, has to stick ABOVE
-   the fixed bottom bar. At `bottom: 0` it sat underneath it, so "Create draft
-   event" was hidden until the very end of the form. (From 48rem up the bar is
-   static — see .fx-sticky-actions.) */
+/* A sticky action bar inside the dashboard, on a phone, sticks ABOVE the fixed
+   bottom bar. At bottom: 0 it sat underneath it. */
 @media (width < 48rem) {
   .es-nav-content .fx-sticky-actions {
     bottom: calc(var(--es-nav-bar-h) + var(--fx-safe-b));
@@ -1513,45 +1510,41 @@
 }
 
 /* ── The panel ─────────────────────────────────────────────────────────
-   `height`, not `min-height`, and the one word is load-bearing.
+   height, not min-height: a min-height lets the box overflow the VIEWPORT
+   instead of scrolling, and a fixed box cannot be reached by the page's
+   scrollbar — on a 1366x768 laptop the last group and sign-out were
+   unreachable. dvh so a phone drawer is not sized against a URL bar that has
+   already scrolled away.
 
-   A min-height lets the box grow to its content, so nothing ever overflows
-   the BOX — the box overflows the VIEWPORT instead, and `overflow-y: auto`
-   has nothing to scroll, because from the box's own point of view
-   everything fits. Being fixed, the page's scrollbar cannot reach it
-   either. This panel runs to roughly 900px of content, so on the 1366×768
-   laptop that is the most common Windows screen the last group and the
-   sign-out button would not be reachable by any means.
-
-   `dvh` rather than `vh` so the drawer is not sized against a phone URL bar
-   that has already scrolled away. */
+   color-scheme: dark because the panel is always the dark emerald field: the
+   event switcher's native option list, the scrollbar and the focus ring then
+   render for a dark ground instead of white-on-white. */
 .es-nav {
   position: fixed;
   inset-block-start: 0;
   inset-inline-start: 0;
   z-index: 59;      /* ABOVE the bottom bar — see the note on .es-nav-bar */
   width: var(--es-nav-w);
-  /* A 264px drawer on a 320px phone leaves 56px of page behind it, which is
-     not enough to read as "there is something under this". */
   max-width: 88vw;
   height: 100dvh;
   display: flex;
   flex-direction: column;
+  color-scheme: dark;
   background: var(--es-bg);
   border-inline-end: 1px solid var(--es-border);
+  overflow-x: hidden;
   overflow-y: auto;
-  /* Without this a flick that reaches the end of the drawer keeps going and
-     scrolls the page underneath it. */
   overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--es-border-strong) transparent;
   transform: translateX(-100%);
-  /* A closed drawer is off-screen, and off-screen is not gone: every link in
-     it stayed in the tab order, so a keyboard user tabbed through fifteen
-     invisible destinations before reaching the page. visibility removes it
-     from both the tab order and the accessibility tree. The delay lets the
-     slide-out finish before it disappears. */
+  /* A closed drawer is off-screen, and off-screen is not gone: visibility takes
+     it out of the tab order and the accessibility tree. The delay lets the
+     slide-out finish first. */
   visibility: hidden;
   transition:
     transform var(--es-duration-normal) var(--es-ease-spring),
+    width var(--es-duration-normal) var(--es-ease-spring),
     visibility 0s linear var(--es-duration-normal);
 }
 
@@ -1559,26 +1552,35 @@
   transform: translateX(0);
   box-shadow: var(--es-shadow-xl);
   visibility: visible;
-  transition: transform var(--es-duration-normal) var(--es-ease-spring);
+  transition:
+    transform var(--es-duration-normal) var(--es-ease-spring),
+    width var(--es-duration-normal) var(--es-ease-spring);
 }
 
+@media (width >= 48rem) {
+  .es-nav { transform: none; visibility: visible; }
+  .es-nav:not(.es-nav--open) { box-shadow: none; }
+}
 @media (width >= 64rem) {
-  .es-nav { transform: none; box-shadow: none; visibility: visible; }
+  .es-nav { box-shadow: none; }
 }
 
 .es-nav__head,
 .es-nav__foot {
   flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
   padding: 1rem;
 }
 
 .es-nav__head { border-block-end: 1px solid var(--es-border); }
 
 .es-nav__foot {
+  gap: 0.125rem;
   border-block-start: 1px solid var(--es-border);
-  /* The panel is exactly 100dvh with sign-out as its last child, so on a
-     phone that button lands under the home indicator unless the inset is
-     paid right here. */
+  /* The panel is exactly 100dvh with sign-out near its end, so on a phone the
+     home-indicator inset is paid right here. */
   padding-block-end: max(1rem, var(--fx-safe-b));
 }
 
@@ -1586,24 +1588,47 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 0.25rem;
   padding: 0.75rem;
 }
 
 .es-nav__group-label {
-  padding: 1rem 0.75rem 0.375rem;
+  padding: 0.875rem 0.75rem 0.375rem;
+  font-family: var(--es-font-mono);
   font-size: var(--es-text-xs);
-  font-weight: 700;
-  letter-spacing: 0.1em;
+  letter-spacing: var(--es-tracking-widest);
   text-transform: uppercase;
   color: var(--es-text-subtle);
 }
 
+/* ── The brand ─────────────────────────────────────────────────────────── */
+.es-nav__brand {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  color: var(--es-text);
+  text-decoration: none;
+}
+.es-nav__role {
+  flex-shrink: 0;
+  padding: 0.1875rem 0.5rem;
+  border-radius: var(--es-radius-full);
+  background: var(--es-accent-wash);
+  color: var(--es-accent);
+  font-family: var(--es-font-mono);
+  font-size: var(--es-text-xs);
+  letter-spacing: var(--es-tracking-wide);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
 /* ── One destination ───────────────────────────────────────────────────
-   The active marker is an inline-start EDGE and not only a background,
-   because a background swap disappears entirely under forced colours while
-   a border does not. */
+   The active marker is an inline-start EDGE and not only a background: a
+   background swap disappears under forced colours, a border does not. */
 .es-nav__item {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -1617,6 +1642,7 @@
   color: var(--es-text-muted);
   font: inherit;
   font-size: var(--es-text-sm);
+  font-weight: 500;
   text-align: start;
   text-decoration: none;
   cursor: pointer;
@@ -1631,15 +1657,15 @@
 .es-nav__item[aria-current="page"] {
   background: var(--es-accent-wash);
   border-inline-start-color: var(--es-accent);
-  color: var(--es-accent);
+  color: var(--es-text);
   font-weight: 600;
 }
+.es-nav__item[aria-current="page"] .es-nav__icon { color: var(--es-accent); }
 
-/* Refused at the door, with the reason in its own title. Rendered as a
-   `<span>` rather than a disabled anchor: a disabled link is still
-   followable from the keyboard in several browsers. */
+/* Refused at the door, with the reason in its own title. A span rather than a
+   disabled anchor, which several browsers still follow from the keyboard. */
 .es-nav__item[aria-disabled="true"] {
-  opacity: 0.45;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 .es-nav__item[aria-disabled="true"]:hover {
@@ -1655,9 +1681,9 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  min-width: 18px;
-  height: 18px;
-  padding-inline: 6px;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  padding-inline: 0.375rem;
   border-radius: var(--es-radius-full);
   background: var(--es-accent);
   color: var(--es-text-on-accent);
@@ -1666,12 +1692,80 @@
   line-height: 1;
 }
 
+.es-nav__note {
+  padding: 0.25rem 0.75rem 0.5rem;
+  font-size: var(--es-text-xs);
+  color: var(--es-text-subtle);
+}
+
+/* The call to action in the head. Its label is an .es-nav__label so the rail
+   reduces it to the icon, like every other destination. */
+.es-nav__cta .es-nav__label { flex: none; }
+
+/* ── Who is signed in ──────────────────────────────────────────────────── */
+.es-account {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+  padding: 0.5rem 0.75rem 0.75rem;
+}
+.es-avatar {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: var(--es-radius-full);
+  background: var(--es-accent);
+  color: var(--es-text-on-accent);
+  font-size: var(--es-text-sm);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.es-account__text { display: flex; flex-direction: column; min-width: 0; }
+.es-account__name,
+.es-account__email {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.es-account__name  { font-size: var(--es-text-sm); font-weight: 600; color: var(--es-text); }
+.es-account__email { font-size: var(--es-text-xs); color: var(--es-text-muted); }
+
+/* ── The rail, md → lg ─────────────────────────────────────────────────
+   Every label stays in the accessibility tree (visually hidden, not display:
+   none), so each icon is still announced by name. Opening the menu from the
+   app bar turns the rail back into the full panel over the page. */
+@media (width >= 48rem) and (width < 64rem) {
+  .es-nav:not(.es-nav--open) { width: var(--es-rail-w); }
+  .es-nav:not(.es-nav--open) :is(.es-nav__head, .es-nav__foot, .es-nav__body) { padding-inline: 0.625rem; }
+  .es-nav:not(.es-nav--open) :is(.es-nav__group-label, .es-nav__note, .es-nav__rail-hide, .es-nav__role, .es-nav__badge, .es-logo__word) {
+    display: none;
+  }
+  .es-nav:not(.es-nav--open) .es-nav__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .es-nav:not(.es-nav--open) :is(.es-nav__item, .es-nav__brand, .es-account) {
+    justify-content: center;
+    padding-inline: 0;
+  }
+  .es-nav:not(.es-nav--open) .es-nav__cta { padding-inline: 0; }
+  .es-nav:not(.es-nav--open) .es-nav__group + .es-nav__group {
+    margin-top: 0.375rem;
+    padding-top: 0.375rem;
+    border-top: 1px solid var(--es-border);
+  }
+}
+
 /* ── The scrim behind an open drawer ───────────────────────────────────
-   z-index 58 — ABOVE the bottom bar at 55, not below it. Below, the bar
-   painted over the scrim, so the bottom 60px of the screen was not part of
-   it: a tap there did not dismiss the drawer, it switched section, behind
-   an open drawer, with no visible effect until you closed it and found
-   yourself somewhere else. */
+   ABOVE the bottom bar, not below it — below, a tap on the bar's strip switched
+   section behind an open drawer instead of dismissing it. */
 .es-nav-scrim {
   position: fixed;
   inset: 0;
@@ -1683,8 +1777,7 @@
 }
 @media (width >= 64rem) { .es-nav-scrim { display: none; } }
 
-/* ── The bottom tab bar ────────────────────────────────────────────────
-   The highest-frequency destinations plus More, inside one thumb's reach.
+/* ── The bottom tab bar, phones only ───────────────────────────────────
    Derived from the same list the sidebar renders, never a second one. */
 .es-nav-bar {
   position: fixed;
@@ -1694,12 +1787,12 @@
   display: flex;
   justify-content: space-around;
   align-items: stretch;
-  background: var(--es-bg);
+  background: var(--es-surface);
   border-block-start: 1px solid var(--es-border);
   padding: 4px 4px max(4px, var(--fx-safe-b));
   box-shadow: 0 -4px 16px rgb(15 23 42 / 0.06);
 }
-@media (width >= 64rem) { .es-nav-bar { display: none; } }
+@media (width >= 48rem) { .es-nav-bar { display: none; } }
 
 .es-nav-bar__tab {
   display: flex;
@@ -1711,6 +1804,7 @@
   min-height: var(--fx-touch);
   padding: 4px;
   border: 0;
+  border-radius: var(--es-radius-md);
   background: none;
   color: var(--es-text-muted);
   font: inherit;
@@ -1719,12 +1813,11 @@
   text-decoration: none;
   cursor: pointer;
 }
-.es-nav-bar__tab[aria-current="page"]  { color: var(--es-accent); }
+.es-nav-bar__tab[aria-current="page"]  { color: var(--es-accent); background: var(--es-accent-wash); }
 .es-nav-bar__tab[aria-disabled="true"] { opacity: 0.4; cursor: not-allowed; }
 
 /* A label under a 20px icon in a fifth of a 320px screen has about 60px.
-   Truncating is deliberate rather than a fallback: a label that wraps to
-   two lines changes the bar's height and shifts every other tab's icon. */
+   Truncating is deliberate: a label that wraps changes the bar's height. */
 .es-nav-bar__tab > span {
   max-width: 100%;
   overflow: hidden;
@@ -1732,58 +1825,33 @@
   white-space: nowrap;
 }
 
-/* ══ The app shell: brand, app bar, page head ════════════════════════════
-   The organizer dashboard and the admin console share one shell. Below lg
-   the sidebar becomes a drawer, so a slim bar carries the menu button and
-   the name of the section you are in. */
-.es-nav__brand {
-  display: flex;
-  flex-direction: column;
-  gap: 0.125rem;
-  text-decoration: none;
-}
-.es-nav__brand-name {
-  font-family: var(--es-font-serif);
-  font-size: var(--es-text-xl);
-  line-height: var(--es-leading-tight);
-  letter-spacing: var(--es-tracking-tight);
-  color: var(--es-text);
-}
-.es-nav__brand-role {
-  font-family: var(--es-font-mono);
-  font-size: var(--es-text-xs);
-  text-transform: uppercase;
-  letter-spacing: var(--es-tracking-widest);
-  color: var(--es-accent);
-}
-.es-nav__note {
-  padding: 0.25rem 0.75rem 0.5rem;
-  font-size: var(--es-text-xs);
-  color: var(--es-text-subtle);
-}
-
+/* ══ The app bar, the content column, and the page head ══════════════════ */
 .es-appbar {
   position: sticky;
   inset-block-start: 0;
   z-index: 50;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
+  gap: 0.5rem;
   min-height: 56px;
   padding: 0.25rem var(--fx-pad-x);
   padding-block-start: max(0.25rem, var(--fx-safe-t));
-  background: var(--es-bg);
+  background: color-mix(in srgb, var(--es-bg) 92%, transparent);
+  backdrop-filter: blur(8px);
   border-block-end: 1px solid var(--es-border);
 }
 @media (width >= 64rem) { .es-appbar { display: none; } }
 
+/* Centred, with a measure. Left-aligned at 80rem it hugged the sidebar and
+   left a third of a 27-inch monitor empty on the right. */
 .es-app-main {
   display: flex;
   flex-direction: column;
   gap: var(--fx-gap);
-  padding: var(--fx-pad-y-xs) var(--fx-pad-x) var(--fx-pad-y-sm);
-  max-width: var(--fx-w-2xl);
+  width: 100%;
+  max-width: 90rem;
+  margin-inline: auto;
+  padding: clamp(1.25rem, 2.5vw, 2.5rem) var(--fx-pad-x) var(--fx-pad-y-sm);
 }
 
 .es-page-head {
@@ -1791,14 +1859,314 @@
   flex-wrap: wrap;
   align-items: flex-end;
   justify-content: space-between;
-  gap: var(--fx-gap-sm);
+  gap: var(--fx-gap-sm) var(--fx-gap);
 }
 .es-page-head__title {
   font-size: var(--es-text-2xl);
   line-height: var(--es-leading-tight);
   color: var(--es-text);
 }
-.es-page-head__lede { max-width: 62ch; color: var(--es-text-muted); }
+.es-page-head__lede {
+  max-width: 64ch;
+  font-size: var(--es-text-base);
+  color: var(--es-text-muted);
+}
+.es-page-head__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+.es-section-title {
+  font-size: var(--es-text-xl);
+  line-height: var(--es-leading-tight);
+  color: var(--es-text);
+}
+
+/* ── .es-panel — a titled card ─────────────────────────────────────────
+   Sans, semibold, one size, for every panel heading. They were serif at three
+   sizes, so on a dashboard with eight panels the page title had nothing to be
+   louder than. Serif is kept for page titles, where it is the brand voice. */
+.es-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: clamp(1rem, 0.8rem + 0.9vw, 1.5rem);
+}
+.es-panel-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+}
+.es-panel-head__title {
+  font-family: var(--es-font-sans);
+  font-size: var(--es-text-md);
+  font-weight: 600;
+  line-height: var(--es-leading-snug);
+  letter-spacing: -0.01em;
+  color: var(--es-text);
+}
+.es-panel-head__desc {
+  margin-top: 0.125rem;
+  font-size: var(--es-text-sm);
+  color: var(--es-text-muted);
+}
+.es-panel-head__action { flex-shrink: 0; }
+
+/* ── .es-split — a main column and a side column ───────────────────────
+   One column until xl. At lg the content column beside a 272px sidebar is
+   about 700px, and two panels of fee rows and form fields at 340px each are
+   two cramped columns rather than one comfortable one. */
+.es-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: var(--fx-gap);
+}
+@media (width >= 80rem) {
+  .es-split       { grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); }
+  .es-split--even { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* ── .es-status — where something stands ───────────────────────────────
+   The WORD is ink and a dot carries the tone. Tinting the text itself put
+   amber at 2.1:1, and colour alone is never the signal. */
+.es-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4375rem;
+  padding: 0.25rem 0.625rem 0.25rem 0.5rem;
+  border-radius: var(--es-radius-full);
+  background: var(--es-bg-sunken);
+  color: var(--es-text);
+  font-size: var(--es-text-xs);
+  font-weight: 500;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+.es-status::before {
+  content: '';
+  flex: none;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: var(--es-radius-full);
+  background: var(--es-text-subtle);
+}
+.es-status[data-tone="success"]::before { background: var(--es-success); }
+.es-status[data-tone="info"]::before    { background: var(--es-info); }
+.es-status[data-tone="warning"]::before { background: var(--es-warning); }
+.es-status[data-tone="danger"]::before  { background: var(--es-danger); }
+.es-status[data-tone="muted"]           { color: var(--es-text-muted); }
+.es-status[data-tone="muted"]::before   { background: var(--es-border-strong); }
+
+/* ── .es-steps — a short sequence, and where you are in it ─────────────── */
+.es-steps { display: flex; flex-direction: column; }
+.es-steps__item {
+  position: relative;
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr);
+  gap: 0.875rem;
+  padding-bottom: 1.5rem;
+}
+.es-steps__item:last-child { padding-bottom: 0; }
+.es-steps__item:not(:last-child)::before {
+  content: '';
+  position: absolute;
+  inset-inline-start: calc(1rem - 1px);
+  top: 2.375rem;
+  bottom: 0.375rem;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--es-border);
+}
+.es-steps__item[data-state="done"]:not(:last-child)::before { background: var(--es-accent); }
+.es-steps__marker {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--es-radius-full);
+  border: 1.5px solid var(--es-border-strong);
+  background: var(--es-surface);
+  color: var(--es-text-muted);
+  font-family: var(--es-font-mono);
+  font-size: var(--es-text-sm);
+}
+.es-steps__item[data-state="current"] .es-steps__marker {
+  border-color: var(--es-accent);
+  color: var(--es-accent);
+  box-shadow: 0 0 0 4px var(--es-accent-subtle);
+}
+.es-steps__item[data-state="done"] .es-steps__marker {
+  border-color: var(--es-accent);
+  background: var(--es-accent);
+  color: var(--es-text-on-accent);
+}
+.es-steps__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  min-width: 0;
+  padding-top: 0.3125rem;
+}
+.es-steps__title { font-weight: 600; line-height: var(--es-leading-snug); color: var(--es-text); }
+.es-steps__item[data-state="upcoming"] .es-steps__title { color: var(--es-text-muted); }
+
+/* ── .es-check — a checkbox that is also a statement ───────────────────
+   The whole row is the target, so "I accept" is not a 16px square beside a
+   sentence. */
+.es-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.75rem 0.875rem;
+  border: 1px solid var(--es-border-strong);
+  border-radius: var(--es-radius-md);
+  background: var(--es-surface);
+  cursor: pointer;
+  transition: border-color var(--es-transition-fast), background-color var(--es-transition-fast);
+}
+.es-check:hover { border-color: var(--es-accent-edge); }
+.es-check:has(:checked) {
+  border-color: var(--es-accent);
+  background: var(--es-accent-wash);
+}
+.es-check__box {
+  flex: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-top: 0.125rem;
+  accent-color: var(--es-accent);
+  cursor: pointer;
+}
+
+/* ── .es-deflist — terms and their values ──────────────────────────────── */
+.es-deflist {
+  display: flex;
+  flex-direction: column;
+  font-size: var(--es-text-sm);
+}
+.es-deflist__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.25rem 1rem;
+  padding-block: 0.625rem;
+  border-top: 1px solid var(--es-border);
+}
+.es-deflist__row:first-child { border-top: 0; padding-top: 0; }
+.es-deflist__row:last-child  { padding-bottom: 0; }
+
+/* ── One event's header, breadcrumb, meta line and section strip ───────── */
+.es-event-head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+  border-bottom: 1px solid var(--es-border);
+}
+.es-event-head__main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.75rem 1.5rem;
+}
+.es-event-head__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.es-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  font-size: var(--es-text-sm);
+  color: var(--es-text-muted);
+}
+.es-breadcrumb a { flex-shrink: 0; color: var(--es-text-muted); }
+.es-breadcrumb a:hover { color: var(--es-text); }
+.es-breadcrumb [aria-current] { color: var(--es-text); }
+
+.es-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem 1.25rem;
+  font-size: var(--es-text-sm);
+  color: var(--es-text-muted);
+}
+.es-meta__item { display: inline-flex; align-items: center; gap: 0.375rem; min-width: 0; }
+.es-meta__item > svg { flex: none; color: var(--es-text-subtle); }
+
+/* Below lg the sidebar is a rail or a drawer, so an event's sections sit under
+   its header as a strip. From lg the sidebar lists them and this goes. */
+.es-subnav {
+  display: flex;
+  gap: 1.25rem;
+  margin-bottom: -1px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+.es-subnav::-webkit-scrollbar { display: none; }
+.es-subnav__link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--fx-touch);
+  border-bottom: 2px solid transparent;
+  font-size: var(--es-text-sm);
+  white-space: nowrap;
+  color: var(--es-text-muted);
+  transition: color var(--es-transition-fast), border-color var(--es-transition-fast);
+}
+.es-subnav__link:hover { color: var(--es-text); }
+.es-subnav__link[aria-current="page"] {
+  border-bottom-color: var(--es-accent);
+  color: var(--es-text);
+  font-weight: 500;
+}
+@media (width >= 64rem) {
+  .es-subnav { display: none; }
+  .es-event-head { padding-bottom: 1.25rem; }
+}
+
+/* ── .es-logo — the framed star and the wordmark ───────────────────────
+   The mark and the wordmark are the same height in the artwork, so they are
+   here. The mark takes the ACCENT role, so it is emerald-800 on sand,
+   emerald-400 on the dark theme and on the emerald sidebar. */
+.es-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.625rem;
+  line-height: 1;
+  color: var(--es-text);
+}
+.es-logo__mark { flex: none; width: auto; height: 1.5rem; color: var(--es-accent); }
+.es-logo__word { flex: none; width: auto; height: 1.4rem; }
+.es-logo--sm .es-logo__mark { height: 1.25rem; }
+.es-logo--sm .es-logo__word { height: 1.15rem; }
+.es-logo--lg .es-logo__mark { height: 2.25rem; }
+.es-logo--lg .es-logo__word { height: 2.1rem; }
+
+/* ── .es-onboard — the first thing a new organizer sees ────────────────── */
+.es-onboard {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--fx-gap);
+  padding: clamp(1.25rem, 1rem + 2vw, 2.5rem);
+  border-radius: var(--es-radius-xl);
+}
+@media (width >= 64rem) {
+  .es-onboard { grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); align-items: center; }
+}
 
 /* ── .es-btn--danger ──────────────────────────────────────────────────────
    Its own fill rather than --es-danger: white on #ef4444 is 3.76:1 and
@@ -1971,7 +2339,7 @@
 }
 
 /* ── .es-toast — confirmation that something happened ────────────────────
-   Above the bottom tab bar on a phone, bottom-right on a desktop. */
+   Above the bottom tab bar on a phone, bottom-right from md up (no bottom bar there). */
 @keyframes es-toast-in {
   from { opacity: 0; transform: translateY(8px); }
   to   { opacity: 1; transform: none; }
@@ -1988,7 +2356,7 @@
   padding-inline: var(--fx-pad-x);
   pointer-events: none;
 }
-@media (width >= 64rem) {
+@media (width >= 48rem) {
   .es-toast-region {
     inset-inline-start: auto;
     inset-inline-end: 1.5rem;

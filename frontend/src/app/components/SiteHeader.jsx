@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth, signOut } from '../hooks/useAuth';
+import Logo from './brand/Logo';
 
 /**
  * The masthead.
@@ -97,11 +98,8 @@ function SiteNav({ pathname }) {
       <div className="fx-gutter">
         <div className="fx-container fx-container--xl">
           <div className="fx-row fx-row--between h-16">
-            <Link
-              href="/"
-              className="fx-touch font-serif text-xl tracking-[-0.02em] text-ink"
-            >
-              Eventsli
+            <Link href="/" aria-label="Eventsli — home" className="fx-touch">
+              <Logo />
             </Link>
 
             {/* ── Desktop ────────────────────────────────────────────

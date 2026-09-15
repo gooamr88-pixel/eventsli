@@ -70,7 +70,7 @@ export default function AdminOrganizers() {
   return (
     <div className="fx-stack">
       <PageHeader
-        eyebrow="Administration"
+        eyebrow="People"
         title="Organizers"
         lede="Who sells on Eventsli, whether they can be paid, and whether they are allowed to."
       />

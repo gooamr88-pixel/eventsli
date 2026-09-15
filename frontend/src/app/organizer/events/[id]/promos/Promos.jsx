@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { post, patch } from '../../../../utils/apiClient';
-import { describeError } from '../../../../utils/errors';
+import { describeError, messageFor } from '../../../../utils/errors';
 import { formatMoney } from '../../../../utils/money';
 import { useApi } from '../../../../hooks/useApi';
 import { useToast } from '../../../../components/ui/Toast';
@@ -39,7 +39,8 @@ export default function Promos({ eventId }) {
       toast.success(promo.isActive ? `${promo.code} is switched off.` : `${promo.code} is live again.`);
       reload();
     } catch (err) {
-      toast.error(describeError(err).recovery);
+      // The API's own sentence, not the generic recovery line for its code.
+      toast.error(messageFor(err), { title: describeError(err).title });
     } finally {
       setBusyId(null);
     }

@@ -4,17 +4,17 @@
     in <head> on every page. SVG rather than a .ico so it stays crisp on a
     high-density display and weighs a few hundred bytes.
 
-    A ticket stub with a perforation. It reads at 16px, which is the only size
-    that matters — the mark is not the logo, it is the thing somebody has to
-    pick out of twenty browser tabs.
+    The Eventsli mark - the framed star from the brand artwork - drawn from the
+    same geometry as components/brand/Logo.jsx (a 512 x 500 box, scaled here).
+    It replaced a generic ticket-stub glyph that was nobody's logo.
 
     #059669 is --es-emerald-600, the same value as the theme colour in the root
     layout. It is written literally because this file is served on its own and
     never sees a stylesheet.
   -->
   <rect width="32" height="32" rx="7" fill="#059669"/>
-  <path
-    d="M8 11.5h6.2a1.8 1.8 0 0 0 3.6 0H24v3.1a1.4 1.4 0 0 0 0 2.8v3.1h-6.2a1.8 1.8 0 0 0-3.6 0H8v-3.1a1.4 1.4 0 0 0 0-2.8z"
-    fill="#ffffff"
-  />
+  <g transform="translate(6.4 6.625) scale(0.0375)" fill="#ffffff">
+    <path fill-rule="evenodd" d="M90 0H420L512 90V432H420V500H92V432H0V90ZM92 70V432H420V70Z"/>
+    <path d="M256 118L284.2 204.7H375.4L301.7 258.3L329.8 345L256 291.5L182.2 345L210.3 258.3L136.6 204.7H227.8Z"/>
+  </g>
 </svg>

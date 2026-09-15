@@ -200,6 +200,43 @@ function editConsequence({ status, columns, isAdmin, hasPaidOrders }) {
   return { ...nothing, returnsToDraft: status === 'pending_review' && changed.length > 0 };
 }
 
+/**
+ * The statuses in which an organizer accepts the terms — before submitting.
+ * Once an event is in review or on sale, the version it went in under stands.
+ */
+const TERMS_ACCEPTABLE_FROM = Object.freeze(['draft', 'rejected']);
+
+/**
+ * Has this event's organizer accepted the terms, as far as the NEXT step cares?
+ *
+ * THE BUG THIS REPLACES. The dashboard read `!!terms_accepted_id`, but only
+ * `submit` wrote that column — `accept-terms` recorded a row in
+ * `terms_acceptances` and left the event alone. So after "Accept and continue"
+ * the page reloaded the event, still saw no acceptance, showed the terms box
+ * again and kept "Submit for review" disabled: the one button that would have
+ * written the flag was locked behind the flag. Nobody could submit an event
+ * from the dashboard.
+ *
+ * Accepting now stamps the event in the same request, and this decides what the
+ * stamp means:
+ *   · before submission, only the CURRENT version counts — it is what
+ *     `submit` will demand, so a stamp from an older version must show the
+ *     terms step again rather than a Submit button that fails;
+ *   · after submission, the version accepted at the time stands (a published
+ *     event keeps running under the terms its organizer agreed to).
+ *
+ * `currentTermsId` may be unknown (no terms published, or the lookup failed);
+ * then any stamp counts, and `submit` remains the authority.
+ */
+function termsAcceptedFor(event, currentTermsId = null) {
+  const acceptedId = event?.terms_accepted_id || null;
+  if (!acceptedId) return false;
+  if (TERMS_ACCEPTABLE_FROM.includes(event.status) && currentTermsId) {
+    return acceptedId === currentTermsId;
+  }
+  return true;
+}
+
 function canTransition(from, to) {
   return (TRANSITIONS[from] || []).includes(to);
 }
@@ -243,6 +280,8 @@ module.exports = {
   TRANSITION_ACTOR,
   LIVE_EDITABLE,
   LOCKED_AFTER_SALE,
+  TERMS_ACCEPTABLE_FROM,
+  termsAcceptedFor,
   canTransition,
   transitionActor,
   partitionPatch,

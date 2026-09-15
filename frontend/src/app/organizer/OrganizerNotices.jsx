@@ -3,8 +3,12 @@ import { Notice } from '../components/Feedback';
 /**
  * The two things about an organizer's own account that stop them selling, said
  * where they can act on them rather than discovered from a buyer's complaint.
+ *
+ * `payouts={false}` where the page already says it another way. The dashboard
+ * showed "No payout account yet" as a banner AND as the first line of Needs
+ * you, one above the other — the same sentence twice reads as two problems.
  */
-export default function OrganizerNotices({ organizer }) {
+export default function OrganizerNotices({ organizer, payouts = true }) {
   return (
     <>
       {/* BRD §19 — a banned organizer is NOT a blocked account. They still sign
@@ -21,7 +25,7 @@ export default function OrganizerNotices({ organizer }) {
 
       {/* Without a connected account every checkout is refused, and the buyer is
           deliberately not told why — it is not theirs to fix. */}
-      {!organizer.canReceivePayouts && (
+      {payouts && !organizer.canReceivePayouts && (
         <Notice
           tone="warning"
           title={organizer.stripeConnected ? 'Stripe still needs some details.' : 'No payout account yet.'}

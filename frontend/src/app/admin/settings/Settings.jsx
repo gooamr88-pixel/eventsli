@@ -90,7 +90,7 @@ export default function Settings() {
   return (
     <div className="fx-stack">
       <PageHeader
-        eyebrow="Console"
+        eyebrow="Governance"
         title="Platform settings"
         lede="The markets Eventsli sells in, and the defaults every new event starts from."
       />

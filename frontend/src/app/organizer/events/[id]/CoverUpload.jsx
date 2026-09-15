@@ -4,6 +4,8 @@ import { useRef, useState } from 'react';
 import Image from 'next/image';
 import { post, put, del } from '../../../utils/apiClient';
 import { useConfirm } from '../../../components/ui/Confirm';
+import { useToast } from '../../../components/ui/Toast';
+import { Panel } from '../../../components/ui/Page';
 import FormError from '../../../components/forms/FormError';
 
 /**
@@ -23,11 +25,11 @@ import FormError from '../../../components/forms/FormError';
  * and the most-shared page on the platform would render a broken image.
  *
  * `coverUrl` is not a field anyone can PATCH — see the note in eventRules.js.
- * A client-supplied URL ends up inside an Open Graph tag on a public page,
- * which makes it a link the platform vouches for pointing anywhere at all.
  *
  * Removing asks first. It deletes the stored file as well as the link, so one
- * stray click took the image off every shared link with no way back.
+ * stray click took the image off every shared link with no way back. Both
+ * outcomes are confirmed with a toast: the image swapping in place was the only
+ * sign an upload had worked, and a removal had none.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 const ACCEPT = 'image/jpeg,image/png,image/webp';
@@ -35,6 +37,7 @@ const ACCEPT = 'image/jpeg,image/png,image/webp';
 export default function CoverUpload({ event, onChanged }) {
   const input = useRef(null);
   const confirm = useConfirm();
+  const toast = useToast();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
@@ -71,6 +74,7 @@ export default function CoverUpload({ event, onChanged }) {
       }
 
       await put(`/events/${event.id}/cover`, { path: signed.path }, { noRedirect: true });
+      toast.success(event.cover ? 'The new cover is live everywhere the event appears.' : 'Cover image added.');
       onChanged();
     } catch (err) {
       setError(err);
@@ -94,6 +98,7 @@ export default function CoverUpload({ event, onChanged }) {
     setError(null);
     try {
       await del(`/events/${event.id}/cover`, { noRedirect: true });
+      toast.success('Cover image removed.');
       onChanged();
     } catch (err) {
       setError(err);
@@ -103,39 +108,28 @@ export default function CoverUpload({ event, onChanged }) {
   }
 
   return (
-    <section className="fx-stack fx-stack--sm es-card p-5">
-      <div className="fx-row fx-row--between">
-        <h2 className="text-lg text-ink">Cover image</h2>
-        {event.cover && editable && (
-          <button
-            type="button"
-            onClick={remove}
-            disabled={busy}
-            className="es-btn es-btn--ghost es-btn--sm"
-          >
-            Remove
-          </button>
-        )}
-      </div>
-
-      <p className="text-sm text-muted">
-        Shown on your event page, in listings, and on every link someone shares. JPEG,
-        PNG or WebP.
-      </p>
-
+    <Panel
+      title="Cover image"
+      description="Shown on your event page, in listings, and on every shared link. JPEG, PNG or WebP."
+      action={event.cover && editable && (
+        <button type="button" onClick={remove} disabled={busy} className="es-btn es-btn--ghost es-btn--sm">
+          Remove
+        </button>
+      )}
+    >
       {event.cover ? (
         <div className="relative aspect-[16/9] w-full overflow-hidden rounded-(--es-radius-md) bg-bg-sunken">
           <Image
             src={event.cover.url}
             alt=""
             fill
-            sizes="(max-width: 768px) 100vw, 640px"
+            sizes="(max-width: 1280px) 100vw, 480px"
             className="object-cover"
           />
         </div>
       ) : (
         <div className="grid aspect-[16/9] w-full place-items-center rounded-(--es-radius-md) border border-dashed border-border-strong bg-bg-sunken">
-          <p className="text-sm text-subtle">No image yet</p>
+          <p className="text-sm text-subtle">No image yet — events with a cover are easier to share.</p>
         </div>
       )}
 
@@ -148,17 +142,19 @@ export default function CoverUpload({ event, onChanged }) {
             type="file"
             accept={ACCEPT}
             onChange={(e) => upload(e.target.files?.[0])}
-            className="hidden"
+            className="sr-only"
             id={`cover-${event.id}`}
+            disabled={busy}
           />
           <label
             htmlFor={`cover-${event.id}`}
-            className={`es-btn es-btn--secondary self-start ${busy ? 'pointer-events-none opacity-50' : ''}`}
+            aria-disabled={busy || undefined}
+            className="es-btn es-btn--secondary self-start"
           >
             {busy ? 'Uploading…' : event.cover ? 'Replace image' : 'Choose an image'}
           </label>
         </>
       )}
-    </section>
+    </Panel>
   );
 }

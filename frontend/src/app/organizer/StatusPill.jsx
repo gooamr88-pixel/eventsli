@@ -8,26 +8,22 @@
  * can go round again, a suspended one is pulled from sale by an admin, and a
  * cancelled one never comes back.
  *
- * Colour carries severity and is separate from the brand accent: green here
- * means live, not "primary action".
+ * THE COLOUR IS A DOT, NOT THE TEXT. This used to tint the label itself —
+ * amber `text-warning` at 10px, which is 2.1:1 on its own wash and below the
+ * 12px floor the type ramp promises. The words now stay ink, a dot carries the
+ * severity (`.es-status` in globals.css), and colour is never the only signal.
  */
 const LOOKS = {
-  draft: ['Draft', 'bg-bg-sunken text-muted'],
-  pending_review: ['In review', 'bg-info/15 text-info'],
-  rejected: ['Changes needed', 'bg-warning/15 text-warning'],
-  published: ['On sale', 'bg-success/15 text-success'],
-  suspended: ['Suspended', 'bg-danger/15 text-danger'],
-  cancelled: ['Cancelled', 'bg-danger/10 text-muted'],
-  completed: ['Finished', 'bg-bg-sunken text-subtle'],
+  draft: ['Draft', 'neutral'],
+  pending_review: ['In review', 'info'],
+  rejected: ['Changes needed', 'warning'],
+  published: ['On sale', 'success'],
+  suspended: ['Suspended', 'danger'],
+  cancelled: ['Cancelled', 'muted'],
+  completed: ['Finished', 'muted'],
 };
 
 export default function StatusPill({ status }) {
-  const [label, look] = LOOKS[status] || [status, 'bg-bg-sunken text-muted'];
-  return (
-    <span
-      className={`whitespace-nowrap rounded-full px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.09em] ${look}`}
-    >
-      {label}
-    </span>
-  );
+  const [label, tone] = LOOKS[status] || [status, 'neutral'];
+  return <span className="es-status" data-tone={tone}>{label}</span>;
 }

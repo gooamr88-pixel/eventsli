@@ -2,6 +2,7 @@ const { supabase } = require('../config/supabase');
 const { uniqueSlug } = require('../utils/slug');
 const events = require('../services/eventService');
 const terms = require('../services/termsService');
+const { termsAcceptedFor, TERMS_ACCEPTABLE_FROM } = require('../services/eventRules');
 const { parsePagination, applyPagination, buildMeta } = require('../middleware/pagination');
 const { sendOk, sendFail } = require('../utils/responseEnvelope');
 const { safeSearch } = require('../utils/search');
@@ -91,10 +92,13 @@ async function list(req, res, next) {
     const safe = safeSearch(p.q);
     if (safe) query = query.ilike('title', `%${safe}%`);
 
-    const { data, error, count } = await applyPagination(query, p);
+    const [{ data, error, count }, currentTermsId] = await Promise.all([
+      applyPagination(query, p),
+      currentOrganizerTermsId(),
+    ]);
     if (error) throw new Error(error.message);
 
-    return sendOk(res, (data || []).map(shape), { pagination: buildMeta(p, count) });
+    return sendOk(res, (data || []).map((e) => shape(e, { currentTermsId })), { pagination: buildMeta(p, count) });
   } catch (err) {
     return next(err);
   }
@@ -103,12 +107,26 @@ async function list(req, res, next) {
 // ─── GET /events/:eventId ───────────────────────────────────────────────────
 async function get(req, res, next) {
   try {
-    const { data, error } = await supabase
-      .from('events').select(SELECT).eq('id', req.params.eventId).single();
+    const [{ data, error }, currentTermsId] = await Promise.all([
+      supabase.from('events').select(SELECT).eq('id', req.params.eventId).single(),
+      currentOrganizerTermsId(),
+    ]);
     if (error) throw new Error(error.message);
-    return sendOk(res, shape(data));
+    return sendOk(res, shape(data, { currentTermsId }));
   } catch (err) {
     return next(err);
+  }
+}
+
+/**
+ * The id of the organizer terms in force, or null. Null is not an error here:
+ * with no terms published nothing can be submitted anyway, and `submit` says so.
+ */
+async function currentOrganizerTermsId() {
+  try {
+    return (await terms.currentVersion('organizer')).id;
+  } catch {
+    return null;
   }
 }
 
@@ -223,7 +241,12 @@ async function update(req, res, next) {
       });
     }
 
-    return sendOk(res, shape(data), consequence.returnsToDraft ? { meta: { returnedToDraft: true } } : undefined);
+    const currentTermsId = await currentOrganizerTermsId();
+    return sendOk(
+      res,
+      shape(data, { currentTermsId }),
+      consequence.returnsToDraft ? { meta: { returnedToDraft: true } } : undefined,
+    );
   } catch (err) {
     if (err.code === 'VALIDATION_ERROR') {
       return sendFail(res, { status: 400, error: 'VALIDATION_ERROR', message: err.message });
@@ -282,20 +305,63 @@ async function submitForReview(req, res, next) {
       .single();
 
     if (error) throw new Error(error.message);
-    return sendOk(res, shape(data));
+    return sendOk(res, shape(data, { currentTermsId: termsId }));
   } catch (err) {
     return next(err);
   }
 }
 
 // ─── POST /events/:eventId/accept-terms ─────────────────────────────────────
+// BRD §21. Records the acceptance AND stamps it on the event, in one request.
+//
+// It used to do only the first. The event's `terms_accepted_id` — the field
+// the dashboard reads — was written by `submit` alone, so after accepting the
+// page still showed the terms step and kept Submit disabled behind a flag only
+// Submit could set. See `termsAcceptedFor` in eventRules.js.
+//
+// `updated_at` is deliberately left alone: accepting is not an edit, and the
+// details form re-seeds from that timestamp.
 async function acceptTerms(req, res, next) {
   try {
+    const { data: event, error: readError } = await supabase
+      .from('events').select('id, status').eq('id', req.params.eventId).single();
+    if (readError) throw new Error(readError.message);
+
+    if (!TERMS_ACCEPTABLE_FROM.includes(event.status)) {
+      return sendFail(res, {
+        status: 409, error: 'CONFLICT',
+        message: `This event is ${event.status.replace('_', ' ')}, so its terms were already agreed when it was submitted.`,
+      });
+    }
+
     const current = await terms.currentVersion('organizer');
-    await terms.accept({
-      userId: req.user.id, termsId: current.id, eventId: req.params.eventId, req,
+    const acceptance = await terms.accept({
+      userId: req.user.id, termsId: current.id, eventId: event.id, req,
     });
-    return sendOk(res, { accepted: true, version: current.version, termsId: current.id });
+
+    const { data, error } = await supabase
+      .from('events')
+      .update({ terms_accepted_id: current.id })
+      .eq('id', event.id)
+      .eq('status', event.status)    // optimistic lock, as submit does
+      .select(SELECT)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!data) {
+      return sendFail(res, {
+        status: 409, error: 'CONFLICT',
+        message: 'This event changed while you were accepting the terms. Reload and try again.',
+      });
+    }
+
+    return sendOk(res, {
+      accepted: true,
+      version: current.version,
+      termsId: current.id,
+      acceptedAt: acceptance.accepted_at,
+      // The updated event, so the page can move on without a second request.
+      event: shape(data, { currentTermsId: current.id }),
+    });
   } catch (err) {
     if (err.code === 'CONFLICT') {
       return sendFail(res, { status: 409, error: 'CONFLICT', message: err.message });
@@ -307,7 +373,12 @@ async function acceptTerms(req, res, next) {
 // Cancellation is not here. BRD §17: the organizer cannot cancel an event —
 // see `admin/approvalController.cancel`.
 
-function shape(e) {
+/**
+ * `currentTermsId` is the organizer terms version in force. Without it a stamp
+ * from any version reads as accepted — right for callers outside the terms flow
+ * (the cover upload), and `submit` still checks the current version itself.
+ */
+function shape(e, { currentTermsId = null } = {}) {
   return {
     id: e.id,
     slug: e.slug,
@@ -345,7 +416,7 @@ function shape(e) {
     review: {
       rejectionReason: e.rejection_reason,
       reviewedAt: e.reviewed_at,
-      termsAccepted: !!e.terms_accepted_id,
+      termsAccepted: termsAcceptedFor(e, currentTermsId),
     },
     cancelledAt: e.cancelled_at,
     cancelledReason: e.cancelled_reason,
