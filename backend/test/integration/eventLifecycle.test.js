@@ -187,6 +187,19 @@ test('accepting the terms then submitting moves it to review', async () => {
   assert.equal(res.body.data.status, 'pending_review');
 });
 
+test('editing an event under review withdraws it, and it has to be resubmitted', async () => {
+  // BRD §16. Edits used to land on an event in the queue, so the reviewer
+  // approved content they had never seen.
+  const edit = await organizer('PATCH', `/events/${eventId}`, { description: 'Added after submitting.' });
+  assert.equal(edit.status, 200, JSON.stringify(edit.body));
+  assert.equal(edit.body.data.status, 'draft');
+  assert.equal(edit.body.meta.returnedToDraft, true);
+
+  const again = await organizer('POST', `/events/${eventId}/submit`);
+  assert.equal(again.status, 200, JSON.stringify(again.body));
+  assert.equal(again.body.data.status, 'pending_review');
+});
+
 test('the event is not public until an admin approves it', async () => {
   const { data } = await supabase.from('events').select('status').eq('id', eventId).single();
   assert.equal(data.status, 'pending_review', 'an organizer must not be able to publish');
@@ -235,6 +248,21 @@ test('approval publishes it, and a second approval is refused', async () => {
 
   const again = await admin('POST', `/admin/events/${eventId}/approve`);
   assert.equal(again.status, 409, 'two reviewers must not both publish');
+});
+
+test('a live event takes a description change, but not a new date', async () => {
+  const note = await organizer('PATCH', `/events/${eventId}`, { description: 'Doors open at 7pm.' });
+  assert.equal(note.status, 200, JSON.stringify(note.body));
+  assert.equal(note.body.data.status, 'published', 'an operational change keeps it on sale');
+
+  const moved = await organizer('PATCH', `/events/${eventId}`, {
+    startsAt: new Date(Date.now() + 60 * 86400e3).toISOString(),
+  });
+  assert.equal(moved.status, 409, JSON.stringify(moved.body));
+  assert.deepEqual(moved.body.meta.lockedFields, ['startsAt']);
+
+  const { data } = await supabase.from('events').select('status, starts_at').eq('id', eventId).single();
+  assert.equal(data.status, 'published');
 });
 
 // ── BRD §17 — who may cancel, and who may suspend ───────────────────────────

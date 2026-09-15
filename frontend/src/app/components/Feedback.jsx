@@ -156,21 +156,3 @@ export function ErrorNotice({ error, action }) {
     </Notice>
   );
 }
-
-/**
- * One number on the organizer's dashboard.
- *
- * `value` is rendered as given — formatting money or a count is the caller's
- * job, because only the caller knows the currency. What this guarantees is
- * that every number on the page is the same size, in the same face, with
- * tabular figures.
- */
-export function Stat({ label, value, note }) {
-  return (
-    <div className="es-stat">
-      <span className="es-stat__label">{label}</span>
-      <span className="es-stat__value">{value}</span>
-      {note && <span className="es-stat__note">{note}</span>}
-    </div>
-  );
-}

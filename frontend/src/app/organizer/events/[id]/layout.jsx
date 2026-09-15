@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { get } from '../../../utils/apiClient';
+import { formatEventTime } from '../../../lib/eventTime';
 import StatusPill from '../../StatusPill';
 import NavIcon from '../../../components/shell/NavIcon';
 import { ErrorNotice } from '../../../components/Feedback';
@@ -74,9 +75,7 @@ function EventHeader({ event }) {
     );
   }
 
-  const when = new Intl.DateTimeFormat('en-US', {
-    dateStyle: 'medium', timeStyle: 'short', timeZone: event.timezone,
-  }).format(new Date(event.startsAt));
+  const when = formatEventTime(event.startsAt, event.timezone);
 
   return (
     <header className="fx-stack fx-stack--sm border-b border-border-base pb-4">

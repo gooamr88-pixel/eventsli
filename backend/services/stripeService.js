@@ -33,7 +33,7 @@ let stripeClient = null;
 function stripe() {
   if (!process.env.STRIPE_SECRET_KEY) {
     throw Object.assign(new Error('Card payments are not configured.'),
-      { code: 'PAYMENT_REQUIRED' });
+      { code: 'FEATURE_DISABLED' });
   }
   if (!stripeClient) {
     // eslint-disable-next-line global-require
@@ -228,8 +228,11 @@ async function ensureConnectedAccount(organizer) {
 async function createOnboardingLink({ accountId, origin }) {
   const link = await stripe().accountLinks.create({
     account: accountId,
-    refresh_url: `${origin}/dashboard/settings/payments?refresh=1`,
-    return_url: `${origin}/dashboard/settings/payments?done=1`,
+    // The organizer's Payouts page. These pointed at /dashboard/settings/payments,
+    // a route from the previous frontend that does not exist here, so every
+    // organizer who finished onboarding — or whose link expired — got a 404.
+    refresh_url: `${origin}/organizer/payouts?stripe=refresh`,
+    return_url: `${origin}/organizer/payouts?stripe=return`,
     type: 'account_onboarding',
   });
   return link.url;
@@ -269,8 +272,18 @@ async function refreshAccountStatus(organizerId) {
   };
 }
 
+/**
+ * Makes an open Checkout Session unpayable. Used when an event stops selling
+ * while a buyer is still on Stripe's page (services/openCheckouts.js). Throws
+ * for a session that has already completed or expired — the caller logs it.
+ */
+async function expireSession(sessionId) {
+  return stripe().checkout.sessions.expire(sessionId);
+}
+
 module.exports = {
   enabled,
+  expireSession,
   organizerCanReceive,
   createCheckoutSession,
   constructEvent,

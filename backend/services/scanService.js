@@ -1,5 +1,8 @@
 const { supabase } = require('../config/supabase');
 const { hashPassword, verifyPassword } = require('../utils/crypto');
+const logger = require('../utils/logger');
+const { mapLimit } = require('../utils/mapLimit');
+const { MAX_PIN_FAILURES, PIN_LOCK_MINUTES, isPinLocked } = require('../utils/pinLockout');
 const { decodeQrToken } = require('./ticketService');
 const scanTokens = require('./scanTokens');
 
@@ -18,7 +21,6 @@ const scanTokens = require('./scanTokens');
 // Token signing and reading live in scanTokens.js, which has no database and is
 // therefore testable. A tablet's token lasts seven days — a festival weekend
 // without a re-login, short enough that a stolen one dies before the next event.
-const { DEVICE_TOKEN_TYPE } = scanTokens;
 
 async function registerDevice({ eventId, label, pin }) {
   const { data, error } = await supabase
@@ -45,10 +47,17 @@ async function listDevices(eventId) {
   }));
 }
 
-/** Revoking is a flag, not a delete: the scans it recorded must keep pointing somewhere. */
+/**
+ * Revoking is a flag, not a delete: the scans it recorded must keep pointing somewhere.
+ * Switching a device back on also clears a PIN lockout — the organizer is the
+ * person who can vouch for whoever is holding it.
+ */
 async function setDeviceActive(deviceId, isActive) {
+  const patch = isActive
+    ? { is_active: true, failed_pin_count: 0, pin_locked_until: null }
+    : { is_active: false };
   const { data, error } = await supabase
-    .from('scan_devices').update({ is_active: isActive }).eq('id', deviceId)
+    .from('scan_devices').update(patch).eq('id', deviceId)
     .select('id, is_active').single();
   if (error) throw new Error(error.message);
   return { id: data.id, isActive: data.is_active };
@@ -57,31 +66,42 @@ async function setDeviceActive(deviceId, isActive) {
 /**
  * A device signs in with its id and PIN and gets a token.
  *
- * The failure is deliberately uniform: a wrong PIN and a revoked device look
- * the same, so someone holding a lost tablet learns nothing about whether it
- * was the PIN or the revocation that stopped them.
+ * The failure is deliberately uniform: a wrong PIN, a revoked device and a
+ * locked one all look the same, so someone holding a lost tablet learns nothing
+ * about which of them stopped them.
+ *
+ * After MAX_PIN_FAILURES wrong PINs the device refuses every PIN, right or
+ * wrong, for PIN_LOCK_MINUTES. Counted per device in the database, so rotating
+ * addresses no longer buys more guesses (utils/pinLockout.js).
  */
 async function authenticateDevice({ deviceId, pin }) {
   const { data: device } = await supabase
     .from('scan_devices')
-    .select('id, event_id, label, pin_hash, is_active, staff_id')
+    .select('id, event_id, label, pin_hash, is_active, staff_id, pin_locked_until')
     .eq('id', deviceId)
     .maybeSingle();
 
   // A device that belongs to a door-team member is reached with that person's
   // account and never with a PIN — refused exactly like a revoked one.
-  if (!device || !device.is_active || device.staff_id) {
-    // Still spend the hash, so a revoked device is not identifiable by how
-    // quickly it is refused.
+  if (!device || !device.is_active || device.staff_id || isPinLocked(device)) {
+    // Still spend the hash, so a revoked or locked device is not identifiable
+    // by how quickly it is refused.
     await verifyPassword(String(pin || ''), 'pbkdf2$210000$AAAA$AAAA');
     return null;
   }
 
   const { ok } = await verifyPassword(String(pin || ''), device.pin_hash);
-  if (!ok) return null;
+  if (!ok) {
+    const { error } = await supabase.rpc('record_device_pin_failure', {
+      p_device_id: device.id, p_max_failures: MAX_PIN_FAILURES, p_lock_minutes: PIN_LOCK_MINUTES,
+    });
+    if (error) logger.error({ err: error.message, deviceId: device.id }, 'PIN failure could not be counted');
+    return null;
+  }
 
   await supabase.from('scan_devices')
-    .update({ last_seen_at: new Date().toISOString() }).eq('id', device.id);
+    .update({ last_seen_at: new Date().toISOString(), failed_pin_count: 0, pin_locked_until: null })
+    .eq('id', device.id);
 
   return {
     token: scanTokens.signDeviceToken({ deviceId: device.id, eventId: device.event_id }),
@@ -166,23 +186,41 @@ async function scan({ qr, deviceId, eventId, clientScanId, occurredAt }) {
 /**
  * Uploads a queue of scans taken while offline.
  *
- * Processed one at a time rather than in one statement: a single bad row must
+ * Each scan is its own call rather than one statement: a single bad row must
  * not reject the other 200, and each needs its own answer so the device can
  * show the operator which of their scans were duplicates.
+ *
+ * Several at once, not one at a time. A tablet reconnecting after a busy
+ * offline hour sent 500 sequential calls and could time out before the queue
+ * landed. Scans of the SAME code stay in queue order, one after another, so
+ * which of two scans admitted the guest does not depend on a race.
  *
  * Every entry carries a client-generated id, so uploading the same queue twice
  * is a no-op rather than 200 duplicate refusals.
  */
+const SYNC_CONCURRENCY = 8;
+
 async function syncBatch({ deviceId, eventId, scans }) {
-  const results = [];
-  for (const s of scans.slice(0, 500)) {
-    // eslint-disable-next-line no-await-in-loop
-    const r = await scan({
-      qr: s.qr, deviceId, eventId,
-      clientScanId: s.clientScanId, occurredAt: s.occurredAt,
-    });
-    results.push({ clientScanId: s.clientScanId, ...r });
-  }
+  const queue = scans.slice(0, 500);
+  const byCode = new Map();
+  queue.forEach((s, index) => {
+    const code = String(s?.qr || '');
+    if (!byCode.has(code)) byCode.set(code, []);
+    byCode.get(code).push(index);
+  });
+
+  const results = new Array(queue.length);
+  await mapLimit([...byCode.values()], SYNC_CONCURRENCY, async (indexes) => {
+    for (const index of indexes) {
+      const s = queue[index];
+      // eslint-disable-next-line no-await-in-loop
+      const r = await scan({
+        qr: s.qr, deviceId, eventId,
+        clientScanId: s.clientScanId, occurredAt: s.occurredAt,
+      });
+      results[index] = { clientScanId: s.clientScanId, ...r };
+    }
+  });
   return results;
 }
 
@@ -198,5 +236,4 @@ module.exports = {
   registerDevice, listDevices, setDeviceActive,
   authenticateDevice, verifyDeviceToken, getActiveDevice,
   scan, syncBatch, gateStatus,
-  DEVICE_TOKEN_TYPE,
 };

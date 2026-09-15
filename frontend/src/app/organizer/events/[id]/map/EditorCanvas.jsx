@@ -99,7 +99,7 @@ export default function EditorCanvas({
       <svg
         ref={svgRef}
         viewBox={`${view.x} ${view.y} ${view.width} ${view.height}`}
-        className="block h-full w-full select-none rounded-[--es-radius-lg] border border-border-base bg-bg-sunken"
+        className="block h-full w-full select-none rounded-(--es-radius-lg) border border-border-base bg-bg-sunken"
         style={{ touchAction: 'none', overscrollBehavior: 'contain', cursor: 'grab' }}
         role="application"
         aria-label="Seat map editor"
@@ -130,6 +130,7 @@ export default function EditorCanvas({
             colour={colourOf(table.categoryId)}
             selected={keyOf(table) === selectedKey}
             onPointerDown={(e) => startDrag(e, table)}
+            onKeyDown={(e) => handleTableKey(e, table, { onSelect, onMove })}
           />
         ))}
       </svg>
@@ -141,10 +142,36 @@ export default function EditorCanvas({
       </div>
 
       <p className="absolute bottom-3 left-3 text-xs text-subtle">
-        Drag to move · double-click the floor to add a table
+        Drag or use arrow keys to move · double-click the floor or use Add table
       </p>
     </div>
   );
+}
+
+/**
+ * The keyboard for a focused table. Tables were focusable and announced as
+ * buttons, and ignored every key — the editor was mouse-only.
+ *
+ * Enter or Space selects it for the side panel. Arrows move it one percent of
+ * the room (Shift: five), and a run of moves on one table is ONE undo step.
+ */
+function handleTableKey(e, table, { onSelect, onMove }) {
+  const key = keyOf(table);
+  if (e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault();
+    onSelect(key);
+    return;
+  }
+  const step = e.shiftKey ? 5 : 1;
+  const delta = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[e.key];
+  if (!delta) return;
+  e.preventDefault();
+  onSelect(key);
+  const clamp = (n) => Math.min(100, Math.max(0, n));
+  onMove(key, {
+    x: clamp((table.position?.x ?? 0) + delta[0]),
+    y: clamp((table.position?.y ?? 0) + delta[1]),
+  }, { mergeKey: `${key}:nudge` });
 }
 
 function MapButton({ onClick, label, children }) {
@@ -153,14 +180,14 @@ function MapButton({ onClick, label, children }) {
       type="button"
       onClick={onClick}
       aria-label={label}
-      className="grid h-10 w-10 place-items-center rounded-[--es-radius-md] border border-border-strong bg-surface text-lg text-ink shadow-sm transition-colors hover:bg-bg-sunken"
+      className="grid h-10 w-10 place-items-center rounded-(--es-radius-md) border border-border-strong bg-surface text-lg text-ink shadow-sm transition-colors hover:bg-bg-sunken"
     >
       {children}
     </button>
   );
 }
 
-function EditableTable({ table, colour, selected, onPointerDown }) {
+function EditableTable({ table, colour, selected, onPointerDown, onKeyDown }) {
   const pos = toWorld(table.position);
   const shape = normaliseShape(table.shape);
   const body = tableBody(shape, table.seatCount);
@@ -173,6 +200,7 @@ function EditableTable({ table, colour, selected, onPointerDown }) {
     <g
       transform={`translate(${pos.x} ${pos.y}) rotate(${pos.rotation})`}
       onPointerDown={onPointerDown}
+      onKeyDown={onKeyDown}
       style={{ cursor: 'move' }}
       role="button"
       tabIndex={0}

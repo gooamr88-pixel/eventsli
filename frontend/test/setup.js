@@ -8,12 +8,11 @@ afterEach(() => {
 });
 
 /**
- * jsdom ships no matchMedia, and useMediaQuery reads it on every render.
+ * jsdom ships no matchMedia, and some libraries probe it on import.
  *
- * The stub returns `matches: false` for everything, which is exactly the
- * server snapshot the hooks are written against — so a component under test
- * takes the same branch the server does, and a test that passes here is
- * testing the markup a crawler actually receives.
+ * The stub returns `matches: false` for everything — what a server render
+ * would see — so a component under test takes the same branch the server does.
+ * No app code reads it today; responsive layout is CSS.
  *
  * A test that needs the other branch overrides window.matchMedia itself.
  */

@@ -219,6 +219,22 @@ async function hold(req, res, next) {
         p_event_id: event.id, p_user_id: userId, p_table_id: tableId, p_ttl_minutes: TTL_MINUTES(),
       }));
     } else {
+      // BRD §27 — seats AT a private table need its token too. Only the
+      // whole-table path checked, so a seat id — still valid after the unlock
+      // token expired, or forwarded by someone who had it — could be held
+      // without ever knowing the password.
+      const privateTables = await privateTablesFor(seatIds);
+      if (privateTables.length > 0) {
+        const unlocked = access.unlockedTableIds(
+          (req.headers['x-table-access'] || '').split(',').filter(Boolean), event.id,
+        );
+        if (privateTables.some((id) => !unlocked.has(id))) {
+          return sendFail(res, {
+            status: 403, error: 'TABLE_PASSWORD_REQUIRED',
+            message: 'Some of those seats are at a private table. Unlock it with its password first.',
+          });
+        }
+      }
       ({ data: result } = await supabase.rpc('hold_seats', {
         p_event_id: event.id, p_user_id: userId, p_seat_ids: seatIds, p_ttl_minutes: TTL_MINUTES(),
       }));
@@ -278,6 +294,18 @@ async function release(req, res, next) {
     }
     return sendOk(res, { released: true, seats: result.seats_released });
   } catch (err) { return next(err); }
+}
+
+/** The private tables any of these seats sit at. Throws on a lookup error: this is a gate, so it fails closed. */
+async function privateTablesFor(seatIds) {
+  if (!Array.isArray(seatIds) || seatIds.length === 0) return [];
+  const { data, error } = await supabase
+    .from('seats')
+    .select('table_id, tables!inner ( is_private )')
+    .in('id', seatIds)
+    .eq('tables.is_private', true);
+  if (error) throw new Error(`private table lookup failed: ${error.message}`);
+  return [...new Set((data || []).map((s) => s.table_id))];
 }
 
 async function tableIsPrivate(tableId) {

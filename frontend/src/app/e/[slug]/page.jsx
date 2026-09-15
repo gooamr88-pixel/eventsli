@@ -266,7 +266,7 @@ export default async function EventPage({ params, searchParams }) {
                         id={`tier-${tier.id}`}
                         aria-current={focusTier?.id === tier.id ? 'true' : undefined}
                         className={`fx-row fx-row--between border-t border-border-base pt-3 first:border-0 first:pt-0 ${
-                          focusTier?.id === tier.id ? '-mx-3 rounded-[--es-radius-md] bg-accent-wash px-3 pb-3' : ''
+                          focusTier?.id === tier.id ? '-mx-3 rounded-(--es-radius-md) bg-accent-wash px-3 pb-3' : ''
                         }`}
                       >
                         <span className="fx-min0">
@@ -314,7 +314,7 @@ export default async function EventPage({ params, searchParams }) {
 function CallToAction({ event, soldOut, tierId }) {
   if (event.displayOnly) {
     return (
-      <p className="rounded-[--es-radius-md] bg-bg-sunken px-4 py-3 text-center text-muted" role="status">
+      <p className="rounded-(--es-radius-md) bg-bg-sunken px-4 py-3 text-center text-muted" role="status">
         This event is listed for information. Tickets are not sold here.
       </p>
     );
@@ -322,7 +322,7 @@ function CallToAction({ event, soldOut, tierId }) {
 
   if (soldOut) {
     return (
-      <p className="rounded-[--es-radius-md] bg-bg-sunken px-4 py-3 text-center text-muted" role="status">
+      <p className="rounded-(--es-radius-md) bg-bg-sunken px-4 py-3 text-center text-muted" role="status">
         Sold out
       </p>
     );

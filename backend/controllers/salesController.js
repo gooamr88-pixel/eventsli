@@ -1,6 +1,7 @@
 const { supabase } = require('../config/supabase');
 const { parsePagination, applyPagination, buildMeta } = require('../middleware/pagination');
 const { sendOk } = require('../utils/responseEnvelope');
+const { safeSearch } = require('../utils/search');
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -74,8 +75,21 @@ async function orders(req, res, next) {
     if (p.q) {
       // Escaped: a comma or a parenthesis reaches PostgREST as `or()` syntax
       // rather than as text being searched for.
-      const safe = p.q.replace(/[,()\\]/g, ' ').trim();
-      if (safe) query = query.or(`guest_name.ilike.%${safe}%,guest_email.ilike.%${safe}%`);
+      const safe = safeSearch(p.q);
+      if (safe) {
+        // A signed-in buyer's row shows their ACCOUNT name and email, which the
+        // guest columns do not hold — so searching only those found nothing for
+        // a name that was right there on the screen. Matching accounts are
+        // looked up first and included by id.
+        const { data: people } = await supabase
+          .from('profiles').select('id')
+          .or(`full_name.ilike.%${safe}%,email.ilike.%${safe}%`)
+          .limit(200);
+        const accountIds = (people || []).map((row) => row.id);
+        const clauses = [`guest_name.ilike.%${safe}%`, `guest_email.ilike.%${safe}%`];
+        if (accountIds.length) clauses.push(`user_id.in.(${accountIds.join(',')})`);
+        query = query.or(clauses.join(','));
+      }
     }
 
     const { data, error, count } = await applyPagination(query, p);
@@ -127,7 +141,7 @@ async function attendees(req, res, next) {
     if (req.query.checkedIn === 'false') query = query.is('scanned_at', null);
 
     if (p.q) {
-      const safe = p.q.replace(/[,()\\]/g, ' ').trim();
+      const safe = safeSearch(p.q);
       if (safe) query = query.or(`attendee_name.ilike.%${safe}%,attendee_email.ilike.%${safe}%`);
     }
 
@@ -149,46 +163,20 @@ async function attendees(req, res, next) {
 }
 
 /**
- * Summed over every matching row, in the database, not over the page.
+ * Summed over every matching row, IN the database, not over the page.
  *
- * Read with `head: true` would return no rows to sum, so this pulls only the
- * amount columns — three integers per order, which stays cheap at the scale a
- * single event reaches.
+ * This used to select the amount columns of every matching order and add them
+ * up here, with the query's error ignored — so past PostgREST's row cap the
+ * totals were silently low, and a failed read showed zero sales. Grouped by
+ * currency: summing across currencies would be a number that is simply wrong.
+ * Net is what the organizer keeps, door sales included (see the migration).
  */
 async function totals(eventId, status, channel) {
-  let query = supabase
-    .from('orders')
-    .select('currency, quantity, buyer_total_cents, organizer_net_cents, commission_cents, commission_tax_cents, channel')
-    .eq('event_id', eventId);
-
-  if (status !== 'all') query = query.eq('status', status);
-  if (channel) query = query.eq('channel', channel);
-
-  const { data } = await query;
-  const rows = data || [];
-
-  // Grouped by currency. An event is single-currency today, but summing across
-  // currencies if that ever changes would produce a number that is simply wrong
-  // rather than one that is missing.
-  const byCurrency = {};
-  for (const o of rows) {
-    const c = (byCurrency[o.currency] ||= {
-      orders: 0, tickets: 0, grossCents: 0, netCents: 0, commissionCents: 0,
-    });
-    c.orders += 1;
-    c.tickets += Number(o.quantity);
-    c.grossCents += Number(o.buyer_total_cents);
-    c.netCents += Number(o.organizer_net_cents);
-    c.commissionCents += Number(o.commission_cents) + Number(o.commission_tax_cents);
-  }
-
-  return {
-    totals: byCurrency,
-    byChannel: {
-      stripe: rows.filter((o) => o.channel === 'stripe').length,
-      manual: rows.filter((o) => o.channel === 'manual').length,
-    },
-  };
+  const { data, error } = await supabase.rpc('event_order_totals', {
+    p_event_id: eventId, p_status: status, p_channel: channel || null,
+  });
+  if (error) throw new Error(error.message);
+  return data || { totals: {}, byChannel: { stripe: 0, manual: 0 } };
 }
 
 function shapeOrder(o) {
@@ -212,9 +200,12 @@ function shapeOrder(o) {
     taxCents: Number(o.event_tax_cents),
     buyerPaidCents: Number(o.buyer_total_cents),
     commissionCents: Number(o.commission_cents) + Number(o.commission_tax_cents),
-    // What actually reaches the organizer. On the card path Stripe has already
-    // moved it; on the manual path they hold it and owe us the commission.
-    organizerNetCents: Number(o.organizer_net_cents),
+    // What the organizer keeps. On the card path Stripe has already taken our
+    // commission off. On the manual path they collected the whole amount and
+    // owe us the commission, so it comes off here — the same figure the totals
+    // and the dashboards use, rather than the gross the row used to show.
+    organizerNetCents: Number(o.organizer_net_cents)
+      - (o.channel === 'manual' ? Number(o.commission_cents) + Number(o.commission_tax_cents) : 0),
     manual: o.channel === 'manual' ? { method: o.manual_method, note: o.manual_note } : null,
     createdAt: o.created_at,
     paidAt: o.paid_at,

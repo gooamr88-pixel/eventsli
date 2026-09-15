@@ -175,3 +175,46 @@ describe('useMapDraft — new tables', () => {
     expect(result.current.tables).toHaveLength(MAX_TABLES);
   });
 });
+
+describe('useMapDraft — what counts as a change', () => {
+  const loaded = () => [{ id: 'a', label: 'T1', seatCount: 8, shape: 'round', position: at(10, 10) }];
+
+  test('typing a name is ONE undo step, not one per keystroke', () => {
+    const { result } = renderHook(() => useMapDraft());
+    act(() => { result.current.reset(loaded()); });
+    for (const label of ['V', 'VI', 'VIP']) {
+      act(() => { result.current.updateTable('a', { label }, { mergeKey: 'a:label' }); });
+    }
+    expect(result.current.tables[0].label).toBe('VIP');
+
+    act(() => { result.current.undo(); });
+    expect(result.current.tables[0].label).toBe('T1');
+    expect(result.current.canUndo).toBe(false);
+  });
+
+  test('a different field starts a new step', () => {
+    const { result } = renderHook(() => useMapDraft());
+    act(() => { result.current.reset(loaded()); });
+    act(() => { result.current.updateTable('a', { label: 'VIP' }, { mergeKey: 'a:label' }); });
+    act(() => { result.current.updateTable('a', { seatCount: 10 }, { mergeKey: 'a:seatCount' }); });
+    act(() => { result.current.undo(); });
+    expect(result.current.tables[0]).toMatchObject({ label: 'VIP', seatCount: 8 });
+  });
+
+  test('undoing back to the loaded map is not an unsaved change', () => {
+    const { result } = renderHook(() => useMapDraft());
+    act(() => { result.current.reset(loaded()); });
+    act(() => { result.current.addTable(at(50, 50)); });
+    expect(result.current.dirty).toBe(true);
+
+    act(() => { result.current.undo(); });
+    expect(result.current.dirty).toBe(false);
+  });
+
+  test('Undo with nothing to undo leaves the map clean', () => {
+    const { result } = renderHook(() => useMapDraft());
+    act(() => { result.current.reset(loaded()); });
+    act(() => { result.current.undo(); });
+    expect(result.current.dirty).toBe(false);
+  });
+});

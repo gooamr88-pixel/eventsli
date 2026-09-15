@@ -20,6 +20,13 @@ const { hashTablePassword } = require('./tableAccessService');
 const MAX_TABLES = 400;
 const MAX_SEATS_PER_TABLE = 60;
 
+// Each new password is a 210k-iteration PBKDF2 on the libuv pool that login
+// and checkout share. A 400-table save with a password on every table was
+// minutes of that pool, from one request, with no cap on how long each
+// password could be.
+const MAX_TABLE_PASSWORD_LENGTH = 64;
+const MAX_NEW_PASSWORDS_PER_SAVE = 50;
+
 /** The map as the organizer's editor needs it — including private tables. */
 async function getMapForOrganizer(eventId) {
   const { data: map } = await supabase
@@ -93,11 +100,20 @@ function shapeSeat(s) {
  * @param {string} eventId
  * @param {object} payload  { layout, tables: [...] }
  */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 async function saveMap(eventId, payload) {
   const incoming = Array.isArray(payload.tables) ? payload.tables : [];
 
   if (incoming.length > MAX_TABLES) {
     throw fail('VALIDATION_ERROR', `A map can hold at most ${MAX_TABLES} tables.`);
+  }
+
+  // BRD §12 — a listing-only event sells nothing, so it has no stock to draw.
+  const { data: event } = await supabase
+    .from('events').select('listing_type').eq('id', eventId).maybeSingle();
+  if (event?.listing_type === 'display_only') {
+    throw fail('VALIDATION_ERROR', 'This event is listed for information only. Make it a ticketed event before drawing a seat map.');
   }
   const labels = new Set();
   for (const t of incoming) {
@@ -115,6 +131,23 @@ async function saveMap(eventId, payload) {
     if (t.isPrivate && !t.password && !t.id) {
       throw fail('VALIDATION_ERROR', `"${label}" is private, so it needs a password.`);
     }
+    if (t.password && String(t.password).length > MAX_TABLE_PASSWORD_LENGTH) {
+      throw fail('VALIDATION_ERROR',
+        `The password for "${label}" is longer than ${MAX_TABLE_PASSWORD_LENGTH} characters.`);
+    }
+    // Shape only. Whether each id belongs to THIS event is the database's call
+    // (`save_venue_map`), inside the transaction that uses it.
+    for (const key of ['id', 'tierId', 'categoryId']) {
+      if (t[key] && !UUID.test(String(t[key]))) {
+        throw fail('VALIDATION_ERROR', `"${label}" carries an invalid ${key}.`);
+      }
+    }
+  }
+
+  const newPasswords = incoming.filter((t) => t.password).length;
+  if (newPasswords > MAX_NEW_PASSWORDS_PER_SAVE) {
+    throw fail('VALIDATION_ERROR',
+      `Set at most ${MAX_NEW_PASSWORDS_PER_SAVE} new table passwords in one save. Save these, then set the rest.`);
   }
 
   /**
@@ -176,6 +209,9 @@ async function saveMap(eventId, payload) {
      */
     const m = /MAP_CONFLICT:\s*(.*)/.exec(error.message);
     if (m) throw fail('CONFLICT', `${m[1].trim()}.`);
+    // A ticket type or category from another event.
+    const v = /MAP_INVALID:\s*(.*)/.exec(error.message);
+    if (v) throw fail('VALIDATION_ERROR', `${v[1].trim()}.`);
     throw fail('VALIDATION_ERROR', error.message);
   }
 

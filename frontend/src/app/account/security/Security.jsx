@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { get, post, del } from '../../utils/apiClient';
+import { formatEventTime } from '../../lib/eventTime';
 import { useAuth, signOut } from '../../hooks/useAuth';
 import Field from '../../components/forms/Field';
 import FormError from '../../components/forms/FormError';
@@ -202,7 +203,7 @@ function ChangePassword() {
 
       {done ? (
         <div className="fx-stack fx-stack--sm">
-          <p className="rounded-[--es-radius-md] bg-accent-wash px-3 py-2.5 text-sm text-ink">
+          <p className="rounded-(--es-radius-md) bg-accent-wash px-3 py-2.5 text-sm text-ink">
             Password changed. Every other device has been signed out.
           </p>
           <button
@@ -250,8 +251,8 @@ function Row({ term, children }) {
   );
 }
 
+/** Your own clock, with the zone named — a session is not about any one event. */
 function when(iso) {
   if (!iso) return 'unknown';
-  return new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short' })
-    .format(new Date(iso));
+  return formatEventTime(iso);
 }

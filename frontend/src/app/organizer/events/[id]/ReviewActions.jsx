@@ -41,10 +41,10 @@ export default function ReviewActions({ event, onChanged }) {
 
   return (
     <section className="fx-stack fx-stack--sm es-card p-5">
-      <h3 className="text-lg">Going on sale</h3>
+      <h2 className="text-lg">Going on sale</h2>
 
       {!event.review?.termsAccepted && canSubmit && (
-        <div className="fx-stack fx-stack--sm rounded-[--es-radius-md] bg-bg-sunken p-4">
+        <div className="fx-stack fx-stack--sm rounded-(--es-radius-md) bg-bg-sunken p-4">
           <p className="text-sm text-ink">Accept the organizer terms for this event</p>
           <p className="text-sm text-muted">
             They cover the commission, the fees, refunds and what you are responsible
@@ -91,13 +91,13 @@ export default function ReviewActions({ event, onChanged }) {
       )}
 
       {event.status === 'pending_review' && (
-        <p className="rounded-[--es-radius-md] bg-info/10 px-3 py-2.5 text-sm text-muted">
+        <p className="rounded-(--es-radius-md) bg-info/10 px-3 py-2.5 text-sm text-muted">
           With us for review. You will get an email either way.
         </p>
       )}
 
       {event.status === 'published' && (
-        <p className="rounded-[--es-radius-md] bg-success/10 px-3 py-2.5 text-sm text-muted">
+        <p className="rounded-(--es-radius-md) bg-success/10 px-3 py-2.5 text-sm text-muted">
           <span className="text-ink">On sale.</span> Prices are locked for any ticket type
           that has already sold — buyers must get what they paid for.
         </p>

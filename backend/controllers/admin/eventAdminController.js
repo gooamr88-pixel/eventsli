@@ -3,6 +3,7 @@ const { parsePagination, applyPagination, buildMeta } = require('../../middlewar
 const { sendOk, sendFail } = require('../../utils/responseEnvelope');
 const eventCtrl = require('../eventController');
 const scanSvc = require('../../services/scanService');
+const { isInvoiceOverdue } = require('../../utils/invoices');
 
 /**
  * BRD §19 — every event on the platform, and everything an admin controls about
@@ -11,8 +12,9 @@ const scanSvc = require('../../services/scanService');
  * gives an admin somewhere to take them from.
  */
 
-const one = (x) => (Array.isArray(x) ? x[0] : x) || null;
-const safeSearch = (q) => q.replace(/[,()\\%*]/g, ' ').trim();
+const { one } = require('../../utils/embed');
+const { safeSearch } = require('../../utils/search');
+const { canReceivePayouts } = require('../../utils/payouts');
 
 // ─── GET /admin/events ──────────────────────────────────────────────────────
 async function list(req, res, next) {
@@ -31,6 +33,7 @@ async function list(req, res, next) {
     if (req.query.organizerId) query = query.eq('organizer_id', req.query.organizerId);
     const now = new Date().toISOString();
     if (req.query.when === 'upcoming') query = query.gt('starts_at', now);
+    if (req.query.when === 'now') query = query.lte('starts_at', now).gte('ends_at', now);
     if (req.query.when === 'past') query = query.lt('ends_at', now);
     if (p.q) {
       const safe = safeSearch(p.q);
@@ -41,22 +44,14 @@ async function list(req, res, next) {
     if (error) throw new Error(error.message);
     const rows = data || [];
 
-    // Sales for THIS PAGE's events, in one query — not one per row.
-    const sales = new Map();
+    // Sales for THIS PAGE's events, summed in the database — not every paid
+    // order pulled across the wire and added up here.
+    let sales = {};
     if (rows.length) {
-      const { data: orders, error: salesError } = await supabase
-        .from('orders')
-        .select('event_id, quantity, buyer_total_cents')
-        .eq('status', 'paid')
-        .in('event_id', rows.map((r) => r.id));
+      const { data: agg, error: salesError } = await supabase
+        .rpc('admin_event_sales', { p_event_ids: rows.map((r) => r.id) });
       if (salesError) throw new Error(salesError.message);
-      for (const o of orders || []) {
-        const s = sales.get(o.event_id) || { orders: 0, tickets: 0, grossCents: 0 };
-        s.orders += 1;
-        s.tickets += Number(o.quantity);
-        s.grossCents += Number(o.buyer_total_cents);
-        sales.set(o.event_id, s);
-      }
+      sales = agg || {};
     }
 
     return sendOk(res, rows.map((e) => {
@@ -76,7 +71,7 @@ async function list(req, res, next) {
         createdAt: e.created_at,
         updatedAt: e.updated_at,
         organizer: org && { id: org.id, name: org.display_name, isBanned: !!org.is_banned },
-        sales: sales.get(e.id) || { orders: 0, tickets: 0, grossCents: 0 },
+        sales: sales[e.id] || { orders: 0, tickets: 0, grossCents: 0 },
       };
     }), { pagination: buildMeta(p, count) });
   } catch (err) { return next(err); }
@@ -93,7 +88,7 @@ async function detail(req, res, next) {
       return sendFail(res, { status: 404, error: 'EVENT_NOT_FOUND', message: 'That event does not exist.' });
     }
 
-    const [organizer, stats, gate, invoices, staff, devices, access] = await Promise.all([
+    const [organizer, stats, gate, invoices, staff, devices, access, tiers, map] = await Promise.all([
       supabase.from('organizers')
         .select(`id, display_name, country, is_banned, stripe_onboarding_complete, stripe_payouts_enabled,
                  profiles!organizers_owner_user_id_fkey ( id, email, full_name )`)
@@ -109,7 +104,41 @@ async function detail(req, res, next) {
         .eq('event_id', eventId).eq('is_active', true).is('staff_id', null),
       supabase.from('scanner_access').select('override_until, locked_reason')
         .eq('event_id', eventId).maybeSingle(),
+      // What is about to go on sale (BRD §16). The review queue's only preview
+      // was the public page, which 404s for anything not yet published — so an
+      // admin approved prices and a seat map they had no way to see.
+      supabase.from('ticket_tiers')
+        .select('id, name, description, price_cents, quantity, sold_count')
+        .eq('event_id', eventId).order('sort_order').order('created_at'),
+      supabase.from('venue_maps').select('id').eq('event_id', eventId).maybeSingle(),
     ]);
+
+    let seating = null;
+    if (map.data) {
+      // Counted in the database, not by fetching every seat: a large room is
+      // more rows than one PostgREST response returns.
+      const freeTierIds = (tiers.data || []).filter((t) => Number(t.price_cents) === 0).map((t) => t.id);
+      const [tables, privateTables, seats, noPrice, freeTier] = await Promise.all([
+        supabase.from('tables').select('id', { count: 'exact', head: true }).eq('venue_map_id', map.data.id),
+        supabase.from('tables').select('id', { count: 'exact', head: true })
+          .eq('venue_map_id', map.data.id).eq('is_private', true),
+        supabase.from('seats').select('id', { count: 'exact', head: true }).eq('venue_map_id', map.data.id),
+        supabase.from('seats').select('id', { count: 'exact', head: true })
+          .eq('venue_map_id', map.data.id).is('price_override_cents', null).is('tier_id', null),
+        freeTierIds.length
+          ? supabase.from('seats').select('id', { count: 'exact', head: true })
+            .eq('venue_map_id', map.data.id).is('price_override_cents', null).in('tier_id', freeTierIds)
+          : Promise.resolve({ count: 0 }),
+      ]);
+      seating = {
+        tables: Number(tables.count) || 0,
+        privateTables: Number(privateTables.count) || 0,
+        seats: Number(seats.count) || 0,
+        // A seat with no override resolves through its ticket type and ends in
+        // COALESCE(…, 0). These are the seats that would sell for nothing.
+        unpricedSeats: (Number(noPrice.count) || 0) + (Number(freeTier.count) || 0),
+      };
+    }
 
     const org = organizer.data;
     const owner = one(org?.profiles);
@@ -134,9 +163,19 @@ async function detail(req, res, next) {
         status: i.status,
         issuedAt: i.issued_at,
         dueAt: i.due_at,
+        isOverdue: isInvoiceOverdue(i),
         proofSubmittedAt: i.proof_submitted_at,
       })),
       door: { staff: Number(staff.count) || 0, devices: Number(devices.count) || 0 },
+      tiers: (tiers.data || []).map((t) => ({
+        id: t.id,
+        name: t.name,
+        description: t.description,
+        priceCents: Number(t.price_cents),
+        quantity: t.quantity === null ? null : Number(t.quantity),
+        soldCount: Number(t.sold_count),
+      })),
+      seating,
     });
   } catch (err) { return next(err); }
 }

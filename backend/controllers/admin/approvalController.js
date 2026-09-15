@@ -1,8 +1,10 @@
 const { supabase } = require('../../config/supabase');
 const events = require('../../services/eventService');
 const { parsePagination, applyPagination, buildMeta } = require('../../middleware/pagination');
-const { sendOk, sendFail } = require('../../utils/responseEnvelope');
+const { sendOk, sendFail, ERROR_STATUS } = require('../../utils/responseEnvelope');
 const logger = require('../../utils/logger');
+const { closeOpenCheckouts } = require('../../services/openCheckouts');
+const { canReceivePayouts } = require('../../utils/payouts');
 
 /**
  * BRD §16 — every event is reviewed before the public can see it.
@@ -25,7 +27,7 @@ async function queue(req, res, next) {
     const query = supabase
       .from('events')
       .select(`
-        id, slug, title, status, country, currency, starts_at, ends_at,
+        id, slug, title, status, country, currency, timezone, starts_at, ends_at,
         listing_type, created_at, updated_at,
         organizers ( id, display_name, country, stripe_onboarding_complete, stripe_payouts_enabled )
       `, { count: 'exact' })
@@ -44,6 +46,9 @@ async function queue(req, res, next) {
       currency: e.currency,
       startsAt: e.starts_at,
       endsAt: e.ends_at,
+      // The queue printed every start time in UTC; an 8pm Toronto show read as
+      // the next day.
+      timezone: e.timezone,
       listingType: e.listing_type,
       submittedAt: e.updated_at,
       organizer: {
@@ -53,8 +58,7 @@ async function queue(req, res, next) {
         // Surfaced in the queue because approving a ticketed event whose
         // organizer cannot be paid produces a listing that takes money nobody
         // can collect. The reviewer should see it before deciding.
-        canReceivePayouts: !!(e.organizers?.stripe_onboarding_complete
-                           && e.organizers?.stripe_payouts_enabled),
+        canReceivePayouts: canReceivePayouts(e.organizers),
       },
     })), { pagination: buildMeta(p, count) });
   } catch (err) {
@@ -67,7 +71,7 @@ async function approve(req, res, next) {
   try {
     const { data: event } = await supabase
       .from('events')
-      .select('id, status, listing_type, terms_accepted_id, organizer_id')
+      .select('id, status, listing_type, terms_accepted_id, organizer_id, organizers ( is_banned )')
       .eq('id', req.params.eventId).maybeSingle();
 
     if (!event) {
@@ -79,11 +83,21 @@ async function approve(req, res, next) {
         message: `Only an event awaiting review can be approved — this one is ${event.status}.`,
       });
     }
+    // A ban stops an organizer selling (BRD §19). An event submitted before the
+    // ban was still approvable, and approving it put a new listing on sale for
+    // exactly the organizer the ban was meant to stop.
+    const organizer = Array.isArray(event.organizers) ? event.organizers[0] : event.organizers;
+    if (organizer?.is_banned) {
+      return sendFail(res, {
+        status: ERROR_STATUS.ORGANIZER_BANNED, error: 'ORGANIZER_BANNED',
+        message: 'This organizer is banned from selling. Lift the ban first if this event should go on sale.',
+      });
+    }
     // The database enforces this too (published_requires_terms). Checking here
     // turns a constraint violation into a sentence a reviewer can act on.
     if (!event.terms_accepted_id) {
       return sendFail(res, {
-        status: 409, error: 'TERMS_NOT_ACCEPTED',
+        status: ERROR_STATUS.TERMS_NOT_ACCEPTED, error: 'TERMS_NOT_ACCEPTED',
         message: 'This event has no recorded terms acceptance and cannot be published.',
       });
     }
@@ -205,10 +219,14 @@ async function suspend(req, res, next) {
       return sendFail(res, { status: 409, error: 'CONFLICT', message: 'This event changed while you were reviewing it.' });
     }
 
-    await audit(req, 'event.suspended', event.id, { reason });
+    // Anyone still paying is stopped before the payment is taken.
+    const checkouts = await closeOpenCheckouts(event.id);
+
+    await audit(req, 'event.suspended', event.id, { reason, openCheckoutsClosed: checkouts.released });
     return sendOk(res, {
       id: data.id, status: data.status,
       suspendedAt: data.suspended_at, suspendedReason: data.suspended_reason,
+      openCheckoutsClosed: checkouts.released,
     });
   } catch (err) {
     return next(err);
@@ -290,11 +308,17 @@ async function cancel(req, res, next) {
     }, { onConflict: 'event_id' });
     if (lockError) logger.error({ err: lockError, eventId: event.id }, 'CANCELLED EVENT SCANNER NOT LOCKED');
 
-    await audit(req, 'event.cancelled', event.id, { reason, from: event.status });
+    // Anyone still on Stripe's page is stopped before they pay for an event
+    // that is not going to happen. `fulfill_checkout` refuses the rest.
+    const checkouts = await closeOpenCheckouts(event.id);
+
+    await audit(req, 'event.cancelled', event.id,
+      { reason, from: event.status, openCheckoutsClosed: checkouts.released });
     logger.info({ eventId: event.id, by: req.user.id }, 'event cancelled by admin');
     return sendOk(res, {
       id: data.id, status: data.status,
       cancelledAt: data.cancelled_at, cancelledReason: data.cancelled_reason,
+      openCheckoutsClosed: checkouts.released,
     });
   } catch (err) {
     return next(err);
@@ -302,26 +326,17 @@ async function cancel(req, res, next) {
 }
 
 /**
- * Best-effort audit trail (BRD §19).
+ * The audit trail (BRD §19).
  *
  * Never allowed to fail the action: an admin approving an event must not be
- * blocked because the audit insert had a bad day. Logged loudly instead so a
- * gap in the trail is visible rather than silent.
+ * blocked because the audit insert had a bad day. The old version caught a
+ * THROW, but supabase-js returns a refused insert as `{ error }` rather than
+ * throwing, so the catch never ran. auditService reads the result.
  */
-async function audit(req, action, targetId, payload) {
-  try {
-    const { hashIp } = require('../../utils/crypto');
-    await supabase.from('admin_audit').insert({
-      actor_id: req.user.id,
-      action,
-      target_type: 'event',
-      target_id: targetId,
-      payload,
-      ip_hash: hashIp(req.ip),
-    });
-  } catch (e) {
-    logger.error({ err: e, action, targetId }, 'AUDIT WRITE FAILED — action proceeded');
-  }
+const { writeAudit } = require('../../services/auditService');
+
+function audit(req, action, targetId, payload) {
+  return writeAudit(req, { action, targetType: 'event', targetId, payload });
 }
 
 module.exports = { queue, approve, reject, suspend, unsuspend, cancel };

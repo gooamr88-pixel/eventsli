@@ -267,3 +267,108 @@ test('no password material reaches the organizer payload', async () => {
   assert.equal(map.includes('password_hash'), false);
   assert.equal(map.includes('the-back-room'), false);
 });
+
+// ── Another event's stock ───────────────────────────────────────────────────
+//
+// Table ids are public — every published seat map carries them — so an id in
+// a save is attacker-controlled. `save_venue_map` used to look a table up by id
+// alone and rewrite it: price, password, seat count. These pin the fix.
+
+async function seedOtherEvent(tag) {
+  const { data: terms } = await supabase.from('terms_versions')
+    .select('id').eq('audience', 'organizer').eq('is_current', true).single();
+  const { data: ev, error } = await supabase.from('events').insert({
+    organizer_id: ids.organizer, slug: `vmap-other-${tag}-${stamp}`, title: 'Someone Else',
+    country: 'CA', timezone: 'America/Toronto',
+    starts_at: new Date(Date.now() + 45 * 86400e3).toISOString(),
+    ends_at: new Date(Date.now() + 45 * 86400e3 + 3600e3).toISOString(),
+    currency: 'CAD', status: 'published', terms_accepted_id: terms.id,
+  }).select('id').single();
+  if (error) throw new Error(`seed other event: ${error.message}`);
+
+  const { data: map } = await supabase.from('venue_maps')
+    .insert({ event_id: ev.id, layout_json: {} }).select('id').single();
+  const { data: tbl } = await supabase.from('tables').insert({
+    venue_map_id: map.id, label: 'Theirs', seat_count: 4, price_cents: 50000,
+    is_private: true, password_hash: 'not-a-real-hash',
+  }).select('id').single();
+  await supabase.from('seats').insert(Array.from({ length: 4 }, (_, i) => ({
+    venue_map_id: map.id, table_id: tbl.id, section_key: 'Theirs', row_label: 'A',
+    seat_number: String(i + 1),
+  })));
+  const { data: tier } = await supabase.from('ticket_tiers')
+    .insert({ event_id: ev.id, name: 'Their tier', price_cents: 9000 }).select('id').single();
+
+  return { event: ev.id, map: map.id, table: tbl.id, tier: tier.id };
+}
+
+async function dropOtherEvent(o) {
+  await supabase.from('seats').delete().eq('venue_map_id', o.map);
+  await supabase.from('tables').delete().eq('venue_map_id', o.map);
+  await supabase.from('venue_maps').delete().eq('id', o.map);
+  await supabase.from('ticket_tiers').delete().eq('event_id', o.event);
+  await supabase.from('events').delete().eq('id', o.event);
+}
+
+test('a table from another event cannot be rewritten through this map', async () => {
+  const other = await seedOtherEvent('table');
+  try {
+    const before_ = await venue.getMapForOrganizer(ids.event);
+
+    await assert.rejects(
+      () => venue.saveMap(ids.event, {
+        layout: {},
+        tables: [table({ id: other.table, label: 'Stolen', seatCount: 1, priceCents: 0, isPrivate: false })],
+      }),
+      (err) => err.code === 'CONFLICT' && /not on this map/i.test(err.message),
+    );
+
+    const { data: theirs } = await supabase.from('tables')
+      .select('label, price_cents, is_private, password_hash, seat_count').eq('id', other.table).single();
+    assert.equal(theirs.label, 'Theirs');
+    assert.equal(Number(theirs.price_cents), 50000, 'their price is untouched');
+    assert.equal(theirs.is_private, true, 'their private table is still private');
+    assert.equal(theirs.password_hash, 'not-a-real-hash', 'and keeps its password');
+    assert.equal(theirs.seat_count, 4);
+
+    const { count } = await supabase.from('seats')
+      .select('id', { count: 'exact', head: true }).eq('table_id', other.table);
+    assert.equal(count, 4, 'none of their seats were deleted');
+
+    const after_ = await venue.getMapForOrganizer(ids.event);
+    assert.equal(after_.tables.length, before_.tables.length,
+      'and this map was not emptied by the refused save');
+  } finally {
+    await dropOtherEvent(other);
+  }
+});
+
+test('a ticket type from another event cannot be attached to this map', async () => {
+  const other = await seedOtherEvent('tier');
+  try {
+    const before_ = await venue.getMapForOrganizer(ids.event);
+
+    await assert.rejects(
+      () => venue.saveMap(ids.event, {
+        layout: {}, tables: [table({ label: 'Borrowed', seatCount: 2, tierId: other.tier })],
+      }),
+      (err) => err.code === 'VALIDATION_ERROR' && /different event/i.test(err.message),
+    );
+
+    const { count } = await supabase.from('seats')
+      .select('id', { count: 'exact', head: true }).eq('tier_id', other.tier);
+    assert.equal(count, 0, 'no seat was pointed at their tier');
+
+    const after_ = await venue.getMapForOrganizer(ids.event);
+    assert.equal(after_.tables.length, before_.tables.length);
+  } finally {
+    await dropOtherEvent(other);
+  }
+});
+
+test('a malformed id is refused before the database is asked', async () => {
+  await assert.rejects(
+    () => venue.saveMap(ids.event, { layout: {}, tables: [table({ id: 'not-a-uuid' })] }),
+    (err) => err.code === 'VALIDATION_ERROR' && /invalid id/i.test(err.message),
+  );
+});

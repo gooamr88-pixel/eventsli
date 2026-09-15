@@ -2,7 +2,8 @@ const jwt = require('jsonwebtoken');
 const { supabase } = require('../config/supabase');
 const sessions = require('../services/sessionService');
 const { getAccessContext, hasRole } = require('../services/rbacService');
-const { sendFail } = require('../utils/responseEnvelope');
+const { sendFail, ERROR_STATUS } = require('../utils/responseEnvelope');
+const logger = require('../utils/logger');
 
 /**
  * Where the token comes from: the httpOnly cookie first, then a Bearer header.
@@ -54,7 +55,25 @@ async function requireAuth(req, res, next) {
     });
   }
 
-  const access = await getAccessContext(decoded.sub);
+  /**
+   * A database error here must ANSWER, and answer "no".
+   *
+   * `getAccessContext` throws when the profile lookup fails. This is Express 4,
+   * which does not catch a rejected promise from async middleware — so the
+   * throw became an unhandled rejection and the request simply never answered,
+   * on every authenticated route, until the client gave up. Failing closed with
+   * a response is the only acceptable outcome of not knowing who someone is.
+   */
+  let access;
+  try {
+    access = await getAccessContext(decoded.sub);
+  } catch (err) {
+    logger.error({ err: err.message, userId: decoded.sub }, 'access lookup failed — refusing request');
+    return sendFail(res, {
+      status: ERROR_STATUS.INTERNAL_ERROR, error: 'INTERNAL_ERROR',
+      message: 'We could not check your access just now. Try again in a moment.',
+    });
+  }
   if (!access) {
     // The token verifies but the account is gone.
     sessions.clearCookie(res);
@@ -76,9 +95,6 @@ async function requireAuth(req, res, next) {
     role: access.role,
     jti: decoded.jti,
     access,
-    // Present only on a token minted by an admin impersonating an organizer, so
-    // the UI can show a banner and offer a way back.
-    impersonatorId: decoded.imp || null,
   };
 
   sessions.touch(decoded.jti);   // fire and forget
@@ -105,7 +121,7 @@ async function optionalAuth(req, res, next) {
       if (access && !access.isBlocked) {
         req.user = {
           id: access.userId, email: access.email, role: access.role,
-          jti: decoded.jti, access, impersonatorId: decoded.imp || null,
+          jti: decoded.jti, access,
         };
       }
     }

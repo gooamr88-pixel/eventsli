@@ -302,6 +302,82 @@ test('a released hold is not fulfilled if the money arrives late', async () => {
   assert.equal(seat.status, 'available');
 });
 
+test('a payment that lands after the event was cancelled issues no tickets', async () => {
+  // BRD §17 / §09. A buyer can be on Stripe's page when an admin cancels. The
+  // status used to be checked only when the quote was made, so the webhook
+  // still sold the seat and issued tickets for an event that will not happen.
+  const held = await holdSeats([seatIds[7]]);
+  assert.equal(held.data.ok, true, JSON.stringify(held.data));
+  const q = await pricing.quoteReservation(held.data.reservation_id);
+
+  await supabase.from('events').update({
+    status: 'cancelled', cancelled_at: new Date().toISOString(), cancelled_reason: 'Venue flooded (test)',
+  }).eq('id', ids.event);
+
+  try {
+    const res = await fulfill(held.data.reservation_id, q.breakdown);
+    assert.equal(res.data?.ok, false, JSON.stringify(res.data || res.error));
+    assert.equal(res.data.error, 'EVENT_CANCELLED');
+
+    const { data: seat } = await supabase.from('seats').select('status').eq('id', seatIds[7]).single();
+    assert.notEqual(seat.status, 'sold', 'the seat was not sold to a cancelled event');
+
+    const { count } = await supabase.from('orders')
+      .select('id', { count: 'exact', head: true }).eq('reservation_id', held.data.reservation_id);
+    assert.equal(count, 0, 'and no order exists for it');
+  } finally {
+    await supabase.from('events').update({
+      status: 'published', cancelled_at: null, cancelled_reason: null,
+    }).eq('id', ids.event);
+    await supabase.rpc('release_reservation', { p_reservation_id: held.data.reservation_id });
+  }
+});
+
+test('a listing-only event sells nothing, even with a seat map', async () => {
+  // BRD §12. No hold or sale function read listing_type.
+  await supabase.from('events').update({ listing_type: 'display_only' }).eq('id', ids.event);
+  try {
+    const seats = await holdSeats([seatIds[7]]);
+    assert.equal(seats.data?.ok, false, JSON.stringify(seats.data || seats.error));
+    assert.equal(seats.data.error, 'EVENT_NOT_PUBLISHED');
+    assert.match(seats.data.message, /information only/i);
+
+    const table = await holdTable(tableId);
+    assert.equal(table.data?.ok, false);
+    assert.equal(table.data.error, 'EVENT_NOT_PUBLISHED');
+  } finally {
+    await supabase.from('events').update({ listing_type: 'ticketed' }).eq('id', ids.event);
+  }
+});
+
+test('a ticket type with a fixed allocation stops selling when it is used up', async () => {
+  // ticket_tiers.quantity was never read and sold_count never written.
+  const { data: tier } = await supabase.from('ticket_tiers')
+    .insert({ event_id: ids.event, name: 'Limited', price_cents: 7000, quantity: 1 }).select('id').single();
+  const { data: rows } = await supabase.from('seats').insert([1, 2].map((n) => ({
+    venue_map_id: ids.map, tier_id: tier.id, section_key: 'Limited', row_label: 'L', seat_number: String(n),
+  }))).select('id');
+  const [a, b] = rows.map((r) => r.id);
+
+  const first = await holdSeats([a]);
+  assert.equal(first.data?.ok, true, JSON.stringify(first.data || first.error));
+
+  // The one allocation is HELD, so a second buyer is refused although a seat is free.
+  const second = await holdSeats([b]);
+  assert.equal(second.data?.ok, false);
+  assert.equal(second.data.error, 'TIER_SOLD_OUT');
+
+  const q = await pricing.quoteReservation(first.data.reservation_id);
+  const paid = await fulfill(first.data.reservation_id, q.breakdown);
+  assert.equal(paid.data?.ok, true, JSON.stringify(paid.data || paid.error));
+
+  const { data: after_ } = await supabase.from('ticket_tiers').select('sold_count').eq('id', tier.id).single();
+  assert.equal(after_.sold_count, 1, 'sold_count follows the tickets');
+
+  const third = await holdSeats([b]);
+  assert.equal(third.data?.error, 'TIER_SOLD_OUT', 'and a sold allocation stays sold');
+});
+
 // ── Tickets ─────────────────────────────────────────────────────────────────
 
 test('a ticket QR is a signed token, not an id', async () => {

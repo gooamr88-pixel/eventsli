@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { post, del } from '../../../../utils/apiClient';
-import { describeError } from '../../../../utils/errors';
+import { messageFor } from '../../../../utils/errors';
+import { formatEventTime } from '../../../../lib/eventTime';
 import { useApi } from '../../../../hooks/useApi';
 import { useToast } from '../../../../components/ui/Toast';
 import { useConfirm } from '../../../../components/ui/Confirm';
@@ -13,6 +14,7 @@ import Field from '../../../../components/forms/Field';
 import FormError from '../../../../components/forms/FormError';
 import SubmitButton from '../../../../components/forms/SubmitButton';
 import { Loading, Empty, ErrorNotice } from '../../../../components/Feedback';
+import { useEventContext } from '../EventContext';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -22,17 +24,18 @@ import { Loading, Empty, ErrorNotice } from '../../../../components/Feedback';
  * Beside the PIN devices, not instead of them. A shared tablet with a PIN is
  * still right for volunteers on a rota; a named account is right for someone who
  * has to be accountable for who they let in — every scan they make carries
- * their name.
+ * their account.
  *
- * What a member CAN do is exactly what a PIN device can: scan, undo a scan and
- * see the gate's numbers, for this one event. They cannot see orders, the door
- * list, money, or any organizer page, and their own account does not change.
- * Removing someone refuses their next scan, not their next sign-in.
+ * ADDING SOMEONE ANSWERS THE SAME WAY WHETHER OR NOT THE ADDRESS HAS AN ACCOUNT,
+ * and never with their name. Anyone can become an organizer, and a "no such
+ * account" here was a free way to find out who uses Eventsli. So the list shows
+ * the addresses typed, and someone who does not appear needs an account first.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 export default function DoorTeam({ eventId }) {
   const toast = useToast();
   const confirm = useConfirm();
+  const timezone = useEventContext()?.event?.timezone;
   const { data, error, loading, reload } = useApi(`/events/${eventId}/staff`);
   const [email, setEmail] = useState('');
   const [busy, setBusy] = useState(false);
@@ -43,10 +46,11 @@ export default function DoorTeam({ eventId }) {
     setBusy(true);
     setFormError(null);
     try {
-      const member = await post(`/events/${eventId}/staff`, { email: email.trim() }, { noRedirect: true });
-      toast.success(member.notified
-        ? `${member.name || member.email} can now scan this event. We have emailed them how to sign in.`
-        : `${member.name || member.email} is already on the door team.`);
+      const result = await post(`/events/${eventId}/staff`, { email: email.trim() }, { noRedirect: true });
+      toast.success(
+        result?.message || 'If that address has an Eventsli account, they are on the door team now.',
+        { title: 'Request sent' },
+      );
       setEmail('');
       reload();
     } catch (err) {
@@ -58,18 +62,18 @@ export default function DoorTeam({ eventId }) {
 
   async function remove(member) {
     const ok = await confirm({
-      title: `Remove ${member.name || member.email}?`,
-      body: <p>Their next scan is refused. Scans they already made stay on record with their name.</p>,
+      title: `Remove ${member.email}?`,
+      body: <p>Their next scan is refused. Scans they already made stay on record.</p>,
       confirmLabel: 'Remove from the team',
       tone: 'danger',
     });
     if (!ok) return;
     try {
       await del(`/events/${eventId}/staff/${member.id}`, { noRedirect: true });
-      toast.success(`${member.name || member.email} was removed.`);
+      toast.success(`${member.email} was removed.`);
       reload();
     } catch (err) {
-      toast.error(describeError(err).recovery);
+      toast.error(messageFor(err));
     }
   }
 
@@ -99,7 +103,7 @@ export default function DoorTeam({ eventId }) {
               autoComplete="off"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              hint="They need an Eventsli account first. Creating one is free."
+              hint="They need an Eventsli account with this address. For their privacy we answer the same either way — if they do not appear below, ask them to create one."
             />
             <FormError error={formError} />
             <div>
@@ -130,14 +134,9 @@ export default function DoorTeam({ eventId }) {
           columns={[
             {
               key: 'person',
-              label: 'Person',
+              label: 'Account',
               primary: true,
-              render: (m) => (
-                <span className="fx-stack fx-stack--sm gap-0.5">
-                  <span className="fx-break text-ink">{m.name || m.email}</span>
-                  {m.name && <span className="fx-break text-sm text-muted">{m.email}</span>}
-                </span>
-              ),
+              render: (m) => <span className="fx-break text-ink">{m.email}</span>,
             },
             {
               key: 'status',
@@ -149,9 +148,7 @@ export default function DoorTeam({ eventId }) {
             {
               key: 'seen',
               label: 'Last signed in',
-              render: (m) => (m.lastSignInAt
-                ? new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(m.lastSignInAt))
-                : 'Not yet'),
+              render: (m) => (m.lastSignInAt ? formatEventTime(m.lastSignInAt, timezone) : 'Not yet'),
             },
             {
               key: 'actions',
@@ -159,7 +156,7 @@ export default function DoorTeam({ eventId }) {
               hideLabel: true,
               align: 'end',
               render: (m) => (m.active ? (
-                <button type="button" onClick={() => remove(m)} className="text-sm text-muted hover:text-ink">
+                <button type="button" onClick={() => remove(m)} className="es-btn es-btn--ghost es-btn--sm">
                   Remove
                 </button>
               ) : null),

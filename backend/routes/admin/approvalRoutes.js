@@ -1,12 +1,11 @@
 const express = require('express');
 const { body, param } = require('express-validator');
 const validate = require('../../middleware/validate');
-const { requireAuth, requireRole } = require('../../middleware/auth');
+const { requireRole } = require('../../middleware/auth');
 const c = require('../../controllers/admin/approvalController');
 
+// Guarded by routes/admin/index.js (requireAuth + admin). Mount it only there.
 const router = express.Router();
-
-router.use(requireAuth, requireRole('admin'));
 
 router.get('/approvals', c.queue);
 
@@ -69,6 +68,17 @@ router.post(
   require('../../controllers/scanController').override,
 );
 
+// Ends an override early; the gate goes back to what the invoices say.
+router.post(
+  '/events/:eventId/scanner-override/end',
+  requireRole('super_admin'),
+  param('eventId').isUUID(),
+  body('reason').isString().trim().isLength({ min: 5, max: 500 })
+    .withMessage('Record why the override is ending early.'),
+  validate,
+  require('../../controllers/scanController').endOverride,
+);
+
 // ─── Commission invoices (BRD §18, §20) ────────────────────────────────────
 const manual = require('../../controllers/manualPaymentController');
 
@@ -110,6 +120,8 @@ router.patch(
   body('paymentFeePct').optional().isFloat({ min: 0, max: 100 }),
   body('paymentFeeFixedCents').optional().isInt({ min: 0 }),
   body('paymentFeeMode').optional().isIn(['auto', 'manual']),
+  // Kept in the audit log beside the old and new rates.
+  body('reason').optional().isString().trim().isLength({ max: 1000 }),
   validate,
   settings.updateEventFees,
 );
@@ -123,6 +135,9 @@ router.patch(
   '/settings/:key',
   requireRole('super_admin'),
   body('value').exists().withMessage('Send the new value.'),
+  // The shape of `value` is checked per key in the controller (utils/settingsSchema.js).
+  body('reason').isString().trim().isLength({ min: 5, max: 500 })
+    .withMessage('Record why this setting is changing.'),
   validate,
   settings.updateSettings,
 );

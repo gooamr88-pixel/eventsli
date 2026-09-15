@@ -118,7 +118,7 @@ test('without a client id, sign-in is unavailable rather than unguarded', () => 
   assert.equal(google.configured(), false);
   // Not "accept anything": an unset client id must close the door, because with
   // no `aud` to compare against every token would pass.
-  assert.rejects(() => google.verifyIdToken('x'), (e) => e.code === 'PAYMENT_REQUIRED');
+  assert.rejects(() => google.verifyIdToken('x'), (e) => e.code === 'FEATURE_DISABLED');
 
   process.env.GOOGLE_CLIENT_ID = saved;
 });

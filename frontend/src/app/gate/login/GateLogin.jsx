@@ -126,7 +126,7 @@ export default function GateLogin() {
               </button>
             </form>
 
-            <div className="fx-stack fx-stack--sm rounded-[--es-radius-lg] border border-border-base bg-surface p-4">
+            <div className="fx-stack fx-stack--sm rounded-(--es-radius-lg) border border-border-base bg-surface p-4">
               <p className="text-sm text-ink">A device stays signed in for seven days.</p>
               <p className="text-sm text-muted">
                 Long enough for a festival weekend without a re-login between guests, short enough that a

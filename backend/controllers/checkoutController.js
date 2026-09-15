@@ -36,7 +36,7 @@ async function createSession(req, res, next) {
   try {
     if (!stripeSvc.enabled()) {
       return sendFail(res, {
-        status: 402, error: 'PAYMENT_REQUIRED',
+        status: 503, error: 'FEATURE_DISABLED',
         message: 'Card payments are not available for this event right now.',
       });
     }
@@ -105,9 +105,11 @@ async function createSession(req, res, next) {
     });
 
     // Stashed so the webhook can attribute the order without trusting anything
-    // the browser sends back.
+    // the browser sends back — and with the session id, so an admin who cancels
+    // or suspends the event can expire this checkout before it is paid
+    // (services/openCheckouts.js).
     await supabase.from('reservations')
-      .update({ attendee_data: { buyer } })
+      .update({ attendee_data: { buyer, stripeSessionId: session.id } })
       .eq('id', req.params.reservationId);
 
     return sendOk(res, { checkoutUrl: session.url, sessionId: session.id });
@@ -244,8 +246,17 @@ async function fulfillFromSession(session) {
   // would refuse it. Let the RPC answer instead — it returns the original order.
   let breakdown = null;
   if (reservation?.state === 'active') {
-    const q = await pricing.quoteReservation(reservationId);
-    breakdown = q.breakdown;
+    try {
+      const q = await pricing.quoteReservation(reservationId);
+      breakdown = q.breakdown;
+    } catch (err) {
+      // The quote refuses an event that is no longer on sale, and a hold that
+      // has lapsed. Those used to THROW out of the webhook, so a payment for a
+      // cancelled event was filed as "handler threw". Returned as a coded
+      // refusal instead, so it is recorded as the specific thing it is.
+      if (err.code) return { ok: false, error: err.code, message: err.message };
+      throw err;
+    }
   }
 
   const buyer = reservation?.attendee_data?.buyer || {};

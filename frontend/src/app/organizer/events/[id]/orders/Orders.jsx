@@ -3,10 +3,12 @@
 import { useState } from 'react';
 import { useApi } from '../../../../hooks/useApi';
 import { formatMoney } from '../../../../utils/money';
+import { formatEventTime } from '../../../../lib/eventTime';
 import { SectionHeader, StatCard } from '../../../../components/ui/Page';
 import { Segmented, SearchBox, Pagination } from '../../../../components/ui/Filters';
 import DataTable from '../../../../components/ui/DataTable';
 import { Loading, Empty, ErrorNotice } from '../../../../components/Feedback';
+import { useEventContext } from '../EventContext';
 
 /**
  * Every order, both channels.
@@ -15,10 +17,10 @@ import { Loading, Empty, ErrorNotice } from '../../../../components/Feedback';
  * added an organizer could see the cash taken at the door and NOTHING sold
  * online, which is the wrong half.
  *
- * The totals are for the WHOLE filtered set, computed in the database, not for
- * the rows on screen. They also used to be read from the wrong object — the
- * response's `meta` holds `{ totals, byChannel }`, and the page iterated `meta`
- * itself, so "totals" and "byChannel" were rendered as if they were currencies.
+ * The totals are for the WHOLE filtered set, summed in the database, not for
+ * the rows on screen. "To you" is what the organizer keeps: a door sale's
+ * commission is owed to Eventsli, so it comes off here as it does on the
+ * dashboard. Times are on the event's clock, with the zone named.
  */
 const CHANNELS = [
   { value: '', label: 'Every channel' },
@@ -34,6 +36,7 @@ const STATUSES = [
 ];
 
 export default function Orders({ eventId }) {
+  const timezone = useEventContext()?.event?.timezone;
   const [channel, setChannel] = useState('');
   const [status, setStatus] = useState('paid');
   const [search, setSearch] = useState('');
@@ -55,7 +58,7 @@ export default function Orders({ eventId }) {
       {totals.length > 0 && totals.map(([currency, t]) => (
         <div key={currency} className="fx-grid fx-grid--4">
           <StatCard label={`Sales · ${currency}`} value={formatMoney(t.grossCents, currency)} note="What buyers paid" icon="money" />
-          <StatCard label="To you" value={formatMoney(t.netCents, currency)} note="After Eventsli's commission" icon="bank" />
+          <StatCard label="To you" value={formatMoney(t.netCents, currency)} note="After Eventsli's commission, door sales included" icon="bank" />
           <StatCard label="Orders" value={t.orders} note={`${data.meta.byChannel?.stripe ?? 0} card · ${data.meta.byChannel?.manual ?? 0} door`} icon="receipt" />
           <StatCard label="Tickets" value={t.tickets} note="In the orders shown" icon="ticket" />
         </div>
@@ -111,9 +114,7 @@ export default function Orders({ eventId }) {
               {
                 key: 'when',
                 label: 'When',
-                render: (o) => (o.paidAt || o.createdAt
-                  ? new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(o.paidAt || o.createdAt))
-                  : '—'),
+                render: (o) => <span className="whitespace-nowrap">{formatEventTime(o.paidAt || o.createdAt, timezone)}</span>,
               },
             ]}
           />

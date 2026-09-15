@@ -29,6 +29,12 @@ function sendFail(res, { status = 400, error = 'ERROR', message, meta } = {}) {
  * the two from drifting — the same failure can't be a 400 on one route and a
  * 409 on another, and the frontend can switch on a stable string instead of
  * parsing an English sentence.
+ *
+ * Only codes something actually sends. EVENT_ENDED, ORPHAN_SEAT,
+ * INVOICE_OVERDUE and ALREADY_SCANNED were listed with copy written for them
+ * and were never emitted by any controller or SQL function (the gate reports a
+ * duplicate scan as a result, not an error). The frontend's error map is held
+ * to this list by a parity test, so a code comes back here the day it is sent.
  */
 const ERROR_STATUS = {
   // auth
@@ -47,7 +53,6 @@ const ERROR_STATUS = {
   EVENT_NOT_PUBLISHED: 403,
   EVENT_CANCELLED: 410,
   EVENT_SUSPENDED: 403,
-  EVENT_ENDED: 410,
   PRICE_LOCKED_AFTER_SALE: 409,   // BRD §13
   TERMS_NOT_ACCEPTED: 403,        // BRD §21
 
@@ -57,7 +62,6 @@ const ERROR_STATUS = {
   TABLE_PARTIALLY_SOLD: 409,      // BRD §25 — full-table option has closed
   TABLE_PASSWORD_REQUIRED: 403,   // BRD §27
   TABLE_PASSWORD_INVALID: 403,
-  ORPHAN_SEAT: 400,
   TIER_SOLD_OUT: 409,
   PURCHASE_LIMIT_EXCEEDED: 400,   // BRD §11
   RESERVATION_EXPIRED: 410,
@@ -69,18 +73,21 @@ const ERROR_STATUS = {
   STRIPE_NOT_ACTIVE: 403,
   STRIPE_NOT_CONFIGURED: 503,
   CURRENCY_LOCKED_AFTER_SALE: 409,
-  INVOICE_OVERDUE: 402,           // BRD §18
   SCANNER_LOCKED: 403,
 
   // tickets
   TICKET_NOT_FOUND: 404,
-  ALREADY_SCANNED: 409,
   TRANSFER_DISABLED: 403,         // BRD §10
   ALREADY_TRANSFERRED: 409,       // BRD §10 — one transfer only
 
   // media
   UNSUPPORTED_MEDIA_TYPE: 415,
   STORAGE_NOT_CONFIGURED: 503,
+
+  // A capability switched off on this platform — card payments, Google
+  // sign-in. These were sent as PAYMENT_REQUIRED, whose copy tells a person to
+  // try another card: advice that cannot help when payments are simply off.
+  FEATURE_DISABLED: 503,
 
   // ── Codes that were being emitted WITHOUT being listed here ───────────────
   // Every one of these was passed straight to sendFail with a literal status,
@@ -111,15 +118,4 @@ const ERROR_STATUS = {
   NOT_FOUND: 404,
 };
 
-/** Sends an RPC's `{ success:false, error, message }` result as a failure. */
-function sendRpcFailure(res, result, fallbackStatus = 400) {
-  const code = result?.code || result?.error || 'ERROR';
-  return sendFail(res, {
-    status: ERROR_STATUS[code] || fallbackStatus,
-    error: code,
-    message: result?.message || 'Request could not be completed.',
-    ...(result?.meta ? { meta: result.meta } : {}),
-  });
-}
-
-module.exports = { sendOk, sendFail, sendRpcFailure, ERROR_STATUS };
+module.exports = { sendOk, sendFail, ERROR_STATUS };

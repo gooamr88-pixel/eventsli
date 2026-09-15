@@ -8,6 +8,7 @@ import { WORLD } from '../../../../components/seating/seatingGeometry';
 import EditorCanvas from './EditorCanvas';
 import TablePanel from './TablePanel';
 import { useMapDraft, keyOf, MAX_TABLES } from './useMapDraft';
+import { useUnsavedGuard } from './useUnsavedGuard';
 import { Loading } from '../../../../components/Feedback';
 
 /**
@@ -24,11 +25,16 @@ import { Loading } from '../../../../components/Feedback';
  * a loop of separate statements — a network blip halfway left the map half
  * saved, with no way to tell which half and no way back. For someone laying out
  * a two-hundred-table room, that is their afternoon.
+ *
+ * WHICH IS ALSO WHY LEAVING ASKS FIRST (useUnsavedGuard), why a table can be
+ * added with a button as well as a double-click (which touch screens do not
+ * reliably send), and why Ctrl+Z inside a text field undoes the typing rather
+ * than the map.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 export default function MapEditor({ eventId }) {
   const draft = useMapDraft();
-  const { tables, dirty, problems, reset, apply, undo, redo, addTable, updateTable, removeTable, setSaved } = draft;
+  const { tables, dirty, problems, reset, undo, redo, addTable, updateTable, removeTable } = draft;
 
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
@@ -38,6 +44,8 @@ export default function MapEditor({ eventId }) {
   const [tiers, setTiers] = useState([]);
   const [categories, setCategories] = useState([]);
   const [layout, setLayout] = useState({});
+
+  useUnsavedGuard(dirty);
 
   useEffect(() => {
     let cancelled = false;
@@ -64,11 +72,13 @@ export default function MapEditor({ eventId }) {
     return () => { cancelled = true; };
   }, [eventId, reset]);
 
-  // Ctrl/Cmd+Z and Shift+Z. On a canvas people expect it, and the alternative
-  // to undo here is redoing an afternoon's work.
+  // Ctrl/Cmd+Z and Shift+Z. On a canvas people expect it — but NOT while typing
+  // in a field, where the browser's own undo is the one the person means.
   useEffect(() => {
     const onKey = (e) => {
       if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== 'z') return;
+      const el = e.target;
+      if (el instanceof HTMLElement && (el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName))) return;
       e.preventDefault();
       if (e.shiftKey) redo(); else undo();
     };
@@ -89,10 +99,10 @@ export default function MapEditor({ eventId }) {
       }, { noRedirect: true });
 
       // Re-read rather than trusting local state: the save assigns ids to new
-      // tables and generates their seat rows, and neither exists here.
+      // tables and generates their seat rows, and neither exists here. What
+      // `reset` loads counts as saved, so "unsaved changes" clears.
       const map = await get(`/events/${eventId}/venue-map`, { cache: 'no-store' });
       reset((map?.tables || []).map(fromApi));
-      setSaved();
       setSelectedKey(null);
     } catch (err) {
       setSaveError(err);
@@ -131,14 +141,22 @@ export default function MapEditor({ eventId }) {
 
         <div className="fx-row">
           <button
+            type="button"
+            onClick={() => addTable(nextSpot(tables.length))}
+            disabled={tables.length >= MAX_TABLES}
+            className="es-btn es-btn--secondary"
+          >
+            Add table
+          </button>
+          <button
             type="button" onClick={undo} disabled={!draft.canUndo}
-            className="rounded-[--es-radius-md] border border-border-strong px-3 py-2 text-sm text-ink disabled:opacity-40"
+            className="rounded-(--es-radius-md) border border-border-strong px-3 py-2 text-sm text-ink disabled:opacity-40"
           >
             Undo
           </button>
           <button
             type="button" onClick={redo} disabled={!draft.canRedo}
-            className="rounded-[--es-radius-md] border border-border-strong px-3 py-2 text-sm text-ink disabled:opacity-40"
+            className="rounded-(--es-radius-md) border border-border-strong px-3 py-2 text-sm text-ink disabled:opacity-40"
           >
             Redo
           </button>
@@ -155,7 +173,7 @@ export default function MapEditor({ eventId }) {
       {/* Refused BEFORE the round trip. The API's messages for these are
           accurate but arrive after a save that looked like it was working. */}
       {problems.length > 0 && (
-        <ul className="fx-stack fx-stack--sm rounded-[--es-radius-md] bg-warning/10 px-4 py-3 text-sm text-muted">
+        <ul className="fx-stack fx-stack--sm rounded-(--es-radius-md) bg-warning/10 px-4 py-3 text-sm text-muted">
           {problems.map((p) => <li key={p}>{p}</li>)}
         </ul>
       )}
@@ -181,12 +199,23 @@ export default function MapEditor({ eventId }) {
           table={selected}
           tiers={tiers}
           categories={categories}
-          onChange={updateTable}
+          // Consecutive edits to the same field of the same table are one undo
+          // step: typing a name used to be one step per keystroke.
+          onChange={(key, patch) => updateTable(key, patch, {
+            mergeKey: `${key}:${Object.keys(patch).sort().join(',')}`,
+          })}
           onRemove={(key) => { removeTable(key); setSelectedKey(null); }}
         />
       </div>
     </div>
   );
+}
+
+/** Where "Add table" puts the next one: near the middle, fanned out so new
+ *  tables do not land exactly on top of each other. */
+function nextSpot(count) {
+  const step = count % 9;
+  return { x: 40 + (step % 3) * 10, y: 40 + Math.floor(step / 3) * 10 };
 }
 
 /**
@@ -198,7 +227,7 @@ export default function MapEditor({ eventId }) {
 function SaveError({ error }) {
   const { title, recovery } = describeError(error);
   return (
-    <div role="alert" className="rounded-[--es-radius-md] bg-danger/10 px-4 py-3">
+    <div role="alert" className="rounded-(--es-radius-md) bg-danger/10 px-4 py-3">
       <p className="text-sm font-medium text-ink">{title}</p>
       <p className="text-sm text-muted">{error?.message || recovery}</p>
       <p className="mt-1 text-xs text-subtle">

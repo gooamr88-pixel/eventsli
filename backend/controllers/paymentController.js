@@ -3,6 +3,12 @@ const stripeSvc = require('../services/stripeService');
 const { fulfillFromSession } = require('./checkoutController');
 const logger = require('../utils/logger');
 
+// The event stopped selling while the buyer was paying (BRD §17). The money was
+// taken and no tickets were issued: retrying will never change that, and a
+// person has to decide what happens next.
+const STOPPED_EVENT = new Set(['EVENT_CANCELLED', 'EVENT_SUSPENDED', 'EVENT_NOT_PUBLISHED']);
+const PERMANENT = new Set(['RESERVATION_EXPIRED', 'RESERVATION_NOT_FOUND', ...STOPPED_EVENT]);
+
 /**
  * ─────────────────────────────────────────────────────────────────────────────
  * POST /payments/webhook
@@ -69,11 +75,15 @@ async function webhook(req, res) {
           // Recorded on the row, not only in the log — this is the queue an
           // operator works from when a payment did not turn into tickets.
           await mark(event.id, result.message || result.error);
-          // A hold that expired before the money landed will never fulfil, so
-          // retrying is pointless; it needs a human. Anything else may be
-          // transient, so ask Stripe to come back.
-          const permanent = result.error === 'RESERVATION_EXPIRED'
-                         || result.error === 'RESERVATION_NOT_FOUND';
+          // A hold that expired before the money landed, or an event that
+          // stopped selling, will never fulfil, so retrying is pointless; it
+          // needs a human. Anything else may be transient, so ask Stripe to
+          // come back.
+          const permanent = PERMANENT.has(result.error);
+          if (STOPPED_EVENT.has(result.error)) {
+            logger.error({ stripeEventId: event.id, sessionId: session.id, error: result.error },
+              'PAYMENT TAKEN FOR AN EVENT THAT IS NO LONGER ON SALE — no tickets issued, needs review');
+          }
           return res.status(permanent ? 200 : 500).json({ received: true, error: result.error });
         }
         await mark(event.id, null);

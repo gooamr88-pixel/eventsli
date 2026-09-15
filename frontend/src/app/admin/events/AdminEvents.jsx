@@ -1,9 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useApi } from '../../hooks/useApi';
+import { useUrlFilters } from '../../hooks/useUrlFilters';
 import { formatMoney } from '../../utils/money';
+import { formatEventTime } from '../../lib/eventTime';
 import { Loading, Empty, ErrorNotice } from '../../components/Feedback';
 import { PageHeader } from '../../components/ui/Page';
 import { Segmented, SearchBox, Pagination } from '../../components/ui/Filters';
@@ -14,6 +15,11 @@ import StatusPill from '../../organizer/StatusPill';
  * Every event on the platform (BRD §19). Filters live in the URL, so the
  * overview's "3 suspended" and an organizer's "view their events" link straight
  * into a filtered view, and the back button returns to it.
+ *
+ * "Upcoming" and "On now" read soonest first; everything else newest first.
+ * Upcoming used to start with the furthest-off event, and an event already
+ * under way matched neither Upcoming nor Past — so the one an admin most
+ * needed to find was in no list but "Any date".
  */
 const STATUSES = [
   { value: '', label: 'All' },
@@ -28,38 +34,28 @@ const STATUSES = [
 
 const WHEN = [
   { value: '', label: 'Any date' },
+  { value: 'now', label: 'On now' },
   { value: 'upcoming', label: 'Upcoming' },
   { value: 'past', label: 'Past' },
 ];
 
 export default function AdminEvents() {
-  const router = useRouter();
-  const pathname = usePathname();
-  const params = useSearchParams();
+  const { get, set, page } = useUrlFilters();
+  const status = get('status');
+  const when = get('when');
+  const q = get('q');
+  const organizerId = get('organizerId');
 
-  const status = params.get('status') || '';
-  const when = params.get('when') || '';
-  const q = params.get('q') || '';
-  const organizerId = params.get('organizerId') || '';
-  const page = Math.max(1, Number(params.get('page')) || 1);
-
-  const query = new URLSearchParams({ limit: '25', page: String(page), sort: 'starts_at' });
+  const soonestFirst = when === 'upcoming' || when === 'now';
+  const query = new URLSearchParams({
+    limit: '25', page: String(page), sort: 'starts_at', order: soonestFirst ? 'asc' : 'desc',
+  });
   if (status) query.set('status', status);
   if (when) query.set('when', when);
   if (q) query.set('q', q);
   if (organizerId) query.set('organizerId', organizerId);
 
   const { data, error, loading } = useApi(`/admin/events?${query}`, { raw: true });
-
-  const setParam = (key, value) => {
-    const next = new URLSearchParams(params);
-    if (value) next.set(key, value); else next.delete(key);
-    if (key !== 'page') next.delete('page');
-    // toString(), not `.size`, which Safari before 17 does not have.
-    const qs = next.toString();
-    router.replace(`${pathname}${qs ? `?${qs}` : ''}`);
-  };
-
   const rows = data?.data || [];
 
   return (
@@ -71,15 +67,15 @@ export default function AdminEvents() {
       />
 
       <div className="fx-stack fx-stack--sm">
-        <Segmented label="Status" value={status} onChange={(v) => setParam('status', v)} options={STATUSES} />
+        <Segmented label="Status" value={status} onChange={(v) => set('status', v)} options={STATUSES} />
         <div className="fx-row">
-          <Segmented label="Date" value={when} onChange={(v) => setParam('when', v)} options={WHEN} />
-          <SearchBox label="Search events" placeholder="Event title" value={q} onSearch={(v) => setParam('q', v)} />
+          <Segmented label="Date" value={when} onChange={(v) => set('when', v)} options={WHEN} />
+          <SearchBox label="Search events" placeholder="Event title" value={q} onSearch={(v) => set('q', v)} />
         </div>
         {organizerId && (
-          <p className="text-sm text-muted">
-            Showing one organizer&apos;s events.{' '}
-            <button type="button" className="text-accent" onClick={() => setParam('organizerId', '')}>
+          <p className="fx-row text-sm text-muted">
+            Showing one organizer&apos;s events.
+            <button type="button" className="es-btn es-btn--ghost es-btn--sm" onClick={() => set('organizerId', '')}>
               Show everyone&apos;s
             </button>
           </p>
@@ -115,12 +111,7 @@ export default function AdminEvents() {
               {
                 key: 'when',
                 label: 'When',
-                render: (e) => (
-                  <span className="whitespace-nowrap">
-                    {new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeZone: e.timezone || 'UTC' })
-                      .format(new Date(e.startsAt))}
-                  </span>
-                ),
+                render: (e) => <span className="whitespace-nowrap">{formatEventTime(e.startsAt, e.timezone, { time: false })}</span>,
               },
               { key: 'status', label: 'Status', render: (e) => <StatusPill status={e.status} /> },
               {
@@ -139,14 +130,14 @@ export default function AdminEvents() {
                 hideLabel: true,
                 align: 'end',
                 render: (e) => (
-                  <Link href={`/admin/events/${e.id}`} className="text-sm text-accent hover:text-accent-hover">
+                  <Link href={`/admin/events/${e.id}`} className="es-btn es-btn--secondary es-btn--sm">
                     {e.status === 'pending_review' ? 'Review' : 'Manage'}
                   </Link>
                 ),
               },
             ]}
           />
-          <Pagination pagination={data.pagination} onPage={(n) => setParam('page', String(n))} />
+          <Pagination pagination={data.pagination} onPage={(n) => set('page', String(n))} />
         </>
       )}
     </div>

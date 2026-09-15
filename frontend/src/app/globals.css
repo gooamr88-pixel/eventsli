@@ -526,7 +526,6 @@
    `@media (max-width: var(--bp-md))` is invalid CSS and is dropped in
    silence. Inside THIS file the supported reference is Tailwind's
    build-time theme() function:  @media (width >= theme(--breakpoint-md))
-   JavaScript reads the same four from src/app/lib/breakpoints.js.
    ═══════════════════════════════════════════════════════════════════════ */
 @theme {
   --breakpoint-sm: 40rem;   /*  640px */
@@ -610,9 +609,7 @@
 .fx-section--xs { padding-top: var(--fx-pad-y-xs); padding-bottom: var(--fx-pad-y-xs); }
 .fx-section--sm { padding-top: var(--fx-pad-y-sm); padding-bottom: var(--fx-pad-y-sm); }
 .fx-section--lg { padding-top: var(--fx-pad-y-lg); padding-bottom: var(--fx-pad-y-lg); }
-.fx-section--tight-bottom { padding-bottom: var(--fx-pad-y-sm); }
 .fx-section--flush-top    { padding-top: 0; }
-.fx-section--flush-bottom { padding-bottom: 0; }
 
 /* Horizontal gutters only, for a band managing its own vertical space. */
 .fx-gutter {
@@ -640,9 +637,7 @@
 .fx-container--md  { --fx-w: var(--fx-w-md); }
 .fx-container--lg  { --fx-w: var(--fx-w-lg); }
 .fx-container--xl  { --fx-w: var(--fx-w-xl); }
-.fx-container--2xl { --fx-w: var(--fx-w-2xl); }
 .fx-container--wide{ --fx-w: var(--fx-w-wide); }
-.fx-container--full{ --fx-w: none; }
 
 /* ── .fx-grid — intrinsically responsive ────────────────────────────────
    `min(var(--fx-col), 100%)` is the entire point, not decoration. Plain
@@ -654,24 +649,16 @@
    arithmetic trivial: the grid's min-content width is just the largest
    min-content width among its items.
 
-   auto-fit collapses empty tracks, so a lone item stretches full width.
-   auto-fill (.fx-grid--fill) keeps them, so a single search result stays
-   card-width instead of becoming a slab. */
+   auto-fit collapses empty tracks, so a lone item stretches full width. */
 .fx-grid {
   display: grid;
   gap: var(--fx-gap-y, var(--fx-gap)) var(--fx-gap-x, var(--fx-gap));
   grid-template-columns: repeat(auto-fit, minmax(min(var(--fx-col, 280px), 100%), 1fr));
   min-width: 0;
 }
-.fx-grid--fill {
-  grid-template-columns: repeat(auto-fill, minmax(min(var(--fx-col, 280px), 100%), 1fr));
-}
 .fx-grid--2 { --fx-col: 560px; }
 .fx-grid--3 { --fx-col: 340px; }
 .fx-grid--4 { --fx-col: 260px; }
-.fx-grid--5 { --fx-col: 200px; }
-.fx-grid--6 { --fx-col: 160px; }
-.fx-grid--gap-sm { --fx-gap: var(--fx-gap-sm); }
 .fx-grid--gap-lg { --fx-gap: var(--fx-gap-lg); }
 .fx-grid > *, .fx-min0 { min-width: 0; }
 
@@ -682,7 +669,6 @@
    A row that genuinely must not wrap scrolls instead. */
 .fx-stack { display: flex; flex-direction: column; gap: var(--fx-gap); min-width: 0; }
 .fx-stack--sm { --fx-gap: var(--fx-gap-sm); }
-.fx-stack--lg { --fx-gap: var(--fx-gap-lg); }
 
 .fx-row {
   display: flex;
@@ -729,9 +715,6 @@
   padding-left: max(var(--fx-safe-l), 0px);
   padding-right: max(var(--fx-safe-r), 0px);
 }
-.fx-safe-float-b { bottom: calc(var(--fx-safe-b) + 16px); }
-.fx-safe-float-t { top: calc(var(--fx-safe-t) + 16px); }
-.fx-safe-scroll-b { scroll-padding-bottom: calc(var(--fx-safe-b) + 16px); }
 
 /* ── .fx-touch — the minimum hit area ───────────────────────────────────
    A text link in a nav is as tall as its line box, which on a phone is
@@ -754,33 +737,12 @@
    `revert`, not `block`: the element keeps whatever display its own tag or
    utility class gives it. Forcing `block` here turns every `fx-row` that is
    also `fx-hide-below-md` into a block at 768px and collapses the row. */
-.fx-only-below-md { display: revert; }
-@media (width >= 48rem) { .fx-only-below-md { display: none; } }
-
 /* Below md only. It used to be `display: none` everywhere and `revert` from
    md up — and `revert` is the BROWSER default, so on `<nav class="fx-row
    fx-hide-below-md">` it undid `.fx-row`'s flex (this rule is later in the
    file) and the desktop header links ran together with no gap. Hiding only
    where it should hide leaves every other class's display alone. */
 @media (width < 48rem) { .fx-hide-below-md { display: none; } }
-
-.fx-hide-below-lg { display: none; }
-@media (width >= 64rem) { .fx-hide-below-lg { display: revert; } }
-
-.fx-hide-from-lg { display: revert; }
-@media (width >= 64rem) { .fx-hide-from-lg { display: none; } }
-
-/* ── .fx-disclose — chrome that collapses on a phone ────────────────────
-   A filter bar, a set of secondary controls: worth a column on a desktop,
-   worth a tap on a phone. The summary button exists only below md; above
-   it the body is always open and the button is gone, so no state has to be
-   synchronised across the breakpoint. */
-.fx-disclose__body { display: none; }
-.fx-disclose__body--open { display: block; margin-top: var(--fx-gap-sm); }
-@media (width >= 48rem) {
-  .fx-disclose__body { display: block; }
-  .fx-disclose__summary { display: none; }
-}
 
 /* ── .fx-sticky-actions — a bar that survives scrolling ─────────────────
    The seat picker and the checkout both end in a decision the person has
@@ -1237,7 +1199,6 @@
   overflow: hidden;
   box-shadow: var(--es-shadow-plate);
 }
-.es-plate--window { box-shadow: var(--es-shadow-window); }
 
 /* ── Band tones ─────────────────────────────────────────────────────────
    A page is a sequence of full-bleed bands and the ONLY thing that gives
@@ -1431,7 +1392,6 @@
   letter-spacing: -0.01em;
   color: var(--es-text);
 }
-.es-price--lg { font-size: var(--es-text-3xl); }
 
 /* ── .es-card--flush — a card that trusts the ground ────────────────────
    Now that `bg-sunken` and `surface` are 7.5 L* apart, a card sitting on
@@ -1448,20 +1408,6 @@
   border-color: transparent;
 }
 
-/* ── .es-rule — the hairline that separates without a border ────────────
-   A 1px line that fades out at both ends. A full-width border cuts the
-   page; this reads as a pause. */
-.es-rule {
-  height: 1px;
-  border: 0;
-  background: linear-gradient(
-    to right,
-    transparent,
-    var(--es-border-strong) 20%,
-    var(--es-border-strong) 80%,
-    transparent
-  );
-}
 
 /* ── Entry motion ───────────────────────────────────────────────────────
    ONE animation, used for band entry, and it is opt-in per element.
@@ -1784,31 +1730,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-/* ── The impersonation banner ──────────────────────────────────────────
-   Sticky rather than fixed: it has to push the page down, not cover the top
-   of it. An admin looking at somebody else's account needs telling at every
-   scroll position, and needs the way out in the same place.
-
-   It carries NO colours of its own — it is used with `.es-band--field`,
-   which redefines every text role against the deep ground. A `background`
-   written here instead would be a ground the contrast gate cannot see,
-   which is exactly how a band goes years unmeasured. */
-.es-impersonating {
-  position: sticky;
-  inset-block-start: 0;
-  z-index: 60;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 0.75rem;
-  padding: 0.625rem var(--fx-pad-x);
-  border-block-end: 2px solid var(--es-accent-edge);
-  font-size: var(--es-text-sm);
-  font-weight: 600;
-  text-align: center;
 }
 
 /* ══ The app shell: brand, app bar, page head ════════════════════════════

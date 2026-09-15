@@ -103,7 +103,7 @@ const ADMIN_EDITABLE = Object.freeze({
  */
 const TRANSITIONS = Object.freeze({
   draft:          ['pending_review', 'cancelled'],
-  pending_review: ['published', 'rejected', 'cancelled'],   // BRD §16
+  pending_review: ['published', 'rejected', 'draft', 'cancelled'],   // BRD §16; an edit withdraws it
   rejected:       ['draft', 'pending_review', 'cancelled'],
   published:      ['cancelled', 'suspended', 'completed'],
   suspended:      ['published', 'cancelled'],
@@ -126,6 +126,7 @@ const TRANSITION_ACTOR = Object.freeze({
   'draft→pending_review':     'organizer',
   'rejected→pending_review':  'organizer',
   'rejected→draft':           'organizer',
+  'pending_review→draft':     'organizer',  // editing an event under review withdraws it
   'pending_review→published': 'admin',      // BRD §16 — approval is the admin's
   'pending_review→rejected':  'admin',
   'published→suspended':      'admin',
@@ -137,6 +138,67 @@ const TRANSITION_ACTOR = Object.freeze({
   'published→cancelled':      'admin',
   'suspended→cancelled':      'admin',
 });
+
+/**
+ * WHAT MAY CHANGE ON AN EVENT THAT IS ON SALE without another review (BRD §16),
+ * as column names.
+ *
+ * An admin approves what they saw. Edits used to be refused only for cancelled
+ * and completed events, so the title, the dates, the venue or who pays the fees
+ * could change after approval — or while the event sat in the queue, so the
+ * admin approved content they had never seen. On a live event, these are the
+ * operational details an organizer genuinely needs to adjust alone; everything
+ * else a reviewer approved goes through Eventsli.
+ */
+const LIVE_EDITABLE = Object.freeze(['description', 'max_tickets_per_order', 'allow_ticket_transfer']);
+
+/**
+ * Fixed once a ticket has sold, in any status. Each changes what an existing
+ * buyer bought or agreed to: whether tickets are sold at all, how a seat is
+ * bought, and who carries the fee on the order they already paid.
+ */
+const LOCKED_AFTER_SALE = Object.freeze(['listing_type', 'purchase_mode', 'fee_bearer']);
+
+const COLUMN_TO_API = Object.freeze(
+  Object.fromEntries(Object.entries(ORGANIZER_EDITABLE).map(([api, column]) => [column, api])),
+);
+
+/** `starts_at` → `startsAt`, so a refusal names the field the client sent. */
+function apiFieldName(column) {
+  return COLUMN_TO_API[column] || column;
+}
+
+/**
+ * What an organizer's edit does to the event's review, decided before it is
+ * written. `columns` are the column names about to change.
+ *
+ *   refused         columns that may not change, with `reason`
+ *                   LOCKED_AFTER_SALE or EVENT_ON_SALE
+ *   returnsToDraft  the event was under review; the edit withdraws it, and it
+ *                   has to be submitted again
+ *
+ * An admin is held to neither rule: their edits ARE the review.
+ */
+function editConsequence({ status, columns, isAdmin, hasPaidOrders }) {
+  const nothing = { refused: [], reason: null, returnsToDraft: false };
+  if (isAdmin) return nothing;
+
+  // `currency` follows `country` and `updated_at` is bookkeeping; neither is
+  // something the organizer chose to change.
+  const changed = (columns || []).filter((c) => c !== 'updated_at' && c !== 'currency');
+
+  if (hasPaidOrders) {
+    const locked = changed.filter((c) => LOCKED_AFTER_SALE.includes(c));
+    if (locked.length) return { refused: locked, reason: 'LOCKED_AFTER_SALE', returnsToDraft: false };
+  }
+
+  if (status === 'published' || status === 'suspended') {
+    const reviewed = changed.filter((c) => !LIVE_EDITABLE.includes(c));
+    if (reviewed.length) return { refused: reviewed, reason: 'EVENT_ON_SALE', returnsToDraft: false };
+  }
+
+  return { ...nothing, returnsToDraft: status === 'pending_review' && changed.length > 0 };
+}
 
 function canTransition(from, to) {
   return (TRANSITIONS[from] || []).includes(to);
@@ -179,7 +241,11 @@ module.exports = {
   EVENT_CATEGORIES,
   TRANSITIONS,
   TRANSITION_ACTOR,
+  LIVE_EDITABLE,
+  LOCKED_AFTER_SALE,
   canTransition,
   transitionActor,
   partitionPatch,
+  editConsequence,
+  apiFieldName,
 };

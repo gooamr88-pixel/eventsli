@@ -1,6 +1,7 @@
 const { supabase } = require('../config/supabase');
 const { parsePagination, applyPagination, buildMeta } = require('../middleware/pagination');
 const { sendOk, sendFail } = require('../utils/responseEnvelope');
+const { safeSearch } = require('../utils/search');
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -75,7 +76,7 @@ async function listEvents(req, res, next) {
       // Escaped: a comma or a parenthesis reaches PostgREST as `or()` syntax
       // rather than as text being searched for. Unescaped, `q` is a filter
       // injection point — and on a PUBLIC endpoint that is one anyone can reach.
-      const safe = p.q.replace(/[,()\\]/g, ' ').trim();
+      const safe = safeSearch(p.q);
       if (safe) query = query.or(`title.ilike.%${safe}%,venue_name.ilike.%${safe}%`);
     }
 

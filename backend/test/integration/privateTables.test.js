@@ -284,6 +284,23 @@ test('with the token, it can be booked', async () => {
     { 'x-access-token': res.body.data.reservationToken });
 });
 
+test('seats at a private table need its token too', async () => {
+  // BRD §27. Only the whole-table path checked the token, so a seat id — still
+  // valid after the unlock expired, or passed on — could be held without it.
+  const bare = await call('POST', `/public/events/${ids.slug}/hold`, { seatIds: [privateSeatIds[0]] });
+  assert.equal(bare.status, 403, JSON.stringify(bare.body));
+  assert.equal(bare.body.error, 'TABLE_PASSWORD_REQUIRED');
+
+  const unlock = await call('POST', `/public/events/${ids.slug}/tables/${privateTableId}/unlock`,
+    { password: PASSWORD });
+  const res = await call('POST', `/public/events/${ids.slug}/hold`, { seatIds: [privateSeatIds[0]] },
+    { 'x-table-access': unlock.body.data.token });
+  assert.equal(res.status, 201, JSON.stringify(res.body));
+
+  await call('POST', `/public/reservations/${res.body.data.reservationId}/release`, null,
+    { 'x-access-token': res.body.data.reservationToken });
+});
+
 test('an open table needs no token, and guests may hold', async () => {
   const res = await call('POST', `/public/events/${ids.slug}/hold`, { tableId: publicTableId });
   assert.equal(res.status, 201, JSON.stringify(res.body));

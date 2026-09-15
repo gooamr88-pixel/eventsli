@@ -32,8 +32,6 @@ export const API_URL = RAW.replace(/\/+$/, '').endsWith('/api/v1')
   ? RAW.replace(/\/+$/, '')
   : `${RAW.replace(/\/+$/, '')}/api/v1`;
 
-export const API_ORIGIN = API_URL.replace(/\/api\/v1$/, '');
-
 /**
  * The API address as the BROWSER must see it — always the public one, even
  * when this module is evaluated on the server.
@@ -248,20 +246,3 @@ export const put = (path, data, options) =>
   apiFetch(path, { ...options, method: 'PUT', body: JSON.stringify(data) });
 
 export const del = (path, options) => apiFetch(path, { ...options, method: 'DELETE' });
-
-/**
- * Signs out on the SERVER, then navigates.
- *
- * Clearing the cookie client-side would leave the session row alive, so the
- * token keeps working anywhere else it has been used. `POST /auth/logout` is
- * what actually revokes it. The navigation happens either way — a person who
- * clicked "sign out" must not be left on a dashboard because the request
- * failed.
- */
-export async function logout() {
-  try { await post('/auth/logout', undefined, { noRedirect: true }); } catch { /* leave anyway */ }
-  // Same reasoning as handle401 above: a module, not a component, and a hard
-  // navigation on purpose.
-  // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-  if (!IS_SERVER) window.location.href = '/login';
-}

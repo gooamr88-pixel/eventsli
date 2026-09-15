@@ -2,9 +2,10 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useApi } from '../../hooks/useApi';
 import { useOrganizer } from '../../hooks/useOrganizer';
+import { useUrlFilters } from '../../hooks/useUrlFilters';
+import { formatEventTime } from '../../lib/eventTime';
 import { Loading, Empty, ErrorNotice } from '../../components/Feedback';
 import { PageHeader } from '../../components/ui/Page';
 import { Segmented, SearchBox } from '../../components/ui/Filters';
@@ -36,14 +37,12 @@ const FILTERS = [
 ];
 
 export default function EventsBrowser() {
-  const router = useRouter();
-  const pathname = usePathname();
-  const params = useSearchParams();
+  const filters = useUrlFilters();
   const { loading: orgLoading, organizer, error: orgError, refresh } = useOrganizer();
   const { data, error, loading } = useApi(organizer ? '/events?limit=200&sort=starts_at&order=desc' : null);
   const [search, setSearch] = useState('');
 
-  const filter = FILTERS.find((f) => f.value === params.get('status')) || FILTERS[0];
+  const filter = FILTERS.find((f) => f.value === filters.get('status')) || FILTERS[0];
 
   if (orgLoading) return <Loading variant="list" rows={4} label="Loading your events" />;
   if (orgError) return <ErrorNotice error={orgError} />;
@@ -57,15 +56,6 @@ export default function EventsBrowser() {
   const rows = events
     .filter((e) => !filter.statuses || filter.statuses.includes(e.status))
     .filter((e) => !needle || e.title.toLowerCase().includes(needle) || (e.venue?.name || '').toLowerCase().includes(needle));
-
-  const setFilter = (value) => {
-    const next = new URLSearchParams(params);
-    if (value === 'all') next.delete('status'); else next.set('status', value);
-    // toString(), not `.size` — Safari before 17 has no `size`, reads it as
-    // undefined, and the filter would silently fall off the URL.
-    const qs = next.toString();
-    router.replace(`${pathname}${qs ? `?${qs}` : ''}`);
-  };
 
   return (
     <div className="fx-stack">
@@ -81,7 +71,7 @@ export default function EventsBrowser() {
         <Segmented
           label="Status"
           value={filter.value}
-          onChange={setFilter}
+          onChange={(value) => filters.set('status', value === 'all' ? '' : value)}
           options={FILTERS
             .filter((f) => f.value === 'all' || counts[f.value] > 0 || f.value === filter.value)
             .map((f) => ({ value: f.value, label: f.label, count: counts[f.value] }))}
@@ -120,12 +110,7 @@ export default function EventsBrowser() {
             {
               key: 'when',
               label: 'When',
-              render: (e) => (
-                <span className="whitespace-nowrap">
-                  {new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeZone: e.timezone })
-                    .format(new Date(e.startsAt))}
-                </span>
-              ),
+              render: (e) => <span className="whitespace-nowrap">{formatEventTime(e.startsAt, e.timezone, { time: false })}</span>,
             },
             { key: 'status', label: 'Status', render: (e) => <StatusPill status={e.status} /> },
             {
@@ -135,8 +120,8 @@ export default function EventsBrowser() {
               align: 'end',
               render: (e) => (
                 <span className="fx-row justify-end">
-                  <Link href={`/organizer/events/${e.id}/orders`} className="text-sm text-muted hover:text-ink">Orders</Link>
-                  <Link href={`/organizer/events/${e.id}`} className="text-sm text-accent hover:text-accent-hover">Manage</Link>
+                  <Link href={`/organizer/events/${e.id}/orders`} className="es-btn es-btn--ghost es-btn--sm">Orders</Link>
+                  <Link href={`/organizer/events/${e.id}`} className="es-btn es-btn--secondary es-btn--sm">Manage</Link>
                 </span>
               ),
             },

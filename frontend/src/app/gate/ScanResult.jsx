@@ -47,7 +47,7 @@ export default function ScanResult({ entry, onUndo, onDismiss }) {
 
   if (!entry) {
     return (
-      <div className="fx-stack fx-stack--sm rounded-[--es-radius-lg] border border-dashed border-border-strong p-6 text-center">
+      <div className="fx-stack fx-stack--sm rounded-(--es-radius-lg) border border-dashed border-border-strong p-6 text-center">
         <p className="text-muted">Point the camera at a ticket.</p>
         <p className="text-sm text-subtle">
           The answer appears here. It stays until the next scan.
@@ -83,7 +83,7 @@ export default function ScanResult({ entry, onUndo, onDismiss }) {
     <div
       role="status"
       aria-live="assertive"
-      className={`fx-stack rounded-[--es-radius-lg] border p-5 ${skin.card}`}
+      className={`fx-stack rounded-(--es-radius-lg) border p-5 ${skin.card}`}
     >
       <div className="fx-row fx-row--between">
         <div className="fx-row fx-min0">
@@ -127,7 +127,7 @@ export default function ScanResult({ entry, onUndo, onDismiss }) {
       {/* The device's own memory, shown even when the server has not answered.
           It never decides anything — it tells the operator where to look. */}
       {prior && (
-        <p className="rounded-[--es-radius-md] bg-bg-sunken px-3 py-2 text-sm text-muted">
+        <p className="rounded-(--es-radius-md) bg-bg-sunken px-3 py-2 text-sm text-muted">
           This device scanned the same ticket at{' '}
           <span className="font-mono text-ink">{doorTime(prior.occurredAt)}</span>.
           {prior.state !== 'done' && ' That scan has not been uploaded yet.'}
@@ -144,7 +144,7 @@ export default function ScanResult({ entry, onUndo, onDismiss }) {
             type="button"
             onClick={undo}
             disabled={undoing}
-            className="self-start rounded-[--es-radius-md] border border-border-strong px-4 py-2.5 text-sm text-ink disabled:opacity-40"
+            className="self-start rounded-(--es-radius-md) border border-border-strong px-4 py-2.5 text-sm text-ink disabled:opacity-40"
           >
             {undoing ? 'Reversing…' : 'Let them back out — undo'}
           </button>

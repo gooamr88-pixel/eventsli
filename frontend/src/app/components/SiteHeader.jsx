@@ -93,7 +93,7 @@ function SiteNav({ pathname }) {
   const links = navLinks({ signedIn, loading, user, pathname });
 
   return (
-    <header className="sticky top-0 z-[--es-z-navbar] border-b border-border-base bg-bg/85 backdrop-blur">
+    <header className="sticky top-0 z-(--es-z-navbar) border-b border-border-base bg-bg/85 backdrop-blur">
       <div className="fx-gutter">
         <div className="fx-container fx-container--xl">
           <div className="fx-row fx-row--between h-16">

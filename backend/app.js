@@ -132,6 +132,10 @@ const skipInternal = (req) => LOOPBACK.has(req.ip);
 // Exempt it: it is authenticated by HMAC signature, not by volume.
 const isStripeWebhook = (req) => (req.originalUrl || '').startsWith('/api/v1/payments/webhook');
 
+// The door's scans are device-authenticated and share one venue IP. They get a
+// per-device limit in routes/scanRoutes.js instead — see utils/gateRoutes.js.
+const { isGateScanRequest } = require('./utils/gateRoutes');
+
 if (RATE_LIMIT_DISABLED) {
   logger.warn('Rate limiting is DISABLED. Never run production like this.');
 } else {
@@ -140,7 +144,7 @@ if (RATE_LIMIT_DISABLED) {
     max: 1000,
     standardHeaders: true,
     legacyHeaders: false,
-    skip: (req) => skipInternal(req) || isStripeWebhook(req),
+    skip: (req) => skipInternal(req) || isStripeWebhook(req) || isGateScanRequest(req),
     store: storeFor('api'),
     handler: (req, res) => sendFail(res, {
       status: 429, error: 'RATE_LIMITED',
@@ -158,9 +162,8 @@ app.use('/api/v1/public', require('./routes/publicRoutes'));
 app.use('/api/v1/tickets', require('./routes/ticketRoutes'));
 app.use('/api/v1/payments', require('./routes/paymentRoutes'));
 app.use('/api/v1/scan', require('./routes/scanRoutes'));
-app.use('/api/v1/admin', require('./routes/admin/approvalRoutes'));
-app.use('/api/v1/admin', require('./routes/admin/userRoutes'));
-app.use('/api/v1/admin', require('./routes/admin/insightRoutes'));
+// One guard for all three admin routers — see routes/admin/index.js.
+app.use('/api/v1/admin', require('./routes/admin'));
 
 // ─── 404 ────────────────────────────────────────────────────────────────────
 app.use((req, res) => sendFail(res, {

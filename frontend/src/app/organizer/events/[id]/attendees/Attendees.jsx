@@ -2,12 +2,14 @@
 
 import { useState } from 'react';
 import { useApi } from '../../../../hooks/useApi';
+import { formatEventTime } from '../../../../lib/eventTime';
 import { SectionHeader, Panel } from '../../../../components/ui/Page';
 import { Segmented, SearchBox, Pagination } from '../../../../components/ui/Filters';
 import DataTable from '../../../../components/ui/DataTable';
 import Ring from '../../../../components/charts/Ring';
 import { percent } from '../../../../components/charts/chartMath';
 import { Loading, Empty, ErrorNotice } from '../../../../components/Feedback';
+import { useEventContext } from '../EventContext';
 
 /**
  * The door list — one row per ticket.
@@ -17,9 +19,9 @@ import { Loading, Empty, ErrorNotice } from '../../../../components/Feedback';
  * does not belong in it. The gate reads codes; this answers "who is coming, and
  * who is in".
  *
- * The admission time is `checkedInAt`. The page used to read `scannedAt`, which
- * the API never sends — so every guest read "Not yet" however long they had been
- * inside.
+ * The admission time is `checkedInAt`, on the event's clock with the zone
+ * named — it was printed in the viewer's zone, so an organizer checking the
+ * door from another city read every arrival hours off.
  */
 const CHECKED = [
   { value: '', label: 'Everyone' },
@@ -28,6 +30,7 @@ const CHECKED = [
 ];
 
 export default function Attendees({ eventId }) {
+  const timezone = useEventContext()?.event?.timezone;
   const [checkedIn, setCheckedIn] = useState('');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -95,7 +98,7 @@ export default function Attendees({ eventId }) {
                 align: 'end',
                 render: (a) => (a.checkedIn ? (
                   <span className="es-pill es-pill--accent">
-                    In{a.checkedInAt ? ` · ${new Intl.DateTimeFormat('en-US', { timeStyle: 'short' }).format(new Date(a.checkedInAt))}` : ''}
+                    In{a.checkedInAt ? ` · ${formatEventTime(a.checkedInAt, timezone, { date: false })}` : ''}
                   </span>
                 ) : a.status === 'void' ? (
                   <span className="es-pill es-pill--danger">Void</span>

@@ -67,7 +67,7 @@ export default function UnlockTableDialog({ slug, tableId, onClose, onUnlocked }
 
   return (
     <div
-      className="fixed inset-0 z-[--es-z-modal] grid place-items-center bg-black/50 p-4"
+      className="fixed inset-0 z-(--es-z-modal) grid place-items-center bg-black/50 p-4"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
       role="presentation"
     >

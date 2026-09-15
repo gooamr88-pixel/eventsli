@@ -110,7 +110,7 @@ export default function GateScanner() {
         <button
           type="button"
           onClick={() => router.replace('/gate/login')}
-          className="self-start rounded-[--es-radius-md] bg-accent px-4 py-3 text-base font-medium text-on-accent"
+          className="self-start rounded-(--es-radius-md) bg-accent px-4 py-3 text-base font-medium text-on-accent"
         >
           Sign this device in again
         </button>
@@ -140,13 +140,13 @@ export default function GateScanner() {
           <div className="fx-stack fx-stack--sm">
             <div
               id={scanner.readerId}
-              className="overflow-hidden rounded-[--es-radius-lg] bg-black"
+              className="overflow-hidden rounded-(--es-radius-lg) bg-black"
             />
             <div className="fx-row fx-row--between">
               <button
                 type="button"
                 onClick={() => setScanning(false)}
-                className="rounded-[--es-radius-md] border border-border-strong px-4 py-2.5 text-sm text-ink"
+                className="rounded-(--es-radius-md) border border-border-strong px-4 py-2.5 text-sm text-ink"
               >
                 Stop the camera
               </button>
@@ -155,7 +155,7 @@ export default function GateScanner() {
                   type="button"
                   onClick={scanner.toggleTorch}
                   aria-pressed={scanner.torch.on}
-                  className="rounded-[--es-radius-md] border border-border-strong px-4 py-2.5 text-sm text-ink"
+                  className="rounded-(--es-radius-md) border border-border-strong px-4 py-2.5 text-sm text-ink"
                 >
                   {scanner.torch.on ? 'Light off' : 'Light on'}
                 </button>
@@ -165,7 +165,7 @@ export default function GateScanner() {
               <p className="text-sm text-subtle">Asking for the camera…</p>
             )}
             {scanner.error && (
-              <p role="alert" className="rounded-[--es-radius-md] bg-danger/10 px-3 py-2 text-sm text-danger">
+              <p role="alert" className="rounded-(--es-radius-md) bg-danger/10 px-3 py-2 text-sm text-danger">
                 {scanner.error}
               </p>
             )}
@@ -176,7 +176,7 @@ export default function GateScanner() {
           <button
             type="button"
             onClick={() => { primeAudio(); setScanning(true); }}
-            className="rounded-[--es-radius-lg] bg-accent px-4 py-5 text-lg font-medium text-on-accent"
+            className="rounded-(--es-radius-lg) bg-accent px-4 py-5 text-lg font-medium text-on-accent"
           >
             Start scanning
           </button>
@@ -196,7 +196,7 @@ export default function GateScanner() {
         </div>
 
         {queue.storageError && (
-          <p className="rounded-[--es-radius-md] bg-danger/10 px-3 py-2 text-sm text-danger">
+          <p className="rounded-(--es-radius-md) bg-danger/10 px-3 py-2 text-sm text-danger">
             This browser will not store scans offline, so every scan needs a connection.
             Private browsing is the usual cause.
           </p>
@@ -205,7 +205,7 @@ export default function GateScanner() {
 
       {confirmSignOut && (
         <div className="fx-container fx-container--sm fx-gutter">
-          <div className="fx-stack fx-stack--sm rounded-[--es-radius-lg] border border-border-strong bg-surface p-4">
+          <div className="fx-stack fx-stack--sm rounded-(--es-radius-lg) border border-border-strong bg-surface p-4">
             <p className="text-ink">Sign this device out?</p>
             <p className="text-sm text-muted">
               {queue.queued > 0
@@ -223,7 +223,7 @@ export default function GateScanner() {
               <button
                 type="button"
                 onClick={signOut}
-                className="rounded-[--es-radius-md] bg-danger px-4 py-2.5 text-sm font-medium text-white"
+                className="rounded-(--es-radius-md) bg-danger px-4 py-2.5 text-sm font-medium text-white"
               >
                 Sign out
               </button>
@@ -270,7 +270,7 @@ function ManualEntry({ onSubmit }) {
         placeholder="Paste the code, or the ticket link"
         autoCapitalize="off"
         spellCheck={false}
-        className="fx-break rounded-[--es-radius-md] border border-border-strong bg-surface px-3 py-2 font-mono text-sm text-ink"
+        className="fx-break rounded-(--es-radius-md) border border-border-strong bg-surface px-3 py-2 font-mono text-sm text-ink"
       />
       <div className="fx-row fx-row--between">
         <button type="button" onClick={() => setOpen(false)} className="text-sm text-muted hover:text-ink">
@@ -279,7 +279,7 @@ function ManualEntry({ onSubmit }) {
         <button
           type="submit"
           disabled={value.trim().length < 10}
-          className="rounded-[--es-radius-md] bg-accent px-4 py-2.5 text-sm font-medium text-on-accent disabled:opacity-40"
+          className="rounded-(--es-radius-md) bg-accent px-4 py-2.5 text-sm font-medium text-on-accent disabled:opacity-40"
         >
           Check it
         </button>

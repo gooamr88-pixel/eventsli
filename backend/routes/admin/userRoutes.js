@@ -1,7 +1,6 @@
 const express = require('express');
 const { body, param, query } = require('express-validator');
 const validate = require('../../middleware/validate');
-const { requireAuth, requireRole } = require('../../middleware/auth');
 const c = require('../../controllers/admin/userController');
 
 /**
@@ -11,10 +10,10 @@ const c = require('../../controllers/admin/userController');
  * admin-only, but "review this event" and "suspend this person" are different
  * jobs with different blast radii, and a single 200-line admin file is where
  * a route quietly ends up guarded by the wrong middleware.
+ *
+ * Guarded by routes/admin/index.js (requireAuth + admin). Mount it only there.
  */
 const router = express.Router();
-
-router.use(requireAuth, requireRole('admin'));
 
 router.get(
   '/users',

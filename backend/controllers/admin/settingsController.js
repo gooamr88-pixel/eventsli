@@ -3,7 +3,8 @@ const rules = require('../../services/eventRules');
 const { describeFeeConfig, FEE_BEARER, PAYMENT_FEE_MODE } = require('../../utils/money');
 const { stripeCostModel } = require('../../services/pricingService');
 const { sendOk, sendFail } = require('../../utils/responseEnvelope');
-const { hashIp } = require('../../utils/crypto');
+const { writeAudit } = require('../../services/auditService');
+const { EDITABLE_SETTINGS, SETTING_DEFAULTS, validateSetting } = require('../../utils/settingsSchema');
 const logger = require('../../utils/logger');
 
 /**
@@ -19,7 +20,9 @@ const logger = require('../../utils/logger');
 // ─── PATCH /admin/events/:eventId/fees ─────────────────────────────────────
 async function updateEventFees(req, res, next) {
   try {
-    const { allowed, denied } = rules.partitionPatch(req.body, { isAdmin: true });
+    // `reason` is the admin's note for the audit trail, not a fee field.
+    const { reason, ...fields } = req.body || {};
+    const { allowed, denied } = rules.partitionPatch(fields, { isAdmin: true });
 
     if (denied.length > 0) {
       return sendFail(res, {
@@ -64,13 +67,13 @@ async function updateEventFees(req, res, next) {
     // Both values recorded, not just the new one. "The commission is 3%" is not
     // the question anyone asks six months later; "who changed it from 1.5, and
     // when" is.
-    await supabase.from('admin_audit').insert({
-      actor_id: req.user.id,
-      action: 'event.fees_changed',
-      target_type: 'event',
-      target_id: req.params.eventId,
-      payload: { before: pick(before, Object.keys(allowed)), after: pick(data, Object.keys(allowed)) },
-      ip_hash: hashIp(req.ip),
+    await writeAudit(req, {
+      action: 'event.fees_changed', targetType: 'event', targetId: req.params.eventId,
+      payload: {
+        reason: typeof reason === 'string' && reason.trim() ? reason.trim() : null,
+        before: pick(before, Object.keys(allowed)),
+        after: pick(data, Object.keys(allowed)),
+      },
     });
 
     logger.warn({ eventId: req.params.eventId, by: req.user.id, changed: Object.keys(allowed) },
@@ -137,47 +140,84 @@ async function previewFees(req, res, next) {
 }
 
 // ─── GET/PATCH /admin/settings ─────────────────────────────────────────────
-const EDITABLE_SETTINGS = new Set(['commission', 'payment_fee', 'stripe_cost', 'currencies', 'manual_invoice']);
-
+/**
+ * Every editable key, whether or not it has ever been saved, with its default.
+ *
+ * This used to return only the rows that existed. On a database with none —
+ * which is where live was after the platform reset — the page said "No settings
+ * are exposed" and there was no way to create the one setting event creation
+ * cannot work without.
+ */
 async function getSettings(req, res, next) {
   try {
-    const { data } = await supabase.from('platform_settings').select('key, value, updated_at');
-    return sendOk(res, Object.fromEntries((data || []).map((r) => [r.key, r.value])));
+    const { data, error } = await supabase.from('platform_settings').select('key, value, updated_at');
+    if (error) throw new Error(error.message);
+    const rows = new Map((data || []).map((r) => [r.key, r]));
+
+    return sendOk(res, EDITABLE_SETTINGS.map((key) => ({
+      key,
+      value: rows.has(key) ? rows.get(key).value : null,
+      isSet: rows.has(key),
+      updatedAt: rows.get(key)?.updated_at || null,
+      defaultValue: SETTING_DEFAULTS[key],
+    })));
   } catch (err) { return next(err); }
 }
 
+/**
+ * One setting, checked against its schema (utils/settingsSchema.js) before it
+ * is stored. The API used to check only that a value existed, so a commission
+ * of 150% or an empty market list was one save away from every new event.
+ */
 async function updateSettings(req, res, next) {
   try {
     const { key } = req.params;
-    if (!EDITABLE_SETTINGS.has(key)) {
+    const checked = validateSetting(key, req.body.value);
+    if (!checked.ok) {
       return sendFail(res, {
         status: 400, error: 'VALIDATION_ERROR',
-        message: `Not an editable setting: ${key}.`,
+        message: checked.errors.join(' '), meta: { errors: checked.errors },
       });
     }
 
-    const { data: before } = await supabase
+    const { data: before, error: readError } = await supabase
       .from('platform_settings').select('value').eq('key', key).maybeSingle();
+    if (readError) throw new Error(readError.message);
+
+    if (before && stableJson(before.value) === stableJson(checked.value)) {
+      return sendFail(res, {
+        status: 400, error: 'VALIDATION_ERROR', message: 'That is already the saved value.',
+      });
+    }
 
     const { data, error } = await supabase
       .from('platform_settings')
-      .upsert({ key, value: req.body.value, updated_by: req.user.id, updated_at: new Date().toISOString() },
+      .upsert({ key, value: checked.value, updated_by: req.user.id, updated_at: new Date().toISOString() },
         { onConflict: 'key' })
-      .select('key, value')
+      .select('key, value, updated_at')
       .single();
-
     if (error) throw new Error(error.message);
 
-    await supabase.from('admin_audit').insert({
-      actor_id: req.user.id, action: 'settings.changed',
-      target_type: 'platform_settings', target_id: null,
-      payload: { key, before: before?.value ?? null, after: data.value },
-      ip_hash: hashIp(req.ip),
+    const audited = await writeAudit(req, {
+      action: 'settings.changed', targetType: 'platform_settings',
+      payload: { key, before: before?.value ?? null, after: data.value, reason: req.body.reason || null },
     });
 
     logger.warn({ key, by: req.user.id }, 'platform settings changed');
-    return sendOk(res, data);
+    return sendOk(res, {
+      key: data.key, value: data.value, isSet: true, updatedAt: data.updated_at,
+      defaultValue: SETTING_DEFAULTS[key], audited,
+    });
   } catch (err) { return next(err); }
+}
+
+/** JSONB reorders keys, so "unchanged" is compared with keys sorted. */
+function stableJson(value) {
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(',')}]`;
+  if (value && typeof value === 'object') {
+    return `{${Object.keys(value).sort().map((k) => `${JSON.stringify(k)}:${stableJson(value[k])}`).join(',')}}`;
+  }
+  return JSON.stringify(value);
 }
 
 // ─── GET /admin/audit ──────────────────────────────────────────────────────

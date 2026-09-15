@@ -231,7 +231,7 @@ export default function NewEventForm() {
                 />
                 <span>
                   <span className="block text-ink">Let buyers pass a ticket on</span>
-                  <span className="block text-xs text-muted">Once per ticket (BRD §10). The old code stops working when the new one is issued.</span>
+                  <span className="block text-xs text-muted">Once per ticket. The old code stops working when the new one is issued.</span>
                 </span>
               </label>
             </Panel>
@@ -313,9 +313,19 @@ export function toIso(localValue, timeZone) {
   const naive = new Date(`${localValue.length === 16 ? `${localValue}:00` : localValue}Z`);
   if (Number.isNaN(naive.getTime())) return localValue;
 
-  const asZoned = new Date(naive.toLocaleString('en-US', { timeZone }));
-  const asUtc = new Date(naive.toLocaleString('en-US', { timeZone: 'UTC' }));
-  const offsetMs = asZoned.getTime() - asUtc.getTime();
+  // The zone's offset from UTC at a given instant.
+  const offsetAt = (ms) => {
+    const d = new Date(ms);
+    return new Date(d.toLocaleString('en-US', { timeZone })).getTime()
+      - new Date(d.toLocaleString('en-US', { timeZone: 'UTC' })).getTime();
+  };
 
-  return new Date(naive.getTime() - offsetMs).toISOString();
+  // TWO passes. The offset used to be taken once, at the wall-clock time read
+  // AS IF it were UTC — which is the wrong instant by the offset itself. Within
+  // that many hours of a daylight-saving change it picked the other side of the
+  // change, and the event was saved an hour off (07:00 in Chicago on the day
+  // DST starts became 08:00). Re-measuring at the first answer lands on the
+  // right side of the change.
+  const first = naive.getTime() - offsetAt(naive.getTime());
+  return new Date(naive.getTime() - offsetAt(first)).toISOString();
 }

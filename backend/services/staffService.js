@@ -22,7 +22,7 @@ const logger = require('../utils/logger');
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
-const one = (x) => (Array.isArray(x) ? x[0] : x) || null;
+const { one } = require('../utils/embed');
 
 // Only an event on sale opens its door. A cancelled one is refused by the
 // check-in function anyway; refusing the sign-in is clearer.
@@ -31,8 +31,10 @@ const SCANNABLE = new Set(['published']);
 async function list(eventId) {
   const { data, error } = await supabase
     .from('event_staff')
+    // No name: the list shows the addresses the organizer typed, and nothing
+    // the account holder did not choose to share with them.
     .select(`id, user_id, created_at, revoked_at,
-             profiles!event_staff_user_id_fkey ( full_name, email ),
+             profiles!event_staff_user_id_fkey ( email ),
              scan_devices ( last_seen_at )`)
     .eq('event_id', eventId)
     .order('created_at');
@@ -44,7 +46,6 @@ async function list(eventId) {
     return {
       id: row.id,
       userId: row.user_id,
-      name: person?.full_name || null,
       email: person?.email || null,
       addedAt: row.created_at,
       active: !row.revoked_at,
@@ -57,8 +58,10 @@ async function list(eventId) {
 /**
  * Adds an existing account by email.
  *
- * A blocked account answers exactly like a missing one: an organizer has no
- * reason to learn that somebody's account was suspended.
+ * Returns `{ added }` for the caller's logs only. The HTTP answer is the same
+ * either way (staffController.add): anyone can become an organizer, and a 404
+ * for an unknown address with a name for a known one made this a free lookup
+ * of who has an Eventsli account. A blocked account is treated as absent.
  */
 async function add({ eventId, email, addedBy }) {
   const address = String(email || '').trim().toLowerCase();
@@ -69,12 +72,7 @@ async function add({ eventId, email, addedBy }) {
     .maybeSingle();
   if (lookupError) throw new Error(lookupError.message);
 
-  if (!person || person.is_blocked) {
-    throw Object.assign(
-      new Error('No Eventsli account uses that email. Ask them to create one, then add them here.'),
-      { code: 'NOT_FOUND' },
-    );
-  }
+  if (!person || person.is_blocked) return { added: false, notified: false };
 
   // Were they already on the team? Only someone new — or coming back after
   // being removed — is emailed; saving the same person twice sends nothing.
@@ -98,10 +96,7 @@ async function add({ eventId, email, addedBy }) {
   const notified = !before || Boolean(before.revoked_at);
   if (notified) notifyAdded({ eventId, person });
 
-  return {
-    id: data.id, userId: person.id, name: person.full_name, email: person.email,
-    addedAt: data.created_at, active: true, revokedAt: null, lastSignInAt: null, notified,
-  };
+  return { added: true, notified, id: data.id };
 }
 
 /**

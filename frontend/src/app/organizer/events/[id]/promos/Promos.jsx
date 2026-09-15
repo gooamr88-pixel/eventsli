@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { post, patch } from '../../../../utils/apiClient';
 import { describeError } from '../../../../utils/errors';
+import { formatMoney } from '../../../../utils/money';
 import { useApi } from '../../../../hooks/useApi';
 import { useToast } from '../../../../components/ui/Toast';
 import { SectionHeader, Panel } from '../../../../components/ui/Page';
@@ -86,13 +87,14 @@ export default function Promos({ eventId }) {
               // which leaves a buyer to guess what 25 is.
               render: (p) => (p.discountType === 'percentage'
                 ? `${Number(p.discountValue)}% off`
-                : `${Number(p.discountValue).toFixed(2)} ${currency} off`),
+                // Stored in whole currency units (claim_promo_code multiplies by 100).
+                : `${formatMoney(Math.round(Number(p.discountValue) * 100), currency)} off`),
             },
             {
               key: 'uses',
               label: 'Used',
               render: (p) => {
-                const used = p.usedCount ?? p.timesUsed ?? 0;
+                const used = p.usedCount ?? 0;
                 return <span className="es-nums">{p.maxUses ? `${used} of ${p.maxUses}` : `${used} · no limit`}</span>;
               },
             },

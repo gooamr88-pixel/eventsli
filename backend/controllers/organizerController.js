@@ -1,6 +1,7 @@
 const { supabase } = require('../config/supabase');
 const rbac = require('../services/rbacService');
 const { sendOk, sendFail } = require('../utils/responseEnvelope');
+const { canReceivePayouts } = require('../utils/payouts');
 const logger = require('../utils/logger');
 
 /**
@@ -123,7 +124,7 @@ function shape(row) {
     displayName: row.display_name,
     country: row.country,
     stripeConnected: !!row.stripe_account_id,
-    canReceivePayouts: !!(row.stripe_onboarding_complete && row.stripe_payouts_enabled),
+    canReceivePayouts: canReceivePayouts(row),
     isBanned: !!row.is_banned,
     createdAt: row.created_at,
   };
@@ -132,7 +133,6 @@ function shape(row) {
 // ═══ STRIPE CONNECT ═════════════════════════════════════════════════════════
 
 const stripeSvc = require('../services/stripeService');
-const { sendOk: ok } = require('../utils/responseEnvelope');
 
 /**
  * POST /organizer/stripe/onboard
@@ -146,7 +146,7 @@ async function startStripeOnboarding(req, res, next) {
   try {
     if (!stripeSvc.enabled()) {
       return sendFail(res, {
-        status: 402, error: 'PAYMENT_REQUIRED',
+        status: 503, error: 'FEATURE_DISABLED',
         message: 'Card payments are not enabled on this platform yet.',
       });
     }
@@ -182,12 +182,12 @@ async function startStripeOnboarding(req, res, next) {
 
     const url = await stripeSvc.createOnboardingLink({ accountId, origin });
     rbac.invalidate(req.user.id);
-    return ok(res, { onboardingUrl: url });
+    return sendOk(res,{ onboardingUrl: url });
   } catch (raw) {
     const err = stripeSvc.translateConnectError(raw);
 
-    if (err.code === 'PAYMENT_REQUIRED') {
-      return sendFail(res, { status: 402, error: err.code, message: err.message });
+    if (err.code === 'FEATURE_DISABLED') {
+      return sendFail(res, { status: 503, error: err.code, message: err.message });
     }
 
     // A platform misconfiguration is not the organizer's fault and not
@@ -220,12 +220,12 @@ async function stripeStatus(req, res, next) {
       });
     }
     if (!stripeSvc.enabled()) {
-      return ok(res, { connected: false, canReceivePayouts: false, paymentsDisabled: true });
+      return sendOk(res,{ connected: false, canReceivePayouts: false, paymentsDisabled: true });
     }
 
     const status = await stripeSvc.refreshAccountStatus(req.user.access.organizerId);
     rbac.invalidate(req.user.id);
-    return ok(res, status);
+    return sendOk(res,status);
   } catch (err) { return next(err); }
 }
 

@@ -52,7 +52,7 @@ export default function AppShell({ role, label, groups, tabKeys = [], head, foot
     <>
       <a
         href="#app-main"
-        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[--es-z-max] es-btn es-btn--primary"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-(--es-z-max) es-btn es-btn--primary"
       >
         Skip to content
       </a>

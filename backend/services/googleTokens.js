@@ -38,7 +38,7 @@ async function verifyIdToken(idToken) {
   if (!configured()) {
     // Closed, not open. With no client id there is no `aud` to compare against,
     // so "verify anyway" would accept every token in existence.
-    throw fail('PAYMENT_REQUIRED', 'Google sign-in is not configured.');
+    throw fail('FEATURE_DISABLED', 'Google sign-in is not configured.');
   }
 
   let payload;

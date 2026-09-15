@@ -35,6 +35,8 @@ const TRIGGERS = [
   'trg_set_invoice_due_at',   // BRD §18 — due date fixed at issue, with a floor
   'trg_ledger_no_update',     // the ledger is append-only, loudly
   'trg_ledger_no_delete',
+  'trg_seats_same_map_as_table', // a seat's table is on the seat's own map
+  'trg_sync_tier_sold_count',    // sold_count follows the paid tickets
 ];
 
 const FUNCTIONS = [
@@ -47,6 +49,26 @@ const FUNCTIONS = [
   // The dashboards — one round trip each.
   'event_sales_summary', 'organizer_dashboard_summary', 'platform_overview',
   'verify_email_code',
+  // Ids in a request body are scoped to their event (20260915120000).
+  'save_venue_map', 'seats_same_map_as_table',
+  // Ticket-type allocations and discount-code claims (20260915130000/131000).
+  'sync_tier_sold_count', 'tier_allocation_exceeded', 'claim_promo_code', 'release_promo_claim',
+  // Sums in the database, and the door PIN lockout (20260915140000).
+  'event_order_totals', 'admin_event_sales', 'admin_organizer_sales', 'record_device_pin_failure',
+];
+
+// Rules the database enforces as CHECKs (20260915140000).
+const CONSTRAINTS = [
+  'organizers_country_supported',     // BRD §07 — CA and US only
+  'events_country_supported',
+  'events_currency_follows_country',  // CAD in Canada, USD in the US
+  'terms_versions_audience_version_key',
+];
+
+const INDEXES = [
+  'reservation_items_reservation_idx', 'orders_one_per_reservation', 'orders_paid_at_idx',
+  'orders_user_idx', 'invoices_event_idx', 'admin_audit_created_idx', 'admin_audit_action_idx',
+  'scan_devices_event_idx', 'seats_tier_idx', 'tickets_tier_idx', 'scans_device_idx',
 ];
 
 const COLUMNS = [
@@ -72,6 +94,9 @@ const COLUMNS = [
   ['terms_acceptances', 'reservation_id'],
   // A door-team member scans through a device row of their own.
   ['scan_devices', 'staff_id'],
+  // Door PINs lock after repeated failures (20260915140000).
+  ['scan_devices', 'failed_pin_count'],
+  ['scan_devices', 'pin_locked_until'],
 ];
 
 (async () => {
@@ -110,6 +135,31 @@ const COLUMNS = [
     );
     const fns = new Set(fRows.map((r) => r.routine_name));
     for (const f of FUNCTIONS) report(fns.has(f), f);
+
+    console.log('\n── constraints ──');
+    const { rows: kRows } = await client.query(
+      `SELECT conname FROM pg_constraint WHERE connamespace = 'public'::regnamespace`,
+    );
+    const cons = new Set(kRows.map((r) => r.conname));
+    for (const k of CONSTRAINTS) report(cons.has(k), k);
+
+    console.log('\n── indexes on the hot paths ──');
+    const { rows: iRows } = await client.query(
+      `SELECT indexname FROM pg_indexes WHERE schemaname = 'public'`,
+    );
+    const idx = new Set(iRows.map((r) => r.indexname));
+    for (const i of INDEXES) report(idx.has(i), i);
+
+    console.log('\n── a new function is private by default ──');
+    // A schema-level default cannot remove the global PUBLIC EXECUTE, so a
+    // function created without its own REVOKE was callable with the anon key.
+    const { rows: [acl] } = await client.query(`
+      SELECT EXISTS (
+        SELECT 1 FROM pg_default_acl d
+         WHERE d.defaclrole = current_user::regrole AND d.defaclnamespace = 0 AND d.defaclobjtype = 'f'
+           AND NOT EXISTS (SELECT 1 FROM unnest(d.defaclacl) a WHERE a::text LIKE '=%')
+      ) AS private_by_default`);
+    report(acl.private_by_default, 'global default revokes EXECUTE from PUBLIC');
 
     console.log('\n── the Data API roles reach nothing ──');
     // The browser never talks to Supabase, so `anon` and `authenticated` have no

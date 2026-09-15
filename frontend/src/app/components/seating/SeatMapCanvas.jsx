@@ -61,7 +61,7 @@ export default function SeatMapCanvas({
       <svg
         ref={svgRef}
         viewBox={`${view.x} ${view.y} ${view.width} ${view.height}`}
-        className="block h-full w-full select-none rounded-[--es-radius-lg] border border-border-base bg-bg-sunken"
+        className="block h-full w-full select-none rounded-(--es-radius-lg) border border-border-base bg-bg-sunken"
         // `touch-action: none` is what stops the browser scrolling the page
         // instead of panning the map. Without it a one-finger drag on a phone
         // scrolls past the map and the seats are unreachable.
@@ -104,7 +104,7 @@ function MapButton({ onClick, label, children }) {
       aria-label={label}
       // 40px is not arbitrary: it is the smallest square a thumb hits reliably,
       // and these sit in the corner a right hand covers while panning.
-      className="grid h-10 w-10 place-items-center rounded-[--es-radius-md] border border-border-strong bg-surface text-lg text-ink shadow-sm transition-colors hover:bg-bg-sunken"
+      className="grid h-10 w-10 place-items-center rounded-(--es-radius-md) border border-border-strong bg-surface text-lg text-ink shadow-sm transition-colors hover:bg-bg-sunken"
     >
       {children}
     </button>

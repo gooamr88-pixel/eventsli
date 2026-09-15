@@ -79,6 +79,13 @@ async function create({ eventId, code, discountType, discountValue, maxUses, val
   // does not exist is a support ticket.
   const normalised = String(code).trim().toUpperCase();
 
+  // BRD §12 — a listing-only event sells nothing a code could discount.
+  const { data: event } = await supabase
+    .from('events').select('listing_type').eq('id', eventId).maybeSingle();
+  if (event?.listing_type === 'display_only') {
+    throw fail('VALIDATION_ERROR', 'This event is listed for information only, so it has nothing to discount.');
+  }
+
   if (discountType === 'percentage' && (discountValue <= 0 || discountValue > 100)) {
     throw fail('VALIDATION_ERROR', 'A percentage discount must be between 1 and 100.');
   }

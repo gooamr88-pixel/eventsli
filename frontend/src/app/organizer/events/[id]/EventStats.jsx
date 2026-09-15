@@ -2,6 +2,7 @@
 
 import { useApi } from '../../../hooks/useApi';
 import { formatMoney } from '../../../utils/money';
+import { formatDay } from '../../../lib/eventTime';
 import { StatCard, Panel } from '../../../components/ui/Page';
 import BarChart from '../../../components/charts/BarChart';
 import Ring from '../../../components/charts/Ring';
@@ -63,7 +64,7 @@ export default function EventStats({ eventId, currency }) {
             ariaLabel="Revenue per day for the last 30 days"
             format={(v) => formatMoney(v, cur)}
             data={(data.timeline || []).map((d) => ({
-              label: shortDate(d.date),
+              label: formatDay(d.date),
               value: Number(d.grossCents),
               detail: `${formatMoney(d.grossCents, cur)} · ${d.tickets} tickets`,
             }))}
@@ -107,9 +108,4 @@ export default function EventStats({ eventId, currency }) {
       )}
     </div>
   );
-}
-
-function shortDate(iso) {
-  return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
-    .format(new Date(`${iso}T00:00:00Z`));
 }

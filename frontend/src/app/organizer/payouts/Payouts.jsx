@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { get, post } from '../../utils/apiClient';
 import { useOrganizer } from '../../hooks/useOrganizer';
+import { refreshAuth } from '../../hooks/useAuth';
 import FormError from '../../components/forms/FormError';
 import CreateProfile from '../CreateProfile';
 import { PageHeader, Panel } from '../../components/ui/Page';
@@ -28,8 +29,10 @@ export default function Payouts() {
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
 
-  // Stripe sends the organizer back here after hosted onboarding.
+  // Stripe sends the organizer back here: `return` after hosted onboarding,
+  // `refresh` when the one-time link expired before they finished.
   const returned = params.get('stripe') === 'return';
+  const linkExpired = params.get('stripe') === 'refresh';
 
   useEffect(() => {
     if (!organizer) return undefined;
@@ -38,6 +41,9 @@ export default function Payouts() {
       try {
         const data = await get('/organizer/stripe/status', { cache: 'no-store', noRedirect: true });
         if (!cancelled) { setStatus(data); setError(null); }
+        // Back from Stripe and cleared to be paid: the signed-in user's
+        // `canReceivePayouts` drives the launch checklist, so re-read it.
+        if (!cancelled && returned && data?.canReceivePayouts) refreshAuth();
       } catch (err) {
         if (!cancelled) setError(err);
       }
@@ -71,6 +77,29 @@ export default function Payouts() {
 
       {!status && !error && <Loading variant="card" label="Checking with Stripe" />}
       {error && !status && <ErrorNotice error={error} />}
+
+      {linkExpired && status && !status.canReceivePayouts && (
+        <Notice tone="warning" title="Your Stripe link expired before you finished.">
+          <p>Nothing you entered is lost. Continue where you left off:</p>
+          <div>
+            <button type="button" onClick={startOnboarding} disabled={busy} className="es-btn es-btn--primary es-btn--sm">
+              {busy ? 'Opening Stripe…' : 'Continue with Stripe'}
+            </button>
+          </div>
+        </Notice>
+      )}
+
+      {returned && status && (
+        status.canReceivePayouts ? (
+          <Notice tone="info" title="You are all set.">
+            <p>Your payout account is ready, so your events can sell tickets once they are approved.</p>
+          </Notice>
+        ) : (
+          <Notice tone="info" title="Back from Stripe.">
+            <p>Stripe is still checking your details. This page shows what, if anything, it still needs.</p>
+          </Notice>
+        )
+      )}
 
       {status?.paymentsDisabled && (
         <Notice tone="warning" title="Card payments are not switched on yet.">

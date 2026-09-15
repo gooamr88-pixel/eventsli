@@ -1,7 +1,8 @@
 'use client';
 
 import { post } from '../../../utils/apiClient';
-import { describeError } from '../../../utils/errors';
+import { describeError, messageFor } from '../../../utils/errors';
+import { formatEventTime } from '../../../lib/eventTime';
 import { useAuth } from '../../../hooks/useAuth';
 import { useConfirm } from '../../../components/ui/Confirm';
 import { useToast } from '../../../components/ui/Toast';
@@ -21,6 +22,9 @@ import { Panel } from '../../../components/ui/Page';
  * requires a reason for the audit log, and it moves no money — §09 makes tickets
  * non-refundable by default and leaves any refund between the organizer and the
  * buyer, so nothing on this screen issues or promises one.
+ *
+ * THE SCANNER OVERRIDE (BRD §18) can now be ended early as well as granted; a
+ * reopened gate used to stay open for its whole window.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 const ACTIONS = {
@@ -99,6 +103,8 @@ export default function EventControls({ event, gate, overrideUntil, onChanged })
   const confirm = useConfirm();
   const toast = useToast();
 
+  const fail = (err) => toast.error(messageFor(err), { title: describeError(err).title });
+
   async function run(key) {
     const action = ACTIONS[key];
     const answer = await confirm(action.confirm);
@@ -112,8 +118,7 @@ export default function EventControls({ event, gate, overrideUntil, onChanged })
       toast.success(action.done);
       onChanged();
     } catch (err) {
-      const { title, recovery } = describeError(err);
-      toast.error(err?.message || recovery, { title });
+      fail(err);
     }
   }
 
@@ -123,7 +128,7 @@ export default function EventControls({ event, gate, overrideUntil, onChanged })
       body: (
         <p>
           For when the doors are open and the lock is wrong or unresolvable right now. It expires on its
-          own — a permanent override would be a lock quietly removed.
+          own, and you can end it sooner from here.
         </p>
       ),
       confirmLabel: 'Reopen for 12 hours',
@@ -135,12 +140,32 @@ export default function EventControls({ event, gate, overrideUntil, onChanged })
       toast.success('Scanning is open for the next 12 hours.');
       onChanged();
     } catch (err) {
-      toast.error(err?.message || describeError(err).recovery);
+      fail(err);
+    }
+  }
+
+  async function endOverride() {
+    const answer = await confirm({
+      title: 'End the override now?',
+      tone: 'danger',
+      body: <p>Scanning goes straight back to what the invoices say. If one is still overdue, the gate locks again at once.</p>,
+      confirmLabel: 'End the override',
+      reason: { label: 'Why is it ending early?', minLength: 5, maxLength: 500 },
+    });
+    if (!answer) return;
+    try {
+      await post(`/admin/events/${event.id}/scanner-override/end`, { reason: answer.reason }, { noRedirect: true });
+      toast.success('The override has ended.');
+      onChanged();
+    } catch (err) {
+      fail(err);
     }
   }
 
   const available = Object.entries(ACTIONS).filter(([, a]) => a.from.includes(event.status));
   const locked = gate?.gate?.locked;
+  const overrideActive = Boolean(overrideUntil && new Date(overrideUntil) > new Date());
+  const finished = ['cancelled', 'completed'].includes(event.status);
 
   return (
     <Panel title="Status">
@@ -163,10 +188,8 @@ export default function EventControls({ event, gate, overrideUntil, onChanged })
           Scanning:{' '}
           {gate?.gate?.override ? 'open by override' : locked ? `locked (${readableReason(gate.gate.reason)})` : 'open'}
         </p>
-        {overrideUntil && new Date(overrideUntil) > new Date() && (
-          <p className="text-xs text-subtle">
-            Override until {new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(overrideUntil))}
-          </p>
+        {overrideActive && (
+          <p className="text-xs text-subtle">Override until {formatEventTime(overrideUntil, event.timezone)}</p>
         )}
         {gate?.stats && (
           <p className="es-nums text-xs text-subtle">
@@ -174,10 +197,19 @@ export default function EventControls({ event, gate, overrideUntil, onChanged })
           </p>
         )}
         {/* BRD §18 — only a super admin controls the scanner override. */}
-        {user?.isSuperAdmin && locked && event.status !== 'cancelled' && (
-          <button type="button" className="es-btn es-btn--secondary es-btn--sm self-start" onClick={reopenScanner}>
-            Reopen scanning for 12 hours
-          </button>
+        {user?.isSuperAdmin && !finished && (
+          <div className="fx-row">
+            {locked && !gate?.gate?.override && (
+              <button type="button" className="es-btn es-btn--secondary es-btn--sm" onClick={reopenScanner}>
+                Reopen scanning for 12 hours
+              </button>
+            )}
+            {overrideActive && (
+              <button type="button" className="es-btn es-btn--ghost es-btn--sm" onClick={endOverride}>
+                End the override now
+              </button>
+            )}
+          </div>
         )}
       </div>
     </Panel>

@@ -287,7 +287,7 @@ function PayError({ error }) {
   const { title, recovery } = describeError(error);
   const theirs = isOrganizerPayoutProblem(error?.code);
   return (
-    <div role="alert" className={`rounded-[--es-radius-md] p-3 ${theirs ? 'bg-warning/10' : 'bg-danger/10'}`}>
+    <div role="alert" className={`rounded-(--es-radius-md) p-3 ${theirs ? 'bg-warning/10' : 'bg-danger/10'}`}>
       <p className="text-sm font-medium text-ink">{title}</p>
       <p className="text-sm text-muted">{recovery}</p>
       {theirs && <p className="mt-1 text-xs text-subtle">Nothing has been charged.</p>}

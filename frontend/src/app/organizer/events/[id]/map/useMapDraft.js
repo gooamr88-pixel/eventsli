@@ -20,22 +20,31 @@ import { SHAPES } from '../../../../components/seating/seatingGeometry';
  * HISTORY IS STATE, NOT A REF, and that is not a preference. The first version
  * kept the stacks in refs and derived `canUndo` from `past.current.length`
  * during render — which does not re-render, so the Undo button's disabled state
- * never updated after the first paint. The button was there and did nothing.
- * React's lint caught it; it would have been very hard to see.
+ * never updated after the first paint. React's lint caught it.
+ *
+ * DIRTY IS DERIVED: the draft is dirty when what is on screen is not the array
+ * that was last loaded or saved. It used to be a flag set by every undo, so
+ * pressing Undo with nothing to undo — or undoing back to the saved map —
+ * still said "unsaved changes".
+ *
+ * `mergeKey` folds a run of edits to the same thing into one undo step. Typing
+ * a table name was one history entry per keystroke.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
 const MAX_HISTORY = 40;
+const NOTHING = Object.freeze([]);
 
 /** The API's own ceilings, mirrored so the editor refuses before the round trip. */
 export const MAX_TABLES = 400;
 export const MAX_SEATS_PER_TABLE = 60;
 
 export function useMapDraft() {
-  const [history, setHistory] = useState({ past: [], present: [], future: [] });
-  const [dirty, setDirty] = useState(false);
+  const [history, setHistory] = useState({ past: [], present: NOTHING, future: [], mergeKey: null });
+  const [saved, setSaved] = useState(NOTHING);
 
   const tables = history.present;
+  const dirty = tables !== saved;
 
   /**
    * Commits a change and pushes the PREVIOUS state onto the undo stack.
@@ -43,26 +52,29 @@ export function useMapDraft() {
    * `transient` is what makes dragging usable: a pointermove fires dozens of
    * times per second, and one history entry per frame would make undo step back
    * a pixel at a time. The drag's first frame commits; every frame after it
-   * replaces the value without recording.
+   * replaces the value without recording. `mergeKey` does the same for a run of
+   * edits that share it — keystrokes in one field, arrow presses on one table.
    */
-  const apply = useCallback((next, { transient = false } = {}) => {
+  const apply = useCallback((next, { transient = false, mergeKey = null } = {}) => {
     setHistory((h) => {
       const resolved = typeof next === 'function' ? next(h.present) : next;
+      if (resolved === h.present) return h;
       if (transient) return { ...h, present: resolved };
+      if (mergeKey && h.mergeKey === mergeKey) return { ...h, present: resolved, future: [] };
       return {
         past: [...h.past, h.present].slice(-MAX_HISTORY),
         present: resolved,
         future: [],
+        mergeKey,
       };
     });
-    setDirty(true);
   }, []);
 
   /** Replaces everything without touching history — for the initial load and
-   *  for the re-read after a save. */
+   *  for the re-read after a save. What it loads is, by definition, saved. */
   const reset = useCallback((next) => {
-    setHistory({ past: [], present: next, future: [] });
-    setDirty(false);
+    setHistory({ past: [], present: next, future: [], mergeKey: null });
+    setSaved(next);
   }, []);
 
   const undo = useCallback(() => {
@@ -72,9 +84,9 @@ export function useMapDraft() {
         past: h.past.slice(0, -1),
         present: h.past[h.past.length - 1],
         future: [h.present, ...h.future].slice(0, MAX_HISTORY),
+        mergeKey: null,
       };
     });
-    setDirty(true);
   }, []);
 
   const redo = useCallback(() => {
@@ -84,9 +96,9 @@ export function useMapDraft() {
         past: [...h.past, h.present].slice(-MAX_HISTORY),
         present: h.future[0],
         future: h.future.slice(1),
+        mergeKey: null,
       };
     });
-    setDirty(true);
   }, []);
 
   /**
@@ -180,7 +192,6 @@ export function useMapDraft() {
     addTable,
     updateTable,
     removeTable,
-    setSaved: useCallback(() => setDirty(false), []),
   };
 }
 

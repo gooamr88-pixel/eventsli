@@ -3,10 +3,16 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { get, post, patch } from '../../../../utils/apiClient';
+import { messageFor } from '../../../../utils/errors';
+import { formatEventTime } from '../../../../lib/eventTime';
+import { useToast } from '../../../../components/ui/Toast';
+import { useConfirm } from '../../../../components/ui/Confirm';
+import { SectionHeader, Panel } from '../../../../components/ui/Page';
 import Field from '../../../../components/forms/Field';
 import FormError from '../../../../components/forms/FormError';
 import SubmitButton from '../../../../components/forms/SubmitButton';
-import { Loading, ErrorNotice } from '../../../../components/Feedback';
+import { Loading, Empty, ErrorNotice, Notice } from '../../../../components/Feedback';
+import { useEventContext } from '../EventContext';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -17,17 +23,22 @@ import { Loading, ErrorNotice } from '../../../../components/Feedback';
  * revoked without touching anyone's account — and revoking is a FLAG, not a
  * delete, because the scans it recorded have to keep pointing somewhere.
  *
- * THE PIN IS SHOWN EXACTLY ONCE. The API returns it on creation and never
- * again; it is stored hashed. So the panel makes that plain rather than letting
- * an organizer close the page and discover it later at a door.
+ * THE PIN IS SHOWN EXACTLY ONCE; it is stored hashed. THE DEVICE ID IS NOT
+ * SECRET and is always listed, with a copy button: the gate sign-in needs it,
+ * and it used to vanish with the "registered" banner, leaving an organizer no
+ * way to sign a tablet in short of registering a new one.
+ *
+ * Revoking stops that door at once, so it asks first.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 export default function Devices({ eventId }) {
+  const timezone = useEventContext()?.event?.timezone;
   const [devices, setDevices] = useState(null);
   const [gate, setGate] = useState(null);
   const [error, setError] = useState(null);
   const [reload, setReload] = useState(0);
   const [created, setCreated] = useState(null);
+  const [adding, setAdding] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -52,62 +63,60 @@ export default function Devices({ eventId }) {
   const refresh = () => setReload((n) => n + 1);
 
   if (error) return <ErrorNotice error={error} />;
-  if (!devices) return <Loading variant="list" />;
+  if (!devices) return <Loading variant="list" label="Loading devices" />;
 
   return (
     <div className="fx-stack">
-      <div className="fx-stack fx-stack--sm">
-        <h2 className="text-xl">Scanning</h2>
-        <p className="max-w-[62ch] text-muted">
-          Register each shared tablet or phone that will scan at the door. Staff sign the
-          device in with its PIN, so a shift change needs nothing. For named people who
-          scan with their own account, use the{' '}
-          <Link href={`/organizer/events/${eventId}/staff`} className="text-accent">door team</Link>.
-        </p>
-      </div>
+      <SectionHeader
+        title="Scanning devices"
+        lede="Each shared tablet or phone that scans at the door. Staff sign it in with the device ID and its PIN, so a shift change needs nothing."
+        actions={!adding && (
+          <button type="button" className="es-btn es-btn--primary" onClick={() => setAdding(true)}>
+            Register a device
+          </button>
+        )}
+      />
+      <p className="text-sm text-muted">
+        For named people who scan with their own account, use the{' '}
+        <Link href={`/organizer/events/${eventId}/staff`} className="text-accent underline">door team</Link>.
+      </p>
 
       <GateBanner gate={gate} eventId={eventId} />
 
       {created && (
-        <div className="fx-stack fx-stack--sm rounded-[--es-radius-lg] border border-accent bg-accent-wash p-5">
-          <p className="text-ink">“{created.label}” is registered</p>
+        <Notice tone="info" title={`“${created.label}” is registered`}>
           <dl className="fx-stack fx-stack--sm text-sm">
             <div>
-              <dt className="text-muted">Device ID</dt>
-              <dd className="font-mono text-ink fx-break">{created.id}</dd>
-            </div>
-            <div>
-              <dt className="text-muted">PIN</dt>
+              <dt className="text-muted">PIN — shown this once</dt>
               <dd className="font-mono text-2xl text-ink">{created.pin}</dd>
             </div>
           </dl>
-          {/* The one thing that must not be missed. */}
-          <p className="text-sm text-danger">
-            Write the PIN down now. It is stored hashed and cannot be shown again — a
-            device that loses it has to be registered anew.
-          </p>
-          <button type="button" onClick={() => setCreated(null)} className="self-start text-sm text-accent">
-            Got it
-          </button>
-        </div>
+          <p>Write the PIN down now. It is stored hashed and cannot be shown again. The device ID stays in the list below.</p>
+          <div>
+            <button type="button" onClick={() => setCreated(null)} className="es-btn es-btn--secondary es-btn--sm">
+              I have written it down
+            </button>
+          </div>
+        </Notice>
+      )}
+
+      {adding && (
+        <NewDevice
+          eventId={eventId}
+          onCancel={() => setAdding(false)}
+          onCreated={(device) => { setCreated(device); setAdding(false); refresh(); }}
+        />
       )}
 
       {devices.length === 0 ? (
-        <div className="es-empty">
-          <p className="text-muted">No devices yet.</p>
-        </div>
+        <Empty title="No devices yet." hint="Register the tablets that will scan tickets at the door." />
       ) : (
         <ul className="fx-stack fx-stack--sm">
           {devices.map((d) => (
-            <DeviceRow key={d.id} eventId={eventId} device={d} onChanged={refresh} />
+            <DeviceRow key={d.id} eventId={eventId} device={d} timezone={timezone} onChanged={refresh} />
           ))}
         </ul>
       )}
-
-      <NewDevice
-        eventId={eventId}
-        onCreated={(device) => { setCreated(device); refresh(); }}
-      />
     </div>
   );
 }
@@ -120,87 +129,96 @@ export default function Devices({ eventId }) {
 function GateBanner({ gate, eventId }) {
   const state = gate?.gate;
   const stats = gate?.stats;
+  const stat = stats && (
+    <p className="es-nums text-sm text-muted">
+      <span className="text-ink">{stats.admitted}</span> in · {stats.pending} to come
+    </p>
+  );
 
+  if (state?.locked && !state?.override) {
+    return (
+      <Notice tone="danger" title="Scanning is switched off">
+        <p>
+          An unpaid commission invoice locked it.{' '}
+          <Link href={`/organizer/events/${eventId}/commission`} className="text-accent underline">Settle it</Link>
+          {' '}and it reopens on its own — there is no separate unlock.
+        </p>
+        {stat}
+      </Notice>
+    );
+  }
   return (
-    <div className={`fx-row fx-row--between rounded-[--es-radius-lg] border p-4 ${
-      state?.locked ? 'border-danger/40 bg-danger/5' : 'border-border-base bg-surface'
-    }`}
-    >
-      <div className="fx-min0">
-        <p className="text-ink">
-          {state?.override
-            ? 'Scanning temporarily allowed'
-            : state?.locked ? 'Scanning is switched off' : 'Scanning works'}
-        </p>
-        {state?.locked && (
-          <p className="text-sm text-muted">
-            An unpaid commission invoice locked it.{' '}
-            <Link href={`/organizer/events/${eventId}/commission`} className="text-accent">
-              Settle it
-            </Link>{' '}
-            and it reopens on its own — there is no separate unlock.
-          </p>
-        )}
-      </div>
-      {stats && (
-        <p className="es-nums whitespace-nowrap text-sm text-muted">
-          <span className="text-ink">{stats.admitted}</span> in · {stats.pending} to come
-        </p>
-      )}
-    </div>
+    <Panel title={state?.override ? 'Scanning temporarily allowed' : 'Scanning works'} action={stat} />
   );
 }
 
-function DeviceRow({ eventId, device, onChanged }) {
+function DeviceRow({ eventId, device, timezone, onChanged }) {
+  const toast = useToast();
+  const confirm = useConfirm();
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState(null);
 
-  async function toggle() {
-    setBusy(true);
-    setError(null);
+  async function copyId() {
     try {
-      await patch(`/events/${eventId}/scan-devices/${device.id}`, {
-        isActive: !device.isActive,
-      }, { noRedirect: true });
+      await navigator.clipboard.writeText(device.id);
+      toast.success('Device ID copied.');
+    } catch {
+      toast.error('Copying was blocked by the browser. Select the ID and copy it by hand.');
+    }
+  }
+
+  async function setActive(isActive) {
+    if (!isActive) {
+      const ok = await confirm({
+        title: `Revoke “${device.label}”?`,
+        tone: 'danger',
+        body: <p>It stops scanning immediately, even mid-shift. You can switch it back on later; its past scans are kept.</p>,
+        confirmLabel: 'Revoke device',
+      });
+      if (!ok) return;
+    }
+    setBusy(true);
+    try {
+      await patch(`/events/${eventId}/scan-devices/${device.id}`, { isActive }, { noRedirect: true });
+      toast.success(isActive ? `“${device.label}” can scan again.` : `“${device.label}” is revoked.`);
       onChanged();
     } catch (err) {
-      setError(err);
+      toast.error(messageFor(err));
     } finally {
       setBusy(false);
     }
   }
 
+  const lastUsed = device.lastSeenAt ? formatWhen(device.lastSeenAt, timezone) : null;
+
   return (
-    <li className="fx-stack fx-stack--sm es-card p-4">
+    <li className="es-card fx-stack fx-stack--sm p-4">
       <div className="fx-row fx-row--between">
-        <div className="fx-min0">
-          <p className="fx-break text-ink">{device.label}</p>
-          <p className="text-xs text-subtle">
-            {device.lastSeenAt
-              ? `Last used ${new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(device.lastSeenAt))}`
-              : 'Never used'}
+        <div className="fx-min0 fx-stack fx-stack--sm gap-0.5">
+          <p className="fx-break text-ink">
+            {device.label}
+            {!device.isActive && <span className="es-pill es-pill--danger ml-2">Revoked</span>}
           </p>
+          <p className="text-xs text-subtle">{lastUsed ? `Last used ${lastUsed}` : 'Never used'}</p>
         </div>
         <button
           type="button"
-          onClick={toggle}
           disabled={busy}
-          className={`whitespace-nowrap rounded-full px-3 py-1 text-sm transition-colors disabled:opacity-40 ${
-            device.isActive
-              ? 'bg-success/15 text-success hover:bg-danger/15 hover:text-danger'
-              : 'bg-bg-sunken text-muted hover:text-ink'
-          }`}
+          onClick={() => setActive(!device.isActive)}
+          className={`es-btn es-btn--sm ${device.isActive ? 'es-btn--ghost' : 'es-btn--secondary'}`}
         >
-          {busy ? '…' : device.isActive ? 'Active' : 'Revoked'}
+          {busy ? 'Working…' : device.isActive ? 'Revoke' : 'Switch back on'}
         </button>
       </div>
-      <FormError error={error} />
+      <div className="fx-row">
+        <span className="text-xs text-muted">Device ID</span>
+        <code className="fx-break font-mono text-xs text-ink">{device.id}</code>
+        <button type="button" onClick={copyId} className="es-btn es-btn--ghost es-btn--sm">Copy</button>
+      </div>
     </li>
   );
 }
 
-function NewDevice({ eventId, onCreated }) {
-  const [open, setOpen] = useState(false);
+function NewDevice({ eventId, onCreated, onCancel }) {
   const [form, setForm] = useState({ label: '', pin: '' });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -212,48 +230,40 @@ function NewDevice({ eventId, onCreated }) {
     try {
       const device = await post(`/events/${eventId}/scan-devices`, form, { noRedirect: true });
       onCreated(device);
-      setOpen(false);
-      setForm({ label: '', pin: '' });
     } catch (err) {
       setError(err);
-    } finally {
       setBusy(false);
     }
   }
 
-  if (!open) {
-    return (
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="self-start rounded-[--es-radius-md] border border-border-strong px-4 py-2 text-sm text-ink transition-colors hover:bg-bg-sunken"
-      >
-        Register a device
-      </button>
-    );
-  }
-
   return (
-    <form onSubmit={submit} className="fx-stack fx-stack--sm es-card p-4">
-      <Field
-        label="What is it" name="label" required minLength={1} maxLength={60} autoFocus
-        hint="e.g. Main door, Side entrance"
-        value={form.label}
-        onChange={(e) => setForm((f) => ({ ...f, label: e.target.value }))}
-      />
-      <Field
-        label="PIN" name="pin" required minLength={4} maxLength={32}
-        hint="At least 4 characters. Staff type this to sign the device in — and it is shown only once."
-        value={form.pin}
-        onChange={(e) => setForm((f) => ({ ...f, pin: e.target.value }))}
-      />
-      <FormError error={error} />
-      <div className="fx-row fx-row--between">
-        <button type="button" onClick={() => setOpen(false)} className="text-sm text-muted hover:text-ink">
-          Cancel
-        </button>
-        <SubmitButton busy={busy} busyLabel="Registering…">Register</SubmitButton>
-      </div>
-    </form>
+    <Panel title="Register a device">
+      <form onSubmit={submit} className="fx-stack fx-stack--sm">
+        <div className="fx-grid fx-grid--2">
+          <Field
+            label="What is it" name="label" required minLength={1} maxLength={60} autoFocus
+            hint="e.g. Main door, Side entrance"
+            value={form.label}
+            onChange={(e) => setForm((f) => ({ ...f, label: e.target.value }))}
+          />
+          <Field
+            label="PIN" name="pin" required inputMode="numeric" pattern="[0-9]{6,12}" minLength={6} maxLength={12}
+            hint="6 to 12 digits, shown only once. After 10 wrong tries a device waits 15 minutes."
+            value={form.pin}
+            onChange={(e) => setForm((f) => ({ ...f, pin: e.target.value.replace(/\D/g, '') }))}
+          />
+        </div>
+        <FormError error={error} />
+        <div className="fx-row">
+          <SubmitButton busy={busy} busyLabel="Registering…">Register</SubmitButton>
+          <button type="button" onClick={onCancel} className="es-btn es-btn--ghost">Cancel</button>
+        </div>
+      </form>
+    </Panel>
   );
+}
+
+/** In the event's time zone, named — a door log is read against the event's own clock. */
+function formatWhen(iso, timeZone) {
+  return formatEventTime(iso, timeZone);
 }

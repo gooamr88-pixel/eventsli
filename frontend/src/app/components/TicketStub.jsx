@@ -26,11 +26,11 @@ export default function TicketStub({ ticket, qrSrc }) {
           alt={`Entry code for ${seatLabel(ticket) || 'this ticket'}`}
           width={132}
           height={132}
-          className={`h-[132px] w-[132px] rounded-[--es-radius-sm] bg-white p-1 ${used || void_ ? 'opacity-30' : ''}`}
+          className={`h-[132px] w-[132px] rounded-(--es-radius-sm) bg-white p-1 ${used || void_ ? 'opacity-30' : ''}`}
         />
         {(used || void_) && (
           <span className="absolute inset-0 grid place-items-center">
-            <span className="rounded-[--es-radius-sm] bg-ink/85 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.09em] text-bg">
+            <span className="rounded-(--es-radius-sm) bg-ink/85 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.09em] text-bg">
               {void_ ? 'Void' : 'Used'}
             </span>
           </span>

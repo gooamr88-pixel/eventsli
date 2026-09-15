@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { useOrganizer } from '../../hooks/useOrganizer';
 import { useApi } from '../../hooks/useApi';
 import { formatMoney } from '../../utils/money';
+import { formatDay } from '../../lib/eventTime';
+import { PERIODS } from '../../lib/periods';
 import { Loading, ErrorNotice } from '../../components/Feedback';
 import { PageHeader, StatCard, Panel } from '../../components/ui/Page';
 import { Segmented } from '../../components/ui/Filters';
@@ -28,12 +30,6 @@ import { Attention, Upcoming, RecentOrders } from './DashboardPanels';
  * wrong in both. When there are two, a switch picks which one the page shows.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-const WINDOWS = [
-  { value: 7, label: '7 days' },
-  { value: 30, label: '30 days' },
-  { value: 90, label: '90 days' },
-];
-
 export default function Dashboard() {
   const { loading, organizer, error, refresh } = useOrganizer();
   const [days, setDays] = useState(30);
@@ -112,7 +108,7 @@ export default function Dashboard() {
             <Panel
               title="Revenue"
               action={(
-                <Segmented label="Period" value={days} onChange={setDays} options={WINDOWS} />
+                <Segmented label="Period" value={days} onChange={setDays} options={PERIODS} />
               )}
             >
               <BarChart
@@ -121,7 +117,7 @@ export default function Dashboard() {
                 data={(data.timeline || []).map((d) => {
                   const day = d.byCurrency?.[currency];
                   return {
-                    label: shortDate(d.date),
+                    label: formatDay(d.date),
                     value: Number(day?.grossCents || 0),
                     detail: day
                       ? `${formatMoney(day.grossCents, currency)} · ${day.tickets} tickets`
@@ -142,9 +138,4 @@ export default function Dashboard() {
       )}
     </div>
   );
-}
-
-function shortDate(iso) {
-  return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
-    .format(new Date(`${iso}T00:00:00Z`));
 }

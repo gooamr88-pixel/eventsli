@@ -4,6 +4,7 @@ const events = require('../services/eventService');
 const terms = require('../services/termsService');
 const { parsePagination, applyPagination, buildMeta } = require('../middleware/pagination');
 const { sendOk, sendFail } = require('../utils/responseEnvelope');
+const { safeSearch } = require('../utils/search');
 const logger = require('../utils/logger');
 
 const SELECT = `
@@ -86,7 +87,9 @@ async function list(req, res, next) {
       .eq('organizer_id', req.user.access.organizerId);
 
     if (req.query.status) query = query.eq('status', req.query.status);
-    if (p.q) query = query.ilike('title', `%${p.q}%`);
+    // Sanitised like every other search: this one went into `ilike` untouched.
+    const safe = safeSearch(p.q);
+    if (safe) query = query.ilike('title', `%${safe}%`);
 
     const { data, error, count } = await applyPagination(query, p);
     if (error) throw new Error(error.message);
@@ -110,10 +113,14 @@ async function get(req, res, next) {
 }
 
 // ─── PATCH /events/:eventId ─────────────────────────────────────────────────
+const { writeAudit } = require('../services/auditService');
+
 async function update(req, res, next) {
   try {
     const isAdmin = !!req.user.access.isAdmin;
-    const { allowed, denied } = events.partitionPatch(req.body, { isAdmin });
+    // `reason` is an admin's note for the audit trail, not an event field.
+    const { reason, ...fields } = req.body || {};
+    const { allowed, denied } = events.partitionPatch(fields, { isAdmin });
 
     // Named explicitly rather than silently dropped: an organizer who thinks
     // they set their commission to 0% and got a 200 back has been misled.
@@ -128,14 +135,40 @@ async function update(req, res, next) {
       return sendFail(res, { status: 400, error: 'VALIDATION_ERROR', message: 'Nothing to update.' });
     }
 
+    // An admin's edit is audited with what each field was, so read those too.
+    // The column names come from partitionPatch's allowlist, never the request.
+    const auditColumns = isAdmin ? Object.keys(allowed) : [];
     const { data: current } = await supabase
-      .from('events').select('status, country, currency').eq('id', req.params.eventId).single();
+      .from('events')
+      .select([...new Set(['status', 'country', 'currency', ...auditColumns])].join(', '))
+      .eq('id', req.params.eventId).single();
 
     // A cancelled event is a historical record, not a draft (BRD §17).
     if (['cancelled', 'completed'].includes(current.status)) {
       return sendFail(res, {
         status: 409, error: 'CONFLICT',
         message: `A ${current.status} event cannot be edited.`,
+      });
+    }
+
+    // BRD §16 — the reviewer approves what they saw. See editConsequence.
+    const columns = Object.keys(allowed);
+    const touchesSaleLocked = !isAdmin && columns.some((c) => events.LOCKED_AFTER_SALE.includes(c));
+    const consequence = events.editConsequence({
+      status: current.status,
+      columns,
+      isAdmin,
+      hasPaidOrders: touchesSaleLocked ? await events.hasPaidOrders(req.params.eventId) : false,
+    });
+    if (consequence.refused.length > 0) {
+      const fields = consequence.refused.map(events.apiFieldName);
+      return sendFail(res, {
+        status: 409, error: 'CONFLICT',
+        message: consequence.reason === 'LOCKED_AFTER_SALE'
+          ? `Tickets have already sold, so ${fields.join(', ')} can no longer change.`
+          : `This event is on sale, so ${fields.join(', ')} cannot change without Eventsli `
+            + 'reviewing it again. Contact us to make this change.',
+        meta: { lockedFields: fields, reason: consequence.reason },
       });
     }
 
@@ -155,13 +188,42 @@ async function update(req, res, next) {
       allowed.currency = newCurrency;
     }
 
+    // An edit to an event under review withdraws it: it goes back to draft and
+    // is submitted again, so the reviewer never approves content they did not see.
+    if (consequence.returnsToDraft) allowed.status = 'draft';
     allowed.updated_at = new Date().toISOString();
 
     const { data, error } = await supabase
-      .from('events').update(allowed).eq('id', req.params.eventId).select(SELECT).single();
+      .from('events').update(allowed)
+      .eq('id', req.params.eventId)
+      // Optimistic lock. Without it an edit racing an approval could put a
+      // just-published event back to draft, or edit it past the rules above.
+      .eq('status', current.status)
+      .select(SELECT)
+      .maybeSingle();
     if (error) throw new Error(error.message);
+    if (!data) {
+      return sendFail(res, {
+        status: 409, error: 'CONFLICT',
+        message: 'This event changed while you were editing it. Reload and try again.',
+      });
+    }
 
-    return sendOk(res, shape(data));
+    // BRD §19 — an admin changing an organizer's event is on the record: what
+    // each field was, what it became, and why. This endpoint wrote nothing.
+    if (isAdmin) {
+      const changed = columns.filter((c) => c !== 'updated_at');
+      await writeAudit(req, {
+        action: 'event.edited', targetType: 'event', targetId: req.params.eventId,
+        payload: {
+          reason: typeof reason === 'string' && reason.trim() ? reason.trim() : null,
+          before: Object.fromEntries(changed.map((c) => [c, current[c] ?? null])),
+          after: Object.fromEntries(changed.map((c) => [c, data[c] ?? null])),
+        },
+      });
+    }
+
+    return sendOk(res, shape(data), consequence.returnsToDraft ? { meta: { returnedToDraft: true } } : undefined);
   } catch (err) {
     if (err.code === 'VALIDATION_ERROR') {
       return sendFail(res, { status: 400, error: 'VALIDATION_ERROR', message: err.message });

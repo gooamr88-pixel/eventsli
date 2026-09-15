@@ -3,14 +3,16 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { post } from '../../utils/apiClient';
-import { describeError } from '../../utils/errors';
+import { describeError, messageFor } from '../../utils/errors';
 import { formatMoney } from '../../utils/money';
+import { formatEventTime } from '../../lib/eventTime';
 import { useApi } from '../../hooks/useApi';
 import { useToast } from '../../components/ui/Toast';
 import { useConfirm } from '../../components/ui/Confirm';
 import { PageHeader } from '../../components/ui/Page';
 import { Segmented, Pagination } from '../../components/ui/Filters';
 import DataTable from '../../components/ui/DataTable';
+import InvoiceStatus from '../../components/ui/InvoiceStatus';
 import { Loading, Empty, ErrorNotice } from '../../components/Feedback';
 
 /**
@@ -21,14 +23,18 @@ import { Loading, Empty, ErrorNotice } from '../../components/Feedback';
  * leaves a door shut. The API reports `gateReopened` and this screen says so,
  * since the person clicking it is usually on the phone to the organizer.
  *
- * Proof is EVIDENCE, not authority: an invoice in `submitted` has a claim
- * attached and is still unpaid. The link opens in a new tab because checking it
- * is the whole job.
+ * OVERDUE is the filter that matters most, and it was missing: the hourly job
+ * moves unpaid invoices to `overdue`, and those — the ones shutting gates —
+ * matched no filter here and showed as a raw grey word.
+ *
+ * Proof is EVIDENCE, not authority: an invoice with a receipt attached is still
+ * unpaid. The link opens in a new tab because checking it is the whole job.
  */
 const STATUSES = [
   { value: '', label: 'All' },
+  { value: 'overdue', label: 'Overdue' },
   { value: 'open', label: 'Unpaid' },
-  { value: 'submitted', label: 'Proof in' },
+  { value: 'submitted', label: 'Receipt sent' },
   { value: 'paid', label: 'Settled' },
 ];
 
@@ -53,11 +59,11 @@ export default function Invoices() {
             Confirm you have received {formatMoney(invoice.amountCents, invoice.currency)}. This marks it paid and
             reopens that event&rsquo;s gate.
           </p>
-          <p>Check the receipt first — submitting proof did not reopen anything on its own.</p>
+          <p>Check the receipt first — submitting one did not reopen anything on its own.</p>
         </>
       ),
       confirmLabel: 'Money received — settle it',
-      reason: { label: 'Note for the audit log', minLength: 0, hint: 'Optional — e.g. the transfer reference.' },
+      reason: { label: 'Note for the audit log', minLength: 0, maxLength: 500, hint: 'Optional — e.g. the transfer reference.' },
     });
     if (!answer) return;
 
@@ -71,8 +77,7 @@ export default function Invoices() {
         : 'Something else is still outstanding, so scanning stays off.', { title: `${invoice.number} settled` });
       reload();
     } catch (err) {
-      const { title, recovery } = describeError(err);
-      toast.error(recovery, { title });
+      toast.error(messageFor(err), { title: describeError(err).title });
     } finally {
       setBusyId(null);
     }
@@ -93,7 +98,10 @@ export default function Invoices() {
       ) : loading && !data ? (
         <Loading variant="list" rows={4} label="Loading invoices" />
       ) : rows.length === 0 ? (
-        <Empty title="No invoices in this state." hint="Try another filter — an invoice only appears once an event has door sales." />
+        <Empty
+          title="No invoices in this state."
+          hint={status === 'overdue' ? 'No gate is shut by an unpaid invoice right now.' : 'Try another filter — an invoice only appears once an event has door sales.'}
+        />
       ) : (
         <>
           <DataTable
@@ -120,7 +128,8 @@ export default function Invoices() {
                 label: 'Due',
                 render: (i) => (
                   <span className="fx-stack fx-stack--sm gap-0.5">
-                    <span>{when(i.dueAt)}</span>
+                    {/* Your own clock, with the zone named — the list spans events in several zones. */}
+                    <span className="whitespace-nowrap">{formatEventTime(i.dueAt)}</span>
                     <InvoiceStatus invoice={i} />
                   </span>
                 ),
@@ -132,9 +141,9 @@ export default function Invoices() {
                 align: 'end',
                 render: (i) => (
                   <span className="fx-row justify-end">
-                    {i.proofUrl && (
+                    {i.proofUrl && /^https?:\/\//i.test(i.proofUrl) && (
                       <a href={i.proofUrl} target="_blank" rel="noreferrer noopener" className="es-btn es-btn--ghost es-btn--sm">
-                        Receipt
+                        Receipt <span className="sr-only">(opens in a new tab)</span>
                       </a>
                     )}
                     {!['paid', 'waived'].includes(i.status) && (
@@ -152,20 +161,4 @@ export default function Invoices() {
       )}
     </div>
   );
-}
-
-function InvoiceStatus({ invoice }) {
-  if (invoice.isOverdue) return <span className="es-pill es-pill--danger self-start">Overdue · gate shut</span>;
-  const [label, tone] = {
-    open: ['Unpaid', 'es-pill--warning'],
-    submitted: ['Proof in', ''],
-    paid: ['Settled', 'es-pill--accent'],
-    waived: ['Waived', ''],
-  }[invoice.status] || [invoice.status, ''];
-  return <span className={`es-pill ${tone} self-start`}>{label}</span>;
-}
-
-function when(iso) {
-  if (!iso) return '—';
-  return new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' }).format(new Date(iso));
 }

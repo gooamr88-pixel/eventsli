@@ -35,7 +35,7 @@ export default function ScanLog({ records, limit = 20 }) {
         return (
           <li
             key={r.clientScanId}
-            className="fx-row fx-row--between rounded-[--es-radius-md] bg-surface px-3 py-2"
+            className="fx-row fx-row--between rounded-(--es-radius-md) bg-surface px-3 py-2"
           >
             <span className="fx-min0 fx-truncate text-sm text-ink">
               {r.attendee || <span className="text-subtle">No name</span>}

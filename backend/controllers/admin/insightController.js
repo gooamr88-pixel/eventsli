@@ -1,14 +1,15 @@
 const { supabase } = require('../../config/supabase');
 const { parsePagination, applyPagination, buildMeta } = require('../../middleware/pagination');
 const { sendOk } = require('../../utils/responseEnvelope');
+const { safeSearch } = require('../../utils/search');
+const { one } = require('../../utils/embed');
+const { canReceivePayouts } = require('../../utils/payouts');
 const { windowDays } = require('../statsController');
 
 /**
  * BRD §19–§20 — what an admin sees before deciding anything: the platform at a
  * glance, and every organizer with their standing.
  */
-
-const one = (x) => (Array.isArray(x) ? x[0] : x) || null;
 
 // ─── GET /admin/overview ────────────────────────────────────────────────────
 async function overview(req, res, next) {
@@ -36,13 +37,11 @@ async function organizers(req, res, next) {
       .from('organizers')
       .select(`id, display_name, country, is_banned, stripe_account_id,
                stripe_onboarding_complete, stripe_payouts_enabled, created_at,
-               profiles!organizers_owner_user_id_fkey ( id, email, full_name, is_blocked )`,
+               profiles!organizers_owner_user_id_fkey ( id, email, full_name, role, is_blocked )`,
       { count: 'exact' });
 
-    if (p.q) {
-      const safe = p.q.replace(/[,()\\%*]/g, ' ').trim();
-      if (safe) query = query.ilike('display_name', `%${safe}%`);
-    }
+    const safe = safeSearch(p.q);
+    if (safe) query = query.ilike('display_name', `%${safe}%`);
     if (req.query.banned === 'true') query = query.eq('is_banned', true);
     if (req.query.banned === 'false') query = query.eq('is_banned', false);
     if (req.query.payouts === 'ready') {
@@ -57,30 +56,14 @@ async function organizers(req, res, next) {
     const rows = data || [];
     const ids = rows.map((r) => r.id);
 
-    // Two queries for the whole page, whatever its length.
-    const [events, orders] = ids.length ? await Promise.all([
-      supabase.from('events').select('organizer_id, status').in('organizer_id', ids),
-      supabase.from('orders').select('organizer_id, currency, buyer_total_cents')
-        .eq('status', 'paid').in('organizer_id', ids),
-    ]) : [{ data: [] }, { data: [] }];
-    if (events.error) throw new Error(events.error.message);
-    if (orders.error) throw new Error(orders.error.message);
-
-    const eventCounts = new Map();
-    for (const e of events.data || []) {
-      const c = eventCounts.get(e.organizer_id) || { total: 0, published: 0, pendingReview: 0 };
-      c.total += 1;
-      if (e.status === 'published') c.published += 1;
-      if (e.status === 'pending_review') c.pendingReview += 1;
-      eventCounts.set(e.organizer_id, c);
-    }
-    const sales = new Map();
-    for (const o of orders.data || []) {
-      const byCurrency = sales.get(o.organizer_id) || {};
-      const s = (byCurrency[o.currency] ||= { orders: 0, grossCents: 0 });
-      s.orders += 1;
-      s.grossCents += Number(o.buyer_total_cents);
-      sales.set(o.organizer_id, byCurrency);
+    // One aggregate for the whole page, summed in the database. This used to
+    // pull every paid order of every organizer on the page and add them up
+    // here — silently low once past PostgREST's row cap.
+    let summary = {};
+    if (ids.length) {
+      const { data: agg, error: aggError } = await supabase.rpc('admin_organizer_sales', { p_organizer_ids: ids });
+      if (aggError) throw new Error(aggError.message);
+      summary = agg || {};
     }
 
     return sendOk(res, rows.map((o) => {
@@ -91,13 +74,16 @@ async function organizers(req, res, next) {
         country: o.country,
         isBanned: !!o.is_banned,
         stripeConnected: !!o.stripe_account_id,
-        canReceivePayouts: !!(o.stripe_onboarding_complete && o.stripe_payouts_enabled),
+        canReceivePayouts: canReceivePayouts(o),
         createdAt: o.created_at,
         owner: owner && {
           id: owner.id, email: owner.email, name: owner.full_name, isBlocked: !!owner.is_blocked,
+          // So the console can apply the same ladder the API does (BRD §19,
+          // utils/roleLadder.js).
+          role: owner.role,
         },
-        events: eventCounts.get(o.id) || { total: 0, published: 0, pendingReview: 0 },
-        sales: sales.get(o.id) || {},
+        events: summary[o.id]?.events || { total: 0, published: 0, pendingReview: 0 },
+        sales: summary[o.id]?.sales || {},
       };
     }), { pagination: buildMeta(p, count) });
   } catch (err) { return next(err); }

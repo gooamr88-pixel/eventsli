@@ -45,7 +45,7 @@ function cookieOptions(maxAgeMs = SESSION_TTL_HOURS * 3600 * 1000) {
  * something the server already rejects, and the user sees a random logout
  * instead of a clean one.
  */
-async function issue(res, { userId, email, role, req, ttlHours = SESSION_TTL_HOURS, impersonatorId = null }) {
+async function issue(res, { userId, email, role, req, ttlHours = SESSION_TTL_HOURS }) {
   const jti = crypto.randomUUID();
   const expiresAt = new Date(Date.now() + ttlHours * 3600 * 1000);
 
@@ -62,7 +62,7 @@ async function issue(res, { userId, email, role, req, ttlHours = SESSION_TTL_HOU
   if (error) throw new Error(`could not create session: ${error.message}`);
 
   const token = jwt.sign(
-    { sub: userId, email, role, jti, ...(impersonatorId ? { imp: impersonatorId } : {}) },
+    { sub: userId, email, role, jti },
     process.env.JWT_SECRET,
     { algorithm: 'HS256', expiresIn: `${ttlHours}h` },
   );

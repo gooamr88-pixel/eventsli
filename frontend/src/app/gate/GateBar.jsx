@@ -80,7 +80,7 @@ export default function GateBar({
       {/* BRD §18. A locked gate is the one refusal the door staff cannot
           resolve, so it is said here rather than only appearing scan by scan. */}
       {locked && (
-        <p role="alert" className="rounded-[--es-radius-md] bg-danger/15 px-3 py-2 text-sm text-danger">
+        <p role="alert" className="rounded-(--es-radius-md) bg-danger/15 px-3 py-2 text-sm text-danger">
           Scanning is switched off for this event
           {status.gate.reason === 'commission_overdue'
             ? ' — the organizer has an overdue commission invoice.'

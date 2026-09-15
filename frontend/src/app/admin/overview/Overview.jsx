@@ -4,6 +4,8 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useApi } from '../../hooks/useApi';
 import { formatMoney } from '../../utils/money';
+import { formatDay } from '../../lib/eventTime';
+import { PERIODS } from '../../lib/periods';
 import { Loading, ErrorNotice } from '../../components/Feedback';
 import { PageHeader, StatCard, Panel } from '../../components/ui/Page';
 import { Segmented } from '../../components/ui/Filters';
@@ -16,15 +18,10 @@ import BarChart from '../../components/charts/BarChart';
  * organizers owe on the manual channel, and what is waiting on an admin.
  *
  * One request (`/admin/overview`), aggregated in SQL. Money is shown one
- * currency at a time — USD and CAD are never added together.
+ * currency at a time — USD and CAD are never added together. The money cards
+ * follow the period switch; the all-time total sits in their notes.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-const WINDOWS = [
-  { value: 7, label: '7 days' },
-  { value: 30, label: '30 days' },
-  { value: 90, label: '90 days' },
-];
-
 export default function Overview() {
   const [days, setDays] = useState(30);
   const [picked, setPicked] = useState(null);
@@ -33,10 +30,14 @@ export default function Overview() {
   if (error) return <ErrorNotice error={error} />;
   if (loading && !data) return <Loading variant="stats" rows={4} label="Loading the overview" />;
 
-  const currencies = [...new Set([...Object.keys(data.sales || {}), ...Object.keys(data.receivables || {})])];
+  const currencies = [...new Set([
+    ...Object.keys(data.sales || {}), ...Object.keys(data.salesInWindow || {}), ...Object.keys(data.receivables || {}),
+  ])];
   const currency = picked && currencies.includes(picked) ? picked : (currencies[0] || 'CAD');
-  const sales = data.sales?.[currency] || { orders: 0, tickets: 0, grossCents: 0, commissionCents: 0, platformNetCents: 0 };
-  const owed = data.receivables?.[currency] || { openCents: 0, overdueCents: 0, overdueCount: 0 };
+  const none = { orders: 0, tickets: 0, grossCents: 0, commissionCents: 0, platformNetCents: 0 };
+  const sales = data.sales?.[currency] || none;
+  const recent = data.salesInWindow?.[currency] || none;
+  const owed = data.receivables?.[currency] || { openCents: 0, overdueCents: 0, overdueCount: 0, uninvoicedCents: 0 };
   const { events = {}, organizers = {}, people = {} } = data;
 
   return (
@@ -45,7 +46,7 @@ export default function Overview() {
         eyebrow="Administration"
         title="Overview"
         lede="Sales, commission, and everything waiting on an admin."
-        actions={<Segmented label="Period" value={days} onChange={setDays} options={WINDOWS} />}
+        actions={<Segmented label="Period" value={days} onChange={setDays} options={PERIODS} />}
       />
 
       {currencies.length > 1 && (
@@ -59,15 +60,15 @@ export default function Overview() {
 
       <div className="fx-grid fx-grid--4">
         <StatCard
-          label="Ticket sales"
-          value={formatMoney(sales.grossCents, currency)}
-          note={`${sales.orders} orders · ${sales.tickets} tickets, all time`}
+          label={`Ticket sales, last ${days} days`}
+          value={formatMoney(recent.grossCents, currency)}
+          note={`${recent.orders} orders · ${formatMoney(sales.grossCents, currency)} all time`}
           icon="money"
         />
         <StatCard
-          label="Eventsli commission"
-          value={formatMoney(sales.commissionCents, currency)}
-          note={`${formatMoney(sales.platformNetCents, currency)} net of card costs`}
+          label={`Commission, last ${days} days`}
+          value={formatMoney(recent.commissionCents, currency)}
+          note={`${formatMoney(recent.platformNetCents, currency)} kept after card costs, door sales included`}
           icon="percent"
         />
         <StatCard
@@ -80,21 +81,25 @@ export default function Overview() {
         <StatCard
           label="Owed by organizers"
           value={formatMoney(owed.openCents, currency)}
-          note={owed.overdueCount ? `${owed.overdueCount} overdue — those gates are shut` : 'Nothing overdue'}
+          note={owed.overdueCount
+            ? `${owed.overdueCount} overdue — those gates are shut`
+            : owed.uninvoicedCents
+              ? `${formatMoney(owed.uninvoicedCents, currency)} more on door sales, not invoiced yet`
+              : 'Nothing overdue'}
           icon="receipt"
           href="/admin/invoices"
         />
       </div>
 
       <div className="grid gap-[var(--fx-gap)] lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-        <Panel title={`Sales per day, last ${days} days`}>
+        <Panel title={`Sales per day, last ${days} days (UTC)`}>
           <BarChart
             ariaLabel={`Ticket sales per day in ${currency}`}
             format={(v) => formatMoney(v, currency)}
             data={(data.timeline || []).map((d) => {
               const day = d.byCurrency?.[currency];
               return {
-                label: shortDate(d.date),
+                label: formatDay(d.date),
                 value: Number(day?.grossCents || 0),
                 detail: day ? `${formatMoney(day.grossCents, currency)} · ${day.orders} orders` : 'No sales',
               };
@@ -109,7 +114,7 @@ export default function Overview() {
             <Fact term="Organizers" value={`${organizers.payoutReady ?? 0} of ${organizers.total ?? 0} can be paid`} href="/admin/organizers" />
             <Fact term="Banned organizers" value={organizers.banned ?? 0} href="/admin/organizers?banned=true" />
             <Fact term="Accounts" value={`${people.total ?? 0} · ${people.newInWindow ?? 0} new`} href="/admin/users" />
-            <Fact term="Blocked accounts" value={people.blocked ?? 0} />
+            <Fact term="Blocked accounts" value={people.blocked ?? 0} href="/admin/users?blocked=true" />
           </dl>
         </Panel>
       </div>
@@ -159,9 +164,4 @@ function Fact({ term, value, href }) {
       </dd>
     </div>
   );
-}
-
-function shortDate(iso) {
-  return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
-    .format(new Date(`${iso}T00:00:00Z`));
 }

@@ -157,17 +157,26 @@ test('the event is published through the normal review loop', async () => {
 
 // ── The door team ────────────────────────────────────────────────────────────
 
-test('adding someone without an account is refused with a reason', async () => {
-  const res = await organizer('POST', `/events/${eventId}/staff`, { email: `nobody-${stamp}@eventsli-test.invalid` });
-  assert.equal(res.status, 404);
-  assert.match(res.body.message, /account/i);
+test('an address with no account gets the same answer as one with an account', async () => {
+  // A 404 here and a name there made this a lookup of who uses Eventsli.
+  const nobody = `nobody-${stamp}@eventsli-test.invalid`;
+  const res = await organizer('POST', `/events/${eventId}/staff`, { email: nobody });
+  assert.equal(res.status, 202, JSON.stringify(res.body));
+  assert.equal(res.body.data.name, undefined, 'no name is disclosed');
+
+  const team = await organizer('GET', `/events/${eventId}/staff`);
+  assert.ok(!team.body.data.some((m) => m.email === nobody), 'nobody was added');
 });
 
 test('a door-team member signs in with their account and scans only this event', async () => {
   const person = await register(staffer, 'staff');
   const added = await organizer('POST', `/events/${eventId}/staff`, { email: person.email });
-  assert.equal(added.status, 201, JSON.stringify(added.body));
-  staffId = added.body.data.id;
+  assert.equal(added.status, 202, JSON.stringify(added.body));
+  assert.equal(added.body.data.name, undefined, 'the same answer as for an unknown address');
+
+  const team = await organizer('GET', `/events/${eventId}/staff`);
+  staffId = team.body.data.find((m) => m.email === String(person.email).toLowerCase())?.id;
+  assert.ok(staffId, 'the account is on the team');
 
   const mine = await staffer('GET', '/scan/assignments');
   assert.equal(mine.status, 200);

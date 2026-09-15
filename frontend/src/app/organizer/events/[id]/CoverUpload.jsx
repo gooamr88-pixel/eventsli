@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react';
 import Image from 'next/image';
 import { post, put, del } from '../../../utils/apiClient';
+import { useConfirm } from '../../../components/ui/Confirm';
 import FormError from '../../../components/forms/FormError';
 
 /**
@@ -24,12 +25,16 @@ import FormError from '../../../components/forms/FormError';
  * `coverUrl` is not a field anyone can PATCH — see the note in eventRules.js.
  * A client-supplied URL ends up inside an Open Graph tag on a public page,
  * which makes it a link the platform vouches for pointing anywhere at all.
+ *
+ * Removing asks first. It deletes the stored file as well as the link, so one
+ * stray click took the image off every shared link with no way back.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 const ACCEPT = 'image/jpeg,image/png,image/webp';
 
 export default function CoverUpload({ event, onChanged }) {
   const input = useRef(null);
+  const confirm = useConfirm();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
@@ -77,6 +82,14 @@ export default function CoverUpload({ event, onChanged }) {
   }
 
   async function remove() {
+    const ok = await confirm({
+      title: 'Remove the cover image?',
+      tone: 'danger',
+      body: <p>It comes off your event page, the listings and every link already shared. The file is deleted, so to bring it back you would upload it again.</p>,
+      confirmLabel: 'Remove image',
+    });
+    if (!ok) return;
+
     setBusy(true);
     setError(null);
     try {
@@ -111,7 +124,7 @@ export default function CoverUpload({ event, onChanged }) {
       </p>
 
       {event.cover ? (
-        <div className="relative aspect-[16/9] w-full overflow-hidden rounded-[--es-radius-md] bg-bg-sunken">
+        <div className="relative aspect-[16/9] w-full overflow-hidden rounded-(--es-radius-md) bg-bg-sunken">
           <Image
             src={event.cover.url}
             alt=""
@@ -121,7 +134,7 @@ export default function CoverUpload({ event, onChanged }) {
           />
         </div>
       ) : (
-        <div className="grid aspect-[16/9] w-full place-items-center rounded-[--es-radius-md] border border-dashed border-border-strong bg-bg-sunken">
+        <div className="grid aspect-[16/9] w-full place-items-center rounded-(--es-radius-md) border border-dashed border-border-strong bg-bg-sunken">
           <p className="text-sm text-subtle">No image yet</p>
         </div>
       )}

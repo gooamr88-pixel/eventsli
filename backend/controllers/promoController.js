@@ -81,6 +81,17 @@ async function remove(req, res, next) {
         status: 403, error: 'FORBIDDEN', message: 'That hold is not yours.',
       });
     }
+    // Only from an open hold. Once paid, the claim is part of what was bought:
+    // removing it here used to free a single-use code for someone else.
+    const { data: reservation } = await supabase
+      .from('reservations').select('state').eq('id', req.params.reservationId).maybeSingle();
+    if (!reservation || reservation.state !== 'active') {
+      return sendFail(res, {
+        status: 410, error: 'RESERVATION_EXPIRED',
+        message: 'That hold has ended, so its code can no longer be removed.',
+      });
+    }
+
     await promo.release(req.params.reservationId);
     const q = await pricing.quoteReservation(req.params.reservationId);
     return sendOk(res, { removed: true, quote: pricing.publicBreakdown(q) });

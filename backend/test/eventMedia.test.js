@@ -104,7 +104,7 @@ test('the storage bucket is provisioned behind a schema guard', () => {
 // ── Error codes ─────────────────────────────────────────────────────────────
 
 test('the media failures have statuses, so they are not 400 by accident', () => {
-  // sendRpcFailure falls back to 400 for an unmapped code. An unconfigured
+  // A status lookup falls back to 400 for an unmapped code. An unconfigured
   // bucket reported as "your request was invalid" sends the organizer looking
   // at their own file for a deployment problem.
   assert.equal(ERROR_STATUS.UNSUPPORTED_MEDIA_TYPE, 415);

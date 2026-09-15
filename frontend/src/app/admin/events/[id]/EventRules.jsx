@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { patch } from '../../../utils/apiClient';
 import { useToast } from '../../../components/ui/Toast';
+import { useConfirm } from '../../../components/ui/Confirm';
 import { Panel } from '../../../components/ui/Page';
 import Field from '../../../components/forms/Field';
 import FormError from '../../../components/forms/FormError';
@@ -15,9 +16,13 @@ import SubmitButton from '../../../components/forms/SubmitButton';
  * Saved through the SAME event endpoint the organizer uses — the field-authority
  * map in eventRules.js decides who may write what, and a second endpoint would
  * be a second map to keep in step.
+ *
+ * An admin is changing someone else's event without asking them, so saving
+ * asks for a reason; the API records it with the old and new values.
  */
 export default function EventRules({ event, onSaved }) {
   const toast = useToast();
+  const confirm = useConfirm();
   const [form, setForm] = useState({
     maxTicketsPerOrder: String(event.rules.maxTicketsPerOrder),
     allowTicketTransfer: event.rules.allowTicketTransfer,
@@ -41,12 +46,21 @@ export default function EventRules({ event, onSaved }) {
 
   async function save(e) {
     e.preventDefault();
+    const answer = await confirm({
+      title: 'Change the purchase rules?',
+      body: <p>Buyers see the new rules straight away. The organizer is not asked first, so the reason is kept in the audit log.</p>,
+      confirmLabel: 'Save rules',
+      reason: { label: 'Why are the rules changing?', minLength: 5, maxLength: 1000 },
+    });
+    if (!answer) return;
+
     setBusy(true);
     setError(null);
     try {
       await patch(`/events/${event.id}`, {
         maxTicketsPerOrder: Number(form.maxTicketsPerOrder),
         allowTicketTransfer: form.allowTicketTransfer,
+        reason: answer.reason,
       }, { noRedirect: true });
       toast.success('Purchase rules saved.');
       onSaved();

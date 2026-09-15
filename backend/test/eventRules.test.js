@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 // with no database and no environment. eventService pulls in the Supabase
 // client, which throws at module load without credentials.
 const {
-  partitionPatch, canTransition, transitionActor,
+  partitionPatch, canTransition, transitionActor, editConsequence, apiFieldName,
   ORGANIZER_EDITABLE, ADMIN_EDITABLE, TRANSITIONS,
 } = require('../services/eventRules');
 const { slugify, uniqueSlug } = require('../utils/slug');
@@ -111,6 +111,75 @@ test('suspension and cancellation are both the admin\'s act (BRD §17)', () => {
 test('a published event cannot slip back into review', () => {
   assert.equal(canTransition('published', 'pending_review'), false);
   assert.equal(canTransition('published', 'draft'), false);
+});
+
+// ── Edits and review (BRD §16) ──────────────────────────────────────────────
+
+test('an edit during review withdraws the event to draft', () => {
+  const r = editConsequence({
+    status: 'pending_review', columns: ['title', 'updated_at'], isAdmin: false, hasPaidOrders: false,
+  });
+  assert.deepEqual(r.refused, []);
+  assert.equal(r.returnsToDraft, true, 'the reviewer must not approve content they never saw');
+  assert.equal(canTransition('pending_review', 'draft'), true);
+  assert.equal(transitionActor('pending_review', 'draft'), 'organizer');
+});
+
+test('a draft or rejected event is edited freely', () => {
+  for (const status of ['draft', 'rejected']) {
+    const r = editConsequence({ status, columns: ['title', 'starts_at', 'venue_name'], isAdmin: false });
+    assert.deepEqual(r.refused, [], status);
+    assert.equal(r.returnsToDraft, false, status);
+  }
+});
+
+test('a live event takes operational changes without another review', () => {
+  const r = editConsequence({
+    status: 'published',
+    columns: ['description', 'max_tickets_per_order', 'allow_ticket_transfer', 'updated_at'],
+    isAdmin: false,
+    hasPaidOrders: true,
+  });
+  assert.deepEqual(r.refused, []);
+  assert.equal(r.returnsToDraft, false, 'and it stays on sale');
+});
+
+test('a live event refuses what the reviewer approved, by the name the client sent', () => {
+  for (const status of ['published', 'suspended']) {
+    const r = editConsequence({
+      status, columns: ['description', 'starts_at', 'venue_name'], isAdmin: false, hasPaidOrders: false,
+    });
+    assert.deepEqual(r.refused, ['starts_at', 'venue_name'], status);
+    assert.equal(r.reason, 'EVENT_ON_SALE');
+  }
+  assert.equal(apiFieldName('starts_at'), 'startsAt');
+  assert.equal(apiFieldName('venue_name'), 'venueName');
+});
+
+test('after a sale, how tickets sell and who pays the fee are fixed', () => {
+  const r = editConsequence({
+    status: 'suspended', columns: ['purchase_mode', 'fee_bearer'], isAdmin: false, hasPaidOrders: true,
+  });
+  assert.deepEqual(r.refused, ['purchase_mode', 'fee_bearer']);
+  assert.equal(r.reason, 'LOCKED_AFTER_SALE');
+
+  const before = editConsequence({
+    status: 'draft', columns: ['purchase_mode', 'fee_bearer'], isAdmin: false, hasPaidOrders: false,
+  });
+  assert.deepEqual(before.refused, [], 'before a sale they are ordinary settings');
+});
+
+test('an admin is held to neither rule', () => {
+  const r = editConsequence({
+    status: 'published', columns: ['starts_at', 'purchase_mode'], isAdmin: true, hasPaidOrders: true,
+  });
+  assert.deepEqual(r.refused, []);
+  assert.equal(r.returnsToDraft, false);
+});
+
+test('a country change that moves the currency is judged by the country, not the currency', () => {
+  const r = editConsequence({ status: 'draft', columns: ['country', 'currency'], isAdmin: false });
+  assert.deepEqual(r.refused, []);
 });
 
 // ── Slugs ───────────────────────────────────────────────────────────────────

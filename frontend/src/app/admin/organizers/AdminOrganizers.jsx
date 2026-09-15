@@ -1,17 +1,15 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { post } from '../../utils/apiClient';
-import { describeError } from '../../utils/errors';
 import { formatMoney } from '../../utils/money';
 import { useApi } from '../../hooks/useApi';
-import { useConfirm } from '../../components/ui/Confirm';
-import { useToast } from '../../components/ui/Toast';
+import { useAuth } from '../../hooks/useAuth';
+import { useUrlFilters } from '../../hooks/useUrlFilters';
 import { Loading, Empty, ErrorNotice } from '../../components/Feedback';
 import { PageHeader } from '../../components/ui/Page';
 import { Segmented, SearchBox, Pagination } from '../../components/ui/Filters';
 import DataTable from '../../components/ui/DataTable';
+import { useOrganizerBan } from './useOrganizerBan';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -21,7 +19,8 @@ import DataTable from '../../components/ui/DataTable';
  * still signs in and still sees the commission invoice they owe — an organizer
  * who cannot see the invoice cannot pay it — but nothing new goes on sale.
  * Published events are NOT pulled automatically; an admin suspends those
- * deliberately, from the event.
+ * deliberately, from the event. The ban itself is useOrganizerBan, shared with
+ * the Accounts page.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 const STANDING = [
@@ -29,23 +28,35 @@ const STANDING = [
   { value: 'false', label: 'Active' },
   { value: 'true', label: 'Banned' },
 ];
+const LEVEL = { attendee: 0, organizer: 1, admin: 2, super_admin: 3 };
+
+/**
+ * Why this admin may not ban or unban this organizer, or null — the same ladder
+ * the API enforces (backend utils/roleLadder.js): nobody acts on themselves or
+ * a superior, and only a super admin acts on an equal. The API still decides.
+ */
+function cannotActOn(owner, me) {
+  if (!owner || !me) return null;
+  if (owner.id === me.id) return 'Your own organizer — ask another administrator.';
+  const theirs = LEVEL[owner.role] ?? 1;
+  const mine = LEVEL[me.role] ?? 0;
+  if (theirs > mine) return 'Owned by a superior; not actionable from here.';
+  if (theirs === mine && me.role !== 'super_admin') return 'Owned by an equal; not actionable from here.';
+  return null;
+}
+
 const PAYOUTS = [
   { value: '', label: 'Any payouts' },
   { value: 'ready', label: 'Can be paid' },
-  { value: 'missing', label: 'Not set up' },
+  { value: 'missing', label: 'Payouts not set up' },
 ];
 
 export default function AdminOrganizers() {
-  const router = useRouter();
-  const pathname = usePathname();
-  const params = useSearchParams();
-  const confirm = useConfirm();
-  const toast = useToast();
-
-  const banned = params.get('banned') || '';
-  const payouts = params.get('payouts') || '';
-  const q = params.get('q') || '';
-  const page = Math.max(1, Number(params.get('page')) || 1);
+  const { user: me } = useAuth();
+  const { get, set, page } = useUrlFilters();
+  const banned = get('banned');
+  const payouts = get('payouts');
+  const q = get('q');
 
   const query = new URLSearchParams({ limit: '25', page: String(page) });
   if (banned) query.set('banned', banned);
@@ -53,48 +64,7 @@ export default function AdminOrganizers() {
   if (q) query.set('q', q);
 
   const { data, error, loading, reload } = useApi(`/admin/organizers?${query}`, { raw: true });
-
-  const setParam = (key, value) => {
-    const next = new URLSearchParams(params);
-    if (value) next.set(key, value); else next.delete(key);
-    if (key !== 'page') next.delete('page');
-    // toString(), not `.size`, which Safari before 17 does not have.
-    const qs = next.toString();
-    router.replace(`${pathname}${qs ? `?${qs}` : ''}`);
-  };
-
-  async function toggleBan(org) {
-    const banning = !org.isBanned;
-    const answer = await confirm(banning ? {
-      title: `Stop ${org.displayName} selling?`,
-      tone: 'danger',
-      body: (
-        <>
-          <p>Nothing new goes on sale and nothing listed can be changed. They can still sign in and see what they owe.</p>
-          <p>Events already on sale stay live — suspend those from each event if they must come down.</p>
-        </>
-      ),
-      confirmLabel: 'Ban from selling',
-      reason: { label: 'Why?', minLength: 5, maxLength: 1000 },
-    } : {
-      title: `Let ${org.displayName} sell again?`,
-      confirmLabel: 'Lift the ban',
-    });
-    if (!answer) return;
-
-    try {
-      await post(
-        `/admin/organizers/${org.id}/${banning ? 'ban' : 'unban'}`,
-        banning ? { reason: answer.reason } : undefined,
-        { noRedirect: true },
-      );
-      toast.success(banning ? `${org.displayName} can no longer sell.` : `${org.displayName} can sell again.`);
-      reload();
-    } catch (err) {
-      toast.error(err?.message || describeError(err).recovery);
-    }
-  }
-
+  const { toggleBan, busyId } = useOrganizerBan(reload);
   const rows = data?.data || [];
 
   return (
@@ -107,10 +77,10 @@ export default function AdminOrganizers() {
 
       <div className="fx-stack fx-stack--sm">
         <div className="fx-row">
-          <Segmented label="Standing" value={banned} onChange={(v) => setParam('banned', v)} options={STANDING} />
-          <Segmented label="Payouts" value={payouts} onChange={(v) => setParam('payouts', v)} options={PAYOUTS} />
+          <Segmented label="Standing" value={banned} onChange={(v) => set('banned', v)} options={STANDING} />
+          <Segmented label="Payouts" value={payouts} onChange={(v) => set('payouts', v)} options={PAYOUTS} />
         </div>
-        <SearchBox label="Search organizers" placeholder="Organizer name" value={q} onSearch={(v) => setParam('q', v)} />
+        <SearchBox label="Search organizers" placeholder="Organizer name" value={q} onSearch={(v) => set('q', v)} />
       </div>
 
       {error ? (
@@ -166,7 +136,7 @@ export default function AdminOrganizers() {
                 render: (o) => (
                   <span className="fx-row">
                     <span className={`es-pill ${o.canReceivePayouts ? 'es-pill--accent' : ''}`}>
-                      {o.canReceivePayouts ? 'Can be paid' : 'No payouts'}
+                      {o.canReceivePayouts ? 'Can be paid' : 'Payouts not set up'}
                     </span>
                     {o.isBanned && <span className="es-pill es-pill--danger">Banned</span>}
                   </span>
@@ -177,15 +147,24 @@ export default function AdminOrganizers() {
                 label: 'Actions',
                 hideLabel: true,
                 align: 'end',
-                render: (o) => (
-                  <button type="button" onClick={() => toggleBan(o)} className="text-sm text-muted hover:text-ink">
-                    {o.isBanned ? 'Lift ban' : 'Ban from selling'}
-                  </button>
-                ),
+                render: (o) => {
+                  const why = cannotActOn(o.owner, me);
+                  if (why) return <span className="block max-w-[26ch] text-right text-xs text-subtle">{why}</span>;
+                  return (
+                    <button
+                      type="button"
+                      disabled={busyId === o.id}
+                      onClick={() => toggleBan(o)}
+                      className={`es-btn es-btn--sm ${o.isBanned ? 'es-btn--secondary' : 'es-btn--danger'}`}
+                    >
+                      {busyId === o.id ? 'Working…' : o.isBanned ? 'Lift ban' : 'Ban from selling'}
+                    </button>
+                  );
+                },
               },
             ]}
           />
-          <Pagination pagination={data.pagination} onPage={(n) => setParam('page', String(n))} />
+          <Pagination pagination={data.pagination} onPage={(n) => set('page', String(n))} />
         </>
       )}
     </div>

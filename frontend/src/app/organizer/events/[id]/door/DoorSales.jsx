@@ -1,18 +1,22 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { get, post } from '../../../../utils/apiClient';
 import { formatMoney } from '../../../../utils/money';
+import { formatEventTime } from '../../../../lib/eventTime';
+import { useApi } from '../../../../hooks/useApi';
 import { useToast } from '../../../../components/ui/Toast';
 import SeatMapCanvas from '../../../../components/seating/SeatMapCanvas';
 import { SectionHeader, Panel } from '../../../../components/ui/Page';
+import { Pagination } from '../../../../components/ui/Filters';
 import DataTable from '../../../../components/ui/DataTable';
 import Field from '../../../../components/forms/Field';
 import FormError from '../../../../components/forms/FormError';
 import SubmitButton from '../../../../components/forms/SubmitButton';
 import { Loading, ErrorNotice, Notice } from '../../../../components/Feedback';
 import { useEventContext } from '../EventContext';
+import { toSaleMap } from './doorMap';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -22,9 +26,12 @@ import { useEventContext } from '../EventContext';
  * commission this creates, and the second number is the point — an organizer
  * taking cash is creating a debt to Eventsli in that moment.
  *
- * The seat map is the BUYER's component in its normal mode. Door staff pick real
- * seats out of real stock, so anything else would be a second implementation of
- * the one thing that must not have two.
+ * The canvas is the BUYER's component, fed from the ORGANIZER's map (doorMap.js).
+ * The public map hides private tables and does not exist before publishing, so
+ * the door could never sell a private table and a draft read "No seat map yet".
+ * "Not on sale" and "no map" are now two different messages.
+ *
+ * "Recorded so far" is paginated — it silently stopped at 25.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 const BLANK_BUYER = { buyerName: '', buyerEmail: '', method: 'cash', note: '' };
@@ -32,10 +39,12 @@ const BLANK_BUYER = { buyerName: '', buyerEmail: '', method: 'cash', note: '' };
 export default function DoorSales({ eventId }) {
   const event = useEventContext()?.event;
   const toast = useToast();
-  const [map, setMap] = useState(null);
-  const [sales, setSales] = useState(null);
-  const [loadError, setLoadError] = useState(null);
-  const [reload, setReload] = useState(0);
+  const [rawMap, setRawMap] = useState(null);
+  const [tiers, setTiers] = useState([]);
+  const [mapError, setMapError] = useState(null);
+  const [mapVersion, setMapVersion] = useState(0);
+  const [page, setPage] = useState(1);
+  const sales = useApi(`/events/${eventId}/manual-sales?limit=25&page=${page}`, { raw: true });
 
   const [selectedSeats, setSelectedSeats] = useState([]);
   const [selectedTable, setSelectedTable] = useState(null);
@@ -44,30 +53,34 @@ export default function DoorSales({ eventId }) {
   const [busy, setBusy] = useState(null);
   const [error, setError] = useState(null);
 
-  const slug = event?.slug;
-
   useEffect(() => {
-    if (!slug) return undefined;
     let cancelled = false;
     (async () => {
       try {
-        const [publicMap, list] = await Promise.all([
-          get(`/public/events/${slug}/seat-map`, { cache: 'no-store', noRedirect: true }).catch(() => null),
-          get(`/events/${eventId}/manual-sales?limit=25`, { cache: 'no-store' }),
+        const [map, tierList] = await Promise.all([
+          get(`/events/${eventId}/venue-map`, { cache: 'no-store' }),
+          get(`/events/${eventId}/tiers`, { cache: 'no-store' }).catch(() => []),
         ]);
         if (cancelled) return;
-        setMap(publicMap);
-        setSales(Array.isArray(list) ? list : []);
-        setLoadError(null);
+        setRawMap(map || { tables: [], looseSeats: [] });
+        setTiers(Array.isArray(tierList) ? tierList : []);
+        setMapError(null);
       } catch (err) {
-        if (!cancelled) setLoadError(err);
+        if (!cancelled) setMapError(err);
       }
     })();
     return () => { cancelled = true; };
-  }, [eventId, slug, reload]);
+  }, [eventId, mapVersion]);
 
+  const saleMap = useMemo(
+    () => (rawMap ? toSaleMap(rawMap, tiers, event?.purchaseMode) : null),
+    [rawMap, tiers, event?.purchaseMode],
+  );
+
+  const onSale = event?.status === 'published';
   const selection = selectedTable ? { tableId: selectedTable.id } : { seatIds: selectedSeats.map((s) => s.id) };
   const hasSelection = Boolean(selectedTable) || selectedSeats.length > 0;
+  const clearSelection = () => { setSelectedSeats([]); setSelectedTable(null); setQuote(null); };
 
   async function getQuote() {
     setBusy('quote');
@@ -93,11 +106,11 @@ export default function DoorSales({ eventId }) {
         + `${formatMoney(result.commissionOwedCents, event.currency)} added to what you owe.`,
         { title: 'Sale recorded' },
       );
-      setSelectedSeats([]);
-      setSelectedTable(null);
-      setQuote(null);
+      clearSelection();
       setBuyer(BLANK_BUYER);
-      setReload((n) => n + 1);
+      setMapVersion((n) => n + 1);
+      setPage(1);
+      sales.reload();
     } catch (err) {
       setError(err);
     } finally {
@@ -105,8 +118,10 @@ export default function DoorSales({ eventId }) {
     }
   }
 
-  if (loadError) return <ErrorNotice error={loadError} />;
-  if (!event || (!map && !sales)) return <Loading variant="card" label="Loading the door" />;
+  if (mapError) return <ErrorNotice error={mapError} />;
+  if (!event || !saleMap) return <Loading variant="card" label="Loading the door" />;
+
+  const recorded = sales.data?.data || [];
 
   return (
     <div className="fx-stack">
@@ -116,18 +131,18 @@ export default function DoorSales({ eventId }) {
         actions={<Link href={`/organizer/events/${eventId}/commission`} className="es-btn es-btn--secondary es-btn--sm">What I owe</Link>}
       />
 
-      {event.status !== 'published' && (
+      {!onSale && (
         <Notice tone="warning" title="This event is not on sale.">
-          <p>Door sales can only be recorded against an event that is published.</p>
+          <p>Door sales can only be recorded once the event is published. You can look at the map in the meantime.</p>
         </Notice>
       )}
 
-      {map?.map ? (
+      {saleMap.hasMap ? (
         <div className="es-plate bg-surface p-3">
           <SeatMapCanvas
             className="h-[48vh] min-h-[320px]"
-            tables={map.tables}
-            seats={map.seats}
+            tables={saleMap.tables}
+            seats={saleMap.seats}
             purchaseMode={event.purchaseMode}
             selectedSeatIds={new Set(selectedSeats.map((s) => s.id))}
             selectedTableIds={new Set(selectedTable ? [selectedTable.id] : [])}
@@ -152,7 +167,7 @@ export default function DoorSales({ eventId }) {
       {hasSelection && (
         <Panel
           title={selectedTable ? `Table ${selectedTable.label}` : `${selectedSeats.length} ${selectedSeats.length === 1 ? 'seat' : 'seats'} chosen`}
-          action={<button type="button" className="es-btn es-btn--ghost es-btn--sm" onClick={() => { setSelectedSeats([]); setSelectedTable(null); setQuote(null); }}>Clear</button>}
+          action={<button type="button" className="es-btn es-btn--ghost es-btn--sm" onClick={clearSelection}>Clear</button>}
         >
           {quote ? (
             <>
@@ -181,7 +196,7 @@ export default function DoorSales({ eventId }) {
                 </div>
                 <FormError error={error} />
                 <div>
-                  <SubmitButton busy={busy === 'record'} busyLabel="Recording…">Record this sale</SubmitButton>
+                  <SubmitButton busy={busy === 'record'} busyLabel="Recording…" disabled={!onSale}>Record this sale</SubmitButton>
                 </div>
               </form>
             </>
@@ -189,7 +204,7 @@ export default function DoorSales({ eventId }) {
             <>
               <FormError error={error} />
               <div>
-                <SubmitButton type="button" busy={busy === 'quote'} busyLabel="Working it out…" onClick={getQuote}>
+                <SubmitButton type="button" busy={busy === 'quote'} busyLabel="Working it out…" onClick={getQuote} disabled={!onSale}>
                   Work out the price
                 </SubmitButton>
               </div>
@@ -200,25 +215,32 @@ export default function DoorSales({ eventId }) {
 
       <section className="fx-stack fx-stack--sm">
         <h3 className="text-lg text-ink">Recorded so far</h3>
-        {!sales?.length ? (
+        {sales.error ? (
+          <ErrorNotice error={sales.error} />
+        ) : sales.loading && !sales.data ? (
+          <Loading variant="list" rows={3} label="Loading door sales" />
+        ) : !recorded.length ? (
           <p className="text-sm text-muted">Nothing recorded at the door yet.</p>
         ) : (
-          <DataTable
-            caption="Door sales"
-            rows={sales}
-            columns={[
-              { key: 'buyer', label: 'Buyer', primary: true, render: (s) => <span className="fx-break text-ink">{s.buyer?.name || 'No name given'}</span> },
-              { key: 'seats', label: 'Tickets', align: 'end', render: (s) => <span className="es-nums">{s.seats}</span> },
-              { key: 'method', label: 'Paid by', render: (s) => s.method },
-              { key: 'paid', label: 'Paid', align: 'end', render: (s) => <span className="es-nums">{formatMoney(s.buyerPaidCents, s.currency)}</span> },
-              { key: 'owed', label: 'Commission', align: 'end', render: (s) => <span className="es-nums text-muted">{formatMoney(s.commissionOwedCents, s.currency)}</span> },
-              {
-                key: 'when',
-                label: 'When',
-                render: (s) => new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(s.recordedAt)),
-              },
-            ]}
-          />
+          <>
+            <DataTable
+              caption="Door sales"
+              rows={recorded}
+              columns={[
+                { key: 'buyer', label: 'Buyer', primary: true, render: (s) => <span className="fx-break text-ink">{s.buyer?.name || 'No name given'}</span> },
+                { key: 'seats', label: 'Tickets', align: 'end', render: (s) => <span className="es-nums">{s.seats}</span> },
+                { key: 'method', label: 'Paid by', render: (s) => s.method },
+                { key: 'paid', label: 'Paid', align: 'end', render: (s) => <span className="es-nums">{formatMoney(s.buyerPaidCents, s.currency)}</span> },
+                { key: 'owed', label: 'Commission', align: 'end', render: (s) => <span className="es-nums text-muted">{formatMoney(s.commissionOwedCents, s.currency)}</span> },
+                {
+                  key: 'when',
+                  label: 'When',
+                  render: (s) => <span className="whitespace-nowrap">{formatEventTime(s.recordedAt, event.timezone)}</span>,
+                },
+              ]}
+            />
+            <Pagination pagination={sales.data.pagination} onPage={setPage} />
+          </>
         )}
       </section>
     </div>

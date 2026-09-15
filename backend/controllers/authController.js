@@ -271,7 +271,6 @@ async function me(req, res) {
     canReceivePayouts: a.canReceivePayouts,
     isAdmin: a.isAdmin,
     isSuperAdmin: a.isSuperAdmin,
-    impersonatedBy: req.user.impersonatorId,
   });
 }
 
@@ -421,7 +420,7 @@ async function googleSignIn(req, res, next) {
 
     if (!google.configured()) {
       return sendFail(res, {
-        status: 402, error: 'PAYMENT_REQUIRED',
+        status: 503, error: 'FEATURE_DISABLED',
         message: 'Google sign-in is not available.',
       });
     }
@@ -443,7 +442,7 @@ async function googleSignIn(req, res, next) {
     }, { status: created ? 201 : 200 });
   } catch (err) {
     if (err.code) {
-      const status = { INVALID_TOKEN: 401, ACCOUNT_BANNED: 403, PAYMENT_REQUIRED: 402 }[err.code] || 400;
+      const status = { INVALID_TOKEN: 401, ACCOUNT_BANNED: 403, FEATURE_DISABLED: 503 }[err.code] || 400;
       return sendFail(res, { status, error: err.code, message: err.message });
     }
     return next(err);

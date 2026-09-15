@@ -4,6 +4,7 @@ const tickets = require('../services/ticketService');
 const { parsePagination, applyPagination, buildMeta } = require('../middleware/pagination');
 const { sendOk, sendFail, ERROR_STATUS } = require('../utils/responseEnvelope');
 const logger = require('../utils/logger');
+const { isInvoiceOverdue } = require('../utils/invoices');
 
 const statusFor = (code) => ERROR_STATUS[code] || 400;
 const asFailure = (res, err) => sendFail(res, {
@@ -155,7 +156,7 @@ async function adminList(req, res, next) {
       status: i.status,
       issuedAt: i.issued_at,
       dueAt: i.due_at,
-      isOverdue: ['open', 'submitted'].includes(i.status) && new Date(i.due_at) < new Date(),
+      isOverdue: isInvoiceOverdue(i),
       orderCount: i.order_count,
       proofUrl: i.proof_url,
       proofSubmittedAt: i.proof_submitted_at,
@@ -166,10 +167,25 @@ async function adminList(req, res, next) {
   } catch (err) { return next(err); }
 }
 
+// The audit trail for invoice actions — checked, see services/auditService.js.
+const { writeAudit } = require('../services/auditService');
+
 // POST /admin/events/:eventId/invoices
+// Raising an invoice starts a clock that ends with the gate locking (BRD §18),
+// and it used to leave no row in the audit trail at all.
 async function adminRaise(req, res, next) {
   try {
-    return sendOk(res, await manual.raiseInvoice(req.params.eventId), { status: 201 });
+    const invoice = await manual.raiseInvoice(req.params.eventId);
+    await writeAudit(req, {
+      action: 'invoice.raised', targetType: 'invoice', targetId: invoice?.invoice_id || null,
+      payload: {
+        eventId: req.params.eventId,
+        number: invoice?.number || null,
+        amountCents: invoice?.amount_cents ?? null,
+        orderCount: invoice?.order_count ?? null,
+      },
+    });
+    return sendOk(res, invoice, { status: 201 });
   } catch (err) {
     if (err.code) return asFailure(res, err);
     return next(err);
@@ -183,10 +199,9 @@ async function adminSettle(req, res, next) {
       invoiceId: req.params.invoiceId, adminId: req.user.id, note: req.body.note,
     });
 
-    await supabase.from('admin_audit').insert({
-      actor_id: req.user.id, action: 'invoice.settled',
-      target_type: 'invoice', target_id: req.params.invoiceId,
-      payload: { note: req.body.note || null },
+    await writeAudit(req, {
+      action: 'invoice.settled', targetType: 'invoice', targetId: req.params.invoiceId,
+      payload: { note: req.body.note || null, alreadySettled: Boolean(result?.already_settled) },
     });
 
     logger.info({ invoiceId: req.params.invoiceId, by: req.user.id }, 'invoice settled');

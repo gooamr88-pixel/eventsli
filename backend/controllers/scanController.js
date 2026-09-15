@@ -63,7 +63,8 @@ async function deviceLogin(req, res, next) {
       logger.warn({ deviceId: req.body.deviceId, ip: req.ip }, 'device login failed');
       return sendFail(res, {
         status: 401, error: 'UNAUTHENTICATED',
-        message: 'That device id or PIN is not right.',
+        // The same sentence for a wrong PIN, a revoked device and a locked one.
+        message: 'That device ID or PIN is not right. After 10 wrong PINs a device waits 15 minutes before it can try again.',
       });
     }
     return sendOk(res, result);
@@ -174,35 +175,90 @@ async function status(req, res, next) {
 
 // ═══ ADMIN — the override (BRD §18) ═════════════════════════════════════════
 
+const { writeAudit } = require('../services/auditService');
+
 // POST /admin/events/:eventId/scanner-override
+/**
+ * Reopens a locked gate for a few hours.
+ *
+ * It used to answer 200 whatever happened: the upsert's result was never read
+ * and the event was never loaded, so a mistyped id or a refused write still
+ * reported "open until 11pm" — and wrote an audit row saying so — while the
+ * door stayed shut. A cancelled or finished event is refused outright: check-in
+ * refuses those anyway, so an override would promise something the gate will
+ * not do.
+ */
 async function override(req, res, next) {
   try {
+    const { data: event, error: eventError } = await supabase
+      .from('events').select('id, status').eq('id', req.params.eventId).maybeSingle();
+    if (eventError) throw new Error(eventError.message);
+    if (!event) {
+      return sendFail(res, { status: 404, error: 'EVENT_NOT_FOUND', message: 'That event does not exist.' });
+    }
+    if (['cancelled', 'completed'].includes(event.status)) {
+      return sendFail(res, {
+        status: 409, error: 'CONFLICT',
+        message: `This event is ${event.status}, so there is no gate to reopen.`,
+      });
+    }
+
     const hours = Math.min(Math.max(parseInt(req.body.hours, 10) || 12, 1), 72);
     const until = new Date(Date.now() + hours * 3600e3).toISOString();
 
-    await supabase.from('scanner_access').upsert({
-      event_id: req.params.eventId,
+    const { error } = await supabase.from('scanner_access').upsert({
+      event_id: event.id,
       override_by: req.user.id,
       override_until: until,
       updated_at: new Date().toISOString(),
     }, { onConflict: 'event_id' });
+    if (error) throw new Error(error.message);
 
     // Time-boxed on purpose. A permanent override is a lock that was quietly
     // removed, and nobody would notice the invoice was never paid.
-    logger.warn({ eventId: req.params.eventId, by: req.user.id, until },
-      'scanner override granted');
+    logger.warn({ eventId: event.id, by: req.user.id, until }, 'scanner override granted');
 
-    await supabase.from('admin_audit').insert({
-      actor_id: req.user.id, action: 'scanner.override',
-      target_type: 'event', target_id: req.params.eventId,
+    const audited = await writeAudit(req, {
+      action: 'scanner.override', targetType: 'event', targetId: event.id,
       payload: { hours, until, reason: req.body.reason || null },
     });
 
-    return sendOk(res, { overrideUntil: until, hours });
+    return sendOk(res, { overrideUntil: until, hours, audited });
+  } catch (err) { return next(err); }
+}
+
+// POST /admin/events/:eventId/scanner-override/end
+/**
+ * Ends an override early. There was no way to: once granted, a reopened gate
+ * stayed open for its full window even after the reason for it had gone. The
+ * gate returns to whatever the invoices say.
+ */
+async function endOverride(req, res, next) {
+  try {
+    const now = new Date().toISOString();
+    const { data, error } = await supabase
+      .from('scanner_access')
+      .update({ override_until: null, override_by: req.user.id, updated_at: now })
+      .eq('event_id', req.params.eventId)
+      .gt('override_until', now)
+      .select('event_id')
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!data) {
+      return sendFail(res, { status: 404, error: 'NOT_FOUND', message: 'This event has no override running.' });
+    }
+
+    logger.warn({ eventId: req.params.eventId, by: req.user.id }, 'scanner override ended early');
+    const audited = await writeAudit(req, {
+      action: 'scanner.override_ended', targetType: 'event', targetId: req.params.eventId,
+      payload: { reason: req.body.reason || null },
+    });
+
+    return sendOk(res, { overrideUntil: null, audited });
   } catch (err) { return next(err); }
 }
 
 module.exports = {
   createDevice, listDevices, updateDevice, gateStatus,
-  deviceLogin, verify, sync, undo, status, override,
+  deviceLogin, verify, sync, undo, status, override, endOverride,
 };

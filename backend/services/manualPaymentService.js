@@ -1,5 +1,6 @@
 const { supabase } = require('../config/supabase');
 const { describeOrder, FEE_BEARER, PAYMENT_FEE_MODE } = require('../utils/money');
+const { isInvoiceOverdue } = require('../utils/invoices');
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -31,11 +32,26 @@ async function priceManualSale({ eventId, seatIds, tableId }) {
   if (!event) throw fail('EVENT_NOT_FOUND', 'That event does not exist.');
 
   let subtotalCents = 0;
-  let seats = seatIds || [];
+  let seats = [...new Set(seatIds || [])];
 
+  /**
+   * Every table and seat is looked up THROUGH THIS EVENT'S MAP.
+   *
+   * They were looked up by id alone. Table and seat ids are public — every
+   * published seat map carries them — so an organizer could price, and then
+   * record as sold, a competitor's seats from their own dashboard. The error
+   * message already said "not part of this event"; nothing checked it.
+   * `record_manual_sale` refuses the same thing on its own, so this is not the
+   * only guard.
+   */
   if (tableId) {
-    const { data: table } = await supabase
-      .from('tables').select('id, price_cents, status').eq('id', tableId).maybeSingle();
+    const { data: table, error: tableError } = await supabase
+      .from('tables')
+      .select('id, price_cents, status, venue_maps!inner ( event_id )')
+      .eq('id', tableId)
+      .eq('venue_maps.event_id', eventId)
+      .maybeSingle();
+    if (tableError) throw fail('CONFLICT', 'That table could not be checked. Try again.');
     if (!table) throw fail('NOT_FOUND', 'That table is not part of this event.');
     if (table.price_cents === null) {
       throw fail('VALIDATION_ERROR', 'That table has no price set.');
@@ -47,10 +63,15 @@ async function priceManualSale({ eventId, seatIds, tableId }) {
     seats = (tableSeats || []).map((s) => s.id);
   } else {
     if (!seats.length) throw fail('VALIDATION_ERROR', 'Choose the seats that were sold.');
-    const { data: rows } = await supabase
+    const { data: rows, error: seatError } = await supabase
       .from('seats')
-      .select('id, price_override_cents, ticket_tiers ( price_cents )')
-      .in('id', seats);
+      .select('id, price_override_cents, ticket_tiers ( price_cents ), venue_maps!inner ( event_id )')
+      .in('id', seats)
+      .eq('venue_maps.event_id', eventId);
+    if (seatError) throw fail('CONFLICT', 'Those seats could not be checked. Try again.');
+    if ((rows || []).length !== seats.length) {
+      throw fail('NOT_FOUND', 'Some of those seats are not part of this event.');
+    }
     subtotalCents = (rows || []).reduce(
       (sum, s) => sum + Number(s.price_override_cents ?? s.ticket_tiers?.price_cents ?? 0), 0,
     );
@@ -78,7 +99,7 @@ async function recordSale({ eventId, seatIds, tableId, buyer, method, note, reco
 
   const { data, error } = await supabase.rpc('record_manual_sale', {
     p_event_id: eventId,
-    p_seat_ids: tableId ? null : seatIds,
+    p_seat_ids: tableId ? null : [...new Set(seatIds || [])],
     p_table_id: tableId || null,
     p_breakdown: breakdown,
     p_buyer: buyer,
@@ -132,7 +153,7 @@ function shapeInvoice(i) {
     // Computed rather than read from `status`: the label is set by a scheduled
     // job, and between runs a due invoice still says "open" while the gate is
     // already shut. The organizer should see the same truth the door does.
-    isOverdue: ['open', 'submitted'].includes(i.status) && new Date(i.due_at) < new Date(),
+    isOverdue: isInvoiceOverdue(i),
   };
 }
 

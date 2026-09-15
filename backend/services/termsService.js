@@ -82,31 +82,9 @@ async function hasAcceptedCurrent({ userId, audience, eventId = null }) {
   return { accepted: !!data, termsId: current.id, version: current.version };
 }
 
-/**
- * Publishes a new version and demotes the previous one.
- *
- * Two writes, and the order is deliberate: clear the old flag first, then set
- * the new one. A partial unique index allows only one current version per
- * audience, so doing it the other way round fails on the index instead of
- * leaving two current versions — but leaving NONE current for a moment is the
- * safer of the two failure modes, because publishing then refuses loudly rather
- * than an event silently binding to the wrong text.
- */
-async function publishVersion({ audience, bodyMd, version }) {
-  await supabase
-    .from('terms_versions')
-    .update({ is_current: false })
-    .eq('audience', audience)
-    .eq('is_current', true);
+// Publishing a new terms version has no caller and no screen; it was an
+// unreachable two-step write here. New versions are published by migration,
+// where the "one current version per audience" index is enforced in a
+// transaction.
 
-  const { data, error } = await supabase
-    .from('terms_versions')
-    .insert({ audience, body_md: bodyMd, version, is_current: true })
-    .select('id, version, audience, published_at')
-    .single();
-
-  if (error) throw new Error(`could not publish terms: ${error.message}`);
-  return data;
-}
-
-module.exports = { currentVersion, accept, hasAcceptedCurrent, publishVersion };
+module.exports = { currentVersion, accept, hasAcceptedCurrent };

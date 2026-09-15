@@ -1,9 +1,12 @@
 'use client';
 
+import { useState } from 'react';
 import { SHAPES } from '../../../../components/seating/seatingGeometry';
 import { MAX_SEATS_PER_TABLE, keyOf } from './useMapDraft';
 import { toCents } from '../tiers/Tiers';
 import Field from '../../../../components/forms/Field';
+import { Notice } from '../../../../components/Feedback';
+import { useEventContext } from '../EventContext';
 
 /**
  * Everything about one table.
@@ -29,7 +32,7 @@ export default function TablePanel({ table, tiers, categories, onChange, onRemov
       <aside className="fx-stack fx-stack--sm es-card p-5">
         <p className="text-sm text-muted">Select a table to edit it.</p>
         <p className="text-xs text-subtle">
-          Double-click anywhere on the floor to add one.
+          Use Add table, or double-click anywhere on the floor. A selected table moves with the arrow keys.
         </p>
       </aside>
     );
@@ -37,8 +40,6 @@ export default function TablePanel({ table, tiers, categories, onChange, onRemov
 
   const key = keyOf(table);
   const set = (patch) => onChange(key, patch);
-  const priceText = table.priceCents === null || table.priceCents === undefined
-    ? '' : (table.priceCents / 100).toString();
 
   return (
     <aside className="fx-stack fx-stack--sm es-card p-5">
@@ -47,7 +48,7 @@ export default function TablePanel({ table, tiers, categories, onChange, onRemov
         <button
           type="button"
           onClick={() => onRemove(key)}
-          className="text-sm text-muted hover:text-danger"
+          className="es-btn es-btn--ghost es-btn--sm"
         >
           Remove
         </button>
@@ -80,18 +81,13 @@ export default function TablePanel({ table, tiers, categories, onChange, onRemov
         }}
       />
 
-      <Field
-        label="Whole-table price" value={priceText} inputMode="decimal"
-        // BRD §25 — a table's price is INDEPENDENT, not the sum of its seats.
-        // Ten $50 seats may sell as a $450 table or a $550 one; the organizer
-        // decides. Empty means the table cannot be bought whole at all.
-        hint="In dollars. Leave empty to sell this table only seat by seat."
-        onChange={(e) => {
-          const text = e.target.value;
-          if (text === '') { set({ priceCents: null }); return; }
-          const cents = toCents(text);
-          if (cents !== null) set({ priceCents: cents });
-        }}
+      {/* BRD §25 — a table's price is INDEPENDENT, not the sum of its seats.
+          Ten $50 seats may sell as a $450 table or a $550 one; the organizer
+          decides. Empty means the table cannot be bought whole at all. */}
+      <PriceField
+        tableKey={key}
+        priceCents={table.priceCents}
+        onCommit={(cents) => set({ priceCents: cents })}
       />
 
       <Select
@@ -138,6 +134,7 @@ export default function TablePanel({ table, tiers, categories, onChange, onRemov
           label={table.hasPassword ? 'New password' : 'Password'}
           type="password"
           value={table.password || ''}
+          maxLength={64}
           autoComplete="off"
           hint={table.hasPassword
             ? 'Leave empty to keep the current one.'
@@ -147,12 +144,57 @@ export default function TablePanel({ table, tiers, categories, onChange, onRemov
       )}
 
       {table.status && table.status !== 'available' && (
-        <p className="rounded-[--es-radius-md] bg-warning/10 px-3 py-2 text-xs text-muted">
-          This table is <span className="text-ink">{table.status}</span>. Seats that have
-          sold cannot be removed, and the table cannot be deleted.
-        </p>
+        <Notice tone="warning" title={`This table is ${table.status}.`}>
+          <p>Seats that have sold cannot be removed, and the table cannot be deleted.</p>
+        </Notice>
       )}
     </aside>
+  );
+}
+
+/**
+ * The whole-table price, typed as money.
+ *
+ * The input used to be derived straight from `priceCents`, committing only text
+ * that already parsed — so "25." was refused, the field snapped back to "25",
+ * and 25.50 could never be typed at all. It now keeps the organizer's own text
+ * as a draft, commits whenever that text is a valid amount, and says so when it
+ * is not. The draft is re-seeded only when a DIFFERENT value arrives — another
+ * table selected, or an undo — never by its own commits.
+ */
+function PriceField({ tableKey, priceCents, onCommit }) {
+  const currency = useEventContext()?.event?.currency;
+  const external = priceCents === null || priceCents === undefined ? '' : (priceCents / 100).toString();
+  const signature = `${tableKey}:${priceCents ?? ''}`;
+
+  const [draft, setDraft] = useState(external);
+  const [draftFor, setDraftFor] = useState(signature);
+  if (signature !== draftFor) {
+    setDraftFor(signature);
+    // Kept when it already means this amount ("25.50" and 2550), so a commit
+    // never rewrites what is being typed.
+    if (toCents(draft) !== (priceCents ?? null) || (draft === '') !== (priceCents === null || priceCents === undefined)) {
+      setDraft(external);
+    }
+  }
+
+  const invalid = draft.trim() !== '' && toCents(draft) === null;
+
+  return (
+    <Field
+      label="Whole-table price"
+      value={draft}
+      inputMode="decimal"
+      hint={`In ${currency || 'the event currency'}. Leave empty to sell this table only seat by seat.`}
+      error={invalid ? 'Enter an amount like 25 or 25.50.' : null}
+      onChange={(e) => {
+        const text = e.target.value;
+        setDraft(text);
+        if (text.trim() === '') { onCommit(null); return; }
+        const cents = toCents(text);
+        if (cents !== null) onCommit(cents);
+      }}
+    />
   );
 }
 

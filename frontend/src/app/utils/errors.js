@@ -58,8 +58,6 @@ export const ERRORS = Object.freeze(Object.fromEntries([
     'If you already have tickets, the organizer will be in touch about a refund.', 'fatal'),
   E('EVENT_SUSPENDED', 'This event is unavailable',
     'It has been temporarily removed from sale.', 'fatal'),
-  E('EVENT_ENDED', 'This event has ended',
-    'Browse what is on next.', 'fatal'),
   E('PRICE_LOCKED_AFTER_SALE', 'Prices are locked',
     'Tickets have already sold at the current price, so it cannot change. Add a new tier instead.'),
   // Both audiences meet this one — an organizer submitting an event and a buyer
@@ -81,8 +79,6 @@ export const ERRORS = Object.freeze(Object.fromEntries([
     'Enter the password the organizer gave you.'),
   E('TABLE_PASSWORD_INVALID', 'That did not work',
     'Check the password with the organizer and try again.', 'retry'),
-  E('ORPHAN_SEAT', 'That would strand a single seat',
-    'Your selection leaves one seat on its own that nobody could book. Shift your choice by one.'),
   E('TIER_SOLD_OUT', 'Sold out',
     'That ticket type has gone. Try another.'),
   E('PURCHASE_LIMIT_EXCEEDED', 'Too many tickets',
@@ -106,16 +102,12 @@ export const ERRORS = Object.freeze(Object.fromEntries([
     'This is a configuration on our side, not yours. Please try again shortly.', 'waiting'),
   E('CURRENCY_LOCKED_AFTER_SALE', 'The currency cannot change',
     'Tickets have already sold, so this event has to stay in the currency they were sold in.'),
-  E('INVOICE_OVERDUE', 'There is an unpaid commission invoice',
-    'Settle it to reopen scanning. Submitting proof does not reopen it on its own.'),
   E('SCANNER_LOCKED', 'Scanning is locked for this event',
     'An overdue commission invoice locked the gate. It reopens the moment the invoice is settled.'),
 
   // ── Tickets ───────────────────────────────────────────────────────────────
   E('TICKET_NOT_FOUND', 'Ticket not found',
     'Check the link, or have it sent to your email again.'),
-  E('ALREADY_SCANNED', 'Already admitted',
-    'This ticket was scanned before. The time of the first scan is shown above.', 'fatal'),
   E('TRANSFER_DISABLED', 'Transfers are off for this event',
     'The organizer has disabled passing tickets on.', 'fatal'),
   E('ALREADY_TRANSFERRED', 'This ticket was already transferred',
@@ -146,6 +138,12 @@ export const ERRORS = Object.freeze(Object.fromEntries([
     'Upload a JPEG, PNG or WebP image.'),
   E('STORAGE_NOT_CONFIGURED', 'Image uploads are unavailable',
     'This is a configuration on our side. Your event is saved — add the image later.', 'waiting'),
+
+  // ── Switched off on this platform ─────────────────────────────────────────
+  // Card payments or Google sign-in not turned on. It used to arrive as
+  // PAYMENT_REQUIRED and tell the person to try another card.
+  E('FEATURE_DISABLED', 'Not available yet',
+    'This is switched off on Eventsli for now. Nothing was charged or changed — try again later or use another way in.', 'waiting'),
 
   // ── Generic ───────────────────────────────────────────────────────────────
   E('VALIDATION_ERROR', 'Check the details',
@@ -189,6 +187,22 @@ export function describeError(err) {
 }
 
 /** True for the codes that mean the seat selection itself has to be redone. */
+/**
+ * The sentence to show for a failure.
+ *
+ * The server's own message when there is one — it names the field, the number
+ * or the rule ("Tickets have already sold, so feeBearer can no longer change").
+ * `describeError`'s recovery line is the fallback, for a network failure or a
+ * response with nothing more specific to say. Showing only the recovery line
+ * turned every one of those refusals into "Something in the form needs fixing."
+ */
+export function messageFor(err) {
+  const { recovery } = describeError(err);
+  const text = typeof err?.message === 'string' ? err.message.trim() : '';
+  if (!text || err?.code === 'NETWORK' || text === err?.code) return recovery;
+  return text;
+}
+
 export function isSelectionLost(code) {
   return ['SEAT_UNAVAILABLE', 'TABLE_UNAVAILABLE', 'TABLE_PARTIALLY_SOLD',
     'RESERVATION_EXPIRED', 'RESERVATION_NOT_FOUND'].includes(code);

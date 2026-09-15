@@ -60,5 +60,3 @@ export default function NavIcon({ name, size = 20 }) {
     </svg>
   );
 }
-
-export const ICON_NAMES = Object.keys(PATHS);

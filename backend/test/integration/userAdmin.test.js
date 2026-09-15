@@ -90,6 +90,9 @@ before(async () => {
 });
 
 after(async () => {
+  for (const key of ['superOrg', 'adminOrg']) {
+    if (ids[key]) await supabase.from('organizers').delete().eq('id', ids[key]);
+  }
   if (ids.organizer) {
     await supabase.from('events').delete().eq('organizer_id', ids.organizer);
     await supabase.from('organizers').delete().eq('id', ids.organizer);
@@ -308,6 +311,54 @@ test('unbanning restores selling', async () => {
     country: 'CA', timezone: 'America/Toronto', currency: 'CAD',
   }, fresh);
   assert.notEqual(created.status, 403, created.text);
+});
+
+test('a ban cannot be lifted by the owner, or by someone below the owner', async () => {
+  // BRD §19. Unban used to skip the ladder the ban obeys.
+  const { data: superOrg } = await supabase.from('organizers').insert({
+    owner_user_id: ids.super, display_name: 'Owned By Super', country: 'CA', is_banned: true,
+  }).select('id').single();
+  const { data: ownOrg } = await supabase.from('organizers').insert({
+    owner_user_id: ids.admin, display_name: 'Owned By Admin', country: 'CA', is_banned: true,
+  }).select('id').single();
+  ids.superOrg = superOrg.id;
+  ids.adminOrg = ownOrg.id;
+
+  const above = await call('POST', `/admin/organizers/${superOrg.id}/unban`, {}, cookies.admin);
+  assert.equal(above.status, 403, above.text);
+
+  const self = await call('POST', `/admin/organizers/${ownOrg.id}/unban`, {}, cookies.admin);
+  assert.equal(self.status, 409, self.text);
+  assert.equal(self.body.error, 'SELF_ACTION');
+
+  const { data: rows } = await supabase.from('organizers')
+    .select('is_banned').in('id', [superOrg.id, ownOrg.id]);
+  assert.ok(rows.length === 2 && rows.every((r) => r.is_banned), 'both bans stand');
+});
+
+test("a banned organizer's event cannot be approved", async () => {
+  const { data: terms } = await supabase.from('terms_versions')
+    .select('id').eq('audience', 'organizer').eq('is_current', true).single();
+  const { data: ev, error } = await supabase.from('events').insert({
+    organizer_id: ids.organizer, slug: `uadm-pending-${stamp}`, title: 'Waiting While Banned',
+    country: 'CA', timezone: 'America/Toronto',
+    starts_at: new Date(Date.now() + 33 * 86400e3).toISOString(),
+    ends_at: new Date(Date.now() + 33 * 86400e3 + 3600e3).toISOString(),
+    currency: 'CAD', status: 'pending_review', terms_accepted_id: terms.id,
+  }).select('id').single();
+  if (error) throw new Error(`seed: ${error.message}`);
+
+  await supabase.from('organizers').update({ is_banned: true }).eq('id', ids.organizer);
+  try {
+    const res = await call('POST', `/admin/events/${ev.id}/approve`, {}, cookies.admin);
+    assert.equal(res.status, 403, res.text);
+    assert.equal(res.body.error, 'ORGANIZER_BANNED');
+
+    const { data: row } = await supabase.from('events').select('status').eq('id', ev.id).single();
+    assert.equal(row.status, 'pending_review', 'the event stays in the queue');
+  } finally {
+    await supabase.from('organizers').update({ is_banned: false }).eq('id', ids.organizer);
+  }
 });
 
 // ── The record ──────────────────────────────────────────────────────────────

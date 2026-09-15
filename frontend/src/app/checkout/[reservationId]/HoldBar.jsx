@@ -31,7 +31,7 @@ export default function HoldBar({ formatted, expired, remaining }) {
 
   return (
     <div
-      className={`fx-row fx-row--between rounded-[--es-radius-md] border px-4 py-2.5 ${tone}`}
+      className={`fx-row fx-row--between rounded-(--es-radius-md) border px-4 py-2.5 ${tone}`}
       // Polite, not assertive: this updates every second, and an assertive
       // region would have a screen reader interrupt itself sixty times a
       // minute. The two threshold changes below carry the urgency instead.

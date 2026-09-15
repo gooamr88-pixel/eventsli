@@ -139,6 +139,31 @@ Two things are enforced structurally rather than by convention:
 `eventRules.js` has no imports at all, so both are testable with no database
 and no environment.
 
+**When an event stops selling.** Cancelling or suspending expires every open
+Stripe Checkout Session on the event and releases its holds
+(`services/openCheckouts.js`, best effort — the status change never waits on
+Stripe). The session id is recorded on the reservation when checkout starts,
+for exactly this. A payment that completes anyway is refused by
+`fulfill_checkout`, which issues tickets only while the event is `published`;
+the webhook files it as permanent and logs it at error level for review. BRD
+§09 means no refund is issued or implied.
+
+**Approving checks the organizer.** An event submitted before its organizer was
+banned cannot be approved (`ORGANIZER_BANNED`).
+
+**Edits and review (BRD §16).** The reviewer approves what they saw, so
+`editConsequence` in `eventRules.js` decides what an organizer's PATCH does:
+
+| Event is… | Effect of an organizer edit |
+|---|---|
+| draft, rejected | applied |
+| pending_review | applied, and the event returns to **draft** (`meta.returnedToDraft`) — submit again |
+| published, suspended | only `description`, `maxTicketsPerOrder`, `allowTicketTransfer`; anything else is `409` with `meta.lockedFields` and goes through Eventsli |
+| any, once a ticket has sold | `listingType`, `purchaseMode`, `feeBearer` are fixed |
+
+Admins are held to neither rule. The update is optimistically locked on the
+status it read, so an edit racing an approval cannot undo it.
+
 ```
 POST /organizer                      GET/PATCH /organizer/me
 POST /events                         GET /events            GET/PATCH /events/:id
@@ -174,6 +199,40 @@ hold_seats(event, user, seat_ids[], ttl)   hold_table(event, user, table, ttl)
 release_reservation(id)                    expire_stale_reservations()
 ```
 
+**Ids are scoped to their event.** Table and seat ids are public — every
+published seat map carries them — so an id in a request body is attacker
+input. `save_venue_map` refuses a table that is not on the event's own map
+(`MAP_CONFLICT`) and a ticket type or category from another event
+(`MAP_INVALID`); `record_manual_sale` refuses seats or a table from another
+event (`NOT_FOUND`), and `priceManualSale` checks the same in Node first.
+`trg_seats_same_map_as_table` refuses any seat whose table sits on a different
+map, whatever writes it. `verifyEventOwner` alone is not enough: it proves who
+owns the event in the URL, not what the ids in the body point at.
+
+**Ticket-type allocations.** `ticket_tiers.sold_count` is kept by
+`trg_sync_tier_sold_count` — recounted from paid, non-void tickets on every
+ticket insert, delete or status change, whatever issued it. A tier with a
+`quantity` is enforced by `tier_allocation_exceeded`, called under a row lock on
+the tier from `hold_seats`, `hold_table` and `record_manual_sale`; it counts sold
+AND currently held seats, so the last allocation cannot be taken twice
+(`TIER_SOLD_OUT`). A lapsed hold the sweeper has not reached yet still counts,
+for at most a minute.
+
+**Listing-only events sell nothing (BRD §12).** The three functions above refuse
+a `display_only` event (`EVENT_NOT_PUBLISHED`), and the API refuses ticket
+types, discount codes and seat maps for one.
+
+**A discount-code use follows its hold.** Releasing or expiring a hold deletes
+its claim and recounts the code; `claim_promo_code` counts only claims on a paid
+order or an open, unexpired hold. `fulfill_checkout` writes the code onto the
+order and the order onto the claim, and `release_promo_claim` only acts on an
+open hold — so a code someone paid with cannot be freed for reuse.
+
+**The sweeper claims rows in one statement.** `expire_stale_reservations` marks
+`active` holds expired with a single UPDATE, which Postgres re-checks under the
+row lock fulfilment holds — a checkout paid in the same instant is skipped
+rather than flipped to expired.
+
 
 ### Private tables
 
@@ -188,7 +247,10 @@ Unlocking returns a signed token scoped to **one table, one event, 20 minutes**
 `typ` claim, so a session cookie cannot be replayed as a table key even though
 both are signed with the same secret. The password gates the **purchase** as
 well as the map; gating only the map would leave anyone who guessed the id free
-to buy a table they could never see.
+to buy a table they could never see. That applies to holding individual
+**seats** at a private table too — a seat id outlives the 20-minute token and
+can be passed on, so the seat path checks the token for every private table the
+selection touches (`TABLE_PASSWORD_REQUIRED`).
 
 Every rejection is identical -- wrong password, table not private, no such
 table. Distinguishable answers would make the endpoint a directory of which
@@ -214,6 +276,13 @@ Two properties decide whether this works with a queue outside:
 
 A refusal is a 200, not an error: the device has to render it, not show a
 network failure and invite a retry. Only a locked gate is a 403.
+
+**Rate limits are per device at the door.** Every tablet at a venue shares one
+public IP, so the site-wide per-IP ceiling would count a whole entrance as one
+client. `/scan/verify`, `/sync`, `/undo` and `/status` are exempt from it
+(`utils/gateRoutes.js`) and limited to 600 requests a minute per authenticated
+device instead. Device sign-in and the door-team routes stay under the IP
+ceiling — that is where guessing happens.
 
 **The commission lock (BRD 18)** is derived live from overdue invoices, not
 cached as a flag -- an invoice can fall due between one scan and the next.
@@ -445,6 +514,145 @@ Every number is ONE round trip: `organizer_dashboard_summary`,
 `event_sales_summary` and `platform_overview` are SQL functions, and money is
 grouped by currency — USD and CAD are never added together.
 
+**Dead ends that are closed.**
+
+- **Stripe onboarding returns to `/organizer/payouts`** — `?stripe=return` after
+  finishing, `?stripe=refresh` when the one-time link expired (the page offers to
+  continue). It used to return to `/dashboard/settings/payments`, a route from
+  the previous frontend, so every organizer landed on a 404.
+- **Events are editable after creation** (`EventDetailsEditor.jsx`, on the event
+  overview). It sends only changed fields and follows `editConsequence`: under
+  review it withdraws to draft; on sale only the description, tickets per order
+  and transfers are editable. Times are shown and saved in the event's zone
+  (`lib/eventTime.js` `toLocalInput`, the inverse of `toIso`).
+- **Ticket types and table categories are editable**, not only add and delete.
+- **Device ids stay visible** with a copy button; revoking asks first.
+- **Overdue invoices** are overdue whether the hourly job has labelled them or
+  not (`utils/invoices.js`), and one label set (`lib/invoiceStatus.js`) is used
+  by Commission, Invoices and the admin event page — with an Overdue filter.
+- **The admin event page previews what goes on sale** — description, venue,
+  cover, ticket types, a seat-map summary and a count of seats that would sell
+  for nothing. The public page 404s until an event is published.
+- **Refusals are shown as the API wrote them** (`utils/errors.js` `messageFor`,
+  used by `FormError` and the toasts), not replaced by a generic recovery line.
+- **Order search matches account holders** by name and email, not only the
+  guest columns.
+
+**Correctness, money and the door** (migration
+`20260915140000_money_totals_indexes_and_pin_lockout.sql`).
+
+- **One meaning of "net": what the organizer keeps.** For a card order that is
+  `organizer_net_cents`; for a door sale it is the total less the commission owed
+  on it. Order totals, order rows, the event page and the organizer dashboard all
+  use it — the dashboard used to count door sales at gross. The platform figure
+  of what Eventsli keeps now includes door commission. The overview's money cards
+  follow the 7/30/90 switch (`salesInWindow`). `receivables.uninvoicedCents` is
+  door commission that no invoice covers yet.
+- **Totals are summed in SQL** (`event_order_totals`, `admin_event_sales`,
+  `admin_organizer_sales`). Three endpoints pulled every paid order and added the
+  rows up in Node, so totals came out silently low past PostgREST's row cap.
+- **Times are on the event's clock, with the zone named** (`lib/eventTime.js`
+  `formatEventTime`). This covers orders, the door list, door sales, commission,
+  the door team and the admin event page. The organizer dashboard counts each
+  sale on its own event's calendar day, as the event page does.
+- **Platform settings are checked per key** (`backend/utils/settingsSchema.js`)
+  and edited through typed forms. Every key is listed with its default, plain
+  admins get a read-only view, and saving asks for a reason. The migration seeds
+  the base-schema defaults where no row exists; without `currencies`, no event can
+  be created in any country.
+- **One audit service** (`services/auditService.js`) checks the insert's result
+  and logs a missing row loudly. These are recorded with before, after and the
+  admin's reason:
+  - raising an invoice
+  - admin edits through `PATCH /events/:id` (`event.edited`)
+  - fee changes
+  - settings changes
+
+  Block and ban write the audit row before ending sessions.
+- **The scanner override** returns 404 for an unknown event, refuses a cancelled
+  or finished one, checks its own write, and can be ended early with
+  `POST /admin/events/:id/scanner-override/end`.
+- **`FEATURE_DISABLED` (503)** covers card payments or Google sign-in being
+  switched off. It was `PAYMENT_REQUIRED`, whose copy told people to try another
+  card.
+- **Organizers must be in CA or the US** (`utils/markets.js`). The route and CHECK
+  constraints both enforce it, and the constraints also tie an event's currency to
+  its country. A banned organizer cannot rename their profile or start Stripe
+  onboarding.
+- **Door PINs.** New PINs are 6–12 digits. After 10 wrong PINs a device is locked
+  for 15 minutes, counted in the database (`record_device_pin_failure`).
+  Switching a device back on clears the lock. Offline sync uploads 8 scans at a
+  time and keeps scans of the same code in order.
+- **Map saves** cap table passwords at 64 characters and new passwords at 50 per
+  save, and are rate limited. The editor now:
+  - asks before you leave with unsaved changes
+  - has an Add table button
+  - moves a focused table with the arrow keys
+  - merges typing in one field into a single undo step
+  - leaves Ctrl+Z to text fields
+- **Door sales read the organizer's own map**, so private tables can be sold and a
+  draft's map shows. The list of recorded sales is paginated.
+- **Admin screens:**
+  - Removing a cover image asks first.
+  - Banning is one shared control (`admin/organizers/useOrganizerBan.jsx`) that
+    says how many of the organizer's events are still selling.
+  - Accounts has a Blocked filter and keeps its filters in the URL.
+  - All events has an "On now" window and lists upcoming events soonest first.
+  - The audit log shows each action's before and after, and can filter by any
+    action.
+- **One admin guard.** `routes/admin/index.js` mounts the three admin routers
+  behind a single `requireAuth` + `requireRole('admin')`. Mount them only there.
+- **Tailwind custom properties** use the v4 form, `rounded-(--token)`. The old
+  `-[--token]` form compiled to invalid CSS, and `scripts/cssVarClassCheck.js`
+  (part of `npm run check`) now fails on it.
+- **New database functions are private by default.** The global default
+  privileges no longer grant EXECUTE to PUBLIC, and `verify-schema.js` checks it,
+  along with the new constraints and indexes.
+
+**Cleanup** (dashboard audit phase 5). One helper per job, and nothing kept that
+nothing uses:
+
+- **Shared helpers.** `utils/search.js` (`safeSearch`, `escapeLike`) makes
+  search text safe for PostgREST in every search. The organizer's event list
+  used to pass `q` into `ilike` untouched. `utils/embed.js` (`one`),
+  `utils/payouts.js` (`canReceivePayouts`) and `utils/roleLadder.js`
+  (`mayActOn`) each replace several copies. On the frontend,
+  `lib/eventTime.js` (`formatEventTime`, `formatDay`), `lib/periods.js` and
+  `hooks/useUrlFilters.js` do the same.
+- **Role ladder.** A super admin can now demote or block another super admin,
+  never themselves. That makes the "last super admin" guard the real
+  protection; before, a compromised super admin could only be removed with SQL.
+  Admins still cannot act on other admins.
+- **Removed as dead:**
+  - the unused `framer-motion` and `react-international-phone` packages
+  - `hooks/useMediaQuery.js` and `lib/breakpoints.js`
+  - the unused impersonation plumbing: the `imp` claim, `impersonatorId` and
+    the banner CSS
+  - `sendRpcFailure`, `termsService.publishVersion`, `apiClient.logout`,
+    `API_ORIGIN`, `Feedback.Stat`, `SHAPES_IN_ROOM` and `ICON_NAMES`
+  - the error codes nothing sent: `EVENT_ENDED`, `ORPHAN_SEAT`,
+    `INVOICE_OVERDUE`, `ALREADY_SCANNED`
+  - 20 unused CSS classes
+  - two scratch Stripe scripts, one of which created a real Stripe account
+    when run
+- **Smaller fixes:**
+  - The accounts list reads payout readiness correctly.
+  - Refusing to publish an event without accepted terms returns 403, matching
+    `ERROR_STATUS`.
+  - Fixed promo discounts show as money.
+  - The event overview no longer skips a heading level.
+- **Kept on purpose:**
+  - Unused schema columns and ledger types. Dropping them is a destructive
+    migration for no user-visible gain.
+  - `eventRules.TRANSITION_ACTOR`, whose tests pin Rule 17.
+  - `frontend/scripts/_computed.js` and `_fixEncoding.js`, and the
+    `backend/scripts/probe-*.js` operator tools.
+  - `docs/FRONTEND-PLAN.md`, a historical plan that still names the removed
+    breakpoint files.
+  - `globals.css` is still over 500 lines (about 2,200). Splitting it would
+    change the cascade order that the contrast and `!important` checks read,
+    so it is left for a dedicated change.
+
 ## Share & QR
 
 ```
@@ -476,8 +684,13 @@ to a person.
 Adding someone — or re-adding someone who was removed — emails them the event,
 its start time in the event's zone, and a link to `/gate/login`
 (`sendDoorTeamAdded`). The email is sent after the row is written and never
-awaited by the request, so a mail outage cannot fail the add; the response's
-`notified` says whether an email was attempted.
+awaited by the request, so a mail outage cannot fail the add.
+
+`POST /events/:id/staff` answers `202` with the same body whether or not the
+address has an account, never with a name, and is limited to 30 adds an hour per
+organizer. Anyone can create an organizer profile, so a 404 for unknown addresses
+made the endpoint a way to look up who uses Eventsli. The team list shows only
+the addresses the organizer typed.
 
 ## The Data API is closed
 

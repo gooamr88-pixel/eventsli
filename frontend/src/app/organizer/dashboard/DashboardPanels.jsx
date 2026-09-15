@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { formatMoney } from '../../utils/money';
+import { formatEventTime } from '../../lib/eventTime';
 import { Panel } from '../../components/ui/Page';
 import NavIcon from '../../components/shell/NavIcon';
 
@@ -24,7 +25,7 @@ export function Attention({ data, organizer }) {
       key: 'overdue',
       icon: 'percent',
       text: `${overdue} commission ${overdue === 1 ? 'invoice is' : 'invoices are'} overdue — scanning is off for ${overdue === 1 ? 'that event' : 'those events'}.`,
-      href: '/organizer/events',
+      href: '/organizer/events?status=published',
       cta: 'Find the event',
     });
   }
@@ -88,9 +89,7 @@ export function Upcoming({ events }) {
                 <span className="fx-min0 flex-1">
                   <span className="fx-truncate block text-ink group-hover:text-accent">{event.title}</span>
                   <span className="block text-sm text-muted">
-                    {new Intl.DateTimeFormat('en-US', {
-                      dateStyle: 'medium', timeStyle: 'short', timeZone: event.timezone,
-                    }).format(new Date(event.startsAt))}
+                    {formatEventTime(event.startsAt, event.timezone)}
                     {event.venue && ` · ${event.venue}`}
                   </span>
                 </span>

@@ -3,7 +3,7 @@ const sessions = require('../../services/sessionService');
 const rbac = require('../../services/rbacService');
 const { parsePagination, applyPagination, buildMeta } = require('../../middleware/pagination');
 const { sendOk, sendFail } = require('../../utils/responseEnvelope');
-const { hashIp } = require('../../utils/crypto');
+const { writeAudit } = require('../../services/auditService');
 const logger = require('../../utils/logger');
 
 /**
@@ -22,9 +22,11 @@ const logger = require('../../utils/logger');
  *     locked the platform's own staff out, and an admin who could edit their own
  *     role is not really constrained by roles.
  *
- *   • Nobody acts on an equal or a superior. An admin cannot block a fellow
- *     admin, because a compromised admin account would otherwise disable every
- *     other admin and be the last one standing.
+ *   • Nobody acts on a superior, and only a super admin acts on an equal. An
+ *     admin cannot block a fellow admin, because a compromised admin account
+ *     would otherwise disable every other admin and be the last one standing.
+ *     A super admin CAN act on another super admin — otherwise a compromised
+ *     one could only be removed with SQL, and the rule below could never fire.
  *
  *   • Only a super admin grants staff roles. Otherwise `admin` is a role that
  *     can mint more of itself, which makes the ladder decorative.
@@ -39,31 +41,16 @@ const logger = require('../../utils/logger');
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
-const { ROLE_LEVEL } = rbac;
+// May the caller act on this user at all? The ladder — including the one
+// exception, a super admin acting on another super admin — lives in
+// utils/roleLadder.js, where it is tested without a database.
+const { ROLE_LEVEL, mayActOn } = require('../../utils/roleLadder');
+const { safeSearch } = require('../../utils/search');
+const { canReceivePayouts } = require('../../utils/payouts');
+
 const STAFF = new Set(['admin', 'super_admin']);
 
 const fail = (res, status, error, message) => sendFail(res, { status, error, message });
-
-/**
- * May the caller act on this user at all?
- *
- * Returns an error object rather than throwing, so the caller decides the shape
- * of the response and every check reads the same way.
- */
-function mayActOn(actor, target) {
-  if (actor.id === target.id) {
-    return { error: 'SELF_ACTION', message: 'You cannot apply this to your own account.' };
-  }
-  const actorLevel = ROLE_LEVEL[actor.role] ?? 0;
-  const targetLevel = ROLE_LEVEL[target.role] ?? 0;
-  if (targetLevel >= actorLevel) {
-    return {
-      error: 'FORBIDDEN',
-      message: 'You cannot act on an account at or above your own level.',
-    };
-  }
-  return null;
-}
 
 /** How many super admins remain if this one stops being one. */
 async function superAdminsBesides(userId) {
@@ -76,15 +63,27 @@ async function superAdminsBesides(userId) {
   return Number(count) || 0;
 }
 
-async function audit(req, action, targetId, payload, targetType = 'user') {
-  await supabase.from('admin_audit').insert({
-    actor_id: req.user.id,
-    action,
-    target_type: targetType,
-    target_id: targetId,
-    payload,
-    ip_hash: hashIp(req.ip),
-  });
+/** See services/auditService.js — checked, and loud when a row does not land. */
+function audit(req, action, targetId, payload, targetType = 'user') {
+  return writeAudit(req, { action, targetType, targetId, payload });
+}
+
+/**
+ * Ends every session, and says whether that worked instead of throwing.
+ *
+ * The flag is already set when this runs. A throw here used to skip the audit
+ * row and return a 500 for a block that HAD happened — so the admin retried a
+ * change that was already applied and the trail never recorded it.
+ */
+async function endSessions(userId, reason) {
+  try {
+    await sessions.revokeAllForUser(userId, reason);
+    return true;
+  } catch (err) {
+    logger.error({ err: err.message, userId, reason },
+      'sessions could not be revoked — access still ends within the access cache window');
+    return false;
+  }
 }
 
 // ─── GET /admin/users ───────────────────────────────────────────────────────
@@ -103,14 +102,17 @@ async function list(req, res, next) {
 
     let query = supabase
       .from('profiles')
+      // The Stripe flags are selected because shapeUser reads them — without
+      // them every organizer in this list read "cannot be paid".
       .select('id, email, full_name, role, is_blocked, created_at, '
-            + 'organizers!organizers_owner_user_id_fkey ( id, display_name, country, is_banned )',
+            + 'organizers!organizers_owner_user_id_fkey ( id, display_name, country, is_banned, '
+            + 'stripe_onboarding_complete, stripe_payouts_enabled )',
         { count: 'exact' });
 
     if (p.q) {
       // Escaped: a comma or a parenthesis in `q` would otherwise be read as
       // PostgREST filter syntax rather than as text being searched for.
-      const safe = p.q.replace(/[,()\\]/g, ' ').trim();
+      const safe = safeSearch(p.q);
       if (safe) query = query.or(`email.ilike.%${safe}%,full_name.ilike.%${safe}%`);
     }
     if (req.query.role && ROLE_LEVEL[req.query.role] !== undefined) {
@@ -245,13 +247,13 @@ async function block(req, res, next) {
     if (error) throw new Error(error.message);
 
     rbac.invalidate(target.id);
-    const revoked = await sessions.revokeAllForUser(target.id, 'account_blocked');
-
-    await audit(req, 'user.blocked', target.id,
-      { reason: req.body.reason || null, sessionsRevoked: revoked ?? null });
+    // Recorded BEFORE the sessions are ended: the block has already happened,
+    // and a failure ending sessions must not also leave it out of the trail.
+    const audited = await audit(req, 'user.blocked', target.id, { reason: req.body.reason || null });
+    const sessionsRevoked = await endSessions(target.id, 'account_blocked');
     logger.warn({ userId: target.id, by: req.user.id, reason: req.body.reason }, 'user blocked');
 
-    return sendOk(res, { id: target.id, isBlocked: true });
+    return sendOk(res, { id: target.id, isBlocked: true, sessionsRevoked, audited });
   } catch (err) { return next(err); }
 }
 
@@ -313,17 +315,19 @@ async function banOrganizer(req, res, next) {
     if (error) throw new Error(error.message);
 
     rbac.invalidate(org.owner_user_id);
-    // The ban is read from the cached access context, which is per-process and
-    // ten seconds stale. Revoking the sessions forces a fresh context on the
-    // next request, on every worker.
-    await sessions.revokeAllForUser(org.owner_user_id, 'organizer_banned');
 
     const { count: live } = await supabase
       .from('events').select('id', { count: 'exact', head: true })
       .eq('organizer_id', org.id).eq('status', 'published');
 
+    // Recorded before the sessions are ended — see block().
     await audit(req, 'organizer.banned', org.id,
       { reason: req.body.reason, publishedEvents: Number(live) || 0 }, 'organizer');
+
+    // The ban is read from the cached access context, which is per-process and
+    // ten seconds stale. Revoking the sessions forces a fresh context on the
+    // next request, on every worker.
+    await endSessions(org.owner_user_id, 'organizer_banned');
     logger.warn({ organizerId: org.id, by: req.user.id, reason: req.body.reason },
       'organizer banned');
 
@@ -342,9 +346,20 @@ async function banOrganizer(req, res, next) {
 // ─── POST /admin/organizers/:organizerId/unban ──────────────────────────────
 async function unbanOrganizer(req, res, next) {
   try {
-    const { data: org } = await supabase
-      .from('organizers').select('id, owner_user_id').eq('id', req.params.organizerId).maybeSingle();
+    const { data: org, error: loadError } = await supabase
+      .from('organizers')
+      .select('id, owner_user_id, profiles!organizers_owner_user_id_fkey ( id, role )')
+      .eq('id', req.params.organizerId)
+      .maybeSingle();
+    if (loadError) throw new Error(loadError.message);
     if (!org) return fail(res, 404, 'NOT_FOUND', 'No such organizer.');
+
+    // BRD §19 — the same ladder the ban obeys. Without it an admin whose own
+    // organizer profile was banned by a super admin could lift that ban, and any
+    // admin could lift a ban on an organizer owned by a superior.
+    const owner = Array.isArray(org.profiles) ? org.profiles[0] : org.profiles;
+    const denied = mayActOn(req.user, { id: org.owner_user_id, role: owner?.role || 'organizer' });
+    if (denied) return fail(res, denied.error === 'SELF_ACTION' ? 409 : 403, denied.error, denied.message);
 
     const { error } = await supabase
       .from('organizers').update({ is_banned: false }).eq('id', org.id);
@@ -372,8 +387,7 @@ function shapeUser(u) {
       displayName: organizer.display_name,
       country: organizer.country,
       isBanned: !!organizer.is_banned,
-      canReceivePayouts: !!(organizer.stripe_onboarding_complete
-                         && organizer.stripe_payouts_enabled),
+      canReceivePayouts: canReceivePayouts(organizer),
     } : null,
   };
 }

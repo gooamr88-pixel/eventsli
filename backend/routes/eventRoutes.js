@@ -88,6 +88,8 @@ router.patch(
     .withMessage(`Choose one of: ${EVENT_CATEGORIES.join(', ')}.`),
   body('maxTicketsPerOrder').optional().isInt({ min: 1, max: 100 }),
   body('allowTicketTransfer').optional().isBoolean(),
+  // An admin's note for the audit trail when they change an organizer's event.
+  body('reason').optional().isString().trim().isLength({ max: 1000 }),
   validate,
   c.update,
 );
@@ -128,10 +130,25 @@ router.post('/:eventId/submit', verifyEventOwner, c.submitForReview);
 // cancel an event; POST /admin/events/:eventId/cancel is the only way.
 
 // BRD §26 — the seat map. Tables are sellable stock, not decoration.
+const { makeLimiter } = require('../middleware/rateLimit');
+const { NEW_PIN_PATTERN } = require('../utils/pinLockout');
+
+// A map save can hash up to fifty new table passwords (venueService), each a
+// 210k-iteration PBKDF2 on the pool login and checkout share. The editor saves
+// on a button, so this is far above any real use.
+const mapSaveLimiter = makeLimiter({
+  windowMs: 10 * 60 * 1000,
+  max: 60,
+  name: 'venue-map-save',
+  keyGenerator: (req) => `user:${req.user.id}`,
+  message: 'The map has been saved many times in a few minutes. Wait a moment and save again.',
+});
+
 router.get('/:eventId/venue-map', verifyEventOwner, seatMap.getMap);
 router.put(
   '/:eventId/venue-map',
   verifyEventOwner,
+  mapSaveLimiter,
   body('tables').isArray({ max: 400 }).withMessage('Send the tables for this map.'),
   validate,
   seatMap.putMap,
@@ -145,8 +162,10 @@ router.post(
   verifyEventOwner,
   body('label').isString().trim().isLength({ min: 1, max: 60 })
     .withMessage('Name the device, e.g. "Main door".'),
-  body('pin').isString().isLength({ min: 4, max: 32 })
-    .withMessage('Set a PIN of at least 4 characters.'),
+  // Six to twelve digits for a NEW device. Existing four-digit PINs still sign
+  // in (scanRoutes), and every device now locks after repeated failures.
+  body('pin').isString().matches(NEW_PIN_PATTERN)
+    .withMessage('Set a PIN of 6 to 12 digits.'),
   validate,
   scan.createDevice,
 );
@@ -162,10 +181,21 @@ router.patch(
 // Scan-only and scoped to this event; see services/staffService.js.
 const staff = require('../controllers/staffController');
 
+// Per organizer: adding by email answers the same whether or not the address
+// has an account, and this bounds how many addresses one organizer can try.
+const staffAddLimiter = makeLimiter({
+  windowMs: 60 * 60 * 1000,
+  max: 30,
+  name: 'door-team-add',
+  keyGenerator: (req) => `organizer:${req.user.access.organizerId || req.user.id}`,
+  message: 'That is a lot of people added in one hour. Wait a while and try again.',
+});
+
 router.get('/:eventId/staff', verifyEventOwner, staff.list);
 router.post(
   '/:eventId/staff',
   verifyEventOwner,
+  staffAddLimiter,
   // normalizeEmail, because registration stores addresses normalised the same
   // way — a lookup that skipped it would miss "first.last@gmail.com".
   body('email').isEmail().normalizeEmail().withMessage('Enter the email of their Eventsli account.'),

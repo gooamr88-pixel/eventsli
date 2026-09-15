@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { post } from '../../../../utils/apiClient';
 import { formatMoney } from '../../../../utils/money';
+import { formatEventTime } from '../../../../lib/eventTime';
 import { useApi } from '../../../../hooks/useApi';
 import { useToast } from '../../../../components/ui/Toast';
 import { SectionHeader, StatCard, Panel } from '../../../../components/ui/Page';
@@ -10,6 +11,8 @@ import Field from '../../../../components/forms/Field';
 import FormError from '../../../../components/forms/FormError';
 import SubmitButton from '../../../../components/forms/SubmitButton';
 import { Loading, Empty, ErrorNotice, Notice } from '../../../../components/Feedback';
+import InvoiceStatus from '../../../../components/ui/InvoiceStatus';
+import { useEventContext } from '../EventContext';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -24,9 +27,13 @@ import { Loading, Empty, ErrorNotice, Notice } from '../../../../components/Feed
  *
  * SUBMITTING PROOF DOES NOT REOPEN THE GATE. Only settlement does, and settlement
  * is an admin's act — otherwise the proof would be decorative.
+ *
+ * Due dates are on the event's clock: the gate locks at that moment at the
+ * venue, not at the organizer's local midnight.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 export default function Commission({ eventId }) {
+  const timezone = useEventContext()?.event?.timezone;
   const { data, error, loading, reload } = useApi(`/events/${eventId}/commission`);
 
   if (error) return <ErrorNotice error={error} />;
@@ -68,7 +75,7 @@ export default function Commission({ eventId }) {
       ) : (
         <ul className="fx-stack fx-stack--sm">
           {data.invoices.map((invoice) => (
-            <InvoiceCard key={invoice.id} eventId={eventId} invoice={invoice} onChanged={reload} />
+            <InvoiceCard key={invoice.id} eventId={eventId} invoice={invoice} timezone={timezone} onChanged={reload} />
           ))}
         </ul>
       )}
@@ -76,7 +83,7 @@ export default function Commission({ eventId }) {
   );
 }
 
-function InvoiceCard({ eventId, invoice, onChanged }) {
+function InvoiceCard({ eventId, invoice, timezone, onChanged }) {
   const toast = useToast();
   const [proofUrl, setProofUrl] = useState('');
   const [busy, setBusy] = useState(false);
@@ -103,17 +110,19 @@ function InvoiceCard({ eventId, invoice, onChanged }) {
     <li>
       <Panel
         title={`Invoice ${invoice.number}`}
-        action={<InvoiceStatus status={invoice.status} overdue={invoice.isOverdue} />}
+        action={<InvoiceStatus invoice={invoice} />}
       >
         <div className="fx-row fx-row--between">
           <p className="text-sm text-muted">
-            {invoice.orderCount} door {invoice.orderCount === 1 ? 'sale' : 'sales'} · due {when(invoice.dueAt)}
+            {invoice.orderCount} door {invoice.orderCount === 1 ? 'sale' : 'sales'} · due {formatEventTime(invoice.dueAt, timezone)}
           </p>
           <p className="es-nums text-lg text-ink">{formatMoney(invoice.amountCents, invoice.currency)}</p>
         </div>
 
         {settled ? (
-          <p className="text-sm text-muted">Settled{invoice.confirmedAt ? ` ${when(invoice.confirmedAt)}` : ''}. Nothing further to do.</p>
+          <p className="text-sm text-muted">
+            Settled{invoice.confirmedAt ? ` ${formatEventTime(invoice.confirmedAt, timezone, { time: false })}` : ''}. Nothing further to do.
+          </p>
         ) : awaitingReview ? (
           <Notice tone="info" title="Receipt received — we are checking it.">
             <p>Scanning stays as it is until we confirm the transfer. There is no separate unlock step.</p>
@@ -138,21 +147,4 @@ function InvoiceCard({ eventId, invoice, onChanged }) {
       </Panel>
     </li>
   );
-}
-
-function InvoiceStatus({ status, overdue }) {
-  if (overdue && ['open', 'submitted'].includes(status)) return <span className="es-pill es-pill--danger">Overdue</span>;
-  const [label, tone] = {
-    open: ['Unpaid', 'es-pill--warning'],
-    submitted: ['In review', ''],
-    paid: ['Paid', 'es-pill--accent'],
-    waived: ['Waived', ''],
-    overdue: ['Overdue', 'es-pill--danger'],
-  }[status] || [status, ''];
-  return <span className={`es-pill ${tone}`}>{label}</span>;
-}
-
-function when(iso) {
-  if (!iso) return '—';
-  return new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' }).format(new Date(iso));
 }

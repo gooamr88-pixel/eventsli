@@ -59,7 +59,7 @@ export default function TransferDialog({ ticket, event, onClose, onDone }) {
 
   return (
     <div
-      className="fixed inset-0 z-[--es-z-modal] grid place-items-center bg-black/50 p-4"
+      className="fixed inset-0 z-(--es-z-modal) grid place-items-center bg-black/50 p-4"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
       role="presentation"
     >
@@ -81,7 +81,7 @@ export default function TransferDialog({ ticket, event, onClose, onDone }) {
 
         {confirming ? (
           <div className="fx-stack fx-stack--sm">
-            <p className="rounded-[--es-radius-md] bg-warning/10 px-3 py-2.5 text-sm text-muted">
+            <p className="rounded-(--es-radius-md) bg-warning/10 px-3 py-2.5 text-sm text-muted">
               This ticket will move to <span className="text-ink">{email.trim()}</span> and
               stop working for you. <strong className="text-ink">It cannot be undone</strong>,
               and it cannot be transferred a second time.

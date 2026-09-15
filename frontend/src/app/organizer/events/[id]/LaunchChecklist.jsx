@@ -26,7 +26,14 @@ export default function LaunchChecklist({ event }) {
   const submitted = ['pending_review', 'published'].includes(event.status);
 
   const items = [
-    { key: 'details', label: 'Event details', done: true, href: base, hint: 'Title, date and place' },
+    {
+      key: 'details',
+      label: 'Event details',
+      // A title and dates exist on every event; a venue is what is usually missing.
+      done: Boolean(event.title && event.startsAt && event.venue?.name),
+      href: `${base}#details`,
+      hint: 'Title, date and venue',
+    },
     { key: 'cover', label: 'Cover image', done: Boolean(event.cover), href: `${base}#cover`, hint: 'Recommended — it is the share card too', optional: true },
     ...(ticketed ? [
       { key: 'tiers', label: 'Ticket types', done: (stats?.tiers?.length || 0) > 0, href: `${base}/tiers`, hint: 'At least one price' },

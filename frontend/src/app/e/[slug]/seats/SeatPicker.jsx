@@ -197,7 +197,7 @@ export default function SeatPicker({ slug, currency, purchaseMode, maxPerOrder }
 
   if (!map) {
     return (
-      <div className="grid h-[420px] place-items-center rounded-[--es-radius-lg] border border-border-base bg-bg-sunken">
+      <div className="grid h-[420px] place-items-center rounded-(--es-radius-lg) border border-border-base bg-bg-sunken">
         <Loading variant="card" />
       </div>
     );
@@ -306,7 +306,7 @@ function SelectionBar({ count, subtotal, currency, label, busy, onContinue, onCl
   return (
     /* Sticky to the bottom: on a phone the map fills the screen, so an action
        bar above it scrolls away the moment you start choosing. */
-    <div className="fx-safe-bottom sticky bottom-0 z-[--es-z-sticky] es-card p-3 shadow-lg">
+    <div className="fx-safe-bottom sticky bottom-0 z-(--es-z-sticky) es-card p-3 shadow-lg">
       <div className="fx-row fx-row--between">
         <div className="fx-min0">
           {count > 0 ? (
@@ -395,7 +395,7 @@ function ErrorNote({ error }) {
 function Panel({ tone, children }) {
   return (
     <div
-      className={`rounded-[--es-radius-lg] border p-4 ${
+      className={`rounded-(--es-radius-lg) border p-4 ${
         tone === 'danger' ? 'border-danger/40 bg-danger/5' : 'border-border-base bg-surface'
       }`}
     >

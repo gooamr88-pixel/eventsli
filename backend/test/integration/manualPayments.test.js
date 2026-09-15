@@ -204,6 +204,98 @@ test('a seat already held online cannot be sold at the door', async () => {
   await supabase.rpc('release_reservation', { p_reservation_id: held.data.reservation_id });
 });
 
+// ── Another event's stock ───────────────────────────────────────────────────
+
+test('the door cannot sell seats or a table that belong to another event', async () => {
+  // Seat and table ids are public on every seat map. A door sale used to look
+  // them up by id alone, so an organizer could mark a competitor's stock sold.
+  const { data: terms } = await supabase.from('terms_versions')
+    .select('id').eq('audience', 'organizer').eq('is_current', true).single();
+  const { data: ev, error } = await supabase.from('events').insert({
+    organizer_id: ids.organizer, slug: `man-other-${stamp}`, title: 'Someone Else',
+    country: 'CA', timezone: 'America/Toronto',
+    starts_at: new Date(Date.now() + 35 * 86400e3).toISOString(),
+    ends_at: new Date(Date.now() + 35 * 86400e3 + 3600e3).toISOString(),
+    currency: 'CAD', status: 'published', terms_accepted_id: terms.id,
+  }).select('id').single();
+  if (error) throw new Error(`seed other event: ${error.message}`);
+  const { data: map } = await supabase.from('venue_maps')
+    .insert({ event_id: ev.id, layout_json: {} }).select('id').single();
+  const { data: theirTable } = await supabase.from('tables').insert({
+    venue_map_id: map.id, label: 'Theirs', seat_count: 2, price_cents: 30000,
+  }).select('id').single();
+  await supabase.from('seats').insert(Array.from({ length: 2 }, (_, i) => ({
+    venue_map_id: map.id, table_id: theirTable.id, section_key: 'Theirs', row_label: 'A',
+    seat_number: String(i + 1),
+  })));
+  const { data: loose } = await supabase.from('seats').insert(Array.from({ length: 2 }, (_, i) => ({
+    venue_map_id: map.id, section_key: 'Their floor', row_label: 'C', seat_number: String(i + 1),
+  }))).select('id');
+  const theirSeats = loose.map((s) => s.id);
+
+  const debtBefore = await owed();
+  const rpcSale = (over) => supabase.rpc('record_manual_sale', {
+    p_event_id: ids.event, p_seat_ids: null, p_table_id: null,
+    p_breakdown: { subtotalCents: 0, buyerTotalCents: 0 },
+    p_buyer: { name: 'Not Theirs' }, p_method: 'cash', p_note: null,
+    p_recorded_by: ids.profile, ...over,
+  });
+
+  try {
+    await assert.rejects(
+      () => manual.priceManualSale({ eventId: ids.event, seatIds: [theirSeats[0]] }),
+      (e) => e.code === 'NOT_FOUND',
+    );
+    await assert.rejects(
+      () => manual.priceManualSale({ eventId: ids.event, seatIds: [seatIds[7], theirSeats[1]] }),
+      (e) => e.code === 'NOT_FOUND',
+      'one foreign seat in a mixed selection refuses the whole sale',
+    );
+    await assert.rejects(
+      () => manual.recordSale({
+        eventId: ids.event, tableId: theirTable.id,
+        buyer: { name: 'Not Theirs' }, method: 'cash', recordedBy: ids.profile,
+      }),
+      (e) => e.code === 'NOT_FOUND',
+    );
+
+    // The database refuses on its own too — the Node check is not the only guard.
+    const direct = await rpcSale({ p_seat_ids: [theirSeats[0]] });
+    assert.equal(direct.data?.ok, false, JSON.stringify(direct.data || direct.error));
+    assert.equal(direct.data.error, 'NOT_FOUND');
+    const directTable = await rpcSale({ p_table_id: theirTable.id });
+    assert.equal(directTable.data?.ok, false, JSON.stringify(directTable.data || directTable.error));
+    assert.equal(directTable.data.error, 'NOT_FOUND');
+
+    const { data: theirs } = await supabase.from('seats').select('status').eq('venue_map_id', map.id);
+    assert.ok(theirs.every((s) => s.status === 'available'), 'their stock is untouched');
+    assert.equal(await owed(), debtBefore, 'and no commission was booked for a refused sale');
+  } finally {
+    await supabase.from('seats').delete().eq('venue_map_id', map.id);
+    await supabase.from('tables').delete().eq('venue_map_id', map.id);
+    await supabase.from('venue_maps').delete().eq('id', map.id);
+    await supabase.from('events').delete().eq('id', ev.id);
+  }
+});
+
+test('a listing-only event takes no door sales', async () => {
+  // BRD §12 — a listing with nothing behind it.
+  await supabase.from('events').update({ listing_type: 'display_only' }).eq('id', ids.event);
+  try {
+    await assert.rejects(
+      () => manual.recordSale({
+        eventId: ids.event, seatIds: [seatIds[7]],
+        buyer: { name: 'Walk-in' }, method: 'cash', recordedBy: ids.profile,
+      }),
+      (e) => e.code === 'EVENT_NOT_PUBLISHED' && /information only/i.test(e.message),
+    );
+    const { data: seat } = await supabase.from('seats').select('status').eq('id', seatIds[7]).single();
+    assert.equal(seat.status, 'available');
+  } finally {
+    await supabase.from('events').update({ listing_type: 'ticketed' }).eq('id', ids.event);
+  }
+});
+
 // ── The invoice ─────────────────────────────────────────────────────────────
 
 test('an invoice is raised for exactly what is outstanding', async () => {

@@ -1,5 +1,5 @@
 import {
-  SEAT_RADIUS, tableBody, seatPositions, normaliseShape,
+  SEAT_RADIUS, tableBody, seatPositions,
 } from '../seating/seatingGeometry';
 
 /**
@@ -173,8 +173,3 @@ export const SEAT_LEGEND = [
   { state: 'selected', label: 'Your pick' },
   { state: 'sold', label: 'Taken' },
 ];
-
-/** Kept honest: `normaliseShape` is what decides a bad shape falls back to
- *  round, and importing it here means an unknown shape in ROOM draws rather
- *  than throwing. */
-export const SHAPES_IN_ROOM = ROOM.map((t) => normaliseShape(t.shape));

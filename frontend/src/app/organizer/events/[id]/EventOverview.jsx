@@ -5,6 +5,8 @@ import ReviewActions from './ReviewActions';
 import CoverUpload from './CoverUpload';
 import EventStats from './EventStats';
 import LaunchChecklist from './LaunchChecklist';
+import EventDetailsEditor from './EventDetailsEditor';
+import { formatMoney } from '../../../utils/money';
 import { Loading, Notice } from '../../../components/Feedback';
 
 /**
@@ -38,7 +40,7 @@ export default function EventOverview() {
       {event.review?.rejectionReason && event.status === 'rejected' && (
         <Notice tone="warning" title="Changes were asked for">
           <p>{event.review.rejectionReason}</p>
-          <p>Make them and submit again — this is not a final decision.</p>
+          <p>Make them in <a href="#details" className="text-accent underline">Event details</a> below and submit again — this is not a final decision.</p>
         </Notice>
       )}
 
@@ -74,6 +76,12 @@ export default function EventOverview() {
         </div>
       )}
 
+      {!['cancelled', 'completed'].includes(event.status) && (
+        <div id="details" className="scroll-mt-20">
+          <EventDetailsEditor event={event} onSaved={ctx.refresh} />
+        </div>
+      )}
+
       <div id="cover" className="scroll-mt-20">
         <CoverUpload event={event} onChanged={ctx.refresh} />
       </div>
@@ -94,7 +102,7 @@ export default function EventOverview() {
             term="Payment fee"
             value={money.paymentFeeMode === 'auto'
               ? 'Matched to what the card costs'
-              : `${money.paymentFeePct}% + ${money.paymentFeeFixedCents}¢`}
+              : `${money.paymentFeePct}% + ${formatMoney(money.paymentFeeFixedCents, event.currency)}`}
             note={money.feeBearer === 'buyer'
               ? 'Added to the buyer’s total.'
               : 'Taken from your proceeds.'}
@@ -119,7 +127,7 @@ export default function EventOverview() {
           <Money
             term="Transfers"
             value={event.rules.allowTicketTransfer ? 'Allowed, once' : 'Off'}
-            note="BRD §10 — a buyer may pass a ticket on one time."
+            note="A buyer may pass a ticket on one time."
           />
           <Money term="Purchase mode" value={readable(event.purchaseMode)} />
         </dl>

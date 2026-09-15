@@ -12,16 +12,25 @@ async function list(req, res, next) {
 }
 
 // POST /events/:eventId/staff
+/**
+ * The same answer whether or not the address has an account, and no name.
+ *
+ * It used to be a 404 for an unknown email and a 201 carrying the person's
+ * name for a known one — and anyone can create an organizer profile — so this
+ * was a free way to learn who uses Eventsli. The route is also rate limited
+ * per organizer. What is left is the door-team list itself, which shows only
+ * the addresses the organizer typed.
+ */
 async function add(req, res, next) {
   try {
-    const member = await staff.add({
-      eventId: req.params.eventId, email: req.body.email, addedBy: req.user.id,
-    });
-    return sendOk(res, member, { status: 201 });
+    const email = String(req.body.email || '').trim().toLowerCase();
+    const result = await staff.add({ eventId: req.params.eventId, email, addedBy: req.user.id });
+    logger.info({ eventId: req.params.eventId, by: req.user.id, added: result.added }, 'door team add requested');
+    return sendOk(res, {
+      email,
+      message: 'If that address belongs to an Eventsli account, they are on the door team and we have emailed them how to sign in.',
+    }, { status: 202 });
   } catch (err) {
-    if (err.code === 'NOT_FOUND') {
-      return sendFail(res, { status: 404, error: 'NOT_FOUND', message: err.message });
-    }
     return next(err);
   }
 }

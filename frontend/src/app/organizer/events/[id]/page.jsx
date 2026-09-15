@@ -5,7 +5,8 @@ export const metadata = {
   robots: { index: false, follow: false },
 };
 
-export default async function EventPage({ params }) {
-  const { id } = await params;
-  return <EventOverview eventId={id} />;
+// The event comes from EventContext, fetched once by the layout — the id prop
+// this used to pass was never read.
+export default function EventPage() {
+  return <EventOverview />;
 }

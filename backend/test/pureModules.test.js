@@ -34,6 +34,17 @@ const PURE_MODULES = [
   'services/scanTokens.js',      // the two gate credentials
   'services/shareLinks.js',      // the only place a shared link is built
   'services/emailCodes.js',      // one-time email codes
+  'utils/gateRoutes.js',         // which requests are the door's
+  'utils/resetPlan.js',          // what a platform reset must put back
+  'utils/invoices.js',           // when a commission invoice is overdue
+  'utils/markets.js',            // the countries and currencies Eventsli sells in
+  'utils/settingsSchema.js',     // what each platform setting may hold
+  'utils/mapLimit.js',           // bounded concurrency for the offline sync
+  'utils/pinLockout.js',         // door PIN lockout rules
+  'utils/search.js',             // search text made safe for PostgREST
+  'utils/embed.js',              // to-one embed unwrapping
+  'utils/payouts.js',            // whether an organizer can be paid
+  'utils/roleLadder.js',         // who may act on whom
 ];
 
 /**

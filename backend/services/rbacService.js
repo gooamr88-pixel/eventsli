@@ -19,7 +19,8 @@ const logger = require('../utils/logger');
 const TTL_MS = 10_000;
 const cache = new Map();   // userId → { at, value }
 
-const ROLE_LEVEL = { attendee: 0, organizer: 1, admin: 2, super_admin: 3 };
+const { ROLE_LEVEL } = require('../utils/roleLadder');
+const { canReceivePayouts } = require('../utils/payouts');
 
 async function fetchContext(userId) {
   const [{ data: profile, error: pErr }, { data: organizer }] = await Promise.all([
@@ -54,7 +55,7 @@ async function fetchContext(userId) {
     organizerBanned: !!organizer?.is_banned,
     // Whether they can be PAID, not merely whether they connected an account.
     // A connected account that cannot receive payouts is not ready to sell.
-    canReceivePayouts: !!(organizer?.stripe_onboarding_complete && organizer?.stripe_payouts_enabled),
+    canReceivePayouts: canReceivePayouts(organizer),
 
     isAdmin: level >= ROLE_LEVEL.admin,
     isSuperAdmin: level >= ROLE_LEVEL.super_admin,

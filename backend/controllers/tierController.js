@@ -1,6 +1,7 @@
 const { supabase } = require('../config/supabase');
 const { sendOk, sendFail } = require('../utils/responseEnvelope');
 const logger = require('../utils/logger');
+const { escapeLike } = require('../utils/search');
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -52,12 +53,22 @@ async function create(req, res, next) {
   try {
     const name = String(req.body.name).trim();
 
+    // BRD §12 — a listing-only event sells no tickets, so it has no prices.
+    const { data: event } = await supabase
+      .from('events').select('listing_type').eq('id', req.params.eventId).maybeSingle();
+    if (event?.listing_type === 'display_only') {
+      return sendFail(res, {
+        status: 400, error: 'VALIDATION_ERROR',
+        message: 'This event is listed for information only. Make it a ticketed event before adding ticket types.',
+      });
+    }
+
     // Checked here rather than left to a unique index, because there ISN'T one
     // on (event_id, name) — and two tiers both called "VIP" at different prices
     // is a support call, not a database error.
     const { data: clash } = await supabase
       .from('ticket_tiers')
-      .select('id').eq('event_id', req.params.eventId).ilike('name', name).maybeSingle();
+      .select('id').eq('event_id', req.params.eventId).ilike('name', escapeLike(name)).maybeSingle();
     if (clash) {
       return sendFail(res, {
         status: 409, error: 'DUPLICATE_TIER',
@@ -126,7 +137,7 @@ async function update(req, res, next) {
     if (patch.name && patch.name.toLowerCase() !== tier.name.toLowerCase()) {
       const { data: clash } = await supabase
         .from('ticket_tiers').select('id')
-        .eq('event_id', req.params.eventId).ilike('name', patch.name).maybeSingle();
+        .eq('event_id', req.params.eventId).ilike('name', escapeLike(patch.name)).maybeSingle();
       if (clash) {
         return sendFail(res, {
           status: 409, error: 'DUPLICATE_TIER',

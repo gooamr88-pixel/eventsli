@@ -69,7 +69,7 @@ export default function LoginForm() {
       <div className="fx-stack fx-stack--sm">
         <h1 className="text-2xl">Sign in</h1>
         {expired && (
-          <p className="rounded-[--es-radius-md] bg-warning/10 px-3 py-2.5 text-sm text-muted">
+          <p className="rounded-(--es-radius-md) bg-warning/10 px-3 py-2.5 text-sm text-muted">
             Your session ended. Sign in again to pick up where you left off.
           </p>
         )}

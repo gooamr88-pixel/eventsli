@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { get, patch } from '../../../utils/apiClient';
 import { formatMoney } from '../../../utils/money';
 import { useToast } from '../../../components/ui/Toast';
+import { useConfirm } from '../../../components/ui/Confirm';
 import { Panel } from '../../../components/ui/Page';
 import DataTable from '../../../components/ui/DataTable';
 import FormError from '../../../components/forms/FormError';
@@ -22,7 +23,8 @@ import SubmitButton from '../../../components/forms/SubmitButton';
  *
  * Every figure in the preview is the API's (utils/money.js on the server);
  * nothing here computes money. Saving applies to tickets sold from now on —
- * orders already placed keep the rates they were sold at.
+ * orders already placed keep the rates they were sold at — and asks for a
+ * reason, which the audit log keeps beside the old and new rates.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 const fromEvent = (event) => ({
@@ -52,6 +54,7 @@ const PERCENT_FIELDS = [
 
 export default function FeeEditor({ event, onSaved }) {
   const toast = useToast();
+  const confirm = useConfirm();
   const [form, setForm] = useState(() => fromEvent(event));
   const [preview, setPreview] = useState(null);
   const [previewing, setPreviewing] = useState(false);
@@ -83,10 +86,23 @@ export default function FeeEditor({ event, onSaved }) {
 
   async function save(e) {
     e.preventDefault();
+    const answer = await confirm({
+      title: 'Change the fees on this event?',
+      body: (
+        <p>
+          Tickets sold from now on use the new rates. Orders already placed keep the rates they were sold at.
+          {!preview && ' You have not previewed what these rates earn.'}
+        </p>
+      ),
+      confirmLabel: 'Save fees',
+      reason: { label: 'Why are the fees changing?', minLength: 5, maxLength: 1000, hint: 'Kept in the audit log with the old and new rates.' },
+    });
+    if (!answer) return;
+
     setBusy(true);
     setError(null);
     try {
-      const result = await patch(`/admin/events/${event.id}/fees`, toPayload(form), { noRedirect: true });
+      const result = await patch(`/admin/events/${event.id}/fees`, { ...toPayload(form), reason: answer.reason }, { noRedirect: true });
       toast.success(result?.note || 'Fees saved.');
       onSaved();
     } catch (err) {

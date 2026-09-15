@@ -68,6 +68,14 @@ after(async () => {
     const { data: rs } = await supabase.from('reservations').select('id').eq('event_id', ids.event);
     for (const r of rs || []) {
       await supabase.from('promo_redemptions').delete().eq('reservation_id', r.id);
+    }
+    const { data: orders } = await supabase.from('orders').select('id').eq('event_id', ids.event);
+    for (const o of orders || []) {
+      await supabase.from('tickets').delete().eq('order_id', o.id);
+      await supabase.from('order_items').delete().eq('order_id', o.id);
+    }
+    await supabase.from('orders').delete().eq('event_id', ids.event);
+    for (const r of rs || []) {
       await supabase.from('reservation_items').delete().eq('reservation_id', r.id);
     }
     await supabase.from('reservations').delete().eq('event_id', ids.event);
@@ -326,6 +334,87 @@ test('a duplicate code for one event is refused', async () => {
     () => promo.create({ eventId: ids.event, code: 'unique1', discountType: 'fixed', discountValue: 5 }),
     (e) => e.code === 'CONFLICT',
   );
+});
+
+// ── A use follows its hold ──────────────────────────────────────────────────
+
+test('a hold that lapses gives its use back when the sweeper runs', async () => {
+  // The sweeper was written before codes existed and never released a claim,
+  // so a limited code wore out on checkouts nobody paid for.
+  await promo.create({
+    eventId: ids.event, code: 'LAPSED', discountType: 'percentage', discountValue: 10, maxUses: 1,
+  });
+  const first = await hold([seatIds[18]]);
+  await promo.claim({ code: 'LAPSED', eventId: ids.event, reservationId: first.reservation_id, subtotalCents: 10000 });
+
+  await supabase.from('reservations')
+    .update({ expires_at: new Date(Date.now() - 60_000).toISOString() }).eq('id', first.reservation_id);
+  await supabase.rpc('expire_stale_reservations');
+
+  const { count } = await supabase.from('promo_redemptions')
+    .select('id', { count: 'exact', head: true }).eq('reservation_id', first.reservation_id);
+  assert.equal(count, 0, 'the lapsed claim is gone');
+
+  const second = await hold([seatIds[19]]);
+  const claimed = await promo.claim({
+    code: 'LAPSED', eventId: ids.event, reservationId: second.reservation_id, subtotalCents: 10000,
+  });
+  assert.ok(claimed.ok, 'and the single use is available again');
+
+  await promo.release(second.reservation_id);
+  await supabase.rpc('release_reservation', { p_reservation_id: second.reservation_id });
+});
+
+test('a hold past its expiry does not keep a use while it waits for the sweeper', async () => {
+  await promo.create({
+    eventId: ids.event, code: 'WAITING', discountType: 'percentage', discountValue: 10, maxUses: 1,
+  });
+  const lapsed = await hold([seatIds[18]]);
+  await promo.claim({ code: 'WAITING', eventId: ids.event, reservationId: lapsed.reservation_id, subtotalCents: 10000 });
+  await supabase.from('reservations')
+    .update({ expires_at: new Date(Date.now() - 60_000).toISOString() }).eq('id', lapsed.reservation_id);
+
+  const live = await hold([seatIds[19]]);
+  const claimed = await promo.claim({
+    code: 'WAITING', eventId: ids.event, reservationId: live.reservation_id, subtotalCents: 10000,
+  });
+  assert.ok(claimed.ok, 'an expired hold is not somebody using the code');
+
+  for (const h of [lapsed, live]) {
+    await promo.release(h.reservation_id);
+    await supabase.rpc('release_reservation', { p_reservation_id: h.reservation_id });
+  }
+});
+
+test('a code paid with is recorded on the order and cannot be freed again', async () => {
+  await promo.create({
+    eventId: ids.event, code: 'PAIDFOR', discountType: 'percentage', discountValue: 10, maxUses: 1,
+  });
+  const h = await hold([seatIds[18]]);
+  await promo.claim({ code: 'PAIDFOR', eventId: ids.event, reservationId: h.reservation_id, subtotalCents: 10000 });
+  const q = await pricing.quoteReservation(h.reservation_id);
+
+  const paid = await supabase.rpc('fulfill_checkout', {
+    p_reservation_id: h.reservation_id, p_channel: 'stripe', p_breakdown: q.breakdown,
+    p_buyer: { user_id: null, name: 'Code Buyer', email: 'code-buyer@eventsli-test.invalid' },
+    p_stripe: { session_id: `cs_promo_${stamp}` },
+  });
+  assert.equal(paid.data?.ok, true, JSON.stringify(paid.data || paid.error));
+
+  const { data: order } = await supabase.from('orders')
+    .select('promo_code').eq('id', paid.data.order_id).single();
+  assert.equal(order.promo_code, 'PAIDFOR', 'the receipt can say which code it was bought with');
+
+  const { data: freed } = await supabase.rpc('release_promo_claim', { p_reservation_id: h.reservation_id });
+  assert.equal(freed, false, 'a paid claim is part of what was bought');
+
+  const other = await hold([seatIds[19]]);
+  await assert.rejects(
+    () => promo.claim({ code: 'PAIDFOR', eventId: ids.event, reservationId: other.reservation_id, subtotalCents: 10000 }),
+    (e) => e.code === 'CONFLICT',
+    'so the single use stays spent',
+  );
+  await supabase.rpc('release_reservation', { p_reservation_id: other.reservation_id });
 });
 
 test('the counter matches the redemptions it is derived from', async () => {
