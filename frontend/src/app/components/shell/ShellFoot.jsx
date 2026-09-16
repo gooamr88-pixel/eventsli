@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import NavIcon from './NavIcon';
 import { signOut } from '../../hooks/useAuth';
-import { useTheme, ThemeIcon } from '../ThemeToggle';
 
 /**
  * The bottom of the sidebar: who is signed in, the way to the other side of the
@@ -34,7 +33,6 @@ export default function ShellFoot({ links = [], user }) {
           <span className="es-nav__label">{link.label}</span>
         </Link>
       ))}
-      <ThemeRow />
       <button type="button" className="es-nav__item" onClick={() => signOut('/')}>
         <span className="es-nav__icon"><NavIcon name="exit" /></span>
         <span className="es-nav__label">Sign out</span>
@@ -43,30 +41,11 @@ export default function ShellFoot({ links = [], user }) {
   );
 }
 
-/**
- * The theme control, as a sidebar row.
- *
- * It belongs here and not only in the app bar because `.es-appbar` is
- * `display: none` from 1024px up — so an icon button there is reachable on a
- * phone and a tablet and invisible on the desktop where most console work
- * actually happens.
- *
- * The label states the CURRENT mode rather than the next one. "Dark" beside a
- * moon reads as a status; "Switch to dark" beside a moon reads as a promise,
- * and the two are indistinguishable once the row is collapsed to its icon on
- * the tablet rail.
- */
-function ThemeRow() {
-  const { current, advance, label } = useTheme();
-  return (
-    <button type="button" className="es-nav__item" onClick={advance} aria-label={label} title={label}>
-      <span className="es-nav__icon"><ThemeIcon mode={current} /></span>
-      <span className="es-nav__label">{TITLE[current]}</span>
-    </button>
-  );
-}
+/* THE THEME ROW WAS HERE, and it is gone with the theme.
 
-const TITLE = { system: 'System theme', light: 'Light theme', dark: 'Dark theme' };
+   It cycled system / light / dark from the shell's footer. The product has one
+   palette now; the only dark surface left is `.fx-gate`, which the door
+   scanner pins for itself and nobody chooses. */
 
 /** "Yousef Amr" → "YA"; an account with no name → the first letter of the email. */
 export function initials({ fullName, email } = {}) {

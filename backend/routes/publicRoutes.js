@@ -104,6 +104,22 @@ router.get(
 );
 
 /**
+ * The full "near me" answer: every city with something on, by distance.
+ *
+ * Same limiter budget as the single-city lookup — it is the same button, and
+ * this is the call it actually makes.
+ */
+router.get(
+  '/events/near',
+  makeLimiter({ windowMs: 60 * 1000, max: 20, name: 'events-near', message: 'Too many requests.' }),
+  query('lat').isFloat({ min: -90, max: 90 }),
+  query('lng').isFloat({ min: -180, max: 180 }),
+  query('radiusKm').optional().isInt({ min: 5, max: 2000 }),
+  validate,
+  landing.eventsNear,
+);
+
+/**
  * The visit beacon. Rate-limited because it is an unauthenticated write: the
  * counter is per-day and per-visitor so repeat calls cannot inflate the
  * "visitors" figure, but they can inflate "views", and nothing else in the

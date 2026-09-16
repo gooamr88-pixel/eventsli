@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth, signOut } from '../hooks/useAuth';
 import Logo from './brand/Logo';
-import ThemeToggle from './ThemeToggle';
 
 /**
  * The masthead.
@@ -187,7 +186,6 @@ function SiteNav({ pathname }) {
               {links.map((link) => (
                 <NavLink key={link.href} link={link} pathname={pathname} />
               ))}
-              <ThemeToggle className="ml-1" />
               {signedIn && (
                 <button
                   type="button"
@@ -204,12 +202,10 @@ function SiteNav({ pathname }) {
               )}
             </nav>
 
-            {/* The theme control sits OUTSIDE the phone's panel, next to the
-                burger, because it is a setting rather than a destination —
-                putting it in the list would make it the fourth "page" on a
-                menu of three. */}
+            {/* THE THEME CONTROL WAS HERE and is gone with the theme itself —
+                see globals.css. The wrapper stays because the burger needs a
+                flex parent to sit in on a phone. */}
             <div className="fx-row md:hidden">
-              <ThemeToggle />
 
             {/* ── The phone's button ─────────────────────────────────
                 `aria-expanded` and `aria-controls` are not decoration: they

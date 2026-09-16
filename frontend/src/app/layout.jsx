@@ -162,31 +162,34 @@ export const viewport = {
 };
 
 /**
- * Stamps the saved theme onto <html> BEFORE the first paint.
+ * THE THEME SCRIPT IS GONE, 2026-09-16.
  *
- * It has to be inline and blocking. Doing this in a `useEffect` means the page
- * paints once in the OS theme and again in the chosen one — the flash of wrong
- * theme, which is worst for the people the setting exists for: someone who
- * picked light on a dark laptop gets a black screen on every navigation.
+ * It read `es-theme` from localStorage and stamped `data-theme` onto <html>
+ * before the first paint, so a chosen theme did not flash. There is no chosen
+ * theme any more — the storefront is light, and the dark palette survives only
+ * as `.fx-gate`, a subtree the door scanner pins for itself.
  *
- * NONCED, because `proxy.ts` issues a per-request nonce and script-src carries
- * no 'unsafe-inline'. Without the attribute the browser drops this silently and
- * the only symptom is the flash coming back.
+ * Deleting it is not just tidying. A visitor who had picked dark before today
+ * still has `es-theme: dark` in their browser, and leaving the script in place
+ * would go on applying a palette the site no longer defines for the page —
+ * white text on white, across the whole storefront, for exactly the people who
+ * had used the feature.
  *
- * Wrapped in try/catch: localStorage throws outright in some privacy modes, and
- * an exception here would abort the script before the rest of the page's
- * bootstrap.
+ * It also removes the one inline <script> the CSP nonce existed to allow on
+ * every page, and one read of localStorage before first paint.
  */
-function ThemeScript({ nonce }) {
-  const js = `try{var c=localStorage.getItem('es-theme');`
-    + `if(c==='light'||c==='dark'){document.documentElement.dataset.theme=c}}catch(e){}`;
-  return <script nonce={nonce} dangerouslySetInnerHTML={{ __html: js }} />;
-}
 
 export default async function RootLayout({ children }) {
-  // Set on the REQUEST by proxy.ts, which is what Next reads to stamp its own
-  // inline scripts — so this is the same value and cannot disagree with them.
-  const nonce = (await headers()).get('x-nonce') || undefined;
+  /**
+   * Read, and deliberately not used here any more.
+   *
+   * `proxy.ts` sets it on the request and Next stamps it onto the inline
+   * scripts carrying React's payload. This layout no longer renders a script
+   * of its own (see above), but touching `headers()` is what keeps the route
+   * on the dynamic path the nonce requires — the same reason
+   * `dynamic = 'force-dynamic'` is declared.
+   */
+  await headers();
 
   return (
     <html lang="en" className={`${dmSans.variable} ${dmSerif.variable} ${dmMono.variable} ${script.variable}`}>
@@ -211,7 +214,6 @@ export default async function RootLayout({ children }) {
         )}
       </head>
       <body>
-        <ThemeScript nonce={nonce} />
         <SiteHeader />
         {children}
         <SiteFooter />

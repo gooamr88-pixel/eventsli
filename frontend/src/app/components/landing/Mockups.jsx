@@ -129,41 +129,80 @@ export function DashboardMockup() {
 // ── A ticket, on a phone ────────────────────────────────────────────────────
 
 /**
- * A fixed 9×9 pattern that reads as a QR code without being one.
+ * ─────────────────────────────────────────────────────────────────────────────
+ * A REAL QR CODE. It scans, and it opens https://eventsli.com.
  *
- * FIXED, not random, and that is load-bearing: a random pattern differs
- * between the server render and the client hydration, which React treats as a
- * mismatch and logs as an error on the homepage.
+ * It was a hand-made 9x9 pattern that only LOOKED like a code, on the argument
+ * that a working code on a marketing page would mean minting a real admission
+ * token. That argument was right about tokens and wrong about this: the ticket
+ * beside it is a drawing, so the code should point at the one URL that is true
+ * for everybody and costs nothing to publish — the site itself. Somebody who
+ * scans a ticket mockup out of curiosity lands on the homepage, which is the
+ * best available outcome of that curiosity.
  *
- * It is deliberately NOT a scannable code. `components/TicketStub` draws the
- * real one from a signed admission token — the thing that opens a door — and
- * putting a working code on a marketing page would mean minting one.
+ * GENERATED, NOT DRAWN. Produced by the `qrcode` package at error-correction
+ * level M (25x25 modules) and baked in as one SVG path, merged horizontally —
+ * 625 modules become about 200 commands and 2.2KB. No runtime dependency, no
+ * image request, no canvas, and pin-sharp at any size because it is a vector.
+ *
+ * `shape-rendering="crispEdges"` is what makes it SCANNABLE rather than merely
+ * present: antialiasing a module boundary greys the edge, and a reader
+ * thresholding a grey edge fails on a phone held at an angle.
+ *
+ * The quiet zone is four modules on every side, which the spec requires — a
+ * code rendered flush to its container does not scan. It is in the viewBox
+ * rather than in padding, so it cannot be styled away.
  */
-const QR = [
-  '111011101', '100010001', '101110101', '100000001', '101011101',
-  '110001011', '101110101', '100010001', '111011101',
-];
+const QR = {
+  modules: 25,
+  /** What it encodes, stated so nobody has to scan the page to find out. */
+  href: 'https://eventsli.com',
+  path: 'M0 0h7v1h-7zM10 0h1v1h-1zM16 0h1v1h-1zM18 0h7v1h-7zM0 1h1v1h-1zM6 1h1v1h-1zM11 1h1v1h-1zM13 1h1v1h-1zM15 1h1v1h-1zM18 1h1v1h-1zM24 1h1v1h-1zM0 2h1v1h-1zM2 2h3v1h-3zM6 2h1v1h-1zM8 2h2v1h-2zM14 2h1v1h-1zM16 2h1v1h-1zM18 2h1v1h-1zM20 2h3v1h-3zM24 2h1v1h-1zM0 3h1v1h-1zM2 3h3v1h-3zM6 3h1v1h-1zM8 3h1v1h-1zM10 3h2v1h-2zM13 3h2v1h-2zM18 3h1v1h-1zM20 3h3v1h-3zM24 3h1v1h-1zM0 4h1v1h-1zM2 4h3v1h-3zM6 4h1v1h-1zM8 4h2v1h-2zM11 4h1v1h-1zM13 4h1v1h-1zM18 4h1v1h-1zM20 4h3v1h-3zM24 4h1v1h-1zM0 5h1v1h-1zM6 5h1v1h-1zM8 5h1v1h-1zM10 5h1v1h-1zM12 5h5v1h-5zM18 5h1v1h-1zM24 5h1v1h-1zM0 6h7v1h-7zM8 6h1v1h-1zM10 6h1v1h-1zM12 6h1v1h-1zM14 6h1v1h-1zM16 6h1v1h-1zM18 6h7v1h-7zM8 7h2v1h-2zM11 7h1v1h-1zM14 7h2v1h-2zM0 8h1v1h-1zM2 8h5v1h-5zM9 8h1v1h-1zM11 8h1v1h-1zM13 8h2v1h-2zM18 8h5v1h-5zM2 9h4v1h-4zM8 9h1v1h-1zM10 9h2v1h-2zM13 9h1v1h-1zM16 9h2v1h-2zM19 9h1v1h-1zM23 9h1v1h-1zM0 10h2v1h-2zM4 10h1v1h-1zM6 10h2v1h-2zM9 10h1v1h-1zM14 10h2v1h-2zM17 10h3v1h-3zM21 10h1v1h-1zM23 10h2v1h-2zM0 11h1v1h-1zM2 11h1v1h-1zM7 11h1v1h-1zM9 11h2v1h-2zM12 11h1v1h-1zM14 11h3v1h-3zM19 11h1v1h-1zM24 11h1v1h-1zM4 12h1v1h-1zM6 12h1v1h-1zM8 12h1v1h-1zM11 12h1v1h-1zM17 12h2v1h-2zM20 12h1v1h-1zM22 12h3v1h-3zM0 13h2v1h-2zM5 13h1v1h-1zM7 13h2v1h-2zM10 13h1v1h-1zM12 13h2v1h-2zM16 13h1v1h-1zM19 13h1v1h-1zM21 13h1v1h-1zM23 13h1v1h-1zM0 14h1v1h-1zM3 14h1v1h-1zM5 14h3v1h-3zM9 14h1v1h-1zM13 14h9v1h-9zM23 14h2v1h-2zM0 15h1v1h-1zM2 15h4v1h-4zM7 15h4v1h-4zM12 15h2v1h-2zM17 15h4v1h-4zM24 15h1v1h-1zM0 16h1v1h-1zM2 16h3v1h-3zM6 16h2v1h-2zM12 16h1v1h-1zM14 16h7v1h-7zM22 16h1v1h-1zM8 17h1v1h-1zM16 17h1v1h-1zM20 17h2v1h-2zM0 18h7v1h-7zM11 18h2v1h-2zM16 18h1v1h-1zM18 18h1v1h-1zM20 18h1v1h-1zM22 18h3v1h-3zM0 19h1v1h-1zM6 19h1v1h-1zM8 19h4v1h-4zM14 19h1v1h-1zM16 19h1v1h-1zM20 19h2v1h-2zM24 19h1v1h-1zM0 20h1v1h-1zM2 20h3v1h-3zM6 20h1v1h-1zM8 20h1v1h-1zM10 20h2v1h-2zM15 20h6v1h-6zM22 20h3v1h-3zM0 21h1v1h-1zM2 21h3v1h-3zM6 21h1v1h-1zM8 21h2v1h-2zM12 21h4v1h-4zM17 21h2v1h-2zM20 21h5v1h-5zM0 22h1v1h-1zM2 22h3v1h-3zM6 22h1v1h-1zM8 22h3v1h-3zM13 22h2v1h-2zM21 22h2v1h-2zM24 22h1v1h-1zM0 23h1v1h-1zM6 23h1v1h-1zM12 23h2v1h-2zM16 23h2v1h-2zM19 23h3v1h-3zM24 23h1v1h-1zM0 24h7v1h-7zM8 24h1v1h-1zM10 24h1v1h-1zM12 24h1v1h-1zM14 24h1v1h-1zM19 24h6v1h-6z',
+};
+
+/** Four modules of quiet zone on every side, per the spec. */
+const QR_QUIET = 4;
 
 export function PhoneTicketMockup() {
+  const span = QR.modules + QR_QUIET * 2;
+
   return (
-    <div aria-hidden className="es-phone">
-      <span className="es-phone__notch" />
+    <div className="es-phone">
       <div className="es-phone__screen">
+        {/* The status bar. A phone without one reads as a rounded rectangle;
+            it is the smallest detail that turns the frame into a device. */}
+        <div aria-hidden className="es-phone__status">
+          <span className="es-phone__clock">9:41</span>
+          <span className="es-phone__status-icons">
+            <svg viewBox="0 0 18 10" width="15" height="9">
+              <rect x="0" y="6.5" width="3" height="3.5" rx="0.6" fill="currentColor" />
+              <rect x="4.6" y="4.4" width="3" height="5.6" rx="0.6" fill="currentColor" />
+              <rect x="9.2" y="2.2" width="3" height="7.8" rx="0.6" fill="currentColor" />
+              <rect x="13.8" y="0" width="3" height="10" rx="0.6" fill="currentColor" />
+            </svg>
+            <svg viewBox="0 0 24 12" width="19" height="10">
+              <rect x="0.6" y="0.6" width="18.8" height="10.8" rx="3" fill="none" stroke="currentColor" strokeWidth="1.2" />
+              <rect x="2.4" y="2.4" width="13" height="7.2" rx="1.6" fill="currentColor" />
+              <rect x="21.2" y="4" width="2.2" height="4" rx="1.1" fill="currentColor" />
+            </svg>
+          </span>
+        </div>
+
         <div className="es-phone__head">
-          <span className="es-phone__brandmark" />
-          <span className="text-xs font-medium">Your ticket</span>
+          <span aria-hidden className="es-phone__brandmark" />
+          <span className="es-phone__headline">Your ticket</span>
         </div>
 
         <div className="es-phone__ticket">
           <p className="es-phone__eyebrow">Admit one</p>
           <p className="es-phone__title">An evening on the waterfront</p>
           <p className="es-phone__meta">Sat 12 Jun · 7:00 PM</p>
-          <p className="es-phone__meta">Harbourfront Centre</p>
+          <p className="es-phone__meta">Harbourfront Centre, Toronto</p>
 
-          {/* The tear, drawn as one dashed rule with a notch punched in each
-              end — a real stub's perforation, and the thing that makes the
-              card read as a ticket rather than as a rounded rectangle. */}
-          <span className="es-phone__tear">
+          {/* A real stub's perforation — one dashed rule with a notch bitten
+              out of each end. It is what makes the card read as a ticket
+              rather than as a rounded rectangle. */}
+          <span aria-hidden className="es-phone__tear">
             <span className="es-phone__notch-l" />
             <span className="es-phone__notch-r" />
           </span>
@@ -177,21 +216,27 @@ export function PhoneTicketMockup() {
             ))}
           </div>
 
-          <div className="es-phone__qr">
-            {QR.flatMap((row, y) => (
-              [...row].map((cell, x) => (
-                <span
-                  key={`${y}-${x}`}
-                  className={cell === '1' ? 'es-phone__qr-on' : undefined}
-                />
-              ))
-            ))}
-          </div>
+          {/* A LINK, because it does what it looks like it does: scanning it
+              and pressing it arrive at the same place. */}
+          <a href={QR.href} className="es-phone__qr">
+            <svg
+              viewBox={`0 0 ${span} ${span}`}
+              shapeRendering="crispEdges"
+              role="img"
+              aria-label="Scan to open eventsli.com"
+            >
+              <rect width={span} height={span} fill="#ffffff" />
+              <g transform={`translate(${QR_QUIET} ${QR_QUIET})`}>
+                <path d={QR.path} fill="#071713" />
+              </g>
+            </svg>
+          </a>
 
-          <p className="es-phone__code">ESL · 4K7Q · 2M</p>
+          <p className="es-phone__code">Scan to open eventsli.com</p>
         </div>
 
         <span className="es-phone__cta">Add to wallet</span>
+        <span aria-hidden className="es-phone__home" />
       </div>
     </div>
   );

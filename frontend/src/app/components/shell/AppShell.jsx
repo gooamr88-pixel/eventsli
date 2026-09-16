@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import NavIcon from './NavIcon';
 import Logo from '../brand/Logo';
-import ThemeToggle from '../ThemeToggle';
 import { resolveNav, pickTabs, currentLabel } from './navModel';
 
 /**
@@ -135,11 +134,9 @@ export default function AppShell({
             <Logo size="sm" mark />
           </Link>
           <p className="fx-truncate fx-min0 flex-1 text-sm font-medium text-ink">{here || role}</p>
-          {/* Reachable from the console too. An organizer doing the door at
-              11pm and an admin reading a payout table in daylight are the two
-              people most likely to want the other theme, and both live inside
-              this shell where the site header never renders. */}
-          <ThemeToggle />
+          {/* THE THEME CONTROL WAS HERE. It went with the theme — the product
+              is one palette now, and the door scanner pins its own dark
+              subtree without anybody choosing it. See globals.css. */}
           {appbarAction}
         </header>
 

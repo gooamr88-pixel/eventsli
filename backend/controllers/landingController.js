@@ -167,6 +167,97 @@ async function nearestCity(req, res, next) {
   } catch (err) { return next(err); }
 }
 
+// ─── GET /public/events/near ────────────────────────────────────────────────
+/**
+ * "What is on near me", answered in full.
+ *
+ * `/public/cities/nearest` returns one city and stops. That is enough to build
+ * a filter and not enough to build an ANSWER: the interesting cases are
+ * "fourteen events, twelve kilometres away" and "nothing within a hundred
+ * kilometres, and the closest is in Toronto, four hundred away". A caller that
+ * only learns the nearest city cannot tell those apart, so the dialog that asks
+ * for a location cannot say anything useful when the answer is disappointing.
+ *
+ * So this returns the whole picture, grouped by city and sorted by distance:
+ *
+ *   places[]   every city with something on, with its event count and how far
+ *              it is. Sorted nearest first.
+ *   within[]   the subset inside `radiusKm`.
+ *   nearest    the closest place, whether or not it is within the radius —
+ *              this is what makes "nothing near you, but there is something in
+ *              X" possible to say.
+ *   unmapped   how many cities have events but no coordinates we hold, so the
+ *              UI can be honest that the answer is partial rather than
+ *              pretending it is complete.
+ *
+ * THE COORDINATES ARE NOT STORED, not logged, and not passed to anybody. They
+ * exist for the length of this function. See `utils/cityCoordinates.js` for why
+ * there is no geocoder in the path.
+ */
+async function eventsNear(req, res, next) {
+  try {
+    const lat = Number(req.query.lat);
+    const lng = Number(req.query.lng);
+    // Bounded: a caller asking for a 20,000km radius is asking for "everything"
+    // and should say so by not passing a radius at all.
+    const radiusKm = Math.min(Math.max(Number(req.query.radiusKm) || 100, 5), 2000);
+
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)
+      || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+      return sendFail(res, {
+        status: 400, error: 'VALIDATION_ERROR', message: 'Send a latitude and a longitude.',
+      });
+    }
+
+    const { data, error } = await supabase
+      .from('events')
+      .select('city, country')
+      .eq('status', 'published')
+      .not('city', 'is', null)
+      .gte('ends_at', new Date().toISOString())
+      .limit(5000);
+
+    if (error) throw new Error(error.message);
+
+    // Group by city first, so distance is computed once per place rather than
+    // once per event — and so the answer counts what a visitor cares about.
+    const byKey = new Map();
+    for (const row of data || []) {
+      const city = String(row.city || '').trim();
+      if (!city) continue;
+      const key = `${city.toLowerCase()}|${row.country}`;
+      const seen = byKey.get(key);
+      if (seen) seen.events += 1;
+      else byKey.set(key, { city, country: row.country, events: 1 });
+    }
+
+    if (byKey.size === 0) {
+      return sendOk(res, { places: [], within: [], nearest: null, unmapped: 0, radiusKm });
+    }
+
+    let unmapped = 0;
+    const places = [];
+    for (const place of byKey.values()) {
+      const known = geo.locate(place.city, place.country);
+      if (!known) { unmapped += 1; continue; }
+      places.push({
+        ...place,
+        distanceKm: Math.round(geo.distanceKm(lat, lng, known.lat, known.lng)),
+      });
+    }
+
+    places.sort((a, b) => a.distanceKm - b.distanceKm);
+
+    return sendOk(res, {
+      places: places.slice(0, 20),
+      within: places.filter((p) => p.distanceKm <= radiusKm),
+      nearest: places[0] || null,
+      unmapped,
+      radiusKm,
+    });
+  } catch (err) { return next(err); }
+}
+
 // ─── POST /public/visit ─────────────────────────────────────────────────────
 /**
  * The visit counter behind the "visits" statistic.
@@ -232,4 +323,4 @@ function normalisePath(raw) {
   return trimmed;
 }
 
-module.exports = { landing, cities, nearestCity, recordVisit, normalisePath };
+module.exports = { landing, cities, nearestCity, eventsNear, recordVisit, normalisePath };
