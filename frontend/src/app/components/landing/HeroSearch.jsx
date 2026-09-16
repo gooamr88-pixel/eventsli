@@ -121,10 +121,37 @@ export default function HeroSearch() {
             name="q"
             type="search"
             autoComplete="off"
-            placeholder="Search events, artists, venues"
+            placeholder="Search for events, artists, or venues"
             className="es-searchbar__input"
           />
         </div>
+
+        {/*
+          THE LOCATION SEGMENT IS A BUTTON, not an input.
+
+          The design puts a city picker here and the brief was explicit that a
+          visitor should not have to type their own address. So the segment
+          keeps the picker's shape and does the work instead: one tap asks the
+          browser for a position and resolves it to the nearest city that has
+          events on.
+
+          It is `type="button"` — inside a form, a bare <button> submits, which
+          would navigate away the instant somebody asked for their location.
+        */}
+        <button
+          type="button"
+          onClick={findNearby}
+          disabled={locating}
+          className="es-searchbar__field es-searchbar__field--action"
+          aria-describedby={message ? `${id}-locate-msg` : undefined}
+        >
+          <span aria-hidden className={`es-searchbar__icon ${locating ? 'es-searchbar__icon--busy' : ''}`}>
+            <NavIcon name={city ? 'pin' : 'locate'} size={18} />
+          </span>
+          <span className={`es-searchbar__value ${city ? '' : 'es-searchbar__value--empty'}`}>
+            {locating ? 'Finding you…' : (city || 'Near me')}
+          </span>
+        </button>
 
         <div className="es-searchbar__field es-searchbar__field--short">
           <span aria-hidden className="es-searchbar__icon"><NavIcon name="calendar" size={18} /></span>
@@ -140,41 +167,14 @@ export default function HeroSearch() {
         </div>
 
         {/* The resolved city travels with the form, so pressing Search after
-            using "near me" keeps the location. */}
+            using the location segment keeps it. */}
         <input type="hidden" name="city" value={city} />
 
-        <button type="submit" className="es-btn es-btn--primary es-searchbar__submit">
-          <span aria-hidden className="md:hidden">Search</span>
-          <span aria-hidden className="hidden md:inline"><NavIcon name="search" size={18} /></span>
+        <button type="submit" className="es-searchbar__submit">
+          <span aria-hidden><NavIcon name="arrow" size={18} /></span>
           <span className="sr-only">Search</span>
         </button>
       </form>
-
-      {/* Its own control, below the bar and not inside it.
-          Inside, it was a third of a three-up row and read as another field to
-          fill in. It is not a field — it is an action, and it is the fastest
-          route to a result on this page. */}
-      <div className="fx-row fx-row--gap items-center">
-        <button
-          type="button"
-          onClick={findNearby}
-          disabled={locating}
-          className="es-locate"
-          aria-describedby={message ? `${id}-locate-msg` : undefined}
-        >
-          <span aria-hidden className={`es-locate__mark ${locating ? 'es-locate__mark--busy' : ''}`}>
-            <NavIcon name="locate" size={18} />
-          </span>
-          {locating ? 'Finding you…' : 'Events near me'}
-        </button>
-
-        {city && state === 'done' && (
-          <span className="es-chip">
-            <span aria-hidden><NavIcon name="pin" size={14} /></span>
-            {city}
-          </span>
-        )}
-      </div>
 
       {message && (
         /* `role="status"` rather than `alert`: this is the result of something

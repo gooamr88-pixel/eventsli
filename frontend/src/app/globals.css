@@ -1468,12 +1468,17 @@
   letter-spacing: -0.015em;
   text-wrap: balance;
   max-width: 14ch;
-  /* Hyphenate before breaking. At a display size a mid-word break is ugly and
-     a hyphenated one is a typographic convention, so the browser is given the
-     chance to find a real hyphenation point first. Needs `lang` on <html>,
-     which the root layout sets. */
+  /* NO HYPHENATION. It was `hyphens: auto` on the argument that a hyphenated
+     break is a typographic convention where a mid-word break is not. That is
+     true in a paragraph and false in a 36px serif headline: Chrome set
+     "Discover unforget-" / "table experiences", which reads as a rendering
+     fault rather than as typesetting.
+     It is also no longer needed. The ramp's floor came down to 2.25rem, so
+     the longest word in the copy ("unforgettable", 13 characters) contributes
+     about 257px of min-content against the 280px an .fx-section leaves at
+     320px. It fits. `break-word` stays as the net under an editable
+     headline nobody has written yet. */
   overflow-wrap: break-word;
-  hyphens: auto;
 }
 
 /* THE LAST RESORT, and only on a phone.
@@ -2838,11 +2843,31 @@
    `.es-locate`), because asking somebody to type the name of the place
    they are standing in is work the browser can do.
 
-   The surface is OPAQUE. A glass search bar over a photograph is the
-   commonest way a hero becomes unusable: the placeholder sits on whatever
-   pixel happens to be behind it, so its contrast is a different number
-   for every visitor depending on their screen. */
+   The surface is OPAQUE WHITE, and it declares its own text roles.
+
+   Two reasons it is not `var(--es-surface)`. First, a glass search bar over
+   a photograph is the commonest way a hero becomes unusable: the
+   placeholder sits on whatever pixel happens to be behind it, so its
+   contrast is a different number for every visitor depending on their
+   screen. Second, inside a --field band `--es-surface` is forest-700, which
+   made the most important control on the page a dark shape on a dark
+   photograph.
+
+   White is also the honest answer for a two-colour product: the bar is the
+   one element that has to read as a SURFACE rather than as part of the
+   picture, and white is the surface.
+
+   The roles are re-pointed at the light-theme values rather than inherited,
+   for the same reason `.es-band--ink` re-points its own: setting a
+   background without the text roles leaves every child at the band's
+   inverted white, which on white is nothing at all. */
 .es-searchbar {
+  --es-text:        #0e2a22;
+  --es-text-muted:  #3f6257;
+  --es-text-subtle: #4d7064;
+  --es-border:      var(--es-mint-200);
+  --es-accent-edge: var(--es-mint-400);
+  color: var(--es-text);
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
@@ -2850,7 +2875,7 @@
   max-width: 40rem;
   padding: 0.5rem;
   border-radius: var(--es-radius-lg);
-  background: var(--es-surface);
+  background: #ffffff;
   border: 1px solid var(--es-border);
   box-shadow: var(--es-shadow-lg);
 }
@@ -2911,18 +2936,56 @@
   box-shadow: 0 0 0 2px var(--es-accent-edge);
 }
 .es-searchbar__icon { display: flex; flex-shrink: 0; color: var(--es-text-subtle); }
+.es-searchbar__icon--busy { animation: es-locate-pulse 1.6s var(--es-ease) infinite; }
 
+/* A segment that is a BUTTON rather than an input — the location picker.
+   It has to look like the fields beside it, so it resets the parts of a
+   button that would give it away. */
+.es-searchbar__field--action {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  min-height: var(--fx-touch);
+}
+.es-searchbar__field--action:disabled { cursor: progress; }
+.es-searchbar__value {
+  font-size: var(--es-text-sm);
+  color: var(--es-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Unset, it reads as a placeholder — the same weight as the query field's,
+   so the bar has one voice rather than one filled segment and two empty. */
+.es-searchbar__value--empty { color: var(--es-text-subtle); }
+
+/* The submit is a green disc, not an `.es-btn`.
+   A full-width primary button inside a white pill is a second pill; the
+   design ends the bar with a circle, and a circle is what an arrow wants.
+   Below md it stretches, because a 48px disc under three full-width
+   fields is a target nobody aims at. */
 .es-searchbar__submit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
   width: 100%;
   height: var(--fx-touch);
   margin-block-start: 0.25rem;
+  border: 0;
+  border-radius: var(--es-radius-md);
+  background: var(--es-emerald-800);
+  color: #ffffff;
+  transition: background var(--es-dur-fast) var(--es-ease);
 }
+.es-searchbar__submit:hover { background: var(--es-emerald-900); }
 @media (width >= 48rem) {
   .es-searchbar__submit {
     width: var(--fx-touch);
     border-radius: var(--es-radius-full);
-    padding: 0;
     margin-block-start: 0;
   }
 }
@@ -2939,14 +3002,20 @@
    looking like a disabled link while the browser's own permission prompt
    is covering half the screen. */
 .es-locate {
+  /* Same reasoning as `.es-searchbar`: it sits on the photograph, so it is a
+     surface and it carries its own ink. */
+  --es-text:       #0e2a22;
+  --es-accent:     var(--es-emerald-800);
+  --es-accent-wash:var(--es-mint-100);
+  --es-text-on-accent: #ffffff;
   display: inline-flex;
   align-items: center;
   gap: 0.625rem;
   min-height: var(--fx-touch);
   padding-inline: 0.5rem 1.125rem;
   border-radius: var(--es-radius-full);
-  border: 1px solid var(--es-border-strong);
-  background: var(--es-surface);
+  border: 1px solid var(--es-mint-300);
+  background: #ffffff;
   color: var(--es-text);
   font-size: var(--es-text-sm);
   font-weight: 500;
@@ -3604,6 +3673,197 @@ a.es-sponsor:hover { opacity: 0.7; }
   text-align: center;
   font-size: var(--es-text-xs);
   font-weight: 600;
+}
+
+
+/* ── .es-eventcard — the storefront's listing card ──────────────────────
+   The card is `.es-card--flush`, so this only adds what sits ON the
+   artwork and the save mark. */
+.es-eventcard { position: relative; }
+
+/* The category, bottom-left of the cover. Opaque white with the accent's
+   ink: it sits on a photograph nobody on this side chose, and a frosted
+   chip over a pale sky is unreadable. */
+.es-eventcard__tag {
+  position: absolute;
+  inset-block-end: 0.75rem;
+  inset-inline-start: 0.75rem;
+  background: #ffffff;
+  color: var(--es-emerald-800);
+  font-weight: 600;
+}
+
+/* BRD §12 — a listing with no tickets behind it. Top-right, so it never
+   collides with the date badge opposite. */
+.es-eventcard__listing {
+  position: absolute;
+  inset-block-start: 0.75rem;
+  inset-inline-end: 0.75rem;
+  background: #ffffff;
+  color: var(--es-text);
+}
+
+/* The save mark. Decoration until there is a saved-events feature — see
+   the note at the call site for why it is aria-hidden rather than a
+   button that does nothing. */
+.es-eventcard__save {
+  display: inline-flex;
+  color: var(--es-text-subtle);
+  transition: color var(--es-dur-fast) var(--es-ease);
+}
+.es-card--interactive:hover .es-eventcard__save { color: var(--es-accent); }
+
+/* ── .es-sectionhead — an eyebrow, a serif heading, and the controls ────
+   Every band on the storefront opens with this shape, and the controls on
+   the right are part of it: "Explore all →" sits on the same baseline as
+   the heading rather than under it, which is what keeps a band's top edge
+   to one line on a desktop and two on a phone. */
+.es-sectionhead {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fx-gap-sm);
+  align-items: flex-start;
+}
+@media (width >= 48rem) {
+  .es-sectionhead {
+    flex-direction: row;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: var(--fx-gap);
+  }
+}
+.es-sectionhead__title {
+  font-family: var(--es-font-serif);
+  font-size: var(--es-text-2xl);
+  line-height: var(--es-leading-tight);
+  color: var(--es-text);
+}
+
+/* ── .es-roundbtn — a circular control ──────────────────────────────────
+   The play button on the hero, and the arrows beside a section heading.
+   One class because they are one object at two sizes, and two classes is
+   how the hover state ends up different on each. */
+.es-roundbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--fx-touch);
+  height: var(--fx-touch);
+  flex-shrink: 0;
+  border-radius: var(--es-radius-full);
+  border: 1px solid var(--es-border-strong);
+  background: var(--es-surface);
+  color: var(--es-text);
+  transition: background var(--es-dur-fast) var(--es-ease),
+              border-color var(--es-dur-fast) var(--es-ease),
+              transform var(--es-dur-fast) var(--es-ease);
+}
+.es-roundbtn:hover {
+  border-color: var(--es-accent);
+  background: var(--es-accent-wash);
+}
+.es-roundbtn--lg {
+  width: 3.5rem;
+  height: 3.5rem;
+  border: 0;
+  background: #ffffff;
+  color: var(--es-emerald-800);
+  box-shadow: var(--es-shadow-lg);
+}
+.es-roundbtn--lg:hover { transform: scale(1.06); background: #ffffff; }
+
+/* ── .es-watch — the play button and its two lines ──────────────────────
+   On the hero, beside the script. The text is what carries the meaning;
+   the disc is the affordance. */
+.es-watch { display: flex; align-items: center; gap: 0.875rem; text-align: start; }
+.es-watch__title { display: block; font-size: var(--es-text-sm); font-weight: 600; color: var(--es-text); }
+.es-watch__note  { display: block; font-size: var(--es-text-xs); color: var(--es-text-muted); }
+
+/* ── .es-featurerow — the organizer band's capability list ──────────────
+   A circular outlined mark and one line of text. Distinct from
+   `.es-featurelist`, which is a title and a paragraph: this is a list of
+   five things the product does, and five two-line entries is a wall. */
+.es-featurerow { display: flex; flex-direction: column; gap: 0.875rem; }
+.es-featurerow__item { display: flex; align-items: center; gap: 0.75rem; }
+.es-featurerow__mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex-shrink: 0;
+  border-radius: var(--es-radius-full);
+  border: 1px solid var(--es-border-strong);
+  color: var(--es-accent);
+}
+.es-featurerow__label { font-size: var(--es-text-sm); color: var(--es-text); }
+
+/* ── .es-quoterow — the testimonial strip ───────────────────────────────
+   One quotation at a time on a single line, with the counted statistics
+   beside it, because that is what the design does: the band is a rule
+   across the page rather than a third card grid. */
+.es-quoterow {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--fx-gap-lg);
+  align-items: center;
+}
+@media (width >= 64rem) {
+  .es-quoterow { grid-template-columns: minmax(0, 1.25fr) auto minmax(0, 1fr); }
+}
+.es-quoterow__rule { display: none; }
+@media (width >= 64rem) {
+  .es-quoterow__rule {
+    display: block;
+    width: 1px;
+    height: 4rem;
+    background: var(--es-border);
+  }
+}
+.es-quoterow__quote {
+  margin: 0;
+  font-family: var(--es-font-serif);
+  font-size: var(--es-text-md);
+  line-height: var(--es-leading-snug);
+  color: var(--es-text);
+}
+
+
+/* ── .es-guestgrid — the three-column guest band ────────────────────────
+   Ticket, argument, picture. The middle track is the one that has to be
+   legible so it takes the most room; the two pictures share the rest.
+
+   STACKED BELOW lg WITH THE COPY FIRST. `order` rather than a different
+   DOM order, because the source order is the one a screen reader and a
+   keyboard follow, and there the ticket belongs beside the sentence it
+   illustrates. On a phone a reader who has scrolled past two pictures to
+   reach a sentence has usually stopped scrolling. */
+.es-guestgrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--fx-gap-lg);
+  align-items: center;
+}
+.es-guestgrid__copy { order: -1; }
+.es-guestgrid__art { min-width: 0; }
+
+@media (width >= 64rem) {
+  .es-guestgrid {
+    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.3fr) minmax(0, 0.85fr);
+  }
+  .es-guestgrid__copy { order: 0; }
+}
+
+/* Two by two from sm up: four one-line claims in a column is a list, and
+   four in a block is a set — these are independent facts, not a sequence. */
+.es-guestgrid__points {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--fx-gap-sm);
+  padding-block-start: 0.25rem;
+}
+@media (width >= 40rem) {
+  .es-guestgrid__points { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 }   /* end @layer components */

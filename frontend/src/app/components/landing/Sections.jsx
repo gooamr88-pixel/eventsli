@@ -26,13 +26,21 @@ import NavIcon from '../shell/NavIcon';
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
-/** The heading pattern every band below opens with. */
+/**
+ * The heading every band opens with: an eyebrow, a serif title, a lede, and
+ * whatever controls belong on the right.
+ *
+ * The controls sit on the TITLE's baseline rather than under the lede, which
+ * is what keeps a band's top edge to one line on a desktop. Below md the whole
+ * thing stacks, because "Explore all →" beside a two-line heading on a phone
+ * is two words per line.
+ */
 function BandHead({ eyebrow, title, body, action }) {
   return (
-    <div className="fx-row fx-row--between items-end">
-      <div className="fx-stack fx-stack--sm">
+    <div className="es-sectionhead">
+      <div className="fx-stack fx-stack--sm gap-1">
         {eyebrow && <p className="es-eyebrow">{eyebrow}</p>}
-        <h2 className="font-serif text-2xl">{title}</h2>
+        <h2 className="es-sectionhead__title">{title}</h2>
         {body && <p className="max-w-[52ch] text-muted">{body}</p>}
       </div>
       {action}
@@ -50,8 +58,11 @@ export function FeaturedEvents({ copy, events, failed }) {
           title={copy.featuredTitle}
           body={copy.featuredBody}
           action={(
-            <Link href="/events" className="es-btn es-btn--ghost es-btn--sm whitespace-nowrap">
-              Explore all <span aria-hidden>→</span>
+            <Link
+              href="/events"
+              className="fx-row items-center gap-2 whitespace-nowrap text-sm font-medium text-accent hover:text-accent-hover"
+            >
+              Explore all events <span aria-hidden>→</span>
             </Link>
           )}
         />
@@ -237,16 +248,17 @@ export function OrganizerBand({ block, children }) {
             <h2 className="es-display es-display--wide font-serif">{block.title}</h2>
             {block.body && <p className="max-w-[46ch] text-muted">{block.body}</p>}
 
-            <ul className="es-featurelist pt-1">
+            {/* ONE LINE EACH, not a title and a paragraph.
+                Five two-line entries is a wall of text beside a picture; five
+                single lines is a list somebody reads. The detail each one used
+                to carry lives on /why-us, which the button below goes to. */}
+            <ul className="es-featurerow pt-1">
               {ORGANIZER_POINTS.map((point) => (
-                <li key={point.title} className="es-featurelist__item">
-                  <span aria-hidden className="es-featurelist__icon">
-                    <NavIcon name={point.icon} size={18} />
+                <li key={point.label} className="es-featurerow__item">
+                  <span aria-hidden className="es-featurerow__mark">
+                    <NavIcon name={point.icon} size={16} />
                   </span>
-                  <span>
-                    <span className="block font-medium text-ink">{point.title}</span>
-                    <span className="block text-sm text-muted">{point.body}</span>
-                  </span>
+                  <span className="es-featurerow__label">{point.label}</span>
                 </li>
               ))}
             </ul>
@@ -255,7 +267,7 @@ export function OrganizerBand({ block, children }) {
               <Link href={block.ctaHref || '/register'} className="es-btn es-btn--primary es-btn--lg">
                 {block.ctaLabel}
               </Link>
-              <Link href="/why-us" className="es-btn es-btn--secondary es-btn--lg">Why Eventsli</Link>
+              <Link href="/why-us" className="es-btn es-btn--ghost es-btn--lg">Why Eventsli</Link>
             </div>
           </div>
 
@@ -302,31 +314,48 @@ export function OrganizerBand({ block, children }) {
  * where the product is.
  */
 const ORGANIZER_POINTS = [
-  { icon: 'map', title: 'Draw the room', body: 'Rows, round and oval tables, private tables behind a password.' },
-  { icon: 'bank', title: 'Paid to your own Stripe', body: 'Card money lands in your account at the sale. Our commission is its own line.' },
-  { icon: 'chart', title: 'Numbers as they happen', body: 'Sales, holds and who has walked in, per event.' },
-  { icon: 'scan', title: 'A door that works offline', body: 'PIN-locked tablets or named staff. Scanning keeps working without a signal.' },
+  { icon: 'sparkle', label: 'Event pages that sell' },
+  { icon: 'map', label: 'Seat maps and table plans you draw' },
+  { icon: 'bank', label: 'Card money straight to your own Stripe' },
+  { icon: 'chart', label: 'Sales, holds and check-ins as they happen' },
+  { icon: 'scan', label: 'A door that keeps scanning offline' },
 ];
 
 // ─── The guest band ─────────────────────────────────────────────────────────
+/**
+ * THREE COLUMNS, and that is the design: the ticket on the left, the argument
+ * in the middle, and a picture on the right.
+ *
+ * It was two — copy beside a phone — which read as the organizer band mirrored.
+ * The middle column is the one that has to be legible, so it takes the widest
+ * track and the two pictures share what is left. Below lg it stacks, with the
+ * copy FIRST: on a phone the argument matters more than the illustration of
+ * it, and a reader who has scrolled past two images to reach a sentence has
+ * usually stopped scrolling.
+ */
 export function GuestBand({ block, children }) {
   return (
     <section className="es-band fx-section">
       <div className="fx-container fx-container--xl">
-        <div className="grid items-center gap-[var(--fx-gap-lg)] lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-          <div className="fx-stack">
+        <div className="es-guestgrid">
+          <div className="es-guestgrid__art es-guestgrid__art--first">{children}</div>
+
+          <div className="fx-stack es-guestgrid__copy">
             {block.eyebrow && <p className="es-eyebrow">{block.eyebrow}</p>}
             <h2 className="es-display es-display--wide font-serif">{block.title}</h2>
             {block.body && <p className="max-w-[46ch] text-muted">{block.body}</p>}
 
-            <ul className="es-featurelist pt-1">
+            {/* Two by two, because four one-line claims in a column is a
+                list and four in a block is a set — and these are four
+                independent facts rather than a sequence. */}
+            <ul className="es-guestgrid__points">
               {GUEST_POINTS.map((point) => (
                 <li key={point.title} className="es-featurelist__item">
                   <span aria-hidden className="es-featurelist__icon">
-                    <NavIcon name={point.icon} size={18} />
+                    <NavIcon name={point.icon} size={16} />
                   </span>
                   <span>
-                    <span className="block font-medium text-ink">{point.title}</span>
+                    <span className="block text-sm font-semibold text-ink">{point.title}</span>
                     <span className="block text-sm text-muted">{point.body}</span>
                   </span>
                 </li>
@@ -341,34 +370,41 @@ export function GuestBand({ block, children }) {
             </div>
           </div>
 
-          <div className="fx-stack fx-stack--sm">
-            {block.imageUrl ? (
-              <div className="es-figcard" style={{ aspectRatio: '4 / 3' }}>
+          {/* The third column exists only when there is a picture for it. An
+              empty track would leave the copy floating in the middle of a
+              three-up grid with nothing on either side. */}
+          {block.imageUrl && (
+            <div className="es-guestgrid__art">
+              <div className="es-figcard" style={{ aspectRatio: '3 / 4' }}>
                 <Image
                   src={block.imageUrl}
                   alt=""
                   fill
-                  sizes="(max-width: 1024px) 100vw, 560px"
+                  sizes="(max-width: 1024px) 100vw, 360px"
                   className="object-cover"
                 />
+                <span aria-hidden className="es-figcard__veil" />
+                <span className="es-figcard__caption">
+                  <span className="block font-serif text-lg">Events bring us closer</span>
+                </span>
               </div>
-            ) : children}
-
-            {block.script && (
-              <p aria-hidden className="es-script es-script--tight hidden lg:block">
-                {block.script}
-              </p>
-            )}
-          </div>
+            </div>
+          )}
         </div>
+
+        {block.script && (
+          <p aria-hidden className="es-script es-script--tight mt-6 hidden lg:block">
+            {block.script}
+          </p>
+        )}
       </div>
     </section>
   );
 }
 
 const GUEST_POINTS = [
-  { icon: 'pin', title: 'Find what is on near you', body: 'Search by city, by date, or by the kind of night you are after.' },
-  { icon: 'layers', title: 'Pick the actual seat', body: 'Not a zone — the chair, on the venue map, held while you check out.' },
-  { icon: 'receipt', title: 'Every line before you pay', body: 'Price, tax and any fee listed separately, with the total, before payment.' },
-  { icon: 'ticket', title: 'The ticket is on your phone', body: 'No app. It arrives by email and sits in your account.' },
+  { icon: 'locate', title: 'Find events near you', body: 'One tap, and the nearest city with something on.' },
+  { icon: 'layers', title: 'Pick the actual seat', body: 'The chair, on the venue map — not a zone.' },
+  { icon: 'receipt', title: 'Easy and secure booking', body: 'Every line shown before you pay. Card payment on Stripe.' },
+  { icon: 'ticket', title: 'Tickets on your phone', body: 'No app. It arrives by email and sits in your account.' },
 ];

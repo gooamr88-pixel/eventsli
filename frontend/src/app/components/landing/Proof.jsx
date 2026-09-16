@@ -87,11 +87,14 @@ export function StatStrip({ block, stats }) {
 /**
  * The testimonials.
  *
- * A GRID, not a carousel. A carousel hides most of its content behind a control
- * nobody presses, needs JavaScript to show the second item, and on a page whose
- * whole job is persuasion it is the one component that guarantees most of the
- * persuasion is never seen. Three quotations side by side are three quotations
- * read.
+ * ONE ON A RULE, THE REST IN A GRID — and no carousel.
+ *
+ * The design pages through quotations with arrows. A carousel hides most of its
+ * content behind a control nobody presses, needs JavaScript to show the second
+ * item, and on a page whose whole job is persuasion it is the one component
+ * that guarantees most of the persuasion is never seen. So the first quotation
+ * takes the position the carousel would have, the statistics sit beside it as
+ * they do in the design, and any others are laid out below rather than hidden.
  *
  * Returns null when there are none: a testimonials band with nothing in it is
  * worse than no band, and an unpublished-by-default table means "none" is the
@@ -99,69 +102,97 @@ export function StatStrip({ block, stats }) {
  */
 export function Testimonials({ copy, testimonials, stats, statsBlock }) {
   const hasStats = statTiles(statsBlock, stats).length > 0;
+  const quote = testimonials[0] || null;
 
-  if (testimonials.length === 0) {
-    // The statistics still stand on their own — they are counted, not quoted.
-    if (!hasStats) return null;
-    return (
-      <section className="es-band--sunken fx-section fx-section--sm">
-        <div className="fx-container fx-container--xl">
-          <StatStrip block={statsBlock} stats={stats} />
-        </div>
-      </section>
-    );
-  }
+  if (!quote && !hasStats) return null;
 
   return (
     <section className="es-band--sunken fx-section fx-section--sm">
       <div className="fx-container fx-container--xl fx-stack">
-        <div className="fx-stack fx-stack--sm">
-          {copy.testimonialsEyebrow && <p className="es-eyebrow">{copy.testimonialsEyebrow}</p>}
-          <h2 className="font-serif text-2xl">{copy.testimonialsTitle}</h2>
+        {/* Only when there is more than one to show. A heading over a single
+            quotation is a section; a single quotation on a rule is a note,
+            and the design wants the note. */}
+        {quote && testimonials.length > 1 && (
+          <p className="es-eyebrow">{copy.testimonialsEyebrow}</p>
+        )}
+
+        <div className="es-quoterow">
+          {quote ? (
+            <figure className="fx-row items-center gap-4">
+              {quote.avatarUrl ? (
+                // A plain <img>: 56px, from our own bucket, square by CSS —
+                // the optimiser has nothing to add at that size.
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={quote.avatarUrl}
+                  alt=""
+                  loading="lazy"
+                  decoding="async"
+                  className="size-14 shrink-0 rounded-full object-cover"
+                />
+              ) : (
+                <span aria-hidden className="es-avatar shrink-0">
+                  {quote.authorName.trim().charAt(0).toUpperCase()}
+                </span>
+              )}
+
+              <span className="fx-min0">
+                <blockquote className="es-quoterow__quote">
+                  {`“${quote.body}”`}
+                </blockquote>
+                <figcaption className="mt-2">
+                  <span className="text-sm font-semibold text-ink">{quote.authorName}</span>
+                  {quote.authorRole && (
+                    <span className="ms-2 text-sm text-muted">{quote.authorRole}</span>
+                  )}
+                  {quote.rating ? <Stars rating={quote.rating} /> : null}
+                </figcaption>
+              </span>
+            </figure>
+          ) : <div />}
+
+          {quote && hasStats && <span aria-hidden className="es-quoterow__rule" />}
+
+          {hasStats && <StatStrip block={statsBlock} stats={stats} />}
         </div>
 
-        <ul className="fx-grid fx-grid--3 fx-grid--fill">
-          {testimonials.slice(0, 6).map((entry) => (
-            <li key={entry.id}>
-              <figure className="es-quote">
-                {entry.rating ? <Stars rating={entry.rating} /> : null}
-                <blockquote className="es-quote__body">{entry.body}</blockquote>
-                <figcaption className="es-quote__foot">
-                  {entry.avatarUrl ? (
-                    /* A plain <img>: avatars are small, arbitrary-origin within
-                       our own bucket, and square by CSS — the optimiser has
-                       nothing to add at 44px. */
-                    /* eslint-disable-next-line @next/next/no-img-element --
-                       a 44px avatar from our own bucket; the optimiser has
-                       nothing to add at that size. */
-                    <img
-                      src={entry.avatarUrl}
-                      alt=""
-                      loading="lazy"
-                      decoding="async"
-                      className="size-11 rounded-full object-cover"
-                    />
-                  ) : (
-                    <span aria-hidden className="es-avatar">
-                      {entry.authorName.trim().charAt(0).toUpperCase()}
-                    </span>
-                  )}
-                  <span className="fx-min0">
-                    <span className="block font-medium text-ink">{entry.authorName}</span>
-                    {entry.authorRole && (
-                      <span className="block text-sm text-muted">{entry.authorRole}</span>
+        {/* The rest of them, when there are more. The first is on the rule
+            above; these are the ones the design's arrows would have paged
+            through, laid out instead — see the note on why there is no
+            carousel. */}
+        {testimonials.length > 1 && (
+          <ul className="fx-grid fx-grid--3 fx-grid--fill pt-2">
+            {testimonials.slice(1, 4).map((entry) => (
+              <li key={entry.id}>
+                <figure className="es-quote">
+                  {entry.rating ? <Stars rating={entry.rating} /> : null}
+                  <blockquote className="es-quote__body">{entry.body}</blockquote>
+                  <figcaption className="es-quote__foot">
+                    {entry.avatarUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={entry.avatarUrl}
+                        alt=""
+                        loading="lazy"
+                        decoding="async"
+                        className="size-11 rounded-full object-cover"
+                      />
+                    ) : (
+                      <span aria-hidden className="es-avatar">
+                        {entry.authorName.trim().charAt(0).toUpperCase()}
+                      </span>
                     )}
-                  </span>
-                </figcaption>
-              </figure>
-            </li>
-          ))}
-        </ul>
-
-        {hasStats && (
-          <div className="pt-2">
-            <StatStrip block={statsBlock} stats={stats} />
-          </div>
+                    <span className="fx-min0">
+                      <span className="block font-medium text-ink">{entry.authorName}</span>
+                      {entry.authorRole && (
+                        <span className="block text-sm text-muted">{entry.authorRole}</span>
+                      )}
+                    </span>
+                  </figcaption>
+                </figure>
+              </li>
+            ))}
+          </ul>
         )}
       </div>
     </section>

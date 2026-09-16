@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import HeroSearch from './HeroSearch';
+import NavIcon from '../shell/NavIcon';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -23,6 +24,7 @@ import HeroSearch from './HeroSearch';
  */
 export default function Hero({ content, categories }) {
   const hero = content?.hero || {};
+  const video = content?.video;
   const hasImage = Boolean(hero.imageUrl);
 
   return (
@@ -95,12 +97,13 @@ export default function Hero({ content, categories }) {
                 </div>
               )}
 
-              {/* The category rail doubles as the hero's "trending" row. It is
-                  the same data as the browse section further down, so a reader
-                  who arrives knowing what they want never has to scroll. */}
+              {/* "Trending:" and the chips on one line, which is what the
+                  design does — the label is part of the row rather than a
+                  heading above it, so the rail starts at the eye's height
+                  instead of a line below it. */}
               {categories.length > 0 && (
-                <div className="fx-row fx-row--gap items-center pt-1">
-                  <span className="text-sm text-muted">Trending</span>
+                <div className="fx-row items-center gap-3">
+                  <span className="shrink-0 text-sm font-medium text-ink">Trending</span>
                   <ul className="fx-row fx-row--scroll fx-row--scroll-sm es-rail">
                     {categories.slice(0, 5).map((category) => (
                       <li key={category.slug}>
@@ -130,16 +133,32 @@ export default function Hero({ content, categories }) {
               </div>
             </div>
 
-            {/* The handwritten aside, and it is decoration.
-                `aria-hidden` because the sentence is a mood rather than
-                information, and this face is genuinely hard to read for anyone
-                it is not already easy for — a screen reader spelling it out
-                adds nothing the headline above has not already said. */}
-            {hero.script && (
-              <p aria-hidden className="es-script hidden justify-self-end pe-6 text-end lg:block">
-                {hero.script}
-              </p>
-            )}
+            {/* The right column: the handwritten aside, and the film.
+
+                Both are decoration in different senses. The script is a mood
+                and is `aria-hidden` — the face is genuinely hard to read for
+                anyone it is not already easy for, and the headline above has
+                said the same thing. The watch control is NOT hidden: it is a
+                real link to a real section, and it only renders when there is
+                a film to watch. */}
+            <div className="fx-stack hidden items-end lg:flex">
+              {hero.script && (
+                <p aria-hidden className="es-script pe-4 text-end">{hero.script}</p>
+              )}
+
+              {video?.enabled && video?.url && (
+                <a href="#watch" className="es-watch">
+                  <span aria-hidden className="es-roundbtn es-roundbtn--lg">
+                    <NavIcon name="play" size={20} filled />
+                  </span>
+                  <span>
+                    <span className="es-watch__title">{video.title || 'Watch our story'}</span>
+                    {video.caption && <span className="es-watch__note">{video.caption}</span>}
+                  </span>
+                </a>
+              )}
+            </div>
+
           </div>
         </div>
       </div>

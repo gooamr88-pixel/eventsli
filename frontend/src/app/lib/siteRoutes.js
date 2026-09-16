@@ -79,7 +79,7 @@ export function isPrivatePath(path) {
  */
 export const FOOTER_GROUPS = [
   {
-    heading: 'Going out',
+    heading: 'Product',
     links: [
       { path: '/events', label: 'Browse events' },
       { path: '/how-it-works', label: 'How it works' },
@@ -87,7 +87,7 @@ export const FOOTER_GROUPS = [
     ],
   },
   {
-    heading: 'Running an event',
+    heading: 'For organizers',
     links: [
       { path: '/why-us', label: 'Why Eventsli' },
       { path: '/how-it-works', label: 'Selling with us' },
@@ -104,6 +104,15 @@ export const FOOTER_GROUPS = [
     ],
   },
 ];
+
+/**
+ * The line under the wordmark in the footer.
+ *
+ * In source rather than in the CMS: it is the product's one-sentence
+ * description and it appears in `metadata.description` too. Two copies that can
+ * disagree is worse than one an admin cannot edit.
+ */
+export const TAGLINE = 'Events for a brighter tomorrow.';
 
 /** The one address that exists. Everything else would be a promise the mailbox
  *  cannot keep. */

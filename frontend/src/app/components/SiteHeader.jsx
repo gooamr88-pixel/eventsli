@@ -292,12 +292,25 @@ function useOverHero(enabled) {
  * asking, so it is the only one outside the conditional.
  */
 function navLinks({ signedIn, loading, user, pathname }) {
-  const events = [{ href: '/events', label: 'Events' }];
-  if (loading) return events;
+  /**
+   * THE BROWSE LINKS EVERY VISITOR GETS, signed in or not.
+   *
+   * There was one — "Events" — and the bar had nothing in it. The design this
+   * storefront was built to carries six, and the four here are the ones that
+   * point at pages this product actually has. There is deliberately no
+   * "Pricing" or "Sponsors" entry: neither page exists, and a nav link to a
+   * 404 is worse than a shorter nav.
+   */
+  const browse = [
+    { href: '/events', label: 'Events' },
+    { href: '/how-it-works', label: 'How it works' },
+    { href: '/why-us', label: 'For organizers' },
+  ];
+  if (loading) return browse;
 
   if (signedIn) {
     return [
-      ...events,
+      ...browse,
       { href: '/account/tickets', label: 'My tickets' },
       // Only shown to someone who actually has an organizer profile. Offering
       // it to everyone would send buyers to a dashboard they have no account
@@ -307,7 +320,7 @@ function navLinks({ signedIn, loading, user, pathname }) {
   }
 
   return [
-    ...events,
+    ...browse,
     { href: '/tickets/find', label: 'Find my tickets' },
     { href: `/login?next=${encodeURIComponent(pathname || '/')}`, label: 'Sign in' },
   ];
@@ -330,9 +343,9 @@ function navLinks({ signedIn, loading, user, pathname }) {
  */
 function navCta({ signedIn, loading, user }) {
   if (loading) return null;
-  if (signedIn && user?.isOrganizer) return { href: '/organizer', label: 'Organizer' };
-  if (signedIn) return { href: '/organizer', label: 'Start selling' };
-  return { href: '/register', label: 'Start selling' };
+  if (signedIn && user?.isOrganizer) return { href: '/organizer/events/new', label: 'Create event' };
+  if (signedIn) return { href: '/organizer', label: 'Create event' };
+  return { href: '/register', label: 'Create event' };
 }
 
 /**

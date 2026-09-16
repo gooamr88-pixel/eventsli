@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { CONTACT_EMAIL, FOOTER_GROUPS } from '../lib/siteRoutes';
+import { CONTACT_EMAIL, FOOTER_GROUPS, TAGLINE } from '../lib/siteRoutes';
 import { inAppShell } from './SiteHeader';
 import Logo from './brand/Logo';
 
@@ -63,7 +63,8 @@ export default function SiteFooter() {
                   spells the name instead is the one place the brand is absent
                   on a page that has just ended. */}
               <Logo size="md" />
-              <p className="max-w-[34ch] text-sm text-muted">
+              <p className="text-sm text-muted">{TAGLINE}</p>
+              <p className="max-w-[34ch] text-sm text-subtle">
                 Tickets and seat maps for events across Canada and the United States.
               </p>
             </div>
@@ -87,6 +88,16 @@ export default function SiteFooter() {
             ))}
           </div>
 
+          {/* ── What is NOT here ────────────────────────────────────────
+              The design carries a newsletter field and four social icons.
+              Neither is in this footer, and that is a decision rather than an
+              omission: there is no mailing list behind the field and no
+              accounts behind the icons. A form that accepts an address and
+              drops it is worse than no form — somebody believes they
+              subscribed — and a social icon linking to a profile that does
+              not exist is a dead end on every page of the site.
+              Both are a few lines to add the day the list and the accounts
+              exist. */}
           <div className="fx-row fx-row--between mt-8 border-t border-border-base pt-6">
             {/* These pages are prerendered at BUILD time, so the year baked
                 into the HTML is the year of the deploy. On the first of January
@@ -97,12 +108,17 @@ export default function SiteFooter() {
             <p className="text-xs text-subtle" suppressHydrationWarning>
               © {new Date().getFullYear()} Eventsli
             </p>
-            <a
-              href={`mailto:${CONTACT_EMAIL}`}
-              className="text-xs text-muted transition-colors hover:text-ink"
-            >
-              {CONTACT_EMAIL}
-            </a>
+            <span className="fx-row items-center gap-4">
+              <span className="fx-hide-below-md text-xs text-subtle">
+                More than events. A more connected world.
+              </span>
+              <a
+                href={`mailto:${CONTACT_EMAIL}`}
+                className="text-xs text-muted transition-colors hover:text-ink"
+              >
+                {CONTACT_EMAIL}
+              </a>
+            </span>
           </div>
         </div>
       </div>
