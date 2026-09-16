@@ -62,24 +62,28 @@
   --es-zinc-900: #18181b;
   --es-zinc-950: #09090b;
 
-  /* ── Sand: the warm paper the light theme now stands on ─────────────
-     ADDED 2026-09-06, and the reason is a measurement rather than a
-     preference. The light theme's three grounds were slate-50, slate-100
-     and #fff — 1.05:1 apart, which in perceptual terms is ΔL* 1.8. Below
-     about ΔL* 3 two grounds are the same colour to the eye, so the band
-     alternation this file and page.jsx both describe did not exist on
-     screen: every "rhythm" was a comment.
+  /* ── Mint: the only tint the light theme has ────────────────────────
+     REPLACED THE SAND RAMP, 2026-09-16.
 
-     Sand is warm because the ink stays cool. Slate text on a warm ground
-     is a real pairing; slate text on a cool ground one shade off white is
-     the thing that reads as a wireframe. */
-  --es-sand-50:  #fdfcfa;
-  --es-sand-100: #faf8f4;
-  --es-sand-200: #f3efe7;
-  --es-sand-300: #efe9de;
-  --es-sand-400: #e4dccc;
-  --es-sand-500: #ded6c6;
-  --es-sand-600: #c3b9a4;
+     Sand was a warm cream (#faf8f4 … #c3b9a4) introduced so the light
+     theme's bands would be perceptibly apart — the three grounds before
+     it sat 1.8 L* from each other, which is invisible. It solved that and
+     it brought a second hue into a brand that has one.
+
+     The storefront is green and white. Nothing else. So the alternating
+     ground is not a warm paper, it is the BRAND at 5% — the page reads as
+     white with green in it rather than as cream with green on it, and
+     there is no second family to keep in step.
+
+     The separation the sand ramp existed for is preserved: `bg` (white)
+     and `bg-sunken` (mint-100) are 5.0 L* apart, which contrast.js
+     measures and which is above the 3.0 floor. */
+  --es-mint-50:  #f7fbf9;
+  --es-mint-100: #eaf5ef;
+  --es-mint-200: #d8ebe1;
+  --es-mint-300: #c3ded1;
+  --es-mint-400: #a8cbba;
+  --es-mint-500: #8bb8a4;
 
   /* ── Forest: the emerald field ──────────────────────────────────────
      Not a step on the emerald ramp — those are all saturated enough to be
@@ -91,22 +95,26 @@
   --es-forest-800: #0e2a23;
   --es-forest-700: #123029;
 
-  /* ── Ink: the dark theme's grounds, lifted off pure black ───────────
-     ADDED 2026-09-06 for the same reason as sand. The dark ladder was
-     zinc-950 over #000000 — ΔL* 2.5, so the dark theme had the identical
-     invisible-band problem as the light one, with the extra fault that
-     `bg-sunken` was pure black and therefore had nowhere lower to go.
+  /* ── Ink: the dark grounds, and they are GREEN ──────────────────────
+     RETONED 2026-09-16. These were neutral near-blacks with a trace of
+     blue (#161619 … #2b2b32). The brief for this product is two colours,
+     green and white, and a near-black footer under a green page is the
+     one place a third colour was most visible — it read as a different
+     site's footer stapled to the bottom.
 
-     These are neutral with a trace of blue so they sit under emerald
-     without going brown. Declared as primitives because the dark palette
-     is written out TWICE below (media query and [data-theme]) and a raw
-     hex in both is a value that can drift between the two copies. */
-  --es-ink-900: #232329;
-  --es-ink-950: #161619;
-  --es-ink-975: #0b0b0d;
-  --es-ink-raised: #2b2b32;
-  --es-ink-border: #2e2e36;
-  --es-ink-subtle: #9494a0;
+     They are the forest hue at four depths now. Still dark enough to be
+     grounds, still 3.7 L* apart at the tightest pair, and there is no
+     black anywhere in the product.
+
+     Declared as primitives because the dark palette is written out TWICE
+     below (media query and [data-theme]) and a raw hex in both is a value
+     that can drift between the two copies. */
+  --es-ink-900: #143229;
+  --es-ink-950: #0d2620;
+  --es-ink-975: #071713;
+  --es-ink-raised: #1a3d33;
+  --es-ink-border: #234a3e;
+  --es-ink-subtle: #8fb8a8;
 
   /* ── Semantic ───────────────────────────────────────────────────────
      Separate from the brand hue on purpose. A green "success" that is
@@ -121,32 +129,38 @@
      Every component takes its colour from a role, never from a scale
      value. Only the roles are redefined in dark, so a component written
      once works in both themes without knowing they exist. */
-  --es-bg:            var(--es-sand-100);
-  --es-bg-sunken:     var(--es-sand-300);
-  /* The fourth ground, and the only one that is not a near-white. A page
-     gets its rhythm from the DARK band, not from 2% differences between
-     three papers — so `bg` and `bg-sunken` are now ΔL* 5.1 apart (from
-     1.8) and this one is ΔL* 88 from either. */
+  /* WHITE. Not a near-white, not a paper, not a cream.
+
+     `--es-bg` was sand-100 (#faf8f4). It is #ffffff now because the brief
+     for this storefront is two colours and neither of them is beige — an
+     off-white reads as a slightly dirty white next to the real white of a
+     card sitting on it, which is exactly what the surface role is. */
+  --es-bg:            #ffffff;
+  --es-bg-sunken:     var(--es-mint-100);
+  /* The fourth ground, and the only dark one. A page gets its rhythm from
+     the GREEN band, not from 2% differences between three papers. */
   --es-bg-deep:       var(--es-forest-900);
   --es-surface:       #ffffff;
   --es-surface-raised:#ffffff;
-  --es-border:        var(--es-sand-400);
-  --es-border-strong: var(--es-sand-500);
+  --es-border:        var(--es-mint-200);
+  --es-border-strong: var(--es-mint-400);
 
-  --es-text:          var(--es-slate-900);
-  --es-text-muted:    var(--es-slate-600);
-  /* OFF-RAMP, and deliberately.
+  /* ── Ink, and it is green ───────────────────────────────────────────
+     The text roles were slate — a cool grey family chosen to sit under
+     emerald without going muddy. Slate is a colour, and the brief allows
+     two. So the ink is the brand at its darkest instead: near-black to
+     read, unmistakably green where it is large enough to see.
 
-     slate-500 (#64748b) measures 4.34:1 on --es-bg-sunken — under AA for
-     body text, which is what this role is used for: a card's supporting
-     line, a timestamp, a hint under a field. The ramp has no step between
-     500 and 600 that clears 4.5, and taking slate-600 would make `subtle`
-     and `muted` the same colour and delete a level of hierarchy.
-
-     So the ROLE takes a value the ramp does not have. Measured by
-     scripts/contrast.js, which checks every text role against every ground
-     in both themes — this failed on three of them. */
-  --es-text-subtle:   #556377;
+     Every value below is measured by scripts/contrast.js against white
+     AND against mint-100, because both are grounds a paragraph sits on. */
+  --es-text:          #0e2a22;
+  --es-text-muted:    #3f6257;
+  /* OFF-RAMP, and deliberately — as the slate version was.
+     A third level of hierarchy has to clear AA on the sunken band too,
+     and the obvious next step down (#5c7f74) measures 4.39:1 on white,
+     which is a fail at body size. This is the darkest value that clears
+     4.5 on BOTH grounds: 5.44 on white, 4.80 on mint-100. */
+  --es-text-subtle:   #4d7064;
   --es-text-on-accent:#ffffff;
 
   /* emerald-600 (#059669) was here and it failed AA twice over.
@@ -171,9 +185,9 @@
      that carries text and the primary button changed. */
   --es-accent:        var(--es-emerald-800);
   --es-accent-hover:  var(--es-emerald-900);
-  /* emerald-50 (#ecfdf5) is a cold mint and it read as a bruise on the
-     warm ground. Mixed toward sand instead. */
-  --es-accent-wash:   #e7f3ee;
+  /* The page's own tint, one step down from the sunken ground so a wash
+     inside a card is still distinguishable from the band behind it. */
+  --es-accent-wash:   var(--es-mint-200);
   --es-accent-edge:   var(--es-emerald-200);
 
   /* CORRECTION 1 of 3, carried over from the old tokens.
@@ -192,8 +206,8 @@
   --es-seat-available: var(--es-emerald-500);
   --es-seat-selected:  var(--es-emerald-700);
   --es-seat-held:      var(--es-warning);
-  --es-seat-sold:      var(--es-slate-400);
-  --es-seat-blocked:   var(--es-slate-300);
+  --es-seat-sold:      var(--es-mint-400);
+  --es-seat-blocked:   var(--es-mint-300);
 
   /* ── Type ───────────────────────────────────────────────────────────
      CORRECTION 2 of 3: the old index.html still pulled Cormorant
@@ -248,15 +262,27 @@
 
      5xl is new: one genuine display step, so a hero headline is not the
      same size as a section heading. */
+  /* QUIETENED 2026-09-16. Every step from `md` up came down, the top of
+     the ramp hardest: 6rem to 4.25rem.
+
+     The ramp was built for a storefront that had to carry a page with no
+     photography on typography alone. With a photograph behind it, a 96px
+     headline is not confident, it is loud — on a phone the old top step
+     filled the screen before the subtitle could say anything, and three
+     consecutive 2.5rem headings left the page nowhere quiet.
+
+     The SMALL end is untouched. Body copy was never the problem, and
+     shrinking it to make headings look calmer is how a page stops being
+     loud by becoming unreadable. */
   --es-text-xs:   clamp(0.75rem, 0.72rem + 0.14vw, 0.8125rem);
   --es-text-sm:   clamp(0.875rem, 0.85rem + 0.12vw, 0.9375rem);
   --es-text-base: clamp(1rem, 0.97rem + 0.15vw, 1.0625rem);
-  --es-text-md:   clamp(1.0625rem, 1.02rem + 0.22vw, 1.1875rem);
-  --es-text-lg:   clamp(1.25rem, 1.19rem + 0.3vw, 1.4375rem);
-  --es-text-xl:   clamp(1.5rem, 1.38rem + 0.6vw, 1.875rem);
-  --es-text-2xl:  clamp(1.875rem, 1.66rem + 1.07vw, 2.5rem);
-  --es-text-3xl:  clamp(2.375rem, 1.99rem + 1.92vw, 3.5rem);
-  --es-text-4xl:  clamp(2.875rem, 2.28rem + 2.98vw, 4.75rem);
+  --es-text-md:   clamp(1.0625rem, 1.02rem + 0.22vw, 1.125rem);
+  --es-text-lg:   clamp(1.1875rem, 1.14rem + 0.24vw, 1.3125rem);
+  --es-text-xl:   clamp(1.375rem, 1.29rem + 0.42vw, 1.625rem);
+  --es-text-2xl:  clamp(1.625rem, 1.47rem + 0.78vw, 2.125rem);
+  --es-text-3xl:  clamp(1.875rem, 1.62rem + 1.28vw, 2.75rem);
+  --es-text-4xl:  clamp(2.125rem, 1.73rem + 1.98vw, 3.375rem);
   /* The floor moved 3.5rem -> 2.5rem on 2026-09-16, and it is a measurement.
      At 320px an `.fx-section` leaves 280px of inline space. A word set at
      56px contributes roughly 0.55 x 56 x <chars> to min-content, so any word
@@ -265,7 +291,7 @@
      scroll on the whole document. The hero's headline is EDITABLE, so no
      floor is safe by itself; this makes the common case fit and `.es-display`
      carries the last-resort break for the rest. */
-  --es-text-5xl:  clamp(2.5rem, 1.6rem + 4.5vw, 6rem);
+  --es-text-5xl:  clamp(2.25rem, 1.72rem + 2.65vw, 4.25rem);
 
   --es-leading-tight:   1.15;
   --es-leading-snug:    1.3;
@@ -362,24 +388,29 @@
   :root:not([data-theme="light"]) {
     --es-bg:            var(--es-ink-950);
     --es-bg-sunken:     var(--es-ink-975);
-    --es-bg-deep:       var(--es-forest-800);
+    /* LIFTED 2026-09-16. The dark page ground became green (ink-950 is
+       #0d2620 now), and forest-800 sat 1.7 L* from it — so the brand band
+       stopped being a band at all in dark mode, which is exactly what
+       contrast.js's tone floor exists to catch. A band ABOVE the page
+       rather than below it. */
+    --es-bg-deep:       #1b4a3c;
     --es-surface:       var(--es-ink-900);
     --es-surface-raised:var(--es-ink-raised);
     --es-border:        var(--es-ink-border);
-    --es-border-strong: var(--es-zinc-700);
+    --es-border-strong: #2f6152;
 
-    --es-text:          var(--es-zinc-100);
-    --es-text-muted:    var(--es-zinc-400);
+    --es-text:          #eaf5ef;
+    --es-text-muted:    #a9cfc0;
     /* zinc-500 (#71717a) measured 3.67:1 on --es-surface, under AA for body
        text. Off-ramp for the same reason the light theme's is: zinc has no
        step between 500 and 400 that clears it, and 400 is already muted.
        Lifted again 2026-09-06 (#8a8a94 -> ink-subtle) because `surface`
        moved up to #232329 and the old value fell to 4.57:1 against it. */
     --es-text-subtle:   var(--es-ink-subtle);
-    --es-text-on-accent:var(--es-zinc-950);
+    --es-text-on-accent:#071713;
 
-    --es-accent:        var(--es-emerald-400);
-    --es-accent-hover:  var(--es-emerald-300);
+    --es-accent:        #6fcfae;
+    --es-accent-hover:  #8eddc2;
     --es-accent-wash:   #0a2b21;
     --es-accent-edge:   #12513e;
 
@@ -428,19 +459,20 @@
 :root[data-theme="dark"], .fx-gate {
   --es-bg:            var(--es-ink-950);
   --es-bg-sunken:     var(--es-ink-975);
-  --es-bg-deep:       var(--es-forest-800);
+  /* Same lift as the media-query copy above. */
+  --es-bg-deep:       #1b4a3c;
   --es-surface:       var(--es-ink-900);
   --es-surface-raised:var(--es-ink-raised);
   --es-border:        var(--es-ink-border);
-  --es-border-strong: var(--es-zinc-700);
+  --es-border-strong: #2f6152;
 
-  --es-text:          var(--es-zinc-100);
-  --es-text-muted:    var(--es-zinc-400);
+  --es-text:          #eaf5ef;
+  --es-text-muted:    #a9cfc0;
   --es-text-subtle:   var(--es-ink-subtle);
-  --es-text-on-accent:var(--es-zinc-950);
+  --es-text-on-accent:#071713;
 
-  --es-accent:        var(--es-emerald-400);
-  --es-accent-hover:  var(--es-emerald-300);
+  --es-accent:        #6fcfae;
+  --es-accent-hover:  #8eddc2;
   --es-accent-wash:   #0a2b21;
   --es-accent-edge:   #12513e;
 
@@ -1356,7 +1388,7 @@
   --es-text-muted: var(--es-zinc-400);
   --es-text-subtle:var(--es-ink-subtle);
   --es-border:     var(--es-zinc-800);
-  --es-border-strong: var(--es-zinc-700);
+  --es-border-strong: #2f6152;
   --es-surface:    var(--es-zinc-900);
   --es-bg-sunken:  var(--es-zinc-800);
   --es-accent:     var(--es-emerald-400);
@@ -1396,34 +1428,25 @@
   --es-text-subtle:   #8fbfae;
   --es-border:        rgba(255, 255, 255, 0.14);
   --es-border-strong: rgba(255, 255, 255, 0.28);
-  --es-accent:        var(--es-emerald-400);
-  --es-accent-hover:  var(--es-emerald-300);
+  --es-accent:        #6fcfae;
+  --es-accent-hover:  #8eddc2;
   --es-accent-wash:   var(--es-forest-700);
-  --es-accent-edge:   rgba(52, 211, 153, 0.35);
+  --es-accent-edge:   rgba(111, 207, 174, 0.38);
   --es-text-on-accent:var(--es-forest-900);
   background: var(--es-bg);
   color: var(--es-text);
 }
 
-/* ── .es-bloom — the one atmospheric effect in the system ───────────────
-   A single soft emerald light, for use inside a --field band. It is a
-   radial-gradient on a positioned child rather than a `background-image`
-   on the band, because a band's background is `var(--es-bg)` and the gate
-   reads that property — putting a gradient there would make the ground
-   unmeasurable again.
+/* `.es-bloom` WAS HERE and is deleted, 2026-09-16.
 
-   `pointer-events: none` and no content: it is atmosphere, and it must
-   never intercept a click meant for the call to action sitting on it. */
-.es-bloom {
-  position: absolute;
-  border-radius: 50%;
-  pointer-events: none;
-  background: radial-gradient(
-    circle,
-    color-mix(in srgb, var(--es-emerald-400) 16%, transparent),
-    transparent 68%
-  );
-}
+   It was a soft radial emerald light for use inside a --field band, and it
+   was the only atmospheric effect in the system. It is gone because this
+   product is flat green and flat white with no lighting: a glow is a
+   gradient, and a gradient of the brand colour over the brand colour is
+   the stock-template look the design was asked to get away from.
+
+   Six call sites went with it. Something that needs to lift off a band
+   gets a border or a surface now, not a light. */
 
 /* ── .es-display — the one oversized type treatment ─────────────────────
    `--es-text-5xl` exists so that exactly one thing on a page can be the
@@ -1438,8 +1461,11 @@
 .es-display {
   font-family: var(--es-font-serif);
   font-size: var(--es-text-5xl);
-  line-height: 1.02;
-  letter-spacing: -0.025em;
+  /* 1.02 was set when the ramp topped out at 96px, where a line that tight
+     still had room to breathe. At 4.25rem it closed two lines of a
+     headline into each other. */
+  line-height: 1.08;
+  letter-spacing: -0.015em;
   text-wrap: balance;
   max-width: 14ch;
   /* Hyphenate before breaking. At a display size a mid-word break is ugly and
@@ -2805,22 +2831,27 @@
 /* ── .es-searchbar — the one control the hero exists for ────────────────
    A row on a desktop, a stack on a phone, and a real <form> either way.
 
-   `--es-surface` on this band is forest-700, which is deliberately NOT
-   transparent. A glass search bar over a photograph is the single most
-   common way a hero becomes unusable: the placeholder sits on whatever
-   pixel happens to be behind it, and the contrast is a different number
+   REBUILT 2026-09-16. The first version was three equal fields and a
+   round submit crammed into one pill, which on a 390px screen became
+   three stacked rows of chrome with a scrollbar under them. The city
+   field is gone entirely — it is a button below the bar now (see
+   `.es-locate`), because asking somebody to type the name of the place
+   they are standing in is work the browser can do.
+
+   The surface is OPAQUE. A glass search bar over a photograph is the
+   commonest way a hero becomes unusable: the placeholder sits on whatever
+   pixel happens to be behind it, so its contrast is a different number
    for every visitor depending on their screen. */
 .es-searchbar {
   display: flex;
   flex-direction: column;
-  gap: var(--fx-gap-sm);
+  gap: 0.25rem;
   width: 100%;
-  max-width: 44rem;
+  max-width: 40rem;
   padding: 0.5rem;
-  border-radius: var(--es-radius-xl);
-  background: color-mix(in srgb, var(--es-surface) 92%, transparent);
-  border: 1px solid var(--es-border-strong);
-  backdrop-filter: blur(12px);
+  border-radius: var(--es-radius-lg);
+  background: var(--es-surface);
+  border: 1px solid var(--es-border);
   box-shadow: var(--es-shadow-lg);
 }
 
@@ -2829,32 +2860,33 @@
     flex-direction: row;
     align-items: center;
     border-radius: var(--es-radius-full);
-    padding: 0.375rem 0.375rem 0.375rem 0.5rem;
+    padding: 0.3125rem 0.3125rem 0.3125rem 0.5rem;
+    gap: 0;
   }
 }
 
-/* One field inside the bar. The divider is an inline-start border that
-   only exists once the bar is a row — on a stacked phone layout a
-   vertical rule between stacked fields points the wrong way. */
-/* The three fields are NOT equal thirds.
-   Equal thirds gave the query field the same room as a date, and its
-   placeholder ("Search events, artists, venues") clipped to "Search events, a"
-   while the date sat in a box twice as wide as the text it holds. The query is
-   what most people type and the only one whose content is open-ended, so it
-   takes the slack: `flex-grow: 2` against the other two. */
+/* One field inside the bar. The divider only exists once the bar is a
+   row — between stacked fields on a phone a vertical rule points the
+   wrong way, so below md the fields are separated by a horizontal one. */
 .es-searchbar__field {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.625rem;
   flex: 1 1 0;
   min-width: 0;
   padding-inline: 0.75rem;
 }
-.es-searchbar__field--wide { flex-grow: 2; }
+.es-searchbar__field + .es-searchbar__field {
+  border-block-start: 1px solid var(--es-border);
+}
 @media (width >= 48rem) {
   .es-searchbar__field + .es-searchbar__field {
+    border-block-start: 0;
     border-inline-start: 1px solid var(--es-border);
   }
+  /* The date needs the width of `dd/mm/yyyy` and not a pixel more; the
+     query is open-ended and takes the slack. */
+  .es-searchbar__field--short { flex: 0 0 auto; }
 }
 
 /* The input inside a field is unstyled on purpose: the BAR is the
@@ -2872,10 +2904,10 @@
 }
 .es-searchbar__input::placeholder { color: var(--es-text-subtle); }
 .es-searchbar__input:focus { outline: none; }
-/* The focus ring goes on the FIELD, so it is visible against the bar
-   rather than drawn inside a transparent input where it clips. */
+/* The ring goes on the FIELD, so it is visible against the bar rather
+   than drawn inside a transparent input where it clips. */
 .es-searchbar__field:focus-within {
-  border-radius: var(--es-radius-lg);
+  border-radius: var(--es-radius-md);
   box-shadow: 0 0 0 2px var(--es-accent-edge);
 }
 .es-searchbar__icon { display: flex; flex-shrink: 0; color: var(--es-text-subtle); }
@@ -2884,13 +2916,74 @@
   flex-shrink: 0;
   width: 100%;
   height: var(--fx-touch);
+  margin-block-start: 0.25rem;
 }
 @media (width >= 48rem) {
   .es-searchbar__submit {
     width: var(--fx-touch);
     border-radius: var(--es-radius-full);
     padding: 0;
+    margin-block-start: 0;
   }
+}
+
+/* ── .es-locate — "events near me" ──────────────────────────────────────
+   The premium control on this page, and the fastest route to a result.
+
+   It is NOT `.es-btn`. A primary button beside a primary submit is two
+   equal calls to action; a ghost button is a control nobody notices.
+   This is its own thing: a pill with a filled circular mark on the left,
+   so the icon reads as a device rather than as decoration on a label.
+
+   The mark keeps the accent fill in every state, which is what stops it
+   looking like a disabled link while the browser's own permission prompt
+   is covering half the screen. */
+.es-locate {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.625rem;
+  min-height: var(--fx-touch);
+  padding-inline: 0.5rem 1.125rem;
+  border-radius: var(--es-radius-full);
+  border: 1px solid var(--es-border-strong);
+  background: var(--es-surface);
+  color: var(--es-text);
+  font-size: var(--es-text-sm);
+  font-weight: 500;
+  transition: border-color var(--es-dur-fast) var(--es-ease),
+              background var(--es-dur-fast) var(--es-ease);
+}
+.es-locate:hover:not(:disabled) {
+  border-color: var(--es-accent);
+  background: var(--es-accent-wash);
+}
+.es-locate:disabled { cursor: progress; }
+
+.es-locate__mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  flex-shrink: 0;
+  border-radius: var(--es-radius-full);
+  background: var(--es-accent);
+  color: var(--es-text-on-accent);
+}
+
+/* A slow sweep rather than a spinner. A spinner says "wait for the
+   network"; this is waiting for a PERSON to answer a permission prompt,
+   which can take as long as they like. */
+.es-locate__mark--busy { animation: es-locate-pulse 1.6s var(--es-ease) infinite; }
+
+@keyframes es-locate-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.55; }
+}
+
+/* Motion is a preference, and this one is decorative. */
+@media (prefers-reduced-motion: reduce) {
+  .es-locate__mark--busy { animation: none; }
 }
 
 /* ── .es-chip — a one-tap filter ────────────────────────────────────────
@@ -3079,7 +3172,20 @@ a.es-sponsor:hover { opacity: 0.7; }
 .es-rail {
   scroll-snap-type: x proximity;
   scroll-padding-inline: var(--fx-pad-x);
+
+  /* NO SCROLLBAR, and this one was a reported defect rather than a taste.
+     On Windows and on Android the scrollbar of an `overflow-x: auto` row
+     is a permanent grey track drawn UNDER the row's contents — on the
+     hero's chip rail it cut a line straight through the category names.
+
+     Hiding it is safe HERE and would not be elsewhere: the row is one
+     line of pills whose overflow is obvious from a pill being clipped at
+     the edge, it snaps, and every destination in it is also reachable
+     from the browse band further down the page. A scrollbar is removed
+     when the affordance survives without it, not because it is untidy. */
+  scrollbar-width: none;
 }
+.es-rail::-webkit-scrollbar { display: none; }
 .es-rail > * { scroll-snap-align: start; }
 
 /* ── .es-marks — the statistics strip ───────────────────────────────────
@@ -3177,16 +3283,30 @@ a.es-sponsor:hover { opacity: 0.7; }
   backdrop-filter: blur(12px);
 }
 
+/* THE INVERTED ROLES ARE SCOPED TO THE BAR, NOT TO THE HEADER.
+
+   They were on the header itself, and the mobile menu is a child of it —
+   so opening the menu on the homepage rendered white links on the panel's
+   white surface. Every item was invisible; the only thing anyone could
+   see was the one green button. That is the "things are not visible in
+   the white theme" bug, and it was this rule.
+
+   `> .fx-gutter` is the top bar and nothing else. The panel below it is a
+   sibling, so it keeps the page's own roles and stays legible whatever
+   the header is doing. */
 .es-overhero[data-over='true'] {
-  --es-text:       #ffffff;
-  --es-text-muted: rgb(255 255 255 / 0.82);
-  --es-border:     rgb(255 255 255 / 0.16);
-  --es-bg-sunken:  rgb(255 255 255 / 0.12);
-  --es-accent:     var(--es-emerald-300);
-  --es-accent-hover: var(--es-emerald-200);
-  --es-text-on-accent: var(--es-forest-900);
   background: transparent;
   border-color: transparent;
+}
+
+.es-overhero[data-over='true'] > .fx-gutter {
+  --es-text:       #ffffff;
+  --es-text-muted: rgb(255 255 255 / 0.86);
+  --es-border:     rgb(255 255 255 / 0.20);
+  --es-bg-sunken:  rgb(255 255 255 / 0.14);
+  --es-accent:     #8eddc2;
+  --es-accent-hover: #b6ecd8;
+  --es-text-on-accent: var(--es-forest-950);
   color: var(--es-text);
 }
 /* No backdrop blur in the transparent state: blurring a hero's own
@@ -3205,6 +3325,285 @@ a.es-sponsor:hover { opacity: 0.7; }
 .es-hero {
   margin-block-start: calc(-1 * var(--es-header-h));
   padding-block-start: var(--es-header-h);
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   THE TWO MOCKUPS
+
+   A dashboard in a device, and a ticket on a phone. Drawn rather than
+   screenshotted — see components/landing/Mockups.jsx for why.
+
+   Both sit inside a --field band, so every colour here comes from a role
+   and re-tones with the band rather than being a second palette.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── The organizer device ───────────────────────────────────────────────
+   Not a photograph of a laptop with a screenshot pasted into it. A frame
+   with a real border and a real surface, so it reads as a product on a
+   band rather than as an image dropped onto one. */
+.es-device {
+  width: 100%;
+  border-radius: var(--es-radius-xl);
+  border: 1px solid var(--es-border-strong);
+  background: var(--es-bg);
+  padding: 0.5rem;
+  box-shadow: var(--es-shadow-lg);
+}
+.es-device__screen {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+  border-radius: var(--es-radius-lg);
+  background: var(--es-surface);
+  padding: 0.875rem;
+}
+@media (width >= 30rem) {
+  .es-device__screen { grid-template-columns: 8.5rem minmax(0, 1fr); }
+}
+
+/* The rail is the first thing to go on a narrow screen: a 320px viewport
+   showing a sidebar AND a dashboard shows neither. */
+.es-device__rail { display: none; }
+@media (width >= 30rem) {
+  .es-device__rail {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding-inline-end: 0.75rem;
+    border-inline-end: 1px solid var(--es-border);
+  }
+}
+.es-device__brandmark {
+  width: 1.75rem;
+  height: 0.5rem;
+  border-radius: var(--es-radius-full);
+  background: var(--es-accent);
+}
+.es-device__nav {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3125rem 0.5rem;
+  border-radius: var(--es-radius-sm);
+  font-size: var(--es-text-xs);
+  color: var(--es-text-muted);
+}
+.es-device__nav--on {
+  background: var(--es-accent-wash);
+  color: var(--es-accent);
+  font-weight: 600;
+}
+
+.es-device__body { display: flex; flex-direction: column; gap: 0.625rem; min-width: 0; }
+
+.es-device__tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem; }
+.es-device__tile {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  padding: 0.5rem;
+  border-radius: var(--es-radius-md);
+  background: var(--es-bg-sunken);
+  min-width: 0;
+}
+.es-device__tile-icon { color: var(--es-accent); }
+.es-device__tile-value {
+  font-family: var(--es-font-mono);
+  font-size: var(--es-text-md);
+  font-weight: 600;
+  line-height: 1;
+  color: var(--es-text);
+}
+.es-device__tile-label {
+  font-size: 0.625rem;
+  color: var(--es-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.es-device__panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.625rem;
+  border-radius: var(--es-radius-md);
+  border: 1px solid var(--es-border);
+}
+.es-device__chart { width: 100%; height: 3.25rem; color: var(--es-accent); }
+
+.es-device__row {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.5rem 0.625rem;
+  border-radius: var(--es-radius-md);
+  background: var(--es-bg-sunken);
+}
+.es-device__row-mark { display: flex; flex-shrink: 0; color: var(--es-accent); }
+.es-device__row-title { display: block; font-size: var(--es-text-xs); font-weight: 600; color: var(--es-text); }
+.es-device__row-note  { display: block; font-size: 0.625rem; color: var(--es-text-muted); }
+.es-device__bar {
+  flex: 0 0 4rem;
+  height: 0.25rem;
+  border-radius: var(--es-radius-full);
+  background: var(--es-border);
+  overflow: hidden;
+}
+.es-device__bar-fill { display: block; height: 100%; background: var(--es-accent); }
+
+/* ── The phone ──────────────────────────────────────────────────────────
+   A device frame with a real bezel, because the reference for this band is
+   a ticket held in a hand and a flat card is not that.
+
+   `aspect-ratio` rather than a height: the frame reserves its own space, so
+   the band does not reflow when the fonts land. */
+.es-phone {
+  position: relative;
+  width: min(17rem, 100%);
+  margin-inline: auto;
+  aspect-ratio: 9 / 17.5;
+  border-radius: 2.25rem;
+  border: 1px solid var(--es-border-strong);
+  background: var(--es-bg);
+  padding: 0.5rem;
+  box-shadow: var(--es-shadow-xl);
+}
+.es-phone__notch {
+  position: absolute;
+  inset-block-start: 0.9rem;
+  inset-inline-start: 50%;
+  transform: translateX(-50%);
+  width: 4.5rem;
+  height: 0.3125rem;
+  border-radius: var(--es-radius-full);
+  background: var(--es-border-strong);
+  z-index: 1;
+}
+.es-phone__screen {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  height: 100%;
+  padding: 1.5rem 0.75rem 0.875rem;
+  border-radius: 1.85rem;
+  background: var(--es-surface);
+  overflow: hidden;
+}
+.es-phone__head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--es-text-muted);
+}
+.es-phone__brandmark {
+  width: 1.125rem;
+  height: 1.125rem;
+  border-radius: var(--es-radius-full);
+  background: var(--es-accent);
+}
+
+.es-phone__ticket {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.875rem;
+  border-radius: var(--es-radius-lg);
+  border: 1px solid var(--es-border);
+  background: var(--es-bg);
+}
+.es-phone__eyebrow {
+  font-size: 0.5625rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--es-accent);
+}
+.es-phone__title {
+  font-family: var(--es-font-serif);
+  font-size: var(--es-text-md);
+  line-height: 1.15;
+  color: var(--es-text);
+}
+.es-phone__meta { font-size: var(--es-text-xs); color: var(--es-text-muted); }
+
+/* The perforation. One dashed rule, with a half-circle bitten out of each
+   end in the screen background colour. */
+.es-phone__tear {
+  position: relative;
+  display: block;
+  margin-block: 0.5rem;
+  border-block-start: 1px dashed var(--es-border-strong);
+}
+.es-phone__notch-l,
+.es-phone__notch-r {
+  position: absolute;
+  inset-block-start: -0.4375rem;
+  width: 0.875rem;
+  height: 0.875rem;
+  border-radius: var(--es-radius-full);
+  background: var(--es-surface);
+}
+.es-phone__notch-l { inset-inline-start: -1.3125rem; }
+.es-phone__notch-r { inset-inline-end: -1.3125rem; }
+
+.es-phone__seat { display: flex; gap: 1.125rem; }
+.es-phone__seat-label {
+  display: block;
+  font-size: 0.5625rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--es-text-subtle);
+}
+.es-phone__seat-value {
+  display: block;
+  font-family: var(--es-font-mono);
+  font-size: var(--es-text-sm);
+  font-weight: 600;
+  color: var(--es-text);
+}
+
+/* The code block: a 9 x 9 grid of cells.
+
+   `width` is in PIXELS and not rem, deliberately. This is a picture made of
+   divs — a fixed-size graphic whose min-content is its own width, not nine
+   times its widest child — which is the exemption `scripts/responsiveCheck.js`
+   already recognises for a bounded decorative mosaic. Saying it in px is how
+   the grid declares that about itself, and it also keeps the code square when
+   the root font-size is not 16px. */
+.es-phone__qr {
+  display: grid;
+  grid-template-columns: repeat(9, 1fr);
+  gap: 1px;
+  width: 72px;
+  aspect-ratio: 1;
+  margin-block-start: 0.625rem;
+  margin-inline: auto;
+  padding: 0.25rem;
+  border-radius: var(--es-radius-sm);
+  background: #ffffff;
+}
+.es-phone__qr > span { display: block; border-radius: 1px; }
+.es-phone__qr-on { background: var(--es-forest-950); }
+
+.es-phone__code {
+  margin-block-start: 0.375rem;
+  text-align: center;
+  font-family: var(--es-font-mono);
+  font-size: 0.5625rem;
+  letter-spacing: 0.1em;
+  color: var(--es-text-subtle);
+}
+
+.es-phone__cta {
+  margin-block-start: auto;
+  padding: 0.5rem;
+  border-radius: var(--es-radius-md);
+  background: var(--es-accent);
+  color: var(--es-text-on-accent);
+  text-align: center;
+  font-size: var(--es-text-xs);
+  font-weight: 600;
 }
 
 }   /* end @layer components */

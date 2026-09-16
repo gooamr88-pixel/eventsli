@@ -230,7 +230,6 @@ export function Sponsors({ copy, sponsors }) {
 export function OrganizerBand({ block, children }) {
   return (
     <section id="organizers" className="es-band--field fx-section relative overflow-hidden">
-      <div aria-hidden className="es-bloom -top-40 -left-32 size-[34rem]" />
       <div className="fx-container fx-container--xl relative">
         <div className="grid items-center gap-[var(--fx-gap-lg)] lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
           <div className="fx-stack">
@@ -262,9 +261,7 @@ export function OrganizerBand({ block, children }) {
 
           <div className="fx-stack fx-stack--sm">
             {/* The product, not a photograph of a laptop. `children` is the
-                seat map the old hero used to carry — it moved here, where it
-                is evidence for the claim above it rather than decoration on a
-                page that had not made a claim yet. */}
+                drawn dashboard; an admin-uploaded image replaces it. */}
             {block.imageUrl ? (
               <div className="es-plate">
                 <div className="es-figure" style={{ '--es-figure-ar': '16 / 10' }}>
@@ -278,7 +275,9 @@ export function OrganizerBand({ block, children }) {
                 </div>
               </div>
             ) : (
-              <div className="es-plate">{children}</div>
+              /* No `.es-plate` wrapper: the device draws its own frame and
+                 shadow, and a plate around it is two bezels. */
+              children
             )}
 
             {block.script && (

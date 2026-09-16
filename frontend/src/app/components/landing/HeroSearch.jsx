@@ -1,96 +1,189 @@
 'use client';
 
-import { useId } from 'react';
+import { useId, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { get } from '../../utils/apiClient';
 import NavIcon from '../shell/NavIcon';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
- * The hero's search: what, where, when.
+ * The hero's search: what, when, and — by one tap — where.
  *
- * A PLAIN GET FORM, and that is the whole design. `action="/events"` with named
- * inputs means the browser builds `?q=…&city=…&from=…` itself and navigates —
- * so this works with JavaScript disabled, before hydration, and the result is a
- * URL somebody can share or bookmark. `/events` already reads all three
- * parameters; nothing new was needed on the listing to make this work.
+ * STILL A PLAIN GET FORM. `action="/events"` with named inputs means the
+ * browser builds `?q=…&city=…&from=…` itself and navigates, so this works with
+ * JavaScript disabled, works before hydration, and produces a URL somebody can
+ * share. Everything below is added ON TOP of that, never in place of it.
  *
- * WHY IT IS A CLIENT COMPONENT AT ALL. Only for `useId`. The labels are visually
- * hidden and have to point at their inputs, and two of these could appear on one
- * page. There is no state, no effect, and no handler — the file carries
- * `'use client'` so the hook is legal, not because anything here is
- * interactive.
+ * ── The city field became a button ─────────────────────────────────────────
+ * It was a text input with a datalist: the visitor typed where they were. That
+ * is the wrong way round — the browser already knows, and asking someone to
+ * spell their own city to be shown what is near them is work the software
+ * should be doing.
  *
- * THE CITY FIELD IS A DATALIST, NOT A SELECT.
- * A <select> can only offer what we know about, and the honest set is "cities
- * that have a published event" — which on a young platform is very short. A
- * datalist suggests those and still accepts anything typed, so somebody looking
- * for a city we have nothing in gets an empty listing that says so, rather than
- * a picker that silently cannot express what they wanted.
+ * So: one control that asks for location and resolves it to the nearest city
+ * that actually has events on. The coordinates go to our own API and nowhere
+ * else, are compared against a table we ship, and are never stored — see
+ * `backend/utils/cityCoordinates.js` for why there is no geocoder in the path.
+ *
+ * ── Why permission is only ever asked on a TAP ─────────────────────────────
+ * `getCurrentPosition` is never called on mount. A location prompt that appears
+ * because a page loaded is the most disliked interaction on the web, and a
+ * refusal is remembered by the browser — so an unprompted ask does not annoy
+ * somebody once, it permanently disables the feature for them.
+ *
+ * ── Every failure gets its own sentence ────────────────────────────────────
+ * Denied, unavailable, timed out, nothing on sale anywhere, and "we have events
+ * but cannot place them on a map" are five different situations. Collapsing
+ * them into "something went wrong" is how a working feature reads as broken.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-export default function HeroSearch({ cities = [] }) {
+export default function HeroSearch() {
   const id = useId();
+  const router = useRouter();
+  const [city, setCity] = useState('');
+  const [state, setState] = useState('idle');   // idle | locating | done | error
+  const [message, setMessage] = useState(null);
+
+  function findNearby() {
+    if (!('geolocation' in navigator)) {
+      setState('error');
+      setMessage('This browser cannot share a location. Search by name instead.');
+      return;
+    }
+
+    setState('locating');
+    setMessage(null);
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const { latitude, longitude } = position.coords;
+          /* Three decimal places — about 110 metres.
+             Full precision is several metres, which is a person's building.
+             The question being asked is "which city", and a city is not
+             resolved any better by knowing the street. */
+          const lat = latitude.toFixed(3);
+          const lng = longitude.toFixed(3);
+
+          const result = await get(`/public/cities/nearest?lat=${lat}&lng=${lng}`);
+
+          if (result?.city) {
+            setCity(result.city);
+            setState('done');
+            setMessage(
+              result.distanceKm <= 60
+                ? `Showing events in ${result.city}.`
+                : `Nearest events are in ${result.city}, about ${result.distanceKm} km away.`,
+            );
+            // Go straight there. Somebody who pressed "near me" asked a
+            // question; they did not ask for a field to be filled in.
+            router.push(`/events?city=${encodeURIComponent(result.city)}`);
+            return;
+          }
+
+          setState('error');
+          setMessage(
+            result?.reason === 'none'
+              ? 'Nothing is on sale anywhere just yet. Check back soon.'
+              : 'We could not match your area to a city with events on. Try searching by name.',
+          );
+        } catch {
+          setState('error');
+          setMessage('We could not look that up just now. Try again in a moment.');
+        }
+      },
+      (error) => {
+        setState('error');
+        setMessage(
+          error.code === error.PERMISSION_DENIED
+            ? 'Location is switched off for this site. Search by city name instead.'
+            : error.code === error.TIMEOUT
+              ? 'That took too long. Try again, or search by city name.'
+              : 'Your location is not available. Search by city name instead.',
+        );
+      },
+      // 10s, and a cached fix up to 5 minutes old is fine: a person has not
+      // changed city in that time, and reusing it avoids waking the GPS.
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 },
+    );
+  }
+
+  const locating = state === 'locating';
 
   return (
-    <form action="/events" method="get" role="search" className="es-searchbar">
-      <div className="es-searchbar__field es-searchbar__field--wide">
-        <span aria-hidden className="es-searchbar__icon"><NavIcon name="search" size={18} /></span>
-        <label htmlFor={`${id}-q`} className="sr-only">Search events, artists or venues</label>
-        <input
-          id={`${id}-q`}
-          name="q"
-          type="search"
-          autoComplete="off"
-          placeholder="Search events, artists, venues"
-          className="es-searchbar__input"
-        />
-      </div>
+    <div className="fx-stack fx-stack--sm">
+      <form action="/events" method="get" role="search" className="es-searchbar">
+        <div className="es-searchbar__field">
+          <span aria-hidden className="es-searchbar__icon"><NavIcon name="search" size={18} /></span>
+          <label htmlFor={`${id}-q`} className="sr-only">Search events, artists or venues</label>
+          <input
+            id={`${id}-q`}
+            name="q"
+            type="search"
+            autoComplete="off"
+            placeholder="Search events, artists, venues"
+            className="es-searchbar__input"
+          />
+        </div>
 
-      <div className="es-searchbar__field">
-        <span aria-hidden className="es-searchbar__icon"><NavIcon name="pin" size={18} /></span>
-        <label htmlFor={`${id}-city`} className="sr-only">City</label>
-        <input
-          id={`${id}-city`}
-          name="city"
-          type="text"
-          autoComplete="off"
-          list={cities.length ? `${id}-cities` : undefined}
-          placeholder="Anywhere"
-          className="es-searchbar__input"
-        />
-        {cities.length > 0 && (
-          <datalist id={`${id}-cities`}>
-            {cities.map((city) => (
-              <option key={`${city.city}-${city.country}`} value={city.city}>
-                {`${city.city}, ${city.country} — ${city.events} event${city.events === 1 ? '' : 's'}`}
-              </option>
-            ))}
-          </datalist>
+        <div className="es-searchbar__field es-searchbar__field--short">
+          <span aria-hidden className="es-searchbar__icon"><NavIcon name="calendar" size={18} /></span>
+          <label htmlFor={`${id}-from`} className="sr-only">On or after</label>
+          {/*
+            `type="date"`, not a hand-built calendar. The native control is
+            localised, keyboard-operable and works with a screen reader on
+            every platform; the alternative is several hundred lines that will
+            be worse at all three. It submits `yyyy-mm-dd`, which is what
+            /events validates `from` as.
+          */}
+          <input id={`${id}-from`} name="from" type="date" className="es-searchbar__input" />
+        </div>
+
+        {/* The resolved city travels with the form, so pressing Search after
+            using "near me" keeps the location. */}
+        <input type="hidden" name="city" value={city} />
+
+        <button type="submit" className="es-btn es-btn--primary es-searchbar__submit">
+          <span aria-hidden className="md:hidden">Search</span>
+          <span aria-hidden className="hidden md:inline"><NavIcon name="search" size={18} /></span>
+          <span className="sr-only">Search</span>
+        </button>
+      </form>
+
+      {/* Its own control, below the bar and not inside it.
+          Inside, it was a third of a three-up row and read as another field to
+          fill in. It is not a field — it is an action, and it is the fastest
+          route to a result on this page. */}
+      <div className="fx-row fx-row--gap items-center">
+        <button
+          type="button"
+          onClick={findNearby}
+          disabled={locating}
+          className="es-locate"
+          aria-describedby={message ? `${id}-locate-msg` : undefined}
+        >
+          <span aria-hidden className={`es-locate__mark ${locating ? 'es-locate__mark--busy' : ''}`}>
+            <NavIcon name="locate" size={18} />
+          </span>
+          {locating ? 'Finding you…' : 'Events near me'}
+        </button>
+
+        {city && state === 'done' && (
+          <span className="es-chip">
+            <span aria-hidden><NavIcon name="pin" size={14} /></span>
+            {city}
+          </span>
         )}
       </div>
 
-      <div className="es-searchbar__field">
-        <span aria-hidden className="es-searchbar__icon"><NavIcon name="calendar" size={18} /></span>
-        <label htmlFor={`${id}-from`} className="sr-only">On or after</label>
-        {/*
-          `type="date"` rather than a hand-built calendar. The native control is
-          localised, keyboard-operable and works with a screen reader on every
-          platform, and the alternative is several hundred lines that will be
-          worse at all three. It submits `yyyy-mm-dd`, which is exactly what
-          /events validates `from` as.
-        */}
-        <input
-          id={`${id}-from`}
-          name="from"
-          type="date"
-          className="es-searchbar__input"
-        />
-      </div>
-
-      <button type="submit" className="es-btn es-btn--primary es-searchbar__submit">
-        <span aria-hidden className="md:hidden">Search</span>
-        <span aria-hidden className="hidden md:inline"><NavIcon name="arrow" size={18} /></span>
-        <span className="sr-only">Search</span>
-      </button>
-    </form>
+      {message && (
+        /* `role="status"` rather than `alert`: this is the result of something
+           the reader asked for, and an assertive live region interrupts
+           whatever a screen reader was already saying. */
+        <p id={`${id}-locate-msg`} role="status" className="text-sm text-muted">
+          {message}
+        </p>
+      )}
+    </div>
   );
 }

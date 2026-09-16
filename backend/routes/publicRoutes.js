@@ -89,6 +89,21 @@ router.get('/landing', landing.landing);
 router.get('/cities', landing.cities);
 
 /**
+ * The nearest city that has something on, from a pair of coordinates.
+ *
+ * Rate-limited: it is unauthenticated and it reads the events table, and the
+ * button that calls it is one tap on the busiest page on the site.
+ */
+router.get(
+  '/cities/nearest',
+  makeLimiter({ windowMs: 60 * 1000, max: 20, name: 'nearest-city', message: 'Too many requests.' }),
+  query('lat').isFloat({ min: -90, max: 90 }),
+  query('lng').isFloat({ min: -180, max: 180 }),
+  validate,
+  landing.nearestCity,
+);
+
+/**
  * The visit beacon. Rate-limited because it is an unauthenticated write: the
  * counter is per-day and per-visitor so repeat calls cannot inflate the
  * "visitors" figure, but they can inflate "views", and nothing else in the

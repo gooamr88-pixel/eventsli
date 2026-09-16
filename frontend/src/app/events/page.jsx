@@ -96,7 +96,6 @@ export default async function EventsPage({ searchParams }) {
           tone, which is what separates "the controls" from "the answer"
           without drawing a rule between them. */}
       <section className="es-band--field fx-section fx-section--sm relative overflow-hidden">
-        <div aria-hidden className="es-bloom -top-40 -right-24 size-[30rem]" />
         <div className="fx-container fx-container--xl fx-stack relative">
           <div className="fx-stack fx-stack--sm">
             <p className="es-eyebrow text-accent">Canada &amp; the United States</p>

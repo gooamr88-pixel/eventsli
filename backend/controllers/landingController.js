@@ -1,9 +1,10 @@
 const crypto = require('crypto');
 const { supabase } = require('../config/supabase');
-const { sendOk } = require('../utils/responseEnvelope');
+const { sendOk, sendFail } = require('../utils/responseEnvelope');
 const storefront = require('../services/storefrontService');
 const categories = require('../services/categoryService');
 const { platformStats } = require('../services/statsService');
+const geo = require('../utils/cityCoordinates');
 const logger = require('../utils/logger');
 
 /**
@@ -106,6 +107,66 @@ async function cities(req, res, next) {
   } catch (err) { return next(err); }
 }
 
+// ─── GET /public/cities/nearest ─────────────────────────────────────────────
+/**
+ * "What is on near me", answered without a geocoder.
+ *
+ * The visitor's browser supplies the coordinates; this compares them against
+ * the cities that ACTUALLY HAVE EVENTS and returns the closest one, which the
+ * storefront then uses as a plain `?city=` filter. There is no third party in
+ * the path and nothing is written down — see `utils/cityCoordinates.js` for why
+ * that mattered enough to ship a table.
+ *
+ * THE COORDINATES ARE NOT STORED, not logged, and not passed anywhere. They
+ * exist for the length of this function.
+ *
+ * Three distinct answers, because they need three different sentences in the
+ * UI and collapsing them into "no results" is how a working feature looks
+ * broken:
+ *   • a city, with its distance      — filter by it
+ *   • `city: null, reason: 'none'`   — nothing on sale anywhere right now
+ *   • `city: null, reason: 'unmapped'` — we have events, but in places this
+ *     build cannot place on a map. Honest, and it tells us to add a row.
+ */
+async function nearestCity(req, res, next) {
+  try {
+    const lat = Number(req.query.lat);
+    const lng = Number(req.query.lng);
+
+    // Validated in the route too; repeated here because a NaN reaching the
+    // haversine returns NaN and would silently pick the first candidate.
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)
+      || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+      return sendFail(res, {
+        status: 400, error: 'VALIDATION_ERROR', message: 'Send a latitude and a longitude.',
+      });
+    }
+
+    const { data, error } = await supabase
+      .from('events')
+      .select('city, country')
+      .eq('status', 'published')
+      .not('city', 'is', null)
+      .gte('ends_at', new Date().toISOString())
+      .limit(5000);
+
+    if (error) throw new Error(error.message);
+
+    const seen = new Map();
+    for (const row of data || []) {
+      const city = String(row.city || '').trim();
+      if (city) seen.set(`${city.toLowerCase()}|${row.country}`, { city, country: row.country });
+    }
+
+    if (seen.size === 0) return sendOk(res, { city: null, reason: 'none' });
+
+    const match = geo.nearest(lat, lng, [...seen.values()]);
+    if (!match) return sendOk(res, { city: null, reason: 'unmapped' });
+
+    return sendOk(res, { city: match.city, country: match.country, distanceKm: match.distanceKm });
+  } catch (err) { return next(err); }
+}
+
 // ─── POST /public/visit ─────────────────────────────────────────────────────
 /**
  * The visit counter behind the "visits" statistic.
@@ -171,4 +232,4 @@ function normalisePath(raw) {
   return trimmed;
 }
 
-module.exports = { landing, cities, recordVisit, normalisePath };
+module.exports = { landing, cities, nearestCity, recordVisit, normalisePath };

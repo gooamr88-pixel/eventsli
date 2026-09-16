@@ -31,7 +31,6 @@ export default function AuthLayout({ children }) {
       <div className="fx-container fx-container--lg">
         <div className="es-plate grid overflow-hidden bg-surface lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
           <aside className="es-band--field relative hidden overflow-hidden p-10 lg:flex lg:flex-col lg:justify-center">
-            <div aria-hidden className="es-bloom -top-32 -left-24 size-[26rem]" />
             <div className="fx-stack relative">
               <p className="es-eyebrow text-accent">Eventsli</p>
               <p className="max-w-[18ch] font-serif text-3xl leading-tight text-ink">Find something to go to.</p>

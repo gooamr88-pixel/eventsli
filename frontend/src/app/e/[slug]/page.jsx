@@ -163,7 +163,6 @@ export default async function EventPage({ params, searchParams }) {
             />
           </>
         ) : (
-          <div aria-hidden className="es-bloom -top-40 right-16 size-[32rem]" />
         )}
 
         <div className="fx-gutter relative w-full pb-10 pt-16">

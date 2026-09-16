@@ -23,7 +23,6 @@ export default function PageHeader({ eyebrow, title, lede, children }) {
        matches the homepage — a reader arriving at /trust from / should be on
        the same site. */
     <section className="es-band--field fx-section fx-section--sm relative overflow-hidden">
-      <div aria-hidden className="es-bloom -top-40 -right-24 size-[30rem]" />
       <div className="fx-container fx-container--xl fx-stack relative">
         {eyebrow && <p className="es-eyebrow text-accent">{eyebrow}</p>}
         <h1 className="max-w-[20ch] text-4xl">{title}</h1>

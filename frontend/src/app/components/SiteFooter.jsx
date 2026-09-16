@@ -29,15 +29,19 @@ export default function SiteFooter() {
   if (inAppShell(pathname) || pathname?.startsWith('/checkout')) return null;
 
   return (
-    /* THE INK BLOCK, and the page's last note.
+    /* THE DEEPEST GREEN, and the page's last note.
 
-       Every band above this one is paper or sunken, so the footer is the one
-       place on the site where the tone inverts — which is what makes the page
-       end rather than just stop. `.es-band--ink` re-points the text roles
-       inside itself, so `text-muted` on a link below is zinc-400 on near-black
-       (7.76:1) rather than slate-600 on near-black (2.6:1). Setting `color`
-       alone on a dark footer is the single most common contrast failure on a
-       site, precisely because the headings look right.
+       Every band above this one is white or mint, so the footer is where the
+       tone inverts — which is what makes the page end rather than just stop.
+       `.es-band--ink` re-points the text roles inside itself, so `text-muted`
+       on a link below is a pale green on forest-950 rather than slate-600 on
+       it (2.6:1). Setting `color` alone on a dark footer is the commonest
+       contrast failure on a site, precisely because the headings look right.
+
+       IT WAS NEAR-BLACK until 2026-09-16 — `--ink` resolved to zinc-950. On a
+       product whose palette is green and white, a black footer under a green
+       page was the one place a third colour was unmissable. The band is the
+       same hue as `--field` now, two steps deeper.
 
        No `mt-16`: the band above supplies its own bottom padding, and adding a
        margin here on top of it gives the footer a gap that changes size

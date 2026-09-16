@@ -39,6 +39,10 @@ const PATHS = {
   star: ['M12 3.5l2.6 5.6 6 .8-4.4 4.2 1.1 6-5.3-2.9-5.3 2.9 1.1-6L3.4 9.9l6-.8L12 3.5z'],
   // Delete. Distinct from `alert`, which is a warning triangle — using that for
   // a bin makes every destructive control look like a validation message.
+  // The "near me" control. A crosshair rather than a map pin: a pin marks
+  // a place somebody already chose, a crosshair is the act of finding out
+  // where they are, which is what the button does.
+  locate: ['M12 16.5a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9z', 'M12 2v3', 'M12 19v3', 'M2 12h3', 'M19 12h3'],
   trash: ['M4 7h16', 'M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2', 'M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13', 'M10 11v6', 'M14 11v6'],
   external: ['M14 4h6v6', 'M20 4l-9 9', 'M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5'],
   pin: ['M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z', 'M12 12a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z'],

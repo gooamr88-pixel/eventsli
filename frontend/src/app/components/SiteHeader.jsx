@@ -272,7 +272,14 @@ function useOverHero(enabled) {
       window.addEventListener('scroll', onChange, { passive: true });
       return () => window.removeEventListener('scroll', onChange);
     },
-    () => enabled && window.scrollY < window.innerHeight * 0.6,
+    /* AT THE TOP, and almost nowhere else.
+       The threshold was 60% of the viewport, so on a phone the bar stayed
+       transparent while the whole headline scrolled under it — white type
+       over white type, which is what the overlap in the reported
+       screenshots actually was. A header is only over the photograph
+       while the page has not moved; the moment it has, it is over
+       content and has to be a surface. */
+    () => enabled && window.scrollY < 8,
     () => false,
   );
 }

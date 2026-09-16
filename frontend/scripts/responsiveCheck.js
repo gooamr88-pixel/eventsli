@@ -183,6 +183,25 @@ function scanResponsive(root) {
          N × the widest child. */
       if (owner && /\bwidth:\s*["']?\d+px/.test(owner.text)) continue;
 
+      /* THE SAME EXEMPTION, FOR A CSS RULE.
+         It only ever looked at `owner`, which is a JSX tag — so a fixed-size
+         graphic declared in globals.css could not claim it, and the checker
+         reported `.es-phone__qr` (a 72px code block, nine cells of seven
+         pixels each) as a layout that would not fit a phone. The reasoning
+         above does not depend on WHERE the width is written, only on it
+         being a hard pixel value on the grid itself.
+         Scoped to the grid's OWN declaration block, so a fixed width on an
+         unrelated rule nearby cannot excuse a real fixed-column layout. */
+      if (open !== -1) {
+        // `open` indexes into `head`, which is a 900-character window ending
+        // at `at` — not into `src`. Converting it is the whole reason this
+        // failed silently the first time it was written.
+        const blockStart = Math.max(0, at - 900) + open;
+        const close = src.indexOf('}', at);
+        const block = close === -1 ? src.slice(blockStart) : src.slice(blockStart, close);
+        if (/\bwidth:\s*\d+px/.test(block)) continue;
+      }
+
       fixedGrids.push(`${rel}:${lineOf(src, at)}  repeat(${g[1]}, 1fr) with no narrow-width override`);
     }
   }

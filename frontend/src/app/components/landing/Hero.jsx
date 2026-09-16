@@ -21,7 +21,7 @@ import HeroSearch from './HeroSearch';
  * `priority` exists to prevent.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-export default function Hero({ content, cities, categories }) {
+export default function Hero({ content, categories }) {
   const hero = content?.hero || {};
   const hasImage = Boolean(hero.imageUrl);
 
@@ -91,7 +91,7 @@ export default function Hero({ content, cities, categories }) {
 
               {hero.showSearch !== false && (
                 <div className="pt-2">
-                  <HeroSearch cities={cities} />
+                  <HeroSearch />
                 </div>
               )}
 

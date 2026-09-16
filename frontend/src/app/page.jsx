@@ -5,8 +5,7 @@ import { FeaturedEvents, Categories, Sponsors, OrganizerBand, GuestBand } from '
 import { Testimonials } from './components/landing/Proof';
 import VideoBand from './components/landing/VideoBand';
 import VisitBeacon from './components/landing/VisitBeacon';
-import HeroSeatMap, { SEAT_LEGEND } from './components/marketing/HeroSeatMap';
-import TicketPreview from './components/landing/TicketPreview';
+import { DashboardMockup, PhoneTicketMockup } from './components/landing/Mockups';
 import { Faq, FaqJsonLd } from './components/marketing/Blocks';
 import { FAQ } from './components/marketing/homeContent';
 
@@ -58,8 +57,13 @@ import { FAQ } from './components/marketing/homeContent';
 export const revalidate = 60;
 
 /**
- * Four independent fetches, and a failure in any one of them costs that section
- * and nothing else.
+ * Two independent fetches, and a failure in either costs that section and
+ * nothing else.
+ *
+ * The city list used to be a third: the hero's search had a datalist of places
+ * with events on. That field became the "events near me" button, which resolves
+ * a location on demand — so the list was a request every visitor paid for and
+ * nothing rendered.
  *
  * `failed` on the events call matters for the same reason it did before: a
  * static prerender caches whatever it produced, and CI builds against an
@@ -70,7 +74,7 @@ export const revalidate = 60;
  * because the page must still render its headline when the CMS is unreachable.
  */
 async function load() {
-  const [events, landing, cities] = await Promise.all([
+  const [events, landing] = await Promise.all([
     serverFetch('/public/events?limit=8', { tags: ['events:published'], revalidate: 60 })
       .then((rows) => ({ rows: Array.isArray(rows) ? rows : [], failed: false }))
       .catch(() => ({ rows: [], failed: true })),
@@ -81,16 +85,13 @@ async function load() {
     serverFetch('/public/landing', { tags: ['landing'], revalidate: 60 })
       .catch(() => null),
 
-    serverFetch('/public/cities', { tags: ['landing'], revalidate: 300 })
-      .then((data) => data?.cities || [])
-      .catch(() => []),
   ]);
 
-  return { events: events.rows, failed: events.failed, landing, cities };
+  return { events: events.rows, failed: events.failed, landing };
 }
 
 export default async function HomePage() {
-  const { events, failed, landing, cities } = await load();
+  const { events, failed, landing } = await load();
 
   const content = landing?.content || {};
   const copy = content.sections || {};
@@ -106,7 +107,7 @@ export default async function HomePage() {
       <VisitBeacon path="/" />
 
       {/* ── 1 · Hero ─────────────────────────────────────────────── */}
-      <Hero content={content} cities={cities} categories={categories} />
+      <Hero content={content} categories={categories} />
 
       {/* ── 2 · What is on ───────────────────────────────────────── */}
       <FeaturedEvents copy={copy} events={events} failed={failed} />
@@ -119,28 +120,20 @@ export default async function HomePage() {
 
       {/* ── 5 · For organizers, with the product in it ───────────── */}
       <OrganizerBand block={content.organizer_block || {}}>
-        {/* The seat map, drawn by the module that draws the real one. It is
-            here rather than in the hero because this is where the page claims
-            an organizer can draw a room — the picture is the evidence. */}
-        <div className="fx-stack fx-stack--sm p-4">
-          <HeroSeatMap />
-          <ul className="fx-row fx-row--center fx-row--gap">
-            {SEAT_LEGEND.map((entry) => (
-              <li key={entry.state} className="fx-row items-center gap-2">
-                <span aria-hidden className={`es-legend-dot es-legend-dot--${entry.state}`} />
-                <span className="text-sm text-muted">{entry.label}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
+        {/* The dashboard, drawn in the design system.
+            It was the real `HeroSeatMap` here — honest, and the wrong
+            picture: a bare diagram on a dark band reads as a wireframe, and
+            it showed one screen of a product this band claims has many. See
+            Mockups.jsx for why it is not a screenshot either. */}
+        <DashboardMockup />
       </OrganizerBand>
 
       {/* ── 6 · For guests ───────────────────────────────────────── */}
       <GuestBand block={content.guest_block || {}}>
-        {/* A drawn ticket, not the real component. `TicketStub` needs an order
-            and a QR endpoint, and putting it here would mean fabricating both —
-            see TicketPreview for why that line is worth not crossing. */}
-        <TicketPreview />
+        {/* A ticket on a phone, which is how a ticket is actually held.
+            Not `components/TicketStub`: that needs an order and a signed
+            admission token, and putting it here would mean minting both. */}
+        <PhoneTicketMockup />
       </GuestBand>
 
       {/* ── 7 · The film — nothing until one is uploaded ─────────── */}
@@ -172,7 +165,6 @@ export default async function HomePage() {
 
       {/* ── 10 · Closing ─────────────────────────────────────────── */}
       <section className="es-band--field fx-section relative overflow-hidden">
-        <div aria-hidden className="es-bloom -bottom-60 left-1/2 size-[44rem] -translate-x-1/2" />
         <div className="fx-container fx-container--md relative">
           <div className="fx-stack items-center text-center">
             <h2 className="es-display es-display--wide font-serif">There is something on this week.</h2>
