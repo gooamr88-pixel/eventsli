@@ -4134,6 +4134,31 @@ a.es-sponsor:hover { opacity: 0.7; }
 }
 
 .es-modal__panel {
+  /* THE PANEL DECLARES ITS OWN INK, and this shipped broken without it.
+
+     The dialog is rendered inside the hero, which is `.es-band--photo` — a
+     scope where `--es-text` is #ffffff and `--es-text-muted` is a pale mint,
+     because that is what reads on a photograph. The panel set a white
+     background and inherited those: the heading was white on white and
+     simply absent, and every paragraph was pale mint on white.
+
+     Nothing errors, the markup is correct, and the dialog is unreadable. It
+     is the same trap as the header's inverted roles leaking into the phone
+     menu, and the same fix: an element that changes its ground states its
+     text. These are the light theme's measured values, named. */
+  --es-text:          #0e2a22;
+  --es-text-muted:    #3f6257;
+  --es-text-subtle:   #47695e;
+  --es-border:        var(--es-mint-200);
+  --es-border-strong: var(--es-mint-400);
+  --es-surface:       #ffffff;
+  --es-bg-sunken:     var(--es-mint-100);
+  --es-accent:        var(--es-emerald-800);
+  --es-accent-hover:  var(--es-emerald-900);
+  --es-accent-wash:   var(--es-mint-100);
+  --es-text-on-accent:#ffffff;
+  color: var(--es-text);
+
   position: relative;
   display: flex;
   flex-direction: column;

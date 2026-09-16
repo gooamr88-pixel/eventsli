@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState, useSyncExternalStore } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { get } from '../../utils/apiClient';
 import NavIcon from '../shell/NavIcon';
@@ -45,8 +46,40 @@ import NavIcon from '../shell/NavIcon';
 /** How far out "near you" reaches before it stops being near. */
 const RADIUS_KM = 100;
 
+/* The mount gate, as an external store. Hoisted to module scope so the three
+   functions are stable identities and the hook never re-subscribes. */
+const NO_SUBSCRIBE = () => () => {};
+const ON_CLIENT = () => true;
+const ON_SERVER = () => false;
+
 export default function NearMeDialog({ open, onClose }) {
   const id = useId();
+  /**
+   * RENDERED INTO <body>, NOT WHERE IT IS WRITTEN.
+   *
+   * The dialog is used from the hero, which is `.es-band--photo` — a scope
+   * that inverts every text role to white for the photograph behind it. A
+   * modal rendered inside it inherits that and comes out white-on-white, which
+   * is exactly what shipped once. The panel names its own roles as well, but
+   * the portal is the structural fix: a modal is a sibling of the page, not a
+   * descendant of whatever opened it.
+   *
+   * It also removes the stacking-context risk. A `position: fixed` element is
+   * positioned against the viewport UNLESS an ancestor has a transform, filter
+   * or containment — any of which would silently anchor this to a hero section
+   * instead of the screen.
+   *
+   * `mounted` gates it because `document` does not exist during the server
+   * render; without it the first client render would not match the server's.
+   *
+   * `useSyncExternalStore` rather than a `useState` + `useEffect` mount flag:
+   * the flag version calls setState inside an effect, which produces a render
+   * React immediately discards and which `react-hooks/set-state-in-effect`
+   * refuses. The subscribe function never fires because the answer never
+   * changes after mount — the two snapshots ARE the whole hook here: `false`
+   * on the server, `true` on the client.
+   */
+  const mounted = useSyncExternalStore(NO_SUBSCRIBE, ON_CLIENT, ON_SERVER);
   const panel = useRef(null);
   const closeRef = useRef(null);
   const [phase, setPhase] = useState('ask');   // ask | locating | result | error
@@ -139,9 +172,9 @@ export default function NearMeDialog({ open, onClose }) {
     );
   }
 
-  if (!open) return null;
+  if (!open || !mounted) return null;
 
-  return (
+  return createPortal(
     <div
       className="es-modal"
       // A click on the backdrop closes; a click inside the panel must not.
@@ -171,7 +204,8 @@ export default function NearMeDialog({ open, onClose }) {
         {phase === 'result' && <Result id={id} data={result} onClose={close} />}
         {phase === 'error' && <Failed id={id} message={error} onRetry={() => setPhase('ask')} onClose={close} />}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
