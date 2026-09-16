@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import NavIcon from '../components/shell/NavIcon';
 
 /**
@@ -14,6 +13,11 @@ import NavIcon from '../components/shell/NavIcon';
  * on a phone the reader is here to type, not to be sold to. The panel has no
  * headings — each form owns the page's only <h1>, and a heading above it would
  * scramble the outline.
+ *
+ * The panel carries no "bought as a guest?" line, though it did. That sentence
+ * has to reach a phone, where this panel is display:none — so it lives in the
+ * form instead, and a copy here only made it appear twice, forty pixels apart,
+ * on exactly the screens wide enough to show both.
  */
 const REASONS = [
   ['ticket', 'Every ticket you buy, in one place — including ones bought as a guest with the same email.'],
@@ -26,7 +30,7 @@ export default function AuthLayout({ children }) {
     <main className="fx-section fx-section--sm">
       <div className="fx-container fx-container--lg">
         <div className="es-plate grid overflow-hidden bg-surface lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
-          <aside className="es-band--field relative hidden overflow-hidden p-10 lg:flex lg:flex-col lg:justify-between">
+          <aside className="es-band--field relative hidden overflow-hidden p-10 lg:flex lg:flex-col lg:justify-center">
             <div aria-hidden className="es-bloom -top-32 -left-24 size-[26rem]" />
             <div className="fx-stack relative">
               <p className="es-eyebrow text-accent">Eventsli</p>
@@ -40,9 +44,6 @@ export default function AuthLayout({ children }) {
                 ))}
               </ul>
             </div>
-            <p className="relative text-sm text-subtle">
-              Bought as a guest? <Link href="/tickets/find" className="text-accent underline">Find your tickets</Link> without an account.
-            </p>
           </aside>
 
           <div className="p-6 sm:p-10">

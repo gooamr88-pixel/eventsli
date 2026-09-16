@@ -30,6 +30,16 @@ const PATHS = {
   tick: ['M5 12.5l4.5 4.5L19 7.5'],
   alert: ['M12 3 2.5 20h19L12 3z', 'M12 10v4.5', 'M12 17.5h.01'],
   arrow: ['M5 12h14', 'M13 6l6 6-6 6'],
+  // Added for the storefront's search bar. The only magnifier in the app: the
+  // header's search affordance and the hero's field are the same idea and must
+  // not be two different glyphs.
+  search: ['M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14z', 'M16.2 16.2 21 21'],
+  play: ['M8 5.5v13l11-6.5-11-6.5z'],
+  heart: ['M12 20s-7.5-4.7-7.5-10A4.2 4.2 0 0 1 12 7.6 4.2 4.2 0 0 1 19.5 10c0 5.3-7.5 10-7.5 10z'],
+  star: ['M12 3.5l2.6 5.6 6 .8-4.4 4.2 1.1 6-5.3-2.9-5.3 2.9 1.1-6L3.4 9.9l6-.8L12 3.5z'],
+  // Delete. Distinct from `alert`, which is a warning triangle — using that for
+  // a bin makes every destructive control look like a validation message.
+  trash: ['M4 7h16', 'M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2', 'M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13', 'M10 11v6', 'M14 11v6'],
   external: ['M14 4h6v6', 'M20 4l-9 9', 'M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5'],
   pin: ['M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z', 'M12 12a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z'],
   clock: ['M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z', 'M12 7v5l3 2'],
@@ -48,16 +58,28 @@ const PATHS = {
   door: ['M5 21V4a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v17', 'M3 21h18', 'M14.5 12h.01'],
 };
 
-export default function NavIcon({ name, size = 20 }) {
+/**
+ * @param {object} props
+ * @param {string} [props.className]  for a caller that needs to tone one icon
+ *   differently from the text beside it — the empty half of a star rating is
+ *   the case this was added for. Everything else should let `currentColor` do
+ *   its job.
+ * @param {boolean} [props.filled]  paint the shape as well as stroke it. Only
+ *   meaningful for the closed shapes (star, heart, play); on an open path like
+ *   `arrow` it fills the area the stroke encloses, which is not a thing anyone
+ *   wants.
+ */
+export default function NavIcon({ name, size = 20, className = '', filled = false }) {
   const paths = PATHS[name] || PATHS.info;
   return (
     <svg
       aria-hidden="true"
       focusable="false"
+      className={className}
       width={size}
       height={size}
       viewBox="0 0 24 24"
-      fill="none"
+      fill={filled ? 'currentColor' : 'none'}
       stroke="currentColor"
       strokeWidth="1.75"
       strokeLinecap="round"

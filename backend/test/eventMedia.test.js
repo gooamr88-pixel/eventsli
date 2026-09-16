@@ -7,9 +7,7 @@ const path = require('node:path');
 // here: it requires config/supabase, which throws at module load without
 // credentials, and a rule that can only be checked against a live project is a
 // rule nobody checks.
-const {
-  partitionPatch, EVENT_CATEGORIES, ORGANIZER_EDITABLE,
-} = require('../services/eventRules');
+const { partitionPatch, ORGANIZER_EDITABLE } = require('../services/eventRules');
 const { ERROR_STATUS } = require('../utils/responseEnvelope');
 
 const MIGRATION = path.join(
@@ -18,24 +16,54 @@ const MIGRATION = path.join(
 );
 const migrationSql = fs.readFileSync(MIGRATION, 'utf8');
 
+const CMS_MIGRATION = path.join(
+  __dirname, '..', '..', 'supabase', 'migrations',
+  '20260916100000_storefront_cms.sql',
+);
+const cmsSql = fs.readFileSync(CMS_MIGRATION, 'utf8');
+
 // ── Category ────────────────────────────────────────────────────────────────
 
-test('the exported categories are exactly the enum the migration creates', () => {
-  // The failure this catches: someone adds a value to the enum and not to the
-  // list, so the database accepts a category the validator rejects — or the
-  // reverse, where the validator waves through a value Postgres refuses to cast
-  // and a public endpoint answers 500. Neither failure mentions the other list,
-  // which is what makes it expensive to find.
+/**
+ * THE ENUM IS GONE, and this test changed shape with it.
+ *
+ * It used to assert that `EVENT_CATEGORIES` in eventRules matched the values in
+ * `CREATE TYPE event_category` — one list, two places, checked. The storefront
+ * migration turned the enum into `event_categories` rows so an admin can add a
+ * category without a deploy, which makes a frozen array in source impossible to
+ * keep correct by definition.
+ *
+ * What replaces the guarantee is a foreign key, and these two tests assert the
+ * pieces of it that live in files rather than in the running database: that the
+ * seed covers every value the old enum held, so no existing event was orphaned,
+ * and that the column still points at the table.
+ */
+test('every value of the old enum survives as a seeded category row', () => {
   const block = migrationSql.match(/CREATE TYPE event_category AS ENUM \(([\s\S]*?)\);/);
-  assert.ok(block, 'the migration must still create event_category');
+  assert.ok(block, 'the original migration must still show what the enum held');
+  const fromEnum = [...block[1].matchAll(/'([a-z_]+)'/g)].map((m) => m[1]);
 
-  const fromSql = [...block[1].matchAll(/'([a-z_]+)'/g)].map((m) => m[1]);
+  const seed = cmsSql.match(/INSERT INTO event_categories \(slug, label, sort_order\) VALUES([\s\S]*?);/);
+  assert.ok(seed, 'the storefront migration must seed event_categories');
+  const seeded = [...seed[1].matchAll(/\('([a-z_]+)',/g)].map((m) => m[1]);
 
   assert.deepEqual(
-    [...EVENT_CATEGORIES].sort(),
-    [...fromSql].sort(),
-    'EVENT_CATEGORIES and the event_category enum have drifted apart',
+    [...fromEnum].sort(),
+    [...seeded].sort(),
+    'a category the enum held is not seeded — events filed under it would break the foreign key',
   );
+});
+
+test('events.category is a foreign key that refuses an unknown value', () => {
+  // The guarantee the enum used to give. Without the key, `category` is free
+  // text and "Music", "music" and "MUSIC" are three categories again.
+  assert.match(cmsSql, /ALTER TABLE events ALTER COLUMN category TYPE TEXT/);
+  assert.match(
+    cmsSql,
+    /FOREIGN KEY \(category\) REFERENCES event_categories\(slug\)/,
+  );
+  // RESTRICT, not CASCADE: deleting a category must not delete events.
+  assert.match(cmsSql, /ON UPDATE CASCADE ON DELETE RESTRICT/);
 });
 
 test('category is organizer-editable and maps to its column', () => {
@@ -46,13 +74,12 @@ test('category is organizer-editable and maps to its column', () => {
   assert.deepEqual(denied, []);
 });
 
-test("'other' is a real category, because it is the column default", () => {
-  // A NOT NULL DEFAULT that is not a legal value of the enum would fail on the
-  // ALTER rather than at runtime, but the pairing is worth asserting: if the
-  // default is ever changed to something outside the list, every existing row
-  // becomes unfilterable.
-  assert.ok(EVENT_CATEGORIES.includes('other'));
-  assert.match(migrationSql, /ADD COLUMN category event_category NOT NULL DEFAULT 'other'/);
+test("'other' is seeded, because it is the column default", () => {
+  // The default survived the move from enum to table, and a default that is not
+  // a row is a foreign-key violation on every event created without a category
+  // — which is most of them, since the field is optional.
+  assert.match(cmsSql, /\('other',\s+'Everything else'/);
+  assert.match(cmsSql, /ALTER TABLE events ALTER COLUMN category SET DEFAULT 'other'/);
 });
 
 // ── The cover, and why it is not a field ────────────────────────────────────

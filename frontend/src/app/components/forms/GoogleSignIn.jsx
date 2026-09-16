@@ -57,6 +57,13 @@ export default function GoogleSignIn({ onSuccess, onError, text = 'signin_with' 
       size: 'large',
       width: 320,
       text,
+      // PINNED, and not left to Google. Unset, GIS localises the button from
+      // the browser's own language — so on a machine set to Arabic the one
+      // control on the sign-in form that is not ours rendered as
+      // "تسجيل الدخول باستخدام Google", right-to-left, under an English label,
+      // in a product the BRD fixes as English-only with no Arabic font loaded.
+      // The button then sets its own direction and the row reads as broken.
+      locale: 'en',
     });
   }, [ready, clientId, text, onSuccess, onError]);
 
@@ -64,8 +71,14 @@ export default function GoogleSignIn({ onSuccess, onError, text = 'signin_with' 
 
   return (
     <>
+      {/* `?hl=en` is the half that actually works. The `locale` passed to
+          renderButton below is documented, but GIS has already chosen its
+          language by the time the button is drawn — it reads it from the
+          script URL, falling back to the browser's. Both are set: the query
+          decides it, the option keeps it from drifting if Google changes
+          which one wins. */}
       <Script
-        src="https://accounts.google.com/gsi/client"
+        src="https://accounts.google.com/gsi/client?hl=en"
         strategy="afterInteractive"
         onReady={() => setReady(true)}
       />

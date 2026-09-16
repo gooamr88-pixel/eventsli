@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth, signOut } from '../hooks/useAuth';
 import Logo from './brand/Logo';
+import ThemeToggle from './ThemeToggle';
 
 /**
  * The masthead.
@@ -51,6 +52,31 @@ function SiteNav({ pathname }) {
   const [menuOpen, setMenuOpen] = useState(false);
 
   /**
+   * THE HEADER SITS ON THE HERO'S PHOTOGRAPH, on the one page that has one.
+   *
+   * Transparent while the hero is behind it, solid once the page has scrolled
+   * past it. `.es-overhero[data-over="true"]` inverts the text ROLES rather
+   * than setting a white `color` — the same reason `.es-band--ink` does, and
+   * the same failure it avoids: setting `color` alone leaves every `text-muted`
+   * child at slate-600 on a photograph.
+   *
+   * `useSyncExternalStore`, not `useState` + `useEffect`. Scroll position is an
+   * external store, and this is the hook for reading one: there is no setState
+   * to land in the wrong render, and it is what
+   * `react-hooks/set-state-in-effect` exists to push a scroll listener
+   * towards. The first attempt here did call setState inside the effect and
+   * the linter refused it — correctly, because the synchronous initial call
+   * produces a render React immediately discards.
+   *
+   * THE SERVER SNAPSHOT IS `false`, and that is the safety property. The
+   * readable solid header is what renders on the server and before hydration,
+   * so a JavaScript failure leaves a legible masthead rather than white text
+   * on cream paper.
+   */
+  const onHeroPage = pathname === '/';
+  const overHero = useOverHero(onHeroPage);
+
+  /**
    * Close the menu when the route changes.
    *
    * Without this, tapping a link navigates and leaves the panel sitting open
@@ -92,9 +118,16 @@ function SiteNav({ pathname }) {
   }, [menuOpen]);
 
   const links = navLinks({ signedIn, loading, user, pathname });
+  const cta = navCta({ signedIn, loading, user });
 
   return (
-    <header className="sticky top-0 z-(--es-z-navbar) border-b border-border-base bg-bg/85 backdrop-blur">
+    <header
+      data-over={overHero ? 'true' : 'false'}
+      // The background, the border and the blur are NOT utilities here. They
+      // live in `.es-overhero` so the transparent state can win — a utility
+      // sits in a later cascade layer and beat it. See globals.css.
+      className="es-overhero sticky top-0 z-(--es-z-navbar) transition-colors duration-300"
+    >
       <div className="fx-gutter">
         <div className="fx-container fx-container--xl">
           <div className="fx-row fx-row--between h-16">
@@ -108,20 +141,41 @@ function SiteNav({ pathname }) {
                 different set from the desktop — which is how "Find my
                 tickets" goes missing on mobile and nobody notices for a
                 month. */}
+            {/* THREE LEVELS, where there was one.
+                Every item here used to be the same muted 14px link — the
+                destination someone is most likely to want (sign in, or the
+                dashboard they are paying us for) was styled exactly like
+                "Events", so the bar had no shape and the eye had nowhere to
+                land. Now: plain links read as navigation, one button is the
+                obvious next step, and the theme control is an icon that does
+                not compete with either. */}
             <nav className="fx-hide-below-md fx-row" aria-label="Main">
               {links.map((link) => (
                 <NavLink key={link.href} link={link} pathname={pathname} />
               ))}
+              <ThemeToggle className="ml-1" />
               {signedIn && (
                 <button
                   type="button"
                   onClick={() => signOut()}
-                  className="es-btn es-btn--secondary es-btn--sm"
+                  className="es-btn es-btn--ghost es-btn--sm"
                 >
                   Sign out
                 </button>
               )}
+              {cta && (
+                <Link href={cta.href} className="es-btn es-btn--primary es-btn--sm whitespace-nowrap">
+                  {cta.label}
+                </Link>
+              )}
             </nav>
+
+            {/* The theme control sits OUTSIDE the phone's panel, next to the
+                burger, because it is a setting rather than a destination —
+                putting it in the list would make it the fourth "page" on a
+                menu of three. */}
+            <div className="fx-row md:hidden">
+              <ThemeToggle />
 
             {/* ── The phone's button ─────────────────────────────────
                 `aria-expanded` and `aria-controls` are not decoration: they
@@ -142,6 +196,7 @@ function SiteNav({ pathname }) {
             >
               <Burger open={menuOpen} />
             </button>
+            </div>
           </div>
         </div>
       </div>
@@ -182,11 +237,43 @@ function SiteNav({ pathname }) {
                   </button>
                 </li>
               )}
+              {/* The same one action the desktop bar promotes, as a full-width
+                  button at the end of the list rather than a fourth link — so
+                  the phone and the desktop agree about what the next step is. */}
+              {cta && (
+                <li className="pt-1">
+                  <Link href={cta.href} className="es-btn es-btn--primary w-full">
+                    {cta.label}
+                  </Link>
+                </li>
+              )}
             </ul>
           </div>
         </nav>
       )}
     </header>
+  );
+}
+
+/**
+ * Whether the masthead is still over the hero's photograph.
+ *
+ * The threshold is deliberately short of the hero's full height. The header has
+ * to become solid while there is still photograph behind it — switching exactly
+ * at the boundary leaves the last few pixels of scroll with white text on the
+ * pale top of the next band.
+ */
+function useOverHero(enabled) {
+  return useSyncExternalStore(
+    (onChange) => {
+      if (!enabled) return () => {};
+      // `passive`: this never calls preventDefault, and a non-passive scroll
+      // listener blocks the compositor on every frame of every scroll.
+      window.addEventListener('scroll', onChange, { passive: true });
+      return () => window.removeEventListener('scroll', onChange);
+    },
+    () => enabled && window.scrollY < window.innerHeight * 0.6,
+    () => false,
   );
 }
 
@@ -217,6 +304,28 @@ function navLinks({ signedIn, loading, user, pathname }) {
     { href: '/tickets/find', label: 'Find my tickets' },
     { href: `/login?next=${encodeURIComponent(pathname || '/')}`, label: 'Sign in' },
   ];
+}
+
+/**
+ * The one promoted action, and it changes with who is asking.
+ *
+ * The homepage has said since it was written that this site has two readers —
+ * somebody looking for a ticket, and somebody deciding whether to sell here —
+ * but the second reader could only find that out by scrolling to the fifth
+ * band. This puts their next step in the masthead on every page.
+ *
+ * Routes only, no new ones: `/register` and `/organizer` both already exist and
+ * are already linked from the homepage and the footer.
+ *
+ * Nothing at all while the session is in flight. A CTA that says "Start
+ * selling" for a moment and then becomes "Organizer" is a button that moves
+ * under the pointer of the organizer who was already reaching for it.
+ */
+function navCta({ signedIn, loading, user }) {
+  if (loading) return null;
+  if (signedIn && user?.isOrganizer) return { href: '/organizer', label: 'Organizer' };
+  if (signedIn) return { href: '/organizer', label: 'Start selling' };
+  return { href: '/register', label: 'Start selling' };
 }
 
 /**

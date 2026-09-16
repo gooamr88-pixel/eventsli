@@ -19,5 +19,6 @@ router.use(requireAuth, requireRole('admin'));
 router.use(require('./approvalRoutes'));
 router.use(require('./userRoutes'));
 router.use(require('./insightRoutes'));
+router.use(require('./storefrontRoutes'));
 
 module.exports = router;

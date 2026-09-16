@@ -37,6 +37,13 @@ export function adminNavGroups() {
       ],
     },
     {
+      id: 'storefront',
+      label: 'Storefront',
+      items: [
+        { key: 'content', label: 'Homepage content', icon: 'layers', href: '/admin/content' },
+      ],
+    },
+    {
       id: 'governance',
       label: 'Governance',
       items: [

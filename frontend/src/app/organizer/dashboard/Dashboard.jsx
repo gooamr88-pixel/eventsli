@@ -89,7 +89,7 @@ export default function Dashboard() {
         <GettingStarted organizer={organizer} />
       ) : (
         <>
-          <div className="fx-grid fx-grid--4">
+          <div className="es-statgrid">
             <StatCard
               label="Revenue"
               value={formatMoney(sales.grossCents, currency)}

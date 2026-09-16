@@ -27,7 +27,7 @@ export default function EventStats({ eventId, currency }) {
 
   return (
     <div className="fx-stack">
-      <div className="fx-grid fx-grid--4">
+      <div className="es-statgrid">
         <StatCard
           label="Revenue"
           value={formatMoney(data.grossCents, cur)}

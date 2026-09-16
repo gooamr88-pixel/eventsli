@@ -207,6 +207,29 @@
   --es-font-serif: var(--font-dm-serif), Georgia, 'Times New Roman', serif;
   --es-font-mono:  var(--font-dm-mono), ui-monospace, 'Cascadia Code', Consolas, monospace;
 
+  /* ── The fourth face, and the only decorative one ────────────────────
+     ADDED 2026-09-16 for the storefront. A connected script, used for
+     exactly one thing: the short handwritten aside beside a band's
+     heading ("Good events, brighter people"). See `.es-script`.
+
+     It earns its place because the alternative is worse. The design the
+     storefront was built to calls for that aside; set in the serif at an
+     angle it reads as a mistake, and set in the sans it reads as a second
+     subtitle competing with the real one. A script says "this is an
+     aside" without any other signal.
+
+     It is also FENCED. `.es-script` is the one rule that names it, it is
+     never applied to anything a reader must read to use the page, and
+     every line set in it is duplicated nowhere — the sentence beside it
+     carries the meaning. A decorative face applied to content is how a
+     page becomes unreadable for the people who most need it not to be. */
+  --es-font-script: var(--font-script), 'Segoe Script', cursive;
+
+  /* The masthead's height. `SiteHeader` draws it as `h-16`; `.es-hero` pulls
+     itself up by exactly this so the photograph starts at the top of the
+     page. Two places, one value. */
+  --es-header-h: 4rem;
+
   /* REBUILT 2026-09-06. The ported ramp was a dense-dashboard ramp and
      this is a storefront. Measured at 390px it resolved to:
 
@@ -234,7 +257,15 @@
   --es-text-2xl:  clamp(1.875rem, 1.66rem + 1.07vw, 2.5rem);
   --es-text-3xl:  clamp(2.375rem, 1.99rem + 1.92vw, 3.5rem);
   --es-text-4xl:  clamp(2.875rem, 2.28rem + 2.98vw, 4.75rem);
-  --es-text-5xl:  clamp(3.5rem, 2.7rem + 4vw, 6rem);
+  /* The floor moved 3.5rem -> 2.5rem on 2026-09-16, and it is a measurement.
+     At 320px an `.fx-section` leaves 280px of inline space. A word set at
+     56px contributes roughly 0.55 x 56 x <chars> to min-content, so any word
+     longer than nine characters pushed the page wider than the phone — which
+     is how the storefront's "Extraordinary" headline put an 18px horizontal
+     scroll on the whole document. The hero's headline is EDITABLE, so no
+     floor is safe by itself; this makes the common case fit and `.es-display`
+     carries the last-resort break for the rest. */
+  --es-text-5xl:  clamp(2.5rem, 1.6rem + 4.5vw, 6rem);
 
   --es-leading-tight:   1.15;
   --es-leading-snug:    1.3;
@@ -476,6 +507,7 @@
   --font-sans:  var(--es-font-sans);
   --font-serif: var(--es-font-serif);
   --font-mono:  var(--es-font-mono);
+  --font-script: var(--es-font-script);
 
   /* The type scale becomes the UTILITY names, so `text-2xl` IS this scale and
      there is nothing else for a component to reach for. The alternative —
@@ -656,9 +688,55 @@
   grid-template-columns: repeat(auto-fit, minmax(min(var(--fx-col, 280px), 100%), 1fr));
   min-width: 0;
 }
+/* ── .fx-grid--fill — for grids of PICTURES ─────────────────────────────
+   The stretch auto-fit gives a short last row is right for text: three
+   claims in a four-track grid should share the width rather than leave a
+   hole. It is wrong for anything with an image in it. A listing that
+   matched one event rendered that event as a 1,100px card with a cover
+   photo three times the size of every other cover on the site — the page
+   looked like a feature banner for the only thing that matched, which is
+   the opposite of what one result means.
+
+   auto-fill keeps the empty tracks, so a card is the same size whether it
+   has one neighbour or five. Use it wherever the cell holds a cover; keep
+   auto-fit for prose and stat tiles. */
+.fx-grid--fill {
+  grid-template-columns: repeat(auto-fill, minmax(min(var(--fx-col, 280px), 100%), 1fr));
+}
 .fx-grid--2 { --fx-col: 560px; }
 .fx-grid--3 { --fx-col: 340px; }
 .fx-grid--4 { --fx-col: 260px; }
+
+/* ── .es-statgrid — a row of four figures, and never three plus one ─────
+   Stat tiles are the one grid where an intrinsic column count is wrong.
+   `auto-fit` packs as many 260px tracks as fit, and inside a console whose
+   sidebar has already taken 272px the answer at 1440px is THREE — so the
+   admin overview and the organizer dashboard both opened on a row of three
+   figures with a fourth stranded underneath beside a half-width hole. The
+   previous platform's console does the same thing with six tiles (five and
+   an orphan), so this is not a fault anyone inherited; it is what auto-fit
+   does to a fixed-length list.
+
+   A count that is a FACTOR of four at every width is the whole trick: one
+   column on a phone, two from sm, four from xl. Every arrangement is a
+   full rectangle, and the tiles never resize to something that is neither
+   a quarter nor a half of the row.
+
+   For rows of four. A three-tile row keeps .fx-grid--3, where a short last
+   row is the intended behaviour. */
+.es-statgrid {
+  display: grid;
+  gap: var(--fx-gap);
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+}
+.es-statgrid > * { min-width: 0; }
+@media (width >= theme(--breakpoint-sm)) {
+  .es-statgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (width >= theme(--breakpoint-xl)) {
+  .es-statgrid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
 .fx-grid--gap-lg { --fx-gap: var(--fx-gap-lg); }
 .fx-grid > *, .fx-min0 { min-width: 0; }
 
@@ -685,6 +763,22 @@
   overflow-x: auto;
   overscroll-behavior-x: contain;
   -webkit-overflow-scrolling: touch;
+}
+/* ── .fx-row--scroll-sm — scrolls on a phone, wraps on a desk ───────────
+   A sideways-scrolling strip of pills is the right answer at 390px, where
+   wrapping thirteen of them costs three lines above the first result. It
+   is the wrong answer at 1440px: the strip ran off the right edge with the
+   last category sliced down the middle, and a desktop pointer gets no
+   scrollbar until it is already hovering the row — so the categories past
+   the fold read as a rendering fault rather than as more content.
+
+   There is room for two lines on a desk and none on a phone, so the row
+   changes behaviour at the same place the room appears. */
+@media (width >= theme(--breakpoint-md)) {
+  .fx-row--scroll-sm {
+    flex-wrap: wrap;
+    overflow-x: visible;
+  }
 }
 
 /* ── Overflow escape hatches ────────────────────────────────────────────
@@ -939,6 +1033,42 @@
    stops being possible. */
 .es-input[aria-invalid='true'] { border-color: var(--es-danger); }
 .es-input:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ── The password reveal ────────────────────────────────────────────────
+   Carried over from the previous platform, which put an eye on every
+   password box (`.ev-pass-toggle`). It is worth carrying: the alternative
+   to showing someone what they typed is that they get it wrong, and on a
+   phone keyboard with a password manager off, they get it wrong often.
+
+   The button sits INSIDE the box rather than beside it, so the field keeps
+   its full width and the row does not grow a second column on a phone. It
+   is square at the touch floor — the same `--fx-touch` the input's own
+   min-height reads, so the target fills the box's height exactly and there
+   is no 44px control overhanging a 40px box.
+
+   `padding-inline-end` on the input is what keeps a long password from
+   running under the eye. It is applied by a modifier and not by
+   `.es-input:has(+ button)`, because the reveal is optional per field and a
+   `:has()` here would also catch any other button a caller puts after an
+   input. */
+.es-input-wrap { position: relative; display: flex; align-items: stretch; }
+.es-input--reveal { padding-inline-end: var(--fx-touch); }
+.es-input-reveal {
+  position: absolute;
+  inset-inline-end: 0;
+  inset-block: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--fx-touch);
+  border-radius: var(--es-radius-md);
+  color: var(--es-text-subtle);
+  background: none;
+  border: 0;
+  cursor: pointer;
+  transition: color var(--es-transition-fast);
+}
+.es-input-reveal:hover { color: var(--es-text); }
 
 /* ── .es-eyebrow — the tracked micro-label ──────────────────────────────
    Mono, uppercase, wide tracking, accent colour. Three call sites had
@@ -1312,7 +1442,26 @@
   letter-spacing: -0.025em;
   text-wrap: balance;
   max-width: 14ch;
+  /* Hyphenate before breaking. At a display size a mid-word break is ugly and
+     a hyphenated one is a typographic convention, so the browser is given the
+     chance to find a real hyphenation point first. Needs `lang` on <html>,
+     which the root layout sets. */
+  overflow-wrap: break-word;
+  hyphens: auto;
 }
+
+/* THE LAST RESORT, and only on a phone.
+   `overflow-wrap: break-word` stops a long word painting outside its box but
+   does NOT reduce the element's min-content contribution — only `anywhere`
+   does, which is the distinction AGENTS.md spells out and the reason a
+   headline could still widen the document while looking fine.
+   Below sm the choice is a hard break inside one word or a horizontal scroll
+   on the entire page, and the scroll is worse: it moves every other thing on
+   the page too, and on iOS it is how a fixed header drifts off screen. */
+@media (width < 40rem) {
+  .es-display { overflow-wrap: anywhere; }
+}
+
 .es-display--wide { max-width: 20ch; }
 
 /* ── .es-figure — an image with a shape of its own ──────────────────────
@@ -1532,11 +1681,12 @@
   color-scheme: dark;
   background: var(--es-bg);
   border-inline-end: 1px solid var(--es-border);
-  overflow-x: hidden;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-width: thin;
-  scrollbar-color: var(--es-border-strong) transparent;
+  /* The PANEL does not scroll; its middle does — see .es-nav__body. Scrolling
+     the whole panel made everything reachable, which was the point, but it
+     also carried the account block, the theme row and sign-out off the bottom
+     of a 900px screen: the three controls a person looks for by position
+     rather than by reading. Now the list is the only part that moves. */
+  overflow: hidden;
   transform: translateX(-100%);
   /* A closed drawer is off-screen, and off-screen is not gone: visibility takes
      it out of the tab order and the accessibility tree. The delay lets the
@@ -1584,12 +1734,25 @@
   padding-block-end: max(1rem, var(--fx-safe-b));
 }
 
+/* `min-height: 0` is the whole fix and it is not optional. A flex item's
+   default `min-height: auto` refuses to shrink below its content, so this
+   list pushed the panel taller than the viewport however the panel was told
+   to behave — which is what made the panel itself the scroller. Zero lets it
+   shrink, and then `overflow-y: auto` here has something to do.
+
+   `overscroll-behavior: contain` so reaching the end of a long group does not
+   start scrolling the page behind the sidebar. */
 .es-nav__body {
   flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
   padding: 0.75rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--es-border-strong) transparent;
 }
 
 .es-nav__group-label {
@@ -2192,6 +2355,16 @@
   scrollbar-width: none;
   padding-block: 2px;
 }
+/* Wraps from md up, for the same reason the category strip does. The scroll
+   above is paired with `scrollbar-width: none`, which on a phone is right —
+   a thumb swipes and a scrollbar would only eat 6px. On a desk it means an
+   overflowing filter row is clipped with NO scrollbar and no gesture most
+   people would try, so a console list filtered by eight statuses simply
+   loses the last three. Wrapping costs a second line on the widest screens
+   and nothing at all when the row already fits. */
+@media (width >= theme(--breakpoint-md)) {
+  .es-segmented { flex-wrap: wrap; overflow-x: visible; }
+}
 .es-segmented__option {
   display: inline-flex;
   align-items: center;
@@ -2479,6 +2652,560 @@
   box-shadow: 0 0 0 3px var(--es-accent-subtle);
 }
 .es-otp__box[aria-invalid='true'] { border-color: var(--es-danger); }
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   THE STOREFRONT
+
+   ADDED 2026-09-16. Everything below belongs to the landing page, and it
+   is one block rather than twelve scattered rules so the next person can
+   see the whole storefront's vocabulary at once.
+
+   WHAT CHANGED IN THE THINKING. The homepage was built on a principle
+   written into page.jsx: "a stock photo of a crowd is a photo of a crowd
+   that is not this crowd", so the hero showed a seat map drawn by the
+   real module instead. That was the right call for a page with no
+   photography to use. It is the wrong call for a page that HAS
+   photography — a ticketing storefront whose front page shows a diagram
+   is asking a buyer to want a diagram.
+
+   The seat map has not been deleted. It moved to the band that makes the
+   claim it illustrates, where it is evidence rather than decoration.
+
+   THE ONE RULE THESE RULES FOLLOW: text over a photograph gets a ground,
+   not a shadow. `scripts/contrast.js` measures text roles against
+   `--es-bg`, and it cannot see a photograph — so any band that puts text
+   on an image declares the ground the scrim resolves to, and the scrim is
+   opaque enough at the text to BE that ground. A text-shadow would pass
+   every gate in this repo and be unreadable over a pale sky.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── .es-hero — a photograph with a page on it ──────────────────────────
+   The band carries `.es-band--field`, so every text role inside it is
+   already the inverted set the gate measures. This adds the picture
+   underneath and the scrim between.
+
+   `min-height` in `svh`, not `vh`. On iOS `100vh` is the height the
+   viewport has when the address bar is RETRACTED, so a `100vh` hero is
+   taller than the screen on first paint and the call to action sits under
+   the browser chrome — the one element that must not. */
+.es-hero {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  align-items: center;
+  min-height: min(92svh, 56rem);
+  overflow: hidden;
+}
+
+@media (width < 48rem) {
+  /* Shorter on a phone, because a full-height hero on a 667px screen is a
+     page the reader has to scroll before they learn the site has anything
+     on it at all. */
+  .es-hero { min-height: min(86svh, 44rem); }
+}
+
+.es-hero__media {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+}
+.es-hero__media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* The supplied artwork has its subject low and left; a plain `center`
+     crop cuts the skyline off on a tall phone. */
+  object-position: center 40%;
+}
+
+/* ── .es-hero__scrim — the ground, spelled out ──────────────────────────
+   Two gradients, and they do different jobs.
+
+   The first is vertical and weights the BOTTOM, where the search bar sits
+   on whatever the photograph happens to be doing. The second is
+   horizontal and weights the READING EDGE, so the headline has a
+   consistent ground no matter what is behind it.
+
+   The stops end at `--es-bg`, which on this band resolves to forest-900 —
+   the same value contrast.js measures the hero's text against. That is
+   what makes the gate's answer true rather than approximately true. */
+.es-hero__scrim {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    linear-gradient(
+      to top,
+      var(--es-bg) 0%,
+      color-mix(in srgb, var(--es-bg) 72%, transparent) 20%,
+      color-mix(in srgb, var(--es-bg) 22%, transparent) 60%,
+      color-mix(in srgb, var(--es-bg) 45%, transparent) 100%
+    ),
+    /* WEAKENED 2026-09-16 after looking at it. The first version ran to a full
+       opaque `--es-bg` at the left edge and held 72% out to 42% of the width,
+       which put the headline on a flat green panel with the photograph
+       visible only to the right of it — a hero with a picture in the corner
+       rather than a hero that IS a picture.
+       It still reaches full opacity at the very edge, because that is where
+       the text starts and the ground has to be the one contrast.js measured;
+       it just gets out of the way far sooner. */
+    linear-gradient(
+      to right,
+      var(--es-bg) 0%,
+      color-mix(in srgb, var(--es-bg) 55%, transparent) 26%,
+      color-mix(in srgb, var(--es-bg) 18%, transparent) 52%,
+      transparent 70%
+    );
+}
+
+@media (width < 48rem) {
+  /* On a phone the text spans the full width, so the horizontal gradient
+     has nothing to weight and the vertical one has to carry it alone. */
+  .es-hero__scrim {
+    background: linear-gradient(
+      to top,
+      var(--es-bg) 0%,
+      color-mix(in srgb, var(--es-bg) 88%, transparent) 38%,
+      color-mix(in srgb, var(--es-bg) 45%, transparent) 78%,
+      color-mix(in srgb, var(--es-bg) 62%, transparent) 100%
+    );
+  }
+}
+
+.es-hero__body {
+  position: relative;
+  width: 100%;
+  padding-block: clamp(4rem, 12vh, 9rem);
+}
+
+/* The hero's headline is allowed past `.es-display`'s measure: it is two
+   short lines by construction (a title and an accent), not a paragraph. */
+.es-hero__title { max-width: 16ch; }
+
+/* ── .es-script — the handwritten aside ─────────────────────────────────
+   Decorative, and fenced. See the note on `--es-font-script`.
+
+   `aria-hidden` is applied at every call site rather than here, because a
+   class cannot hide anything from a screen reader — and this face is
+   genuinely hard to read for anyone it is not already easy for. */
+.es-script {
+  font-family: var(--es-font-script);
+  font-size: clamp(1.75rem, 1.2rem + 2.4vw, 3rem);
+  line-height: 1.15;
+  color: var(--es-accent);
+  /* Scripts are drawn with their baseline inside the em box, so they read
+     as sitting high next to anything else. */
+  transform: rotate(-4deg);
+  transform-origin: left center;
+}
+.es-script--tight { font-size: clamp(1.375rem, 1.1rem + 1.2vw, 2rem); }
+
+/* ── .es-searchbar — the one control the hero exists for ────────────────
+   A row on a desktop, a stack on a phone, and a real <form> either way.
+
+   `--es-surface` on this band is forest-700, which is deliberately NOT
+   transparent. A glass search bar over a photograph is the single most
+   common way a hero becomes unusable: the placeholder sits on whatever
+   pixel happens to be behind it, and the contrast is a different number
+   for every visitor depending on their screen. */
+.es-searchbar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fx-gap-sm);
+  width: 100%;
+  max-width: 44rem;
+  padding: 0.5rem;
+  border-radius: var(--es-radius-xl);
+  background: color-mix(in srgb, var(--es-surface) 92%, transparent);
+  border: 1px solid var(--es-border-strong);
+  backdrop-filter: blur(12px);
+  box-shadow: var(--es-shadow-lg);
+}
+
+@media (width >= 48rem) {
+  .es-searchbar {
+    flex-direction: row;
+    align-items: center;
+    border-radius: var(--es-radius-full);
+    padding: 0.375rem 0.375rem 0.375rem 0.5rem;
+  }
+}
+
+/* One field inside the bar. The divider is an inline-start border that
+   only exists once the bar is a row — on a stacked phone layout a
+   vertical rule between stacked fields points the wrong way. */
+/* The three fields are NOT equal thirds.
+   Equal thirds gave the query field the same room as a date, and its
+   placeholder ("Search events, artists, venues") clipped to "Search events, a"
+   while the date sat in a box twice as wide as the text it holds. The query is
+   what most people type and the only one whose content is open-ended, so it
+   takes the slack: `flex-grow: 2` against the other two. */
+.es-searchbar__field {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1 1 0;
+  min-width: 0;
+  padding-inline: 0.75rem;
+}
+.es-searchbar__field--wide { flex-grow: 2; }
+@media (width >= 48rem) {
+  .es-searchbar__field + .es-searchbar__field {
+    border-inline-start: 1px solid var(--es-border);
+  }
+}
+
+/* The input inside a field is unstyled on purpose: the BAR is the
+   control, and a bordered input inside a bordered bar is two controls
+   drawn on top of each other. */
+.es-searchbar__input {
+  flex: 1;
+  min-width: 0;
+  height: var(--fx-touch);
+  border: 0;
+  background: transparent;
+  color: var(--es-text);
+  font: inherit;
+  font-size: var(--es-text-sm);
+}
+.es-searchbar__input::placeholder { color: var(--es-text-subtle); }
+.es-searchbar__input:focus { outline: none; }
+/* The focus ring goes on the FIELD, so it is visible against the bar
+   rather than drawn inside a transparent input where it clips. */
+.es-searchbar__field:focus-within {
+  border-radius: var(--es-radius-lg);
+  box-shadow: 0 0 0 2px var(--es-accent-edge);
+}
+.es-searchbar__icon { display: flex; flex-shrink: 0; color: var(--es-text-subtle); }
+
+.es-searchbar__submit {
+  flex-shrink: 0;
+  width: 100%;
+  height: var(--fx-touch);
+}
+@media (width >= 48rem) {
+  .es-searchbar__submit {
+    width: var(--fx-touch);
+    border-radius: var(--es-radius-full);
+    padding: 0;
+  }
+}
+
+/* ── .es-chip — a one-tap filter ────────────────────────────────────────
+   Distinct from `.es-pill`, which is a STATUS and is not interactive.
+   Sharing one class for both is how a label ends up with a hover state
+   and a link ends up looking like a badge. */
+.es-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-height: 2.25rem;
+  padding-inline: 0.875rem;
+  border-radius: var(--es-radius-full);
+  border: 1px solid var(--es-border-strong);
+  background: color-mix(in srgb, var(--es-surface) 55%, transparent);
+  color: var(--es-text);
+  font-size: var(--es-text-sm);
+  white-space: nowrap;
+  transition: background var(--es-dur-fast) var(--es-ease),
+              border-color var(--es-dur-fast) var(--es-ease);
+}
+.es-chip:hover {
+  background: var(--es-surface);
+  border-color: var(--es-accent-edge);
+}
+
+/* ── .es-datebadge — the date, on the artwork ───────────────────────────
+   On the cover rather than under it, because the date is the second thing
+   a buyer checks after the picture and the first thing they compare
+   between two cards.
+
+   Opaque, not translucent: it sits on a photograph nobody chose, and a
+   frosted badge over a white sky is invisible. */
+.es-datebadge {
+  position: absolute;
+  inset-block-start: 0.75rem;
+  inset-inline-start: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 3rem;
+  padding: 0.375rem 0.5rem;
+  border-radius: var(--es-radius-md);
+  background: var(--es-surface);
+  box-shadow: var(--es-shadow-md);
+  line-height: 1;
+}
+.es-datebadge__day {
+  font-family: var(--es-font-mono);
+  font-size: var(--es-text-md);
+  font-weight: 600;
+  color: var(--es-text);
+}
+.es-datebadge__month {
+  margin-block-start: 0.125rem;
+  font-size: var(--es-text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--es-text-muted);
+}
+
+/* ── .es-sponsor — a logo, on somebody else's terms ─────────────────────
+   Sponsor artwork arrives in every proportion there is: a wordmark eight
+   times wider than it is tall, a square badge, an SVG with its own
+   padding baked in. A fixed box would crop half of them and a fluid one
+   would let a tall logo tower over a wide one.
+
+   So the TILE is fixed and the MARK is contained inside it — every logo
+   occupies the same optical area whatever its aspect ratio.
+
+   No grayscale filter. It is the convention on pages like this and it is
+   a mistake here: it overrides a brand's own colour, which is usually the
+   one thing a sponsorship agreement is specific about. */
+.es-sponsor {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 3.5rem;
+  padding-inline: 0.5rem;
+}
+.es-sponsor__mark {
+  max-height: 100%;
+  max-width: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+}
+/* A link only when there is somewhere to go — a sponsor with no URL is
+   rendered as a plain tile, not as a dead anchor. */
+a.es-sponsor { transition: opacity var(--es-dur-fast) var(--es-ease); }
+a.es-sponsor:hover { opacity: 0.7; }
+
+/* ── .es-quote — one testimonial ────────────────────────────────────────
+   Set in the serif at a size the eye reads as speech rather than as body
+   copy. The quotation mark is a `::before` and is `aria-hidden` by nature
+   — a screen reader announcing "left double quotation mark" before every
+   testimonial is noise, and the <blockquote> already carries the meaning. */
+.es-quote {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--fx-gap);
+  height: 100%;
+  padding: clamp(1.5rem, 3vw, 2.25rem);
+  border-radius: var(--es-radius-xl);
+  background: var(--es-surface);
+  border: 1px solid var(--es-border);
+}
+.es-quote__body {
+  font-family: var(--es-font-serif);
+  font-size: var(--es-text-lg);
+  line-height: var(--es-leading-snug);
+  color: var(--es-text);
+  /* `margin: 0` because <blockquote> carries a UA margin that pushes the
+     author line away from the quote it belongs to. */
+  margin: 0;
+}
+.es-quote__foot {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-block-start: auto;
+}
+
+/* ── .es-stars — a rating, and the number behind it ─────────────────────
+   The stars are decorative; the accessible name is written out in text
+   beside them and hidden visually. Five glyphs read aloud as "star star
+   star star star" tells a listener nothing about how many were filled. */
+.es-stars { display: inline-flex; gap: 0.125rem; color: var(--es-warning); }
+
+/* ── .es-figcard — a picture that is also a link ────────────────────────
+   The guest band's photograph with a play control on it, and the shape a
+   category card takes. `--es-figure-ar` is set by the caller. */
+.es-figcard {
+  position: relative;
+  isolation: isolate;
+  display: block;
+  overflow: hidden;
+  border-radius: var(--es-radius-xl);
+  background: var(--es-bg-sunken);
+}
+.es-figcard img { width: 100%; height: 100%; object-fit: cover; }
+.es-figcard__veil {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgb(0 0 0 / 0.72), rgb(0 0 0 / 0.12) 55%, transparent);
+}
+/* White regardless of theme: this text sits on a photograph darkened by
+   the veil above, not on any of the measured grounds. */
+.es-figcard__caption {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-end: 0;
+  padding: clamp(1rem, 3vw, 1.75rem);
+  color: #ffffff;
+}
+
+/* ── .es-play — the play control ────────────────────────────────────────
+   A real button at the touch minimum. The triangle is an inline SVG at
+   the call site; this is only the disc. */
+.es-play {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  flex-shrink: 0;
+  border-radius: var(--es-radius-full);
+  border: 1px solid var(--es-border-strong);
+  background: var(--es-surface);
+  color: var(--es-text);
+  box-shadow: var(--es-shadow-lg);
+  transition: transform var(--es-dur-fast) var(--es-ease);
+}
+.es-play:hover { transform: scale(1.06); }
+.es-play--lg { width: 4.5rem; height: 4.5rem; }
+
+/* ── .es-rail — a row that scrolls on a phone and lays out on a desk ────
+   `.fx-row--scroll` already exists for a scrolling row. This adds the
+   snap and the edge padding a card rail needs so the last card does not
+   end flush against the viewport edge.
+
+   Snap is `proximity`, not `mandatory`: mandatory fights a flick that was
+   meant to reach the end of the list, which on a phone is most of them. */
+.es-rail {
+  scroll-snap-type: x proximity;
+  scroll-padding-inline: var(--fx-pad-x);
+}
+.es-rail > * { scroll-snap-align: start; }
+
+/* ── .es-marks — the statistics strip ───────────────────────────────────
+   Figures set in the mono face for the same reason `.es-stat` uses it:
+   they are compared across the row, and proportional digits make a row of
+   numbers ragged. */
+.es-mark {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  align-items: center;
+  text-align: center;
+}
+.es-mark__value {
+  font-family: var(--es-font-mono);
+  font-size: var(--es-text-2xl);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: var(--es-text);
+}
+.es-mark__label {
+  font-size: var(--es-text-sm);
+  color: var(--es-text-muted);
+}
+
+/* ── .es-featurelist — a claim with a mark against it ───────────────────
+   Not a card grid. Four bordered rectangles is what the page did
+   everywhere before `.es-marquee` was written, and it is what makes a
+   marketing page read as a spreadsheet. */
+.es-featurelist { display: flex; flex-direction: column; gap: var(--fx-gap-sm); }
+.es-featurelist__item { display: flex; align-items: flex-start; gap: 0.75rem; }
+.es-featurelist__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex-shrink: 0;
+  border-radius: var(--es-radius-md);
+  background: var(--es-accent-wash);
+  color: var(--es-accent);
+}
+
+/* ── .es-videoframe — the slot the film goes in ─────────────────────────
+   `aspect-ratio` rather than a height, so the box reserves its own space
+   and the page does not jump when the poster loads. */
+.es-videoframe {
+  position: relative;
+  isolation: isolate;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: var(--es-radius-xl);
+  background: var(--es-bg-deep);
+  box-shadow: var(--es-shadow-plate);
+}
+.es-videoframe > iframe,
+.es-videoframe > video,
+.es-videoframe > img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  object-fit: cover;
+}
+
+/* ── .es-overhero — the masthead, over the picture ──────────────────────
+   The header is transparent while the hero is behind it and becomes solid
+   once the page has scrolled past it.
+
+   The transparent state sets the INVERTED roles rather than a white
+   `color`, for the same reason `.es-band--ink` does: setting `color`
+   alone leaves every `text-muted` child at slate-600 on a photograph.
+
+   It is applied by a data attribute the header sets from a scroll
+   observer, so a page without a hero never gets it and the default state
+   is the readable one. */
+/* The default, SOLID state, declared here rather than as utilities on the
+   element — and that is the whole reason this works.
+
+   The header carried `bg-bg/85 backdrop-blur border-b border-border-base` as
+   Tailwind utilities. Utilities are a LATER CASCADE LAYER than these
+   primitives, so `background: transparent` in the rule below lost to
+   `bg-bg/85` every time: the transparent state set white text and kept the
+   cream background, which rendered the nav links as pale grey on pale cream
+   over the hero. Nothing errored and the headings looked fine, which is the
+   failure mode AGENTS.md describes for exactly this cascade.
+
+   Both states now live in the same layer, so the attribute actually decides. */
+.es-overhero {
+  background: color-mix(in srgb, var(--es-bg) 85%, transparent);
+  border-block-end: 1px solid var(--es-border);
+  backdrop-filter: blur(12px);
+}
+
+.es-overhero[data-over='true'] {
+  --es-text:       #ffffff;
+  --es-text-muted: rgb(255 255 255 / 0.82);
+  --es-border:     rgb(255 255 255 / 0.16);
+  --es-bg-sunken:  rgb(255 255 255 / 0.12);
+  --es-accent:     var(--es-emerald-300);
+  --es-accent-hover: var(--es-emerald-200);
+  --es-text-on-accent: var(--es-forest-900);
+  background: transparent;
+  border-color: transparent;
+  color: var(--es-text);
+}
+/* No backdrop blur in the transparent state: blurring a hero's own
+   photograph behind its own header is a smear, not a frost. */
+.es-overhero[data-over='true'] { backdrop-filter: none; }
+
+/* ── The hero starts ABOVE the fold, under the header ───────────────────
+   The masthead is `sticky`, so it occupies 4rem of flow at the top of the
+   page — which put a 4rem band of cream above a hero whose whole point is
+   to be the first thing seen. Pulling the hero up by exactly that height
+   slides it under the header; the padding puts the CONTENT back where it
+   was, so nothing lands beneath the nav.
+
+   Tied to `--es-header-h` rather than a repeated 4rem, because the header's
+   own height is `h-16` and the two must not be able to disagree. */
+.es-hero {
+  margin-block-start: calc(-1 * var(--es-header-h));
+  padding-block-start: var(--es-header-h);
+}
 
 }   /* end @layer components */
 

@@ -1,10 +1,11 @@
-import { DM_Sans, DM_Serif_Display, DM_Mono } from 'next/font/google';
+import { headers } from 'next/headers';
+import { DM_Sans, DM_Serif_Display, DM_Mono, Sacramento } from 'next/font/google';
 import SiteHeader from './components/SiteHeader';
 import SiteFooter from './components/SiteFooter';
 import './globals.css';
 
 /**
- * The three faces the design system names, self-hosted by next/font.
+ * The four faces the design system names, self-hosted by next/font.
  *
  * Self-hosted rather than a <link> to fonts.googleapis.com: that link is a
  * render-blocking request to a third party in front of every page, including
@@ -35,6 +36,24 @@ const dmMono = DM_Mono({
   subsets: ['latin'],
   weight: ['400', '500'],
   variable: '--font-dm-mono',
+  display: 'swap',
+});
+
+/**
+ * The storefront's handwritten aside, and nothing else.
+ *
+ * One weight, one script, ~14KB — it is used for a handful of words on one
+ * page. `display: 'swap'` matters more here than anywhere: this face carries
+ * no information (every line set in it is decorative and marked aria-hidden),
+ * so a blocking load would delay the hero for text nobody needs to read.
+ *
+ * Fenced in globals.css to the single `.es-script` rule. See the note on
+ * `--es-font-script` for why a decorative face is allowed at all.
+ */
+const script = Sacramento({
+  subsets: ['latin'],
+  weight: ['400'],
+  variable: '--font-script',
   display: 'swap',
 });
 
@@ -126,10 +145,37 @@ export const viewport = {
   viewportFit: 'cover',
 };
 
-export default function RootLayout({ children }) {
+/**
+ * Stamps the saved theme onto <html> BEFORE the first paint.
+ *
+ * It has to be inline and blocking. Doing this in a `useEffect` means the page
+ * paints once in the OS theme and again in the chosen one — the flash of wrong
+ * theme, which is worst for the people the setting exists for: someone who
+ * picked light on a dark laptop gets a black screen on every navigation.
+ *
+ * NONCED, because `proxy.ts` issues a per-request nonce and script-src carries
+ * no 'unsafe-inline'. Without the attribute the browser drops this silently and
+ * the only symptom is the flash coming back.
+ *
+ * Wrapped in try/catch: localStorage throws outright in some privacy modes, and
+ * an exception here would abort the script before the rest of the page's
+ * bootstrap.
+ */
+function ThemeScript({ nonce }) {
+  const js = `try{var c=localStorage.getItem('es-theme');`
+    + `if(c==='light'||c==='dark'){document.documentElement.dataset.theme=c}}catch(e){}`;
+  return <script nonce={nonce} dangerouslySetInnerHTML={{ __html: js }} />;
+}
+
+export default async function RootLayout({ children }) {
+  // Set on the REQUEST by proxy.ts, which is what Next reads to stamp its own
+  // inline scripts — so this is the same value and cannot disagree with them.
+  const nonce = (await headers()).get('x-nonce') || undefined;
+
   return (
-    <html lang="en" className={`${dmSans.variable} ${dmSerif.variable} ${dmMono.variable}`}>
+    <html lang="en" className={`${dmSans.variable} ${dmSerif.variable} ${dmMono.variable} ${script.variable}`}>
       <body>
+        <ThemeScript nonce={nonce} />
         <SiteHeader />
         {children}
         <SiteFooter />

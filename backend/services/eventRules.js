@@ -33,6 +33,7 @@ const ORGANIZER_EDITABLE = Object.freeze({
   description: 'description',
   venueName: 'venue_name',
   venueAddress: 'venue_address',
+  city: 'city',
   country: 'country',
   timezone: 'timezone',
   startsAt: 'starts_at',
@@ -46,17 +47,21 @@ const ORGANIZER_EDITABLE = Object.freeze({
 });
 
 /**
- * The browse categories, as data.
+ * THE CATEGORY LIST USED TO LIVE HERE, and it is worth saying where it went.
  *
- * Exported from the one module with no imports so the validator, the tests and
- * any future admin tool read the same list the database enum was built from.
- * A second copy is a second thing to forget: the enum would accept a value the
- * validator rejects, or the reverse, and neither failure names the other list.
+ * It was a frozen array, exported so the validator, the tests and any admin
+ * tool read the same list the database enum was built from — one copy, so the
+ * enum could not accept a value the validator rejected.
+ *
+ * The enum became a table (20260916100000_storefront_cms.sql) so an admin could
+ * add a category without a migration and a deploy. A frozen array cannot
+ * survive that: the moment somebody adds one, this file starts refusing a
+ * category the database accepts, and the failure names neither list.
+ *
+ * The same single-source guarantee now lives in `services/categoryService.js`,
+ * which reads the table and caches it. This module stays import-free and pure,
+ * which is what its tests depend on.
  */
-const EVENT_CATEGORIES = Object.freeze([
-  'music', 'festival', 'nightlife', 'sports', 'arts', 'comedy', 'film',
-  'food_drink', 'business', 'community', 'education', 'family', 'other',
-]);
 
 /**
  * `cover_url` and `cover_path` are in NEITHER map, deliberately.
@@ -275,7 +280,6 @@ function partitionPatch(patch, { isAdmin }) {
 module.exports = {
   ORGANIZER_EDITABLE,
   ADMIN_EDITABLE,
-  EVENT_CATEGORIES,
   TRANSITIONS,
   TRANSITION_ACTOR,
   LIVE_EDITABLE,

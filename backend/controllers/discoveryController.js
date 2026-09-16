@@ -24,7 +24,7 @@ const { safeSearch } = require('../utils/search');
  */
 
 const SELECT = `
-  id, slug, title, description, venue_name, venue_address,
+  id, slug, title, description, venue_name, venue_address, city,
   country, timezone, starts_at, ends_at, currency,
   listing_type, purchase_mode, category, cover_url, max_tickets_per_order,
   updated_at,
@@ -64,6 +64,22 @@ async function listEvents(req, res, next) {
       query = query.gte('ends_at', new Date().toISOString());
     }
     if (req.query.country) query = query.eq('country', String(req.query.country).toUpperCase());
+    /**
+     * City, case-insensitively and exactly.
+     *
+     * `ilike` without wildcards rather than `eq`: organizers type the city
+     * themselves, so "toronto" and "Toronto" are the same place and an `eq`
+     * would show one of them an empty listing. Not a prefix match either —
+     * `%<city>%` would make "York" match "New York", which is a different city
+     * eight hours away.
+     *
+     * Escaped through the same helper as `q`, because a comma or a parenthesis
+     * reaches PostgREST as filter syntax rather than as text.
+     */
+    if (req.query.city) {
+      const safeCity = safeSearch(req.query.city);
+      if (safeCity) query = query.ilike('city', safeCity);
+    }
     if (req.query.from) query = query.gte('starts_at', new Date(req.query.from).toISOString());
     if (req.query.to) query = query.lte('starts_at', new Date(req.query.to).toISOString());
 
@@ -171,6 +187,7 @@ function shape(e) {
     slug: e.slug,
     title: e.title,
     venue: e.venue_name,
+    city: e.city || null,
     country: e.country,
     timezone: e.timezone,
     startsAt: e.starts_at,

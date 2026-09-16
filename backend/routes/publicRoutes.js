@@ -4,7 +4,7 @@ const { body, param, query } = require('express-validator');
 const validate = require('../middleware/validate');
 const { optionalAuth } = require('../middleware/auth');
 const { sendOk, sendFail } = require('../utils/responseEnvelope');
-const { EVENT_CATEGORIES } = require('../services/eventRules');
+const categoryService = require('../services/categoryService');
 const c = require('../controllers/seatMapController');
 
 const router = express.Router();
@@ -51,18 +51,61 @@ router.get(
   query('from').optional().isISO8601(),
   query('to').optional().isISO8601(),
   query('includePast').optional().isIn(['true', 'false']),
-  // Checked here rather than passed through. An unknown value reaches Postgres
-  // as a cast to `event_category` that fails, and on a PUBLIC endpoint that
-  // surfaces as a 500 to anyone who mistypes a query string.
-  query('category').optional().isIn(EVENT_CATEGORIES)
-    .withMessage(`Unknown category. Choose one of: ${EVENT_CATEGORIES.join(', ')}.`),
+  query('city').optional().isString().trim().isLength({ min: 1, max: 120 }),
+  // Checked here rather than passed through. The column is now TEXT with a
+  // foreign key rather than an enum, so an unknown value is no longer a failed
+  // cast — it is simply a filter that matches nothing, which would answer a
+  // typo with an empty listing and no explanation.
+  //
+  // `knownSlugs()` returns null until the cache has loaded; a null means "let
+  // it through and let the query answer", because 400-ing every request in the
+  // first second after a restart is worse than a rare unexplained empty page.
+  query('category').optional().custom(categoryService.assertKnownSlug),
   validate,
   discovery.listEvents,
 );
 
 // The categories themselves, so a browse page renders the real set instead of
 // hard-coding a copy that drifts the first time one is added.
-router.get('/event-categories', (req, res) => sendOk(res, { categories: EVENT_CATEGORIES }));
+//
+// Now returns objects rather than slugs: the label lives in the database, and
+// the frontend was deriving "Food & drink" from `food_drink` through a map that
+// was a second copy of this table. `labels` is kept alongside for any caller
+// still reading the old shape.
+router.get('/event-categories', async (req, res, next) => {
+  try {
+    const categories = await categoryService.list({ enabledOnly: true });
+    return sendOk(res, {
+      categories: categories.map((cat) => cat.slug),
+      labelled: categories.map(({ slug, label, blurb, imageUrl }) => ({ slug, label, blurb, imageUrl })),
+    });
+  } catch (err) { return next(err); }
+});
+
+// ─── The landing page ───────────────────────────────────────────────────────
+const landing = require('../controllers/landingController');
+
+router.get('/landing', landing.landing);
+router.get('/cities', landing.cities);
+
+/**
+ * The visit beacon. Rate-limited because it is an unauthenticated write: the
+ * counter is per-day and per-visitor so repeat calls cannot inflate the
+ * "visitors" figure, but they can inflate "views", and nothing else in the
+ * system stops a script from calling this in a loop.
+ */
+router.post(
+  '/visit',
+  makeLimiter({
+    windowMs: 60 * 1000,
+    max: 30,
+    name: 'site-visit',
+    message: 'Too many requests.',
+  }),
+  body('path').isString().isLength({ min: 1, max: 200 }),
+  validate,
+  landing.recordVisit,
+);
 
 /**
  * The current terms, as published.

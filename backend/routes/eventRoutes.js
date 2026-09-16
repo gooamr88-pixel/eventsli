@@ -8,7 +8,7 @@ const c = require('../controllers/eventController');
 const seatMap = require('../controllers/seatMapController');
 const scan = require('../controllers/scanController');
 const cover = require('../controllers/mediaController');
-const { EVENT_CATEGORIES } = require('../services/eventRules');
+const categoryService = require('../services/categoryService');
 const { EXTENSION_FOR } = require('../services/mediaService');
 
 const router = express.Router();
@@ -57,10 +57,12 @@ router.post(
   body('maxTicketsPerOrder').optional().isInt({ min: 1, max: 100 })
     .withMessage('Tickets per order must be between 1 and 100.'),
   body('allowTicketTransfer').optional().isBoolean(),
-  // Against the exported list, never a literal array. A second copy of these
-  // values is a second thing to forget when one is added to the enum.
-  body('category').optional().isIn(EVENT_CATEGORIES)
-    .withMessage(`Choose one of: ${EVENT_CATEGORIES.join(', ')}.`),
+  // Against the categories the database holds, never a literal array. They are
+  // rows now, editable from the admin console, so a copy here would start
+  // refusing a category the moment somebody added one.
+  body('category').optional().custom(categoryService.assertKnownSlug),
+  body('city').optional({ values: 'falsy' }).isString().trim().isLength({ min: 1, max: 120 })
+    .withMessage('A city name is at most 120 characters.'),
   body('feeBearer').optional().isIn(['buyer', 'organizer']),
   validate,
   c.create,
@@ -84,8 +86,8 @@ router.patch(
   body('feeBearer').optional().isIn(['buyer', 'organizer']),
   body('listingType').optional().isIn(['ticketed', 'display_only']),
   body('purchaseMode').optional().isIn(['seat_only', 'table_only', 'seat_and_table']),
-  body('category').optional().isIn(EVENT_CATEGORIES)
-    .withMessage(`Choose one of: ${EVENT_CATEGORIES.join(', ')}.`),
+  body('category').optional().custom(categoryService.assertKnownSlug),
+  body('city').optional({ values: 'null' }).isString().trim().isLength({ max: 120 }),
   body('maxTicketsPerOrder').optional().isInt({ min: 1, max: 100 }),
   body('allowTicketTransfer').optional().isBoolean(),
   // An admin's note for the audit trail when they change an organizer's event.

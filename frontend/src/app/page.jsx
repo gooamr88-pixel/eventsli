@@ -1,240 +1,166 @@
 import Link from 'next/link';
 import { serverFetch } from './utils/apiClient';
-import EventCard from './components/EventCard';
+import Hero from './components/landing/Hero';
+import { FeaturedEvents, Categories, Sponsors, OrganizerBand, GuestBand } from './components/landing/Sections';
+import { Testimonials } from './components/landing/Proof';
+import VideoBand from './components/landing/VideoBand';
+import VisitBeacon from './components/landing/VisitBeacon';
 import HeroSeatMap, { SEAT_LEGEND } from './components/marketing/HeroSeatMap';
-import { Steps, Points, Faq, FaqJsonLd } from './components/marketing/Blocks';
-import NavIcon from './components/shell/NavIcon';
-import { categoryLabel } from './lib/categories';
-import { PROOF, STEPS, POINTS, ORGANIZER_POINTS, FAQ } from './components/marketing/homeContent';
+import TicketPreview from './components/landing/TicketPreview';
+import { Faq, FaqJsonLd } from './components/marketing/Blocks';
+import { FAQ } from './components/marketing/homeContent';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
- * THE HOMEPAGE — the most important page on the site.
+ * THE HOMEPAGE.
  *
- * It has two readers and used to serve one. A buyer arrives wanting something
- * to go to; an organizer arrives wanting to know whether to sell here. The old
- * page never addressed the second at all, and made two claims about fees and
- * PDFs that the product does not keep (see homeContent.js).
+ * REBUILT 2026-09-16 as a storefront. What changed, and why, because the file
+ * this replaced argued the opposite case and argued it well.
+ *
+ * The old page was seven bands of typography with no photography anywhere, on a
+ * stated principle: "a stock photo of a crowd is a photo of a crowd that is not
+ * this crowd". That was the right call for a page that had no photography to
+ * use. It stopped being the right call when the brand supplied its own artwork:
+ * a ticketing storefront whose front page is a diagram is asking a buyer to
+ * want a diagram.
+ *
+ * The seat map did not get deleted. It moved into the organizer band, where it
+ * illustrates a claim being made beside it rather than opening a page that has
+ * not made one yet.
  *
  * ── The band rhythm ──────────────────────────────────────────────────────
- * No two consecutive bands share a tone; the page opens and closes on the
- * emerald field (contrast.js measures that the tones are perceptibly apart):
+ * The rule the old page established still holds: no two consecutive bands share
+ * a tone, and `scripts/contrast.js` measures that they are perceptibly apart.
  *
- *   1  hero            field   the promise, a search box, and the product shown
- *   2  browse          sunken  categories, then what is on sale now
- *   3  how it works    paper   three steps
- *   4  what you get    sunken  four behaviours
- *   5  for organizers  ink     the other reader
- *   6  questions       paper   the five asked most, as FAQ structured data too
- *   7  closing         field   the buttons
+ *   1  hero            field   photograph, promise, search
+ *   2  featured        sunken  what is actually on sale
+ *   3  categories      paper   how to narrow it
+ *   4  sponsors        paper   only if there are any
+ *   5  organizers      field   the second reader, and the product shown
+ *   6  guests          paper   the buying experience
+ *   7  video           paper   only if there is a film
+ *   8  testimonials    sunken  words, and the counted numbers
+ *   9  questions       paper   the five asked most, as FAQ structured data
+ *  10  closing         field   the buttons
  *
- * ── Why there are still no photographs ───────────────────────────────────
- * A stock photo of a crowd is a photo of a crowd that is not this crowd. The
- * hero shows the product instead — a seat map drawn by the module that draws
- * the real one. See HeroSeatMap.
+ * Bands 4 and 7 return null when empty, so the rhythm holds either way: 3 and 5
+ * are paper and field, and 6 and 8 are paper and sunken, with or without them.
+ *
+ * ── Where the words come from ────────────────────────────────────────────
+ * Headings, the hero, the two section blocks and the statistics strip are rows
+ * in `site_content`, edited at /admin/content. The FAQ and the four product
+ * claims in each band are still in source — they are statements about what the
+ * software does, and if the door scanner stopped working offline that sentence
+ * would have to change in the same commit that broke it. A database row cannot
+ * be part of a commit.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 export const revalidate = 60;
 
 /**
- * A failure here must not be a 500 — this is what a crawler indexes and what
- * a share link opens. Events and categories fail independently, so a slow
- * category list never costs the listing.
+ * Four independent fetches, and a failure in any one of them costs that section
+ * and nothing else.
  *
- * `failed` matters: a static prerender caches whatever it produced, and the
- * build talks to no API, so without it a deploy would serve "Nothing is on
- * sale just yet" — a claim about the business rather than about us.
+ * `failed` on the events call matters for the same reason it did before: a
+ * static prerender caches whatever it produced, and CI builds against an
+ * unreachable API on purpose — so without it a deploy would ship "Nothing is on
+ * sale just yet", which is a claim about the business rather than about us.
+ *
+ * The landing payload falls back to `null` and every consumer handles that,
+ * because the page must still render its headline when the CMS is unreachable.
  */
 async function load() {
-  const [events, categories] = await Promise.all([
-    serverFetch('/public/events?limit=6', { tags: ['events:published'], revalidate: 60 })
+  const [events, landing, cities] = await Promise.all([
+    serverFetch('/public/events?limit=8', { tags: ['events:published'], revalidate: 60 })
       .then((rows) => ({ rows: Array.isArray(rows) ? rows : [], failed: false }))
       .catch(() => ({ rows: [], failed: true })),
-    serverFetch('/public/event-categories', { tags: ['event-categories'], revalidate: 3600 })
-      .then((data) => data?.categories || [])
+
+    // One call for six admin-owned blocks — see landingController for why they
+    // are not six. Tagged so an admin's save drops it immediately instead of
+    // waiting out the minute.
+    serverFetch('/public/landing', { tags: ['landing'], revalidate: 60 })
+      .catch(() => null),
+
+    serverFetch('/public/cities', { tags: ['landing'], revalidate: 300 })
+      .then((data) => data?.cities || [])
       .catch(() => []),
   ]);
-  return { events: events.rows, failed: events.failed, categories };
+
+  return { events: events.rows, failed: events.failed, landing, cities };
 }
 
 export default async function HomePage() {
-  const { events, failed, categories } = await load();
+  const { events, failed, landing, cities } = await load();
+
+  const content = landing?.content || {};
+  const copy = content.sections || {};
+  const categories = landing?.categories || [];
+  const sponsors = landing?.sponsors || [];
+  const testimonials = landing?.testimonials || [];
+  const stats = landing?.stats || null;
 
   return (
     <main>
       <FaqJsonLd items={FAQ} />
+      {/* Counts this view. Renders nothing — see VisitBeacon. */}
+      <VisitBeacon path="/" />
 
-      {/* ── 1 · Hero — the field ───────────────────────────────────── */}
-      <section className="es-band--field fx-section fx-section--lg relative overflow-hidden">
-        {/* The only decorative element. A positioned child rather than a
-            gradient on the band, because the band's background is what
-            contrast.js reads to know which ground the text sits on. */}
-        <div aria-hidden className="es-bloom -top-44 -right-28 size-[38rem]" />
+      {/* ── 1 · Hero ─────────────────────────────────────────────── */}
+      <Hero content={content} cities={cities} categories={categories} />
 
-        <div className="fx-container fx-container--xl relative">
-          <div className="grid items-center gap-[var(--fx-gap-lg)] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.04fr)]">
-            <div className="fx-stack es-rise">
-              <p className="es-eyebrow text-accent">Tickets across Canada &amp; the United States</p>
+      {/* ── 2 · What is on ───────────────────────────────────────── */}
+      <FeaturedEvents copy={copy} events={events} failed={failed} />
 
-              <h1 className="es-display">Find something to go to.</h1>
+      {/* ── 3 · How to narrow it ─────────────────────────────────── */}
+      <Categories copy={copy} categories={categories} />
 
-              <p className="max-w-[42ch] text-lg text-muted">
-                Pick your exact seat on the map, see every line before you pay, and
-                arrive with the ticket on your phone.
-              </p>
+      {/* ── 4 · Sponsors — nothing at all until there are some ────── */}
+      <Sponsors copy={copy} sponsors={sponsors} />
 
-              {/* A plain GET form: /events reads `q` from the URL, so search
-                  works with no JavaScript and the result is shareable. */}
-              <form action="/events" method="get" role="search" className="fx-row max-w-[34rem] pt-1">
-                <label htmlFor="home-search" className="sr-only">Search events</label>
-                <input
-                  id="home-search"
-                  name="q"
-                  type="search"
-                  placeholder="Search events, artists, venues"
-                  className="es-input fx-min0 flex-1"
-                />
-                <button type="submit" className="es-btn es-btn--primary">Search</button>
-              </form>
-
-              <div className="fx-row fx-row--gap">
-                <Link href="/events" className="es-btn es-btn--secondary">Browse everything</Link>
-                <Link href="/tickets/find" className="es-btn es-btn--ghost">Find my tickets</Link>
-              </div>
-
-              <ul className="fx-row fx-row--gap pt-2">
-                {PROOF.map((fact) => (
-                  <li key={fact} className="fx-row items-center gap-1.5 text-sm text-muted">
-                    <span className="text-accent"><NavIcon name="check" size={16} /></span>
-                    {fact}
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {/* The picture, a beat behind the headline so the eye is led. */}
-            <div className="es-rise es-rise--late fx-stack fx-stack--sm">
-              <div className="es-plate">
-                <HeroSeatMap />
-              </div>
-
-              {/* The legend turns the picture from decoration into a claim the
-                  reader can check: grey means somebody already took it. */}
-              <ul className="fx-row fx-row--center fx-row--gap">
-                {SEAT_LEGEND.map((entry) => (
-                  <li key={entry.state} className="fx-row items-center gap-2">
-                    <span aria-hidden className={`es-legend-dot es-legend-dot--${entry.state}`} />
-                    <span className="text-sm text-muted">{entry.label}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
+      {/* ── 5 · For organizers, with the product in it ───────────── */}
+      <OrganizerBand block={content.organizer_block || {}}>
+        {/* The seat map, drawn by the module that draws the real one. It is
+            here rather than in the hero because this is where the page claims
+            an organizer can draw a room — the picture is the evidence. */}
+        <div className="fx-stack fx-stack--sm p-4">
+          <HeroSeatMap />
+          <ul className="fx-row fx-row--center fx-row--gap">
+            {SEAT_LEGEND.map((entry) => (
+              <li key={entry.state} className="fx-row items-center gap-2">
+                <span aria-hidden className={`es-legend-dot es-legend-dot--${entry.state}`} />
+                <span className="text-sm text-muted">{entry.label}</span>
+              </li>
+            ))}
+          </ul>
         </div>
-      </section>
+      </OrganizerBand>
 
-      {/* ── 2 · Browse — sunken, so the cards lift off it ───────────── */}
-      <section className="es-band--sunken fx-section fx-section--sm">
-        <div className="fx-container fx-container--xl fx-stack">
-          {categories.length > 0 && (
-            <nav aria-label="Browse by category" className="fx-stack fx-stack--sm">
-              <p className="es-eyebrow">Browse by category</p>
-              <ul className="fx-row fx-row--scroll">
-                {categories.map((c) => (
-                  <li key={c}>
-                    <Link href={`/events?category=${encodeURIComponent(c)}`} className="es-btn es-btn--secondary es-btn--sm whitespace-nowrap">
-                      {categoryLabel(c)}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </nav>
-          )}
+      {/* ── 6 · For guests ───────────────────────────────────────── */}
+      <GuestBand block={content.guest_block || {}}>
+        {/* A drawn ticket, not the real component. `TicketStub` needs an order
+            and a QR endpoint, and putting it here would mean fabricating both —
+            see TicketPreview for why that line is worth not crossing. */}
+        <TicketPreview />
+      </GuestBand>
 
-          <div className="fx-row fx-row--between items-end">
-            <div className="fx-stack fx-stack--sm">
-              <p className="es-eyebrow">On sale now</p>
-              <h2 className="text-2xl">On soon</h2>
-            </div>
-            <Link href="/events" className="es-btn es-btn--ghost es-btn--sm">
-              Browse all <span aria-hidden>→</span>
-            </Link>
-          </div>
+      {/* ── 7 · The film — nothing until one is uploaded ─────────── */}
+      <VideoBand block={content.video} />
 
-          {events.length > 0 ? (
-            <div className="fx-grid fx-grid--3">
-              {events.map((event, i) => (
-                <EventCard key={event.id} event={event} priority={i < 3} />
-              ))}
-            </div>
-          ) : (
-            <div className="es-empty">
-              <p className="text-muted">
-                {failed ? 'We could not load events just now.' : 'Nothing is on sale just yet.'}
-              </p>
-              <p className="mt-1 text-sm text-subtle">
-                {failed ? 'Please try again in a moment.' : 'New events are reviewed and published every week — check back soon.'}
-              </p>
-            </div>
-          )}
-        </div>
-      </section>
+      {/* ── 8 · What people say, and what is countable ───────────── */}
+      <Testimonials
+        copy={copy}
+        testimonials={testimonials}
+        stats={stats}
+        statsBlock={content.stats || {}}
+      />
 
-      {/* ── 3 · How it works — a marquee, not a third card grid ─────── */}
-      <section className="es-band fx-section">
-        <div className="fx-container fx-container--xl">
-          <div className="es-marquee">
-            <div className="fx-stack fx-stack--sm">
-              <p className="es-eyebrow">Three steps</p>
-              <h2 className="text-2xl">From a link to a seat in a few minutes.</h2>
-              <Link href="/how-it-works" className="text-sm text-accent hover:text-accent-hover">
-                The whole process, in detail →
-              </Link>
-            </div>
-            <Steps steps={STEPS} />
-          </div>
-        </div>
-      </section>
-
-      {/* ── 4 · What you get — sunken, claims rather than boxes ─────── */}
-      <section className="es-band--sunken fx-section fx-section--sm">
-        <div className="fx-container fx-container--xl fx-stack">
-          <div className="fx-stack fx-stack--sm">
-            <p className="es-eyebrow">What you get</p>
-            <h2 className="max-w-[24ch] text-2xl">Four things, and each one is a behaviour.</h2>
-          </div>
-          <Points points={POINTS} columns="fx-grid--2" />
-        </div>
-      </section>
-
-      {/* ── 5 · For organizers — the ink band, the other reader ─────── */}
-      <section id="organizers" className="es-band--ink fx-section fx-section--sm">
-        <div className="fx-container fx-container--xl fx-stack">
-          <div className="grid items-end gap-[var(--fx-gap)] lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
-            <div className="fx-stack fx-stack--sm">
-              <p className="es-eyebrow">For organizers</p>
-              <h2 className="max-w-[22ch] text-2xl">Sell seats, not a spreadsheet of them.</h2>
-              <p className="max-w-[52ch] text-muted">
-                A seat map you draw, money that lands in your own Stripe account, a door that
-                keeps scanning offline — and every event reviewed before it goes on sale.
-              </p>
-            </div>
-            <div className="fx-row lg:justify-end">
-              <Link href="/register" className="es-btn es-btn--primary es-btn--lg">Start selling</Link>
-              <Link href="/why-us" className="es-btn es-btn--secondary es-btn--lg">Why Eventsli</Link>
-            </div>
-          </div>
-          <Points points={ORGANIZER_POINTS} columns="fx-grid--4" />
-        </div>
-      </section>
-
-      {/* ── 6 · Questions ──────────────────────────────────────────── */}
+      {/* ── 9 · Questions ────────────────────────────────────────── */}
       <section className="es-band fx-section fx-section--sm">
         <div className="fx-container fx-container--xl">
           <div className="es-marquee">
             <div className="fx-stack fx-stack--sm">
               <p className="es-eyebrow">Questions</p>
-              <h2 className="text-2xl">What people ask first.</h2>
+              <h2 className="font-serif text-2xl">What people ask first.</h2>
               <Link href="/contact" className="text-sm text-accent hover:text-accent-hover">
                 Something else? Get in touch →
               </Link>
@@ -244,12 +170,12 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* ── 7 · Closing — the field returns ────────────────────────── */}
+      {/* ── 10 · Closing ─────────────────────────────────────────── */}
       <section className="es-band--field fx-section relative overflow-hidden">
         <div aria-hidden className="es-bloom -bottom-60 left-1/2 size-[44rem] -translate-x-1/2" />
         <div className="fx-container fx-container--md relative">
           <div className="fx-stack items-center text-center">
-            <h2 className="es-display es-display--wide">There is something on this week.</h2>
+            <h2 className="es-display es-display--wide font-serif">There is something on this week.</h2>
             <p className="max-w-[44ch] text-lg text-muted">
               Browse what is selling now, or find a ticket you already bought.
             </p>

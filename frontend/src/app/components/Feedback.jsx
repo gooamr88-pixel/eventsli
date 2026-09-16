@@ -41,8 +41,11 @@ import { describeError } from '../utils/errors';
 export function Loading({ variant = 'list', rows = 3, label = 'Loading' }) {
   return (
     <div role="status" aria-live="polite" aria-label={label} className="fx-stack fx-stack--sm">
+      {/* `.es-statgrid` and not `.fx-grid--4`: the same grid the real tiles
+          use, so the skeleton does not lay out three-plus-one and then reflow
+          into two-by-two the moment the data lands. */}
       {variant === 'stats' && (
-        <div className="fx-grid fx-grid--4">
+        <div className="es-statgrid">
           {Array.from({ length: rows }, (_, i) => (
             <div key={i} className="es-stat">
               <span className="es-skeleton es-skeleton--line w-16" />

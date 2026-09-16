@@ -56,7 +56,7 @@ export default function Orders({ eventId }) {
       <SectionHeader title="Orders" lede="Every sale on this event, online and at the door." />
 
       {totals.length > 0 && totals.map(([currency, t]) => (
-        <div key={currency} className="fx-grid fx-grid--4">
+        <div key={currency} className="es-statgrid">
           <StatCard label={`Sales · ${currency}`} value={formatMoney(t.grossCents, currency)} note="What buyers paid" icon="money" />
           <StatCard label="To you" value={formatMoney(t.netCents, currency)} note="After Eventsli's commission, door sales included" icon="bank" />
           <StatCard label="Orders" value={t.orders} note={`${data.meta.byChannel?.stripe ?? 0} card · ${data.meta.byChannel?.manual ?? 0} door`} icon="receipt" />

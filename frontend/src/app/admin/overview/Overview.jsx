@@ -58,7 +58,7 @@ export default function Overview() {
         />
       )}
 
-      <div className="fx-grid fx-grid--4">
+      <div className="es-statgrid">
         <StatCard
           label={`Ticket sales, last ${days} days`}
           value={formatMoney(recent.grossCents, currency)}

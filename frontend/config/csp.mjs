@@ -30,6 +30,21 @@
 export const GOOGLE = 'https://accounts.google.com';
 
 /**
+ * The two video hosts the storefront's introduction film may come from.
+ *
+ * ADDED 2026-09-16 with the video section. They are here because the section
+ * exists at all, and they are EXACTLY the two `backend/utils/landingSchema.js`
+ * accepts — that is not a coincidence to be maintained by hand, it is the
+ * point: a URL the schema saves and the policy blocks is the worst outcome
+ * available, because the section looks configured and is blank for everybody.
+ *
+ * `youtube-nocookie.com` is NOT here. It would be the better host, but the
+ * schema does not accept it, and admitting a host nothing can be saved against
+ * is a standing permission for no benefit. Add it to both or neither.
+ */
+export const VIDEO_FRAMES = 'https://www.youtube.com https://player.vimeo.com';
+
+/**
  * ─────────────────────────────────────────────────────────────────────────────
  * THE NONCE, AND THE BUG THAT MADE IT NECESSARY.
  *
@@ -147,14 +162,21 @@ export function buildCsp({ isDev, apiOrigin, supabaseHost, nonce }) {
     "worker-src 'self'",
     "manifest-src 'self'",
 
-    // Nothing on this site plays audio or video. Saying so costs a line and
-    // closes the default-src fallback for two more fetch types.
-    "media-src 'none'",
+    /**
+     * The storefront's introduction film, when it is a FILE rather than an
+     * embed — `landingSchema` accepts an .mp4 or .webm, and one uploaded
+     * through the admin console lives in our own storage bucket.
+     *
+     * This used to be `'none'`, with the note that nothing on the site plays
+     * audio or video. That stopped being true when the video section landed.
+     */
+    `media-src 'self' ${supabaseHost ? `https://${supabaseHost}` : ''}`.trim(),
 
     // Stripe Checkout is a full-page redirect, not an iframe, so it needs
     // nothing here. Google Identity Services does: its button and consent flow
-    // are an iframe.
-    `frame-src ${GOOGLE}`,
+    // are an iframe. YouTube and Vimeo do, for the introduction film — and
+    // nothing is framed until a visitor presses play. See VideoBand.
+    `frame-src ${GOOGLE} ${VIDEO_FRAMES}`,
 
     // Nobody frames US, in either case. This is the clickjacking guard and it
     // stays absolute — a checkout inside someone else's iframe is the whole

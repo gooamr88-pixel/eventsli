@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { CONTACT_EMAIL, FOOTER_GROUPS } from '../lib/siteRoutes';
 import { inAppShell } from './SiteHeader';
+import Logo from './brand/Logo';
 
 /**
  * The footer.
@@ -44,9 +45,20 @@ export default function SiteFooter() {
     <footer className="es-band--ink">
       <div className="fx-gutter">
         <div className="fx-container fx-container--xl fx-section fx-section--sm">
-          <div className="fx-grid fx-grid--4">
+          {/* `gap-y-10` and not the grid's own gap. Stacked into one column on
+              a phone, the four groups were 16px apart while a heading sat 8px
+              above its links and the links were 6px apart — so the strongest
+              boundary on the block was only twice the weakest, and the whole
+              footer read as one long list with some words in capitals in it.
+              The column gap is untouched: from md up these are side by side
+              and never needed the room. */}
+          <div className="fx-grid fx-grid--4 gap-y-10">
             <div className="fx-stack fx-stack--sm">
-              <p className="font-serif text-xl tracking-[-0.02em] text-ink">Eventsli</p>
+              {/* The drawn mark, not the word set in the serif. The masthead,
+                  the sidebar and the favicon all show the leaf; a footer that
+                  spells the name instead is the one place the brand is absent
+                  on a page that has just ended. */}
+              <Logo size="md" />
               <p className="max-w-[34ch] text-sm text-muted">
                 Tickets and seat maps for events across Canada and the United States.
               </p>

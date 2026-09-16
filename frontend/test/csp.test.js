@@ -82,16 +82,38 @@ describe('the production CSP', () => {
     expect(directive(csp, 'script-src')).not.toContain('https:');
   });
 
-  test('the only third party is Google Identity Services, in exactly two places', () => {
+  /**
+   * WAS: "the only third party is Google Identity Services". The storefront's
+   * introduction-video section added two more, and the assertion is kept as a
+   * CLOSED SET rather than relaxed — a third party that appears here without
+   * this list changing is the thing the test exists to catch.
+   *
+   * The second half is the part that matters more. Google needs script-src,
+   * because its sign-in client is a script we run. YouTube and Vimeo must
+   * NEVER appear there: they are framed, and a video host in script-src is a
+   * standing permission to execute their code in our origin.
+   */
+  test('the third parties are exactly three, each only where it is needed', () => {
     const thirdParties = csp
       .split('; ')
       .flatMap((d) => d.split(/\s+/).slice(1))
       .filter((source) => source.startsWith('http') && !source.includes('api.eventsli.com')
         && !source.includes('supabase.co'));
 
-    expect(new Set(thirdParties)).toEqual(new Set([GOOGLE]));
+    expect(new Set(thirdParties)).toEqual(new Set([
+      GOOGLE,
+      'https://www.youtube.com',
+      'https://player.vimeo.com',
+    ]));
+
     expect(directive(csp, 'script-src')).toContain(GOOGLE);
     expect(directive(csp, 'frame-src')).toContain(GOOGLE);
+
+    for (const host of ['youtube.com', 'vimeo.com']) {
+      expect(directive(csp, 'script-src').join(' ')).not.toContain(host);
+      expect(directive(csp, 'connect-src').join(' ')).not.toContain(host);
+      expect(directive(csp, 'frame-src').join(' ')).toContain(host);
+    }
   });
 
   test('apis.google.com is gone', () => {
@@ -99,6 +121,34 @@ describe('the production CSP', () => {
     // never used. A host in script-src that nothing loads from is a standing
     // permission for an injection to fetch executable code.
     expect(csp).not.toContain('apis.google.com');
+  });
+
+  /**
+   * `media-src` WAS `'none'`, asserted here with the note that nothing on this
+   * site plays audio or video. That stopped being true when the storefront
+   * gained its introduction-video section, and the assertion is now about the
+   * thing that actually matters: the policy admits our own origin and our own
+   * storage bucket, and no third party.
+   */
+  test('video plays from our own origin and our own bucket, and nowhere else', () => {
+    const sources = directive(csp, 'media-src');
+    expect(sources).toContain("'self'");
+    expect(sources.every((s) => s === "'self'" || s.startsWith('https://'))).toBe(true);
+    expect(sources).not.toContain('*');
+    expect(csp).not.toContain("media-src 'none'");
+  });
+
+  /**
+   * The two video hosts, and the reason this is asserted rather than trusted:
+   * `backend/utils/landingSchema.js` accepts exactly YouTube and Vimeo for the
+   * film's URL. A URL the schema saves and the policy blocks is the worst
+   * outcome available — the section looks configured and is blank for
+   * everybody, with the only evidence in a visitor's console.
+   */
+  test('the video hosts the CMS accepts are the video hosts the policy admits', () => {
+    const sources = directive(csp, 'frame-src');
+    expect(sources).toContain('https://www.youtube.com');
+    expect(sources).toContain('https://player.vimeo.com');
   });
 
   test('nobody frames us', () => {
@@ -109,7 +159,6 @@ describe('the production CSP', () => {
 
   test('the closed directives are closed', () => {
     expect(directive(csp, 'object-src')).toEqual(["'none'"]);
-    expect(directive(csp, 'media-src')).toEqual(["'none'"]);
     expect(directive(csp, 'base-uri')).toEqual(["'self'"]);
     expect(directive(csp, 'form-action')).toEqual(["'self'"]);
     expect(directive(csp, 'default-src')).toEqual(["'self'"]);

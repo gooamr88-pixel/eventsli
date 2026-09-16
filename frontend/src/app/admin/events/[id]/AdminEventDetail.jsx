@@ -79,7 +79,7 @@ export default function AdminEventDetail({ eventId }) {
       )}
 
       {stats && (
-        <div className="fx-grid fx-grid--4">
+        <div className="es-statgrid">
           <StatCard label="Sales" value={formatMoney(stats.grossCents, stats.currency)} note={`${stats.orders} orders`} icon="money" />
           <StatCard label="Commission" value={formatMoney(stats.commissionCents, stats.currency)} note="Earned on this event" icon="percent" />
           <StatCard label="Tickets" value={stats.tickets} note={`${stats.byChannel?.manual?.orders ?? 0} door orders`} icon="ticket" />

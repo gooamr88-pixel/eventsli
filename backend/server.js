@@ -37,6 +37,18 @@ const server = app.listen(PORT, () => {
   } catch (err) {
     logger.error({ err: err.message }, 'scheduler failed to start');
   }
+
+  /**
+   * The browse categories, into memory.
+   *
+   * They validate `?category=` on the public listing SYNCHRONOUSLY, so until
+   * this resolves that validator has to let everything through and let the
+   * database answer. Warming here means the window is the first few
+   * milliseconds after boot rather than the first request — and it never
+   * throws, because an API that refuses to start over a category list is worse
+   * than one that loads it lazily.
+   */
+  require('./services/categoryService').warm();
 });
 
 // ─── Graceful shutdown ──────────────────────────────────────────────────────
