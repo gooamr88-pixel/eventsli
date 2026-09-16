@@ -101,8 +101,45 @@ async function listEvents(req, res, next) {
       .range(p.from, p.to);
     if (error) throw new Error(error.message);
 
-    return sendOk(res, (data || []).map(shape), { pagination: buildMeta(p, count) });
+    const rows = data || [];
+    const fromPrices = await lowestTierPrices(rows.map((e) => e.id));
+
+    return sendOk(
+      res,
+      rows.map((e) => ({ ...shape(e), fromPriceCents: fromPrices.get(e.id) ?? null })),
+      { pagination: buildMeta(p, count) },
+    );
   } catch (err) { return next(err); }
+}
+
+/**
+ * The cheapest tier of each event, for the "Tickets from …" button on a card.
+ *
+ * ONE query for the whole page, not one per event: a listing of twenty would
+ * otherwise be twenty-one round trips. These are the same prices the event page
+ * already publishes tier by tier, so nothing new is exposed.
+ *
+ * A failure here costs the price and nothing else — the card falls back to
+ * "Get tickets" — because a listing that 500s over a label is worse than a
+ * listing without one.
+ */
+async function lowestTierPrices(eventIds) {
+  const lowest = new Map();
+  if (eventIds.length === 0) return lowest;
+
+  const { data, error } = await supabase
+    .from('ticket_tiers')
+    .select('event_id, price_cents')
+    .in('event_id', eventIds);
+  if (error) return lowest;
+
+  for (const tier of data || []) {
+    const price = Number(tier.price_cents);
+    if (!Number.isFinite(price)) continue;
+    const current = lowest.get(tier.event_id);
+    if (current === undefined || price < current) lowest.set(tier.event_id, price);
+  }
+  return lowest;
 }
 
 // ─── GET /public/events/:slug ───────────────────────────────────────────────

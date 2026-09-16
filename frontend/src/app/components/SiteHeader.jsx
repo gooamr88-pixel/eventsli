@@ -72,7 +72,11 @@ function SiteNav({ pathname }) {
    * so a JavaScript failure leaves a legible masthead rather than white text
    * on cream paper.
    */
-  const onHeroPage = pathname === '/';
+  /* OFF since 2026-09-16. The homepage hero is white now, with no photograph
+     behind the bar, and white type over it rendered the masthead as a lone
+     logo mark with no wordmark and no menu. The machinery stays for the day
+     a page has a photographic hero again; that page goes here. */
+  const onHeroPage = false;
   /**
    * NOT WHILE THE MENU IS OPEN.
    *

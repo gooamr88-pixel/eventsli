@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import NavIcon from '../shell/NavIcon';
+import Accent from './Accent';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -34,14 +35,17 @@ export default function VideoBand({ block }) {
   const embed = embedUrl(block.url);
 
   return (
-    <section className="es-band fx-section fx-section--sm">
-      <div className="fx-container fx-container--lg fx-stack">
-        <div className="fx-stack fx-stack--sm text-center">
-          {block.title && <h2 className="font-serif text-2xl">{block.title}</h2>}
-          {block.caption && <p className="text-muted">{block.caption}</p>}
+    <section id="watch" className="es-band fx-section fx-section--sm">
+      <div className="fx-container fx-container--xl">
+        <div className="es-lp-head">
+          <div>
+            <p className="es-lp-kicker">Highlights</p>
+            <h2 className="es-lp-title"><Accent text={block.title || 'Watch the night happen'} lastWord /></h2>
+            {block.caption && <p className="es-lp-lede">{block.caption}</p>}
+          </div>
         </div>
 
-        <div className="es-videoframe">
+        <div className="es-lp-film">
           {playing ? (
             embed ? (
               <iframe
@@ -60,18 +64,12 @@ export default function VideoBand({ block }) {
           ) : (
             <>
               {block.posterUrl && (
-                // The poster fills `.es-videoframe`, which sets its own
-                // aspect-ratio and object-fit; `fill` would fight it.
-                // eslint-disable-next-line @next/next/no-img-element
+                // eslint-disable-next-line @next/next/no-img-element -- the tile sets its own aspect-ratio and object-fit; `fill` would fight it
                 <img src={block.posterUrl} alt="" loading="lazy" decoding="async" />
               )}
-              <button
-                type="button"
-                onClick={() => setPlaying(true)}
-                className="es-play es-play--lg absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
-              >
-                <span aria-hidden><NavIcon name="play" size={24} filled /></span>
-                <span className="sr-only">{`Play${block.title ? `: ${block.title}` : ' the video'}`}</span>
+              <button type="button" onClick={() => setPlaying(true)} className="es-lp-film__play">
+                <span aria-hidden><NavIcon name="play" size={28} filled /></span>
+                <span className="sr-only">{`Play${block.title ? `: ${block.title.replace(/\*/g, '')}` : ' the video'}`}</span>
               </button>
             </>
           )}

@@ -71,7 +71,7 @@ export default function SiteFooter() {
 
             {FOOTER_GROUPS.map((group) => (
               <nav key={group.heading} className="fx-stack fx-stack--sm" aria-label={group.heading}>
-                <h2 className="text-xs uppercase tracking-[0.14em] text-subtle">{group.heading}</h2>
+                <h2 className="font-sans text-xs font-semibold uppercase tracking-[0.14em] text-subtle">{group.heading}</h2>
                 <ul className="fx-stack fx-stack--sm gap-1.5">
                   {group.links.map((link) => (
                     <li key={`${group.heading}-${link.path}`}>

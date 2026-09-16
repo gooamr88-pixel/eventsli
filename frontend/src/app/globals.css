@@ -27,16 +27,28 @@
      contrast; it had not measured the other direction, where white ON
      600 is 3.77:1 and 600 as link text is worse. Both are AA failures on
      the brand's most-used colour. See --es-accent below. */
-  --es-emerald-50:  #ecfdf5;
-  --es-emerald-100: #d1fae5;
-  --es-emerald-200: #a7f3d0;
-  --es-emerald-300: #6ee7b7;
-  --es-emerald-400: #34d399;
-  --es-emerald-500: #10b981;
-  --es-emerald-600: #059669;
-  --es-emerald-700: #047857;
-  --es-emerald-800: #065f46;
-  --es-emerald-900: #064e3b;
+  /* ── BLUE, 2026-09-16 ──────────────────────────────────────────────
+     The brand hue changed from emerald to blue. The site stays WHITE; blue
+     takes exactly the places green had — buttons, links, accent words,
+     icons, active states, the seat map — and nothing more. The ramps were
+     renamed with it (emerald → blue, mint → mist, forest → navy) so no
+     variable name describes a colour it no longer holds. The accent role is
+     the 700 step (#2c62bd), a MEDIUM blue. The first pass used a saturated
+     royal (#1649e0) and was rejected the same day as too loud and too dark:
+     the brief is calm, not neon. This ramp is desaturated end to end, and
+     700 is the lightest step that still clears AA both as white-on-blue and
+     as blue text on the mist tint. Do not brighten it without re-running
+     scripts/contrast.js. */
+  --es-blue-50:  #f2f6fc;
+  --es-blue-100: #e1eaf7;
+  --es-blue-200: #c5d6ef;
+  --es-blue-300: #9dbae3;
+  --es-blue-400: #6f97d3;
+  --es-blue-500: #5287d6;
+  --es-blue-600: #3f76cf;
+  --es-blue-700: #2c62bd;
+  --es-blue-800: #2657ad;
+  --es-blue-900: #1f4789;
 
   /* ── Neutrals ───────────────────────────────────────────────────────
      Slate in light (cool, sits under emerald without going muddy), zinc
@@ -78,22 +90,22 @@
      The separation the sand ramp existed for is preserved: `bg` (white)
      and `bg-sunken` (mint-100) are 5.0 L* apart, which contrast.js
      measures and which is above the 3.0 floor. */
-  --es-mint-50:  #f7fbf9;
-  --es-mint-100: #eaf5ef;
-  --es-mint-200: #d8ebe1;
-  --es-mint-300: #c3ded1;
-  --es-mint-400: #a8cbba;
-  --es-mint-500: #8bb8a4;
+  --es-mist-50:  #f7f9fd;
+  --es-mist-100: #eff3fa;
+  --es-mist-200: #e1e8f4;
+  --es-mist-300: #cdd8ea;
+  --es-mist-400: #b0bfd9;
+  --es-mist-500: #93a5c6;
 
   /* ── Forest: the emerald field ──────────────────────────────────────
      Not a step on the emerald ramp — those are all saturated enough to be
      a fill and none of them is dark enough to be a GROUND. This is the
      tone a full-bleed band uses so the brand can occupy area instead of
      only colouring links. See .es-band--field. */
-  --es-forest-950: #071512;
-  --es-forest-900: #0a1f1a;
-  --es-forest-800: #0e2a23;
-  --es-forest-700: #123029;
+  --es-navy-950: #070e1f;
+  --es-navy-900: #0b1631;
+  --es-navy-800: #0f1e40;
+  --es-navy-700: #14264d;
 
   /* ── Ink: the dark grounds, and they are GREEN ──────────────────────
      RETONED 2026-09-16. These were neutral near-blacks with a trace of
@@ -109,12 +121,12 @@
      Declared as primitives because the dark palette is written out TWICE
      below (media query and [data-theme]) and a raw hex in both is a value
      that can drift between the two copies. */
-  --es-ink-900: #143229;
-  --es-ink-950: #0d2620;
-  --es-ink-975: #071713;
-  --es-ink-raised: #1a3d33;
-  --es-ink-border: #234a3e;
-  --es-ink-subtle: #8fb8a8;
+  --es-ink-900: #16284a;
+  --es-ink-950: #0f1e3a;
+  --es-ink-975: #09142a;
+  --es-ink-raised: #1b3059;
+  --es-ink-border: #26406f;
+  --es-ink-subtle: #93a8cf;
 
   /* ── Semantic ───────────────────────────────────────────────────────
      Separate from the brand hue on purpose. A green "success" that is
@@ -136,14 +148,14 @@
      off-white reads as a slightly dirty white next to the real white of a
      card sitting on it, which is exactly what the surface role is. */
   --es-bg:            #ffffff;
-  --es-bg-sunken:     var(--es-mint-100);
+  --es-bg-sunken:     var(--es-mist-100);
   /* The fourth ground, and the only dark one. A page gets its rhythm from
      the GREEN band, not from 2% differences between three papers. */
-  --es-bg-deep:       var(--es-forest-900);
+  --es-bg-deep:       var(--es-navy-900);
   --es-surface:       #ffffff;
   --es-surface-raised:#ffffff;
-  --es-border:        var(--es-mint-200);
-  --es-border-strong: var(--es-mint-400);
+  --es-border:        var(--es-mist-200);
+  --es-border-strong: var(--es-mist-400);
 
   /* ── Ink, and it is green ───────────────────────────────────────────
      The text roles were slate — a cool grey family chosen to sit under
@@ -153,17 +165,17 @@
 
      Every value below is measured by scripts/contrast.js against white
      AND against mint-100, because both are grounds a paragraph sits on. */
-  --es-text:          #0e2a22;
-  --es-text-muted:    #3f6257;
+  --es-text:          #0f1d3a;
+  --es-text-muted:    #44557a;
   /* OFF-RAMP, and deliberately — as the slate version was.
      A third level of hierarchy has to clear AA on the sunken band too,
-     and the obvious next step down (#5c7f74) measures 4.39:1 on white,
+     and the obvious next step down (#5b6d95) measures 4.39:1 on white,
      which is a fail at body size. This is the darkest value that clears
      4.5 on BOTH grounds: 5.44 on white, 4.80 on mint-100. */
-  --es-text-subtle:   #4d7064;
+  --es-text-subtle:   #4f6088;
   --es-text-on-accent:#ffffff;
 
-  /* emerald-600 (#059669) was here and it failed AA twice over.
+  /* emerald-600 (#3f76cf) was here and it failed AA twice over.
 
      As TEXT it measured 3.44–3.77:1 depending on the ground — every link,
      every eyebrow label. And white ON it, which is every primary button and
@@ -183,31 +195,31 @@
      The identity does not move again: `theme-color`, the icon, the seat
      map and every FILL still carry emerald-500/600/700. Only the shade
      that carries text and the primary button changed. */
-  --es-accent:        var(--es-emerald-800);
-  --es-accent-hover:  var(--es-emerald-900);
+  --es-accent:        var(--es-blue-700);
+  --es-accent-hover:  var(--es-blue-800);
   /* The page's own tint, one step down from the sunken ground so a wash
      inside a card is still distinguishable from the band behind it. */
-  --es-accent-wash:   var(--es-mint-200);
-  --es-accent-edge:   var(--es-emerald-200);
+  --es-accent-wash:   var(--es-mist-200);
+  --es-accent-edge:   var(--es-blue-200);
 
   /* CORRECTION 1 of 3, carried over from the old tokens.
      `--border-focus`, `--shadow-accent` and `--accent-subtle` were all
      still `rgba(79,70,229,…)` — indigo, from an identity two rebrands
      ago. Every focus ring and every button shadow on the platform was
      purple underneath a green skin. They are emerald here. */
-  --es-focus-ring-color: var(--es-emerald-600);
-  --es-shadow-accent: 0 4px 16px rgba(5, 150, 105, 0.20);
-  --es-accent-subtle: rgba(5, 150, 105, 0.12);
+  --es-focus-ring-color: var(--es-blue-600);
+  --es-shadow-accent: 0 4px 16px rgba(48, 104, 200, 0.20);
+  --es-accent-subtle: rgba(48, 104, 200, 0.12);
 
   /* ── Seat map ───────────────────────────────────────────────────────
      Named here rather than in the seat-map stylesheet because a seat's
      colour is the single most load-bearing piece of information on the
      purchase page, and it has to survive a theme switch intact. */
-  --es-seat-available: var(--es-emerald-500);
-  --es-seat-selected:  var(--es-emerald-700);
+  --es-seat-available: var(--es-blue-500);
+  --es-seat-selected:  var(--es-blue-700);
   --es-seat-held:      var(--es-warning);
-  --es-seat-sold:      var(--es-mint-400);
-  --es-seat-blocked:   var(--es-mint-300);
+  --es-seat-sold:      var(--es-mist-400);
+  --es-seat-blocked:   var(--es-mist-300);
 
   /* ── Type ───────────────────────────────────────────────────────────
      CORRECTION 2 of 3: the old index.html still pulled Cormorant
@@ -414,28 +426,28 @@
   --es-bg:            var(--es-ink-950);
   --es-bg-sunken:     var(--es-ink-975);
   /* Same lift as the media-query copy above. */
-  --es-bg-deep:       #1b4a3c;
+  --es-bg-deep:       #243f6e;
   --es-surface:       var(--es-ink-900);
   --es-surface-raised:var(--es-ink-raised);
   --es-border:        var(--es-ink-border);
-  --es-border-strong: #2f6152;
+  --es-border-strong: #34528a;
 
-  --es-text:          #eaf5ef;
-  --es-text-muted:    #a9cfc0;
+  --es-text:          #eff3fa;
+  --es-text-muted:    #aabbdc;
   --es-text-subtle:   var(--es-ink-subtle);
-  --es-text-on-accent:#071713;
+  --es-text-on-accent:#09142a;
 
-  --es-accent:        #6fcfae;
-  --es-accent-hover:  #8eddc2;
-  --es-accent-wash:   #0a2b21;
-  --es-accent-edge:   #12513e;
+  --es-accent:        #8fb0e6;
+  --es-accent-hover:  #a9c3ec;
+  --es-accent-wash:   #0e1f47;
+  --es-accent-edge:   #24467a;
 
-  --es-focus-ring-color: var(--es-emerald-400);
-  --es-shadow-accent: 0 4px 16px rgba(52, 211, 153, 0.20);
-  --es-accent-subtle: rgba(52, 211, 153, 0.14);
+  --es-focus-ring-color: var(--es-blue-400);
+  --es-shadow-accent: 0 4px 16px rgba(111, 151, 211, 0.20);
+  --es-accent-subtle: rgba(111, 151, 211, 0.14);
 
-  --es-seat-available: var(--es-emerald-400);
-  --es-seat-selected:  var(--es-emerald-200);
+  --es-seat-available: var(--es-blue-400);
+  --es-seat-selected:  var(--es-blue-200);
   --es-seat-held:      var(--es-warning);
   --es-seat-sold:      var(--es-zinc-700);
   --es-seat-blocked:   var(--es-zinc-800);
@@ -1352,10 +1364,10 @@
      maps a `tone` prop onto it and contrast.js measures it by name. It is
      the page ground with a border, which is a real tone and an honest one. */
   --es-bg:         #ffffff;
-  --es-bg-sunken:  var(--es-mint-100);
+  --es-bg-sunken:  var(--es-mist-100);
   --es-surface:    #ffffff;
-  --es-border:     var(--es-mint-200);
-  --es-border-strong: var(--es-mint-400);
+  --es-border:     var(--es-mist-200);
+  --es-border-strong: var(--es-mist-400);
   /* A BAND THAT CHANGES ITS GROUND MUST DECLARE ITS TEXT, whichever theme
      it is sitting in. This block used to be dark and redeclared nine roles
      for that reason; now it is light and it has to redeclare them for the
@@ -1363,13 +1375,13 @@
      ink is pale, and pale ink on a mint ground is nothing at all.
      These are the light theme's measured values, named rather than
      inherited. */
-  --es-text:          #0e2a22;
-  --es-text-muted:    #3f6257;
-  --es-text-subtle:   #47695e;
-  --es-accent:        var(--es-emerald-800);
-  --es-accent-hover:  var(--es-emerald-900);
-  --es-accent-wash:   var(--es-mint-200);
-  --es-accent-edge:   var(--es-mint-400);
+  --es-text:          #0f1d3a;
+  --es-text-muted:    #44557a;
+  --es-text-subtle:   #4a5b83;
+  --es-accent:        var(--es-blue-700);
+  --es-accent-hover:  var(--es-blue-800);
+  --es-accent-wash:   var(--es-mist-200);
+  --es-accent-edge:   var(--es-mist-400);
   --es-text-on-accent:#ffffff;
   background: var(--es-bg);
   color: var(--es-text);
@@ -1410,12 +1422,12 @@
      Only `--es-bg` moves. The text roles are the page's, because on a light
      ground they are already the measured ones — the whole reason this block
      used to redeclare nine of them was that it was dark. */
-  --es-bg:            var(--es-mint-100);
-  --es-bg-sunken:     var(--es-mint-200);
+  --es-bg:            var(--es-mist-100);
+  --es-bg-sunken:     var(--es-mist-200);
   --es-surface:       #ffffff;
   --es-surface-raised:#ffffff;
-  --es-border:        var(--es-mint-300);
-  --es-border-strong: var(--es-mint-400);
+  --es-border:        var(--es-mist-300);
+  --es-border-strong: var(--es-mist-400);
   /* A BAND THAT CHANGES ITS GROUND MUST DECLARE ITS TEXT, whichever theme
      it is sitting in. This block used to be dark and redeclared nine roles
      for that reason; now it is light and it has to redeclare them for the
@@ -1423,13 +1435,13 @@
      ink is pale, and pale ink on a mint ground is nothing at all.
      These are the light theme's measured values, named rather than
      inherited. */
-  --es-text:          #0e2a22;
-  --es-text-muted:    #3f6257;
-  --es-text-subtle:   #47695e;
-  --es-accent:        var(--es-emerald-800);
-  --es-accent-hover:  var(--es-emerald-900);
-  --es-accent-wash:   var(--es-mint-200);
-  --es-accent-edge:   var(--es-mint-400);
+  --es-text:          #0f1d3a;
+  --es-text-muted:    #44557a;
+  --es-text-subtle:   #4a5b83;
+  --es-accent:        var(--es-blue-700);
+  --es-accent-hover:  var(--es-blue-800);
+  --es-accent-wash:   var(--es-mist-200);
+  --es-accent-edge:   var(--es-mist-400);
   --es-text-on-accent:#ffffff;
   background: var(--es-bg);
   color: var(--es-text);
@@ -1445,20 +1457,20 @@
    ground to measure the white type against, and it is the veil's colour
    rather than a guess. */
 .es-band--photo {
-  --es-bg:            var(--es-forest-900);
-  --es-bg-sunken:     var(--es-forest-950);
+  --es-bg:            var(--es-navy-900);
+  --es-bg-sunken:     var(--es-navy-950);
   --es-surface:       #ffffff;
   --es-surface-raised:#ffffff;
   --es-text:          #ffffff;
-  --es-text-muted:    #dbeee5;
-  --es-text-subtle:   #bcdccd;
+  --es-text-muted:    #dde7fb;
+  --es-text-subtle:   #bccdf0;
   --es-border:        rgba(255, 255, 255, 0.22);
   --es-border-strong: rgba(255, 255, 255, 0.34);
   --es-accent:        #ffffff;
-  --es-accent-hover:  #dbeee5;
+  --es-accent-hover:  #dde7fb;
   --es-accent-wash:   rgba(255, 255, 255, 0.14);
   --es-accent-edge:   rgba(255, 255, 255, 0.45);
-  --es-text-on-accent:var(--es-forest-900);
+  --es-text-on-accent:var(--es-navy-900);
   background: var(--es-bg);
   color: var(--es-text);
 }
@@ -1475,7 +1487,7 @@
    that needs both at once, so it names its ink rather than inheriting it.
    Anything else on this band that takes a white surface needs the same. */
 .es-band--photo :is(.es-btn--secondary, .es-card, .es-panel) {
-  color: var(--es-forest-900);
+  color: var(--es-navy-900);
 }
 .es-band--photo .es-btn--secondary { border-color: transparent; }
 
@@ -1492,12 +1504,12 @@
 .es-band--photo .es-chip {
   background: #ffffff;
   border-color: #ffffff;
-  color: var(--es-forest-900);
+  color: var(--es-navy-900);
   font-weight: 500;
 }
 .es-band--photo .es-chip:hover {
-  background: var(--es-mint-100);
-  border-color: var(--es-mint-100);
+  background: var(--es-mist-100);
+  border-color: var(--es-mist-100);
 }
 
 /* The "explore more" chip keeps its fill inside the photo band.
@@ -1506,13 +1518,13 @@
    brand colour came out white among four white ones — indistinguishable from
    the categories it is meant to close. Same specificity, stated once. */
 .es-band--photo .es-chip--more {
-  background: var(--es-emerald-800);
-  border-color: var(--es-emerald-800);
+  background: var(--es-blue-700);
+  border-color: var(--es-blue-700);
   color: #ffffff;
 }
 .es-band--photo .es-chip--more:hover {
-  background: var(--es-emerald-900);
-  border-color: var(--es-emerald-900);
+  background: var(--es-blue-800);
+  border-color: var(--es-blue-800);
 }
 
 /* `.es-bloom` WAS HERE and is deleted, 2026-09-16.
@@ -2914,11 +2926,11 @@
    background without the text roles leaves every child at the band's
    inverted white, which on white is nothing at all. */
 .es-searchbar {
-  --es-text:        #0e2a22;
-  --es-text-muted:  #3f6257;
-  --es-text-subtle: #4d7064;
-  --es-border:      var(--es-mint-200);
-  --es-accent-edge: var(--es-mint-400);
+  --es-text:        #0f1d3a;
+  --es-text-muted:  #44557a;
+  --es-text-subtle: #4f6088;
+  --es-border:      var(--es-mist-200);
+  --es-accent-edge: var(--es-mist-400);
   color: var(--es-text);
   display: flex;
   flex-direction: column;
@@ -3059,11 +3071,11 @@
   margin-block-start: 0.25rem;
   border: 0;
   border-radius: var(--es-radius-md);
-  background: var(--es-emerald-800);
+  background: var(--es-blue-700);
   color: #ffffff;
   transition: background var(--es-dur-fast) var(--es-ease);
 }
-.es-searchbar__submit:hover { background: var(--es-emerald-900); }
+.es-searchbar__submit:hover { background: var(--es-blue-800); }
 @media (width >= 48rem) {
   .es-searchbar__submit {
     width: var(--fx-touch);
@@ -3086,9 +3098,9 @@
 .es-locate {
   /* Same reasoning as `.es-searchbar`: it sits on the photograph, so it is a
      surface and it carries its own ink. */
-  --es-text:       #0e2a22;
-  --es-accent:     var(--es-emerald-800);
-  --es-accent-wash:var(--es-mint-100);
+  --es-text:       #0f1d3a;
+  --es-accent:     var(--es-blue-700);
+  --es-accent-wash:var(--es-mist-100);
   --es-text-on-accent: #ffffff;
   display: inline-flex;
   align-items: center;
@@ -3096,7 +3108,7 @@
   min-height: var(--fx-touch);
   padding-inline: 0.5rem 1.125rem;
   border-radius: var(--es-radius-full);
-  border: 1px solid var(--es-mint-300);
+  border: 1px solid var(--es-mist-300);
   background: #ffffff;
   color: var(--es-text);
   font-size: var(--es-text-sm);
@@ -3170,14 +3182,14 @@
    type. This chip is the one control on the rail that has to be the brand
    colour wherever it sits, so it says which colour that is. */
 .es-chip--more {
-  background: var(--es-emerald-800);
-  border-color: var(--es-emerald-800);
+  background: var(--es-blue-700);
+  border-color: var(--es-blue-700);
   color: #ffffff;
   font-weight: 600;
 }
 .es-chip--more:hover {
-  background: var(--es-emerald-900);
-  border-color: var(--es-emerald-900);
+  background: var(--es-blue-800);
+  border-color: var(--es-blue-800);
   color: #ffffff;
 }
 
@@ -3451,6 +3463,8 @@ a.es-sponsor:hover { opacity: 0.7; }
 .es-overhero {
   background: color-mix(in srgb, var(--es-bg) 85%, transparent);
   border-block-end: 1px solid var(--es-border);
+  /* The storefront's bar lifts off the page with a soft shadow. */
+  box-shadow: var(--es-shadow-sm);
   backdrop-filter: blur(12px);
 }
 
@@ -3475,9 +3489,9 @@ a.es-sponsor:hover { opacity: 0.7; }
   --es-text-muted: rgb(255 255 255 / 0.86);
   --es-border:     rgb(255 255 255 / 0.20);
   --es-bg-sunken:  rgb(255 255 255 / 0.14);
-  --es-accent:     #8eddc2;
-  --es-accent-hover: #b6ecd8;
-  --es-text-on-accent: var(--es-forest-950);
+  --es-accent:     #a9c3ec;
+  --es-accent-hover: #c5d6ef;
+  --es-text-on-accent: var(--es-navy-950);
   color: var(--es-text);
 }
 /* No backdrop blur in the transparent state: blurring a hero's own
@@ -3642,13 +3656,13 @@ a.es-sponsor:hover { opacity: 0.7; }
   margin-inline: auto;
   aspect-ratio: 9 / 18.5;
   border-radius: 2.5rem;
-  background: #10231d;
+  background: #0f1c38;
   padding: 0.5rem;
   box-shadow:
     0 0 0 1px rgba(255, 255, 255, 0.10) inset,
     0 2px 0 rgba(255, 255, 255, 0.16) inset,
-    0 32px 60px -24px rgba(7, 23, 19, 0.55),
-    0 8px 20px -8px rgba(7, 23, 19, 0.35);
+    0 32px 60px -24px rgba(8, 19, 41, 0.55),
+    0 8px 20px -8px rgba(8, 19, 41, 0.35);
 }
 /* The pill cut-out. On the bezel, above the screen, in the bezel's own
    colour — a notch drawn in a border colour reads as a sticker. */
@@ -3661,7 +3675,7 @@ a.es-sponsor:hover { opacity: 0.7; }
   width: 3.75rem;
   height: 1.05rem;
   border-radius: var(--es-radius-full);
-  background: #10231d;
+  background: #0f1c38;
   z-index: 2;
 }
 .es-phone__screen {
@@ -3834,7 +3848,7 @@ a.es-sponsor:hover { opacity: 0.7; }
   inset-block-end: 0.75rem;
   inset-inline-start: 0.75rem;
   background: #ffffff;
-  color: var(--es-emerald-800);
+  color: var(--es-blue-700);
   font-weight: 600;
 }
 
@@ -3912,7 +3926,7 @@ a.es-sponsor:hover { opacity: 0.7; }
   height: 3.5rem;
   border: 0;
   background: #ffffff;
-  color: var(--es-emerald-800);
+  color: var(--es-blue-700);
   box-shadow: var(--es-shadow-lg);
 }
 .es-roundbtn--lg:hover { transform: scale(1.06); background: #ffffff; }
@@ -4122,7 +4136,7 @@ a.es-sponsor:hover { opacity: 0.7; }
   padding: 0;
   /* A flat scrim. Dark enough to sit the panel forward, light enough that
      the photograph behind it is still recognisably there. */
-  background: rgba(7, 23, 19, 0.55);
+  background: rgba(8, 19, 41, 0.55);
   animation: es-modal-in var(--es-dur-fast) var(--es-ease);
 }
 
@@ -4146,16 +4160,16 @@ a.es-sponsor:hover { opacity: 0.7; }
      is the same trap as the header's inverted roles leaking into the phone
      menu, and the same fix: an element that changes its ground states its
      text. These are the light theme's measured values, named. */
-  --es-text:          #0e2a22;
-  --es-text-muted:    #3f6257;
-  --es-text-subtle:   #47695e;
-  --es-border:        var(--es-mint-200);
-  --es-border-strong: var(--es-mint-400);
+  --es-text:          #0f1d3a;
+  --es-text-muted:    #44557a;
+  --es-text-subtle:   #4a5b83;
+  --es-border:        var(--es-mist-200);
+  --es-border-strong: var(--es-mist-400);
   --es-surface:       #ffffff;
-  --es-bg-sunken:     var(--es-mint-100);
-  --es-accent:        var(--es-emerald-800);
-  --es-accent-hover:  var(--es-emerald-900);
-  --es-accent-wash:   var(--es-mint-100);
+  --es-bg-sunken:     var(--es-mist-100);
+  --es-accent:        var(--es-blue-700);
+  --es-accent-hover:  var(--es-blue-800);
+  --es-accent-wash:   var(--es-mist-100);
   --es-text-on-accent:#ffffff;
   color: var(--es-text);
 
@@ -4172,7 +4186,7 @@ a.es-sponsor:hover { opacity: 0.7; }
      rounded corner against a straight screen edge reads as a mistake. */
   border-radius: var(--es-radius-xl) var(--es-radius-xl) 0 0;
   background: #ffffff;
-  box-shadow: 0 -24px 60px -20px rgba(7, 23, 19, 0.4);
+  box-shadow: 0 -24px 60px -20px rgba(8, 19, 41, 0.4);
   animation: es-sheet-in var(--es-dur-base) var(--es-ease);
 }
 
@@ -4207,7 +4221,7 @@ a.es-sponsor:hover { opacity: 0.7; }
   color: var(--es-text-muted);
   transition: background var(--es-dur-fast) var(--es-ease);
 }
-.es-modal__close:hover { background: var(--es-mint-100); color: var(--es-text); }
+.es-modal__close:hover { background: var(--es-mist-100); color: var(--es-text); }
 
 .es-modal__mark {
   display: inline-flex;
@@ -4216,7 +4230,7 @@ a.es-sponsor:hover { opacity: 0.7; }
   width: 3.5rem;
   height: 3.5rem;
   border-radius: var(--es-radius-full);
-  background: var(--es-mint-100);
+  background: var(--es-mist-100);
   color: var(--es-accent);
 }
 .es-modal__mark--muted { color: var(--es-text-muted); }
@@ -4245,7 +4259,7 @@ a.es-sponsor:hover { opacity: 0.7; }
   height: 2rem;
   flex-shrink: 0;
   border-radius: var(--es-radius-md);
-  background: var(--es-mint-100);
+  background: var(--es-mist-100);
   color: var(--es-accent);
 }
 .es-modal__point-title { display: block; font-size: var(--es-text-sm); font-weight: 600; color: var(--es-text); }
@@ -4264,7 +4278,7 @@ a.es-sponsor:hover { opacity: 0.7; }
   transition: border-color var(--es-dur-fast) var(--es-ease),
               background var(--es-dur-fast) var(--es-ease);
 }
-.es-modal__place:hover { border-color: var(--es-accent); background: var(--es-mint-100); }
+.es-modal__place:hover { border-color: var(--es-accent); background: var(--es-mist-100); }
 .es-modal__place-mark { display: inline-flex; flex-shrink: 0; color: var(--es-accent); }
 .es-modal__place-city { display: block; font-size: var(--es-text-sm); font-weight: 600; }
 .es-modal__place-note { display: block; font-size: var(--es-text-xs); color: var(--es-text-muted); }
@@ -4277,6 +4291,953 @@ a.es-sponsor:hover { opacity: 0.7; }
   .es-modal__actions { flex-direction: row; flex-wrap: wrap; }
   .es-modal__actions > * { flex: 1 1 auto; }
 }
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   THE STOREFRONT — 2026-09-17, built from the approved mockup (version 3
+   of the blue storefront review).
+
+   White page, one calm medium blue. Every colour below is a ROLE, so the
+   dark theme follows without a second block. The only literals are the
+   white chips and captions that sit on PHOTOGRAPHS (date badges, poster
+   names, the play button, the closing panel's buttons) — a photograph is
+   the same in both themes, so what sits on it must be too.
+
+   Prefixed es-lp- (landing page) so none of it leaks into the dashboard,
+   and es-evcard for the event card, which /events shares.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.es-lp-accent { color: var(--es-accent); }
+
+.es-lp-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.625rem;
+  font-family: var(--es-font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--es-accent);
+}
+.es-lp-kicker::before {
+  content: '';
+  width: 1rem;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--es-accent-edge);
+}
+.es-lp-kicker--center { justify-content: center; }
+
+.es-lp-title {
+  margin: 0;
+  font-family: var(--es-font-sans);
+  font-size: clamp(1.75rem, 1rem + 2.4vw, 2.75rem);
+  font-weight: 700;
+  line-height: 1.12;
+  letter-spacing: -0.028em;
+  color: var(--es-text);
+  text-wrap: balance;
+}
+.es-lp-lede {
+  margin: 0.75rem 0 0;
+  max-width: 60ch;
+  font-size: clamp(0.9375rem, 0.9rem + 0.2vw, 1.0625rem);
+  line-height: 1.55;
+  color: var(--es-text-muted);
+}
+.es-lp-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem 2rem;
+  margin-bottom: 1.75rem;
+}
+.es-lp-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-weight: 600;
+  color: var(--es-accent);
+  white-space: nowrap;
+}
+.es-lp-link:hover { text-decoration: underline; text-underline-offset: 4px; }
+.es-lp-center { display: flex; justify-content: center; }
+
+/* ── Buttons ──────────────────────────────────────────────────────────── */
+.es-lp-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 48px;
+  padding: 0.625rem 1.5rem;
+  border: 1.5px solid transparent;
+  border-radius: 12px;
+  font-size: var(--es-text-base);
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  transition:
+    background-color var(--es-duration-fast) var(--es-ease-default),
+    border-color var(--es-duration-fast) var(--es-ease-default),
+    transform var(--es-duration-fast) var(--es-ease-default);
+}
+.es-lp-btn:active { transform: translateY(1px); }
+.es-lp-btn--solid { background: var(--es-accent); color: var(--es-text-on-accent); box-shadow: 0 6px 16px rgb(44 98 189 / 0.22); }
+.es-lp-btn--solid:hover { background: var(--es-accent-hover); }
+.es-lp-btn--outline { border-color: var(--es-border-strong); background: var(--es-surface); color: var(--es-text); }
+.es-lp-btn--outline:hover { border-color: var(--es-text); }
+.es-lp-btn--ghost { border-color: var(--es-accent); color: var(--es-accent); }
+.es-lp-btn--ghost:hover { background: var(--es-accent-wash); }
+/* The two on the closing panel, which is a fixed blue in both themes. */
+.es-lp-btn--white { background: #ffffff; color: #2c62bd; }
+.es-lp-btn--white:hover { background: #eef3fb; }
+.es-lp-btn--glass { border-color: rgb(255 255 255 / 0.55); color: #ffffff; }
+.es-lp-btn--glass:hover { background: rgb(255 255 255 / 0.12); }
+
+/* ── 1 · Hero ─────────────────────────────────────────────────────────── */
+.es-lp-hero {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(45% 45% at 90% 10%, var(--es-accent-subtle), transparent 70%),
+    radial-gradient(40% 40% at 6% 60%, var(--es-accent-subtle), transparent 70%),
+    var(--es-bg);
+}
+.es-lp-hero__head {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.125rem;
+  max-width: 52rem;
+  margin-inline: auto;
+  text-align: center;
+}
+.es-lp-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 5px 14px 5px 5px;
+  border: 1px solid var(--es-border);
+  border-radius: var(--es-radius-full);
+  background: var(--es-surface);
+  box-shadow: var(--es-shadow-xs);
+  font-size: var(--es-text-sm);
+  color: var(--es-text-muted);
+}
+.es-lp-pill b {
+  padding: 3px 10px;
+  border-radius: var(--es-radius-full);
+  background: var(--es-accent-wash);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--es-accent);
+}
+.es-lp-hero__title {
+  margin: 0;
+  font-family: var(--es-font-sans);
+  font-size: clamp(2.125rem, 1.1rem + 4.6vw, 4.25rem);
+  font-weight: 700;
+  line-height: 1.07;
+  letter-spacing: -0.032em;
+  color: var(--es-text);
+  text-wrap: balance;
+}
+.es-lp-swash { position: relative; display: inline-block; color: var(--es-accent); }
+.es-lp-swash svg {
+  position: absolute;
+  left: 0;
+  bottom: -0.14em;
+  width: 100%;
+  height: 0.26em;
+  color: var(--es-accent-edge);
+}
+.es-lp-hero__body {
+  margin: 0;
+  max-width: 56ch;
+  font-size: clamp(1rem, 0.95rem + 0.3vw, 1.1875rem);
+  line-height: 1.6;
+  color: var(--es-text-muted);
+  text-wrap: pretty;
+}
+.es-lp-hero__ctas { display: grid; gap: 0.75rem; width: 100%; padding-top: 0.375rem; }
+
+/* Soft rings and dots around the headline. Decoration only, and only
+   where there is room — on a phone they land on the words. */
+.es-lp-dots { position: absolute; inset: 0; display: none; pointer-events: none; }
+.es-lp-dots i { position: absolute; display: block; border-radius: 50%; }
+.es-lp-dots i:nth-child(1) { left: 8%; top: 18%; width: 10px; height: 10px; background: var(--es-accent-edge); }
+.es-lp-dots i:nth-child(2) { left: 15%; top: 46%; width: 18px; height: 18px; border: 2px solid var(--es-accent-edge); }
+.es-lp-dots i:nth-child(3) { right: 10%; top: 14%; width: 14px; height: 14px; border: 2px solid var(--es-accent-edge); }
+.es-lp-dots i:nth-child(4) { right: 16%; top: 42%; width: 8px; height: 8px; background: var(--es-accent-edge); }
+.es-lp-dots i:nth-child(5) { left: 30%; top: 6%; width: 6px; height: 6px; background: var(--es-accent-edge); }
+.es-lp-dots i:nth-child(6) { right: 32%; top: 5%; width: 5px; height: 5px; background: var(--es-accent-edge); }
+
+@media (width >= theme(--breakpoint-sm)) {
+  .es-lp-hero__ctas { display: flex; justify-content: center; width: auto; }
+  .es-lp-hero__ctas .es-lp-btn { min-width: 12rem; }
+}
+@media (width >= theme(--breakpoint-md)) { .es-lp-dots { display: block; } }
+
+/* The filter bar */
+.es-lp-filter {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  max-width: 56rem;
+  margin: clamp(1.75rem, 4vw, 2.5rem) auto 0;
+  padding: 8px 8px 8px 14px;
+  border: 1px solid var(--es-border);
+  border-radius: 16px;
+  background: var(--es-surface);
+  box-shadow: var(--es-shadow-lg);
+}
+.es-lp-filter__field {
+  position: relative;
+  display: flex;
+  flex: 1 1 0;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  height: var(--fx-touch);
+  padding-inline: 2px 18px;
+  border-bottom: 1.5px solid var(--es-border);
+  color: var(--es-text-muted);
+  text-align: start;
+  cursor: pointer;
+}
+.es-lp-filter__field:focus-within { border-bottom-color: var(--es-accent); }
+.es-lp-filter__icon { display: inline-flex; flex-shrink: 0; color: var(--es-accent); }
+.es-lp-filter__control {
+  display: block;
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  appearance: none;
+  background: transparent;
+  font: inherit;
+  font-size: var(--es-text-sm);
+  color: var(--es-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+/* The ring is the field's underline, not an outline inside a transparent
+   control where it clips. */
+.es-lp-filter__control:focus { outline: none; }
+.es-lp-filter__chev {
+  position: absolute;
+  inset-inline-end: 4px;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: translateY(-70%) rotate(45deg);
+  pointer-events: none;
+}
+.es-lp-filter__date { position: relative; display: flex; flex: 1 1 auto; align-items: center; min-width: 0; height: 100%; }
+.es-lp-filter__date > span { position: absolute; inset-inline: 0; pointer-events: none; }
+.es-lp-filter__control--date { height: 100%; }
+.es-lp-filter__control--blank { color: transparent; }
+.es-lp-filter__control--blank::-webkit-datetime-edit { opacity: 0; }
+.es-lp-filter__control--date::-webkit-calendar-picker-indicator {
+  position: absolute;
+  inset: 0;
+  width: auto;
+  height: auto;
+  opacity: 0;
+  cursor: pointer;
+}
+.es-lp-filter__submit {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: var(--es-accent);
+  font-weight: 600;
+  color: var(--es-text-on-accent);
+  transition: background-color var(--es-duration-fast) var(--es-ease-default);
+}
+.es-lp-filter__submit:hover { background: var(--es-accent-hover); }
+.es-lp-filter__submit-label { display: none; }
+
+@media (width >= theme(--breakpoint-md)) {
+  .es-lp-filter { gap: 1.375rem; padding: 10px 10px 10px 22px; }
+  .es-lp-filter__submit { width: auto; height: 52px; padding-inline: 1.5rem; }
+  .es-lp-filter__submit-label { display: inline; }
+}
+
+/* The poster fan. A snapping rail on a phone; from lg up, the posters fan
+   out from the middle one, which is larger and in front. `--i` is each
+   poster's distance from the centre, set by the component. */
+.es-lp-fan {
+  position: relative;
+  display: flex;
+  gap: 0.75rem;
+  margin: 2rem calc(-1 * var(--fx-pad-x)) 0;
+  padding: 8px var(--fx-pad-x) 14px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: var(--fx-pad-x);
+  scrollbar-width: none;
+}
+.es-lp-fan::-webkit-scrollbar { display: none; }
+.es-lp-poster {
+  position: relative;
+  flex: 0 0 66%;
+  overflow: hidden;
+  aspect-ratio: 3 / 4;
+  border-radius: 16px;
+  background: var(--es-bg-sunken);
+  box-shadow: var(--es-shadow-md);
+  scroll-snap-align: center;
+  transition: transform 400ms var(--es-ease-spring), box-shadow 400ms var(--es-ease-default);
+}
+.es-lp-poster::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgb(15 29 58 / 0.7), transparent 50%);
+  pointer-events: none;
+}
+.es-lp-poster--solo { flex-basis: 100%; aspect-ratio: 4 / 3; }
+.es-lp-poster--solo::after { display: none; }
+.es-lp-poster__img { width: 100%; height: 100%; object-fit: cover; }
+.es-lp-datebadge {
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 48px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  background: #ffffff;
+  line-height: 1;
+  color: #0f1d3a;
+  box-shadow: var(--es-shadow-sm);
+}
+.es-lp-datebadge b { font-size: 1.125rem; font-weight: 700; }
+.es-lp-datebadge small {
+  margin-top: 3px;
+  font-family: var(--es-font-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #2c62bd;
+}
+.es-lp-poster__name {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 14px;
+  z-index: 1;
+  font-size: var(--es-text-base);
+  font-weight: 600;
+  line-height: 1.25;
+  color: #ffffff;
+}
+.es-lp-poster__name small { display: block; margin-top: 2px; font-size: 0.8125rem; font-weight: 400; opacity: 0.88; }
+/* Two lines at most: a long title on a 240px poster otherwise climbs into
+   the neighbour's artwork. */
+.es-lp-poster__title { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+
+@media (width >= theme(--breakpoint-lg)) {
+  .es-lp-fan { height: 27rem; margin: 3rem 0 0; padding: 0; overflow: visible; }
+  .es-lp-poster {
+    position: absolute;
+    left: 50%;
+    top: 24px;
+    width: 240px;
+    flex: none;
+    margin-left: -120px;
+    transform:
+      translateX(calc(var(--i) * clamp(150px, 16vw, 200px)))
+      translateY(calc(var(--i) * var(--i) * 12px))
+      rotate(calc(var(--i) * 5deg));
+    z-index: calc(10 - var(--i) * var(--i));
+  }
+  .es-lp-poster:hover {
+    z-index: 20;
+    box-shadow: var(--es-shadow-lg);
+    transform:
+      translateX(calc(var(--i) * clamp(150px, 16vw, 200px)))
+      translateY(calc(var(--i) * var(--i) * 12px - 12px))
+      rotate(calc(var(--i) * 5deg));
+  }
+  .es-lp-poster--lead { top: 0; width: 280px; margin-left: -140px; }
+  .es-lp-poster--solo { top: 0; width: min(100%, 44rem); margin-left: min(-50%, -22rem); aspect-ratio: 16 / 9; }
+}
+
+/* The numbers, in a white card under the posters */
+.es-lp-stats { position: relative; z-index: 3; margin-top: clamp(0.5rem, 2vw, 1rem); }
+.es-lp-stats__card {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.25rem 0.75rem;
+  padding: 1.5rem 1rem;
+  border: 1px solid var(--es-border);
+  border-radius: 20px;
+  background: var(--es-surface);
+  box-shadow: var(--es-shadow-md);
+}
+.es-lp-stat { display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; }
+.es-lp-stat__value {
+  font-size: clamp(1.75rem, 1.1rem + 2.2vw, 2.625rem);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  color: var(--es-accent);
+}
+.es-lp-stat__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: var(--es-text-sm);
+  color: var(--es-text-muted);
+}
+.es-lp-stat__label svg { color: var(--es-accent); }
+@media (width >= theme(--breakpoint-md)) {
+  .es-lp-stats__card { grid-template-columns: repeat(var(--es-lp-cols, 4), minmax(0, 1fr)); padding: 1.875rem 1.25rem; }
+  .es-lp-stat + .es-lp-stat { border-inline-start: 1px solid var(--es-border); }
+}
+
+/* ── 2 · Search ───────────────────────────────────────────────────────── */
+.es-lp-find { border-block: 1px solid var(--es-border); }
+.es-lp-find__inner { max-width: 46rem; margin-inline: auto; text-align: center; }
+.es-lp-find .es-lp-lede { margin-inline: auto; }
+.es-lp-findbar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1.75rem;
+  padding: 6px 6px 6px 18px;
+  border: 1.5px solid var(--es-border-strong);
+  border-radius: 16px;
+  background: var(--es-surface);
+  box-shadow: var(--es-shadow-xs);
+  transition: border-color var(--es-duration-fast) var(--es-ease-default), box-shadow var(--es-duration-fast) var(--es-ease-default);
+}
+.es-lp-findbar:focus-within { border-color: var(--es-accent); box-shadow: 0 0 0 4px var(--es-accent-subtle); }
+.es-lp-findbar__icon { display: inline-flex; color: var(--es-text-subtle); }
+.es-lp-findbar__input {
+  flex: 1;
+  min-width: 0;
+  height: 50px;
+  border: 0;
+  background: transparent;
+  font-size: var(--es-text-base);
+  color: var(--es-text);
+}
+.es-lp-findbar__input::placeholder { color: var(--es-text-subtle); }
+/* The ring is on the bar, above. */
+.es-lp-findbar__input:focus { outline: none; }
+.es-lp-findbar__submit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 48px;
+  padding-inline: 1.375rem;
+  border-radius: 12px;
+  background: var(--es-accent);
+  font-weight: 600;
+  color: var(--es-text-on-accent);
+}
+.es-lp-findbar__submit:hover { background: var(--es-accent-hover); }
+.es-lp-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  font-size: var(--es-text-sm);
+}
+.es-lp-chips > span { color: var(--es-text-muted); }
+.es-lp-chips a {
+  padding: 6px 14px;
+  border: 1px solid var(--es-border);
+  border-radius: var(--es-radius-full);
+  background: var(--es-surface);
+  color: var(--es-text);
+}
+.es-lp-chips a:hover { border-color: var(--es-accent); color: var(--es-accent); }
+
+/* ── 3 · Popular events ───────────────────────────────────────────────── */
+.es-lp-tabs {
+  position: relative;
+  display: flex;
+  gap: 0.375rem;
+  margin-bottom: 1.75rem;
+  padding: 6px;
+  overflow-x: auto;
+  border: 1px solid var(--es-border);
+  border-radius: 14px;
+  background: var(--es-bg-sunken);
+  scrollbar-width: none;
+}
+.es-lp-tabs::-webkit-scrollbar { display: none; }
+.es-lp-tabs__tab {
+  flex-shrink: 0;
+  min-height: 42px;
+  padding: 8px 18px;
+  border-radius: 10px;
+  font-size: var(--es-text-sm);
+  font-weight: 500;
+  color: var(--es-text-muted);
+  white-space: nowrap;
+  transition: background-color var(--es-duration-fast) var(--es-ease-default), color var(--es-duration-fast) var(--es-ease-default);
+}
+.es-lp-tabs__tab:hover { background: var(--es-surface); color: var(--es-text); }
+.es-lp-tabs__tab[aria-pressed='true'] { background: var(--es-surface); color: var(--es-accent); box-shadow: var(--es-shadow-sm); }
+
+.es-lp-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(18.75rem, 100%), 1fr));
+  gap: 1.25rem;
+}
+.es-lp-cards__ghost { height: 24rem; border-radius: 18px; }
+
+/* ── The event card ───────────────────────────────────────────────────────
+   Shared with /events. The date is a badge on the artwork, the price sits
+   opposite the category at the foot, and a rule separates the two so a row
+   of cards lines up its prices whatever the titles' lengths. */
+.es-evcard {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 12px;
+  border: 1px solid var(--es-border);
+  border-radius: 18px;
+  background: var(--es-surface);
+  color: var(--es-text);
+  transition:
+    transform 250ms var(--es-ease-default),
+    border-color 250ms var(--es-ease-default),
+    box-shadow 250ms var(--es-ease-default);
+}
+.es-evcard:hover { transform: translateY(-3px); border-color: var(--es-border-strong); box-shadow: var(--es-shadow-lg); }
+.es-evcard__media {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 16 / 10;
+  border-radius: 12px;
+  background: var(--es-bg-sunken);
+}
+.es-evcard__media img { transition: transform 600ms var(--es-ease-default); }
+.es-evcard:hover .es-evcard__media img { transform: scale(1.04); }
+.es-evcard__placeholder {
+  display: flex;
+  align-items: flex-end;
+  height: 100%;
+  padding: 18px;
+  overflow: hidden;
+  background: linear-gradient(135deg, var(--es-accent-wash), var(--es-bg-sunken));
+  font-size: var(--es-text-lg);
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--es-accent);
+}
+.es-evcard__body { display: flex; flex: 1; flex-direction: column; padding: 14px 6px 4px; }
+.es-evcard__title {
+  display: -webkit-box;
+  min-height: calc(2 * 1.35em);
+  margin: 0;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  font-family: var(--es-font-sans);
+  font-size: var(--es-text-md);
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+  color: var(--es-text);
+  overflow-wrap: anywhere;
+}
+.es-evcard__meta { display: grid; gap: 6px; margin: 10px 0 16px; }
+.es-evcard__line {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  margin: 0;
+  font-size: var(--es-text-sm);
+  color: var(--es-text-muted);
+}
+.es-evcard__icon { display: inline-flex; flex-shrink: 0; color: var(--es-accent); }
+.es-evcard__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.625rem;
+  margin-top: auto;
+  padding-top: 14px;
+  border-top: 1px solid var(--es-border);
+}
+.es-evcard__tag {
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: var(--es-accent-wash);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--es-accent);
+}
+.es-evcard__price { font-size: 0.8125rem; line-height: 1.2; text-align: end; color: var(--es-text-muted); }
+.es-evcard__price b { display: block; font-size: var(--es-text-md); font-weight: 700; color: var(--es-text); }
+
+/* ── 4 · Roles ────────────────────────────────────────────────────────── */
+.es-lp-roles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; }
+.es-lp-role {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 1.75rem;
+  height: 100%;
+  min-height: 11.5rem;
+  padding: 18px;
+  border: 1px solid var(--es-border);
+  border-radius: 18px;
+  background: var(--es-surface);
+  color: var(--es-text);
+  transition:
+    transform 250ms var(--es-ease-default),
+    border-color 250ms var(--es-ease-default),
+    box-shadow 250ms var(--es-ease-default);
+}
+.es-lp-role:hover { transform: translateY(-4px); border-color: var(--es-accent-edge); box-shadow: var(--es-shadow-md); }
+.es-lp-role__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 50px;
+  height: 50px;
+  border-radius: 14px;
+  background: var(--es-accent-wash);
+  color: var(--es-accent);
+  transition: background-color 250ms var(--es-ease-default), color 250ms var(--es-ease-default);
+}
+.es-lp-role:hover .es-lp-role__icon { background: var(--es-accent); color: var(--es-text-on-accent); }
+.es-lp-role__name {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: var(--es-text-base);
+  font-weight: 600;
+  line-height: 1.2;
+}
+.es-lp-role__desc { display: block; margin-top: 4px; font-size: 0.8125rem; font-weight: 400; color: var(--es-text-muted); }
+.es-lp-role__arrow {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--es-border);
+  border-radius: 50%;
+  color: var(--es-accent);
+}
+@media (width >= theme(--breakpoint-sm)) { .es-lp-roles { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; } }
+@media (width >= theme(--breakpoint-lg)) { .es-lp-roles { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+
+/* ── 5 · Steps for organizers ─────────────────────────────────────────── */
+.es-lp-steps { display: grid; gap: 1rem; }
+.es-lp-step { padding: 26px; border: 1px solid var(--es-border); border-radius: 20px; background: var(--es-surface); }
+.es-lp-step__n {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: var(--es-accent-wash);
+  font-size: var(--es-text-md);
+  font-weight: 700;
+  color: var(--es-accent);
+}
+.es-lp-step h3 { margin: 18px 0 6px; font-family: var(--es-font-sans); font-size: var(--es-text-md); font-weight: 600; }
+.es-lp-step p { margin: 0; font-size: var(--es-text-sm); color: var(--es-text-muted); }
+.es-lp-pagemini { margin-top: 20px; overflow: hidden; border: 1px solid var(--es-border); border-radius: 12px; }
+.es-lp-pagemini > div:first-child { height: 44px; background: linear-gradient(120deg, var(--es-accent-edge), var(--es-accent-wash)); }
+.es-lp-pagemini > div:last-child { display: grid; gap: 6px; padding: 10px; }
+.es-lp-pagemini span { display: block; height: 7px; border-radius: 4px; background: var(--es-bg-sunken); }
+.es-lp-pagemini span:first-child { width: 70%; background: var(--es-border-strong); }
+.es-lp-pagemini span:last-child { width: 40%; }
+.es-lp-seatmini { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 4px; margin-top: 20px; }
+.es-lp-seatmini i { aspect-ratio: 1; border-radius: 3px; background: var(--es-bg-sunken); }
+.es-lp-seatmini i.is-sold { background: var(--es-accent); }
+.es-lp-seatmini i.is-held { background: var(--es-accent-edge); }
+.es-lp-scanmini {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 20px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--es-accent-wash);
+  font-size: var(--es-text-sm);
+  font-weight: 600;
+  color: var(--es-accent);
+}
+.es-lp-steps__cta { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.75rem; margin-top: 2rem; }
+@media (width >= theme(--breakpoint-lg)) { .es-lp-steps { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.25rem; } }
+
+/* ── 6 · Sponsor logos ────────────────────────────────────────────────────
+   Each logo carries its own trailing space rather than the track using
+   gap, so the doubled list is exactly twice one list and -50% lands on the
+   seam with no jump. */
+.es-lp-logos { overflow: hidden; padding-block: 1.75rem; }
+.es-lp-logos__label {
+  margin: 0 0 0.875rem;
+  font-family: var(--es-font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.14em;
+  text-align: center;
+  text-transform: uppercase;
+  color: var(--es-text-subtle);
+}
+.es-lp-logos__track { display: flex; width: max-content; animation: es-lp-drift 40s linear infinite; }
+.es-lp-logos:hover .es-lp-logos__track { animation-play-state: paused; }
+.es-lp-logos__item {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  height: 3rem;
+  margin-inline-end: clamp(2rem, 5vw, 3.5rem);
+}
+.es-lp-logos__mark { width: auto; max-width: 9rem; max-height: 100%; object-fit: contain; }
+@keyframes es-lp-drift { to { transform: translateX(-50%); } }
+@media (prefers-reduced-motion: reduce) {
+  .es-lp-logos { overflow-x: auto; }
+  .es-lp-logos__track { animation: none; }
+}
+
+/* ── 7 · Highlights ───────────────────────────────────────────────────── */
+.es-lp-film {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 4 / 5;
+  border-radius: 22px;
+  background: var(--es-bg-deep);
+}
+.es-lp-film :is(img, iframe, video) {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  object-fit: cover;
+}
+.es-lp-film__play {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 80px;
+  height: 80px;
+  margin: -40px 0 0 -40px;
+  border: 1.5px solid rgb(255 255 255 / 0.6);
+  border-radius: 50%;
+  background: rgb(255 255 255 / 0.2);
+  color: #ffffff;
+  backdrop-filter: blur(8px);
+  transition: transform var(--es-duration-fast) var(--es-ease-default), background-color var(--es-duration-fast) var(--es-ease-default);
+}
+.es-lp-film__play:hover { transform: scale(1.06); background: #2c62bd; border-color: #2c62bd; }
+@media (width >= theme(--breakpoint-md)) { .es-lp-film { aspect-ratio: 21 / 9; } }
+
+/* ── 8 · Testimonials ─────────────────────────────────────────────────── */
+.es-lp-quotes {
+  position: relative;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: min(20rem, 84%);
+  gap: 1rem;
+  padding-bottom: 4px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+.es-lp-quotes::-webkit-scrollbar { display: none; }
+.es-lp-quote {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 0;
+  padding: 24px;
+  border: 1px solid var(--es-border);
+  border-radius: 18px;
+  background: var(--es-surface);
+  scroll-snap-align: start;
+}
+.es-lp-quote .es-stars { color: var(--es-accent); }
+.es-lp-quote blockquote { margin: 0; font-size: var(--es-text-base); line-height: 1.6; color: var(--es-text); }
+.es-lp-quote figcaption { display: flex; align-items: center; gap: 0.75rem; margin-top: auto; }
+.es-lp-quote__avatar {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--es-accent-wash);
+  font-weight: 700;
+  color: var(--es-accent);
+}
+@media (width >= theme(--breakpoint-lg)) {
+  .es-lp-quotes { grid-auto-flow: row; grid-template-columns: repeat(3, minmax(0, 1fr)); overflow: visible; }
+}
+
+/* ── 9 · Closing ──────────────────────────────────────────────────────────
+   The page's one blue panel. A fixed gradient rather than roles: it is the
+   same panel in both themes, and the white type on it measures 5.5:1 at
+   its lightest end. */
+.es-lp-close {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  justify-items: center;
+  gap: 1.25rem;
+  padding: clamp(2.25rem, 6vw, 4.5rem) clamp(1.25rem, 5vw, 4rem);
+  border-radius: 28px;
+  background: linear-gradient(135deg, #2c62bd 0%, #2f66c2 100%);
+  text-align: center;
+  color: #ffffff;
+}
+.es-lp-close::before {
+  content: '';
+  position: absolute;
+  right: -90px;
+  top: -90px;
+  width: 280px;
+  height: 280px;
+  border: 42px solid rgb(255 255 255 / 0.07);
+  border-radius: 50%;
+}
+.es-lp-close::after {
+  content: '';
+  position: absolute;
+  left: -50px;
+  bottom: -70px;
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 0.06);
+}
+.es-lp-close h2 {
+  position: relative;
+  margin: 0;
+  max-width: 18ch;
+  font-family: var(--es-font-sans);
+  font-size: clamp(1.875rem, 1rem + 3vw, 3.25rem);
+  font-weight: 700;
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+}
+.es-lp-close p { position: relative; margin: 0; max-width: 50ch; color: rgb(255 255 255 / 0.88); }
+.es-lp-close__ctas { position: relative; display: flex; flex-wrap: wrap; justify-content: center; gap: 0.75rem; }
+
+/* ── The contact bubble ───────────────────────────────────────────────────
+   Fixed to the corner. The wrapper ignores the pointer so the empty space
+   around the button never swallows a tap meant for the page under it. */
+.es-lp-chat {
+  position: fixed;
+  right: max(1rem, var(--fx-safe-r));
+  bottom: 1rem;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.75rem;
+  pointer-events: none;
+}
+.es-lp-chat > * { pointer-events: auto; }
+.es-lp-chat__note {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  max-width: min(19rem, calc(100vw - 2rem));
+  padding: 12px 40px 12px 12px;
+  border: 1px solid var(--es-border);
+  border-radius: 16px;
+  background: var(--es-surface);
+  box-shadow: var(--es-shadow-lg);
+  animation: es-lp-pop 350ms var(--es-ease-spring) both;
+}
+.es-lp-chat__note::after {
+  content: '';
+  position: absolute;
+  right: 23px;
+  bottom: -7px;
+  width: 12px;
+  height: 12px;
+  border-right: 1px solid var(--es-border);
+  border-bottom: 1px solid var(--es-border);
+  background: var(--es-surface);
+  transform: rotate(45deg);
+}
+.es-lp-chat__avatar {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--es-accent-wash);
+  color: var(--es-accent);
+}
+.es-lp-chat__text { font-size: var(--es-text-sm); line-height: 1.4; color: var(--es-text); }
+.es-lp-chat__text b { font-weight: 600; color: var(--es-accent); }
+.es-lp-chat__close {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: inline-flex;
+  padding: 6px;
+  border-radius: 50%;
+  color: var(--es-text-muted);
+}
+.es-lp-chat__close:hover { background: var(--es-bg-sunken); color: var(--es-text); }
+.es-lp-chat__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--es-accent);
+  color: var(--es-text-on-accent);
+  box-shadow: 0 10px 24px rgb(44 98 189 / 0.3);
+  transition: transform var(--es-duration-fast) var(--es-ease-default);
+}
+.es-lp-chat__button:hover { transform: scale(1.06); }
+@keyframes es-lp-pop { from { opacity: 0; transform: translateY(8px) scale(0.97); } }
 
 }   /* end @layer components */
 
