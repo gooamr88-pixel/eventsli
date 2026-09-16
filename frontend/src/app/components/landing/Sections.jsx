@@ -74,15 +74,32 @@ export function FeaturedEvents({ copy, events, failed }) {
             ))}
           </div>
         ) : (
-          <div className="es-empty">
-            <p className="text-muted">
+          /* An empty state with somewhere to go.
+             This box is the first thing below the hero on a young platform,
+             and a sentence in a dashed rectangle is a dead end on the page
+             whose whole job is sending people somewhere. */
+          <div className="es-empty es-empty--rich">
+            <span aria-hidden className="es-empty__mark">
+              <NavIcon name={failed ? 'alert' : 'calendar'} size={22} />
+            </span>
+            <p className="text-md font-medium text-ink">
               {failed ? 'We could not load events just now.' : 'Nothing is on sale just yet.'}
             </p>
-            <p className="mt-1 text-sm text-subtle">
+            <p className="max-w-[44ch] text-center text-sm text-muted">
               {failed
-                ? 'Please try again in a moment.'
-                : 'New events are reviewed and published every week — check back soon.'}
+                ? 'This one is on us — please try again in a moment.'
+                : 'Every event is reviewed before it goes on sale. Browse the categories, or be the first to put something on.'}
             </p>
+            {!failed && (
+              <div className="fx-row fx-row--center fx-row--gap pt-1">
+                <Link href="#categories" className="es-btn es-btn--secondary es-btn--sm">
+                  Browse categories
+                </Link>
+                <Link href="/register" className="es-btn es-btn--primary es-btn--sm">
+                  Create an event
+                </Link>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -94,64 +111,79 @@ export function FeaturedEvents({ copy, events, failed }) {
 /**
  * The browse rail.
  *
- * A category with artwork renders as a picture; one without renders as a chip.
- * Mixing the two in one row is deliberate — the alternative is either a grey
- * placeholder box per unillustrated category, which looks broken, or no rail at
- * all until somebody uploads thirteen images.
+ * REBUILT 2026-09-16. It was a paragraph of pills — thirteen identical
+ * outlined lozenges wrapping over three lines, which is a filter bar and not a
+ * section. A filter bar belongs on `/events`, where somebody has already
+ * decided to browse; here the question is "what kind of night do you want",
+ * and that question is answered by pictures and icons, not by a word list.
+ *
+ * Each category is a CARD with a mark. A category that has artwork uses it; one
+ * that does not gets an icon on the tint. Mixing the two is deliberate — the
+ * alternative is a grey placeholder box per unillustrated category, which looks
+ * broken, or no section at all until somebody uploads thirteen images.
  */
+
+/**
+ * An icon per category, for the ones with no artwork.
+ *
+ * Keyed by the SEEDED slugs. A category an admin invents falls through to
+ * `sparkle`, which is the right default: it says "an event" without claiming
+ * to know what kind.
+ */
+const CATEGORY_ICONS = {
+  music: 'sparkle', festival: 'users', nightlife: 'sparkle', sports: 'trend',
+  arts: 'layers', comedy: 'sparkle', film: 'play', food_drink: 'cash',
+  business: 'briefcase', community: 'users', education: 'layers',
+  family: 'users', other: 'tag',
+};
+
 export function Categories({ copy, categories }) {
   if (categories.length === 0) return null;
-  const illustrated = categories.filter((c) => c.imageUrl);
-  const plain = categories.filter((c) => !c.imageUrl);
 
   return (
-    <section className="es-band fx-section fx-section--sm">
+    <section id="categories" className="es-band fx-section fx-section--sm">
       <div className="fx-container fx-container--xl fx-stack">
-        <BandHead eyebrow={copy.categoriesEyebrow} title={copy.categoriesTitle} />
+        <BandHead
+          eyebrow={copy.categoriesEyebrow}
+          title={copy.categoriesTitle}
+          action={(
+            <Link
+              href="/events"
+              className="fx-row items-center gap-2 whitespace-nowrap text-sm font-medium text-accent hover:text-accent-hover"
+            >
+              Browse everything <span aria-hidden>→</span>
+            </Link>
+          )}
+        />
 
-        {illustrated.length > 0 && (
-          <ul className="fx-grid fx-grid--4 fx-grid--fill">
-            {illustrated.map((category) => (
-              <li key={category.slug}>
-                <Link
-                  href={`/events?category=${encodeURIComponent(category.slug)}`}
-                  className="es-figcard block"
-                  style={{ aspectRatio: '4 / 5' }}
-                >
-                  <Image
-                    src={category.imageUrl}
-                    alt=""
-                    fill
-                    sizes="(max-width: 640px) 50vw, 260px"
-                    className="object-cover"
-                  />
-                  <span aria-hidden className="es-figcard__veil" />
-                  <span className="es-figcard__caption">
-                    <span className="block font-serif text-lg">{category.label}</span>
-                    {category.blurb && (
-                      <span className="mt-1 block text-sm opacity-80">{category.blurb}</span>
-                    )}
+        <ul className="es-cattiles">
+          {categories.map((category) => (
+            <li key={category.slug}>
+              <Link
+                href={`/events?category=${encodeURIComponent(category.slug)}`}
+                className={`es-cattile ${category.imageUrl ? 'es-cattile--art' : ''}`}
+              >
+                {category.imageUrl ? (
+                  <>
+                    <Image
+                      src={category.imageUrl}
+                      alt=""
+                      fill
+                      sizes="(max-width: 640px) 45vw, (max-width: 1024px) 30vw, 200px"
+                      className="object-cover"
+                    />
+                    <span aria-hidden className="es-figcard__veil" />
+                  </>
+                ) : (
+                  <span aria-hidden className="es-cattile__mark">
+                    <NavIcon name={CATEGORY_ICONS[category.slug] || 'sparkle'} size={20} />
                   </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-
-        {plain.length > 0 && (
-          <ul className="fx-row fx-row--gap">
-            {plain.map((category) => (
-              <li key={category.slug}>
-                <Link
-                  href={`/events?category=${encodeURIComponent(category.slug)}`}
-                  className="es-chip"
-                >
-                  {category.label}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
+                )}
+                <span className="es-cattile__label">{category.label}</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
       </div>
     </section>
   );

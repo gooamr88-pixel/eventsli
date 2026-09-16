@@ -140,11 +140,11 @@ export default async function EventPage({ params, searchParams }) {
 
           One band now carries both. With cover art it is the art plus a
           scrim; without it, the field tone. Either way the band is
-          `.es-band--field`, so the text roles inside it are already inverted
+          `.es-band--photo`, so the text roles inside it are already inverted
           and measured — a scrim over an unknown photograph is the classic
           place white text quietly fails, and here `text-muted` is
           `#b7d8cc` against a dark ground rather than slate-600. */}
-      <section className="es-band--field relative flex min-h-[clamp(17rem,30vw,24rem)] items-end overflow-hidden">
+      <section className="es-band--photo relative flex min-h-[clamp(17rem,30vw,24rem)] items-end overflow-hidden">
         {event.coverUrl ? (
           <>
             <Image

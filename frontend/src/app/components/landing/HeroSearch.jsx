@@ -39,6 +39,7 @@ import NavIcon from '../shell/NavIcon';
  */
 export default function HeroSearch() {
   const id = useId();
+  const [when, setWhen] = useState('');
   const router = useRouter();
   const [city, setCity] = useState('');
   const [state, setState] = useState('idle');   // idle | locating | done | error
@@ -47,7 +48,25 @@ export default function HeroSearch() {
   function findNearby() {
     if (!('geolocation' in navigator)) {
       setState('error');
-      setMessage('This browser cannot share a location. Search by name instead.');
+      setMessage('This browser cannot share a location. Search by city name instead.');
+      return;
+    }
+
+    /**
+     * GEOLOCATION IS REFUSED OUTRIGHT ON AN INSECURE ORIGIN.
+     *
+     * Every browser treats it as a powerful feature, so over plain http the
+     * call either fails instantly with PERMISSION_DENIED or never calls
+     * back at all — with no prompt shown. From the outside that is a button
+     * that does nothing, which is exactly how it was reported.
+     *
+     * `isSecureContext` is the browser's own answer to the question, and it
+     * is true on https and on localhost. Checking it turns a dead control
+     * into a sentence that names the actual problem.
+     */
+    if (!window.isSecureContext) {
+      setState('error');
+      setMessage('Finding you needs a secure (https) connection. Search by city name instead.');
       return;
     }
 
@@ -163,7 +182,25 @@ export default function HeroSearch() {
             be worse at all three. It submits `yyyy-mm-dd`, which is what
             /events validates `from` as.
           */}
-          <input id={`${id}-from`} name="from" type="date" className="es-searchbar__input" />
+          {/*
+            AN EMPTY `type="date"` SHOWS NOTHING on Android Chrome — no
+            placeholder, no format hint, just an icon and a blank segment,
+            which is what "the date box does not show anything" was. A date
+            input ignores `placeholder` by spec, so the label is a real
+            element behind it and the input is transparent until it has a
+            value.
+          */}
+          <span className="es-searchbar__date">
+            {!when && <span aria-hidden className="es-searchbar__value--empty">Any date</span>}
+            <input
+              id={`${id}-from`}
+              name="from"
+              type="date"
+              value={when}
+              onChange={(e) => setWhen(e.target.value)}
+              className={`es-searchbar__input es-searchbar__input--date ${when ? '' : 'es-searchbar__input--blank'}`}
+            />
+          </span>
         </div>
 
         {/* The resolved city travels with the form, so pressing Search after
@@ -183,6 +220,33 @@ export default function HeroSearch() {
         <p id={`${id}-locate-msg`} role="status" className="text-sm text-muted">
           {message}
         </p>
+      )}
+
+      {/*
+        THE WAY OUT, and it only appears once the fast way has failed.
+
+        Every message above ends "search by city name instead", and until now
+        there was no field to do that in — the city input was removed when the
+        segment became a button. Telling somebody to do a thing the page does
+        not let them do is worse than not offering the button at all.
+
+        It is a second <form> rather than a field inside the first, because the
+        bar above already carries a hidden `city` and two inputs of one name in
+        one form is the last one winning silently.
+      */}
+      {state === 'error' && (
+        <form action="/events" method="get" className="fx-row fx-row--gap items-center">
+          <label htmlFor={`${id}-city`} className="sr-only">City</label>
+          <input
+            id={`${id}-city`}
+            name="city"
+            type="text"
+            autoComplete="address-level2"
+            placeholder="Enter a city"
+            className="es-input es-input--sm fx-min0 flex-1"
+          />
+          <button type="submit" className="es-btn es-btn--secondary es-btn--sm">Go</button>
+        </form>
       )}
     </div>
   );

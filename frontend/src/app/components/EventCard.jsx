@@ -89,7 +89,7 @@ export default function EventCard({ event, priority = false, headingLevel = 3 })
              without artwork. A typographic placeholder built from the title
              beats a broken image, and it sits on the field tone so it reads as
              a deliberate cover rather than as the card that failed. */
-          <div className="es-band--field flex h-full items-end p-4">
+          <div className="es-band--photo flex h-full items-end p-4">
             <span className="line-clamp-3 font-serif text-lg leading-tight text-ink">
               {event.title}
             </span>

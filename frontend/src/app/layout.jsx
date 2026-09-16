@@ -87,6 +87,22 @@ const script = Sacramento({
  */
 export const dynamic = 'force-dynamic';
 
+/**
+ * The storage origin, for the preconnect below.
+ *
+ * Derived from the same variable `next.config.mjs` compiles into the image
+ * allowlist and the CSP, so a deployment cannot warm a connection to a host it
+ * is not allowed to load from. Absent in a local build without Supabase
+ * configured, where the link is simply not rendered.
+ */
+const SUPABASE_ORIGIN = (() => {
+  try {
+    return new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).origin;
+  } catch {
+    return null;
+  }
+})();
+
 export const metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://eventsli.com'),
   title: {
@@ -174,6 +190,26 @@ export default async function RootLayout({ children }) {
 
   return (
     <html lang="en" className={`${dmSans.variable} ${dmSerif.variable} ${dmMono.variable} ${script.variable}`}>
+      <head>
+        {/*
+          THE HERO IMAGE LIVES ON ANOTHER ORIGIN, and the browser cannot know
+          that until it has parsed the markup, resolved the DNS, opened a TCP
+          connection and completed a TLS handshake — three round trips before
+          the first byte of the largest element on the page.
+
+          `preconnect` starts all three while the HTML is still streaming.
+          Measured on the landing page, where the LCP element is a photograph
+          served from Supabase Storage.
+
+          `crossOrigin` is required and is not decoration: an image fetched
+          without credentials uses a different connection pool from one
+          fetched with them, so a preconnect that omits it warms a connection
+          the image request will not use.
+        */}
+        {SUPABASE_ORIGIN && (
+          <link rel="preconnect" href={SUPABASE_ORIGIN} crossOrigin="anonymous" />
+        )}
+      </head>
       <body>
         <ThemeScript nonce={nonce} />
         <SiteHeader />

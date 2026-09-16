@@ -1383,18 +1383,40 @@
    is how .es-band--ink sat unchecked from the day it was written. A band
    is a ground; it says so in the property the gate reads. */
 .es-band--ink {
-  --es-bg:         var(--es-zinc-950);
-  --es-text:       var(--es-zinc-100);
-  --es-text-muted: var(--es-zinc-400);
-  --es-text-subtle:var(--es-ink-subtle);
-  --es-border:     var(--es-zinc-800);
-  --es-border-strong: #2f6152;
-  --es-surface:    var(--es-zinc-900);
-  --es-bg-sunken:  var(--es-zinc-800);
-  --es-accent:     var(--es-emerald-400);
-  --es-accent-hover: var(--es-emerald-300);
-  --es-accent-wash:#0a2b21;
-  --es-text-on-accent: var(--es-zinc-950);
+  /* WHITE, 2026-09-16, and this is the third and last dark surface to go.
+
+     It was zinc-950, then forest-950, and the brief settled at "the site is
+     white and green". A near-black or deep-green footer under a white page
+     is the single biggest block of colour on the site and it belongs to
+     neither of those two.
+
+     The footer is white with a rule above it now. What ends the page is the
+     rule and the change of type size, which is how a printed page ends —
+     not a slab of colour.
+
+     The class is kept rather than deleted because `marketing/Blocks.jsx`
+     maps a `tone` prop onto it and contrast.js measures it by name. It is
+     the page ground with a border, which is a real tone and an honest one. */
+  --es-bg:         #ffffff;
+  --es-bg-sunken:  var(--es-mint-100);
+  --es-surface:    #ffffff;
+  --es-border:     var(--es-mint-200);
+  --es-border-strong: var(--es-mint-400);
+  /* A BAND THAT CHANGES ITS GROUND MUST DECLARE ITS TEXT, whichever theme
+     it is sitting in. This block used to be dark and redeclared nine roles
+     for that reason; now it is light and it has to redeclare them for the
+     same reason in the other direction — under a dark OS theme the page's
+     ink is pale, and pale ink on a mint ground is nothing at all.
+     These are the light theme's measured values, named rather than
+     inherited. */
+  --es-text:          #0e2a22;
+  --es-text-muted:    #3f6257;
+  --es-text-subtle:   #47695e;
+  --es-accent:        var(--es-emerald-800);
+  --es-accent-hover:  var(--es-emerald-900);
+  --es-accent-wash:   var(--es-mint-200);
+  --es-accent-edge:   var(--es-mint-400);
+  --es-text-on-accent:#ffffff;
   background: var(--es-bg);
   color: var(--es-text);
 }
@@ -1419,22 +1441,109 @@
    two greens nobody can separate. On this band the accent is the bright
    one and the text on it is the dark one. */
 .es-band--field {
-  --es-bg:            var(--es-bg-deep);
+  /* INVERTED 2026-09-16, from a dark forest ground to the page's own tint.
+
+     It was the brand "occupying area": a full-bleed forest-900 band with
+     white type, used for the hero, the organizer band and the closing call
+     to action. Three dark bands on a white page is a page with a striped
+     pattern, and at a glance it read as two different sites stitched
+     together — which is what it was called.
+
+     The band still exists and still breaks the page up; it does it with the
+     SAME tint the featured rail uses, one step deeper. Nothing on the
+     storefront is dark any more except a photograph.
+
+     Only `--es-bg` moves. The text roles are the page's, because on a light
+     ground they are already the measured ones — the whole reason this block
+     used to redeclare nine of them was that it was dark. */
+  --es-bg:            var(--es-mint-100);
+  --es-bg-sunken:     var(--es-mint-200);
+  --es-surface:       #ffffff;
+  --es-surface-raised:#ffffff;
+  --es-border:        var(--es-mint-300);
+  --es-border-strong: var(--es-mint-400);
+  /* A BAND THAT CHANGES ITS GROUND MUST DECLARE ITS TEXT, whichever theme
+     it is sitting in. This block used to be dark and redeclared nine roles
+     for that reason; now it is light and it has to redeclare them for the
+     same reason in the other direction — under a dark OS theme the page's
+     ink is pale, and pale ink on a mint ground is nothing at all.
+     These are the light theme's measured values, named rather than
+     inherited. */
+  --es-text:          #0e2a22;
+  --es-text-muted:    #3f6257;
+  --es-text-subtle:   #47695e;
+  --es-accent:        var(--es-emerald-800);
+  --es-accent-hover:  var(--es-emerald-900);
+  --es-accent-wash:   var(--es-mint-200);
+  --es-accent-edge:   var(--es-mint-400);
+  --es-text-on-accent:#ffffff;
+  background: var(--es-bg);
+  color: var(--es-text);
+}
+
+/* ── .es-band--photo — the ONE place white type is still used ───────────
+   A band whose ground is a photograph. It is not a tone in the palette; it
+   is a picture, and white on a darkened picture is the only legible
+   option — which is what the reference design does too.
+
+   Scoped so it cannot leak: only the hero carries it, and the roles below
+   apply to its own subtree. `--es-bg` is declared so contrast.js has a
+   ground to measure the white type against, and it is the veil's colour
+   rather than a guess. */
+.es-band--photo {
+  --es-bg:            var(--es-forest-900);
   --es-bg-sunken:     var(--es-forest-950);
-  --es-surface:       var(--es-forest-700);
-  --es-surface-raised:var(--es-forest-700);
+  --es-surface:       #ffffff;
+  --es-surface-raised:#ffffff;
   --es-text:          #ffffff;
-  --es-text-muted:    #b7d8cc;
-  --es-text-subtle:   #8fbfae;
-  --es-border:        rgba(255, 255, 255, 0.14);
-  --es-border-strong: rgba(255, 255, 255, 0.28);
-  --es-accent:        #6fcfae;
-  --es-accent-hover:  #8eddc2;
-  --es-accent-wash:   var(--es-forest-700);
-  --es-accent-edge:   rgba(111, 207, 174, 0.38);
+  --es-text-muted:    #dbeee5;
+  --es-text-subtle:   #bcdccd;
+  --es-border:        rgba(255, 255, 255, 0.22);
+  --es-border-strong: rgba(255, 255, 255, 0.34);
+  --es-accent:        #ffffff;
+  --es-accent-hover:  #dbeee5;
+  --es-accent-wash:   rgba(255, 255, 255, 0.14);
+  --es-accent-edge:   rgba(255, 255, 255, 0.45);
   --es-text-on-accent:var(--es-forest-900);
   background: var(--es-bg);
   color: var(--es-text);
+}
+
+/* WHITE TEXT ON A WHITE SURFACE, and it shipped.
+
+   `.es-band--photo` sets `--es-text: #ffffff` for type on the photograph and
+   `--es-surface: #ffffff` for the search bar that sits on it. `.es-btn--secondary`
+   reads BOTH — `background: var(--es-surface); color: var(--es-text)` — so the
+   hero's second button was a white label on a white pill. Invisible, and
+   invisible in the one place a visitor is deciding whether to sell here.
+
+   The roles are right for what each was named for; the button is the thing
+   that needs both at once, so it names its ink rather than inheriting it.
+   Anything else on this band that takes a white surface needs the same. */
+.es-band--photo :is(.es-btn--secondary, .es-card, .es-panel) {
+  color: var(--es-forest-900);
+}
+.es-band--photo .es-btn--secondary { border-color: transparent; }
+
+/* The chips on the hero are SOLID, not outlined.
+
+   `.es-chip` fills with `--es-surface` at 55% — a frosted pill, which is
+   right on a flat ground and wrong on a photograph: at 55% the label sits
+   on whatever the picture is doing behind it, so the same chip is legible
+   over the water and invisible over the sunset. The measured ground under
+   hero type is the veil; a chip that does not use it has no measured
+   ground at all.
+
+   White fill, dark ink, one number everywhere. */
+.es-band--photo .es-chip {
+  background: #ffffff;
+  border-color: #ffffff;
+  color: var(--es-forest-900);
+  font-weight: 500;
+}
+.es-band--photo .es-chip:hover {
+  background: var(--es-mint-100);
+  border-color: var(--es-mint-100);
 }
 
 /* `.es-bloom` WAS HERE and is deleted, 2026-09-16.
@@ -2750,59 +2859,33 @@
   object-position: center 40%;
 }
 
-/* ── .es-hero__scrim — the ground, spelled out ──────────────────────────
-   Two gradients, and they do different jobs.
+/* ── .es-hero__veil — a flat darkening, not a gradient ──────────────────
+   REPLACED THE SCRIM, 2026-09-16. It was two overlaid linear-gradients,
+   one weighting the bottom and one the reading edge, and it was the last
+   gradient on the site. Two objections, both fair: it is a gradient in a
+   design that has none left, and a scrim that fades across the page means
+   the headline's contrast is a different number at the start of the line
+   and at the end of it.
 
-   The first is vertical and weights the BOTTOM, where the search bar sits
-   on whatever the photograph happens to be doing. The second is
-   horizontal and weights the READING EDGE, so the headline has a
-   consistent ground no matter what is behind it.
-
-   The stops end at `--es-bg`, which on this band resolves to forest-900 —
-   the same value contrast.js measures the hero's text against. That is
-   what makes the gate's answer true rather than approximately true. */
-.es-hero__scrim {
+   A flat veil at a single opacity is one number everywhere. The type sits
+   on a known ground, contrast.js measures the white roles against exactly
+   that colour, and the photograph reads through it evenly instead of being
+   crushed on one side and bare on the other. */
+.es-hero__veil {
   position: absolute;
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  background:
-    linear-gradient(
-      to top,
-      var(--es-bg) 0%,
-      color-mix(in srgb, var(--es-bg) 72%, transparent) 20%,
-      color-mix(in srgb, var(--es-bg) 22%, transparent) 60%,
-      color-mix(in srgb, var(--es-bg) 45%, transparent) 100%
-    ),
-    /* WEAKENED 2026-09-16 after looking at it. The first version ran to a full
-       opaque `--es-bg` at the left edge and held 72% out to 42% of the width,
-       which put the headline on a flat green panel with the photograph
-       visible only to the right of it — a hero with a picture in the corner
-       rather than a hero that IS a picture.
-       It still reaches full opacity at the very edge, because that is where
-       the text starts and the ground has to be the one contrast.js measured;
-       it just gets out of the way far sooner. */
-    linear-gradient(
-      to right,
-      var(--es-bg) 0%,
-      color-mix(in srgb, var(--es-bg) 55%, transparent) 26%,
-      color-mix(in srgb, var(--es-bg) 18%, transparent) 52%,
-      transparent 70%
-    );
+  /* `color-mix` on the band's own `--es-bg`, so the veil and the ground
+     contrast.js measures are the same colour by construction and cannot
+     drift apart. */
+  background: color-mix(in srgb, var(--es-bg) 62%, transparent);
 }
 
 @media (width < 48rem) {
-  /* On a phone the text spans the full width, so the horizontal gradient
-     has nothing to weight and the vertical one has to carry it alone. */
-  .es-hero__scrim {
-    background: linear-gradient(
-      to top,
-      var(--es-bg) 0%,
-      color-mix(in srgb, var(--es-bg) 88%, transparent) 38%,
-      color-mix(in srgb, var(--es-bg) 45%, transparent) 78%,
-      color-mix(in srgb, var(--es-bg) 62%, transparent) 100%
-    );
-  }
+  /* Denser on a phone: the text spans the full width, so it crosses more
+     of the picture and meets whatever the brightest part of it is. */
+  .es-hero__veil { background: color-mix(in srgb, var(--es-bg) 72%, transparent); }
 }
 
 .es-hero__body {
@@ -2910,8 +2993,11 @@
     border-inline-start: 1px solid var(--es-border);
   }
   /* The date needs the width of `dd/mm/yyyy` and not a pixel more; the
-     query is open-ended and takes the slack. */
+     query is open-ended and takes the slack. `--wide` is what stops the
+     placeholder clipping to "Search for events," now that the location
+     segment is back between them. */
   .es-searchbar__field--short { flex: 0 0 auto; }
+  .es-searchbar__field:first-child { flex-grow: 2.2; }
 }
 
 /* The input inside a field is unstyled on purpose: the BAR is the
@@ -2961,6 +3047,33 @@
 /* Unset, it reads as a placeholder — the same weight as the query field's,
    so the bar has one voice rather than one filled segment and two empty. */
 .es-searchbar__value--empty { color: var(--es-text-subtle); }
+
+/* ── The date segment ───────────────────────────────────────────────────
+   A date input ignores `placeholder` by spec, and an empty one renders as
+   nothing at all on Android Chrome — no format hint, no text, just a blank
+   segment. So the label is a real element UNDER the input, and the input
+   is transparent until it has a value.
+
+   The input still covers the whole segment, so the tap target is the
+   segment rather than the small native icon inside it. */
+.es-searchbar__date {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  font-size: var(--es-text-sm);
+}
+.es-searchbar__input--date { position: relative; }
+.es-searchbar__input--blank { color: transparent; }
+/* WebKit paints its own placeholder text inside the field; hidden while
+   blank so it does not show through under ours. */
+.es-searchbar__input--blank::-webkit-datetime-edit { opacity: 0; }
+.es-searchbar__date > span {
+  position: absolute;
+  inset-inline-start: 0;
+  pointer-events: none;
+}
 
 /* The submit is a green disc, not an `.es-btn`.
    A full-width primary button inside a white pill is a second pill; the
@@ -3077,6 +3190,26 @@
 .es-chip:hover {
   background: var(--es-surface);
   border-color: var(--es-accent-edge);
+}
+
+/* The last chip in a rail: "there are more of these". Filled rather than
+   outlined, so it reads as the end of the row and not as a fifth
+   category somebody might be looking for. */
+/* NAMED GREEN, not `--es-accent`.
+   On `.es-band--photo` the accent role is WHITE — that is what makes a link
+   legible on a photograph — so a chip filled with it came out white on white
+   type. This chip is the one control on the rail that has to be the brand
+   colour wherever it sits, so it says which colour that is. */
+.es-chip--more {
+  background: var(--es-emerald-800);
+  border-color: var(--es-emerald-800);
+  color: #ffffff;
+  font-weight: 600;
+}
+.es-chip--more:hover {
+  background: var(--es-emerald-900);
+  border-color: var(--es-emerald-900);
+  color: #ffffff;
 }
 
 /* ── .es-datebadge — the date, on the artwork ───────────────────────────
@@ -3864,6 +3997,95 @@ a.es-sponsor:hover { opacity: 0.7; }
 }
 @media (width >= 40rem) {
   .es-guestgrid__points { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+
+/* ── .es-cattile — a category as an object, not a pill ──────────────────
+   Thirteen outlined lozenges wrapping over three lines is a filter bar.
+   A filter bar belongs on /events, where somebody has already decided to
+   browse; on the storefront the question is "what kind of night", and
+   that is answered by a mark and a word at a size the eye lands on.
+
+   `.fx-grid` rather than a fixed column count: at 320px this is two
+   across, and a `repeat(N, 1fr)` would not fit — see the arithmetic in
+   AGENTS.md. */
+.es-cattiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
+  gap: var(--fx-gap-sm);
+}
+
+.es-cattile {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 0.625rem;
+  min-height: 6.5rem;
+  height: 100%;
+  overflow: hidden;
+  padding: 0.875rem;
+  border-radius: var(--es-radius-lg);
+  border: 1px solid var(--es-border);
+  background: var(--es-bg-sunken);
+  color: var(--es-text);
+  transition: border-color var(--es-dur-fast) var(--es-ease),
+              background var(--es-dur-fast) var(--es-ease),
+              transform var(--es-dur-fast) var(--es-ease);
+}
+.es-cattile:hover {
+  border-color: var(--es-accent);
+  background: var(--es-accent-wash);
+  transform: translateY(-2px);
+}
+
+/* The mark sits on the surface rather than on the tile, so it reads as an
+   object on the card instead of a hole in it. */
+.es-cattile__mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: var(--es-radius-md);
+  background: var(--es-surface);
+  color: var(--es-accent);
+}
+.es-cattile__label {
+  font-size: var(--es-text-sm);
+  font-weight: 600;
+  line-height: var(--es-leading-snug);
+}
+
+/* With artwork the tile is a picture, so the label needs the veil under it
+   and white ink on top — the same treatment `.es-figcard` uses. */
+.es-cattile--art { border-color: transparent; }
+.es-cattile--art:hover { background: var(--es-bg-sunken); }
+.es-cattile--art .es-cattile__label { position: relative; color: #ffffff; }
+
+/* ── .es-empty--rich — an empty state that offers a way out ─────────────
+   `.es-empty` is a sentence in a dashed box. On the storefront's featured
+   rail that box is the first thing a visitor sees below the hero, and a
+   sentence with nothing to press is a dead end on the page that exists to
+   send people somewhere. */
+.es-empty--rich {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--fx-gap-sm);
+  padding-block: clamp(2rem, 5vw, 3.5rem);
+}
+.es-empty__mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.25rem;
+  height: 3.25rem;
+  border-radius: var(--es-radius-full);
+  background: var(--es-surface);
+  border: 1px solid var(--es-border);
+  color: var(--es-accent);
 }
 
 }   /* end @layer components */

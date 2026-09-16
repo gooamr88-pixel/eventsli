@@ -74,7 +74,19 @@ function SiteNav({ pathname }) {
    * on cream paper.
    */
   const onHeroPage = pathname === '/';
-  const overHero = useOverHero(onHeroPage);
+  /**
+   * NOT WHILE THE MENU IS OPEN.
+   *
+   * The transparent state paints the bar's contents white for the
+   * photograph behind them. Open the phone menu and the panel below is a
+   * white surface — so the wordmark and the links above it were white on
+   * white and simply vanished. Reported as "the logo is not visible in the
+   * navbar", and it was: it was there, in white, on white.
+   *
+   * An open menu means the header is chrome over a panel, not over a
+   * picture, whatever the scroll position says.
+   */
+  const overHero = useOverHero(onHeroPage) && !menuOpen;
 
   /**
    * Close the menu when the route changes.
@@ -115,6 +127,28 @@ function SiteNav({ pathname }) {
     const onKey = (e) => { if (e.key === 'Escape') setMenuOpen(false); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
+  }, [menuOpen]);
+
+  /**
+   * A tap anywhere outside the header closes it.
+   *
+   * Escape already did, and Escape is not a key anybody has on a phone —
+   * which is where this menu exists. Without this the only way out was the
+   * burger itself or navigating, so a mis-tap left the panel sitting over
+   * the page.
+   *
+   * `pointerdown`, not `click`: it fires before focus moves and before a
+   * scroll can start, so the panel is gone by the time the finger lifts.
+   * Bound to the document and filtered by `closest('header')`, which is one
+   * check rather than a ref on every element the header contains.
+   */
+  useEffect(() => {
+    if (!menuOpen) return undefined;
+    const onOutside = (e) => {
+      if (!e.target.closest?.('header')) setMenuOpen(false);
+    };
+    document.addEventListener('pointerdown', onOutside);
+    return () => document.removeEventListener('pointerdown', onOutside);
   }, [menuOpen]);
 
   const links = navLinks({ signedIn, loading, user, pathname });
