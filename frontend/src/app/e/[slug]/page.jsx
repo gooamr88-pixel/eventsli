@@ -162,8 +162,7 @@ export default async function EventPage({ params, searchParams }) {
               className="absolute inset-0 bg-gradient-to-t from-bg-deep via-bg-deep/70 to-bg-deep/10"
             />
           </>
-        ) : (
-        )}
+        ) : null}
 
         <div className="fx-gutter relative w-full pb-10 pt-16">
           <div className="fx-container fx-container--xl fx-stack fx-stack--sm">
