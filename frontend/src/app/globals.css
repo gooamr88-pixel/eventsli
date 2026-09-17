@@ -5613,8 +5613,12 @@ a.es-sponsor:hover { opacity: 0.7; }
 }
 .es-auth :is(h1, h2) { font-family: var(--es-font-sans); font-weight: 700; letter-spacing: -0.025em; }
 
+/* minmax(0, 1fr), not a bare track: a single auto column grows to fit its
+   widest child — the Google button renders at a fixed width — and on a phone
+   the card then clipped the whole form's right edge. */
 .es-auth__shell {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   max-width: 68rem;
   margin-inline: auto;
   overflow: hidden;
@@ -5677,8 +5681,8 @@ a.es-sponsor:hover { opacity: 0.7; }
   background: rgb(255 255 255 / 0.14);
 }
 
-.es-auth__main { display: flex; align-items: center; padding: clamp(1.5rem, 5vw, 3.5rem); }
-.es-auth__form { width: 100%; max-width: 26rem; margin-inline: auto; }
+.es-auth__main { display: flex; align-items: center; min-width: 0; padding: clamp(1.25rem, 5vw, 3.5rem); }
+.es-auth__form { width: 100%; min-width: 0; max-width: 26rem; margin-inline: auto; }
 .es-auth__mark {
   display: inline-flex;
   align-items: center;
@@ -5702,7 +5706,9 @@ a.es-sponsor:hover { opacity: 0.7; }
   border-radius: 12px;
   background: var(--es-bg-sunken);
 }
-.es-auth .es-input:hover { border-color: var(--es-border-strong); }
+/* Hover only where there is a pointer: on a phone a tap leaves :hover stuck,
+   and one field kept a border the others did not have. */
+@media (hover: hover) { .es-auth .es-input:hover { border-color: var(--es-border-strong); } }
 .es-auth .es-input:focus { border-color: var(--es-accent); background: var(--es-surface); box-shadow: 0 0 0 4px var(--es-accent-subtle); }
 .es-auth .es-btn--primary {
   width: 100%;

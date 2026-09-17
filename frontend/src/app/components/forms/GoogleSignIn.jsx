@@ -55,7 +55,10 @@ export default function GoogleSignIn({ onSuccess, onError, text = 'signin_with' 
     google.renderButton(holder.current, {
       theme: 'outline',
       size: 'large',
-      width: 320,
+      // The space actually available, not a fixed 320: on a narrow phone the
+      // fixed width was wider than the form and pushed the card open. GIS
+      // accepts 200–400.
+      width: Math.max(200, Math.min(400, Math.floor(holder.current.getBoundingClientRect().width || 320))),
       text,
       // PINNED, and not left to Google. Unset, GIS localises the button from
       // the browser's own language — so on a machine set to Arabic the one
