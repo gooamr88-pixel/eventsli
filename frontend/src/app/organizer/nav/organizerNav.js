@@ -45,8 +45,36 @@ const CHOOSE_FIRST = 'Choose an event first';
  */
 const DISPLAY_ONLY_KEYS = new Set(['overview', 'share']);
 
-export function organizerNavGroups({ eventId, listingType = null }) {
+/**
+ * WHAT A GENERAL-ADMISSION EVENT DOES NOT HAVE.
+ *
+ * A seat map, and the table categories that only exist to colour one. Until
+ * general admission existed, every ticketed event needed a venue drawn — so an
+ * organizer running a conference or a club night had to build a fictional
+ * seating plan before they could sell anything, and the two screens that
+ * demanded it sat in the sidebar as permanent unfinished work.
+ *
+ * Hidden rather than disabled. A disabled item with a reason is right when the
+ * thing exists and is not reachable YET (that is what "choose an event first"
+ * is for); these do not exist for this event at all, and never will while it is
+ * general admission.
+ */
+const RESERVED_ONLY_KEYS = new Set(['map', 'tables']);
+
+/**
+ * `admissionType` gates the seat map; `listingType` gates everything that
+ * sells. Both are plain columns on the event, so the sidebar can decide from
+ * the list it already loads without a request per event.
+ *
+ * Deliberately NOT gated on whether the event is free. That answer needs every
+ * ticket type's price — a query per event, for a sidebar that renders on every
+ * page — and the only items it would change are Door sales and Commission,
+ * which are merely empty on a free event rather than misleading. The launch
+ * checklist, which has one event's full detail, is where free is handled.
+ */
+export function organizerNavGroups({ eventId, listingType = null, admissionType = null }) {
   const displayOnly = listingType === 'display_only';
+  const generalAdmission = admissionType === 'general';
   const item = (key, label, icon, suffix) => ({
     key,
     label,
@@ -102,6 +130,7 @@ export function organizerNavGroups({ eventId, listingType = null }) {
       note: eventId ? null : 'Pick an event above to open these.',
       items: [
         item('overview', 'Overview', 'info', ''),
+        item('content', 'Page & branding', 'image', '/content'),
         item('tiers', 'Ticket types', 'ticket', '/tiers'),
         item('map', 'Seat map', 'map', '/map'),
         item('tables', 'Table categories', 'layers', '/tables'),
@@ -137,10 +166,21 @@ export function organizerNavGroups({ eventId, listingType = null }) {
     },
   ];
 
-  if (!displayOnly) return groups;
+  // A listing sells nothing, so every selling screen is an empty room. Checked
+  // first because it is the stronger claim: it removes the seat map too, and
+  // asking about admission afterwards would be asking about a map that is
+  // already gone.
+  if (displayOnly) return prune(groups, (item) => DISPLAY_ONLY_KEYS.has(item.key));
+  if (generalAdmission) return prune(groups, (item) => !RESERVED_ONLY_KEYS.has(item.key));
+  return groups;
+}
+
+/** Filters the event-scoped groups and drops any left empty. The account and
+ *  home groups are never touched — they are about the organizer, not the event. */
+function prune(groups, keep) {
   return groups
     .map((group) => (['build', 'sell', 'day'].includes(group.id)
-      ? { ...group, items: group.items.filter((item) => DISPLAY_ONLY_KEYS.has(item.key)) }
+      ? { ...group, items: group.items.filter(keep) }
       : group))
     .filter((group) => group.items.length > 0);
 }

@@ -39,6 +39,15 @@ const EXTENSION_FOR = Object.freeze({
 /** 5 MB, matching the bucket's `file_size_limit`. */
 const MAX_BYTES = 5 * 1024 * 1024;
 
+/**
+ * The images an event can hold, and the only values that may reach a storage
+ * key. All four share this module's bucket, prefix and ownership check rather
+ * than growing a second upload path each — the prefix check in `attach` is the
+ * thing that stops one organizer confirming another's object, and it is worth
+ * having exactly one of.
+ */
+const KINDS = Object.freeze(['cover', 'logo', 'gallery', 'sponsor']);
+
 /** The signed URL's lifetime. Long enough for a slow phone on hotel wifi. */
 const UPLOAD_TTL_SECONDS = 600;
 
@@ -72,7 +81,7 @@ function storageUnavailable(err) {
  * bytes under that exact URL, and an organizer who fixes a typo in their poster
  * watches the wrong one keep appearing in shares for days.
  */
-async function signUpload({ eventId, contentType }) {
+async function signUpload({ eventId, contentType, kind = 'cover' }) {
   const ext = EXTENSION_FOR[contentType];
   if (!ext) {
     throw new MediaError(
@@ -81,7 +90,19 @@ async function signUpload({ eventId, contentType }) {
     );
   }
 
-  const path = `events/${eventId}/cover-${crypto.randomBytes(8).toString('hex')}.${ext}`;
+  /**
+   * `kind` names the image, and is checked against a fixed list.
+   *
+   * It is interpolated into a storage key, so an unchecked value is a path the
+   * caller writes — `../` out of the event's prefix, and the ownership check in
+   * `attach` is built entirely on that prefix. The list is short because every
+   * entry is a place in the product, not a parameter.
+   */
+  if (!KINDS.includes(kind)) {
+    throw new MediaError('VALIDATION_ERROR', 'Unknown image type.');
+  }
+
+  const path = `events/${eventId}/${kind}-${crypto.randomBytes(8).toString('hex')}.${ext}`;
 
   const { data, error } = await supabase.storage
     .from(BUCKET)
@@ -167,7 +188,10 @@ async function attach({ eventId, path, previousPath }) {
   // than the orphan it avoids, and harder to notice.
   if (previousPath && previousPath !== path) await remove(previousPath);
 
-  return { coverUrl: pub.publicUrl, coverPath: path };
+  // `url`/`path`, not `coverUrl`/`coverPath`: four kinds of image go through
+  // here now and only one of them is a cover. The cover's own caller maps these
+  // onto its columns, which is where that naming belongs.
+  return { url: pub.publicUrl, path };
 }
 
 // ─── 3. Remove ──────────────────────────────────────────────────────────────
@@ -186,6 +210,7 @@ module.exports = {
   BUCKET,
   MAX_BYTES,
   EXTENSION_FOR,
+  KINDS,
   UPLOAD_TTL_SECONDS,
   MediaError,
   signUpload,

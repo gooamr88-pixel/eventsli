@@ -221,6 +221,10 @@ export function messageFor(err) {
 
 export function isSelectionLost(code) {
   return ['SEAT_UNAVAILABLE', 'TABLE_UNAVAILABLE', 'TABLE_PARTIALLY_SOLD',
+    // The general-admission equivalent: the seats were never named, but the
+    // allocation ran out between choosing and holding, so what is on screen is
+    // just as stale as a taken seat.
+    'TIER_SOLD_OUT', 'TIER_NOT_ON_SALE',
     'RESERVATION_EXPIRED', 'RESERVATION_NOT_FOUND'].includes(code);
 }
 

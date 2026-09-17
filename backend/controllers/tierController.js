@@ -31,7 +31,43 @@ const { escapeLike } = require('../utils/search');
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
-const SELECT = 'id, name, description, price_cents, quantity, sold_count, sort_order, created_at';
+const SELECT = 'id, name, description, price_cents, quantity, sold_count, sort_order, created_at, '
+  + 'kind, sales_start_at, sales_end_at, max_per_order, is_hidden';
+
+/**
+ * The rule fields, and the one place they are translated.
+ *
+ * Create and update both build a row, and they used to do it with two
+ * hand-written lists that agreed by inspection. Five more fields each would be
+ * ten more chances for the two to disagree — the classic result being a setting
+ * an organizer can create but never change, or change but never create.
+ */
+const RULE_FIELDS = Object.freeze({
+  kind: ['kind', (v) => v || 'standard'],
+  // A window open at one end is normal: "on sale from Friday", with no closing
+  // date, is how an early-bird tier is actually described.
+  salesStartAt: ['sales_start_at', (v) => v || null],
+  salesEndAt: ['sales_end_at', (v) => v || null],
+  // NULL falls back to the EVENT's limit. A per-tier cap can only ever be
+  // tighter: the event cap is checked first and separately in the hold
+  // functions, so this cannot be used to raise it.
+  maxPerOrder: ['max_per_order', (v) => (v === null || v === undefined || v === '' ? null : Math.round(Number(v)))],
+  // Omitted from the public listing, still buyable through a direct link. That
+  // is what makes comp, press and guest-list tickets work, and it is why the
+  // hold functions deliberately do NOT refuse a hidden tier.
+  isHidden: ['is_hidden', (v) => Boolean(v)],
+});
+
+/** The rule columns present in a request body. Shared by create and update. */
+function ruleColumns(body, { partial = false } = {}) {
+  const row = {};
+  for (const [field, [column, clean]] of Object.entries(RULE_FIELDS)) {
+    if (partial && !(field in body)) continue;
+    if (!partial && body[field] === undefined) continue;
+    row[column] = clean(body[field]);
+  }
+  return row;
+}
 
 // ─── GET /events/:eventId/tiers ─────────────────────────────────────────────
 async function list(req, res, next) {
@@ -88,6 +124,7 @@ async function create(req, res, next) {
         quantity: req.body.quantity === undefined || req.body.quantity === null
           ? null : Math.round(Number(req.body.quantity)),
         sort_order: req.body.sortOrder === undefined ? 0 : Math.round(Number(req.body.sortOrder)),
+        ...ruleColumns(req.body),
       })
       .select(SELECT)
       .single();
@@ -115,6 +152,7 @@ async function update(req, res, next) {
     }
     if (req.body.priceCents !== undefined) patch.price_cents = Math.round(Number(req.body.priceCents));
     if (req.body.sortOrder !== undefined) patch.sort_order = Math.round(Number(req.body.sortOrder));
+    Object.assign(patch, ruleColumns(req.body, { partial: true }));
     if (req.body.quantity !== undefined) {
       patch.quantity = req.body.quantity === null ? null : Math.round(Number(req.body.quantity));
       // Caught here as well as by the CHECK, so the organizer is told the
@@ -235,8 +273,38 @@ function shape(t) {
     soldCount: Number(t.sold_count),
     remaining: t.quantity === null ? null : Number(t.quantity) - Number(t.sold_count),
     sortOrder: Number(t.sort_order),
+    kind: t.kind,
+    salesStartAt: t.sales_start_at,
+    salesEndAt: t.sales_end_at,
+    maxPerOrder: t.max_per_order === null ? null : Number(t.max_per_order),
+    isHidden: Boolean(t.is_hidden),
+    /**
+     * Whether this tier can be bought RIGHT NOW, worked out once here rather
+     * than by each of the four clients that ask.
+     *
+     * `onSale` is the window only. Sold-out is a separate fact and is reported
+     * separately, because they need different sentences: "not on sale yet" is
+     * an invitation to come back, "sold out" is not.
+     */
+    onSale: saleWindowOpen(t),
+    soldOut: t.quantity !== null && Number(t.sold_count) >= Number(t.quantity),
     createdAt: t.created_at,
   };
 }
 
-module.exports = { list, create, update, remove };
+/**
+ * Is this tier inside its sale window?
+ *
+ * Mirrors `tier_sale_window_closed` in the database, which is the enforcement —
+ * this is what the interface reads. The duplication is deliberate and is the
+ * same bargain the rest of this file makes: the database refuses, and the API
+ * explains BEFORE the organizer or the buyer has done the work. If the two ever
+ * disagree, the database wins and the buyer sees a refusal rather than a sale.
+ */
+function saleWindowOpen(t, now = new Date()) {
+  if (t.sales_start_at && now < new Date(t.sales_start_at)) return false;
+  if (t.sales_end_at && now >= new Date(t.sales_end_at)) return false;
+  return true;
+}
+
+module.exports = { list, create, update, remove, saleWindowOpen, RULE_FIELDS };

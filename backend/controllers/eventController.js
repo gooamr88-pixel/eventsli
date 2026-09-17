@@ -5,6 +5,10 @@ const terms = require('../services/termsService');
 const {
   termsAcceptedFor, TERMS_ACCEPTABLE_FROM, paymentChoices, paymentFlags, paymentReadiness,
 } = require('../services/eventRules');
+// The namespace as well as the named imports: `setup` below calls two more of
+// them, and adding every one to the destructuring above makes a long list
+// longer without making anything clearer.
+const rules = require('../services/eventRules');
 const { canReceivePayouts } = require('../utils/payouts');
 const { parsePagination, applyPagination, buildMeta } = require('../middleware/pagination');
 const { sendOk, sendFail } = require('../utils/responseEnvelope');
@@ -13,8 +17,8 @@ const logger = require('../utils/logger');
 
 const SELECT = `
   id, organizer_id, slug, title, description, venue_name, venue_address, country, timezone,
-  starts_at, ends_at, status, listing_type, purchase_mode, category,
-  cover_url, cover_path, currency,
+  starts_at, ends_at, status, listing_type, purchase_mode, admission_type, category,
+  cover_url, cover_path, logo_url, logo_path, highlights, venue_lat, venue_lng, currency,
   commission_pct, commission_tax_pct, payment_fee_mode, payment_fee_pct,
   payment_fee_fixed_cents, fee_bearer, event_tax_pct,
   max_tickets_per_order, allow_ticket_transfer,
@@ -176,11 +180,60 @@ async function get(req, res, next) {
     if (error) throw new Error(error.message);
     return sendOk(res, {
       ...shape(data, { currentTermsId }),
+      ...await setup(data),
       cancellationRequest: shapeCancellationRequest(requests?.[0]),
     });
   } catch (err) {
     return next(err);
   }
+}
+
+/**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * WHAT THIS EVENT NEEDS, answered by the API rather than by each screen.
+ *
+ * The organizer's dashboard used to show every section to everybody: a seating
+ * map to someone running a free workshop, a Stripe setup step to someone
+ * charging nothing. Each of those is a question the organizer has to work out
+ * is not for them — and the system already knew.
+ *
+ * COMPUTED SERVER-SIDE, not in the browser, and that is the whole point. The
+ * launch checklist, the sub-navigation, the submit guard and the API's own
+ * refusals all branch on this. Worked out separately in each, they drift, and
+ * the shape that takes is a checklist demanding a step the navigation does not
+ * offer — which an organizer cannot resolve from the outside.
+ *
+ * `isFree` is DERIVED FROM THE PRICES, every time, never stored: a stored flag
+ * and a price list drift apart, and only one of them is what the buyer is
+ * charged. Whole-table prices count, because BRD §25 lets a table be bought as
+ * a unit at its own price.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+async function setup(event) {
+  const [{ data: tiers }, { data: map }] = await Promise.all([
+    supabase.from('ticket_tiers').select('price_cents').eq('event_id', event.id),
+    supabase.from('venue_maps').select('id').eq('event_id', event.id).maybeSingle(),
+  ]);
+
+  let tables = [];
+  if (map) {
+    const { data } = await supabase.from('tables').select('price_cents').eq('venue_map_id', map.id);
+    tables = data || [];
+  }
+
+  const isFree = rules.isFreeEvent(
+    (tiers || []).map((t) => ({ priceCents: Number(t.price_cents) })),
+    tables.map((t) => ({ priceCents: t.price_cents === null ? null : Number(t.price_cents) })),
+  );
+
+  return {
+    isFree,
+    needs: rules.eventNeeds({
+      listingType: event.listing_type,
+      admissionType: event.admission_type || 'reserved',
+      isFree,
+    }),
+  };
 }
 
 /**
@@ -349,7 +402,7 @@ async function submitForReview(req, res, next) {
   try {
     const { data: event } = await supabase
       .from('events')
-      .select('id, organizer_id, status, listing_type, starts_at, ends_at, accepts_stripe, accepts_manual')
+      .select('id, organizer_id, status, listing_type, admission_type, starts_at, ends_at, accepts_stripe, accepts_manual')
       .eq('id', req.params.eventId).single();
 
     if (!events.canTransition(event.status, 'pending_review')) {
@@ -379,12 +432,23 @@ async function submitForReview(req, res, next) {
       });
     }
 
-    // A ticketed event cannot go on sale with no way to take the money.
+    /**
+     * A ticketed event cannot go on sale with no way to take the money — unless
+     * there is no money.
+     *
+     * `isFree` is read from the same derivation the dashboard shows the
+     * organizer, so the submit button and the checklist cannot disagree about
+     * whether a payment method is required. Demanding Stripe onboarding for an
+     * event that will never charge anybody is where a community organizer
+     * abandons the product.
+     */
     const readiness = await organizerReadiness(event.organizer_id);
+    const { isFree } = await setup(event);
     const payment = paymentReadiness({
       listingType: event.listing_type,
       acceptsStripe: event.accepts_stripe,
       acceptsManual: event.accepts_manual,
+      isFree,
       ...readiness,
     });
     if (!payment.ok) {
@@ -498,12 +562,28 @@ function shape(e, { currentTermsId = null } = {}) {
     status: e.status,
     listingType: e.listing_type,
     purchaseMode: e.purchase_mode,
+    // Reserved seating or general admission. The single field most of the
+    // organizer's interface branches on — see `eventRules.eventNeeds`.
+    admissionType: e.admission_type || 'reserved',
     category: e.category,
     // `coverPath` is the organizer's own view of their event, and they need it:
     // the confirm step sends back the path it was given, and a page reloaded
     // mid-flow has to know which object is already current. It is absent from
     // every public shape — outside the dashboard the URL is the whole story.
     cover: e.cover_url ? { url: e.cover_url, path: e.cover_path } : null,
+    // Not a second cover. The cover is the photograph at the top of the page;
+    // the logo is the mark that says whose event this is, and neither stands in
+    // for a missing one.
+    logo: e.logo_url ? { url: e.logo_url, path: e.logo_path } : null,
+    // Short selling points under the description. `|| []` because the column
+    // defaults to an empty array but an older row read through a narrower
+    // SELECT arrives undefined, and a client mapping over undefined throws.
+    highlights: Array.isArray(e.highlights) ? e.highlights : [],
+    // Where the venue actually is, for the map on the event page. Deliberately
+    // independent of the address — a venue can be findable by name with no pin.
+    venueLocation: e.venue_lat === null || e.venue_lat === undefined
+      ? null
+      : { lat: Number(e.venue_lat), lng: Number(e.venue_lng) },
     currency: e.currency,
     // The organizer must see every amount they will bear (BRD §04, §21).
     fees: {

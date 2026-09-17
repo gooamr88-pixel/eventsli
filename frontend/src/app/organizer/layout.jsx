@@ -75,8 +75,12 @@ export default function OrganizerLayout({ children }) {
 
   const rememberedIsMine = Boolean(lastEventId && events?.some((e) => e.id === lastEventId));
   const eventId = pathEventId || (rememberedIsMine ? lastEventId : null);
-  // A display-only event has no selling screens; the sidebar leaves them out.
-  const listingType = events?.find((e) => e.id === eventId)?.listingType || null;
+  // A display-only event has no selling screens and a general-admission one has
+  // no seat map; the sidebar leaves out what this event does not have. Both come
+  // from the events list the switcher already loads, so neither costs a request.
+  const current = events?.find((e) => e.id === eventId) || null;
+  const listingType = current?.listingType || null;
+  const admissionType = current?.admissionType || null;
 
   return (
     <ToastProvider>
@@ -85,7 +89,7 @@ export default function OrganizerLayout({ children }) {
           role="Organizer"
           label="Organizer"
           home="/organizer"
-          groups={organizerNavGroups({ eventId, listingType })}
+          groups={organizerNavGroups({ eventId, listingType, admissionType })}
           // Only an event in the URL changes the bar; a remembered one does not.
           tabKeys={organizerTabs({ eventId: pathEventId, listingType })}
           // Before the organization exists there is nothing to create an event

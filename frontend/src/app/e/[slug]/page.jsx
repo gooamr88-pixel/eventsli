@@ -1,6 +1,10 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
+import EventGallery from './EventGallery';
+import {
+  EventHighlights, EventSchedule, EventSponsors, EventPolicies, VenueMap,
+} from './EventSections';
 import { serverFetch } from '../../utils/apiClient';
 import { formatPrice } from '../../utils/money';
 
@@ -201,10 +205,36 @@ export default async function EventPage({ params, searchParams }) {
                 {event.organizer?.name && <Row term="Organizer">{event.organizer.name}</Row>}
               </dl>
 
+              <EventHighlights items={event.highlights} />
+
               {event.description && (
                 <div className="fx-break max-w-[62ch] whitespace-pre-line text-md leading-relaxed text-muted">
                   {event.description}
                 </div>
+              )}
+
+              {/* ── What the organizer built ──────────────────────────────
+                  In the order somebody reads an event: what it looks like,
+                  what happens and when, how to get there, who is behind it,
+                  and the small print. Each section draws nothing at all when
+                  the organizer has not filled it in — most events have no
+                  sponsors, and a heading over an empty list reads as something
+                  forgotten rather than something not applicable. */}
+              <EventGallery items={event.gallery} />
+              <EventSchedule items={event.schedule} timezone={event.timezone} />
+              <VenueMap
+                venue={event.venue}
+                address={event.venueAddress}
+                location={event.venueLocation}
+              />
+              <EventSponsors items={event.sponsors} />
+              <EventPolicies items={event.policies} />
+
+              {event.organizer?.name && (
+                <section className="fx-stack fx-stack--sm" aria-labelledby="event-organizer">
+                  <h2 id="event-organizer" className="text-lg">Organised by</h2>
+                  <p className="text-md text-muted">{event.organizer.name}</p>
+                </section>
               )}
             </div>
 
@@ -326,13 +356,29 @@ function CallToAction({ event, soldOut, tierId }) {
     );
   }
 
+  /**
+   * WHERE THE BUTTON GOES, AND WHAT IT SAYS, both follow the event.
+   *
+   * A reserved event sends the buyer to the seat map; a general-admission one
+   * has no map to send them to, so it goes to the ticket picker instead. The
+   * label follows the same fact — "Choose your seats" on an event with no seats
+   * is a promise the next page cannot keep, and the reader notices immediately.
+   *
+   * A free event says "Get tickets" rather than anything about buying. Somebody
+   * deciding whether to click is deciding whether to spend money, and the
+   * answer is no.
+   */
+  const general = event.admissionType === 'general';
+  const free = (event.tiers || []).length > 0
+    && (event.tiers || []).every((t) => Number(t.priceCents) === 0);
+
   return (
     <Link
-      // The tier travels with the buyer, so the seat picker can start from it.
-      href={`/e/${event.slug}/seats${tierId ? `?tier=${encodeURIComponent(tierId)}` : ''}`}
+      // The tier travels with the buyer, so the next page can start from it.
+      href={`/e/${event.slug}/${general ? 'tickets' : 'seats'}${tierId ? `?tier=${encodeURIComponent(tierId)}` : ''}`}
       className="es-btn es-btn--primary es-btn--block es-btn--lg"
     >
-      Choose your seats
+      {free ? 'Get tickets' : general ? 'Get tickets' : 'Choose your seats'}
     </Link>
   );
 }

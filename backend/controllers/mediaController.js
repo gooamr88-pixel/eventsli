@@ -28,10 +28,24 @@ function fail(res, err, next) {
  */
 async function editableEvent(eventId) {
   const { data, error } = await supabase
-    .from('events').select('id, status, cover_path').eq('id', eventId).single();
+    .from('events').select('id, status, cover_path, logo_path').eq('id', eventId).single();
   if (error) throw new Error(error.message);
   return data;
 }
+
+/**
+ * The two branded images an event carries, and the columns behind each.
+ *
+ * A table rather than two near-identical pairs of handlers. The cover and the
+ * logo differ in exactly one thing — which pair of columns they write — and
+ * everything else about them is the same three steps, the same state guard and
+ * the same delete-after-write ordering. Two copies of that is two places to fix
+ * the next time the ordering argument below turns out to matter.
+ */
+const IMAGE_SLOTS = Object.freeze({
+  cover: { kind: 'cover', url: 'cover_url', path: 'cover_path', label: 'cover image' },
+  logo: { kind: 'logo', url: 'logo_url', path: 'logo_path', label: 'logo' },
+});
 
 // ─── POST /events/:eventId/cover-upload ─────────────────────────────────────
 /**
@@ -54,6 +68,9 @@ async function requestUpload(req, res, next) {
     const signed = await media.signUpload({
       eventId: event.id,
       contentType: String(req.body.contentType || '').toLowerCase(),
+      // The cover unless the caller says otherwise, so the existing
+      // `/cover-upload` route keeps behaving exactly as it did.
+      kind: IMAGE_SLOTS[req.body.slot]?.kind || 'cover',
     });
     return sendOk(res, signed);
   } catch (err) { return fail(res, err, next); }
@@ -77,7 +94,7 @@ async function setCover(req, res, next) {
       });
     }
 
-    const { coverUrl, coverPath } = await media.attach({
+    const { url, path } = await media.attach({
       eventId: event.id,
       path: req.body.path,
       previousPath: event.cover_path,
@@ -85,7 +102,7 @@ async function setCover(req, res, next) {
 
     const { data, error } = await supabase
       .from('events')
-      .update({ cover_url: coverUrl, cover_path: coverPath, updated_at: new Date().toISOString() })
+      .update({ cover_url: url, cover_path: path, updated_at: new Date().toISOString() })
       .eq('id', event.id)
       .select('*')
       .single();
@@ -122,4 +139,61 @@ async function clearCover(req, res, next) {
   } catch (err) { return fail(res, err, next); }
 }
 
-module.exports = { requestUpload, setCover, clearCover };
+/* ── The logo ─────────────────────────────────────────────────────────────
+ *
+ * Same three steps as the cover, against the other pair of columns. The two are
+ * NOT interchangeable to a reader of the event page: the cover is the
+ * photograph at the top, the logo is the mark that identifies whose event this
+ * is — so an organizer setting one has not set the other, and neither stands in
+ * for the missing one.
+ */
+
+async function setLogo(req, res, next) {
+  try {
+    const event = await editableEvent(req.params.eventId);
+    if (['cancelled', 'completed'].includes(event.status)) {
+      return sendFail(res, {
+        status: 409, error: 'CONFLICT',
+        message: `A ${event.status} event cannot change its image.`,
+      });
+    }
+
+    const { url, path } = await media.attach({
+      eventId: event.id,
+      path: req.body.path,
+      previousPath: event.logo_path,
+    });
+
+    const { data, error } = await supabase
+      .from('events')
+      .update({ logo_url: url, logo_path: path, updated_at: new Date().toISOString() })
+      .eq('id', event.id)
+      .select('*')
+      .single();
+    if (error) throw new Error(error.message);
+
+    return sendOk(res, shape(data));
+  } catch (err) { return fail(res, err, next); }
+}
+
+async function clearLogo(req, res, next) {
+  try {
+    const event = await editableEvent(req.params.eventId);
+
+    const { data, error } = await supabase
+      .from('events')
+      .update({ logo_url: null, logo_path: null, updated_at: new Date().toISOString() })
+      .eq('id', event.id)
+      .select('*')
+      .single();
+    if (error) throw new Error(error.message);
+
+    // After the row, so a storage failure cannot leave the event pointing at an
+    // image that is no longer there.
+    if (event.logo_path) await media.remove(event.logo_path);
+
+    return sendOk(res, shape(data));
+  } catch (err) { return fail(res, err, next); }
+}
+
+module.exports = { requestUpload, setCover, clearCover, setLogo, clearLogo, IMAGE_SLOTS };

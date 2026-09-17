@@ -88,10 +88,12 @@ export default function EventLayout({ children }) {
 function EventHeader({ event, eventId, onChanged }) {
   const pathname = usePathname() || '';
   const listingType = event?.listingType || null;
+  // A general-admission event has no seat map, so the strip does not offer one.
+  const admissionType = event?.admissionType || null;
   const sections = useMemo(() => {
-    const groups = organizerNavGroups({ eventId, listingType }).filter((g) => ['build', 'sell', 'day'].includes(g.id));
+    const groups = organizerNavGroups({ eventId, listingType, admissionType }).filter((g) => ['build', 'sell', 'day'].includes(g.id));
     return resolveNav(groups, pathname).flatMap((g) => g.items);
-  }, [eventId, listingType, pathname]);
+  }, [eventId, listingType, admissionType, pathname]);
 
   if (!event) {
     return (

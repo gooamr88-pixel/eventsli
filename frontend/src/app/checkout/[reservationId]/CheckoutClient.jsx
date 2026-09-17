@@ -29,6 +29,9 @@ export default function CheckoutClient({ reservationId }) {
   const [promoError, setPromoError] = useState(null);
   const [busy, setBusy] = useState(null);
   const [buyer, setBuyer] = useState({ name: '', email: '', acceptTerms: false });
+  // Set once a free claim has issued the tickets. There is no payment step and
+  // nothing to wait for, so this page shows the outcome itself.
+  const [claimed, setClaimed] = useState(null);
 
   const loadQuote = useCallback(async () => {
     try {
@@ -100,19 +103,56 @@ export default function CheckoutClient({ reservationId }) {
     }
   }
 
+  /**
+   * ───────────────────────────────────────────────────────────────────────────
+   * TWO ENDINGS, DECIDED BY THE TOTAL — and the total comes from the server.
+   *
+   * A total of zero goes to `/claim`, which issues the tickets directly: there
+   * is no card to take, so sending somebody to a payment page to enter one for
+   * nothing is a step that can only lose them.
+   *
+   * `quote.totalCents` is recomputed from the database on every quote, so this
+   * follows the prices, the promo code and the taxes as they actually are. It
+   * is NOT the authority — `/claim` re-quotes and refuses anything above zero —
+   * which is what makes reading it here safe: the worst a stale total can do is
+   * send the buyer to the endpoint that then tells them to pay.
+   * ───────────────────────────────────────────────────────────────────────────
+   */
   async function pay(e) {
     e.preventDefault();
     setBusy('pay');
     setError(null);
     try {
+      const body = {
+        email: buyer.email || undefined,
+        name: buyer.name || undefined,
+        acceptTerms: buyer.acceptTerms,
+      };
+
+      if (free) {
+        const result = await post(
+          `/public/reservations/${reservationId}/claim`, body, { noRedirect: true },
+        );
+        /**
+         * DONE, HERE, WITH NO REDIRECT — and that is the point of the free path.
+         *
+         * `/checkout/success` exists to POLL: a card payment redirects back
+         * before Stripe's webhook has necessarily written the order, so that
+         * page waits for it to appear. A claim has no webhook and no race — the
+         * tickets exist by the time this line runs — so sending the buyer to a
+         * page whose whole job is waiting would invent a wait that is over.
+         *
+         * The hold is forgotten for the same reason the success page forgets
+         * it: it has become an order, and keeping it would leave a stale
+         * reservation in this tab that a later release could act on.
+         */
+        forget();
+        setClaimed({ ticketCount: result.ticketCount, email: result.email });
+        return;
+      }
+
       const { checkoutUrl } = await post(
-        `/public/reservations/${reservationId}/checkout`,
-        {
-          email: buyer.email || undefined,
-          name: buyer.name || undefined,
-          acceptTerms: buyer.acceptTerms,
-        },
-        { noRedirect: true },
+        `/public/reservations/${reservationId}/checkout`, body, { noRedirect: true },
       );
       // A full navigation, not router.push: Stripe Checkout is a different
       // origin, and the client router cannot leave the app.
@@ -130,9 +170,12 @@ export default function CheckoutClient({ reservationId }) {
   }
 
   if (error && !quote) return <Fatal error={error} slug={reservation?.slug} />;
+  if (claimed) return <Claimed claimed={claimed} slug={reservation?.slug} />;
   if (!quote) return <Loading variant="card" />;
 
   const discount = quote.lines.find((l) => l.amountCents < 0);
+  // Nothing to pay. Everything the page says about payment changes with it.
+  const free = Number(quote.totalCents) === 0;
 
   return (
     <div className="fx-stack">
@@ -247,6 +290,20 @@ export default function CheckoutClient({ reservationId }) {
           </span>
         </label>
 
+        {/* The organizer's own policies, the ones they marked to show here.
+            Before the button, not under it: a refund policy read after paying
+            is one that becomes an email to the organizer. */}
+        {(quote.policies || []).length > 0 && (
+          <div className="fx-stack fx-stack--sm">
+            {quote.policies.map((policy) => (
+              <details key={policy.id} className="rounded-(--es-radius-md) border border-border-base px-4 py-3">
+                <summary className="cursor-pointer text-sm text-ink marker:text-subtle">{policy.title}</summary>
+                <div className="fx-break mt-2 whitespace-pre-line text-sm text-muted">{policy.body}</div>
+              </details>
+            ))}
+          </div>
+        )}
+
         {error && <PayError error={error} />}
 
         <button
@@ -255,7 +312,9 @@ export default function CheckoutClient({ reservationId }) {
           aria-busy={busy === 'pay' || undefined}
           className="es-btn es-btn--primary es-btn--lg es-btn--block"
         >
-          {busy === 'pay' ? 'Taking you to payment…' : `Pay ${formatMoney(quote.totalCents, quote.currency)}`}
+          {busy === 'pay'
+            ? (free ? 'Getting your tickets…' : 'Taking you to payment…')
+            : free ? 'Get my tickets' : `Pay ${formatMoney(quote.totalCents, quote.currency)}`}
         </button>
 
         <button
@@ -291,6 +350,37 @@ function PayError({ error }) {
       <p className="text-sm font-medium text-ink">{title}</p>
       <p className="text-sm text-muted">{recovery}</p>
       {theirs && <p className="mt-1 text-xs text-subtle">Nothing has been charged.</p>}
+    </div>
+  );
+}
+
+/**
+ * A free claim, done.
+ *
+ * Says where the tickets went and how to get them back, because the email is
+ * the only copy — there is no receipt to re-open and no card statement to check
+ * against. `/tickets/find` is the existing path for anyone whose email did not
+ * arrive, so it is offered here rather than left to be discovered later.
+ */
+function Claimed({ claimed, slug }) {
+  const count = claimed.ticketCount || 0;
+  return (
+    <div className="es-plate fx-stack bg-surface p-6" role="status">
+      <h2 className="text-lg">You&apos;re in.</h2>
+      <p className="text-md text-muted">
+        {count} {count === 1 ? 'ticket is' : 'tickets are'} yours.
+        {claimed.email && <> We&apos;ve emailed {count === 1 ? 'it' : 'them'} to {claimed.email}.</>}
+      </p>
+      <p className="text-sm text-subtle">
+        Bring the QR code with you — on your phone is fine. If the email does not arrive,
+        you can look your tickets up with the address you used.
+      </p>
+      <div className="fx-row flex-wrap gap-2">
+        <Link href="/tickets/find" className="es-btn es-btn--primary">Find my tickets</Link>
+        {slug && (
+          <Link href={`/e/${slug}`} className="es-btn es-btn--ghost">Back to the event</Link>
+        )}
+      </div>
     </div>
   );
 }

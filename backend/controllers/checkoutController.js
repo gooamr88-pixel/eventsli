@@ -22,7 +22,31 @@ const statusFor = (code) => ERROR_STATUS[code] || 400;
 async function quote(req, res, next) {
   try {
     const q = await pricing.quoteReservation(req.params.reservationId);
-    return sendOk(res, pricing.publicBreakdown(q));
+
+    /**
+     * The organizer's policies that they marked "show at checkout".
+     *
+     * BEFORE PAYING, not after asking. A refund policy a buyer never saw is one
+     * that gets argued about afterwards, and the argument lands on the
+     * organizer — which is why the flag exists and why this is on the quote
+     * rather than a second request the checkout page might skip.
+     *
+     * Only the marked ones. Everything else is on the event page; repeating all
+     * of it here would bury the one that matters.
+     */
+    const { data: policies } = await supabase
+      .from('event_policies')
+      .select('id, kind, title, body')
+      .eq('event_id', q.event.id)
+      .eq('show_at_checkout', true)
+      .order('sort_order');
+
+    return sendOk(res, {
+      ...pricing.publicBreakdown(q),
+      policies: (policies || []).map((p) => ({
+        id: p.id, kind: p.kind, title: p.title, body: p.body,
+      })),
+    });
   } catch (err) {
     if (err.code) {
       return sendFail(res, { status: statusFor(err.code), error: err.code, message: err.message });
@@ -314,4 +338,138 @@ async function fulfillFromSession(session) {
   return result;
 }
 
-module.exports = { quote, createSession, checkoutResult, fulfillFromSession };
+// ─── POST /public/reservations/:reservationId/claim ─────────────────────────
+/**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * A FREE TICKET, claimed. No card, no Stripe, no payment intent.
+ *
+ * A separate endpoint from `createSession` rather than a branch inside it, and
+ * the reason is what `createSession` spends its length doing: deciding whether
+ * Stripe is switched on, whether this event takes cards, whether the organizer
+ * can receive money, and building a redirect to a hosted page. Every one of
+ * those questions is meaningless when the total is zero, and a `total === 0`
+ * branch threaded through them would mean each future edit to the paid path has
+ * to remember the free one exists.
+ *
+ * WHAT IS KEPT, deliberately, and is not ceremony:
+ *
+ *   • THE EMAIL. The ticket has to reach somebody, and a QR code with no
+ *     address attached is a ticket nobody can be sent or re-sent.
+ *   • THE TERMS (BRD §21). Free does not mean unconditional — the organizer's
+ *     refund and admission policies still bind, and an event still has a
+ *     capacity somebody is taking a place in. Recorded against the version
+ *     shown, and FAILING CLOSED exactly as the paid path does.
+ *
+ * WHAT MAKES IT SAFE is the re-quote. The price is read from the database here,
+ * not from the request and not from what the browser was shown — so a buyer who
+ * reaches this endpoint for a paid reservation is refused rather than handed
+ * free tickets. That check is the entire security boundary of this handler.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+async function claimFree(req, res, next) {
+  try {
+    const q = await pricing.quoteReservation(req.params.reservationId);
+
+    /**
+     * THE CHECK THIS ENDPOINT EXISTS AROUND.
+     *
+     * `buyerTotalCents` is recomputed from the database on every quote, so it
+     * reflects the tier prices, the table prices, the promo code and the taxes
+     * as they are right now. Anything above zero and this is a paid checkout
+     * wearing the wrong URL — which is the one way this endpoint could give
+     * away tickets, so it is refused before anything else happens.
+     */
+    if (Number(q.breakdown.buyerTotalCents) !== 0) {
+      return sendFail(res, {
+        status: 400, error: 'PAYMENT_REQUIRED',
+        message: 'These tickets are not free. Continue to payment instead.',
+      });
+    }
+
+    const buyer = {
+      userId: req.user?.id || null,
+      name: (req.body.name || req.user?.access?.fullName || '').trim(),
+      email: (req.body.email || req.user?.email || '').trim().toLowerCase(),
+      phone: (req.body.phone || '').trim(),
+    };
+    if (!buyer.email) {
+      return sendFail(res, {
+        status: 400, error: 'VALIDATION_ERROR',
+        message: 'Enter an email address — your tickets are sent there.',
+      });
+    }
+
+    if (req.body.acceptTerms !== true) {
+      return sendFail(res, {
+        status: 403, error: 'TERMS_NOT_ACCEPTED',
+        message: 'Accept the terms to claim your tickets.',
+      });
+    }
+
+    // Same failure mode as the paid path: a claim we cannot evidence the terms
+    // for does not happen.
+    const terms = require('../services/termsService');
+    const current = await terms.currentVersion('buyer');
+    await terms.accept({
+      userId: buyer.userId,
+      email: buyer.email,
+      reservationId: req.params.reservationId,
+      termsId: current.id,
+      eventId: q.event.id,
+      req,
+    });
+
+    const { data: result, error } = await supabase.rpc('fulfill_checkout', {
+      p_reservation_id: req.params.reservationId,
+      // Not 'manual'. That channel is money the organizer collected themselves,
+      // and filing free tickets under it fills their cash record with sales
+      // that never happened. See 20260917115000.
+      p_channel: 'free',
+      p_breakdown: q.breakdown,
+      p_buyer: {
+        user_id: buyer.userId || null,
+        name: buyer.name || null,
+        email: buyer.email || null,
+        phone: buyer.phone || null,
+      },
+      p_stripe: {},
+    });
+
+    if (error) {
+      logger.error({ err: error.message, reservationId: req.params.reservationId }, 'free claim failed');
+      return sendFail(res, {
+        status: 409, error: 'CONFLICT', message: 'We could not complete that claim.',
+      });
+    }
+
+    if (!result?.ok) {
+      return sendFail(res, {
+        status: statusFor(result?.error),
+        error: result?.error || 'CONFLICT',
+        message: result?.message || 'That hold is no longer available.',
+      });
+    }
+
+    // After fulfilment and never awaited into the response: the tickets exist
+    // whether or not the email lands, and a provider outage must not fail a
+    // claim that has already taken the stock.
+    if (!result.already_fulfilled) {
+      ticketCtrl.sendTicketEmail(result.order_id).catch((e) =>
+        logger.error({ err: e.message, orderId: result.order_id }, 'ticket email failed'));
+    }
+
+    return sendOk(res, {
+      orderId: result.order_id,
+      ticketCount: result.ticket_count,
+      free: true,
+      email: maskEmail(buyer.email),
+    }, { status: 201 });
+  } catch (err) {
+    if (err.code && ERROR_STATUS[err.code]) {
+      return sendFail(res, { status: statusFor(err.code), error: err.code, message: err.message });
+    }
+    return next(err);
+  }
+}
+
+module.exports = { quote, createSession, claimFree, checkoutResult, fulfillFromSession };

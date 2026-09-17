@@ -54,6 +54,9 @@ router.post(
   ...dateRules,
   body('listingType').optional().isIn(['ticketed', 'display_only']),
   body('purchaseMode').optional().isIn(['seat_only', 'table_only', 'seat_and_table']),
+  // Reserved seating or general admission. The field that decides whether this
+  // event ever needs a venue map — see eventRules.eventNeeds.
+  body('admissionType').optional().isIn(['reserved', 'general']),
   body('maxTicketsPerOrder').optional().isInt({ min: 1, max: 100 })
     .withMessage('Tickets per order must be between 1 and 100.'),
   body('allowTicketTransfer').optional().isBoolean(),
@@ -90,6 +93,22 @@ router.patch(
   body('feeBearer').optional().isIn(['buyer', 'organizer']),
   body('listingType').optional().isIn(['ticketed', 'display_only']),
   body('purchaseMode').optional().isIn(['seat_only', 'table_only', 'seat_and_table']),
+  body('admissionType').optional().isIn(['reserved', 'general']),
+  // Content, not terms. The DB bounds the array and each entry
+  // (`highlights_bounded`); this is the shape check that keeps a bad request
+  // from reaching it as a constraint violation.
+  body('highlights').optional().isArray({ max: 12 }),
+  body('highlights.*').isString().trim().isLength({ min: 1, max: 120 })
+    .withMessage('Each highlight is a short phrase, up to 120 characters.'),
+  // Both or neither — `venue_coords_together` refuses half a pin.
+  body('venueLat').optional({ values: 'null' }).isFloat({ min: -90, max: 90 }),
+  body('venueLng').optional({ values: 'null' }).isFloat({ min: -180, max: 180 }),
+  body().custom((v) => {
+    const lat = v.venueLat !== undefined && v.venueLat !== null;
+    const lng = v.venueLng !== undefined && v.venueLng !== null;
+    if (lat !== lng) throw new Error('A map pin needs both a latitude and a longitude.');
+    return true;
+  }),
   body('category').optional().custom(categoryService.assertKnownSlug),
   body('city').optional({ values: 'null' }).isString().trim().isLength({ max: 120 }),
   body('maxTicketsPerOrder').optional().isInt({ min: 1, max: 100 }),
@@ -113,6 +132,10 @@ router.post(
   verifyEventOwner,
   body('contentType').isIn(Object.keys(EXTENSION_FOR))
     .withMessage('Upload a JPEG, PNG or WebP image.'),
+  // Which image this is for. Absent means the cover, so every existing caller
+  // is unchanged. It reaches a storage key, so it is checked against a list
+  // here and again in mediaService.
+  body('slot').optional().isIn(['cover', 'logo']),
   validate,
   cover.requestUpload,
 );
@@ -127,6 +150,22 @@ router.put(
 );
 
 router.delete('/:eventId/cover', verifyEventOwner, cover.clearCover);
+
+// ─── The logo ──────────────────────────────────────────────────────────────
+// The same three steps against the other pair of columns. `slot` on the shared
+// upload route decides which storage key is signed; everything else — the size
+// limit, the prefix that scopes an object to this event, the confirm-then-swap
+// ordering — is the cover's, unchanged.
+router.put(
+  '/:eventId/logo',
+  verifyEventOwner,
+  body('path').isString().trim().isLength({ min: 1, max: 300 })
+    .withMessage('Send back the path from the upload step.'),
+  validate,
+  cover.setLogo,
+);
+
+router.delete('/:eventId/logo', verifyEventOwner, cover.clearLogo);
 
 // BRD §21 — the confirmation step, before submitting.
 router.post('/:eventId/accept-terms', verifyEventOwner, c.acceptTerms);
@@ -329,6 +368,34 @@ router.patch(
 // its final COALESCE and a seat with no override sold for nothing.
 const tiers = require('../controllers/tierController');
 
+/**
+ * The per-ticket-type rules. Shared by create and patch so the two cannot
+ * accept different things — which is how a setting ends up creatable but not
+ * editable, or the reverse.
+ *
+ * The sale window's ordering is checked by the database
+ * (`tier_sale_window_ordered`); this pair is the shape check that stops a bad
+ * request arriving there as a constraint violation nobody can read.
+ */
+const tierRuleRules = [
+  body('kind').optional().isIn(['standard', 'general', 'vip', 'early_bird', 'complimentary'])
+    .withMessage('Choose a ticket type: standard, general, VIP, early bird or complimentary.'),
+  body('salesStartAt').optional({ values: 'null' }).isISO8601()
+    .withMessage('Enter a valid date and time for when this type goes on sale.'),
+  body('salesEndAt').optional({ values: 'null' }).isISO8601()
+    .withMessage('Enter a valid date and time for when this type stops selling.'),
+  body().custom((v) => {
+    if (v.salesStartAt && v.salesEndAt && new Date(v.salesEndAt) <= new Date(v.salesStartAt)) {
+      throw new Error('This ticket type must stop selling after it starts.');
+    }
+    return true;
+  }),
+  // Null is meaningful: fall back to the event's own limit.
+  body('maxPerOrder').optional({ values: 'null' }).isInt({ min: 1, max: 100 })
+    .withMessage('Tickets per order must be between 1 and 100.'),
+  body('isHidden').optional().isBoolean(),
+];
+
 router.get('/:eventId/tiers', verifyEventOwner, tiers.list);
 
 router.post(
@@ -343,6 +410,7 @@ router.post(
   // null is meaningful: "bounded by the seat map", not "none left".
   body('quantity').optional({ values: 'null' }).isInt({ min: 1 }),
   body('sortOrder').optional().isInt({ min: 0, max: 9999 }),
+  ...tierRuleRules,
   validate,
   tiers.create,
 );
@@ -356,6 +424,7 @@ router.patch(
   body('priceCents').optional().isInt({ min: 0 }),
   body('quantity').optional({ values: 'null' }).isInt({ min: 0 }),
   body('sortOrder').optional().isInt({ min: 0, max: 9999 }),
+  ...tierRuleRules,
   validate,
   tiers.update,
 );
@@ -416,5 +485,166 @@ router.get(
   validate,
   sales.attendees,
 );
+
+// ─── Event content: gallery, sponsors, policies, schedule ──────────────────
+//
+// Four small collections that behave alike — list, add, edit, reorder, remove —
+// so they share one controller and one service. None of it is stock: nothing
+// here can be held, sold, refunded or scanned, which is why none of it carries
+// the guards the seat map is wrapped in.
+//
+// REORDER IS A PUT OF THE WHOLE LIST, not N patches. Reordering is one drag
+// gesture that moves everything below what was dragged; sending a row at a time
+// means any one of them failing leaves an order nobody chose.
+const content = require('../controllers/eventContentController');
+
+const idParam = [param('itemId').isUUID().withMessage('Unknown item.')];
+const orderRules = [
+  body('ids').isArray({ max: 200 }).withMessage('Send the items in their new order.'),
+  body('ids.*').isUUID(),
+];
+
+// Everything the editor needs, in one round trip.
+router.get('/:eventId/content', verifyEventOwner, content.bundle);
+
+// Signs an upload for a gallery image or a sponsor logo. Same bucket, same size
+// limit and same event-scoped prefix as the cover — that prefix is the
+// ownership check, and it is worth having exactly one of.
+router.post(
+  '/:eventId/content/upload',
+  verifyEventOwner,
+  body('contentType').isIn(Object.keys(EXTENSION_FOR))
+    .withMessage('Upload a JPEG, PNG or WebP image.'),
+  body('kind').optional().isIn(['gallery', 'sponsor']),
+  validate,
+  content.requestUpload,
+);
+
+// ── Gallery and video ──
+router.get('/:eventId/media', verifyEventOwner, content.listMedia);
+router.post(
+  '/:eventId/media',
+  verifyEventOwner,
+  body('kind').optional().isIn(['image', 'video']),
+  // An image arrives as the path the upload step returned; a video as a link to
+  // somebody else's player. Which one is required depends on which it is.
+  body('path').if(body('kind').not().equals('video'))
+    .isString().trim().isLength({ min: 1, max: 300 })
+    .withMessage('Send back the path from the upload step.'),
+  body('url').if(body('kind').equals('video'))
+    .isURL({ protocols: ['http', 'https'], require_protocol: true })
+    .withMessage('Paste a link to the video.'),
+  body('caption').optional({ values: 'null' }).isString().trim().isLength({ max: 200 }),
+  validate,
+  content.addMedia,
+);
+router.patch(
+  '/:eventId/media/:itemId',
+  verifyEventOwner, ...idParam,
+  body('caption').optional({ values: 'null' }).isString().trim().isLength({ max: 200 }),
+  validate,
+  content.updateMedia,
+);
+router.put('/:eventId/media/order', verifyEventOwner, ...orderRules, validate, content.reorderMedia);
+router.delete('/:eventId/media/:itemId', verifyEventOwner, ...idParam, validate, content.removeMedia);
+
+// ── Sponsors ──
+// `linkUrl` is an outbound link on a public page: whatever is there, this site
+// is vouching for it. http(s) only, here and again in the DB constraint.
+const sponsorRules = [
+  body('level').optional().isIn(['headline', 'gold', 'silver', 'bronze', 'partner']),
+  body('linkUrl').optional({ values: 'falsy' })
+    .isURL({ protocols: ['http', 'https'], require_protocol: true })
+    .withMessage('A sponsor link must start with http:// or https://.'),
+  body('path').optional().isString().trim().isLength({ min: 1, max: 300 }),
+];
+
+router.get('/:eventId/sponsors', verifyEventOwner, content.listSponsors);
+router.post(
+  '/:eventId/sponsors',
+  verifyEventOwner,
+  body('name').isString().trim().isLength({ min: 1, max: 120 })
+    .withMessage('Name the sponsor.'),
+  ...sponsorRules,
+  validate,
+  content.addSponsor,
+);
+router.patch(
+  '/:eventId/sponsors/:itemId',
+  verifyEventOwner, ...idParam,
+  body('name').optional().isString().trim().isLength({ min: 1, max: 120 }),
+  ...sponsorRules,
+  validate,
+  content.updateSponsor,
+);
+router.put('/:eventId/sponsors/order', verifyEventOwner, ...orderRules, validate, content.reorderSponsors);
+router.delete('/:eventId/sponsors/:itemId', verifyEventOwner, ...idParam, validate, content.removeSponsor);
+
+// ── Policies ──
+// The ORGANIZER's terms for their event. They neither replace nor amend the
+// platform terms the organizer accepted in order to publish (BRD §21).
+router.get('/:eventId/policies', verifyEventOwner, content.listPolicies);
+router.post(
+  '/:eventId/policies',
+  verifyEventOwner,
+  body('kind').optional().isIn(['terms', 'privacy', 'refund', 'other']),
+  body('title').isString().trim().isLength({ min: 1, max: 120 })
+    .withMessage('Give the policy a heading, e.g. Refunds.'),
+  body('body').isString().trim().isLength({ min: 1, max: 20000 })
+    .withMessage('Write the policy.'),
+  body('showAtCheckout').optional().isBoolean(),
+  validate,
+  content.addPolicy,
+);
+router.patch(
+  '/:eventId/policies/:itemId',
+  verifyEventOwner, ...idParam,
+  body('kind').optional().isIn(['terms', 'privacy', 'refund', 'other']),
+  body('title').optional().isString().trim().isLength({ min: 1, max: 120 }),
+  body('body').optional().isString().trim().isLength({ min: 1, max: 20000 }),
+  body('showAtCheckout').optional().isBoolean(),
+  validate,
+  content.updatePolicy,
+);
+router.put('/:eventId/policies/order', verifyEventOwner, ...orderRules, validate, content.reorderPolicies);
+router.delete('/:eventId/policies/:itemId', verifyEventOwner, ...idParam, validate, content.removePolicy);
+
+// ── Schedule / lineup ──
+// Times are optional: an organizer sketching a running order knows the ORDER
+// before they know the clock, and a form demanding a timestamp per row turns a
+// two-minute draft into a guess they have to remember to correct.
+const scheduleRules = [
+  body('startsAt').optional({ values: 'null' }).isISO8601(),
+  body('endsAt').optional({ values: 'null' }).isISO8601(),
+  body('description').optional({ values: 'null' }).isString().trim().isLength({ max: 2000 }),
+  body('location').optional({ values: 'null' }).isString().trim().isLength({ max: 120 }),
+  body().custom((v) => {
+    if (v.startsAt && v.endsAt && new Date(v.endsAt) < new Date(v.startsAt)) {
+      throw new Error('That item ends before it starts.');
+    }
+    return true;
+  }),
+];
+
+router.get('/:eventId/schedule', verifyEventOwner, content.listSchedule);
+router.post(
+  '/:eventId/schedule',
+  verifyEventOwner,
+  body('title').isString().trim().isLength({ min: 1, max: 160 })
+    .withMessage('Name this part of the schedule.'),
+  ...scheduleRules,
+  validate,
+  content.addScheduleItem,
+);
+router.patch(
+  '/:eventId/schedule/:itemId',
+  verifyEventOwner, ...idParam,
+  body('title').optional().isString().trim().isLength({ min: 1, max: 160 }),
+  ...scheduleRules,
+  validate,
+  content.updateScheduleItem,
+);
+router.put('/:eventId/schedule/order', verifyEventOwner, ...orderRules, validate, content.reorderSchedule);
+router.delete('/:eventId/schedule/:itemId', verifyEventOwner, ...idParam, validate, content.removeScheduleItem);
 
 module.exports = router;

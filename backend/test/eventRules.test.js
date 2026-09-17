@@ -277,3 +277,130 @@ test('a free slug is used as-is', async () => {
   const s = await uniqueSlug('Totally Unique Title', async () => false);
   assert.equal(s, 'totally-unique-title');
 });
+
+// ── General admission, free events, and what an organizer is shown ──────────
+//
+// `eventNeeds` is the single answer four surfaces depend on — the launch
+// checklist, the event sub-navigation, the submit guard and the API's own
+// refusals. When they disagree, the shape it takes is a checklist demanding a
+// step the navigation does not offer, which is unresolvable from the outside.
+
+const { isFreeEvent, eventNeeds, LOCKED_AFTER_SALE } = require('../services/eventRules');
+
+const paid = [{ priceCents: 2500 }];
+const freeTiers = [{ priceCents: 0 }];
+
+test('an event with no ticket types yet is NOT free', () => {
+  // "No prices" is not "free". Treating it as free waives the payment
+  // requirement for every brand-new draft, and the organizer finds out they
+  // need Stripe at the moment they first type a price — the worst moment.
+  assert.equal(isFreeEvent([]), false);
+  assert.equal(isFreeEvent(null), false);
+  assert.equal(isFreeEvent(undefined), false);
+});
+
+test('free means every ticket type is zero', () => {
+  assert.equal(isFreeEvent(freeTiers), true);
+  assert.equal(isFreeEvent([{ priceCents: 0 }, { priceCents: 0 }]), true);
+  assert.equal(isFreeEvent([{ priceCents: 0 }, { priceCents: 500 }]), false);
+  assert.equal(isFreeEvent(paid), false);
+});
+
+test('a paid TABLE makes an event paid, however the tier list reads', () => {
+  // BRD §25 — a table is bought as a unit at its own price, so a map of free
+  // seats on paid tables still takes money.
+  assert.equal(isFreeEvent(freeTiers, [{ priceCents: 40000 }]), false);
+  assert.equal(isFreeEvent(freeTiers, [{ priceCents: null }]), true);
+  assert.equal(isFreeEvent(freeTiers, []), true);
+});
+
+test('a free event needs no way to take payment', () => {
+  const base = {
+    listingType: 'ticketed', acceptsStripe: false, acceptsManual: false,
+    stripeReady: false, manualReady: false,
+  };
+  // The same event, priced, is refused for exactly the reason it should be.
+  assert.equal(paymentReadiness({ ...base, isFree: false }).reason, 'NO_CHANNEL');
+  assert.equal(paymentReadiness({ ...base, isFree: true }).ok, true);
+});
+
+test('a listing-only event needs nothing to sell with', () => {
+  const needs = eventNeeds({ listingType: 'display_only', admissionType: 'reserved' });
+  assert.deepEqual(needs, {
+    tickets: false, seating: false, tables: false, payment: false, checkout: false,
+  });
+});
+
+test('general admission needs tickets and payment but NO seating map', () => {
+  // The headline case: the organizer running a conference or a club night who
+  // previously had to draw a fictional seating plan to sell anything.
+  const needs = eventNeeds({ listingType: 'ticketed', admissionType: 'general' });
+  assert.equal(needs.tickets, true);
+  assert.equal(needs.seating, false);
+  assert.equal(needs.tables, false);
+  assert.equal(needs.payment, true);
+  assert.equal(needs.checkout, true);
+});
+
+test('reserved seating needs the map and the table settings that decorate it', () => {
+  const needs = eventNeeds({ listingType: 'ticketed', admissionType: 'reserved' });
+  assert.equal(needs.seating, true);
+  assert.equal(needs.tables, true);
+});
+
+test('a free general-admission event needs only ticket types', () => {
+  // The example the requirement names: nothing about seating, nothing about
+  // Stripe, and still a checkout — somebody claims a ticket and gives a name.
+  const needs = eventNeeds({ listingType: 'ticketed', admissionType: 'general', isFree: true });
+  assert.equal(needs.tickets, true);
+  assert.equal(needs.seating, false);
+  assert.equal(needs.payment, false);
+  assert.equal(needs.checkout, true);
+});
+
+test('a free event still has a checkout — free is not "no transaction"', () => {
+  for (const admissionType of ['reserved', 'general']) {
+    assert.equal(eventNeeds({ listingType: 'ticketed', admissionType, isFree: true }).checkout, true);
+  }
+});
+
+test('admission type is frozen once a ticket has sold', () => {
+  // Harder than the other locked fields: those change what a buyer agreed to,
+  // this changes what their ticket IS. Flipping it leaves tickets pointing at
+  // seats on a map the event no longer uses.
+  assert.ok(LOCKED_AFTER_SALE.includes('admission_type'));
+
+  const r = editConsequence({
+    status: 'published', columns: ['admission_type'], isAdmin: false, hasPaidOrders: true,
+  });
+  assert.equal(r.reason, 'LOCKED_AFTER_SALE');
+  assert.deepEqual(r.refused, ['admission_type']);
+
+  // An ADMIN is still not stopped, which is the existing convention for every
+  // locked field rather than something this one opted into: `editConsequence`
+  // returns early for admins. Asserted so the exemption is visible here rather
+  // than discovered during an incident.
+  assert.equal(editConsequence({
+    status: 'published', columns: ['admission_type'], isAdmin: true, hasPaidOrders: true,
+  }).reason, null);
+});
+
+test('content fields are editable on a live event, terms are not', () => {
+  // Correcting "doors at 7" on a published listing must not need a review queue.
+  const ok = editConsequence({
+    status: 'published', columns: ['highlights', 'venue_lat', 'venue_lng'],
+    isAdmin: false, hasPaidOrders: true,
+  });
+  assert.notEqual(ok.reason, 'LOCKED_AFTER_SALE');
+});
+
+test('the new organizer fields are addressable by their API spelling', () => {
+  const { allowed, denied } = partitionPatch(
+    { admissionType: 'general', highlights: ['18+'], venueLat: 43.6, venueLng: -79.3 },
+    { isAdmin: false },
+  );
+  assert.deepEqual(denied, []);
+  assert.deepEqual(allowed, {
+    admission_type: 'general', highlights: ['18+'], venue_lat: 43.6, venue_lng: -79.3,
+  });
+});

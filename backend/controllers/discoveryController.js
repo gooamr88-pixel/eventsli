@@ -1,4 +1,5 @@
 const { supabase } = require('../config/supabase');
+const eventContent = require('../services/eventContentService');
 const { parsePagination, applyPagination, buildMeta } = require('../middleware/pagination');
 const { sendOk, sendFail } = require('../utils/responseEnvelope');
 const { safeSearch } = require('../utils/search');
@@ -26,7 +27,8 @@ const { safeSearch } = require('../utils/search');
 const SELECT = `
   id, slug, title, description, venue_name, venue_address, city,
   country, timezone, starts_at, ends_at, currency,
-  listing_type, purchase_mode, category, cover_url, max_tickets_per_order,
+  listing_type, purchase_mode, admission_type, category, cover_url, logo_url,
+  highlights, venue_lat, venue_lng, max_tickets_per_order,
   updated_at,
   organizers ( display_name )
 `;
@@ -171,22 +173,82 @@ async function eventBySlug(req, res, next) {
       });
     }
 
-    const { data: tiers } = await supabase
-      .from('ticket_tiers')
-      .select('id, name, description, price_cents')
-      .eq('event_id', event.id)
-      .order('sort_order');
+    const [{ data: tiers }, content] = await Promise.all([
+      supabase
+        .from('ticket_tiers')
+        .select('id, name, description, price_cents, quantity, sold_count, kind, '
+              + 'sales_start_at, sales_end_at, max_per_order, is_hidden')
+        .eq('event_id', event.id)
+        .order('sort_order'),
+      eventContent.publicBundle(event.id),
+    ]);
+
+    /**
+     * A HIDDEN TICKET TYPE IS OMITTED FROM THE LIST, NOT REFUSED.
+     *
+     * That is what makes comp, press and guest-list tickets work: the organizer
+     * sends a link carrying `?tier=<id>`, and the person holding it sees and
+     * buys that type while nobody browsing the page does. So a hidden type is
+     * filtered out here and added back when it is the one being asked for — and
+     * the hold functions deliberately do not refuse it, because refusing it
+     * would make the link it exists for useless.
+     *
+     * This is concealment, not access control. Anyone with the id can buy one,
+     * which is exactly the intent; a guest list that needed a password would be
+     * a different feature.
+     */
+    const asked = String(req.query.tier || '');
+    const visibleTiers = (tiers || []).filter((t) => !t.is_hidden || t.id === asked);
 
     return sendOk(res, {
       ...shape(event),
       description: event.description,
       venueAddress: event.venue_address,
-      tiers: (tiers || []).map((t) => ({
-        id: t.id, name: t.name, description: t.description, priceCents: Number(t.price_cents),
-      })),
-      availability: await availability(event),
+      tiers: visibleTiers.map(publicTier),
+      availability: await availability(event, tiers || []),
+      ...content,
     });
   } catch (err) { return next(err); }
+}
+
+/**
+ * One ticket type, as a buyer sees it.
+ *
+ * `onSale` and `soldOut` are worked out here rather than left to the page,
+ * because they need different sentences and a client that collapsed them into
+ * "unavailable" would tell somebody an early-bird type is gone when it has not
+ * opened yet. `remaining` is deliberately absent when the allocation is NULL —
+ * that means "bounded by the seat map", and rendering it as 0 shows an event as
+ * sold out.
+ *
+ * The window is recomputed here rather than trusted from anywhere: the database
+ * enforces it in `tier_sale_window_closed`, and this is what explains it. If the
+ * two ever disagree, the database wins and the buyer meets a refusal.
+ */
+function publicTier(t, now = new Date()) {
+  const quantity = t.quantity === null || t.quantity === undefined ? null : Number(t.quantity);
+  const sold = Number(t.sold_count || 0);
+  const startsAt = t.sales_start_at ? new Date(t.sales_start_at) : null;
+  const endsAt = t.sales_end_at ? new Date(t.sales_end_at) : null;
+
+  return {
+    id: t.id,
+    name: t.name,
+    description: t.description,
+    priceCents: Number(t.price_cents),
+    kind: t.kind || 'standard',
+    free: Number(t.price_cents) === 0,
+    hidden: Boolean(t.is_hidden),
+    maxPerOrder: t.max_per_order === null || t.max_per_order === undefined
+      ? null : Number(t.max_per_order),
+    salesStartAt: t.sales_start_at || null,
+    salesEndAt: t.sales_end_at || null,
+    notYetOnSale: Boolean(startsAt && now < startsAt),
+    salesEnded: Boolean(endsAt && now >= endsAt),
+    onSale: !(startsAt && now < startsAt) && !(endsAt && now >= endsAt),
+    remaining: quantity === null ? null : Math.max(0, quantity - sold),
+    soldOut: quantity !== null && sold >= quantity,
+  };
 }
 
 /**
@@ -196,8 +258,30 @@ async function eventBySlug(req, res, next) {
  * make an event with protected tables read as more sold out than it is; naming
  * them would leak exactly what `tableAccessService` exists to hide.
  */
-async function availability(event) {
+async function availability(event, tiers = []) {
   if (event.listing_type === 'display_only') return null;
+
+  /**
+   * GENERAL ADMISSION COUNTS TICKET TYPES, not seats — there is no map.
+   *
+   * A type with a NULL allocation is uncapped, and one uncapped type makes the
+   * whole event uncapped: there is always another ticket, so a total would be a
+   * number with no meaning and "sold out" can never be true. Reported as nulls
+   * rather than as zero, because zero reads as "none left".
+   */
+  if (event.admission_type === 'general') {
+    if (tiers.length === 0) return null;
+    const uncapped = tiers.some((t) => t.quantity === null || t.quantity === undefined);
+    if (uncapped) return { seatsTotal: null, seatsAvailable: null, soldOut: false };
+
+    const total = tiers.reduce((n, t) => n + Number(t.quantity), 0);
+    const sold = tiers.reduce((n, t) => n + Number(t.sold_count || 0), 0);
+    return {
+      seatsTotal: total,
+      seatsAvailable: Math.max(0, total - sold),
+      soldOut: total > 0 && sold >= total,
+    };
+  }
 
   const { data: map } = await supabase
     .from('venue_maps').select('id').eq('event_id', event.id).maybeSingle();
@@ -251,6 +335,13 @@ function shape(e) {
     // omitted, so a client renders a link instead of a dead buy button.
     displayOnly: e.listing_type === 'display_only',
     purchaseMode: e.purchase_mode,
+    // Whether this event has a seat map at all. A buyer's page branches on it
+    // to choose between a seat picker and a quantity picker.
+    admissionType: e.admission_type || 'reserved',
+    logoUrl: e.logo_url || null,
+    highlights: Array.isArray(e.highlights) ? e.highlights : [],
+    venueLocation: e.venue_lat === null || e.venue_lat === undefined
+      ? null : { lat: Number(e.venue_lat), lng: Number(e.venue_lng) },
     maxTicketsPerOrder: e.max_tickets_per_order,
     // The name only. An organizer's email, country of registration and Stripe
     // state are theirs, and none of it belongs on a public page.

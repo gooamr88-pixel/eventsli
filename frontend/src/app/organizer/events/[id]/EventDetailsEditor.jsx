@@ -49,6 +49,7 @@ function fromEvent(event) {
     startsAt: toLocalInput(event.startsAt, event.timezone),
     endsAt: toLocalInput(event.endsAt, event.timezone),
     listingType: event.listingType || 'ticketed',
+    admissionType: event.admissionType || 'reserved',
     purchaseMode: event.purchaseMode || 'seat_only',
     feeBearer: event.fees?.feeBearer || 'buyer',
     maxTicketsPerOrder: String(event.rules?.maxTicketsPerOrder ?? ''),
@@ -210,10 +211,57 @@ export default function EventDetailsEditor({ event, onSaved }) {
 
         {form.listingType === 'ticketed' && (
           <>
+            {/**
+              * ─────────────────────────────────────────────────────────────────
+              * RESERVED SEATING OR GENERAL ADMISSION — the choice that decides
+              * how much of this product the organizer ever sees.
+              *
+              * Reserved means a venue map, table categories, seat-by-seat
+              * pricing and a seat picker at the checkout. General admission
+              * means a number on a ticket type, and none of the above: no map
+              * to draw, no map screens in the sidebar, no seat to choose.
+              *
+              * Presented as two described choices rather than a dropdown,
+              * because a dropdown labelled "Admission type" tells somebody
+              * nothing about what they are agreeing to build — and this is the
+              * one setting here they cannot change after a ticket sells.
+              * ─────────────────────────────────────────────────────────────────
+              */}
+            {!live && (
+              <fieldset className="fx-stack fx-stack--sm gap-2">
+                <legend className="es-label mb-1.5">
+                  <span>How tickets work<span className="es-req" aria-hidden="true">*</span></span>
+                </legend>
+                <AdmissionChoice
+                  value="reserved"
+                  current={form.admissionType}
+                  onChange={set('admissionType')}
+                  title="Reserved seating"
+                  detail="You draw the room, buyers choose their seat or table. For theatres, galas and anything with a floor plan."
+                />
+                <AdmissionChoice
+                  value="general"
+                  current={form.admissionType}
+                  onChange={set('admissionType')}
+                  title="General admission"
+                  detail="No seat map. You set how many tickets of each type exist, and buyers choose how many they want."
+                />
+                <p className="text-xs text-subtle">
+                  This is fixed once a ticket sells — a sold ticket points at either a seat or a
+                  ticket type, and it cannot become the other.
+                </p>
+              </fieldset>
+            )}
+
             {!live && (
               <div className="fx-grid fx-grid--2">
-                <SelectField label="How buyers choose" required value={form.purchaseMode} onChange={set('purchaseMode')}
-                  options={[['seat_only', 'Individual seats'], ['table_only', 'Whole tables'], ['seat_and_table', 'Seats or whole tables']]} />
+                {/* Only reserved seating has anything to choose BETWEEN. On a
+                    general-admission event there are no seats and no tables, so
+                    this question has no answer rather than a default one. */}
+                {form.admissionType === 'reserved' && (
+                  <SelectField label="How buyers choose" required value={form.purchaseMode} onChange={set('purchaseMode')}
+                    options={[['seat_only', 'Individual seats'], ['table_only', 'Whole tables'], ['seat_and_table', 'Seats or whole tables']]} />
+                )}
                 <SelectField label="Who pays the booking fees" required value={form.feeBearer} onChange={set('feeBearer')}
                   options={[['buyer', 'Buyers — added at checkout'], ['organizer', 'You — taken from your payout']]} />
               </div>
@@ -231,6 +279,27 @@ export default function EventDetailsEditor({ event, onSaved }) {
               </span>
             </label>
 
+            {/**
+              * NO PAYMENT SECTION ON A FREE EVENT.
+              *
+              * `event.needs.payment` is false when every ticket type is free —
+              * derived from the prices by the API, never from a flag here, so
+              * this section and the submit endpoint cannot disagree about
+              * whether a payment method is required.
+              *
+              * A note replaces it rather than nothing at all: an organizer who
+              * expected to set up payment should be told why there is nothing
+              * to set up, and what would bring it back.
+              */}
+            {event.needs && !event.needs.payment ? (
+              <div className="fx-stack fx-stack--sm rounded-(--es-radius-md) bg-bg-sunken px-4 py-3">
+                <p className="text-sm text-ink">Every ticket on this event is free.</p>
+                <p className="text-sm text-muted">
+                  There is nothing to set up — no card details, no Stripe account, no payouts.
+                  Price any ticket type above zero and the payment options appear here.
+                </p>
+              </div>
+            ) : (
             <fieldset className="fx-stack fx-stack--sm gap-2">
               <legend className="es-label mb-1.5">
                 <span>How buyers pay<span className="es-req" aria-hidden="true">*</span></span>
@@ -257,6 +326,7 @@ export default function EventDetailsEditor({ event, onSaved }) {
                 <Link href="/organizer/payments" className="text-accent underline">Manage payment methods</Link>
               </p>
             </fieldset>
+            )}
           </>
         )}
 
@@ -283,6 +353,33 @@ function Fact({ term, value }) {
       <dt className="es-facts__term">{term}</dt>
       <dd className="es-facts__value">{value}</dd>
     </div>
+  );
+}
+
+/**
+ * One of the two admission choices, as a described radio.
+ *
+ * A radio rather than a styled button, so the pair is one group to a screen
+ * reader and to the keyboard: arrow keys move between them and the legend above
+ * is read as the question. The whole block is the label, so the detail text is
+ * part of what is announced rather than decoration beside it.
+ */
+function AdmissionChoice({ value, current, onChange, title, detail }) {
+  return (
+    <label className="es-check">
+      <input
+        type="radio"
+        name="admissionType"
+        className="es-check__box"
+        value={value}
+        checked={current === value}
+        onChange={() => onChange({ target: { value } })}
+      />
+      <span className="text-sm">
+        <span className="block text-ink">{title}</span>
+        <span className="block text-muted">{detail}</span>
+      </span>
+    </label>
   );
 }
 

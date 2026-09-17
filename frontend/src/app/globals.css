@@ -1282,6 +1282,8 @@
   border: 1px solid var(--es-border);
   border-radius: var(--es-radius-lg);
   padding: 1rem 1.25rem;
+  container-type: inline-size;
+  min-width: 0;
 }
 .es-stat__label {
   font-family: var(--es-font-sans);
@@ -1297,7 +1299,11 @@
   letter-spacing: -0.02em;
   line-height: var(--es-leading-tight);
   color: var(--es-text);
-  overflow-wrap: anywhere;
+  /* A number never breaks: "CA$4,825." over "00" is two wrong numbers. It
+     shrinks with its card instead (container units — the card, not the
+     window, decides how much room there is). */
+  white-space: nowrap;
+  font-size: clamp(1.125rem, 13cqi, var(--es-text-2xl));
 }
 .es-stat__note { font-size: var(--es-text-sm); color: var(--es-text-muted); }
 
@@ -6086,7 +6092,6 @@ a { color: inherit; text-decoration: none; }
 /* Two stat cards to a row on a phone: tighter padding, a value that fits. */
 @media (width < 40rem) {
   .es-stat { padding: 0.875rem 0.875rem 0.9375rem; }
-  .es-stat__value { font-size: var(--es-text-xl); }
   .es-stat__icon { display: none; }
   .es-page-head__lede { font-size: var(--es-text-sm); }
 }

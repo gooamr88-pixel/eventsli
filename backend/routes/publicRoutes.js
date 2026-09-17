@@ -197,14 +197,21 @@ router.post(
   body('seatIds').optional().isArray({ min: 1, max: 100 }),
   body('seatIds.*').optional().isUUID(),
   body('tableId').optional().isUUID(),
+  // General admission: a quantity of each ticket type. The per-line and total
+  // caps are enforced in `hold_general` against the event's own limit; these
+  // bounds only keep an absurd request from reaching it.
+  body('lines').optional().isArray({ min: 1, max: 20 }),
+  body('lines.*.tierId').optional().isUUID(),
+  body('lines.*.quantity').optional().isInt({ min: 1, max: 100 }),
   body().custom((value) => {
-    if (!value.tableId && !Array.isArray(value.seatIds)) {
-      throw new Error('Choose seats or a table.');
+    const chosen = [value.tableId, value.seatIds, value.lines].filter(Boolean).length;
+    if (chosen === 0) {
+      throw new Error('Choose seats, a table, or how many tickets you want.');
     }
-    if (value.tableId && Array.isArray(value.seatIds)) {
-      // Two different prices and two different rules; refusing is clearer than
-      // guessing which one they meant.
-      throw new Error('Choose either seats or a whole table, not both.');
+    if (chosen > 1) {
+      // Three different prices and three different rules; refusing is clearer
+      // than guessing which one they meant.
+      throw new Error('Choose one of seats, a whole table, or a number of tickets.');
     }
     return true;
   }),
@@ -247,6 +254,30 @@ router.post(
     .withMessage('Accept the terms to continue to payment.'),
   validate,
   checkout.createSession,
+);
+
+/**
+ * Claiming free tickets. Same guards as the paid checkout — identify yourself,
+ * accept the terms — and no payment step, because there is nothing to pay.
+ *
+ * Rate limited with `holdLimiter` like the paid route: it converts a hold into
+ * tickets, so it moves stock, and free stock is exactly the kind a script would
+ * be pointed at.
+ */
+router.post(
+  '/reservations/:reservationId/claim',
+  holdLimiter,
+  optionalAuth,
+  param('reservationId').isUUID(),
+  body('name').optional().isString().trim().isLength({ max: 120 }),
+  body('email').optional().isEmail().normalizeEmail(),
+  body('phone').optional().isString().trim().isLength({ max: 30 }),
+  // BRD §21 — refused here as well as in the handler, so no other caller can
+  // route around the checkbox.
+  body('acceptTerms').equals('true').withMessage('Accept the terms to claim your tickets.')
+    .customSanitizer(() => true),
+  validate,
+  checkout.claimFree,
 );
 
 router.get('/checkout/:sessionId', checkout.checkoutResult);

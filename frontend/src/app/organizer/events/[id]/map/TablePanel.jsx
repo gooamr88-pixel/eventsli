@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { SHAPES } from '../../../../components/seating/seatingGeometry';
+import { SHAPE_NAMES } from './shapeNames';
 import { MAX_SEATS_PER_TABLE, keyOf } from './useMapDraft';
 import { toCents } from '../tiers/Tiers';
 import Field from '../../../../components/forms/Field';
@@ -22,17 +23,16 @@ import { useEventContext } from '../EventContext';
  * organizer who makes a table private without sending that link has made it
  * unreachable, which is worth saying out loud.
  */
-const SHAPE_NAMES = {
-  round: 'Round', oval: 'Oval', rect: 'Rectangle', square: 'Square', row: 'Row of seats',
-};
-
-export default function TablePanel({ table, tiers, categories, onChange, onRemove }) {
+export default function TablePanel({
+  table, tiers, categories, onChange, onRotate, onDuplicate, onRemove,
+}) {
   if (!table) {
     return (
       <aside className="fx-stack fx-stack--sm es-card p-5">
-        <p className="text-sm text-muted">Select a table to edit it.</p>
+        <p className="text-sm text-muted">Select a table or a zone on the map to edit it.</p>
         <p className="text-xs text-subtle">
-          Use Add table, or double-click anywhere on the floor. A selected table moves with the arrow keys.
+          Use Add element, or double-click anywhere on the floor to drop a table. Drag the
+          floor to box-select several at once; arrow keys move whatever is selected.
         </p>
       </aside>
     );
@@ -142,6 +142,39 @@ export default function TablePanel({ table, tiers, categories, onChange, onRemov
           onChange={(e) => set({ password: e.target.value })}
         />
       )}
+
+      {/* THE ROTATE BUTTON IS NOT A DUPLICATE OF THE CANVAS HANDLE.
+          The handle is a drag, which a keyboard cannot perform and a trackpad
+          performs badly at a zoomed-out scale. This does the same thing in
+          exact 90° steps, from a control that is already in the tab order —
+          and it is the only rotate a screen-reader user has. */}
+      <div className="fx-row flex-wrap gap-2 border-t border-border-base pt-3">
+        <button
+          type="button"
+          onClick={() => onRotate?.(90)}
+          disabled={!onRotate}
+          className="es-btn es-btn--secondary es-btn--sm"
+        >
+          Rotate 90°
+        </button>
+        <button
+          type="button"
+          onClick={onDuplicate}
+          disabled={!onDuplicate}
+          className="es-btn es-btn--ghost es-btn--sm"
+          // Says what it will NOT copy, because the two omissions are
+          // deliberate and both would otherwise look like bugs: a copy is a new
+          // table with a new name, and it is never private, because a private
+          // table with no password of its own is refused on save and would be
+          // unreachable by anyone if it were not.
+          title="Adds a copy beside this one — new name, no password, nothing sold"
+        >
+          Duplicate
+        </button>
+        <span className="fx-row items-center text-xs text-subtle">
+          Turned {Math.round(table.position?.rotation || 0)}°
+        </span>
+      </div>
 
       {table.status && table.status !== 'available' && (
         <Notice tone="warning" title={`This table is ${table.status}.`}>

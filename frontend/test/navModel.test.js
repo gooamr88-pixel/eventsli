@@ -95,6 +95,48 @@ describe('organizer destinations', () => {
     expect(organizerNavGroups({ eventId: EVENT, listingType: 'ticketed' }).flatMap((g) => g.items)).toHaveLength(all);
   });
 
+  /**
+   * GENERAL ADMISSION — the whole point of which is that there is no room to
+   * draw. Leaving the seat map in the sidebar for an event that has none is how
+   * an organizer running a conference ends up building a fictional floor plan
+   * because the product implied they had to.
+   */
+  test('general admission hides the seat map and the table categories', () => {
+    const groups = organizerNavGroups({
+      eventId: EVENT, listingType: 'ticketed', admissionType: 'general',
+    });
+    const keys = groups.flatMap((g) => g.items).map((i) => i.key);
+
+    expect(keys).not.toContain('map');
+    expect(keys).not.toContain('tables');
+    // Everything that is not about a floor plan stays.
+    expect(keys).toEqual(expect.arrayContaining([
+      'overview', 'content', 'tiers', 'promos', 'share', 'orders', 'attendees',
+    ]));
+    expect(groups.every((g) => g.items.length > 0)).toBe(true);
+  });
+
+  test('reserved seating keeps the seat map', () => {
+    for (const admissionType of ['reserved', null, undefined]) {
+      const keys = organizerNavGroups({ eventId: EVENT, listingType: 'ticketed', admissionType })
+        .flatMap((g) => g.items).map((i) => i.key);
+      expect(keys, String(admissionType)).toContain('map');
+      expect(keys, String(admissionType)).toContain('tables');
+    }
+  });
+
+  test('a display-only event hides the map whatever its admission type says', () => {
+    // A listing sells nothing, so it is the stronger claim and is checked
+    // first. An event left as `admissionType: 'reserved'` and switched to a
+    // listing must not get its seat map back.
+    const keys = organizerNavGroups({
+      eventId: EVENT, listingType: 'display_only', admissionType: 'reserved',
+    }).flatMap((g) => g.items).map((i) => i.key);
+
+    expect(keys).not.toContain('map');
+    expect(keys).not.toContain('tiers');
+  });
+
   test('the bottom bars only name keys that exist', () => {
     expect(pickTabs(organizerNavGroups({ eventId: EVENT }), ORGANIZER_TABS)).toHaveLength(ORGANIZER_TABS.length);
     expect(pickTabs(adminNavGroups(), ADMIN_TABS)).toHaveLength(ADMIN_TABS.length);

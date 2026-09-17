@@ -50,7 +50,7 @@ async function publicMap(req, res, next) {
   try {
     const { data: event } = await supabase
       .from('events')
-      .select('id, slug, title, status, currency, purchase_mode, max_tickets_per_order, starts_at, ends_at')
+      .select('id, slug, title, status, currency, purchase_mode, admission_type, max_tickets_per_order, starts_at, ends_at')
       .eq('slug', req.params.slug)
       .maybeSingle();
 
@@ -139,7 +139,12 @@ async function publicMap(req, res, next) {
 function publicEvent(e) {
   return {
     id: e.id, slug: e.slug, title: e.title, currency: e.currency,
-    purchaseMode: e.purchase_mode, maxTicketsPerOrder: e.max_tickets_per_order,
+    purchaseMode: e.purchase_mode,
+    // A general-admission event has no map, so a client that lands here for one
+    // knows to send the buyer to the ticket picker instead of rendering an
+    // empty room.
+    admissionType: e.admission_type || 'reserved',
+    maxTicketsPerOrder: e.max_tickets_per_order,
     startsAt: e.starts_at, endsAt: e.ends_at,
   };
 }
@@ -196,10 +201,24 @@ async function hold(req, res, next) {
     }
 
     const userId = req.user?.id || null;   // null is a guest checkout
-    const { seatIds, tableId } = req.body;
+    const { seatIds, tableId, lines } = req.body;
 
     let result;
-    if (tableId) {
+    if (Array.isArray(lines)) {
+      /**
+       * GENERAL ADMISSION — a quantity of a ticket type, with no seat behind it.
+       *
+       * No private-table check, because there are no tables: the whole point of
+       * GA is that stock is a number on a ticket type rather than a place in a
+       * room. The rules that DO apply — the sale window, the per-type order cap,
+       * the allocation — are all enforced inside `hold_general`, under a row
+       * lock on the tiers, because three separate paths take stock and a rule
+       * checked out here is a rule the other two do not have.
+       */
+      ({ data: result } = await supabase.rpc('hold_general', {
+        p_event_id: event.id, p_user_id: userId, p_lines: lines, p_ttl_minutes: TTL_MINUTES(),
+      }));
+    } else if (tableId) {
       // A private table needs its token presented here too. Without this check
       // the password would gate only the map, and anyone who guessed the id
       // could buy the table without ever seeing it.

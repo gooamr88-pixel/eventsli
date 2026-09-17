@@ -148,12 +148,47 @@ export default function Tiers({ eventId }) {
   );
 }
 
+/**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * THE KINDS, and what each one is a shortcut FOR.
+ *
+ * Every one of these is expressible with the fields below it — a kind sets no
+ * rule that cannot be set by hand, and nothing in the money path branches on
+ * it. That is deliberate: the day a price depends on a label, renaming a ticket
+ * type changes what somebody is charged.
+ *
+ * What a kind IS: a badge the buyer recognises, and a set of defaults that
+ * describe how that kind of ticket is normally sold. An organizer adding
+ * "Early bird" almost always wants an end date, and one adding "Complimentary"
+ * almost always wants it free and off the public list — the defaults save them
+ * finding that out after publishing.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+const KINDS = [
+  ['standard', 'Standard', 'The usual ticket.'],
+  ['general', 'General admission', 'Unreserved entry.'],
+  ['vip', 'VIP', 'Premium — priced higher, usually limited.'],
+  ['early_bird', 'Early bird', 'Cheaper, and stops selling on a date.'],
+  ['complimentary', 'Complimentary', 'Guest list and press. Free and hidden from the public page.'],
+];
+
+/** What choosing a kind fills in. Only ever applied to a NEW type, and never
+ *  on top of something the organizer already typed. */
+const KIND_DEFAULTS = {
+  complimentary: { price: '0', isHidden: true },
+};
+
 function TierForm({ eventId, currency, tier, onDone, onCancel }) {
   const [form, setForm] = useState(() => ({
     name: tier?.name || '',
     description: tier?.description || '',
     price: tier ? (tier.priceCents / 100).toString() : '',
     quantity: tier?.quantity === null || tier?.quantity === undefined ? '' : String(tier.quantity),
+    kind: tier?.kind || 'standard',
+    salesStartAt: toLocalInput(tier?.salesStartAt),
+    salesEndAt: toLocalInput(tier?.salesEndAt),
+    maxPerOrder: tier?.maxPerOrder === null || tier?.maxPerOrder === undefined ? '' : String(tier.maxPerOrder),
+    isHidden: Boolean(tier?.isHidden),
   }));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -162,6 +197,23 @@ function TierForm({ eventId, currency, tier, onDone, onCancel }) {
   const priceInvalid = form.price !== '' && cents === null;
   const quantity = form.quantity === '' ? null : Number(form.quantity);
   const belowSold = tier && quantity !== null && quantity < tier.soldCount;
+  const maxPerOrder = form.maxPerOrder === '' ? null : Number(form.maxPerOrder);
+  const windowBackwards = Boolean(
+    form.salesStartAt && form.salesEndAt && new Date(form.salesEndAt) <= new Date(form.salesStartAt),
+  );
+
+  /** Applies a kind's defaults, without overwriting anything already typed. */
+  function chooseKind(kind) {
+    setForm((f) => {
+      const next = { ...f, kind };
+      if (tier) return next;
+      const defaults = KIND_DEFAULTS[kind] || {};
+      for (const [key, value] of Object.entries(defaults)) {
+        if (f[key] === '' || f[key] === false) next[key] = value;
+      }
+      return next;
+    });
+  }
 
   async function submit(e) {
     e.preventDefault();
@@ -175,6 +227,11 @@ function TierForm({ eventId, currency, tier, onDone, onCancel }) {
         if ((form.description.trim() || null) !== (tier.description || null)) body.description = form.description.trim() || null;
         if (cents !== null && cents !== tier.priceCents) body.priceCents = cents;
         if (quantity !== tier.quantity) body.quantity = quantity;
+        if (form.kind !== (tier.kind || 'standard')) body.kind = form.kind;
+        if (toIso(form.salesStartAt) !== (tier.salesStartAt || null)) body.salesStartAt = toIso(form.salesStartAt);
+        if (toIso(form.salesEndAt) !== (tier.salesEndAt || null)) body.salesEndAt = toIso(form.salesEndAt);
+        if (maxPerOrder !== (tier.maxPerOrder ?? null)) body.maxPerOrder = maxPerOrder;
+        if (form.isHidden !== Boolean(tier.isHidden)) body.isHidden = form.isHidden;
         if (Object.keys(body).length === 0) { onCancel(); return; }
         await patch(`/events/${eventId}/tiers/${tier.id}`, body, { noRedirect: true });
         onDone(`“${form.name.trim()}” was updated.`);
@@ -186,6 +243,11 @@ function TierForm({ eventId, currency, tier, onDone, onCancel }) {
           // Empty means "no fixed quantity", which the API takes as null — NOT
           // zero, which would mean sold out.
           ...(quantity !== null ? { quantity } : {}),
+          kind: form.kind,
+          ...(toIso(form.salesStartAt) ? { salesStartAt: toIso(form.salesStartAt) } : {}),
+          ...(toIso(form.salesEndAt) ? { salesEndAt: toIso(form.salesEndAt) } : {}),
+          ...(maxPerOrder !== null ? { maxPerOrder } : {}),
+          ...(form.isHidden ? { isHidden: true } : {}),
         }, { noRedirect: true });
         onDone(`“${form.name.trim()}” was added.`);
       }
@@ -232,10 +294,87 @@ function TierForm({ eventId, currency, tier, onDone, onCancel }) {
           onChange={(e) => setForm((f) => ({ ...f, quantity: e.target.value }))}
         />
 
+        <fieldset className="fx-stack fx-stack--sm gap-2 border-t border-border-base pt-4">
+          <legend className="es-label mb-1.5"><span>Kind</span></legend>
+          <div className="fx-grid" style={{ '--fx-col': '230px', '--fx-gap': '8px' }}>
+            {KINDS.map(([value, label, detail]) => (
+              <label key={value} className="es-check">
+                <input
+                  type="radio"
+                  name="tier-kind"
+                  className="es-check__box"
+                  value={value}
+                  checked={form.kind === value}
+                  onChange={() => chooseKind(value)}
+                />
+                <span className="text-sm">
+                  <span className="block text-ink">{label}</span>
+                  <span className="block text-muted">{detail}</span>
+                </span>
+              </label>
+            ))}
+          </div>
+          <p className="text-xs text-subtle">
+            A label and a set of starting points. Everything it fills in can be changed below.
+          </p>
+        </fieldset>
+
+        <fieldset className="fx-stack fx-stack--sm gap-2 border-t border-border-base pt-4">
+          <legend className="es-label mb-1.5"><span>When it sells</span></legend>
+          <div className="fx-grid fx-grid--2">
+            <Field
+              label="On sale from" name="salesStartAt" type="datetime-local"
+              hint="Empty means as soon as the event is published."
+              value={form.salesStartAt}
+              onChange={(e) => setForm((f) => ({ ...f, salesStartAt: e.target.value }))}
+            />
+            <Field
+              label="Stops selling" name="salesEndAt" type="datetime-local"
+              hint="Empty means it sells until the event starts."
+              error={windowBackwards ? 'It has to stop after it starts.' : null}
+              value={form.salesEndAt}
+              onChange={(e) => setForm((f) => ({ ...f, salesEndAt: e.target.value }))}
+            />
+          </div>
+          {/* Times are entered and shown in the BROWSER's zone here, unlike the
+              event's own dates, which are in the venue's. That is the honest
+              reading of what these are: a moment a sale opens, not a time on a
+              programme — and the buyer in another country meets the same
+              instant whatever their clock says. */}
+          <p className="text-xs text-subtle">
+            Times are in your own time zone. Buyers everywhere see this type appear and
+            disappear at the same moment.
+          </p>
+        </fieldset>
+
+        <Field
+          label="Most of this type in one order" name="maxPerOrder" type="number" min={1} max={100}
+          inputMode="numeric"
+          hint="Empty uses the event's own limit. A number here can only be stricter, never looser."
+          value={form.maxPerOrder}
+          onChange={(e) => setForm((f) => ({ ...f, maxPerOrder: e.target.value }))}
+        />
+
+        <label className="es-check">
+          <input
+            type="checkbox"
+            className="es-check__box"
+            checked={form.isHidden}
+            onChange={(e) => setForm((f) => ({ ...f, isHidden: e.target.checked }))}
+          />
+          <span className="text-sm">
+            <span className="block text-ink">Hide this from the event page</span>
+            <span className="block text-muted">
+              Still buyable by anyone with the direct link from Share &amp; QR — that is how guest
+              list and press tickets work. It is hidden, not locked.
+            </span>
+          </span>
+        </label>
+
         <FormError error={error} />
 
         <div className="fx-row">
-          <SubmitButton busy={busy} busyLabel="Saving…" disabled={priceInvalid || !form.price || belowSold}>
+          <SubmitButton busy={busy} busyLabel="Saving…" disabled={priceInvalid || !form.price || belowSold || windowBackwards}>
             {tier ? 'Save changes' : 'Add ticket type'}
           </SubmitButton>
           <button type="button" onClick={onCancel} className="es-btn es-btn--ghost">Cancel</button>
@@ -253,6 +392,31 @@ function TierForm({ eventId, currency, tier, onDone, onCancel }) {
  * on every ticket. Rounding fixes that case, and the string is parsed rather
  * than trusted so "25.999" and "abc" are refused instead of silently accepted.
  */
+/**
+ * An ISO instant → the value a `datetime-local` input wants, in the BROWSER's
+ * zone. Empty for no date, which is what "no limit at this end" looks like.
+ *
+ * Deliberately the browser's zone rather than the event's, unlike the event's
+ * own start and end. Those are a time on a programme — "doors at 7" means seven
+ * o'clock at the venue. This is the moment a sale opens, which is one instant
+ * for everybody, and showing it in the venue's zone would mean an organizer in
+ * another country typing a number that is not the time they meant.
+ */
+function toLocalInput(iso) {
+  if (!iso) return '';
+  const when = new Date(iso);
+  if (Number.isNaN(when.getTime())) return '';
+  const offset = when.getTimezoneOffset() * 60000;
+  return new Date(when.getTime() - offset).toISOString().slice(0, 16);
+}
+
+/** The inverse. Null for empty, which is how a sale window is re-opened. */
+function toIso(value) {
+  if (!value) return null;
+  const when = new Date(value);
+  return Number.isNaN(when.getTime()) ? null : when.toISOString();
+}
+
 export function toCents(value) {
   const text = String(value ?? '').trim();
   if (!/^\d+(\.\d{1,2})?$/.test(text)) return null;

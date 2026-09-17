@@ -5,6 +5,8 @@ import {
   WORLD, SEAT_RADIUS, tableBody, seatPositions, toWorld, contentBounds, normaliseShape,
 } from './seatingGeometry';
 import { usePanZoom } from './usePanZoom';
+import ZoneShape from './ZoneShape';
+import { zoneLabel } from './venueZones';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -18,6 +20,15 @@ import { usePanZoom } from './usePanZoom';
 export default function SeatMapCanvas({
   tables = [],
   seats = [],
+  /**
+   * The venue's furniture — stage, bar, dance floor. Scenery, never stock.
+   *
+   * It is here because "which seats face the stage" is the question a buyer is
+   * actually answering, and a map of bare tables cannot answer it. They are
+   * drawn under the seats and take no pointer events, so nothing about picking
+   * a seat changes; `ZoneShape` argues both at length.
+   */
+  zones = [],
   selectedSeatIds = new Set(),
   selectedTableIds = new Set(),
   // A tier to pick out: its seats stay bright, the rest are dimmed. Never a
@@ -28,8 +39,22 @@ export default function SeatMapCanvas({
   purchaseMode = 'seat_only',
   className = '',
 }) {
-  const bounds = useMemo(() => contentBounds(tables), [tables]);
+  const bounds = useMemo(() => contentBounds(tables, zones), [tables, zones]);
   const { svgRef, view, fit, zoomIn, zoomOut, wasDragged, handlers } = usePanZoom(bounds);
+
+  /**
+   * The zones, as a sentence.
+   *
+   * The drawn ones are `aria-hidden` — forty pieces of furniture in the tab
+   * order between a buyer and the seats is an obstacle, not information. But
+   * "the stage is at the front" is genuinely useful when choosing a seat, and a
+   * screen-reader user loses it entirely if the only place it exists is a
+   * picture. So it is said once, in text, and the map stays quiet.
+   */
+  const zoneSummary = useMemo(() => {
+    if (zones.length === 0) return null;
+    return zones.map(zoneLabel).join(', ');
+  }, [zones]);
 
   /**
    * Seats grouped by table, once per data change.
@@ -70,6 +95,10 @@ export default function SeatMapCanvas({
         aria-label="Seat map"
         {...handlers}
       >
+        {/* ZONES FIRST. SVG has no z-index — paint order is the only thing
+            keeping a dance floor from covering the seats around it. */}
+        {zones.map((zone) => <ZoneShape key={zone.id} zone={zone} />)}
+
         {tables.map((table) => (
           <Table
             key={table.id}
@@ -92,6 +121,12 @@ export default function SeatMapCanvas({
         <MapButton onClick={zoomOut} label="Zoom out">−</MapButton>
         <MapButton onClick={fit} label="Fit the whole map">⤢</MapButton>
       </div>
+
+      {zoneSummary && (
+        <p className="mt-2 text-xs text-subtle">
+          Also on this map: {zoneSummary}.
+        </p>
+      )}
     </div>
   );
 }

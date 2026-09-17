@@ -21,9 +21,32 @@ export function useLaunchSteps(event) {
   const { organizer } = useOrganizer();
   const { data: stats } = useApi(`/events/${event.id}/stats?days=7`);
   const base = `/organizer/events/${event.id}`;
-  const ticketed = event.listingType !== 'display_only';
   const submitted = ['pending_review', 'published'].includes(event.status);
   const choosesPayment = event.payments?.acceptsStripe || event.payments?.acceptsManual;
+
+  /**
+   * ───────────────────────────────────────────────────────────────────────────
+   * WHAT THIS EVENT ACTUALLY NEEDS, from the server.
+   *
+   * `event.needs` is computed by `eventRules.eventNeeds` and carried on the
+   * event. It is not re-derived here, and that is the point: this checklist,
+   * the sidebar, the submit button and the API's own refusals all branch on the
+   * same question, and when they answer it separately they drift. The shape
+   * that takes is a checklist demanding a step the sidebar does not offer,
+   * which an organizer cannot resolve from the outside.
+   *
+   * The fallback covers the moment before the event has loaded, and an older
+   * API that does not send it yet. It deliberately errs toward SHOWING a step:
+   * a checklist that omits something required is worse than one that lists
+   * something already handled, because the first is silent.
+   * ───────────────────────────────────────────────────────────────────────────
+   */
+  const ticketed = event.listingType !== 'display_only';
+  const needs = event.needs || {
+    tickets: ticketed,
+    seating: ticketed && event.admissionType !== 'general',
+    payment: ticketed,
+  };
 
   const items = [
     {
@@ -36,18 +59,67 @@ export function useLaunchSteps(event) {
       cta: 'Add the venue',
     },
     {
-      key: 'cover', label: 'Cover image', done: Boolean(event.cover), href: `${base}#cover`,
+      key: 'cover', label: 'Cover image', done: Boolean(event.cover), href: `${base}/content`,
       hint: 'Recommended — it is the picture on every share', cta: 'Add a cover', optional: true,
     },
-    ...(ticketed ? [
+    {
+      key: 'content',
+      label: 'Page & branding',
+      // "Done" the moment there is anything beyond a cover. Not a bar to clear:
+      // it is a prompt, and an organizer who has added one highlight has found
+      // the screen, which is all this step is for.
+      done: Boolean(
+        event.logo
+        || (event.highlights?.length || 0) > 0,
+      ),
+      href: `${base}/content`,
+      hint: 'Photos, a schedule, sponsors and your policies — all optional',
+      cta: 'Build the page',
+      optional: true,
+    },
+    ...(needs.tickets ? [
       {
-        key: 'tiers', label: 'Ticket types', done: (stats?.tiers?.length || 0) > 0, href: `${base}/tiers`,
-        hint: 'At least one ticket type and its price', cta: 'Add ticket types', build: true,
+        key: 'tiers',
+        label: 'Ticket types',
+        done: (stats?.tiers?.length || 0) > 0,
+        href: `${base}/tiers`,
+        // The hint changes with the event, because on a general-admission event
+        // the ticket type IS the stock — its quantity is the capacity — and an
+        // organizer who leaves it unlimited has not made a mistake but should
+        // know that is what they did.
+        hint: needs.seating
+          ? 'At least one ticket type and its price'
+          : 'At least one ticket type, its price, and how many you are selling',
+        cta: 'Add ticket types',
+        build: true,
       },
+    ] : []),
+
+    /**
+     * THE SEATING MAP, ONLY WHERE THERE IS ONE.
+     *
+     * This step used to be unconditional for every ticketed event, so somebody
+     * running a conference or a club night had to draw a fictional seating plan
+     * before they could sell anything — and until they did, their event sat at
+     * "1 step remaining" forever.
+     */
+    ...(needs.seating ? [
       {
         key: 'map', label: 'Seating map', done: (stats?.seats?.total || 0) > 0, href: `${base}/map`,
         hint: 'The tables and seats you sell', cta: 'Build the seating map', build: true,
       },
+    ] : []),
+
+    /**
+     * A PAYMENT METHOD, ONLY WHERE MONEY MOVES.
+     *
+     * `needs.payment` is false when every ticket type is free — derived from
+     * the prices themselves, server-side, never from a flag. Sending somebody
+     * running a free workshop to a Stripe onboarding form for money that will
+     * never move is where they abandon the product, and the submit endpoint
+     * applies exactly the same rule so the two cannot disagree.
+     */
+    ...(needs.payment ? [
       {
         key: 'payments',
         label: 'Payment method',

@@ -1,15 +1,26 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { get, put } from '../../../../utils/apiClient';
 import { describeError } from '../../../../utils/errors';
 import { WORLD } from '../../../../components/seating/seatingGeometry';
-import EditorCanvas from './EditorCanvas';
-import TablePanel from './TablePanel';
-import { useMapDraft, keyOf, MAX_TABLES } from './useMapDraft';
-import { useUnsavedGuard } from './useUnsavedGuard';
+import { usePanZoom } from '../../../../components/seating/usePanZoom';
+import { readZones, writeZones } from '../../../../components/seating/layoutZones';
 import { Loading } from '../../../../components/Feedback';
+import EditorCanvas, { EDITOR_BOUNDS } from './EditorCanvas';
+import EditorToolbar from './EditorToolbar';
+import AddElementDialog from './AddElementDialog';
+import TablePanel from './TablePanel';
+import ZonePanel from './ZonePanel';
+import SelectionPanel from './SelectionPanel';
+import SeatingPackModal from './print/SeatingPackModal';
+import { useMapDraft, keyOf, MAX_TABLES } from './useMapDraft';
+import { useSelection, soleSelected } from './useSelection';
+import { useCanvasInteraction } from './useCanvasInteraction';
+import { useEditorKeys } from './useEditorKeys';
+import { useUnsavedGuard } from './useUnsavedGuard';
+import { MAX_ZONES } from '../../../../components/seating/venueZones';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -30,38 +41,120 @@ import { Loading } from '../../../../components/Feedback';
  * added with a button as well as a double-click (which touch screens do not
  * reliably send), and why Ctrl+Z inside a text field undoes the typing rather
  * than the map.
+ *
+ *
+ * TABLES AND ZONES TAKE DIFFERENT ROADS TO THE SAME SAVE.
+ *
+ * Tables are stock — rows in `tables`, each generating the seats that holds and
+ * tickets point at. Zones are furniture, and live in `layout_json`, the blob
+ * this endpoint round-trips verbatim. One `PUT` carries both, inside the one
+ * transaction, so a map can never be saved with its tables moved and its stage
+ * left where it was. `layoutZones.js` argues the storage choice at length.
+ *
+ * THIS COMPONENT OWNS THE VIEWPORT AND THE GESTURES rather than the canvas,
+ * because they are needed outside it: the toolbar drives the zoom, the keyboard
+ * pans, and the print pack needs the same zone list the canvas is drawing.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 export default function MapEditor({ eventId }) {
   const draft = useMapDraft();
-  const { tables, dirty, problems, reset, undo, redo, addTable, updateTable, removeTable } = draft;
+  const { tables, zones, dirty, problems, reset } = draft;
 
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
   const [saveError, setSaveError] = useState(null);
   const [saving, setSaving] = useState(false);
-  const [selectedKey, setSelectedKey] = useState(null);
   const [tiers, setTiers] = useState([]);
   const [categories, setCategories] = useState([]);
   const [layout, setLayout] = useState({});
+  const [eventTitle, setEventTitle] = useState('');
+  const [showAdd, setShowAdd] = useState(false);
+  const [showPack, setShowPack] = useState(false);
+
+  const [tool, setTool] = useState('select');
+  const [snapToGrid, setSnapToGrid] = useState(false);
+  const toolRef = useRef('select');
+  const setToolBoth = useCallback((next) => { toolRef.current = next; setTool(next); }, []);
+
+  const selection = useSelection();
+  const panzoom = usePanZoom(EDITOR_BOUNDS, { wheelMode: 'pan' });
 
   useUnsavedGuard(dirty);
+
+  /* ── the selection's operations, shared by the panels and the keyboard ──── */
+
+  /**
+   * The three operations that act on "whatever is selected".
+   *
+   * They read `selection.selection` — the STATE — rather than the ref beside
+   * it, and they are deliberately not wrapped in `useCallback`. Both follow
+   * from the same thing: React's compiler memoizes this component, and a manual
+   * `useCallback` whose body reaches into a ref is memoization it cannot verify,
+   * so it gives up and optimizes nothing in the whole component.
+   *
+   * Reading state is also simply correct here. Every caller is an event handler
+   * or a button, so it runs against the committed render; the ref exists for
+   * the gesture handlers that are bound once and cannot see re-renders at all,
+   * which is not this.
+   */
+  const duplicateSelected = () => {
+    const next = draft.duplicateSelection(selection.selection);
+    // Selecting the COPIES is what makes a repeated Ctrl+D lay out a row —
+    // `useMapDraft.duplicateSelection` explains why at the other end.
+    if (next) selection.replace(next.tables, next.zones);
+  };
+
+  const removeSelected = () => {
+    draft.removeSelection(selection.selection);
+    selection.clear();
+  };
+
+  const rotateSelected = (degrees) => {
+    draft.rotateSelection(selection.selection, degrees);
+  };
+
+  const { spacePan, spacePanRef, onElementKeyDown } = useEditorKeys({
+    draft,
+    selection,
+    snapToGrid,
+    setTool: setToolBoth,
+    panByScreen: panzoom.panByScreen,
+    onDuplicate: duplicateSelected,
+    onRemove: removeSelected,
+  });
+
+  const interaction = useCanvasInteraction({
+    svgRef: panzoom.svgRef,
+    view: panzoom.view,
+    panByScreen: panzoom.panByScreen,
+    draft,
+    selection,
+    snapToGrid,
+    toolRef,
+    spacePanRef,
+  });
+
+  /* ── load ───────────────────────────────────────────────────────────────── */
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const [map, tierList, categoryList] = await Promise.all([
+        const [map, tierList, categoryList, event] = await Promise.all([
           get(`/events/${eventId}/venue-map`, { cache: 'no-store' }),
           get(`/events/${eventId}/tiers`, { cache: 'no-store' }).catch(() => []),
           get(`/events/${eventId}/table-categories`, { cache: 'no-store' }).catch(() => []),
+          // Only the printed pack's letterhead needs this, so a failure here
+          // must not gate the editor — the pack simply prints without a title.
+          get(`/events/${eventId}`, { cache: 'no-store' }).catch(() => null),
         ]);
         if (cancelled) return;
 
-        reset((map?.tables || []).map(fromApi));
+        reset((map?.tables || []).map(fromApi), readZones(map?.layout));
         setLayout(map?.layout || {});
         setTiers(Array.isArray(tierList) ? tierList : []);
         setCategories(Array.isArray(categoryList) ? categoryList : []);
+        setEventTitle(event?.title || event?.event?.title || '');
         setLoadError(null);
       } catch (err) {
         if (!cancelled) setLoadError(err);
@@ -72,29 +165,17 @@ export default function MapEditor({ eventId }) {
     return () => { cancelled = true; };
   }, [eventId, reset]);
 
-  // Ctrl/Cmd+Z and Shift+Z. On a canvas people expect it — but NOT while typing
-  // in a field, where the browser's own undo is the one the person means.
-  useEffect(() => {
-    const onKey = (e) => {
-      if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== 'z') return;
-      const el = e.target;
-      if (el instanceof HTMLElement && (el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName))) return;
-      e.preventDefault();
-      if (e.shiftKey) redo(); else undo();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [undo, redo]);
+  /* ── save ───────────────────────────────────────────────────────────────── */
 
   async function save() {
     setSaving(true);
     setSaveError(null);
     try {
       await put(`/events/${eventId}/venue-map`, {
-        // The layout blob is round-tripped untouched. It is ours to define and
-        // nothing reads it yet; dropping it on save would silently discard
-        // whatever a future version puts there.
-        layout: { ...layout, world: { width: WORLD.width, height: WORLD.height } },
+        // The rest of the blob is round-tripped untouched: `writeZones` replaces
+        // one key and preserves every other, so an editor that predates a future
+        // `layout.floorPlanImage` cannot destroy it on a full-replace save.
+        layout: writeZones({ ...layout, world: { width: WORLD.width, height: WORLD.height } }, zones),
         tables: tables.map(toApi),
       }, { noRedirect: true });
 
@@ -102,8 +183,9 @@ export default function MapEditor({ eventId }) {
       // tables and generates their seat rows, and neither exists here. What
       // `reset` loads counts as saved, so "unsaved changes" clears.
       const map = await get(`/events/${eventId}/venue-map`, { cache: 'no-store' });
-      reset((map?.tables || []).map(fromApi));
-      setSelectedKey(null);
+      reset((map?.tables || []).map(fromApi), readZones(map?.layout));
+      setLayout(map?.layout || {});
+      selection.clear();
     } catch (err) {
       setSaveError(err);
     } finally {
@@ -111,7 +193,28 @@ export default function MapEditor({ eventId }) {
     }
   }
 
-  const selected = tables.find((t) => keyOf(t) === selectedKey) || null;
+  /* ── derived ────────────────────────────────────────────────────────────── */
+
+  const sole = soleSelected(selection.selection, tables, zones);
+
+  /** Sold and held seats per table, so the canvas can draw which stock is
+   *  already spoken for — and the organizer can see why a table will refuse to
+   *  be deleted before the save tells them. */
+  const soldByTable = useMemo(() => {
+    const map = new Map();
+    for (const t of tables) {
+      if (t.soldSeats) map.set(keyOf(t), t.soldSeats);
+    }
+    return map;
+  }, [tables]);
+
+  /** Where a newly added element lands: the top-left of what is on screen,
+   *  inset a little, so a section built after panning appears where the
+   *  organizer is looking rather than in the middle of the world. */
+  const addOrigin = useMemo(() => ({
+    x: clamp(((panzoom.view.x + panzoom.view.width * 0.12) / WORLD.width) * 100, 0, 96),
+    y: clamp(((panzoom.view.y + panzoom.view.height * 0.14) / WORLD.height) * 100, 0, 94),
+  }), [panzoom.view]);
 
   if (loading) return <Loading variant="card" />;
 
@@ -130,35 +233,24 @@ export default function MapEditor({ eventId }) {
 
   return (
     <div className="fx-stack">
-      <div className="fx-row fx-row--between">
+      <div className="fx-row fx-row--between flex-wrap gap-3">
         <div className="fx-min0">
           <h2 className="text-xl">Seat map</h2>
           <p className="text-sm text-muted">
             {tables.length} of {MAX_TABLES} tables
+            {zones.length > 0 && ` · ${zones.length} of ${MAX_ZONES} zones`}
             {dirty && <span className="text-warning"> · unsaved changes</span>}
           </p>
         </div>
 
-        <div className="fx-row">
+        <div className="fx-row flex-wrap gap-2">
           <button
             type="button"
-            onClick={() => addTable(nextSpot(tables.length))}
-            disabled={tables.length >= MAX_TABLES}
+            onClick={() => setShowPack(true)}
+            disabled={tables.length === 0 && zones.length === 0}
             className="es-btn es-btn--secondary"
           >
-            Add table
-          </button>
-          <button
-            type="button" onClick={undo} disabled={!draft.canUndo}
-            className="rounded-(--es-radius-md) border border-border-strong px-3 py-2 text-sm text-ink disabled:opacity-40"
-          >
-            Undo
-          </button>
-          <button
-            type="button" onClick={redo} disabled={!draft.canRedo}
-            className="rounded-(--es-radius-md) border border-border-strong px-3 py-2 text-sm text-ink disabled:opacity-40"
-          >
-            Redo
+            Print / export
           </button>
           <button
             type="button" onClick={save}
@@ -180,42 +272,106 @@ export default function MapEditor({ eventId }) {
 
       {saveError && <SaveError error={saveError} />}
 
+      <EditorToolbar
+        tables={tables}
+        zones={zones}
+        selection={selection}
+        tool={tool}
+        onToolChange={setToolBoth}
+        snapToGrid={snapToGrid}
+        onSnapChange={setSnapToGrid}
+        canUndo={draft.canUndo}
+        canRedo={draft.canRedo}
+        onUndo={draft.undo}
+        onRedo={draft.redo}
+        onAdd={() => setShowAdd(true)}
+        zoom={{
+          scale: WORLD.width / Math.max(panzoom.view.width, 1),
+          in: panzoom.zoomIn,
+          out: panzoom.zoomOut,
+          fit: panzoom.fit,
+        }}
+      />
+
       <div className="fx-grid fx-grid--2" style={{ '--fx-col': '640px' }}>
         <EditorCanvas
-          className="h-[60vh] min-h-[380px]"
+          className="h-[62vh] min-h-[400px]"
           tables={tables}
+          zones={zones}
           categories={categories}
-          selectedKey={selectedKey}
-          onSelect={setSelectedKey}
-          onMove={(key, position, options) => updateTable(
-            key,
-            { position: { ...position, rotation: rotationOf(tables, key) } },
-            options,
-          )}
-          onAddAt={(position) => addTable(position)}
+          soldByTable={soldByTable}
+          selection={selection}
+          panzoom={panzoom}
+          interaction={interaction}
+          tool={tool}
+          spacePan={spacePan}
+          snapToGrid={snapToGrid}
+          onAddAt={(position) => {
+            const [key] = draft.addTables([{ position }]);
+            if (key) selection.selectOnly('table', key);
+          }}
+          onNudge={onElementKeyDown}
         />
 
-        <TablePanel
-          table={selected}
-          tiers={tiers}
-          categories={categories}
-          // Consecutive edits to the same field of the same table are one undo
-          // step: typing a name used to be one step per keystroke.
-          onChange={(key, patch) => updateTable(key, patch, {
-            mergeKey: `${key}:${Object.keys(patch).sort().join(',')}`,
-          })}
-          onRemove={(key) => { removeTable(key); setSelectedKey(null); }}
-        />
+        {selection.count > 1 ? (
+          <SelectionPanel
+            tableCount={selection.selection.tables.size}
+            zoneCount={selection.selection.zones.size}
+            onRotate={rotateSelected}
+            onDuplicate={duplicateSelected}
+            onRemove={removeSelected}
+            onClear={selection.clear}
+          />
+        ) : sole?.kind === 'zone' ? (
+          <ZonePanel
+            zone={sole.zone}
+            onChange={draft.updateZone}
+            onRotate={rotateSelected}
+            onResetSize={draft.resetZoneSize}
+            onDuplicate={duplicateSelected}
+            onRemove={(id) => { draft.removeZone(id); selection.clear(); }}
+          />
+        ) : (
+          <TablePanel
+            table={sole?.kind === 'table' ? sole.table : null}
+            tiers={tiers}
+            categories={categories}
+            // Consecutive edits to the same field of the same table are one undo
+            // step: typing a name used to be one step per keystroke.
+            onChange={(key, patch) => draft.updateTable(key, patch, {
+              mergeKey: `${key}:${Object.keys(patch).sort().join(',')}`,
+            })}
+            onRotate={rotateSelected}
+            onDuplicate={duplicateSelected}
+            onRemove={(key) => { draft.removeTable(key); selection.clear(); }}
+          />
+        )}
       </div>
+
+      {showAdd && (
+        <AddElementDialog
+          origin={addOrigin}
+          roomForTables={Math.max(0, MAX_TABLES - tables.length)}
+          onClose={() => setShowAdd(false)}
+          onAdd={({ tables: newTables, zones: newZones }) => {
+            if (newTables) selection.replace(draft.addTables(newTables), []);
+            if (newZones) selection.replace([], draft.addZones(newZones));
+          }}
+        />
+      )}
+
+      {showPack && (
+        <SeatingPackModal
+          eventTitle={eventTitle}
+          tables={tables}
+          zones={zones}
+          categories={categories}
+          dirty={dirty}
+          onClose={() => setShowPack(false)}
+        />
+      )}
     </div>
   );
-}
-
-/** Where "Add table" puts the next one: near the middle, fanned out so new
- *  tables do not land exactly on top of each other. */
-function nextSpot(count) {
-  const step = count % 9;
-  return { x: 40 + (step % 3) * 10, y: 40 + Math.floor(step / 3) * 10 };
 }
 
 /**
@@ -238,10 +394,6 @@ function SaveError({ error }) {
   );
 }
 
-function rotationOf(tables, key) {
-  return tables.find((t) => keyOf(t) === key)?.position?.rotation || 0;
-}
-
 /** The API's table → the editor's. `password` is never returned, only
  *  `hasPassword`, so the field starts empty and an untouched one means keep. */
 function fromApi(t) {
@@ -259,6 +411,10 @@ function fromApi(t) {
     // one is the table's band. A table with no seats yet has none.
     tierId: t.seats?.[0]?.tierId || null,
     seatPriceCents: t.seats?.[0]?.priceOverrideCents ?? null,
+    // How much of this table is already spoken for. Drawn on the canvas, and
+    // the reason a delete will be refused — worth seeing before rearranging the
+    // room around a table that cannot move.
+    soldSeats: (t.seats || []).filter((s) => s.status && s.status !== 'available').length,
     position: t.position,
   };
 }
@@ -286,4 +442,8 @@ function toApi(t) {
       rotation: t.position?.rotation ?? 0,
     },
   };
+}
+
+function clamp(v, lo, hi) {
+  return Math.min(hi, Math.max(lo, v));
 }

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import SeatMapCanvas from '../../../components/seating/SeatMapCanvas';
+import { readZones } from '../../../components/seating/layoutZones';
 import UnlockTableDialog from './UnlockTableDialog';
 import { get } from '../../../utils/apiClient';
 import { describeError, isSelectionLost } from '../../../utils/errors';
@@ -98,6 +99,17 @@ export default function SeatPicker({ slug, currency, purchaseMode, maxPerOrder }
     () => new Map((map?.seats || []).map((s) => [s.id, s])),
     [map],
   );
+
+  /**
+   * The venue's furniture — stage, bar, dance floor — read out of the map's
+   * layout blob.
+   *
+   * Parsed rather than trusted: `layout_json` has no schema behind it, so
+   * `readZones` drops anything it cannot draw. That matters more here than in
+   * the editor. This is the buyer's page, and a malformed zone that reached a
+   * renderer would take down the map somebody is trying to buy from.
+   */
+  const zones = useMemo(() => readZones(map?.map?.layout), [map]);
 
   /**
    * `?tier=` — the buyer followed a ticket-type link from the organizer's
@@ -248,6 +260,7 @@ export default function SeatPicker({ slug, currency, purchaseMode, maxPerOrder }
           className="h-[58vh] min-h-[380px]"
           tables={map.tables}
           seats={map.seats}
+          zones={zones}
           selectedSeatIds={selectedIds}
           selectedTableIds={selectedTableIds}
           highlightTierId={highlightTierId}

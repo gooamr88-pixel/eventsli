@@ -99,8 +99,16 @@ export function useReservation() {
    * Holds seats or a whole table. The API refuses both at once — two prices and
    * two rules — so this mirrors that rather than trying to be clever.
    */
-  const hold = useCallback(async (slug, { seatIds, tableId, tableToken }) => {
-    const body = tableId ? { tableId } : { seatIds };
+  /**
+   * Takes a hold, in whichever of the three shapes this event sells in: named
+   * seats, one whole table, or — on a general-admission event, which has no map
+   * at all — a quantity of each ticket type.
+   *
+   * The API refuses a request carrying more than one of them, so the branch
+   * below picks exactly one rather than merging what it was given.
+   */
+  const hold = useCallback(async (slug, { seatIds, tableId, tableToken, lines }) => {
+    const body = lines ? { lines } : tableId ? { tableId } : { seatIds };
     const headers = tableToken ? { 'x-access-token': tableToken } : undefined;
 
     const data = await post(`/public/events/${slug}/hold`, body, { headers });

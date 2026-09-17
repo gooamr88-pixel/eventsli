@@ -58,6 +58,21 @@ const STEP_TEXT = {
   review: ['Check and create', 'It is saved as a private draft. Nothing is public until Eventsli approves it.'],
 };
 
+/**
+ * RESERVED SEATING OR GENERAL ADMISSION — asked here, at creation, because it
+ * decides how much of the product this organizer ever has to look at.
+ *
+ * Reserved means drawing the room: a venue map, table categories, a seat picker
+ * at the checkout. General admission means a number on a ticket type and none
+ * of the above. Asking afterwards means somebody building a conference spends
+ * their first ten minutes in a seat-map editor working out whether they are
+ * supposed to be there.
+ */
+const ADMISSION_TYPES = [
+  ['reserved', 'Reserved seating', 'You draw the room; buyers choose their seat or table.', 'map'],
+  ['general', 'General admission', 'No seat map. You set how many tickets exist, buyers choose how many they want.', 'ticket'],
+];
+
 const PURCHASE_MODES = [
   ['seat_only', 'Individual seats', 'Buyers pick seats one by one.', 'ticket'],
   ['table_only', 'Whole tables', 'Buyers book a table and get every seat at it.', 'layers'],
@@ -146,6 +161,7 @@ function initialForm(type, organizer) {
     title: '', category: 'other', description: '',
     country, timezone: defaultTimeZone(country, browserZone()),
     startsAt: '', endsAt: '', venueName: '', venueAddress: '',
+    admissionType: 'reserved',
     purchaseMode: 'seat_only', feeBearer: 'buyer', maxTicketsPerOrder: '10', allowTicketTransfer: true,
     paymentOption: organizer?.payments?.choices?.[0] || '',
   };
@@ -264,6 +280,7 @@ function EventWizard({ type, organizer }) {
         endsAt: endIso,
         listingType: type,
         ...(ticketed ? {
+          admissionType: form.admissionType,
           purchaseMode: form.purchaseMode,
           feeBearer: form.feeBearer,
           maxTicketsPerOrder: perOrder,
@@ -372,11 +389,22 @@ function EventWizard({ type, organizer }) {
           {step === 'tickets' && (
             <>
               <RadioCards
-                legend="How do buyers choose their place?" name="purchaseMode" required
-                value={form.purchaseMode} onChange={set('purchaseMode')}
-                options={PURCHASE_MODES.map(([value, title, desc, icon]) => ({ value, title, desc, icon }))}
-                columns={3}
+                legend="How do tickets work?" name="admissionType" required
+                value={form.admissionType} onChange={set('admissionType')}
+                options={ADMISSION_TYPES.map(([value, title, desc, icon]) => ({ value, title, desc, icon }))}
+                columns={2}
               />
+              {/* Only reserved seating has anything to choose between — a
+                  general-admission event has neither seats nor tables, so the
+                  question has no answer rather than a default one. */}
+              {form.admissionType === 'reserved' && (
+                <RadioCards
+                  legend="How do buyers choose their place?" name="purchaseMode" required
+                  value={form.purchaseMode} onChange={set('purchaseMode')}
+                  options={PURCHASE_MODES.map(([value, title, desc, icon]) => ({ value, title, desc, icon }))}
+                  columns={3}
+                />
+              )}
               <RadioCards
                 legend="Who pays the booking fees?" name="feeBearer" required
                 value={form.feeBearer} onChange={set('feeBearer')}
@@ -401,7 +429,11 @@ function EventWizard({ type, organizer }) {
               </label>
               <p className="fx-row items-start text-sm text-muted">
                 <span className="text-accent"><NavIcon name="info" size={18} /></span>
-                <span className="fx-min0 flex-1">Ticket types, prices and the seating map come next, on the event itself.</span>
+                <span className="fx-min0 flex-1">
+                  {form.admissionType === 'general'
+                    ? 'Ticket types and prices come next, on the event itself. There is no seating map to build.'
+                    : 'Ticket types, prices and the seating map come next, on the event itself.'}
+                </span>
               </p>
             </>
           )}
@@ -501,7 +533,12 @@ function Review({ form, ticketed, startIso, choices, onEdit }) {
     ['when', 'Starts', form.startsAt ? formatEventTime(startIso, form.timezone) : '—'],
     ['when', 'Venue', form.venueName.trim() || 'Not added yet'],
     ...(ticketed ? [
-      ['tickets', 'Buyers choose', PURCHASE_MODES.find(([v]) => v === form.purchaseMode)?.[1]],
+      ['tickets', 'Tickets', ADMISSION_TYPES.find(([v]) => v === form.admissionType)?.[1]],
+      // Meaningless without a map, so it is left off the summary entirely
+      // rather than shown as a setting that will not apply.
+      ...(form.admissionType === 'reserved'
+        ? [['tickets', 'Buyers choose', PURCHASE_MODES.find(([v]) => v === form.purchaseMode)?.[1]]]
+        : []),
       ['tickets', 'Booking fees', form.feeBearer === 'buyer' ? 'Paid by buyers' : 'Paid by you'],
       ['payment', 'Payments', choices.includes(form.paymentOption) ? PAYMENT_OPTIONS[form.paymentOption][0] : 'None yet — add one before going on sale'],
     ] : [

@@ -232,16 +232,24 @@ export function toPercent(x, y) {
  * Used to frame the map on open. Without it a room whose tables all sit in one
  * corner — which is most rooms mid-layout — opens showing mostly empty floor,
  * and the buyer's first action is to pan looking for the seats.
+ *
+ * ZONES COUNT AS CONTENT. They are furniture, not stock, but they are drawn,
+ * and an opening frame that excludes them cuts the stage off the top of the
+ * buyer's map — on a map whose whole purpose is showing which seats face it.
+ * Optional, because the two callers that predate zones pass tables alone and a
+ * required second argument would have framed their maps to `undefined`.
  */
-export function contentBounds(tables) {
-  if (!tables || tables.length === 0) {
+export function contentBounds(tables, zones) {
+  const hasTables = Array.isArray(tables) && tables.length > 0;
+  const hasZones = Array.isArray(zones) && zones.length > 0;
+  if (!hasTables && !hasZones) {
     return { x: 0, y: 0, width: WORLD.width, height: WORLD.height };
   }
 
   let minX = Infinity; let minY = Infinity;
   let maxX = -Infinity; let maxY = -Infinity;
 
-  for (const t of tables) {
+  for (const t of (hasTables ? tables : [])) {
     const { x, y } = toWorld(t.position);
     const body = tableBody(t.shape, t.seatCount);
     // The seats sit outside the body, so the extent is the body plus a seat
@@ -251,6 +259,21 @@ export function contentBounds(tables) {
     minY = Math.min(minY, y - reach);
     maxX = Math.max(maxX, x + reach);
     maxY = Math.max(maxY, y + reach);
+  }
+
+  for (const z of (hasZones ? zones : [])) {
+    // A rotated zone's corners swing outside its own box. Using the diagonal
+    // as the reach is generous rather than exact — the alternative is four
+    // trig calls per zone per frame to save a few units of padding.
+    const w = Math.max(0, Number(z.w) || 0);
+    const h = Math.max(0, Number(z.h) || 0);
+    const cx = (Number(z.x) || 0) / 100 * WORLD.width;
+    const cy = (Number(z.y) || 0) / 100 * WORLD.height;
+    const reach = (Number(z.rotation) ? Math.hypot(w, h) : Math.max(w, h)) / 2;
+    minX = Math.min(minX, cx - reach);
+    minY = Math.min(minY, cy - reach);
+    maxX = Math.max(maxX, cx + reach);
+    maxY = Math.max(maxY, cy + reach);
   }
 
   const pad = 30;

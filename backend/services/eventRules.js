@@ -40,7 +40,18 @@ const ORGANIZER_EDITABLE = Object.freeze({
   endsAt: 'ends_at',
   listingType: 'listing_type',
   purchaseMode: 'purchase_mode',
+  // Reserved seating or general admission. What makes the difference between an
+  // event that needs a venue map drawn and one that sells a number of tickets —
+  // and therefore what most of the organizer's interface hides or shows.
+  admissionType: 'admission_type',
   category: 'category',
+  // Short selling points under the description. Content, like `description`
+  // itself, so it carries the same permissions.
+  highlights: 'highlights',
+  // For the map on the event page. Deliberately separate from the address: a
+  // venue can be findable by name with no coordinates at all.
+  venueLat: 'venue_lat',
+  venueLng: 'venue_lng',
   feeBearer: 'fee_bearer',                      // BRD §04
   maxTicketsPerOrder: 'max_tickets_per_order',  // BRD §11
   allowTicketTransfer: 'allow_ticket_transfer', // BRD §10
@@ -180,6 +191,11 @@ const LIVE_EDITABLE = Object.freeze([
   // Adding a way to pay changes nothing a buyer already agreed to, and an
   // organizer whose Stripe account is restricted mid-sale needs to switch.
   'accepts_stripe', 'accepts_manual',
+  // Content, not terms. Highlights and a pin on a map describe the event an
+  // admin already approved; they do not change what anybody bought, and
+  // correcting "doors at 7" on a live listing is exactly the kind of fix that
+  // must not need a review queue.
+  'highlights', 'venue_lat', 'venue_lng',
 ]);
 
 /**
@@ -187,7 +203,19 @@ const LIVE_EDITABLE = Object.freeze([
  * buyer bought or agreed to: whether tickets are sold at all, how a seat is
  * bought, and who carries the fee on the order they already paid.
  */
-const LOCKED_AFTER_SALE = Object.freeze(['listing_type', 'purchase_mode', 'fee_bearer']);
+const LOCKED_AFTER_SALE = Object.freeze([
+  'listing_type', 'purchase_mode', 'fee_bearer',
+  /**
+   * `admission_type` is locked for a harder reason than the other three.
+   *
+   * Those change what a buyer agreed to. This changes what their ticket IS. A
+   * reserved ticket points at a seat; a general-admission one points at a
+   * ticket type and nothing else. Flipping the event after a sale leaves
+   * tickets referring to seats on a map the event no longer uses — and, the
+   * other way, a room full of seats that no sale can ever release.
+   */
+  'admission_type',
+]);
 
 const COLUMN_TO_API = Object.freeze(
   Object.fromEntries(Object.entries(ORGANIZER_EDITABLE).map(([api, column]) => [column, api])),
@@ -319,13 +347,93 @@ function paymentFlags(choice) {
  * both switched on for the event AND set up on the account — "accepts card" with
  * no Stripe account behind it is not a way to pay.
  *
+ * `isFree` IS NOT A SETTING. It is derived from the ticket types, every time,
+ * by `isFreeEvent` below — because a stored "this event is free" flag and a
+ * price list drift apart, and only one of them is what the buyer is charged.
+ *
+ * A free event needing no payment method is the difference between a community
+ * organizer publishing in ten minutes and one abandoning at a Stripe onboarding
+ * form for money that will never move.
+ *
  * @returns {{ ok: boolean, reason: null | 'NO_CHANNEL' | 'CHANNEL_NOT_READY' }}
  */
-function paymentReadiness({ listingType, acceptsStripe, acceptsManual, stripeReady, manualReady }) {
+function paymentReadiness({
+  listingType, acceptsStripe, acceptsManual, stripeReady, manualReady, isFree = false,
+}) {
   if (listingType === 'display_only') return { ok: true, reason: null };
+  if (isFree) return { ok: true, reason: null };
   if (!acceptsStripe && !acceptsManual) return { ok: false, reason: 'NO_CHANNEL' };
   if ((acceptsStripe && stripeReady) || (acceptsManual && manualReady)) return { ok: true, reason: null };
   return { ok: false, reason: 'CHANNEL_NOT_READY' };
+}
+
+/**
+ * Is every ticket on this event free?
+ *
+ * TRUE ONLY WHEN THERE IS SOMETHING TO BE FREE. An event with no ticket types
+ * yet has no prices, and "no prices" is not "free" — treating it as free would
+ * waive the payment requirement for every brand-new draft, and the organizer
+ * would discover they needed Stripe at the moment they first set a price, which
+ * is the worst possible moment to find out.
+ *
+ * Whole-table prices count too. On a reserved event the table can be bought as
+ * a unit at its own price (BRD §25), so a map of free seats on paid tables is
+ * not a free event, however the tier list reads.
+ *
+ * @param {Array<{priceCents:number}>} tiers
+ * @param {Array<{priceCents:number|null}>} [tables]
+ */
+function isFreeEvent(tiers, tables = []) {
+  const list = Array.isArray(tiers) ? tiers : [];
+  if (list.length === 0) return false;
+  if (list.some((t) => Number(t.priceCents) > 0)) return false;
+  return !(tables || []).some((t) => Number(t.priceCents) > 0);
+}
+
+/**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * WHAT THIS EVENT ACTUALLY NEEDS — the one answer, for every surface that asks.
+ *
+ * The organizer's interface used to show every section to everybody: a seating
+ * map to someone running a free workshop, a Stripe setup step to someone
+ * charging nothing, a checkout settings tab for an event that has no checkout.
+ * Each of those is a question the organizer has to work out is not for them,
+ * and the honest answer is that the system already knew.
+ *
+ * Derived, never stored, and computed HERE rather than in the dashboard —
+ * because the launch checklist, the sub-navigation, the submit guard and the
+ * API's own refusals all have to agree about it. When they disagree, the shape
+ * it takes is a checklist demanding a step the nav does not offer.
+ *
+ * @param {object} event
+ * @param {'ticketed'|'display_only'} event.listingType
+ * @param {'reserved'|'general'}      event.admissionType
+ * @param {boolean}                   event.isFree
+ * @returns {{
+ *   tickets: boolean, seating: boolean, payment: boolean,
+ *   checkout: boolean, tables: boolean,
+ * }}
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+function eventNeeds({ listingType, admissionType, isFree = false }) {
+  // BRD §12 — a listing sells nothing, so it needs none of the selling machinery.
+  const sells = listingType !== 'display_only';
+
+  // Reserved seating is the ONLY thing that needs a venue map. That is the
+  // whole point of general admission: stock is a number on a ticket type.
+  const seating = sells && admissionType !== 'general';
+
+  return {
+    tickets: sells,
+    seating,
+    // Table categories are decoration for a map, so they follow the map.
+    tables: seating,
+    // Free tickets take no payment, so they need no way to take one.
+    payment: sells && !isFree,
+    // There is still a checkout for a free event — somebody claims a ticket and
+    // gives their name — so this is NOT gated on price. It is gated on selling.
+    checkout: sells,
+  };
 }
 
 function canTransition(from, to) {
@@ -376,6 +484,8 @@ module.exports = {
   paymentChoices,
   paymentFlags,
   paymentReadiness,
+  isFreeEvent,
+  eventNeeds,
   canTransition,
   transitionActor,
   partitionPatch,

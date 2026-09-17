@@ -16,7 +16,35 @@ import {
 const SRC = path.join(process.cwd(), 'src', 'app');
 const read = (...p) => fs.readFileSync(path.join(SRC, ...p), 'utf8');
 
-const EDITOR = read('organizer', 'events', '[id]', 'map', 'EditorCanvas.jsx');
+/**
+ * THE EDITOR IS A DIRECTORY, NOT A FILE, and this test reads all of it.
+ *
+ * It used to read `EditorCanvas.jsx` alone, which was the whole editor at the
+ * time. Once the editor grew a toolbar, a gesture machine, a zone renderer and
+ * a print pack, that assertion stopped meaning what it says: the canvas could
+ * pass while a sibling two directories over quietly re-derived a seat position.
+ *
+ * The property being defended has not changed — no surface may own the
+ * arithmetic — so the scope widens to match the code rather than the check
+ * narrowing to match one file. Anything added to the editor is covered the day
+ * it is added, without anybody remembering to extend a list.
+ */
+const EDITOR_DIR = path.join(SRC, 'organizer', 'events', '[id]', 'map');
+
+function readDir(dir) {
+  const out = [];
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) out.push(...readDir(full));
+    else if (/\.jsx?$/.test(entry.name)) {
+      out.push([path.relative(SRC, full).replace(/\\/g, '/'), fs.readFileSync(full, 'utf8')]);
+    }
+  }
+  return out;
+}
+
+const EDITOR_FILES = readDir(EDITOR_DIR);
+const EDITOR = EDITOR_FILES.map(([, src]) => src).join('\n');
 const BUYER = read('components', 'seating', 'SeatMapCanvas.jsx');
 
 describe('the editor and the buyer draw from one source', () => {
@@ -31,11 +59,12 @@ describe('the editor and the buyer draw from one source', () => {
     }
   });
 
-  test('neither hard-codes a position, a radius or a world size', () => {
+  test('no editor file re-derives a world size or a seat radius', () => {
     // A literal here is how the two views drift apart: the editor writes a
     // corner where the buyer reads a centre, and the map scatters. It happened
-    // in the codebase this pattern came from.
-    for (const [name, src] of [['editor', EDITOR], ['buyer', BUYER]]) {
+    // in the codebase this pattern came from. Checked per FILE rather than over
+    // the concatenation, so a failure names the file that has to be fixed.
+    for (const [name, src] of [...EDITOR_FILES, ['buyer', BUYER]]) {
       const code = src
         .replace(/\/\*[\s\S]*?\*\//g, '')
         .replace(/^[ \t]*\/\/.*$/gm, '');
@@ -50,6 +79,14 @@ describe('the editor and the buyer draw from one source', () => {
     // converts through toPercent and nothing else.
     expect(EDITOR).toMatch(/toPercent\(/);
     expect(EDITOR).not.toMatch(/position:\s*\{\s*x:\s*point\.x/);
+  });
+
+  test('zones are drawn by the one shared renderer, on both sides', () => {
+    // Same argument as the geometry, and the bug it prevents is the one this
+    // catalogue's own header describes: three hand-copied versions drifted, and
+    // a guest opening their chart saw the buffet drawn as a round TABLE.
+    expect(EDITOR, 'the editor must render zones through ZoneShape').toMatch(/ZoneShape/);
+    expect(BUYER, 'the buyer must render zones through ZoneShape').toMatch(/ZoneShape/);
   });
 });
 
@@ -118,13 +155,22 @@ describe('what the editor draws is what the buyer draws', () => {
 
 describe('the editor respects the database ceilings', () => {
   const DRAFT = read('organizer', 'events', '[id]', 'map', 'useMapDraft.js');
+  // The ceilings moved out of the draft hook and into the rule book beside it
+  // when the draft grew zones and bulk operations. Where they are declared is
+  // not the property under test — that they are declared once, and match the
+  // schema, is.
+  const RULES = read('organizer', 'events', '[id]', 'map', 'draftRules.js');
 
   test('400 tables and 60 seats, the same numbers the schema enforces', () => {
     // `seat_count INT CHECK (seat_count BETWEEN 1 AND 60)` and the API's
     // `isArray({ max: 400 })`. Mirrored so the editor refuses before a save
     // that would be rejected after the organizer had done the work.
-    expect(DRAFT).toMatch(/MAX_TABLES\s*=\s*400/);
-    expect(DRAFT).toMatch(/MAX_SEATS_PER_TABLE\s*=\s*60/);
+    expect(RULES).toMatch(/MAX_TABLES\s*=\s*400/);
+    expect(RULES).toMatch(/MAX_SEATS_PER_TABLE\s*=\s*60/);
+    // Declared in exactly one place. A second copy is how the editor and the
+    // API come to disagree about what fits.
+    expect(DRAFT).not.toMatch(/MAX_TABLES\s*=\s*\d/);
+    expect(DRAFT).not.toMatch(/MAX_SEATS_PER_TABLE\s*=\s*\d/);
   });
 
   test('a new table carries no id, which is how the API reads "create"', () => {
