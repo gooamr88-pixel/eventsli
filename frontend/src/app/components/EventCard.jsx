@@ -72,15 +72,19 @@ function priceBlock(event) {
  * correct one depends on what is above the card. On /events the cards sit
  * under the page's <h1>; on the homepage under an <h2>. Hard-coding either
  * makes the other page skip a level, and screen reader users navigate by it.
+ *
+ * @param {boolean} [props.adaptive]  below md, lay the card out as a compact ROW
+ * (photo left, details right). For long listings on a phone, where one tall
+ * card per screen turns browsing ten events into ten screens of scrolling.
  */
-export default function EventCard({ event, priority = false, headingLevel = 3 }) {
+export default function EventCard({ event, priority = false, headingLevel = 3, adaptive = false }) {
   const Heading = headingLevel === 2 ? 'h2' : 'h3';
   const when = eventDateParts(event);
   const place = [event.venue, event.city].filter(Boolean).join(', ') || event.organizer?.name || '';
   const price = priceBlock(event);
 
   return (
-    <Link href={`/e/${event.slug}`} className="es-evcard">
+    <Link href={`/e/${event.slug}`} className={`es-evcard ${adaptive ? 'es-evcard--adaptive' : ''}`}>
       <div className="es-evcard__media">
         {event.coverUrl ? (
           <Image

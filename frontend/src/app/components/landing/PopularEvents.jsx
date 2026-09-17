@@ -84,7 +84,7 @@ export default function PopularEvents({ copy, categories, events, failed }) {
             {[0, 1, 2].map((n) => <li key={n} className="es-skeleton es-lp-cards__ghost" />)}
           </ul>
         ) : current.rows.length > 0 ? (
-          <ul className="es-lp-cards">
+          <ul className="es-lp-cards es-lp-rail">
             {current.rows.map((event, i) => (
               <li key={event.id}><EventCard event={event} priority={active === '' && i < 2} /></li>
             ))}

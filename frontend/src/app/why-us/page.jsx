@@ -93,7 +93,7 @@ const REASONS = [
 
 export default function WhyUsPage() {
   return (
-    <main>
+    <main className="es-mk">
       <PageHeader
         eyebrow="For organizers"
         title="Built by people who have stood at the door."
@@ -143,7 +143,7 @@ export default function WhyUsPage() {
         <div className="fx-row">
           <Link
             href="/register"
-            className="es-btn es-btn--primary es-btn--lg"
+            className="es-lp-btn es-lp-btn--solid"
           >
             Create an account
           </Link>

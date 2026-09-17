@@ -56,8 +56,10 @@ export default function SiteFooter() {
               footer read as one long list with some words in capitals in it.
               The column gap is untouched: from md up these are side by side
               and never needed the room. */}
-          <div className="fx-grid fx-grid--4 gap-y-10">
-            <div className="fx-stack fx-stack--sm">
+          {/* Two columns of links on a phone, not one: stacked, the three
+              groups made the footer alone a screen and a half of scrolling. */}
+          <div className="grid grid-cols-2 gap-x-6 gap-y-10 md:grid-cols-4">
+            <div className="col-span-2 fx-stack fx-stack--sm md:col-span-1">
               {/* The drawn mark, not the word set in the serif. The masthead,
                   the sidebar and the favicon all show the leaf; a footer that
                   spells the name instead is the one place the brand is absent

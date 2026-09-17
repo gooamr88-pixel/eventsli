@@ -4465,7 +4465,8 @@ a.es-sponsor:hover { opacity: 0.7; }
   color: var(--es-text-muted);
   text-wrap: pretty;
 }
-.es-lp-hero__ctas { display: grid; gap: 0.75rem; width: 100%; padding-top: 0.375rem; }
+.es-lp-hero__ctas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.625rem; width: 100%; padding-top: 0.375rem; }
+.es-lp-hero__ctas .es-lp-btn { padding-inline: 0.75rem; }
 
 /* Soft rings and dots around the headline. Decoration only, and only
    where there is room — on a phone they land on the words. */
@@ -4480,7 +4481,7 @@ a.es-sponsor:hover { opacity: 0.7; }
 
 @media (width >= theme(--breakpoint-sm)) {
   .es-lp-hero__ctas { display: flex; justify-content: center; width: auto; }
-  .es-lp-hero__ctas .es-lp-btn { min-width: 12rem; }
+  .es-lp-hero__ctas .es-lp-btn { min-width: 12rem; padding-inline: 1.5rem; }
 }
 @media (width >= theme(--breakpoint-md)) { .es-lp-dots { display: block; } }
 
@@ -4599,9 +4600,9 @@ a.es-sponsor:hover { opacity: 0.7; }
 .es-lp-fan::-webkit-scrollbar { display: none; }
 .es-lp-poster {
   position: relative;
-  flex: 0 0 66%;
+  flex: 0 0 56%;
   overflow: hidden;
-  aspect-ratio: 3 / 4;
+  aspect-ratio: 4 / 5;
   border-radius: 16px;
   background: var(--es-bg-sunken);
   box-shadow: var(--es-shadow-md);
@@ -4806,7 +4807,8 @@ a.es-sponsor:hover { opacity: 0.7; }
   transition: background-color var(--es-duration-fast) var(--es-ease-default), color var(--es-duration-fast) var(--es-ease-default);
 }
 .es-lp-tabs__tab:hover { background: var(--es-surface); color: var(--es-text); }
-.es-lp-tabs__tab[aria-pressed='true'] { background: var(--es-surface); color: var(--es-accent); box-shadow: var(--es-shadow-sm); }
+.es-lp-tabs__tab[aria-pressed='true'],
+.es-lp-tabs__tab[aria-current='page'] { background: var(--es-surface); color: var(--es-accent); box-shadow: var(--es-shadow-sm); }
 
 .es-lp-cards {
   display: grid;
@@ -4814,6 +4816,11 @@ a.es-sponsor:hover { opacity: 0.7; }
   gap: 1.25rem;
 }
 .es-lp-cards__ghost { height: 24rem; border-radius: 18px; }
+/* Six on a desktop — two full rows of three. The page fetches eight so a
+   phone has more to swipe through; a grid of eight leaves two orphans. */
+@media (width >= theme(--breakpoint-md)) {
+  .es-lp-cards > li:nth-child(n + 7) { display: none; }
+}
 
 /* ── The event card ───────────────────────────────────────────────────────
    Shared with /events. The date is a badge on the artwork, the price sits
@@ -4902,6 +4909,33 @@ a.es-sponsor:hover { opacity: 0.7; }
 .es-evcard__price { font-size: 0.8125rem; line-height: 1.2; text-align: end; color: var(--es-text-muted); }
 .es-evcard__price b { display: block; font-size: var(--es-text-md); font-weight: 700; color: var(--es-text); }
 
+/* ── Phone rails ──────────────────────────────────────────────────────────
+   ADDED 2026-09-17 because the page was too long to scroll on a phone: eight
+   event cards and three steps stacked one under another came to roughly
+   4,000px. Below md those lists become ONE swipeable row, with the next card
+   peeking in from the edge so it is obvious there is more.
+
+   `position: relative` so anything absolutely positioned inside a card stays
+   inside the scroller instead of widening the page. */
+@media (width < 48rem) {
+  .es-lp-rail {
+    position: relative;
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 84%;
+    grid-template-columns: none;
+    gap: 0.75rem;
+    margin-inline: calc(-1 * var(--fx-pad-x));
+    padding: 4px var(--fx-pad-x) 12px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-padding-inline: var(--fx-pad-x);
+    scrollbar-width: none;
+  }
+  .es-lp-rail::-webkit-scrollbar { display: none; }
+  .es-lp-rail > * { scroll-snap-align: start; }
+}
+
 /* ── 4 · Roles ────────────────────────────────────────────────────────── */
 .es-lp-roles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; }
 .es-lp-role {
@@ -4954,6 +4988,14 @@ a.es-sponsor:hover { opacity: 0.7; }
   border: 1px solid var(--es-border);
   border-radius: 50%;
   color: var(--es-accent);
+}
+/* Phone: six compact tiles, three by two — the icon and the name only. */
+@media (width < 40rem) {
+  .es-lp-roles { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem; }
+  .es-lp-role { align-items: center; gap: 0.625rem; min-height: 0; padding: 14px 8px; text-align: center; }
+  .es-lp-role__icon { width: 42px; height: 42px; }
+  .es-lp-role__name { justify-content: center; font-size: var(--es-text-sm); }
+  .es-lp-role__desc, .es-lp-role__arrow { display: none; }
 }
 @media (width >= theme(--breakpoint-sm)) { .es-lp-roles { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; } }
 @media (width >= theme(--breakpoint-lg)) { .es-lp-roles { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
@@ -5034,7 +5076,7 @@ a.es-sponsor:hover { opacity: 0.7; }
 .es-lp-film {
   position: relative;
   overflow: hidden;
-  aspect-ratio: 4 / 5;
+  aspect-ratio: 16 / 10;
   border-radius: 22px;
   background: var(--es-bg-deep);
 }
@@ -5238,6 +5280,443 @@ a.es-sponsor:hover { opacity: 0.7; }
 }
 .es-lp-chat__button:hover { transform: scale(1.06); }
 @keyframes es-lp-pop { from { opacity: 0; transform: translateY(8px) scale(0.97); } }
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   /events — 2026-09-17, in the storefront's language.
+
+   The controls sit in a white header with the homepage's faint blue glow;
+   the answer sits below on the page. On a phone every event is a compact
+   ROW (photo left, details right) rather than a tall card, so ten events
+   are about one and a half screens instead of ten.
+   ═══════════════════════════════════════════════════════════════════════ */
+.es-ev-hero {
+  border-bottom: 1px solid var(--es-border);
+  background:
+    radial-gradient(45% 60% at 95% 0%, var(--es-accent-subtle), transparent 70%),
+    var(--es-bg);
+}
+.es-ev-hero__head { margin-bottom: 1.5rem; }
+.es-ev-title {
+  margin: 0;
+  font-family: var(--es-font-sans);
+  font-size: clamp(2rem, 1.2rem + 2.6vw, 3.25rem);
+  font-weight: 700;
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+  color: var(--es-text);
+  text-wrap: balance;
+}
+.es-ev-tabs { margin: 1rem 0 0; }
+
+/* The search panel: one line on a desktop; on a phone the query takes the
+   full width, city and date share a row, and the button is full width. */
+.es-ev-search {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--es-border);
+  border-radius: 18px;
+  background: var(--es-surface);
+  box-shadow: var(--es-shadow-md);
+}
+.es-ev-search__field {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  height: 52px;
+  padding-inline: 14px;
+  border-radius: 12px;
+  background: var(--es-bg-sunken);
+  cursor: text;
+  transition: box-shadow var(--es-duration-fast) var(--es-ease-default), background-color var(--es-duration-fast) var(--es-ease-default);
+}
+.es-ev-search__field--q { grid-column: 1 / -1; }
+.es-ev-search__field:focus-within { background: var(--es-surface); box-shadow: inset 0 0 0 1.5px var(--es-accent); }
+.es-ev-search__icon { display: inline-flex; flex-shrink: 0; color: var(--es-accent); }
+.es-ev-search__input {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: var(--es-text-base);
+  color: var(--es-text);
+}
+.es-ev-search__input::placeholder { color: var(--es-text-muted); }
+/* The ring is the field's inset outline above. */
+.es-ev-search__input:focus { outline: none; }
+.es-ev-search__date { position: relative; display: flex; flex: 1; align-items: center; min-width: 0; height: 100%; }
+.es-ev-search__hint { position: absolute; inset-inline: 0; color: var(--es-text-muted); pointer-events: none; white-space: nowrap; }
+.es-ev-search__input--date { cursor: pointer; }
+.es-ev-search__input--date.is-blank { color: transparent; }
+.es-ev-search__input--date.is-blank::-webkit-datetime-edit { opacity: 0; }
+.es-ev-search__input--date::-webkit-calendar-picker-indicator {
+  position: absolute;
+  inset: 0;
+  width: auto;
+  height: auto;
+  opacity: 0;
+  cursor: pointer;
+}
+.es-ev-search__submit {
+  grid-column: 1 / -1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 52px;
+  padding-inline: 1.75rem;
+  border-radius: 12px;
+  background: var(--es-accent);
+  font-weight: 600;
+  color: var(--es-text-on-accent);
+  transition: background-color var(--es-duration-fast) var(--es-ease-default);
+}
+.es-ev-search__submit:hover { background: var(--es-accent-hover); }
+@media (width >= theme(--breakpoint-md)) {
+  .es-ev-search { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr) auto; gap: 6px; }
+  .es-ev-search__field--q, .es-ev-search__submit { grid-column: auto; }
+}
+
+/* Results */
+.es-ev-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1.5rem;
+  margin-bottom: 1.25rem;
+}
+.es-ev-count { margin: 0; color: var(--es-text-muted); }
+.es-ev-count b { font-weight: 600; color: var(--es-text); }
+.es-ev-applied { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.es-ev-applied__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px 6px 14px;
+  border: 1px solid var(--es-border);
+  border-radius: var(--es-radius-full);
+  background: var(--es-accent-wash);
+  font-size: var(--es-text-sm);
+  color: var(--es-accent);
+}
+.es-ev-applied__chip:hover { border-color: var(--es-accent); }
+.es-ev-results { display: grid; gap: 0.75rem; }
+@media (width >= theme(--breakpoint-md)) {
+  .es-ev-results { grid-template-columns: repeat(auto-fill, minmax(min(18.75rem, 100%), 1fr)); gap: 1.25rem; }
+}
+
+/* The event card as a ROW, below md only. */
+@media (width < 48rem) {
+  .es-evcard--adaptive { flex-direction: row; gap: 12px; padding: 10px; border-radius: 16px; }
+  .es-evcard--adaptive:hover { transform: none; }
+  .es-evcard--adaptive .es-evcard__media { flex: 0 0 112px; aspect-ratio: auto; min-height: 128px; border-radius: 10px; }
+  .es-evcard--adaptive .es-evcard__placeholder { padding: 10px; font-size: 0.8125rem; }
+  .es-evcard--adaptive .es-lp-datebadge { left: 6px; top: 6px; min-width: 38px; padding: 4px 6px; border-radius: 8px; }
+  .es-evcard--adaptive .es-lp-datebadge b { font-size: 0.9375rem; }
+  .es-evcard--adaptive .es-lp-datebadge small { font-size: 0.5625rem; }
+  .es-evcard--adaptive .es-evcard__body { min-width: 0; padding: 2px 2px 0; }
+  .es-evcard--adaptive .es-evcard__title { min-height: 0; font-size: var(--es-text-base); }
+  .es-evcard--adaptive .es-evcard__meta { gap: 2px; margin: 6px 0 10px; }
+  .es-evcard--adaptive .es-evcard__line { font-size: 0.8125rem; }
+  .es-evcard--adaptive .es-evcard__foot { padding-top: 8px; }
+  .es-evcard--adaptive .es-evcard__tag { padding: 3px 8px; font-size: 0.75rem; }
+  .es-evcard--adaptive .es-evcard__price { display: flex; align-items: baseline; gap: 4px; }
+  .es-evcard--adaptive .es-evcard__price b { font-size: var(--es-text-base); }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   STATIC PAGES — 2026-09-17: how it works, why us, trust, contact,
+   privacy, both terms pages and find my tickets, in the storefront's
+   language. `.es-mk` goes on each page's <main>.
+
+   The sans for every heading on these pages. The base layer sets h1–h4 in
+   the serif for the rest of the site; the owner rejected the serif on the
+   storefront, and a reader moving from / to /how-it-works should not see
+   the typeface change under them.
+   ═══════════════════════════════════════════════════════════════════════ */
+.es-mk :is(h1, h2, h3, h4) { font-family: var(--es-font-sans); letter-spacing: -0.015em; }
+
+.es-mk-header {
+  border-bottom: 1px solid var(--es-border);
+  background:
+    radial-gradient(45% 60% at 95% 0%, var(--es-accent-subtle), transparent 70%),
+    var(--es-bg);
+}
+.es-mk-header__inner { display: flex; flex-direction: column; align-items: flex-start; gap: 0.25rem; max-width: 46rem; }
+.es-mk-header__inner > :last-child:not(.es-lp-lede):not(h1) { margin-top: 1rem; }
+.es-mk-header--center .es-mk-header__inner { align-items: center; margin-inline: auto; text-align: center; }
+.es-mk-header--center .es-lp-lede { margin-inline: auto; }
+
+/* The first band sits under the header's hairline now, so it gets its top
+   padding back — flush was for when the two shared one ground. */
+.es-mk-band--first { padding-top: var(--fx-pad-y-sm); }
+
+/* Steps: cards three across from lg, two from md; a compact timeline on a
+   phone, with the number on a line running down the left. */
+.es-mk-steps { position: relative; display: grid; gap: 0; }
+.es-mk-step { position: relative; display: grid; grid-template-columns: 38px minmax(0, 1fr); gap: 14px; padding-bottom: 1.25rem; }
+.es-mk-step:not(:last-child)::before {
+  content: '';
+  position: absolute;
+  left: 18px;
+  top: 42px;
+  bottom: 4px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--es-border);
+}
+.es-mk-step__n {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: var(--es-accent-wash);
+  font-weight: 700;
+  color: var(--es-accent);
+}
+.es-mk-step h3 { margin: 6px 0 4px; font-size: var(--es-text-md); font-weight: 600; color: var(--es-text); }
+.es-mk-step p { margin: 0; font-size: var(--es-text-sm); line-height: 1.6; color: var(--es-text-muted); }
+@media (width >= theme(--breakpoint-md)) {
+  .es-mk-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+  .es-mk-step {
+    grid-template-columns: 1fr;
+    gap: 0;
+    padding: 24px;
+    border: 1px solid var(--es-border);
+    border-radius: 18px;
+    background: var(--es-surface);
+  }
+  .es-mk-step:not(:last-child)::before { display: none; }
+  .es-mk-step h3 { margin-top: 16px; }
+}
+@media (width >= theme(--breakpoint-lg)) { .es-mk-steps { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.25rem; } }
+
+/* Points: white cards with a blue tick. On a phone they are one swipeable
+   row (.es-lp-rail); from md a grid. */
+.es-mk-points { display: grid; gap: 1rem; }
+.es-mk-point {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  height: 100%;
+  padding: 22px;
+  border: 1px solid var(--es-border);
+  border-radius: 18px;
+  background: var(--es-surface);
+}
+.es-mk-point__mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  margin-bottom: 0.25rem;
+  border-radius: 10px;
+  background: var(--es-accent-wash);
+  color: var(--es-accent);
+}
+.es-mk-point__title { margin: 0; font-size: var(--es-text-md); font-weight: 600; line-height: 1.3; color: var(--es-text); }
+.es-mk-point__body { margin: 0; font-size: var(--es-text-sm); line-height: 1.6; color: var(--es-text-muted); }
+.es-mk-point__detail { margin: 0; font-size: 0.8125rem; color: var(--es-text-subtle); }
+@media (width >= theme(--breakpoint-md)) {
+  .es-mk-points { grid-template-columns: repeat(auto-fill, minmax(min(17rem, 100%), 1fr)); gap: 1.25rem; }
+  .es-mk-points--wide { grid-template-columns: repeat(auto-fill, minmax(min(24rem, 100%), 1fr)); }
+}
+
+/* FAQ: one card, hairlines between questions. */
+.es-mk-faq { overflow: hidden; border: 1px solid var(--es-border); border-radius: 18px; background: var(--es-surface); }
+.es-mk-faq__item + .es-mk-faq__item { border-top: 1px solid var(--es-border); }
+.es-mk-faq__q {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 60px;
+  padding: 14px 20px;
+  font-weight: 600;
+  color: var(--es-text);
+  cursor: pointer;
+  list-style: none;
+}
+.es-mk-faq__q::-webkit-details-marker { display: none; }
+.es-mk-faq__q:hover { background: var(--es-bg-sunken); }
+.es-mk-faq__icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--es-accent-wash);
+  font-size: 1.125rem;
+  line-height: 1;
+  color: var(--es-accent);
+  transition: transform var(--es-duration-fast) var(--es-ease-default);
+}
+.es-mk-faq__item[open] .es-mk-faq__icon { transform: rotate(45deg); }
+.es-mk-faq__a { margin: 0; padding: 0 20px 18px; max-width: 68ch; line-height: 1.65; color: var(--es-text-muted); }
+
+/* Legal documents: one reading column in a card. The document's own h1
+   repeats the page header's title, so it is hidden here. */
+.es-mk-doc {
+  max-width: 48rem;
+  margin-inline: auto;
+  padding: clamp(1.25rem, 4vw, 2.75rem);
+  border: 1px solid var(--es-border);
+  border-radius: 20px;
+  background: var(--es-surface);
+  box-shadow: var(--es-shadow-sm);
+  line-height: 1.7;
+}
+.es-mk-doc h1 { display: none; }
+.es-mk-doc h2 { margin-top: 1rem; padding-top: 1.25rem; border-top: 1px solid var(--es-border); font-weight: 700; color: var(--es-text); }
+.es-mk-doc :is(section, div) > h2:first-child { margin-top: 0; }
+
+/* Single-purpose card (find my tickets). */
+.es-mk-card {
+  max-width: 30rem;
+  margin-inline: auto;
+  padding: clamp(1.25rem, 4vw, 2rem);
+  border: 1px solid var(--es-border);
+  border-radius: 20px;
+  background: var(--es-surface);
+  box-shadow: var(--es-shadow-md);
+}
+.es-mk-card__foot { margin: 1.25rem 0 0; padding-top: 1rem; border-top: 1px solid var(--es-border); font-size: var(--es-text-sm); text-align: center; color: var(--es-text-muted); }
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   AUTH — sign in, create account, verify email, forgot and reset password.
+   2026-09-17, in the storefront's language. `.es-auth` is the (auth)
+   layout's <main>; the forms' own markup is untouched and restyled from
+   here, because Field and SubmitButton are shared with the dashboard and
+   must not change there.
+   ═══════════════════════════════════════════════════════════════════════ */
+.es-auth {
+  min-height: calc(100dvh - 4.5rem);
+  background:
+    radial-gradient(40% 50% at 0% 0%, var(--es-accent-subtle), transparent 70%),
+    radial-gradient(40% 50% at 100% 100%, var(--es-accent-subtle), transparent 70%),
+    var(--es-bg);
+}
+.es-auth :is(h1, h2) { font-family: var(--es-font-sans); font-weight: 700; letter-spacing: -0.025em; }
+
+.es-auth__shell {
+  display: grid;
+  max-width: 68rem;
+  margin-inline: auto;
+  overflow: hidden;
+  border: 1px solid var(--es-border);
+  border-radius: 24px;
+  background: var(--es-surface);
+  box-shadow: var(--es-shadow-lg);
+}
+
+/* The photograph panel — lg and up only. A fixed navy veil over it, so the
+   white type measures the same whatever photograph an admin uploads. */
+.es-auth__aside {
+  position: relative;
+  isolation: isolate;
+  display: none;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-height: 38rem;
+  padding: 3rem;
+  overflow: hidden;
+  background: linear-gradient(150deg, #2c62bd, #1f4789);
+  color: #ffffff;
+}
+.es-auth__photo { position: absolute; inset: 0; z-index: -2; width: 100%; height: 100%; object-fit: cover; }
+.es-auth__aside::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(180deg, rgb(11 22 49 / 0.15) 0%, rgb(11 22 49 / 0.55) 45%, rgb(11 22 49 / 0.9) 100%);
+}
+.es-auth__aside-body { display: flex; flex-direction: column; gap: 1rem; }
+.es-auth__aside-kicker {
+  margin: 0;
+  font-family: var(--es-font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgb(255 255 255 / 0.8);
+}
+.es-auth__aside-title {
+  margin: 0;
+  max-width: 14ch;
+  font-size: clamp(2rem, 1.2rem + 1.6vw, 2.75rem);
+  font-weight: 700;
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+}
+.es-auth__reasons { display: grid; gap: 0.875rem; margin-top: 0.5rem; }
+.es-auth__reasons li { display: flex; align-items: flex-start; gap: 0.75rem; font-size: var(--es-text-sm); line-height: 1.5; color: rgb(255 255 255 / 0.9); }
+.es-auth__reason-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid rgb(255 255 255 / 0.25);
+  border-radius: 10px;
+  background: rgb(255 255 255 / 0.14);
+}
+
+.es-auth__main { display: flex; align-items: center; padding: clamp(1.5rem, 5vw, 3.5rem); }
+.es-auth__form { width: 100%; max-width: 26rem; margin-inline: auto; }
+.es-auth__mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 1.25rem;
+  border-radius: 14px;
+  background: var(--es-accent-wash);
+  color: var(--es-accent);
+}
+.es-auth__mark svg { width: 26px; height: 26px; }
+
+/* The form parts, scoped: taller, softer fields with a blue focus ring, and
+   a square-cornered full-width button like the storefront's. */
+.es-auth label { font-weight: 500; }
+.es-auth .es-input {
+  min-height: 50px;
+  padding-inline: 14px;
+  border-color: transparent;
+  border-radius: 12px;
+  background: var(--es-bg-sunken);
+}
+.es-auth .es-input:hover { border-color: var(--es-border-strong); }
+.es-auth .es-input:focus { border-color: var(--es-accent); background: var(--es-surface); box-shadow: 0 0 0 4px var(--es-accent-subtle); }
+.es-auth .es-btn--primary {
+  width: 100%;
+  min-height: 50px;
+  border-radius: 12px;
+  font-weight: 600;
+  box-shadow: 0 6px 16px rgb(44 98 189 / 0.22);
+}
+.es-auth a.text-accent { font-weight: 600; }
+
+@media (width >= theme(--breakpoint-lg)) {
+  .es-auth__shell { grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); }
+  .es-auth__aside { display: flex; }
+}
 
 }   /* end @layer components */
 

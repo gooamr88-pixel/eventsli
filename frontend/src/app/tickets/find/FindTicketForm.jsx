@@ -40,7 +40,7 @@ export default function FindTicketForm() {
 
   if (sent) {
     return (
-      <div className="fx-stack fx-stack--sm es-card p-5">
+      <div className="fx-stack fx-stack--sm">
         <p className="text-ink">Check your inbox.</p>
         <p className="text-sm text-muted">
           If an order exists for <span className="text-ink">{email}</span>, the link is on its
@@ -77,7 +77,7 @@ export default function FindTicketForm() {
       <button
         type="submit"
         disabled={busy || email.trim().length < 5}
-        className="es-btn es-btn--primary"
+        className="es-lp-btn es-lp-btn--solid"
       >
         {busy ? 'Sending…' : 'Send my tickets'}
       </button>

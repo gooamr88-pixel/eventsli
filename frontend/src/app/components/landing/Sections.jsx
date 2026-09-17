@@ -122,7 +122,7 @@ export function Steps() {
           </div>
         </div>
 
-        <ol className="es-lp-steps">
+        <ol className="es-lp-steps es-lp-rail">
           <li className="es-lp-step">
             <span className="es-lp-step__n">1</span>
             <h3>Create your event page</h3>

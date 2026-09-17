@@ -1,3 +1,5 @@
+import Accent from '../landing/Accent';
+
 /**
  * The three shapes every marketing page on this site is made of.
  *
@@ -28,11 +30,15 @@ export function Band({ id, title, lede, children, flush, tone = 'base' }) {
   return (
     <section
       id={id}
-      className={`${TONES[tone] || TONES.base} fx-section fx-section--sm ${flush ? 'fx-section--flush-top' : ''}`}
+      className={`${TONES[tone] || TONES.base} fx-section fx-section--sm ${flush ? 'fx-section--flush-top es-mk-band--first' : ''}`}
     >
       <div className="fx-container fx-container--xl fx-stack">
-        {title && <h2 className="text-2xl">{title}</h2>}
-        {lede && <p className="max-w-[58ch] text-lg text-muted">{lede}</p>}
+        {(title || lede) && (
+          <div>
+            {title && <h2 className="es-lp-title"><Accent text={title} lastWord /></h2>}
+            {lede && <p className="es-lp-lede">{lede}</p>}
+          </div>
+        )}
         {children}
       </div>
     </section>
@@ -49,29 +55,19 @@ export function Band({ id, title, lede, children, flush, tone = 'base' }) {
  */
 export function Steps({ steps }) {
   return (
-    /* RULED ROWS, not a grid of cards.
-       Every band on every marketing page used to be the same object: a
-       heading over three or four bordered rectangles. Steps looked like
-       Points looked like the FAQ, so four pages read as one template with
-       the words swapped — which is most of what "every page looks the same"
-       was, and none of it was a colour problem.
-
-       A sequence is the one thing here that genuinely has an order, so it
-       gets the shape that shows one: rows sharing hairlines, reading top to
-       bottom. Boxes side by side say "these three are alternatives". */
-    <ol className="min-w-0">
+    /* RESTYLED 2026-09-17. Numbered cards, three across on a desktop; on a
+       phone a compact timeline — the number on a line down the left and the
+       words beside it — because six stacked cards were three screens of
+       scrolling for six sentences. */
+    <ol className="es-mk-steps">
       {steps.map((step, i) => (
-        <li key={step.title} className="es-marquee__row">
-          <span className="es-marquee__index" aria-hidden>
-            {String(i + 1).padStart(2, '0')}
-          </span>
-          <div className="fx-stack fx-stack--sm">
-            {/* The number is decorative for a sighted reader — the visual
-                order carries it — but it is still real content for a screen
-                reader, which is why the `<ol>` does the work and the span is
-                aria-hidden rather than the other way round. */}
-            <h3 className="text-lg">{step.title}</h3>
-            <p className="text-muted">{step.body}</p>
+        <li key={step.title} className="es-mk-step">
+          {/* The number is decorative for a sighted reader — the visual order
+              carries it — and the `<ol>` says it to a screen reader. */}
+          <span className="es-mk-step__n" aria-hidden>{i + 1}</span>
+          <div className="es-mk-step__body">
+            <h3>{step.title}</h3>
+            <p>{step.body}</p>
           </div>
         </li>
       ))}
@@ -93,17 +89,19 @@ export function Points({ points, columns = 'fx-grid--3', headingLevel = 3 }) {
   const Heading = headingLevel === 2 ? 'h2' : 'h3';
 
   return (
-    /* Claims, not cards — see the note on Steps. A short accent rule does
-       the separating a border was doing, without drawing a box around a
-       sentence, and it is the one place the brand colour appears in the
-       body of a marketing page. */
-    <ul className={`fx-grid ${columns} fx-grid--gap-lg`}>
+    /* RESTYLED 2026-09-17: white cards with a blue tick, in a grid on a
+       desktop and one swipeable row on a phone (see .es-lp-rail) — /trust has
+       four groups of these, and stacked they were most of the page's length.
+       `columns` is kept for callers and only nudges the desktop width. */
+    <ul className={`es-mk-points es-lp-rail ${columns === 'fx-grid--2' ? 'es-mk-points--wide' : ''}`}>
       {points.map((point) => (
-        <li key={point.title} className="fx-stack fx-stack--sm">
-          <span aria-hidden className="block h-[3px] w-8 rounded-full bg-accent" />
-          <Heading className="text-lg">{point.title}</Heading>
-          <p className="text-muted">{point.body}</p>
-          {point.detail && <p className="text-sm text-subtle">{point.detail}</p>}
+        <li key={point.title} className="es-mk-point">
+          <span aria-hidden className="es-mk-point__mark">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5" /></svg>
+          </span>
+          <Heading className="es-mk-point__title">{point.title}</Heading>
+          <p className="es-mk-point__body">{point.body}</p>
+          {point.detail && <p className="es-mk-point__detail">{point.detail}</p>}
         </li>
       ))}
     </ul>
@@ -120,21 +118,16 @@ export function Points({ points, columns = 'fx-grid--3', headingLevel = 3 }) {
  */
 export function Faq({ items }) {
   return (
-    <div className="fx-stack fx-stack--sm">
+    /* One card with hairlines between the questions, not a stack of cards:
+       a list of questions is one object, and ten bordered boxes read as ten. */
+    <div className="es-mk-faq">
       {items.map((item) => (
-        <details
-          key={item.q}
-          className="es-card group p-5"
-        >
-          {/* `fx-touch` on the summary: a question is a tap target, and its
-              line box on a phone is about 24px. */}
-          <summary className="fx-touch w-full cursor-pointer list-none text-ink marker:content-['']">
-            <span className="fx-row fx-row--between w-full">
-              <span className="fx-min0 font-medium">{item.q}</span>
-              <span aria-hidden className="text-xl text-subtle transition-transform group-open:rotate-45">+</span>
-            </span>
+        <details key={item.q} className="es-mk-faq__item group">
+          <summary className="es-mk-faq__q">
+            <span className="fx-min0">{item.q}</span>
+            <span aria-hidden className="es-mk-faq__icon">+</span>
           </summary>
-          <p className="mt-3 max-w-[62ch] text-muted">{item.a}</p>
+          <p className="es-mk-faq__a">{item.a}</p>
         </details>
       ))}
     </div>

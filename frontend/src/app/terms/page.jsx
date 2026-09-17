@@ -1,4 +1,5 @@
 import { serverFetch } from '../utils/apiClient';
+import PageHeader from '../components/marketing/PageHeader';
 import Markdown from '../components/Markdown';
 
 /**
@@ -41,8 +42,10 @@ export default async function TermsPage() {
   } catch { /* rendered as unavailable below */ }
 
   return (
-    <main className="fx-section fx-section--sm">
-      <div className="fx-container fx-container--md fx-stack">
+    <main className="es-mk">
+      <PageHeader eyebrow="Legal" title="Ticket terms" lede="The terms you agree to when you buy a ticket on Eventsli." />
+      <div className="fx-section fx-section--sm">
+      <article className="es-mk-doc fx-stack">
         {terms ? (
           <>
             <Markdown source={terms.bodyMarkdown} />
@@ -63,6 +66,7 @@ export default async function TermsPage() {
             </p>
           </>
         )}
+      </article>
       </div>
     </main>
   );

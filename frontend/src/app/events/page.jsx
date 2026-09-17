@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { serverFetch } from '../utils/apiClient';
 import EventCard from '../components/EventCard';
 import { categoryLabel } from '../lib/categories';
+import NavIcon from '../components/shell/NavIcon';
+import EventsSearch from './EventsSearch';
 
 /**
  * Browse.
@@ -86,154 +88,131 @@ export default async function EventsPage({ searchParams }) {
 
   /** What the reader filtered by, in words, so it can be shown and undone. */
   const applied = [
+    q && { label: `“${q}”`, key: 'q' },
     city && { label: `in ${city}`, key: 'city' },
     from && { label: `from ${from}`, key: 'from' },
   ].filter(Boolean);
 
+  /** This page's URL with one filter removed. */
+  const without = (key) => {
+    const next = new URLSearchParams();
+    if (q && key !== 'q') next.set('q', q);
+    if (active) next.set('category', active);
+    if (city && key !== 'city') next.set('city', city);
+    if (from && key !== 'from') next.set('from', from);
+    const s = next.toString();
+    return s ? `/events?${s}` : '/events';
+  };
+
+  const filtered = Boolean(q || active || city || from);
+  // The API pages at 24, so a full page may not be everything.
+  const count = events.length >= 24 ? '24+' : String(events.length);
+
   return (
     <main>
-      {/* The masthead sits on the sunken tone and the results on the page
-          tone, which is what separates "the controls" from "the answer"
-          without drawing a rule between them. */}
-      <section className="es-band--field fx-section fx-section--sm relative overflow-hidden">
-        <div className="fx-container fx-container--xl fx-stack relative">
-          <div className="fx-stack fx-stack--sm">
-            <p className="es-eyebrow text-accent">Canada &amp; the United States</p>
-            <h1 className="text-4xl">Events</h1>
+      {/* ── The controls ───────────────────────────────────────────────── */}
+      <section className="es-ev-hero fx-section fx-section--sm">
+        <div className="fx-container fx-container--xl">
+          <div className="es-ev-hero__head">
+            <p className="es-lp-kicker">Canada &amp; the United States</p>
+            <h1 className="es-ev-title">
+              Find your next <span className="es-lp-accent">event</span>
+            </h1>
+            <p className="es-lp-lede">
+              Concerts, galas, comedy, film and more — pick your seat and get your ticket in minutes.
+            </p>
           </div>
 
-          {/* GET, so the query lands in the URL and the result is shareable. */}
-          <form action="/events" method="get" className="fx-row">
-            {active && <input type="hidden" name="category" value={active} />}
-            <input
-              type="search"
-              name="q"
-              defaultValue={q}
-              placeholder="Search events or venues"
-              aria-label="Search events"
-              className="es-input fx-min0 flex-1"
-            />
-            <input
-              type="text"
-              name="city"
-              defaultValue={city}
-              placeholder="Any city"
-              aria-label="City"
-              className="es-input fx-min0 flex-1"
-            />
-            <button type="submit" className="es-btn es-btn--primary">
-              Search
-            </button>
-          </form>
+          <EventsSearch q={q} city={city} from={from} category={active} />
 
-          {/* The filters the URL is carrying, each one removable.
-              Without this a reader who arrived from the homepage's search sees
-              a short listing and no reason for it — the date they picked is in
-              the address bar and nowhere on the page. */}
-          {applied.length > 0 && (
-            <ul className="fx-row fx-row--gap items-center">
-              <li className="text-sm text-muted">Filtered</li>
-              {applied.map((filter) => {
-                const next = new URLSearchParams();
-                if (q) next.set('q', q);
-                if (active) next.set('category', active);
-                if (city && filter.key !== 'city') next.set('city', city);
-                if (from && filter.key !== 'from') next.set('from', from);
-                const s = next.toString();
-                return (
-                  <li key={filter.key}>
-                    <Link href={s ? `/events?${s}` : '/events'} className="es-chip">
-                      {filter.label}
-                      <span aria-hidden>&times;</span>
-                      <span className="sr-only">— remove this filter</span>
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-
-          {/* Scrolls rather than wraps BELOW md: a wrapping row of thirteen
-              pills is three lines of chrome above the first event on a phone.
-              From md up there is room for the second line and no scrollbar to
-              hint with, so it wraps instead of slicing the last pill. */}
-          <div className="fx-row fx-row--scroll fx-row--scroll-sm -mx-1 px-1 pb-1">
-            <Pill href={href(null)} active={!active}>All</Pill>
+          {/* Links, not buttons: every category is a URL, so a filtered view
+              is shareable and the back button walks the filters. Scrolls
+              sideways rather than wrapping into three lines of chrome above
+              the first event on a phone. */}
+          <nav className="es-lp-tabs es-ev-tabs" aria-label="Categories">
+            <Link href={href(null)} aria-current={!active ? 'page' : undefined} className="es-lp-tabs__tab">
+              All events
+            </Link>
             {categories.map((c) => (
-              <Pill key={c.slug} href={href(c.slug)} active={active === c.slug}>{c.label}</Pill>
+              <Link
+                key={c.slug}
+                href={href(c.slug)}
+                aria-current={active === c.slug ? 'page' : undefined}
+                className="es-lp-tabs__tab"
+              >
+                {c.label}
+              </Link>
             ))}
-          </div>
+          </nav>
         </div>
       </section>
 
-      {/* SUNKEN, not the page tone, and this follows from EventCard being a
-          `--flush` card now: it has no border and separates from its ground by
-          tone alone. Against `bg` that is 2.4 in perceptual lightness — the
-          card would be a shadow with nothing under it. Against `bg-sunken` it
-          is 7.5. Card grids live on the sunken band throughout the storefront
-          for this reason; the homepage's "On soon" does the same. */}
-      <section className="es-band--sunken fx-section fx-section--sm">
-        <div className="fx-container fx-container--xl fx-stack">
-
-          {/* A count, which the page did not have. "24 events" tells a reader
-              whether the filter did anything; a grid that silently went from
-              twenty cards to twelve does not. `aria-live` so it is announced
-              after a filter changes the page rather than only being visible. */}
-          {events.length > 0 && (
-            <p className="text-muted" aria-live="polite">
-              {events.length} {events.length === 1 ? 'event' : 'events'}
-              {active ? ` in ${label(active)}` : ''}
-              {q ? ` matching “${q}”` : ''}
+      {/* ── The answer ─────────────────────────────────────────────────── */}
+      <section className="es-band fx-section fx-section--sm">
+        <div className="fx-container fx-container--xl">
+          <div className="es-ev-toolbar">
+            {/* `aria-live` so the count is announced after a filter changes
+                the page, not only seen. */}
+            <p className="es-ev-count" aria-live="polite">
+              <b>{count}</b> {events.length === 1 ? 'event' : 'events'}
+              {active ? <> in <b>{label(active)}</b></> : ''}
             </p>
-          )}
+
+            {/* The filters the URL is carrying, each one removable. Without
+                this a reader who arrived from the homepage's search sees a
+                short listing and no reason for it. */}
+            {applied.length > 0 && (
+              <ul className="es-ev-applied">
+                {applied.map((filter) => (
+                  <li key={filter.key}>
+                    <Link href={without(filter.key)} className="es-ev-applied__chip">
+                      {filter.label}
+                      <NavIcon name="close" size={13} />
+                      <span className="sr-only">— remove this filter</span>
+                    </Link>
+                  </li>
+                ))}
+                <li><Link href="/events" className="es-lp-link">Clear all</Link></li>
+              </ul>
+            )}
+          </div>
 
           {events.length > 0 ? (
-            <div className="fx-grid fx-grid--3 fx-grid--fill">
+            <ul className="es-ev-results">
               {events.map((event, i) => (
-                // h2: these cards are the first level under this page's <h1>.
-                // The homepage puts them under "On soon", where they are h3.
-                <EventCard key={event.id} event={event} priority={i < 3} headingLevel={2} />
+                <li key={event.id}>
+                  {/* h2: these cards are the first level under this page's
+                      <h1>. The homepage puts them under a section h2. */}
+                  <EventCard event={event} priority={i < 3} headingLevel={2} adaptive />
+                </li>
               ))}
-            </div>
+            </ul>
           ) : (
-            <div className="es-empty">
-              <p className="text-lg text-muted">
+            <div className="es-empty es-empty--rich">
+              <span aria-hidden className="es-empty__mark">
+                <NavIcon name={failed ? 'alert' : 'search'} size={22} />
+              </span>
+              <p className="text-md font-medium text-ink">
                 {failed
                   ? 'We could not load events just now.'
-                  : q || active
+                  : filtered
                     ? 'Nothing matches those filters.'
                     : 'Nothing is on sale just yet.'}
               </p>
-              {(q || active) && !failed && (
-                <Link href="/events" className="es-btn es-btn--secondary es-btn--sm">
-                  Clear filters
-                </Link>
+              <p className="max-w-[44ch] text-center text-sm text-muted">
+                {failed
+                  ? 'This one is on us — please try again in a moment.'
+                  : filtered
+                    ? 'Try another city or date, or browse every category.'
+                    : 'Every event is reviewed before it goes on sale. Check back soon.'}
+              </p>
+              {filtered && !failed && (
+                <Link href="/events" className="es-lp-btn es-lp-btn--outline mt-2">Clear filters</Link>
               )}
             </div>
           )}
         </div>
       </section>
     </main>
-  );
-}
-
-function Pill({ href, active, children }) {
-  return (
-    <Link
-      href={href}
-      aria-current={active ? 'page' : undefined}
-      /* `.es-pill` gives it the shape; the two states give it the colour.
-         Not `.es-pill--accent`, which is the low-contrast wash used for a
-         status badge — an ACTIVE FILTER is a control and has to read as
-         pressed, so it takes the solid fill. `min-height` from --fx-touch
-         because these are the page's most-tapped targets on a phone. */
-      className={`es-pill min-h-[var(--fx-touch)] border px-3 text-sm normal-case tracking-normal transition-colors ${
-        active
-          ? 'border-accent bg-accent text-on-accent'
-          : 'border-border-strong bg-transparent text-muted hover:text-ink'
-      }`}
-    >
-      {children}
-    </Link>
   );
 }

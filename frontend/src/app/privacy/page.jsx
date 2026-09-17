@@ -15,6 +15,8 @@
  * state privacy laws the platform sells into both need that review before
  * launch — the residency and deletion sections especially.
  */
+import PageHeader from '../components/marketing/PageHeader';
+
 export const metadata = {
   title: 'Privacy',
   description: 'What Eventsli collects, why, and who it is shared with.',
@@ -40,15 +42,14 @@ const SHARED = [
 
 export default function PrivacyPage() {
   return (
-    <main className="fx-section fx-section--sm">
-      <div className="fx-container fx-container--md fx-stack">
-        <div className="fx-stack fx-stack--sm">
-          <h1 className="text-2xl">Privacy</h1>
-          <p className="max-w-[62ch] text-muted">
-            What we collect, why we collect it, and who else sees it. Everything below
-            describes what the software actually does.
-          </p>
-        </div>
+    <main className="es-mk">
+      <PageHeader
+        eyebrow="Legal"
+        title="Your privacy"
+        lede="What we collect, why we collect it, and who else sees it. Everything below describes what the software actually does."
+      />
+      <div className="fx-section fx-section--sm">
+      <article className="es-mk-doc fx-stack">
 
         <section className="fx-stack fx-stack--sm">
           <h2 className="text-lg">What we collect</h2>
@@ -97,6 +98,7 @@ export default function PrivacyPage() {
             <a href="mailto:privacy@eventsli.com" className="text-accent">privacy@eventsli.com</a>.
           </p>
         </section>
+      </article>
       </div>
     </main>
   );

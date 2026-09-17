@@ -1,4 +1,5 @@
 import { serverFetch } from '../../utils/apiClient';
+import PageHeader from '../../components/marketing/PageHeader';
 import Markdown from '../../components/Markdown';
 
 /**
@@ -23,8 +24,10 @@ export default async function OrganizerTermsPage() {
   } catch { /* rendered as unavailable below */ }
 
   return (
-    <main className="fx-section fx-section--sm">
-      <div className="fx-container fx-container--md fx-stack">
+    <main className="es-mk">
+      <PageHeader eyebrow="Legal" title="Organizer agreement" lede="The agreement an organizer accepts before an event goes on sale." />
+      <div className="fx-section fx-section--sm">
+      <article className="es-mk-doc fx-stack">
         {terms ? (
           <>
             <Markdown source={terms.bodyMarkdown} />
@@ -42,6 +45,7 @@ export default async function OrganizerTermsPage() {
             <p className="text-muted">We could not load the agreement just now.</p>
           </>
         )}
+      </article>
       </div>
     </main>
   );

@@ -143,7 +143,7 @@ const NOT_CLAIMED = [
 
 export default function TrustPage() {
   return (
-    <main>
+    <main className="es-mk">
       <PageHeader
         eyebrow="Security and trust"
         title="What protects a ticket, and what protects your money."

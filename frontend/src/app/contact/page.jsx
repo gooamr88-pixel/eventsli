@@ -61,7 +61,7 @@ const SUBJECTS = [
 
 export default function ContactPage() {
   return (
-    <main>
+    <main className="es-mk">
       <PageHeader
         eyebrow="Contact"
         title="One address, and a person reads it."

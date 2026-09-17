@@ -1,4 +1,6 @@
 import NavIcon from '../components/shell/NavIcon';
+import { LogoMark } from '../components/brand/Logo';
+import { serverFetch } from '../utils/apiClient';
 
 /**
  * The credential screens: sign in, create an account, confirm the email, and
@@ -8,16 +10,15 @@ import NavIcon from '../components/shell/NavIcon';
  * adding a segment to any URL. The pages are `/login`, not `/auth/login`, which
  * is what `proxy.ts` guards and what every "sign in" link in the app points at.
  *
- * From `lg` up the form sits beside a field-tone panel saying what an account
- * is for; below it the panel is gone and the form is the whole screen, because
- * on a phone the reader is here to type, not to be sold to. The panel has no
- * headings — each form owns the page's only <h1>, and a heading above it would
- * scramble the outline.
+ * RESTYLED 2026-09-17 to the storefront. From `lg` up the form sits beside the
+ * brand's own hero photograph with what an account is for written over it;
+ * below `lg` the photograph is gone and the form is the whole card, because on
+ * a phone the reader is here to type, not to be sold to. The panel has no
+ * headings — each form owns the page's only <h1>.
  *
- * The panel carries no "bought as a guest?" line, though it did. That sentence
- * has to reach a phone, where this panel is display:none — so it lives in the
- * form instead, and a copy here only made it appear twice, forty pixels apart,
- * on exactly the screens wide enough to show both.
+ * The photograph is the one the admin uploaded for the homepage hero, read from
+ * the same cached landing payload. If it cannot be loaded the panel falls back
+ * to the brand blue, so a slow CMS never costs anyone the sign-in form.
  */
 const REASONS = [
   ['ticket', 'Every ticket you buy, in one place — including ones bought as a guest with the same email.'],
@@ -25,28 +26,44 @@ const REASONS = [
   ['calendar', 'Sell your own events: seat maps, payouts to your Stripe, a door team.'],
 ];
 
-export default function AuthLayout({ children }) {
-  return (
-    <main className="fx-section fx-section--sm">
-      <div className="fx-container fx-container--lg">
-        <div className="es-plate grid overflow-hidden bg-surface lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
-          <aside className="es-band--field relative hidden overflow-hidden p-10 lg:flex lg:flex-col lg:justify-center">
-            <div className="fx-stack relative">
-              <p className="es-eyebrow text-accent">Eventsli</p>
-              <p className="max-w-[18ch] font-serif text-3xl leading-tight text-ink">Find something to go to.</p>
-              <ul className="fx-stack fx-stack--sm pt-2">
-                {REASONS.map(([icon, text]) => (
-                  <li key={text} className="fx-row items-start text-muted">
-                    <span className="text-accent"><NavIcon name={icon} size={18} /></span>
-                    <span className="fx-min0 flex-1">{text}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </aside>
+async function heroImage() {
+  try {
+    const landing = await serverFetch('/public/landing', { tags: ['landing'], revalidate: 300 });
+    return landing?.content?.hero?.imageUrl || null;
+  } catch {
+    return null;
+  }
+}
 
-          <div className="p-6 sm:p-10">
-            <div className="mx-auto w-full max-w-[26rem]">{children}</div>
+export default async function AuthLayout({ children }) {
+  const image = await heroImage();
+
+  return (
+    <main className="es-auth fx-section fx-section--sm">
+      <div className="es-auth__shell">
+        <aside className="es-auth__aside">
+          {image && (
+            // eslint-disable-next-line @next/next/no-img-element -- decorative, from our own storage, already encoded at display size
+            <img src={image} alt="" loading="lazy" decoding="async" className="es-auth__photo" />
+          )}
+          <div className="es-auth__aside-body">
+            <p className="es-auth__aside-kicker">Eventsli</p>
+            <p className="es-auth__aside-title">Find something to go to.</p>
+            <ul className="es-auth__reasons">
+              {REASONS.map(([icon, text]) => (
+                <li key={text}>
+                  <span aria-hidden className="es-auth__reason-icon"><NavIcon name={icon} size={16} /></span>
+                  <span>{text}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </aside>
+
+        <div className="es-auth__main">
+          <div className="es-auth__form">
+            <span aria-hidden className="es-auth__mark"><LogoMark /></span>
+            {children}
           </div>
         </div>
       </div>

@@ -135,7 +135,7 @@ const FAQ = [
 
 export default function HowItWorksPage() {
   return (
-    <main>
+    <main className="es-mk">
       <FaqJsonLd items={FAQ} />
 
       <PageHeader
@@ -159,7 +159,7 @@ export default function HowItWorksPage() {
         <Steps steps={BUYING} />
         <Link
           href="/events"
-          className="es-btn es-btn--primary es-btn--lg self-start"
+          className="es-lp-btn es-lp-btn--solid self-start"
         >
           Browse events
         </Link>
@@ -175,7 +175,7 @@ export default function HowItWorksPage() {
         <div className="fx-row">
           <Link
             href="/register"
-            className="es-btn es-btn--primary es-btn--lg"
+            className="es-lp-btn es-lp-btn--solid"
           >
             Create an account
           </Link>

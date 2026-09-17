@@ -144,7 +144,10 @@ function Posters({ events, hero }) {
  * only which measures appear and what they are called. See Proof.js.
  */
 function Numbers({ block, stats }) {
-  const tiles = statTiles(block, stats);
+  // A zero is dropped, not shown. "0 happy guests" is true on a young platform
+  // and still the one number that makes a storefront look empty; the honest
+  // way to say nothing is to show nothing.
+  const tiles = statTiles(block, stats).filter((tile) => Number(tile.value) > 0);
   if (tiles.length === 0) return null;
 
   return (
