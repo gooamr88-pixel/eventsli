@@ -19,6 +19,7 @@ export function adminNavGroups() {
       items: [
         { key: 'approvals', label: 'Approvals', icon: 'check', href: '/admin', exact: true },
         { key: 'events', label: 'All events', icon: 'calendar', href: '/admin/events' },
+        { key: 'cancellations', label: 'Cancellation requests', icon: 'ban', href: '/admin/cancellations' },
       ],
     },
     {

@@ -68,6 +68,22 @@ async function createSession(req, res, next) {
       });
     }
 
+    // The organizer chose how this event is paid for. An event that takes only
+    // manual payment has no card checkout, whatever the buyer's page sends.
+    // Read on its own and FAIL OPEN on a read error: this column is new, and a
+    // deploy that reaches the API before the migration must not stop every card
+    // sale on the platform. Stripe onboarding is still checked just below.
+    const { data: channels, error: channelError } = await supabase
+      .from('events').select('accepts_stripe').eq('id', q.event.id).maybeSingle();
+    if (channelError) {
+      logger.error({ err: channelError.message, eventId: q.event.id }, 'could not read accepts_stripe; allowing card checkout');
+    } else if (channels && channels.accepts_stripe === false) {
+      return sendFail(res, {
+        status: 503, error: 'FEATURE_DISABLED',
+        message: 'This event does not take card payments. See the event page for how to pay.',
+      });
+    }
+
     const payable = await stripeSvc.organizerCanReceive(q.event.organizer_id);
     if (!payable.ok) {
       // The buyer is not told which organizer setting is missing — that is the

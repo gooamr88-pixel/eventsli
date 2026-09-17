@@ -74,7 +74,9 @@ async function send({ to, subject, html, replyTo }) {
 // Inline styles only: every mail client strips <style> blocks, and a ticket
 // that arrives unstyled is one a guest cannot read at a dark venue door.
 
-const BRAND = '#047857';
+// The storefront's accent blue (globals.css `--es-accent`). Was emerald until
+// the brand moved to blue on 2026-09-17.
+const BRAND = '#2c62bd';
 const shell = (heading, body) => `
 <div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#0E1613">
   <h1 style="font-size:20px;margin:0 0 20px;color:${BRAND}">${heading}</h1>
@@ -231,27 +233,76 @@ async function sendTicketTransferred({ to, event, direction, counterparty }) {
 }
 
 /**
- * The sign-up code.
+ * Activating an account.
  *
- * The code is the subject line's first word as well as the body's headline:
- * most phones show a notification's subject, and a person switching back from
- * their mail app should not have to open the message to read six digits.
+ * The LINK is the main path — one tap from the inbox, and it signs them in. The
+ * six digits stay underneath for someone who signed up on a laptop and opened
+ * the email on a phone, where the link would sign in the wrong device.
+ *
+ * The code is still the subject's first word: a phone notification shows the
+ * subject, and someone switching back from their mail app should not have to
+ * open the message.
  */
-async function sendVerificationCode({ to, name, code, minutes }) {
+async function sendVerificationCode({ to, name, code, minutes, link, linkHours }) {
   const spaced = `${code.slice(0, 3)} ${code.slice(3)}`;
+  const button = link ? `
+      <p style="margin:28px 0">
+        <a href="${escapeHtml(link)}"
+           style="display:inline-block;padding:14px 28px;background:${BRAND};color:#ffffff;text-decoration:none;border-radius:10px;font-weight:600;font-size:16px">
+          Activate my account
+        </a>
+      </p>
+      <p style="font-size:13px;color:#5E6D66">
+        The button works for ${Number(linkHours) || 48} hours. If it does not open, paste this into your browser:<br>
+        <span style="word-break:break-all">${escapeHtml(link)}</span>
+      </p>` : '';
   return send({
     to,
-    subject: `${code} is your Eventsli code`,
-    html: shell('Confirm your email', `
+    subject: `${code} is your Eventsli code — or tap to activate`,
+    html: shell('Activate your Eventsli account', `
       <p>Hi ${escapeHtml(name || 'there')},</p>
-      <p>Enter this code to finish setting up your Eventsli account:</p>
-      <p style="margin:24px 0;font-size:32px;font-weight:700;letter-spacing:6px;font-family:ui-monospace,Consolas,monospace;color:#0E1613">
+      <p>You are one step away. Activate your account to get started:</p>
+      ${button}
+      <p style="margin-top:28px">Or enter this code on the sign-up screen:</p>
+      <p style="margin:12px 0 20px;font-size:28px;font-weight:700;letter-spacing:6px;font-family:ui-monospace,Consolas,monospace;color:#0E1613">
         ${escapeHtml(spaced)}
       </p>
       <p style="font-size:13px;color:#5E6D66">
-        It works once and expires in ${Number(minutes) || 10} minutes. If you did not create an
-        account, you can ignore this email — nothing happens without the code.
+        The code expires in ${Number(minutes) || 10} minutes. If you did not create an Eventsli
+        account, ignore this email — nothing happens unless you use it.
       </p>`),
+  });
+}
+
+/**
+ * An organizer asked for an event to be cancelled (BRD §17). Sent to every
+ * super admin, because the decision is theirs; the console is the record.
+ */
+async function sendCancellationRequested({ to, organizerName, event, reason, url }) {
+  return send({
+    to,
+    subject: `Cancellation requested — ${event.title}`,
+    html: shell('An organizer wants to cancel an event', `
+      <p><strong>${escapeHtml(organizerName || 'An organizer')}</strong> asked Eventsli to cancel
+        <strong>${escapeHtml(event.title)}</strong>. Their reason:</p>
+      <blockquote style="margin:16px 0;padding:12px 16px;background:#F4F6F4;border-left:3px solid ${BRAND}">
+        ${escapeHtml(reason)}
+      </blockquote>
+      ${url ? `<p><a href="${escapeHtml(url)}" style="color:${BRAND}">Review the request</a></p>` : ''}`),
+  });
+}
+
+/** The super admin's answer, told to the organizer who asked. */
+async function sendCancellationDecided({ to, organizerName, event, approved, note }) {
+  return send({
+    to,
+    subject: `${approved ? 'Cancelled' : 'Cancellation not approved'} — ${event.title}`,
+    html: shell(approved ? 'Your event has been cancelled' : 'Your cancellation request was not approved', `
+      <p>Hi ${escapeHtml(organizerName || 'there')},</p>
+      <p>${approved
+        ? `Eventsli approved your request. <strong>${escapeHtml(event.title)}</strong> is cancelled: ticket sales have stopped and the gate is closed.`
+        : `Eventsli reviewed your request to cancel <strong>${escapeHtml(event.title)}</strong> and did not approve it. The event stays as it was.`}</p>
+      ${note ? `<blockquote style="margin:16px 0;padding:12px 16px;background:#F4F6F4;border-left:3px solid ${BRAND}">${escapeHtml(note)}</blockquote>` : ''}`),
   });
 }
 
@@ -316,5 +367,7 @@ module.exports = {
   sendEventApproved,
   sendTicketTransferred,
   sendVerificationCode,
+  sendCancellationRequested,
+  sendCancellationDecided,
   sendDoorTeamAdded,
 };

@@ -40,8 +40,6 @@ export default function ReviewActions({ event, onChanged }) {
 
   const canSubmit = ['draft', 'rejected'].includes(event.status);
   const accepted = Boolean(event.review?.termsAccepted);
-  // An event that is over, one way or the other, has nothing left to call off.
-  const canContact = !['cancelled', 'completed'].includes(event.status);
 
   async function acceptTerms() {
     setBusy('terms');
@@ -193,14 +191,15 @@ export default function ReviewActions({ event, onChanged }) {
 
       <FormError error={error} />
 
-      {/* BRD §17 — the organizer cannot cancel an event; only Eventsli can.
-          So there is no button here, only where to go. */}
-      {canContact && (
-        <p className="border-t border-border-base pt-4 text-sm text-muted">
-          Need to call this event off? Only Eventsli can cancel an event.{' '}
-          <Link href="/contact" className="text-accent hover:text-accent-hover">Contact us</Link>.
-        </p>
+      {error?.code === 'PAYMENT_METHOD_REQUIRED' && (
+        <div className="fx-row">
+          <Link href="/organizer/payments" className="es-btn es-btn--secondary es-btn--sm">Set up payment methods</Link>
+          <a href="#details" className="es-btn es-btn--ghost es-btn--sm">Choose this event&rsquo;s payment option</a>
+        </div>
       )}
+
+      {/* BRD §17 — the organizer cannot cancel an event; they request it with
+          "Request cancellation" at the top of the page, and Eventsli decides. */}
     </section>
   );
 }

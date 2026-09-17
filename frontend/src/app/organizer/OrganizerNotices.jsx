@@ -23,15 +23,27 @@ export default function OrganizerNotices({ organizer, payouts = true }) {
         </Notice>
       )}
 
-      {/* Without a connected account every checkout is refused, and the buyer is
-          deliberately not told why — it is not theirs to fix. */}
-      {payouts && !organizer.canReceivePayouts && (
+      {/* An organizer from before the setup step: nothing stops their live
+          events, but the next new one needs these details first. */}
+      {!organizer.setupComplete && (
         <Notice
           tone="warning"
-          title={organizer.stripeConnected ? 'Stripe still needs some details.' : 'No payout account yet.'}
-          action={{ href: '/organizer/payouts', label: 'Set up payouts' }}
+          title="Finish your organization details."
+          action={{ href: '/organizer/profile', label: 'Add them now' }}
         >
-          <p>Until this is done, tickets cannot be sold online.</p>
+          <p>Your organization name, brand and description are needed before you create another event.</p>
+        </Notice>
+      )}
+
+      {/* With no way to take money a ticketed event cannot go on sale. Said
+          once, where it can be fixed; the buyer is never told why. */}
+      {payouts && (organizer.payments?.choices?.length ?? 0) === 0 && (
+        <Notice
+          tone="warning"
+          title={organizer.stripeConnected ? 'Stripe still needs some details.' : 'No payment method yet.'}
+          action={{ href: '/organizer/payments', label: 'Set up payment methods' }}
+        >
+          <p>Ticketed events cannot go on sale until you connect Stripe or add a manual payment method.</p>
         </Notice>
       )}
     </>

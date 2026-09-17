@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useEventContext } from './EventContext';
 import ReviewActions from './ReviewActions';
 import CoverUpload from './CoverUpload';
@@ -36,17 +38,67 @@ const PRE_LAUNCH = ['draft', 'rejected', 'pending_review'];
 
 export default function EventOverview() {
   const ctx = useEventContext();
+  const params = useSearchParams();
   const event = ctx?.event;
 
   if (!event) return <Loading variant="card" />;
 
   const preLaunch = PRE_LAUNCH.includes(event.status);
-  const finished = ['cancelled', 'completed'].includes(event.status);
+  const finished = ['cancelled', 'completed', 'archived'].includes(event.status);
+  const ticketed = event.listingType !== 'display_only';
+  const justCreated = params.get('created') === '1' && event.status === 'draft';
+  const request = event.cancellationRequest;
   // Before acceptance the charges are shown inside the terms step itself.
   const feesInTermsStep = ['draft', 'rejected'].includes(event.status) && !event.review?.termsAccepted;
 
   return (
     <div className="fx-stack">
+      {/* Straight after creating: what to do now, in one line and one button. */}
+      {justCreated && (
+        <Notice tone="info" title="Your event is saved as a draft.">
+          <p>
+            {ticketed
+              ? 'Next, add your ticket types and prices, then build the seating map. The checklist below walks you through it.'
+              : 'Add a cover image so it stands out, then accept the terms and submit it for review.'}
+          </p>
+          <div className="fx-row pt-1">
+            {ticketed ? (
+              <Link href={`/organizer/events/${event.id}/tiers`} className="es-btn es-btn--primary es-btn--sm">
+                Add ticket types
+              </Link>
+            ) : (
+              <a href="#cover" className="es-btn es-btn--primary es-btn--sm">Add a cover image</a>
+            )}
+          </div>
+        </Notice>
+      )}
+
+      {event.status === 'archived' && (
+        <Notice title="This event is archived.">
+          <p>
+            {event.archivedFrom === 'published'
+              ? 'Ticket sales are stopped and it is not shown on Eventsli. Tickets already sold still scan at the door.'
+              : 'It is out of your main list and cannot be edited.'}
+            {' '}Use <strong className="text-ink">Restore</strong> above to bring it back.
+          </p>
+        </Notice>
+      )}
+
+      {/* BRD §17 — the organizer asks; Eventsli decides. Where the latest
+          request stands, and what it means for buyers meanwhile. */}
+      {request?.status === 'pending' && event.status !== 'cancelled' && (
+        <Notice tone="warning" title="Cancellation requested — waiting for Eventsli.">
+          <p className="fx-break">Your reason: “{request.reason}”</p>
+          <p>Nothing changes until it is approved: the event stays as it is. You will get an email with the decision.</p>
+        </Notice>
+      )}
+      {request?.status === 'rejected' && event.status !== 'cancelled' && (
+        <Notice tone="warning" title="Eventsli did not approve your cancellation request.">
+          {request.decisionNote && <p className="fx-break">{request.decisionNote}</p>}
+          <p>The event carries on. You can send a new request if things change.</p>
+        </Notice>
+      )}
+
       {/* BRD §16 — the review verdict, and what to do about it. A rejected
           event CAN go round again, which is the part a bare "rejected" hides. */}
       {event.review?.rejectionReason && event.status === 'rejected' && (
@@ -70,13 +122,13 @@ export default function EventOverview() {
           tickets are non-refundable by default and any refund is between the
           organizer and the buyer; nothing here promises one either way. */}
       {event.status === 'cancelled' && (
-        <Notice title="Cancelled by Eventsli">
+        <Notice title={request?.status === 'approved' ? 'Cancelled — Eventsli approved your request' : 'Cancelled by Eventsli'}>
           {event.cancelledReason && <p className="fx-break">{event.cancelledReason}</p>}
           <p>Tickets already sold are kept as a record and buyers can still see them.</p>
         </Notice>
       )}
 
-      {!preLaunch && <EventStats eventId={event.id} currency={event.currency} />}
+      {!preLaunch && ticketed && <EventStats eventId={event.id} currency={event.currency} />}
 
       {preLaunch && (
         <div className="es-split es-split--even">

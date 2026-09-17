@@ -2,28 +2,83 @@ const { supabase } = require('../config/supabase');
 const { uniqueSlug } = require('../utils/slug');
 const events = require('../services/eventService');
 const terms = require('../services/termsService');
-const { termsAcceptedFor, TERMS_ACCEPTABLE_FROM } = require('../services/eventRules');
+const {
+  termsAcceptedFor, TERMS_ACCEPTABLE_FROM, paymentChoices, paymentFlags, paymentReadiness,
+} = require('../services/eventRules');
+const { canReceivePayouts } = require('../utils/payouts');
 const { parsePagination, applyPagination, buildMeta } = require('../middleware/pagination');
 const { sendOk, sendFail } = require('../utils/responseEnvelope');
 const { safeSearch } = require('../utils/search');
 const logger = require('../utils/logger');
 
 const SELECT = `
-  id, slug, title, description, venue_name, venue_address, country, timezone,
+  id, organizer_id, slug, title, description, venue_name, venue_address, country, timezone,
   starts_at, ends_at, status, listing_type, purchase_mode, category,
   cover_url, cover_path, currency,
   commission_pct, commission_tax_pct, payment_fee_mode, payment_fee_pct,
   payment_fee_fixed_cents, fee_bearer, event_tax_pct,
   max_tickets_per_order, allow_ticket_transfer,
   rejection_reason, reviewed_at, cancelled_at, cancelled_reason,
-  suspended_at, suspended_reason, terms_accepted_id, created_at, updated_at
+  suspended_at, suspended_reason, terms_accepted_id, created_at, updated_at,
+  accepts_stripe, accepts_manual, archived_at, archived_from
 `;
+
+/**
+ * Where the organizer stands on what an event depends on: is the organization
+ * set up, can Stripe pay them, do they have a manual method. Read fresh — the
+ * access context caches `canReceivePayouts` for seconds, and these decisions
+ * must not be made on a stale answer.
+ */
+async function organizerReadiness(organizerId) {
+  const [{ data: org, error }, { count, error: mErr }] = await Promise.all([
+    supabase.from('organizers')
+      .select('display_name, legal_name, description, policies_accepted_at, stripe_onboarding_complete, stripe_payouts_enabled')
+      .eq('id', organizerId).maybeSingle(),
+    supabase.from('organizer_payment_methods')
+      .select('id', { count: 'exact', head: true })
+      .eq('organizer_id', organizerId).eq('is_active', true),
+  ]);
+  if (error) throw new Error(error.message);
+  if (mErr) throw new Error(mErr.message);
+  // Required here, not at the top: organizerController requires nothing from
+  // this file, but keeping the edge one-way at load time costs nothing.
+  const { isSetupComplete } = require('./organizerController');
+  return {
+    setupComplete: isSetupComplete(org),
+    stripeReady: canReceivePayouts(org),
+    manualReady: (count || 0) > 0,
+  };
+}
+
+const PAYMENT_UNAVAILABLE = 'Choose a payment option you have set up: connect Stripe or add a manual payment method first.';
 
 // ─── POST /events ───────────────────────────────────────────────────────────
 async function create(req, res, next) {
   try {
     const organizerId = req.user.access.organizerId;
     const country = String(req.body.country).toUpperCase();
+
+    // The organization comes first: an event is published under a brand, and
+    // buyers are shown who they are buying from.
+    const readiness = await organizerReadiness(organizerId);
+    if (!readiness.setupComplete) {
+      return sendFail(res, {
+        status: 403, error: 'ORGANIZER_SETUP_REQUIRED',
+        message: 'Set up your organization (its name, brand and description) before creating an event.',
+      });
+    }
+
+    // Payments. A listing takes none. A ticketed event takes one of the choices
+    // the organizer has actually set up; with none set up it is created as a
+    // draft that takes nothing yet, and submit refuses it until one exists.
+    const ticketed = (req.body.listingType || 'ticketed') === 'ticketed';
+    let payments = { accepts_stripe: false, accepts_manual: false };
+    if (ticketed && req.body.paymentOption) {
+      if (!paymentChoices(readiness).includes(req.body.paymentOption)) {
+        return sendFail(res, { status: 400, error: 'PAYMENT_METHOD_UNAVAILABLE', message: PAYMENT_UNAVAILABLE });
+      }
+      payments = paymentFlags(req.body.paymentOption);
+    }
 
     // Throws VALIDATION_ERROR for a country we do not sell into (BRD §07).
     const currency = await events.currencyForCountry(country);
@@ -59,6 +114,7 @@ async function create(req, res, next) {
         ...(req.body.allowTicketTransfer !== undefined
           ? { allow_ticket_transfer: req.body.allowTicketTransfer === true || req.body.allowTicketTransfer === 'true' } : {}),
         ...financials,
+        ...payments,
         status: 'draft',
       })
       .select(SELECT)
@@ -107,12 +163,21 @@ async function list(req, res, next) {
 // ─── GET /events/:eventId ───────────────────────────────────────────────────
 async function get(req, res, next) {
   try {
-    const [{ data, error }, currentTermsId] = await Promise.all([
+    const [{ data, error }, currentTermsId, { data: requests }] = await Promise.all([
       supabase.from('events').select(SELECT).eq('id', req.params.eventId).single(),
       currentOrganizerTermsId(),
+      // The latest request only: the page says where the most recent one stands.
+      supabase.from('event_cancellation_requests')
+        .select('id, reason, status, decision_note, decided_at, created_at')
+        .eq('event_id', req.params.eventId)
+        .order('created_at', { ascending: false })
+        .limit(1),
     ]);
     if (error) throw new Error(error.message);
-    return sendOk(res, shape(data, { currentTermsId }));
+    return sendOk(res, {
+      ...shape(data, { currentTermsId }),
+      cancellationRequest: shapeCancellationRequest(requests?.[0]),
+    });
   } catch (err) {
     return next(err);
   }
@@ -167,6 +232,29 @@ async function update(req, res, next) {
         status: 409, error: 'CONFLICT',
         message: `A ${current.status} event cannot be edited.`,
       });
+    }
+    // Nor is an archived one edited in place. Restoring it to `published`
+    // skips review, which is only safe because nothing changed while it was away.
+    if (current.status === 'archived' && !isAdmin) {
+      return sendFail(res, {
+        status: 409, error: 'EVENT_ARCHIVED',
+        message: 'This event is archived. Restore it first to make changes.',
+      });
+    }
+
+    // Switching a payment channel ON is only allowed for one the organizer has
+    // set up. Switching one off is always allowed; submit catches "none left".
+    if (!isAdmin && (allowed.accepts_stripe === true || allowed.accepts_manual === true)) {
+      const readiness = await organizerReadiness(req.user.access.organizerId);
+      if ((allowed.accepts_stripe === true && !readiness.stripeReady)
+        || (allowed.accepts_manual === true && !readiness.manualReady)) {
+        return sendFail(res, { status: 400, error: 'PAYMENT_METHOD_UNAVAILABLE', message: PAYMENT_UNAVAILABLE });
+      }
+    }
+    // A listing sells nothing, so it takes nothing.
+    if (allowed.listing_type === 'display_only') {
+      allowed.accepts_stripe = false;
+      allowed.accepts_manual = false;
     }
 
     // BRD §16 — the reviewer approves what they saw. See editConsequence.
@@ -261,7 +349,7 @@ async function submitForReview(req, res, next) {
   try {
     const { data: event } = await supabase
       .from('events')
-      .select('id, status, listing_type, starts_at, ends_at')
+      .select('id, organizer_id, status, listing_type, starts_at, ends_at, accepts_stripe, accepts_manual')
       .eq('id', req.params.eventId).single();
 
     if (!events.canTransition(event.status, 'pending_review')) {
@@ -288,6 +376,24 @@ async function submitForReview(req, res, next) {
       return sendFail(res, {
         status: 400, error: 'VALIDATION_ERROR',
         message: 'This event starts in the past. Update the date before submitting.',
+      });
+    }
+
+    // A ticketed event cannot go on sale with no way to take the money.
+    const readiness = await organizerReadiness(event.organizer_id);
+    const payment = paymentReadiness({
+      listingType: event.listing_type,
+      acceptsStripe: event.accepts_stripe,
+      acceptsManual: event.accepts_manual,
+      ...readiness,
+    });
+    if (!payment.ok) {
+      return sendFail(res, {
+        status: 409, error: 'PAYMENT_METHOD_REQUIRED',
+        message: payment.reason === 'NO_CHANNEL'
+          ? 'Choose how buyers pay for this event (Stripe, manual payment, or both) before submitting it.'
+          : 'The payment option on this event is not set up yet. Connect Stripe or add a manual payment method, then submit.',
+        meta: { reason: payment.reason },
       });
     }
 
@@ -413,6 +519,12 @@ function shape(e, { currentTermsId = null } = {}) {
       maxTicketsPerOrder: e.max_tickets_per_order,
       allowTicketTransfer: e.allow_ticket_transfer,
     },
+    payments: {
+      acceptsStripe: !!e.accepts_stripe,
+      acceptsManual: !!e.accepts_manual,
+    },
+    archivedAt: e.archived_at || null,
+    archivedFrom: e.archived_from || null,
     review: {
       rejectionReason: e.rejection_reason,
       reviewedAt: e.reviewed_at,
@@ -427,4 +539,19 @@ function shape(e, { currentTermsId = null } = {}) {
   };
 }
 
-module.exports = { create, list, get, update, submitForReview, acceptTerms, shape, SELECT };
+function shapeCancellationRequest(r) {
+  if (!r) return null;
+  return {
+    id: r.id,
+    reason: r.reason,
+    status: r.status,
+    decisionNote: r.decision_note,
+    decidedAt: r.decided_at,
+    createdAt: r.created_at,
+  };
+}
+
+module.exports = {
+  create, list, get, update, submitForReview, acceptTerms, shape, shapeCancellationRequest,
+  organizerReadiness, SELECT,
+};

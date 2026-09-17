@@ -21,6 +21,7 @@ const LOOKS = {
   suspended: ['Suspended', 'danger'],
   cancelled: ['Cancelled', 'muted'],
   completed: ['Finished', 'muted'],
+  archived: ['Archived', 'muted'],
 };
 
 export default function StatusPill({ status }) {

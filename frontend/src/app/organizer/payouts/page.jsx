@@ -1,16 +1,15 @@
-import { Suspense } from 'react';
-import Payouts from './Payouts';
-import { Loading } from '../../components/Feedback';
+import { redirect } from 'next/navigation';
 
-export const metadata = {
-  title: 'Payouts',
-  robots: { index: false, follow: false },
-};
-
-export default function PayoutsPage() {
-  return (
-    <Suspense fallback={<Loading variant="card" />}>
-      <Payouts />
-    </Suspense>
-  );
+/**
+ * Payouts became Payment methods — Stripe and manual methods on one page.
+ *
+ * Kept as a redirect, not deleted: organizers have it bookmarked, and Stripe
+ * onboarding links issued before the move return here with `?stripe=return` or
+ * `?stripe=refresh`, which the new page still reads.
+ */
+export default async function PayoutsPage({ searchParams }) {
+  const params = new URLSearchParams();
+  const stripe = (await searchParams)?.stripe;
+  if (typeof stripe === 'string') params.set('stripe', stripe);
+  redirect(`/organizer/payments${params.size ? `?${params}` : ''}`);
 }

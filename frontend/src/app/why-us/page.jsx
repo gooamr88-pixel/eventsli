@@ -142,10 +142,10 @@ export default function WhyUsPage() {
         </p>
         <div className="fx-row">
           <Link
-            href="/register"
+            href="/register/organizer"
             className="es-lp-btn es-lp-btn--solid"
           >
-            Create an account
+            Create an organizer account
           </Link>
           <Link href="/how-it-works#selling" className="text-sm text-accent hover:text-accent-hover">
             What setting up looks like →

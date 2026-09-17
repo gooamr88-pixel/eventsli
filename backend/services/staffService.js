@@ -25,8 +25,10 @@ const logger = require('../utils/logger');
 const { one } = require('../utils/embed');
 
 // Only an event on sale opens its door. A cancelled one is refused by the
-// check-in function anyway; refusing the sign-in is clearer.
-const SCANNABLE = new Set(['published']);
+// check-in function anyway; refusing the sign-in is clearer. An ARCHIVED event
+// has stopped selling, but the tickets it already sold are still good — so its
+// door stays open to them.
+const SCANNABLE = new Set(['published', 'archived']);
 
 async function list(eventId) {
   const { data, error } = await supabase
@@ -156,7 +158,7 @@ async function assignmentsFor({ userId, organizerId }) {
     supabase.from('event_staff').select(`events ( ${EVENT_COLUMNS} )`)
       .eq('user_id', userId).is('revoked_at', null),
     organizerId
-      ? supabase.from('events').select(EVENT_COLUMNS).eq('organizer_id', organizerId).eq('status', 'published')
+      ? supabase.from('events').select(EVENT_COLUMNS).eq('organizer_id', organizerId).in('status', [...SCANNABLE])
       : Promise.resolve({ data: [] }),
   ]);
   if (staffRows.error) throw new Error(staffRows.error.message);

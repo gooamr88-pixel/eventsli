@@ -231,8 +231,8 @@ async function createOnboardingLink({ accountId, origin }) {
     // The organizer's Payouts page. These pointed at /dashboard/settings/payments,
     // a route from the previous frontend that does not exist here, so every
     // organizer who finished onboarding — or whose link expired — got a 404.
-    refresh_url: `${origin}/organizer/payouts?stripe=refresh`,
-    return_url: `${origin}/organizer/payouts?stripe=return`,
+    refresh_url: `${origin}/organizer/payments?stripe=refresh`,
+    return_url: `${origin}/organizer/payments?stripe=return`,
     type: 'account_onboarding',
   });
   return link.url;

@@ -44,6 +44,11 @@ const ORGANIZER_EDITABLE = Object.freeze({
   feeBearer: 'fee_bearer',                      // BRD §04
   maxTicketsPerOrder: 'max_tickets_per_order',  // BRD §11
   allowTicketTransfer: 'allow_ticket_transfer', // BRD §10
+  // Which of the organizer's payment methods this event takes. Checked against
+  // what the organizer has actually set up in the controller, and again before
+  // submitting — see paymentReadiness.
+  acceptsStripe: 'accepts_stripe',
+  acceptsManual: 'accepts_manual',
 });
 
 /**
@@ -107,13 +112,15 @@ const ADMIN_EDITABLE = Object.freeze({
  * back into draft once tickets have sold.
  */
 const TRANSITIONS = Object.freeze({
-  draft:          ['pending_review', 'cancelled'],
-  pending_review: ['published', 'rejected', 'draft', 'cancelled'],   // BRD §16; an edit withdraws it
-  rejected:       ['draft', 'pending_review', 'cancelled'],
-  published:      ['cancelled', 'suspended', 'completed'],
+  draft:          ['pending_review', 'cancelled', 'archived'],
+  pending_review: ['published', 'rejected', 'draft', 'cancelled', 'archived'],   // BRD §16; an edit withdraws it
+  rejected:       ['draft', 'pending_review', 'cancelled', 'archived'],
+  published:      ['cancelled', 'suspended', 'completed', 'archived'],
   suspended:      ['published', 'cancelled'],
+  // Restoring goes back to where it came from — see restoreTarget.
+  archived:       ['draft', 'rejected', 'published', 'completed', 'cancelled'],
   cancelled:      [],
-  completed:      [],
+  completed:      ['archived'],
 });
 
 /**
@@ -142,6 +149,19 @@ const TRANSITION_ACTOR = Object.freeze({
   'rejected→cancelled':       'admin',
   'published→cancelled':      'admin',
   'suspended→cancelled':      'admin',
+  'archived→cancelled':       'admin',
+  // Archiving is the organizer's own housekeeping: it takes an event off sale
+  // and out of their list. A SUSPENDED event cannot be archived — that would let
+  // an organizer tuck away an admin's action and restore it as published.
+  'draft→archived':           'organizer',
+  'pending_review→archived':  'organizer',
+  'rejected→archived':        'organizer',
+  'published→archived':       'organizer',
+  'completed→archived':       'organizer',
+  'archived→draft':           'organizer',
+  'archived→rejected':        'organizer',
+  'archived→published':       'organizer',
+  'archived→completed':       'organizer',
 });
 
 /**
@@ -155,7 +175,12 @@ const TRANSITION_ACTOR = Object.freeze({
  * operational details an organizer genuinely needs to adjust alone; everything
  * else a reviewer approved goes through Eventsli.
  */
-const LIVE_EDITABLE = Object.freeze(['description', 'max_tickets_per_order', 'allow_ticket_transfer']);
+const LIVE_EDITABLE = Object.freeze([
+  'description', 'max_tickets_per_order', 'allow_ticket_transfer',
+  // Adding a way to pay changes nothing a buyer already agreed to, and an
+  // organizer whose Stripe account is restricted mid-sale needs to switch.
+  'accepts_stripe', 'accepts_manual',
+]);
 
 /**
  * Fixed once a ticket has sold, in any status. Each changes what an existing
@@ -242,6 +267,67 @@ function termsAcceptedFor(event, currentTermsId = null) {
   return true;
 }
 
+/**
+ * Where an archived event goes back to.
+ *
+ *   in review  → draft      it left the queue when it was archived; it is
+ *                           submitted again rather than silently re-queued
+ *   on sale    → on sale    only while it has not ended; after, finished
+ *   otherwise  → where it was
+ *
+ * Restoring to `published` skips review, and that is safe only because an
+ * archived event cannot be edited (editConsequence).
+ */
+function restoreTarget({ archivedFrom, endsAt }, now = new Date()) {
+  if (archivedFrom === 'pending_review') return 'draft';
+  if (archivedFrom === 'published') {
+    return new Date(endsAt) > now ? 'published' : 'completed';
+  }
+  if (['draft', 'rejected', 'completed'].includes(archivedFrom)) return archivedFrom;
+  return 'draft';
+}
+
+/**
+ * Which payment choices an organizer can offer on an event, from what they have
+ * set up. Card only counts once Stripe can actually pay them out.
+ *
+ *   both ready    → 'both', 'stripe', 'manual'
+ *   Stripe only   → 'stripe'
+ *   manual only   → 'manual'
+ *   neither       → []    (a ticketed event can be drafted, not submitted)
+ */
+function paymentChoices({ stripeReady, manualReady }) {
+  const choices = [];
+  if (stripeReady && manualReady) choices.push('both');
+  if (stripeReady) choices.push('stripe');
+  if (manualReady) choices.push('manual');
+  return choices;
+}
+
+/** `'both' | 'stripe' | 'manual'` → the two columns. Anything else → neither. */
+function paymentFlags(choice) {
+  return {
+    accepts_stripe: choice === 'both' || choice === 'stripe',
+    accepts_manual: choice === 'both' || choice === 'manual',
+  };
+}
+
+/**
+ * Can this event take money, as things stand? Asked before it is submitted.
+ *
+ * A listing never needs to. A ticketed event needs at least one channel that is
+ * both switched on for the event AND set up on the account — "accepts card" with
+ * no Stripe account behind it is not a way to pay.
+ *
+ * @returns {{ ok: boolean, reason: null | 'NO_CHANNEL' | 'CHANNEL_NOT_READY' }}
+ */
+function paymentReadiness({ listingType, acceptsStripe, acceptsManual, stripeReady, manualReady }) {
+  if (listingType === 'display_only') return { ok: true, reason: null };
+  if (!acceptsStripe && !acceptsManual) return { ok: false, reason: 'NO_CHANNEL' };
+  if ((acceptsStripe && stripeReady) || (acceptsManual && manualReady)) return { ok: true, reason: null };
+  return { ok: false, reason: 'CHANNEL_NOT_READY' };
+}
+
 function canTransition(from, to) {
   return (TRANSITIONS[from] || []).includes(to);
 }
@@ -286,6 +372,10 @@ module.exports = {
   LOCKED_AFTER_SALE,
   TERMS_ACCEPTABLE_FROM,
   termsAcceptedFor,
+  restoreTarget,
+  paymentChoices,
+  paymentFlags,
+  paymentReadiness,
   canTransition,
   transitionActor,
   partitionPatch,

@@ -1,59 +1,188 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useId, useRef, useState } from 'react';
+import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { get, post } from '../../../utils/apiClient';
 import { useOrganizer } from '../../../hooks/useOrganizer';
 import { categoryLabel } from '../../../lib/categories';
 import { defaultTimeZone, zonesFor } from '../../../lib/timezones';
-import Field from '../../../components/forms/Field';
+import { formatEventTime } from '../../../lib/eventTime';
+import Field, { SelectField, TextareaField } from '../../../components/forms/Field';
 import FormError from '../../../components/forms/FormError';
 import SubmitButton from '../../../components/forms/SubmitButton';
+import NavIcon from '../../../components/shell/NavIcon';
+import { Loading, ErrorNotice, Notice } from '../../../components/Feedback';
 import CreateProfile from '../../CreateProfile';
-import { PageHeader, Panel } from '../../../components/ui/Page';
-import { Loading } from '../../../components/Feedback';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
  * Create an event.
  *
- * NOT a multi-step wizard, deliberately. Everything beyond this form (tiers,
- * the map, artwork) is edited afterwards on a real event that already exists
- * and can be saved; a wizard holds an organizer's work in browser state, where a
- * closed tab loses it. The guidance a wizard gives lives on the event's
- * overview instead, as a launch checklist.
+ * FIRST, ONE QUESTION: is this a ticketed event or a display-only listing? The
+ * two are different products — one sells seats and takes money, the other is a
+ * page with no buy button — and every screen after it shows only what that kind
+ * needs. A listing is never asked about seats, fees or payments.
  *
- * What was wrong with the previous version, and is fixed here:
- *   • The time zone was a free-text box and the API stored whatever it got —
- *     "Toronto" broke every date on that event. It is a list now, by country,
- *     and the API refuses a zone that does not exist.
- *   • How buyers choose (seats, whole tables, either), who carries the fees,
- *     tickets per order and transfers were shown on the overview but settable
- *     NOWHERE an organizer could reach. They are set here.
- *   • A start in the past was accepted without a word.
- *   • On a phone the sticky submit bar sat under the dashboard's bottom tab
- *     bar (see `.es-nav-content .fx-sticky-actions`).
+ * THEN, ONE STEP AT A TIME. On a phone a single long form is a wall; each step
+ * here is one group of related questions with Back and Continue at the thumb,
+ * and nothing moves forward until the step is valid. Required fields carry "*",
+ * optional ones say "Optional".
+ *
+ * WHY THIS IS SAFE NOW when an earlier version refused to be a wizard: the
+ * answers are kept in sessionStorage as they are typed, so a closed tab or a
+ * detour to set up payments loses nothing. Ticket types, the seat map and the
+ * cover are still built on the saved event, where they belong.
+ *
+ * Kept from before: the time zone is a list by country and the API refuses one
+ * that does not exist; times are anchored to the EVENT's zone (toIso below).
  * ─────────────────────────────────────────────────────────────────────────────
  */
+
+const TYPES = {
+  ticketed: {
+    title: 'Ticketed event',
+    steps: ['basics', 'when', 'tickets', 'payment', 'review'],
+  },
+  display_only: {
+    title: 'Display-only event',
+    steps: ['basics', 'when', 'review'],
+  },
+};
+
+const STEP_TEXT = {
+  basics: ['The basics', 'What the event is called and what it is about.'],
+  when: ['When and where', 'Times are local to the venue.'],
+  tickets: ['How tickets sell', 'You add ticket types and the seat map right after this.'],
+  payment: ['How buyers pay', 'Choose from the payment methods you have set up.'],
+  review: ['Check and create', 'It is saved as a private draft. Nothing is public until Eventsli approves it.'],
+};
+
 const PURCHASE_MODES = [
-  ['seat_only', 'Individual seats', 'Buyers pick seats one by one.'],
-  ['table_only', 'Whole tables', 'Buyers book a table and get every seat at it.'],
-  ['seat_and_table', 'Seats or whole tables', 'Buyers can do either.'],
+  ['seat_only', 'Individual seats', 'Buyers pick seats one by one.', 'ticket'],
+  ['table_only', 'Whole tables', 'Buyers book a table and get every seat at it.', 'layers'],
+  ['seat_and_table', 'Seats or tables', 'Buyers can do either.', 'map'],
 ];
 
-export default function NewEventForm() {
-  const router = useRouter();
-  const { loading, organizer, refresh } = useOrganizer();
+const FEE_BEARERS = [
+  ['buyer', 'Buyers pay the fees', 'Added at checkout, shown as its own line.'],
+  ['organizer', 'I pay the fees', 'Taken from your payout. Buyers see one price.'],
+];
 
+const PAYMENT_OPTIONS = {
+  both: ['Stripe + manual', 'Buyers pay by card online, or by your manual methods.', 'card'],
+  stripe: ['Stripe only', 'Buyers pay by card at checkout.', 'card'],
+  manual: ['Manual only', 'Buyers pay you by e-Transfer, bank transfer or cash.', 'cash'],
+};
+
+export default function NewEventForm() {
+  const params = useSearchParams();
+  const type = params.get('type');
+  const { loading, organizer, error, refresh } = useOrganizer();
+
+  if (loading) return <Loading variant="card" />;
+  if (error) return <ErrorNotice error={error} />;
+  if (!organizer || !organizer.setupComplete) return <CreateProfile organizer={organizer} onCreated={refresh} />;
+
+  if (!TYPES[type]) return <TypeChooser />;
+  return <EventWizard key={type} type={type} organizer={organizer} />;
+}
+
+// ─── The first question ────────────────────────────────────────────────────
+function TypeChooser() {
+  return (
+    <div className="es-wizard es-wizard--center">
+      <div className="es-wizard__head">
+        <p className="es-eyebrow">New event</p>
+        <h1 className="es-wizard__title">What kind of event are you creating?</h1>
+        <p className="es-wizard__lede">Pick one. You will only be asked what that kind of event needs.</p>
+      </div>
+
+      <div className="es-choice-grid es-choice-grid--2">
+        <Link href="/organizer/events/new?type=ticketed" className="es-choice es-choice--lg">
+          <span className="es-choice__icon"><NavIcon name="ticket" size={22} /></span>
+          <span className="es-choice__body">
+            <span className="es-choice__title">Ticketed event</span>
+            <span className="es-choice__desc">Sell tickets online and at the door.</span>
+            <ul className="es-choice__list">
+              <Point>Ticket types and prices</Point>
+              <Point>A seating map with seats or tables</Point>
+              <Point>Stripe and manual payments</Point>
+            </ul>
+          </span>
+          <span className="es-choice__cta">Create a ticketed event <NavIcon name="arrow" size={16} /></span>
+        </Link>
+
+        <Link href="/organizer/events/new?type=display_only" className="es-choice es-choice--lg">
+          <span className="es-choice__icon"><NavIcon name="eye" size={22} /></span>
+          <span className="es-choice__body">
+            <span className="es-choice__title">Display-only event</span>
+            <span className="es-choice__desc">Show your event on Eventsli without selling tickets.</span>
+            <ul className="es-choice__list">
+              <Point>An event page people can find and share</Point>
+              <Point>No tickets, payments or seating map</Point>
+              <Point>Ready in two steps</Point>
+            </ul>
+          </span>
+          <span className="es-choice__cta">Create a display-only event <NavIcon name="arrow" size={16} /></span>
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+function Point({ children }) {
+  return <li><NavIcon name="tick" size={16} /><span>{children}</span></li>;
+}
+
+// ─── The steps ─────────────────────────────────────────────────────────────
+function draftKey(type) {
+  return `eventsli.newEvent.${type}`;
+}
+
+function initialForm(type, organizer) {
+  const country = organizer?.country || 'CA';
+  const base = {
+    title: '', category: 'other', description: '',
+    country, timezone: defaultTimeZone(country, browserZone()),
+    startsAt: '', endsAt: '', venueName: '', venueAddress: '',
+    purchaseMode: 'seat_only', feeBearer: 'buyer', maxTicketsPerOrder: '10', allowTicketTransfer: true,
+    paymentOption: organizer?.payments?.choices?.[0] || '',
+  };
+  // A convenience, not a store: a private window or cleared storage simply
+  // starts empty. Read only on the client — this component mounts after the
+  // organizer loads, so the server never renders it.
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(draftKey(type)) || 'null');
+    if (saved?.form) {
+      const form = { ...base, ...saved.form };
+      // A payment option saved before a method was removed is not offered again.
+      if (!(organizer?.payments?.choices || []).includes(form.paymentOption)) {
+        form.paymentOption = base.paymentOption;
+      }
+      return { form, step: Number(saved.step) || 0 };
+    }
+  } catch { /* storage unavailable */ }
+  return { form: base, step: 0 };
+}
+
+function EventWizard({ type, organizer }) {
+  const router = useRouter();
+  const headingRef = useRef(null);
+  const { steps, title: typeTitle } = TYPES[type];
+  const ticketed = type === 'ticketed';
+
+  const [initial] = useState(() => initialForm(type, organizer));
+  const [form, setForm] = useState(initial.form);
+  const [index, setIndex] = useState(Math.min(initial.step, steps.length - 1));
+  const [showErrors, setShowErrors] = useState(false);
   const [categories, setCategories] = useState([]);
-  const [form, setForm] = useState(() => ({
-    title: '', category: 'other', venueName: '', venueAddress: '', country: 'CA',
-    timezone: defaultTimeZone('CA', browserZone()), startsAt: '', endsAt: '',
-    listingType: 'ticketed', purchaseMode: 'seat_only', feeBearer: 'buyer',
-    maxTicketsPerOrder: '10', allowTicketTransfer: true, description: '',
-  }));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  const moved = useRef(false);
+
+  const step = steps[index];
+  const choices = organizer.payments?.choices || [];
 
   useEffect(() => {
     let cancelled = false;
@@ -66,13 +195,17 @@ export default function NewEventForm() {
     return () => { cancelled = true; };
   }, []);
 
-  // The organizer's country is the sensible default, and the zone follows it.
-  // Adjusted DURING render so the selects never visibly flip after load.
-  const [seenCountry, setSeenCountry] = useState(null);
-  if (organizer?.country && organizer.country !== seenCountry) {
-    setSeenCountry(organizer.country);
-    setForm((f) => ({ ...f, country: organizer.country, timezone: defaultTimeZone(organizer.country, browserZone()) }));
-  }
+  // Keep the answers as they are typed.
+  useEffect(() => {
+    try { sessionStorage.setItem(draftKey(type), JSON.stringify({ form, step: index })); } catch { /* private mode */ }
+  }, [type, form, index]);
+
+  // A new step is a new screen: take focus to its heading so a screen reader
+  // announces where they are, and so the page starts at the top.
+  useEffect(() => {
+    if (!moved.current) return;
+    headingRef.current?.focus();
+  }, [index]);
 
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
   const setCountry = (e) => {
@@ -80,18 +213,45 @@ export default function NewEventForm() {
     setForm((f) => ({ ...f, country, timezone: defaultTimeZone(country, browserZone()) }));
   };
 
-  const ticketed = form.listingType === 'ticketed';
   const startIso = toIso(form.startsAt, form.timezone);
   const endIso = toIso(form.endsAt, form.timezone);
-  const startsInPast = Boolean(form.startsAt) && new Date(startIso) <= new Date();
-  const endsBeforeStart = Boolean(form.startsAt && form.endsAt) && new Date(endIso) <= new Date(startIso);
   const perOrder = Number(form.maxTicketsPerOrder);
-  const perOrderInvalid = ticketed && !(Number.isInteger(perOrder) && perOrder >= 1 && perOrder <= 100);
-  const blocked = startsInPast || endsBeforeStart || perOrderInvalid;
 
-  async function submit(e) {
+  const problems = {
+    title: form.title.trim().length < 3 ? 'Give your event a title of at least 3 characters.' : null,
+    startsAt: !form.startsAt ? 'Choose when it starts.'
+      : new Date(startIso) <= new Date() ? 'The start has to be in the future.' : null,
+    endsAt: !form.endsAt ? 'Choose when it ends.'
+      : form.startsAt && new Date(endIso) <= new Date(startIso) ? 'The event has to end after it starts.' : null,
+    maxTicketsPerOrder: !(Number.isInteger(perOrder) && perOrder >= 1 && perOrder <= 100) ? 'Between 1 and 100.' : null,
+    paymentOption: choices.length > 0 && !choices.includes(form.paymentOption) ? 'Choose how buyers pay.' : null,
+  };
+  const STEP_FIELDS = {
+    basics: ['title'],
+    when: ['startsAt', 'endsAt'],
+    tickets: ['maxTicketsPerOrder'],
+    payment: ['paymentOption'],
+    review: [],
+  };
+  const stepValid = STEP_FIELDS[step].every((f) => !problems[f]);
+  const shown = (field) => (showErrors ? problems[field] : null);
+
+  function go(nextIndex) {
+    moved.current = true;
+    setShowErrors(false);
+    setError(null);
+    setIndex(nextIndex);
+    try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch { /* old browsers */ }
+  }
+
+  function next(e) {
     e.preventDefault();
-    if (blocked) return;
+    if (!stepValid) { setShowErrors(true); return; }
+    if (index < steps.length - 1) go(index + 1);
+    else create();
+  }
+
+  async function create() {
     setBusy(true);
     setError(null);
     try {
@@ -100,191 +260,290 @@ export default function NewEventForm() {
         category: form.category,
         country: form.country,
         timezone: form.timezone,
-        // Anchored to the EVENT's timezone — see toIso below.
         startsAt: startIso,
         endsAt: endIso,
-        listingType: form.listingType,
+        listingType: type,
         ...(ticketed ? {
           purchaseMode: form.purchaseMode,
           feeBearer: form.feeBearer,
           maxTicketsPerOrder: perOrder,
           allowTicketTransfer: form.allowTicketTransfer,
+          ...(form.paymentOption && choices.includes(form.paymentOption) ? { paymentOption: form.paymentOption } : {}),
         } : {}),
         ...(form.venueName.trim() ? { venueName: form.venueName.trim() } : {}),
         ...(form.venueAddress.trim() ? { venueAddress: form.venueAddress.trim() } : {}),
         ...(form.description.trim() ? { description: form.description.trim() } : {}),
       }, { noRedirect: true });
-      router.push(`/organizer/events/${event.id}`);
+      try { sessionStorage.removeItem(draftKey(type)); } catch { /* fine */ }
+      router.push(`/organizer/events/${event.id}?created=1`);
     } catch (err) {
       setError(err);
       setBusy(false);
     }
   }
 
-  if (loading) return <Loading variant="card" />;
-  if (!organizer) return <CreateProfile onCreated={refresh} />;
+  const [heading, lede] = STEP_TEXT[step];
+  const zone = zonesFor(form.country).find(([z]) => z === form.timezone);
+  const zoneLabel = zone ? `${zone[1].split(' — ')[0]} time` : form.timezone;
 
   return (
-    <div className="fx-stack">
-      <PageHeader
-        eyebrow="New event"
-        title="Create an event"
-        lede="The essentials. It stays a private draft — ticket types, the seat map and artwork come next, on the event itself."
-      />
+    <div className="es-wizard es-wizard--center">
+      <div className="es-wizard__progress">
+        <p className="es-wizard__count">
+          <span>Step {index + 1} of {steps.length}</span>
+          <span className="text-ink">{typeTitle}</span>
+        </p>
+        <div
+          className="es-wizard__bar" role="progressbar"
+          aria-valuemin={1} aria-valuemax={steps.length} aria-valuenow={index + 1}
+          aria-label={`Step ${index + 1} of ${steps.length}: ${heading}`}
+        >
+          {steps.map((s, i) => (
+            <span key={s} className="es-wizard__seg" data-state={i < index ? 'done' : i === index ? 'current' : 'upcoming'} />
+          ))}
+        </div>
+      </div>
 
-      <div className="grid items-start gap-[var(--fx-gap)] lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-        <form onSubmit={submit} className="fx-stack" noValidate={false}>
-          <Panel title="What it is">
-            <Field label="Title" name="title" required minLength={3} maxLength={200} value={form.title} onChange={set('title')} />
-            <div className="fx-grid fx-grid--2">
-              <Select
-                id="ev-category" label="Category" value={form.category} onChange={set('category')}
+      <div className="es-wizard__head">
+        <h1 ref={headingRef} tabIndex={-1} className="es-wizard__title outline-none">{heading}</h1>
+        <p className="es-wizard__lede">{lede}</p>
+      </div>
+
+      <form onSubmit={next} noValidate className="fx-stack">
+        <div className="es-card fx-stack fx-stack--sm p-5">
+          {step === 'basics' && (
+            <>
+              <Field
+                label="Event title" name="title" required minLength={3} maxLength={200} autoFocus
+                placeholder="e.g. Friday Night Jazz"
+                error={shown('title')} value={form.title} onChange={set('title')}
+              />
+              <SelectField
+                label="Category" required value={form.category} onChange={set('category')}
                 options={(categories.length ? categories : ['other']).map((c) => [c, categoryLabel(c)])}
+                hint="Helps people find it on Eventsli."
               />
-              <Select
-                id="ev-type" label="Type" value={form.listingType} onChange={set('listingType')}
-                // BRD §12 — a listing with nothing behind it is a real type.
-                options={[['ticketed', 'Sell tickets'], ['display_only', 'Listing only — no tickets']]}
-                hint={ticketed ? null : 'Shown on Eventsli with no buy button.'}
+              <TextareaField
+                label="Description" optional rows={5} maxLength={5000}
+                hint="What people read on the event page. You can add it later."
+                value={form.description} onChange={set('description')}
               />
-            </div>
-            <div className="fx-stack fx-stack--sm gap-1.5">
-              <label htmlFor="ev-description" className="text-sm text-ink">Description</label>
-              <textarea id="ev-description" rows={5} maxLength={5000} value={form.description} onChange={set('description')} className="es-input py-2" />
-              <p className="text-xs text-subtle">What buyers read on the event page. Optional.</p>
-            </div>
-          </Panel>
-
-          <Panel title="Where">
-            <div className="fx-grid fx-grid--2">
-              <Select
-                id="ev-country" label="Country" value={form.country} onChange={setCountry}
-                options={[['CA', 'Canada'], ['US', 'United States']]}
-                hint="Sets the currency — CAD or USD. It locks once a ticket sells."
-              />
-              <Select
-                id="ev-timezone" label="Time zone" value={form.timezone} onChange={set('timezone')}
-                options={zonesFor(form.country)}
-                hint="Where the event happens. Buyers see times in this zone."
-              />
-            </div>
-            <div className="fx-grid fx-grid--2">
-              <Field label="Venue" name="venueName" maxLength={200} placeholder="e.g. The Danforth Music Hall" value={form.venueName} onChange={set('venueName')} />
-              <Field label="Address" name="venueAddress" maxLength={300} placeholder="Street, city" value={form.venueAddress} onChange={set('venueAddress')} />
-            </div>
-          </Panel>
-
-          <Panel title="When">
-            <div className="fx-grid fx-grid--2">
-              <Field
-                label="Starts" type="datetime-local" name="startsAt" required
-                hint={`Local time in ${zoneName(form)}.`}
-                error={startsInPast ? 'The start has to be in the future.' : null}
-                value={form.startsAt} onChange={set('startsAt')}
-              />
-              <Field
-                label="Ends" type="datetime-local" name="endsAt" required
-                min={form.startsAt || undefined}
-                error={endsBeforeStart ? 'The event has to end after it starts.' : null}
-                value={form.endsAt} onChange={set('endsAt')}
-              />
-            </div>
-          </Panel>
-
-          {ticketed && (
-            <Panel title="How tickets sell">
-              <fieldset className="fx-stack fx-stack--sm">
-                <legend className="text-sm text-ink">How buyers choose</legend>
-                <div className="fx-grid fx-grid--3">
-                  {PURCHASE_MODES.map(([value, label, detail]) => (
-                    <label key={value} className="es-card fx-row items-start gap-2.5 p-3 has-[:checked]:border-accent has-[:checked]:bg-accent-wash">
-                      <input
-                        type="radio" name="purchaseMode" value={value} className="mt-1"
-                        checked={form.purchaseMode === value} onChange={set('purchaseMode')}
-                      />
-                      <span className="fx-min0">
-                        <span className="block text-sm text-ink">{label}</span>
-                        <span className="block text-xs text-muted">{detail}</span>
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              </fieldset>
-
-              <div className="fx-grid fx-grid--2">
-                <Select
-                  id="ev-fees" label="Who pays the fees" value={form.feeBearer} onChange={set('feeBearer')}
-                  options={[['buyer', 'Buyers — added at checkout'], ['organizer', 'You — taken from your payout']]}
-                  hint="Either way every fee is its own line on the order."
-                />
-                <Field
-                  label="Tickets per order" type="number" name="maxTicketsPerOrder" min={1} max={100} required
-                  error={perOrderInvalid ? 'Between 1 and 100.' : null}
-                  value={form.maxTicketsPerOrder} onChange={set('maxTicketsPerOrder')}
-                />
-              </div>
-
-              <label className="fx-row items-start gap-2.5 text-sm">
-                <input
-                  type="checkbox" className="mt-0.5" checked={form.allowTicketTransfer}
-                  onChange={(e) => setForm((f) => ({ ...f, allowTicketTransfer: e.target.checked }))}
-                />
-                <span>
-                  <span className="block text-ink">Let buyers pass a ticket on</span>
-                  <span className="block text-xs text-muted">Once per ticket. The old code stops working when the new one is issued.</span>
-                </span>
-              </label>
-            </Panel>
+            </>
           )}
 
-          <FormError error={error} />
+          {step === 'when' && (
+            <>
+              <div className="fx-grid fx-grid--2">
+                <SelectField
+                  label="Country" required value={form.country} onChange={setCountry}
+                  options={[['CA', 'Canada'], ['US', 'United States']]}
+                  hint={ticketed ? 'Sets the currency — CAD or USD.' : null}
+                />
+                <SelectField
+                  label="Time zone" required value={form.timezone} onChange={set('timezone')}
+                  options={zonesFor(form.country)}
+                />
+              </div>
+              <div className="fx-grid fx-grid--2">
+                <Field
+                  label="Starts" type="datetime-local" name="startsAt" required
+                  hint={`Local time, ${zoneLabel}.`}
+                  error={shown('startsAt')} value={form.startsAt} onChange={set('startsAt')}
+                />
+                <Field
+                  label="Ends" type="datetime-local" name="endsAt" required
+                  min={form.startsAt || undefined}
+                  error={shown('endsAt')} value={form.endsAt} onChange={set('endsAt')}
+                />
+              </div>
+              <Field
+                label="Venue name" name="venueName" optional maxLength={200}
+                placeholder="e.g. The Danforth Music Hall"
+                value={form.venueName} onChange={set('venueName')}
+              />
+              <Field
+                label="Address" name="venueAddress" optional maxLength={300} autoComplete="street-address"
+                placeholder="Street, city"
+                value={form.venueAddress} onChange={set('venueAddress')}
+              />
+            </>
+          )}
 
-          <div className="fx-sticky-actions fx-row">
-            <SubmitButton busy={busy} busyLabel="Creating…" disabled={blocked}>Create draft event</SubmitButton>
-            <p className="text-xs text-subtle">Nothing is public until Eventsli approves it.</p>
-          </div>
-        </form>
-
-        <Panel title="What happens next" className="lg:sticky lg:top-6">
-          <ol className="fx-stack fx-stack--sm text-sm text-muted">
-            {[
-              ['Create the draft', 'Nothing is public yet.'],
-              ['Add ticket types and the seat map', 'The prices and the seats you sell.'],
-              ['Connect payouts', 'So card sales reach your Stripe account.'],
-              ['Accept the terms and submit', 'You see every fee before you do.'],
-              ['Eventsli reviews it', 'Then it goes on sale.'],
-            ].map(([title, detail], i) => (
-              <li key={title} className="es-marquee__row py-2">
-                <span className="es-marquee__index text-lg" aria-hidden>{String(i + 1).padStart(2, '0')}</span>
-                <span className="fx-min0">
-                  <span className="block text-ink">{title}</span>
-                  <span className="block">{detail}</span>
+          {step === 'tickets' && (
+            <>
+              <RadioCards
+                legend="How do buyers choose their place?" name="purchaseMode" required
+                value={form.purchaseMode} onChange={set('purchaseMode')}
+                options={PURCHASE_MODES.map(([value, title, desc, icon]) => ({ value, title, desc, icon }))}
+                columns={3}
+              />
+              <RadioCards
+                legend="Who pays the booking fees?" name="feeBearer" required
+                value={form.feeBearer} onChange={set('feeBearer')}
+                options={FEE_BEARERS.map(([value, title, desc]) => ({ value, title, desc }))}
+                columns={2}
+              />
+              <Field
+                label="Most tickets in one order" type="number" name="maxTicketsPerOrder" required
+                min={1} max={100} inputMode="numeric"
+                error={shown('maxTicketsPerOrder') || (form.maxTicketsPerOrder && problems.maxTicketsPerOrder)}
+                value={form.maxTicketsPerOrder} onChange={set('maxTicketsPerOrder')}
+              />
+              <label className="es-check">
+                <input
+                  type="checkbox" className="es-check__box" checked={form.allowTicketTransfer}
+                  onChange={(e) => setForm((f) => ({ ...f, allowTicketTransfer: e.target.checked }))}
+                />
+                <span className="text-sm">
+                  <span className="fx-row gap-2 text-ink">Let buyers pass a ticket on <span className="es-optional">Optional</span></span>
+                  <span className="block text-muted">Once per ticket. The old QR code stops working.</span>
                 </span>
-              </li>
-            ))}
-          </ol>
-        </Panel>
-      </div>
+              </label>
+              <p className="fx-row items-start text-sm text-muted">
+                <span className="text-accent"><NavIcon name="info" size={18} /></span>
+                <span className="fx-min0 flex-1">Ticket types, prices and the seating map come next, on the event itself.</span>
+              </p>
+            </>
+          )}
+
+          {step === 'payment' && (
+            choices.length === 0 ? (
+              <Notice tone="warning" title="You have no payment method yet.">
+                <p>
+                  You can still create this event as a draft. It cannot go on sale until you connect
+                  Stripe or add a manual payment method — your answers here are kept while you do.
+                </p>
+                <div className="fx-row pt-1">
+                  <Link href="/organizer/payments" className="es-btn es-btn--secondary es-btn--sm">
+                    Set up payment methods
+                  </Link>
+                </div>
+              </Notice>
+            ) : (
+              <>
+                <RadioCards
+                  legend="Payment options for this event" name="paymentOption" required
+                  value={form.paymentOption} onChange={set('paymentOption')}
+                  options={choices.map((c) => ({ value: c, title: PAYMENT_OPTIONS[c][0], desc: PAYMENT_OPTIONS[c][1], icon: PAYMENT_OPTIONS[c][2] }))}
+                  columns={choices.length === 3 ? 3 : choices.length}
+                  error={shown('paymentOption')}
+                />
+                {!organizer.payments.stripeReady && (
+                  <p className="text-sm text-muted">
+                    Want card payments too? <Link href="/organizer/payments" className="text-accent underline">Connect Stripe</Link>.
+                  </p>
+                )}
+                {organizer.payments.manualMethods === 0 && (
+                  <p className="text-sm text-muted">
+                    Want e-Transfer or cash too? <Link href="/organizer/payments" className="text-accent underline">Add a manual payment method</Link>.
+                  </p>
+                )}
+              </>
+            )
+          )}
+
+          {step === 'review' && (
+            <Review form={form} ticketed={ticketed} startIso={startIso} choices={choices} onEdit={(s) => go(steps.indexOf(s))} />
+          )}
+        </div>
+
+        <FormError error={error} />
+        {showErrors && !stepValid && (
+          <p className="text-sm text-danger" role="alert">Fix the highlighted fields to continue.</p>
+        )}
+
+        <div className="es-wizard__actions fx-sticky-actions">
+          {index > 0 ? (
+            <button type="button" className="es-btn es-btn--ghost" onClick={() => go(index - 1)} disabled={busy}>
+              Back
+            </button>
+          ) : (
+            <Link href="/organizer/events/new" className="es-btn es-btn--ghost">Change type</Link>
+          )}
+          <SubmitButton busy={busy} busyLabel="Creating…" className="es-btn--lg">
+            {index < steps.length - 1 ? 'Continue' : 'Create event'}
+            {index < steps.length - 1 && <NavIcon name="arrow" size={18} />}
+          </SubmitButton>
+        </div>
+      </form>
     </div>
   );
 }
 
-function Select({ id, label: text, value, onChange, options, hint }) {
+function RadioCards({ legend, name, value, onChange, options, columns = 2, required, error }) {
+  const id = useId();
   return (
-    <div className="fx-stack fx-stack--sm gap-1.5">
-      <label htmlFor={id} className="text-sm text-ink">{text}</label>
-      <select id={id} value={value} onChange={onChange} className="es-input" aria-describedby={hint ? `${id}-hint` : undefined}>
-        {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-      </select>
-      {hint && <p id={`${id}-hint`} className="text-xs text-subtle">{hint}</p>}
-    </div>
+    <fieldset className="fx-stack fx-stack--sm" aria-describedby={error ? `${id}-error` : undefined}>
+      <legend className="es-label mb-1.5">
+        <span>{legend}{required && <span className="es-req" aria-hidden="true">*</span>}</span>
+      </legend>
+      <div className={`es-choice-grid es-choice-grid--${columns}`}>
+        {options.map((o) => (
+          <label key={o.value} className="es-choice">
+            <input type="radio" name={name} value={o.value} checked={value === o.value} onChange={onChange} required={required} />
+            {o.icon && <span className="es-choice__icon"><NavIcon name={o.icon} size={20} /></span>}
+            <span className="es-choice__body">
+              <span className="es-choice__title">{o.title}</span>
+              <span className="es-choice__desc">{o.desc}</span>
+            </span>
+          </label>
+        ))}
+      </div>
+      {error && <p id={`${id}-error`} className="text-xs text-danger">{error}</p>}
+    </fieldset>
   );
 }
 
-/** The friendly name of the chosen zone, for the date hints. */
-function zoneName({ country, timezone }) {
-  const found = zonesFor(country).find(([z]) => z === timezone);
-  return found ? found[1].split(' — ')[0] + ' time' : timezone;
+function Review({ form, ticketed, startIso, choices, onEdit }) {
+  const rows = [
+    ['basics', 'Title', form.title.trim()],
+    ['basics', 'Category', categoryLabel(form.category)],
+    ['when', 'Starts', form.startsAt ? formatEventTime(startIso, form.timezone) : '—'],
+    ['when', 'Venue', form.venueName.trim() || 'Not added yet'],
+    ...(ticketed ? [
+      ['tickets', 'Buyers choose', PURCHASE_MODES.find(([v]) => v === form.purchaseMode)?.[1]],
+      ['tickets', 'Booking fees', form.feeBearer === 'buyer' ? 'Paid by buyers' : 'Paid by you'],
+      ['payment', 'Payments', choices.includes(form.paymentOption) ? PAYMENT_OPTIONS[form.paymentOption][0] : 'None yet — add one before going on sale'],
+    ] : [
+      ['basics', 'Tickets', 'None — display only'],
+    ]),
+  ];
+
+  return (
+    <>
+      <dl className="es-review">
+        {rows.map(([stepKey, term, value]) => (
+          <div key={term} className="es-review__row">
+            <dt className="es-review__term">{term}</dt>
+            <dd className="es-review__value">
+              {value}{' '}
+              <button type="button" className="ml-1 text-xs text-accent underline" onClick={() => onEdit(stepKey)}>
+                Edit<span className="sr-only"> {term}</span>
+              </button>
+            </dd>
+          </div>
+        ))}
+      </dl>
+      <div className="rounded-(--es-radius-md) bg-bg-sunken p-4">
+        <p className="mb-2 text-sm font-medium text-ink">What happens next</p>
+        <ol className="list-decimal fx-stack fx-stack--sm gap-1 pl-5 text-sm text-muted">
+          {ticketed ? (
+            <>
+              <li>Add ticket types and prices.</li>
+              <li>Build the seating map.</li>
+              <li>Accept the terms and submit for review.</li>
+            </>
+          ) : (
+            <>
+              <li>Add a cover image (recommended).</li>
+              <li>Accept the terms and submit for review.</li>
+            </>
+          )}
+          <li>Eventsli reviews it — usually within a day.</li>
+        </ol>
+      </div>
+    </>
+  );
 }
 
 function browserZone() {

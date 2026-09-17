@@ -18,9 +18,14 @@ import { useId, useState } from 'react';
  * of these, so the toggle arrives on all of them at once — sign in, register,
  * reset, and the change-password form in account settings — without any of
  * them opting in.
+ *
+ * REQUIRED AND OPTIONAL ARE SAID ON THE LABEL. A required field shows "*" (the
+ * input's own `required` is what a screen reader announces, so the star is
+ * hidden from it); `optional` shows an "Optional" badge. An organizer filling a
+ * long form should never have to submit it to find out which boxes mattered.
  */
 export default function Field({
-  label, hint, error, type = 'text', ...props
+  label, hint, error, type = 'text', optional = false, ...props
 }) {
   const id = useId();
   const hintId = `${id}-hint`;
@@ -49,7 +54,7 @@ export default function Field({
 
   return (
     <div className="fx-stack fx-stack--sm gap-1.5">
-      <label htmlFor={id} className="text-sm text-ink">{label}</label>
+      <FieldLabel htmlFor={id} required={props.required} optional={optional}>{label}</FieldLabel>
 
       {isPassword ? (
         <div className="es-input-wrap">
@@ -72,6 +77,65 @@ export default function Field({
 
       {hint && !error && <p id={hintId} className="text-xs text-subtle">{hint}</p>}
       {error && <p id={errorId} className="text-xs text-danger">{error}</p>}
+    </div>
+  );
+}
+
+/** A label with the required star or the Optional badge. */
+export function FieldLabel({ htmlFor, required, optional, children, as: Tag = 'label' }) {
+  return (
+    <Tag {...(Tag === 'label' ? { htmlFor } : {})} className="es-label">
+      <span>
+        {children}
+        {required && <span className="es-req" aria-hidden="true">*</span>}
+      </span>
+      {optional && !required && <span className="es-optional">Optional</span>}
+    </Tag>
+  );
+}
+
+/** A labelled `<select>`. `options` is `[[value, label], …]`. */
+export function SelectField({ label, hint, error, options, optional = false, ...props }) {
+  const id = useId();
+  return (
+    <div className="fx-stack fx-stack--sm gap-1.5">
+      <FieldLabel htmlFor={id} required={props.required} optional={optional}>{label}</FieldLabel>
+      <select
+        id={id}
+        className="es-input"
+        aria-describedby={[hint && `${id}-hint`, error && `${id}-error`].filter(Boolean).join(' ') || undefined}
+        aria-invalid={error ? 'true' : undefined}
+        {...props}
+      >
+        {options.map(([value, text]) => <option key={value} value={value}>{text}</option>)}
+      </select>
+      {hint && !error && <p id={`${id}-hint`} className="text-xs text-subtle">{hint}</p>}
+      {error && <p id={`${id}-error`} className="text-xs text-danger">{error}</p>}
+    </div>
+  );
+}
+
+/** A labelled `<textarea>`, with a live character count when `maxLength` is set. */
+export function TextareaField({ label, hint, error, optional = false, rows = 4, ...props }) {
+  const id = useId();
+  const length = String(props.value ?? '').length;
+  return (
+    <div className="fx-stack fx-stack--sm gap-1.5">
+      <FieldLabel htmlFor={id} required={props.required} optional={optional}>{label}</FieldLabel>
+      <textarea
+        id={id}
+        rows={rows}
+        className="es-input py-2"
+        aria-describedby={[hint && `${id}-hint`, error && `${id}-error`].filter(Boolean).join(' ') || undefined}
+        aria-invalid={error ? 'true' : undefined}
+        {...props}
+      />
+      <div className="fx-row fx-row--between gap-3">
+        {error
+          ? <p id={`${id}-error`} className="text-xs text-danger">{error}</p>
+          : hint ? <p id={`${id}-hint`} className="text-xs text-subtle">{hint}</p> : <span />}
+        {props.maxLength && <span className="es-nums text-xs text-subtle">{length}/{props.maxLength}</span>}
+      </div>
     </div>
   );
 }

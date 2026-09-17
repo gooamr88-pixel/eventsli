@@ -38,7 +38,15 @@ export function pathForEvent(pathname, nextEventId) {
 
 const CHOOSE_FIRST = 'Choose an event first';
 
-export function organizerNavGroups({ eventId }) {
+/**
+ * What a DISPLAY-ONLY event has. It sells nothing, so ticket types, the seat
+ * map, orders, the door and every other selling screen would be empty rooms —
+ * they are not shown at all for it, rather than shown and useless.
+ */
+const DISPLAY_ONLY_KEYS = new Set(['overview', 'share']);
+
+export function organizerNavGroups({ eventId, listingType = null }) {
+  const displayOnly = listingType === 'display_only';
   const item = (key, label, icon, suffix) => ({
     key,
     label,
@@ -48,7 +56,7 @@ export function organizerNavGroups({ eventId }) {
     hint: eventId ? null : CHOOSE_FIRST,
   });
 
-  return [
+  const groups = [
     {
       id: 'home',
       label: null,
@@ -92,11 +100,18 @@ export function organizerNavGroups({ eventId }) {
       id: 'account',
       label: 'Your account',
       items: [
-        { key: 'payouts', label: 'Payouts', icon: 'bank', href: '/organizer/payouts' },
-        { key: 'profile', label: 'Profile', icon: 'user', href: '/organizer/profile' },
+        { key: 'payments', label: 'Payment methods', icon: 'bank', href: '/organizer/payments' },
+        { key: 'profile', label: 'Organization', icon: 'user', href: '/organizer/profile' },
       ],
     },
   ];
+
+  if (!displayOnly || !eventId) return groups;
+  return groups
+    .map((group) => (['build', 'sell', 'day'].includes(group.id)
+      ? { ...group, items: group.items.filter((item) => DISPLAY_ONLY_KEYS.has(item.key)) }
+      : group))
+    .filter((group) => group.items.length > 0);
 }
 
 /** The phone's bottom bar. "More" opens the drawer and is added by the shell. */

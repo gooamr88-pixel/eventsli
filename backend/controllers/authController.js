@@ -27,10 +27,20 @@ const LOCKOUT_MINUTES = 15;
 const CREDENTIALS_REJECTED = 'That email or password is not right.';
 
 // ─── POST /auth/register ────────────────────────────────────────────────────
+/**
+ * `accountType: 'organizer'` is the organizer sign-up: the organization name and
+ * a phone number are required, and so is agreeing to the terms and the privacy
+ * policy (the route validates all of it). It does NOT make them an organizer —
+ * that still happens on the setup step, where the country that decides their
+ * Stripe entity is asked. What it records is the intent, so activation lands
+ * them on the organizer dashboard rather than the storefront.
+ */
 async function register(req, res, next) {
   try {
     const email = String(req.body.email).trim().toLowerCase();
     const { password, fullName, phone } = req.body;
+    const asOrganizer = req.body.accountType === 'organizer';
+    const now = new Date().toISOString();
 
     const password_hash = await hashPassword(password);
 
@@ -41,8 +51,15 @@ async function register(req, res, next) {
         full_name: String(fullName).trim(),
         phone: phone ? String(phone).trim() : null,
         password_hash,
-        password_updated_at: new Date().toISOString(),
+        password_updated_at: now,
         role: 'attendee',   // organizer is granted when they create an organizer profile
+        signup_intent: asOrganizer ? 'organizer' : 'attendee',
+        ...(asOrganizer ? {
+          organization_name: String(req.body.organizationName).trim(),
+          // Validated `=== true` by the route; the timestamps are the record.
+          terms_accepted_at: now,
+          privacy_accepted_at: now,
+        } : {}),
       })
       .select('id, email, full_name, role')
       .single();
@@ -68,6 +85,7 @@ async function register(req, res, next) {
     return sendOk(res, {
       id: data.id, email: data.email, fullName: data.full_name, role: data.role,
       verificationRequired: true,
+      accountType: asOrganizer ? 'organizer' : 'attendee',
     }, { status: 201 });
   } catch (err) {
     return next(err);
@@ -111,6 +129,59 @@ async function verifyEmail(req, res, next) {
     await sessions.issue(res, { userId: user.id, email: user.email, role: user.role, req });
 
     return sendOk(res, { id: user.id, email: user.email, fullName: user.full_name, role: user.role });
+  } catch (err) {
+    return next(err);
+  }
+}
+
+// ─── POST /auth/activate ────────────────────────────────────────────────────
+/**
+ * The activation link. Like the code, a success confirms the address AND signs
+ * the person in — the link proves the inbox as much as the code does.
+ *
+ * `next` says where they belong: an organizer sign-up goes to the organizer
+ * dashboard, where setup starts; anyone else goes home.
+ *
+ * Clicking twice is not an error to the person doing it: they are told the
+ * account is active and sent to sign in — without a session, because a used
+ * link must not keep minting them.
+ */
+async function activate(req, res, next) {
+  try {
+    const result = await verification.activateByLink({ token: req.body.token });
+    const destination = (u) => (u?.signup_intent === 'organizer' ? '/organizer' : '/');
+
+    if (result.error === 'ALREADY_VERIFIED') {
+      return sendFail(res, {
+        status: 409, error: 'ALREADY_VERIFIED',
+        message: 'This account is already active. Sign in to continue.',
+        meta: { next: destination(result.user) },
+      });
+    }
+    if (!result.ok) {
+      const banned = result.error === 'ACCOUNT_BANNED';
+      return sendFail(res, {
+        status: banned ? 403 : 400,
+        error: result.error,
+        message: banned
+          ? 'This account has been suspended. Contact support if you think that is a mistake.'
+          : result.error === 'TOKEN_EXPIRED'
+            ? 'This activation link has expired or was replaced by a newer one.'
+            : 'This activation link is not valid.',
+      });
+    }
+
+    const { user } = result;
+    rbac.invalidate(user.id);
+    await supabase.from('profiles')
+      .update({ last_login_at: new Date().toISOString(), failed_login_count: 0, locked_until: null })
+      .eq('id', user.id);
+    await sessions.issue(res, { userId: user.id, email: user.email, role: user.role, req });
+
+    return sendOk(res, {
+      id: user.id, email: user.email, fullName: user.full_name, role: user.role,
+      next: destination(user),
+    });
   } catch (err) {
     return next(err);
   }
@@ -450,7 +521,7 @@ async function googleSignIn(req, res, next) {
 }
 
 module.exports = {
-  register, verifyEmail, resendVerification, login, logout, logoutAll, me,
+  register, verifyEmail, activate, resendVerification, login, logout, logoutAll, me,
   listSessions, endSession, changePassword,
   forgotPassword, resetPassword, googleSignIn,
   MAX_FAILED_LOGINS, LOCKOUT_MINUTES,

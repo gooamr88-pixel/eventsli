@@ -120,7 +120,7 @@ export function Closing() {
           <p>Find something on this weekend, or put your own event on sale in minutes.</p>
           <div className="es-lp-close__ctas">
             <Link href="/events" className="es-lp-btn es-lp-btn--white">Explore events</Link>
-            <Link href="/register" className="es-lp-btn es-lp-btn--glass">Create your event</Link>
+            <Link href="/register/organizer" className="es-lp-btn es-lp-btn--glass">Create your event</Link>
           </div>
         </div>
       </div>

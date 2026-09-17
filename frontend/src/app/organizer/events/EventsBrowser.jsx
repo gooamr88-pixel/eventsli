@@ -26,14 +26,19 @@ import OrganizerNotices from '../OrganizerNotices';
  * links straight to them and the back button returns to the same view.
  * ─────────────────────────────────────────────────────────────────────────────
  */
+// "All" leaves archived events out — putting an event away is how an organizer
+// says they do not want to see it here. They have their own tab.
+const ACTIVE = ['draft', 'pending_review', 'rejected', 'published', 'suspended', 'completed', 'cancelled'];
+
 const FILTERS = [
-  { value: 'all', label: 'All', statuses: null },
+  { value: 'all', label: 'All', statuses: ACTIVE },
   { value: 'published', label: 'On sale', statuses: ['published'] },
   { value: 'draft', label: 'Drafts', statuses: ['draft'] },
   { value: 'pending_review', label: 'In review', statuses: ['pending_review'] },
   { value: 'rejected', label: 'Changes needed', statuses: ['rejected'] },
   { value: 'suspended', label: 'Suspended', statuses: ['suspended'] },
   { value: 'past', label: 'Past', statuses: ['completed', 'cancelled'] },
+  { value: 'archived', label: 'Archived', statuses: ['archived'] },
 ];
 
 export default function EventsBrowser() {
@@ -50,11 +55,11 @@ export default function EventsBrowser() {
 
   const events = Array.isArray(data) ? data : [];
   const counts = Object.fromEntries(FILTERS.map((f) => [
-    f.value, f.statuses ? events.filter((e) => f.statuses.includes(e.status)).length : events.length,
+    f.value, events.filter((e) => f.statuses.includes(e.status)).length,
   ]));
   const needle = search.toLowerCase();
   const rows = events
-    .filter((e) => !filter.statuses || filter.statuses.includes(e.status))
+    .filter((e) => filter.statuses.includes(e.status))
     .filter((e) => !needle || e.title.toLowerCase().includes(needle) || (e.venue?.name || '').toLowerCase().includes(needle));
 
   return (
@@ -91,7 +96,9 @@ export default function EventsBrowser() {
           action={{ href: '/organizer/events/new', label: 'Create your first event' }}
         />
       ) : rows.length === 0 ? (
-        <Empty title="Nothing matches." hint="Try another filter, or clear the search." />
+        filter.value === 'archived' && !needle
+          ? <Empty title="No archived events." hint="Archive an event from its page to stop its sales and file it here." />
+          : <Empty title="Nothing matches." hint="Try another filter, or clear the search." />
       ) : (
         <DataTable
           caption="Your events"
@@ -104,7 +111,10 @@ export default function EventsBrowser() {
               render: (e) => (
                 <Link href={`/organizer/events/${e.id}`} className="fx-stack fx-stack--sm gap-0.5 hover:text-accent">
                   <span className="fx-break font-medium text-ink">{e.title}</span>
-                  {e.venue?.name && <span className="text-sm text-muted">{e.venue.name}</span>}
+                  <span className="text-sm text-muted">
+                    {e.listingType === 'display_only' ? 'Display only' : 'Ticketed'}
+                    {e.venue?.name && ` · ${e.venue.name}`}
+                  </span>
                 </Link>
               ),
             },
@@ -121,7 +131,9 @@ export default function EventsBrowser() {
               align: 'end',
               render: (e) => (
                 <span className="fx-row justify-end">
-                  <Link href={`/organizer/events/${e.id}/orders`} className="es-btn es-btn--ghost es-btn--sm">Orders</Link>
+                  {e.listingType !== 'display_only' && e.status !== 'archived' && (
+                    <Link href={`/organizer/events/${e.id}/orders`} className="es-btn es-btn--ghost es-btn--sm">Orders</Link>
+                  )}
                   <Link href={`/organizer/events/${e.id}`} className="es-btn es-btn--secondary es-btn--sm">Manage</Link>
                 </span>
               ),

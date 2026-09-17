@@ -30,7 +30,7 @@ describe('resolveNav', () => {
 
   test('the dashboard is exact — it does not light up under every organizer page', () => {
     expect(activeKeys(resolveNav(groups, '/organizer'))).toEqual(['dashboard']);
-    expect(activeKeys(resolveNav(groups, '/organizer/payouts'))).toEqual(['payouts']);
+    expect(activeKeys(resolveNav(groups, '/organizer/payments'))).toEqual(['payments']);
   });
 
   test('a page that is not in the nav falls back to its nearest section', () => {
@@ -51,7 +51,7 @@ describe('resolveNav', () => {
 describe('organizer destinations', () => {
   test('without an event, event items are disabled WITH a reason', () => {
     const items = organizerNavGroups({ eventId: null }).flatMap((g) => g.items);
-    const scoped = items.filter((i) => !['dashboard', 'events', 'payouts', 'profile'].includes(i.key));
+    const scoped = items.filter((i) => !['dashboard', 'events', 'payments', 'profile'].includes(i.key));
     expect(scoped.length).toBeGreaterThan(8);
     for (const item of scoped) {
       expect(item.disabled).toBe(true);
@@ -69,6 +69,22 @@ describe('organizer destinations', () => {
       const page = path.join(app, route, 'page.jsx');
       expect(fs.existsSync(page), `${item.key} → ${route} has no page`).toBe(true);
     }
+  });
+
+  test('a display-only event shows no selling screens — only its overview and sharing', () => {
+    const groups = organizerNavGroups({ eventId: EVENT, listingType: 'display_only' });
+    const keys = groups.flatMap((g) => g.items).map((i) => i.key);
+    expect(keys).toEqual(expect.arrayContaining(['dashboard', 'events', 'overview', 'share', 'payments', 'profile']));
+    for (const selling of ['tiers', 'map', 'tables', 'promos', 'orders', 'door', 'commission', 'attendees', 'staff', 'devices']) {
+      expect(keys, `${selling} must not show for a listing`).not.toContain(selling);
+    }
+    // No empty group headings left behind.
+    expect(groups.every((g) => g.items.length > 0)).toBe(true);
+  });
+
+  test('a ticketed event keeps every screen', () => {
+    const all = organizerNavGroups({ eventId: EVENT }).flatMap((g) => g.items).length;
+    expect(organizerNavGroups({ eventId: EVENT, listingType: 'ticketed' }).flatMap((g) => g.items)).toHaveLength(all);
   });
 
   test('the bottom bars only name keys that exist', () => {

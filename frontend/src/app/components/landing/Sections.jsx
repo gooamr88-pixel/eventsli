@@ -61,7 +61,7 @@ export function SearchBand({ categories }) {
  * do is the kind of placeholder that ships, so every one of these is real.
  */
 const ROLES = [
-  { label: 'Organizer', desc: 'Sell tickets & tables', href: '/register', icon: 'briefcase' },
+  { label: 'Organizer', desc: 'Sell tickets & tables', href: '/register/organizer', icon: 'briefcase' },
   { label: 'Ticket buyer', desc: 'Pick your seat', href: '/events', icon: 'ticket' },
   { label: 'Door staff', desc: 'Scan, even offline', href: '/gate', icon: 'scan' },
   { label: 'Group booker', desc: 'A whole table at once', href: '/events', icon: 'users' },
@@ -149,7 +149,7 @@ export function Steps() {
         </ol>
 
         <div className="es-lp-steps__cta">
-          <Link href="/register" className="es-lp-btn es-lp-btn--solid">Start selling</Link>
+          <Link href="/register/organizer" className="es-lp-btn es-lp-btn--solid">Start selling</Link>
           <Link href="/how-it-works" className="es-lp-btn es-lp-btn--outline">See how it works</Link>
         </div>
       </div>

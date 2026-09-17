@@ -379,7 +379,7 @@ function navCta({ signedIn, loading, user }) {
   if (loading) return null;
   if (signedIn && user?.isOrganizer) return { href: '/organizer/events/new', label: 'Create event' };
   if (signedIn) return { href: '/organizer', label: 'Create event' };
-  return { href: '/register', label: 'Create event' };
+  return { href: '/register/organizer', label: 'Create event' };
 }
 
 /**

@@ -43,8 +43,45 @@ router.post(
     .withMessage('Enter your name.'),
   body('phone').optional({ values: 'falsy' }).isString().trim()
     .matches(/^[0-9+\-() ]{7,20}$/).withMessage('Enter a valid phone number.'),
+  // ─ The organizer sign-up asks for more, and requires all of it ─
+  body('accountType').optional().isIn(['attendee', 'organizer']),
+  body('organizationName')
+    .if(body('accountType').equals('organizer'))
+    .isString().trim().isLength({ min: 2, max: 160 })
+    .withMessage('Enter the name of your organization.'),
+  body('phone')
+    .if(body('accountType').equals('organizer'))
+    .isString().trim().matches(/^[0-9+\-() ]{7,20}$/)
+    .withMessage('Enter a mobile number we can reach you on.'),
+  // `=== true`, not truthy: the string "false" is truthy, and an agreement
+  // recorded from it is not an agreement.
+  body('acceptTerms')
+    .if(body('accountType').equals('organizer'))
+    .custom((v) => v === true).withMessage('Agree to the terms and conditions to continue.'),
+  body('acceptPrivacy')
+    .if(body('accountType').equals('organizer'))
+    .custom((v) => v === true).withMessage('Agree to the privacy policy to continue.'),
   validate,
   c.register,
+);
+
+// The activation link from the email. A token is 256 bits, so this limiter is
+// about load, not guessing.
+const activateLimiter = makeLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  name: 'activate-link',
+  keyGenerator: (req) => req.ip,
+  message: 'Too many attempts. Wait a few minutes and try the link again.',
+});
+
+router.post(
+  '/activate',
+  activateLimiter,
+  body('token').isString().trim().isLength({ min: 20, max: 200 })
+    .withMessage('This activation link is not valid.'),
+  validate,
+  c.activate,
 );
 
 // ─── Email verification ────────────────────────────────────────────────────

@@ -42,10 +42,14 @@ export default function Dashboard() {
 
   if (loading) return <Loading variant="stats" rows={4} label="Loading your dashboard" />;
   if (error) return <ErrorNotice error={error} />;
+  // Step 1 of the road to a first event. An organizer who already has events
+  // from before this step existed is not blocked here — they get a notice, and
+  // the details are required before their NEXT new event.
   if (!organizer) return <CreateProfile onCreated={refresh} />;
 
   const data = stats.data;
   const isNew = Boolean(data) && (data.events?.total ?? 0) === 0;
+  if (isNew && !organizer.setupComplete) return <CreateProfile organizer={organizer} onCreated={refresh} />;
   const currencies = Object.keys(data?.sales || {});
   const fallback = organizer.country === 'US' ? 'USD' : 'CAD';
   const currency = picked && currencies.includes(picked) ? picked : (currencies[0] || fallback);

@@ -64,6 +64,10 @@ router.post(
   body('city').optional({ values: 'falsy' }).isString().trim().isLength({ min: 1, max: 120 })
     .withMessage('A city name is at most 120 characters.'),
   body('feeBearer').optional().isIn(['buyer', 'organizer']),
+  // Which of the organizer's payment methods the event takes. Checked against
+  // what they have set up in the controller; absent means "none yet".
+  body('paymentOption').optional({ values: 'falsy' }).isIn(['both', 'stripe', 'manual'])
+    .withMessage('Choose how buyers pay: Stripe, manual, or both.'),
   validate,
   c.create,
 );
@@ -90,6 +94,8 @@ router.patch(
   body('city').optional({ values: 'null' }).isString().trim().isLength({ max: 120 }),
   body('maxTicketsPerOrder').optional().isInt({ min: 1, max: 100 }),
   body('allowTicketTransfer').optional().isBoolean(),
+  body('acceptsStripe').optional().isBoolean(),
+  body('acceptsManual').optional().isBoolean(),
   // An admin's note for the audit trail when they change an organizer's event.
   body('reason').optional().isString().trim().isLength({ max: 1000 }),
   validate,
@@ -129,7 +135,20 @@ router.post('/:eventId/accept-terms', verifyEventOwner, c.acceptTerms);
 router.post('/:eventId/submit', verifyEventOwner, c.submitForReview);
 
 // BRD §17 — there is deliberately no cancel route here. The organizer cannot
-// cancel an event; POST /admin/events/:eventId/cancel is the only way.
+// cancel an event; they ASK, and a super admin decides in the console.
+const lifecycle = require('../controllers/eventLifecycleController');
+
+router.post('/:eventId/archive', verifyEventOwner, lifecycle.archive);
+router.post('/:eventId/restore', verifyEventOwner, lifecycle.restore);
+router.post(
+  '/:eventId/cancellation-request',
+  verifyEventOwner,
+  body('reason').isString().trim().isLength({ min: 10, max: 2000 })
+    .withMessage('Tell Eventsli why the event needs to be cancelled (at least 10 characters).'),
+  validate,
+  lifecycle.requestCancellation,
+);
+router.delete('/:eventId/cancellation-request', verifyEventOwner, lifecycle.withdrawCancellation);
 
 // BRD §26 — the seat map. Tables are sellable stock, not decoration.
 const { makeLimiter } = require('../middleware/rateLimit');

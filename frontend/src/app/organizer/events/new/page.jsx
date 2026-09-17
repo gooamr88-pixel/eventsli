@@ -1,4 +1,6 @@
+import { Suspense } from 'react';
 import NewEventForm from './NewEventForm';
+import { Loading } from '../../../components/Feedback';
 
 export const metadata = {
   title: 'New event',
@@ -6,5 +8,9 @@ export const metadata = {
 };
 
 export default function NewEventPage() {
-  return <NewEventForm />;
+  return (
+    <Suspense fallback={<Loading variant="card" />}>
+      <NewEventForm />
+    </Suspense>
+  );
 }

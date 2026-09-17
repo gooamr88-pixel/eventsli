@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useApi } from '../../../hooks/useApi';
-import { useAuth } from '../../../hooks/useAuth';
+import { useOrganizer } from '../../../hooks/useOrganizer';
 import { Panel } from '../../../components/ui/Page';
 import NavIcon from '../../../components/shell/NavIcon';
 
@@ -19,7 +19,7 @@ import NavIcon from '../../../components/shell/NavIcon';
  * ─────────────────────────────────────────────────────────────────────────────
  */
 export default function LaunchChecklist({ event }) {
-  const { user } = useAuth();
+  const { organizer } = useOrganizer();
   const { data: stats } = useApi(`/events/${event.id}/stats?days=7`);
   const base = `/organizer/events/${event.id}`;
   const ticketed = event.listingType !== 'display_only';
@@ -38,7 +38,19 @@ export default function LaunchChecklist({ event }) {
     ...(ticketed ? [
       { key: 'tiers', label: 'Ticket types', done: (stats?.tiers?.length || 0) > 0, href: `${base}/tiers`, hint: 'At least one price' },
       { key: 'map', label: 'Seat map', done: (stats?.seats?.total || 0) > 0, href: `${base}/map`, hint: 'Tables and seats to sell' },
-      { key: 'payouts', label: 'Payout account', done: Boolean(user?.canReceivePayouts), href: '/organizer/payouts', hint: 'Needed to sell online' },
+      {
+        key: 'payments',
+        label: 'Payment method',
+        // The same rule submit applies: switched on for this event AND set up.
+        done: Boolean(organizer) && (
+          (event.payments?.acceptsStripe && organizer.payments?.stripeReady)
+          || (event.payments?.acceptsManual && organizer.payments?.manualMethods > 0)
+        ),
+        href: (event.payments?.acceptsStripe || event.payments?.acceptsManual) ? '/organizer/payments' : `${base}#details`,
+        hint: (event.payments?.acceptsStripe || event.payments?.acceptsManual)
+          ? 'Set up the payment option this event uses'
+          : 'Choose how buyers pay for this event',
+      },
     ] : []),
     { key: 'terms', label: 'Organizer terms', done: Boolean(event.review?.termsAccepted), href: `${base}#going-on-sale`, hint: 'Accepted for this event' },
     { key: 'submit', label: 'Submitted for review', done: submitted, href: `${base}#going-on-sale`, hint: 'Eventsli reviews every event' },

@@ -7,6 +7,8 @@ import { zonesFor } from '../../../lib/timezones';
 import { toLocalInput } from '../../../lib/eventTime';
 import { toIso } from '../new/NewEventForm';
 import { useToast } from '../../../components/ui/Toast';
+import { useOrganizer } from '../../../hooks/useOrganizer';
+import Link from 'next/link';
 import { Panel } from '../../../components/ui/Page';
 import Field from '../../../components/forms/Field';
 import FormError from '../../../components/forms/FormError';
@@ -35,7 +37,7 @@ import { Notice } from '../../../components/Feedback';
  * actually touched.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-const LIVE_EDITABLE = new Set(['description', 'maxTicketsPerOrder', 'allowTicketTransfer']);
+const LIVE_EDITABLE = new Set(['description', 'maxTicketsPerOrder', 'allowTicketTransfer', 'acceptsStripe', 'acceptsManual']);
 
 function fromEvent(event) {
   return {
@@ -52,11 +54,14 @@ function fromEvent(event) {
     feeBearer: event.fees?.feeBearer || 'buyer',
     maxTicketsPerOrder: String(event.rules?.maxTicketsPerOrder ?? ''),
     allowTicketTransfer: Boolean(event.rules?.allowTicketTransfer),
+    acceptsStripe: Boolean(event.payments?.acceptsStripe),
+    acceptsManual: Boolean(event.payments?.acceptsManual),
   };
 }
 
 export default function EventDetailsEditor({ event, onSaved }) {
   const toast = useToast();
+  const { organizer } = useOrganizer();
   const [categories, setCategories] = useState([]);
   const [form, setForm] = useState(() => fromEvent(event));
   const [busy, setBusy] = useState(false);
@@ -205,6 +210,33 @@ export default function EventDetailsEditor({ event, onSaved }) {
                 </span>
               </label>
             </div>
+
+            <fieldset className="fx-stack fx-stack--sm gap-2">
+              <legend className="es-label mb-1.5">
+                <span>How buyers pay<span className="es-req" aria-hidden="true">*</span></span>
+              </legend>
+              <PaymentToggle
+                label="Card payments (Stripe)"
+                detail={organizer?.payments?.stripeReady ? 'Buyers pay by card at checkout.' : 'Connect Stripe first.'}
+                checked={form.acceptsStripe}
+                // Turning one OFF is always allowed; turning one ON needs it set up.
+                available={Boolean(organizer?.payments?.stripeReady) || form.acceptsStripe}
+                onChange={(v) => setForm((f) => ({ ...f, acceptsStripe: v }))}
+              />
+              <PaymentToggle
+                label="Manual payments"
+                detail={organizer?.payments?.manualMethods > 0 ? 'e-Transfer, bank transfer or cash, as you set them up.' : 'Add a manual payment method first.'}
+                checked={form.acceptsManual}
+                available={organizer?.payments?.manualMethods > 0 || form.acceptsManual}
+                onChange={(v) => setForm((f) => ({ ...f, acceptsManual: v }))}
+              />
+              {!form.acceptsStripe && !form.acceptsManual && (
+                <p className="text-xs text-danger">Choose at least one before submitting this event.</p>
+              )}
+              <p className="text-xs text-subtle">
+                <Link href="/organizer/payments" className="text-accent underline">Manage payment methods</Link>
+              </p>
+            </fieldset>
           </>
         )}
 
@@ -222,6 +254,21 @@ export default function EventDetailsEditor({ event, onSaved }) {
         </div>
       </form>
     </Panel>
+  );
+}
+
+function PaymentToggle({ label, detail, checked, available, onChange }) {
+  return (
+    <label className={`es-check${available ? '' : ' cursor-not-allowed opacity-60'}`} aria-disabled={!available || undefined}>
+      <input
+        type="checkbox" className="es-check__box" checked={checked} disabled={!available}
+        onChange={(e) => onChange(e.target.checked)}
+      />
+      <span className="text-sm">
+        <span className="block text-ink">{label}</span>
+        <span className="block text-muted">{detail}</span>
+      </span>
+    </label>
   );
 }
 

@@ -75,6 +75,8 @@ export default function OrganizerLayout({ children }) {
 
   const rememberedIsMine = Boolean(lastEventId && events?.some((e) => e.id === lastEventId));
   const eventId = pathEventId || (rememberedIsMine ? lastEventId : null);
+  // A display-only event has no selling screens; the sidebar leaves them out.
+  const listingType = events?.find((e) => e.id === eventId)?.listingType || null;
 
   return (
     <ToastProvider>
@@ -83,7 +85,7 @@ export default function OrganizerLayout({ children }) {
           role="Organizer"
           label="Organizer"
           home="/organizer"
-          groups={organizerNavGroups({ eventId })}
+          groups={organizerNavGroups({ eventId, listingType })}
           tabKeys={ORGANIZER_TABS}
           head={(
             <>

@@ -24,6 +24,8 @@ const TABLES = [
   'scanner_access', 'scan_devices', 'scans',
   'sessions', 'webhook_events', 'admin_audit', 'promo_codes',
   'event_staff', 'email_verifications',
+  // The organizer journey (20260917091000).
+  'organizer_payment_methods', 'event_cancellation_requests',
 ];
 
 // Business rules that live in the database. If one of these is absent, the rule
@@ -48,7 +50,7 @@ const FUNCTIONS = [
   'manual_commission_owed', 'mark_overdue_invoices',
   // The dashboards — one round trip each.
   'event_sales_summary', 'organizer_dashboard_summary', 'platform_overview',
-  'verify_email_code',
+  'verify_email_code', 'activate_email_link',
   // Ids in a request body are scoped to their event (20260915120000).
   'save_venue_map', 'seats_same_map_as_table',
   // Ticket-type allocations and discount-code claims (20260915130000/131000).

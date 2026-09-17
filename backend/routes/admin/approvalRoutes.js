@@ -1,5 +1,5 @@
 const express = require('express');
-const { body, param } = require('express-validator');
+const { body, param, query } = require('express-validator');
 const validate = require('../../middleware/validate');
 const { requireRole } = require('../../middleware/auth');
 const c = require('../../controllers/admin/approvalController');
@@ -53,6 +53,33 @@ router.post(
     .withMessage('Record why this event is being cancelled.'),
   validate,
   c.cancel,
+);
+
+// ─── Cancellation requests from organizers ─────────────────────────────────
+// Listed for any admin; DECIDED by a super admin, because approving one is a
+// cancellation — terminal, and on the organizer's word.
+router.get(
+  '/cancellation-requests',
+  query('status').optional().isIn(['pending', 'approved', 'rejected', 'withdrawn', 'all']),
+  validate,
+  c.cancellationRequests,
+);
+router.post(
+  '/cancellation-requests/:requestId/approve',
+  requireRole('super_admin'),
+  param('requestId').isUUID(),
+  body('note').optional().isString().trim().isLength({ max: 2000 }),
+  validate,
+  c.approveCancellation,
+);
+router.post(
+  '/cancellation-requests/:requestId/reject',
+  requireRole('super_admin'),
+  param('requestId').isUUID(),
+  body('note').isString().trim().isLength({ min: 10, max: 2000 })
+    .withMessage('Tell the organizer why — they will see this.'),
+  validate,
+  c.rejectCancellation,
 );
 
 // BRD 18 - a super admin can reopen a gate that an overdue invoice closed.

@@ -174,10 +174,10 @@ export default function HowItWorksPage() {
         <Steps steps={SELLING} />
         <div className="fx-row">
           <Link
-            href="/register"
+            href="/register/organizer"
             className="es-lp-btn es-lp-btn--solid"
           >
-            Create an account
+            Create an organizer account
           </Link>
           <Link href="/why-us" className="text-sm text-accent hover:text-accent-hover">
             Why organizers choose us →

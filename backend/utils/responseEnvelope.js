@@ -108,6 +108,16 @@ const ERROR_STATUS = {
   SELF_ACTION: 409,        // nobody acts on themselves
   LAST_SUPER_ADMIN: 409,   // the platform would become unadministrable
 
+  // The organizer journey: activation by link, setup, payments, archive and
+  // cancellation requests.
+  TOKEN_EXPIRED: 400,              // an activation link past its time, or replaced
+  ALREADY_VERIFIED: 409,           // the link was already used; sign in instead
+  ORGANIZER_SETUP_REQUIRED: 403,   // organization details before the first event
+  PAYMENT_METHOD_REQUIRED: 409,    // a ticketed event with no way to take money
+  PAYMENT_METHOD_UNAVAILABLE: 400, // choosing a channel the account has not set up
+  EVENT_ARCHIVED: 409,             // restore it before changing it
+  CANCELLATION_PENDING: 409,       // one open request per event
+
   // app.js's catch-all. A client can receive it, so it needs a sentence.
   INTERNAL_ERROR: 500,
 

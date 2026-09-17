@@ -11,6 +11,7 @@ import { resolveNav } from '../../../components/shell/navModel';
 import { ErrorNotice } from '../../../components/Feedback';
 import { organizerNavGroups } from '../../nav/organizerNav';
 import { EventProvider } from './EventContext';
+import EventActions from './EventActions';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -54,7 +55,9 @@ export default function EventLayout({ children }) {
 
   const refresh = useCallback((next) => {
     if (next && typeof next === 'object' && next.id === id && next.review) {
-      setState({ event: next, error: null });
+      // An action's answer is the event without the side data only `GET` adds
+      // (the cancellation request); keep that until the re-read replaces it.
+      setState((s) => ({ event: { cancellationRequest: s.event?.cancellationRequest ?? null, ...next }, error: null }));
     }
     setVersion((v) => v + 1);
   }, [id]);
@@ -75,19 +78,20 @@ export default function EventLayout({ children }) {
   return (
     <EventProvider value={value}>
       <div className="fx-stack">
-        <EventHeader event={state.event} eventId={id} />
+        <EventHeader event={state.event} eventId={id} onChanged={refresh} />
         {children}
       </div>
     </EventProvider>
   );
 }
 
-function EventHeader({ event, eventId }) {
+function EventHeader({ event, eventId, onChanged }) {
   const pathname = usePathname() || '';
+  const listingType = event?.listingType || null;
   const sections = useMemo(() => {
-    const groups = organizerNavGroups({ eventId }).filter((g) => ['build', 'sell', 'day'].includes(g.id));
+    const groups = organizerNavGroups({ eventId, listingType }).filter((g) => ['build', 'sell', 'day'].includes(g.id));
     return resolveNav(groups, pathname).flatMap((g) => g.items);
-  }, [eventId, pathname]);
+  }, [eventId, listingType, pathname]);
 
   if (!event) {
     return (
@@ -117,7 +121,11 @@ function EventHeader({ event, eventId }) {
             {event.venue?.name && (
               <span className="es-meta__item"><NavIcon name="pin" size={16} />{event.venue.name}</span>
             )}
-            <span className="es-meta__item"><NavIcon name="money" size={16} />{event.currency}</span>
+            {event.listingType === 'display_only' ? (
+              <span className="es-meta__item"><NavIcon name="eye" size={16} />Display only</span>
+            ) : (
+              <span className="es-meta__item"><NavIcon name="ticket" size={16} />Ticketed · {event.currency}</span>
+            )}
           </p>
         </div>
         <div className="es-event-head__actions">
@@ -134,6 +142,8 @@ function EventHeader({ event, eventId }) {
           </Link>
         </div>
       </div>
+
+      <EventActions event={event} onChanged={onChanged} />
 
       <nav aria-label="Event sections" className="es-subnav">
         {sections.map((item) => (

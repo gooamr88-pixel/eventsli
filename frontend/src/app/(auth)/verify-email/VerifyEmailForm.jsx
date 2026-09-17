@@ -10,17 +10,23 @@ import Field from '../../components/forms/Field';
 import FormError from '../../components/forms/FormError';
 import OtpInput from '../../components/forms/OtpInput';
 import SubmitButton from '../../components/forms/SubmitButton';
+import NavIcon from '../../components/shell/NavIcon';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
- * The last step of signing up: the six digits from the email.
+ * "Check your inbox" — the step between signing up and the dashboard.
+ *
+ * The email carries an ACTIVATION LINK, and that is what this screen asks for:
+ * open the email, tap the button. Nothing to type. The account stays inactive
+ * until then; the link opens /activate, which confirms it and signs them in.
+ *
+ * The six digits in the same email are the fallback, folded away under "Use a
+ * code instead" — for someone who signed up on a laptop and reads mail on a
+ * phone, where the link would sign in the wrong device.
  *
  * Reached from sign-up, and from sign-in when the right password meets an
- * address that was never confirmed — both arrive with `?email=` and `?sent=1`,
- * because a code has already gone out and the resend button starts on its
- * one-minute cooldown rather than inviting a second email straight away.
- *
- * A correct code signs the person in and carries on to `?next=`.
+ * address that was never confirmed — both with `?email=` and `?sent=1`, because
+ * an email has already gone out and resend starts on its one-minute cooldown.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 const COOLDOWN = 60;
@@ -33,6 +39,7 @@ export default function VerifyEmailForm() {
 
   const [email, setEmail] = useState(knownEmail);
   const [code, setCode] = useState('');
+  const [useCode, setUseCode] = useState(!knownEmail);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [notice, setNotice] = useState(null);
@@ -65,7 +72,7 @@ export default function VerifyEmailForm() {
     setError(null);
     try {
       const data = await post('/auth/resend-verification', { email }, { noRedirect: true });
-      setNotice(data?.message || 'A new code is on its way.');
+      setNotice('A new activation email is on its way. Use the newest one — older links stop working.');
       setCooldown(data?.cooldownSeconds || COOLDOWN);
       setCode('');
     } catch (err) {
@@ -75,65 +82,99 @@ export default function VerifyEmailForm() {
 
   return (
     <div className="fx-stack">
-      <div className="fx-stack fx-stack--sm">
-        <p className="es-eyebrow">One last step</p>
-        <h1 className="text-2xl">Check your email</h1>
-        <p className="text-muted">
-          {knownEmail
-            ? <>We sent a 6-digit code to <strong className="fx-break text-ink">{knownEmail}</strong>. It expires in 10 minutes.</>
-            : 'Enter the email you signed up with and the 6-digit code we sent to it.'}
-        </p>
+      <div className="es-result">
+        <span className="es-result__mark"><NavIcon name="mail" size={32} /></span>
+        <div className="fx-stack fx-stack--sm items-center">
+          <p className="es-eyebrow">One last step</p>
+          <h1 className="text-2xl">Check your inbox</h1>
+          <p className="max-w-[40ch] text-muted">
+            {knownEmail
+              ? <>We sent an activation link to <strong className="fx-break text-ink">{knownEmail}</strong>.</>
+              : 'Enter the email you signed up with to get a new activation link.'}
+          </p>
+        </div>
       </div>
 
-      <form
-        onSubmit={(e) => { e.preventDefault(); confirm(); }}
-        className="fx-stack"
-      >
-        {!knownEmail && (
-          <Field
-            label="Email"
-            type="email"
-            autoComplete="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-        )}
+      {knownEmail && (
+        <ol className="es-steps rounded-(--es-radius-lg) bg-bg-sunken p-5">
+          <li className="es-steps__item" data-state="current">
+            <span className="es-steps__marker" aria-hidden="true">1</span>
+            <div className="es-steps__body">
+              <p className="es-steps__title">Open the email from Eventsli</p>
+              <p className="text-sm text-muted">Not there after a minute? Check spam or promotions.</p>
+            </div>
+          </li>
+          <li className="es-steps__item" data-state="upcoming">
+            <span className="es-steps__marker" aria-hidden="true">2</span>
+            <div className="es-steps__body">
+              <p className="es-steps__title">Tap “Activate my account”</p>
+              <p className="text-sm text-muted">Your account stays inactive until you do. The link works for 48 hours.</p>
+            </div>
+          </li>
+          <li className="es-steps__item" data-state="upcoming">
+            <span className="es-steps__marker" aria-hidden="true">3</span>
+            <div className="es-steps__body">
+              <p className="es-steps__title">You land in your dashboard</p>
+              <p className="text-sm text-muted">Signed in and ready to set things up.</p>
+            </div>
+          </li>
+        </ol>
+      )}
 
-        <OtpInput
-          value={code}
-          onChange={(v) => { setCode(v); setError(null); }}
-          // Submitted the moment the sixth digit lands — including when the
-          // phone autofills all six at once — so there is nothing else to tap.
-          onComplete={confirm}
-          invalid={Boolean(error)}
-          disabled={busy}
-          autoFocus
-          label="The 6-digit code from the email"
+      {!knownEmail && (
+        <Field
+          label="Email" type="email" autoComplete="email" required
+          value={email} onChange={(e) => setEmail(e.target.value)}
         />
+      )}
 
-        <FormError error={error} />
-        {notice && <p className="es-notice es-notice--info" role="status"><span>{notice}</span></p>}
+      {notice && <p className="es-notice es-notice--info" role="status"><span>{notice}</span></p>}
+      {!useCode && <FormError error={error} />}
 
-        <SubmitButton busy={busy} busyLabel="Confirming…" disabled={code.length !== 6 || !email}>
-          Confirm email
-        </SubmitButton>
-      </form>
-
-      <div className="fx-stack fx-stack--sm items-center text-center text-sm">
-        <p className="text-muted">Nothing arrived? Check your spam folder, then</p>
+      <div className="fx-stack fx-stack--sm items-center text-center">
         <button
           type="button"
           onClick={resend}
           disabled={cooldown > 0 || !email}
-          className="es-btn es-btn--ghost es-btn--sm"
+          className="es-btn es-btn--secondary es-btn--block"
         >
-          {cooldown > 0 ? `Send a new code in 0:${String(cooldown).padStart(2, '0')}` : 'Send a new code'}
+          {cooldown > 0 ? `Resend the email in 0:${String(cooldown).padStart(2, '0')}` : 'Resend the activation email'}
         </button>
-        <p className="text-subtle">
-          Wrong address? <Link href="/register" className="text-accent underline">Sign up again</Link> with the right one.
-        </p>
       </div>
+
+      <div className="border-t border-border-base pt-4">
+        {!useCode ? (
+          <button type="button" className="text-sm text-accent underline underline-offset-2" onClick={() => setUseCode(true)}>
+            Opened the email on another device? Use the 6-digit code instead
+          </button>
+        ) : (
+          <form onSubmit={(e) => { e.preventDefault(); confirm(); }} className="fx-stack fx-stack--sm">
+            <p className="text-sm text-ink">Enter the 6-digit code from the same email</p>
+            <OtpInput
+              value={code}
+              onChange={(v) => { setCode(v); setError(null); }}
+              // Submitted the moment the sixth digit lands — including when the
+              // phone autofills all six at once.
+              onComplete={confirm}
+              invalid={Boolean(error)}
+              disabled={busy}
+              label="The 6-digit code from the email"
+            />
+            <FormError error={error} />
+            <SubmitButton busy={busy} busyLabel="Activating…" disabled={code.length !== 6 || !email}>
+              Activate with code
+            </SubmitButton>
+          </form>
+        )}
+      </div>
+
+      <p className="text-center text-sm text-subtle">
+        Wrong address?{' '}
+        <Link href={next === '/organizer' ? '/register/organizer' : '/register'} className="text-accent underline">
+          Sign up again
+        </Link>{' '}
+        with the right one.
+      </p>
     </div>
   );
 }

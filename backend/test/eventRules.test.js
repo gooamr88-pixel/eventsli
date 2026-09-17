@@ -7,6 +7,7 @@ const assert = require('node:assert/strict');
 const {
   partitionPatch, canTransition, transitionActor, editConsequence, apiFieldName,
   ORGANIZER_EDITABLE, ADMIN_EDITABLE, TRANSITIONS,
+  restoreTarget, paymentChoices, paymentFlags, paymentReadiness,
 } = require('../services/eventRules');
 const { slugify, uniqueSlug } = require('../utils/slug');
 
@@ -87,10 +88,10 @@ test('a rejected event can go round again', () => {
   assert.equal(canTransition('rejected', 'draft'), true);
 });
 
-test('cancelled and completed are terminal', () => {
+test('cancelled is terminal, and a finished event can only be filed away', () => {
   assert.deepEqual(TRANSITIONS.cancelled, []);
-  assert.deepEqual(TRANSITIONS.completed, []);
-  for (const to of ['draft', 'published', 'pending_review', 'suspended']) {
+  assert.deepEqual(TRANSITIONS.completed, ['archived']);
+  for (const to of ['draft', 'published', 'pending_review', 'suspended', 'archived']) {
     assert.equal(canTransition('cancelled', to), false, `cancelled must not become ${to}`);
   }
 });
@@ -179,6 +180,69 @@ test('an admin is held to neither rule', () => {
 
 test('a country change that moves the currency is judged by the country, not the currency', () => {
   const r = editConsequence({ status: 'draft', columns: ['country', 'currency'], isAdmin: false });
+  assert.deepEqual(r.refused, []);
+});
+
+// ── Archiving ───────────────────────────────────────────────────────────────
+
+test('archiving is for the organizer, and a suspension cannot be archived away', () => {
+  for (const from of ['draft', 'pending_review', 'rejected', 'published', 'completed']) {
+    assert.equal(canTransition(from, 'archived'), true, `${from} can be archived`);
+    assert.equal(transitionActor(from, 'archived'), 'organizer');
+  }
+  assert.equal(canTransition('suspended', 'archived'), false);
+  assert.equal(canTransition('cancelled', 'archived'), false);
+  // An archived event can still be cancelled — by an admin.
+  assert.equal(transitionActor('archived', 'cancelled'), 'admin');
+});
+
+test('a restore goes back where the event came from, never past review', () => {
+  const now = new Date('2026-09-17T12:00:00Z');
+  assert.equal(restoreTarget({ archivedFrom: 'pending_review' }, now), 'draft');
+  assert.equal(restoreTarget({ archivedFrom: 'draft' }, now), 'draft');
+  assert.equal(restoreTarget({ archivedFrom: 'rejected' }, now), 'rejected');
+  assert.equal(restoreTarget({ archivedFrom: 'published', endsAt: '2026-10-01T00:00:00Z' }, now), 'published');
+  assert.equal(restoreTarget({ archivedFrom: 'published', endsAt: '2026-09-01T00:00:00Z' }, now), 'completed');
+  assert.equal(restoreTarget({ archivedFrom: 'completed' }, now), 'completed');
+  // Unknown history is treated as the safest place: a draft.
+  assert.equal(restoreTarget({ archivedFrom: null }, now), 'draft');
+  for (const target of ['draft', 'rejected', 'published', 'completed']) {
+    assert.equal(transitionActor('archived', target), 'organizer');
+  }
+});
+
+// ── Payment methods ─────────────────────────────────────────────────────────
+
+test('the payment choices follow what the organizer has set up', () => {
+  assert.deepEqual(paymentChoices({ stripeReady: true, manualReady: true }), ['both', 'stripe', 'manual']);
+  assert.deepEqual(paymentChoices({ stripeReady: true, manualReady: false }), ['stripe']);
+  assert.deepEqual(paymentChoices({ stripeReady: false, manualReady: true }), ['manual']);
+  assert.deepEqual(paymentChoices({ stripeReady: false, manualReady: false }), []);
+});
+
+test('a choice maps onto the two columns, and nonsense maps to neither', () => {
+  assert.deepEqual(paymentFlags('both'), { accepts_stripe: true, accepts_manual: true });
+  assert.deepEqual(paymentFlags('stripe'), { accepts_stripe: true, accepts_manual: false });
+  assert.deepEqual(paymentFlags('manual'), { accepts_stripe: false, accepts_manual: true });
+  assert.deepEqual(paymentFlags('cash'), { accepts_stripe: false, accepts_manual: false });
+});
+
+test('a ticketed event needs a way to pay that is switched on AND set up', () => {
+  const base = { listingType: 'ticketed' };
+  assert.equal(paymentReadiness({ ...base, acceptsStripe: false, acceptsManual: false, stripeReady: true, manualReady: true }).reason, 'NO_CHANNEL');
+  assert.equal(paymentReadiness({ ...base, acceptsStripe: true, acceptsManual: false, stripeReady: false, manualReady: true }).reason, 'CHANNEL_NOT_READY');
+  assert.equal(paymentReadiness({ ...base, acceptsStripe: true, acceptsManual: true, stripeReady: false, manualReady: true }).ok, true);
+  assert.equal(paymentReadiness({ ...base, acceptsStripe: true, acceptsManual: false, stripeReady: true, manualReady: false }).ok, true);
+});
+
+test('a listing needs no payment method at all', () => {
+  assert.equal(paymentReadiness({
+    listingType: 'display_only', acceptsStripe: false, acceptsManual: false, stripeReady: false, manualReady: false,
+  }).ok, true);
+});
+
+test('payment channels can change on a live event without another review', () => {
+  const r = editConsequence({ status: 'published', columns: ['accepts_manual'], isAdmin: false });
   assert.deepEqual(r.refused, []);
 });
 

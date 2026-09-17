@@ -5,6 +5,7 @@ const { sendOk, sendFail, ERROR_STATUS } = require('../../utils/responseEnvelope
 const logger = require('../../utils/logger');
 const { closeOpenCheckouts } = require('../../services/openCheckouts');
 const { canReceivePayouts } = require('../../utils/payouts');
+const { cancelEvent } = require('../../services/eventCancellation');
 
 /**
  * BRD §16 — every event is reviewed before the public can see it.
@@ -258,68 +259,163 @@ async function unsuspend(req, res, next) {
 
 // ─── POST /admin/events/:eventId/cancel ─────────────────────────────────────
 /**
- * BRD §17 — only an admin cancels an event. The organizer cannot.
- *
- * Nothing is deleted. Sold tickets stay, the event stays, and a buyer can still
- * see what they bought and that it was called off; deleting would destroy the
- * only record of a transaction that really happened.
- *
- * This moves no money and promises none. BRD §09 makes tickets non-refundable
- * by default and puts any refund between the organizer and the buyer, with
- * Eventsli not responsible for it — so no refund is issued or implied here.
+ * BRD §17 — only an admin cancels an event. The organizer can only ask (see
+ * cancellation requests below). The work itself is `services/eventCancellation`,
+ * shared with approving a request so the two can never drift apart.
  */
 async function cancel(req, res, next) {
   try {
     const reason = String(req.body.reason || '').trim();
-    const { data: event } = await supabase
-      .from('events').select('id, status').eq('id', req.params.eventId).maybeSingle();
-
-    if (!event) {
-      return sendFail(res, { status: 404, error: 'EVENT_NOT_FOUND', message: 'That event does not exist.' });
-    }
-    if (!events.canTransition(event.status, 'cancelled')) {
-      return sendFail(res, {
-        status: 409, error: 'CONFLICT',
-        message: `An event that is ${event.status} cannot be cancelled.`,
-      });
+    const result = await cancelEvent({ eventId: req.params.eventId, reason, actorId: req.user.id });
+    if (!result.ok) {
+      return sendFail(res, { status: result.status, error: result.error, message: result.message });
     }
 
-    const now = new Date().toISOString();
-    const { data, error } = await supabase
-      .from('events')
-      .update({ status: 'cancelled', cancelled_at: now, cancelled_reason: reason, updated_at: now })
-      .eq('id', event.id)
-      .eq('status', event.status)   // optimistic lock: the event may have moved
-      .select('id, status, cancelled_at, cancelled_reason')
-      .single();
-
-    if (error || !data) {
-      return sendFail(res, { status: 409, error: 'CONFLICT', message: 'This event changed while you were reviewing it.' });
-    }
-
-    // Scanning stops immediately — a cancelled event must not admit anyone. Not
-    // best-effort in spirit: logged at error level so a door left open is loud.
-    const { error: lockError } = await supabase.from('scanner_access').upsert({
-      event_id: event.id,
-      is_locked: true,
-      locked_reason: 'event_cancelled',
-      locked_at: now,
-      updated_at: now,
-    }, { onConflict: 'event_id' });
-    if (lockError) logger.error({ err: lockError, eventId: event.id }, 'CANCELLED EVENT SCANNER NOT LOCKED');
-
-    // Anyone still on Stripe's page is stopped before they pay for an event
-    // that is not going to happen. `fulfill_checkout` refuses the rest.
-    const checkouts = await closeOpenCheckouts(event.id);
-
-    await audit(req, 'event.cancelled', event.id,
-      { reason, from: event.status, openCheckoutsClosed: checkouts.released });
-    logger.info({ eventId: event.id, by: req.user.id }, 'event cancelled by admin');
+    await audit(req, 'event.cancelled', result.event.id,
+      { reason, from: result.from, openCheckoutsClosed: result.openCheckoutsClosed });
     return sendOk(res, {
-      id: data.id, status: data.status,
-      cancelledAt: data.cancelled_at, cancelledReason: data.cancelled_reason,
-      openCheckoutsClosed: checkouts.released,
+      id: result.event.id, status: result.event.status,
+      cancelledAt: result.event.cancelled_at, cancelledReason: result.event.cancelled_reason,
+      openCheckoutsClosed: result.openCheckoutsClosed,
     });
+  } catch (err) {
+    return next(err);
+  }
+}
+
+// ═══ CANCELLATION REQUESTS ══════════════════════════════════════════════════
+/**
+ * An organizer asks, with a reason; a super admin decides. Approving cancels the
+ * event through the same `cancelEvent` as the direct cancel. Rejecting needs a
+ * note, because the organizer is told why — a bare "no" is a support ticket.
+ */
+
+// ─── GET /admin/cancellation-requests ───────────────────────────────────────
+async function cancellationRequests(req, res, next) {
+  try {
+    const status = ['pending', 'approved', 'rejected', 'withdrawn', 'all'].includes(req.query.status)
+      ? req.query.status : 'pending';
+    let query = supabase
+      .from('event_cancellation_requests')
+      .select(`
+        id, reason, status, decision_note, decided_at, created_at,
+        events ( id, slug, title, status, starts_at, timezone, currency ),
+        organizers ( id, display_name ),
+        profiles!event_cancellation_requests_requested_by_fkey ( email, full_name )
+      `)
+      // Oldest first while pending — a queue sorted newest-first starves the
+      // requests that have waited longest.
+      .order('created_at', { ascending: status === 'pending' })
+      .limit(200);
+    if (status !== 'all') query = query.eq('status', status);
+
+    const { data, error } = await query;
+    if (error) throw new Error(error.message);
+
+    return sendOk(res, (data || []).map((r) => ({
+      id: r.id,
+      reason: r.reason,
+      status: r.status,
+      decisionNote: r.decision_note,
+      decidedAt: r.decided_at,
+      createdAt: r.created_at,
+      event: r.events ? {
+        id: r.events.id, slug: r.events.slug, title: r.events.title, status: r.events.status,
+        startsAt: r.events.starts_at, timezone: r.events.timezone,
+      } : null,
+      organizer: { id: r.organizers?.id, name: r.organizers?.display_name },
+      requestedBy: { email: r.profiles?.email, name: r.profiles?.full_name },
+    })));
+  } catch (err) {
+    return next(err);
+  }
+}
+
+/** The pending request, with who to tell — or a refusal ready to send. */
+async function pendingRequest(requestId) {
+  const { data, error } = await supabase
+    .from('event_cancellation_requests')
+    .select(`
+      id, event_id, status, reason,
+      events ( id, title ),
+      organizers ( display_name, profiles!organizers_owner_user_id_fkey ( email ) )
+    `)
+    .eq('id', requestId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) return { refusal: { status: 404, error: 'NOT_FOUND', message: 'No such cancellation request.' } };
+  if (data.status !== 'pending') {
+    return { refusal: { status: 409, error: 'CONFLICT', message: `This request was already ${data.status}.` } };
+  }
+  return { request: data };
+}
+
+function tellOrganizer(request, { approved, note }) {
+  const email = require('../../services/emailService');
+  email.sendCancellationDecided({
+    to: request.organizers?.profiles?.email,
+    organizerName: request.organizers?.display_name,
+    event: { title: request.events?.title || 'your event' },
+    approved,
+    note,
+  }).catch((e) => logger.error({ err: e.message, requestId: request.id }, 'cancellation decision email failed'));
+}
+
+// ─── POST /admin/cancellation-requests/:requestId/approve ───────────────────
+async function approveCancellation(req, res, next) {
+  try {
+    const { request, refusal } = await pendingRequest(req.params.requestId);
+    if (refusal) return sendFail(res, refusal);
+
+    const note = String(req.body.note || '').trim() || null;
+    // The organizer's own words are the recorded reason: it is their event and
+    // their explanation that buyers are owed.
+    const result = await cancelEvent({ eventId: request.event_id, reason: request.reason, actorId: req.user.id });
+    if (!result.ok) {
+      return sendFail(res, { status: result.status, error: result.error, message: result.message });
+    }
+
+    // cancelEvent marked the request approved; the note is added on top.
+    if (note) {
+      await supabase.from('event_cancellation_requests')
+        .update({ decision_note: note }).eq('id', request.id);
+    }
+
+    await audit(req, 'event.cancellation_approved', request.event_id, {
+      requestId: request.id, reason: request.reason, note, from: result.from,
+      openCheckoutsClosed: result.openCheckoutsClosed,
+    });
+    tellOrganizer(request, { approved: true, note });
+
+    return sendOk(res, { id: request.id, status: 'approved', eventStatus: 'cancelled' });
+  } catch (err) {
+    return next(err);
+  }
+}
+
+// ─── POST /admin/cancellation-requests/:requestId/reject ────────────────────
+async function rejectCancellation(req, res, next) {
+  try {
+    const { request, refusal } = await pendingRequest(req.params.requestId);
+    if (refusal) return sendFail(res, refusal);
+
+    const note = String(req.body.note).trim();
+    const { data, error } = await supabase
+      .from('event_cancellation_requests')
+      .update({ status: 'rejected', decision_note: note, decided_by: req.user.id, decided_at: new Date().toISOString() })
+      .eq('id', request.id)
+      .eq('status', 'pending')   // optimistic lock: another admin may have decided
+      .select('id')
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!data) {
+      return sendFail(res, { status: 409, error: 'CONFLICT', message: 'Someone decided this request while you were reading it.' });
+    }
+
+    await audit(req, 'event.cancellation_rejected', request.event_id, { requestId: request.id, note });
+    tellOrganizer(request, { approved: false, note });
+
+    return sendOk(res, { id: request.id, status: 'rejected' });
   } catch (err) {
     return next(err);
   }
@@ -339,4 +435,7 @@ function audit(req, action, targetId, payload) {
   return writeAudit(req, { action, targetType: 'event', targetId, payload });
 }
 
-module.exports = { queue, approve, reject, suspend, unsuspend, cancel };
+module.exports = {
+  queue, approve, reject, suspend, unsuspend, cancel,
+  cancellationRequests, approveCancellation, rejectCancellation,
+};

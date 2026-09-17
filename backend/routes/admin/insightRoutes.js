@@ -13,7 +13,7 @@ const events = require('../../controllers/admin/eventAdminController');
  */
 const router = express.Router();
 
-const STATUSES = ['draft', 'pending_review', 'rejected', 'published', 'suspended', 'cancelled', 'completed'];
+const STATUSES = ['draft', 'pending_review', 'rejected', 'published', 'suspended', 'cancelled', 'completed', 'archived'];
 
 router.get('/overview', query('days').optional().isIn(['7', '30', '90']), validate, insight.overview);
 

@@ -133,6 +133,22 @@ export const ERRORS = Object.freeze(Object.fromEntries([
   E('LAST_SUPER_ADMIN', 'This is the last super admin',
     'Promote someone else first, or the platform would be left with nobody able to administer it.'),
 
+  // ── The organizer journey ─────────────────────────────────────────────────
+  E('TOKEN_EXPIRED', 'This activation link has expired',
+    'Send yourself a new one — the newest email is the one that works.'),
+  E('ALREADY_VERIFIED', 'Your account is already active',
+    'Sign in with your email and password to continue.', 'fatal'),
+  E('ORGANIZER_SETUP_REQUIRED', 'Set up your organization first',
+    'Add your organization name, brand and description on the dashboard, then create your event.'),
+  E('PAYMENT_METHOD_REQUIRED', 'Add a way to get paid first',
+    'A ticketed event needs Stripe or a manual payment method before it can go on sale. Set one up under Payment methods.'),
+  E('PAYMENT_METHOD_UNAVAILABLE', 'That payment option is not set up',
+    'Connect Stripe or add a manual payment method first, then choose it for this event.'),
+  E('EVENT_ARCHIVED', 'This event is archived',
+    'Restore it first to make changes.'),
+  E('CANCELLATION_PENDING', 'A cancellation request is already open',
+    'Eventsli is reviewing it. You will get an email with the decision.', 'waiting'),
+
   // ── Media ─────────────────────────────────────────────────────────────────
   E('UNSUPPORTED_MEDIA_TYPE', 'That file type will not work',
     'Upload a JPEG, PNG or WebP image.'),
