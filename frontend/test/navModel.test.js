@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { resolveNav, pickTabs, currentLabel, matches } from '../src/app/components/shell/navModel';
 import {
-  organizerNavGroups, eventIdFromPath, pathForEvent, ORGANIZER_TABS,
+  organizerNavGroups, eventIdFromPath, pathForEvent, ORGANIZER_TABS, organizerTabs,
 } from '../src/app/organizer/nav/organizerNav';
 import { adminNavGroups, ADMIN_TABS } from '../src/app/admin/nav/adminNav';
 
@@ -49,15 +49,23 @@ describe('resolveNav', () => {
 });
 
 describe('organizer destinations', () => {
-  test('without an event, event items are disabled WITH a reason', () => {
-    const items = organizerNavGroups({ eventId: null }).flatMap((g) => g.items);
-    const scoped = items.filter((i) => !['dashboard', 'events', 'payments', 'profile'].includes(i.key));
-    expect(scoped.length).toBeGreaterThan(8);
-    for (const item of scoped) {
-      expect(item.disabled).toBe(true);
-      expect(item.href).toBeNull();
-      expect(item.hint).toMatch(/choose an event/i);
+  test('without an event, no event tools are listed — one note says where they are', () => {
+    const groups = organizerNavGroups({ eventId: null });
+    const keys = groups.flatMap((g) => g.items).map((i) => i.key);
+    expect(keys).toEqual(['dashboard', 'events', 'payments', 'profile']);
+    expect(groups.find((g) => g.id === 'event').note).toMatch(/open an event/i);
+  });
+
+  test('the bottom bar follows where the organizer is', () => {
+    expect(organizerTabs({ eventId: null })).toEqual(ORGANIZER_TABS);
+    expect(organizerTabs({ eventId: EVENT, listingType: 'ticketed' })).toContain('orders');
+    expect(organizerTabs({ eventId: EVENT, listingType: 'display_only' })).not.toContain('orders');
+    for (const listingType of ['ticketed', 'display_only']) {
+      const groups = organizerNavGroups({ eventId: EVENT, listingType });
+      const keys = organizerTabs({ eventId: EVENT, listingType });
+      expect(pickTabs(groups, keys)).toHaveLength(keys.length);
     }
+    expect(pickTabs(organizerNavGroups({ eventId: null }), ORGANIZER_TABS)).toHaveLength(ORGANIZER_TABS.length);
   });
 
   test('every destination is a page that exists on disk', () => {

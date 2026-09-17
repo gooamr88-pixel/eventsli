@@ -143,7 +143,10 @@ function EventHeader({ event, eventId, onChanged }) {
         </div>
       </div>
 
-      <EventActions event={event} onChanged={onChanged} />
+      {/* The event's own actions live on its overview. On Ticket types or Orders
+          they were four more buttons between the title and the work, and on a
+          phone they pushed the section itself below the fold. */}
+      {pathname === `/organizer/events/${eventId}` && <EventActions event={event} onChanged={onChanged} />}
 
       <nav aria-label="Event sections" className="es-subnav">
         {sections.map((item) => (

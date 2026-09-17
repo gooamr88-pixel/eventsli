@@ -97,14 +97,16 @@ export default function AppShell({
               {group.label && (
                 <p id={`nav-group-${group.id}`} className="es-nav__group-label">{group.label}</p>
               )}
-              <ul
-                className="flex flex-col gap-0.5"
-                aria-labelledby={group.label ? `nav-group-${group.id}` : undefined}
-              >
-                {group.items.map((item) => (
-                  <li key={item.key}><NavItem item={item} /></li>
-                ))}
-              </ul>
+              {group.items.length > 0 && (
+                <ul
+                  className="flex flex-col gap-0.5"
+                  aria-labelledby={group.label ? `nav-group-${group.id}` : undefined}
+                >
+                  {group.items.map((item) => (
+                    <li key={item.key}><NavItem item={item} /></li>
+                  ))}
+                </ul>
+              )}
               {group.note && <p className="es-nav__note">{group.note}</p>}
             </div>
           ))}

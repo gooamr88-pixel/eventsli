@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
 import { del, post } from '../../../utils/apiClient';
 import { useConfirm } from '../../../components/ui/Confirm';
 import { useToast } from '../../../components/ui/Toast';
@@ -19,14 +18,17 @@ import NavIcon from '../../../components/shell/NavIcon';
  *
  * Every action that changes something asks first, in words that say what
  * happens to buyers — that is the part an organizer is actually worried about.
- * One row that scrolls sideways on a phone, rather than wrapping into a pile.
+ * Shown on the event's overview only. On a phone they are a two-column block of
+ * equal buttons.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 const ARCHIVABLE = ['draft', 'pending_review', 'rejected', 'published', 'completed'];
-const CANCELLABLE = ['draft', 'pending_review', 'rejected', 'published', 'suspended', 'archived'];
+// Cancelling is for an event people may already have bought or seen. A draft
+// or a rejected event is private — archiving it is the whole answer, and a
+// "request cancellation" button there only invites a pointless review.
+const CANCELLABLE = ['pending_review', 'published', 'suspended'];
 
 export default function EventActions({ event, onChanged }) {
-  const pathname = usePathname() || '';
   const confirm = useConfirm();
   const toast = useToast();
   const [busy, setBusy] = useState(null);
@@ -35,7 +37,6 @@ export default function EventActions({ event, onChanged }) {
   const ticketed = event.listingType !== 'display_only';
   const archived = event.status === 'archived';
   const pending = event.cancellationRequest?.status === 'pending';
-  const onOverview = pathname === base;
 
   async function run(key, fn) {
     setBusy(key);
@@ -133,15 +134,12 @@ export default function EventActions({ event, onChanged }) {
   }
 
   const finished = ['cancelled'].includes(event.status);
+  const canRequest = CANCELLABLE.includes(event.status)
+    || (event.status === 'archived' && event.archivedFrom === 'published');
 
   return (
     <div className="es-actionbar" role="group" aria-label="Event actions">
-      {!onOverview && (
-        <Link href={base} className="es-btn es-btn--secondary es-btn--sm">
-          <NavIcon name="settings" size={16} /> Manage event
-        </Link>
-      )}
-      {onOverview && !archived && !finished && (
+      {!archived && !finished && (
         <a href="#details" className="es-btn es-btn--secondary es-btn--sm">
           <NavIcon name="pencil" size={16} /> Manage event
         </a>
@@ -163,13 +161,13 @@ export default function EventActions({ event, onChanged }) {
         </button>
       )}
 
-      {CANCELLABLE.includes(event.status) && (
+      {canRequest && (
         pending ? (
-          <button type="button" className="es-btn es-btn--ghost es-btn--sm" onClick={withdraw} disabled={Boolean(busy)}>
+          <button type="button" className="es-btn es-btn--ghost es-btn--sm es-actionbar__wide" onClick={withdraw} disabled={Boolean(busy)}>
             <NavIcon name="close" size={16} /> {busy === 'withdraw' ? 'Withdrawing…' : 'Withdraw cancellation request'}
           </button>
         ) : (
-          <button type="button" className="es-btn es-btn--ghost es-btn--sm text-danger" onClick={requestCancellation} disabled={Boolean(busy)}>
+          <button type="button" className="es-btn es-btn--ghost es-btn--sm es-actionbar__wide text-danger" onClick={requestCancellation} disabled={Boolean(busy)}>
             <NavIcon name="ban" size={16} /> {busy === 'cancel' ? 'Sending…' : 'Request cancellation'}
           </button>
         )

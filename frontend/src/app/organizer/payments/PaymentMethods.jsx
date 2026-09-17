@@ -49,11 +49,6 @@ const PLACEHOLDER = {
   other: 'Tell buyers exactly how to pay you.',
 };
 
-const CHOICE_TEXT = {
-  both: 'Stripe + manual',
-  stripe: 'Stripe only',
-  manual: 'Manual only',
-};
 
 export default function PaymentMethods() {
   const params = useSearchParams();
@@ -94,16 +89,20 @@ function PaymentsPage({ organizer, onboarding, onChanged }) {
 
       <Notice
         tone={nothing ? 'warning' : 'info'}
-        title={nothing ? 'No payment method yet' : `Your events can take: ${choices.map((c) => CHOICE_TEXT[c]).join(' · ')}`}
+        title={nothing
+          ? 'No payment method yet'
+          : organizer.payments.stripeReady && organizer.payments.manualMethods > 0
+            ? 'Card and manual payments are ready'
+            : organizer.payments.stripeReady ? 'Card payments are ready' : 'Manual payments are ready'}
       >
         <p>
           {nothing
             ? 'Ticketed events cannot go on sale until you add one. Display-only events do not need any.'
             : organizer.payments.stripeReady && organizer.payments.manualMethods > 0
-              ? 'When you create a ticketed event you choose Stripe + manual, Stripe only, or manual only.'
+              ? 'Each ticketed event can take cards, manual payments, or both — you choose when you create it.'
               : organizer.payments.stripeReady
-                ? 'Add a manual method below to also offer e-Transfer, bank transfer or cash.'
-                : 'Connect Stripe below to also take card payments online.'}
+                ? 'Your events take cards through Stripe. Add a manual method below to also offer e-Transfer, bank transfer or cash.'
+                : 'Your events take manual payments. Connect Stripe below to also take cards online.'}
         </p>
       </Notice>
 
@@ -228,9 +227,9 @@ function StripeSection({ organizer, onChanged }) {
       )}
 
       {ready && (
-        <p className="fx-row text-sm text-muted">
-          <span className="text-accent"><NavIcon name="check" size={18} /></span>
-          Ready. If Stripe ever needs more from you, it shows up here.
+        <p className="fx-row flex-nowrap items-start text-sm text-muted">
+          <span className="shrink-0 text-accent"><NavIcon name="check" size={18} /></span>
+          <span className="fx-min0">Ready to take card payments. If Stripe ever needs more from you, it shows up here.</span>
         </p>
       )}
     </Panel>
@@ -311,20 +310,20 @@ function ManualSection({ onChanged }) {
                   <div className="es-method__body">
                     <p className="fx-row gap-2 text-ink">
                       <span className="font-medium">{m.label}</span>
-                      <span className="text-xs text-subtle">{KIND_LABEL[m.kind]}</span>
+                      {KIND_LABEL[m.kind] !== m.label && <span className="text-xs text-subtle">{KIND_LABEL[m.kind]}</span>}
                       {!m.isActive && <span className="es-optional">Off</span>}
                     </p>
                     <p className="fx-break whitespace-pre-line text-sm text-muted">{m.instructions}</p>
                   </div>
                   <div className="es-method__actions">
-                    <button type="button" className="es-btn es-btn--ghost es-btn--sm" onClick={() => setEditing(m.id)} aria-label={`Edit ${m.label}`}>
-                      <NavIcon name="pencil" size={16} /><span className="max-sm:sr-only">Edit</span>
+                    <button type="button" className="es-btn es-btn--ghost es-btn--sm" onClick={() => setEditing(m.id)}>
+                      <NavIcon name="pencil" size={16} /> Edit<span className="sr-only"> {m.label}</span>
                     </button>
                     <button type="button" className="es-btn es-btn--ghost es-btn--sm" onClick={() => toggle(m)}>
                       {m.isActive ? 'Turn off' : 'Turn on'}
                     </button>
-                    <button type="button" className="es-btn es-btn--ghost es-btn--sm" onClick={() => remove(m)} aria-label={`Remove ${m.label}`}>
-                      <NavIcon name="trash" size={16} />
+                    <button type="button" className="es-btn es-btn--ghost es-btn--sm text-danger" onClick={() => remove(m)}>
+                      <NavIcon name="trash" size={16} /> Remove<span className="sr-only"> {m.label}</span>
                     </button>
                   </div>
                 </div>

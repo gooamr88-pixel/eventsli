@@ -56,6 +56,37 @@ export function organizerNavGroups({ eventId, listingType = null }) {
     hint: eventId ? null : CHOOSE_FIRST,
   });
 
+  const account = {
+    id: 'account',
+    label: 'Your account',
+    items: [
+      { key: 'payments', label: 'Payments', icon: 'bank', href: '/organizer/payments' },
+      { key: 'profile', label: 'Organization', icon: 'user', href: '/organizer/profile' },
+    ],
+  };
+  const home = {
+    id: 'home',
+    label: null,
+    items: [
+      { key: 'dashboard', label: 'Dashboard', icon: 'home', href: '/organizer', exact: true },
+      { key: 'events', label: 'Your events', icon: 'calendar', href: '/organizer/events' },
+    ],
+  };
+
+  /**
+   * NO EVENT OPEN → NO EVENT TOOLS. The sidebar used to list twelve greyed-out
+   * items under three headings, each saying "choose an event first" — a wall of
+   * things a new organizer could not use, above the two things they could. One
+   * line now says where those tools live.
+   */
+  if (!eventId) {
+    return [
+      home,
+      { id: 'event', label: 'Event tools', items: [], note: 'Open an event to manage its tickets, seating, orders and door.' },
+      account,
+    ];
+  }
+
   const groups = [
     {
       id: 'home',
@@ -100,13 +131,13 @@ export function organizerNavGroups({ eventId, listingType = null }) {
       id: 'account',
       label: 'Your account',
       items: [
-        { key: 'payments', label: 'Payment methods', icon: 'bank', href: '/organizer/payments' },
+        { key: 'payments', label: 'Payments', icon: 'bank', href: '/organizer/payments' },
         { key: 'profile', label: 'Organization', icon: 'user', href: '/organizer/profile' },
       ],
     },
   ];
 
-  if (!displayOnly || !eventId) return groups;
+  if (!displayOnly) return groups;
   return groups
     .map((group) => (['build', 'sell', 'day'].includes(group.id)
       ? { ...group, items: group.items.filter((item) => DISPLAY_ONLY_KEYS.has(item.key)) }
@@ -114,5 +145,19 @@ export function organizerNavGroups({ eventId, listingType = null }) {
     .filter((group) => group.items.length > 0);
 }
 
-/** The phone's bottom bar. "More" opens the drawer and is added by the shell. */
-export const ORGANIZER_TABS = ['dashboard', 'events', 'orders', 'attendees'];
+/**
+ * The phone's bottom bar. "More" opens the drawer and is added by the shell.
+ *
+ * It follows where the organizer is. Outside an event: their account's
+ * destinations. Inside a ticketed event: that event's orders and door list,
+ * the two things opened on a phone on the night. It used to show Orders and
+ * Door list greyed out on every page with no event open.
+ */
+export const ORGANIZER_TABS = ['dashboard', 'events', 'payments', 'profile'];
+export const ORGANIZER_EVENT_TABS = ['dashboard', 'events', 'orders', 'attendees'];
+export const ORGANIZER_LISTING_TABS = ['dashboard', 'events', 'overview', 'share'];
+
+export function organizerTabs({ eventId, listingType }) {
+  if (!eventId) return ORGANIZER_TABS;
+  return listingType === 'display_only' ? ORGANIZER_LISTING_TABS : ORGANIZER_EVENT_TABS;
+}

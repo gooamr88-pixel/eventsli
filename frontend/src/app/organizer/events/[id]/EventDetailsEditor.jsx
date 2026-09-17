@@ -4,13 +4,13 @@ import { useEffect, useState } from 'react';
 import { get, patch } from '../../../utils/apiClient';
 import { categoryLabel } from '../../../lib/categories';
 import { zonesFor } from '../../../lib/timezones';
-import { toLocalInput } from '../../../lib/eventTime';
+import { toLocalInput, formatEventTime } from '../../../lib/eventTime';
 import { toIso } from '../new/NewEventForm';
 import { useToast } from '../../../components/ui/Toast';
 import { useOrganizer } from '../../../hooks/useOrganizer';
 import Link from 'next/link';
 import { Panel } from '../../../components/ui/Page';
-import Field from '../../../components/forms/Field';
+import Field, { SelectField, TextareaField } from '../../../components/forms/Field';
 import FormError from '../../../components/forms/FormError';
 import SubmitButton from '../../../components/forms/SubmitButton';
 import { Notice } from '../../../components/Feedback';
@@ -28,8 +28,8 @@ import { Notice } from '../../../components/Feedback';
  * editConsequence):
  *   • draft, rejected — everything editable;
  *   • under review    — saving withdraws it to draft; it is submitted again;
- *   • on sale / suspended — only the description, tickets per order and
- *     transfers; the rest is shown disabled and changes go through Eventsli;
+ *   • on sale / suspended — the approved details are shown as facts; only the
+ *     description, the order limit, transfers and payments stay editable;
  *   • once a ticket has sold, listing type, purchase mode and who pays the fee
  *     are fixed — the API says so, and its sentence is shown.
  *
@@ -37,7 +37,6 @@ import { Notice } from '../../../components/Feedback';
  * actually touched.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-const LIVE_EDITABLE = new Set(['description', 'maxTicketsPerOrder', 'allowTicketTransfer', 'acceptsStripe', 'acceptsManual']);
 
 function fromEvent(event) {
   return {
@@ -87,7 +86,6 @@ export default function EventDetailsEditor({ event, onSaved }) {
   }, []);
 
   const live = event.status === 'published' || event.status === 'suspended';
-  const locked = (key) => live && !LIVE_EDITABLE.has(key);
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
 
   const original = fromEvent(event);
@@ -146,70 +144,92 @@ export default function EventDetailsEditor({ event, onSaved }) {
         </Notice>
       )}
       {live && (
-        <Notice tone="info" title="This event is on sale.">
-          <p>You can change the description, tickets per order and transfers here. Anything a reviewer approved — the title, dates, venue, how tickets sell — goes through Eventsli.</p>
-        </Notice>
+        <p className="text-sm text-muted">
+          It is on sale, so the details Eventsli approved are fixed. You can still change the
+          description, the order limit, transfers and how buyers pay.{' '}
+          <Link href="/contact" className="text-accent underline">Need to change something else?</Link>
+        </p>
+      )}
+
+      {/* ON SALE: what the reviewer approved is shown as facts, not as a wall of
+          greyed-out inputs that look editable and are not. */}
+      {live && (
+        <dl className="es-facts rounded-(--es-radius-md) bg-bg-sunken p-4">
+          <Fact term="Title" value={event.title} />
+          <Fact term="Category" value={categoryLabel(event.category)} />
+          <Fact term="Starts" value={formatEventTime(event.startsAt, event.timezone)} />
+          <Fact term="Ends" value={formatEventTime(event.endsAt, event.timezone)} />
+          <Fact term="Venue" value={event.venue?.name || '—'} />
+          <Fact term="Address" value={event.venue?.address || '—'} />
+          {event.listingType === 'ticketed' && (
+            <>
+              <Fact term="How buyers choose" value={{ seat_only: 'Individual seats', table_only: 'Whole tables', seat_and_table: 'Seats or whole tables' }[event.purchaseMode]} />
+              <Fact term="Booking fees" value={event.fees?.feeBearer === 'organizer' ? 'Paid by you' : 'Paid by buyers'} />
+            </>
+          )}
+        </dl>
       )}
 
       <form onSubmit={save} className="fx-stack fx-stack--sm">
-        <Field label="Title" name="title" required minLength={3} maxLength={200} disabled={locked('title')}
-          error={titleInvalid ? 'At least 3 characters.' : null}
-          value={form.title} onChange={set('title')} />
+        {!live && (
+          <>
+            <Field label="Title" name="title" required minLength={3} maxLength={200}
+              error={titleInvalid ? 'At least 3 characters.' : null}
+              value={form.title} onChange={set('title')} />
 
-        <div className="fx-grid fx-grid--2">
-          <Select id="ed-category" label="Category" value={form.category} onChange={set('category')} disabled={locked('category')}
-            options={(categories.length ? categories : [form.category]).map((c) => [c, categoryLabel(c)])} />
-          <Select id="ed-listing" label="Type" value={form.listingType} onChange={set('listingType')} disabled={locked('listingType')}
-            options={[['ticketed', 'Sell tickets'], ['display_only', 'Listing only — no tickets']]} />
-        </div>
+            <SelectField label="Category" required value={form.category} onChange={set('category')}
+              options={(categories.length ? categories : [form.category]).map((c) => [c, categoryLabel(c)])} />
+          </>
+        )}
 
-        <div className="fx-stack fx-stack--sm gap-1.5">
-          <label htmlFor="ed-description" className="text-sm text-ink">Description</label>
-          <textarea id="ed-description" rows={5} maxLength={5000} value={form.description}
-            onChange={set('description')} className="es-input py-2" />
-        </div>
+        <TextareaField label="Description" optional rows={5} maxLength={5000}
+          hint="What people read on the event page."
+          value={form.description} onChange={set('description')} />
 
-        <div className="fx-grid fx-grid--2">
-          <Field label="Venue" name="venueName" maxLength={200} disabled={locked('venueName')}
-            value={form.venueName} onChange={set('venueName')} />
-          <Field label="Address" name="venueAddress" maxLength={300} disabled={locked('venueAddress')}
-            value={form.venueAddress} onChange={set('venueAddress')} />
-        </div>
+        {!live && (
+          <>
+            <div className="fx-grid fx-grid--2">
+              <Field label="Venue name" name="venueName" optional maxLength={200}
+                value={form.venueName} onChange={set('venueName')} />
+              <Field label="Address" name="venueAddress" optional maxLength={300}
+                value={form.venueAddress} onChange={set('venueAddress')} />
+            </div>
 
-        <div className="fx-grid fx-grid--2">
-          <Field label="Starts" type="datetime-local" name="startsAt" required disabled={locked('startsAt')}
-            value={form.startsAt} onChange={set('startsAt')} />
-          <Field label="Ends" type="datetime-local" name="endsAt" required disabled={locked('endsAt')}
-            min={form.startsAt || undefined}
-            error={endsBeforeStart ? 'The event has to end after it starts.' : null}
-            value={form.endsAt} onChange={set('endsAt')} />
-        </div>
-        <Select id="ed-zone" label="Time zone" value={form.timezone} onChange={set('timezone')} disabled={locked('timezone')}
-          options={zoneOptions} hint="Both times are local to the venue in this zone." />
+            <div className="fx-grid fx-grid--2">
+              <Field label="Starts" type="datetime-local" name="startsAt" required
+                value={form.startsAt} onChange={set('startsAt')} />
+              <Field label="Ends" type="datetime-local" name="endsAt" required
+                min={form.startsAt || undefined}
+                error={endsBeforeStart ? 'The event has to end after it starts.' : null}
+                value={form.endsAt} onChange={set('endsAt')} />
+            </div>
+            <SelectField label="Time zone" required value={form.timezone} onChange={set('timezone')}
+              options={zoneOptions} hint="Both times are local to the venue in this zone." />
+          </>
+        )}
 
         {form.listingType === 'ticketed' && (
           <>
-            <div className="fx-grid fx-grid--2">
-              <Select id="ed-mode" label="How buyers choose" value={form.purchaseMode} onChange={set('purchaseMode')}
-                disabled={locked('purchaseMode')}
-                options={[['seat_only', 'Individual seats'], ['table_only', 'Whole tables'], ['seat_and_table', 'Seats or whole tables']]} />
-              <Select id="ed-fees" label="Who pays the fees" value={form.feeBearer} onChange={set('feeBearer')}
-                disabled={locked('feeBearer')}
-                options={[['buyer', 'Buyers — added at checkout'], ['organizer', 'You — taken from your payout']]} />
-            </div>
-            <div className="fx-grid fx-grid--2">
-              <Field label="Tickets per order" type="number" name="maxTicketsPerOrder" min={1} max={100} required
-                error={perOrderInvalid ? 'Between 1 and 100.' : null}
-                value={form.maxTicketsPerOrder} onChange={set('maxTicketsPerOrder')} />
-              <label className="fx-row items-start gap-2.5 self-end pb-2 text-sm">
-                <input type="checkbox" className="mt-0.5" checked={form.allowTicketTransfer}
-                  onChange={(e) => setForm((f) => ({ ...f, allowTicketTransfer: e.target.checked }))} />
-                <span>
-                  <span className="block text-ink">Let buyers pass a ticket on</span>
-                  <span className="block text-xs text-muted">Once per ticket.</span>
-                </span>
-              </label>
-            </div>
+            {!live && (
+              <div className="fx-grid fx-grid--2">
+                <SelectField label="How buyers choose" required value={form.purchaseMode} onChange={set('purchaseMode')}
+                  options={[['seat_only', 'Individual seats'], ['table_only', 'Whole tables'], ['seat_and_table', 'Seats or whole tables']]} />
+                <SelectField label="Who pays the booking fees" required value={form.feeBearer} onChange={set('feeBearer')}
+                  options={[['buyer', 'Buyers — added at checkout'], ['organizer', 'You — taken from your payout']]} />
+              </div>
+            )}
+            <Field label="Most tickets in one order" type="number" name="maxTicketsPerOrder" min={1} max={100} required
+              inputMode="numeric"
+              error={perOrderInvalid ? 'Between 1 and 100.' : null}
+              value={form.maxTicketsPerOrder} onChange={set('maxTicketsPerOrder')} />
+            <label className="es-check">
+              <input type="checkbox" className="es-check__box" checked={form.allowTicketTransfer}
+                onChange={(e) => setForm((f) => ({ ...f, allowTicketTransfer: e.target.checked }))} />
+              <span className="text-sm">
+                <span className="block text-ink">Let buyers pass a ticket on</span>
+                <span className="block text-muted">Once per ticket. The old QR code stops working.</span>
+              </span>
+            </label>
 
             <fieldset className="fx-stack fx-stack--sm gap-2">
               <legend className="es-label mb-1.5">
@@ -257,6 +277,15 @@ export default function EventDetailsEditor({ event, onSaved }) {
   );
 }
 
+function Fact({ term, value }) {
+  return (
+    <div className="fx-min0">
+      <dt className="es-facts__term">{term}</dt>
+      <dd className="es-facts__value">{value}</dd>
+    </div>
+  );
+}
+
 function PaymentToggle({ label, detail, checked, available, onChange }) {
   return (
     <label className={`es-check${available ? '' : ' cursor-not-allowed opacity-60'}`} aria-disabled={!available || undefined}>
@@ -269,18 +298,5 @@ function PaymentToggle({ label, detail, checked, available, onChange }) {
         <span className="block text-muted">{detail}</span>
       </span>
     </label>
-  );
-}
-
-function Select({ id, label, value, onChange, options, hint, disabled }) {
-  return (
-    <div className="fx-stack fx-stack--sm gap-1.5">
-      <label htmlFor={id} className="text-sm text-ink">{label}</label>
-      <select id={id} value={value} onChange={onChange} disabled={disabled} className="es-input"
-        aria-describedby={hint ? `${id}-hint` : undefined}>
-        {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-      </select>
-      {hint && <p id={`${id}-hint`} className="text-xs text-subtle">{hint}</p>}
-    </div>
   );
 }

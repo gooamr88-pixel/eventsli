@@ -1,12 +1,12 @@
 'use client';
 
-import Link from 'next/link';
+import NavIcon from '../../../components/shell/NavIcon';
 import { useSearchParams } from 'next/navigation';
 import { useEventContext } from './EventContext';
 import ReviewActions from './ReviewActions';
 import CoverUpload from './CoverUpload';
 import EventStats from './EventStats';
-import LaunchChecklist from './LaunchChecklist';
+import LaunchChecklist, { useLaunchSteps, NextStep } from './LaunchChecklist';
 import EventDetailsEditor from './EventDetailsEditor';
 import FeeSummary from './FeeSummary';
 import { Panel } from '../../../components/ui/Page';
@@ -53,24 +53,11 @@ export default function EventOverview() {
 
   return (
     <div className="fx-stack">
-      {/* Straight after creating: what to do now, in one line and one button. */}
       {justCreated && (
-        <Notice tone="info" title="Your event is saved as a draft.">
-          <p>
-            {ticketed
-              ? 'Next, add your ticket types and prices, then build the seating map. The checklist below walks you through it.'
-              : 'Add a cover image so it stands out, then accept the terms and submit it for review.'}
-          </p>
-          <div className="fx-row pt-1">
-            {ticketed ? (
-              <Link href={`/organizer/events/${event.id}/tiers`} className="es-btn es-btn--primary es-btn--sm">
-                Add ticket types
-              </Link>
-            ) : (
-              <a href="#cover" className="es-btn es-btn--primary es-btn--sm">Add a cover image</a>
-            )}
-          </div>
-        </Notice>
+        <p className="fx-row flex-nowrap items-start gap-2 text-sm text-muted" role="status">
+          <span className="shrink-0 text-accent"><NavIcon name="check" size={18} /></span>
+          <span>Your event is saved as a private draft. Follow the steps below to put it on sale.</span>
+        </p>
       )}
 
       {event.status === 'archived' && (
@@ -130,14 +117,7 @@ export default function EventOverview() {
 
       {!preLaunch && ticketed && <EventStats eventId={event.id} currency={event.currency} />}
 
-      {preLaunch && (
-        <div className="es-split es-split--even">
-          <LaunchChecklist event={event} />
-          <div id="going-on-sale" className="scroll-mt-24">
-            <ReviewActions event={event} onChanged={ctx.refresh} />
-          </div>
-        </div>
-      )}
+      {preLaunch && <PreLaunch event={event} onChanged={ctx.refresh} />}
 
       <div className="es-split">
         <div className="fx-stack fx-min0">
@@ -161,12 +141,6 @@ export default function EventOverview() {
             <CoverUpload event={event} onChanged={ctx.refresh} />
           </div>
 
-          {!preLaunch && (
-            <div id="going-on-sale" className="scroll-mt-24">
-              <ReviewActions event={event} onChanged={ctx.refresh} />
-            </div>
-          )}
-
           {!feesInTermsStep && (
             <Panel title="What you are charged" description="Set by Eventsli, and agreed when the terms were accepted.">
               <FeeSummary event={event} />
@@ -175,6 +149,26 @@ export default function EventOverview() {
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * Before it is on sale: the one next step first, then every step, then the
+ * terms and Submit beside them. One hook decides what is done, so the three can
+ * never disagree — and Submit waits for the things a reviewer needs to see.
+ */
+function PreLaunch({ event, onChanged }) {
+  const steps = useLaunchSteps(event);
+  return (
+    <>
+      <NextStep steps={steps} />
+      <div className="es-split es-split--even">
+        <LaunchChecklist steps={steps} />
+        <div id="going-on-sale" className="scroll-mt-24">
+          <ReviewActions event={event} onChanged={onChanged} buildReady={steps.loaded ? steps.buildReady : true} />
+        </div>
+      </div>
+    </>
   );
 }
 

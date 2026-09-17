@@ -1,5 +1,5 @@
 import { headers } from 'next/headers';
-import { DM_Sans, DM_Serif_Display, DM_Mono, Sacramento } from 'next/font/google';
+import { DM_Sans, DM_Mono, Sacramento } from 'next/font/google';
 import SiteHeader from './components/SiteHeader';
 import SiteFooter from './components/SiteFooter';
 import './globals.css';
@@ -19,22 +19,21 @@ import './globals.css';
  */
 const dmSans = DM_Sans({
   subsets: ['latin'],
-  weight: ['400', '500', '700'],
+  // 600 is the label and panel-title weight; without it the browser rounds
+  // to 700 and every label shouts.
+  weight: ['400', '500', '600', '700'],
   variable: '--font-dm-sans',
   display: 'swap',
 });
 
-const dmSerif = DM_Serif_Display({
-  subsets: ['latin'],
-  weight: ['400'],
-  variable: '--font-dm-serif',
-  display: 'swap',
-});
-
-/** Prices, seat labels, order references, the hold countdown. */
+/**
+ * DM Serif Display is gone: the owner rejected the serif headline, and the
+ * site is DM Sans only. Mono remains for `--es-font-code` alone — the six
+ * digit boxes, where a person copies characters one by one.
+ */
 const dmMono = DM_Mono({
   subsets: ['latin'],
-  weight: ['400', '500'],
+  weight: ['400'],
   variable: '--font-dm-mono',
   display: 'swap',
 });
@@ -192,7 +191,7 @@ export default async function RootLayout({ children }) {
   await headers();
 
   return (
-    <html lang="en" className={`${dmSans.variable} ${dmSerif.variable} ${dmMono.variable} ${script.variable}`}>
+    <html lang="en" className={`${dmSans.variable} ${dmMono.variable} ${script.variable}`}>
       <head>
         {/*
           THE HERO IMAGE LIVES ON ANOTHER ORIGIN, and the browser cannot know

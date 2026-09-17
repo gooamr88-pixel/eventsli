@@ -11,7 +11,7 @@ import { ConfirmProvider } from '../components/ui/Confirm';
 import { useAuth } from '../hooks/useAuth';
 import { get } from '../utils/apiClient';
 import EventSwitcher from './nav/EventSwitcher';
-import { organizerNavGroups, ORGANIZER_TABS, eventIdFromPath } from './nav/organizerNav';
+import { organizerNavGroups, organizerTabs, eventIdFromPath } from './nav/organizerNav';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -86,8 +86,12 @@ export default function OrganizerLayout({ children }) {
           label="Organizer"
           home="/organizer"
           groups={organizerNavGroups({ eventId, listingType })}
-          tabKeys={ORGANIZER_TABS}
-          head={(
+          // Only an event in the URL changes the bar; a remembered one does not.
+          tabKeys={organizerTabs({ eventId: pathEventId, listingType })}
+          // Before the organization exists there is nothing to create an event
+          // under and no event to pick: setup is the page, and the sidebar does
+          // not offer a shortcut past it.
+          head={user?.isOrganizer ? (
             <>
               {/* The money action, always one tap away. Its label is a nav
                   label, so the tablet rail shows the icon alone. */}
@@ -99,13 +103,13 @@ export default function OrganizerLayout({ children }) {
                 <EventSwitcher events={events} currentId={eventId} />
               </div>
             </>
-          )}
-          appbarAction={(
+          ) : null}
+          appbarAction={user?.isOrganizer ? (
             <Link href="/organizer/events/new" className="es-btn es-btn--primary es-btn--sm md:hidden">
               <NavIcon name="plus" size={18} />
               Create
             </Link>
-          )}
+          ) : null}
           foot={(
             <ShellFoot
               user={user}

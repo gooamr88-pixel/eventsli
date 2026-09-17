@@ -45,7 +45,7 @@ export function GettingStarted({ organizer }) {
     <section className="es-onboard es-band--field" aria-labelledby="onboard-title">
       <div className="fx-stack fx-stack--sm gap-4">
         <p className="es-eyebrow">Welcome, {organizer.displayName}</p>
-        <h2 id="onboard-title" className="max-w-[18ch] text-3xl text-ink">
+        <h2 id="onboard-title" className="max-w-[20ch] text-ink">
           {paymentsReady ? 'Now create your first event.' : 'Next: how buyers pay you.'}
         </h2>
         <p className="max-w-[46ch] text-muted">
@@ -53,7 +53,7 @@ export function GettingStarted({ organizer }) {
             ? 'Everything saves as you go, and nothing is public until Eventsli approves it.'
             : 'Set up at least one payment method so your ticketed events can go on sale.'}
         </p>
-        <div className="fx-row">
+        <div className="fx-row gap-2">
           {paymentsReady ? (
             <Link href="/organizer/events/new" className="es-btn es-btn--primary es-btn--lg">
               <NavIcon name="plus" size={18} />

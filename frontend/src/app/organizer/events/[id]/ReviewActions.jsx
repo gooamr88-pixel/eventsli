@@ -31,7 +31,7 @@ import FeeSummary from './FeeSummary';
  * further down the overview where they used to be.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-export default function ReviewActions({ event, onChanged }) {
+export default function ReviewActions({ event, onChanged, buildReady = true }) {
   const toast = useToast();
   const agreeId = useId();
   const [agreed, setAgreed] = useState(false);
@@ -83,13 +83,23 @@ export default function ReviewActions({ event, onChanged }) {
       <div className="es-panel-head">
         <h2 id={`${agreeId}-title`} className="es-panel-head__title">Going on sale</h2>
         {canSubmit && (
-          <span className="es-status" data-tone={accepted ? 'success' : 'neutral'}>
-            {accepted ? 'Ready to submit' : 'Step 1 of 2'}
+          <span className="es-status" data-tone={!buildReady ? 'muted' : accepted ? 'success' : 'neutral'}>
+            {!buildReady ? 'Not yet' : accepted ? 'Ready to submit' : 'Step 1 of 2'}
           </span>
         )}
       </div>
 
-      {canSubmit && (
+      {/* Nothing to agree to yet. The fees and the Submit button used to fill
+          half a phone screen on a draft with no tickets, and the one button
+          that worked sent an empty event to review. */}
+      {canSubmit && !buildReady && !accepted && (
+        <p className="text-sm text-muted">
+          This unlocks once the event has its ticket types, seating map and a way to pay. Then you
+          review the fees, accept the terms and send it to Eventsli — two taps.
+        </p>
+      )}
+
+      {canSubmit && (buildReady || accepted) && (
         <ol className="es-steps">
           <li className="es-steps__item" data-state={accepted ? 'done' : 'current'}>
             <span className="es-steps__marker" aria-hidden="true">
@@ -163,13 +173,15 @@ export default function ReviewActions({ event, onChanged }) {
                   type="button"
                   busy={busy === 'submit'}
                   busyLabel="Submitting…"
-                  disabled={!accepted || busy === 'terms'}
+                  disabled={!accepted || !buildReady || busy === 'terms'}
                   onClick={submit}
                 >
                   {event.status === 'rejected' ? 'Submit again' : 'Submit for review'}
                 </SubmitButton>
               </div>
-              {!accepted && <p className="text-xs text-subtle">Accept the terms first.</p>}
+              {!buildReady
+                ? <p className="text-xs text-subtle">Finish the steps in the checklist first — Eventsli needs to see what you are selling.</p>
+                : !accepted && <p className="text-xs text-subtle">Accept the terms first.</p>}
             </div>
           </li>
         </ol>

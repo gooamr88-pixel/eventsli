@@ -9,7 +9,7 @@ import { formatEventTime } from '../../lib/eventTime';
 import { Loading, Empty, ErrorNotice } from '../../components/Feedback';
 import { PageHeader } from '../../components/ui/Page';
 import { Segmented, SearchBox } from '../../components/ui/Filters';
-import DataTable from '../../components/ui/DataTable';
+import NavIcon from '../../components/shell/NavIcon';
 import StatusPill from '../StatusPill';
 import CreateProfile from '../CreateProfile';
 import OrganizerNotices from '../OrganizerNotices';
@@ -66,9 +66,10 @@ export default function EventsBrowser() {
     <div className="fx-stack">
       <PageHeader
         title="Your events"
-        lede="An event stays a draft until you submit it, so nothing goes on sale by accident."
-        // From lg the sidebar's Create event sits beside this; one is enough.
-        actions={<Link href="/organizer/events/new" className="es-btn es-btn--primary lg:hidden">Create event</Link>}
+        lede="Tap an event to manage it. Drafts stay private until you submit them."
+        // The phone's app bar and the desktop sidebar carry Create; only the
+        // tablet rail shows it as an icon, so it is spelled out there.
+        actions={<Link href="/organizer/events/new" className="es-btn es-btn--primary max-md:hidden lg:hidden">Create event</Link>}
       />
 
       <OrganizerNotices organizer={organizer} />
@@ -82,7 +83,10 @@ export default function EventsBrowser() {
             .filter((f) => f.value === 'all' || counts[f.value] > 0 || f.value === filter.value)
             .map((f) => ({ value: f.value, label: f.label, count: counts[f.value] }))}
         />
-        <SearchBox label="Search your events" placeholder="Title or venue" value={search} onSearch={setSearch} />
+        {/* Search earns its space once there is something to search. */}
+        {events.length > 6 && (
+          <SearchBox label="Search your events" placeholder="Title or venue" value={search} onSearch={setSearch} />
+        )}
       </div>
 
       {error ? (
@@ -100,47 +104,47 @@ export default function EventsBrowser() {
           ? <Empty title="No archived events." hint="Archive an event from its page to stop its sales and file it here." />
           : <Empty title="Nothing matches." hint="Try another filter, or clear the search." />
       ) : (
-        <DataTable
-          caption="Your events"
-          rows={rows}
-          columns={[
-            {
-              key: 'event',
-              label: 'Event',
-              primary: true,
-              render: (e) => (
-                <Link href={`/organizer/events/${e.id}`} className="fx-stack fx-stack--sm gap-0.5 hover:text-accent">
-                  <span className="fx-break font-medium text-ink">{e.title}</span>
-                  <span className="text-sm text-muted">
-                    {e.listingType === 'display_only' ? 'Display only' : 'Ticketed'}
-                    {e.venue?.name && ` · ${e.venue.name}`}
-                  </span>
-                </Link>
-              ),
-            },
-            {
-              key: 'when',
-              label: 'When',
-              render: (e) => <span className="whitespace-nowrap">{formatEventTime(e.startsAt, e.timezone, { time: false })}</span>,
-            },
-            { key: 'status', label: 'Status', render: (e) => <StatusPill status={e.status} /> },
-            {
-              key: 'actions',
-              label: 'Actions',
-              hideLabel: true,
-              align: 'end',
-              render: (e) => (
-                <span className="fx-row justify-end">
-                  {e.listingType !== 'display_only' && e.status !== 'archived' && (
-                    <Link href={`/organizer/events/${e.id}/orders`} className="es-btn es-btn--ghost es-btn--sm">Orders</Link>
-                  )}
-                  <Link href={`/organizer/events/${e.id}`} className="es-btn es-btn--secondary es-btn--sm">Manage</Link>
-                </span>
-              ),
-            },
-          ]}
-        />
+        <ul className="es-evlist" aria-label="Your events">
+          {rows.map((e) => <EventRow key={e.id} event={e} />)}
+        </ul>
       )}
     </div>
+  );
+}
+
+/**
+ * One event: its date as a calendar tile, what it is and where, and where it
+ * stands. The whole row opens it — it used to be a table stacked into label /
+ * value pairs on a phone, with "WHEN" and "STATUS" spelled out in capitals and
+ * two small buttons to aim at.
+ */
+function EventRow({ event }) {
+  const date = new Date(event.startsAt);
+  const part = (opts) => {
+    try { return new Intl.DateTimeFormat('en-CA', { timeZone: event.timezone, ...opts }).format(date); } catch { return ''; }
+  };
+  return (
+    <li>
+      <Link href={`/organizer/events/${event.id}`} className="es-evlist__row">
+        <span className="es-evlist__date" aria-hidden="true">
+          <span className="es-evlist__month">{part({ month: 'short' })}</span>
+          <span className="es-evlist__day">{part({ day: 'numeric' })}</span>
+        </span>
+        <span className="es-evlist__main">
+          <span className="es-evlist__title">{event.title}</span>
+          <span className="es-evlist__meta">
+            {formatEventTime(event.startsAt, event.timezone)}
+            {event.venue?.name && ` · ${event.venue.name}`}
+          </span>
+          <span className="es-evlist__meta">
+            {event.listingType === 'display_only' ? 'Display only' : 'Ticketed'}
+          </span>
+        </span>
+        <span className="es-evlist__side">
+          <StatusPill status={event.status} />
+          <span className="es-evlist__chev"><NavIcon name="arrow" size={18} /></span>
+        </span>
+      </Link>
+    </li>
   );
 }

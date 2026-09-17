@@ -48,6 +48,9 @@ export default function Dashboard() {
   if (!organizer) return <CreateProfile onCreated={refresh} />;
 
   const data = stats.data;
+  // Until the numbers arrive nobody knows whether this is a new organizer, and
+  // guessing drew the full dashboard for a moment before the welcome replaced it.
+  if (!data && !stats.error) return <Loading variant="stats" rows={4} label="Loading your dashboard" />;
   const isNew = Boolean(data) && (data.events?.total ?? 0) === 0;
   if (isNew && !organizer.setupComplete) return <CreateProfile organizer={organizer} onCreated={refresh} />;
   const currencies = Object.keys(data?.sales || {});
@@ -57,15 +60,28 @@ export default function Dashboard() {
   const { issued = 0, admitted = 0 } = data?.admissions || {};
   const checkedIn = percent(admitted, issued);
 
+  // A new organizer gets the welcome and its steps, and nothing above it: a
+  // "Dashboard" title and a second Create button over a page that is entirely
+  // about creating the first event only pushed the next step below the fold.
+  if (isNew) {
+    return (
+      <div className="fx-stack">
+        <h1 className="sr-only">Dashboard</h1>
+        <OrganizerNotices organizer={organizer} payouts={false} />
+        <GettingStarted organizer={organizer} />
+      </div>
+    );
+  }
+
   return (
     <div className="fx-stack">
       <PageHeader
         eyebrow={organizer.displayName}
         title="Dashboard"
-        lede={isNew ? 'Everything you need to put your first event on sale.' : 'How your events are selling, and what needs you next.'}
+        lede="How your events are selling, and what needs you next."
         actions={(
           <>
-            {!isNew && currencies.length > 1 && (
+            {currencies.length > 1 && (
               <Segmented
                 label="Currency"
                 value={currency}
@@ -73,8 +89,10 @@ export default function Dashboard() {
                 options={currencies.map((c) => ({ value: c, label: c }))}
               />
             )}
-            {/* The sidebar carries this from lg up; a second copy beside it is noise. */}
-            <Link href="/organizer/events/new" className="es-btn es-btn--primary lg:hidden">
+            {/* The phone's app bar and the desktop sidebar each carry Create;
+                only the tablet rail shows it as a bare icon, so here it is
+                spelled out between those two widths and nowhere else. */}
+            <Link href="/organizer/events/new" className="es-btn es-btn--primary max-md:hidden lg:hidden">
               <NavIcon name="plus" size={18} />
               Create event
             </Link>
@@ -89,8 +107,6 @@ export default function Dashboard() {
         <ErrorNotice error={stats.error} />
       ) : !data ? (
         <Loading variant="stats" rows={4} label="Loading your numbers" />
-      ) : isNew ? (
-        <GettingStarted organizer={organizer} />
       ) : (
         <>
           <div className="es-statgrid">
