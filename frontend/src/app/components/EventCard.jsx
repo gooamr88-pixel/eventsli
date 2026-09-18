@@ -3,6 +3,7 @@ import Image from 'next/image';
 import { formatMoneyCompact } from '../utils/money';
 import { categoryLabel } from '../lib/categories';
 import NavIcon from './shell/NavIcon';
+import SaveEventButton from './SaveEventButton';
 
 /**
  * One event in a listing. Used by the homepage and by /events, so the two can
@@ -84,6 +85,16 @@ export default function EventCard({ event, priority = false, headingLevel = 3, a
   const price = priceBlock(event);
 
   return (
+    /**
+     * A POSITIONED WRAPPER, so the heart can sit over the artwork without
+     * living inside the card's anchor.
+     *
+     * The whole card is one `<Link>`, and a `<button>` inside an `<a>` is
+     * invalid HTML that browsers recover from inconsistently — in practice the
+     * click navigates instead of saving. `h-full` keeps the card filling its
+     * grid cell, which `.es-evcard { height: 100% }` was already relying on.
+     */
+    <div className="relative h-full">
     <Link href={`/e/${event.slug}`} className={`es-evcard ${adaptive ? 'es-evcard--adaptive' : ''}`}>
       <div className="es-evcard__media">
         {event.coverUrl ? (
@@ -143,5 +154,14 @@ export default function EventCard({ event, priority = false, headingLevel = 3, a
         </div>
       </div>
     </Link>
+
+    {/* Over the top-right of the media. The card's own 12px padding puts the
+        artwork's corner just inside this, so the two do not collide. */}
+    <SaveEventButton
+      slug={event.slug}
+      title={event.title}
+      className="absolute right-4 top-4 z-10"
+    />
+    </div>
   );
 }
