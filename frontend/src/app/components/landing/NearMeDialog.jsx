@@ -390,6 +390,24 @@ function Result({ id, data, onClose }) {
 }
 
 // ─── When it does not work ──────────────────────────────────────────────────
+/**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * REFUSED — and this is the screen that decides whether "Near me" is a feature
+ * or a dead end.
+ *
+ * Most of the time the reason is `PERMISSION_DENIED`, which is not a fault to
+ * fix: the browser is doing what it was told, often months ago, and nothing on
+ * this page can change it. What the screen CAN do is get the reader to the
+ * same place by another road.
+ *
+ * It used to offer a link to `/events` labelled "Search by city", which put
+ * them on the unfiltered listing with an empty city box and no indication of
+ * what to type — the apology and the way forward were the same dead end. Now
+ * it lists the cities that actually have events on, busiest first, from the
+ * endpoint the hero's picker already uses. Tapping one produces exactly the
+ * filter the location would have set.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
 function Failed({ id, message, onRetry, onClose }) {
   return (
     <>
@@ -397,16 +415,65 @@ function Failed({ id, message, onRetry, onClose }) {
       <h2 id={`${id}-title`} className="es-modal__title">We could not find you</h2>
       <p className="es-modal__lede">{message}</p>
 
-      {/* A way forward, not just an apology. The city field on /events is the
-          same filter the location would have set. */}
+      <CityChoices onPick={onClose} />
+
       <div className="es-modal__actions">
-        <Link href="/events" className="es-btn es-btn--primary" onClick={onClose}>
-          Search by city
-        </Link>
-        <button type="button" onClick={onRetry} className="es-btn es-btn--ghost">
+        <button type="button" onClick={onRetry} className="es-btn es-btn--primary">
           Try again
         </button>
+        <Link href="/events" className="es-btn es-btn--ghost" onClick={onClose}>
+          Browse everything
+        </Link>
       </div>
     </>
+  );
+}
+
+/**
+ * The cities with something on, as a row of chips.
+ *
+ * Fetched here rather than by the dialog, so a reader who allows location on
+ * the first try never pays for a request they did not need — this component
+ * only mounts once something has already gone wrong.
+ *
+ * Renders NOTHING while loading and nothing on failure. It is a shortcut, not
+ * the answer: a spinner or a second error message inside a panel that is
+ * already apologising would be noise on top of noise, and "Browse everything"
+ * below still works either way.
+ */
+function CityChoices({ onPick }) {
+  const [cities, setCities] = useState([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await get('/public/cities', { noRedirect: true });
+        if (!cancelled) setCities((data?.cities || []).slice(0, 8));
+      } catch { /* the buttons below are still a way on */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  if (cities.length === 0) return null;
+
+  return (
+    <div className="es-modal__cities">
+      <p className="es-modal__cities-label">Or pick a city</p>
+      <ul className="es-modal__cities-list">
+        {cities.map((c) => (
+          <li key={`${c.city}|${c.country}`}>
+            <Link
+              href={`/events?city=${encodeURIComponent(c.city)}`}
+              onClick={onPick}
+              className="es-modal__city"
+            >
+              {c.city}
+              <span className="es-nums es-modal__city-count">{c.events}</span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }

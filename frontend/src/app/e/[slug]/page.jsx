@@ -1,16 +1,15 @@
-import Link from 'next/link';
-import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import { jsonLdScript } from '../../utils/jsonLd';
+import NavIcon from '../../components/shell/NavIcon';
 import EventGallery from './EventGallery';
 import EventTabs from './EventTabs';
-import EventShare from './EventShare';
-import EventPurchasePanel, { EventBuyBar } from './EventPurchasePanel';
+import EventHero, { EventFacts, EventPresentedBy } from './EventHero';
+import EventTickets, { EventMarks } from './EventTickets';
+import { EventBuyBar, EventPurchaseNotice } from './EventPurchasePanel';
 import {
-  EventHighlights, EventSchedule, EventSponsors, EventPolicies, VenueMap,
+  EventSchedule, EventSponsors, EventPolicies, VenueMap,
 } from './EventSections';
 import { serverFetch } from '../../utils/apiClient';
-import { formatPrice } from '../../utils/money';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -128,217 +127,174 @@ export default async function EventPage({ params, searchParams }) {
     .map((t) => t.priceCents)
     .filter((n) => Number.isFinite(n));
 
+  /**
+   * THE DESCRIPTION, SPLIT INTO WHAT IS SHOWN AND WHAT IS BEHIND "Show more".
+   *
+   * The mockup opens the About panel with a serif heading and a short
+   * paragraph. The API has no separate heading field — there is one
+   * `description` an organizer typed — so the shape is derived from it rather
+   * than demanding a field the organizer would have to fill twice.
+   *
+   * The FIRST LINE becomes the heading, but only when it reads like one: short
+   * enough to be a title and followed by more text. A description written as
+   * one long paragraph has no heading to take, and inventing one by cutting it
+   * at the first full stop would put half a sentence in display type.
+   */
+  const { aboutTitle, aboutLead, aboutRest } = splitDescription(event.description);
+
+  /**
+   * The kicker over the title, from the organizer's own highlights — the
+   * mockup's "NETWORK • RELAX • GROW". Three at most: it is one line over a
+   * large title, and a fourth pushes it onto two.
+   */
+  const kicker = (event.highlights || []).slice(0, 3).join(' • ') || null;
+
+  // Under the title in the hero. The first sentence of the description says
+  // what this is; the heading above already says what it is called.
+  const lede = firstSentence(aboutLead || event.description, 120);
+
   return (
-    <main>
+    <main className="fx-section fx-section--xs">
       {/* JSON-LD so the event is eligible for a rich result. Built from the
           same values rendered below — a second, hand-written copy is one that
-          goes stale the first time a date changes. */}
+          goes stale the first time a date changes.
+
+          `jsonLdScript`, not `JSON.stringify`. The values are typed by the
+          organizer, and JSON escaping has no opinion about `</script>` — which
+          ends this block before any JavaScript is parsed. See utils/jsonLd.js. */}
       <script
         type="application/ld+json"
-        // `jsonLdScript`, not `JSON.stringify`. The values below are typed by
-        // the organizer, and JSON escaping has no opinion about `</script>` —
-        // which ends this block before any JavaScript is parsed. See utils/jsonLd.js.
         dangerouslySetInnerHTML={{ __html: jsonLdScript(jsonLd(event)) }}
       />
 
-      {/* ── The masthead ──────────────────────────────────────────────
-          The title used to sit in the left column of the body, under a bare
-          `aspect-[21/9]` strip of cover art. Two things were wrong with that:
-          the art was PLACED rather than presented — a full-bleed band with a
-          hard bottom edge and nothing on it — and the title, the one thing
-          that tells you whether you are on the right page, opened below the
-          fold on a phone once the strip had taken its share.
+      <div className="fx-gutter">
+        <div className="es-ev-page fx-stack">
+          {/* ── 1. The picture, on its own ───────────────────────────────── */}
+          <EventHero event={event} kicker={kicker} lede={lede} />
 
-          One band now carries both. With cover art it is the art plus a
-          scrim; without it, the field tone. Either way the band is
-          `.es-band--photo`, so the text roles inside it are already inverted
-          and measured — a scrim over an unknown photograph is the classic
-          place white text quietly fails, and here `text-muted` is
-          `#b7d8cc` against a dark ground rather than slate-600. */}
-      <section className="es-band--photo relative flex min-h-[clamp(17rem,30vw,24rem)] items-end overflow-hidden">
-        {event.coverUrl ? (
-          <>
-            <Image
-              src={event.coverUrl}
-              alt=""
-              fill
-              sizes="100vw"
-              priority
-              className="object-cover"
-            />
-            {/* The scrim is what makes the title legible over art nobody has
-                seen. Bottom-weighted, because that is where the text is. */}
-            <div
-              aria-hidden
-              className="absolute inset-0 bg-gradient-to-t from-bg-deep via-bg-deep/70 to-bg-deep/10"
-            />
-          </>
-        ) : null}
+          {/* ── 2. The three facts ───────────────────────────────────────── */}
+          <EventFacts
+            event={event}
+            when={{
+              date: fmt(starts, { dateStyle: 'medium' }),
+              time: `${fmt(starts, { timeStyle: 'short' })} – ${
+                sameDay(starts, ends, event.timezone)
+                  ? fmt(ends, { timeStyle: 'short' })
+                  : fmt(ends, { dateStyle: 'medium', timeStyle: 'short' })
+              }`,
+            }}
+            organizerHref={event.organizer?.name ? '#event-organizer' : null}
+          />
 
-        <div className="fx-gutter relative w-full pb-10 pt-16">
-          <div className="fx-container fx-container--xl fx-stack fx-stack--sm">
-            <p className="es-eyebrow text-accent">
-              {fmt(starts, { weekday: 'long', month: 'long', day: 'numeric' })}
-            </p>
-            <h1 className="max-w-[20ch] text-3xl">{event.title}</h1>
-          </div>
+          {/* ── 3. Who is presenting ─────────────────────────────────────── */}
+          <EventPresentedBy sponsors={event.sponsors} />
 
+          {/* ── 4. The sections ──────────────────────────────────────────────
+              Every panel is in the page whether or not its tab is open —
+              `EventTabs` argues why, and the short version is that this is the
+              page the whole platform exists to get people to, so its content
+              cannot be behind a click a crawler has to simulate.
+
+              A tab appears only when it has something in it, so a small event
+              with a description and nothing else gets no tab bar at all. */}
+          <EventTabs
+            panels={[
+              {
+                key: 'about',
+                label: 'About',
+                content: (event.description || (event.gallery || []).length > 0
+                  || (event.highlights || []).length > 0) && (
+                  <div className="fx-stack">
+                    <p className="es-ev-about__eyebrow">About the event</p>
+                    {aboutTitle && <h2 className="es-ev-about__title fx-break">{aboutTitle}</h2>}
+
+                    {aboutRest ? (
+                      <>
+                        <p className="fx-break max-w-[62ch] whitespace-pre-line text-md leading-relaxed text-muted">
+                          {aboutLead}
+                        </p>
+                        {/* `<details>`, so the long half costs no JavaScript and
+                            is still in the HTML for a crawler. */}
+                        <details className="es-ev-more">
+                          <summary>
+                            <span className="es-ev-more__show">Show more</span>
+                            <span className="es-ev-more__less">Show less</span>
+                            <span aria-hidden className="es-ev-more__caret">
+                              <NavIcon name="arrow" size={16} />
+                            </span>
+                          </summary>
+                          <p className="fx-break mt-2 max-w-[62ch] whitespace-pre-line text-md leading-relaxed text-muted">
+                            {aboutRest}
+                          </p>
+                        </details>
+                      </>
+                    ) : aboutLead ? (
+                      <p className="fx-break max-w-[62ch] whitespace-pre-line text-md leading-relaxed text-muted">
+                        {aboutLead}
+                      </p>
+                    ) : null}
+
+                    <EventMarks items={event.highlights} />
+                    <EventGallery items={event.gallery} />
+                  </div>
+                ),
+              },
+              {
+                key: 'lineup',
+                label: 'Lineup',
+                content: (event.schedule || []).length > 0 && (
+                  <EventSchedule items={event.schedule} timezone={event.timezone} />
+                ),
+              },
+              {
+                key: 'venue',
+                label: 'Venue',
+                // The address alone earns this tab: it is the second thing
+                // anybody checks, and on a well-known venue there is no pin to
+                // add to it.
+                content: (event.venue || event.venueLocation) && (
+                  <VenueMap
+                    venue={event.venue}
+                    address={event.venueAddress}
+                    location={event.venueLocation}
+                  />
+                ),
+              },
+              {
+                key: 'organizer',
+                label: 'Organizer',
+                content: event.organizer?.name && (
+                  <section className="fx-stack fx-stack--sm" aria-labelledby="event-organizer">
+                    <h2 id="event-organizer" className="text-lg">Organised by</h2>
+                    <p className="text-md text-muted">{event.organizer.name}</p>
+                    {/* The full list lives here rather than in a section of its
+                        own at the foot of the page. The headline sponsor is
+                        already up top; these are the rest. */}
+                    <EventSponsors items={event.sponsors} />
+                  </section>
+                ),
+              },
+              {
+                key: 'faqs',
+                label: 'FAQs',
+                content: (event.policies || []).length > 0 && (
+                  <EventPolicies items={event.policies} />
+                ),
+              },
+            ]}
+          />
+
+          {/* ── 5. What it costs ─────────────────────────────────────────── */}
+          <EventTickets event={event} cheapest={cheapest} soldOut={soldOut} />
+
+          {/* The reasons a buyer might not be able to buy, said in full. The
+              bar below has room for a label and a button and nothing else. */}
+          <EventPurchaseNotice event={event} soldOut={soldOut} focusTier={focusTier} />
         </div>
+      </div>
 
-        {/* Top-right of the band, over the artwork — where a reader's thumb
-            already is on a phone, and clear of the title block below. */}
-        <div className="fx-gutter absolute inset-x-0 top-4 z-10">
-          <div className="fx-container fx-container--xl fx-row justify-end">
-            <EventShare title={event.title} slug={event.slug} />
-          </div>
-        </div>
-      </section>
-
-      {/* The space the fixed buy bar covers is reserved on `<body>`, by a
-          `:has(.es-buybar)` rule in globals.css — the footer is a sibling of
-          this page, so padding anything inside it would leave the footer
-          underneath the bar. Nothing to add here. */}
-      <section className="fx-section fx-section--sm">
-        <div className="fx-container fx-container--xl">
-          <div className="grid gap-[var(--fx-gap-lg)] lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
-            <div className="fx-stack">
-              {/* Was `text-sm` on the whole list — 12.6px on a phone for the
-                  when and the where, which are the two facts a person opens
-                  this page to check. Now the list inherits body size and each
-                  row is a ruled pair, so the labels scan down one edge. */}
-              <dl className="fx-stack fx-stack--sm">
-                <Row term="When">
-                  {fmt(starts, { dateStyle: 'medium', timeStyle: 'short' })}
-                  {' – '}
-                  {sameDay(starts, ends, event.timezone)
-                    ? fmt(ends, { timeStyle: 'short' })
-                    : fmt(ends, { dateStyle: 'medium', timeStyle: 'short' })}
-                  {' '}
-                  <span className="text-subtle">({event.timezone})</span>
-                </Row>
-                {event.venue && (
-                  <Row term="Where">
-                    {event.venue}
-                    {event.venueAddress && <span className="text-muted">, {event.venueAddress}</span>}
-                  </Row>
-                )}
-                {event.organizer?.name && <Row term="Organizer">{event.organizer.name}</Row>}
-              </dl>
-
-              <EventHighlights items={event.highlights} />
-
-              {/* ── WHAT THE ORGANIZER BUILT, behind four tabs ─────────────
-                  Every panel is in the page whether or not its tab is open —
-                  `EventTabs` argues why at length, and the short version is
-                  that this is the page the whole platform exists to get people
-                  to, so its content cannot be behind a click a crawler has to
-                  simulate.
-
-                  A tab appears only when it has something in it, so a small
-                  event with a description and nothing else gets no tab bar at
-                  all — just its description, which is the right shape for it. */}
-              <EventTabs
-                panels={[
-                  {
-                    key: 'about',
-                    label: 'About',
-                    content: (event.description || (event.gallery || []).length > 0) && (
-                      <div className="fx-stack">
-                        {event.description && (
-                          <div className="fx-break max-w-[62ch] whitespace-pre-line text-md leading-relaxed text-muted">
-                            {event.description}
-                          </div>
-                        )}
-                        <EventGallery items={event.gallery} />
-                      </div>
-                    ),
-                  },
-                  {
-                    key: 'lineup',
-                    label: 'Lineup',
-                    content: (event.schedule || []).length > 0 && (
-                      <EventSchedule items={event.schedule} timezone={event.timezone} />
-                    ),
-                  },
-                  {
-                    key: 'venue',
-                    label: 'Venue',
-                    // The address alone earns this tab: it is the second thing
-                    // anybody checks, and on a well-known venue there is no pin
-                    // to add to it.
-                    content: (event.venue || event.venueLocation) && (
-                      <VenueMap
-                        venue={event.venue}
-                        address={event.venueAddress}
-                        location={event.venueLocation}
-                      />
-                    ),
-                  },
-                  {
-                    key: 'faqs',
-                    label: 'FAQs',
-                    content: (event.policies || []).length > 0 && (
-                      <EventPolicies items={event.policies} />
-                    ),
-                  },
-                ]}
-              />
-
-              {/* OUTSIDE THE TABS, deliberately. Sponsors are an obligation the
-                  organizer has to the people who paid for the banner, and a
-                  tab nobody opens does not discharge it. The organizer's own
-                  name is provenance and belongs on the page, not in a section. */}
-              <EventSponsors items={event.sponsors} />
-
-              {event.organizer?.name && (
-                <section className="fx-stack fx-stack--sm" aria-labelledby="event-organizer">
-                  <h2 id="event-organizer" className="text-lg">Organised by</h2>
-                  <p className="text-md text-muted">{event.organizer.name}</p>
-                </section>
-              )}
-            </div>
-
-            {/* STICKY, from `lg` up.
-
-                The description on a well-filled event page runs past the fold,
-                and when it does, the price and the buy button scroll off with
-                the top of the page — so the reader finishes the part that
-                convinced them and has to scroll back up to act on it. Sticking
-                the box means the decision is reachable from wherever the answer
-                was found.
-
-                `top-20` clears the 4rem masthead, which is itself sticky: at
-                `top-0` the box would slide under it and lose its first line.
-                `self-start` is what makes it work at all — a grid item defaults
-                to `stretch`, which makes this column as tall as the description
-                beside it, and a sticky element the full height of its scroll
-                container never has anywhere to stick to. */}
-            {/* `lg:-mt-28` lifts the box over the masthead band above it.
-                That overlap is the one piece of deliberate asymmetry on the
-                page and it does real work: it puts the price physically on
-                top of the art, which is the pairing the reader is deciding
-                about, and it stops the right column starting on the same
-                horizontal line as the left — which is what made the old
-                layout read as two lists side by side.
-
-                The sticky note below still applies. `self-start` is what
-                makes sticky work at all: a grid item defaults to `stretch`,
-                which makes this column as tall as the description beside it,
-                and a sticky element the full height of its scroll container
-                never has anywhere to stick to. */}
-            <EventPurchasePanel
-              event={event}
-              focusTier={focusTier}
-              soldOut={soldOut}
-              cheapest={cheapest}
-            />
-          </div>
-        </div>
-      </section>
-
-      {/* Phones and tablets only — from `lg` the panel above is sticky and
-          already does this. Rendered last so it is the final thing in the tab
-          order, after the content it is an action on. */}
+      {/* Fixed to the bottom at every width — the sticky side panel it replaced
+          only ever existed on a desktop, and this page is now one column. */}
       <EventBuyBar
         event={event}
         soldOut={soldOut}
@@ -376,6 +332,58 @@ function Row({ term, children }) {
       <dd className="fx-min0 fx-break text-ink">{children}</dd>
     </div>
   );
+}
+
+/**
+ * An organizer's description → a heading, an opening paragraph, and the rest.
+ *
+ * The heading is taken only when the first line genuinely looks like one: on
+ * its own line, short, and with something after it. Everything else falls back
+ * to "no heading, all of it is body", which is the honest answer for a
+ * description written as prose — a title cut out of a running sentence reads as
+ * a bug, not as design.
+ *
+ * The fold is by PARAGRAPH, never mid-sentence. `Show more` that opens on the
+ * back half of a sentence is worse than no fold at all.
+ */
+const HEADING_MAX = 70;
+
+export function splitDescription(description) {
+  const text = String(description || '').trim();
+  if (!text) return { aboutTitle: null, aboutLead: '', aboutRest: '' };
+
+  const paragraphs = text.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
+  const firstLine = paragraphs[0]?.split('\n')[0]?.trim() || '';
+
+  // A heading has no full stop at the end, is short, and is not the whole
+  // description — one line of text is a description, not a title with nothing
+  // under it.
+  const looksLikeHeading = paragraphs.length > 1
+    && firstLine.length > 0
+    && firstLine.length <= HEADING_MAX
+    && firstLine === paragraphs[0]
+    && !/[.!?]$/.test(firstLine);
+
+  const rest = looksLikeHeading ? paragraphs.slice(1) : paragraphs;
+  return {
+    aboutTitle: looksLikeHeading ? firstLine : null,
+    aboutLead: rest[0] || '',
+    aboutRest: rest.slice(1).join('\n\n'),
+  };
+}
+
+/** The opening sentence, for the line under the title in the hero. Truncated
+ *  on a word boundary rather than mid-word, and only when it is genuinely long. */
+export function firstSentence(text, max) {
+  const clean = String(text || '').trim().replace(/\s+/g, ' ');
+  if (!clean) return null;
+
+  const stop = clean.search(/[.!?](\s|$)/);
+  const sentence = stop > 0 ? clean.slice(0, stop + 1) : clean;
+  if (sentence.length <= max) return sentence;
+
+  const cut = sentence.slice(0, max);
+  return `${cut.slice(0, cut.lastIndexOf(' ')) || cut}…`;
 }
 
 function sameDay(a, b, timeZone) {

@@ -221,9 +221,23 @@ export function EventPolicies({ items = [] }) {
  * destination reads as a place rather than as two numbers.
  */
 export function VenueMap({ venue, address, location }) {
-  if (!location) return null;
+  /**
+   * A NAME OR AN ADDRESS IS ENOUGH — coordinates are not required.
+   *
+   * This returned `null` unless the organizer had pinned the venue on a map,
+   * which meant an event with "MTELUS, 59 Rue Sainte-Catherine E" and no pin
+   * showed no venue section at all, and the tab holding it disappeared with it.
+   * Most organizers type an address and never open the map picker, so the
+   * second thing every buyer checks was missing from most events.
+   *
+   * The link does not need the pin either: Maps resolves a text query at least
+   * as well as a coordinate, and usually better — a pin dropped by hand lands
+   * in the car park, the name lands on the building.
+   */
+  const text = `${venue || ''} ${address || ''}`.trim();
+  if (!text && !location) return null;
 
-  const query = encodeURIComponent(`${venue || ''} ${address || ''}`.trim() || `${location.lat},${location.lng}`);
+  const query = encodeURIComponent(text || `${location.lat},${location.lng}`);
   const href = `https://www.google.com/maps/search/?api=1&query=${query}`;
 
   return (

@@ -1726,11 +1726,22 @@
    appear until the reader had already scrolled to where the button is,
    which is the problem rather than the fix.
 
-   Hidden from `lg`, where the sticky panel already does this job and two
-   prices on one screen would read as two different prices.
+   SHOWN AT EVERY WIDTH, now that the page is one column. It used to be
+   hidden from `lg`, where a sticky side panel carried the price instead —
+   that panel is gone, so hiding the bar on a desktop would leave the whole
+   page with no button once the tickets card had scrolled past.
 
-   The page pays for the space it covers with `.es-has-buybar` below;
-   without that, the last section of every event page sits underneath it. */
+   Centred on a wide screen rather than spanning it: the column it belongs
+   to is 46rem, and a control stretched across a 27-inch monitor puts its
+   price and its button a foot apart. */
+.es-buybar__inner {
+  display: flex;
+  align-items: center;
+  gap: var(--fx-gap-sm);
+  width: 100%;
+  max-width: 46rem;
+  margin-inline: auto;
+}
 .es-buybar {
   position: fixed;
   inset-inline: 0;
@@ -1739,13 +1750,27 @@
   display: flex;
   align-items: center;
   gap: var(--fx-gap-sm);
+  /* Centred to the reading column, not stretched across the viewport. */
+  width: 100%;
+  max-width: calc(46rem + 2 * var(--fx-pad-x));
+  margin-inline: auto;
   background: var(--es-surface);
   border-block-start: 1px solid var(--es-border);
   box-shadow: 0 -6px 20px rgb(15 23 42 / 0.10);
   padding: 0.625rem max(var(--fx-pad-x), var(--fx-safe-l));
   padding-block-end: max(0.625rem, calc(var(--fx-safe-b) + 0.375rem));
 }
-@media (width >= 64rem) { .es-buybar { display: none; } }
+/* Rounded and lifted clear of the edge once there is room beside it — at
+   full width it is a bar across the bottom of the screen, and on a desktop
+   that reads as browser chrome rather than as part of the page. */
+@media (width >= 48rem) {
+  .es-buybar {
+    inset-block-end: 1rem;
+    border: 1px solid var(--es-border);
+    border-radius: var(--es-radius-lg);
+    box-shadow: var(--es-shadow-xl);
+  }
+}
 
 /* The price side. `min-width: 0` so a long "CA$1,234.00 and up" truncates
    instead of pushing the button off the end of a 320px screen. */
@@ -1771,12 +1796,10 @@
    none can forget to. Where `:has()` is unsupported the result is exactly
    the behaviour this replaces, so the degradation costs nothing.
 
-   `.es-buybar` is display:none from `lg`, but `:has()` matches the ELEMENT
-   and not its visibility, so the media query here is what stops a desktop
-   reserving space for a bar it never shows. */
-@media (width < 64rem) {
-  body:has(.es-buybar) { padding-block-end: calc(4.5rem + var(--fx-safe-b)); }
-}
+   No media query, because the bar no longer has one: it is shown at every
+   width now that the sticky side panel is gone, so every width pays for
+   it. */
+body:has(.es-buybar) { padding-block-end: calc(5.5rem + var(--fx-safe-b)); }
 
 /* ── .es-card--flush — a card that trusts the ground ────────────────────
    Now that `bg-sunken` and `surface` are 7.5 L* apart, a card sitting on
@@ -4645,6 +4668,46 @@ a.es-sponsor:hover { opacity: 0.7; }
   .es-modal__actions > * { flex: 1 1 auto; }
 }
 
+/* ── The city shortcuts, when finding somebody has failed ───────────────
+   Chips rather than a select: there are eight at most, they are the whole
+   point of the screen, and a closed dropdown would hide the one piece of
+   help this panel has to offer behind another tap. */
+.es-modal__cities { display: flex; flex-direction: column; gap: 0.5rem; }
+.es-modal__cities-label {
+  font-size: var(--es-text-sm);
+  color: var(--es-text-muted);
+}
+.es-modal__cities-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.es-modal__city {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  /* The touch floor, on a control people aim at with a thumb in a list of
+     eight sitting side by side. */
+  min-height: var(--fx-touch);
+  padding-inline: 0.75rem;
+  border: 1px solid var(--es-border);
+  border-radius: var(--es-radius-full);
+  background: var(--es-surface);
+  font-size: var(--es-text-sm);
+  color: var(--es-text);
+  text-decoration: none;
+  transition: border-color var(--es-transition-fast), background var(--es-transition-fast);
+}
+.es-modal__city:hover {
+  border-color: var(--es-accent);
+  background: var(--es-accent-wash);
+}
+/* How much is on there — the reason the busiest city is listed first. */
+.es-modal__city-count { font-size: var(--es-text-xs); color: var(--es-text-subtle); }
+
 
 /* ═══════════════════════════════════════════════════════════════════════
    THE STOREFRONT — 2026-09-17, built from the approved mockup (version 3
@@ -4790,6 +4853,17 @@ a.es-sponsor:hover { opacity: 0.7; }
   font-weight: 600;
   letter-spacing: 0.03em;
   color: var(--es-accent);
+}
+/* Only when the admin has given the badge somewhere to go. A pill that looks
+   clickable and is not is worse than one that plainly is not, so the hover
+   affordance is on the variant rather than on the base. */
+.es-lp-pill--link {
+  text-decoration: none;
+  transition: border-color var(--es-transition-fast), box-shadow var(--es-transition-fast);
+}
+.es-lp-pill--link:hover {
+  border-color: var(--es-border-strong);
+  box-shadow: var(--es-shadow-sm);
 }
 .es-lp-hero__title {
   margin: 0;
@@ -5215,6 +5289,41 @@ a.es-sponsor:hover { opacity: 0.7; }
   line-height: 1.2;
   color: var(--es-accent);
 }
+/* ── The wrapper, and where the heart sits on it ───────────────────────
+   The card is one `<Link>`; the save button cannot live inside an anchor, so
+   it is a SIBLING positioned over the card. That means its coordinates are
+   card-relative, and the card has two completely different shapes — which is
+   how the heart came to sit on top of the title.
+
+   The two numbers the adaptive layout is built from are declared here rather
+   than inside the media rule, so the art and the heart read the SAME values.
+   Before, the art's 112px lived in one rule and the heart's offset was a
+   guess in a utility class; changing one silently moved the other onto the
+   text. */
+.es-evcard-wrap {
+  --es-evcard-art: 112px;   /* the art column, below md, when adaptive */
+  --es-evcard-pad: 10px;    /* the adaptive card's own padding */
+  position: relative;
+  height: 100%;
+}
+
+/* The tall card: art across the top, so the card's corner IS the art's. */
+.es-evcard__save { position: absolute; right: 1rem; top: 1rem; z-index: 10; }
+
+@media (width < 48rem) {
+  /* The adaptive card is a row. The art's top-right corner is one art-width
+     in from the leading edge, less the heart and a hair of inset. The date
+     badge is at the art's top-LEFT (38px wide from 6px in), so the two clear
+     each other by a comfortable margin at every card width. */
+  .es-evcard-wrap--adaptive .es-evcard__save {
+    right: auto;
+    inset-inline-start: calc(
+      var(--es-evcard-pad) + var(--es-evcard-art) - 2.25rem - 6px
+    );
+    top: calc(var(--es-evcard-pad) + 6px);
+  }
+}
+
 .es-evcard__body { display: flex; flex: 1; flex-direction: column; padding: 14px 6px 4px; }
 .es-evcard__title {
   display: -webkit-box;
@@ -5768,9 +5877,12 @@ a.es-sponsor:hover { opacity: 0.7; }
 
 /* The event card as a ROW, below md only. */
 @media (width < 48rem) {
-  .es-evcard--adaptive { flex-direction: row; gap: 12px; padding: 10px; border-radius: 16px; }
+  /* Padding and art width come from `.es-evcard-wrap` above — the heart is
+     positioned from the same two values, and a literal here would be a second
+     copy for it to drift from. */
+  .es-evcard--adaptive { flex-direction: row; gap: 12px; padding: var(--es-evcard-pad); border-radius: 16px; }
   .es-evcard--adaptive:hover { transform: none; }
-  .es-evcard--adaptive .es-evcard__media { flex: 0 0 112px; aspect-ratio: auto; min-height: 128px; border-radius: 10px; }
+  .es-evcard--adaptive .es-evcard__media { flex: 0 0 var(--es-evcard-art); aspect-ratio: auto; min-height: 128px; border-radius: 10px; }
   .es-evcard--adaptive .es-evcard__placeholder { padding: 10px; font-size: 0.8125rem; }
   .es-evcard--adaptive .es-lp-datebadge { left: 6px; top: 6px; min-width: 38px; padding: 4px 6px; border-radius: 8px; }
   .es-evcard--adaptive .es-lp-datebadge b { font-size: 0.9375rem; }
@@ -5785,6 +5897,294 @@ a.es-sponsor:hover { opacity: 0.7; }
   .es-evcard--adaptive .es-evcard__price b { font-size: var(--es-text-base); }
 }
 
+
+/* ═══════════════════════════════════════════════════════════════════════
+   THE EVENT PAGE — rebuilt from the approved mobile mockup.
+
+   ONE COLUMN, AT EVERY WIDTH. It was a two-column grid with a sticky
+   purchase panel beside the content, which is a desktop shape that a phone
+   met as "everything, then the buy box, several screens down". The mockup
+   is a single narrow column and the phone is the priority, so the column
+   is the layout and a desktop simply centres it. The buy bar carries the
+   decision at every size instead of the sticky panel.
+
+   THE ORDER IS THE BRIEF: the picture on its own, then the three facts,
+   then who is presenting, then the sections, then the tickets. Each block
+   is one idea, so a reader can stop at any point and have a whole answer.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* The reading column. Narrower than `--fx-w-xl` on purpose: this page is
+   read, and a 44rem measure is what keeps the description from running to
+   twenty words a line on a laptop. */
+.es-ev-page { width: 100%; max-width: 46rem; margin-inline: auto; }
+
+/* ── The hero card ──────────────────────────────────────────────────────
+   CONTAINED, not full-bleed. Full-bleed art on a phone is art with its
+   edges cut off by the viewport, and the brief was that the picture should
+   be seen on its own first. Inside a rounded card with the page's own
+   gutter, the whole frame is visible and the card reads as the event.
+
+   `min-height` rather than a fixed `aspect-ratio`: the overlay carries a
+   kicker, a two-line title, a supporting line and the venue, and an event
+   with a long title has to be able to push the card taller rather than
+   clip. The clamp keeps it near 16:10 on a phone without ever collapsing. */
+.es-ev-hero {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-height: clamp(15rem, 56vw, 24rem);
+  padding: 1.25rem;
+  overflow: hidden;
+  border-radius: var(--es-radius-xl);
+  background: var(--es-accent);
+  box-shadow: var(--es-shadow-plate);
+}
+.es-ev-hero img { object-fit: cover; }
+
+/* Bottom-weighted, because that is where the words are. Two stops rather
+   than a flat tint: a flat scrim over a bright sunset either washes the
+   photograph out or leaves the text unreadable, and there is no single
+   opacity that does both. */
+.es-ev-hero__scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(
+    to top,
+    rgb(8 15 30 / 0.88) 0%,
+    rgb(8 15 30 / 0.55) 42%,
+    rgb(8 15 30 / 0.12) 78%,
+    rgb(8 15 30 / 0.05) 100%
+  );
+}
+.es-ev-hero__body { position: relative; z-index: 2; display: flex; flex-direction: column; gap: 0.5rem; }
+
+/* Every text role inside the card is inverted, not just `color`. A bare
+   white `color` leaves `text-muted` at slate-600 on a photograph, which is
+   the classic place light-on-dark quietly fails. */
+.es-ev-hero__body {
+  --es-text:       #ffffff;
+  --es-text-muted: rgb(255 255 255 / 0.88);
+  --es-text-subtle: rgb(255 255 255 / 0.74);
+  color: var(--es-text);
+}
+.es-ev-hero__kicker {
+  font-family: var(--es-font-mono);
+  font-size: var(--es-text-xs);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgb(255 255 255 / 0.82);
+}
+/* The serif, and the one place on the storefront it is still used — a
+   poster title is the exception the owner kept. `clamp` so a long name
+   stays inside the card instead of setting the card's width. */
+.es-ev-hero__title {
+  margin: 0;
+  font-family: var(--es-font-serif, var(--es-font-sans));
+  font-size: clamp(1.875rem, 8.5vw, 3rem);
+  font-weight: 700;
+  line-height: 1.02;
+  letter-spacing: -0.02em;
+}
+.es-ev-hero__lede {
+  max-width: 34ch;
+  font-size: var(--es-text-sm);
+  line-height: 1.45;
+  color: rgb(255 255 255 / 0.9);
+}
+.es-ev-hero__where {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+  font-size: var(--es-text-sm);
+  line-height: 1.35;
+  color: rgb(255 255 255 / 0.92);
+}
+.es-ev-hero__where svg { flex: none; margin-top: 1px; }
+
+/* Share and save, over the art. In the mockup these sit beside the logo in
+   the masthead; that bar is global and shared by every page, so they are
+   here instead — same two circles, same reach, and no vertical space spent
+   on a row of their own. */
+.es-ev-hero__actions {
+  position: absolute;
+  inset-block-start: 0.75rem;
+  inset-inline-end: 0.75rem;
+  z-index: 3;
+}
+
+/* ── The three facts ────────────────────────────────────────────────────
+   `.fx-grid` and not `repeat(3, 1fr)`. Three fixed columns of real words at
+   320px is about 80px each, which AGENTS.md's own arithmetic rules out —
+   so this auto-fits: three across on any ordinary phone, two on a very
+   narrow one, and never an overflow. */
+.es-ev-facts {
+  --fx-col: 8rem;
+  --fx-gap: 0.75rem;
+  padding-block: 0.25rem;
+}
+.es-ev-fact { display: flex; align-items: flex-start; gap: 0.625rem; min-width: 0; }
+.es-ev-fact__icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: var(--es-radius-md);
+  background: var(--es-accent-wash);
+  color: var(--es-accent);
+}
+.es-ev-fact__text { display: flex; flex-direction: column; gap: 0.125rem; min-width: 0; }
+.es-ev-fact__label {
+  font-family: var(--es-font-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--es-text-subtle);
+}
+.es-ev-fact__value { font-size: var(--es-text-sm); font-weight: 600; line-height: 1.3; color: var(--es-text); }
+.es-ev-fact__note { font-size: var(--es-text-xs); line-height: 1.35; color: var(--es-text-muted); }
+
+/* ── "Presented by" ─────────────────────────────────────────────────────
+   The headline sponsor, given its own band directly under the facts. It
+   used to be a section at the very bottom of the page, under the tabs and
+   the organizer — which is the one place a sponsor's money does not reach,
+   because almost nobody scrolls that far. */
+.es-ev-sponsor {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1.25rem;
+  padding: 1rem 1.25rem;
+  border-radius: var(--es-radius-lg);
+  background: var(--es-accent-wash);
+}
+.es-ev-sponsor__label {
+  font-family: var(--es-font-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--es-text-muted);
+}
+.es-ev-sponsor__logo { display: flex; align-items: center; min-width: 0; flex: 1 1 auto; }
+.es-ev-sponsor__logo img { max-height: 2.25rem; width: auto; object-fit: contain; }
+.es-ev-sponsor__name { font-size: var(--es-text-md); font-weight: 600; color: var(--es-text); }
+.es-ev-sponsor__level {
+  flex: none;
+  padding-inline-start: 1.25rem;
+  border-inline-start: 1px solid var(--es-border);
+  font-size: var(--es-text-xs);
+  line-height: 1.3;
+  color: var(--es-text-muted);
+}
+
+/* ── The About panel ────────────────────────────────────────────────────── */
+.es-ev-about__eyebrow {
+  font-family: var(--es-font-mono);
+  font-size: var(--es-text-xs);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--es-text-subtle);
+}
+.es-ev-about__title {
+  margin: 0;
+  font-family: var(--es-font-serif, var(--es-font-sans));
+  font-size: clamp(1.5rem, 6vw, 2rem);
+  font-weight: 700;
+  line-height: 1.12;
+  letter-spacing: -0.015em;
+  color: var(--es-text);
+}
+
+/* "Show more" on a <details>, so the long half of a description costs no
+   JavaScript and is still in the HTML for a crawler. The marker is removed
+   and replaced by the caret in the summary's own markup. */
+.es-ev-more { display: block; }
+.es-ev-more > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-height: var(--fx-touch);
+  font-size: var(--es-text-sm);
+  font-weight: 500;
+  color: var(--es-accent);
+  cursor: pointer;
+  list-style: none;
+}
+.es-ev-more > summary::-webkit-details-marker { display: none; }
+.es-ev-more > summary .es-ev-more__caret { transition: transform var(--es-transition-fast); }
+.es-ev-more[open] > summary .es-ev-more__caret { transform: rotate(180deg); }
+/* The label swaps without a second element: both are in the DOM, and the
+   open state decides which is shown. */
+.es-ev-more[open] > summary .es-ev-more__less { display: inline; }
+.es-ev-more[open] > summary .es-ev-more__show { display: none; }
+.es-ev-more > summary .es-ev-more__less { display: none; }
+
+/* ── The organizer's highlights, as marks ───────────────────────────────
+   Auto-fitting rather than four fixed columns, for the same reason as the
+   facts row. Two across on a phone, four on a laptop. */
+.es-ev-marks { --fx-col: 9rem; --fx-gap: 0.625rem; }
+.es-ev-mark {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  font-size: var(--es-text-sm);
+  line-height: 1.25;
+  color: var(--es-text);
+}
+.es-ev-mark__icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: var(--es-radius-full);
+  background: var(--es-accent-wash);
+  color: var(--es-accent);
+}
+
+/* ── The tickets card ───────────────────────────────────────────────────── */
+.es-ev-tickets {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+  padding: 1.25rem;
+  border: 1px solid var(--es-border);
+  border-radius: var(--es-radius-lg);
+  background: var(--es-surface);
+  box-shadow: var(--es-shadow-sm);
+}
+.es-ev-tickets__from {
+  font-family: var(--es-font-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--es-accent);
+}
+.es-ev-tier {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.25rem 1rem;
+  padding: 0.75rem 0.875rem;
+  border-radius: var(--es-radius-md);
+  background: var(--es-bg-sunken);
+}
+.es-ev-tier__name { font-size: var(--es-text-sm); font-weight: 600; color: var(--es-text); }
+.es-ev-tier__desc { display: block; font-size: var(--es-text-xs); font-weight: 400; color: var(--es-text-muted); }
+.es-ev-tier__price { font-size: var(--es-text-sm); font-weight: 600; color: var(--es-accent); }
+.es-ev-tier__state { font-size: var(--es-text-xs); color: var(--es-text-subtle); }
+
+/* The two numbers under the tiers. Wraps to one column on a narrow phone
+   rather than squeezing both onto one line. */
+.es-ev-tickets__foot { --fx-col: 10rem; --fx-gap: 0.75rem; padding-top: 0.25rem; }
+.es-ev-tickets__stat { display: flex; align-items: center; gap: 0.5rem; min-width: 0; font-size: var(--es-text-xs); color: var(--es-text-muted); }
+.es-ev-tickets__stat svg { flex: none; color: var(--es-accent); }
 
 /* ═══════════════════════════════════════════════════════════════════════
    STATIC PAGES — 2026-09-17: how it works, why us, trust, contact,

@@ -83,6 +83,38 @@ const BLOCKS = {
       primaryCtaHref:    { type: HREF, label: 'Primary button link', default: '/events' },
       secondaryCtaLabel: { type: TEXT, max: 32, label: 'Secondary button', default: 'Start selling', optional: true },
       secondaryCtaHref:  { type: HREF, label: 'Secondary button link', default: '/register', optional: true },
+      /**
+       * THE BADGE ABOVE THE HEADLINE — "NEW · Pick your exact seat on the
+       * venue map".
+       *
+       * It was written into `Hero.jsx` as a literal, which made the single most
+       * prominent claim on the homepage the one sentence an admin could not
+       * touch: announcing a feature meant a code change and a deploy, and the
+       * announcement was still there months later because nobody owned it.
+       *
+       * Three fields rather than one string, because the two halves do
+       * different jobs. `badgeTag` is the small pill ("NEW", "SOON", "BETA")
+       * and `badgeText` is the claim; keeping them apart means the tag can be
+       * changed without retyping the sentence, and an empty tag renders the
+       * sentence alone rather than an empty pill.
+       *
+       * `badgeText` EMPTY HIDES THE WHOLE BADGE — that is the off switch, so
+       * there is no separate boolean to disagree with the text. An admin who
+       * wants it gone clears the line.
+       */
+      badgeTag:  { type: TEXT, max: 12, label: 'Badge tag', default: 'NEW', optional: true },
+      badgeText: {
+        type: TEXT,
+        max: 80,
+        label: 'Badge text (empty hides the badge)',
+        default: 'Pick your exact seat on the venue map',
+        optional: true,
+      },
+      // Optional: a badge announcing something people cannot go and look at is
+      // half an announcement. With no link it renders as plain text, which is
+      // the right shape for a statement that is not a destination.
+      badgeHref: { type: HREF, label: 'Badge link', optional: true },
+
       showSearch:   { type: BOOL, label: 'Show the search bar', default: true },
     },
   },

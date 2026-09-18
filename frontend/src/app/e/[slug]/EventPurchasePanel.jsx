@@ -3,109 +3,32 @@ import { formatPrice } from '../../utils/money';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
- * The price, the ticket types, and the way in.
+ * THE WAY IN — the notice that explains, and the bar that acts.
  *
- * Extracted from the event page when that page crossed the project's 500-line
- * cap. Not a line-shuffle to satisfy a counter: this is the one part of the
- * page that is about BUYING rather than about the event, it is the only part
- * that is sticky, and it is the part whose behaviour changes with admission
- * type and price. Everything else on that page is content.
+ * THE STICKY SIDE PANEL IS GONE, and that is the point rather than a casualty.
+ * It held the price, the tier list and the button in a column beside the
+ * description — a desktop shape. Below `lg` there was no column to sit beside,
+ * so it became the LAST block of a long single stack: the one action the page
+ * exists to offer opened several screens down, under the description, the
+ * gallery, four tab panels and the sponsors.
  *
- * STICKY, from `lg` up. The description on a well-filled event runs past the
- * fold, and when it does, the price and the button scroll away with the top of
- * the page — so the reader finishes the part that convinced them and has to
- * scroll back up to act on it. `self-start` is what makes sticky work at all: a
- * grid item defaults to `stretch`, which makes this column as tall as the
- * content beside it, and an element the full height of its scroll container has
- * nowhere to stick to.
- *
- * `lg:-mt-28` lifts the box over the masthead band above it. That overlap is
- * the one piece of deliberate asymmetry on the page and it does real work: it
- * puts the price physically on top of the artwork, which is the pairing the
- * reader is deciding about, and it stops this column starting on the same
- * horizontal line as the description — which is what made the old layout read
- * as two lists side by side.
+ * The page is one column at every width now. The tier list is a card in the
+ * flow (`EventTickets`), and the decision lives in a bar fixed to the bottom of
+ * the viewport — always reachable, at every scroll position and every size.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-export default function EventPurchasePanel({ event, focusTier, soldOut, cheapest }) {
-  return (
-            <aside className="fx-stack lg:-mt-28 lg:sticky lg:top-20 lg:self-start">
-              <div className="es-plate bg-surface fx-stack p-6">
-                {cheapest.length > 0 && (
-                  <div className="fx-stack fx-stack--sm gap-1">
-                    <p className="es-eyebrow">From</p>
-                    <p className="es-price">
-                      {formatPrice(Math.min(...cheapest), event.currency)}
-                      {cheapest.length > 1 && (
-                        <span className="ml-2 font-sans text-sm text-subtle">and up</span>
-                      )}
-                    </p>
-                  </div>
-                )}
-
-                {focusTier && (
-                  <p className="es-notice es-notice--info" role="status">
-                    <span>You were sent here for <strong>{focusTier.name}</strong>.</span>
-                  </p>
-                )}
-
-                {event.tiers?.length > 0 && (
-                  <ul className="fx-stack fx-stack--sm">
-                    {event.tiers.map((tier) => (
-                      <li
-                        key={tier.id}
-                        id={`tier-${tier.id}`}
-                        aria-current={focusTier?.id === tier.id ? 'true' : undefined}
-                        className={`fx-row fx-row--between border-t border-border-base pt-3 first:border-0 first:pt-0 ${
-                          focusTier?.id === tier.id ? '-mx-3 rounded-(--es-radius-md) bg-accent-wash px-3 pb-3' : ''
-                        }`}
-                      >
-                        <span className="fx-min0">
-                          <span className="block text-ink">{tier.name}</span>
-                          {tier.description && (
-                            <span className="block text-sm text-subtle">{tier.description}</span>
-                          )}
-                        </span>
-                        <span className="es-nums font-medium text-ink">
-                          {formatPrice(tier.priceCents, event.currency)}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-
-                <CallToAction event={event} soldOut={soldOut} tierId={focusTier?.id} />
-
-                {event.availability && !soldOut && (
-                  <p className="text-center text-sm text-subtle">
-                    <span className="es-nums font-medium text-ink">
-                      {event.availability.seatsAvailable}
-                    </span>
-                    {' '}of {event.availability.seatsTotal} seats left
-                  </p>
-                )}
-              </div>
-
-              <p className="text-center text-sm text-subtle">
-                Up to {event.maxTicketsPerOrder} tickets per order · seats held for 35 minutes
-              </p>
-            </aside>
-  );
-}
 
 /**
- * ─────────────────────────────────────────────────────────────────────────────
- * WHAT THE WAY IN IS, FOR THIS EVENT — decided once, read in two places.
+ * WHAT THE WAY IN IS, FOR THIS EVENT — decided once, read in three places.
  *
- * The sticky panel renders this as a full-width button; `EventBuyBar` renders
- * the same answer in the phone's fixed bar. They MUST agree: a page offering
- * "Choose your seats" in the panel and "Get tickets" in the bar is one where
- * the two were edited separately, and a bar that still linked to `/seats` on an
- * event switched to general admission would send every phone buyer to a
- * redirect. One function, two call sites, nothing to keep in sync.
+ * The bar, the notice and the tests all call this. They MUST agree: a page
+ * offering "Choose your seats" in one place and "Get tickets" in another is one
+ * where two copies were edited separately, and a bar that still linked to
+ * `/seats` on an event switched to general admission would send every buyer to
+ * a redirect.
  *
- * Returns `null` when there is nothing to offer, and the caller decides how to
- * say so — the panel has room for a sentence, the bar does not.
+ * Returns `null`-shaped kinds when there is nothing to offer, and the caller
+ * decides how to say so — the notice has room for a sentence, the bar does not.
  *
  * BRD §12 — a `display_only` event is a listing with no tickets behind it. It
  * gets no buy button at all rather than a disabled one, because a dead control
@@ -119,7 +42,6 @@ export default function EventPurchasePanel({ event, focusTier, soldOut, cheapest
  * A free event says "Get tickets" rather than anything about buying. Somebody
  * deciding whether to click is deciding whether to spend money, and the answer
  * is no.
- * ─────────────────────────────────────────────────────────────────────────────
  */
 export function ctaFor(event, soldOut, tierId) {
   if (event.displayOnly) {
@@ -140,43 +62,49 @@ export function ctaFor(event, soldOut, tierId) {
   };
 }
 
-function CallToAction({ event, soldOut, tierId }) {
-  const cta = ctaFor(event, soldOut, tierId);
-
-  if (cta.kind !== 'buy') {
-    return (
-      <p className="rounded-(--es-radius-md) bg-bg-sunken px-4 py-3 text-center text-muted" role="status">
-        {cta.note}
-      </p>
-    );
-  }
+/**
+ * The sentences the bar has no room for.
+ *
+ * Only ever renders for an event somebody CANNOT buy from, or one they were
+ * sent to a specific tier of. On an ordinary event on sale it is nothing at
+ * all — the bar says everything there is to say, and a paragraph repeating it
+ * above the fold is a paragraph in the way.
+ */
+export function EventPurchaseNotice({ event, soldOut, focusTier }) {
+  const cta = ctaFor(event, soldOut, focusTier?.id);
 
   return (
-    <Link href={cta.href} className="es-btn es-btn--primary es-btn--block es-btn--lg">
-      {cta.label}
-    </Link>
+    <>
+      {focusTier && (
+        <p className="es-notice es-notice--info" role="status">
+          <span>You were sent here for <strong>{focusTier.name}</strong>.</span>
+        </p>
+      )}
+      {cta.kind !== 'buy' && (
+        <p className="rounded-(--es-radius-md) bg-bg-sunken px-4 py-3 text-center text-muted" role="status">
+          {cta.note}
+        </p>
+      )}
+    </>
   );
 }
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
- * THE PHONE'S BUY BAR — the price and the way in, fixed to the bottom.
+ * THE BUY BAR — the price and the way in, fixed to the bottom at every width.
  *
- * Below `lg` the purchase panel is the last block of a long single column, so
- * the action this page exists to offer opened several screens down. This is
- * that action, always on screen. `.es-buybar` argues the CSS side; what matters
- * here is that every word of it comes from `ctaFor`, so it cannot drift from
- * the panel above it.
+ * Every word of it comes from `ctaFor`, so it cannot drift from the notice
+ * above it.
  *
  * A sold-out or display-only event gets NO BAR AT ALL rather than a bar with a
- * dead label in it. The panel already says why, in a full sentence with room to
- * explain; a fixed strip repeating "Sold out" over every scroll position is an
- * obstruction that tells nobody anything they have not read.
+ * dead label in it. The notice already says why, in a full sentence with room
+ * to explain; a fixed strip repeating "Sold out" over every scroll position is
+ * an obstruction that tells nobody anything they have not read.
  *
- * `aria-hidden` is deliberately NOT set. This is the primary action on a phone,
- * and hiding it from a screen reader to avoid announcing the price twice would
- * hide the button too. It is a labelled landmark instead, so it is reachable
- * and skippable.
+ * `aria-hidden` is deliberately NOT set. This is the primary action on the
+ * page, and hiding it from a screen reader to avoid announcing the price twice
+ * would hide the button too. It is a labelled landmark instead, so it is
+ * reachable and skippable.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 export function EventBuyBar({ event, soldOut, tierId, cheapest = [] }) {
@@ -184,6 +112,7 @@ export function EventBuyBar({ event, soldOut, tierId, cheapest = [] }) {
   if (cta.kind !== 'buy') return null;
 
   const from = cheapest.length > 0 ? Math.min(...cheapest) : null;
+  const free = cta.free || from === 0;
 
   return (
     <div className="es-buybar" role="region" aria-label="Get tickets">
@@ -192,9 +121,11 @@ export function EventBuyBar({ event, soldOut, tierId, cheapest = [] }) {
           <span className="text-sm text-muted">Tickets available</span>
         ) : (
           <>
-            <span className="es-eyebrow">{cta.free || from === 0 ? 'Entry' : 'From'}</span>
+            {/* "Entry" rather than "From" when everything is free: there is no
+                range to be the bottom of. */}
+            <span className="es-eyebrow">{free ? 'Entry' : 'From'}</span>
             <span className="es-nums text-lg font-medium text-ink">
-              {from === 0 ? 'Free' : formatPrice(from, event.currency)}
+              {free ? 'Free' : formatPrice(from, event.currency)}
             </span>
           </>
         )}
@@ -202,6 +133,7 @@ export function EventBuyBar({ event, soldOut, tierId, cheapest = [] }) {
       <div className="es-buybar__action">
         <Link href={cta.href} className="es-btn es-btn--primary">
           {cta.label}
+          <span aria-hidden>→</span>
         </Link>
       </div>
     </div>

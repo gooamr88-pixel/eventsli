@@ -36,8 +36,12 @@ export default function Hero({ content, categories, events, stats }) {
 
       <div className="fx-container fx-container--xl relative">
         <div className="es-lp-hero__head">
-          {/* In source: it is a statement about what the product does. */}
-          <span className="es-lp-pill"><b>NEW</b>Pick your exact seat on the venue map</span>
+          {/* Admin-owned, from `landingSchema`'s hero block — it used to be a
+              literal here, which made the most prominent claim on the homepage
+              the one line nobody could change without a deploy. Clearing
+              `badgeText` in the console removes it entirely; that is the off
+              switch, so there is no boolean to fall out of sync with the copy. */}
+          <HeroBadge hero={hero} />
 
           <h1 className="es-lp-hero__title">
             <Accent text={hero.title} />
@@ -84,6 +88,37 @@ export default function Hero({ content, categories, events, stats }) {
 /** Distance from the centre for each position, so the middle poster is the
  *  front one whatever the count: one poster is [0], three are [-1, 0, 1]. */
 const FAN = { 1: [0], 2: [-1, 0], 3: [-1, 0, 1], 4: [-2, -1, 0, 1], 5: [-2, -1, 0, 1, 2] };
+
+/**
+ * The badge over the headline, entirely from the admin's content.
+ *
+ * Nothing at all when `badgeText` is empty — not an empty pill, not a gap.
+ * That is the off switch, and it is the text field itself so there is no
+ * boolean to disagree with the copy.
+ *
+ * `badgeTag` is optional on its own: a badge with a claim and no "NEW" is a
+ * perfectly good badge, while a "NEW" with nothing after it is not.
+ *
+ * With a link it becomes one; without, it stays a plain statement. An
+ * announcement pointing at nothing is fine — "you can now pick your seat" is a
+ * fact, not a destination — so the link is not required to make the rest work.
+ */
+function HeroBadge({ hero }) {
+  const text = (hero.badgeText || '').trim();
+  if (!text) return null;
+
+  const tag = (hero.badgeTag || '').trim();
+  const inner = (
+    <>
+      {tag && <b>{tag}</b>}
+      {text}
+    </>
+  );
+
+  return hero.badgeHref
+    ? <Link href={hero.badgeHref} className="es-lp-pill es-lp-pill--link">{inner}</Link>
+    : <span className="es-lp-pill">{inner}</span>;
+}
 
 function Posters({ events, hero }) {
   const posters = events.filter((e) => e.coverUrl).slice(0, 5);

@@ -94,7 +94,7 @@ export default function EventCard({ event, priority = false, headingLevel = 3, a
      * click navigates instead of saving. `h-full` keeps the card filling its
      * grid cell, which `.es-evcard { height: 100% }` was already relying on.
      */
-    <div className="relative h-full">
+    <div className={`es-evcard-wrap ${adaptive ? 'es-evcard-wrap--adaptive' : ''}`}>
     <Link href={`/e/${event.slug}`} className={`es-evcard ${adaptive ? 'es-evcard--adaptive' : ''}`}>
       <div className="es-evcard__media">
         {event.coverUrl ? (
@@ -155,12 +155,21 @@ export default function EventCard({ event, priority = false, headingLevel = 3, a
       </div>
     </Link>
 
-    {/* Over the top-right of the media. The card's own 12px padding puts the
-        artwork's corner just inside this, so the two do not collide. */}
+    {/* OVER THE ARTWORK — which is not always the card's top-right corner.
+
+        This was `absolute right-4 top-4`, measured from the CARD. In the tall
+        layout the art is the full width of the top, so that is the art's
+        corner and the heart sat on it correctly. In the `--adaptive` layout
+        the card is a ROW — art on the left, words on the right — and the same
+        coordinates put the heart on top of the TITLE: a grey disc covering the
+        end of "Laugh Out Loud: Eight Comics, One Night".
+
+        `.es-evcard__save` moves it per layout, from the same two numbers the
+        art itself is sized by, so the two cannot drift apart. */}
     <SaveEventButton
       slug={event.slug}
       title={event.title}
-      className="absolute right-4 top-4 z-10"
+      className="es-evcard__save"
     />
     </div>
   );

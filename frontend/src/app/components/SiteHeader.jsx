@@ -375,9 +375,34 @@ function navLinks({ signedIn, loading, user, pathname }) {
  * selling" for a moment and then becomes "Organizer" is a button that moves
  * under the pointer of the organizer who was already reaching for it.
  */
+/**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * THE ONE BUTTON IN THE BAR — and it says a different thing to each visitor.
+ *
+ * It used to read "Create event" for everybody, which is only the right words
+ * for one of the three. An organizer who is already signed in does not arrive
+ * at the storefront wanting to create an event; they arrive wanting their
+ * DASHBOARD, and that is a destination the bar had no button for — it was a
+ * plain "Organizer" link styled exactly like "Events". So the most valuable
+ * thing in the header pointed at a form, and the thing they came for did not
+ * look like anything.
+ *
+ * Organizer before admin, deliberately. Somebody who is both is far more often
+ * coming back to their own events than to the console, and the console is one
+ * click further in from either side.
+ *
+ * A SIGNED-IN BUYER STILL GETS "Create event", and that is not an oversight.
+ * They have no dashboard — `/organizer` shows them the create-your-profile
+ * form — so labelling that button "Dashboard" would be a promise the next
+ * screen breaks. "Create event" is exactly what is behind it for them.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
 function navCta({ signedIn, loading, user }) {
+  // Nothing while the session is unknown: guessing and correcting makes the
+  // button flip words on every page load for everyone who is signed in.
   if (loading) return null;
-  if (signedIn && user?.isOrganizer) return { href: '/organizer/events/new', label: 'Create event' };
+  if (signedIn && user?.isOrganizer) return { href: '/organizer', label: 'Dashboard' };
+  if (signedIn && user?.isAdmin) return { href: '/admin/overview', label: 'Dashboard' };
   if (signedIn) return { href: '/organizer', label: 'Create event' };
   return { href: '/register/organizer', label: 'Create event' };
 }

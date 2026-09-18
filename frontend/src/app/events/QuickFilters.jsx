@@ -62,6 +62,20 @@ export default function QuickFilters({ city }) {
       return;
     }
 
+    /**
+     * The same guard `NearMeDialog` carries, and it was missing here.
+     *
+     * Over plain http every browser refuses geolocation outright, with
+     * `PERMISSION_DENIED` and no prompt — so this chip answered "location is
+     * off for this site" when the site had never been allowed to ask. Naming
+     * the real cause is the difference between a setting somebody can go and
+     * change and one they will not find, because it is not there.
+     */
+    if (!window.isSecureContext) {
+      setLocateError('Finding you needs a secure (https) connection. Type a city instead.');
+      return;
+    }
+
     setLocating(true);
     navigator.geolocation.getCurrentPosition(
       async ({ coords }) => {

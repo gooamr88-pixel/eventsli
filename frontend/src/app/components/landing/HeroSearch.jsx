@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import NavIcon from '../shell/NavIcon';
 import NearMeDialog from './NearMeDialog';
 
@@ -29,9 +29,45 @@ export default function HeroSearch({ categories = [] }) {
   const [when, setWhen] = useState('');
   const [nearOpen, setNearOpen] = useState(false);
 
+  const formRef = useRef(null);
+  /**
+   * Set by a control the moment it is CHANGED, and read by the effect after
+   * React has committed that change to the DOM.
+   *
+   * The timing is the whole reason this is a ref and an effect rather than a
+   * `submit()` inside `onChange`. Each control's `name` is conditional —
+   * `name={category ? 'category' : undefined}` — so at the instant the handler
+   * runs the select still has NO name, and submitting there would navigate to
+   * `/events` with the chosen category dropped. By effect time the attribute
+   * is on the element and the browser serialises it correctly.
+   *
+   * A ref and not state, because it must not cause a render of its own.
+   */
+  const autoSubmit = useRef(false);
+
+  /**
+   * CHOOSING IS THE SEARCH. Picking a type or a date used to set state and
+   * wait — the reader had made their choice and the page did nothing until
+   * they also found the blue button, which on a phone is a separate reach.
+   *
+   * `requestSubmit()` rather than `submit()`: it runs the form's own
+   * submission path, so this is exactly what the button does, not a second
+   * route to the same place. Without JavaScript the button is still the way,
+   * and the form is unchanged underneath.
+   *
+   * The FREE-TEXT box is deliberately not here — there is none in this bar.
+   * `/events` searches as you type; this bar only holds discrete choices,
+   * where "changed" and "finished choosing" are the same moment.
+   */
+  useEffect(() => {
+    if (!autoSubmit.current) return;
+    autoSubmit.current = false;
+    formRef.current?.requestSubmit();
+  }, [category, when]);
+
   return (
     <>
-      <form action="/events" method="get" role="search" className="es-lp-filter">
+      <form ref={formRef} action="/events" method="get" role="search" className="es-lp-filter">
         <label className="es-lp-filter__field" htmlFor={`${id}-cat`}>
           <span aria-hidden className="es-lp-filter__icon"><NavIcon name="tag" size={17} /></span>
           <span className="sr-only">Event type</span>
@@ -41,7 +77,7 @@ export default function HeroSearch({ categories = [] }) {
             // which /events would read as a filter for nothing.
             name={category ? 'category' : undefined}
             value={category}
-            onChange={(e) => setCategory(e.target.value)}
+            onChange={(e) => { autoSubmit.current = true; setCategory(e.target.value); }}
             className="es-lp-filter__control"
           >
             <option value="">Event type</option>
@@ -72,7 +108,7 @@ export default function HeroSearch({ categories = [] }) {
               name={when ? 'from' : undefined}
               type="date"
               value={when}
-              onChange={(e) => setWhen(e.target.value)}
+              onChange={(e) => { autoSubmit.current = true; setWhen(e.target.value); }}
               className={`es-lp-filter__control es-lp-filter__control--date ${when ? '' : 'es-lp-filter__control--blank'}`}
             />
           </span>
