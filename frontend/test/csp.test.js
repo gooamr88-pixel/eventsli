@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest';
-import { buildCsp, securityHeaders, GOOGLE } from '../config/csp.mjs';
+import { buildCsp, securityHeaders, GOOGLE, MAP_FRAME } from '../config/csp.mjs';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -89,11 +89,15 @@ describe('the production CSP', () => {
    * this list changing is the thing the test exists to catch.
    *
    * The second half is the part that matters more. Google needs script-src,
-   * because its sign-in client is a script we run. YouTube and Vimeo must
-   * NEVER appear there: they are framed, and a video host in script-src is a
-   * standing permission to execute their code in our origin.
+   * because its sign-in client is a script we run. The other three — YouTube,
+   * Vimeo and OpenStreetMap — must NEVER appear there: they are framed, and a
+   * framed host in script-src is a standing permission to execute their code
+   * in our origin.
+   *
+   * OpenStreetMap is the fourth, added with the venue map on the event page.
+   * It serves the same `frame-src`-only role the two video hosts do.
    */
-  test('the third parties are exactly three, each only where it is needed', () => {
+  test('the third parties are exactly four, each only where it is needed', () => {
     const thirdParties = csp
       .split('; ')
       .flatMap((d) => d.split(/\s+/).slice(1))
@@ -104,12 +108,19 @@ describe('the production CSP', () => {
       GOOGLE,
       'https://www.youtube.com',
       'https://player.vimeo.com',
+      MAP_FRAME,
     ]));
 
     expect(directive(csp, 'script-src')).toContain(GOOGLE);
     expect(directive(csp, 'frame-src')).toContain(GOOGLE);
 
-    for (const host of ['youtube.com', 'vimeo.com']) {
+    /**
+     * The framed-only three. A host that is framed and a host whose code we
+     * run are different risks, and the difference is this loop: none of these
+     * may ever appear in `script-src` or `connect-src`, where they would be a
+     * standing permission to execute or to be spoken to as the viewer.
+     */
+    for (const host of ['youtube.com', 'vimeo.com', 'openstreetmap.org']) {
       expect(directive(csp, 'script-src').join(' ')).not.toContain(host);
       expect(directive(csp, 'connect-src').join(' ')).not.toContain(host);
       expect(directive(csp, 'frame-src').join(' ')).toContain(host);

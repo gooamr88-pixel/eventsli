@@ -45,6 +45,25 @@ export const GOOGLE = 'https://accounts.google.com';
 export const VIDEO_FRAMES = 'https://www.youtube.com https://player.vimeo.com';
 
 /**
+ * The venue map on an event page.
+ *
+ * OpenStreetMap's own embed endpoint, and it is FRAMED ONLY — it never appears
+ * in `script-src`, so nothing of theirs executes in our origin. That is the
+ * same rule the two video hosts follow and the reason both are tolerable.
+ *
+ * WHY THIS ONE AND NOT GOOGLE MAPS: the Maps Embed API needs a key, which
+ * means a key in the client bundle, a billing account behind it, and a quota
+ * that fails closed on the one page that has to convince somebody to come.
+ * OSM's embed needs none of those. It is also the endpoint OSM publishes for
+ * exactly this purpose rather than a tile server being used as one, which
+ * keeps us inside their usage policy.
+ *
+ * Nothing is framed unless the organizer has pinned the venue — an event with
+ * no coordinates renders the address card instead and loads nothing.
+ */
+export const MAP_FRAME = 'https://www.openstreetmap.org';
+
+/**
  * ─────────────────────────────────────────────────────────────────────────────
  * THE NONCE, AND THE BUG THAT MADE IT NECESSARY.
  *
@@ -176,7 +195,9 @@ export function buildCsp({ isDev, apiOrigin, supabaseHost, nonce }) {
     // nothing here. Google Identity Services does: its button and consent flow
     // are an iframe. YouTube and Vimeo do, for the introduction film — and
     // nothing is framed until a visitor presses play. See VideoBand.
-    `frame-src ${GOOGLE} ${VIDEO_FRAMES}`,
+    // OpenStreetMap does, for the venue map on an event page, and only for an
+    // event whose organizer pinned the venue. See MAP_FRAME above.
+    `frame-src ${GOOGLE} ${VIDEO_FRAMES} ${MAP_FRAME}`,
 
     // Nobody frames US, in either case. This is the clickjacking guard and it
     // stays absolute — a checkout inside someone else's iframe is the whole

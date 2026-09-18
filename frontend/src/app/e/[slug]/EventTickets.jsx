@@ -31,9 +31,20 @@ export default function EventTickets({ event, cheapest, soldOut }) {
 
   return (
     <section className="es-ev-tickets" aria-labelledby="event-tickets">
+      {/* The eyebrow was "From", qualifying the price under it. It says what
+          this card is FOR instead — the card is the step, not a price tag, and
+          the number keeps its own meaning from the tiers listed beneath it.
+
+          The verb follows the event: a reserved event really does mean
+          choosing a seat, and saying so on a general-admission one would be a
+          promise the next screen breaks. */}
       <div>
-        <p className="es-ev-tickets__from">From</p>
-        <p className="es-price" id="event-tickets">
+        <p className="es-ev-tickets__from" id="event-tickets">
+          {event.admissionType === 'general'
+            ? 'Buy your ticket'
+            : 'Choose your seat · Buy your ticket'}
+        </p>
+        <p className="es-price">
           {from === null ? 'See tickets' : from === 0 ? 'Free' : formatPrice(from, event.currency)}
         </p>
       </div>

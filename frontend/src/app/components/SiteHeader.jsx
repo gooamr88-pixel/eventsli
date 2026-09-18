@@ -346,10 +346,25 @@ function navLinks({ signedIn, loading, user, pathname }) {
     return [
       ...browse,
       { href: '/account/tickets', label: 'My tickets' },
-      // Only shown to someone who actually has an organizer profile. Offering
-      // it to everyone would send buyers to a dashboard they have no account
-      // for.
-      ...(user?.isOrganizer ? [{ href: '/organizer', label: 'Organizer' }] : []),
+      /**
+       * Only shown to someone who actually has an organizer profile. Offering
+       * these to everyone would send buyers to a dashboard they have no
+       * account for.
+       *
+       * "CREATE EVENT" IS HERE BECAUSE THE BUTTON STOPPED BEING IT.
+       *
+       * That button used to read "Create event" and go to `/organizer/events/
+       * new`; it now reads "Dashboard" and goes to `/organizer`, which is the
+       * right primary action for somebody returning to the site. But it was
+       * also the ONLY route to the create form from the storefront — so
+       * changing it left an organizer standing on the homepage with no way to
+       * start an event at all, which is the one thing the product most wants
+       * them to do. The dashboard is the button; creating is a menu item.
+       */
+      ...(user?.isOrganizer ? [
+        { href: '/organizer', label: 'Organizer' },
+        { href: '/organizer/events/new', label: 'Create event' },
+      ] : []),
     ];
   }
 

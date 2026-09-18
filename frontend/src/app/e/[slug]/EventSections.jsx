@@ -241,19 +241,80 @@ export function VenueMap({ venue, address, location }) {
   const href = `https://www.google.com/maps/search/?api=1&query=${query}`;
 
   return (
-    <section className="fx-stack fx-stack--sm" aria-labelledby="event-map">
+    <section className="es-venue" aria-labelledby="event-map">
       <h2 id="event-map" className="text-lg">Getting there</h2>
-      <p className="text-md text-muted">
-        {venue}{address && <span className="text-subtle">, {address}</span>}
-      </p>
+
+      <MapFrame location={location} venue={venue} />
+
+      <div className="es-venue__foot">
+        <p className="es-venue__address fx-break">
+          {venue && <span className="es-venue__name">{venue}</span>}
+          {address && <span className="text-muted">{address}</span>}
+        </p>
+        <a
+          href={href}
+          target="_blank"
+          rel="noreferrer noopener"
+          className="es-btn es-btn--secondary es-btn--sm"
+        >
+          Open in Maps
+          <span className="sr-only"> (opens in a new tab)</span>
+        </a>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * THE MAP ITSELF, when the organizer has pinned the venue.
+ *
+ * OpenStreetMap's published embed endpoint, framed. Not Google's: the Maps
+ * Embed API needs a key, which means a key in the client bundle, a billing
+ * account behind it and a quota that fails closed on the one page whose job is
+ * to convince somebody to come.
+ *
+ * `loading="lazy"` so it costs nothing until it is scrolled to — this sits
+ * inside a tab most readers never open, and a map loaded for all of them is a
+ * third-party request on the platform's most-visited page for no one's benefit.
+ *
+ * ATTRIBUTION IS REQUIRED by OSM's licence and it is not decoration: the link
+ * below is the condition on which this is allowed to be used at all.
+ *
+ * WITHOUT A PIN there is no map — an embed needs coordinates and there is no
+ * geocoder here to invent them. The address card above stands alone, which is
+ * the same answer as before rather than a worse one. The pin is set in the
+ * organizer's Page & branding screen.
+ */
+function MapFrame({ location, venue }) {
+  if (!location) return null;
+
+  const { lat, lng } = location;
+  // A window of roughly half a kilometre — close enough to see the street the
+  // venue is on, wide enough to show the junction somebody is arriving from.
+  const d = 0.004;
+  const bbox = [lng - d, lat - d, lng + d, lat + d].join(',');
+  const src = `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${lat},${lng}`;
+
+  return (
+    <div className="es-venue__map">
+      <iframe
+        src={src}
+        title={venue ? `Map showing ${venue}` : 'Map showing the venue'}
+        loading="lazy"
+        // Framed and nothing more: no scripts of ours inside, no permissions
+        // granted out. `allow=""` withholds every feature policy by default.
+        referrerPolicy="no-referrer"
+        allow=""
+      />
       <a
-        href={href}
+        className="es-venue__credit"
+        href={`https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=16/${lat}/${lng}`}
         target="_blank"
         rel="noreferrer noopener"
-        className="es-btn es-btn--secondary self-start"
       >
-        Open in Maps
+        © OpenStreetMap contributors
       </a>
-    </section>
+    </div>
   );
 }

@@ -5898,6 +5898,60 @@ a.es-sponsor:hover { opacity: 0.7; }
 }
 
 
+/* ── The venue map ──────────────────────────────────────────────────────
+   The map is the section, not an illustration beside it: it takes the full
+   width of the column, the address and the Maps button sit under it on a
+   tinted foot, and the whole thing reads as one card.
+
+   `aspect-ratio` rather than a fixed height — a map 200px tall on a laptop
+   shows a street and no context, and one 400px tall on a phone is most of
+   the screen. 4:3 on a phone, wider from `sm`. */
+.es-venue { display: flex; flex-direction: column; gap: 0.75rem; }
+.es-venue__map {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  border: 1px solid var(--es-border);
+  border-radius: var(--es-radius-lg);
+  background: var(--es-bg-sunken);
+}
+@media (width >= 40rem) { .es-venue__map { aspect-ratio: 16 / 9; } }
+.es-venue__map iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  /* OSM's own tiles are warmer than this storefront. A light touch of
+     desaturation settles them next to the blue without making the map grey
+     enough to be hard to read. */
+  filter: saturate(0.9);
+}
+
+/* Attribution is OSM's licence condition, so it is always visible — over
+   the map's corner rather than below it, where it would look like a caption
+   somebody could decide to remove. */
+.es-venue__credit {
+  position: absolute;
+  inset-block-end: 0;
+  inset-inline-end: 0;
+  padding: 2px 6px;
+  border-start-start-radius: var(--es-radius-sm);
+  background: rgb(255 255 255 / 0.86);
+  font-size: 0.625rem;
+  color: var(--es-text-muted);
+}
+.es-venue__credit:hover { color: var(--es-accent); }
+
+.es-venue__foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.es-venue__address { display: flex; flex-direction: column; gap: 0.125rem; min-width: 0; flex: 1 1 12rem; font-size: var(--es-text-sm); }
+.es-venue__name { font-weight: 600; color: var(--es-text); }
+
 /* ── The seat picker's action bar ───────────────────────────────────────
    Sticky to the bottom of the viewport, because on a phone the map fills
    the screen and a bar above it scrolls away the moment you start choosing.
@@ -6431,11 +6485,16 @@ a.es-sponsor:hover { opacity: 0.7; }
   background: var(--es-surface);
   box-shadow: var(--es-shadow-sm);
 }
+/* Was the word "FROM" — four letters, so 10px mono at 0.14em tracking read
+   as a label. It is a PHRASE now ("Choose your seat · Buy your ticket"), and
+   at that size and tracking a phrase is a strip of spaced capitals nobody
+   reads. Larger, tighter, sentence case, and allowed to wrap: it is the
+   card's heading rather than a tag on the price. */
 .es-ev-tickets__from {
-  font-family: var(--es-font-mono);
-  font-size: 0.625rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  font-size: var(--es-text-sm);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  line-height: 1.3;
   color: var(--es-accent);
 }
 .es-ev-tier {

@@ -2,6 +2,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 
 import Accent from './Accent';
+import HeroCta from './HeroCta';
 import HeroSearch from './HeroSearch';
 import NavIcon from '../shell/NavIcon';
 import { eventDateParts } from '../EventCard';
@@ -61,10 +62,14 @@ export default function Hero({ content, categories, events, stats }) {
           {hero.body && <p className="es-lp-hero__body"><Accent text={hero.body} /></p>}
 
           <div className="es-lp-hero__ctas">
+            {/* `HeroCta`, not a plain Link: pointed at `/register` — which is
+                its default — this button bounced every signed-in visitor back
+                to this same page, because the proxy has nothing to register
+                them for. See HeroCta for the rule. */}
             {hero.secondaryCtaLabel && (
-              <Link href={hero.secondaryCtaHref || '/register'} className="es-lp-btn es-lp-btn--outline">
+              <HeroCta href={hero.secondaryCtaHref} className="es-lp-btn es-lp-btn--outline">
                 {hero.secondaryCtaLabel}
-              </Link>
+              </HeroCta>
             )}
             {hero.primaryCtaLabel && (
               <Link href={hero.primaryCtaHref || '/events'} className="es-lp-btn es-lp-btn--solid">
