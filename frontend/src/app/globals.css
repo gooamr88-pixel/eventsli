@@ -5898,6 +5898,242 @@ a.es-sponsor:hover { opacity: 0.7; }
 }
 
 
+/* ── The seat picker's action bar ───────────────────────────────────────
+   Sticky to the bottom of the viewport, because on a phone the map fills
+   the screen and a bar above it scrolls away the moment you start choosing.
+
+   Drawn as a SHEET rising from the bottom edge — rounded at the top only,
+   square at the bottom, lifted on a shadow that reads as height rather than
+   as a border. A plain card with four corners floating at the foot of a
+   map looked like a box somebody had dropped on the page. */
+.es-seatbar {
+  padding: 0.875rem;
+  border: 1px solid var(--es-border);
+  border-block-end: 0;
+  border-start-start-radius: var(--es-radius-xl);
+  border-start-end-radius: var(--es-radius-xl);
+  background: var(--es-surface);
+  box-shadow: 0 -10px 30px rgb(15 23 42 / 0.12);
+}
+
+/* The chosen seats. Capped and scrolled, because this is fixed over the map
+   and ten seats listed in full would cover the plan they were chosen from. */
+.es-seatbar__list {
+  max-height: 10rem;
+  overflow-y: auto;
+  /* The native bar was a hard grey slab down the right edge — the loudest
+     thing on the panel. Hidden, and the fade below carries the same message. */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  /* Fades the last row out at the bottom edge, so a list that continues
+     looks like it continues. */
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 1.25rem), transparent 100%);
+}
+.es-seatbar__list::-webkit-scrollbar { display: none; }
+
+/* Each seat on its own tinted row rather than as loose text, so the name,
+   the price and the remove control read as one object that can be dropped. */
+.es-seatbar__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.375rem 0.625rem;
+  border-radius: var(--es-radius-md);
+  background: var(--es-bg-sunken);
+}
+
+/* ── A seat's focus ring is a CIRCLE ────────────────────────────────────
+   A browser draws `outline` around an SVG element's bounding BOX, so the
+   global focus rule put a hard black rounded square around a round seat the
+   moment it was tapped — on Android every tap focuses, so this was the
+   normal appearance of a chosen seat on the buying path, and it looked like
+   a rendering fault.
+
+   The outline is REPLACED, not removed: the ring below is drawn on the
+   seat's own circle, at the same 2px and the same offset, in the same
+   colour. That keeps WCAG 2.4.7 while making the shape match the target.
+   This is the only place in the codebase that clears an outline, and this
+   is why. */
+.es-seat-hit:focus-visible { outline: none; }
+.es-seat-hit:focus-visible + .es-seat-dot,
+.es-seat-hit:focus-visible ~ .es-seat-dot {
+  stroke: var(--es-focus-ring-color);
+  stroke-width: 2.5;
+  paint-order: stroke;
+}
+
+/* ── The seat map's loading state ───────────────────────────────────────
+   A plain grey rectangle for two seconds says only "something is missing".
+   This draws the SHAPE of what is coming — a room with tables in it —
+   sweeping under the same gradient every other skeleton in the app uses,
+   so the arrival fills a picture the reader has already started reading. */
+.es-map-skeleton { position: relative; overflow: hidden; }
+.es-map-skeleton__tables {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  place-items: center;
+  gap: 8%;
+  padding: 14%;
+}
+@media (width >= 40rem) { .es-map-skeleton__tables { grid-template-columns: repeat(3, 1fr); } }
+/* A ring of dots around a disc: a table, at the size the real ones are
+   drawn. Opacity alone separates it from the ground — a border would read
+   as a real table that had finished loading. */
+.es-map-skeleton__table {
+  position: relative;
+  width: min(6rem, 22vw);
+  aspect-ratio: 1;
+  border-radius: var(--es-radius-full);
+  background: var(--es-border);
+  opacity: 0.5;
+}
+.es-map-skeleton__table::after {
+  content: '';
+  position: absolute;
+  inset: -28%;
+  border-radius: var(--es-radius-full);
+  /* Eight seats around it, as a repeating conic gradient — eight elements
+     would be eight nodes per table for a picture that lasts a second. */
+  background:
+    radial-gradient(circle at 50% 6%, var(--es-border-strong) 0 14%, transparent 15%),
+    radial-gradient(circle at 50% 94%, var(--es-border-strong) 0 14%, transparent 15%),
+    radial-gradient(circle at 6% 50%, var(--es-border-strong) 0 14%, transparent 15%),
+    radial-gradient(circle at 94% 50%, var(--es-border-strong) 0 14%, transparent 15%),
+    radial-gradient(circle at 18% 18%, var(--es-border-strong) 0 13%, transparent 14%),
+    radial-gradient(circle at 82% 18%, var(--es-border-strong) 0 13%, transparent 14%),
+    radial-gradient(circle at 18% 82%, var(--es-border-strong) 0 13%, transparent 14%),
+    radial-gradient(circle at 82% 82%, var(--es-border-strong) 0 13%, transparent 14%);
+  opacity: 0.55;
+}
+
+/* The line that says it is working, under the shape. The bar animates its
+   own width rather than a transform, so it reads as progress being made
+   rather than as something sliding past. Indeterminate on purpose: nothing
+   here knows how long the map will take. */
+.es-map-skeleton__bar {
+  position: absolute;
+  inset-inline: 22%;
+  inset-block-end: 12%;
+  height: 4px;
+  overflow: hidden;
+  border-radius: var(--es-radius-full);
+  background: var(--es-border);
+}
+.es-map-skeleton__bar::after {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  width: 38%;
+  border-radius: inherit;
+  background: var(--es-accent);
+  animation: es-map-progress 1.4s var(--es-ease-default) infinite;
+}
+@keyframes es-map-progress {
+  0%   { inset-inline-start: -40%; }
+  100% { inset-inline-start: 100%; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   THE LIGHTBOX — any picture on the site, full screen.
+
+   Portalled to `<body>`, so no ancestor's `overflow: hidden` can clip it;
+   `100dvh` rather than `vh`, so a phone's collapsing URL bar does not leave
+   the close button under it.
+   ═══════════════════════════════════════════════════════════════════════ */
+.es-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: var(--es-z-modal);
+  display: flex;
+  padding: 0;
+  background: rgb(6 11 22 / 0.94);
+  backdrop-filter: blur(6px);
+}
+.es-lightbox__panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 100%;
+  height: 100dvh;
+  padding: max(0.75rem, var(--fx-safe-t)) 0.75rem max(0.75rem, var(--fx-safe-b));
+  outline: none;
+}
+
+/* The bar is `flex: none` and the stage is `flex: 1` with `min-height: 0`:
+   without the zero minimum the stage refuses to shrink below its content
+   and pushes the close button off the top of the screen. */
+.es-lightbox__bar { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex: none; }
+.es-lightbox__count { font-size: var(--es-text-sm); color: rgb(255 255 255 / 0.8); }
+.es-lightbox__stage { position: relative; flex: 1; min-height: 0; }
+/* `contain`, never `cover`. This is the screen where the WHOLE picture is
+   the point — a poster's small print is exactly what gets cropped away. */
+.es-lightbox__img { object-fit: contain; }
+
+.es-lightbox__nav { display: flex; align-items: center; justify-content: center; gap: 1rem; flex: none; }
+.es-lightbox__caption {
+  flex: 1;
+  font-size: var(--es-text-sm);
+  text-align: center;
+  color: rgb(255 255 255 / 0.85);
+}
+.es-lightbox__btn {
+  display: grid;
+  place-items: center;
+  flex: none;
+  /* The touch floor. These are the only controls on the screen and they sit
+     over a photograph, so they have to be found by feel. */
+  width: var(--fx-touch);
+  height: var(--fx-touch);
+  border: 1px solid rgb(255 255 255 / 0.28);
+  border-radius: var(--es-radius-full);
+  background: rgb(255 255 255 / 0.12);
+  color: #ffffff;
+  cursor: pointer;
+  transition: background var(--es-transition-fast), border-color var(--es-transition-fast);
+}
+.es-lightbox__btn:hover { background: rgb(255 255 255 / 0.22); border-color: rgb(255 255 255 / 0.5); }
+
+/* ── The trigger ────────────────────────────────────────────────────────
+   A real button wrapping the picture, styled to look like the picture and
+   nothing else — the only thing it adds is a corner mark on hover saying
+   the image opens. `display: contents` would drop the button box entirely
+   but also its focus ring, so it keeps a box and inherits the radius. */
+.es-zoom {
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  border-radius: inherit;
+  cursor: zoom-in;
+}
+.es-zoom__hint {
+  position: absolute;
+  inset-block-start: 0.625rem;
+  inset-inline-start: 0.625rem;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--es-radius-full);
+  background: rgb(6 11 22 / 0.55);
+  color: #ffffff;
+  opacity: 0;
+  transition: opacity var(--es-transition-fast);
+}
+/* Shown on hover for a mouse, and ALWAYS on a touch screen — there is no
+   hover to discover it with, and an affordance nobody can reach is not one. */
+.es-zoom:hover .es-zoom__hint,
+.es-zoom:focus-visible .es-zoom__hint { opacity: 1; }
+@media (hover: none) {
+  .es-zoom__hint { opacity: 1; }
+}
+
 /* ═══════════════════════════════════════════════════════════════════════
    THE EVENT PAGE — rebuilt from the approved mobile mockup.
 
@@ -5918,115 +6154,135 @@ a.es-sponsor:hover { opacity: 0.7; }
    twenty words a line on a laptop. */
 .es-ev-page { width: 100%; max-width: 46rem; margin-inline: auto; }
 
-/* ── The hero card ──────────────────────────────────────────────────────
-   CONTAINED, not full-bleed. Full-bleed art on a phone is art with its
-   edges cut off by the viewport, and the brief was that the picture should
-   be seen on its own first. Inside a rounded card with the page's own
-   gutter, the whole frame is visible and the card reads as the event.
+/* ── The poster, and the title under it ────────────────────────────────
+   NOTHING IS WRITTEN OVER THE ARTWORK. An organizer's cover is already a
+   poster — it carries the name, the date, the venue and the selling points,
+   set by a designer. The first version laid our own title across it behind
+   a scrim, which hid the poster, repeated every word it already said, and
+   covered the part the organizer paid to have made.
 
-   `min-height` rather than a fixed `aspect-ratio`: the overlay carries a
-   kicker, a two-line title, a supporting line and the venue, and an event
-   with a long title has to be able to push the card taller rather than
-   clip. The clamp keeps it near 16:10 on a phone without ever collapsing. */
-.es-ev-hero {
+   `object-contain` on a blurred copy of itself, not `cover`. Posters are
+   usually portrait and this card is not; cropping to fill cuts off the top
+   or the bottom, which on a poster is the title or the date. The wash
+   behind fills the gap so the card still reads as one object instead of a
+   picture with grey bars beside it. */
+.es-ev-head { display: flex; flex-direction: column; gap: 1rem; }
+
+.es-ev-poster {
   position: relative;
   isolation: isolate;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  min-height: clamp(15rem, 56vw, 24rem);
-  padding: 1.25rem;
   overflow: hidden;
   border-radius: var(--es-radius-xl);
-  background: var(--es-accent);
+  background: var(--es-bg-sunken);
   box-shadow: var(--es-shadow-plate);
 }
-.es-ev-hero img { object-fit: cover; }
+/* Tall enough on a phone that a portrait poster is worth looking at,
+   capped so it never takes a whole laptop screen before the title. */
+.es-ev-poster > .es-zoom { aspect-ratio: 4 / 5; }
+@media (width >= 40rem) { .es-ev-poster > .es-zoom { aspect-ratio: 16 / 10; } }
 
-/* Bottom-weighted, because that is where the words are. Two stops rather
-   than a flat tint: a flat scrim over a bright sunset either washes the
-   photograph out or leaves the text unreadable, and there is no single
-   opacity that does both. */
-.es-ev-hero__scrim {
+.es-ev-poster__wash {
   position: absolute;
   inset: 0;
-  z-index: 1;
-  background: linear-gradient(
-    to top,
-    rgb(8 15 30 / 0.88) 0%,
-    rgb(8 15 30 / 0.55) 42%,
-    rgb(8 15 30 / 0.12) 78%,
-    rgb(8 15 30 / 0.05) 100%
-  );
+  z-index: 0;
+  /* Scaled past the edges so the blur has no soft border of its own, and
+     dimmed so it never competes with the poster in front of it. */
+  transform: scale(1.15);
+  filter: blur(28px) saturate(1.2);
+  opacity: 0.55;
 }
-.es-ev-hero__body { position: relative; z-index: 2; display: flex; flex-direction: column; gap: 0.5rem; }
+.es-ev-poster__wash img { object-fit: cover; }
+.es-ev-poster__img { z-index: 1; object-fit: contain; }
 
-/* Every text role inside the card is inverted, not just `color`. A bare
-   white `color` leaves `text-muted` at slate-600 on a photograph, which is
-   the classic place light-on-dark quietly fails. */
-.es-ev-hero__body {
-  --es-text:       #ffffff;
-  --es-text-muted: rgb(255 255 255 / 0.88);
-  --es-text-subtle: rgb(255 255 255 / 0.74);
-  color: var(--es-text);
+.es-ev-poster--empty {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 16 / 10;
+  padding: 2rem;
+  background: linear-gradient(135deg, var(--es-accent-wash), var(--es-bg-sunken));
 }
-.es-ev-hero__kicker {
-  font-family: var(--es-font-mono);
-  font-size: var(--es-text-xs);
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: rgb(255 255 255 / 0.82);
-}
-/* The serif, and the one place on the storefront it is still used — a
-   poster title is the exception the owner kept. `clamp` so a long name
-   stays inside the card instead of setting the card's width. */
-.es-ev-hero__title {
-  margin: 0;
+.es-ev-poster__fallback {
   font-family: var(--es-font-serif, var(--es-font-sans));
-  font-size: clamp(1.875rem, 8.5vw, 3rem);
+  font-size: clamp(1.5rem, 7vw, 2.5rem);
   font-weight: 700;
-  line-height: 1.02;
-  letter-spacing: -0.02em;
+  line-height: 1.1;
+  text-align: center;
+  color: var(--es-accent);
 }
-.es-ev-hero__lede {
-  max-width: 34ch;
-  font-size: var(--es-text-sm);
-  line-height: 1.45;
-  color: rgb(255 255 255 / 0.9);
-}
-.es-ev-hero__where {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.5rem;
-  margin-top: 0.25rem;
-  font-size: var(--es-text-sm);
-  line-height: 1.35;
-  color: rgb(255 255 255 / 0.92);
-}
-.es-ev-hero__where svg { flex: none; margin-top: 1px; }
 
-/* Share and save, over the art. In the mockup these sit beside the logo in
-   the masthead; that bar is global and shared by every page, so they are
-   here instead — same two circles, same reach, and no vertical space spent
-   on a row of their own. */
-.es-ev-hero__actions {
+/* Share and save, over the artwork's top-right. Absolute, so they cost no
+   vertical space — in the mockup they sit beside the logo, and that bar is
+   global to every page in the app. */
+.es-ev-head__actions {
   position: absolute;
   inset-block-start: 0.75rem;
   inset-inline-end: 0.75rem;
   z-index: 3;
 }
 
-/* ── The three facts ────────────────────────────────────────────────────
-   `.fx-grid` and not `repeat(3, 1fr)`. Three fixed columns of real words at
-   320px is about 80px each, which AGENTS.md's own arithmetic rules out —
-   so this auto-fits: three across on any ordinary phone, two on a very
-   narrow one, and never an overflow. */
-.es-ev-facts {
-  --fx-col: 8rem;
-  --fx-gap: 0.75rem;
-  padding-block: 0.25rem;
+/* ── The title block, under the poster ─────────────────────────────────── */
+.es-ev-title { display: flex; flex-direction: column; gap: 0.5rem; }
+.es-ev-title__kicker {
+  font-family: var(--es-font-mono);
+  font-size: var(--es-text-xs);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--es-accent);
 }
-.es-ev-fact { display: flex; align-items: flex-start; gap: 0.625rem; min-width: 0; }
+.es-ev-title__h1 {
+  margin: 0;
+  font-family: var(--es-font-serif, var(--es-font-sans));
+  font-size: clamp(1.75rem, 7.5vw, 2.75rem);
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  color: var(--es-text);
+}
+.es-ev-title__lede {
+  max-width: 48ch;
+  font-size: var(--es-text-md);
+  line-height: 1.5;
+  color: var(--es-text-muted);
+}
+
+/* ── The three facts ───────────────────────────────────────────────────
+   ROWS, not columns. Three columns at phone width gave each about 110px,
+   which broke "(America/Los_Angeles)" across a line mid-word and stranded
+   the organizer's arrow on a line of its own. A row gives every value the
+   full width; from `sm` there is room for two across. */
+.es-ev-facts {
+  display: grid;
+  gap: 1px;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  list-style: none;
+  border: 1px solid var(--es-border);
+  border-radius: var(--es-radius-lg);
+  background: var(--es-border);
+}
+@media (width >= 40rem) { .es-ev-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* The 1px grid gap IS the rule between rows — drawn by the container's
+   background showing through, so there is no last-child border to undo. */
+.es-ev-fact {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  min-width: 0;
+  padding: 0.875rem 1rem;
+  background: var(--es-surface);
+}
+.es-ev-fact__link {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  min-width: 0;
+  min-height: var(--fx-touch);
+  color: inherit;
+  text-decoration: none;
+}
 .es-ev-fact__icon {
   display: grid;
   place-items: center;
@@ -6037,7 +6293,7 @@ a.es-sponsor:hover { opacity: 0.7; }
   background: var(--es-accent-wash);
   color: var(--es-accent);
 }
-.es-ev-fact__text { display: flex; flex-direction: column; gap: 0.125rem; min-width: 0; }
+.es-ev-fact__text { display: flex; flex-direction: column; gap: 0.0625rem; min-width: 0; flex: 1; }
 .es-ev-fact__label {
   font-family: var(--es-font-mono);
   font-size: 0.625rem;
@@ -6045,43 +6301,60 @@ a.es-sponsor:hover { opacity: 0.7; }
   text-transform: uppercase;
   color: var(--es-text-subtle);
 }
-.es-ev-fact__value { font-size: var(--es-text-sm); font-weight: 600; line-height: 1.3; color: var(--es-text); }
-.es-ev-fact__note { font-size: var(--es-text-xs); line-height: 1.35; color: var(--es-text-muted); }
+.es-ev-fact__value { font-size: var(--es-text-sm); font-weight: 600; line-height: 1.35; color: var(--es-text); }
+.es-ev-fact__note { font-size: var(--es-text-xs); line-height: 1.4; color: var(--es-text-muted); }
+/* The zone on its own line and in mono: it is one unbreakable token, and
+   inline after the time it decided the width of the whole row. */
+.es-ev-fact__zone {
+  font-family: var(--es-font-mono);
+  font-size: 0.625rem;
+  line-height: 1.4;
+  color: var(--es-text-subtle);
+}
+.es-ev-fact__go { flex: none; color: var(--es-text-subtle); }
+.es-ev-fact__link:hover .es-ev-fact__go { color: var(--es-accent); }
 
 /* ── "Presented by" ─────────────────────────────────────────────────────
-   The headline sponsor, given its own band directly under the facts. It
-   used to be a section at the very bottom of the page, under the tabs and
-   the organizer — which is the one place a sponsor's money does not reach,
-   because almost nobody scrolls that far. */
+   The headline sponsor, directly under the facts. It used to be a section
+   at the very bottom of the page, under the tabs and the organizer — the
+   one place a sponsor's money does not reach, because almost nobody
+   scrolls that far. */
 .es-ev-sponsor {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.75rem 1.25rem;
-  padding: 1rem 1.25rem;
+  gap: 0.5rem 1rem;
+  padding: 0.875rem 1.25rem;
   border-radius: var(--es-radius-lg);
   background: var(--es-accent-wash);
 }
 .es-ev-sponsor__label {
+  flex: none;
   font-family: var(--es-font-mono);
   font-size: 0.625rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--es-text-muted);
 }
-.es-ev-sponsor__logo { display: flex; align-items: center; min-width: 0; flex: 1 1 auto; }
+.es-ev-sponsor__logo { display: flex; align-items: center; min-width: 0; flex: 1 1 8rem; }
+.es-ev-sponsor__zoom { width: auto; }
 .es-ev-sponsor__logo img { max-height: 2.25rem; width: auto; object-fit: contain; }
 .es-ev-sponsor__name { font-size: var(--es-text-md); font-weight: 600; color: var(--es-text); }
+.es-ev-sponsor__link {
+  flex: none;
+  min-height: var(--fx-touch);
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--es-text-sm);
+  font-weight: 500;
+  color: var(--es-accent);
+}
 .es-ev-sponsor__level {
   flex: none;
-  padding-inline-start: 1.25rem;
-  border-inline-start: 1px solid var(--es-border);
   font-size: var(--es-text-xs);
-  line-height: 1.3;
   color: var(--es-text-muted);
 }
 
-/* ── The About panel ────────────────────────────────────────────────────── */
 .es-ev-about__eyebrow {
   font-family: var(--es-font-mono);
   font-size: var(--es-text-xs);

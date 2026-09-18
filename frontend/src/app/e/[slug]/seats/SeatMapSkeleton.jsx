@@ -49,8 +49,23 @@ export default function SeatMapSkeleton({ label = 'Loading the seat map' }) {
       <div
         role="status"
         aria-label={label}
-        className={`es-skeleton w-full rounded-(--es-radius-lg) border border-border-base ${MAP_BOX}`}
-      />
+        className={`es-skeleton es-map-skeleton w-full rounded-(--es-radius-lg) border border-border-base ${MAP_BOX}`}
+      >
+        {/* THE SHAPE OF WHAT IS COMING, not a grey rectangle. A blank panel
+            for two seconds says only that something is missing; a room with
+            tables in it says what is being waited for, and the real map then
+            fills a picture the reader has already begun reading.
+
+            `aria-hidden`: the label on the box above is the whole accessible
+            answer. These are furniture, and announcing four empty divs
+            between "Choose your seats" and the map is noise. */}
+        <div aria-hidden className="es-map-skeleton__tables">
+          <span className="es-map-skeleton__table" />
+          <span className="es-map-skeleton__table" />
+          <span className="es-map-skeleton__table" />
+        </div>
+        <span aria-hidden className="es-map-skeleton__bar" />
+      </div>
     </div>
   );
 }

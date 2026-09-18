@@ -288,6 +288,18 @@ function Seat({
         r={SEAT_RADIUS * 1.9}
         fill="transparent"
         onClick={onClick}
+        /**
+         * `.es-seat-hit` is what lets the focus ring be a CIRCLE.
+         *
+         * The global `:focus-visible` rule draws a 2px outline, and a browser
+         * draws an outline around an SVG element's BOUNDING BOX — so tapping a
+         * seat on a phone put a hard black rounded SQUARE around it, which is
+         * the ugliest thing on the buying path and looked like a rendering
+         * fault. The class swaps it for a ring drawn in SVG, on the seat's own
+         * circle. See `.es-seat-hit` in globals.css: the outline is replaced,
+         * never merely removed.
+         */
+        className="es-seat-hit"
         style={{ cursor: clickable ? 'pointer' : 'not-allowed' }}
         {...(clickable
           ? {
@@ -298,7 +310,22 @@ function Seat({
           }
           : { 'aria-hidden': true })}
       />
+      {/* THE SELECTED SEAT'S HALO, drawn behind the seat rather than on it.
+          A thick stroke on the dot itself reads as a fatter dot; a soft ring
+          standing off it reads as "this one is yours" at a glance, and it is
+          what the map needed to look finished rather than diagrammatic. */}
+      {selected && (
+        <circle
+          r={SEAT_RADIUS * 1.55}
+          fill="none"
+          stroke="var(--es-accent)"
+          strokeWidth={1.5}
+          opacity={0.35}
+          style={{ pointerEvents: 'none' }}
+        />
+      )}
       <circle
+        className="es-seat-dot"
         r={SEAT_RADIUS}
         fill={fill}
         // A ring as well as the dimming of everything else, so the picked-out
