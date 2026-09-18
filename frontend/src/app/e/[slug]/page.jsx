@@ -1,10 +1,11 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
+import { jsonLdScript } from '../../utils/jsonLd';
 import EventGallery from './EventGallery';
 import EventTabs from './EventTabs';
 import EventShare from './EventShare';
-import EventPurchasePanel from './EventPurchasePanel';
+import EventPurchasePanel, { EventBuyBar } from './EventPurchasePanel';
 import {
   EventHighlights, EventSchedule, EventSponsors, EventPolicies, VenueMap,
 } from './EventSections';
@@ -134,7 +135,10 @@ export default async function EventPage({ params, searchParams }) {
           goes stale the first time a date changes. */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd(event)) }}
+        // `jsonLdScript`, not `JSON.stringify`. The values below are typed by
+        // the organizer, and JSON escaping has no opinion about `</script>` —
+        // which ends this block before any JavaScript is parsed. See utils/jsonLd.js.
+        dangerouslySetInnerHTML={{ __html: jsonLdScript(jsonLd(event)) }}
       />
 
       {/* ── The masthead ──────────────────────────────────────────────
@@ -190,6 +194,10 @@ export default async function EventPage({ params, searchParams }) {
         </div>
       </section>
 
+      {/* The space the fixed buy bar covers is reserved on `<body>`, by a
+          `:has(.es-buybar)` rule in globals.css — the footer is a sibling of
+          this page, so padding anything inside it would leave the footer
+          underneath the bar. Nothing to add here. */}
       <section className="fx-section fx-section--sm">
         <div className="fx-container fx-container--xl">
           <div className="grid gap-[var(--fx-gap-lg)] lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
@@ -327,6 +335,16 @@ export default async function EventPage({ params, searchParams }) {
           </div>
         </div>
       </section>
+
+      {/* Phones and tablets only — from `lg` the panel above is sticky and
+          already does this. Rendered last so it is the final thing in the tab
+          order, after the content it is an action on. */}
+      <EventBuyBar
+        event={event}
+        soldOut={soldOut}
+        tierId={focusTier?.id}
+        cheapest={cheapest}
+      />
     </main>
   );
 }

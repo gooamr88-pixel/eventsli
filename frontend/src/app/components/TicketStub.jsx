@@ -10,12 +10,32 @@
  * A server component: nothing here is interactive, so shipping it to the
  * browser would be bytes for no behaviour.
  */
-export default function TicketStub({ ticket, qrSrc }) {
+/**
+ * `prominent` is for the page where the ticket is the ONLY thing — `/t/[token]`,
+ * the link from the email, opened at a door.
+ *
+ * The default 132px is a LIST size: in My Tickets or on the confirmation it sits
+ * beside three other stubs and identifying the ticket matters more than reading
+ * the code. At a door none of that is true — the code is the entire purpose of
+ * the screen, and 132px of it, held at arm's length under a venue's lighting
+ * for a scanner that is often a cheap fixed-focus camera, is the difference
+ * between one attempt and four while a queue waits.
+ *
+ * It also stacks instead of sitting in a row, so the code gets the full width
+ * of a phone rather than sharing it with the seat label.
+ */
+export default function TicketStub({ ticket, qrSrc, prominent = false }) {
   const used = ticket.status === 'scanned' || Boolean(ticket.scannedAt);
   const void_ = ticket.status === 'void';
 
   return (
-    <article className="es-ticket-stub fx-row items-start gap-4 es-card p-4">
+    <article
+      className={`es-ticket-stub es-card ${
+        prominent
+          ? 'fx-stack items-center gap-4 p-5 text-center'
+          : 'fx-row items-start gap-4 p-4'
+      }`}
+    >
       <div className="relative flex-none">
         {/* A plain img, not next/image: this is a same-origin API response with
             no fixed dimensions to optimise, and routing it through the image
@@ -24,9 +44,16 @@ export default function TicketStub({ ticket, qrSrc }) {
         <img
           src={qrSrc}
           alt={`Entry code for ${seatLabel(ticket) || 'this ticket'}`}
-          width={132}
-          height={132}
-          className={`h-[132px] w-[132px] rounded-(--es-radius-sm) bg-white p-1 ${used || void_ ? 'opacity-30' : ''}`}
+          width={prominent ? 288 : 132}
+          height={prominent ? 288 : 132}
+          // `min()` so the code fills a 320px phone's available width but never
+          // grows past its rendered resolution on a tablet or a laptop, where a
+          // stretched QR is a blurrier one.
+          className={`rounded-(--es-radius-sm) bg-white p-1 ${
+            prominent
+              ? 'h-[min(288px,72vw)] w-[min(288px,72vw)]'
+              : 'h-[132px] w-[132px]'
+          } ${used || void_ ? 'opacity-30' : ''}`}
         />
         {(used || void_) && (
           <span className="absolute inset-0 grid place-items-center">
@@ -37,7 +64,7 @@ export default function TicketStub({ ticket, qrSrc }) {
         )}
       </div>
 
-      <div className="fx-min0 fx-stack fx-stack--sm">
+      <div className={`fx-min0 fx-stack fx-stack--sm ${prominent ? 'items-center' : ''}`}>
         {ticket.attendeeName && <p className="text-ink">{ticket.attendeeName}</p>}
 
         <p className="es-nums text-sm text-muted">

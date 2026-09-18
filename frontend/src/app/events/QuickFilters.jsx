@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { get } from '../utils/apiClient';
-import { useSavedCount } from '../hooks/useSavedEvents';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -32,7 +31,6 @@ export default function QuickFilters({ city }) {
   const params = useSearchParams();
   const [locating, setLocating] = useState(false);
   const [locateError, setLocateError] = useState(null);
-  const savedCount = useSavedCount();
 
   const weekend = weekendRange();
   const from = params.get('from');
@@ -107,15 +105,6 @@ export default function QuickFilters({ city }) {
           This weekend
         </Link>
 
-        {/* Only when there is something to show. A "Saved (0)" chip is a
-            control whose only function is to open an empty screen. */}
-        {savedCount > 0 && (
-          <Link href="/events/saved" className={chip(false)}>
-            <Heart />
-            Saved <span className="es-nums text-subtle">({savedCount})</span>
-          </Link>
-        )}
-
         {city && (
           <Link href={withParams({ city: null })} className={chip(false)}>
             Clear city
@@ -149,7 +138,7 @@ function chip(active) {
  * On a Saturday it still means THIS weekend rather than the next one: the
  * window starts from the Friday just gone, so an event tonight is in it.
  */
-function weekendRange(now = new Date()) {
+export function weekendRange(now = new Date()) {
   const day = now.getDay();                 // 0 Sun … 6 Sat
   const start = new Date(now);
   start.setHours(0, 0, 0, 0);
@@ -175,11 +164,5 @@ const Pin = () => (
 const Cal = () => (
   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
     <rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4" />
-  </svg>
-);
-
-const Heart = () => (
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true">
-    <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1L12 21l7.7-7.6 1.1-1a5.5 5.5 0 0 0 0-7.8z" />
   </svg>
 );

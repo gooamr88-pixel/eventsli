@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { del, get, patch, post } from '../../utils/apiClient';
+import { describeError, messageFor } from '../../utils/errors';
 import { useOrganizer } from '../../hooks/useOrganizer';
 import { useApi } from '../../hooks/useApi';
 import { refreshAuth } from '../../hooks/useAuth';
@@ -256,7 +257,10 @@ function ManualSection({ onChanged }) {
       await patch(`/organizer/payment-methods/${method.id}`, { isActive: !method.isActive }, { noRedirect: true });
       changed(method.isActive ? 'Hidden from new checkouts.' : 'Switched back on.');
     } catch (err) {
-      toast.error(err?.message || 'Could not update it.');
+      // `messageFor` rather than the raw message: a dropped connection has no
+      // useful `message`, and "Could not update it." does not say whether to
+      // retry. It still prefers the server's sentence where there is one.
+      toast.error(messageFor(err), { title: describeError(err).title });
     }
   }
 
@@ -272,7 +276,7 @@ function ManualSection({ onChanged }) {
       await del(`/organizer/payment-methods/${method.id}`, { noRedirect: true });
       changed('Payment method removed.');
     } catch (err) {
-      toast.error(err?.message || 'Could not remove it.');
+      toast.error(messageFor(err), { title: describeError(err).title });
     }
   }
 

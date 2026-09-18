@@ -366,7 +366,11 @@ function SelectionBar({
                     onClick={() => onRemoveSeat(seat)}
                     disabled={busy}
                     aria-label={`Remove ${seatName(seat)}`}
-                    className="grid h-7 w-7 place-items-center rounded-full text-subtle transition-colors hover:bg-bg-sunken hover:text-ink"
+                    // 28px painted, 44px to press (`.fx-hit`). This drops a
+                    // seat from an order mid-purchase, so a mis-tap costs the
+                    // buyer their seat — and the row is too tight to draw it
+                    // any bigger without pushing the price off the line.
+                    className="fx-hit grid h-7 w-7 place-items-center rounded-full text-subtle transition-colors hover:bg-bg-sunken hover:text-ink"
                   >
                     ×
                   </button>

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import NavIcon from './NavIcon';
+import { trapTab } from '../../utils/focusTrap';
 import Logo from '../brand/Logo';
 import { resolveNav, pickTabs, currentLabel } from './navModel';
 
@@ -56,7 +57,15 @@ export default function AppShell({
     wasOpen.current = open;
 
     if (!open) return undefined;
-    const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
+    // Escape closes, and Tab stays in the drawer while it is open. Moving
+    // focus in (above) was only half of it: the next Tab left the panel for
+    // the page behind the scrim, so a keyboard user was operating a screen
+    // they could not see through a black overlay. Below `lg` this panel IS
+    // the navigation, so there is nothing else to reach while it is open.
+    const onKey = (e) => {
+      if (e.key === 'Escape') { setOpen(false); return; }
+      trapTab(e, navRef.current);
+    };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [open]);

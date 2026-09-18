@@ -55,12 +55,17 @@ export default async function TicketPage({ params }) {
           {event.venueName && <p className="text-muted">{event.venueName}</p>}
         </div>
 
+        {/* `prominent`: this page IS the ticket. The 132px list size was
+            carried over from My Tickets, where a stub sits beside three others;
+            here there is nothing else on screen and the code is what the door
+            is trying to read. */}
         <TicketStub
           ticket={ticket}
           qrSrc={`${PUBLIC_API_URL}/public/qr/${encodeURIComponent(ticket.qr)}`}
+          prominent
         />
 
-        <p className="text-sm text-subtle">
+        <p className="text-center text-sm text-subtle">
           Show this code at the door. Screen brightness up — it is read by a camera.
         </p>
 

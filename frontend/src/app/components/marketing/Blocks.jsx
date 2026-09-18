@@ -1,4 +1,5 @@
 import Accent from '../landing/Accent';
+import { jsonLdScript } from '../../utils/jsonLd';
 
 /**
  * The three shapes every marketing page on this site is made of.
@@ -26,11 +27,23 @@ const TONES = {
   field: 'es-band--field',
 };
 
+/**
+ * A band that carries an `id` is a JUMP TARGET, and the masthead is
+ * `sticky top-0` at `h-16` — so scrolling one to the top of the viewport put
+ * its heading UNDERNEATH the header. "Buying a ticket ↓" on /how-it-works
+ * landed on the band's body with the title hidden, which reads as the link
+ * having overshot. `scroll-mt-20` (5rem) clears the 4rem bar with a margin.
+ *
+ * Applied only when there is an `id`, because a band nothing links to is never
+ * scrolled to by the browser and the margin would be dead weight. This is the
+ * same fix the dashboard already carries as `scroll-mt-24` on `#details` and
+ * `#going-on-sale`, whose sticky bar is the app bar.
+ */
 export function Band({ id, title, lede, children, flush, tone = 'base' }) {
   return (
     <section
       id={id}
-      className={`${TONES[tone] || TONES.base} fx-section fx-section--sm ${flush ? 'fx-section--flush-top es-mk-band--first' : ''}`}
+      className={`${TONES[tone] || TONES.base} fx-section fx-section--sm ${id ? 'scroll-mt-20' : ''} ${flush ? 'fx-section--flush-top es-mk-band--first' : ''}`}
     >
       <div className="fx-container fx-container--xl fx-stack">
         {(title || lede) && (
@@ -154,6 +167,8 @@ export function FaqJsonLd({ items }) {
     })),
   };
   return (
-    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }} />
+    // Admin-authored rather than organizer-authored, so the exposure is
+    // smaller — but it is the same mechanism and the same one-line fix.
+    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(data) }} />
   );
 }

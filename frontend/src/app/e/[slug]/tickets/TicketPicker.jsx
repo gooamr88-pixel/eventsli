@@ -179,7 +179,20 @@ export default function TicketPicker({ slug, focusTierId }) {
         </Notice>
       )}
 
-      <div className="es-plate fx-stack fx-stack--sm bg-surface p-4">
+      {/**
+        * STICKY ON A PHONE, like the seat picker's selection bar — the two
+        * guest paths behaved differently for no reason anybody chose.
+        *
+        * On `/seats` the running total and Continue are pinned, because the map
+        * fills the screen. Here they were the last block after the tier list,
+        * so on an event with six ticket types the total moved off screen as
+        * soon as somebody started tapping "+" — they were choosing quantities
+        * with the number those quantities produce nowhere in view.
+        *
+        * `.fx-safe-bottom` clears the home indicator; `bottom-0` is enough
+        * because this is the last block in its own scrolling column.
+        */}
+      <div className="fx-safe-bottom sticky bottom-0 z-(--es-z-sticky) es-plate fx-stack fx-stack--sm bg-surface p-4 shadow-lg lg:static lg:shadow-none">
         <div className="fx-row fx-row--between items-baseline gap-3">
           <span className="text-ink">
             {chosen} {chosen === 1 ? 'ticket' : 'tickets'}

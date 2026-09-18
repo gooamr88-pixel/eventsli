@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { formatMoney } from '../../utils/money';
+import { formatEventTime } from '../../lib/eventTime';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -65,6 +66,17 @@ export default function HoldConfirm({
       {quote?.event?.title && (
         <div className="fx-stack fx-stack--sm gap-0.5">
           <p className="text-md text-ink">{quote.event.title}</p>
+          {/* WHEN, beside what and where. This panel is the last screen that
+              names the event before the form takes over, and it listed the
+              venue without ever saying the date — so a buyer holding seats for
+              one of an organizer's three nights had nothing here to check it
+              against. In the event's own zone, labelled, like every other time
+              in the product. */}
+          {quote.event.startsAt && (
+            <p className="text-sm text-subtle">
+              {formatEventTime(quote.event.startsAt, quote.event.timezone)}
+            </p>
+          )}
           {quote.event.venue && <p className="text-sm text-subtle">{quote.event.venue}</p>}
         </div>
       )}

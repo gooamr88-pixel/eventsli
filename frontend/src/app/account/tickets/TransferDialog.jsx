@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { post } from '../../utils/apiClient';
+import { trapTab } from '../../utils/focusTrap';
 import Field from '../../components/forms/Field';
 import FormError from '../../components/forms/FormError';
 import SubmitButton from '../../components/forms/SubmitButton';
@@ -24,19 +25,13 @@ export default function TransferDialog({ ticket, event, onClose, onDone }) {
 
   // Escape closes; Tab is trapped. Without the trap, Tab walks out into the
   // ticket list behind the dialog, where a keyboard user then activates
-  // controls they cannot see.
+  // controls they cannot see. `trapTab` skips DISABLED controls, which matters
+  // here: Continue is disabled until an address is typed, so the dialog opens
+  // with its last control unfocusable.
   useEffect(() => {
     const onKeyDown = (e) => {
       if (e.key === 'Escape') { onClose(); return; }
-      if (e.key !== 'Tab') return;
-      const focusable = dialogRef.current?.querySelectorAll(
-        'button, input, [href], select, textarea, [tabindex]:not([tabindex="-1"])',
-      );
-      if (!focusable?.length) return;
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
-      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      trapTab(e, dialogRef.current);
     };
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);

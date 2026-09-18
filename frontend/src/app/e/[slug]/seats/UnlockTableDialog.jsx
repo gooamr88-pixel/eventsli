@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { post } from '../../../utils/apiClient';
 import { describeError } from '../../../utils/errors';
+import { trapTab } from '../../../utils/focusTrap';
 
 /**
  * The password gate on a private table (BRD §27).
@@ -28,21 +29,13 @@ export default function UnlockTableDialog({ slug, tableId, onClose, onUnlocked }
 
   // Escape closes, and focus is trapped while it is open. Without the trap, Tab
   // walks out of the dialog into the seat map behind it — where a keyboard user
-  // then activates seats they cannot see.
+  // then activates seats they cannot see. `trapTab` skips DISABLED controls,
+  // which matters here: Unlock is disabled until a password is typed, so the
+  // dialog opens with its last control unfocusable.
   useEffect(() => {
     const onKeyDown = (e) => {
       if (e.key === 'Escape') { onClose(); return; }
-      if (e.key !== 'Tab') return;
-
-      const focusable = dialogRef.current?.querySelectorAll(
-        'button, input, [href], select, textarea, [tabindex]:not([tabindex="-1"])',
-      );
-      if (!focusable?.length) return;
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-
-      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
-      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      trapTab(e, dialogRef.current);
     };
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);

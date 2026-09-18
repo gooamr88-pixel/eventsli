@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { trapTab } from '../../../../../utils/focusTrap';
 import FloorPlanFigure from './FloorPlanFigure';
 import { SectionHeading, TableIndex, ZoneIndex, TableCards } from './PackSections';
 import { buildTableIndex, buildZoneIndex, packSummary, chunk } from './packRoster';
@@ -51,11 +52,22 @@ export default function SeatingPackModal({ eventTitle, tables, zones, categories
   const [showZones, setShowZones] = useState(true);
   const [showCards, setShowCards] = useState(false);
   const closeRef = useRef(null);
+  const rootRef = useRef(null);
 
-  // Escape closes, and focus moves into the dialog so Tab stays here rather
-  // than walking the editor underneath it.
+  /**
+   * Escape closes, focus moves in, and Tab is trapped.
+   *
+   * The comment here used to say that moving focus in was what kept Tab
+   * inside. It is not — focus only starts here, and the very next Tab past the
+   * last control carried on into the editor behind. This is a PORTAL to
+   * `document.body`, so "behind" is the whole page: the toolbar, the canvas
+   * and every table on it, reachable but invisible under a full-screen sheet.
+   */
   useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); onClose(); } };
+    const onKey = (e) => {
+      if (e.key === 'Escape') { e.stopPropagation(); onClose(); return; }
+      trapTab(e, rootRef.current);
+    };
     document.addEventListener('keydown', onKey);
     closeRef.current?.focus();
     return () => document.removeEventListener('keydown', onKey);
@@ -92,7 +104,10 @@ export default function SeatingPackModal({ eventTitle, tables, zones, categories
   if (typeof document === 'undefined') return null;
 
   return createPortal(
-    <div className="es-pack-root">
+    // `role`/`aria-modal` alongside the trap above, not instead of it: the
+    // attribute is a claim that everything outside is unreachable, and it is
+    // only true now that Tab cannot leave.
+    <div ref={rootRef} className="es-pack-root" role="dialog" aria-modal="true" aria-label="Print or export the seating pack">
       <style>{printCss(box)}</style>
 
       <header className="es-pack-chrome fx-row fx-row--between flex-wrap gap-3 border-b border-border-base bg-surface px-4 py-3">

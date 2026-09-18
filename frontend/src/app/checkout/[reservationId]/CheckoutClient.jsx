@@ -4,12 +4,15 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { get, post, del } from '../../utils/apiClient';
-import { describeError, isOrganizerPayoutProblem } from '../../utils/errors';
+import { describeError } from '../../utils/errors';
 import { formatMoney } from '../../utils/money';
+import { formatEventTime } from '../../lib/eventTime';
 import { useReservation } from '../../hooks/useReservation';
 import { useCountdown } from '../../hooks/useCountdown';
 import HoldBar from './HoldBar';
 import HoldConfirm from './HoldConfirm';
+import Field from '../../components/forms/Field';
+import { Claimed, Fatal, PayError } from '../Outcomes';
 import { Loading } from '../../components/Feedback';
 
 /**
@@ -141,7 +144,11 @@ export default function CheckoutClient({ reservationId }) {
 
       if (free) {
         const result = await post(
-          `/public/reservations/${reservationId}/claim`, body, { noRedirect: true },
+          `/public/reservations/${reservationId}/claim`, body,
+          // The token proves this browser made the hold. Without it the API
+          // refuses: a reservation id is in the URL, so it is not proof, and
+          // free tickets issued on one alone go to whoever asked.
+          { headers: token(reservation), noRedirect: true },
         );
         /**
          * DONE, HERE, WITH NO REDIRECT — and that is the point of the free path.
@@ -162,7 +169,8 @@ export default function CheckoutClient({ reservationId }) {
       }
 
       const { checkoutUrl } = await post(
-        `/public/reservations/${reservationId}/checkout`, body, { noRedirect: true },
+        `/public/reservations/${reservationId}/checkout`, body,
+        { headers: token(reservation), noRedirect: true },
       );
       // A full navigation, not router.push: Stripe Checkout is a different
       // origin, and the client router cannot leave the app.
@@ -203,9 +211,39 @@ export default function CheckoutClient({ reservationId }) {
   // Nothing to pay. Everything the page says about payment changes with it.
   const free = Number(quote.totalCents) === 0;
 
+  // In the EVENT's zone, and labelled with it — `formatEventTime` appends the
+  // short zone name, so a buyer in another timezone reads "8:00 PM EST" rather
+  // than a number that quietly disagrees with their ticket.
+  const eventWhen = quote.event?.startsAt
+    ? formatEventTime(quote.event.startsAt, quote.event.timezone)
+    : null;
+
   return (
     <div className="fx-stack">
-      <h1 className="text-2xl">Your order</h1>
+      {/**
+        * WHICH EVENT THIS IS — kept on screen, not left behind.
+        *
+        * `HoldConfirm` names the event, and then hands over to this form and
+        * disappears. From that point the page said "Your order" over a list of
+        * money with no title, no date and no venue anywhere on it: somebody who
+        * opened two events in two tabs, or came back to this one after a
+        * detour, had nothing to check before paying. Every value comes from the
+        * quote the totals come from, so it cannot describe a different order
+        * from the one being charged.
+        */}
+      <header className="fx-stack fx-stack--sm gap-1">
+        <h1 className="text-2xl">Your order</h1>
+        {quote.event?.title && (
+          <p className="fx-break text-md text-ink">{quote.event.title}</p>
+        )}
+        {(eventWhen || quote.event?.venue) && (
+          <p className="text-sm text-muted">
+            {eventWhen}
+            {eventWhen && quote.event?.venue && ' · '}
+            {quote.event?.venue}
+          </p>
+        )}
+      </header>
 
       {/* `remaining` is passed down rather than recomputed there: reading
           Date.now() during a render is impure, and the value already exists
@@ -280,21 +318,38 @@ export default function CheckoutClient({ reservationId }) {
         <p className="text-sm text-subtle">
           You do not need an account. Signed in? We will use your account email.
         </p>
-        <input
-          type="text" name="name" value={buyer.name} autoComplete="name"
+        {/* `Field`, not a bare input with a placeholder. Both of these carried
+            their label in `placeholder` + `aria-label`, which is the one
+            pattern `Field`'s own note argues against: a placeholder disappears
+            the moment somebody types, so a buyer who looks away mid-form has to
+            clear the box to find out what it wanted. On the screen that takes
+            their money and decides where the tickets are sent, that is the
+            worst place in the product for it. `Field` also gives each one a
+            real `<label for>`, the required star, and `aria-describedby` for
+            the hint below. */}
+        <Field
+          label="Full name"
+          name="name"
+          type="text"
+          optional
+          autoComplete="name"
+          value={buyer.name}
           onChange={(e) => setBuyer((b) => ({ ...b, name: e.target.value }))}
-          placeholder="Full name" aria-label="Full name"
-          className="es-input"
         />
         {/* Required, because the API refuses without one — "Enter an email
             address — your tickets are sent there." Catching it in the browser
             saves a round trip that ends in a red box under a button they
             already pressed. */}
-        <input
-          type="email" name="email" value={buyer.email} autoComplete="email" required
+        <Field
+          label="Email address"
+          name="email"
+          type="email"
+          required
+          inputMode="email"
+          autoComplete="email"
+          hint="Your tickets and receipt are sent here — check it for typos."
+          value={buyer.email}
           onChange={(e) => setBuyer((b) => ({ ...b, email: e.target.value }))}
-          placeholder="Email for your tickets" aria-label="Email"
-          className="es-input"
         />
 
         {/* BRD §02 — the buyer accepts the terms before paying, and the API
@@ -363,66 +418,6 @@ function token(reservation) {
     : undefined;
 }
 
-/**
- * Three of the payment failures are the ORGANIZER's Stripe setup, not anything
- * the buyer can fix. Told "payment failed" they try another card, then a third;
- * told the truth they can come back later.
- */
-function PayError({ error }) {
-  const { title, recovery } = describeError(error);
-  const theirs = isOrganizerPayoutProblem(error?.code);
-  return (
-    <div role="alert" className={`rounded-(--es-radius-md) p-3 ${theirs ? 'bg-warning/10' : 'bg-danger/10'}`}>
-      <p className="text-sm font-medium text-ink">{title}</p>
-      <p className="text-sm text-muted">{recovery}</p>
-      {theirs && <p className="mt-1 text-xs text-subtle">Nothing has been charged.</p>}
-    </div>
-  );
-}
-
-/**
- * A free claim, done.
- *
- * Says where the tickets went and how to get them back, because the email is
- * the only copy — there is no receipt to re-open and no card statement to check
- * against. `/tickets/find` is the existing path for anyone whose email did not
- * arrive, so it is offered here rather than left to be discovered later.
- */
-function Claimed({ claimed, slug }) {
-  const count = claimed.ticketCount || 0;
-  return (
-    <div className="es-plate fx-stack bg-surface p-6" role="status">
-      <h2 className="text-lg">You&apos;re in.</h2>
-      <p className="text-md text-muted">
-        {count} {count === 1 ? 'ticket is' : 'tickets are'} yours.
-        {claimed.email && <> We&apos;ve emailed {count === 1 ? 'it' : 'them'} to {claimed.email}.</>}
-      </p>
-      <p className="text-sm text-subtle">
-        Bring the QR code with you — on your phone is fine. If the email does not arrive,
-        you can look your tickets up with the address you used.
-      </p>
-      <div className="fx-row flex-wrap gap-2">
-        <Link href="/tickets/find" className="es-btn es-btn--primary">Find my tickets</Link>
-        {slug && (
-          <Link href={`/e/${slug}`} className="es-btn es-btn--ghost">Back to the event</Link>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function Fatal({ error, slug }) {
-  const { title, recovery } = describeError(error);
-  return (
-    <div className="fx-stack">
-      <h1 className="text-xl">{title}</h1>
-      <p className="text-muted">{recovery}</p>
-      <Link
-        href={slug ? `/e/${slug}/seats` : '/events'}
-        className="es-btn es-btn--primary self-start"
-      >
-        {slug ? 'Choose seats again' : 'Browse events'}
-      </Link>
-    </div>
-  );
-}
+/* The four ending screens live in `../Outcomes.jsx` — the free claim's, the
+   payment failure, the fatal one, and the mark they share with the paid
+   success page. That file argues why they are together. */

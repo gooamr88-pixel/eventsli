@@ -55,6 +55,34 @@ const config = [
     files: ['test/**', 'scripts/**'],
     rules: { 'no-restricted-imports': 'off', 'no-console': 'off' },
   },
+
+  {
+    /**
+     * The service worker's globals, declared HERE rather than with the
+     * `/* eslint-env serviceworker *\/` comment the file used to carry.
+     *
+     * Flat config does not read `eslint-env` comments at all — it only warns
+     * about them, and ESLint 10 turns that warning into an error, which would
+     * fail `npm run lint` on a file nobody had touched. Declaring the globals
+     * is the migration ESLint's own notice points at, and it is also the
+     * honest one: the comment was doing nothing here already.
+     *
+     * `readonly` because the worker reads these; it never reassigns one.
+     */
+    files: ['public/gate-sw.js'],
+    languageOptions: {
+      globals: {
+        self: 'readonly',
+        caches: 'readonly',
+        clients: 'readonly',
+        skipWaiting: 'readonly',
+        fetch: 'readonly',
+        location: 'readonly',
+        Response: 'readonly',
+        URL: 'readonly',
+      },
+    },
+  },
 ];
 
 export default config;

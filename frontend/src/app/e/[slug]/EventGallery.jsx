@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
+import { trapTab } from '../../utils/focusTrap';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -141,20 +142,10 @@ function Lightbox({ item, index, total, onClose, onStep }) {
       if (e.key !== 'Tab') return;
 
       // The focus trap. Without it, Tab walks out into a page the reader
-      // cannot see, behind a black screen.
-      const focusable = panel.current?.querySelectorAll(
-        'button:not([disabled]), [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
-      );
-      if (!focusable || focusable.length === 0) return;
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault();
-        last.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault();
-        first.focus();
-      }
+      // cannot see, behind a black screen. Shared with the other two modals so
+      // the "skip disabled controls" rule cannot drift between copies — the
+      // first and last photo disable one arrow each.
+      trapTab(e, panel.current);
     };
 
     document.addEventListener('keydown', onKey);

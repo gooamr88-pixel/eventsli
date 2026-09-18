@@ -11,6 +11,36 @@ const ticketCtrl = require('./ticketController');
 
 const statusFor = (code) => ERROR_STATUS[code] || 400;
 
+/**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * THIS HOLD BELONGS TO THIS CALLER.
+ *
+ * `POST /hold` issues a `reservationToken` beside the reservation id, and both
+ * `release` and the promo endpoints already demand it. The reason they do
+ * applies here with more force: the id travels to the client and appears in the
+ * checkout URL, so it is not a secret and it is not proof of anything.
+ *
+ * Without this check, anyone who comes by a reservation id can spend somebody
+ * else's hold — and on a FREE event that is not even a self-limiting attack,
+ * because `claim` issues the tickets to whatever address the caller supplies.
+ * The rightful buyer's seats are gone and the tickets are in a stranger's inbox.
+ *
+ * Applied to the paid checkout too. The attacker there has to actually pay,
+ * which makes it a nuisance rather than theft — but it is the same missing
+ * check and the same three lines.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+function ownsReservation(req) {
+  return accessTokens.readReservationToken(accessTokens.fromRequest(req))
+    === req.params.reservationId;
+}
+
+const NOT_YOURS = {
+  status: 403,
+  error: 'FORBIDDEN',
+  message: 'That hold is not yours.',
+};
+
 // ─── GET /public/reservations/:reservationId/quote ──────────────────────────
 /**
  * Every amount the buyer will pay, itemised (BRD §04, §21).
@@ -64,6 +94,8 @@ async function createSession(req, res, next) {
         message: 'Card payments are not available for this event right now.',
       });
     }
+
+    if (!ownsReservation(req)) return sendFail(res, NOT_YOURS);
 
     const q = await pricing.quoteReservation(req.params.reservationId);
 
@@ -368,6 +400,8 @@ async function fulfillFromSession(session) {
  */
 async function claimFree(req, res, next) {
   try {
+    if (!ownsReservation(req)) return sendFail(res, NOT_YOURS);
+
     const q = await pricing.quoteReservation(req.params.reservationId);
 
     /**

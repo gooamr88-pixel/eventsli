@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { post } from '../../utils/apiClient';
 import { describeError } from '../../utils/errors';
+import Field from '../../components/forms/Field';
 
 /**
  * Resend the ticket email.
@@ -40,7 +41,10 @@ export default function FindTicketForm() {
 
   if (sent) {
     return (
-      <div className="fx-stack fx-stack--sm">
+      // `role="status"`: the form is replaced by this text with no other
+      // signal, so without it a screen reader user presses "Send my tickets"
+      // and hears nothing at all.
+      <div className="fx-stack fx-stack--sm" role="status">
         <p className="text-ink">Check your inbox.</p>
         <p className="text-sm text-muted">
           If an order exists for <span className="text-ink">{email}</span>, the link is on its
@@ -59,15 +63,20 @@ export default function FindTicketForm() {
 
   return (
     <form onSubmit={submit} className="fx-stack fx-stack--sm">
-      <input
+      {/* A real `<label>` rather than a placeholder standing in for one — the
+          same rule the checkout now follows. This page is reached by somebody
+          who has already lost track of their tickets once; a field whose label
+          vanishes as they type is not the place to economise. */}
+      <Field
+        label="Email address"
         type="email"
+        name="email"
         required
+        inputMode="email"
+        autoComplete="email"
+        hint="The address you bought with."
         value={email}
         onChange={(e) => setEmail(e.target.value)}
-        autoComplete="email"
-        placeholder="you@example.com"
-        aria-label="Email address"
-        className="es-input"
       />
 
       {error && (

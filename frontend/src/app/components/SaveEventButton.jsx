@@ -37,7 +37,9 @@ export default function SaveEventButton({ slug, title, className = '' }) {
       // Sits over the card's artwork, which may be any photograph or a
       // typographic placeholder — so a translucent black fill rather than a
       // surface colour, which would vanish on a light image.
-      className={`grid h-9 w-9 place-items-center rounded-full bg-black/35 text-white backdrop-blur-sm transition-colors hover:bg-black/55 ${className}`}
+      // `.fx-hit` grows the PRESS area to the 44px floor without growing the
+      // chip: a bigger black circle would cover more of the artwork it sits on.
+      className={`fx-hit grid h-9 w-9 place-items-center rounded-full bg-black/35 text-white backdrop-blur-sm transition-colors hover:bg-black/55 ${className}`}
     >
       <svg
         width="17" height="17" viewBox="0 0 24 24"

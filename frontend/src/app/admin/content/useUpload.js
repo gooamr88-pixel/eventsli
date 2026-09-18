@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { post } from '../../utils/apiClient';
+import { messageFor } from '../../utils/errors';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -61,7 +62,10 @@ export function useUpload(scope) {
 
       return await post('/admin/storefront/uploads/confirm', { scope, path: signed.path });
     } catch (err) {
-      setError(err?.message || 'The upload failed.');
+      // The two `throw new Error` above carry real sentences and `messageFor`
+      // keeps them; what it changes is the API-shaped failures, where the raw
+      // message is the bare code or, offline, nothing at all.
+      setError(messageFor(err));
       return null;
     } finally {
       setBusy(false);

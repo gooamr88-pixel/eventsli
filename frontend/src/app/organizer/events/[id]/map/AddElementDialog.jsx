@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { trapTab } from '../../../../utils/focusTrap';
 import { WORLD, SHAPES, tableBody } from '../../../../components/seating/seatingGeometry';
 import { ZONES, ZONE_KINDS, zoneMeta } from '../../../../components/seating/venueZones';
 import { SHAPE_NAMES, SHAPE_HINTS } from './shapeNames';
@@ -47,10 +48,19 @@ export default function AddElementDialog({ origin, roomForTables, onAdd, onClose
   const dialogRef = useRef(null);
   const isTable = kind.family === 'table';
 
-  // Escape closes, and focus starts inside — the two things a dialog has to do
-  // that a div does not do for free.
+  // Escape closes, focus starts inside, and Tab STAYS inside — three things a
+  // dialog has to do that a div does not do for free.
+  //
+  // The trap was the missing one, and `aria-modal="true"` below is what made
+  // its absence a contradiction rather than an omission: that attribute tells
+  // a screen reader everything outside this form is inert, while Tab walked
+  // straight out of it into the canvas and toolbar behind the scrim — the map
+  // editor, whose controls move and delete tables.
   useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); onClose(); } };
+    const onKey = (e) => {
+      if (e.key === 'Escape') { e.stopPropagation(); onClose(); return; }
+      trapTab(e, dialogRef.current);
+    };
     document.addEventListener('keydown', onKey);
     dialogRef.current?.focus();
     return () => document.removeEventListener('keydown', onKey);

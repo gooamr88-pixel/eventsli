@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { del, post } from '../../../utils/apiClient';
+import { describeError, messageFor } from '../../../utils/errors';
 import { useConfirm } from '../../../components/ui/Confirm';
 import { useToast } from '../../../components/ui/Toast';
 import NavIcon from '../../../components/shell/NavIcon';
@@ -43,7 +44,12 @@ export default function EventActions({ event, onChanged }) {
     try {
       await fn();
     } catch (err) {
-      toast.error(err?.message || 'That did not work. Try again.', { title: 'Not done' });
+      // `messageFor`, not `err.message`: on a dropped connection the raw
+      // message is "Failed to fetch" (or the bare code), which tells an
+      // organizer nothing about whether their event was archived. The mapped
+      // recovery says what to do, and keeps the server's specific sentence
+      // wherever there is one. Every other action screen already does this.
+      toast.error(messageFor(err), { title: describeError(err).title });
       onChanged?.();
     } finally {
       setBusy(null);

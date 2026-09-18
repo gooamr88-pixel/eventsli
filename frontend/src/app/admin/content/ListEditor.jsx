@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { post, patch, del } from '../../utils/apiClient';
+import { messageFor } from '../../utils/errors';
 import { useApi } from '../../hooks/useApi';
 import { useToast } from '../../components/ui/Toast';
 import { useConfirm } from '../../components/ui/Confirm';
@@ -55,7 +56,10 @@ export default function ListEditor({ kind }) {
       if (successMessage) toast.show(successMessage);
       return true;
     } catch (err) {
-      setFormError(err?.meta?.errors?.join(' ') || err?.message || 'That could not be saved.');
+      // `meta.errors` first (every complaint at once), then `messageFor` —
+      // which keeps the server's sentence but answers a dropped connection
+      // with its recovery line rather than "Failed to fetch".
+      setFormError(err?.meta?.errors?.join(' ') || messageFor(err));
       return false;
     } finally {
       setBusy(false);

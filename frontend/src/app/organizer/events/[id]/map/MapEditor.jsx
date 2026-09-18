@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { get, put } from '../../../../utils/apiClient';
-import { describeError } from '../../../../utils/errors';
+import { describeError, messageFor } from '../../../../utils/errors';
 import { WORLD } from '../../../../components/seating/seatingGeometry';
 import { usePanZoom } from '../../../../components/seating/usePanZoom';
 import { readZones, writeZones } from '../../../../components/seating/layoutZones';
@@ -381,11 +381,16 @@ export default function MapEditor({ eventId }) {
  * shown rather than replaced with a generic sentence.
  */
 function SaveError({ error }) {
-  const { title, recovery } = describeError(error);
+  const { title } = describeError(error);
   return (
     <div role="alert" className="rounded-(--es-radius-md) bg-danger/10 px-4 py-3">
       <p className="text-sm font-medium text-ink">{title}</p>
-      <p className="text-sm text-muted">{error?.message || recovery}</p>
+      {/* `messageFor` keeps exactly the preference argued above — the server's
+          sentence wins, because "table 12 has 3 seats sold" is the useful
+          part. It only differs where `error.message` was never worth showing:
+          a dropped connection put "Failed to fetch" here, under a heading
+          about the map, next to a line promising nothing was saved. */}
+      <p className="text-sm text-muted">{messageFor(error)}</p>
       <p className="mt-1 text-xs text-subtle">
         Nothing was saved — the whole change was rolled back, so the map is exactly as it
         was.

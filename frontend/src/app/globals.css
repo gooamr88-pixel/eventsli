@@ -825,6 +825,34 @@
 }
 .fx-touch--icon { min-width: var(--fx-touch); justify-content: center; }
 
+/* ── .fx-hit — the touch floor WITHOUT resizing the thing you can see ───
+   `.fx-touch` grows the box. That is right for a button whose box is the
+   design, and wrong for a small round chip that is deliberately small: the
+   heart over a card's artwork, and the "×" that drops a seat from the
+   basket. Both were drawn at 36px and 28px, under the 44px floor this file
+   declares, and the seat one sits on the checkout — a mis-tap there removes
+   a seat somebody is buying.
+
+   So the HIT AREA is grown and the painted box is left alone. A
+   pseudo-element is part of its originating element for hit testing, so a
+   press anywhere in this square activates the button; `max()` means a
+   control already at or over the floor is not shrunk by it.
+
+   `position: relative` is set here rather than asked of the call site,
+   because forgetting it anchors the square to the page instead of to the
+   button — a 44px target somewhere near the top of the document, which is
+   exactly the kind of silent failure `.fx-*` exists to prevent. */
+.fx-hit { position: relative; }
+.fx-hit::after {
+  content: '';
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: 50%;
+  width: max(100%, var(--fx-touch));
+  height: max(100%, var(--fx-touch));
+  transform: translate(-50%, -50%);
+}
+
 /* ── Visibility by breakpoint ───────────────────────────────────────────
    NO `!important`, unlike the codebase these came from, and the difference
    is source order rather than a compromise. Each pair is one class name at
@@ -1677,6 +1705,77 @@
   line-height: 1.05;
   letter-spacing: -0.01em;
   color: var(--es-text);
+}
+
+/* ── .es-buybar — the phone's way in, pinned to the thumb ───────────────
+   THE PROBLEM IT SOLVES. On `lg` and up the purchase panel is a sticky
+   column beside the description, so the price and the button are reachable
+   from wherever the reader got to. Below `lg` that column is not beside
+   anything — it is the LAST block of a single stack, under the
+   description, the gallery, four tab panels, the sponsors and the
+   organizer. On a phone the one action the whole page exists to offer sat
+   several screens below the fold, reachable only by scrolling past
+   everything that had already convinced them.
+
+   So the panel keeps its place in the flow (it holds the tier list, which
+   belongs with the content) and this bar carries the DECISION: the price
+   and one button, fixed, always there.
+
+   `fixed`, not `sticky`. Sticky would pin it to the bottom of its own
+   grid column, which on a phone begins below the fold — so it would not
+   appear until the reader had already scrolled to where the button is,
+   which is the problem rather than the fix.
+
+   Hidden from `lg`, where the sticky panel already does this job and two
+   prices on one screen would read as two different prices.
+
+   The page pays for the space it covers with `.es-has-buybar` below;
+   without that, the last section of every event page sits underneath it. */
+.es-buybar {
+  position: fixed;
+  inset-inline: 0;
+  inset-block-end: 0;
+  z-index: var(--es-z-sticky);
+  display: flex;
+  align-items: center;
+  gap: var(--fx-gap-sm);
+  background: var(--es-surface);
+  border-block-start: 1px solid var(--es-border);
+  box-shadow: 0 -6px 20px rgb(15 23 42 / 0.10);
+  padding: 0.625rem max(var(--fx-pad-x), var(--fx-safe-l));
+  padding-block-end: max(0.625rem, calc(var(--fx-safe-b) + 0.375rem));
+}
+@media (width >= 64rem) { .es-buybar { display: none; } }
+
+/* The price side. `min-width: 0` so a long "CA$1,234.00 and up" truncates
+   instead of pushing the button off the end of a 320px screen. */
+.es-buybar__price { display: flex; flex-direction: column; min-width: 0; }
+.es-buybar__price > * { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* The action never shrinks below something tappable, and never grows so
+   wide that the price loses its line. */
+.es-buybar__action { flex: 1 1 auto; max-width: 60%; }
+.es-buybar__action > .es-btn { width: 100%; }
+
+/* THE PAGE PAYS FOR THE SPACE THE BAR COVERS, and it has to be the page
+   rather than the section the bar belongs to.
+
+   The first version padded the event page's own `<section>`, which is
+   wrong by one element: `SiteFooter` is a SIBLING of the page in the root
+   layout, not a child of it, so at full scroll the bar still covered the
+   last 70-odd pixels of the footer — its legal line and its bottom row of
+   links, which is the part a fixed bar is most likely to sit on.
+
+   `:has()` puts the padding on `<body>`, which contains both, and does it
+   only on pages that actually render a bar — no page needs to opt in and
+   none can forget to. Where `:has()` is unsupported the result is exactly
+   the behaviour this replaces, so the degradation costs nothing.
+
+   `.es-buybar` is display:none from `lg`, but `:has()` matches the ELEMENT
+   and not its visibility, so the media query here is what stops a desktop
+   reserving space for a bar it never shows. */
+@media (width < 64rem) {
+  body:has(.es-buybar) { padding-block-end: calc(4.5rem + var(--fx-safe-b)); }
 }
 
 /* ── .es-card--flush — a card that trusts the ground ────────────────────

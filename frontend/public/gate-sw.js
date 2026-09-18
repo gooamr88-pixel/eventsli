@@ -1,4 +1,6 @@
-/* eslint-env serviceworker */
+/* The service worker's globals are declared for this file in
+   `eslint.config.mjs`. They were an `eslint-env` comment here, which flat
+   config ignores and ESLint 10 rejects outright. */
 /**
  * ═══════════════════════════════════════════════════════════════════════════
  * The gate's service worker.

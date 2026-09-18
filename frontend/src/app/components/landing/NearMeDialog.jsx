@@ -4,6 +4,7 @@ import { useCallback, useEffect, useId, useRef, useState, useSyncExternalStore }
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { get } from '../../utils/apiClient';
+import { trapTab } from '../../utils/focusTrap';
 import NavIcon from '../shell/NavIcon';
 
 /**
@@ -95,11 +96,17 @@ export default function NearMeDialog({ open, onClose }) {
     setError(null);
   }, [onClose]);
 
-  // Escape, and focus into the panel when it opens. A dialog that does not take
-  // focus leaves the keyboard behind on the page underneath it.
+  // Escape, focus into the panel when it opens, and Tab kept inside it. Taking
+  // focus is only half the job: without the trap the next Tab walks back out
+  // onto the landing page under the scrim, which this portal renders over but
+  // does not make inert — and `aria-modal="true"` on the panel below promises
+  // that it is.
   useEffect(() => {
     if (!open) return undefined;
-    const onKey = (e) => { if (e.key === 'Escape') close(); };
+    const onKey = (e) => {
+      if (e.key === 'Escape') { close(); return; }
+      trapTab(e, panel.current);
+    };
     document.addEventListener('keydown', onKey);
     closeRef.current?.focus();
     return () => document.removeEventListener('keydown', onKey);

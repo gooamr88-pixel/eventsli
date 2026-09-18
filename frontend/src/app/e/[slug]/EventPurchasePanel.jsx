@@ -94,50 +94,116 @@ export default function EventPurchasePanel({ event, focusTier, soldOut, cheapest
 }
 
 /**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * WHAT THE WAY IN IS, FOR THIS EVENT — decided once, read in two places.
+ *
+ * The sticky panel renders this as a full-width button; `EventBuyBar` renders
+ * the same answer in the phone's fixed bar. They MUST agree: a page offering
+ * "Choose your seats" in the panel and "Get tickets" in the bar is one where
+ * the two were edited separately, and a bar that still linked to `/seats` on an
+ * event switched to general admission would send every phone buyer to a
+ * redirect. One function, two call sites, nothing to keep in sync.
+ *
+ * Returns `null` when there is nothing to offer, and the caller decides how to
+ * say so — the panel has room for a sentence, the bar does not.
+ *
  * BRD §12 — a `display_only` event is a listing with no tickets behind it. It
  * gets no buy button at all rather than a disabled one, because a dead control
  * is a question ("why can't I click this?") the page then has to answer.
+ *
+ * A reserved event sends the buyer to the seat map; a general-admission one has
+ * no map to send them to, so it goes to the ticket picker instead. The label
+ * follows the same fact — "Choose your seats" on an event with no seats is a
+ * promise the next page cannot keep, and the reader notices immediately.
+ *
+ * A free event says "Get tickets" rather than anything about buying. Somebody
+ * deciding whether to click is deciding whether to spend money, and the answer
+ * is no.
+ * ─────────────────────────────────────────────────────────────────────────────
  */
-function CallToAction({ event, soldOut, tierId }) {
+export function ctaFor(event, soldOut, tierId) {
   if (event.displayOnly) {
-    return (
-      <p className="rounded-(--es-radius-md) bg-bg-sunken px-4 py-3 text-center text-muted" role="status">
-        This event is listed for information. Tickets are not sold here.
-      </p>
-    );
+    return { kind: 'listing', note: 'This event is listed for information. Tickets are not sold here.' };
   }
+  if (soldOut) return { kind: 'soldout', note: 'Sold out' };
 
-  if (soldOut) {
-    return (
-      <p className="rounded-(--es-radius-md) bg-bg-sunken px-4 py-3 text-center text-muted" role="status">
-        Sold out
-      </p>
-    );
-  }
-
-  /**
-   * WHERE THE BUTTON GOES, AND WHAT IT SAYS, both follow the event.
-   *
-   * A reserved event sends the buyer to the seat map; a general-admission one
-   * has no map to send them to, so it goes to the ticket picker instead. The
-   * label follows the same fact — "Choose your seats" on an event with no seats
-   * is a promise the next page cannot keep, and the reader notices immediately.
-   *
-   * A free event says "Get tickets" rather than anything about buying. Somebody
-   * deciding whether to click is deciding whether to spend money, and the
-   * answer is no.
-   */
   const general = event.admissionType === 'general';
   const free = (event.tiers || []).length > 0
     && (event.tiers || []).every((t) => Number(t.priceCents) === 0);
 
+  return {
+    kind: 'buy',
+    // The tier travels with the buyer, so the next page can start from it.
+    href: `/e/${event.slug}/${general ? 'tickets' : 'seats'}${tierId ? `?tier=${encodeURIComponent(tierId)}` : ''}`,
+    label: free || general ? 'Get tickets' : 'Choose your seats',
+    free,
+  };
+}
+
+function CallToAction({ event, soldOut, tierId }) {
+  const cta = ctaFor(event, soldOut, tierId);
+
+  if (cta.kind !== 'buy') {
+    return (
+      <p className="rounded-(--es-radius-md) bg-bg-sunken px-4 py-3 text-center text-muted" role="status">
+        {cta.note}
+      </p>
+    );
+  }
+
   return (
-    <Link
-      // The tier travels with the buyer, so the next page can start from it.
-      href={`/e/${event.slug}/${general ? 'tickets' : 'seats'}${tierId ? `?tier=${encodeURIComponent(tierId)}` : ''}`}
-      className="es-btn es-btn--primary es-btn--block es-btn--lg"
-    >
-      {free ? 'Get tickets' : general ? 'Get tickets' : 'Choose your seats'}
+    <Link href={cta.href} className="es-btn es-btn--primary es-btn--block es-btn--lg">
+      {cta.label}
     </Link>
+  );
+}
+
+/**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * THE PHONE'S BUY BAR — the price and the way in, fixed to the bottom.
+ *
+ * Below `lg` the purchase panel is the last block of a long single column, so
+ * the action this page exists to offer opened several screens down. This is
+ * that action, always on screen. `.es-buybar` argues the CSS side; what matters
+ * here is that every word of it comes from `ctaFor`, so it cannot drift from
+ * the panel above it.
+ *
+ * A sold-out or display-only event gets NO BAR AT ALL rather than a bar with a
+ * dead label in it. The panel already says why, in a full sentence with room to
+ * explain; a fixed strip repeating "Sold out" over every scroll position is an
+ * obstruction that tells nobody anything they have not read.
+ *
+ * `aria-hidden` is deliberately NOT set. This is the primary action on a phone,
+ * and hiding it from a screen reader to avoid announcing the price twice would
+ * hide the button too. It is a labelled landmark instead, so it is reachable
+ * and skippable.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+export function EventBuyBar({ event, soldOut, tierId, cheapest = [] }) {
+  const cta = ctaFor(event, soldOut, tierId);
+  if (cta.kind !== 'buy') return null;
+
+  const from = cheapest.length > 0 ? Math.min(...cheapest) : null;
+
+  return (
+    <div className="es-buybar" role="region" aria-label="Get tickets">
+      <div className="es-buybar__price">
+        {from === null ? (
+          <span className="text-sm text-muted">Tickets available</span>
+        ) : (
+          <>
+            <span className="es-eyebrow">{cta.free || from === 0 ? 'Entry' : 'From'}</span>
+            <span className="es-nums text-lg font-medium text-ink">
+              {from === 0 ? 'Free' : formatPrice(from, event.currency)}
+            </span>
+          </>
+        )}
+      </div>
+      <div className="es-buybar__action">
+        <Link href={cta.href} className="es-btn es-btn--primary">
+          {cta.label}
+        </Link>
+      </div>
+    </div>
   );
 }

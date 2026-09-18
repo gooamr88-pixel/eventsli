@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { serverFetch } from '../utils/apiClient';
 import EventCard from '../components/EventCard';
+import QuickFilters from './QuickFilters';
 import { categoryLabel } from '../lib/categories';
 import NavIcon from '../components/shell/NavIcon';
 import EventsSearch from './EventsSearch';
@@ -124,6 +125,11 @@ export default async function EventsPage({ searchParams }) {
           </div>
 
           <EventsSearch q={q} city={city} from={from} category={active} />
+
+          {/* The two answers most people actually want, above the category
+              list — "somewhere I can get to" and "something to do on
+              Saturday" are the questions; a category is how you narrow one. */}
+          <QuickFilters city={city} />
 
           {/* Links, not buttons: every category is a URL, so a filtered view
               is shareable and the back button walks the filters. Scrolls

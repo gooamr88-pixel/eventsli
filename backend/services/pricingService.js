@@ -45,7 +45,7 @@ async function quoteReservation(reservationId) {
 
   const { data: event } = await supabase
     .from('events')
-    .select(`id, slug, title, status, currency, organizer_id, venue_name, starts_at,
+    .select(`id, slug, title, status, currency, organizer_id, venue_name, starts_at, timezone,
              commission_pct, commission_tax_pct, event_tax_pct,
              payment_fee_mode, payment_fee_pct, payment_fee_fixed_cents, fee_bearer`)
     .eq('id', res.event_id)
@@ -163,6 +163,13 @@ function publicBreakdown(q) {
       title: q.event.title,
       venue: q.event.venue_name || null,
       startsAt: q.event.starts_at || null,
+      // Sent WITH `startsAt`, never without it. A checkout that renders the
+      // start time in the reader's own zone tells somebody in Vancouver that a
+      // Toronto show at 8pm is at 5pm — the event page, the ticket and the door
+      // all say 8pm, so the one screen that disagrees is the one taking money.
+      // The client cannot recover this after the fact, so it travels with the
+      // timestamp it qualifies.
+      timezone: q.event.timezone || null,
     },
   };
 }

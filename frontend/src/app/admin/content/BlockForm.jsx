@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { put } from '../../utils/apiClient';
+import { messageFor } from '../../utils/errors';
 import { useToast } from '../../components/ui/Toast';
 import { Panel } from '../../components/ui/Page';
 import FormError from '../../components/forms/FormError';
@@ -64,8 +65,11 @@ export default function BlockForm({ block, values, onSaved }) {
     } catch (err) {
       // The API returns every complaint at once in `meta.errors`, so the
       // operator fixes one form rather than discovering a second problem after
-      // fixing the first.
-      setError(err?.meta?.errors?.join(' ') || err?.message || 'That could not be saved.');
+      // fixing the first. Below that, `messageFor` rather than the raw
+      // message: it still prefers the server's sentence, and falls back to the
+      // code's recovery line instead of showing "Failed to fetch" when the
+      // request never arrived.
+      setError(err?.meta?.errors?.join(' ') || messageFor(err));
     } finally {
       setSaving(false);
     }
