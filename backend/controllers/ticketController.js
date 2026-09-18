@@ -228,10 +228,18 @@ async function orderPayload(orderId) {
  * second copy would drift.
  */
 async function sendTicketEmail(orderId) {
+  /**
+   * The event's DATE, ZONE and VENUE are selected for the email, not for this
+   * function's own logic.
+   *
+   * The ticket email named the event and nothing else — so the one message a
+   * buyer is told to keep did not say when the event was or where. Somebody
+   * searching their inbox a month later found a title and a QR code.
+   */
   const { data: order } = await supabase
     .from('orders')
     .select(`id, currency, buyer_total_cents, guest_name, guest_email, user_id,
-             events ( id, title, slug, organizer_id ),
+             events ( id, title, slug, organizer_id, starts_at, timezone, venue_name, city ),
              profiles!orders_user_id_fkey ( email )`)
     .eq('id', orderId)
     .maybeSingle();
@@ -239,16 +247,18 @@ async function sendTicketEmail(orderId) {
   const to = order?.guest_email || order?.profiles?.email;
   if (!order || !to) return { sent: false, reason: 'no_recipient' };
 
+  // `display_name` as well as the email: the buyer's ticket says who is putting
+  // the event on, which is who they will be dealing with at the door.
   const { data: org } = await supabase
     .from('organizers')
-    .select('profiles!organizers_owner_user_id_fkey ( email )')
+    .select('display_name, profiles!organizers_owner_user_id_fkey ( email )')
     .eq('id', order.events.organizer_id)
     .maybeSingle();
 
   return email.sendTickets({
     to,
     buyerName: order.guest_name,
-    event: order.events,
+    event: { ...order.events, organizerName: org?.display_name || null },
     tickets: await tickets.forOrder(orderId),
     order,
     // A durable way back to the tickets that does not depend on the buyer
