@@ -193,9 +193,22 @@ function prune(groups, keep) {
  * the two things opened on a phone on the night. It used to show Orders and
  * Door list greyed out on every page with no event open.
  */
-export const ORGANIZER_TABS = ['dashboard', 'events', 'payments', 'profile'];
-export const ORGANIZER_EVENT_TABS = ['dashboard', 'events', 'orders', 'attendees'];
-export const ORGANIZER_LISTING_TABS = ['dashboard', 'events', 'overview', 'share'];
+/**
+ * THREE, PLUS "More" — not four plus More.
+ *
+ * The bar carried five items on a 320px phone: five icons, five labels, each
+ * about 60px wide with the label truncated to fit. It read as a control panel
+ * rather than a way to get somewhere, and the fifth item was always the one
+ * nobody wanted — Organization is opened once, when the account is set up.
+ *
+ * Three destinations and More is the shape a phone bar can actually hold at a
+ * legible size. Nothing is lost: "More" opens the same drawer that lists every
+ * destination there is, and the event switcher now sits at the top of the page
+ * rather than being a reason to keep "Your events" permanently on screen.
+ */
+export const ORGANIZER_TABS = ['dashboard', 'events', 'payments'];
+export const ORGANIZER_EVENT_TABS = ['dashboard', 'orders', 'attendees'];
+export const ORGANIZER_LISTING_TABS = ['dashboard', 'overview', 'share'];
 
 export function organizerTabs({ eventId, listingType }) {
   if (!eventId) return ORGANIZER_TABS;

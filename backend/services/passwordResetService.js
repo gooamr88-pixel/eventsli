@@ -1,6 +1,7 @@
 const { supabase } = require('../config/supabase');
 const { randomToken, hashToken, hashIp, hashPassword } = require('../utils/crypto');
 const email = require('./emailService');
+const T = require('./emailTemplates');
 const rbac = require('./rbacService');
 const logger = require('../utils/logger');
 
@@ -69,25 +70,35 @@ async function request({ emailAddress, req }) {
 async function sendResetEmail({ user, token, origin }) {
   const url = `${origin}/reset-password?token=${encodeURIComponent(token)}`;
 
+  /**
+   * ON THE SHARED TEMPLATE, like every other message.
+   *
+   * This one built its own HTML, and had done since before the brand moved
+   * from emerald to blue — so it arrived with a GREEN heading, a GREEN button
+   * and no logo at all, while the other twelve were blue and branded. It is
+   * also the email somebody receives when they are already anxious about their
+   * account, which is the worst possible one to look unlike the product.
+   *
+   * A second copy of the markup is how that happened, so there is no longer a
+   * second copy: `emailTemplates` owns the masthead, the button and the
+   * footer, and this file owns only the words.
+   */
   return email.send({
     to: user.email,
     subject: 'Reset your Eventsli password',
-    html: `
-<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#0E1613">
-  <h1 style="font-size:20px;margin:0 0 20px;color:#047857">Reset your password</h1>
-  <p>Hi ${email.escapeHtml(user.full_name || 'there')},</p>
-  <p>Use the link below to choose a new password. It works once and expires in ${TTL_MINUTES} minutes.</p>
-  <p style="margin:24px 0">
-    <a href="${url}" style="background:#047857;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;display:inline-block">
-      Choose a new password
-    </a>
-  </p>
-  <p style="font-size:13px;color:#5E6D66">
-    If you did not ask for this, you can ignore it — your password has not changed,
-    and this link stops working on its own.
-  </p>
-  <p style="font-size:12px;color:#8A9791;word-break:break-all">${url}</p>
-</div>`,
+    html: T.layout({
+      title: 'Reset your password',
+      preheader: `The link works once and expires in ${TTL_MINUTES} minutes.`,
+      reason: 'You are receiving this because a password reset was requested for this address on Eventsli.',
+      body: `
+        ${T.p(`Hi ${T.escapeHtml(user.full_name || 'there')},`)}
+        ${T.p(`Use the button below to choose a new password. It works <strong>once</strong> and expires in ${TTL_MINUTES} minutes.`)}
+        ${T.button(url, 'Choose a new password')}
+        ${T.note('info', `
+          <strong>If you did not ask for this,</strong> you can ignore it — your password has not
+          changed, and the link stops working on its own.`)}
+        ${T.p(`If the button does not open, paste this into your browser:<br><span style="word-break:break-all">${T.escapeHtml(url)}</span>`, { small: true, color: T.MUTED })}`,
+    }),
   });
 }
 

@@ -1,16 +1,14 @@
 'use client';
 
 import { useEffect, useState, useSyncExternalStore } from 'react';
-import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import AppShell from '../components/shell/AppShell';
 import ShellFoot from '../components/shell/ShellFoot';
-import NavIcon from '../components/shell/NavIcon';
 import { ToastProvider } from '../components/ui/Toast';
 import { ConfirmProvider } from '../components/ui/Confirm';
 import { useAuth } from '../hooks/useAuth';
 import { get } from '../utils/apiClient';
-import EventSwitcher from './nav/EventSwitcher';
+import EventBar from './nav/EventBar';
 import { organizerNavGroups, organizerTabs, eventIdFromPath } from './nav/organizerNav';
 
 /**
@@ -95,25 +93,22 @@ export default function OrganizerLayout({ children }) {
           // Before the organization exists there is nothing to create an event
           // under and no event to pick: setup is the page, and the sidebar does
           // not offer a shortcut past it.
-          head={user?.isOrganizer ? (
-            <>
-              {/* The money action, always one tap away. Its label is a nav
-                  label, so the tablet rail shows the icon alone. */}
-              <Link href="/organizer/events/new" className="es-btn es-btn--primary es-btn--block es-nav__cta">
-                <NavIcon name="plus" size={18} />
-                <span className="es-nav__label">Create event</span>
-              </Link>
-              <div className="es-nav__rail-hide">
-                <EventSwitcher events={events} currentId={eventId} />
-              </div>
-            </>
-          ) : null}
-          appbarAction={user?.isOrganizer ? (
-            <Link href="/organizer/events/new" className="es-btn es-btn--primary es-btn--sm md:hidden">
-              <NavIcon name="plus" size={18} />
-              Create
-            </Link>
-          ) : null}
+          /**
+           * THE SIDEBAR'S HEAD IS EMPTY NOW, and that is the fix rather than a
+           * removal. It held "Create event" and the event switcher — the two
+           * controls an organizer reaches for most — inside a panel that is a
+           * DRAWER below `lg`. On a phone both were invisible until you went
+           * looking, which is why neither could be found.
+           *
+           * Both are in `EventBar`, at the top of the page, at every width.
+           * Keeping a second copy here would be two switchers that can show
+           * different events.
+           */
+          head={null}
+          // NO APP-BAR ACTION, deliberately. It was a phone-only "Create"
+          // button, and the event bar directly under it now carries the same
+          // one — two Create buttons stacked within 60px of each other is the
+          // clutter this pass exists to remove.
           foot={(
             <ShellFoot
               user={user}
@@ -124,6 +119,10 @@ export default function OrganizerLayout({ children }) {
             />
           )}
         >
+          {/* First on the page, above everything: which event this is about,
+              and the way to start another. `EventBar` argues why it is here
+              rather than in the sidebar it came from. */}
+          <EventBar events={events} currentId={eventId} canCreate={Boolean(user?.isOrganizer)} />
           {children}
         </AppShell>
       </ConfirmProvider>

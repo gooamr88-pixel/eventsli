@@ -5898,6 +5898,88 @@ a.es-sponsor:hover { opacity: 0.7; }
 }
 
 
+/* ── .es-evbar — which event am I working on ────────────────────────────
+   The first thing on every organizer screen. The switcher used to live in
+   the sidebar's head, which below `lg` is inside a drawer — so the control
+   that decides what every other screen is about was invisible until you
+   went looking for it, on the device most organizers actually use.
+
+   Sticky under the app bar rather than scrolling away: on a long orders
+   table the answer to "whose orders are these" has to stay on screen. */
+.es-evbar {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-block-end: var(--fx-gap-sm);
+  padding: 0.625rem 0.875rem;
+  border: 1px solid var(--es-border);
+  border-radius: var(--es-radius-lg);
+  background: var(--es-surface);
+  box-shadow: var(--es-shadow-sm);
+}
+/* Below `lg` the app bar is sticky above this, so the bar parks under it
+   rather than over it. From `lg` the app bar is gone and this sits at the
+   top of the column. */
+@media (width < 64rem) { .es-evbar { inset-block-start: 56px; } }
+
+.es-evbar__main { display: flex; align-items: center; gap: 0.625rem; min-width: 0; flex: 1; }
+.es-evbar__label {
+  flex: none;
+  font-family: var(--es-font-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--es-text-subtle);
+}
+
+/* The select is invisible and the box around it is the control: a native
+   <select> cannot be styled past its border in Safari, and the arrow it
+   draws sits at the far edge of a full-width field instead of beside the
+   name. The wrapper carries the look; the select keeps the behaviour. */
+.es-evbar__pick { position: relative; display: flex; align-items: center; min-width: 0; flex: 1; }
+.es-evbar__select {
+  appearance: none;
+  width: 100%;
+  min-width: 0;
+  min-height: var(--fx-touch);
+  padding: 0 2rem 0 0;
+  border: 0;
+  background: transparent;
+  font-family: var(--es-font-sans);
+  font-size: var(--es-text-md);
+  font-weight: 600;
+  color: var(--es-text);
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+.es-evbar__chev {
+  position: absolute;
+  inset-inline-end: 0.25rem;
+  display: flex;
+  pointer-events: none;
+  color: var(--es-text-subtle);
+  transform: rotate(90deg);
+}
+.es-evbar__none { font-size: var(--es-text-sm); color: var(--es-text-muted); }
+.es-evbar__new { flex: none; }
+
+/* On a narrow phone the button is the icon alone — "Create event" beside a
+   long event name is what pushes the name down to two lines. */
+@media (width < 40rem) {
+  .es-evbar__new-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .es-evbar__new { padding-inline: 0.75rem; }
+}
+
 /* ── The venue map ──────────────────────────────────────────────────────
    The map is the section, not an illustration beside it: it takes the full
    width of the column, the address and the Maps button sit under it on a
