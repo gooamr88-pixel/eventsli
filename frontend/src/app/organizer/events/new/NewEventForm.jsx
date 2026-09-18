@@ -1,13 +1,19 @@
 'use client';
 
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { get, post } from '../../../utils/apiClient';
 import { useOrganizer } from '../../../hooks/useOrganizer';
+import { useFocusFirstInvalid } from '../../../hooks/useFocusFirstInvalid';
 import { categoryLabel } from '../../../lib/categories';
 import { defaultTimeZone, zonesFor } from '../../../lib/timezones';
-import { formatEventTime } from '../../../lib/eventTime';
+import { toIso, browserZone } from '../../../lib/eventTime';
+import {
+  TYPES, STEP_TEXT, STEP_FIELDS, ADMISSION_TYPES, PURCHASE_MODES, FEE_BEARERS,
+  PAYMENT_OPTIONS, draftKey, initialForm, problemsFor,
+} from './wizardModel';
+import { TypeChooser, RadioCards, Review } from './WizardParts';
 import Field, { SelectField, TextareaField } from '../../../components/forms/Field';
 import FormError from '../../../components/forms/FormError';
 import SubmitButton from '../../../components/forms/SubmitButton';
@@ -35,61 +41,20 @@ import CreateProfile from '../../CreateProfile';
  * cover are still built on the saved event, where they belong.
  *
  * Kept from before: the time zone is a list by country and the API refuses one
- * that does not exist; times are anchored to the EVENT's zone (toIso below).
+ * that does not exist; times are anchored to the EVENT's zone — `toIso`, which
+ * now lives in `lib/eventTime.js` beside `toLocalInput`, its exact inverse.
+ *
+ * WHAT IS WHERE, because this is three files now. It passed the project's
+ * 500-line cap, and the seams are the ones that were already there:
+ *
+ *   wizardModel.js   the steps, the choices, the draft, the validation — what
+ *                    this wizard can ASK, which changes when the product gains
+ *                    an option
+ *   WizardParts.jsx  the type chooser, the card radios, the review table —
+ *                    stateless, each rendered from its props
+ *   here             where the organizer is up to, and what Continue does
  * ─────────────────────────────────────────────────────────────────────────────
  */
-
-const TYPES = {
-  ticketed: {
-    title: 'Ticketed event',
-    steps: ['basics', 'when', 'tickets', 'payment', 'review'],
-  },
-  display_only: {
-    title: 'Display-only event',
-    steps: ['basics', 'when', 'review'],
-  },
-};
-
-const STEP_TEXT = {
-  basics: ['The basics', 'What the event is called and what it is about.'],
-  when: ['When and where', 'Times are local to the venue.'],
-  tickets: ['How tickets sell', 'You add ticket types and the seat map right after this.'],
-  payment: ['How buyers pay', 'Choose from the payment methods you have set up.'],
-  review: ['Check and create', 'It is saved as a private draft. Nothing is public until Eventsli approves it.'],
-};
-
-/**
- * RESERVED SEATING OR GENERAL ADMISSION — asked here, at creation, because it
- * decides how much of the product this organizer ever has to look at.
- *
- * Reserved means drawing the room: a venue map, table categories, a seat picker
- * at the checkout. General admission means a number on a ticket type and none
- * of the above. Asking afterwards means somebody building a conference spends
- * their first ten minutes in a seat-map editor working out whether they are
- * supposed to be there.
- */
-const ADMISSION_TYPES = [
-  ['reserved', 'Reserved seating', 'You draw the room; buyers choose their seat or table.', 'map'],
-  ['general', 'General admission', 'No seat map. You set how many tickets exist, buyers choose how many they want.', 'ticket'],
-];
-
-const PURCHASE_MODES = [
-  ['seat_only', 'Individual seats', 'Buyers pick seats one by one.', 'ticket'],
-  ['table_only', 'Whole tables', 'Buyers book a table and get every seat at it.', 'layers'],
-  ['seat_and_table', 'Seats or tables', 'Buyers can do either.', 'map'],
-];
-
-const FEE_BEARERS = [
-  ['buyer', 'Buyers pay the fees', 'Added at checkout, shown as its own line.'],
-  ['organizer', 'I pay the fees', 'Taken from your payout. Buyers see one price.'],
-];
-
-const PAYMENT_OPTIONS = {
-  both: ['Stripe + manual', 'Buyers pay by card online, or by your manual methods.', 'card'],
-  stripe: ['Stripe only', 'Buyers pay by card at checkout.', 'card'],
-  manual: ['Manual only', 'Buyers pay you by e-Transfer, bank transfer or cash.', 'cash'],
-};
-
 export default function NewEventForm() {
   const params = useSearchParams();
   const type = params.get('type');
@@ -99,87 +64,10 @@ export default function NewEventForm() {
   if (error) return <ErrorNotice error={error} />;
   if (!organizer || !organizer.setupComplete) return <CreateProfile organizer={organizer} onCreated={refresh} />;
 
+  // `key={type}` so switching between the two products rebuilds the wizard
+  // rather than carrying one type's answers into the other's steps.
   if (!TYPES[type]) return <TypeChooser />;
   return <EventWizard key={type} type={type} organizer={organizer} />;
-}
-
-// ─── The first question ────────────────────────────────────────────────────
-function TypeChooser() {
-  return (
-    <div className="es-wizard es-wizard--center">
-      <div className="es-wizard__head">
-        <p className="es-eyebrow">New event</p>
-        <h1 className="es-wizard__title">What kind of event are you creating?</h1>
-        <p className="es-wizard__lede">Pick one. You will only be asked what that kind of event needs.</p>
-      </div>
-
-      <div className="es-choice-grid es-choice-grid--2">
-        <Link href="/organizer/events/new?type=ticketed" className="es-choice es-choice--lg">
-          <span className="es-choice__icon"><NavIcon name="ticket" size={22} /></span>
-          <span className="es-choice__body">
-            <span className="es-choice__title">Ticketed event</span>
-            <span className="es-choice__desc">Sell tickets online and at the door.</span>
-            <ul className="es-choice__list">
-              <Point>Ticket types and prices</Point>
-              <Point>A seating map with seats or tables</Point>
-              <Point>Stripe and manual payments</Point>
-            </ul>
-          </span>
-          <span className="es-choice__cta">Create a ticketed event <NavIcon name="arrow" size={16} /></span>
-        </Link>
-
-        <Link href="/organizer/events/new?type=display_only" className="es-choice es-choice--lg">
-          <span className="es-choice__icon"><NavIcon name="eye" size={22} /></span>
-          <span className="es-choice__body">
-            <span className="es-choice__title">Display-only event</span>
-            <span className="es-choice__desc">Show your event on Eventsli without selling tickets.</span>
-            <ul className="es-choice__list">
-              <Point>An event page people can find and share</Point>
-              <Point>No tickets, payments or seating map</Point>
-              <Point>Ready in two steps</Point>
-            </ul>
-          </span>
-          <span className="es-choice__cta">Create a display-only event <NavIcon name="arrow" size={16} /></span>
-        </Link>
-      </div>
-    </div>
-  );
-}
-
-function Point({ children }) {
-  return <li><NavIcon name="tick" size={16} /><span>{children}</span></li>;
-}
-
-// ─── The steps ─────────────────────────────────────────────────────────────
-function draftKey(type) {
-  return `eventsli.newEvent.${type}`;
-}
-
-function initialForm(type, organizer) {
-  const country = organizer?.country || 'CA';
-  const base = {
-    title: '', category: 'other', description: '',
-    country, timezone: defaultTimeZone(country, browserZone()),
-    startsAt: '', endsAt: '', venueName: '', venueAddress: '',
-    admissionType: 'reserved',
-    purchaseMode: 'seat_only', feeBearer: 'buyer', maxTicketsPerOrder: '10', allowTicketTransfer: true,
-    paymentOption: organizer?.payments?.choices?.[0] || '',
-  };
-  // A convenience, not a store: a private window or cleared storage simply
-  // starts empty. Read only on the client — this component mounts after the
-  // organizer loads, so the server never renders it.
-  try {
-    const saved = JSON.parse(sessionStorage.getItem(draftKey(type)) || 'null');
-    if (saved?.form) {
-      const form = { ...base, ...saved.form };
-      // A payment option saved before a method was removed is not offered again.
-      if (!(organizer?.payments?.choices || []).includes(form.paymentOption)) {
-        form.paymentOption = base.paymentOption;
-      }
-      return { form, step: Number(saved.step) || 0 };
-    }
-  } catch { /* storage unavailable */ }
-  return { form: base, step: 0 };
 }
 
 function EventWizard({ type, organizer }) {
@@ -192,10 +80,16 @@ function EventWizard({ type, organizer }) {
   const [form, setForm] = useState(initial.form);
   const [index, setIndex] = useState(Math.min(initial.step, steps.length - 1));
   const [showErrors, setShowErrors] = useState(false);
+  // Bumped on every refused submit, so focus moves to the problem each time
+  // rather than only on the first press. See `next()` below.
+  const [attempt, setAttempt] = useState(0);
   const [categories, setCategories] = useState([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const moved = useRef(false);
+  const formRef = useRef(null);
+
+  useFocusFirstInvalid(formRef, attempt);
 
   const step = steps[index];
   const choices = organizer.payments?.choices || [];
@@ -233,22 +127,7 @@ function EventWizard({ type, organizer }) {
   const endIso = toIso(form.endsAt, form.timezone);
   const perOrder = Number(form.maxTicketsPerOrder);
 
-  const problems = {
-    title: form.title.trim().length < 3 ? 'Give your event a title of at least 3 characters.' : null,
-    startsAt: !form.startsAt ? 'Choose when it starts.'
-      : new Date(startIso) <= new Date() ? 'The start has to be in the future.' : null,
-    endsAt: !form.endsAt ? 'Choose when it ends.'
-      : form.startsAt && new Date(endIso) <= new Date(startIso) ? 'The event has to end after it starts.' : null,
-    maxTicketsPerOrder: !(Number.isInteger(perOrder) && perOrder >= 1 && perOrder <= 100) ? 'Between 1 and 100.' : null,
-    paymentOption: choices.length > 0 && !choices.includes(form.paymentOption) ? 'Choose how buyers pay.' : null,
-  };
-  const STEP_FIELDS = {
-    basics: ['title'],
-    when: ['startsAt', 'endsAt'],
-    tickets: ['maxTicketsPerOrder'],
-    payment: ['paymentOption'],
-    review: [],
-  };
+  const problems = problemsFor({ form, startIso, endIso, choices });
   const stepValid = STEP_FIELDS[step].every((f) => !problems[f]);
   const shown = (field) => (showErrors ? problems[field] : null);
 
@@ -262,7 +141,23 @@ function EventWizard({ type, organizer }) {
 
   function next(e) {
     e.preventDefault();
-    if (!stepValid) { setShowErrors(true); return; }
+    if (!stepValid) {
+      setShowErrors(true);
+      /**
+       * A COUNTER, not a flag, and the distinction is the whole fix.
+       *
+       * `showErrors` is already true on a second refused press, so an effect
+       * watching it would not re-run — the first "Continue" would move focus to
+       * the problem and every press after it would do nothing at all.
+       *
+       * The alert further down ("Fix the highlighted fields to continue") was
+       * the only thing this form said on a refusal. It announces THAT something
+       * is wrong; moving focus is what says WHICH — the field's own label, its
+       * invalid state and its message, all of it wiring `Field` already has.
+       */
+      setAttempt((n) => n + 1);
+      return;
+    }
     if (index < steps.length - 1) go(index + 1);
     else create();
   }
@@ -326,7 +221,7 @@ function EventWizard({ type, organizer }) {
         <p className="es-wizard__lede">{lede}</p>
       </div>
 
-      <form onSubmit={next} noValidate className="fx-stack">
+      <form ref={formRef} onSubmit={next} noValidate className="fx-stack">
         <div className="es-card fx-stack fx-stack--sm p-5">
           {step === 'basics' && (
             <>
@@ -501,127 +396,4 @@ function EventWizard({ type, organizer }) {
     </div>
   );
 }
-
-function RadioCards({ legend, name, value, onChange, options, columns = 2, required, error }) {
-  const id = useId();
-  return (
-    <fieldset className="fx-stack fx-stack--sm" aria-describedby={error ? `${id}-error` : undefined}>
-      <legend className="es-label mb-1.5">
-        <span>{legend}{required && <span className="es-req" aria-hidden="true">*</span>}</span>
-      </legend>
-      <div className={`es-choice-grid es-choice-grid--${columns}`}>
-        {options.map((o) => (
-          <label key={o.value} className="es-choice">
-            <input type="radio" name={name} value={o.value} checked={value === o.value} onChange={onChange} required={required} />
-            {o.icon && <span className="es-choice__icon"><NavIcon name={o.icon} size={20} /></span>}
-            <span className="es-choice__body">
-              <span className="es-choice__title">{o.title}</span>
-              <span className="es-choice__desc">{o.desc}</span>
-            </span>
-          </label>
-        ))}
-      </div>
-      {error && <p id={`${id}-error`} className="text-xs text-danger">{error}</p>}
-    </fieldset>
-  );
-}
-
-function Review({ form, ticketed, startIso, choices, onEdit }) {
-  const rows = [
-    ['basics', 'Title', form.title.trim()],
-    ['basics', 'Category', categoryLabel(form.category)],
-    ['when', 'Starts', form.startsAt ? formatEventTime(startIso, form.timezone) : '—'],
-    ['when', 'Venue', form.venueName.trim() || 'Not added yet'],
-    ...(ticketed ? [
-      ['tickets', 'Tickets', ADMISSION_TYPES.find(([v]) => v === form.admissionType)?.[1]],
-      // Meaningless without a map, so it is left off the summary entirely
-      // rather than shown as a setting that will not apply.
-      ...(form.admissionType === 'reserved'
-        ? [['tickets', 'Buyers choose', PURCHASE_MODES.find(([v]) => v === form.purchaseMode)?.[1]]]
-        : []),
-      ['tickets', 'Booking fees', form.feeBearer === 'buyer' ? 'Paid by buyers' : 'Paid by you'],
-      ['payment', 'Payments', choices.includes(form.paymentOption) ? PAYMENT_OPTIONS[form.paymentOption][0] : 'None yet — add one before going on sale'],
-    ] : [
-      ['basics', 'Tickets', 'None — display only'],
-    ]),
-  ];
-
-  return (
-    <>
-      <dl className="es-review">
-        {rows.map(([stepKey, term, value]) => (
-          <div key={term} className="es-review__row">
-            <dt className="es-review__term">{term}</dt>
-            <dd className="es-review__value">
-              {value}{' '}
-              <button type="button" className="ml-1 text-xs text-accent underline" onClick={() => onEdit(stepKey)}>
-                Edit<span className="sr-only"> {term}</span>
-              </button>
-            </dd>
-          </div>
-        ))}
-      </dl>
-      <div className="rounded-(--es-radius-md) bg-bg-sunken p-4">
-        <p className="mb-2 text-sm font-medium text-ink">What happens next</p>
-        <ol className="list-decimal fx-stack fx-stack--sm gap-1 pl-5 text-sm text-muted">
-          {ticketed ? (
-            <>
-              <li>Add ticket types and prices.</li>
-              <li>Build the seating map.</li>
-              <li>Accept the terms and submit for review.</li>
-            </>
-          ) : (
-            <>
-              <li>Add a cover image (recommended).</li>
-              <li>Accept the terms and submit for review.</li>
-            </>
-          )}
-          <li>Eventsli reviews it — usually within a day.</li>
-        </ol>
-      </div>
-    </>
-  );
-}
-
-function browserZone() {
-  try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * `datetime-local` → ISO 8601, anchored to the EVENT's timezone.
- *
- * The input yields "2026-09-05T20:00" with no offset, and `new Date(...)` reads
- * that in the BROWSER's zone — an organizer in Vancouver scheduling a Toronto
- * show at 8pm would create it at 11pm. The offset is computed for the target
- * zone at that instant, which handles daylight saving correctly.
- *
- * The SHAPE is validated, not the parse result: V8's lenient legacy parser
- * turns junk like "not-a-date:00Z" into a real date rather than NaN.
- */
-export function toIso(localValue, timeZone) {
-  if (!localValue) return localValue;
-  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/.test(localValue)) return localValue;
-
-  const naive = new Date(`${localValue.length === 16 ? `${localValue}:00` : localValue}Z`);
-  if (Number.isNaN(naive.getTime())) return localValue;
-
-  // The zone's offset from UTC at a given instant.
-  const offsetAt = (ms) => {
-    const d = new Date(ms);
-    return new Date(d.toLocaleString('en-US', { timeZone })).getTime()
-      - new Date(d.toLocaleString('en-US', { timeZone: 'UTC' })).getTime();
-  };
-
-  // TWO passes. The offset used to be taken once, at the wall-clock time read
-  // AS IF it were UTC — which is the wrong instant by the offset itself. Within
-  // that many hours of a daylight-saving change it picked the other side of the
-  // change, and the event was saved an hour off (07:00 in Chicago on the day
-  // DST starts became 08:00). Re-measuring at the first answer lands on the
-  // right side of the change.
-  const first = naive.getTime() - offsetAt(naive.getTime());
-  return new Date(naive.getTime() - offsetAt(first)).toISOString();
-}
+

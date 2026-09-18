@@ -4,8 +4,11 @@ import { useEffect, useState } from 'react';
 import { get, patch } from '../../../utils/apiClient';
 import { categoryLabel } from '../../../lib/categories';
 import { zonesFor } from '../../../lib/timezones';
-import { toLocalInput, formatEventTime } from '../../../lib/eventTime';
-import { toIso } from '../new/NewEventForm';
+// All three from one module now. `toIso` used to be exported out of the
+// create-event wizard, so editing a date meant importing half its logic from a
+// component; it lives beside its inverse `toLocalInput`, which is what this
+// file uses it with.
+import { toLocalInput, toIso, formatEventTime } from '../../../lib/eventTime';
 import { useToast } from '../../../components/ui/Toast';
 import { useOrganizer } from '../../../hooks/useOrganizer';
 import Link from 'next/link';

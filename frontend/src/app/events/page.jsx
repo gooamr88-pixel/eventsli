@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import Link from 'next/link';
 import { serverFetch } from '../utils/apiClient';
 import EventCard from '../components/EventCard';
@@ -128,8 +129,24 @@ export default async function EventsPage({ searchParams }) {
 
           {/* The two answers most people actually want, above the category
               list — "somewhere I can get to" and "something to do on
-              Saturday" are the questions; a category is how you narrow one. */}
-          <QuickFilters city={city} />
+              Saturday" are the questions; a category is how you narrow one.
+
+              UNDER SUSPENSE, because `QuickFilters` calls `useSearchParams`.
+              Every other page in this app that renders such a component wraps
+              it, and this one did not. It does not fail today only because the
+              root layout declares `dynamic = 'force-dynamic'`, which makes
+              every route dynamic — so the bailout this boundary exists to
+              contain never happens. That is a load-bearing coincidence, not a
+              decision: the moment anything reconsiders `force-dynamic`, this
+              page opts the whole route out of static rendering silently, and
+              `/events` is the most-indexed page on the site.
+
+              The fallback is `null` rather than a skeleton. These are two chips
+              above a listing; a grey placeholder flashing under the search box
+              draws more attention than the thing it stands in for. */}
+          <Suspense fallback={null}>
+            <QuickFilters city={city} />
+          </Suspense>
 
           {/* Links, not buttons: every category is a URL, so a filtered view
               is shareable and the back button walks the filters. Scrolls

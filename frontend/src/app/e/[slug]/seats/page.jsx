@@ -1,7 +1,9 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { Suspense } from 'react';
 import { serverFetch } from '../../../utils/apiClient';
 import SeatPicker from './SeatPicker';
+import SeatMapSkeleton from './SeatMapSkeleton';
 
 /**
  * Seat selection.
@@ -60,12 +62,23 @@ export default async function SeatsPage({ params }) {
           <h1 className="text-xl">Choose your seats</h1>
         </div>
 
-        <SeatPicker
-          slug={event.slug}
-          currency={event.currency}
-          purchaseMode={event.purchaseMode}
-          maxPerOrder={event.maxTicketsPerOrder}
-        />
+        {/* `SeatPicker` reads `?tier=` and `?table=` with `useSearchParams`,
+            so it needs a boundary like every other such component in the app.
+            Without one this route's static rendering is opted out silently —
+            today that is masked by the root layout's `force-dynamic`, which is
+            a coincidence to rely on rather than a decision.
+
+            The fallback is the map's own skeleton, in the same frame the map
+            arrives in, so a boundary that does resolve late looks like the map
+            loading rather than like a second, different placeholder. */}
+        <Suspense fallback={<SeatMapSkeleton />}>
+          <SeatPicker
+            slug={event.slug}
+            currency={event.currency}
+            purchaseMode={event.purchaseMode}
+            maxPerOrder={event.maxTicketsPerOrder}
+          />
+        </Suspense>
       </div>
     </main>
   );

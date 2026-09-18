@@ -5838,6 +5838,21 @@ a.es-sponsor:hover { opacity: 0.7; }
   font-weight: 700;
   color: var(--es-accent);
 }
+/* The words beside the number.
+
+   This class was WRITTEN IN THE MARKUP AND NEVER DEFINED — the element it
+   names is load-bearing (it groups the heading and the body into one grid
+   cell; without it they become two grid items and the number ends up above
+   the text instead of beside it), but the class itself did nothing.
+
+   Defining it rather than deleting the name, because there is something for
+   it to do. Below `md` the text track is `minmax(0, 1fr)` and shrinks
+   correctly. From `md` the step becomes a single-column card and the track is
+   a bare `1fr`, whose automatic minimum is min-content — so a long unbroken
+   word in a step's title (a URL, a venue name) pushes the card wider than its
+   grid cell instead of wrapping. `min-width: 0` is what lets it shrink. */
+.es-mk-step__body { min-width: 0; }
+
 .es-mk-step h3 { margin: 6px 0 4px; font-size: var(--es-text-md); font-weight: 600; color: var(--es-text); }
 .es-mk-step p { margin: 0; font-size: var(--es-text-sm); line-height: 1.6; color: var(--es-text-muted); }
 @media (width >= theme(--breakpoint-md)) {

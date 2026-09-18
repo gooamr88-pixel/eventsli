@@ -110,3 +110,33 @@ export function useSavedCount() {
     () => 0,
   );
 }
+
+/**
+ * The saved slugs as ONE COMMA-JOINED STRING — for the page that lists them.
+ *
+ * A string and not the array, for the stable-snapshot rule above:
+ * `useSyncExternalStore` compares snapshots by identity, so returning
+ * `readSaved()` hands back a new array on every call, React reads the store as
+ * permanently changed and the component re-renders forever. A joined string is
+ * a primitive and compares by value, so an unchanged list is unchanged.
+ *
+ * It is also exactly the shape the request wants (`?slugs=a,b,c`), so nothing
+ * has to re-join it.
+ *
+ * `null` from the server snapshot, never `''`, and the difference carries
+ * meaning the page depends on: `null` is "this browser has not been read yet",
+ * `''` is "read, and nothing is saved". Collapsing them would flash "Nothing
+ * saved yet" at somebody who has saved things, for the frame between the
+ * server's markup and hydration.
+ *
+ * Reading it this way rather than in an effect is also what keeps the page
+ * lint-clean — `react-hooks/set-state-in-effect` refuses the effect-plus-
+ * setState version, and it is right to: that is a render React throws away.
+ */
+export function useSavedSlugs() {
+  return useSyncExternalStore(
+    subscribe,
+    () => readSaved().join(','),
+    () => null,
+  );
+}

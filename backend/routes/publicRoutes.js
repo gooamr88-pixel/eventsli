@@ -52,6 +52,17 @@ router.get(
   query('to').optional().isISO8601(),
   query('includePast').optional().isIn(['true', 'false']),
   query('city').optional().isString().trim().isLength({ min: 1, max: 120 }),
+  /**
+   * A comma-separated slug list, for "saved events" — a browser holds slugs in
+   * localStorage and needs the events behind them.
+   *
+   * Length-capped rather than count-capped here, with the count enforced in the
+   * controller: this string becomes a PostgREST `in.()` filter, and an
+   * unbounded one is a way to make a public endpoint build an arbitrarily large
+   * query. 4000 characters is roughly the 200-slug ceiling the client itself
+   * keeps, with room for long slugs.
+   */
+  query('slugs').optional().isString().trim().isLength({ min: 1, max: 4000 }),
   // Checked here rather than passed through. The column is now TEXT with a
   // foreign key rather than an enum, so an unknown value is no longer a failed
   // cast — it is simply a filter that matches nothing, which would answer a

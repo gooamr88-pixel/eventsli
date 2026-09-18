@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { toLocalInput } from '../src/app/lib/eventTime';
-import { toIso } from '../src/app/organizer/events/new/NewEventForm';
+import { toIso } from '../src/app/lib/eventTime';
 import { invoiceStatus } from '../src/app/lib/invoiceStatus';
 import { messageFor } from '../src/app/utils/errors';
 

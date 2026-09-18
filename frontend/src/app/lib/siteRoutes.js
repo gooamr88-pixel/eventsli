@@ -54,6 +54,20 @@ export const PUBLIC_PAGES = [
  */
 export const PRIVATE_PREFIXES = [
   '/account',
+  /**
+   * `/events/saved` — the browser's own saved list, which lives in
+   * localStorage and therefore does not exist on the server.
+   *
+   * Not private because it is secret; private because there is NOTHING THERE
+   * to crawl. A bot fetching it gets the empty state, and an indexed
+   * "Saved events" result would send a stranger to a page describing a list
+   * that is not theirs.
+   *
+   * It sits above `/events` in no meaningful way — `isPrivatePath` matches on
+   * the full segment, so this excludes `/events/saved` and its children while
+   * leaving `/events` itself in the sitemap.
+   */
+  '/events/saved',
   '/organizer',
   '/admin',
   '/gate',

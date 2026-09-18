@@ -10,7 +10,7 @@ import { describeError, isSelectionLost } from '../../../utils/errors';
 import { formatMoney } from '../../../utils/money';
 import { useReservation } from '../../../hooks/useReservation';
 import { useTableAccess } from './useTableAccess';
-import { Loading } from '../../../components/Feedback';
+import SeatMapSkeleton, { MAP_FRAME, MAP_BOX } from './SeatMapSkeleton';
 
 /**
  * The buyer's half of the seat map: selection, the private-table gate, and the
@@ -207,10 +207,14 @@ export default function SeatPicker({ slug, currency, purchaseMode, maxPerOrder }
     );
   }
 
+  // Waiting for the map, in the shape of the map — same frame, same height, so
+  // the arrival fills the box rather than redrawing it. `SeatMapSkeleton.jsx`
+  // owns `MAP_FRAME` and `MAP_BOX` and argues why all three states read them
+  // from one place.
   if (!map) {
     return (
-      <div className="grid h-[420px] place-items-center rounded-(--es-radius-lg) border border-border-base bg-bg-sunken">
-        <Loading variant="card" />
+      <div className="fx-stack">
+        <SeatMapSkeleton />
       </div>
     );
   }
@@ -255,9 +259,9 @@ export default function SeatPicker({ slug, currency, purchaseMode, maxPerOrder }
           `bg-surface` on the plate rather than the page ground: the floor of
           the room should be the lightest thing on the screen, because every
           seat colour was chosen to sit on it. */}
-      <div className="es-plate bg-surface p-3 sm:p-4">
+      <div className={MAP_FRAME}>
         <SeatMapCanvas
-          className="h-[58vh] min-h-[380px]"
+          className={MAP_BOX}
           tables={map.tables}
           seats={map.seats}
           zones={zones}

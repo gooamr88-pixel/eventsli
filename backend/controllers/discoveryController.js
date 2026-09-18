@@ -65,6 +65,39 @@ async function listEvents(req, res, next) {
       // still happening and should still be findable.
       query = query.gte('ends_at', new Date().toISOString());
     }
+    /**
+     * SAVED EVENTS — the slugs a browser is holding, resolved in one request.
+     *
+     * The alternative was a request per saved event from the client, which on
+     * a list of twenty is twenty round trips on a phone to draw one page.
+     *
+     * Three things this deliberately does NOT do:
+     *
+     *   · It does not report which slugs were missing. An event that was
+     *     unpublished, cancelled or renamed simply does not come back, and the
+     *     saved page drops it — that is the correct outcome and saying more
+     *     would turn this into a way to test whether a given slug is live.
+     *   · It does not bypass `status = 'published'` above. A saved draft is not
+     *     a back door into an unpublished event.
+     *   · It does not widen the date filter. A caller that wants past saved
+     *     events asks for `includePast=true` like any other caller.
+     *
+     * Capped at 200, matching the client's own MAX_SAVED, and de-duplicated so
+     * a repeated slug cannot multiply the filter.
+     */
+    if (req.query.slugs) {
+      const slugs = [...new Set(
+        String(req.query.slugs).split(',').map((s) => s.trim()).filter(Boolean),
+      )].slice(0, 200);
+
+      // An empty list must match NOTHING, not everything. Without this a
+      // `?slugs=,,,` returns the whole catalogue as "your saved events".
+      // `buildMeta` rather than a hand-written object, so an empty answer has
+      // the same envelope as a full one and no client needs a special case.
+      if (slugs.length === 0) return sendOk(res, [], { pagination: buildMeta(p, 0) });
+      query = query.in('slug', slugs);
+    }
+
     if (req.query.country) query = query.eq('country', String(req.query.country).toUpperCase());
     /**
      * City, case-insensitively and exactly.

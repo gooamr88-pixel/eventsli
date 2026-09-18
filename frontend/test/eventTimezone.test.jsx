@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest';
-import { toIso } from '../src/app/organizer/events/new/NewEventForm';
+import { toIso } from '../src/app/lib/eventTime';
 
 /**
  * `datetime-local` has no timezone, and that is the whole problem.
