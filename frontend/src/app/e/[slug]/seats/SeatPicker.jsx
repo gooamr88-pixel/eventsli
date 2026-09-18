@@ -295,8 +295,14 @@ export default function SeatPicker({ slug, currency, purchaseMode, maxPerOrder }
         subtotal={subtotal}
         currency={currency}
         label={selectedTable ? `Table ${selectedTable.label}` : null}
+        // The seats themselves, so each can be listed with its price and taken
+        // back out. A whole-table booking passes none: it is one indivisible
+        // thing, and offering to remove a seat from it would be offering
+        // something the API refuses.
+        seats={selectedTable ? [] : selectedSeats}
         busy={busy}
         onContinue={onContinue}
+        onRemoveSeat={toggleSeat}
         onClear={() => { setSelectedSeats([]); setSelectedTable(null); setActionError(null); }}
       />
 
@@ -315,11 +321,62 @@ export default function SeatPicker({ slug, currency, purchaseMode, maxPerOrder }
   );
 }
 
-function SelectionBar({ count, subtotal, currency, label, busy, onContinue, onClear }) {
+function SelectionBar({
+  count, subtotal, currency, label, seats = [], busy, onContinue, onRemoveSeat, onClear,
+}) {
   return (
     /* Sticky to the bottom: on a phone the map fills the screen, so an action
        bar above it scrolls away the moment you start choosing. */
     <div className="fx-safe-bottom sticky bottom-0 z-(--es-z-sticky) es-card p-3 shadow-lg">
+      {/**
+        * EVERY SEAT, NAMED, WITH A WAY OUT.
+        *
+        * The total alone used to be the whole of this bar, and taking a seat
+        * back meant finding it again on the map and clicking it a second time —
+        * on a two-hundred-seat plan, zoomed out, after picking six. The seat
+        * you want to drop is the one you are least able to point at.
+        *
+        * Capped and scrolled rather than allowed to grow: this is fixed to the
+        * bottom of the viewport, and ten seats listed in full would cover the
+        * map they were chosen from.
+        */}
+      {seats.length > 0 && (
+        <div className="fx-stack fx-stack--sm mb-3 border-b border-border-base pb-3">
+          <div className="fx-row fx-row--between items-baseline">
+            <p className="text-sm text-ink">
+              Selected {seats.length === 1 ? 'seat' : 'seats'} ({seats.length})
+            </p>
+            <button type="button" onClick={onClear} disabled={busy} className="text-sm text-accent">
+              Clear
+            </button>
+          </div>
+
+          <ul className="fx-stack fx-stack--sm max-h-40 overflow-y-auto">
+            {seats.map((seat) => (
+              <li key={seat.id} className="fx-row fx-row--between items-center gap-3">
+                <span className="fx-min0 text-sm text-muted">{seatName(seat)}</span>
+                <span className="fx-row shrink-0 items-center gap-2">
+                  <span className="es-nums text-sm text-ink">
+                    {seat.priceCents === null || seat.priceCents === undefined
+                      ? '—'
+                      : formatMoney(seat.priceCents, currency)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => onRemoveSeat(seat)}
+                    disabled={busy}
+                    aria-label={`Remove ${seatName(seat)}`}
+                    className="grid h-7 w-7 place-items-center rounded-full text-subtle transition-colors hover:bg-bg-sunken hover:text-ink"
+                  >
+                    ×
+                  </button>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <div className="fx-row fx-row--between">
         <div className="fx-min0">
           {count > 0 ? (
@@ -368,6 +425,20 @@ function SelectionBar({ count, subtotal, currency, label, busy, onContinue, onCl
       </div>
     </div>
   );
+}
+
+/**
+ * One seat, as a person reads it off a map.
+ *
+ * `row_label` is 'A' for every seat attached to a table, so repeating it next
+ * to a section that is already the table's name reads as noise — the same rule
+ * `TicketStub` applies to the printed ticket, so the seat is described
+ * identically here, on the ticket, and at the door.
+ */
+function seatName(seat) {
+  const { section, row, number } = seat;
+  if (row && row !== 'A') return `${section} · row ${row} · seat ${number}`;
+  return `${section} · seat ${number}`;
 }
 
 function Legend() {

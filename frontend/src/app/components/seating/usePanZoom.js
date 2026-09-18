@@ -58,9 +58,29 @@ export function usePanZoom(bounds, { wheelMode = 'zoom' } = {}) {
    * paints it, then corrects — which on a seat map is a visible jump every time
    * the data arrives.
    */
-  const [seenBounds, setSeenBounds] = useState(bounds);
-  if (bounds !== seenBounds) {
-    setSeenBounds(bounds);
+  /**
+   * COMPARED BY VALUE, NOT BY IDENTITY — and that distinction is the whole
+   * reason this block is safe to run during render.
+   *
+   * It used to be `bounds !== seenBounds`. A caller who computed bounds inline,
+   * or memoized them against a dependency that was itself fresh each render,
+   * handed over an object that was EQUAL but never IDENTICAL — so the condition
+   * was true on every render, the state set re-ran the render, and the
+   * component looped until React gave up with "too many re-renders".
+   *
+   * That is not a hypothetical: a default parameter of `[]` in a consumer is
+   * enough to do it, because a default allocates a new array per render. The
+   * consumer that hit it has been fixed too, but this is the layer that makes
+   * the whole class of mistake impossible instead of fixing them one at a time.
+   *
+   * A string rather than four comparisons, because it also has to be the stored
+   * state: keeping the OBJECT and comparing fields would re-introduce the same
+   * trap for anyone who later wrote `seen !== bounds`.
+   */
+  const boundsKey = `${bounds.x},${bounds.y},${bounds.width},${bounds.height}`;
+  const [seenBounds, setSeenBounds] = useState(boundsKey);
+  if (boundsKey !== seenBounds) {
+    setSeenBounds(boundsKey);
     setView({ ...bounds });
   }
 

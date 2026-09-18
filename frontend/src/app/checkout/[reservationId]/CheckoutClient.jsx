@@ -9,6 +9,7 @@ import { formatMoney } from '../../utils/money';
 import { useReservation } from '../../hooks/useReservation';
 import { useCountdown } from '../../hooks/useCountdown';
 import HoldBar from './HoldBar';
+import HoldConfirm from './HoldConfirm';
 import { Loading } from '../../components/Feedback';
 
 /**
@@ -32,6 +33,15 @@ export default function CheckoutClient({ reservationId }) {
   // Set once a free claim has issued the tickets. There is no payment step and
   // nothing to wait for, so this page shows the outcome itself.
   const [claimed, setClaimed] = useState(null);
+
+  /**
+   * The hold is confirmed before the form is asked for.
+   *
+   * Not remembered across a reload, and that is the point rather than a gap:
+   * somebody coming back to this page gets the countdown again, shorter than
+   * last time, which is the single most useful thing it can tell them.
+   */
+  const [ready, setReady] = useState(false);
 
   const loadQuote = useCallback(async () => {
     try {
@@ -172,6 +182,22 @@ export default function CheckoutClient({ reservationId }) {
   if (error && !quote) return <Fatal error={error} slug={reservation?.slug} />;
   if (claimed) return <Claimed claimed={claimed} slug={reservation?.slug} />;
   if (!quote) return <Loading variant="card" />;
+
+  // What was held, for how long, and what it costs — before a single field
+  // asks for anything. `HoldConfirm` argues the trade-off this step makes.
+  if (!ready) {
+    return (
+      <HoldConfirm
+        quote={quote}
+        formatted={formatted}
+        remaining={remaining}
+        expired={expired}
+        totalMs={quote.heldForMs}
+        slug={quote.event?.slug || reservation?.slug}
+        onProceed={() => setReady(true)}
+      />
+    );
+  }
 
   const discount = quote.lines.find((l) => l.amountCents < 0);
   // Nothing to pay. Everything the page says about payment changes with it.

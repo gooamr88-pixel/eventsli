@@ -2,6 +2,9 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import EventGallery from './EventGallery';
+import EventTabs from './EventTabs';
+import EventShare from './EventShare';
+import EventPurchasePanel from './EventPurchasePanel';
 import {
   EventHighlights, EventSchedule, EventSponsors, EventPolicies, VenueMap,
 } from './EventSections';
@@ -175,6 +178,15 @@ export default async function EventPage({ params, searchParams }) {
             </p>
             <h1 className="max-w-[20ch] text-3xl">{event.title}</h1>
           </div>
+
+        </div>
+
+        {/* Top-right of the band, over the artwork — where a reader's thumb
+            already is on a phone, and clear of the title block below. */}
+        <div className="fx-gutter absolute inset-x-0 top-4 z-10">
+          <div className="fx-container fx-container--xl fx-row justify-end">
+            <EventShare title={event.title} slug={event.slug} />
+          </div>
         </div>
       </section>
 
@@ -207,28 +219,68 @@ export default async function EventPage({ params, searchParams }) {
 
               <EventHighlights items={event.highlights} />
 
-              {event.description && (
-                <div className="fx-break max-w-[62ch] whitespace-pre-line text-md leading-relaxed text-muted">
-                  {event.description}
-                </div>
-              )}
+              {/* ── WHAT THE ORGANIZER BUILT, behind four tabs ─────────────
+                  Every panel is in the page whether or not its tab is open —
+                  `EventTabs` argues why at length, and the short version is
+                  that this is the page the whole platform exists to get people
+                  to, so its content cannot be behind a click a crawler has to
+                  simulate.
 
-              {/* ── What the organizer built ──────────────────────────────
-                  In the order somebody reads an event: what it looks like,
-                  what happens and when, how to get there, who is behind it,
-                  and the small print. Each section draws nothing at all when
-                  the organizer has not filled it in — most events have no
-                  sponsors, and a heading over an empty list reads as something
-                  forgotten rather than something not applicable. */}
-              <EventGallery items={event.gallery} />
-              <EventSchedule items={event.schedule} timezone={event.timezone} />
-              <VenueMap
-                venue={event.venue}
-                address={event.venueAddress}
-                location={event.venueLocation}
+                  A tab appears only when it has something in it, so a small
+                  event with a description and nothing else gets no tab bar at
+                  all — just its description, which is the right shape for it. */}
+              <EventTabs
+                panels={[
+                  {
+                    key: 'about',
+                    label: 'About',
+                    content: (event.description || (event.gallery || []).length > 0) && (
+                      <div className="fx-stack">
+                        {event.description && (
+                          <div className="fx-break max-w-[62ch] whitespace-pre-line text-md leading-relaxed text-muted">
+                            {event.description}
+                          </div>
+                        )}
+                        <EventGallery items={event.gallery} />
+                      </div>
+                    ),
+                  },
+                  {
+                    key: 'lineup',
+                    label: 'Lineup',
+                    content: (event.schedule || []).length > 0 && (
+                      <EventSchedule items={event.schedule} timezone={event.timezone} />
+                    ),
+                  },
+                  {
+                    key: 'venue',
+                    label: 'Venue',
+                    // The address alone earns this tab: it is the second thing
+                    // anybody checks, and on a well-known venue there is no pin
+                    // to add to it.
+                    content: (event.venue || event.venueLocation) && (
+                      <VenueMap
+                        venue={event.venue}
+                        address={event.venueAddress}
+                        location={event.venueLocation}
+                      />
+                    ),
+                  },
+                  {
+                    key: 'faqs',
+                    label: 'FAQs',
+                    content: (event.policies || []).length > 0 && (
+                      <EventPolicies items={event.policies} />
+                    ),
+                  },
+                ]}
               />
+
+              {/* OUTSIDE THE TABS, deliberately. Sponsors are an obligation the
+                  organizer has to the people who paid for the banner, and a
+                  tab nobody opens does not discharge it. The organizer's own
+                  name is provenance and belongs on the page, not in a section. */}
               <EventSponsors items={event.sponsors} />
-              <EventPolicies items={event.policies} />
 
               {event.organizer?.name && (
                 <section className="fx-stack fx-stack--sm" aria-labelledby="event-organizer">
@@ -266,67 +318,12 @@ export default async function EventPage({ params, searchParams }) {
                 which makes this column as tall as the description beside it,
                 and a sticky element the full height of its scroll container
                 never has anywhere to stick to. */}
-            <aside className="fx-stack lg:-mt-28 lg:sticky lg:top-20 lg:self-start">
-              <div className="es-plate bg-surface fx-stack p-6">
-                {cheapest.length > 0 && (
-                  <div className="fx-stack fx-stack--sm gap-1">
-                    <p className="es-eyebrow">From</p>
-                    <p className="es-price">
-                      {formatPrice(Math.min(...cheapest), event.currency)}
-                      {cheapest.length > 1 && (
-                        <span className="ml-2 font-sans text-sm text-subtle">and up</span>
-                      )}
-                    </p>
-                  </div>
-                )}
-
-                {focusTier && (
-                  <p className="es-notice es-notice--info" role="status">
-                    <span>You were sent here for <strong>{focusTier.name}</strong>.</span>
-                  </p>
-                )}
-
-                {event.tiers?.length > 0 && (
-                  <ul className="fx-stack fx-stack--sm">
-                    {event.tiers.map((tier) => (
-                      <li
-                        key={tier.id}
-                        id={`tier-${tier.id}`}
-                        aria-current={focusTier?.id === tier.id ? 'true' : undefined}
-                        className={`fx-row fx-row--between border-t border-border-base pt-3 first:border-0 first:pt-0 ${
-                          focusTier?.id === tier.id ? '-mx-3 rounded-(--es-radius-md) bg-accent-wash px-3 pb-3' : ''
-                        }`}
-                      >
-                        <span className="fx-min0">
-                          <span className="block text-ink">{tier.name}</span>
-                          {tier.description && (
-                            <span className="block text-sm text-subtle">{tier.description}</span>
-                          )}
-                        </span>
-                        <span className="es-nums font-medium text-ink">
-                          {formatPrice(tier.priceCents, event.currency)}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-
-                <CallToAction event={event} soldOut={soldOut} tierId={focusTier?.id} />
-
-                {event.availability && !soldOut && (
-                  <p className="text-center text-sm text-subtle">
-                    <span className="es-nums font-medium text-ink">
-                      {event.availability.seatsAvailable}
-                    </span>
-                    {' '}of {event.availability.seatsTotal} seats left
-                  </p>
-                )}
-              </div>
-
-              <p className="text-center text-sm text-subtle">
-                Up to {event.maxTicketsPerOrder} tickets per order · seats held for 35 minutes
-              </p>
-            </aside>
+            <EventPurchasePanel
+              event={event}
+              focusTier={focusTier}
+              soldOut={soldOut}
+              cheapest={cheapest}
+            />
           </div>
         </div>
       </section>
@@ -339,49 +336,6 @@ export default async function EventPage({ params, searchParams }) {
  * gets no buy button at all rather than a disabled one, because a dead control
  * is a question ("why can't I click this?") the page then has to answer.
  */
-function CallToAction({ event, soldOut, tierId }) {
-  if (event.displayOnly) {
-    return (
-      <p className="rounded-(--es-radius-md) bg-bg-sunken px-4 py-3 text-center text-muted" role="status">
-        This event is listed for information. Tickets are not sold here.
-      </p>
-    );
-  }
-
-  if (soldOut) {
-    return (
-      <p className="rounded-(--es-radius-md) bg-bg-sunken px-4 py-3 text-center text-muted" role="status">
-        Sold out
-      </p>
-    );
-  }
-
-  /**
-   * WHERE THE BUTTON GOES, AND WHAT IT SAYS, both follow the event.
-   *
-   * A reserved event sends the buyer to the seat map; a general-admission one
-   * has no map to send them to, so it goes to the ticket picker instead. The
-   * label follows the same fact — "Choose your seats" on an event with no seats
-   * is a promise the next page cannot keep, and the reader notices immediately.
-   *
-   * A free event says "Get tickets" rather than anything about buying. Somebody
-   * deciding whether to click is deciding whether to spend money, and the
-   * answer is no.
-   */
-  const general = event.admissionType === 'general';
-  const free = (event.tiers || []).length > 0
-    && (event.tiers || []).every((t) => Number(t.priceCents) === 0);
-
-  return (
-    <Link
-      // The tier travels with the buyer, so the next page can start from it.
-      href={`/e/${event.slug}/${general ? 'tickets' : 'seats'}${tierId ? `?tier=${encodeURIComponent(tierId)}` : ''}`}
-      className="es-btn es-btn--primary es-btn--block es-btn--lg"
-    >
-      {free ? 'Get tickets' : general ? 'Get tickets' : 'Choose your seats'}
-    </Link>
-  );
-}
 
 function Row({ term, children }) {
   return (

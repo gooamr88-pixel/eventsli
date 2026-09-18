@@ -66,10 +66,13 @@
 -- 'reserved' is the default so every existing event keeps behaving exactly as
 -- it does today. There is no backfill and there cannot be one: an event with a
 -- map is reserved, and that is what the default says.
-CREATE TYPE admission_type AS ENUM ('reserved', 'general');
+DO $$ BEGIN
+  CREATE TYPE admission_type AS ENUM ('reserved', 'general');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 ALTER TABLE events
-  ADD COLUMN admission_type admission_type NOT NULL DEFAULT 'reserved';
+  ADD COLUMN IF NOT EXISTS admission_type admission_type NOT NULL DEFAULT 'reserved';
 
 COMMENT ON COLUMN events.admission_type IS
   'reserved = tickets are bound to seats or tables on a venue map. '
@@ -95,23 +98,27 @@ COMMENT ON COLUMN events.admission_type IS
 -- 'complimentary' is the one with a meaning attached, and even then only a
 -- suggested one: comp tickets default to free and hidden, because a guest list
 -- that appears on the public page is not a guest list.
-CREATE TYPE ticket_tier_kind AS ENUM (
-  'standard', 'general', 'vip', 'early_bird', 'complimentary'
-);
+DO $$ BEGIN
+  CREATE TYPE ticket_tier_kind AS ENUM ('standard', 'general', 'vip', 'early_bird', 'complimentary');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 ALTER TABLE ticket_tiers
-  ADD COLUMN kind           ticket_tier_kind NOT NULL DEFAULT 'standard',
+  ADD COLUMN IF NOT EXISTS kind           ticket_tier_kind NOT NULL DEFAULT 'standard',
   -- NULL at either end means "no limit at that end". Both NULL — the default —
   -- is a tier that sells for as long as the event is published, which is what
   -- every tier does today.
-  ADD COLUMN sales_start_at TIMESTAMPTZ,
-  ADD COLUMN sales_end_at   TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS sales_start_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS sales_end_at   TIMESTAMPTZ,
   -- NULL = fall back to the event's `max_tickets_per_order`. A per-tier cap can
   -- only ever be TIGHTER than the event's: the event cap is checked first and
   -- separately, so a tier cannot be used to raise it.
-  ADD COLUMN max_per_order  INT,
+  ADD COLUMN IF NOT EXISTS max_per_order  INT,
   -- Omitted from the public listing, still buyable through a direct link.
-  ADD COLUMN is_hidden      BOOLEAN NOT NULL DEFAULT false;
+  ADD COLUMN IF NOT EXISTS is_hidden      BOOLEAN NOT NULL DEFAULT false;
+
+ALTER TABLE ticket_tiers DROP CONSTRAINT IF EXISTS tier_sale_window_ordered;
+ALTER TABLE ticket_tiers DROP CONSTRAINT IF EXISTS tier_max_per_order_sane;
 
 ALTER TABLE ticket_tiers
   ADD CONSTRAINT tier_sale_window_ordered
@@ -127,14 +134,17 @@ ALTER TABLE ticket_tiers
 -- Every existing row is a seat or a table, and both are one ticket, so the
 -- default is right for all of them and the backfill is nothing.
 ALTER TABLE reservation_items
-  ADD COLUMN quantity INT NOT NULL DEFAULT 1 CHECK (quantity >= 1);
+  ADD COLUMN IF NOT EXISTS quantity INT NOT NULL DEFAULT 1 CHECK (quantity >= 1);
 
-ALTER TABLE reservation_items DROP CONSTRAINT item_is_seat_xor_table;
+ALTER TABLE reservation_items DROP CONSTRAINT IF EXISTS item_is_seat_xor_table;
 
 -- Exactly one of the three shapes. Spelled out rather than shortened, because
 -- the thing being refused is an item that is NOTHING — no seat, no table and no
 -- tier — which would hold no stock, charge for nothing and issue a ticket to
 -- nowhere.
+ALTER TABLE reservation_items DROP CONSTRAINT IF EXISTS item_is_seat_table_or_general;
+ALTER TABLE reservation_items DROP CONSTRAINT IF EXISTS item_quantity_only_for_general;
+
 ALTER TABLE reservation_items
   ADD CONSTRAINT item_is_seat_table_or_general CHECK (
     (seat_id IS NOT NULL AND table_id IS NULL)
@@ -206,7 +216,7 @@ GRANT EXECUTE ON FUNCTION general_held_count(UUID, UUID) TO service_role;
 -- Partial, on exactly the rows the function looks at: a seat or table item can
 -- never satisfy that WHERE clause, and on a reserved-seating platform those are
 -- most of the table.
-CREATE INDEX reservation_items_general_idx
+CREATE INDEX IF NOT EXISTS reservation_items_general_idx
   ON reservation_items (tier_id)
   WHERE seat_id IS NULL AND table_id IS NULL;
 
@@ -728,18 +738,57 @@ ALTER TABLE events
   -- so the old object can be deleted when a new one replaces it. Deriving the
   -- key by parsing it back out of the URL works right up until a CDN goes in
   -- front, and then every delete silently targets nothing.
-  ADD COLUMN logo_url  TEXT,
-  ADD COLUMN logo_path TEXT,
+  ADD COLUMN IF NOT EXISTS logo_url  TEXT,
+  ADD COLUMN IF NOT EXISTS logo_path TEXT,
   -- Short selling points — "Free parking", "18+", "Doors at 7". A TEXT[] rather
   -- than a table because they have no identity of their own: nothing links to a
   -- highlight, nothing sorts by one, and the whole list is always written at
   -- once by the same form.
-  ADD COLUMN highlights TEXT[] NOT NULL DEFAULT '{}',
+  ADD COLUMN IF NOT EXISTS highlights TEXT[] NOT NULL DEFAULT '{}',
   -- For the map on the event page. Nullable and independent of the address: a
   -- venue can be findable by name with no coordinates, and geocoding is the
   -- organizer's choice to make rather than something to guess at.
-  ADD COLUMN venue_lat NUMERIC(9,6),
-  ADD COLUMN venue_lng NUMERIC(9,6);
+  ADD COLUMN IF NOT EXISTS venue_lat NUMERIC(9,6),
+  ADD COLUMN IF NOT EXISTS venue_lng NUMERIC(9,6);
+
+/**
+ * Every highlight is a non-blank phrase of at most 120 characters.
+ *
+ * A FUNCTION, BECAUSE A CHECK CANNOT HOLD A SUBQUERY. The obvious spelling of
+ * this rule is `NOT EXISTS (SELECT 1 FROM unnest(highlights) ...)`, and
+ * PostgreSQL refuses it outright — `0A000: cannot use subquery in check
+ * constraint` — because a constraint has to be decidable from the row alone,
+ * and the planner will not promise that of a subquery. A function call is
+ * allowed, and `unnest` inside the function body is fine.
+ *
+ * IMMUTABLE is a promise, not a check: the constraint is only ever evaluated on
+ * write, so redefining this function later would NOT revalidate existing rows.
+ * That is acceptable for a bound on display text — the worst outcome is an old
+ * row with a long highlight — and would not be acceptable for anything on the
+ * money path, which is why nothing there is written this way.
+ */
+CREATE OR REPLACE FUNCTION highlights_are_phrases(p_highlights TEXT[])
+RETURNS BOOLEAN AS $$
+  SELECT p_highlights IS NULL
+      OR NOT EXISTS (
+           SELECT 1 FROM unnest(p_highlights) h
+            WHERE length(btrim(h)) = 0 OR length(h) > 120
+         );
+$$ LANGUAGE sql IMMUTABLE;
+
+-- DELIBERATELY NOT REVOKED, unlike every other function in this file.
+--
+-- A CHECK constraint is evaluated with the privileges of whoever is running the
+-- INSERT, so revoking EXECUTE from PUBLIC here would not harden anything — it
+-- would make writes fail with "permission denied for function" for any role
+-- that lacks it. The others are revoked because they are RPC targets reachable
+-- from outside; this one is only ever reached through the constraint, takes its
+-- whole input as an argument the caller already holds, and reads no table.
+
+ALTER TABLE events DROP CONSTRAINT IF EXISTS logo_url_and_path_together;
+ALTER TABLE events DROP CONSTRAINT IF EXISTS highlights_bounded;
+ALTER TABLE events DROP CONSTRAINT IF EXISTS venue_coords_together;
+ALTER TABLE events DROP CONSTRAINT IF EXISTS venue_coords_on_earth;
 
 ALTER TABLE events
   ADD CONSTRAINT logo_url_and_path_together
@@ -747,11 +796,7 @@ ALTER TABLE events
   -- A dozen is already more than anybody reads, and each one is a phrase rather
   -- than a paragraph — the column is bounded here so no writer has to remember.
   ADD CONSTRAINT highlights_bounded CHECK (
-    cardinality(highlights) <= 12
-    AND NOT EXISTS (
-      SELECT 1 FROM unnest(highlights) h
-       WHERE length(btrim(h)) = 0 OR length(h) > 120
-    )
+    cardinality(highlights) <= 12 AND highlights_are_phrases(highlights)
   ),
   ADD CONSTRAINT venue_coords_together
     CHECK ((venue_lat IS NULL) = (venue_lng IS NULL)),
@@ -764,9 +809,12 @@ ALTER TABLE events
 -- One table for both, because they are one list to the organizer: a strip of
 -- media under the description that they order themselves. `kind` decides how a
 -- row renders, not where it lives.
-CREATE TYPE event_media_kind AS ENUM ('image', 'video');
+DO $$ BEGIN
+  CREATE TYPE event_media_kind AS ENUM ('image', 'video');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE TABLE event_media (
+CREATE TABLE IF NOT EXISTS event_media (
   id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   event_id   UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
   kind       event_media_kind NOT NULL DEFAULT 'image',
@@ -786,7 +834,7 @@ CREATE TABLE event_media (
   CONSTRAINT media_video_has_no_path CHECK (kind = 'image' OR path IS NULL)
 );
 
-CREATE INDEX event_media_by_event ON event_media (event_id, sort_order, created_at);
+CREATE INDEX IF NOT EXISTS event_media_by_event ON event_media (event_id, sort_order, created_at);
 
 
 -- ─── Sponsors ───────────────────────────────────────────────────────────────
@@ -795,9 +843,12 @@ CREATE INDEX event_media_by_event ON event_media (event_id, sort_order, created_
 -- its organizer. A shared table with a nullable `event_id` would put the
 -- homepage's sponsor list one missing WHERE clause away from an organizer's
 -- editor.
-CREATE TYPE sponsor_level AS ENUM ('headline', 'gold', 'silver', 'bronze', 'partner');
+DO $$ BEGIN
+  CREATE TYPE sponsor_level AS ENUM ('headline', 'gold', 'silver', 'bronze', 'partner');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE TABLE event_sponsors (
+CREATE TABLE IF NOT EXISTS event_sponsors (
   id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   event_id   UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
   name       TEXT NOT NULL,
@@ -815,7 +866,7 @@ CREATE TABLE event_sponsors (
     CHECK (link_url IS NULL OR link_url ~* '^https?://[^[:space:]]{3,2000}$')
 );
 
-CREATE INDEX event_sponsors_by_event ON event_sponsors (event_id, level, sort_order);
+CREATE INDEX IF NOT EXISTS event_sponsors_by_event ON event_sponsors (event_id, level, sort_order);
 
 
 -- ─── Policies ───────────────────────────────────────────────────────────────
@@ -828,9 +879,12 @@ CREATE INDEX event_sponsors_by_event ON event_sponsors (event_id, level, sort_or
 -- These are the ORGANIZER's terms for their event. They neither replace nor
 -- amend the platform's `terms_versions`, which is what the organizer accepted in
 -- order to publish, and which BRD §21 enforces separately.
-CREATE TYPE event_policy_kind AS ENUM ('terms', 'privacy', 'refund', 'other');
+DO $$ BEGIN
+  CREATE TYPE event_policy_kind AS ENUM ('terms', 'privacy', 'refund', 'other');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE TABLE event_policies (
+CREATE TABLE IF NOT EXISTS event_policies (
   id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   event_id   UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
   kind       event_policy_kind NOT NULL DEFAULT 'other',
@@ -846,14 +900,14 @@ CREATE TABLE event_policies (
   CONSTRAINT policy_body_present  CHECK (length(btrim(body)) BETWEEN 1 AND 20000)
 );
 
-CREATE INDEX event_policies_by_event ON event_policies (event_id, sort_order);
+CREATE INDEX IF NOT EXISTS event_policies_by_event ON event_policies (event_id, sort_order);
 
 
 -- ─── Schedule / lineup ──────────────────────────────────────────────────────
 -- `starts_at` is a timestamp, not a free-text "8pm". A festival runs across
 -- midnight and across time zones, and the page has to render every row in the
 -- event's zone — which it cannot do from a string somebody typed.
-CREATE TABLE event_schedule (
+CREATE TABLE IF NOT EXISTS event_schedule (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   event_id    UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
   starts_at   TIMESTAMPTZ,
@@ -874,7 +928,7 @@ CREATE TABLE event_schedule (
   )
 );
 
-CREATE INDEX event_schedule_by_event ON event_schedule (event_id, starts_at, sort_order);
+CREATE INDEX IF NOT EXISTS event_schedule_by_event ON event_schedule (event_id, starts_at, sort_order);
 
 
 -- ───────────────────────────────────────────────────────────────────────────

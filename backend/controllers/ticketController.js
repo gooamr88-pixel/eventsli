@@ -59,6 +59,13 @@ async function mine(req, res, next) {
           title: order.events.title,
           slug: order.events.slug,
           startsAt: order.events.starts_at,
+          // Also selected above and also never returned. My tickets splits
+          // Upcoming from Past on the END of the event, because a show that
+          // started an hour ago has not happened yet to somebody standing
+          // outside it — and that is exactly when they need the QR code.
+          // Without this the split silently fell back to the start time and
+          // filed the ticket under Past while the doors were open.
+          endsAt: order.events.ends_at,
           // Selected above but never returned, so My tickets printed a Toronto
           // show in the reader's own zone.
           timezone: order.events.timezone,

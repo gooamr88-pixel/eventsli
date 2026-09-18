@@ -45,7 +45,7 @@ async function quoteReservation(reservationId) {
 
   const { data: event } = await supabase
     .from('events')
-    .select(`id, slug, title, status, currency, organizer_id,
+    .select(`id, slug, title, status, currency, organizer_id, venue_name, starts_at,
              commission_pct, commission_tax_pct, event_tax_pct,
              payment_fee_mode, payment_fee_pct, payment_fee_fixed_cents, fee_bearer`)
     .eq('id', res.event_id)
@@ -132,12 +132,38 @@ function publicBreakdown(q) {
     lines.push({ label: 'Service fee', amountCents: b.paymentFeeCents });
   }
 
+  /**
+   * How long this hold was issued FOR, not how long is left.
+   *
+   * The countdown already knows the deadline; what it cannot work out is the
+   * fraction remaining, which is what draws the ring on the hold screen. Sent
+   * as a duration rather than a start time so no client has to subtract two
+   * timestamps and get the sign wrong.
+   *
+   * Falls back to null rather than to a guessed 35 minutes: a ring drawn
+   * against an assumed window is a ring that lies, and the figure inside it is
+   * the part that matters anyway.
+   */
+  const created = q.reservation.created_at ? new Date(q.reservation.created_at).getTime() : null;
+  const expires = new Date(q.reservation.expires_at).getTime();
+  const heldForMs = created && expires > created ? expires - created : null;
+
   return {
     currency: q.event.currency,
     admits: q.admits,
     lines,
     totalCents: b.buyerTotalCents,
     expiresAt: q.reservation.expires_at,
+    heldForMs,
+    // Enough to show WHAT is being held, so the buyer confirming a hold is not
+    // looking at a price with no event attached to it. Deliberately not the
+    // whole event: this is a checkout, not a listing.
+    event: {
+      slug: q.event.slug,
+      title: q.event.title,
+      venue: q.event.venue_name || null,
+      startsAt: q.event.starts_at || null,
+    },
   };
 }
 

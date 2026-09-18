@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { get, PUBLIC_API_URL } from '../../utils/apiClient';
 import { formatMoney } from '../../utils/money';
 import TicketStub from '../../components/TicketStub';
 import TransferDialog from './TransferDialog';
+import TicketActions, { TicketPrintStyles } from './TicketActions';
 import { Loading, Empty, ErrorNotice, Notice } from '../../components/Feedback';
 
 /** In the EVENT's timezone, with the zone named — a ticket is read before travelling. */
@@ -33,19 +34,64 @@ export default function MyTickets() {
   const [error, setError] = useState(null);
   const [transferring, setTransferring] = useState(null);
   const [reload, setReload] = useState(0);
+  const [when, setWhen] = useState('upcoming');
+  // Which order is being saved as a PDF, so the print rules can hide the rest.
+  const [printing, setPrinting] = useState(null);
+  /**
+   * The instant the list was fetched, used to split upcoming from past.
+   *
+   * `Date.now()` inside the memo below is impure — React's compiler refuses it,
+   * and it is right to: the same render could produce two different answers,
+   * and an event ending mid-render would land in different groups depending on
+   * when the memo happened to run. Captured once, beside the data it describes,
+   * so the split is consistent with the list it is splitting.
+   */
+  const [loadedAt, setLoadedAt] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         const data = await get('/tickets', { cache: 'no-store' });
-        if (!cancelled) { setOrders(Array.isArray(data) ? data : []); setError(null); }
+        if (!cancelled) {
+          setOrders(Array.isArray(data) ? data : []);
+          setLoadedAt(Date.now());
+          setError(null);
+        }
       } catch (err) {
         if (!cancelled) setError(err);
       }
     })();
     return () => { cancelled = true; };
   }, [reload]);
+
+  /**
+   * ───────────────────────────────────────────────────────────────────────────
+   * UPCOMING AND PAST, split on the event's END, not its start.
+   *
+   * An event that started an hour ago has not happened yet as far as somebody
+   * standing outside it is concerned — they are still going to it, and they
+   * still need the QR code on this screen. Splitting on `startsAt` files the
+   * ticket under "Past" while the doors are open, which is exactly when it is
+   * needed most.
+   *
+   * `endsAt` is on every event (the schema requires it and refuses an end
+   * before a start), so there is no fallback branch to get wrong.
+   * ───────────────────────────────────────────────────────────────────────────
+   */
+  const groups = useMemo(() => {
+    const now = loadedAt ?? 0;
+    const upcoming = [];
+    const past = [];
+    for (const order of orders || []) {
+      const ends = new Date(order.event?.endsAt || order.event?.startsAt || 0).getTime();
+      (Number.isFinite(ends) && ends >= now ? upcoming : past).push(order);
+    }
+    // Soonest first for what is coming; most recent first for what is done.
+    upcoming.sort((a, b) => new Date(a.event?.startsAt || 0) - new Date(b.event?.startsAt || 0));
+    past.sort((a, b) => new Date(b.event?.startsAt || 0) - new Date(a.event?.startsAt || 0));
+    return { upcoming, past };
+  }, [orders, loadedAt]);
 
   if (error) return <ErrorNotice error={error} />;
 
@@ -61,10 +107,51 @@ export default function MyTickets() {
     );
   }
 
+  const shown = groups[when];
+
   return (
-    <div className="fx-stack">
-      {orders.map((order) => (
-        <section key={order.orderId} className="fx-stack fx-stack--sm">
+    <div className="es-tickets-root fx-stack" {...(printing ? { 'data-printing': printing } : {})}>
+      <TicketPrintStyles />
+
+      {/* The switch appears only when there is something on both sides. On an
+          account with three upcoming tickets and no history, a "Past (0)" tab
+          is a control whose only function is to show an empty screen. */}
+      {groups.upcoming.length > 0 && groups.past.length > 0 && (
+        <div role="tablist" aria-label="Which tickets" className="es-tickets-print-hide fx-row gap-1 rounded-(--es-radius-md) bg-bg-sunken p-1">
+          {[['upcoming', 'Upcoming', groups.upcoming.length], ['past', 'Past', groups.past.length]].map(
+            ([key, label, n]) => (
+              <button
+                key={key}
+                type="button"
+                role="tab"
+                aria-selected={when === key}
+                onClick={() => setWhen(key)}
+                className={`flex-1 rounded-(--es-radius-sm) px-4 py-2 text-sm transition-colors ${
+                  when === key ? 'bg-surface font-medium text-ink shadow-sm' : 'text-muted hover:text-ink'
+                }`}
+              >
+                {label} <span className="es-nums text-subtle">({n})</span>
+              </button>
+            ),
+          )}
+        </div>
+      )}
+
+      {shown.length === 0 && (
+        <Empty
+          title={when === 'upcoming' ? 'Nothing coming up' : 'Nothing in the past'}
+          hint={when === 'upcoming'
+            ? 'Your past tickets are under Past.'
+            : 'Events you have been to will collect here.'}
+        />
+      )}
+
+      {shown.map((order) => (
+        <section
+          key={order.orderId}
+          className="es-ticket-order fx-stack fx-stack--sm"
+          {...(printing === order.orderId ? { 'data-printing-this': '' } : {})}
+        >
           <header className="fx-row fx-row--between border-b border-border-base pb-2">
             <div className="fx-min0">
               <h2 className="fx-break text-lg">
@@ -79,9 +166,16 @@ export default function MyTickets() {
                 {order.event?.venue && ` · ${order.event.venue}`}
               </p>
             </div>
-            <p className="es-nums whitespace-nowrap text-sm text-muted">
-              {formatMoney(order.totalCents, order.currency)}
-            </p>
+            <div className="fx-row shrink-0 items-center gap-3">
+              <p className="es-nums whitespace-nowrap text-sm text-muted">
+                {formatMoney(order.totalCents, order.currency)}
+              </p>
+              {/* Print-hidden: a PDF of a ticket with a "Save as PDF" button on
+                  it is a button somebody will try to press on paper. */}
+              <span className="es-tickets-print-hide">
+                <TicketActions orderId={order.orderId} onPrintingChange={setPrinting} />
+              </span>
+            </div>
           </header>
 
           {/* BRD §17 — a cancelled event keeps its tickets and says so. Deleting

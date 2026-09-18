@@ -17,6 +17,20 @@ import { zoneLabel } from './venueZones';
  * where a seat goes — that is the point of the contract test.
  * ─────────────────────────────────────────────────────────────────────────────
  */
+/**
+ * The default for `zones`, hoisted out of the parameter list.
+ *
+ * A literal `[]` in a default parameter allocates a NEW ARRAY on every render
+ * where the prop is absent — which made `bounds` below a new object each time,
+ * and a new bounds object re-frames the viewport, which re-renders, forever.
+ * Door sales renders this map without zones and hit exactly that.
+ *
+ * `usePanZoom` no longer loops on a fresh-but-equal bounds either, so this is
+ * now belt as well as brace: it also stops `contentBounds` being recomputed on
+ * every render for no reason.
+ */
+const NO_ZONES = Object.freeze([]);
+
 export default function SeatMapCanvas({
   tables = [],
   seats = [],
@@ -28,7 +42,7 @@ export default function SeatMapCanvas({
    * drawn under the seats and take no pointer events, so nothing about picking
    * a seat changes; `ZoneShape` argues both at length.
    */
-  zones = [],
+  zones = NO_ZONES,
   selectedSeatIds = new Set(),
   selectedTableIds = new Set(),
   // A tier to pick out: its seats stay bright, the rest are dimmed. Never a
