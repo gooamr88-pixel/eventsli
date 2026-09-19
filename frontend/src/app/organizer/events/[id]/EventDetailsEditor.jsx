@@ -48,6 +48,7 @@ function fromEvent(event) {
     description: event.description || '',
     venueName: event.venue?.name || '',
     venueAddress: event.venue?.address || '',
+    city: event.city || '',
     timezone: event.timezone,
     startsAt: toLocalInput(event.startsAt, event.timezone),
     endsAt: toLocalInput(event.endsAt, event.timezone),
@@ -68,6 +69,9 @@ export default function EventDetailsEditor({ event, onSaved }) {
   const [categories, setCategories] = useState([]);
   const [form, setForm] = useState(() => fromEvent(event));
   const [busy, setBusy] = useState(false);
+  // Set on the first save attempt, so the venue fields are not flagged red
+  // before anybody has touched them.
+  const [touched, setTouched] = useState(false);
   const [error, setError] = useState(null);
 
   // Re-seeded when the event itself changes (after a save, or another action
@@ -103,6 +107,28 @@ export default function EventDetailsEditor({ event, onSaved }) {
   const titleInvalid = form.title.trim().length < 3;
   const blocked = endsBeforeStart || perOrderInvalid || titleInvalid;
 
+  /**
+   * THE VENUE IS REQUIRED TO SUBMIT, NOT TO SAVE A DRAFT.
+   *
+   * A draft is where an organizer works before the room is booked, so
+   * refusing to save one without a venue does not produce a venue — it
+   * produces "TBC" in three boxes, or a lost edit for anyone who came here
+   * to change the title. Once the event is with Eventsli or on sale, the
+   * answer has to stay true, and emptying it out is refused.
+   *
+   * `POST /events/:id/submit` enforces the same rule on the way in, so a
+   * draft still cannot reach the review queue without all three.
+   */
+  const venueOptional = ['draft', 'rejected'].includes(event.status);
+  const venueMissing = !form.venueName.trim() || !form.venueAddress.trim() || !form.city.trim();
+  /** The message a missing part gets: a refusal, or a reminder. */
+  const venueNote = (value, refusal) => {
+    if (value.trim()) return {};
+    return venueOptional
+      ? { hint: `${refusal} You can save without it, but not submit.` }
+      : { error: touched ? refusal : null };
+  };
+
   const zones = zonesFor(event.country);
   const zoneOptions = zones.some(([z]) => z === form.timezone) ? zones : [[form.timezone, form.timezone], ...zones];
 
@@ -110,11 +136,16 @@ export default function EventDetailsEditor({ event, onSaved }) {
     e.preventDefault();
     if (blocked || changedKeys.length === 0) return;
 
+    // An event already with Eventsli or on sale cannot have its venue emptied
+    // out; a draft can be saved without one. See `venueOptional` above.
+    setTouched(true);
+    if (!venueOptional && venueMissing) return;
+
     const body = {};
     for (const key of changedKeys) {
       if (key === 'startsAt' || key === 'endsAt' || key === 'timezone') continue;
       if (key === 'maxTicketsPerOrder') body.maxTicketsPerOrder = perOrder;
-      else if (key === 'venueName' || key === 'venueAddress') body[key] = form[key].trim() || null;
+      else if (key === 'venueName' || key === 'venueAddress' || key === 'city') body[key] = form[key].trim() || null;
       else if (typeof form[key] === 'string') body[key] = form[key].trim();
       else body[key] = form[key];
     }
@@ -193,10 +224,21 @@ export default function EventDetailsEditor({ event, onSaved }) {
         {!live && (
           <>
             <div className="fx-grid fx-grid--2">
-              <Field label="Venue name" name="venueName" optional maxLength={200}
+              <Field label="Venue name" name="venueName" required={!venueOptional} maxLength={200}
+                {...venueNote(form.venueName, 'Add the venue name.')}
                 value={form.venueName} onChange={set('venueName')} />
-              <Field label="Address" name="venueAddress" optional maxLength={300}
+              <Field label="Street address" name="venueAddress" required={!venueOptional} maxLength={300}
+                {...venueNote(form.venueAddress, 'Add the street address.')}
                 value={form.venueAddress} onChange={set('venueAddress')} />
+              {/* The field that makes an event findable. "Events near me"
+                  matches `events.city` against a local coordinate table, and
+                  no organizer form had ever asked for one — so every venue
+                  typed by hand was invisible to it. */}
+              <Field label="City" name="city" required={!venueOptional} maxLength={120}
+                autoComplete="address-level2"
+                hint="Buyers filter by city, and this is what puts your event in “near me”."
+                {...venueNote(form.city, 'Add the city.')}
+                value={form.city} onChange={set('city')} />
             </div>
 
             <div className="fx-grid fx-grid--2">

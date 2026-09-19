@@ -12,6 +12,7 @@ import { ErrorNotice } from '../../../components/Feedback';
 import { organizerNavGroups } from '../../nav/organizerNav';
 import { EventProvider } from './EventContext';
 import EventActions from './EventActions';
+import BuildNav from './BuildNav';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -80,6 +81,11 @@ export default function EventLayout({ children }) {
       <div className="fx-stack">
         <EventHeader event={state.event} eventId={id} onChanged={refresh} />
         {children}
+        {/* Once, here, rather than in each of the nine build pages — every one
+            of them would have to remember, and the one that forgot would be
+            the dead end this exists to remove. `BuildNav` renders nothing on
+            the screens that are not steps. */}
+        <BuildNav />
       </div>
     </EventProvider>
   );

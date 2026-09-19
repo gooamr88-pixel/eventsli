@@ -77,7 +77,22 @@ router.post(
 
 router.get('/', c.list);
 
+/**
+ * Started and never sent — with what each one is waiting on.
+ *
+ * BEFORE `/:eventId`, and it has to stay there: Express matches in order, so
+ * registered after it this path would be read as an event id called "drafts"
+ * and answered by `verifyEventOwner` with a 404.
+ */
+const drafts = require('../controllers/draftController');
+
+router.get('/drafts', drafts.list);
+
 router.get('/:eventId', verifyEventOwner, c.get);
+
+// A draft is private and has never sold anything, so the organizer may remove
+// it outright. Everything else archives — see the controller.
+router.delete('/:eventId', verifyEventOwner, drafts.remove);
 
 router.patch(
   '/:eventId',
@@ -169,6 +184,11 @@ router.delete('/:eventId/logo', verifyEventOwner, cover.clearLogo);
 
 // BRD §21 — the confirmation step, before submitting.
 router.post('/:eventId/accept-terms', verifyEventOwner, c.acceptTerms);
+
+// Everything the organizer is about to agree to — the event, every fee, what a
+// buyer pays and what they receive — read-only, for the confirmation dialog
+// that now stands in front of the button below.
+router.get('/:eventId/submission-preview', verifyEventOwner, c.submissionPreview);
 
 // BRD §16 — an organizer submits; only an admin publishes.
 router.post('/:eventId/submit', verifyEventOwner, c.submitForReview);

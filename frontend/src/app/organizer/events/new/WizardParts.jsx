@@ -145,6 +145,7 @@ export function Review({ form, ticketed, startIso, choices, onEdit }) {
     ['basics', 'Category', categoryLabel(form.category)],
     ['when', 'Starts', form.startsAt ? formatEventTime(startIso, form.timezone) : '—'],
     ['when', 'Venue', form.venueName.trim() || 'Not added yet'],
+    ['when', 'City', form.city.trim() || 'Not added yet'],
     ...(ticketed ? [
       ['tickets', 'Tickets', ADMISSION_TYPES.find(([v]) => v === form.admissionType)?.[1]],
       // Meaningless without a map, so it is left off the summary entirely

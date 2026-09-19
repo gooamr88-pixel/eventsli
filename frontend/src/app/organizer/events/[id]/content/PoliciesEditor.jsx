@@ -6,7 +6,8 @@ import { Loading, Empty, Notice } from '../../../../components/Feedback';
 import FormError from '../../../../components/forms/FormError';
 import { useConfirm } from '../../../../components/ui/Confirm';
 import { useToast } from '../../../../components/ui/Toast';
-import { useContentSection } from './useContentSection';
+import { useContentSection, useSectionDraft } from './useContentSection';
+import SaveBar from './SaveBar';
 import RowControls from './RowControls';
 
 /**
@@ -40,6 +41,22 @@ export default function PoliciesEditor({ eventId }) {
   const confirm = useConfirm();
   const toast = useToast();
   const [draft, setDraft] = useState({ kind: 'refund', title: '', body: '' });
+
+  /**
+   * Pending edits to SAVED policies. `draft` above is the blank add-form —
+   * a different thing with the same name in English.
+   *
+   * `kind` is deliberately NOT in here: it is a `<select>`, and choosing from
+   * one is a single deliberate act whose result is visible, like add and
+   * remove. It stays immediate.
+   */
+  const rows = useSectionDraft({
+    items,
+    edit: (id, patch) => edit(id, {
+      ...(patch.title !== undefined ? { title: String(patch.title || '').trim() } : {}),
+      ...(patch.body !== undefined ? { body: String(patch.body || '').trim() } : {}),
+    }),
+  });
 
   async function submit(e) {
     e.preventDefault();
@@ -95,14 +112,14 @@ export default function PoliciesEditor({ eventId }) {
               <div className="fx-row flex-wrap items-end gap-2">
                 <label className="fx-stack fx-stack--sm fx-min0 flex-1 gap-1">
                   <span className="text-xs text-subtle">Heading</span>
+                  {/* Held as a draft and saved on the button below — these
+                      were `defaultValue` + `onBlur`, which wrote on every tab
+                      through the row and never said whether it had worked. */}
                   <input
                     className="es-input es-input--sm"
-                    defaultValue={policy.title}
+                    value={rows.valueOf(policy, 'title')}
                     maxLength={120}
-                    onBlur={(e) => {
-                      const next = e.target.value.trim();
-                      if (next && next !== policy.title) edit(policy.id, { title: next });
-                    }}
+                    onChange={(e) => rows.setField(policy.id, 'title', e.target.value)}
                   />
                 </label>
                 <label className="fx-stack fx-stack--sm gap-1">
@@ -122,12 +139,9 @@ export default function PoliciesEditor({ eventId }) {
                 <textarea
                   className="es-input"
                   rows={5}
-                  defaultValue={policy.body}
+                  value={rows.valueOf(policy, 'body')}
                   maxLength={20000}
-                  onBlur={(e) => {
-                    const next = e.target.value.trim();
-                    if (next && next !== policy.body) edit(policy.id, { body: next });
-                  }}
+                  onChange={(e) => rows.setField(policy.id, 'body', e.target.value)}
                 />
               </label>
 
@@ -158,6 +172,15 @@ export default function PoliciesEditor({ eventId }) {
           ))}
         </ul>
       )}
+
+      <SaveBar
+        dirty={rows.dirty}
+        status={rows.status}
+        failure={rows.failure}
+        onSave={rows.save}
+        onDiscard={rows.discard}
+        label="policy changes"
+      />
 
       <form onSubmit={submit} className="fx-stack fx-stack--sm border-t border-border-base pt-4">
         <div className="fx-row flex-wrap items-end gap-2">

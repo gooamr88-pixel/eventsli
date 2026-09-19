@@ -3,13 +3,16 @@ const { uniqueSlug } = require('../utils/slug');
 const events = require('../services/eventService');
 const terms = require('../services/termsService');
 const {
-  termsAcceptedFor, TERMS_ACCEPTABLE_FROM, paymentChoices, paymentFlags, paymentReadiness,
+  termsAcceptedFor, TERMS_ACCEPTABLE_FROM, paymentChoices, paymentFlags,
 } = require('../services/eventRules');
 // The namespace as well as the named imports: `setup` below calls two more of
 // them, and adding every one to the destructuring above makes a long list
 // longer without making anything clearer.
 const rules = require('../services/eventRules');
-const { canReceivePayouts } = require('../utils/payouts');
+// The submit checks, the readiness read and the `needs` derivation live in one
+// service because `submit` and the pre-submit preview must never disagree
+// about what is outstanding.
+const submission = require('../services/submissionService');
 const { parsePagination, applyPagination, buildMeta } = require('../middleware/pagination');
 const { sendOk, sendFail } = require('../utils/responseEnvelope');
 const { safeSearch } = require('../utils/search');
@@ -27,32 +30,10 @@ const SELECT = `
   accepts_stripe, accepts_manual, archived_at, archived_from
 `;
 
-/**
- * Where the organizer stands on what an event depends on: is the organization
- * set up, can Stripe pay them, do they have a manual method. Read fresh — the
- * access context caches `canReceivePayouts` for seconds, and these decisions
- * must not be made on a stale answer.
- */
-async function organizerReadiness(organizerId) {
-  const [{ data: org, error }, { count, error: mErr }] = await Promise.all([
-    supabase.from('organizers')
-      .select('display_name, legal_name, description, policies_accepted_at, stripe_onboarding_complete, stripe_payouts_enabled')
-      .eq('id', organizerId).maybeSingle(),
-    supabase.from('organizer_payment_methods')
-      .select('id', { count: 'exact', head: true })
-      .eq('organizer_id', organizerId).eq('is_active', true),
-  ]);
-  if (error) throw new Error(error.message);
-  if (mErr) throw new Error(mErr.message);
-  // Required here, not at the top: organizerController requires nothing from
-  // this file, but keeping the edge one-way at load time costs nothing.
-  const { isSetupComplete } = require('./organizerController');
-  return {
-    setupComplete: isSetupComplete(org),
-    stripeReady: canReceivePayouts(org),
-    manualReady: (count || 0) > 0,
-  };
-}
+// Both moved to services/submissionService.js, where `submit` and its preview
+// read them from the same place. Bound to the old names so every call site
+// below reads as it always has.
+const { organizerReadiness, eventSetup: setup } = submission;
 
 const PAYMENT_UNAVAILABLE = 'Choose a payment option you have set up: connect Stripe or add a manual payment method first.';
 
@@ -186,54 +167,6 @@ async function get(req, res, next) {
   } catch (err) {
     return next(err);
   }
-}
-
-/**
- * ─────────────────────────────────────────────────────────────────────────────
- * WHAT THIS EVENT NEEDS, answered by the API rather than by each screen.
- *
- * The organizer's dashboard used to show every section to everybody: a seating
- * map to someone running a free workshop, a Stripe setup step to someone
- * charging nothing. Each of those is a question the organizer has to work out
- * is not for them — and the system already knew.
- *
- * COMPUTED SERVER-SIDE, not in the browser, and that is the whole point. The
- * launch checklist, the sub-navigation, the submit guard and the API's own
- * refusals all branch on this. Worked out separately in each, they drift, and
- * the shape that takes is a checklist demanding a step the navigation does not
- * offer — which an organizer cannot resolve from the outside.
- *
- * `isFree` is DERIVED FROM THE PRICES, every time, never stored: a stored flag
- * and a price list drift apart, and only one of them is what the buyer is
- * charged. Whole-table prices count, because BRD §25 lets a table be bought as
- * a unit at its own price.
- * ─────────────────────────────────────────────────────────────────────────────
- */
-async function setup(event) {
-  const [{ data: tiers }, { data: map }] = await Promise.all([
-    supabase.from('ticket_tiers').select('price_cents').eq('event_id', event.id),
-    supabase.from('venue_maps').select('id').eq('event_id', event.id).maybeSingle(),
-  ]);
-
-  let tables = [];
-  if (map) {
-    const { data } = await supabase.from('tables').select('price_cents').eq('venue_map_id', map.id);
-    tables = data || [];
-  }
-
-  const isFree = rules.isFreeEvent(
-    (tiers || []).map((t) => ({ priceCents: Number(t.price_cents) })),
-    tables.map((t) => ({ priceCents: t.price_cents === null ? null : Number(t.price_cents) })),
-  );
-
-  return {
-    isFree,
-    needs: rules.eventNeeds({
-      listingType: event.listing_type,
-      admissionType: event.admission_type || 'reserved',
-      isFree,
-    }),
-  };
 }
 
 /**
@@ -402,62 +335,31 @@ async function submitForReview(req, res, next) {
   try {
     const { data: event } = await supabase
       .from('events')
-      .select('id, organizer_id, status, listing_type, admission_type, starts_at, ends_at, accepts_stripe, accepts_manual')
+      .select(submission.SUBMIT_SELECT)
       .eq('id', req.params.eventId).single();
 
-    if (!events.canTransition(event.status, 'pending_review')) {
-      return sendFail(res, {
-        status: 409, error: 'CONFLICT',
-        message: `An event that is ${event.status} cannot be submitted for review.`,
-      });
-    }
-
-    // BRD §21 — the confirmation step. Accepting the terms is what turns the
-    // financial settings from something displayed into something agreed.
-    const { accepted, termsId, version } = await terms.hasAcceptedCurrent({
-      userId: req.user.id, audience: 'organizer', eventId: event.id,
-    });
-    if (!accepted) {
-      return sendFail(res, {
-        status: 403, error: 'TERMS_NOT_ACCEPTED',
-        message: 'Review and accept the organizer terms for this event before submitting it.',
-        meta: { termsId, version },
-      });
-    }
-
-    if (new Date(event.starts_at) <= new Date()) {
-      return sendFail(res, {
-        status: 400, error: 'VALIDATION_ERROR',
-        message: 'This event starts in the past. Update the date before submitting.',
-      });
-    }
-
     /**
-     * A ticketed event cannot go on sale with no way to take the money — unless
-     * there is no money.
+     * EVERY CHECK, IN ONE PLACE, AND THE FIRST ONE REFUSES.
      *
-     * `isFree` is read from the same derivation the dashboard shows the
-     * organizer, so the submit button and the checklist cannot disagree about
-     * whether a payment method is required. Demanding Stripe onboarding for an
-     * event that will never charge anybody is where a community organizer
-     * abandons the product.
+     * These used to be written out here: the status transition, the terms, the
+     * date, the venue, the payment channel. They now come from the service the
+     * pre-submit preview also reads, so the dialog an organizer confirms and
+     * the endpoint that answers them cannot disagree.
+     *
+     * Still first-blocker-wins, with the same status, code, message and meta
+     * each check has always produced — the client maps several of those codes
+     * to a recovery action.
      */
-    const readiness = await organizerReadiness(event.organizer_id);
-    const { isFree } = await setup(event);
-    const payment = paymentReadiness({
-      listingType: event.listing_type,
-      acceptsStripe: event.accepts_stripe,
-      acceptsManual: event.accepts_manual,
-      isFree,
-      ...readiness,
+    const { blockers, termsId } = await submission.submissionBlockers({
+      event, userId: req.user.id,
     });
-    if (!payment.ok) {
+    if (blockers.length > 0) {
+      const [first] = blockers;
       return sendFail(res, {
-        status: 409, error: 'PAYMENT_METHOD_REQUIRED',
-        message: payment.reason === 'NO_CHANNEL'
-          ? 'Choose how buyers pay for this event (Stripe, manual payment, or both) before submitting it.'
-          : 'The payment option on this event is not set up yet. Connect Stripe or add a manual payment method, then submit.',
-        meta: { reason: payment.reason },
+        status: first.status,
+        error: first.error,
+        message: first.message,
+        ...(first.meta ? { meta: first.meta } : {}),
       });
     }
 
@@ -476,6 +378,27 @@ async function submitForReview(req, res, next) {
 
     if (error) throw new Error(error.message);
     return sendOk(res, shape(data, { currentTermsId: termsId }));
+  } catch (err) {
+    return next(err);
+  }
+}
+
+// ─── GET /events/:eventId/submission-preview ────────────────────────────────
+/**
+ * WHAT THE ORGANIZER IS ABOUT TO AGREE TO, before anything is sent.
+ *
+ * Read-only, and deliberately separate from `submit`: this is what fills the
+ * confirmation dialog — the event as buyers will see it, every fee, what a
+ * buyer pays, what Eventsli takes, what Stripe costs, what the organizer
+ * receives, and the policies that will travel with the ticket. Pressing Submit
+ * used to send the event on the first click, which is a decision about money
+ * made on a button with no figures next to it.
+ */
+async function submissionPreview(req, res, next) {
+  try {
+    return sendOk(res, await submission.preview({
+      eventId: req.params.eventId, userId: req.user.id,
+    }));
   } catch (err) {
     return next(err);
   }
@@ -632,6 +555,7 @@ function shapeCancellationRequest(r) {
 }
 
 module.exports = {
-  create, list, get, update, submitForReview, acceptTerms, shape, shapeCancellationRequest,
+  create, list, get, update, submitForReview, submissionPreview, acceptTerms, shape,
+  shapeCancellationRequest,
   organizerReadiness, SELECT,
 };

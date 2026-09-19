@@ -3617,13 +3617,20 @@ body:has(.es-buybar) { padding-block-end: calc(5.5rem + var(--fx-safe-b)); }
    No grayscale filter. It is the convention on pages like this and it is
    a mistake here: it overrides a brand's own colour, which is usually the
    one thing a sponsorship agreement is specific about. */
+/* The tile grew from 3.5rem to 4.5rem, and a little more again from `sm`.
+   At 56px a contained wordmark — which is most sponsor artwork — resolved
+   to roughly 20px of actual letterform once its own padding was allowed
+   for, which is smaller than the body text beside it. A sponsor's logo
+   being the least legible thing in the section is the opposite of what
+   they bought. */
 .es-sponsor {
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 3.5rem;
+  height: 4.5rem;
   padding-inline: 0.5rem;
 }
+@media (width >= theme(--breakpoint-sm)) { .es-sponsor { height: 5.25rem; } }
 .es-sponsor__mark {
   max-height: 100%;
   max-width: 100%;
@@ -5897,6 +5904,322 @@ a.es-sponsor:hover { opacity: 0.7; }
   .es-evcard--adaptive .es-evcard__price b { font-size: var(--es-text-base); }
 }
 
+
+/* ── .es-savebar — unsaved work, and the button that keeps it ───────────
+   Sticky to the bottom of its section, because these lists are long and a
+   Save button at the foot of nine policies is one you have to go and find.
+   Appears only when there is something to save, or just after a save so the
+   tick is actually seen. */
+.es-savebar {
+  position: sticky;
+  inset-block-end: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-block-start: 0.5rem;
+  padding: 0.625rem 0.875rem;
+  border: 1px solid var(--es-border);
+  border-radius: var(--es-radius-md);
+  background: var(--es-surface);
+  box-shadow: var(--es-shadow-lg);
+}
+.es-savebar__status { min-width: 0; font-size: var(--es-text-sm); color: var(--es-text-muted); }
+.es-savebar__ok { display: inline-flex; align-items: center; gap: 0.375rem; color: var(--es-accent); font-weight: 600; }
+.es-savebar__bad { color: var(--es-danger); }
+
+/* ── .es-draft — one unfinished event, and what it is waiting on ────────
+   Stacked on a phone with the buttons full width underneath; one row from
+   640 up, where the progress and the actions fit beside each other. */
+.es-draft {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid var(--es-border);
+  border-radius: var(--es-radius-md);
+}
+.es-draft__state {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-block-start: 0.375rem;
+  font-size: var(--es-text-xs);
+  color: var(--es-text-muted);
+}
+/* Narrow on purpose: this is a glance, not a chart. It shares a line with the
+   count and the next step, and a full-width bar would push both onto their
+   own row on a phone. */
+.es-draft__bar {
+  appearance: none;
+  flex: 0 0 4.5rem;
+  height: 0.375rem;
+  border: 0;
+  border-radius: var(--es-radius-full);
+  background: var(--es-bg-sunken);
+  overflow: hidden;
+}
+.es-draft__bar::-webkit-progress-bar { background: var(--es-bg-sunken); }
+.es-draft__bar::-webkit-progress-value { background: var(--es-accent); border-radius: var(--es-radius-full); }
+.es-draft__bar::-moz-progress-bar { background: var(--es-accent); border-radius: var(--es-radius-full); }
+.es-draft__reason {
+  margin-block-start: 0.375rem;
+  font-size: var(--es-text-xs);
+  color: var(--es-text-muted);
+}
+.es-draft__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  width: 100%;
+}
+.es-draft__actions > * { flex: 1 1 8rem; justify-content: center; }
+@media (min-width: 640px) {
+  .es-draft { flex-wrap: nowrap; align-items: center; }
+  .es-draft__actions { width: auto; flex: 0 0 auto; }
+  .es-draft__actions > * { flex: 0 0 auto; }
+}
+
+/* ── .es-adminentry — the door to the console, on an organizer's page ───
+   Deliberately not styled like the cards around it: it leads somewhere else
+   entirely, and an admin should never mistake it for part of their own
+   dashboard. Stacked on a phone, one row from 640 up. */
+.es-adminentry {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.875rem;
+  padding: 1rem;
+  border: 1px solid var(--es-accent-edge);
+  border-radius: var(--es-radius-lg);
+  background: var(--es-accent-wash);
+}
+.es-adminentry__mark {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: var(--es-radius-full);
+  background: var(--es-surface);
+  color: var(--es-accent);
+}
+.es-adminentry__title {
+  font-size: var(--es-text-base);
+  font-weight: 600;
+  color: var(--es-text);
+}
+.es-adminentry__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  width: 100%;
+}
+.es-adminentry__actions > * { flex: 1 1 10rem; justify-content: center; }
+@media (min-width: 640px) {
+  .es-adminentry { flex-wrap: nowrap; align-items: center; padding: 1.125rem 1.25rem; }
+  .es-adminentry__actions { width: auto; flex: 0 0 auto; }
+  .es-adminentry__actions > * { flex: 0 0 auto; }
+}
+
+/* ── .es-review — the last look before an event is submitted ────────────
+   A dialog with three fixed parts and one that scrolls: a heading that says
+   what this is, the review itself, and a footer holding the checkbox and the
+   two buttons. The footer does NOT scroll away — the confirmation is the
+   point of the screen, and having to scroll back down to find it after
+   reading is how people confirm without reading. `dvh`, not `vh`: on a phone
+   the browser chrome moves, and `vh` puts the buttons under it. */
+.es-dialog--wide { width: min(46rem, calc(100vw - 1.5rem)); }
+.es-review {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - 2rem);
+}
+.es-review__head {
+  padding: 1.25rem 1.25rem 1rem;
+  border-block-end: 1px solid var(--es-border);
+}
+.es-review__eyebrow {
+  font-size: var(--es-text-xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--es-accent);
+}
+.es-review__title {
+  margin-block: 0.125rem 0.25rem;
+  font-size: var(--es-text-xl);
+  line-height: 1.25;
+  color: var(--es-text);
+}
+.es-review__body {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  overflow-y: auto;
+  padding: 1.25rem;
+  /* The one scrolling region. Momentum scrolling inside a modal is the
+     difference between a reviewable dialog and a trapped one on iOS. */
+  -webkit-overflow-scrolling: touch;
+}
+.es-review__section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  padding: 0.875rem;
+  border: 1px solid var(--es-border);
+  border-radius: var(--es-radius-md);
+  background: var(--es-bg-sunken);
+}
+.es-review__heading {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: var(--es-text-sm);
+  font-weight: 600;
+  color: var(--es-text);
+}
+/* Whatever the organizer typed, shown as they typed it — line breaks and all
+   — without letting a pasted URL push the dialog sideways. */
+.es-review__prose {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: var(--es-text-sm);
+  line-height: 1.55;
+  color: var(--es-text-muted);
+}
+.es-review__blockers { margin-inline-start: 1.1rem; list-style: disc; }
+.es-review__blockers li { margin-block-start: 0.25rem; }
+.es-review__policies {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.es-review__tag {
+  margin-inline-start: 0.5rem;
+  padding: 0.0625rem 0.4375rem;
+  border-radius: var(--es-radius-full);
+  background: var(--es-accent-subtle);
+  font-size: var(--es-text-xs);
+  font-weight: 600;
+  color: var(--es-accent);
+}
+.es-review__foot {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  border-block-start: 1px solid var(--es-border);
+  background: var(--es-surface);
+}
+.es-review__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+/* Full-width buttons on a phone, where a 44px target beats a tidy row. */
+.es-review__actions > * { flex: 1 1 10rem; justify-content: center; }
+@media (min-width: 640px) {
+  .es-review__head { padding: 1.5rem 1.5rem 1.125rem; }
+  .es-review__body { padding: 1.5rem; }
+  .es-review__foot { padding: 1rem 1.5rem; }
+  .es-review__actions > * { flex: 0 0 auto; }
+}
+
+/* ── .es-money — one ticket type, and where its money goes ──────────────
+   The two rows that matter are marked `data-strong` rather than given their
+   own class: they are the same row with more weight, and a second class
+   would let the two drift apart. */
+.es-money {
+  padding: 0.75rem;
+  border: 1px solid var(--es-border);
+  border-radius: var(--es-radius-sm);
+  background: var(--es-surface);
+}
+.es-money__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-weight: 600;
+}
+.es-money__detail {
+  margin-block-start: 0.25rem;
+  font-size: var(--es-text-xs);
+  color: var(--es-text-subtle);
+}
+.es-money__rows {
+  margin-block-start: 0.625rem;
+  border-block-start: 1px solid var(--es-border);
+}
+.es-money__row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-block: 0.375rem;
+  font-size: var(--es-text-sm);
+  color: var(--es-text-muted);
+}
+.es-money__row[data-strong] {
+  border-block-start: 1px solid var(--es-border);
+  padding-block-start: 0.5rem;
+  font-weight: 600;
+  color: var(--es-text);
+}
+
+/* ── .es-buildnav — the way on, at the foot of a build screen ───────────
+   Every screen that makes an event sellable used to end with nothing: it
+   saved, and offered no next step. Getting to the next one meant knowing to
+   go back to the overview and read the checklist again — a step the
+   creation wizard had just spent five screens teaching the organizer not to
+   need. */
+.es-buildnav {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-block-start: var(--fx-gap);
+  padding-block-start: var(--fx-gap-sm);
+  border-block-start: 1px solid var(--es-border);
+}
+.es-buildnav__back,
+.es-buildnav__next {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  min-width: 0;
+  min-height: var(--fx-touch);
+  max-width: 48%;
+  padding: 0.625rem 0.875rem;
+  border: 1px solid var(--es-border);
+  border-radius: var(--es-radius-md);
+  color: var(--es-text);
+  text-decoration: none;
+  transition: border-color var(--es-transition-fast), background var(--es-transition-fast);
+}
+/* The next step is the one being offered, so it is the one that looks like
+   an offer — the way back is a way back. */
+.es-buildnav__next { border-color: var(--es-accent); background: var(--es-accent-wash); }
+.es-buildnav__back:hover { border-color: var(--es-border-strong); background: var(--es-bg-sunken); }
+.es-buildnav__next:hover { background: var(--es-surface); }
+
+.es-buildnav__label {
+  display: block;
+  font-family: var(--es-font-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--es-text-subtle);
+}
+.es-buildnav__name { display: block; font-size: var(--es-text-sm); font-weight: 600; }
+.es-buildnav__next .es-buildnav__name { color: var(--es-accent); }
+.es-buildnav__arrow { display: flex; flex: none; color: var(--es-text-subtle); }
+.es-buildnav__next .es-buildnav__arrow { color: var(--es-accent); }
+.es-buildnav__arrow--back { transform: rotate(180deg); }
 
 /* ── .es-evbar — which event am I working on ────────────────────────────
    The first thing on every organizer screen. The switcher used to live in

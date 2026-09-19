@@ -7,7 +7,8 @@ import { Loading, Empty } from '../../../../components/Feedback';
 import FormError from '../../../../components/forms/FormError';
 import { useConfirm } from '../../../../components/ui/Confirm';
 import { useToast } from '../../../../components/ui/Toast';
-import { useContentSection, uploadImage, IMAGE_ACCEPT } from './useContentSection';
+import { useContentSection, useSectionDraft, uploadImage, IMAGE_ACCEPT } from './useContentSection';
+import SaveBar from './SaveBar';
 import RowControls from './RowControls';
 
 /**
@@ -38,6 +39,21 @@ export default function SponsorsEditor({ eventId }) {
   const confirm = useConfirm();
   const toast = useToast();
   const [draft, setDraft] = useState({ name: '', linkUrl: '', level: 'partner' });
+
+  /**
+   * Pending edits to SAVED sponsors. `level` stays immediate — it is a
+   * `<select>`, and the server re-sorts the list by it, so deferring it would
+   * mean a row that jumps position only once Save is pressed.
+   */
+  const rows = useSectionDraft({
+    items,
+    edit: (id, patch) => edit(id, {
+      ...(patch.name !== undefined ? { name: String(patch.name || '').trim() } : {}),
+      // Empty is `null`, not `''` — the column's own "no website", which is
+      // what stops a dead anchor rendering on the event page.
+      ...(patch.linkUrl !== undefined ? { linkUrl: String(patch.linkUrl || '').trim() || null } : {}),
+    }),
+  });
   const [file, setFile] = useState(null);
   const [saving, setSaving] = useState(false);
   const input = useRef(null);
@@ -116,15 +132,13 @@ export default function SponsorsEditor({ eventId }) {
                 </div>
 
                 <div className="fx-min0 flex-1">
+                  {/* Held as a draft and saved on the button below. */}
                   <input
                     className="es-input es-input--sm"
-                    defaultValue={sponsor.name}
+                    value={rows.valueOf(sponsor, 'name')}
                     maxLength={120}
                     aria-label={`Name of ${sponsor.name}`}
-                    onBlur={(e) => {
-                      const next = e.target.value.trim();
-                      if (next && next !== sponsor.name) edit(sponsor.id, { name: next });
-                    }}
+                    onChange={(e) => rows.setField(sponsor.id, 'name', e.target.value)}
                   />
                 </div>
 
@@ -142,13 +156,10 @@ export default function SponsorsEditor({ eventId }) {
                 className="es-input es-input--sm"
                 type="url"
                 inputMode="url"
-                defaultValue={sponsor.linkUrl || ''}
+                value={rows.valueOf(sponsor, 'linkUrl')}
                 placeholder="https://sponsor.example"
                 aria-label={`Website for ${sponsor.name}`}
-                onBlur={(e) => {
-                  const next = e.target.value.trim();
-                  if (next !== (sponsor.linkUrl || '')) edit(sponsor.id, { linkUrl: next || null });
-                }}
+                onChange={(e) => rows.setField(sponsor.id, 'linkUrl', e.target.value)}
               />
 
               <div className="fx-row flex-wrap items-center gap-2">
@@ -179,6 +190,15 @@ export default function SponsorsEditor({ eventId }) {
           ))}
         </ul>
       )}
+
+      <SaveBar
+        dirty={rows.dirty}
+        status={rows.status}
+        failure={rows.failure}
+        onSave={rows.save}
+        onDiscard={rows.discard}
+        label="sponsor changes"
+      />
 
       <form onSubmit={submit} className="fx-stack fx-stack--sm border-t border-border-base pt-4">
         <div className="fx-grid" style={{ '--fx-col': '200px', '--fx-gap': '10px' }}>

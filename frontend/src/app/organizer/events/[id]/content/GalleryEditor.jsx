@@ -7,7 +7,8 @@ import { Loading, Empty } from '../../../../components/Feedback';
 import FormError from '../../../../components/forms/FormError';
 import { useConfirm } from '../../../../components/ui/Confirm';
 import { useToast } from '../../../../components/ui/Toast';
-import { useContentSection, uploadImage, IMAGE_ACCEPT } from './useContentSection';
+import { useContentSection, useSectionDraft, uploadImage, IMAGE_ACCEPT } from './useContentSection';
+import SaveBar from './SaveBar';
 import RowControls from './RowControls';
 
 /**
@@ -35,6 +36,18 @@ export default function GalleryEditor({ eventId }) {
   const toast = useToast();
   const [videoUrl, setVideoUrl] = useState('');
   const [uploading, setUploading] = useState(false);
+
+  /**
+   * Pending caption edits. A caption is the only typed field here — adding a
+   * photo, adding a video, reordering and removing are single deliberate
+   * clicks whose result is visible, and they stay immediate.
+   */
+  const rows = useSectionDraft({
+    items,
+    // Empty is `null`, not `''` — "no caption" is what makes the event page
+    // leave the line out rather than render a blank one under the photo.
+    edit: (id, pending) => edit(id, { caption: String(pending.caption || '').trim() || null }),
+  });
 
   async function addImages(files) {
     if (!files || files.length === 0) return;
@@ -120,19 +133,15 @@ export default function GalleryEditor({ eventId }) {
 
               <label className="fx-stack fx-stack--sm gap-1">
                 <span className="text-xs text-subtle">Caption (optional)</span>
+                {/* Held as a draft and saved on the button below. This was
+                    `defaultValue` + `onBlur`, which wrote on the way past the
+                    field and never said whether the write had landed. */}
                 <input
                   className="es-input es-input--sm"
-                  defaultValue={item.caption || ''}
+                  value={rows.valueOf(item, 'caption')}
                   maxLength={200}
                   placeholder="Add a caption"
-                  // Committed on blur, not per keystroke. Every change here is a
-                  // request, and a request per letter typed is both wasteful and
-                  // a race where the last one to arrive wins rather than the
-                  // last one typed.
-                  onBlur={(e) => {
-                    const next = e.target.value.trim();
-                    if (next !== (item.caption || '')) edit(item.id, { caption: next || null });
-                  }}
+                  onChange={(e) => rows.setField(item.id, 'caption', e.target.value)}
                 />
               </label>
 
@@ -147,6 +156,15 @@ export default function GalleryEditor({ eventId }) {
           ))}
         </ul>
       )}
+
+      <SaveBar
+        dirty={rows.dirty}
+        status={rows.status}
+        failure={rows.failure}
+        onSave={rows.save}
+        onDiscard={rows.discard}
+        label="caption changes"
+      />
 
       <div className="fx-stack fx-stack--sm border-t border-border-base pt-4">
         <input

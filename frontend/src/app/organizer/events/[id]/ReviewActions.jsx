@@ -8,6 +8,7 @@ import FormError from '../../../components/forms/FormError';
 import SubmitButton from '../../../components/forms/SubmitButton';
 import NavIcon from '../../../components/shell/NavIcon';
 import FeeSummary from './FeeSummary';
+import SubmitReview from './SubmitReview';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -37,6 +38,14 @@ export default function ReviewActions({ event, onChanged, buildReady = true }) {
   const [agreed, setAgreed] = useState(false);
   const [busy, setBusy] = useState(null);
   const [error, setError] = useState(null);
+  /**
+   * SUBMIT NOW OPENS A REVIEW, IT DOES NOT SEND.
+   *
+   * The event goes to Eventsli from inside the dialog, after the organizer has
+   * seen the details, every fee, what a buyer pays and what they are left with,
+   * and ticked a box saying so. Nothing else about the two steps above changed.
+   */
+  const [reviewing, setReviewing] = useState(false);
 
   const canSubmit = ['draft', 'rejected'].includes(event.status);
   const accepted = Boolean(event.review?.termsAccepted);
@@ -64,6 +73,10 @@ export default function ReviewActions({ event, onChanged, buildReady = true }) {
     setError(null);
     try {
       const updated = await post(`/events/${event.id}/submit`, undefined, { noRedirect: true });
+      // Closed only once the server has taken it. A dialog that closes on the
+      // click and fails behind the page is how somebody believes an event was
+      // submitted that never was.
+      setReviewing(false);
       toast.success('Eventsli reviews it next — usually within a day. You will get an email either way.', {
         title: 'Submitted for review',
       });
@@ -72,7 +85,12 @@ export default function ReviewActions({ event, onChanged, buildReady = true }) {
       setError(err);
       // New terms published since the page loaded, or an edit elsewhere: the
       // re-read brings the terms step back rather than leaving a dead button.
-      if (['TERMS_NOT_ACCEPTED', 'CONFLICT'].includes(err?.code)) onChanged?.();
+      // The dialog closes with it — what it is showing has just been overtaken,
+      // and the step the organizer now has to repeat is on the page behind it.
+      if (['TERMS_NOT_ACCEPTED', 'CONFLICT'].includes(err?.code)) {
+        setReviewing(false);
+        onChanged?.();
+      }
     } finally {
       setBusy(null);
     }
@@ -167,17 +185,17 @@ export default function ReviewActions({ event, onChanged, buildReady = true }) {
                 {event.status === 'rejected'
                   ? 'Submit it again once you have made the changes Eventsli asked for.'
                   : 'Eventsli reviews every event before it goes on sale. It usually takes a day.'}
+                {' '}Nothing is sent until you have read the summary and confirmed it.
               </p>
               <div>
-                <SubmitButton
+                <button
                   type="button"
-                  busy={busy === 'submit'}
-                  busyLabel="Submitting…"
-                  disabled={!accepted || !buildReady || busy === 'terms'}
-                  onClick={submit}
+                  className="es-btn es-btn--primary"
+                  disabled={!accepted || !buildReady || Boolean(busy)}
+                  onClick={() => { setError(null); setReviewing(true); }}
                 >
-                  {event.status === 'rejected' ? 'Submit again' : 'Submit for review'}
-                </SubmitButton>
+                  {event.status === 'rejected' ? 'Review and submit again' : 'Review and submit'}
+                </button>
               </div>
               {!buildReady
                 ? <p className="text-xs text-subtle">Finish the steps in the checklist first — Eventsli needs to see what you are selling.</p>
@@ -208,6 +226,19 @@ export default function ReviewActions({ event, onChanged, buildReady = true }) {
           <Link href="/organizer/payments" className="es-btn es-btn--secondary es-btn--sm">Set up payment methods</Link>
           <a href="#details" className="es-btn es-btn--ghost es-btn--sm">Choose this event&rsquo;s payment option</a>
         </div>
+      )}
+
+      {/* Mounted only while open, so the preview is fetched when it is asked
+          for and the dialog cannot hold a stale copy of the fees behind a
+          closed door. */}
+      {reviewing && (
+        <SubmitReview
+          eventId={event.id}
+          busy={busy === 'submit'}
+          error={error}
+          onClose={() => setReviewing(false)}
+          onConfirm={submit}
+        />
       )}
 
       {/* BRD §17 — the organizer cannot cancel an event; they request it with

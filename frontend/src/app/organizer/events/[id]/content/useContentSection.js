@@ -23,12 +23,14 @@ import { get, post, patch, put, del } from '../../../../utils/apiClient';
  * knows about. A locally-patched row is right until the first time it is not,
  * and then it is wrong until a reload nobody performs.
  *
- * A REMOVE IS NOT UNDOABLE and nothing here pretends otherwise. There is no
- * draft, no Save button and no history: each edit is a request. That is the
- * opposite of the seat map next door, and deliberately — a seat map is stock
- * somebody paid for and is saved as one atomic replace, while a sponsor logo
- * costs a re-upload. Confirmation before a destructive click is the caller's
- * job, because only the caller knows what the row is.
+ * A REMOVE IS NOT UNDOABLE and nothing here pretends otherwise. Confirmation
+ * before a destructive click is the caller's job, because only the caller knows
+ * what the row is.
+ *
+ * TEXT EDITS ARE HELD AS A DRAFT AND SAVED ON A BUTTON — see `useSectionDraft`
+ * below. Adding, removing and reordering are still immediate: those are single
+ * deliberate clicks whose result is visible, and a Save button for them would
+ * be a second click for something already decided. Typing is the opposite.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 export function useContentSection(eventId, section) {
@@ -143,6 +145,107 @@ export function useContentSection(eventId, section) {
   }, [base, run, reload]);
 
   return { items, error, busy, reload, add, edit, remove, move, setError };
+}
+
+/**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * TYPED EDITS, HELD UNTIL SAVE IS PRESSED.
+ *
+ * WHAT THIS REPLACES. Every text field in these four sections committed on
+ * BLUR: you typed, you tabbed away, and a PATCH went out. It worked, and it
+ * was the wrong contract for text. Three things were wrong with it, in order
+ * of how much they cost:
+ *
+ *   · NOTHING TOLD YOU IT HAD SAVED. The field lost focus and the row looked
+ *     exactly the same whether the request had succeeded, failed, or never
+ *     been sent because nothing had changed. An organizer editing a schedule
+ *     had no way to know their work was kept except to reload the page.
+ *   · A FAILURE WAS INVISIBLE. The error landed in a shared banner that could
+ *     easily be off screen on a long list, while the field still showed the
+ *     text that had not been saved.
+ *   · IT SAVED THINGS NOBODY MEANT TO SAVE. Tabbing through a form to read it
+ *     wrote every field it passed through.
+ *
+ * So typing now goes into a draft, one button commits every dirty row, and the
+ * button says which of the three states it is in. The rows that were already
+ * atomic — add, remove, reorder — are untouched.
+ *
+ * KEYED BY ROW AND FIELD so two people editing two different rows of the same
+ * list produce two independent PATCHes rather than one that overwrites the
+ * other's row with a stale copy.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+export function useSectionDraft({ items, edit }) {
+  const [drafts, setDrafts] = useState({});
+  // 'idle' | 'saving' | 'saved' | 'error'. `saved` is transient and reverts,
+  // because a tick that stays forever stops meaning "just now".
+  const [status, setStatus] = useState('idle');
+  const [failure, setFailure] = useState(null);
+
+  const setField = useCallback((id, key, value) => {
+    setStatus('idle');
+    setDrafts((d) => ({ ...d, [id]: { ...(d[id] || {}), [key]: value } }));
+  }, []);
+
+  /** What a field should show: the draft if it has been touched, else the row. */
+  const valueOf = useCallback(
+    (item, key) => (drafts[item.id] && key in drafts[item.id] ? drafts[item.id][key] : (item[key] ?? '')),
+    [drafts],
+  );
+
+  /**
+   * A DELETED ROW'S DRAFT IS IGNORED, not cleaned up.
+   *
+   * Removing a row whose edits were pending would otherwise leave a draft that
+   * can never be saved and a Save button permanently lit. The obvious fix is an
+   * effect that prunes the map when `items` changes — and React 19's linter
+   * refuses it, correctly: that is a render painted and thrown away.
+   *
+   * Filtering during render is both simpler and more honest. The stale entry
+   * sits in state harmlessly until the next save or discard clears it, and
+   * nothing downstream can see it.
+   */
+  const live = items ? new Set(items.map((i) => i.id)) : null;
+  const dirtyIds = Object.keys(drafts).filter((id) => !live || live.has(id));
+  const dirty = dirtyIds.length > 0;
+
+  const discard = useCallback(() => { setDrafts({}); setStatus('idle'); setFailure(null); }, []);
+
+  const save = useCallback(async () => {
+    if (!dirty || status === 'saving') return { ok: true };
+    setStatus('saving');
+    setFailure(null);
+
+    /**
+     * One row at a time, in order, and STOPPING at the first failure.
+     *
+     * Sequential rather than parallel because these are PATCHes against rows of
+     * one list and the server re-sorts on some of them; firing six at once and
+     * taking whichever answers last is how the list ends up in an order nobody
+     * chose. Six rows is six quick requests, and this is not a hot path.
+     *
+     * Stopping on failure keeps the drafts for the rows that did NOT save, so
+     * pressing Save again retries exactly those. Clearing everything would
+     * silently discard the organizer's unsaved text.
+     */
+    const remaining = { ...drafts };
+    for (const id of dirtyIds) {
+      const answer = await edit(id, drafts[id]);
+      if (!answer?.ok) {
+        setDrafts(remaining);
+        setFailure(answer?.error || null);
+        setStatus('error');
+        return { ok: false };
+      }
+      delete remaining[id];
+    }
+
+    setDrafts({});
+    setStatus('saved');
+    return { ok: true };
+  }, [dirty, dirtyIds, drafts, edit, status]);
+
+  return { setField, valueOf, dirty, save, discard, status, failure };
 }
 
 /**

@@ -13,6 +13,8 @@ import { Segmented } from '../../components/ui/Filters';
 import NavIcon from '../../components/shell/NavIcon';
 import BarChart from '../../components/charts/BarChart';
 import { percent } from '../../components/charts/chartMath';
+import AdminEntry from '../AdminEntry';
+import Drafts from './Drafts';
 import CreateProfile from '../CreateProfile';
 import OrganizerNotices from '../OrganizerNotices';
 import { Attention, Upcoming, RecentOrders, GettingStarted } from './DashboardPanels';
@@ -67,6 +69,11 @@ export default function Dashboard() {
     return (
       <div className="fx-stack">
         <h1 className="sr-only">Dashboard</h1>
+        <AdminEntry />
+        {/* Nothing to list yet in most cases — but an organizer who opened the
+            wizard and left has work in this tab, and this is the only thing
+            that knows about it. */}
+        <Drafts />
         <OrganizerNotices organizer={organizer} payouts={false} />
         <GettingStarted organizer={organizer} />
       </div>
@@ -99,6 +106,10 @@ export default function Dashboard() {
           </>
         )}
       />
+
+      {/* Renders nothing for an ordinary organizer. Above the notices because
+          somebody with approvals waiting came here to get to them. */}
+      <AdminEntry />
 
       {/* Payouts are the first line of Needs you and a step of Getting started. */}
       <OrganizerNotices organizer={organizer} payouts={false} />
@@ -161,6 +172,10 @@ export default function Dashboard() {
 
             <Attention data={data} organizer={organizer} />
           </div>
+
+          {/* Unfinished work, above the finished. Renders nothing when there
+              are no drafts. */}
+          <Drafts />
 
           <div className="es-split es-split--even">
             <Upcoming events={data.upcoming} />

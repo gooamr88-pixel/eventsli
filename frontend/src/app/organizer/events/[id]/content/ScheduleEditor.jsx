@@ -6,8 +6,27 @@ import { Loading, Empty } from '../../../../components/Feedback';
 import FormError from '../../../../components/forms/FormError';
 import { useConfirm } from '../../../../components/ui/Confirm';
 import { useToast } from '../../../../components/ui/Toast';
-import { useContentSection } from './useContentSection';
+import { useContentSection, useSectionDraft } from './useContentSection';
+import SaveBar from './SaveBar';
 import RowControls from './RowControls';
+
+/**
+ * A pending row edit → the patch the API takes.
+ *
+ * Trimming and the empty-to-null rule live here, applied once at save time.
+ * `''` and `null` are different answers to the column: one is an empty string
+ * the page would render as a blank line, the other is "not set".
+ */
+function normaliseRow(patch, timezone) {
+  const out = {};
+  if ('title' in patch) out.title = String(patch.title || '').trim();
+  if ('location' in patch) out.location = String(patch.location || '').trim() || null;
+  if ('description' in patch) out.description = String(patch.description || '').trim() || null;
+  if ('_local' in patch) {
+    out.startsAt = patch._local ? localToInstant(patch._local, timezone) : null;
+  }
+  return out;
+}
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -32,6 +51,32 @@ export default function ScheduleEditor({ eventId, timezone }) {
   const confirm = useConfirm();
   const toast = useToast();
   const [draft, setDraft] = useState({ title: '', startsAt: '', location: '', description: '' });
+
+  /**
+   * The saved rows' pending edits. `rows`, not `draft` — `draft` above is the
+   * blank form for ADDING one, which is a different thing with the same name
+   * in English.
+   *
+   * `edit` is wrapped so normalisation happens ONCE, on save, rather than on
+   * every keystroke: text is trimmed, an emptied optional field becomes `null`
+   * (the column's own "not set", which `''` is not), and the wall-clock string
+   * the datetime input works in becomes an instant in the EVENT's zone. Doing
+   * the conversion per keystroke would try to parse "2026-09-2" on the way to
+   * "2026-09-25".
+   */
+  const rowsDraft = useSectionDraft({
+    items,
+    edit: (id, patch) => edit(id, normaliseRow(patch, timezone)),
+  });
+
+  const rows = {
+    ...rowsDraft,
+    /** The datetime input's own value, from the draft or from the saved row. */
+    local: (item) => (
+      rowsDraft.valueOf({ id: item.id, _local: instantToLocal(item.startsAt, timezone) }, '_local')
+    ),
+    setLocal: (id, value) => rowsDraft.setField(id, '_local', value),
+  };
 
   async function submit(e) {
     e.preventDefault();
@@ -77,16 +122,18 @@ export default function ScheduleEditor({ eventId, timezone }) {
           {items.map((item, index) => (
             <li key={item.id} className="fx-stack fx-stack--sm rounded-(--es-radius-md) border border-border-base p-3">
               <div className="fx-row flex-wrap items-end gap-2">
+                {/* CONTROLLED, AND SAVED ON THE BUTTON. These were
+                    `defaultValue` + `onBlur`, so tabbing through the row to
+                    read it wrote every field it passed, and nothing on screen
+                    ever said whether a write had landed. `draft.valueOf` shows
+                    the typed value over the saved one; `SaveBar` commits. */}
                 <label className="fx-stack fx-stack--sm fx-min0 flex-1 gap-1">
                   <span className="text-xs text-subtle">What</span>
                   <input
                     className="es-input es-input--sm"
-                    defaultValue={item.title}
+                    value={rows.valueOf(item, 'title')}
                     maxLength={160}
-                    onBlur={(e) => {
-                      const next = e.target.value.trim();
-                      if (next && next !== item.title) edit(item.id, { title: next });
-                    }}
+                    onChange={(e) => rows.setField(item.id, 'title', e.target.value)}
                   />
                 </label>
                 <label className="fx-stack fx-stack--sm gap-1">
@@ -94,11 +141,11 @@ export default function ScheduleEditor({ eventId, timezone }) {
                   <input
                     className="es-input es-input--sm"
                     type="datetime-local"
-                    defaultValue={instantToLocal(item.startsAt, timezone)}
-                    onBlur={(e) => {
-                      const next = e.target.value ? localToInstant(e.target.value, timezone) : null;
-                      if (next !== item.startsAt) edit(item.id, { startsAt: next });
-                    }}
+                    /* The draft holds the WALL-CLOCK text the input works in;
+                       it is converted to an instant on save, once, rather than
+                       on every keystroke — half-typed dates do not convert. */
+                    value={rows.local(item)}
+                    onChange={(e) => rows.setLocal(item.id, e.target.value)}
                   />
                 </label>
               </div>
@@ -107,13 +154,10 @@ export default function ScheduleEditor({ eventId, timezone }) {
                 <span className="text-xs text-subtle">Where (optional)</span>
                 <input
                   className="es-input es-input--sm"
-                  defaultValue={item.location || ''}
+                  value={rows.valueOf(item, 'location')}
                   maxLength={120}
                   placeholder="Main stage"
-                  onBlur={(e) => {
-                    const next = e.target.value.trim();
-                    if (next !== (item.location || '')) edit(item.id, { location: next || null });
-                  }}
+                  onChange={(e) => rows.setField(item.id, 'location', e.target.value)}
                 />
               </label>
 
@@ -121,11 +165,8 @@ export default function ScheduleEditor({ eventId, timezone }) {
                 <span className="text-xs text-subtle">Details (optional)</span>
                 <textarea
                   className="es-input" rows={2} maxLength={2000}
-                  defaultValue={item.description || ''}
-                  onBlur={(e) => {
-                    const next = e.target.value.trim();
-                    if (next !== (item.description || '')) edit(item.id, { description: next || null });
-                  }}
+                  value={rows.valueOf(item, 'description')}
+                  onChange={(e) => rows.setField(item.id, 'description', e.target.value)}
                 />
               </label>
 
@@ -141,6 +182,15 @@ export default function ScheduleEditor({ eventId, timezone }) {
           ))}
         </ul>
       )}
+
+      <SaveBar
+        dirty={rows.dirty}
+        status={rows.status}
+        failure={rows.failure}
+        onSave={rows.save}
+        onDiscard={rows.discard}
+        label="schedule changes"
+      />
 
       <form onSubmit={submit} className="fx-stack fx-stack--sm border-t border-border-base pt-4">
         <div className="fx-grid" style={{ '--fx-col': '200px', '--fx-gap': '10px' }}>

@@ -10,8 +10,8 @@ import { categoryLabel } from '../../../lib/categories';
 import { defaultTimeZone, zonesFor } from '../../../lib/timezones';
 import { toIso, browserZone } from '../../../lib/eventTime';
 import {
-  TYPES, STEP_TEXT, STEP_FIELDS, ADMISSION_TYPES, PURCHASE_MODES, FEE_BEARERS,
-  PAYMENT_OPTIONS, draftKey, initialForm, problemsFor,
+  TYPES, STEP_TEXT, ADMISSION_TYPES, PURCHASE_MODES, FEE_BEARERS,
+  PAYMENT_OPTIONS, draftKey, initialForm, problemsFor, blockingFields, SUBMIT_ONLY_FIELDS,
 } from './wizardModel';
 import { TypeChooser, RadioCards, Review } from './WizardParts';
 import Field, { SelectField, TextareaField } from '../../../components/forms/Field';
@@ -128,8 +128,20 @@ function EventWizard({ type, organizer }) {
   const perOrder = Number(form.maxTicketsPerOrder);
 
   const problems = problemsFor({ form, startIso, endIso, choices });
-  const stepValid = STEP_FIELDS[step].every((f) => !problems[f]);
-  const shown = (field) => (showErrors ? problems[field] : null);
+  /**
+   * WHAT BLOCKS CONTINUE, AND WHAT ONLY WARNS.
+   *
+   * The venue fields are asked for here and required at submit, but they do
+   * not hold a draft hostage — an organizer starts an event before the room
+   * is booked, and a form that refuses to move just gets "TBC" typed into it,
+   * which then reaches the listing. See `SUBMIT_ONLY_FIELDS`.
+   */
+  const stepValid = blockingFields(step).every((f) => !problems[f]);
+  const shown = (field) => (
+    showErrors && !SUBMIT_ONLY_FIELDS.includes(field) ? problems[field] : null
+  );
+  /** The same message, said as "you will need this" rather than as a refusal. */
+  const pending = (field) => (problems[field] ? `Needed before you submit. ${problems[field]}` : null);
 
   function go(nextIndex) {
     moved.current = true;
@@ -184,6 +196,9 @@ function EventWizard({ type, organizer }) {
         } : {}),
         ...(form.venueName.trim() ? { venueName: form.venueName.trim() } : {}),
         ...(form.venueAddress.trim() ? { venueAddress: form.venueAddress.trim() } : {}),
+        // The column and the API have always accepted it; nothing ever sent
+        // one, which is why "near me" could not see a manually entered venue.
+        ...(form.city.trim() ? { city: form.city.trim() } : {}),
         ...(form.description.trim() ? { description: form.description.trim() } : {}),
       }, { noRedirect: true });
       try { sessionStorage.removeItem(draftKey(type)); } catch { /* fine */ }
@@ -269,14 +284,27 @@ function EventWizard({ type, organizer }) {
                 />
               </div>
               <Field
-                label="Venue name" name="venueName" optional maxLength={200}
+                label="Venue name" name="venueName" maxLength={200}
                 placeholder="e.g. The Danforth Music Hall"
+                hint={pending('venueName')}
                 value={form.venueName} onChange={set('venueName')}
               />
               <Field
-                label="Address" name="venueAddress" optional maxLength={300} autoComplete="street-address"
-                placeholder="Street, city"
+                label="Street address" name="venueAddress" maxLength={300} autoComplete="street-address"
+                placeholder="e.g. 147 Danforth Ave"
+                hint={pending('venueAddress')}
                 value={form.venueAddress} onChange={set('venueAddress')}
+              />
+              {/* CITY IS ITS OWN FIELD, not the tail of the address line.
+                  "Events near me" matches on `events.city`, so a city buried
+                  inside a free-text address is a city the listing cannot read
+                  — which is why manually entered venues never appeared there. */}
+              <Field
+                label="City" name="city" maxLength={120} autoComplete="address-level2"
+                placeholder="e.g. Toronto"
+                hint={pending('city')
+                  || 'Buyers filter by city, and this is what puts your event in “near me”.'}
+                value={form.city} onChange={set('city')}
               />
             </>
           )}

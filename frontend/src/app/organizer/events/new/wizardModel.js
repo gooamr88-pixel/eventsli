@@ -43,14 +43,42 @@ export const STEP_TEXT = {
   review: ['Check and create', 'It is saved as a private draft. Nothing is public until Eventsli approves it.'],
 };
 
-/** Which fields each step is allowed to block on. */
+/** Which fields each step reports on. */
 export const STEP_FIELDS = {
   basics: ['title'],
-  when: ['startsAt', 'endsAt'],
+  when: ['startsAt', 'endsAt', 'venueName', 'venueAddress', 'city'],
   tickets: ['maxTicketsPerOrder'],
   payment: ['paymentOption'],
   review: [],
 };
+
+/**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * ASKED HERE, REQUIRED AT SUBMIT — the fields that do not block a draft.
+ *
+ * WHAT A DRAFT IS FOR. An organizer starts an event before the room is booked.
+ * Refusing to save until they name a venue does not produce a venue; it
+ * produces "TBC" typed into three boxes, which then reaches the public listing
+ * because nobody remembers to go back and correct a field they were forced to
+ * invent. Worse, it loses the whole draft for anyone who leaves to go and check.
+ *
+ * So the wizard still ASKS for these, still explains why each one matters, and
+ * still marks them on the review step — it simply does not stand in the way.
+ * The requirement itself has not moved: `POST /events/:id/submit` refuses
+ * without all three, the pre-submit dialog lists them as outstanding, and the
+ * event cannot go on sale until they are real. That is where a "where is it?"
+ * rule belongs, because that is the moment the answer has to be true.
+ *
+ * `startsAt` and `endsAt` are deliberately NOT in here: the API requires both
+ * to create the row at all, so a draft without them cannot exist.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+export const SUBMIT_ONLY_FIELDS = ['venueName', 'venueAddress', 'city'];
+
+/** What still has to be true before this step can be left. */
+export function blockingFields(step) {
+  return (STEP_FIELDS[step] || []).filter((f) => !SUBMIT_ONLY_FIELDS.includes(f));
+}
 
 /**
  * RESERVED SEATING OR GENERAL ADMISSION — asked at creation, because it decides
@@ -104,7 +132,7 @@ export function initialForm(type, organizer) {
   const base = {
     title: '', category: 'other', description: '',
     country, timezone: defaultTimeZone(country, browserZone()),
-    startsAt: '', endsAt: '', venueName: '', venueAddress: '',
+    startsAt: '', endsAt: '', venueName: '', venueAddress: '', city: '',
     admissionType: 'reserved',
     purchaseMode: 'seat_only', feeBearer: 'buyer', maxTicketsPerOrder: '10', allowTicketTransfer: true,
     paymentOption: organizer?.payments?.choices?.[0] || '',
@@ -141,6 +169,27 @@ export function problemsFor({ form, startIso, endIso, choices }) {
       : new Date(startIso) <= new Date() ? 'The start has to be in the future.' : null,
     endsAt: !form.endsAt ? 'Choose when it ends.'
       : form.startsAt && new Date(endIso) <= new Date(startIso) ? 'The event has to end after it starts.' : null,
+    /**
+     * THE VENUE — required to SUBMIT, never to save a draft. See
+     * `SUBMIT_ONLY_FIELDS` above for why the difference matters.
+     *
+     * Name and address because "where" is the second thing every buyer checks
+     * and an event without it reached the listing anyway.
+     *
+     * CITY because it is what makes an event findable. "Events near me"
+     * matches `events.city` against a table of coordinates
+     * (`utils/cityCoordinates.js`) — the visitor's position is never sent to a
+     * geocoder — and `nearestCity` filters on `city IS NOT NULL`. No organizer
+     * form has ever asked for one, so every manually entered venue had a null
+     * city and could not appear in Near me, or under `?city=`, at all. The
+     * column, the API and the filter were all ready; nothing collected it.
+     */
+    venueName: form.venueName.trim().length < 2
+      ? 'Add the venue name before you submit this event.' : null,
+    venueAddress: form.venueAddress.trim().length < 4
+      ? 'Add the street address before you submit this event.' : null,
+    city: form.city.trim().length < 2
+      ? 'Add the city — it is how buyers find this event near them.' : null,
     maxTicketsPerOrder: !(Number.isInteger(perOrder) && perOrder >= 1 && perOrder <= 100)
       ? 'Between 1 and 100.' : null,
     paymentOption: choices.length > 0 && !choices.includes(form.paymentOption)
