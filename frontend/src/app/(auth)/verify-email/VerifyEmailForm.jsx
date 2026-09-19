@@ -11,6 +11,8 @@ import FormError from '../../components/forms/FormError';
 import OtpInput from '../../components/forms/OtpInput';
 import SubmitButton from '../../components/forms/SubmitButton';
 import NavIcon from '../../components/shell/NavIcon';
+import { useVerificationWatch, forgetWatchToken } from './useVerificationWatch';
+import { landingAfterAuth } from '../../lib/authLanding';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -44,12 +46,43 @@ export default function VerifyEmailForm() {
   const [error, setError] = useState(null);
   const [notice, setNotice] = useState(null);
   const [cooldown, setCooldown] = useState(params.get('sent') === '1' ? COOLDOWN : 0);
+  const [done, setDone] = useState(false);
 
   useEffect(() => {
     if (cooldown <= 0) return undefined;
     const timer = setTimeout(() => setCooldown((s) => s - 1), 1000);
     return () => clearTimeout(timer);
   }, [cooldown]);
+
+  /**
+   * ───────────────────────────────────────────────────────────────────────────
+   * ACTIVATED ON THE OTHER DEVICE — noticed, rather than waited out.
+   *
+   * This screen tells somebody to open their email, and most people open email
+   * on their phone. The phone then activates the account and is signed in,
+   * while THIS tab carries on saying "open the email" with no way of knowing.
+   *
+   * The watch reports when the address has been confirmed anywhere, and the
+   * server signs this tab in at the same moment. Disabled once this tab has
+   * confirmed the code itself — at that point it already has a session and
+   * there is nothing left to watch.
+   * ───────────────────────────────────────────────────────────────────────────
+   */
+  const watched = useVerificationWatch({ enabled: !done && !busy });
+
+  useEffect(() => {
+    if (!watched?.verified) return;
+    if (watched.signedIn) {
+      setAuthUser(watched.user);
+      // `next` if the visitor was sent here from somewhere, otherwise where the
+      // API says a signed-in person belongs.
+      router.replace(landingAfterAuth(params, watched));
+      router.refresh();
+    } else {
+      // Confirmed, but the account is blocked. Sign-in explains it properly.
+      router.replace(`/login?email=${encodeURIComponent(email || knownEmail)}`);
+    }
+  }, [watched, router, next, params, email, knownEmail]);
 
   async function confirm(value = code) {
     if (value.length !== 6 || !email || busy) return;
@@ -58,8 +91,13 @@ export default function VerifyEmailForm() {
     setNotice(null);
     try {
       const user = await post('/auth/verify-email', { email, code: value }, { noRedirect: true });
+      setDone(true);
+      forgetWatchToken();
       setAuthUser(user);
-      router.push(next);
+      // The API now says where a confirmed account belongs, so typing the code
+      // and tapping the link land in the same place. An explicit `?next=` still
+      // wins — that is what carries somebody back where they were bounced from.
+      router.push(landingAfterAuth(params, user));
       router.refresh();
     } catch (err) {
       setError(err);
@@ -78,6 +116,29 @@ export default function VerifyEmailForm() {
     } catch (err) {
       setError(err);
     }
+  }
+
+  /**
+   * THE REPORT BACK. Between the watch noticing and the router arriving there
+   * is a paint, and on a slow connection several — so the screen says what has
+   * happened rather than sitting on "open the email" for a second longer than
+   * it is true, which is the whole complaint this fixes.
+   */
+  if (watched?.verified) {
+    return (
+      <div className="es-result" role="status">
+        <span className="es-result__mark"><NavIcon name="check" size={32} /></span>
+        <div className="fx-stack fx-stack--sm items-center">
+          <p className="es-eyebrow">Confirmed</p>
+          <h1 className="text-2xl">Your account is active</h1>
+          <p className="max-w-[40ch] text-muted">
+            {watched.signedIn
+              ? 'You activated it on another device. Taking you to your dashboard…'
+              : 'You activated it on another device. Sign in to continue.'}
+          </p>
+        </div>
+      </div>
+    );
   }
 
   return (

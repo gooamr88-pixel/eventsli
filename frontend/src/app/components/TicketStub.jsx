@@ -1,3 +1,5 @@
+import { formatEventTime } from '../lib/eventTime';
+
 /**
  * One ticket, with the code that opens the door.
  *
@@ -24,7 +26,7 @@
  * It also stacks instead of sitting in a row, so the code gets the full width
  * of a phone rather than sharing it with the seat label.
  */
-export default function TicketStub({ ticket, qrSrc, prominent = false }) {
+export default function TicketStub({ ticket, qrSrc, timeZone = null, prominent = false }) {
   const used = ticket.status === 'scanned' || Boolean(ticket.scannedAt);
   const void_ = ticket.status === 'void';
 
@@ -72,11 +74,18 @@ export default function TicketStub({ ticket, qrSrc, prominent = false }) {
         </p>
 
         {/* "Already used" starts an argument at the door; "already used at
-            19:04" ends one. The time is the whole value of this line. */}
+            19:04" ends one. The time is the whole value of this line.
+
+            ON THE VENUE'S CLOCK, which it was not. This formatted with no
+            `timeZone` at all, so it printed in whatever zone the reader's
+            device happened to be set to — a traveller's phone still on home
+            time, a tablet left on UTC. `formatEventTime` names the zone it
+            used, so the one line whose entire job is settling a dispute at a
+            door can actually settle it. Without a zone it falls back to the
+            reader's, labelled, which is still better than an unlabelled one. */}
         {ticket.scannedAt && (
           <p className="text-xs text-subtle">
-            Scanned {new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short' })
-              .format(new Date(ticket.scannedAt))}
+            Scanned {formatEventTime(ticket.scannedAt, timeZone)}
           </p>
         )}
 

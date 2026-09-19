@@ -9,6 +9,8 @@ import Field from '../../components/forms/Field';
 import FormError from '../../components/forms/FormError';
 import SubmitButton from '../../components/forms/SubmitButton';
 import GoogleSignIn from '../../components/forms/GoogleSignIn';
+import { rememberWatchToken } from '../verify-email/useVerificationWatch';
+import { landingAfterAuth } from '../../lib/authLanding';
 
 /**
  * Sign in.
@@ -34,13 +36,26 @@ export default function LoginForm() {
   const [error, setError] = useState(null);
 
   const expired = params.get('reason') === 'expired';
+  /** Whether a destination was actually asked for, or we are falling back. */
+  const asked = Boolean(params.get('next'));
   const next = safeNext(params.get('next'));
 
   function arrive(user) {
     // Seeded straight from the response so the next paint already knows who
     // this is, instead of rendering a signed-out header for one round trip.
     setAuthUser(user);
-    router.push(next);
+    /**
+     * WHERE SIGNING IN LANDS.
+     *
+     * An explicit `?next=` wins — it is what carries somebody back to the
+     * checkout or the event they were bounced off. With nothing asked for, the
+     * API says where a signed-in person belongs (`/organizer`) rather than this
+     * form defaulting to the storefront, which meant everybody's first act
+     * after typing a password was to click again. One rule, in the API, shared
+     * by sign-in, the activation link and the six-digit code — those three used
+     * to disagree.
+     */
+    router.push(landingAfterAuth(params, user));
     router.refresh();
   }
 
@@ -54,8 +69,11 @@ export default function LoginForm() {
       // The right password on an address that was never confirmed. The API has
       // already sent a fresh code, so this goes straight to where it is typed.
       if (err?.code === 'EMAIL_NOT_VERIFIED') {
+        // So the waiting screen can notice the activation if they finish it on
+        // a phone, rather than leaving this tab on "open your email" forever.
+        rememberWatchToken(err.meta?.watchToken);
         const query = new URLSearchParams({ email: err.meta?.email || form.email, sent: '1' });
-        if (next !== '/') query.set('next', next);
+        if (asked) query.set('next', next);
         router.push(`/verify-email?${query}`);
         return;
       }

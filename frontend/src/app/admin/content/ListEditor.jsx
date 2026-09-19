@@ -193,7 +193,7 @@ function Row({ spec, row, index, total, busy, onMove, onDelete, onSave }) {
             onClick={() => onMove(index, -1)}
             aria-label={`Move ${spec.describe(row)} up`}
           >
-            <span aria-hidden>↑</span>
+            <NavIcon name="chevronUp" size={16} />
           </button>
           <button
             type="button"
@@ -202,7 +202,7 @@ function Row({ spec, row, index, total, busy, onMove, onDelete, onSave }) {
             onClick={() => onMove(index, 1)}
             aria-label={`Move ${spec.describe(row)} down`}
           >
-            <span aria-hidden>↓</span>
+            <NavIcon name="chevronDown" size={16} />
           </button>
 
           <button

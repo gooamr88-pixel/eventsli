@@ -21,6 +21,15 @@ import RowControls from './RowControls';
  * rather than left to the organizer to notice. The server sorts by level first
  * for the same reason.
  *
+ * SO THE LIST IS GROUPED BY LEVEL, under a heading each. It used to be one flat
+ * list with the rule written out UNDER EVERY ROW — eight sponsors meant the same
+ * sentence eight times — and the arrows were bounded by the flat list rather
+ * than by the level. A sponsor who was first in Gold but fourth overall had a
+ * live "move up" button that asked the server for an order it re-sorts away, so
+ * the row did not move and nothing said why. Grouping fixes both: the rule is
+ * visible instead of explained, and first/last are per level, so every arrow
+ * that is enabled does something.
+ *
  * A LOGO IS OPTIONAL. Demanding artwork blocks the organizer who has a
  * confirmed sponsor and no file yet, and a name in clean type reads better than
  * a placeholder box anyway.
@@ -97,6 +106,25 @@ export default function SponsorsEditor({ eventId }) {
     }
   }
 
+  /**
+   * The sponsors, in their level's group, levels in the order the page shows
+   * them. Empty levels are dropped rather than rendered as a heading over
+   * nothing.
+   *
+   * `move` is given the sponsor's ID, so a group does not need to track
+   * positions in the flat list — only how many rows it has, which is what
+   * decides where the arrows stop.
+   */
+  function grouped(list) {
+    return LEVELS
+      .map(([value, label]) => ({
+        value,
+        label,
+        rows: list.filter((sponsor) => sponsor.level === value),
+      }))
+      .filter((group) => group.rows.length > 0);
+  }
+
   async function removeSponsor(sponsor) {
     const ok = await confirm({
       title: `Remove ${sponsor.name}?`,
@@ -110,7 +138,7 @@ export default function SponsorsEditor({ eventId }) {
   return (
     <Panel
       title="Sponsors & partners"
-      description="Shown near the bottom of your event page, grouped by level. Optional — add them only if you have them."
+      description="Shown near the bottom of your event page, headline level first. The arrows order sponsors within their level. Optional — add them only if you have them."
     >
       <FormError error={error} />
 
@@ -119,76 +147,89 @@ export default function SponsorsEditor({ eventId }) {
       ) : items.length === 0 ? (
         <Empty title="No sponsors yet" hint="Add the ones you have. The section is hidden on your event page until then." />
       ) : (
-        <ul className="fx-stack fx-stack--sm">
-          {items.map((sponsor, index) => (
-            <li key={sponsor.id} className="fx-stack fx-stack--sm rounded-(--es-radius-md) border border-border-base p-3">
-              <div className="fx-row flex-wrap items-center gap-3">
-                <div className="grid h-12 w-20 shrink-0 place-items-center overflow-hidden rounded-(--es-radius-sm) bg-bg-sunken">
-                  {sponsor.logoUrl ? (
-                    <Image src={sponsor.logoUrl} alt="" width={80} height={48} className="h-full w-full object-contain" />
-                  ) : (
-                    <span className="text-xs text-subtle">No logo</span>
-                  )}
+        grouped(items).map((group) => (
+          <section key={group.value} className="fx-stack fx-stack--sm">
+            <h3 className="es-sponsor-level">
+              {group.label}
+              <span className="es-sponsor-level__count">
+                {group.rows.length} {group.rows.length === 1 ? 'sponsor' : 'sponsors'}
+              </span>
+            </h3>
+            <ul className="fx-stack fx-stack--sm">
+            {group.rows.map((sponsor, place) => (
+              <li key={sponsor.id} className="fx-stack fx-stack--sm rounded-(--es-radius-md) border border-border-base p-3">
+                <div className="fx-row flex-wrap items-center gap-3">
+                  <div className="grid h-12 w-20 shrink-0 place-items-center overflow-hidden rounded-(--es-radius-sm) bg-bg-sunken">
+                    {sponsor.logoUrl ? (
+                      <Image src={sponsor.logoUrl} alt="" width={80} height={48} className="h-full w-full object-contain" />
+                    ) : (
+                      <span className="text-xs text-subtle">No logo</span>
+                    )}
+                  </div>
+
+                  <div className="fx-min0 flex-1">
+                    {/* Held as a draft and saved on the button below. */}
+                    <input
+                      className="es-input es-input--sm"
+                      value={rows.valueOf(sponsor, 'name')}
+                      maxLength={120}
+                      // The SAVED name, so the label does not change under a
+                      // screen reader with every letter typed into the field.
+                      aria-label={`Sponsor name (${sponsor.name})`}
+                      onChange={(e) => rows.setField(sponsor.id, 'name', e.target.value)}
+                    />
+                  </div>
+
+                  <select
+                    className="es-input es-input--sm w-auto"
+                    value={sponsor.level}
+                    aria-label={`Sponsorship level for ${sponsor.name}`}
+                    onChange={(e) => edit(sponsor.id, { level: e.target.value })}
+                  >
+                    {LEVELS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                  </select>
                 </div>
 
-                <div className="fx-min0 flex-1">
-                  {/* Held as a draft and saved on the button below. */}
-                  <input
-                    className="es-input es-input--sm"
-                    value={rows.valueOf(sponsor, 'name')}
-                    maxLength={120}
-                    aria-label={`Name of ${sponsor.name}`}
-                    onChange={(e) => rows.setField(sponsor.id, 'name', e.target.value)}
-                  />
-                </div>
-
-                <select
-                  className="es-input es-input--sm w-auto"
-                  value={sponsor.level}
-                  aria-label={`Sponsorship level for ${sponsor.name}`}
-                  onChange={(e) => edit(sponsor.id, { level: e.target.value })}
-                >
-                  {LEVELS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                </select>
-              </div>
-
-              <input
-                className="es-input es-input--sm"
-                type="url"
-                inputMode="url"
-                value={rows.valueOf(sponsor, 'linkUrl')}
-                placeholder="https://sponsor.example"
-                aria-label={`Website for ${sponsor.name}`}
-                onChange={(e) => rows.setField(sponsor.id, 'linkUrl', e.target.value)}
-              />
-
-              <div className="fx-row flex-wrap items-center gap-2">
                 <input
-                  id={`sponsor-logo-${sponsor.id}`}
-                  type="file"
-                  accept={IMAGE_ACCEPT}
-                  className="sr-only"
-                  onChange={(e) => replaceLogo(sponsor, e.target.files?.[0])}
+                  className="es-input es-input--sm"
+                  type="url"
+                  inputMode="url"
+                  value={rows.valueOf(sponsor, 'linkUrl')}
+                  placeholder="https://sponsor.example"
+                  aria-label={`Website for ${sponsor.name}`}
+                  onChange={(e) => rows.setField(sponsor.id, 'linkUrl', e.target.value)}
                 />
-                <label htmlFor={`sponsor-logo-${sponsor.id}`} className="es-btn es-btn--ghost es-btn--sm">
-                  {sponsor.logoUrl ? 'Replace logo' : 'Add logo'}
-                </label>
-              </div>
 
-              <RowControls
-                index={index}
-                total={items.length}
-                busy={busy}
-                label="sponsor"
-                onMove={(delta) => move(sponsor.id, delta)}
-                onRemove={() => removeSponsor(sponsor)}
-              />
-              <p className="text-xs text-subtle">
-                The arrows order sponsors within their level. Levels always come headline first.
-              </p>
-            </li>
-          ))}
-        </ul>
+                <div className="fx-row flex-wrap items-center gap-2">
+                  <input
+                    id={`sponsor-logo-${sponsor.id}`}
+                    type="file"
+                    accept={IMAGE_ACCEPT}
+                    className="sr-only"
+                    onChange={(e) => replaceLogo(sponsor, e.target.files?.[0])}
+                  />
+                  <label htmlFor={`sponsor-logo-${sponsor.id}`} className="es-btn es-btn--ghost es-btn--sm">
+                    {sponsor.logoUrl ? 'Replace logo' : 'Add logo'}
+                  </label>
+                </div>
+
+                {/* BOUNDED BY THE GROUP, not by the whole list. The first row
+                    of a level cannot be moved up into the level above — the
+                    server sorts by level first and would undo it, so that
+                    button used to be live and do nothing. */}
+                <RowControls
+                  index={place}
+                  total={group.rows.length}
+                  busy={busy}
+                  label="sponsor"
+                  onMove={(delta) => move(sponsor.id, delta)}
+                  onRemove={() => removeSponsor(sponsor)}
+                />
+              </li>
+            ))}
+            </ul>
+          </section>
+        ))
       )}
 
       <SaveBar

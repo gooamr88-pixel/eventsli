@@ -6,6 +6,7 @@ import { describeError, messageFor } from '../../utils/errors';
 import { useAuth } from '../../hooks/useAuth';
 import { useApi } from '../../hooks/useApi';
 import { useUrlFilters } from '../../hooks/useUrlFilters';
+import { ROLES, roleLabel, actRefusal, canAssign, REFUSAL } from '../../lib/roleLadder';
 import { useToast } from '../../components/ui/Toast';
 import { useConfirm } from '../../components/ui/Confirm';
 import { PageHeader } from '../../components/ui/Page';
@@ -42,19 +43,11 @@ import { useOrganizerBan } from '../organizers/useOrganizerBan';
  * Organizers page uses (useOrganizerBan).
  * ─────────────────────────────────────────────────────────────────────────────
  */
-const LEVEL = { attendee: 0, organizer: 1, admin: 2, super_admin: 3 };
-const ROLES = [
-  { value: 'attendee', label: 'Attendee' },
-  { value: 'organizer', label: 'Organizer' },
-  { value: 'admin', label: 'Admin' },
-  { value: 'super_admin', label: 'Super admin' },
-];
 const STANDING = [
   { value: '', label: 'Any status' },
   { value: 'false', label: 'Can sign in' },
   { value: 'true', label: 'Blocked' },
 ];
-const roleLabel = (r) => ROLES.find((x) => x.value === r)?.label || r;
 
 export default function Users() {
   const { user: me } = useAuth();
@@ -208,14 +201,21 @@ export default function Users() {
   );
 }
 
-/** Rules 1 and 2 — the two this page can predict. The reason replaces the controls. */
+/**
+ * Why the controls are not offered for this row, in this screen's words.
+ *
+ * The RULE comes from `lib/roleLadder`, which mirrors the API's `mayActOn`;
+ * only the sentences are local. It was written out here by hand, with its own
+ * copy of the level map — and the API has changed this rule once already.
+ */
+const WHY = {
+  [REFUSAL.SELF]: 'You cannot act on your own account — ask another administrator.',
+  [REFUSAL.SUPERIOR]: 'A superior cannot be acted on from here.',
+  [REFUSAL.EQUAL]: 'An equal cannot be acted on from here.',
+};
+
 function blockedBecause(row, me) {
-  if (me?.id === row.id) return 'You cannot act on your own account — ask another administrator.';
-  const theirs = LEVEL[row.role] ?? 0;
-  const mine = LEVEL[me?.role] ?? 0;
-  if (theirs > mine) return 'A superior cannot be acted on from here.';
-  if (theirs === mine && me?.role !== 'super_admin') return 'An equal cannot be acted on from here.';
-  return null;
+  return WHY[actRefusal(me, row)] || null;
 }
 
 function RoleCell({ row, me, busy, onChange }) {
@@ -230,7 +230,9 @@ function RoleCell({ row, me, busy, onChange }) {
     >
       {ROLES.map((r) => (
         // Rule 3, surfaced as an unselectable option rather than a refusal after the fact.
-        <option key={r.value} value={r.value} disabled={!me?.isSuperAdmin && ['admin', 'super_admin'].includes(r.value)}>
+        // Nobody hands out a level above their own — the same comparison the
+        // API makes, rather than a hardcoded pair of role names.
+        <option key={r.value} value={r.value} disabled={!canAssign(me, r.value)}>
           {r.label}
         </option>
       ))}

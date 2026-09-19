@@ -44,14 +44,23 @@ export default function ContentEditor({ eventId }) {
       <SectionHeader
         title="Page & branding"
         lede="What people see on your event page. All of it is optional — add what you have."
-        actions={event.slug && (
+        /**
+         * ONLY ONCE IT IS PUBLIC. `/e/:slug` serves published events and
+         * nothing else — `eventBySlug` filters on `status = 'published'` — so
+         * on a draft, which is every event that is still being built, the one
+         * button in this header opened a 404. This is the screen an organizer
+         * spends the longest on; it was also the screen most likely to be a
+         * draft. The event header's own "Public page" link has always been
+         * guarded this way, and this is now the same rule.
+         */
+        actions={event.slug && event.status === 'published' && (
           <a
             href={`/e/${event.slug}`}
             target="_blank"
             rel="noreferrer"
             className="es-btn es-btn--secondary es-btn--sm"
           >
-            Preview page
+            Preview page<span className="sr-only"> (opens in a new tab)</span>
           </a>
         )}
       />

@@ -27,6 +27,25 @@ const TYPES = Object.freeze({
   ORDER: 'order_access',
   /** Operate on one hold — release it, apply or remove a promo code. */
   RESERVATION: 'reservation',
+  /**
+   * Ask whether ONE account has finished confirming its email, and be signed in
+   * when it has.
+   *
+   * WHAT IT IS FOR. Somebody signs up on a laptop and opens the email on their
+   * phone. The phone activates the account and is signed in; the laptop sits on
+   * "Check your inbox" forever, because nothing ever tells it. This is the
+   * laptop's way of asking.
+   *
+   * NEVER EMAILED, unlike the other two. It is handed only to the browser that
+   * submitted the form, which is what makes it safe to answer a question about
+   * an account with: holding one means you are the tab that is waiting.
+   *
+   * It buys NOTHING on its own. Until the address is confirmed the answer is
+   * "not yet" — and the address can only be confirmed by someone holding the
+   * email. So this cannot verify an account, only notice that somebody else
+   * did.
+   */
+  VERIFY_WATCH: 'verify_watch',
 });
 
 // Long enough to survive an event's whole sale window and a buyer coming back
@@ -37,6 +56,15 @@ const ORDER_TTL_DAYS = 90;
 // A hold lives 35 minutes. An hour covers it with room for a slow checkout and
 // nothing more — the token is useless once the hold is gone anyway.
 const RESERVATION_TTL_MINUTES = 60;
+
+/**
+ * Long enough to unlock a phone, find the email — including in spam — and tap
+ * the button. Short enough that a tab forgotten overnight does not sign
+ * somebody in the next morning: the activation LINK is good for 48 hours, and
+ * this deliberately is not, because a window somebody is watching is a very
+ * different thing from a link they are holding.
+ */
+const VERIFY_WATCH_TTL_MINUTES = 30;
 
 function issueOrderToken(orderId) {
   return jwt.sign(
@@ -54,6 +82,14 @@ function issueReservationToken(reservationId) {
   );
 }
 
+function issueVerifyWatchToken(userId) {
+  return jwt.sign(
+    { typ: TYPES.VERIFY_WATCH, uid: userId },
+    process.env.JWT_SECRET,
+    { algorithm: 'HS256', expiresIn: `${VERIFY_WATCH_TTL_MINUTES}m` },
+  );
+}
+
 /**
  * Returns the id this token authorises, or null.
  *
@@ -68,6 +104,11 @@ function readOrderToken(token) {
 function readReservationToken(token) {
   const claims = verify(token);
   return claims?.typ === TYPES.RESERVATION && claims.rid ? claims.rid : null;
+}
+
+function readVerifyWatchToken(token) {
+  const claims = verify(token);
+  return claims?.typ === TYPES.VERIFY_WATCH && claims.uid ? claims.uid : null;
 }
 
 function verify(token) {
@@ -102,9 +143,12 @@ module.exports = {
   TYPES,
   ORDER_TTL_DAYS,
   RESERVATION_TTL_MINUTES,
+  VERIFY_WATCH_TTL_MINUTES,
   issueOrderToken,
   issueReservationToken,
+  issueVerifyWatchToken,
   readOrderToken,
   readReservationToken,
+  readVerifyWatchToken,
   fromRequest,
 };

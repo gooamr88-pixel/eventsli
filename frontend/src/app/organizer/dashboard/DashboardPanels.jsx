@@ -107,16 +107,30 @@ function describeChoices(organizer) {
  * first line when it is missing; the dashboard shows it nowhere else.
  *
  * In review is listed but not as a task: that one is waiting on Eventsli.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * DRAFTS AND SENT-BACK EVENTS ARE NOT LISTED HERE ANY MORE.
+ *
+ * They were, as two counted lines — "3 drafts are not submitted yet · Open" and
+ * "1 event needs changes before review · Review". The Drafts panel directly
+ * below now lists those same events by name, with how far each one got, what it
+ * is waiting on, and a button that opens that exact step. Keeping the counts as
+ * well meant the same fact stated twice, a few hundred pixels apart, once
+ * vaguely and once usefully — and an organizer counting four things to do when
+ * there were two.
+ *
+ * What stays here is everything Drafts cannot show: money owed, and an account
+ * that cannot take payment.
+ * ─────────────────────────────────────────────────────────────────────────────
  */
 export function Attention({ data, organizer }) {
   const items = [];
-  const { draft = 0, rejected = 0, pendingReview = 0 } = data.events || {};
+  const { pendingReview = 0 } = data.events || {};
   const overdue = data.invoices?.overdue || 0;
 
   if (overdue > 0) {
     items.push({
       key: 'overdue',
-      icon: 'alert',
       tone: 'danger',
       text: `${overdue} commission ${overdue === 1 ? 'invoice is' : 'invoices are'} overdue — scanning is off for ${overdue === 1 ? 'that event' : 'those events'}.`,
       href: '/organizer/events?status=published',
@@ -126,7 +140,6 @@ export function Attention({ data, organizer }) {
   if ((organizer.payments?.choices?.length ?? 0) === 0) {
     items.push({
       key: 'payments',
-      icon: 'bank',
       tone: 'warning',
       text: organizer.stripeConnected
         ? 'Stripe still needs some details, and there is no manual payment method.'
@@ -135,27 +148,18 @@ export function Attention({ data, organizer }) {
       cta: 'Set up',
     });
   }
-  if (rejected > 0) {
-    items.push({
-      key: 'rejected', icon: 'info', tone: 'warning',
-      text: `${rejected} ${rejected === 1 ? 'event needs' : 'events need'} changes before review.`,
-      href: '/organizer/events?status=rejected', cta: 'Review',
-    });
-  }
-  if (draft > 0) {
-    items.push({
-      key: 'draft', icon: 'calendar', tone: 'neutral',
-      text: `${draft} ${draft === 1 ? 'draft is' : 'drafts are'} not submitted yet.`,
-      href: '/organizer/events?status=draft', cta: 'Open',
-    });
-  }
+
+  // Nothing owed, nothing broken and nothing in the queue: the panel would be a
+  // card saying so, above a Drafts panel listing three unfinished events — which
+  // reads as a contradiction. The page says enough without it.
+  if (items.length === 0 && pendingReview === 0) return null;
 
   return (
     <Panel title="Needs you" description={items.length ? `${items.length} ${items.length === 1 ? 'thing' : 'things'} to do` : null}>
       {items.length === 0 ? (
         <p className="fx-row text-sm text-muted">
           <span className="text-accent"><NavIcon name="check" size={18} /></span>
-          Nothing needs you right now.
+          Nothing to settle, and your account can take payments.
         </p>
       ) : (
         <ul className="es-deflist">

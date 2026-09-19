@@ -116,24 +116,36 @@ export function organizerNavGroups({ eventId, listingType = null, admissionType 
   }
 
   const groups = [
-    {
-      id: 'home',
-      label: null,
-      items: [
-        { key: 'dashboard', label: 'Dashboard', icon: 'home', href: '/organizer', exact: true },
-        { key: 'events', label: 'Your events', icon: 'calendar', href: '/organizer/events' },
-      ],
-    },
+    // `home` and `account` are the two objects above, not copies of them. They
+    // were written out again here, so adding a destination to the account group
+    // changed it for an organizer with an event open and not for one without.
+    home,
+    /**
+     * THE BUILD ORDER IS THE ORDER THE LAUNCH CHECKLIST ASKS FOR, and that is
+     * the whole point of listing it this way.
+     *
+     * It used to read Overview → Page & branding → Ticket types → Seat map,
+     * which put the one OPTIONAL screen second, ahead of the two an event
+     * cannot go on sale without. The checklist beside it asked for them in the
+     * other order. Two lists describing one journey, disagreeing — so "what do
+     * I do next" had two answers depending on which the organizer read.
+     *
+     * Required first, in the order they depend on each other (a seating map
+     * needs the tiers that price it; table categories colour the tables on that
+     * map), then the optional pair. `BuildNav` walks this group and only this
+     * group, so Back/Next at the foot of each screen follows this sequence
+     * exactly and ends at Review & submit.
+     */
     {
       id: 'build',
       label: 'Build the event',
       note: eventId ? null : 'Pick an event above to open these.',
       items: [
         item('overview', 'Overview', 'info', ''),
-        item('content', 'Page & branding', 'image', '/content'),
         item('tiers', 'Ticket types', 'ticket', '/tiers'),
-        item('map', 'Seat map', 'map', '/map'),
+        item('map', 'Seating map', 'map', '/map'),
         item('tables', 'Table categories', 'layers', '/tables'),
+        item('content', 'Page & branding', 'image', '/content'),
         item('promos', 'Discounts', 'tag', '/promos'),
       ],
     },
@@ -156,14 +168,7 @@ export function organizerNavGroups({ eventId, listingType = null, admissionType 
         item('devices', 'Scanning devices', 'scan', '/devices'),
       ],
     },
-    {
-      id: 'account',
-      label: 'Your account',
-      items: [
-        { key: 'payments', label: 'Payments', icon: 'bank', href: '/organizer/payments' },
-        { key: 'profile', label: 'Organization', icon: 'user', href: '/organizer/profile' },
-      ],
-    },
+    account,
   ];
 
   // A listing sells nothing, so every selling screen is an empty room. Checked

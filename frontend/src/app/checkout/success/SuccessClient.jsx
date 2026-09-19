@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { get, PUBLIC_API_URL } from '../../utils/apiClient';
 import { describeError } from '../../utils/errors';
 import { formatMoney } from '../../utils/money';
+import { formatEventTime } from '../../lib/eventTime';
 import { useReservation } from '../../hooks/useReservation';
 import { useAuth } from '../../hooks/useAuth';
 import { SuccessMark } from '../Outcomes';
@@ -114,7 +115,11 @@ export default function SuccessClient() {
     );
   }
 
-  const { order, tickets = [], ticketsWithheld, message } = result;
+  const { order, event, tickets = [], ticketsWithheld, message } = result;
+  // In the EVENT's zone and labelled with it, the way every other date in the
+  // product is — a buyer in another timezone reads "8:00 PM EST", not a number
+  // that quietly disagrees with the ticket they are holding.
+  const eventWhen = event?.startsAt ? formatEventTime(event.startsAt, event.timezone) : null;
 
   return (
     <div className="fx-stack">
@@ -137,6 +142,30 @@ export default function SuccessClient() {
         <p className="text-md text-muted">
           You&apos;re going. {formatMoney(order.totalCents, order.currency)} paid.
         </p>
+
+        {/**
+          * WHICH EVENT THE MONEY WENT TO.
+          *
+          * This page said "Payment confirmed", the amount and a masked email,
+          * and never named the event anywhere on it — the API did not even send
+          * it. On a receipt, for somebody choosing between two shows or coming
+          * back to a tab, that is the one fact worth checking. The checkout form
+          * one step earlier was given this header for the same reason; the
+          * screen you land on after paying had been left without it.
+          */}
+        {event?.title && (
+          <div className="fx-stack fx-stack--sm gap-1">
+            <p className="fx-break text-md text-ink">{event.title}</p>
+            {(eventWhen || event.venue) && (
+              <p className="text-sm text-muted">
+                {eventWhen}
+                {eventWhen && event.venue && ' · '}
+                {event.venue}
+              </p>
+            )}
+          </div>
+        )}
+
         {order.email && (
           <p className="text-sm text-subtle">
             {/* The address is the thing to check for a typo, so it is the one
@@ -181,6 +210,7 @@ export default function SuccessClient() {
             <TicketStub
               key={ticket.id}
               ticket={ticket}
+              timeZone={event?.timezone}
               qrSrc={`${PUBLIC_API_URL}/public/qr/${encodeURIComponent(ticket.qr)}`}
             />
           ))}

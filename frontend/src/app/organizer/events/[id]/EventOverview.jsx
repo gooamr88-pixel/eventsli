@@ -4,7 +4,6 @@ import NavIcon from '../../../components/shell/NavIcon';
 import { useSearchParams } from 'next/navigation';
 import { useEventContext } from './EventContext';
 import ReviewActions from './ReviewActions';
-import CoverUpload from './CoverUpload';
 import EventStats from './EventStats';
 import LaunchChecklist, { useLaunchSteps, NextStep } from './LaunchChecklist';
 import EventDetailsEditor from './EventDetailsEditor';
@@ -22,7 +21,7 @@ import { Loading, Notice } from '../../../components/Feedback';
  *   · before it is on sale — what is left, and the terms + submit step, side by
  *     side at the top, because that is the job;
  *   · once it is selling — the numbers first;
- *   · then the editable details, with the cover and the charges beside them.
+ *   · then the editable details, with the charges beside them.
  *
  * What was removed, and why: a "Rules" card repeated three fields the details
  * form directly above it already edits, and "What you will be charged" sat at
@@ -119,7 +118,17 @@ export default function EventOverview() {
 
       {preLaunch && <PreLaunch event={event} onChanged={ctx.refresh} />}
 
-      <div className="es-split">
+      {/* THE COVER IS EDITED IN ONE PLACE, and it is Page & branding. It was
+          here as well, so the same picture had two editors on two screens —
+          while the launch checklist's "Cover image" step and the sidebar both
+          send an organizer to the other one, and the `#cover` anchor this
+          carried was linked from nowhere at all.
+
+          With the cover gone the side column holds the charges alone, so it is
+          only a split when there ARE charges to show. Before the terms are
+          accepted they appear inside the terms step instead, and a bare grid
+          would leave a third of a desktop screen empty beside the form. */}
+      <div className={feesInTermsStep ? 'fx-stack' : 'es-split'}>
         <div className="fx-stack fx-min0">
           {finished ? (
             <Panel title="How it was sold">
@@ -136,17 +145,13 @@ export default function EventOverview() {
           )}
         </div>
 
-        <div className="fx-stack fx-min0">
-          <div id="cover" className="scroll-mt-24">
-            <CoverUpload event={event} onChanged={ctx.refresh} />
-          </div>
-
-          {!feesInTermsStep && (
+        {!feesInTermsStep && (
+          <div className="fx-stack fx-min0">
             <Panel title="What you are charged" description="Set by Eventsli, and agreed when the terms were accepted.">
               <FeeSummary event={event} />
             </Panel>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );

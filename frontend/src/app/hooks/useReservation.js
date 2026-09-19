@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useSyncExternalStore } from 'react';
-import { post, ApiError } from '../utils/apiClient';
+import { post } from '../utils/apiClient';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -111,7 +111,12 @@ export function useReservation() {
     const body = lines ? { lines } : tableId ? { tableId } : { seatIds };
     const headers = tableToken ? { 'x-access-token': tableToken } : undefined;
 
-    const data = await post(`/public/events/${slug}/hold`, body, { headers });
+    // `noRedirect`, like every other call on the purchase path. `optionalAuth`
+    // cannot answer 401 today, so nothing is broken — but this is the one
+    // request that turns a chosen seat into a hold, and a future 401 anywhere
+    // behind it would hard-navigate the buyer to /login and lose the selection
+    // instead of showing them an error they can act on.
+    const data = await post(`/public/events/${slug}/hold`, body, { headers, noRedirect: true });
 
     const next = {
       reservationId: data.reservationId,
@@ -134,18 +139,42 @@ export function useReservation() {
    * release is the sweeper's problem in 35 minutes; a hold we keep showing the
    * buyer is one they will try to pay for and be refused. The failure that
    * matters — a wrong token — is not one a retry fixes.
+   *
+   * ───────────────────────────────────────────────────────────────────────────
+   * IT NEVER THROWS, AND IT USED TO.
+   *
+   * The guard was `if (!(err instanceof ApiError)) throw err`, and a dropped
+   * connection does not produce an `ApiError` — `apiFetch` throws `NetworkError`
+   * for offline, DNS, a dead connection and its own timeout, and that class does
+   * not extend `ApiError`. So exactly the failure this is most likely to meet
+   * was the one it rethrew.
+   *
+   * Its only caller is the checkout's "Release my seats":
+   *
+   *     setBusy('release');
+   *     await release(…);          ← threw
+   *     router.push(…);            ← never ran
+   *
+   * an unhandled rejection inside an onClick, leaving the button disabled and
+   * the buyer on the checkout with nothing on screen having changed. Which
+   * contradicted the paragraph directly above: the local record IS cleared in
+   * `finally`, so the caller has nothing left to fail about. It returns whether
+   * the server was told, for a caller that wants to know.
+   * ───────────────────────────────────────────────────────────────────────────
    */
   const release = useCallback(async (current) => {
     const target = current || snapshot();
-    if (!target?.reservationId) return;
+    if (!target?.reservationId) return false;
     try {
       await post(
         `/public/reservations/${target.reservationId}/release`,
         undefined,
         { headers: { 'x-access-token': target.reservationToken }, noRedirect: true },
       );
-    } catch (err) {
-      if (!(err instanceof ApiError)) throw err;
+      return true;
+    } catch {
+      // Refused, or never reached. Either way the seats come back on their own.
+      return false;
     } finally {
       commit(null);
     }

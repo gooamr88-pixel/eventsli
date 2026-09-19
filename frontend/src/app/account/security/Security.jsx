@@ -8,8 +8,7 @@ import Field from '../../components/forms/Field';
 import FormError from '../../components/forms/FormError';
 import SubmitButton from '../../components/forms/SubmitButton';
 import { Loading, ErrorNotice } from '../../components/Feedback';
-
-const MIN_PASSWORD = 12;
+import { MIN_PASSWORD, MAX_PASSWORD, PASSWORD_HINT, passwordProblem } from '../../lib/passwordRules';
 
 /**
  * Sessions and the password.
@@ -224,9 +223,9 @@ function ChangePassword() {
           />
           <Field
             label="New password" type="password" name="newPassword"
-            autoComplete="new-password" required minLength={MIN_PASSWORD}
+            autoComplete="new-password" required minLength={MIN_PASSWORD} maxLength={MAX_PASSWORD}
             hint={`At least ${MIN_PASSWORD} characters. This signs out every other device.`}
-            error={tooShort ? `${MIN_PASSWORD - form.newPassword.length} more to go.` : null}
+            error={passwordProblem(form.newPassword)}
             value={form.newPassword}
             onChange={(e) => setForm((f) => ({ ...f, newPassword: e.target.value }))}
           />

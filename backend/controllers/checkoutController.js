@@ -244,9 +244,24 @@ async function checkoutResult(req, res, next) {
       orderId = result.order_id;
     }
 
+    /**
+     * THE EVENT, JOINED IN — because the success page never named it.
+     *
+     * The response carried the total, a masked email and the ticket stubs, and
+     * not one word about WHAT had been bought. A buyer who was deciding between
+     * two shows, or who came back to the tab after a detour, had nothing on the
+     * screen that confirms their money went to the right event. The checkout
+     * form one step earlier was given exactly this header for exactly this
+     * reason; the page they land on after paying was left without it, and it is
+     * the more important of the two — it is the receipt.
+     *
+     * The timezone comes with it so the stubs can print a scan time on the
+     * VENUE's clock rather than the reader's.
+     */
     const { data: order } = await supabase
       .from('orders')
-      .select('id, currency, buyer_total_cents, quantity, guest_email, created_at, paid_at')
+      .select(`id, currency, buyer_total_cents, quantity, guest_email, created_at, paid_at,
+               events ( id, title, slug, starts_at, ends_at, timezone, venue_name )`)
       .eq('id', orderId).single();
 
     /**
@@ -278,6 +293,15 @@ async function checkoutResult(req, res, next) {
         // the full address means anyone who reads this URL learns it too.
         email: maskEmail(order.guest_email),
         createdAt: order.created_at,
+      },
+      event: order.events && {
+        id: order.events.id,
+        title: order.events.title,
+        slug: order.events.slug,
+        startsAt: order.events.starts_at,
+        endsAt: order.events.ends_at,
+        timezone: order.events.timezone,
+        venue: order.events.venue_name,
       },
       accessToken,
       tickets: withinWindow ? await tickets.forOrder(orderId) : [],

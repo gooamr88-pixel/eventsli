@@ -165,3 +165,47 @@ describe('admin destinations', () => {
     expect(activeKeys(resolveNav(adminNavGroups(), `/admin/events/${EVENT}`))).toEqual(['events']);
   });
 });
+
+/**
+ * THE BUILD SEQUENCE IS A CONTRACT, not a layout detail.
+ *
+ * Three things read it and must agree: the sidebar, the scrolling section strip
+ * under the event header, and the Back/Next bar at the foot of each build
+ * screen. They disagreed — the sidebar put the one optional screen second, the
+ * launch checklist asked for the required ones first, and Back/Next walked on
+ * past the end of the build into Orders, Commission and the door team under a
+ * bar announced as "Event setup steps".
+ */
+describe('the build sequence', () => {
+  const buildKeys = (options) => organizerNavGroups({ eventId: EVENT, ...options })
+    .filter((g) => g.id === 'build')
+    .flatMap((g) => g.items)
+    .map((i) => i.key);
+
+  test('required screens come before the optional ones, in dependency order', () => {
+    expect(buildKeys()).toEqual([
+      'overview', 'tiers', 'map', 'tables', 'content', 'promos',
+    ]);
+  });
+
+  test('general admission drops the two map screens and keeps the rest in order', () => {
+    expect(buildKeys({ listingType: 'ticketed', admissionType: 'general' }))
+      .toEqual(['overview', 'tiers', 'content', 'promos']);
+  });
+
+  test('selling and on-the-day screens are not part of it', () => {
+    for (const key of ['share', 'orders', 'door', 'commission', 'attendees', 'staff', 'devices']) {
+      expect(buildKeys(), key).not.toContain(key);
+    }
+  });
+
+  test('every build screen has an href once an event is open', () => {
+    const items = organizerNavGroups({ eventId: EVENT })
+      .filter((g) => g.id === 'build')
+      .flatMap((g) => g.items);
+    for (const item of items) {
+      expect(item.href, item.key).toMatch(new RegExp(`^/organizer/events/${EVENT}`));
+      expect(item.disabled, item.key).toBe(false);
+    }
+  });
+});

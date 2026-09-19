@@ -30,6 +30,22 @@ const PATHS = {
   tick: ['M5 12.5l4.5 4.5L19 7.5'],
   alert: ['M12 3 2.5 20h19L12 3z', 'M12 10v4.5', 'M12 17.5h.01'],
   arrow: ['M4.5 12h14', 'M13 6.5l5.5 5.5-5.5 5.5'],
+  /**
+   * Direction, as a chevron rather than a text glyph.
+   *
+   * `↑` and `↓` typed into a button are a font-dependent glyph at a different
+   * weight and baseline on every platform — the same argument `close` already
+   * makes against `×`. The reorder arrows on every content list used those, so
+   * they were the one pair of controls in the product not drawn on this grid.
+   */
+  chevronUp: ['M6.5 14.5 12 9l5.5 5.5'],
+  chevronDown: ['M6.5 9.5 12 15l5.5-5.5'],
+  /**
+   * A picture. "Page & branding" in the organizer's sidebar asked for `image`,
+   * which did not exist — so it fell through to `info` and sat directly under
+   * Overview, which really is `info`. Two adjacent items, one glyph.
+   */
+  image: ['M3 5.5h18v13H3z', 'M3 15l5-4.5 4 3.5 3.5-3 5.5 5', 'M8.5 9.5h.01'],
   // Added for the storefront's search bar. The only magnifier in the app: the
   // header's search affordance and the hero's field are the same idea and must
   // not be two different glyphs.

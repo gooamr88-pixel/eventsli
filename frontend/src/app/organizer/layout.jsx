@@ -9,6 +9,7 @@ import { ConfirmProvider } from '../components/ui/Confirm';
 import { useAuth } from '../hooks/useAuth';
 import { get } from '../utils/apiClient';
 import EventBar from './nav/EventBar';
+import { OrganizerEventsProvider } from './nav/OrganizerEvents';
 import { organizerNavGroups, organizerTabs, eventIdFromPath } from './nav/organizerNav';
 
 /**
@@ -45,7 +46,11 @@ export default function OrganizerLayout({ children }) {
   const pathEventId = eventIdFromPath(pathname);
   const lastEventId = useSyncExternalStore(subscribeStorage, readLastEvent, () => null);
 
-  const [events, setEvents] = useState(null);
+  // `{ events, error }` together, not an empty list on failure: the switcher
+  // wants "nothing to switch between" and Your events wants "it did not load",
+  // and those are different answers to the same request. See OrganizerEvents.
+  const [state, setState] = useState({ events: null, error: null });
+  const events = state.events;
   // A brand-new event is not in a list fetched before it existed. Asking again
   // when the URL names an event the list does not know is what keeps the
   // switcher from saying "Choose an event…" on the event you just created.
@@ -57,10 +62,12 @@ export default function OrganizerLayout({ children }) {
     (async () => {
       try {
         const data = await get('/events?limit=200&sort=starts_at&order=desc', { cache: 'no-store', noRedirect: true });
-        if (!cancelled) setEvents(Array.isArray(data) ? data : []);
-      } catch {
-        // No organizer profile yet answers 403 — an empty switcher, not an error.
-        if (!cancelled) setEvents([]);
+        if (!cancelled) setState({ events: Array.isArray(data) ? data : [], error: null });
+      } catch (error) {
+        // No organizer profile yet answers 403 — an empty switcher, not an
+        // error. The error is kept for the page that lists them, which does
+        // have to say so.
+        if (!cancelled) setState({ events: [], error });
       }
     })();
     return () => { cancelled = true; };
@@ -83,6 +90,7 @@ export default function OrganizerLayout({ children }) {
   return (
     <ToastProvider>
       <ConfirmProvider>
+        <OrganizerEventsProvider value={state}>
         <AppShell
           role="Organizer"
           label="Organizer"
@@ -125,6 +133,7 @@ export default function OrganizerLayout({ children }) {
           <EventBar events={events} currentId={eventId} canCreate={Boolean(user?.isOrganizer)} />
           {children}
         </AppShell>
+        </OrganizerEventsProvider>
       </ConfirmProvider>
     </ToastProvider>
   );

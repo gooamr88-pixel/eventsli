@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import SeatMapCanvas from '../../../components/seating/SeatMapCanvas';
 import { readZones } from '../../../components/seating/layoutZones';
 import UnlockTableDialog from './UnlockTableDialog';
@@ -221,9 +222,29 @@ export default function SeatPicker({ slug, currency, purchaseMode, maxPerOrder }
   }
 
   if (!map.map || map.tables.length === 0) {
+    /**
+     * A WAY OUT, not just a statement.
+     *
+     * This branch said "This event has no seat map yet." and nothing else — no
+     * link, no button, nothing. The page it sits on is reached from the two
+     * payment-failure screens, so a buyer could arrive here straight from a
+     * declined card and find a sentence with no way forward.
+     *
+     * A general-admission event is now redirected to the ticket picker before
+     * this component ever mounts (see the page's own note), so reaching this is
+     * a reserved event whose organizer has not drawn the room yet. Either way
+     * the event page is where the reader can find out what IS on offer.
+     */
     return (
       <Panel>
-        <p className="text-muted">This event has no seat map yet.</p>
+        <div className="fx-stack fx-stack--sm items-start">
+          <p className="text-muted">
+            This event has no seat map yet, so seats cannot be chosen here.
+          </p>
+          <Link href={`/e/${slug}`} className="es-btn es-btn--primary">
+            Back to the event
+          </Link>
+        </div>
       </Panel>
     );
   }

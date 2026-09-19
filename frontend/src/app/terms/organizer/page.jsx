@@ -40,10 +40,12 @@ export default async function OrganizerTermsPage() {
             </p>
           </>
         ) : (
-          <>
-            <h1 className="text-2xl">Organizer agreement</h1>
-            <p className="text-muted">We could not load the agreement just now.</p>
-          </>
+          // See the note on the buyer terms: the page's heading is PageHeader's,
+          // and repeating it here made two identical <h1>s on the failure path.
+          <p className="text-muted" role="alert">
+            We could not load the agreement just now. Please try again in a moment —
+            and do not submit an event for review until you have been able to read it.
+          </p>
         )}
       </article>
       </div>

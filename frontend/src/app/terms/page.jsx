@@ -58,13 +58,15 @@ export default async function TermsPage() {
             </p>
           </>
         ) : (
-          <>
-            <h1 className="text-2xl">Ticket terms</h1>
-            <p className="text-muted">
-              We could not load the terms just now. Please try again in a moment — and
-              do not complete a purchase until you have been able to read them.
-            </p>
-          </>
+          // NO SECOND <h1>. PageHeader above already renders the page's, and
+          // this branch used to repeat it word for word — two identical
+          // top-level headings, which is a scrambled outline to a screen reader
+          // and a duplicated title to a crawler. Left over from before the
+          // header component existed.
+          <p className="text-muted" role="alert">
+            We could not load the terms just now. Please try again in a moment — and
+            do not complete a purchase until you have been able to read them.
+          </p>
         )}
       </article>
       </div>

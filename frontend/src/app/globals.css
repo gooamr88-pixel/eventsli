@@ -3103,11 +3103,21 @@ body:has(.es-buybar) { padding-block-end: calc(5.5rem + var(--fx-safe-b)); }
   background: var(--es-accent-wash);
   color: var(--es-accent);
 }
+/* A stat card that goes somewhere.
+
+   IT HAS TO LOOK DIFFERENT WITHOUT A POINTER. The only thing separating a
+   linked card from a dead one was a hover state, and a phone has no hover — so
+   on the dashboard's row of four, tapping three did nothing and tapping the
+   fourth navigated, with nothing on screen to predict which. The label takes
+   the accent colour, which is how every other destination on the page is
+   marked. */
 .es-stat--link {
   text-decoration: none;
   transition: border-color var(--es-transition-fast), box-shadow var(--es-transition-fast);
 }
+.es-stat--link .es-stat__label { color: var(--es-accent); }
 .es-stat--link:hover { border-color: var(--es-border-strong); box-shadow: var(--es-shadow-sm); }
+.es-stat--link:hover .es-stat__label { text-decoration: underline; text-underline-offset: 2px; }
 
 /* ── .es-qr — a QR code shown on screen ─────────────────────────────────── */
 .es-qr {
@@ -5928,6 +5938,28 @@ a.es-sponsor:hover { opacity: 0.7; }
 .es-savebar__status { min-width: 0; font-size: var(--es-text-sm); color: var(--es-text-muted); }
 .es-savebar__ok { display: inline-flex; align-items: center; gap: 0.375rem; color: var(--es-accent); font-weight: 600; }
 .es-savebar__bad { color: var(--es-danger); }
+
+/* ── .es-sponsor-level — a sponsorship tier, as a heading ───────────────
+   The sponsors editor lists one group per level because level is the primary
+   sort on the event page and the arrows only reorder within one. The rule
+   used to be a sentence repeated under every row; a heading says it once and
+   shows it. */
+.es-sponsor-level {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-block-end: 0.375rem;
+  border-block-end: 1px solid var(--es-border);
+  font-size: var(--es-text-sm);
+  font-weight: 600;
+  color: var(--es-text);
+}
+.es-sponsor-level__count {
+  font-size: var(--es-text-xs);
+  font-weight: 400;
+  color: var(--es-text-subtle);
+}
 
 /* ── .es-draft — one unfinished event, and what it is waiting on ────────
    Stacked on a phone with the buttons full width underneath; one row from

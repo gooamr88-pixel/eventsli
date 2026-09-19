@@ -1,10 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
 import NavIcon from '../../../components/shell/NavIcon';
 import { organizerNavGroups } from '../../nav/organizerNav';
 import { useEventContext } from './EventContext';
+import { usePathname } from 'next/navigation';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -20,12 +20,19 @@ import { useEventContext } from './EventContext';
  * So each build screen now ends the way the wizard's steps did: with the way
  * back and the way on.
  *
- * THE ORDER IS THE SIDEBAR'S ORDER, from `organizerNavGroups` — the same list
- * that decides which screens this event has at all. That matters more than it
- * looks: a general-admission event has no seat map and no table categories, so
- * "next" after Ticket types is Discounts, not a map that does not exist. A
- * hand-written order here would have to know that rule too, and would be the
- * copy that forgets it.
+ * ONLY THE BUILD GROUP, and this is the fix rather than a restriction. The
+ * sequence used to run through Sell and On the day as well, so "Next" walked an
+ * organizer from Discounts into Share, Orders, Door sales, Commission, the door
+ * list, the door team and the scanning devices — eight screens that are not
+ * setup steps and are all empty before a single ticket has sold — under a bar
+ * announced as "Event setup steps". Setting up an event is the six screens in
+ * the build group, and it ends at Review & submit.
+ *
+ * THE ORDER IS THE SIDEBAR'S ORDER, from `organizerNavGroups`. That matters
+ * more than it looks: a general-admission event has no seat map and no table
+ * categories, so "next" after Ticket types is Page & branding, not a map that
+ * does not exist. A hand-written order here would have to know that rule too,
+ * and would be the copy that forgets it.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 export default function BuildNav() {
@@ -41,16 +48,38 @@ export default function BuildNav() {
     listingType: event.listingType || null,
     admissionType: event.admissionType || null,
   })
-    .filter((g) => ['build', 'sell', 'day'].includes(g.id))
+    .filter((g) => g.id === 'build')
     .flatMap((g) => g.items)
     .filter((item) => item.href);
 
   const here = steps.findIndex((s) => s.href === pathname);
   if (here < 0) return null;
 
+  /**
+   * NOT ON THE OVERVIEW. That screen already answers "what next" three times —
+   * the Next step card at the top, the launch checklist under it, and the
+   * submit step beside that — and it is the one screen that was never a dead
+   * end. A fourth way on, at the bottom, is the clutter this bar exists to
+   * remove everywhere else.
+   */
+  if (steps[here].key === 'overview') return null;
+
   const previous = steps[here - 1] || null;
   const next = steps[here + 1] || null;
-  if (!previous && !next) return null;
+
+  /**
+   * THE LAST BUILD SCREEN LEADS TO SUBMITTING, not to nothing.
+   *
+   * Discounts is the end of the list, so it used to render a Back link and an
+   * empty space — the same dead end this component exists to remove, moved to
+   * the final screen. The way on from the last step is the review, which lives
+   * on the overview under `#going-on-sale`.
+   */
+  const finish = !next && here > 0
+    ? { href: `/organizer/events/${eventId}#going-on-sale`, label: 'Review & submit' }
+    : null;
+  const forward = next || finish;
+  if (!previous && !forward) return null;
 
   return (
     <nav className="es-buildnav" aria-label="Event setup steps">
@@ -66,11 +95,11 @@ export default function BuildNav() {
         </Link>
       ) : <span />}
 
-      {next && (
-        <Link href={next.href} className="es-buildnav__next">
+      {forward && (
+        <Link href={forward.href} className="es-buildnav__next">
           <span className="fx-min0">
-            <span className="es-buildnav__label">Next</span>
-            <span className="es-buildnav__name fx-truncate">{next.label}</span>
+            <span className="es-buildnav__label">{finish ? 'Finish' : 'Next'}</span>
+            <span className="es-buildnav__name fx-truncate">{forward.label}</span>
           </span>
           <span aria-hidden className="es-buildnav__arrow"><NavIcon name="arrow" size={16} /></span>
         </Link>

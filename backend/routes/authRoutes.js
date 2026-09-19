@@ -44,7 +44,19 @@ router.post(
   body('phone').optional({ values: 'falsy' }).isString().trim()
     .matches(/^[0-9+\-() ]{7,20}$/).withMessage('Enter a valid phone number.'),
   // ─ The organizer sign-up asks for more, and requires all of it ─
-  body('accountType').optional().isIn(['attendee', 'organizer']),
+  /**
+   * WHAT THIS ACCOUNT IS FOR — a product choice, not a permission.
+   *
+   * 'buyer' is the product's word and what the sign-up form now sends;
+   * 'attendee' is the word the role ladder uses and what older clients send, so
+   * both are accepted and both mean the same thing. Anything else is refused
+   * here, and `fromSignupChoice` narrows whatever arrives to the two values the
+   * column's CHECK constraint allows — so this list widening by accident still
+   * could not grant anything.
+   *
+   * It never reaches `role`. See the note on the insert in authController.
+   */
+  body('accountType').optional().isIn(['attendee', 'buyer', 'organizer']),
   body('organizationName')
     .if(body('accountType').equals('organizer'))
     .isString().trim().isLength({ min: 2, max: 160 })
@@ -123,6 +135,33 @@ router.post(
   body('email').isEmail().normalizeEmail().withMessage('Enter a valid email address.'),
   validate,
   c.resendVerification,
+);
+
+/**
+ * The waiting tab asking whether the address has been confirmed elsewhere.
+ *
+ * Polled on a timer, so the ceiling is load rather than guessing — the token is
+ * a signed JWT and cannot be walked. One every two seconds for ten minutes is
+ * 300; this is comfortably above a real page and well under a useful flood.
+ *
+ * Deliberately NOT behind `credentialLimiter`: that one is keyed to punish
+ * password guessing, and a tab politely waiting for its own email must not be
+ * able to lock its owner out of signing in.
+ */
+const watchLimiter = makeLimiter({
+  windowMs: 10 * 60 * 1000,
+  max: 400,
+  name: 'verification-status',
+  keyGenerator: (req) => req.ip,
+  message: 'Too many checks. Refresh the page and try again.',
+});
+
+router.post(
+  '/verification-status',
+  watchLimiter,
+  body('watchToken').isString().trim().isLength({ min: 20, max: 2000 }),
+  validate,
+  c.verificationStatus,
 );
 
 router.post(

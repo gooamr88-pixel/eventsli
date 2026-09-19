@@ -10,6 +10,7 @@ import { formatEventTime } from '../../lib/eventTime';
 import { PageHeader, Panel } from '../../components/ui/Page';
 import FormError from '../../components/forms/FormError';
 import { Loading, ErrorNotice, Notice } from '../../components/Feedback';
+import { MARKET_ROWS as MARKETS } from '../../lib/markets';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -29,11 +30,6 @@ import { Loading, ErrorNotice, Notice } from '../../components/Feedback';
  * goes into the audit log beside the old and new values.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-const MARKETS = [
-  { country: 'CA', name: 'Canada', currency: 'CAD' },
-  { country: 'US', name: 'United States', currency: 'USD' },
-];
-
 const percent = { unit: '%', step: '0.01', min: 0, max: 100 };
 const cents = { unit: 'cents', step: '1', min: 0, max: 10000 };
 

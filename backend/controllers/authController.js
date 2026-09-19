@@ -4,6 +4,7 @@ const sessions = require('../services/sessionService');
 const rbac = require('../services/rbacService');
 const { sendOk, sendFail, ERROR_STATUS } = require('../utils/responseEnvelope');
 const verification = require('../services/emailVerificationService');
+const accessTokens = require('../services/accessTokens');
 const logger = require('../utils/logger');
 
 /**
@@ -25,6 +26,44 @@ const LOCKOUT_MINUTES = 15;
  * type an email address which of their acquaintances have accounts here.
  */
 const CREDENTIALS_REJECTED = 'That email or password is not right.';
+
+/**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * WHERE SOMEBODY LANDS AFTER PROVING WHO THEY ARE — one rule, one place.
+ *
+ * `landingFor` reads the account's TYPES, never its role: an organizer account
+ * opens on the dashboard, a buyer's on their tickets, and an account that is
+ * both opens on the dashboard. `utils/accountTypes.js` holds the rule and
+ * argues why type and permission are separate things.
+ *
+ * It used to live in three places that disagreed. `activate` sent an organizer
+ * sign-up to /organizer and everybody else to the storefront; sign-in had no
+ * opinion at all and fell through to the frontend's default; the six-digit code
+ * returned nothing for the client to act on. The same person landed somewhere
+ * different depending on which way in they happened to use.
+ *
+ * `?next=` STILL WINS, and has to: it is what carries somebody back to the
+ * checkout, the event or the ticket they were bounced off. This is only the
+ * answer when nothing else was asked for, and the client applies that order.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+const { landingFor, fromSignupChoice, normalise: normaliseTypes } = require('../utils/accountTypes');
+
+/** The account fields every "who is this" response shares. */
+function shapeIdentity(user) {
+  return {
+    id: user.id,
+    email: user.email,
+    fullName: user.full_name,
+    // The authorization ladder. Reported so the client can show an admin link;
+    // never derived from anything the client sent.
+    role: user.role,
+    // What the account is FOR. Sent so the interface can offer the right
+    // surfaces — and deliberately separate from `role` above.
+    accountTypes: normaliseTypes(user.account_types),
+    next: landingFor(user),
+  };
+}
 
 // ─── POST /auth/register ────────────────────────────────────────────────────
 /**
@@ -52,8 +91,24 @@ async function register(req, res, next) {
         phone: phone ? String(phone).trim() : null,
         password_hash,
         password_updated_at: now,
-        role: 'attendee',   // organizer is granted when they create an organizer profile
+        /**
+         * ROLE IS NOT WHAT THE FORM ASKED FOR, and this is the line that stops
+         * a sign-up from escalating itself. `accountType` is a posted string;
+         * if it reached `role`, anybody could POST `"organizer"` and be granted
+         * the permission ladder that goes with it. It reaches `account_types`
+         * below instead, which decides which screen they open on and nothing
+         * else. The role is raised to 'organizer' server-side, once, when an
+         * organizer PROFILE is created — see organizerController.
+         */
+        role: 'attendee',
+        // The immutable record of what they asked for on the day. Kept beside
+        // `account_types`, which is the mutable current answer — they diverge
+        // the moment a buyer starts selling, and both facts are worth having.
         signup_intent: asOrganizer ? 'organizer' : 'attendee',
+        // Derived from the choice, never copied from it: `fromSignupChoice`
+        // maps an arbitrary string onto the two values the CHECK constraint
+        // allows, so a body that says `"admin"` stores a buyer.
+        account_types: fromSignupChoice(req.body.accountType),
         ...(asOrganizer ? {
           organization_name: String(req.body.organizationName).trim(),
           // Validated `=== true` by the route; the timestamps are the record.
@@ -61,7 +116,7 @@ async function register(req, res, next) {
           privacy_accepted_at: now,
         } : {}),
       })
-      .select('id, email, full_name, role')
+      .select('id, email, full_name, role, account_types')
       .single();
 
     if (error) {
@@ -83,9 +138,15 @@ async function register(req, res, next) {
     verification.issue({ user: data, req });
 
     return sendOk(res, {
-      id: data.id, email: data.email, fullName: data.full_name, role: data.role,
+      ...shapeIdentity(data),
+      // No session yet, so `next` is where they WILL land once the address is
+      // confirmed — the waiting screen shows it, and the verify step re-reads
+      // it from the server rather than trusting this copy.
       verificationRequired: true,
       accountType: asOrganizer ? 'organizer' : 'attendee',
+      // How the tab that submitted this form finds out when the address is
+      // confirmed somewhere else — see `verificationStatus` below.
+      watchToken: accessTokens.issueVerifyWatchToken(data.id),
     }, { status: 201 });
   } catch (err) {
     return next(err);
@@ -128,7 +189,10 @@ async function verifyEmail(req, res, next) {
       .eq('id', user.id);
     await sessions.issue(res, { userId: user.id, email: user.email, role: user.role, req });
 
-    return sendOk(res, { id: user.id, email: user.email, fullName: user.full_name, role: user.role });
+    // `next`, which this did not return at all — so confirming by CODE fell
+    // through to the client default while confirming by LINK was told where to
+    // go. Both now read the one rule.
+    return sendOk(res, shapeIdentity(user));
   } catch (err) {
     return next(err);
   }
@@ -149,13 +213,12 @@ async function verifyEmail(req, res, next) {
 async function activate(req, res, next) {
   try {
     const result = await verification.activateByLink({ token: req.body.token });
-    const destination = (u) => (u?.signup_intent === 'organizer' ? '/organizer' : '/');
 
     if (result.error === 'ALREADY_VERIFIED') {
       return sendFail(res, {
         status: 409, error: 'ALREADY_VERIFIED',
         message: 'This account is already active. Sign in to continue.',
-        meta: { next: destination(result.user) },
+        meta: { next: landingFor(result.user) },
       });
     }
     if (!result.ok) {
@@ -178,10 +241,7 @@ async function activate(req, res, next) {
       .eq('id', user.id);
     await sessions.issue(res, { userId: user.id, email: user.email, role: user.role, req });
 
-    return sendOk(res, {
-      id: user.id, email: user.email, fullName: user.full_name, role: user.role,
-      next: destination(user),
-    });
+    return sendOk(res, shapeIdentity(user));
   } catch (err) {
     return next(err);
   }
@@ -212,6 +272,76 @@ async function resendVerification(req, res, next) {
   }
 }
 
+// ─── POST /auth/verification-status ─────────────────────────────────────────
+/**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * "HAS IT BEEN CONFIRMED YET?" — asked by the tab that is waiting.
+ *
+ * THE BUG THIS EXISTS FOR. Somebody signs up on a laptop and opens the email on
+ * their phone, which is what most people do. The phone taps the activation
+ * link, the phone is signed in — and the laptop sits on "Check your inbox,
+ * open the email, tap Activate" for as long as they leave it there. Nothing
+ * ever told it. The person is left looking at a screen instructing them to do
+ * a thing they have already done, on a device that has no way to find out.
+ *
+ * SO THE WAITING TAB ASKS, and when the answer is yes it is signed in too and
+ * sent where it was going.
+ *
+ * WHY SIGNING IT IN IS SOUND. The watch token was handed to the browser that
+ * submitted the sign-up (or a sign-in with the right password against an
+ * unconfirmed address) — never emailed, never derivable from an address. It
+ * answers "not yet" until somebody with the INBOX confirms the account. So the
+ * pair of facts behind the session here is exactly the pair behind every other
+ * one: this browser knew the password, and somebody proved the inbox.
+ *
+ * It grants nothing an attacker did not already have either: an account
+ * registered against a stranger's address is one the registrant can already
+ * sign into with their own password the moment that stranger clicks the link.
+ *
+ * THE TOKEN IS NOT A SESSION. It carries a user id and a purpose, expires in
+ * 30 minutes, and is refused by every other endpoint — `readVerifyWatchToken`
+ * checks `typ`, which is what stops it being replayed as an order key or a
+ * reservation key, and stops those being replayed as this.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+async function verificationStatus(req, res, next) {
+  try {
+    const userId = accessTokens.readVerifyWatchToken(req.body.watchToken);
+    // Expired, forged, or the wrong kind of token: one answer for all three.
+    // Telling them apart says whether the token was ever real.
+    if (!userId) return sendOk(res, { verified: false });
+
+    const { data: user, error } = await supabase
+      .from('profiles')
+      .select('id, email, full_name, role, account_types, is_blocked, email_verified_at, signup_intent')
+      .eq('id', userId)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+
+    if (!user || !user.email_verified_at) return sendOk(res, { verified: false });
+    // Confirmed but suspended since: the address is fine, the account is not,
+    // and a session must not be minted for it. Reported as verified so the
+    // waiting page stops waiting and sends them to sign in, where the block is
+    // explained properly.
+    if (user.is_blocked) return sendOk(res, { verified: true, signedIn: false });
+
+    rbac.invalidate(user.id);
+    await supabase.from('profiles')
+      .update({ last_login_at: new Date().toISOString(), failed_login_count: 0, locked_until: null })
+      .eq('id', user.id);
+    await sessions.issue(res, { userId: user.id, email: user.email, role: user.role, req });
+
+    return sendOk(res, {
+      verified: true,
+      signedIn: true,
+      user: shapeIdentity(user),
+      next: landingFor(user),
+    });
+  } catch (err) {
+    return next(err);
+  }
+}
+
 // ─── POST /auth/login ───────────────────────────────────────────────────────
 async function login(req, res, next) {
   try {
@@ -220,7 +350,7 @@ async function login(req, res, next) {
 
     const { data: user, error } = await supabase
       .from('profiles')
-      .select('id, email, full_name, role, password_hash, is_blocked, failed_login_count, locked_until, email_verified_at')
+      .select('id, email, full_name, role, account_types, password_hash, is_blocked, failed_login_count, locked_until, email_verified_at')
       .eq('email', email)
       .maybeSingle();
 
@@ -276,7 +406,15 @@ async function login(req, res, next) {
       return sendFail(res, {
         status: 403, error: 'EMAIL_NOT_VERIFIED',
         message: 'Confirm your email to finish signing in. We have sent you a code.',
-        meta: { email: user.email },
+        /**
+         * A watch token is safe to hand out HERE, and only here and at sign-up,
+         * because both are answers to somebody who has just proved they know
+         * the password. `resendVerification` deliberately does not issue one:
+         * it answers identically for every address by design, so minting a
+         * token there would hand anybody a watcher on a stranger's account —
+         * and a session the moment that stranger confirmed their own email.
+         */
+        meta: { email: user.email, watchToken: accessTokens.issueVerifyWatchToken(user.id) },
       });
     }
 
@@ -297,9 +435,7 @@ async function login(req, res, next) {
       userId: user.id, email: user.email, role: user.role, req,
     });
 
-    return sendOk(res, {
-      id: user.id, email: user.email, fullName: user.full_name, role: user.role,
-    });
+    return sendOk(res, shapeIdentity(user));
   } catch (err) {
     return next(err);
   }
@@ -337,6 +473,13 @@ async function me(req, res) {
     email: a.email,
     fullName: a.fullName,
     role: a.role,
+    // What the account is FOR, beside what it MAY DO. `isOrganizer` below is
+    // the permission fact — it is true only once an organizer profile exists —
+    // while `accountTypes` can contain 'organizer' before that, which is
+    // exactly the state of somebody who signed up to sell and has not finished
+    // setting up. The shell needs both: one to route, one to authorize.
+    accountTypes: a.accountTypes,
+    next: landingFor({ account_types: a.accountTypes }),
     isOrganizer: a.isOrganizer,
     organizerId: a.organizerId,
     canReceivePayouts: a.canReceivePayouts,
@@ -508,7 +651,7 @@ async function googleSignIn(req, res, next) {
     });
 
     return sendOk(res, {
-      id: user.id, email: user.email, fullName: user.full_name, role: user.role,
+      ...shapeIdentity(user),
       newAccount: created,
     }, { status: created ? 201 : 200 });
   } catch (err) {
@@ -521,7 +664,8 @@ async function googleSignIn(req, res, next) {
 }
 
 module.exports = {
-  register, verifyEmail, activate, resendVerification, login, logout, logoutAll, me,
+  register, verifyEmail, activate, resendVerification, verificationStatus,
+  login, logout, logoutAll, me,
   listSessions, endSession, changePassword,
   forgotPassword, resetPassword, googleSignIn,
   MAX_FAILED_LOGINS, LOCKOUT_MINUTES,

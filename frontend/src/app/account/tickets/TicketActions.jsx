@@ -73,6 +73,31 @@ export default function TicketActions({ orderId, onPrintingChange }) {
  *
  * No `!important` anywhere — the project's check refuses them, and an element
  * selector beside the class is enough to beat any single utility class.
+ *
+ * ───────────────────────────────────────────────────────────────────────────
+ * WHY `visibility` AND NOT `display` — this printed a BLANK PAGE.
+ *
+ * The rule was `body > *:not(.es-tickets-root) { display: none }`, which
+ * assumes the tickets are a direct child of `<body>`. They are not, and never
+ * were. The real tree is:
+ *
+ *     body
+ *      ├ SiteHeader
+ *      ├ main                     ← account/layout.jsx
+ *      │   └ div.fx-container
+ *      │       └ div.es-tickets-root
+ *      └ SiteFooter
+ *
+ * so none of `body`'s three children carries the class, all three were hidden,
+ * and `display: none` on an ancestor cannot be undone by any rule on what is
+ * inside it. Save as PDF produced an empty sheet — on the one feature whose
+ * entire job is giving somebody a copy of their ticket.
+ *
+ * `visibility` is the standard answer because, unlike `display`, it inherits
+ * and a descendant CAN override it. Everything is hidden, the tickets are made
+ * visible again wherever they happen to sit, and because hidden elements still
+ * occupy space the block is lifted to the top of the sheet.
+ * ───────────────────────────────────────────────────────────────────────────
  */
 export function TicketPrintStyles() {
   return (
@@ -80,9 +105,17 @@ export function TicketPrintStyles() {
       @media print {
         @page { margin: 12mm; }
 
-        /* The app around the tickets: header, navigation, footer. It is still
-           in the DOM and would otherwise print above them. */
-        body > *:not(.es-tickets-root) { display: none; }
+        /* The app around the tickets — header, navigation, footer — whatever
+           depth it sits at. */
+        body * { visibility: hidden; }
+        .es-tickets-root, .es-tickets-root * { visibility: visible; }
+        .es-tickets-root {
+          position: absolute;
+          inset-inline-start: 0;
+          top: 0;
+          width: 100%;
+        }
+
         .es-tickets-root nav,
         .es-tickets-root header.es-appbar,
         .es-tickets-print-hide { display: none; }

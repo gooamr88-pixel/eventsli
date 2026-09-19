@@ -1,5 +1,6 @@
 import { defaultTimeZone } from '../../../lib/timezones';
 import { browserZone } from '../../../lib/eventTime';
+import { DEFAULT_COUNTRY } from '../../../lib/markets';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -128,7 +129,7 @@ export function draftKey(type) {
  * server never renders it.
  */
 export function initialForm(type, organizer) {
-  const country = organizer?.country || 'CA';
+  const country = organizer?.country || DEFAULT_COUNTRY;
   const base = {
     title: '', category: 'other', description: '',
     country, timezone: defaultTimeZone(country, browserZone()),

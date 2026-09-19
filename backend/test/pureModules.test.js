@@ -38,6 +38,7 @@ const PURE_MODULES = [
   'utils/resetPlan.js',          // what a platform reset must put back
   'utils/invoices.js',           // when a commission invoice is overdue
   'utils/markets.js',            // the countries and currencies Eventsli sells in
+  'utils/accountTypes.js',       // what an account is FOR, and where it lands
   'utils/settingsSchema.js',     // what each platform setting may hold
   'utils/mapLimit.js',           // bounded concurrency for the offline sync
   'utils/pinLockout.js',         // door PIN lockout rules

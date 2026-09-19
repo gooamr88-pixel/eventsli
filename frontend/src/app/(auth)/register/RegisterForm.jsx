@@ -6,14 +6,14 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { post } from '../../utils/apiClient';
 import { setAuthUser } from '../../hooks/useAuth';
 import { safeNext } from '../login/LoginForm';
+import { rememberWatchToken } from '../verify-email/useVerificationWatch';
 import Field from '../../components/forms/Field';
 import FormError from '../../components/forms/FormError';
 import SubmitButton from '../../components/forms/SubmitButton';
 import GoogleSignIn from '../../components/forms/GoogleSignIn';
-
-/** The API's rule, mirrored so it can be shown BEFORE the round trip:
- *  12 characters, no composition requirements. */
-const MIN_PASSWORD = 12;
+import AccountTypeChoice from './AccountTypeChoice';
+import { landingAfterAuth } from '../../lib/authLanding';
+import { MIN_PASSWORD, MAX_PASSWORD, PASSWORD_HINT, passwordProblem } from '../../lib/passwordRules';
 
 /**
  * Create an account.
@@ -37,7 +37,9 @@ export default function RegisterForm() {
 
   function arrive(user) {
     setAuthUser(user);
-    router.push(next);
+    // An explicit `?next=` wins; otherwise the API says where a signed-in
+    // person belongs. See the same note in LoginForm.
+    router.push(landingAfterAuth(params, user));
     router.refresh();
   }
 
@@ -47,6 +49,9 @@ export default function RegisterForm() {
     setError(null);
     try {
       const account = await post('/auth/register', {
+        // Stated, not defaulted: the choice the chooser above made is what the
+        // account is created with, and it is stored on the row.
+        accountType: 'buyer',
         fullName: form.fullName,
         email: form.email,
         password: form.password,
@@ -56,6 +61,9 @@ export default function RegisterForm() {
       }, { noRedirect: true });
 
       if (account?.verificationRequired) {
+        // Handed to the waiting screen so it can notice the activation happening
+        // on a phone instead of sitting on "open your email" forever.
+        rememberWatchToken(account.watchToken);
         const query = new URLSearchParams({ email: account.email || form.email, sent: '1' });
         if (next !== '/') query.set('next', next);
         router.push(`/verify-email?${query}`);
@@ -72,10 +80,11 @@ export default function RegisterForm() {
     <div className="fx-stack">
       <div className="fx-stack fx-stack--sm">
         <h1 className="text-2xl">Create an account</h1>
-        <p className="text-sm text-muted">
-          Your tickets in one place — and it is how you start selling your own events.
-        </p>
       </div>
+
+      {/* The choice, before anything is typed. It is stored on the account and
+          decides which screen they open on — see AccountTypeChoice. */}
+      <AccountTypeChoice current="buyer" next={params.get('next') ? next : null} />
 
       <form onSubmit={submit} className="fx-stack fx-stack--sm">
         <Field
@@ -91,13 +100,13 @@ export default function RegisterForm() {
         />
         <Field
           label="Password" type="password" name="password"
-          autoComplete="new-password" required minLength={MIN_PASSWORD}
+          autoComplete="new-password" required minLength={MIN_PASSWORD} maxLength={MAX_PASSWORD}
           // Length over composition, matching the API — which follows current
           // NIST guidance. Demanding a symbol and a digit reliably produces
           // `Password1!`, which is harder to remember and easier to guess than
           // a longer phrase.
-          hint={`At least ${MIN_PASSWORD} characters. A short phrase works well.`}
-          error={tooShort ? `${MIN_PASSWORD - form.password.length} more to go.` : null}
+          hint={PASSWORD_HINT}
+          error={passwordProblem(form.password)}
           value={form.password}
           onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
         />

@@ -2,14 +2,15 @@
 
 import { useId, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { rememberWatchToken } from '../../verify-email/useVerificationWatch';
 import { post } from '../../../utils/apiClient';
 import Field from '../../../components/forms/Field';
 import FormError from '../../../components/forms/FormError';
 import SubmitButton from '../../../components/forms/SubmitButton';
+import AccountTypeChoice from '../AccountTypeChoice';
+import { MIN_PASSWORD, MAX_PASSWORD, PASSWORD_HINT, passwordProblem } from '../../../lib/passwordRules';
 
-/** The API's rule, mirrored so it can be shown before the round trip. */
-const MIN_PASSWORD = 12;
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -26,6 +27,10 @@ const MIN_PASSWORD = 12;
  */
 export default function OrganizerSignupForm() {
   const router = useRouter();
+  const params = useSearchParams();
+  // Present only when somebody was sent here mid-flow. It survives the
+  // chooser and the whole verification detour.
+  const asked = params.get('next');
   const termsId = useId();
   const privacyId = useId();
   const [form, setForm] = useState({
@@ -57,10 +62,21 @@ export default function OrganizerSignupForm() {
         acceptPrivacy: form.acceptPrivacy,
       }, { noRedirect: true });
 
+      // Handed to the waiting screen so it can notice the activation happening
+      // on a phone instead of sitting on "open your email" forever.
+      rememberWatchToken(account?.watchToken);
       const query = new URLSearchParams({
         email: account?.email || form.email.trim(),
         sent: '1',
-        next: '/organizer',
+        /**
+         * NO HARDCODED '/organizer' ANY MORE. This form used to pin the
+         * destination itself, which was right by luck — it is the organizer
+         * sign-up — and wrong in shape: it meant two places decided where
+         * somebody lands, and a real `?next=` from a checkout bounce was
+         * thrown away. The account's own type decides now, on the API side,
+         * and only a destination that was actually asked for is carried.
+         */
+        ...(asked ? { next: asked } : {}),
       });
       router.push(`/verify-email?${query}`);
     } catch (err) {
@@ -72,12 +88,18 @@ export default function OrganizerSignupForm() {
   return (
     <div className="fx-stack">
       <div className="fx-stack fx-stack--sm">
-        <p className="es-eyebrow">For organizers</p>
-        <h1 className="text-2xl">Start selling tickets</h1>
-        <p className="text-sm text-muted">
-          Create your organizer account. It takes a minute — we will email you a link to activate it.
-        </p>
+        <h1 className="text-2xl">Create an account</h1>
       </div>
+
+      {/* Shown here too, with this side marked. The organizer form asks for
+          more — an organization, a phone number, two agreements — and somebody
+          halfway down it should be able to see why, and change their mind
+          without going to find the other page. */}
+      <AccountTypeChoice current="organizer" next={asked} />
+
+      <p className="text-sm text-muted">
+        We will email you a link to activate the account. Setting up payouts comes later.
+      </p>
 
       <form onSubmit={submit} className="fx-stack fx-stack--sm">
         <Field
@@ -105,9 +127,9 @@ export default function OrganizerSignupForm() {
         />
         <Field
           label="Password" type="password" name="password" autoComplete="new-password" required
-          minLength={MIN_PASSWORD}
-          hint={`At least ${MIN_PASSWORD} characters. A short phrase works well.`}
-          error={tooShort ? `${MIN_PASSWORD - form.password.length} more to go.` : null}
+          minLength={MIN_PASSWORD} maxLength={MAX_PASSWORD}
+          hint={PASSWORD_HINT}
+          error={passwordProblem(form.password)}
           value={form.password} onChange={set('password')}
         />
 

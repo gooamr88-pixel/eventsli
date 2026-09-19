@@ -1,7 +1,9 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { serverFetch, PUBLIC_API_URL } from '../../utils/apiClient';
+import { formatEventTime } from '../../lib/eventTime';
 import TicketStub from '../../components/TicketStub';
+import SaveTicket, { TicketPrintStyles } from './SaveTicket';
 
 /**
  * The emailed ticket link.
@@ -35,23 +37,23 @@ export default async function TicketPage({ params }) {
   }
 
   const event = ticket.event || {};
-  const when = event.startsAt
-    ? new Intl.DateTimeFormat('en-US', {
-      dateStyle: 'full', timeStyle: 'short', timeZone: event.timezone || 'UTC',
-    }).format(new Date(event.startsAt))
-    : null;
+  /**
+   * `formatEventTime`, not a private copy — it names the zone as "EST" rather
+   * than printing the IANA identifier in brackets, which is what this page did
+   * while My Tickets did something third. It also stops the silent fall back to
+   * UTC this had: a missing zone showed a confidently wrong time rather than
+   * the reader's own, labelled.
+   */
+  const when = event.startsAt ? formatEventTime(event.startsAt, event.timezone) : null;
 
   return (
-    <main className="fx-section fx-section--sm">
+    <main className="es-ticket-page fx-section fx-section--sm">
+      <TicketPrintStyles />
       <div className="fx-container fx-container--sm fx-stack">
         <div className="fx-stack fx-stack--sm">
           <p className="font-mono text-xs uppercase tracking-[0.1em] text-accent">Your ticket</p>
           <h1 className="text-xl">{event.title || 'Ticket'}</h1>
-          {when && (
-            <p className="text-muted">
-              {when} {event.timezone && <span className="text-subtle">({event.timezone})</span>}
-            </p>
-          )}
+          {when && <p className="text-muted">{when}</p>}
           {event.venueName && <p className="text-muted">{event.venueName}</p>}
         </div>
 
@@ -61,6 +63,7 @@ export default async function TicketPage({ params }) {
             is trying to read. */}
         <TicketStub
           ticket={ticket}
+          timeZone={event.timezone}
           qrSrc={`${PUBLIC_API_URL}/public/qr/${encodeURIComponent(ticket.qr)}`}
           prominent
         />
@@ -69,8 +72,12 @@ export default async function TicketPage({ params }) {
           Show this code at the door. Screen brightness up — it is read by a camera.
         </p>
 
+        {/* The way to keep it. This page is the only copy a guest buyer has,
+            and until now it offered no way to save one. */}
+        <SaveTicket />
+
         {event.slug && (
-          <Link href={`/e/${event.slug}`} className="text-sm text-accent">
+          <Link href={`/e/${event.slug}`} className="es-ticket-print-hide text-sm text-accent">
             About this event →
           </Link>
         )}

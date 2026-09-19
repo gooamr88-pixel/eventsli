@@ -157,7 +157,14 @@ export default function NearMeDialog({ open, onClose }) {
           // and "which city" is not answered any better by knowing the street.
           const lat = position.coords.latitude.toFixed(3);
           const lng = position.coords.longitude.toFixed(3);
-          const data = await get(`/public/events/near?lat=${lat}&lng=${lng}&radiusKm=${RADIUS_KM}`);
+          // `noRedirect`: this runs inside a dialog on the storefront, for a
+          // visitor who is very likely signed out. A 401 escaping to the shared
+          // handler would replace the page with /login — the catch below is the
+          // right home for any failure here.
+          const data = await get(
+            `/public/events/near?lat=${lat}&lng=${lng}&radiusKm=${RADIUS_KM}`,
+            { noRedirect: true },
+          );
           setResult(data);
           setPhase('result');
         } catch {

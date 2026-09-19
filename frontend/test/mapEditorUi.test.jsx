@@ -124,7 +124,7 @@ describe('the canvas draws both kinds of thing', () => {
     // asserted on the document order rather than trusted to stay right.
     render(<Harness initialTables={[table('a', 30, 30)]} initialZones={[makeZone('dance_floor', { x: 60, y: 20 })]} />);
 
-    const svg = screen.getByRole('application', { name: 'Seat map editor' });
+    const svg = screen.getByRole('application', { name: 'Seating map editor' });
     const nodes = [...svg.querySelectorAll('[data-zone-id], [data-table-key]')];
     expect(nodes[0].hasAttribute('data-zone-id')).toBe(true);
     expect(nodes[1].hasAttribute('data-table-key')).toBe(true);
@@ -132,7 +132,7 @@ describe('the canvas draws both kinds of thing', () => {
 
   test('the alignment grid appears only while Snap is on', async () => {
     render(<Harness initialTables={[table('a', 30, 30)]} />);
-    const svg = screen.getByRole('application', { name: 'Seat map editor' });
+    const svg = screen.getByRole('application', { name: 'Seating map editor' });
     const grid = () => svg.querySelector('rect[fill="url(#es-map-grid)"]');
 
     expect(grid()).toBeNull();
@@ -295,7 +295,7 @@ describe('the keyboard', () => {
     await userEvent.click(screen.getByRole('button', { name: /^Table A/ }));
     await userEvent.keyboard('{ArrowRight}{ArrowRight}');
 
-    const svg = screen.getByRole('application', { name: 'Seat map editor' });
+    const svg = screen.getByRole('application', { name: 'Seating map editor' });
     const g = svg.querySelector('[data-table-key]');
     // 30% + 2 percentage points of a 1000-unit world = 320.
     expect(g.getAttribute('transform')).toContain('translate(320');

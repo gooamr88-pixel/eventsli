@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { formatPrice } from '../../utils/money';
+import NavIcon from '../../components/shell/NavIcon';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -131,9 +132,13 @@ export function EventBuyBar({ event, soldOut, tierId, cheapest = [] }) {
         )}
       </div>
       <div className="es-buybar__action">
+        {/* The arrow is drawn on the icon grid, not typed as `→`. A text arrow
+            is a font-dependent glyph at a different weight and baseline on
+            every platform — here, inside the one button the whole page exists
+            to offer. */}
         <Link href={cta.href} className="es-btn es-btn--primary">
           {cta.label}
-          <span aria-hidden>→</span>
+          <NavIcon name="arrow" size={18} />
         </Link>
       </div>
     </div>

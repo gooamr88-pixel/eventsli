@@ -112,7 +112,17 @@ export function PayError({ error }) {
   );
 }
 
-/** The quote itself could not be loaded, so there is no order to show. */
+/**
+ * The quote itself could not be loaded, so there is no order to show.
+ *
+ * This is the screen an EXPIRED HOLD lands on, which makes it the most-seen
+ * failure in the checkout — and the way back has to work for both kinds of
+ * event. It said "Choose seats again" and linked to `/e/:slug/seats` on every
+ * event, including general-admission ones that have no seats and no seat map;
+ * `/seats` now redirects those to the ticket picker, so the destination is
+ * right either way, and the label no longer promises seats to somebody who was
+ * never choosing any.
+ */
 export function Fatal({ error, slug }) {
   const { title, recovery } = describeError(error);
   return (
@@ -123,7 +133,7 @@ export function Fatal({ error, slug }) {
         href={slug ? `/e/${slug}/seats` : '/events'}
         className="es-btn es-btn--primary self-start"
       >
-        {slug ? 'Choose seats again' : 'Browse events'}
+        {slug ? 'Start again' : 'Browse events'}
       </Link>
     </div>
   );

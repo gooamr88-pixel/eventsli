@@ -18,6 +18,7 @@ import Drafts from './Drafts';
 import CreateProfile from '../CreateProfile';
 import OrganizerNotices from '../OrganizerNotices';
 import { Attention, Upcoming, RecentOrders, GettingStarted } from './DashboardPanels';
+import { currencyFor } from '../../lib/markets';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -34,13 +35,34 @@ import { Attention, Upcoming, RecentOrders, GettingStarted } from './DashboardPa
  *
  * Money is shown ONE CURRENCY AT A TIME. A Toronto event and a Denver event are
  * CAD and USD, and one "revenue" adding the two is wrong in both.
+ *
+ * THE ORDER IS WHAT TO DO, THEN WHAT HAPPENED, and it was the other way
+ * round. `.es-split` is one column below 1280px — every phone, every tablet
+ * and most laptops — so the real reading order was: four figures, a 30-bar
+ * chart, and THEN "Needs you", the only panel on the page with anything to
+ * act on. The lede promises "what needs you next" and it arrived third,
+ * under a chart. Now: what needs you, what is unfinished, then the numbers.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 export default function Dashboard() {
   const { loading, organizer, error, refresh } = useOrganizer();
   const [days, setDays] = useState(30);
   const [picked, setPicked] = useState(null);
-  const stats = useApi(organizer ? `/organizer/dashboard?days=${days}` : null);
+  /**
+   * BOTH REQUESTS AT ONCE, not one after the other.
+   *
+   * This was `useApi(organizer ? … : null)`, so the numbers could not even be
+   * ASKED for until `/organizer/me` had come back — two round trips stacked
+   * end to end before the first figure appeared, on every visit to the page an
+   * organizer opens most. They are independent questions, so they go together
+   * and the page is ready after one trip instead of two.
+   *
+   * The endpoint answers 404 when there is no organizer profile, which is the
+   * same thing `/organizer/me` says and is handled below by `organizer` being
+   * null — so the extra request costs a 404 in the one case where the page was
+   * never going to show numbers anyway.
+   */
+  const stats = useApi(`/organizer/dashboard?days=${days}`);
 
   if (loading) return <Loading variant="stats" rows={4} label="Loading your dashboard" />;
   if (error) return <ErrorNotice error={error} />;
@@ -56,7 +78,9 @@ export default function Dashboard() {
   const isNew = Boolean(data) && (data.events?.total ?? 0) === 0;
   if (isNew && !organizer.setupComplete) return <CreateProfile organizer={organizer} onCreated={refresh} />;
   const currencies = Object.keys(data?.sales || {});
-  const fallback = organizer.country === 'US' ? 'USD' : 'CAD';
+  // The country→currency table, not a ternary that has to be found and
+  // edited the day a third market opens.
+  const fallback = currencyFor(organizer.country);
   const currency = picked && currencies.includes(picked) ? picked : (currencies[0] || fallback);
   const sales = data?.sales?.[currency] || { orders: 0, tickets: 0, grossCents: 0, netCents: 0 };
   const { issued = 0, admitted = 0 } = data?.admissions || {};
@@ -86,24 +110,22 @@ export default function Dashboard() {
         eyebrow={organizer.displayName}
         title="Dashboard"
         lede="How your events are selling, and what needs you next."
-        actions={(
-          <>
-            {currencies.length > 1 && (
-              <Segmented
-                label="Currency"
-                value={currency}
-                onChange={setPicked}
-                options={currencies.map((c) => ({ value: c, label: c }))}
-              />
-            )}
-            {/* The phone's app bar and the desktop sidebar each carry Create;
-                only the tablet rail shows it as a bare icon, so here it is
-                spelled out between those two widths and nowhere else. */}
-            <Link href="/organizer/events/new" className="es-btn es-btn--primary max-md:hidden lg:hidden">
-              <NavIcon name="plus" size={18} />
-              Create event
-            </Link>
-          </>
+        /**
+         * NO CREATE BUTTON HERE ANY MORE.
+         *
+         * It was shown between 768px and 1024px only, to cover the tablet rail
+         * that renders Create as a bare icon. The event bar directly above now
+         * carries "Create event" spelled out at EVERY width, so this was a
+         * second primary button roughly 60px below the first one, on exactly
+         * the widths where there was already room for it.
+         */
+        actions={currencies.length > 1 && (
+          <Segmented
+            label="Currency"
+            value={currency}
+            onChange={setPicked}
+            options={currencies.map((c) => ({ value: c, label: c }))}
+          />
         )}
       />
 
@@ -114,12 +136,23 @@ export default function Dashboard() {
       {/* Payouts are the first line of Needs you and a step of Getting started. */}
       <OrganizerNotices organizer={organizer} payouts={false} />
 
+      {/* `!data` cannot reach here — the early return above already held the
+          page on a skeleton until the numbers arrived — so the branch that
+          used to render a second identical skeleton is gone. */}
       {stats.error ? (
         <ErrorNotice error={stats.error} />
-      ) : !data ? (
-        <Loading variant="stats" rows={4} label="Loading your numbers" />
       ) : (
         <>
+          {/* ── What needs you, first and full width ───────────────────────
+              Not in the split beside the chart: below 1280px that split is one
+              column, so "beside" meant "after a 30-bar chart" on every phone,
+              every tablet and most laptops. */}
+          <Attention data={data} organizer={organizer} />
+
+          {/* Unfinished work, before the finished. Renders nothing when there
+              are no drafts. */}
+          <Drafts />
+
           <div className="es-statgrid">
             <StatCard
               label="Revenue"
@@ -148,34 +181,26 @@ export default function Dashboard() {
             />
           </div>
 
-          <div className="es-split">
-            <Panel
-              title="Revenue"
-              description={`Per day, in ${currency}.`}
-              action={<Segmented label="Period" value={days} onChange={setDays} options={PERIODS} />}
-            >
-              <BarChart
-                ariaLabel={`Revenue per day in ${currency}, last ${days} days`}
-                format={(v) => formatMoney(v, currency)}
-                data={(data.timeline || []).map((d) => {
-                  const day = d.byCurrency?.[currency];
-                  return {
-                    label: formatDay(d.date),
-                    value: Number(day?.grossCents || 0),
-                    detail: day
-                      ? `${formatMoney(day.grossCents, currency)} · ${day.tickets} tickets`
-                      : 'No sales',
-                  };
-                })}
-              />
-            </Panel>
-
-            <Attention data={data} organizer={organizer} />
-          </div>
-
-          {/* Unfinished work, above the finished. Renders nothing when there
-              are no drafts. */}
-          <Drafts />
+          <Panel
+            title="Revenue"
+            description={`Per day, in ${currency}.`}
+            action={<Segmented label="Period" value={days} onChange={setDays} options={PERIODS} />}
+          >
+            <BarChart
+              ariaLabel={`Revenue per day in ${currency}, last ${days} days`}
+              format={(v) => formatMoney(v, currency)}
+              data={(data.timeline || []).map((d) => {
+                const day = d.byCurrency?.[currency];
+                return {
+                  label: formatDay(d.date),
+                  value: Number(day?.grossCents || 0),
+                  detail: day
+                    ? `${formatMoney(day.grossCents, currency)} · ${day.tickets} tickets`
+                    : 'No sales',
+                };
+              })}
+            />
+          </Panel>
 
           <div className="es-split es-split--even">
             <Upcoming events={data.upcoming} />

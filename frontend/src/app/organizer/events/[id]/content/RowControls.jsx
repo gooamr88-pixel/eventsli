@@ -1,5 +1,7 @@
 'use client';
 
+import NavIcon from '../../../../components/shell/NavIcon';
+
 /**
  * Reorder and remove, for one row of any content list.
  *
@@ -21,20 +23,21 @@ export default function RowControls({ index, total, busy, onMove, onRemove, labe
           8px, so a thumb aimed at the seam between them moved the row the
           wrong way. 12px is the smallest gap that keeps them apart. */}
       <div className="fx-row gap-3">
+        {/* Drawn on the icon grid, not typed as `↑`/`↓`. A text arrow is a
+            font-dependent glyph at a different weight and baseline on every
+            platform — the same reason `close` is a path and not `×`. */}
         <IconButton
           onClick={() => onMove(-1)}
           disabled={busy || index === 0}
           label={`Move this ${label} earlier`}
-        >
-          ↑
-        </IconButton>
+          icon="chevronUp"
+        />
         <IconButton
           onClick={() => onMove(1)}
           disabled={busy || index === total - 1}
           label={`Move this ${label} later`}
-        >
-          ↓
-        </IconButton>
+          icon="chevronDown"
+        />
       </div>
 
       <button
@@ -49,7 +52,7 @@ export default function RowControls({ index, total, busy, onMove, onRemove, labe
   );
 }
 
-function IconButton({ onClick, disabled, label, children }) {
+function IconButton({ onClick, disabled, label, icon }) {
   return (
     <button
       type="button"
@@ -64,7 +67,7 @@ function IconButton({ onClick, disabled, label, children }) {
       // 32px target is actually missed.
       className="fx-hit grid h-8 w-8 place-items-center rounded-(--es-radius-sm) border border-border-strong text-ink transition-colors hover:bg-bg-sunken disabled:opacity-40"
     >
-      {children}
+      <NavIcon name={icon} size={16} />
     </button>
   );
 }

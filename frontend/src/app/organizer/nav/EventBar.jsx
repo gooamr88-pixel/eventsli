@@ -36,12 +36,22 @@ export default function EventBar({ events, currentId, canCreate }) {
   const router = useRouter();
   const pathname = usePathname() || '';
 
+  /**
+   * NOT ON THE PAGE THAT CREATES ONE. "Create event" directly above the
+   * create-event form is a button whose only effect is to restart the form the
+   * organizer is already filling in — and the wizard keeps a draft in session
+   * storage, so pressing it looks like it did nothing at all. The switcher
+   * stays: leaving for another event is still a thing to want here.
+   */
+  const creating = pathname === '/organizer/events/new';
+  const offerCreate = canCreate && !creating;
+
   // Nothing to switch between and nothing to create: no bar at all. An
   // organizer with no events sees the dashboard's own "getting started" panel,
   // and a strip saying "Choose an event" above it would be a control whose
   // only option is the one they have already been given.
   const list = Array.isArray(events) ? events : [];
-  if (list.length === 0 && !canCreate) return null;
+  if (list.length === 0 && !offerCreate) return null;
 
   const current = list.find((e) => e.id === currentId) || null;
 
@@ -70,7 +80,7 @@ export default function EventBar({ events, currentId, canCreate }) {
         )}
       </div>
 
-      {canCreate && (
+      {offerCreate && (
         <Link href="/organizer/events/new" className="es-btn es-btn--primary es-btn--sm es-evbar__new">
           <NavIcon name="plus" size={16} />
           <span className="es-evbar__new-label">Create event</span>

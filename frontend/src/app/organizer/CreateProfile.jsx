@@ -9,6 +9,7 @@ import FormError from '../components/forms/FormError';
 import SubmitButton from '../components/forms/SubmitButton';
 import NavIcon from '../components/shell/NavIcon';
 import { OnboardingProgress } from './OnboardingProgress';
+import { COUNTRY_OPTIONS, DEFAULT_COUNTRY } from '../lib/markets';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -28,10 +29,7 @@ import { OnboardingProgress } from './OnboardingProgress';
  * same question twice in their first five minutes.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-const COUNTRIES = [
-  ['CA', 'Canada'],
-  ['US', 'United States'],
-];
+// The markets Eventsli sells in, from the one list — see lib/markets.
 
 export default function CreateProfile({ organizer = null, onCreated }) {
   const agreeId = useId();
@@ -39,7 +37,7 @@ export default function CreateProfile({ organizer = null, onCreated }) {
     legalName: organizer?.legalName || '',
     displayName: organizer?.displayName || '',
     description: organizer?.description || '',
-    country: organizer?.country || 'CA',
+    country: organizer?.country || DEFAULT_COUNTRY,
     acceptPolicies: Boolean(organizer?.policiesAcceptedAt),
   }));
   const [brandTouched, setBrandTouched] = useState(Boolean(organizer?.displayName));
@@ -135,7 +133,7 @@ export default function CreateProfile({ organizer = null, onCreated }) {
 
         {!organizer && (
           <SelectField
-            label="Country" required value={form.country} onChange={set('country')} options={COUNTRIES}
+            label="Country" required value={form.country} onChange={set('country')} options={COUNTRY_OPTIONS}
             // Not editable afterwards, and the API refuses to change it: it
             // decides which Stripe entity you are onboarded under and the
             // currency your events are priced in.

@@ -104,7 +104,7 @@ export default function EditorCanvas({
         className="block h-full w-full select-none rounded-(--es-radius-lg) border border-border-base bg-bg-sunken"
         style={{ touchAction: 'none', overscrollBehavior: 'contain', cursor }}
         role="application"
-        aria-label="Seat map editor"
+        aria-label="Seating map editor"
         {...handlers}
         onPointerDown={(e) => {
           // The marquee gets first refusal. When it takes the gesture the pan

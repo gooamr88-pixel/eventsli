@@ -5,6 +5,7 @@ import { formatMoney } from '../../utils/money';
 import { useApi } from '../../hooks/useApi';
 import { useAuth } from '../../hooks/useAuth';
 import { useUrlFilters } from '../../hooks/useUrlFilters';
+import { actRefusal, REFUSAL } from '../../lib/roleLadder';
 import { Loading, Empty, ErrorNotice } from '../../components/Feedback';
 import { PageHeader } from '../../components/ui/Page';
 import { Segmented, SearchBox, Pagination } from '../../components/ui/Filters';
@@ -28,21 +29,24 @@ const STANDING = [
   { value: 'false', label: 'Active' },
   { value: 'true', label: 'Banned' },
 ];
-const LEVEL = { attendee: 0, organizer: 1, admin: 2, super_admin: 3 };
 
 /**
- * Why this admin may not ban or unban this organizer, or null — the same ladder
- * the API enforces (backend utils/roleLadder.js): nobody acts on themselves or
- * a superior, and only a super admin acts on an equal. The API still decides.
+ * Why this admin may not ban or unban this organizer, or null.
+ *
+ * The RULE is `lib/roleLadder`, mirroring the API's `mayActOn`; only the
+ * wording is this screen's. It used to be written out here with its own level
+ * map, which defaulted an unknown role to 1 where the API — and the copy on the
+ * Accounts page — used 0. Harmless at today's levels, and exactly the shape of
+ * drift that stops being harmless later.
  */
+const WHY = {
+  [REFUSAL.SELF]: 'Your own organizer — ask another administrator.',
+  [REFUSAL.SUPERIOR]: 'Owned by a superior; not actionable from here.',
+  [REFUSAL.EQUAL]: 'Owned by an equal; not actionable from here.',
+};
+
 function cannotActOn(owner, me) {
-  if (!owner || !me) return null;
-  if (owner.id === me.id) return 'Your own organizer — ask another administrator.';
-  const theirs = LEVEL[owner.role] ?? 1;
-  const mine = LEVEL[me.role] ?? 0;
-  if (theirs > mine) return 'Owned by a superior; not actionable from here.';
-  if (theirs === mine && me.role !== 'super_admin') return 'Owned by an equal; not actionable from here.';
-  return null;
+  return WHY[actRefusal(me, owner)] || null;
 }
 
 const PAYOUTS = [

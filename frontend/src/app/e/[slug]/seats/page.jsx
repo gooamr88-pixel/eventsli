@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { Suspense } from 'react';
 import { serverFetch } from '../../../utils/apiClient';
 import SeatPicker from './SeatPicker';
@@ -35,8 +35,9 @@ export async function generateMetadata({ params }) {
   }
 }
 
-export default async function SeatsPage({ params }) {
+export default async function SeatsPage({ params, searchParams }) {
   const { slug } = await params;
+  const { tier: tierParam } = (await searchParams) || {};
 
   let event;
   try {
@@ -51,6 +52,31 @@ export default async function SeatsPage({ params }) {
   // BRD §12 — a listing with nothing behind it has no seat map to show, and
   // arriving here means a stale link rather than a mistake worth an error page.
   if (event.displayOnly) notFound();
+
+  /**
+   * ───────────────────────────────────────────────────────────────────────────
+   * A GENERAL-ADMISSION EVENT IS SENT TO THE TICKET PICKER — the other half of
+   * a rule only `/tickets` was keeping.
+   *
+   * `/tickets` has always redirected a RESERVED event here, for the stated
+   * reason that the link is a real one and the seat map is where the buyer was
+   * trying to go. The reverse was never written, and general admission is the
+   * direction that actually gets hit, because two screens link here with no
+   * idea what kind of event it is:
+   *
+   *   · the payment-failure screen's "Try again" (checkout/Outcomes.jsx)
+   *   · the same button on /checkout/success when Stripe reports not-paid
+   *
+   * So a general-admission buyer whose card was declined pressed the one
+   * recovery button on the page and landed on "Choose your seats" above "This
+   * event has no seat map yet" — a terminal dead end, at the exact moment they
+   * were trying to give us money. `EventPurchasePanel`'s own note assumes this
+   * redirect exists ("would send every buyer to a redirect"); it did not.
+   * ───────────────────────────────────────────────────────────────────────────
+   */
+  if (event.admissionType === 'general') {
+    redirect(`/e/${event.slug}/tickets${tierParam ? `?tier=${encodeURIComponent(String(tierParam))}` : ''}`);
+  }
 
   return (
     <main className="fx-section fx-section--xs">

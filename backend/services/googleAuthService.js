@@ -27,7 +27,7 @@ const { configured, verifyIdToken } = require('./googleTokens');
 async function findOrCreate({ email, name }) {
   const { data: existing } = await supabase
     .from('profiles')
-    .select('id, email, full_name, role, is_blocked, email_verified_at')
+    .select('id, email, full_name, role, account_types, is_blocked, email_verified_at')
     .eq('email', email)
     .maybeSingle();
 
@@ -52,7 +52,7 @@ async function findOrCreate({ email, name }) {
       role: 'attendee',
       email_verified_at: new Date().toISOString(),
     })
-    .select('id, email, full_name, role')
+    .select('id, email, full_name, role, account_types')
     .single();
 
   if (error) {
@@ -61,7 +61,7 @@ async function findOrCreate({ email, name }) {
     // simply worked.
     if (error.code === '23505') {
       const { data: raced } = await supabase
-        .from('profiles').select('id, email, full_name, role').eq('email', email).single();
+        .from('profiles').select('id, email, full_name, role, account_types').eq('email', email).single();
       return { user: raced, created: false };
     }
     throw new Error(error.message);

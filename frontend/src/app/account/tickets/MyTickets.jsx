@@ -4,22 +4,25 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { get, PUBLIC_API_URL } from '../../utils/apiClient';
 import { formatMoney } from '../../utils/money';
+import { formatEventTime } from '../../lib/eventTime';
 import TicketStub from '../../components/TicketStub';
 import TransferDialog from './TransferDialog';
 import TicketActions, { TicketPrintStyles } from './TicketActions';
 import { Loading, Empty, ErrorNotice, Notice } from '../../components/Feedback';
 
-/** In the EVENT's timezone, with the zone named — a ticket is read before travelling. */
-function eventTime(event) {
-  const opts = { dateStyle: 'medium', timeStyle: 'short' };
-  try {
-    const text = new Intl.DateTimeFormat('en-US', { ...opts, timeZone: event.timezone || undefined })
-      .format(new Date(event.startsAt));
-    return event.timezone ? `${text} (${event.timezone})` : text;
-  } catch {
-    return new Intl.DateTimeFormat('en-US', opts).format(new Date(event.startsAt));
-  }
-}
+/**
+ * In the EVENT's timezone, with the zone named — a ticket is read before
+ * travelling.
+ *
+ * `formatEventTime`, not a fourth private copy. The three ticket screens each
+ * had their own: this one printed "8:00 PM (America/Toronto)", `/t/[token]`
+ * printed "Sunday, June 1, 2027 at 8:00 PM (America/Toronto)", and the stub
+ * between them printed no zone at all. Three renderings of one fact, on three
+ * screens showing the same ticket. The shared helper says "8:00 PM EST" — the
+ * short name a reader can act on rather than an IANA identifier — and handles
+ * the unknown-zone fallback that each copy re-implemented.
+ */
+const eventTime = (event) => formatEventTime(event.startsAt, event.timezone);
 
 /**
  * Every ticket this account has, grouped by the order that bought it.
@@ -195,6 +198,7 @@ export default function MyTickets() {
               <div key={ticket.id} className="fx-stack fx-stack--sm">
                 <TicketStub
                   ticket={ticket}
+                  timeZone={order.event?.timezone}
                   qrSrc={`${PUBLIC_API_URL}/public/qr/${encodeURIComponent(ticket.qr)}`}
                 />
                 {/* BRD §10 — once only, and the organizer can switch it off.

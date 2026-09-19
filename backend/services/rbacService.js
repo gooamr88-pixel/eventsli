@@ -21,12 +21,13 @@ const cache = new Map();   // userId → { at, value }
 
 const { ROLE_LEVEL } = require('../utils/roleLadder');
 const { canReceivePayouts } = require('../utils/payouts');
+const { normalise: normaliseTypes } = require('../utils/accountTypes');
 
 async function fetchContext(userId) {
   const [{ data: profile, error: pErr }, { data: organizer }] = await Promise.all([
     supabase
       .from('profiles')
-      .select('id, email, full_name, role, is_blocked')
+      .select('id, email, full_name, role, is_blocked, account_types')
       .eq('id', userId)
       .maybeSingle(),
     supabase
@@ -49,6 +50,18 @@ async function fetchContext(userId) {
     role,
     level,
     isBlocked: !!profile.is_blocked,
+
+    /**
+     * WHAT THE ACCOUNT IS FOR — carried here so the shell can offer the right
+     * surfaces without a second request, and kept strictly beside `role` rather
+     * than folded into it.
+     *
+     * Nothing in this object's authorization half is derived from it: `level`,
+     * `isAdmin` and `isSuperAdmin` come from the role ladder alone, and every
+     * `requireRole` guard reads those. A type decides which door is shown,
+     * never which door opens.
+     */
+    accountTypes: normaliseTypes(profile.account_types),
 
     isOrganizer: !!organizer,
     organizerId: organizer?.id || null,

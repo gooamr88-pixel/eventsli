@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useApi } from '../../hooks/useApi';
 import { useOrganizer } from '../../hooks/useOrganizer';
+import { useOrganizerEvents } from '../nav/OrganizerEvents';
 import { useUrlFilters } from '../../hooks/useUrlFilters';
 import { formatEventTime } from '../../lib/eventTime';
 import { Loading, Empty, ErrorNotice } from '../../components/Feedback';
@@ -44,7 +44,16 @@ const FILTERS = [
 export default function EventsBrowser() {
   const filters = useUrlFilters();
   const { loading: orgLoading, organizer, error: orgError, refresh } = useOrganizer();
-  const { data, error, loading } = useApi(organizer ? '/events?limit=200&sort=starts_at&order=desc' : null);
+  /**
+   * The list the shell already loaded, not a second copy of it.
+   *
+   * This page used to request `/events?limit=200&sort=starts_at&order=desc`
+   * itself — character for character the request the organizer layout makes on
+   * every page for the event switcher. Two identical requests went out
+   * together on the one screen where the list is already on display, and
+   * whichever answered second decided what was shown.
+   */
+  const { events: data, error, loading } = useOrganizerEvents();
   const [search, setSearch] = useState('');
 
   const filter = FILTERS.find((f) => f.value === filters.get('status')) || FILTERS[0];
@@ -64,12 +73,13 @@ export default function EventsBrowser() {
 
   return (
     <div className="fx-stack">
+      {/* No Create button here: the event bar above every organizer screen
+          carries "Create event" spelled out at every width. This one was shown
+          between 768px and 1024px, which made two primary buttons about 60px
+          apart on exactly the widths where the first was already legible. */}
       <PageHeader
         title="Your events"
         lede="Tap an event to manage it. Drafts stay private until you submit them."
-        // The phone's app bar and the desktop sidebar carry Create; only the
-        // tablet rail shows it as an icon, so it is spelled out there.
-        actions={<Link href="/organizer/events/new" className="es-btn es-btn--primary max-md:hidden lg:hidden">Create event</Link>}
       />
 
       <OrganizerNotices organizer={organizer} />

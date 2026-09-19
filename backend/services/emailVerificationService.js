@@ -95,7 +95,7 @@ async function verify({ emailAddress, code }) {
 
   const { data: user, error } = await supabase
     .from('profiles')
-    .select('id, email, full_name, role, is_blocked, email_verified_at')
+    .select('id, email, full_name, role, account_types, is_blocked, email_verified_at')
     .eq('email', String(emailAddress || '').trim().toLowerCase())
     .maybeSingle();
   if (error) throw new Error(error.message);
@@ -137,7 +137,7 @@ async function activateByLink({ token }) {
   if (userId) {
     const { data: profile, error: pErr } = await supabase
       .from('profiles')
-      .select('id, email, full_name, role, is_blocked, signup_intent')
+      .select('id, email, full_name, role, account_types, is_blocked, signup_intent')
       .eq('id', userId)
       .maybeSingle();
     if (pErr) throw new Error(pErr.message);

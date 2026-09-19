@@ -20,6 +20,7 @@ import SubmitButton from '../../../components/forms/SubmitButton';
 import NavIcon from '../../../components/shell/NavIcon';
 import { Loading, ErrorNotice, Notice } from '../../../components/Feedback';
 import CreateProfile from '../../CreateProfile';
+import { COUNTRY_OPTIONS } from '../../../lib/markets';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -263,7 +264,7 @@ function EventWizard({ type, organizer }) {
               <div className="fx-grid fx-grid--2">
                 <SelectField
                   label="Country" required value={form.country} onChange={setCountry}
-                  options={[['CA', 'Canada'], ['US', 'United States']]}
+                  options={COUNTRY_OPTIONS}
                   hint={ticketed ? 'Sets the currency — CAD or USD.' : null}
                 />
                 <SelectField

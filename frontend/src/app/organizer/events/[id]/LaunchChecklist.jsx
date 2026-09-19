@@ -58,25 +58,6 @@ export function useLaunchSteps(event) {
       hint: 'Add the venue so buyers know where to go',
       cta: 'Add the venue',
     },
-    {
-      key: 'cover', label: 'Cover image', done: Boolean(event.cover), href: `${base}/content`,
-      hint: 'Recommended — it is the picture on every share', cta: 'Add a cover', optional: true,
-    },
-    {
-      key: 'content',
-      label: 'Page & branding',
-      // "Done" the moment there is anything beyond a cover. Not a bar to clear:
-      // it is a prompt, and an organizer who has added one highlight has found
-      // the screen, which is all this step is for.
-      done: Boolean(
-        event.logo
-        || (event.highlights?.length || 0) > 0,
-      ),
-      href: `${base}/content`,
-      hint: 'Photos, a schedule, sponsors and your policies — all optional',
-      cta: 'Build the page',
-      optional: true,
-    },
     ...(needs.tickets ? [
       {
         key: 'tiers',
@@ -134,6 +115,35 @@ export function useLaunchSteps(event) {
         build: true,
       },
     ] : []),
+    /**
+     * THE OPTIONAL PAIR, AFTER EVERYTHING REQUIRED.
+     *
+     * They used to sit second and third, so the list read "event details,
+     * cover image, page & branding" before it mentioned the ticket types an
+     * event cannot be sold without — and the sidebar next to it listed the
+     * same screens in a different order again. One journey, described twice,
+     * disagreeing. The required steps now come first in both, in the order
+     * they depend on each other, and these two follow.
+     */
+    {
+      key: 'cover', label: 'Cover image', done: Boolean(event.cover), href: `${base}/content`,
+      hint: 'Recommended — it is the picture on every share', cta: 'Add a cover', optional: true,
+    },
+    {
+      key: 'content',
+      label: 'Page & branding',
+      // "Done" the moment there is anything beyond a cover. Not a bar to clear:
+      // it is a prompt, and an organizer who has added one highlight has found
+      // the screen, which is all this step is for.
+      done: Boolean(
+        event.logo
+        || (event.highlights?.length || 0) > 0,
+      ),
+      href: `${base}/content`,
+      hint: 'Photos, a schedule, sponsors and your policies — all optional',
+      cta: 'Build the page',
+      optional: true,
+    },
     {
       key: 'terms', label: 'Accept the terms', done: Boolean(event.review?.termsAccepted), href: '#going-on-sale',
       hint: 'See the fees and agree to them', cta: 'Review the fees',

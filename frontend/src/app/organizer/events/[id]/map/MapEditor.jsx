@@ -235,7 +235,7 @@ export default function MapEditor({ eventId }) {
     <div className="fx-stack">
       <div className="fx-row fx-row--between flex-wrap gap-3">
         <div className="fx-min0">
-          <h2 className="text-xl">Seat map</h2>
+          <h2 className="text-xl">Seating map</h2>
           <p className="text-sm text-muted">
             {tables.length} of {MAX_TABLES} tables
             {zones.length > 0 && ` · ${zones.length} of ${MAX_ZONES} zones`}

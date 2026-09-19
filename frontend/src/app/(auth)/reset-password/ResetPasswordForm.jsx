@@ -7,8 +7,7 @@ import { post } from '../../utils/apiClient';
 import Field from '../../components/forms/Field';
 import FormError from '../../components/forms/FormError';
 import SubmitButton from '../../components/forms/SubmitButton';
-
-const MIN_PASSWORD = 12;
+import { MIN_PASSWORD, MAX_PASSWORD, PASSWORD_HINT, passwordProblem } from '../../lib/passwordRules';
 
 /**
  * Choose a new password, from the emailed link.
@@ -96,9 +95,9 @@ export default function ResetPasswordForm() {
             who intercepted the link whose account it opens. */}
         <Field
           label="New password" type="password" name="password"
-          autoComplete="new-password" required minLength={MIN_PASSWORD}
-          hint={`At least ${MIN_PASSWORD} characters. A short phrase works well.`}
-          error={tooShort ? `${MIN_PASSWORD - password.length} more to go.` : null}
+          autoComplete="new-password" required minLength={MIN_PASSWORD} maxLength={MAX_PASSWORD}
+          hint={PASSWORD_HINT}
+          error={passwordProblem(password)}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
