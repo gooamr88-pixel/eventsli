@@ -349,7 +349,14 @@ router.get('/:eventId/commission', verifyEventOwner, manual.debt);
 router.post(
   '/:eventId/invoices/:invoiceId/proof',
   verifyEventOwner,
-  body('proofUrl').isURL().withMessage('Attach a link to the transfer receipt.'),
+  // The same allowlist the sponsor link carries, and for the same reason: an
+  // admin opens this from the invoices table, so it is an outbound link the
+  // product renders. A bare `isURL()` defaults to allowing `ftp` and to NOT
+  // requiring a protocol at all, which is how a value that no browser would
+  // follow reached a trusted row.
+  body('proofUrl')
+    .isURL({ protocols: ['http', 'https'], require_protocol: true })
+    .withMessage('Attach a link to the transfer receipt, starting with http:// or https://.'),
   validate,
   manual.submitProof,
 );

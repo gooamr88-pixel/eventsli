@@ -202,6 +202,44 @@ export function describeError(err) {
   };
 }
 
+/**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * The same thing, for an ERROR BOUNDARY — where `err.message` may not be shown.
+ *
+ * `describeError` falls back to `err.message`, and for an API failure that is
+ * exactly right: the server wrote that sentence for a person to read, and it
+ * names the field or the rule.
+ *
+ * An error boundary catches a different animal. Whatever a component throws
+ * during render arrives here too — a TypeError, a parse failure, anything a
+ * dependency throws — and its `message` was written for a developer. Next
+ * redacts that for errors thrown on the SERVER and hands over a `digest`
+ * instead, but an error thrown while rendering on the CLIENT reaches the
+ * boundary with its original message intact. So `{recovery}` on an error page
+ * could render "Cannot read properties of undefined (reading 'tiers')", or a
+ * module path, or whatever a driver put in a connection failure.
+ *
+ * The rule here is therefore the inverse of `describeError`'s: a message is
+ * shown only when the CODE IS ONE WE MAPPED, because that sentence is one this
+ * repo wrote. Anything else gets fixed wording and the digest, which is the
+ * part that actually leads somewhere — it ties the screen to a line in the
+ * server log without putting the log on the screen.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+export function describeBoundaryError(err) {
+  const code = err?.code;
+  const known = code && ERRORS[code];
+  if (known) return known;
+
+  return Object.freeze({
+    code: 'ERROR',
+    title: 'Something went wrong',
+    // Deliberately not `err.message`. See above.
+    recovery: 'This part of the page could not load. Trying again usually works.',
+    tone: 'retry',
+  });
+}
+
 /** True for the codes that mean the seat selection itself has to be redone. */
 /**
  * The sentence to show for a failure.

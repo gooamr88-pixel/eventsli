@@ -9,7 +9,8 @@ import Field from '../../../components/forms/Field';
 import FormError from '../../../components/forms/FormError';
 import SubmitButton from '../../../components/forms/SubmitButton';
 import AccountTypeChoice from '../AccountTypeChoice';
-import { MIN_PASSWORD, MAX_PASSWORD, PASSWORD_HINT, passwordProblem } from '../../../lib/passwordRules';
+import { MIN_PASSWORD, isWeakPassword } from '../../../lib/passwordRules';
+import NewPasswordFields from '../../../components/forms/NewPassword';
 
 
 /**
@@ -34,7 +35,7 @@ export default function OrganizerSignupForm() {
   const termsId = useId();
   const privacyId = useId();
   const [form, setForm] = useState({
-    fullName: '', organizationName: '', phone: '', email: '', password: '',
+    fullName: '', organizationName: '', phone: '', email: '', password: '', confirmPassword: '',
     acceptTerms: false, acceptPrivacy: false,
   });
   const [busy, setBusy] = useState(false);
@@ -42,8 +43,12 @@ export default function OrganizerSignupForm() {
 
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
   const tick = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.checked }));
-  const tooShort = form.password.length > 0 && form.password.length < MIN_PASSWORD;
-  const ready = form.acceptTerms && form.acceptPrivacy && !tooShort;
+  // The same three password rules the API applies, and the two agreements this
+  // form additionally requires. A convenience gate only — the server re-checks.
+  const passwordOk = form.password.length >= MIN_PASSWORD
+    && !isWeakPassword(form.password, { email: form.email })
+    && form.password === form.confirmPassword;
+  const ready = form.acceptTerms && form.acceptPrivacy && passwordOk;
 
   async function submit(e) {
     e.preventDefault();
@@ -125,12 +130,12 @@ export default function OrganizerSignupForm() {
           hint="Your activation link is sent here."
           value={form.email} onChange={set('email')}
         />
-        <Field
-          label="Password" type="password" name="password" autoComplete="new-password" required
-          minLength={MIN_PASSWORD} maxLength={MAX_PASSWORD}
-          hint={PASSWORD_HINT}
-          error={passwordProblem(form.password)}
-          value={form.password} onChange={set('password')}
+        <NewPasswordFields
+          email={form.email}
+          value={form.password}
+          onChange={set('password')}
+          confirm={form.confirmPassword}
+          onConfirmChange={set('confirmPassword')}
         />
 
         <fieldset className="fx-stack fx-stack--sm gap-2 pt-1">

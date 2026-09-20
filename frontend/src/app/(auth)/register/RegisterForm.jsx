@@ -13,7 +13,8 @@ import SubmitButton from '../../components/forms/SubmitButton';
 import GoogleSignIn from '../../components/forms/GoogleSignIn';
 import AccountTypeChoice from './AccountTypeChoice';
 import { landingAfterAuth } from '../../lib/authLanding';
-import { MIN_PASSWORD, MAX_PASSWORD, PASSWORD_HINT, passwordProblem } from '../../lib/passwordRules';
+import { MIN_PASSWORD, isWeakPassword } from '../../lib/passwordRules';
+import NewPasswordFields from '../../components/forms/NewPassword';
 
 /**
  * Create an account.
@@ -29,11 +30,22 @@ export default function RegisterForm() {
   const params = useSearchParams();
   const next = safeNext(params.get('next'));
 
-  const [form, setForm] = useState({ fullName: '', email: '', password: '', phone: '' });
+  const [form, setForm] = useState({
+    fullName: '', email: '', password: '', confirmPassword: '', phone: '',
+  });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
-  const tooShort = form.password.length > 0 && form.password.length < MIN_PASSWORD;
+  /**
+   * The submit gate mirrors the three rules the API applies, and nothing more.
+   *
+   * It is a convenience, not a control: the server re-checks every one of them
+   * and is the only thing that decides. Gating on MORE than the server would
+   * mean a password this form refuses and the API would have taken.
+   */
+  const blocked = form.password.length < MIN_PASSWORD
+    || isWeakPassword(form.password, { email: form.email })
+    || form.password !== form.confirmPassword;
 
   function arrive(user) {
     setAuthUser(user);
@@ -98,17 +110,17 @@ export default function RegisterForm() {
           value={form.email}
           onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
         />
-        <Field
-          label="Password" type="password" name="password"
-          autoComplete="new-password" required minLength={MIN_PASSWORD} maxLength={MAX_PASSWORD}
-          // Length over composition, matching the API — which follows current
-          // NIST guidance. Demanding a symbol and a digit reliably produces
-          // `Password1!`, which is harder to remember and easier to guess than
-          // a longer phrase.
-          hint={PASSWORD_HINT}
-          error={passwordProblem(form.password)}
+        {/* Length over composition, matching the API — which follows current
+            NIST guidance. Demanding a symbol and a digit reliably produces
+            `Password1!`, which is harder to remember and easier to guess than
+            a longer phrase. The requirements are ticked live here rather than
+            discovered by pressing the button. */}
+        <NewPasswordFields
+          email={form.email}
           value={form.password}
           onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+          confirm={form.confirmPassword}
+          onConfirmChange={(e) => setForm((f) => ({ ...f, confirmPassword: e.target.value }))}
         />
         <Field
           label="Phone" type="tel" name="phone" autoComplete="tel"
@@ -119,7 +131,7 @@ export default function RegisterForm() {
 
         <FormError error={error} />
 
-        <SubmitButton busy={busy} busyLabel="Creating your account…" disabled={tooShort}>
+        <SubmitButton busy={busy} busyLabel="Creating your account…" disabled={blocked}>
           Create account
         </SubmitButton>
       </form>

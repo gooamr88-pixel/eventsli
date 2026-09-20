@@ -240,6 +240,26 @@ router.post(
 // ─── Checkout ───────────────────────────────────────────────────────────────
 const checkout = require('../controllers/checkoutController');
 
+/**
+ * DELIBERATELY NOT BEHIND `ownsReservation`, unlike every sibling below it.
+ *
+ * `release`, `promo`, `checkout` and `claim` all demand the reservation token
+ * because each SPENDS the hold. This one only prices it, and what it returns —
+ * `publicBreakdown` — carries no personal data at all: a currency, the price
+ * lines, the total, and how long the hold runs for. Every one of those numbers
+ * is already on the public event page. The promo code appears only once the
+ * holder has applied it themselves.
+ *
+ * The check is omitted rather than forgotten. The checkout page keeps the
+ * reservation token in memory and deliberately does not persist it across a
+ * reload (see `useReservation` and `CheckoutClient`), so requiring it here
+ * would mean a buyer who refreshes the checkout page can no longer see what
+ * they are about to pay. That is a real failure traded against an information
+ * leak of published prices.
+ *
+ * If this endpoint ever grows a field that names the buyer, that trade changes
+ * and the guard goes on.
+ */
 router.get(
   '/reservations/:reservationId/quote',
   param('reservationId').isUUID(),
@@ -283,15 +303,53 @@ router.post(
   body('name').optional().isString().trim().isLength({ max: 120 }),
   body('email').optional().isEmail().normalizeEmail(),
   body('phone').optional().isString().trim().isLength({ max: 30 }),
-  // BRD §21 — refused here as well as in the handler, so no other caller can
-  // route around the checkbox.
-  body('acceptTerms').equals('true').withMessage('Accept the terms to claim your tickets.')
-    .customSanitizer(() => true),
+  /**
+   * BRD §21 — refused here as well as in the handler, so no other caller can
+   * route around the checkbox.
+   *
+   * The same strict-boolean test the paid checkout uses. This used to be
+   * `.equals('true')` with a sanitiser that rewrote whatever arrived into a
+   * boolean `true`: `equals` stringifies first, so the literal string
+   * `"true"` — and only the shape of it, from any caller — satisfied a legal
+   * agreement, and the sanitiser then made the handler's own
+   * `!== true` re-check unable to disagree. Two endpoints recording the same
+   * consent should not accept two different things.
+   */
+  body('acceptTerms').custom((v) => v === true)
+    .withMessage('Accept the terms to claim your tickets.'),
   validate,
   checkout.claimFree,
 );
 
-router.get('/checkout/:sessionId', checkout.checkoutResult);
+/**
+ * The success page's read of a finished checkout.
+ *
+ * It was the only public route in this file with neither a validator nor a
+ * limiter, and it is not a cheap one: the id goes straight to the Stripe API,
+ * and on a first call it can also run fulfilment. Unbounded, that is somebody
+ * else's Stripe rate limit and our bill being spent by anyone who can reach
+ * the box.
+ *
+ * SHAPE-CHECKED, not merely present. A Stripe Checkout session id is
+ * `cs_test_…` / `cs_live_…` — pinning it means a malformed id is refused here
+ * for nothing rather than costing an API round trip to be told the same.
+ *
+ * The budget is generous on purpose: this is polled by the success page while
+ * the webhook lands, and a buyer refreshing after paying must never be the
+ * person who gets throttled.
+ */
+router.get(
+  '/checkout/:sessionId',
+  makeLimiter({
+    windowMs: 5 * 60 * 1000,
+    max: 60,
+    name: 'checkout-result',
+    message: 'Too many requests. Wait a moment and refresh.',
+  }),
+  param('sessionId').matches(/^cs_[A-Za-z0-9_]{10,250}$/).withMessage('That is not a checkout session.'),
+  validate,
+  checkout.checkoutResult,
+);
 
 // ─── Promo codes ────────────────────────────────────────────────────────────
 const promo = require('../controllers/promoController');

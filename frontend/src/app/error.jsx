@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import Link from 'next/link';
-import { describeError } from './utils/errors';
+import { describeBoundaryError } from './utils/errors';
 
 /**
  * The last line of defence. Anything a page throws and does not handle lands
@@ -18,7 +18,13 @@ export default function GlobalError({ error, reset }) {
     console.error(error);
   }, [error]);
 
-  const { title, recovery, tone } = describeError(error);
+  // `describeBoundaryError`, not `describeError`. The latter falls back to
+  // `err.message`, which for an API failure is a sentence the server wrote for
+  // a person — but this boundary also catches whatever a component throws
+  // during render, and Next only redacts those when they were thrown on the
+  // SERVER. A client-side render throw arrived here with its original message
+  // and this page put it on screen.
+  const { title, recovery, tone } = describeBoundaryError(error);
 
   return (
     <main className="fx-section">

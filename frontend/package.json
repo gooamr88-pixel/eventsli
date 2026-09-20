@@ -9,7 +9,7 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
-    "check": "node scripts/responsiveCheck.js && node scripts/backtickInCssComment.js && node scripts/fileSizeCheck.js && node scripts/importantCheck.js && node scripts/cssVarClassCheck.js && node scripts/encodingCheck.js && node scripts/contrast.js --strict"
+    "check": "node scripts/responsiveCheck.js && node scripts/backtickInCssComment.js && node scripts/fileSizeCheck.js && node scripts/importantCheck.js && node scripts/layerCheck.js && node scripts/cssVarClassCheck.js && node scripts/encodingCheck.js && node scripts/contrast.js --strict"
   },
   "dependencies": {
     "html5-qrcode": "^2.3.8",

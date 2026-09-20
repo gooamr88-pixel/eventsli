@@ -3,7 +3,8 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useAuth, signOut } from '../hooks/useAuth';
+import { useAuth } from '../hooks/useAuth';
+import { LogoutConfirmDialog } from './auth/LogoutConfirm';
 import Logo from './brand/Logo';
 
 /**
@@ -49,6 +50,16 @@ export default function SiteHeader() {
 function SiteNav({ pathname }) {
   const { signedIn, loading, user } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
+  /**
+   * ONE DIALOG FOR BOTH SIGN-OUT BUTTONS, and it lives out here rather than
+   * beside either of them.
+   *
+   * The phone panel is rendered only while `menuOpen`, so a dialog inside it
+   * would be unmounted by the very thing that has to happen first — the menu
+   * closing. Escape is the same trap from the other side: the handler below
+   * closes the menu, which would take the confirmation with it.
+   */
+  const [logoutOpen, setLogoutOpen] = useState(false);
 
   /**
    * THE HEADER SITS ON THE HERO'S PHOTOGRAPH, on the one page that has one.
@@ -193,7 +204,7 @@ function SiteNav({ pathname }) {
               {signedIn && (
                 <button
                   type="button"
-                  onClick={() => signOut()}
+                  onClick={() => setLogoutOpen(true)}
                   className="es-btn es-btn--ghost es-btn--sm"
                 >
                   Sign out
@@ -264,7 +275,9 @@ function SiteNav({ pathname }) {
                 <li>
                   <button
                     type="button"
-                    onClick={() => signOut()}
+                    // The menu closes FIRST. The panel it sits in unmounts on
+                    // close, and the confirmation has to outlive that.
+                    onClick={() => { setMenuOpen(false); setLogoutOpen(true); }}
                     className="fx-touch w-full text-left text-muted"
                   >
                     Sign out
@@ -285,6 +298,8 @@ function SiteNav({ pathname }) {
           </div>
         </nav>
       )}
+
+      {logoutOpen && <LogoutConfirmDialog onCancel={() => setLogoutOpen(false)} />}
     </header>
   );
 }

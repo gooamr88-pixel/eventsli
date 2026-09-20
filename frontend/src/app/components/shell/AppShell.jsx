@@ -63,6 +63,24 @@ export default function AppShell({
     // they could not see through a black overlay. Below `lg` this panel IS
     // the navigation, so there is nothing else to reach while it is open.
     const onKey = (e) => {
+      /**
+       * A MODAL DIALOG OPENED FROM INSIDE THE DRAWER OWNS THE KEYBOARD.
+       *
+       * `showModal()` puts everything outside the dialog — this drawer
+       * included — into the inert subtree, and it runs its own Tab trap. With
+       * both live, Tab was handled twice: the dialog kept focus inside itself
+       * and then this handler called `preventDefault` and moved focus back
+       * into the nav, which is inert while the dialog is up. Focus landed
+       * somewhere the reader could neither see nor use.
+       *
+       * Escape is the same story in miniature — it would close the drawer out
+       * from under the dialog that is asking the question.
+       *
+       * Checked against the DOM rather than tracked in state because the
+       * dialog is opened by whatever was passed in as `foot`, which this
+       * component knows nothing about.
+       */
+      if (document.querySelector('dialog[open]')) return;
       if (e.key === 'Escape') { setOpen(false); return; }
       trapTab(e, navRef.current);
     };

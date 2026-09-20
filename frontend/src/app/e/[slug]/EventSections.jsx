@@ -1,4 +1,5 @@
 import Image from 'next/image';
+import { safeExternalUrl } from '../../utils/safeUrl';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -160,11 +161,12 @@ function SponsorMark({ sponsor, height }) {
     <span className="text-md font-medium text-ink">{sponsor.name}</span>
   );
 
-  if (!sponsor.linkUrl) return <span className="grid place-items-center">{body}</span>;
+  const link = safeExternalUrl(sponsor.linkUrl);
+  if (!link) return <span className="grid place-items-center">{body}</span>;
 
   return (
     <a
-      href={sponsor.linkUrl}
+      href={link}
       target="_blank"
       rel="noreferrer noopener nofollow"
       className="grid place-items-center opacity-90 transition-opacity hover:opacity-100"

@@ -62,6 +62,40 @@ async function forOrder(orderId) {
   return (data || []).map(shape);
 }
 
+/**
+ * The same thing, for MANY orders, in one round trip.
+ *
+ * `forOrder` in a loop is what "My tickets" used to do — up to a hundred
+ * sequential queries to render one page, each waiting on the last. The list is
+ * already bounded by the caller's page size, so the whole set fits in a single
+ * `in.()` and the grouping is cheaper here than a hundred network waits.
+ *
+ * Returns a Map keyed by order id. Orders with no tickets are simply absent,
+ * so callers use `?? []` rather than relying on a key existing — an order can
+ * legitimately have none while a refund or a correction is in progress.
+ */
+async function forOrders(orderIds) {
+  const ids = [...new Set((orderIds || []).filter(Boolean))];
+  if (ids.length === 0) return new Map();
+
+  const { data } = await supabase
+    .from('tickets')
+    .select(`id, order_id, event_id, status, attendee_name, transfer_count, scanned_at,
+             seats ( section_key, row_label, seat_number ),
+             tables ( label )`)
+    .in('order_id', ids)
+    // Ordered once, for the whole set. Grouping preserves it, so each order's
+    // tickets come out in the same sequence `forOrder` would have given them.
+    .order('created_at');
+
+  const byOrder = new Map();
+  for (const row of data || []) {
+    if (!byOrder.has(row.order_id)) byOrder.set(row.order_id, []);
+    byOrder.get(row.order_id).push(shape(row));
+  }
+  return byOrder;
+}
+
 async function forToken(token) {
   const decoded = decodeQrToken(token);
   if (!decoded) return null;
@@ -180,4 +214,4 @@ function fail(code, message) {
   return Object.assign(new Error(message), { code });
 }
 
-module.exports = { issueQrToken, decodeQrToken, forOrder, forToken, transfer };
+module.exports = { issueQrToken, decodeQrToken, forOrder, forOrders, forToken, transfer };

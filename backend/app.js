@@ -47,6 +47,37 @@ if (RESERVATION_TTL < 31) {
   process.exit(1);
 }
 
+/**
+ * A LIVE Stripe key outside production. Warned about, never blocked.
+ *
+ * There is no technical difference between a test key and a live one at the
+ * point of use, so nothing downstream can tell you that the checkout you just
+ * ran on localhost created a real charge on a real card. The only moment that
+ * fact is visible is here, at boot, before anyone has taken any money.
+ *
+ * It is deliberately NOT fatal. Running a live key locally is a legitimate and
+ * necessary thing to do — verifying the money path end to end against the real
+ * account is the one test that cannot be faked, and `scripts/probe-live-*` and
+ * `verify-live-money-path.js` exist precisely to do it. Refusing to boot would
+ * break the very workflow this warning is describing.
+ *
+ * So it says the thing and gets out of the way. The intent is that the line is
+ * NOISY: if it scrolls past on every ordinary dev run, that is the signal, not
+ * the annoyance.
+ */
+if (process.env.NODE_ENV !== 'production' && stripeIntended) {
+  const live = ['STRIPE_SECRET_KEY', 'STRIPE_PUBLISHABLE_KEY']
+    .filter((key) => /^(sk|pk)_live_/.test(String(process.env[key] || '')));
+  if (live.length > 0) {
+    logger.warn(
+      `LIVE Stripe credentials in a NODE_ENV=${process.env.NODE_ENV || 'undefined'} process `
+      + `(${live.join(', ')}). Card payments are ENABLED, so any checkout run against this `
+      + 'server charges a real card on the live account — there is no test-mode net under it. '
+      + 'Intentional for a live money-path check; otherwise switch to sk_test/pk_test keys.',
+    );
+  }
+}
+
 const app = express();
 
 // Behind nginx every request arrives from 127.0.0.1 with the real client IP in

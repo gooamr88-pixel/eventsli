@@ -4,6 +4,9 @@ const { body, param } = require('express-validator');
 const validate = require('../middleware/validate');
 const { requireAuth } = require('../middleware/auth');
 const c = require('../controllers/authController');
+const {
+  MIN_PASSWORD, MAX_PASSWORD, checkPassword, TOO_WEAK_MESSAGE, LENGTH_MESSAGE,
+} = require('../utils/passwordPolicy');
 
 const router = express.Router();
 
@@ -29,10 +32,31 @@ const credentialLimiter = makeLimiter({
  * NIST guidance. Forcing a symbol and a digit reliably produces `Password1!`,
  * which is both harder to remember and easier to guess than a longer passphrase.
  */
+/**
+ * The numbers, the blocklist and the shape rules all live in
+ * `utils/passwordPolicy.js`. They were three literals here; they are one module
+ * now because THREE ENDPOINTS SET A PASSWORD — register, reset-password and
+ * change-password — and all three call this builder. A rule added to one and
+ * not the others is the bug this shape prevents: an account recovery flow that
+ * accepts what sign-up refuses is a way around sign-up.
+ */
 const passwordRules = (field = 'password') => body(field)
   .isString()
-  .isLength({ min: 12, max: 200 })
-  .withMessage('Use at least 12 characters — a short phrase works well.');
+  .isLength({ min: MIN_PASSWORD, max: MAX_PASSWORD })
+  .withMessage(LENGTH_MESSAGE)
+  // Stop here when the length already failed. Without `bail` a six-character
+  // password collects two messages, and the second one — "too easy to guess" —
+  // is both redundant and misleading about what to fix.
+  .bail()
+  .custom((value, { req }) => {
+    // `req.body.email` is present on register and absent on the two
+    // authenticated flows; `checkPassword` treats the context as optional.
+    const verdict = checkPassword(value, { email: req.body?.email });
+    // One sentence for every reason. `TOO_WEAK_MESSAGE` takes no arguments, so
+    // there is no path by which the submitted password reaches a response.
+    if (!verdict.ok) throw new Error(TOO_WEAK_MESSAGE);
+    return true;
+  });
 
 router.post(
   '/register',

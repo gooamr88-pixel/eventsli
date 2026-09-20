@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import NavIcon from './NavIcon';
-import { signOut } from '../../hooks/useAuth';
+import LogoutButton from '../auth/LogoutConfirm';
 
 /**
  * The bottom of the sidebar: who is signed in, the way to the other side of the
@@ -33,10 +33,14 @@ export default function ShellFoot({ links = [], user }) {
           <span className="es-nav__label">{link.label}</span>
         </Link>
       ))}
-      <button type="button" className="es-nav__item" onClick={() => signOut('/')}>
+      {/* The same component the site header uses, so the question, the
+          destructive styling and the busy state cannot drift between the two
+          places somebody signs out. It keeps this row's nav-item furniture;
+          only the confirmation is shared. */}
+      <LogoutButton className="es-nav__item" next="/">
         <span className="es-nav__icon"><NavIcon name="exit" /></span>
         <span className="es-nav__label">Sign out</span>
-      </button>
+      </LogoutButton>
     </>
   );
 }

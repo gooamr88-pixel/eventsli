@@ -7,7 +7,8 @@ import { post } from '../../utils/apiClient';
 import Field from '../../components/forms/Field';
 import FormError from '../../components/forms/FormError';
 import SubmitButton from '../../components/forms/SubmitButton';
-import { MIN_PASSWORD, MAX_PASSWORD, PASSWORD_HINT, passwordProblem } from '../../lib/passwordRules';
+import { MIN_PASSWORD, isWeakPassword } from '../../lib/passwordRules';
+import NewPasswordFields from '../../components/forms/NewPassword';
 
 /**
  * Choose a new password, from the emailed link.
@@ -24,11 +25,24 @@ export default function ResetPasswordForm() {
   const token = params.get('token') || '';
 
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [done, setDone] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
-  const tooShort = password.length > 0 && password.length < MIN_PASSWORD;
+  /**
+   * The SAME gate as sign-up. A recovery flow that accepts what registration
+   * refuses is a way around registration, so the rules are one module and both
+   * screens read it — and the API applies them identically to all three
+   * password endpoints regardless of what any form decides.
+   *
+   * No `email` context here on purpose: this page deliberately does not know
+   * the address (see the note in the form below), so the "must not contain your
+   * email" rule is one only the server can apply. It does.
+   */
+  const blocked = password.length < MIN_PASSWORD
+    || isWeakPassword(password)
+    || password !== confirmPassword;
 
   async function submit(e) {
     e.preventDefault();
@@ -93,18 +107,18 @@ export default function ResetPasswordForm() {
         {/* The email address is not shown and not asked for: the token already
             identifies the account, and printing the address would tell anyone
             who intercepted the link whose account it opens. */}
-        <Field
-          label="New password" type="password" name="password"
-          autoComplete="new-password" required minLength={MIN_PASSWORD} maxLength={MAX_PASSWORD}
-          hint={PASSWORD_HINT}
-          error={passwordProblem(password)}
+        <NewPasswordFields
+          label="New password"
+          confirmLabel="Confirm new password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
+          confirm={confirmPassword}
+          onConfirmChange={(e) => setConfirmPassword(e.target.value)}
         />
 
         <FormError error={error} />
 
-        <SubmitButton busy={busy} busyLabel="Saving…" disabled={tooShort}>
+        <SubmitButton busy={busy} busyLabel="Saving…" disabled={blocked}>
           Change password
         </SubmitButton>
       </form>

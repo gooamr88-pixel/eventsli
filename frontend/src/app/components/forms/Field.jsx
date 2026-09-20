@@ -25,7 +25,7 @@ import { useId, useState } from 'react';
  * long form should never have to submit it to find out which boxes mattered.
  */
 export default function Field({
-  label, hint, error, type = 'text', optional = false, ...props
+  label, hint, error, type = 'text', optional = false, describedBy, ...props
 }) {
   const id = useId();
   const hintId = `${id}-hint`;
@@ -42,7 +42,14 @@ export default function Field({
       type={isPassword && revealed ? 'text' : type}
       // Both are announced, and `aria-invalid` is what makes a screen reader
       // say "invalid" rather than leaving the red border as the only signal.
-      aria-describedby={[hint && hintId, error && errorId].filter(Boolean).join(' ') || undefined}
+      /**
+       * `describedBy` appends ids the CALLER owns — the password requirement
+       * checklist is the one that needs it. It is merged rather than passed
+       * through `...props`, because a bare `aria-describedby` in props would
+       * spread over the computed one below and silently drop the hint and the
+       * error from the announcement.
+       */
+      aria-describedby={[hint && hintId, error && errorId, describedBy].filter(Boolean).join(' ') || undefined}
       aria-invalid={error ? 'true' : undefined}
       // The red border comes from `.es-input[aria-invalid]` above, driven by
       // the same attribute the screen reader reads — so the two cannot be

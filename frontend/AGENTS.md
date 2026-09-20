@@ -178,6 +178,7 @@ npm run check     # all three
 node scripts/responsiveCheck.js       # inert fx-* classes, fixed-column grids
 node scripts/backtickInCssComment.js  # a backtick in a CSS comment is a parse error
 node scripts/fileSizeCheck.js         # 500-line cap, warns
+node scripts/layerCheck.js            # a rule outside every layer beats every utility
 ```
 
 **Do not replace these with greps.** Audited on the codebase they came from:
@@ -259,7 +260,16 @@ That is not hypothetical: `a { color: inherit }` sat unlayered and made
 app**. Nothing failed — the colour was just the inherited one.
 
 `.fx-debug-overflow` is the only intentional exception; beating everything is its
-job.
+job. `scripts/layerCheck.js` enforces this, and allows two things: that handle,
+and a block declaring only custom properties (a token block defines values, it
+does not contest a property with a utility).
+
+Wanting to beat an earlier component rule is **not** a reason to leave the
+layer — that argument is how an "organizer polish" block ended up unlayered and
+took every utility on `.es-stat`, `.es-evlist`, `.es-onboard`, `.es-nextstep`
+and `.es-facts` with it. Re-open the layer instead: `@layer components { … }`
+later in the file wins over the component rules above it by source order, and
+utilities still win over the result.
 
 ## Colour comes from a role, and the roles are measured
 

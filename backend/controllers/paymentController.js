@@ -43,22 +43,85 @@ async function webhook(req, res) {
     return res.status(400).json({ received: false, error: 'invalid signature' });
   }
 
-  // ── Exactly once ──
-  // The insert IS the claim. Two concurrent deliveries race on the primary key
-  // and exactly one proceeds; checking-then-inserting would let both through.
+  /**
+   * ── Exactly once ──
+   *
+   * The insert is the claim. Two concurrent deliveries race on the primary key
+   * and exactly one wins it; checking-then-inserting would let both through.
+   *
+   * WHAT THE INSERT NO LONGER PROMISES ON ITS OWN. Since the duplicate branch
+   * below re-runs a delivery that was claimed but never finished, the loser of
+   * that race can now fall through WHILE the winner is still in flight —
+   * `processed_at` is null for both of them at that instant. So the insert is
+   * the deduplicator for deliveries that are minutes apart, and it is no longer
+   * the thing that serialises two that arrive together.
+   *
+   * That is safe because `fulfill_checkout` takes `FOR UPDATE` on the
+   * reservation row: the second call blocks on the first, then finds the hold
+   * already converted and returns the original order with `already_fulfilled`.
+   * The ticket email is sent only when that flag is false, so the buyer does
+   * not get two. The database lock is the real serialisation point, and it is
+   * the only one that can be, because it is the only one both callers share.
+   *
+   * Every other branch below is a no-op on a second run: releasing a released
+   * reservation, and logging a refund for review.
+   */
   const { error: claimErr } = await supabase
     .from('webhook_events')
     .insert({ stripe_event_id: event.id, type: event.type, payload: event.data?.object || null });
 
   if (claimErr) {
     if (claimErr.code === '23505') {
-      logger.debug({ id: event.id }, 'webhook already seen');
-      return res.status(200).json({ received: true, duplicate: true });
+      /**
+       * SEEN BEFORE IS NOT THE SAME AS DONE BEFORE.
+       *
+       * This used to return 200 unconditionally, and that quietly cancelled
+       * rule 3 below it. The claim row is written BEFORE the work, so a
+       * delivery that failed half-way still leaves one — and every retry
+       * Stripe then sent bounced off this branch and returned "duplicate"
+       * without ever reaching the handler again. The `permanent ? 200 : 500`
+       * decision further down was written to ask Stripe to come back after a
+       * transient failure, and it could never be honoured: the second delivery
+       * never got past here.
+       *
+       * Nothing else recovered it either. `webhook_events` is written here and
+       * read by no job or screen, so the outcome was a charged buyer, no
+       * tickets, and one line in a log.
+       *
+       * So the row is re-read and only a delivery that FINISHED CLEANLY —
+       * processed, with no error recorded — is treated as a duplicate. Anything
+       * else is picked back up. `fulfill_checkout` is idempotent and returns
+       * the original order via `already_fulfilled`, which is what makes
+       * reprocessing safe rather than a second charge's worth of tickets.
+       */
+      const { data: seen, error: readErr } = await supabase
+        .from('webhook_events')
+        .select('processed_at, error')
+        .eq('stripe_event_id', event.id)
+        .maybeSingle();
+
+      // Not knowing means not promising. Ask Stripe to try again rather than
+      // acknowledging work we cannot confirm happened.
+      if (readErr) {
+        logger.error({ err: readErr.message, id: event.id }, 'could not re-read a claimed webhook event');
+        return res.status(500).json({ received: false });
+      }
+
+      if (seen?.processed_at && !seen.error) {
+        logger.debug({ id: event.id }, 'webhook already handled');
+        return res.status(200).json({ received: true, duplicate: true });
+      }
+
+      // Claimed but unfinished, or finished with an error on the row. Fall
+      // through and run it again.
+      logger.warn({ id: event.id, previousError: seen?.error || null },
+        'webhook was claimed but not completed — reprocessing');
+    } else {
+      // We could not record it, so we cannot promise not to double-process.
+      // 5xx asks Stripe to try again.
+      logger.error({ err: claimErr.message, id: event.id }, 'could not claim webhook event');
+      return res.status(500).json({ received: false });
     }
-    // We could not record it, so we cannot promise not to double-process.
-    // 5xx asks Stripe to try again.
-    logger.error({ err: claimErr.message, id: event.id }, 'could not claim webhook event');
-    return res.status(500).json({ received: false });
   }
 
   try {
@@ -119,11 +182,12 @@ async function webhook(req, res) {
     }
   } catch (err) {
     logger.error({ err: err.message, id: event.id, type: event.type }, 'webhook handler threw');
+    // The message is recorded ON THE ROW, which is what now makes the retry
+    // work: the duplicate branch at the top re-reads it, sees a non-null
+    // `error`, and runs the handler again instead of acknowledging. A handler
+    // that threw half-way is exactly the case Stripe's retries exist for, so
+    // the 500 below is a real request to come back rather than a formality.
     await mark(event.id, err.message);
-    // The claim row stays, so a retry is deduplicated — but it also means a
-    // retry will NOT reprocess. Clearing processed_at is what puts it back in
-    // play; that is deliberate and manual, because a handler that threw
-    // half-way needs looking at before it runs again.
     return res.status(500).json({ received: false });
   }
 }

@@ -1,4 +1,5 @@
 import Image from 'next/image';
+import { safeExternalUrl } from '../../utils/safeUrl';
 import NavIcon from '../../components/shell/NavIcon';
 import { Zoomable } from '../../components/Lightbox';
 import EventShare from './EventShare';
@@ -170,9 +171,9 @@ export function EventPresentedBy({ sponsors = [] }) {
         )}
       </div>
 
-      {lead.linkUrl && (
+      {safeExternalUrl(lead.linkUrl) && (
         <a
-          href={lead.linkUrl}
+          href={safeExternalUrl(lead.linkUrl)}
           target="_blank"
           // `nofollow` with the rest, matching the full sponsor list: these are
           // addresses an organizer typed, and this page should not lend them

@@ -42,13 +42,43 @@ const asFailure = (res, err) => sendFail(res, {
  */
 async function mine(req, res, next) {
   try {
+    /**
+     * THE EMAIL IS QUOTED, because this is the one `or()` in the codebase
+     * building a filter out of a value rather than out of a literal.
+     *
+     * Inside a PostgREST `or(...)` a comma ends the condition and a parenthesis
+     * nests one, so an address containing either stops being a value and
+     * becomes syntax — and the failure mode of a broken `or()` is a filter that
+     * matches more than it should, on a query whose whole job is to return one
+     * person's orders. Every other `or()` here runs its input through
+     * `safeSearch` first; this one could not, because an email has to match
+     * EXACTLY rather than be stripped of punctuation.
+     *
+     * Double-quoting is PostgREST's own answer: the value is read as a literal,
+     * and the embedded quote and backslash escapes keep a crafted address from
+     * closing it early. A quoted local part (`"a,b"@example.com`) is rare but
+     * legal, and rarity is not a security boundary.
+     */
+    const quoted = `"${String(req.user.email ?? '').replace(/["\\]/g, (c) => `\\${c}`)}"`;
+
     const { data: orders } = await supabase
       .from('orders')
       .select('id, currency, buyer_total_cents, quantity, created_at, paid_at, guest_email, events ( id, title, slug, starts_at, ends_at, timezone, venue_name, status )')
       .eq('status', 'paid')
-      .or(`user_id.eq.${req.user.id},guest_email.eq.${req.user.email}`)
+      .or(`user_id.eq.${req.user.id},guest_email.eq.${quoted}`)
       .order('created_at', { ascending: false })
       .limit(100);
+
+    /**
+     * ONE query for every order's tickets, not one per order.
+     *
+     * This loop used to call `forOrder` per order behind an
+     * `eslint-disable no-await-in-loop`, so a buyer with a full page of orders
+     * waited on up to a hundred sequential round trips to see a list they had
+     * already been shown the totals for. The limit above bounds the set, which
+     * is exactly what makes a single batched read the right shape.
+     */
+    const ticketsByOrder = await tickets.forOrders((orders || []).map((o) => o.id));
 
     const out = [];
     for (const order of orders || []) {
@@ -76,8 +106,8 @@ async function mine(req, res, next) {
         currency: order.currency,
         totalCents: order.buyer_total_cents,
         purchasedAt: order.paid_at || order.created_at,
-        // eslint-disable-next-line no-await-in-loop
-        tickets: await tickets.forOrder(order.id),
+        // Absent rather than empty is a real state — see `forOrders`.
+        tickets: ticketsByOrder.get(order.id) ?? [],
       });
     }
     return sendOk(res, out);

@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react';
 import Image from 'next/image';
+import { safeExternalUrl } from '../../../../utils/safeUrl';
 import { Panel } from '../../../../components/ui/Page';
 import { Loading, Empty } from '../../../../components/Feedback';
 import FormError from '../../../../components/forms/FormError';
@@ -116,14 +117,20 @@ export default function GalleryEditor({ eventId }) {
                   <div className="grid aspect-video place-items-center rounded-(--es-radius-sm) bg-bg-sunken text-sm text-subtle">
                     Video
                   </div>
-                  <a
-                    href={item.url}
-                    target="_blank"
-                    rel="noreferrer noopener"
-                    className="fx-break text-xs text-accent"
-                  >
-                    {item.url}
-                  </a>
+                  {/* The organizer sees the address they typed either way.
+                      It only becomes a link when it is one we would follow. */}
+                  {safeExternalUrl(item.url) ? (
+                    <a
+                      href={safeExternalUrl(item.url)}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className="fx-break text-xs text-accent"
+                    >
+                      {item.url}
+                    </a>
+                  ) : (
+                    <span className="fx-break text-xs text-subtle">{item.url}</span>
+                  )}
                 </div>
               ) : (
                 <div className="relative aspect-video overflow-hidden rounded-(--es-radius-sm) bg-bg-sunken">

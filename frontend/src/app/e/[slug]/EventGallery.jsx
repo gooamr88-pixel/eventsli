@@ -3,6 +3,7 @@
 import { useCallback, useRef, useState } from 'react';
 import Image from 'next/image';
 import Lightbox from '../../components/Lightbox';
+import { safeExternalUrl } from '../../utils/safeUrl';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -34,7 +35,12 @@ import Lightbox from '../../components/Lightbox';
  */
 export default function EventGallery({ items = [] }) {
   const images = items.filter((i) => i.kind === 'image');
-  const videos = items.filter((i) => i.kind === 'video');
+  // Filtered on the WAY IN, so a video whose address is not a usable web URL
+  // never becomes a tile — a tile that goes nowhere is worse than no tile.
+  const videos = items
+    .filter((i) => i.kind === 'video')
+    .map((i) => ({ ...i, url: safeExternalUrl(i.url) }))
+    .filter((i) => i.url);
   const [openAt, setOpenAt] = useState(null);
   const triggers = useRef([]);
 

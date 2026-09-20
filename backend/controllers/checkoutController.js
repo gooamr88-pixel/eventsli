@@ -279,9 +279,24 @@ async function checkoutResult(req, res, next) {
     const paidAt = new Date(order.paid_at || order.created_at).getTime();
     const withinWindow = Date.now() - paidAt < ticketCtrl.SESSION_TICKET_WINDOW_MINUTES * 60_000;
 
-    // Issued so the page can keep working without ever going back to the
-    // session id — and so a refresh an hour later still shows the tickets.
-    const accessToken = accessTokens.issueOrderToken(orderId);
+    /**
+     * THE TOKEN IS INSIDE THE WINDOW TOO. It used to be issued unconditionally
+     * here, one line below the comment explaining why the session id must stop
+     * working — and it is a NINETY-DAY order token, so it handed back far more
+     * than the window it sat next to was withholding. Anyone who later read the
+     * session id out of history, a `Referer` or an analytics payload could
+     * exchange it here for a token that opens `/public/t/:token` and every QR
+     * code on the order, for a quarter of a year.
+     *
+     * That made the whole time-box decorative: `tickets` was emptied and the
+     * key to the same tickets was returned beside it.
+     *
+     * A durable way back to the tickets already exists and is the one the
+     * comment above points at — the token EMAILED to the buyer, issued in
+     * `ticketController.sendTicketEmail`. That one is proof of holding the
+     * address. This one was only ever proof of holding a URL.
+     */
+    const accessToken = withinWindow ? accessTokens.issueOrderToken(orderId) : null;
 
     return sendOk(res, {
       status: 'paid',

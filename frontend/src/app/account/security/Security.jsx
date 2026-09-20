@@ -4,11 +4,13 @@ import { useCallback, useEffect, useState } from 'react';
 import { get, post, del } from '../../utils/apiClient';
 import { formatEventTime } from '../../lib/eventTime';
 import { useAuth, signOut } from '../../hooks/useAuth';
+import { LogoutConfirmDialog } from '../../components/auth/LogoutConfirm';
 import Field from '../../components/forms/Field';
 import FormError from '../../components/forms/FormError';
 import SubmitButton from '../../components/forms/SubmitButton';
 import { Loading, ErrorNotice } from '../../components/Feedback';
-import { MIN_PASSWORD, MAX_PASSWORD, PASSWORD_HINT, passwordProblem } from '../../lib/passwordRules';
+import { MIN_PASSWORD, isWeakPassword } from '../../lib/passwordRules';
+import NewPasswordFields from '../../components/forms/NewPassword';
 
 /**
  * Sessions and the password.
@@ -63,6 +65,11 @@ export default function Security() {
 function SessionList({ sessions, error, onChanged }) {
   const [busy, setBusy] = useState(null);
   const [actionError, setActionError] = useState(null);
+  // "Sign out everywhere" ends every session including this one, so it is the
+  // most terminal control in the account area and gets the same confirmation
+  // the ordinary sign-out does — the shared dialog, with copy that says what
+  // makes this one different.
+  const [confirmAll, setConfirmAll] = useState(false);
 
   async function end(session) {
     setBusy(session.id);
@@ -97,7 +104,6 @@ function SessionList({ sessions, error, onChanged }) {
   }
 
   async function endAll() {
-    setBusy('all');
     setActionError(null);
     try {
       await post('/auth/logout-all', undefined, { noRedirect: true });
@@ -105,8 +111,16 @@ function SessionList({ sessions, error, onChanged }) {
       // stay signed in with.
       await signOut('/login');
     } catch (err) {
+      /**
+       * Caught rather than rethrown, and the dialog is closed.
+       *
+       * The dialog's own failure line is deliberately generic. This endpoint
+       * answers with a specific one — a rate limit, a revoked session — and
+       * the panel already renders it. Letting this reach the dialog would put
+       * the vague sentence in front of the precise one.
+       */
       setActionError(err);
-      setBusy(null);
+      setConfirmAll(false);
     }
   }
 
@@ -117,11 +131,10 @@ function SessionList({ sessions, error, onChanged }) {
         {sessions?.length > 1 && (
           <button
             type="button"
-            onClick={endAll}
-            disabled={busy === 'all'}
+            onClick={() => setConfirmAll(true)}
             className="text-sm text-danger hover:underline disabled:opacity-40"
           >
-            {busy === 'all' ? 'Ending…' : 'Sign out everywhere'}
+            Sign out everywhere
           </button>
         )}
       </div>
@@ -169,26 +182,60 @@ function SessionList({ sessions, error, onChanged }) {
         Ending a session stops that device working immediately — not when it next
         signs out.
       </p>
+
+      {/* The shared dialog, with this action's own words. `onConfirm` replaces
+          the plain sign-out: every OTHER session has to be revoked before this
+          one lets go, and the dialog owns the busy state and the
+          double-click guard either way. */}
+      {confirmAll && (
+        <LogoutConfirmDialog
+          title="Sign out everywhere?"
+          body="Every device signed in to this account is signed out, including this one. You will need to sign in again."
+          confirmLabel="Sign out everywhere"
+          busyLabel="Ending sessions…"
+          onConfirm={endAll}
+          onCancel={() => setConfirmAll(false)}
+        />
+      )}
     </section>
   );
 }
 
 function ChangePassword() {
-  const [form, setForm] = useState({ currentPassword: '', newPassword: '' });
+  // The address is read here only so the "must not contain your email" rule can
+  // be shown while typing. It is the same rule the API applies, and the API is
+  // what enforces it.
+  const { user } = useAuth();
+  const [form, setForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [done, setDone] = useState(false);
 
-  const tooShort = form.newPassword.length > 0 && form.newPassword.length < MIN_PASSWORD;
+  // The same three rules the API applies to every password-setting endpoint.
+  const blocked = form.newPassword.length < MIN_PASSWORD
+    || isWeakPassword(form.newPassword, { email: user?.email })
+    || form.newPassword !== form.confirmPassword;
 
   async function submit(e) {
     e.preventDefault();
     setBusy(true);
     setError(null);
     try {
-      await post('/auth/change-password', form, { noRedirect: true });
+      /**
+       * NAMED FIELDS, not the whole `form`.
+       *
+       * It used to be `post(..., form)`, which was fine while the state held
+       * exactly the two keys the endpoint wants. It now also holds
+       * `confirmPassword`, and spreading the object would put a second copy of
+       * the password on the wire for an endpoint that never asked for one. The
+       * confirmation is a browser-side check and has no reason to leave it.
+       */
+      await post('/auth/change-password', {
+        currentPassword: form.currentPassword,
+        newPassword: form.newPassword,
+      }, { noRedirect: true });
       setDone(true);
-      setForm({ currentPassword: '', newPassword: '' });
+      setForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
     } catch (err) {
       setError(err);
     } finally {
@@ -221,16 +268,26 @@ function ChangePassword() {
             value={form.currentPassword}
             onChange={(e) => setForm((f) => ({ ...f, currentPassword: e.target.value }))}
           />
-          <Field
-            label="New password" type="password" name="newPassword"
-            autoComplete="new-password" required minLength={MIN_PASSWORD} maxLength={MAX_PASSWORD}
-            hint={`At least ${MIN_PASSWORD} characters. This signs out every other device.`}
-            error={passwordProblem(form.newPassword)}
+          <NewPasswordFields
+            label="New password"
+            confirmLabel="Confirm new password"
+            name="newPassword"
+            email={user?.email}
             value={form.newPassword}
             onChange={(e) => setForm((f) => ({ ...f, newPassword: e.target.value }))}
+            confirm={form.confirmPassword}
+            onConfirmChange={(e) => setForm((f) => ({ ...f, confirmPassword: e.target.value }))}
           />
+          {/* Kept from the old hint, as its own line. It is a CONSEQUENCE of
+              the change rather than a rule about the password, so it does not
+              belong in the requirement checklist beside "at least 12
+              characters" — and it is the sentence somebody most needs before
+              they press the button. */}
+          <p className="text-xs text-subtle">
+            Changing this signs out every other device.
+          </p>
           <FormError error={error} />
-          <SubmitButton busy={busy} busyLabel="Saving…" disabled={tooShort}>
+          <SubmitButton busy={busy} busyLabel="Saving…" disabled={blocked}>
             Change password
           </SubmitButton>
         </form>

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { post } from '../../utils/apiClient';
 import { describeError, messageFor } from '../../utils/errors';
 import { formatMoney } from '../../utils/money';
+import { safeExternalUrl } from '../../utils/safeUrl';
 import { formatEventTime } from '../../lib/eventTime';
 import { useApi } from '../../hooks/useApi';
 import { useToast } from '../../components/ui/Toast';
@@ -141,8 +142,12 @@ export default function Invoices() {
                 align: 'end',
                 render: (i) => (
                   <span className="fx-row justify-end">
-                    {i.proofUrl && /^https?:\/\//i.test(i.proofUrl) && (
-                      <a href={i.proofUrl} target="_blank" rel="noreferrer noopener" className="es-btn es-btn--ghost es-btn--sm">
+                    {/* Was an inline `/^https?:\/\//i` test here — the same rule,
+                        written in this one place. `safeExternalUrl` also strips
+                        the control characters a browser strips before acting on
+                        a URL, which a `startsWith`-shaped check cannot see. */}
+                    {safeExternalUrl(i.proofUrl) && (
+                      <a href={safeExternalUrl(i.proofUrl)} target="_blank" rel="noreferrer noopener" className="es-btn es-btn--ghost es-btn--sm">
                         Receipt <span className="sr-only">(opens in a new tab)</span>
                       </a>
                     )}
