@@ -9,6 +9,7 @@ import { ConfirmProvider } from '../components/ui/Confirm';
 import { useAuth } from '../hooks/useAuth';
 import { get } from '../utils/apiClient';
 import { summariseOrders } from '../lib/buyerOrders';
+import { hasWorkspace, WORKSPACE } from '../lib/workspaces';
 import { AccountOrdersProvider } from './nav/AccountOrders';
 import { accountNavGroups, ACCOUNT_TABS } from './nav/accountNav';
 
@@ -104,6 +105,16 @@ export default function AccountLayout({ children }) {
     ? summariseOrders(state.orders, state.loadedAt).upcomingCount
     : null;
 
+  /**
+   * "Sell on Eventsli" is for the account that does not already have the
+   * organizer workspace — somebody who does gets the switcher at the top of the
+   * panel instead, which is the better control because it names what is behind
+   * it. `user` is null while `/auth/me` is in flight, and `hasWorkspace` answers
+   * false for null, so the row simply arrives with the rest of the sidebar's
+   * knowledge rather than appearing and then vanishing.
+   */
+  const canSell = Boolean(user) && !hasWorkspace(user, WORKSPACE.ORGANIZER);
+
   return (
     <ToastProvider>
       <ConfirmProvider>
@@ -112,7 +123,7 @@ export default function AccountLayout({ children }) {
             workspace="Tickets"
             label="Your account"
             home="/account"
-            groups={accountNavGroups({ upcoming })}
+            groups={accountNavGroups({ upcoming, canSell })}
             tabKeys={ACCOUNT_TABS}
             /**
              * THE SWITCHER IS THE HEAD, which is the slot the organizer shell

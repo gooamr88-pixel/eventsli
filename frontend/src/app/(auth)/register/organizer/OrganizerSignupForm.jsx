@@ -173,7 +173,34 @@ export default function OrganizerSignupForm() {
         <SubmitButton busy={busy} busyLabel="Creating your account…" disabled={!ready} className="es-btn--lg es-btn--block">
           Create organizer account
         </SubmitButton>
-        {!ready && !tooShort && (
+        {/**
+          * ───────────────────────────────────────────────────────────────────
+          * THIS LINE CRASHED THE PAGE. It read `!ready && !tooShort`, and
+          * `tooShort` is not defined in this component — there is no such
+          * variable anywhere in the file.
+          *
+          * It threw on FIRST RENDER, every time, which is why the whole
+          * organizer sign-up was unreachable rather than merely wrong. `&&`
+          * short-circuits, so the reference is only reached when `!ready` is
+          * true — and `ready` requires both agreement boxes, which start
+          * unticked. So the one state in which the identifier was evaluated was
+          * the state every visitor arrives in.
+          *
+          * Nothing catches this ahead of time: it is a runtime ReferenceError,
+          * so it parses cleanly, builds cleanly, and only fails in the browser.
+          *
+          * THE INTENT, recovered from the surrounding code: nag about the
+          * agreements only when the agreements are actually what is missing —
+          * while the password is still the blocker, `NewPasswordFields` is
+          * already saying what is wrong with it, and two messages disagreeing
+          * about what to fix is worse than one.
+          *
+          * `ready` is `acceptTerms && acceptPrivacy && passwordOk`, so
+          * `!ready && passwordOk` is exactly "at least one box is unticked and
+          * nothing else is". No new variable is needed to say it.
+          * ───────────────────────────────────────────────────────────────────
+          */}
+        {!ready && passwordOk && (
           <p className="text-center text-xs text-subtle">Tick both agreements to continue.</p>
         )}
       </form>

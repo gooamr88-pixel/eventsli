@@ -43,6 +43,47 @@ const PROTECTED = ['/account', '/organizer', '/admin'];
 const AUTH_ONLY = ['/login', '/register', '/verify-email'];
 
 /**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * "SEND ME AWAY" IS NOT THE SAME AS "SEND ME HOME" — and this is where five
+ * dead ends were.
+ *
+ * `/register/organizer` is the one AUTH_ONLY path that means something specific:
+ * somebody pressed "Start selling" or "Create your event". They cannot register
+ * again, so being bounced is right — but bouncing them to their DASHBOARD
+ * answers a question they did not ask. They asked to start selling.
+ *
+ * SIX PLACES LINK TO IT and only one of them worked while signed in:
+ *
+ *   why-us/page.jsx            "Start selling"
+ *   how-it-works/page.jsx      the closing call to action
+ *   landing/Sections.jsx  ×2   the audience card, and "Start selling"
+ *   landing/Social.jsx         "Create your event"
+ *   landing/HeroCta.jsx        — the only one that handled it
+ *
+ * `HeroCta` found this and fixed it for its own button, rewriting the href to
+ * `/organizer` once the session is known. Its header comment describes the
+ * failure exactly: "pressing the button from the homepage returned them to the
+ * homepage. Nothing errored, nothing was logged, and it read as a button that
+ * does not work." The other five were never given the same treatment, so for a
+ * signed-in buyer they were all still that button.
+ *
+ * FIXED HERE RATHER THAN IN FIVE COMPONENTS, because it is a property of the
+ * ROUTE, not of any button: every link into organizer sign-up means the same
+ * thing, and a per-component rewrite has to be remembered again for the seventh
+ * one somebody adds. `/organizer` is where an account without a profile is asked
+ * for the organization details — it is the continuation of the journey, not a
+ * consolation.
+ *
+ * `HeroCta` stays as it is: rewriting client-side saves a redirect hop, its rule
+ * is now an optimisation rather than the only thing holding that path up, and it
+ * has a test pinning it.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+const SIGNED_IN_INSTEAD: Array<[string, string]> = [
+  ['/register/organizer', '/organizer'],
+];
+
+/**
  * The gate has its own principal — a DEVICE with a PIN, not a person — so a
  * staff session cookie must not open it, and its absence must not redirect to a
  * page asking for an email. /gate handles its own state; this stays out.
@@ -187,7 +228,16 @@ export function proxy(request: NextRequest) {
      * buyer-and-organizer makes to their own tickets.
      * ─────────────────────────────────────────────────────────────────────────
      */
-    url.pathname = wanted || '/account';
+    /**
+     * A destination that was actually asked for still wins over both of the
+     * answers below — it is what carries somebody back to a checkout they were
+     * bounced off, and an organizer link with a `?next=` on it is still that.
+     */
+    const instead = SIGNED_IN_INSTEAD.find(
+      ([from]) => pathname === from || pathname.startsWith(`${from}/`),
+    )?.[1];
+
+    url.pathname = wanted || instead || '/account';
     url.search = '';
     return withCsp(request, () => NextResponse.redirect(url));
   }

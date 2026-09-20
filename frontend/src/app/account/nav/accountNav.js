@@ -61,8 +61,13 @@
  *                                          the badge. `null` while unknown — a
  *                                          badge that reads 0 and then 3 is a
  *                                          layout shift in the sidebar.
+ * @param {boolean} [options.canSell]       true for an account that does NOT yet
+ *                                          have the organizer workspace, which is
+ *                                          who the "Sell on Eventsli" row is for.
+ *                                          Somebody who already has it gets the
+ *                                          workspace switcher instead.
  */
-export function accountNavGroups({ upcoming = null } = {}) {
+export function accountNavGroups({ upcoming = null, canSell = false } = {}) {
   return [
     {
       id: 'home',
@@ -110,6 +115,31 @@ export function accountNavGroups({ upcoming = null } = {}) {
       label: 'Your account',
       items: [
         { key: 'security', label: 'Sign-in & security', icon: 'shield', href: '/account/security' },
+        /**
+         * ─────────────────────────────────────────────────────────────────────
+         * THE WAY TO START SELLING, for a buyer who has not.
+         *
+         * The brief this pass answers asks for the upgrade path to be PRESERVED
+         * AND DISCOVERABLE without pushing every buyer through organizer
+         * onboarding, and removing the masthead's "Create event" button — which
+         * was aimed at every signed-in buyer whether they wanted it or not — took
+         * away the loud version without leaving a quiet one. This is the quiet
+         * one: one row, at the bottom, in the group about the account itself.
+         *
+         * `/organizer` and not `/register/organizer`: they already have an
+         * account, and `/organizer` is the screen that asks for the organization
+         * details. (`proxy.ts` now redirects the register path here for exactly
+         * this reason, so both work — but linking straight at it saves the hop.)
+         *
+         * ONLY WHEN THEY DO NOT ALREADY HAVE THE WORKSPACE. For somebody who
+         * does, this row and the switcher above would be two controls pointing at
+         * one place, and the switcher is the better of the two because it says
+         * what is behind it.
+         * ─────────────────────────────────────────────────────────────────────
+         */
+        ...(canSell
+          ? [{ key: 'sell', label: 'Sell on Eventsli', icon: 'briefcase', href: '/organizer' }]
+          : []),
       ],
     },
   ];
