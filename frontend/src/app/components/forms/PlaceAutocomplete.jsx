@@ -119,6 +119,8 @@ export default function PlaceAutocomplete({
   name = 'venueName',
   placeholder = 'Search for a venue, or type it yourself',
   maxLength = 200,
+  required = false,
+  optional = false,
 }) {
   const id = useId();
   const listId = `${id}-list`;
@@ -130,6 +132,24 @@ export default function PlaceAutocomplete({
   const [items, setItems] = useState([]);
   const [active, setActive] = useState(-1);
   const [busy, setBusy] = useState(false);
+  /**
+   * WHETHER THIS FIELD CAN ACTUALLY SEARCH — which decides what it PROMISES.
+   *
+   * `placesDisabled` is a module flag and changing it re-renders nothing, so the
+   * hint under the field went on saying "start typing and pick your venue — the
+   * address, city and map pin fill themselves in" on a deployment with no
+   * Places key. That is a promise the field cannot keep, under an input that
+   * behaves like a plain text box, and it is worse than saying nothing: the
+   * organizer waits for a list that is never coming and concludes the form is
+   * broken.
+   *
+   * Seeded from the module flag so a second instance on the same page starts
+   * out already knowing, and lowered the moment the API answers
+   * `PLACES_DISABLED`. Optimistic until then, because a deployment WITH a key
+   * is the configured case and a hint that only appears after the first search
+   * helps nobody.
+   */
+  const [searchLive, setSearchLive] = useState(!placesDisabled);
 
   const rootRef = useRef(null);
   const inputRef = useRef(null);
@@ -205,7 +225,12 @@ export default function PlaceAutocomplete({
          * debounce of every instance, and the field quietly becomes the plain
          * text input it was before venue search existed.
          */
-        if (err?.code === 'PLACES_DISABLED') placesDisabled = true;
+        if (err?.code === 'PLACES_DISABLED') {
+          placesDisabled = true;
+          // Drops the "pick your venue" hint, so the field stops promising a
+          // list it cannot show.
+          setSearchLive(false);
+        }
         // Every other failure is also silent, and that is deliberate: this is a
         // suggestion list on an optional field. Google being unreachable must
         // not put a red error under a venue name the organizer typed correctly.
@@ -320,7 +345,22 @@ export default function PlaceAutocomplete({
        ones without being a second, slightly different field component. Only the
        input and the list below it are this component's own. */
     <div className="fx-stack fx-stack--sm es-place gap-1.5" ref={rootRef}>
-      <FieldLabel htmlFor={id} optional>{label}</FieldLabel>
+      {/**
+        * NO BADGE UNLESS THE CALLER ASKS FOR ONE.
+        *
+        * This read `<FieldLabel optional>` — hardcoded — so the venue field
+        * started announcing itself as "Optional", which the plain `Field` it
+        * replaced never did. The wizard's own rule is subtler than that word:
+        * venue is in `SUBMIT_ONLY_FIELDS`, meaning it does not block a DRAFT but
+        * IS required before the event can be submitted for review. Stamping
+        * "Optional" on it tells an organizer they can skip something that will
+        * stop them going on sale, and the `pending()` hint right below it says
+        * the opposite on the same screen.
+        *
+        * Both props pass through now, so this field labels itself exactly the
+        * way every other field in the form does — by what the caller says.
+        */}
+      <FieldLabel htmlFor={id} required={required} optional={optional}>{label}</FieldLabel>
 
       {/*
         `role="combobox"` on the INPUT, which is where ARIA 1.2 puts it — 1.0
@@ -399,7 +439,13 @@ export default function PlaceAutocomplete({
         </ul>
       )}
 
-      {hint && !error && <p id={hintId} className="text-xs text-subtle">{hint}</p>}
+      {/* The caller's hint wins — it carries validation state. The search promise
+          is this component's own, and only while it is true. */}
+      {(hint || searchLive) && !error && (
+        <p id={hintId} className="text-xs text-subtle">
+          {hint || 'Start typing and pick your venue — the address, city and map pin fill themselves in.'}
+        </p>
+      )}
       {error && <p id={errorId} className="text-xs text-danger">{error}</p>}
     </div>
   );

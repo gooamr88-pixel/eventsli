@@ -375,8 +375,10 @@ function EventWizard({ type, organizer }) {
                 value={form.venueName}
                 onChange={setVenueName}
                 onPlace={applyPlace}
-                hint={pending('venueName')
-                  || 'Start typing and pick your venue — the address, city and map pin fill themselves in.'}
+                // Only the validation hint. The "pick your venue" line belongs to
+                // the component, which is the only thing that knows whether
+                // search is actually available on this deployment.
+                hint={pending('venueName')}
               />
               <Field
                 label="Street address" name="venueAddress" maxLength={300} autoComplete="street-address"
