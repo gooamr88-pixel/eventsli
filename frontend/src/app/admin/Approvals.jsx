@@ -87,7 +87,7 @@ export default function Approvals() {
       />
 
       {error ? (
-        <ErrorNotice error={error} />
+        <ErrorNotice error={error} onRetry={reload} />
       ) : loading && !data ? (
         <Loading variant="list" rows={3} label="Loading the queue" />
       ) : events.length === 0 ? (

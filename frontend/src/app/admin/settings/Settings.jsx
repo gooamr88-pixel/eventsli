@@ -108,7 +108,7 @@ export default function Settings() {
       )}
 
       {error ? (
-        <ErrorNotice error={error} />
+        <ErrorNotice error={error} onRetry={reload} />
       ) : loading && !data ? (
         <Loading variant="list" rows={4} label="Loading settings" />
       ) : (

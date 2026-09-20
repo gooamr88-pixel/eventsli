@@ -36,6 +36,17 @@ export default function SegmentError({
   area = 'This page',
   /** Where to go if retrying does not help. Stays inside the segment. */
   home,
+  /**
+   * One sentence the reader needs that the error itself cannot supply.
+   *
+   * It exists for the checkout. `describeBoundaryError` can say what broke and
+   * whether retrying is worth it, but it cannot answer the only question
+   * somebody has when the screen after their card details disappears — was I
+   * charged, and where are my tickets. That answer is a fact about the
+   * PRODUCT, not about the error, so the boundary that knows which segment it
+   * guards is the one that has to carry it.
+   */
+  note,
 }) {
   useEffect(() => {
     // The full object, to the console, where a developer is. Not to the DOM.
@@ -57,6 +68,10 @@ export default function SegmentError({
         <p className="text-muted">
           {area} could not be shown. {recovery}
         </p>
+
+        {/* Before the buttons, not under them. It is the reassurance that
+            decides whether the reader presses one of them at all. */}
+        {note && <div className="es-notice es-notice--info">{note}</div>}
 
         <div className="fx-row">
           {tone !== 'fatal' && (

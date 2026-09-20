@@ -88,7 +88,7 @@ export default function AdminOrganizers() {
       </div>
 
       {error ? (
-        <ErrorNotice error={error} />
+        <ErrorNotice error={error} onRetry={reload} />
       ) : loading && !data ? (
         <Loading variant="list" rows={5} label="Loading organizers" />
       ) : rows.length === 0 ? (

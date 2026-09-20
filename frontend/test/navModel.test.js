@@ -6,6 +6,7 @@ import {
   organizerNavGroups, eventIdFromPath, pathForEvent, ORGANIZER_TABS, organizerTabs,
 } from '../src/app/organizer/nav/organizerNav';
 import { adminNavGroups, ADMIN_TABS } from '../src/app/admin/nav/adminNav';
+import { accountNavGroups, ACCOUNT_TABS } from '../src/app/account/nav/accountNav';
 
 /**
  * The sidebar's one job is to say where you are, once. These pin that, and pin
@@ -70,8 +71,14 @@ describe('organizer destinations', () => {
 
   test('every destination is a page that exists on disk', () => {
     const app = path.resolve(__dirname, '../src/app');
+    // THE BUYER'S NAV IS IN HERE TOO. It is the third workspace and the newest,
+    // so it is the one whose destinations are most likely to be typed wrong —
+    // and two of them (`/events`, `/events/saved`) point at the storefront
+    // rather than at its own prefix, which is exactly the kind of cross-surface
+    // href that rots quietly when a route is renamed.
     const items = organizerNavGroups({ eventId: EVENT }).flatMap((g) => g.items)
-      .concat(adminNavGroups().flatMap((g) => g.items));
+      .concat(adminNavGroups().flatMap((g) => g.items))
+      .concat(accountNavGroups().flatMap((g) => g.items));
     for (const item of items) {
       const route = item.href.replace(EVENT, '[id]');
       const page = path.join(app, route, 'page.jsx');
@@ -140,6 +147,7 @@ describe('organizer destinations', () => {
   test('the bottom bars only name keys that exist', () => {
     expect(pickTabs(organizerNavGroups({ eventId: EVENT }), ORGANIZER_TABS)).toHaveLength(ORGANIZER_TABS.length);
     expect(pickTabs(adminNavGroups(), ADMIN_TABS)).toHaveLength(ADMIN_TABS.length);
+    expect(pickTabs(accountNavGroups(), ACCOUNT_TABS)).toHaveLength(ACCOUNT_TABS.length);
   });
 });
 

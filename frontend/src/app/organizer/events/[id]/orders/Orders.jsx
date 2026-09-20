@@ -46,7 +46,7 @@ export default function Orders({ eventId }) {
   if (channel) query.set('channel', channel);
   if (search) query.set('q', search);
 
-  const { data, error, loading } = useApi(`/events/${eventId}/orders?${query}`, { raw: true });
+  const { data, error, loading, reload } = useApi(`/events/${eventId}/orders?${query}`, { raw: true });
   const rows = data?.data || [];
   const totals = Object.entries(data?.meta?.totals || {});
   const filter = (setter) => (value) => { setter(value); setPage(1); };
@@ -73,7 +73,7 @@ export default function Orders({ eventId }) {
       </div>
 
       {error ? (
-        <ErrorNotice error={error} />
+        <ErrorNotice error={error} onRetry={reload} />
       ) : loading && !data ? (
         <Loading variant="list" rows={4} label="Loading orders" />
       ) : rows.length === 0 ? (

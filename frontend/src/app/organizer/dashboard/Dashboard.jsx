@@ -65,7 +65,7 @@ export default function Dashboard() {
   const stats = useApi(`/organizer/dashboard?days=${days}`);
 
   if (loading) return <Loading variant="stats" rows={4} label="Loading your dashboard" />;
-  if (error) return <ErrorNotice error={error} />;
+  if (error) return <ErrorNotice error={error} onRetry={refresh} />;
   // Step 1 of the road to a first event. An organizer who already has events
   // from before this step existed is not blocked here — they get a notice, and
   // the details are required before their NEXT new event.
@@ -140,7 +140,7 @@ export default function Dashboard() {
           page on a skeleton until the numbers arrived — so the branch that
           used to render a second identical skeleton is gone. */}
       {stats.error ? (
-        <ErrorNotice error={stats.error} />
+        <ErrorNotice error={stats.error} onRetry={stats.reload} />
       ) : (
         <>
           {/* ── What needs you, first and full width ───────────────────────

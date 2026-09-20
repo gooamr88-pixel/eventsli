@@ -14,9 +14,9 @@ import { Loading, ErrorNotice } from '../../../components/Feedback';
  * SQL. Every figure is the API's; nothing here adds up money.
  */
 export default function EventStats({ eventId, currency }) {
-  const { data, error, loading } = useApi(`/events/${eventId}/stats?days=30`);
+  const { data, error, loading, reload } = useApi(`/events/${eventId}/stats?days=30`);
 
-  if (error) return <ErrorNotice error={error} />;
+  if (error) return <ErrorNotice error={error} onRetry={reload} />;
   if (loading || !data) return <Loading variant="stats" rows={4} label="Loading sales" />;
 
   const cur = data.currency || currency;

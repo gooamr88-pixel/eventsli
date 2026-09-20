@@ -39,16 +39,31 @@ const ALL = Object.freeze([ACCOUNT_TYPE.BUYER, ACCOUNT_TYPE.ORGANIZER]);
 /**
  * Where each surface begins.
  *
- * A buyer's home is their tickets, not the storefront: somebody who has just
- * proved who they are is looking for something that is theirs, and the
- * storefront is what they see when they have not signed in.
+ * A buyer's home is not the storefront: somebody who has just proved who they
+ * are is looking for something that is theirs, and the storefront is what they
+ * see when they have not signed in.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * IT WAS `/account/tickets`, AND THE REASON IT WAS A SUB-PAGE IS THE BUG.
+ *
+ * `/account` had a layout and no page behind it, so the bare path 404'd — the
+ * buyer's "workspace" was two tabs inside an account-settings screen and there
+ * was no dashboard to land on. This pointed one level in because one level in
+ * was all there was, which made the sign-in path for the account type EVERY user
+ * has the only one that does not arrive at a dashboard.
+ *
+ * `/account` is that dashboard now: what is coming up, what needs attention, and
+ * the way to the tickets, the orders and the storefront. Tickets are one click
+ * from it and are still a permalink — the ticket-transfer email links straight to
+ * `/account/tickets` and should, because that mail is about a specific ticket.
  *
  * Both paths are behind `proxy.ts`'s signed-in prefixes, so neither can be
- * landed on without a session.
+ * landed on without a session — a test below pins that property.
+ * ─────────────────────────────────────────────────────────────────────────────
  */
 const HOME = Object.freeze({
   [ACCOUNT_TYPE.ORGANIZER]: '/organizer',
-  [ACCOUNT_TYPE.BUYER]: '/account/tickets',
+  [ACCOUNT_TYPE.BUYER]: '/account',
 });
 
 /**

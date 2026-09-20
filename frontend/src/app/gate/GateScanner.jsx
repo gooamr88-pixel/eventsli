@@ -216,7 +216,7 @@ export default function GateScanner() {
               <button
                 type="button"
                 onClick={() => setConfirmSignOut(false)}
-                className="text-sm text-muted hover:text-ink"
+                className="es-btn es-btn--ghost"
               >
                 Stay signed in
               </button>
@@ -273,7 +273,7 @@ function ManualEntry({ onSubmit }) {
         className="fx-break rounded-(--es-radius-md) border border-border-strong bg-surface px-3 py-2 font-mono text-sm text-ink"
       />
       <div className="fx-row fx-row--between">
-        <button type="button" onClick={() => setOpen(false)} className="text-sm text-muted hover:text-ink">
+        <button type="button" onClick={() => setOpen(false)} className="es-btn es-btn--ghost">
           Close
         </button>
         <button

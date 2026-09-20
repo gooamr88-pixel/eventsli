@@ -123,7 +123,7 @@ export default function Users() {
       </div>
 
       {error ? (
-        <ErrorNotice error={error} />
+        <ErrorNotice error={error} onRetry={reload} />
       ) : loading && !data ? (
         <Loading variant="list" rows={5} label="Loading accounts" />
       ) : rows.length === 0 ? (

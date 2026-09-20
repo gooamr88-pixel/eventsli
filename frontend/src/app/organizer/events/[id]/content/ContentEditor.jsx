@@ -36,7 +36,7 @@ export default function ContentEditor({ eventId }) {
   const ctx = useEventContext();
   const event = ctx?.event;
 
-  if (ctx?.error) return <ErrorNotice error={ctx.error} />;
+  if (ctx?.error) return <ErrorNotice error={ctx.error} onRetry={ctx.refresh} />;
   if (!event) return <Loading variant="card" label="Loading the event" />;
 
   return (

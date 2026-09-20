@@ -25,7 +25,7 @@ import { safeNext } from '../src/app/(auth)/login/LoginForm';
 const query = (obj) => new URLSearchParams(obj);
 
 const ORGANIZER = { next: '/organizer', accountTypes: ['organizer'] };
-const BUYER = { next: '/account/tickets', accountTypes: ['buyer'] };
+const BUYER = { next: '/account', accountTypes: ['buyer'] };
 
 describe('landingAfterAuth', () => {
   test('a real destination beats the account type, both ways round', () => {
@@ -35,7 +35,7 @@ describe('landingAfterAuth', () => {
 
   test('with nothing asked for, the account type decides', () => {
     expect(landingAfterAuth(query({}), ORGANIZER)).toBe('/organizer');
-    expect(landingAfterAuth(query({}), BUYER)).toBe('/account/tickets');
+    expect(landingAfterAuth(query({}), BUYER)).toBe('/account');
   });
 
   test('an account that is both lands on the dashboard', () => {
@@ -53,7 +53,7 @@ describe('landingAfterAuth', () => {
     for (const hostile of ['//evil.test', 'https://evil.test/steal', 'javascript:alert(1)']) {
       expect(safeNext(hostile), hostile).toBe('/');
       expect(landingAfterAuth(query({ next: hostile }), ORGANIZER), hostile).toBe('/organizer');
-      expect(landingAfterAuth(query({ next: hostile }), BUYER), hostile).toBe('/account/tickets');
+      expect(landingAfterAuth(query({ next: hostile }), BUYER), hostile).toBe('/account');
     }
   });
 
@@ -65,13 +65,13 @@ describe('landingAfterAuth', () => {
   test('an explicit next of / is not a request, so the type wins', () => {
     // Nobody deliberately asks to be sent to the storefront after signing in;
     // it is what an empty or rejected value collapses to.
-    expect(landingAfterAuth(query({ next: '/' }), BUYER)).toBe('/account/tickets');
+    expect(landingAfterAuth(query({ next: '/' }), BUYER)).toBe('/account');
   });
 
   test('it never needs the role, only the type', () => {
     // A super admin who only buys tickets lands on their tickets. Permission
     // decides what they may do, not what they are shown first.
-    const adminBuyer = { next: '/account/tickets', role: 'super_admin', accountTypes: ['buyer'] };
-    expect(landingAfterAuth(query({}), adminBuyer)).toBe('/account/tickets');
+    const adminBuyer = { next: '/account', role: 'super_admin', accountTypes: ['buyer'] };
+    expect(landingAfterAuth(query({}), adminBuyer)).toBe('/account');
   });
 });

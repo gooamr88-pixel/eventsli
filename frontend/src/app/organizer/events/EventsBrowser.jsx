@@ -53,13 +53,13 @@ export default function EventsBrowser() {
    * together on the one screen where the list is already on display, and
    * whichever answered second decided what was shown.
    */
-  const { events: data, error, loading } = useOrganizerEvents();
+  const { events: data, error, loading, reload } = useOrganizerEvents();
   const [search, setSearch] = useState('');
 
   const filter = FILTERS.find((f) => f.value === filters.get('status')) || FILTERS[0];
 
   if (orgLoading) return <Loading variant="list" rows={4} label="Loading your events" />;
-  if (orgError) return <ErrorNotice error={orgError} />;
+  if (orgError) return <ErrorNotice error={orgError} onRetry={refresh} />;
   if (!organizer) return <CreateProfile onCreated={refresh} />;
 
   const events = Array.isArray(data) ? data : [];
@@ -100,7 +100,7 @@ export default function EventsBrowser() {
       </div>
 
       {error ? (
-        <ErrorNotice error={error} />
+        <ErrorNotice error={error} onRetry={reload} />
       ) : loading && !data ? (
         <Loading variant="list" rows={4} label="Loading your events" />
       ) : events.length === 0 ? (

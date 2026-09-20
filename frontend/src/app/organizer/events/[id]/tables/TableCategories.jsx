@@ -75,7 +75,7 @@ export default function TableCategories({ eventId }) {
       )}
 
       {error ? (
-        <ErrorNotice error={error} />
+        <ErrorNotice error={error} onRetry={reload} />
       ) : loading && !data ? (
         <Loading variant="list" rows={2} label="Loading categories" />
       ) : categories.length === 0 ? (

@@ -110,6 +110,8 @@ export function useReservation() {
   const hold = useCallback(async (slug, { seatIds, tableId, tableToken, lines }) => {
     const body = lines ? { lines } : tableId ? { tableId } : { seatIds };
     const headers = tableToken ? { 'x-access-token': tableToken } : undefined;
+    // WHAT IS BEING HELD, so the checkout can name it. See `heldNoun` below.
+    const kind = lines ? 'general' : tableId ? 'table' : 'seats';
 
     // `noRedirect`, like every other call on the purchase path. `optionalAuth`
     // cannot answer 401 today, so nothing is broken — but this is the one
@@ -126,6 +128,7 @@ export function useReservation() {
       subtotalCents: data.subtotalCents,
       currency: data.currency,
       tableLabel: data.tableLabel || null,
+      kind,
       slug,
     };
     commit(next);
@@ -185,4 +188,37 @@ export function useReservation() {
   const forget = useCallback(() => commit(null), []);
 
   return { reservation, hold, release, forget };
+}
+
+/**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * WHAT TO CALL THE THING ON HOLD.
+ *
+ * The checkout was written when every event had a seat map, so it says "seats"
+ * throughout: "Your seats are reserved for 14:32", "Release my seats", "The
+ * seats went back on sale". General admission arrived later and has no seats,
+ * no map and no seat numbers — so the one screen standing between a GA buyer
+ * and their money describes something the event does not have, three times.
+ * A buyer who reads carefully enough to notice is a buyer wondering whether
+ * they are on the right checkout.
+ *
+ * Derived from the SHAPE OF THE HOLD REQUEST, which is the only place this is
+ * known: the quote is a list of money and names no admission type, and adding
+ * one to it would be an API change to fix a wording problem.
+ *
+ * `kind` is absent on a hold made before this existed and still sitting in a
+ * tab's sessionStorage, so the fallback is the plural that was there — never
+ * an empty string or a crash on a live checkout.
+ *
+ * @param {{kind?: string}|null} reservation
+ * @returns {{one: string, many: string, they: string}}
+ */
+const NOUNS = {
+  seats:   { one: 'seat',   many: 'seats',   they: 'they' },
+  table:   { one: 'table',  many: 'table',   they: 'it' },
+  general: { one: 'ticket', many: 'tickets', they: 'they' },
+};
+
+export function heldNoun(reservation) {
+  return NOUNS[reservation?.kind] || NOUNS.seats;
 }

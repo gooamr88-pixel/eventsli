@@ -96,11 +96,16 @@ export default function ScanResult({ entry, onUndo, onDismiss }) {
             )}
           </div>
         </div>
+        {/* A REAL BUTTON, because of where this is used. The door is a dark
+            room, a moving queue and often a gloved thumb, and "Clear" was a
+            ~20px line of text — the smallest target in the product sitting on
+            the screen with the least margin for a missed tap. `.es-btn--ghost`
+            keeps it visually quiet and gives it the 44px floor. */}
         <button
           type="button"
           onClick={onDismiss}
           aria-label="Clear this result"
-          className="shrink-0 text-sm text-muted hover:text-ink"
+          className="es-btn es-btn--ghost es-btn--sm shrink-0"
         >
           Clear
         </button>

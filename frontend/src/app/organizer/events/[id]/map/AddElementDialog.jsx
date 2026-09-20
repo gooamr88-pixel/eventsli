@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { trapTab } from '../../../../utils/focusTrap';
+import { useModal } from '../../../../hooks/useModal';
 import { WORLD, SHAPES, tableBody } from '../../../../components/seating/seatingGeometry';
 import { ZONES, ZONE_KINDS, zoneMeta } from '../../../../components/seating/venueZones';
 import { SHAPE_NAMES, SHAPE_HINTS } from './shapeNames';
@@ -48,23 +48,35 @@ export default function AddElementDialog({ origin, roomForTables, onAdd, onClose
   const dialogRef = useRef(null);
   const isTable = kind.family === 'table';
 
-  // Escape closes, focus starts inside, and Tab STAYS inside — three things a
-  // dialog has to do that a div does not do for free.
-  //
-  // The trap was the missing one, and `aria-modal="true"` below is what made
-  // its absence a contradiction rather than an omission: that attribute tells
-  // a screen reader everything outside this form is inert, while Tab walked
-  // straight out of it into the canvas and toolbar behind the scrim — the map
-  // editor, whose controls move and delete tables.
-  useEffect(() => {
-    const onKey = (e) => {
-      if (e.key === 'Escape') { e.stopPropagation(); onClose(); return; }
-      trapTab(e, dialogRef.current);
-    };
-    document.addEventListener('keydown', onKey);
-    dialogRef.current?.focus();
-    return () => document.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  /**
+   * THE CONTAINER, not the first control.
+   *
+   * The form carries `tabIndex={-1}` and `aria-labelledby`, so focusing it
+   * announces "Add to the map, dialog" rather than dropping the reader onto an
+   * unlabelled shape tile. `useModal` never places initial focus for exactly
+   * this reason — a generic "first focusable" would be wrong here.
+   *
+   * Passive, which is the hook's one contract: it captures where focus came
+   * from in a layout effect, and anything moving focus before that capture
+   * gets recorded as the opener by mistake.
+   */
+  useEffect(() => { dialogRef.current?.focus(); }, []);
+
+  /**
+   * Escape, the Tab trap, the scroll lock and focus restoration. See
+   * `useModal`; the last two were missing here.
+   *
+   * `aria-modal="true"` below is what makes the trap a correctness issue
+   * rather than a nicety: the attribute tells a screen reader that everything
+   * outside this form is inert, and without the trap Tab walked straight out
+   * into the canvas and toolbar behind the scrim — the map editor, whose
+   * controls move and delete tables.
+   *
+   * `stopEscape`, because the editor underneath has its own Escape binding in
+   * `useEditorKeys`: one press should close this dialog, not also clear the
+   * selection behind it.
+   */
+  useModal(dialogRef, onClose, { stopEscape: true });
 
   const count = useMemo(() => {
     if (!multiple) return 1;
@@ -126,8 +138,21 @@ export default function AddElementDialog({ origin, roomForTables, onAdd, onClose
   }
 
   return (
+    /**
+     * `.es-backdrop`, and this dialog is the reason the class exists.
+     *
+     * It was `z-50` — a bare number, which the z-index map in globals.css warns
+     * is "how stacking wars start" — and the shell's sidebar is 59 and its bottom
+     * tab bar 55. So this dialog's full-screen scrim dimmed the page while the
+     * navigation sat on top of it at full brightness, and on a phone the tab bar
+     * covered the bottom of the panel. `--es-z-modal` is 5000, above all four
+     * shell layers with room to spare.
+     *
+     * It also had `bg-ink/50` where the other two hand-rolled dialogs had
+     * `bg-black/50`, so the same product dimmed the page two different ways.
+     */
     <div
-      className="fixed inset-0 z-50 grid place-items-center bg-ink/50 p-4"
+      className="es-backdrop"
       onPointerDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <form
@@ -137,7 +162,9 @@ export default function AddElementDialog({ origin, roomForTables, onAdd, onClose
         role="dialog"
         aria-modal="true"
         aria-labelledby="es-add-title"
-        className="fx-stack max-h-[88vh] w-full max-w-xl overflow-y-auto rounded-(--es-radius-lg) border border-border-base bg-surface p-5 shadow-xl"
+        // `--wide`: the body is a grid of shape tiles, not a form, and 32rem
+        // wraps it to two columns on a laptop.
+        className="es-backdrop__panel es-backdrop__panel--wide"
       >
         <h2 id="es-add-title" className="text-lg">Add to the map</h2>
 

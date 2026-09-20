@@ -62,7 +62,7 @@ export default function Devices({ eventId }) {
 
   const refresh = () => setReload((n) => n + 1);
 
-  if (error) return <ErrorNotice error={error} />;
+  if (error) return <ErrorNotice error={error} onRetry={refresh} />;
   if (!devices) return <Loading variant="list" label="Loading devices" />;
 
   return (

@@ -8,6 +8,11 @@ import { formatEventTime } from '../../lib/eventTime';
  * ─────────────────────────────────────────────────────────────────────────────
  * "Your seats are on hold" — the beat between choosing and paying.
  *
+ * Or your table, or your tickets: a general-admission event has no seats, so
+ * every noun on this screen comes from `noun`. See `heldNoun` in
+ * `hooks/useReservation.js` for where that is decided and why it is not on the
+ * quote.
+ *
  * WHAT IT IS FOR. The seat map hands over the moment a hold succeeds, and the
  * checkout form is a wall of fields. Between them a buyer has just committed
  * something — those seats are now off sale for everybody else — and nothing
@@ -31,6 +36,10 @@ import { formatEventTime } from '../../lib/eventTime';
  */
 export default function HoldConfirm({
   quote, formatted, remaining, expired, totalMs, slug, onProceed,
+  /* What is on hold, in words — `heldNoun(reservation)` from useReservation.
+     Defaulted rather than required: this screen renders the countdown on a
+     live checkout, and a missing prop must not be the thing that breaks it. */
+  noun = { one: 'seat', many: 'seats', they: 'they' },
 }) {
   const urgent = !expired && remaining !== null && remaining <= 60_000;
   const warning = !expired && !urgent && remaining !== null && remaining <= 5 * 60_000;
@@ -49,7 +58,7 @@ export default function HoldConfirm({
       <div className="fx-stack fx-stack--sm items-center gap-1">
         <Ring fraction={fraction} ink={ink} />
         <p className="text-sm text-muted">
-          {expired ? 'This hold has ended' : 'Your seats are reserved for'}
+          {expired ? 'This hold has ended' : `Your ${noun.many} ${noun.they === 'it' ? 'is' : 'are'} reserved for`}
         </p>
         <p
           className={`es-nums font-mono text-3xl font-medium ${
@@ -91,8 +100,8 @@ export default function HoldConfirm({
       {expired ? (
         <>
           <p className="text-sm text-muted">
-            The seats went back on sale. Nothing was charged — choose again and they may
-            still be there.
+            Your {noun.many} went back on sale. Nothing was charged — choose again and
+            {noun.they === 'it' ? ' it may' : ' they may'} still be there.
           </p>
           <Link href={slug ? `/e/${slug}` : '/events'} className="es-btn es-btn--primary es-btn--block es-btn--lg">
             Back to the event
@@ -101,8 +110,8 @@ export default function HoldConfirm({
       ) : (
         <>
           <p className="rounded-(--es-radius-md) bg-bg-sunken px-4 py-3 text-sm text-muted">
-            Finish within {Math.max(1, Math.round((totalMs || 0) / 60000))} minutes to keep them.
-            After that they go back on sale.
+            Finish within {Math.max(1, Math.round((totalMs || 0) / 60000))} minutes to keep
+            {noun.they === 'it' ? ' it' : ' them'}. After that {noun.they} go{noun.they === 'it' ? 'es' : ''} back on sale.
           </p>
           <button
             type="button"

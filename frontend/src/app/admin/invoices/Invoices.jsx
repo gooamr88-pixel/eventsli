@@ -95,7 +95,7 @@ export default function Invoices() {
       <Segmented label="Status" value={status} onChange={(v) => { setStatus(v); setPage(1); }} options={STATUSES} />
 
       {error ? (
-        <ErrorNotice error={error} />
+        <ErrorNotice error={error} onRetry={reload} />
       ) : loading && !data ? (
         <Loading variant="list" rows={4} label="Loading invoices" />
       ) : rows.length === 0 ? (

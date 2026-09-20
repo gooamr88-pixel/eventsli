@@ -118,7 +118,7 @@ export default function DoorSales({ eventId }) {
     }
   }
 
-  if (mapError) return <ErrorNotice error={mapError} />;
+  if (mapError) return <ErrorNotice error={mapError} onRetry={() => setMapVersion((n) => n + 1)} />;
   if (!event || !saleMap) return <Loading variant="card" label="Loading the door" />;
 
   const recorded = sales.data?.data || [];
@@ -216,7 +216,7 @@ export default function DoorSales({ eventId }) {
       <section className="fx-stack fx-stack--sm">
         <h3 className="text-lg text-ink">Recorded so far</h3>
         {sales.error ? (
-          <ErrorNotice error={sales.error} />
+          <ErrorNotice error={sales.error} onRetry={sales.reload} />
         ) : sales.loading && !sales.data ? (
           <Loading variant="list" rows={3} label="Loading door sales" />
         ) : !recorded.length ? (

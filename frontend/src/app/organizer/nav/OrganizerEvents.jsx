@@ -37,5 +37,5 @@ export function useOrganizerEvents() {
   const value = useContext(OrganizerEventsContext);
   const events = value?.events ?? null;
   const error = value?.error ?? null;
-  return { events, error, loading: events === null && !error };
+  return { events, error, loading: events === null && !error, reload: value?.reload };
 }

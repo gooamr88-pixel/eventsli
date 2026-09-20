@@ -32,9 +32,11 @@ const CREDENTIALS_REJECTED = 'That email or password is not right.';
  * WHERE SOMEBODY LANDS AFTER PROVING WHO THEY ARE — one rule, one place.
  *
  * `landingFor` reads the account's TYPES, never its role: an organizer account
- * opens on the dashboard, a buyer's on their tickets, and an account that is
- * both opens on the dashboard. `utils/accountTypes.js` holds the rule and
- * argues why type and permission are separate things.
+ * opens on the organizer dashboard, a buyer's on their own account dashboard,
+ * and an account that is both opens on the organizer one — the surface with work
+ * waiting on it. `utils/accountTypes.js` holds the rule and argues both why type
+ * and permission are separate things and why the buyer's home is `/account`
+ * rather than the tickets page one level inside it.
  *
  * It used to live in three places that disagreed. `activate` sent an organizer
  * sign-up to /organizer and everybody else to the storefront; sign-in had no

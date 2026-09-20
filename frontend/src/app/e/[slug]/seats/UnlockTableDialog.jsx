@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { post } from '../../../utils/apiClient';
 import { describeError } from '../../../utils/errors';
-import { trapTab } from '../../../utils/focusTrap';
+import { useModal } from '../../../hooks/useModal';
 
 /**
  * The password gate on a private table (BRD §27).
@@ -25,21 +25,22 @@ export default function UnlockTableDialog({ slug, tableId, onClose, onUnlocked }
   const inputRef = useRef(null);
   const dialogRef = useRef(null);
 
+  // The code field. A passive effect, which is `useModal`'s one contract:
+  // the hook captures where focus came from in a LAYOUT effect, and anything
+  // that moves focus before that capture is recorded as the opener by mistake.
   useEffect(() => { inputRef.current?.focus(); }, []);
 
-  // Escape closes, and focus is trapped while it is open. Without the trap, Tab
-  // walks out of the dialog into the seat map behind it — where a keyboard user
-  // then activates seats they cannot see. `trapTab` skips DISABLED controls,
-  // which matters here: Unlock is disabled until a password is typed, so the
-  // dialog opens with its last control unfocusable.
-  useEffect(() => {
-    const onKeyDown = (e) => {
-      if (e.key === 'Escape') { onClose(); return; }
-      trapTab(e, dialogRef.current);
-    };
-    document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
-  }, [onClose]);
+  /**
+   * Escape, the Tab trap, the scroll lock, and returning focus to the table
+   * that was clicked. See `useModal`; the last two were missing.
+   *
+   * The trap is load-bearing here: without it Tab walks out of the dialog into
+   * the SEAT MAP behind it, where a keyboard user then selects seats they
+   * cannot see. `trapTab` skips disabled controls, which matters because Unlock
+   * is disabled until a code is typed — so this dialog opens with its last
+   * control unfocusable, the exact state a naive trap leaks on.
+   */
+  useModal(dialogRef, onClose);
 
   async function submit(e) {
     e.preventDefault();
@@ -59,8 +60,10 @@ export default function UnlockTableDialog({ slug, tableId, onClose, onUnlocked }
   }
 
   return (
+    // `.es-backdrop` — the shared scrim and z-index. See globals.css; this was
+    // a copy of the same utility string the transfer dialog carried.
     <div
-      className="fixed inset-0 z-(--es-z-modal) grid place-items-center bg-black/50 p-4"
+      className="es-backdrop"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
       role="presentation"
     >
@@ -69,7 +72,7 @@ export default function UnlockTableDialog({ slug, tableId, onClose, onUnlocked }
         role="dialog"
         aria-modal="true"
         aria-labelledby="unlock-title"
-        className="fx-stack w-full max-w-sm es-card p-5 shadow-xl"
+        className="es-backdrop__panel"
       >
         <div>
           {/* No table name, because we do not have one: the table is absent
@@ -102,7 +105,11 @@ export default function UnlockTableDialog({ slug, tableId, onClose, onUnlocked }
           )}
 
           <div className="fx-row fx-row--between">
-            <button type="button" onClick={onClose} className="text-sm text-muted hover:text-ink">
+            {/* `.es-btn--ghost`, not bare text. Beside a real `.es-btn` this
+                read as a link somebody forgot to style, and it was a ~20px
+                target on a phone — under the 44px floor `.es-btn` guarantees
+                at every size, on a dialog whose whole job is to be tapped. */}
+            <button type="button" onClick={onClose} className="es-btn es-btn--ghost">
               Cancel
             </button>
             <button

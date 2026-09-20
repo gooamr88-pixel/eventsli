@@ -42,7 +42,7 @@ export default function GateBar({
           <button
             type="button"
             onClick={onSignOut}
-            className="whitespace-nowrap text-sm text-muted hover:text-ink"
+            className="es-btn es-btn--ghost es-btn--sm whitespace-nowrap"
           >
             Sign out
           </button>

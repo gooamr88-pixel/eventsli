@@ -77,7 +77,12 @@ export function Pagination({ pagination, onPage }) {
   const { page, totalPages, total } = pagination;
   return (
     <nav className="fx-row fx-row--between" aria-label="Pages">
-      <p className="es-nums text-sm text-muted">
+      {/* `aria-live`, because pressing Next changes a table somewhere above
+          this line and says nothing. Focus stays on the button — correctly, so
+          a second press works — which leaves a screen reader user with no
+          signal that anything happened at all. Polite: it is a confirmation,
+          not an interruption, and the row it sits in is already the answer. */}
+      <p className="es-nums text-sm text-muted" aria-live="polite">
         Page {page} of {totalPages} · {total} in all
       </p>
       <div className="fx-row">

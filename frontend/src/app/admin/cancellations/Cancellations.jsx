@@ -102,7 +102,7 @@ export default function Cancellations() {
       <Segmented label="Status" value={status} onChange={setStatus} options={STATUSES} />
 
       {error ? (
-        <ErrorNotice error={error} />
+        <ErrorNotice error={error} onRetry={reload} />
       ) : loading && !data ? (
         <Loading variant="list" rows={3} label="Loading requests" />
       ) : requests.length === 0 ? (

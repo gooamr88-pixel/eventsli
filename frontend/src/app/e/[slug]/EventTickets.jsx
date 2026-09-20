@@ -70,13 +70,23 @@ export default function EventTickets({ event, cheapest, soldOut }) {
 
       <div className="es-ev-tickets__foot fx-grid">
         {/* Only where the room is actually counted. An uncapped event reports
-            `null`, and "null of null seats left" is worse than saying nothing. */}
+            `null`, and "null of null seats left" is worse than saying nothing.
+
+            THE NOUN FOLLOWS THE EVENT. `availability` is computed two ways and
+            reported under one pair of field names: for a reserved event it
+            counts rows in `seats`, and for a general-admission one it sums the
+            ticket types' quantities — the backend says so in as many words and
+            then calls the result `seatsTotal` anyway, because the field
+            predates general admission. Printing the field name as the noun told
+            every GA buyer how many "seats" were left at an event that has none
+            and never shows them a map. */}
         {!soldOut && seats?.seatsAvailable !== null && seats?.seatsTotal !== null && (
           <p className="es-ev-tickets__stat">
             <NavIcon name="users" size={18} />
             <span>
               <b className="es-nums text-ink">{seats.seatsAvailable}</b>
-              {' '}of {seats.seatsTotal} seats left
+              {' '}of {seats.seatsTotal}{' '}
+              {event.admissionType === 'general' ? 'tickets' : 'seats'} left
             </span>
           </p>
         )}

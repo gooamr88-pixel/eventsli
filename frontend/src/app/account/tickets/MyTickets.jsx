@@ -1,14 +1,17 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { get, PUBLIC_API_URL } from '../../utils/apiClient';
+import { PUBLIC_API_URL } from '../../utils/apiClient';
 import { formatMoney } from '../../utils/money';
 import { formatEventTime } from '../../lib/eventTime';
+import { splitOrders } from '../../lib/buyerOrders';
 import TicketStub from '../../components/TicketStub';
 import TransferDialog from './TransferDialog';
 import TicketActions, { TicketPrintStyles } from './TicketActions';
 import { Loading, Empty, ErrorNotice, Notice } from '../../components/Feedback';
+import { PageHeader } from '../../components/ui/Page';
+import { useAccountOrders } from '../nav/AccountOrders';
 
 /**
  * In the EVENT's timezone, with the zone named — a ticket is read before
@@ -33,80 +36,65 @@ const eventTime = (event) => formatEventTime(event.startsAt, event.timezone);
  * means, and it means more than one thing.
  */
 export default function MyTickets() {
-  const [orders, setOrders] = useState(null);
-  const [error, setError] = useState(null);
+  /**
+   * THE FETCH MOVED TO THE LAYOUT, and so did the instant it happened.
+   *
+   * Four things in this workspace ask `GET /tickets` — this screen, the
+   * dashboard, Orders, and the sidebar's badge — so it is fetched once for the
+   * shell and read from context. `nav/AccountOrders.jsx` argues it, including why
+   * `loadedAt` has to travel WITH the payload rather than being captured here.
+   *
+   * The reason it was captured at all is unchanged and still the point: a
+   * `Date.now()` inside the memo below would be impure, so the same render could
+   * produce two different answers and an event ending mid-render would land in a
+   * different group depending on when the memo happened to run.
+   */
+  const { orders, loadedAt, error, loading, reload } = useAccountOrders();
   const [transferring, setTransferring] = useState(null);
-  const [reload, setReload] = useState(0);
   const [when, setWhen] = useState('upcoming');
   // Which order is being saved as a PDF, so the print rules can hide the rest.
   const [printing, setPrinting] = useState(null);
-  /**
-   * The instant the list was fetched, used to split upcoming from past.
-   *
-   * `Date.now()` inside the memo below is impure — React's compiler refuses it,
-   * and it is right to: the same render could produce two different answers,
-   * and an event ending mid-render would land in different groups depending on
-   * when the memo happened to run. Captured once, beside the data it describes,
-   * so the split is consistent with the list it is splitting.
-   */
-  const [loadedAt, setLoadedAt] = useState(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const data = await get('/tickets', { cache: 'no-store' });
-        if (!cancelled) {
-          setOrders(Array.isArray(data) ? data : []);
-          setLoadedAt(Date.now());
-          setError(null);
-        }
-      } catch (err) {
-        if (!cancelled) setError(err);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [reload]);
 
   /**
-   * ───────────────────────────────────────────────────────────────────────────
-   * UPCOMING AND PAST, split on the event's END, not its start.
-   *
-   * An event that started an hour ago has not happened yet as far as somebody
-   * standing outside it is concerned — they are still going to it, and they
-   * still need the QR code on this screen. Splitting on `startsAt` files the
-   * ticket under "Past" while the doors are open, which is exactly when it is
-   * needed most.
-   *
-   * `endsAt` is on every event (the schema requires it and refuses an end
-   * before a start), so there is no fallback branch to get wrong.
-   * ───────────────────────────────────────────────────────────────────────────
+   * Upcoming and past, split on the event's END rather than its start — the rule
+   * and the reasoning now live in `lib/buyerOrders.js`, because the dashboard
+   * splits the same payload and two copies of a date comparison is two chances
+   * for one screen to say "next event tomorrow" while the other files that event
+   * under Past.
    */
-  const groups = useMemo(() => {
-    const now = loadedAt ?? 0;
-    const upcoming = [];
-    const past = [];
-    for (const order of orders || []) {
-      const ends = new Date(order.event?.endsAt || order.event?.startsAt || 0).getTime();
-      (Number.isFinite(ends) && ends >= now ? upcoming : past).push(order);
-    }
-    // Soonest first for what is coming; most recent first for what is done.
-    upcoming.sort((a, b) => new Date(a.event?.startsAt || 0) - new Date(b.event?.startsAt || 0));
-    past.sort((a, b) => new Date(b.event?.startsAt || 0) - new Date(a.event?.startsAt || 0));
-    return { upcoming, past };
-  }, [orders, loadedAt]);
+  const groups = useMemo(() => splitOrders(orders, loadedAt), [orders, loadedAt]);
 
-  if (error) return <ErrorNotice error={error} />;
+  if (error) return <ErrorNotice error={error} onRetry={reload} />;
 
-  if (!orders) return <Loading variant="list" label="Loading your tickets" />;
+  if (loading) return <Loading variant="list" label="Loading your tickets" />;
+
+  /**
+   * THE HEADING IS THIS SCREEN'S OWN NOW.
+   *
+   * It used to come from `account/layout.jsx`, which rendered the reader's NAME
+   * as the `<h1>` for every page under it — so Tickets and Security had the same
+   * top-level heading and neither said which page it was. The layout is a shell
+   * with a sidebar now, exactly like the organizer's and the admin's, and in that
+   * arrangement each page states what it is.
+   */
+  const head = (
+    <PageHeader
+      eyebrow="Yours"
+      title="My tickets"
+      lede="Everything this account can be admitted with. Keep the QR code to hand at the door."
+    />
+  );
 
   if (orders.length === 0) {
     return (
-      <Empty
-        title="No tickets yet."
-        hint="Tickets you buy with this email address — signed in or as a guest — appear here."
-        action={<Link href="/events" className="es-btn es-btn--primary es-btn--sm">Find something to go to</Link>}
-      />
+      <div className="fx-stack">
+        {head}
+        <Empty
+          title="No tickets yet."
+          hint="Tickets you buy with this email address — signed in or as a guest — appear here."
+          action={<Link href="/events" className="es-btn es-btn--primary es-btn--sm">Find something to go to</Link>}
+        />
+      </div>
     );
   }
 
@@ -115,19 +103,55 @@ export default function MyTickets() {
   return (
     <div className="es-tickets-root fx-stack" {...(printing ? { 'data-printing': printing } : {})}>
       <TicketPrintStyles />
+      {/* Print-hidden with the rest of the chrome: a PDF of a ticket does not
+          need the page's lede above it. */}
+      <div className="es-tickets-print-hide">{head}</div>
 
       {/* The switch appears only when there is something on both sides. On an
           account with three upcoming tickets and no history, a "Past (0)" tab
           is a control whose only function is to show an empty screen. */}
       {groups.upcoming.length > 0 && groups.past.length > 0 && (
-        <div role="tablist" aria-label="Which tickets" className="es-tickets-print-hide fx-row gap-1 rounded-(--es-radius-md) bg-bg-sunken p-1">
+        /**
+         * ─────────────────────────────────────────────────────────────────────
+         * `aria-pressed` TOGGLES, NOT `role="tablist"` — and the change is a
+         * correction rather than a preference.
+         *
+         * This was a `tablist` of two `role="tab"` buttons. The tab pattern is a
+         * CONTRACT with the reader, and it promises three things this markup did
+         * not have: each tab `aria-controls` a `role="tabpanel"`, the panel is
+         * labelled by its tab, and Left/Right arrows move between tabs while Tab
+         * leaves the set entirely. None of those existed — there is no tabpanel
+         * on this page at all, only a list that re-renders.
+         *
+         * So a screen-reader user was told "tab, 1 of 2, selected" and then
+         * offered no panel to move into and no arrow keys that did anything,
+         * while Tab walked into the ticket list which the announcement had just
+         * implied was a separate region. Announced semantics that the page does
+         * not implement are worse than none: they describe a way of moving around
+         * that does not work here.
+         *
+         * Two toggle buttons in a labelled group is exactly what this is. It is
+         * native button behaviour — Tab reaches them, Enter and Space press them
+         * — so there is no keyboard handling to write and none to get wrong. This
+         * is the brief's own rule: do not add ARIA where native semantics already
+         * solve the problem.
+         *
+         * `aria-live` on the count below is not needed: pressing one of these
+         * moves focus nowhere and the pressed state is announced by the button
+         * itself, which is the change the reader asked for.
+         * ─────────────────────────────────────────────────────────────────────
+         */
+        <div
+          role="group"
+          aria-label="Which tickets to show"
+          className="es-tickets-print-hide fx-row gap-1 rounded-(--es-radius-md) bg-bg-sunken p-1"
+        >
           {[['upcoming', 'Upcoming', groups.upcoming.length], ['past', 'Past', groups.past.length]].map(
             ([key, label, n]) => (
               <button
                 key={key}
                 type="button"
-                role="tab"
-                aria-selected={when === key}
+                aria-pressed={when === key}
                 onClick={() => setWhen(key)}
                 className={`flex-1 rounded-(--es-radius-sm) px-4 py-2 text-sm transition-colors ${
                   when === key ? 'bg-surface font-medium text-ink shadow-sm' : 'text-muted hover:text-ink'
@@ -225,7 +249,9 @@ export default function MyTickets() {
           ticket={transferring.ticket}
           event={transferring.event}
           onClose={() => setTransferring(null)}
-          onDone={() => { setTransferring(null); setReload((n) => n + 1); }}
+          // Refetches the SHELL's copy, so the sidebar's badge and the dashboard
+          // see the transferred ticket leave at the same moment this list does.
+          onDone={() => { setTransferring(null); reload?.(); }}
         />
       )}
     </div>

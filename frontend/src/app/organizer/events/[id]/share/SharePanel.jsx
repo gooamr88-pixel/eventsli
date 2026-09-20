@@ -18,9 +18,9 @@ import QrCard from './QrCard';
  * ─────────────────────────────────────────────────────────────────────────────
  */
 export default function SharePanel({ eventId }) {
-  const { data, error, loading } = useApi(`/events/${eventId}/share`);
+  const { data, error, loading, reload } = useApi(`/events/${eventId}/share`);
 
-  if (error) return <ErrorNotice error={error} />;
+  if (error) return <ErrorNotice error={error} onRetry={reload} />;
   if (loading || !data) return <Loading variant="card" label="Loading share links" />;
 
   const { event, tiers } = data;

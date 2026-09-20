@@ -55,7 +55,7 @@ export default function AdminEvents() {
   if (q) query.set('q', q);
   if (organizerId) query.set('organizerId', organizerId);
 
-  const { data, error, loading } = useApi(`/admin/events?${query}`, { raw: true });
+  const { data, error, loading, reload } = useApi(`/admin/events?${query}`, { raw: true });
   const rows = data?.data || [];
 
   return (
@@ -83,7 +83,7 @@ export default function AdminEvents() {
       </div>
 
       {error ? (
-        <ErrorNotice error={error} />
+        <ErrorNotice error={error} onRetry={reload} />
       ) : loading && !data ? (
         <Loading variant="list" rows={5} label="Loading events" />
       ) : rows.length === 0 ? (

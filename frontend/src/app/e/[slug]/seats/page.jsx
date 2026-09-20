@@ -82,7 +82,11 @@ export default async function SeatsPage({ params, searchParams }) {
     <main className="fx-section fx-section--xs">
       <div className="fx-container fx-container--wide fx-stack">
         <div className="fx-stack fx-stack--sm">
-          <Link href={`/e/${event.slug}`} className="text-sm text-muted hover:text-ink">
+          {/* `.fx-hit` — the way OUT of the purchase step, and on a phone it
+              was a ~20px line of text at the very top of the screen. The press
+              area grows to the 44px floor; the link keeps its quiet weight,
+              which is right for a back link sitting above an h1. */}
+          <Link href={`/e/${event.slug}`} className="fx-hit text-sm text-muted hover:text-ink">
             ← {event.title}
           </Link>
           <h1 className="text-xl">Choose your seats</h1>

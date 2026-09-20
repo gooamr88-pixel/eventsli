@@ -36,7 +36,7 @@ export default function Commission({ eventId }) {
   const timezone = useEventContext()?.event?.timezone;
   const { data, error, loading, reload } = useApi(`/events/${eventId}/commission`);
 
-  if (error) return <ErrorNotice error={error} />;
+  if (error) return <ErrorNotice error={error} onRetry={reload} />;
   if (loading && !data) return <Loading variant="stats" rows={2} label="Loading commission" />;
 
   const gate = data.gate;

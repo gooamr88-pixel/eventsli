@@ -87,7 +87,7 @@ export default function Tiers({ eventId }) {
       )}
 
       {error ? (
-        <ErrorNotice error={error} />
+        <ErrorNotice error={error} onRetry={reload} />
       ) : loading && !data ? (
         <Loading variant="list" rows={3} label="Loading ticket types" />
       ) : tiers.length === 0 ? (

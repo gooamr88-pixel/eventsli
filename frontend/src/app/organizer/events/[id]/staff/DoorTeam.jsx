@@ -122,7 +122,7 @@ export default function DoorTeam({ eventId }) {
       </div>
 
       {error ? (
-        <ErrorNotice error={error} />
+        <ErrorNotice error={error} onRetry={reload} />
       ) : loading && !data ? (
         <Loading variant="list" rows={2} label="Loading the door team" />
       ) : members.length === 0 ? (

@@ -39,7 +39,7 @@ export default function Attendees({ eventId }) {
   if (checkedIn) query.set('checkedIn', checkedIn);
   if (search) query.set('q', search);
 
-  const { data, error, loading } = useApi(`/events/${eventId}/attendees?${query}`, { raw: true });
+  const { data, error, loading, reload } = useApi(`/events/${eventId}/attendees?${query}`, { raw: true });
   const rows = data?.data || [];
   const meta = data?.meta;
   const share = meta ? percent(meta.admitted, meta.valid + meta.admitted) : null;
@@ -64,7 +64,7 @@ export default function Attendees({ eventId }) {
       </div>
 
       {error ? (
-        <ErrorNotice error={error} />
+        <ErrorNotice error={error} onRetry={reload} />
       ) : loading && !data ? (
         <Loading variant="list" rows={5} label="Loading the door list" />
       ) : rows.length === 0 ? (

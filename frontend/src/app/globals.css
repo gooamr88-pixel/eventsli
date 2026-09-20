@@ -376,6 +376,46 @@
   --es-z-toast:    8000;
   --es-z-max:      9999;
 
+  /* ── The dashboard shell's four layers ──────────────────────────────
+     THE MAP ABOVE PREDICTED THIS AND IT HAPPENED ANYWAY: "a bare number
+     in a component is how stacking wars start". The shell shipped with
+     four of them — the sidebar at 59, its scrim at 58, the bottom tab
+     bar at 55 and the app bar at 50 — none of which read from the map,
+     and two dialogs were then written at a bare `z-50` and `z-index: 50`
+     to sit "above the page". They do not: the sidebar and the bottom bar
+     are 59 and 55, so the map editor's add-element dialog and the seating
+     pack's print preview both rendered their full-screen scrim UNDERNEATH
+     the navigation, which punched through at full brightness.
+
+     Named here so the relationship is legible rather than arithmetic.
+     The four keep their original VALUES — the gaps between them are
+     load-bearing and argued at each rule (the scrim is above the bar so a
+     tap on the bar's strip dismisses the drawer instead of navigating
+     behind it) — and the point is that a modal now has a token to be
+     above rather than a number to guess at. `--es-z-modal` (5000) is what
+     every dialog uses, which is above all four with room to spare. */
+  --es-z-shell-appbar: 50;
+  --es-z-shell-bar:    55;
+  --es-z-shell-scrim:  58;
+  --es-z-shell-nav:    59;
+
+  /* ── The one scrim behind a centred dialog ──────────────────────────
+     FIVE VALUES BECAME ONE. `.es-dialog::backdrop` was rgb(0 0 0 / 0.5),
+     `.es-modal` was rgba(8, 19, 41, 0.55), and three hand-rolled dialogs
+     wrote `bg-black/50` twice and `bg-ink/50` once — so how dimmed the
+     page behind a dialog looked depended on which dialog it was, and two
+     of the five were a neutral grey over a blue-tinted product.
+
+     This is `.es-modal`'s value, because it is the one that was reasoned
+     about: ink-tinted rather than neutral black, and 0.55 is "dark enough
+     to sit the panel forward, light enough that what is behind it is
+     still recognisably there".
+
+     THE LIGHTBOX KEEPS ITS OWN, at 0.94, and that is the one argued
+     exception: it is a picture viewer, and a photograph read through a
+     55% scrim of the page behind it is not a picture viewer. */
+  --es-scrim: rgb(8 19 41 / 0.55);
+
   /* ── Radius, shadow ─────────────────────────────────────────────────*/
   --es-radius-sm:   6px;
   --es-radius-md:  10px;
@@ -1318,6 +1358,24 @@
    was a third. Mixing produces one opaque value that is the same everywhere
    — and, unlike the alpha version, one that contrast.js could measure. */
 
+/* The way out of the notice: "Try again", and/or the link somewhere else.
+   `wrap` and not `nowrap` — inside a panel on a 320px phone a button and a
+   link on one line is how a notice gains a horizontal scrollbar. Separated
+   from the sentence above by a little more than the 0.25rem the notice
+   stacks at, because a control pressed against text reads as part of it. */
+.es-notice__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  margin-block-start: 0.5rem;
+}
+/* `flex: 0 0 auto`, so a tight row WRAPS instead of squeezing the button
+   narrower than the words in it. A flex item's default `min-width: auto`
+   stops most of that, but an `.es-btn` sets `white-space: nowrap`, and a
+   nowrap label in a shrinkable box is how "Try again" ends up clipped. */
+.es-notice__actions > * { flex: none; }
+
 /* ── .es-empty — nothing here, and what to do about it ──────────────────
    Sixteen hand-rolled versions, each a dashed box with a sentence in it.
    The dashed border is kept — it reads as a slot waiting to be filled
@@ -1971,7 +2029,7 @@ body:has(.es-buybar) { padding-block-end: calc(5.5rem + var(--fx-safe-b)); }
   position: fixed;
   inset-block-start: 0;
   inset-inline-start: 0;
-  z-index: 59;      /* ABOVE the bottom bar — see the note on .es-nav-bar */
+  z-index: var(--es-z-shell-nav);   /* ABOVE the bottom bar — see the note on .es-nav-bar */
   width: var(--es-nav-w);
   max-width: 88vw;
   height: 100dvh;
@@ -2232,7 +2290,7 @@ body:has(.es-buybar) { padding-block-end: calc(5.5rem + var(--fx-safe-b)); }
 .es-nav-scrim {
   position: fixed;
   inset: 0;
-  z-index: 58;
+  z-index: var(--es-z-shell-scrim);
   border: 0;
   padding: 0;
   background: rgb(0 0 0 / 0.45);
@@ -2246,7 +2304,7 @@ body:has(.es-buybar) { padding-block-end: calc(5.5rem + var(--fx-safe-b)); }
   position: fixed;
   inset-block-end: 0;
   inset-inline: 0;
-  z-index: 55;
+  z-index: var(--es-z-shell-bar);
   display: flex;
   justify-content: space-around;
   align-items: stretch;
@@ -2292,7 +2350,7 @@ body:has(.es-buybar) { padding-block-end: calc(5.5rem + var(--fx-safe-b)); }
 .es-appbar {
   position: sticky;
   inset-block-start: 0;
-  z-index: 50;
+  z-index: var(--es-z-shell-appbar);
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -3031,14 +3089,29 @@ body:has(.es-buybar) { padding-block-end: calc(5.5rem + var(--fx-safe-b)); }
   box-shadow: var(--es-shadow-xl);
   overflow: auto;
 }
-.es-dialog::backdrop { background: rgb(0 0 0 / 0.5); }
+.es-dialog::backdrop { background: var(--es-scrim); }
 .es-dialog__body {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
   padding: 1.5rem;
 }
+/* ─────────────────────────────────────────────────────────────────────────
+   THE ACTIONS STAY ON SCREEN WHILE THE BODY SCROLLS.
+
+   `.es-dialog` is `max-height: calc(100dvh - 2rem)` with `overflow: auto`, so
+   the whole dialog is the scroller — footer included. The admin's destructive
+   confirms are the long ones: a title, a paragraph of consequences, a reason
+   textarea and its hint. On a phone that overflows, and the two buttons went
+   with it: the confirm for cancelling an event sat below the fold of a box
+   that gives no hint it scrolls, under a backdrop that looks like a dead end.
+
+   `sticky` rather than `fixed` — it belongs to the dialog's scroll box, and
+   the border and opaque ground it already had are what keep the body from
+   showing through as it passes underneath. */
 .es-dialog__actions {
+  position: sticky;
+  inset-block-end: 0;
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
@@ -3047,6 +3120,12 @@ body:has(.es-buybar) { padding-block-end: calc(5.5rem + var(--fx-safe-b)); }
   border-block-start: 1px solid var(--es-border);
   background: var(--es-bg);
 }
+
+/* The wrap behaviour above is left exactly as it was. A stacked, full-width
+   pair reads better at 320px, but the only ways to get it are a fifth
+   breakpoint — which this file does not have — or making the buttons grow,
+   which would re-lay every confirm dialog in the product at every width to
+   fix the narrowest one. The footer being reachable was the actual bug. */
 
 /* ── .es-toast — confirmation that something happened ────────────────────
    Above the bottom tab bar on a phone, bottom-right from md up (no bottom bar there). */
@@ -4567,9 +4646,11 @@ a.es-sponsor:hover { opacity: 0.7; }
   justify-content: center;
   height: 100dvh;
   padding: 0;
-  /* A flat scrim. Dark enough to sit the panel forward, light enough that
-     the photograph behind it is still recognisably there. */
-  background: rgba(8, 19, 41, 0.55);
+  /* A flat scrim, and now the shared one: this rule is where the value was
+     reasoned about, so `--es-scrim` took it. Dark enough to sit the panel
+     forward, light enough that the photograph behind it is still
+     recognisably there. */
+  background: var(--es-scrim);
   animation: es-modal-in var(--es-dur-fast) var(--es-ease);
 }
 
@@ -4852,12 +4933,32 @@ a.es-sponsor:hover { opacity: 0.7; }
   font-weight: 600;
   line-height: 1.2;
   white-space: nowrap;
+  /* `.es-btn` has carried this since it was written; this one was a `<Link>`
+     class first and only later went on `<button>`s, which do NOT inherit the
+     pointer. */
+  cursor: pointer;
   transition:
     background-color var(--es-duration-fast) var(--es-ease-default),
     border-color var(--es-duration-fast) var(--es-ease-default),
     transform var(--es-duration-fast) var(--es-ease-default);
 }
 .es-lp-btn:active { transform: translateY(1px); }
+
+/* DISABLED LOOKED EXACTLY LIKE ENABLED, and that is a storefront bug rather
+   than a missing nicety. "Send my tickets" on /tickets/find is disabled until
+   the address is long enough and while the request is in flight — so somebody
+   who had lost their tickets once already pressed a button that looked live,
+   nothing happened, and the screen gave no reason. `.es-btn` has had this
+   since it was written; the landing variant was copied without it.
+
+   `transform: none` so the 1px press dip does not fire on a control that is
+   not going to do anything. */
+.es-lp-btn:disabled,
+.es-lp-btn[aria-disabled='true'] {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
 .es-lp-btn--solid { background: var(--es-accent); color: var(--es-text-on-accent); box-shadow: 0 6px 16px rgb(44 98 189 / 0.22); }
 .es-lp-btn--solid:hover { background: var(--es-accent-hover); }
 .es-lp-btn--outline { border-color: var(--es-border-strong); background: var(--es-surface); color: var(--es-text); }
@@ -7569,3 +7670,202 @@ a { color: inherit; text-decoration: none; }
 .es-pw__rules li[data-met="false"] .es-pw__mark { color: var(--es-warning); }
 
 }   /* end @layer components — the password meter */
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   THE BACKDROP EVERY CENTRED DIALOG SHARES.
+
+   `hooks/useModal.js` already owns the BEHAVIOUR of the six dialogs that are
+   not native `<dialog>` elements — Escape, the Tab trap, the body scroll lock,
+   the scrollbar-width compensation and focus restoration — and it argues each
+   one. What nothing owned was the CHROME, so all six wrote their own, and the
+   three that are centred cards wrote it as a utility string:
+
+     TransferDialog     fixed inset-0 z-(--es-z-modal) … bg-black/50 p-4
+     UnlockTableDialog  fixed inset-0 z-(--es-z-modal) … bg-black/50 p-4
+     AddElementDialog   fixed inset-0 z-50             … bg-ink/50   p-4
+
+   Two things went wrong the way copied code goes wrong. The scrim drifted —
+   neutral black in two of them over a blue-tinted product, ink in the third —
+   and the third's `z-50` put it BELOW the shell's sidebar (59) and bottom tab
+   bar (55), so its full-screen scrim dimmed the page while the navigation
+   punched through it at full brightness. The same bare 50 was in the seating
+   pack's injected print CSS, with the same result.
+
+   One class now, so there is one z-index and one scrim.
+
+   ── A SHEET ON A PHONE, A CARD ON A DESKTOP ───────────────────────────────
+   `.es-modal` worked this out for the location dialog and the argument is
+   general: a centred card on a 390px screen either shrinks until its buttons
+   are cramped or overflows the viewport, while a sheet anchored to the bottom
+   starts where the thumb already is and can be as tall as its content needs.
+   The three dialogs this replaces were centred cards at every width.
+
+   `100dvh`, not `100vh`. On iOS `100vh` is the height with the address bar
+   retracted, so a full-height overlay is taller than the screen and its last
+   row of buttons sits under the browser chrome — on a dialog, that is the row
+   that dismisses it.
+
+   ── WHY THE PANEL IS A SEPARATE CLASS ─────────────────────────────────────
+   The backdrop is the scrolling element on a phone and the panel is not, so
+   `overscroll-behavior: contain` belongs on the panel: without it, dragging
+   past the end of a long dialog scrolls the document behind — which is the
+   same "the dialog floats away" complaint the scroll lock fixes for the scrim,
+   arriving through the one element the lock cannot cover.
+   ═══════════════════════════════════════════════════════════════════════════ */
+@layer components {
+
+.es-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--es-z-modal);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  height: 100dvh;
+  padding: 0;
+  background: var(--es-scrim);
+}
+
+@media (width >= 40rem) {
+  .es-backdrop {
+    align-items: center;
+    padding: var(--fx-gap);
+  }
+}
+
+/* The panel. `width: 100%` with the radius only on top is what makes it read
+   as a sheet rather than as a card that happens to be at the bottom. */
+.es-backdrop__panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: 100%;
+  max-height: 92dvh;
+  padding: 1.25rem;
+  padding-block-end: max(1.25rem, var(--fx-safe-b));
+  border: 1px solid var(--es-border);
+  border-block-end: 0;
+  border-radius: var(--es-radius-xl) var(--es-radius-xl) 0 0;
+  background: var(--es-surface);
+  color: var(--es-text);
+  box-shadow: var(--es-shadow-xl);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  outline: none;
+}
+
+@media (width >= 40rem) {
+  .es-backdrop__panel {
+    width: min(32rem, 100%);
+    max-height: calc(100dvh - 2 * var(--fx-gap));
+    padding: 1.5rem;
+    padding-block-end: 1.5rem;
+    border-block-end: 1px solid var(--es-border);
+    border-radius: var(--es-radius-xl);
+  }
+}
+
+/* Wider, for a dialog whose content is a grid of choices rather than a form —
+   the map editor's element picker. A modifier rather than an inline width, so
+   the phone sheet's rules are not overridden by a utility that only meant to
+   change the desktop case. */
+@media (width >= 40rem) {
+  .es-backdrop__panel--wide { width: min(40rem, 100%); }
+}
+
+}   /* end @layer components — the shared modal backdrop */
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   THE WORKSPACE SWITCHER — .es-wsw
+
+   Sits in `.es-nav__head`, which is the light mint field band, so every value
+   here is a ROLE TOKEN rather than a colour: `--es-surface` and `--es-text` in
+   that subtree are the band's, and hard-coding white or navy would be the exact
+   failure `.es-band--field` warns about two screens up in this file.
+
+   A ROW IS A CARD, not a nav item, and the distinction is the point. The items
+   in `.es-nav__item` below are destinations WITHIN this workspace; these two or
+   three are a different workspace entirely. Styling them the same would put
+   "Admin" in the same visual class as "Payments", which is how somebody ends up
+   in the console when they meant to check a payout.
+
+   `WorkspaceSwitcher.jsx` argues why this is plain links rather than a dropdown.
+   ═══════════════════════════════════════════════════════════════════════════ */
+@layer components {
+
+.es-wsw { display: flex; flex-direction: column; gap: 0.375rem; }
+
+.es-wsw__label {
+  font-size: var(--es-text-xs);
+  font-weight: 600;
+  letter-spacing: var(--es-tracking-wide);
+  text-transform: uppercase;
+  color: var(--es-text-subtle);
+}
+
+.es-wsw__list { display: flex; flex-direction: column; gap: 0.25rem; }
+
+.es-wsw__item {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  /* 44px at the shortest, so it is a touch target on the phone drawer where
+     this control actually lives — the sidebar is a drawer below 64rem. */
+  min-height: 44px;
+  padding: 0.5rem 0.625rem;
+  border: 1px solid var(--es-border);
+  border-radius: var(--es-radius-md);
+  background: var(--es-surface);
+  color: var(--es-text);
+  text-align: start;
+  transition: border-color var(--es-transition-fast), background-color var(--es-transition-fast);
+}
+
+.es-wsw__item:hover {
+  border-color: var(--es-accent-edge);
+  background: var(--es-accent-wash);
+}
+
+.es-wsw__icon {
+  display: inline-flex;
+  flex: none;
+  color: var(--es-accent);
+}
+
+.es-wsw__text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+
+.es-wsw__name {
+  font-size: var(--es-text-sm);
+  font-weight: 600;
+  line-height: var(--es-leading-snug);
+}
+
+/* The blurb is the row's reason to exist — "Platform operations" is what makes
+   "Admin" a decision rather than a guess. */
+.es-wsw__blurb {
+  font-size: var(--es-text-xs);
+  line-height: var(--es-leading-snug);
+  color: var(--es-text-muted);
+}
+
+.es-wsw__go { display: inline-flex; flex: none; color: var(--es-text-subtle); }
+.es-wsw__item:hover .es-wsw__go { color: var(--es-accent); }
+
+/* ── On the tablet icon rail ────────────────────────────────────────────
+   The panel is 64px wide there and the text spans carry `.es-nav__rail-hide`,
+   so what is left is one icon that has to sit in the middle of its row rather
+   than at the start of an empty one. The link keeps its 44px height, so it is
+   still a touch target with nothing written on it — the row's accessible name
+   is on the `<a>` itself for exactly this width.
+
+   Matched on `.es-nav:not(.es-nav--open)` like every other rail rule, because
+   OPENING the drawer on a tablet turns the rail back into the full panel and
+   the labels have to come back with it. */
+@media (width >= 48rem) and (width < 64rem) {
+  .es-nav:not(.es-nav--open) .es-wsw__item {
+    justify-content: center;
+    padding-inline: 0;
+  }
+}
+
+}   /* end @layer components — the workspace switcher */

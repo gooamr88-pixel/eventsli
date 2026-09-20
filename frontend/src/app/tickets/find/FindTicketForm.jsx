@@ -83,9 +83,13 @@ export default function FindTicketForm() {
         <p role="alert" className="text-sm text-danger">{describeError(error).recovery}</p>
       )}
 
+      {/* `aria-busy` beside the changed label, the way the checkout's pay
+          button does it: the label alone is a visual signal, and this is a
+          form somebody reaches after losing track of their tickets once. */}
       <button
         type="submit"
         disabled={busy || email.trim().length < 5}
+        aria-busy={busy || undefined}
         className="es-lp-btn es-lp-btn--solid"
       >
         {busy ? 'Sending…' : 'Send my tickets'}

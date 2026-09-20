@@ -4,7 +4,7 @@ import { useCallback, useEffect, useId, useRef, useState, useSyncExternalStore }
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { get } from '../../utils/apiClient';
-import { trapTab } from '../../utils/focusTrap';
+import { useModal } from '../../hooks/useModal';
 import NavIcon from '../shell/NavIcon';
 
 /**
@@ -96,39 +96,32 @@ export default function NearMeDialog({ open, onClose }) {
     setError(null);
   }, [onClose]);
 
-  // Escape, focus into the panel when it opens, and Tab kept inside it. Taking
-  // focus is only half the job: without the trap the next Tab walks back out
-  // onto the landing page under the scrim, which this portal renders over but
-  // does not make inert — and `aria-modal="true"` on the panel below promises
-  // that it is.
+  // The close button. Taking focus is only half the job: without the trap
+  // below, the next Tab walks back out onto the landing page under the scrim,
+  // which this portal renders over but does not make inert — and
+  // `aria-modal="true"` on the panel promises that it is.
+  //
+  // Passive, which is `useModal`'s one contract: it captures where focus came
+  // from in a layout effect, before anything here moves it.
   useEffect(() => {
-    if (!open) return undefined;
-    const onKey = (e) => {
-      if (e.key === 'Escape') { close(); return; }
-      trapTab(e, panel.current);
-    };
-    document.addEventListener('keydown', onKey);
-    closeRef.current?.focus();
-    return () => document.removeEventListener('keydown', onKey);
-  }, [open, close]);
+    if (open) closeRef.current?.focus();
+  }, [open]);
 
   /**
-   * The page behind a modal must not scroll under it.
+   * Escape, the Tab trap, the scroll lock with its scrollbar compensation, and
+   * returning focus to the "Near me" chip when this closes.
    *
-   * The scrollbar's width is compensated, because removing it without that
-   * shifts the whole page sideways by ~15px on a desktop — which on a hero
-   * with a full-bleed photograph is a visible jump at the moment the dialog
-   * appears.
+   * All four used to live in this file, and two of them were written HERE
+   * first — the gap compensation especially, because without it removing the
+   * scrollbar shifts a desktop page sideways by ~15px, which over a hero with
+   * a full-bleed photograph is a visible lurch at the moment the dialog
+   * appears. `useModal` carries that reasoning to the other five dialogs,
+   * which all had the jump.
+   *
+   * `active: open` rather than not rendering: this dialog animates between
+   * phases and stays mounted while closed.
    */
-  useEffect(() => {
-    if (!open) return undefined;
-    const { body } = document;
-    const gap = window.innerWidth - document.documentElement.clientWidth;
-    const prev = { overflow: body.style.overflow, pad: body.style.paddingInlineEnd };
-    body.style.overflow = 'hidden';
-    if (gap > 0) body.style.paddingInlineEnd = `${gap}px`;
-    return () => { body.style.overflow = prev.overflow; body.style.paddingInlineEnd = prev.pad; };
-  }, [open]);
+  useModal(panel, close, { active: open });
 
   function locate() {
     if (!('geolocation' in navigator)) {

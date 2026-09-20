@@ -9,8 +9,8 @@
  *                always — losing it strands somebody mid-purchase on a page
  *                they did not ask for.
  *   2. the API's `next`  where an account of this TYPE belongs when nothing
- *                else was asked for. An organizer opens on the dashboard, a
- *                buyer on their tickets.
+ *                else was asked for. An organizer opens on the organizer
+ *                dashboard, a buyer on their own.
  *
  * The order used to be written out in each form, and each got it slightly
  * differently: sign-in fell through to the storefront, sign-up did the same,

@@ -152,12 +152,83 @@ export function proxy(request: NextRequest) {
     // Same-origin PATHS only. An absolute URL here is an open redirect, and
     // `//evil.test` is an absolute URL that starts with a slash — which is why
     // the second check is not redundant.
-    url.pathname = next && next.startsWith('/') && !next.startsWith('//') ? next : '/';
+    const wanted = next && next.startsWith('/') && !next.startsWith('//') ? next : null;
+    /**
+     * ─────────────────────────────────────────────────────────────────────────
+     * `/account`, NOT `/` — AND THE STOREFRONT WAS THE SECOND ANSWER TO ONE
+     * QUESTION.
+     *
+     * `landingAfterAuth` decides where a signed-in person goes when nothing was
+     * asked for, and its whole reason for existing is that six ways in used to
+     * disagree. This file was a seventh, and it was invisible because it only
+     * fires on the path where the form does NOT run: somebody who is already
+     * signed in and opens /login — a bookmark, a stale tab, a link in an old
+     * email, the back button after signing in.
+     *
+     * So the same account landed on its dashboard or on the storefront depending
+     * on whether it had just typed a password. That is most of what "users get
+     * randomly dropped somewhere after login" actually was.
+     *
+     * WHY `/account` AND NOT THE ACCOUNT'S OWN DASHBOARD. This runs at the edge
+     * and cannot know: the cookie is opaque here — this file does not verify the
+     * signature, does not know the role, and cannot read `account_types` without
+     * putting an API round trip in front of every navigation, which the header of
+     * this file refuses for good reason.
+     *
+     * `/account` is the one landing that is correct for EVERY signed-in account
+     * rather than a guess that is right for some. Every account is a buyer — the
+     * API normalises an empty `account_types` to `['buyer']` — so it is never a
+     * refusal, and an organizer or an admin arrives one click from their own
+     * workspace with the switcher at the top of the panel naming it.
+     *
+     * The alternative was a client redirect on `/account` that bounces anybody
+     * with another workspace onward. That trades a correct landing for a flash of
+     * the wrong dashboard, and it would fire on every legitimate visit a
+     * buyer-and-organizer makes to their own tickets.
+     * ─────────────────────────────────────────────────────────────────────────
+     */
+    url.pathname = wanted || '/account';
     url.search = '';
     return withCsp(request, () => NextResponse.redirect(url));
   }
 
-  return withCsp(request, (headers) => NextResponse.next({ request: { headers } }));
+  /**
+   * ───────────────────────────────────────────────────────────────────────────
+   * THE BACK BUTTON AFTER SIGNING OUT.
+   *
+   * `signOut` revokes the session row server-side and then leaves with
+   * `window.location.assign`, which is a real document navigation and is what
+   * discards the whole client tree and its cached `/auth/me` answer. The gap it
+   * leaves is the one direction it cannot control: pressing BACK.
+   *
+   * Without this header the browser is free to serve the dashboard it already
+   * has, from the back-forward cache or from the ordinary HTTP cache, and
+   * restore it whole — the same markup, the same figures, the same "signed in
+   * as" line. Nothing is actually reachable behind it, because every request it
+   * would make now answers 401, but somebody has just pressed "sign out" on a
+   * shared laptop at a venue office and is looking at their own dashboard. That
+   * it will fail on the next click is not the reassurance they need.
+   *
+   * `no-store` is the one directive that covers both caches: it forbids storing
+   * the response at all, and it is what makes Chrome and Firefox decline to put
+   * the page in the back-forward cache. So BACK re-requests the route, this
+   * file finds no session cookie, and the redirect above sends them to /login.
+   *
+   * ONLY THE PROTECTED PREFIXES. The storefront and the event pages are cached
+   * deliberately and aggressively — they are the crawlable, server-rendered half
+   * of the product — and a `no-store` on those would be a performance change
+   * dressed up as a security one. These three prefixes render nothing a cache
+   * should be holding anyway: every one of them is a client tree whose data is
+   * fetched per visit with `cache: 'no-store'` already.
+   * ───────────────────────────────────────────────────────────────────────────
+   */
+  const privatePage = startsWithAny(pathname, PROTECTED);
+
+  return withCsp(request, (headers) => {
+    const response = NextResponse.next({ request: { headers } });
+    if (privatePage) response.headers.set('Cache-Control', 'no-store, must-revalidate');
+    return response;
+  });
 }
 
 export const config = {

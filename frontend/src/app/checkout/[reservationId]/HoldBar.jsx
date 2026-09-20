@@ -5,14 +5,21 @@
  *
  * Its whole job is that `RESERVATION_EXPIRED` is never a surprise. Arriving as
  * a red wall on the payment button is the worst possible moment to learn the
- * seats went back on sale — the buyer has already entered their details and
+ * hold went back on sale — the buyer has already entered their details and
  * committed to the purchase in their head.
  *
  * So the number is visible the entire time, and it changes character twice: at
  * five minutes it warns, at one it goes urgent. Those are the two points where
  * a person can still do something about it.
  */
-export default function HoldBar({ formatted, expired, remaining }) {
+export default function HoldBar({
+  formatted, expired, remaining,
+  /* What is on hold, in words — `heldNoun(reservation)`. A general-admission
+     event has no seats, and this bar sits above the card-details form saying
+     "Seats held for" on every one of them. Defaulted, not required: it renders
+     on a live checkout and a missing prop must not be what breaks it. */
+  noun = { one: 'seat', many: 'seats', they: 'they' },
+}) {
   // `remaining` arrives from useCountdown rather than being recomputed here.
   // Calling Date.now() during a render is impure — the same render can produce
   // two different results — and the value is already on the right beat.
@@ -38,7 +45,9 @@ export default function HoldBar({ formatted, expired, remaining }) {
       aria-live="polite"
     >
       <span className="text-muted">
-        {expired ? 'Your seats have been released' : 'Seats held for'}
+        {expired
+          ? `Your ${noun.many} ${noun.they === 'it' ? 'has' : 'have'} been released`
+          : `${noun.many.charAt(0).toUpperCase()}${noun.many.slice(1)} held for`}
       </span>
       {!expired && (
         /* `text-xl`, up from `text-lg`. This is a number that is counting down

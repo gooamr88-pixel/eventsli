@@ -31,7 +31,7 @@ export default function Audit() {
 
   const query = new URLSearchParams({ limit: '50', page: String(page) });
   if (action) query.set('action', action);
-  const { data, error, loading } = useApi(`/admin/audit?${query}`, { raw: true });
+  const { data, error, loading, reload } = useApi(`/admin/audit?${query}`, { raw: true });
   const rows = data?.data || [];
 
   return (
@@ -51,7 +51,7 @@ export default function Audit() {
       </div>
 
       {error ? (
-        <ErrorNotice error={error} />
+        <ErrorNotice error={error} onRetry={reload} />
       ) : loading && !data ? (
         <Loading variant="list" rows={6} label="Loading the audit log" />
       ) : rows.length === 0 ? (

@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { usePathname } from 'next/navigation';
 import AppShell from '../components/shell/AppShell';
 import ShellFoot from '../components/shell/ShellFoot';
+import WorkspaceSwitcher from '../components/shell/WorkspaceSwitcher';
 import { ToastProvider } from '../components/ui/Toast';
 import { ConfirmProvider } from '../components/ui/Confirm';
 import { useAuth } from '../hooks/useAuth';
@@ -50,12 +51,21 @@ export default function OrganizerLayout({ children }) {
   // wants "nothing to switch between" and Your events wants "it did not load",
   // and those are different answers to the same request. See OrganizerEvents.
   const [state, setState] = useState({ events: null, error: null });
+  /**
+   * Bumped by `reload`, so "Your events" can ask again.
+   *
+   * That page renders this request's failure and had no way to re-run it — the
+   * fetch lives here, in the layout, so its only recovery was reloading the
+   * document. A counter in the fetch key is the same trick `useApi` uses, and
+   * it keeps the one request that feeds both the switcher and the list.
+   */
+  const [version, setVersion] = useState(0);
   const events = state.events;
   // A brand-new event is not in a list fetched before it existed. Asking again
   // when the URL names an event the list does not know is what keeps the
   // switcher from saying "Choose an event…" on the event you just created.
   const stale = Boolean(pathEventId && events && !events.some((e) => e.id === pathEventId));
-  const fetchKey = stale ? pathEventId : 'initial';
+  const fetchKey = `${version}:${stale ? pathEventId : 'initial'}`;
 
   useEffect(() => {
     let cancelled = false;
@@ -72,6 +82,11 @@ export default function OrganizerLayout({ children }) {
     })();
     return () => { cancelled = true; };
   }, [fetchKey]);
+
+  const reload = useCallback(() => setVersion((v) => v + 1), []);
+  // Memoised, or every render of this layout would hand the context a new
+  // object and re-render the switcher and the list with identical data.
+  const eventsValue = useMemo(() => ({ ...state, reload }), [state, reload]);
 
   useEffect(() => {
     if (!pathEventId) return;
@@ -90,9 +105,9 @@ export default function OrganizerLayout({ children }) {
   return (
     <ToastProvider>
       <ConfirmProvider>
-        <OrganizerEventsProvider value={state}>
+        <OrganizerEventsProvider value={eventsValue}>
         <AppShell
-          role="Organizer"
+          workspace="Organizer"
           label="Organizer"
           home="/organizer"
           groups={organizerNavGroups({ eventId, listingType, admissionType })}
@@ -102,17 +117,24 @@ export default function OrganizerLayout({ children }) {
           // under and no event to pick: setup is the page, and the sidebar does
           // not offer a shortcut past it.
           /**
-           * THE SIDEBAR'S HEAD IS EMPTY NOW, and that is the fix rather than a
-           * removal. It held "Create event" and the event switcher — the two
+           * THE HEAD HOLDS THE WORKSPACE SWITCHER AND NOTHING ELSE.
+           *
+           * It used to hold "Create event" and the EVENT switcher — the two
            * controls an organizer reaches for most — inside a panel that is a
            * DRAWER below `lg`. On a phone both were invisible until you went
-           * looking, which is why neither could be found.
+           * looking, which is why neither could be found. Both are in `EventBar`
+           * now, at the top of the page, at every width; a second copy here would
+           * be two event switchers that can show different events.
            *
-           * Both are in `EventBar`, at the top of the page, at every width.
-           * Keeping a second copy here would be two switchers that can show
-           * different events.
+           * Changing WORKSPACE is the opposite kind of control: rare,
+           * deliberate, and only for the accounts that have somewhere else to be.
+           * Behind the menu is right for it, and it renders nothing at all for an
+           * organizer who is only an organizer. It replaces the "Admin console"
+           * link that used to sit in the footer beside "Sign out" — filed with
+           * the exits, which is not what moving between the halves of the product
+           * is.
            */
-          head={null}
+          head={<WorkspaceSwitcher />}
           // NO APP-BAR ACTION, deliberately. It was a phone-only "Create"
           // button, and the event bar directly under it now carries the same
           // one — two Create buttons stacked within 60px of each other is the
@@ -120,10 +142,11 @@ export default function OrganizerLayout({ children }) {
           foot={(
             <ShellFoot
               user={user}
-              links={[
-                ...(user?.isAdmin ? [{ href: '/admin/overview', label: 'Admin console', icon: 'shield' }] : []),
-                { href: '/', label: 'View the site', icon: 'globe' },
-              ]}
+              // "Admin console" was here. It is a workspace, so it is in the
+              // switcher at the top of this panel with the other ones — see
+              // `head` above. What is left down here is leaving: the public site,
+              // and out.
+              links={[{ href: '/', label: 'View the site', icon: 'globe' }]}
             />
           )}
         >

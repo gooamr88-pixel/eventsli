@@ -70,7 +70,7 @@ export default function Promos({ eventId }) {
       )}
 
       {error ? (
-        <ErrorNotice error={error} />
+        <ErrorNotice error={error} onRetry={reload} />
       ) : loading && !data ? (
         <Loading variant="list" rows={2} label="Loading discount codes" />
       ) : promos.length === 0 ? (

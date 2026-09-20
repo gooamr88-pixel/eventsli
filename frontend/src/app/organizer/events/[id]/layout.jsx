@@ -71,7 +71,7 @@ export default function EventLayout({ children }) {
   if (state.error) {
     return (
       <div className="fx-stack">
-        <ErrorNotice error={state.error} action={{ href: '/organizer/events', label: 'Back to your events' }} />
+        <ErrorNotice error={state.error} onRetry={refresh} action={{ href: '/organizer/events', label: 'Back to your events' }} />
       </div>
     );
   }

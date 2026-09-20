@@ -29,7 +29,7 @@ export default function AdminEventDetail({ eventId }) {
   const { data, error, loading, reload } = useApi(`/admin/events/${eventId}`);
 
   if (error) {
-    return <ErrorNotice error={error} action={{ href: '/admin/events', label: 'Back to all events' }} />;
+    return <ErrorNotice error={error} onRetry={reload} action={{ href: '/admin/events', label: 'Back to all events' }} />;
   }
   if (loading && !data) return <Loading variant="stats" rows={4} label="Loading the event" />;
 

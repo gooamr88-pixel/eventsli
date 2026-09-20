@@ -7,7 +7,7 @@ import { get, post, del } from '../../utils/apiClient';
 import { describeError } from '../../utils/errors';
 import { formatMoney } from '../../utils/money';
 import { formatEventTime } from '../../lib/eventTime';
-import { useReservation } from '../../hooks/useReservation';
+import { useReservation, heldNoun } from '../../hooks/useReservation';
 import { useCountdown } from '../../hooks/useCountdown';
 import HoldBar from './HoldBar';
 import HoldConfirm from './HoldConfirm';
@@ -26,6 +26,9 @@ import { Loading } from '../../components/Feedback';
 export default function CheckoutClient({ reservationId }) {
   const router = useRouter();
   const { reservation, release, forget } = useReservation();
+  // "seats", "table" or "tickets" — a general-admission event has no seats, and
+  // this screen named them anyway. See `heldNoun`.
+  const noun = heldNoun(reservation);
 
   const [quote, setQuote] = useState(null);
   const [error, setError] = useState(null);
@@ -201,6 +204,7 @@ export default function CheckoutClient({ reservationId }) {
         remaining={remaining}
         expired={expired}
         totalMs={quote.heldForMs}
+        noun={noun}
         slug={quote.event?.slug || reservation?.slug}
         onProceed={() => setReady(true)}
       />
@@ -248,7 +252,7 @@ export default function CheckoutClient({ reservationId }) {
       {/* `remaining` is passed down rather than recomputed there: reading
           Date.now() during a render is impure, and the value already exists
           on the same one-second beat as the text beside it. */}
-      <HoldBar formatted={formatted} expired={expired} remaining={remaining} />
+      <HoldBar formatted={formatted} expired={expired} remaining={remaining} noun={noun} />
 
       {/* The summary is the one object on this page the buyer is actually
           agreeing to, so it is a plate rather than a card — the same
@@ -398,11 +402,37 @@ export default function CheckoutClient({ reservationId }) {
             : free ? 'Get my tickets' : `Pay ${formatMoney(quote.totalCents, quote.currency)}`}
         </button>
 
+        {/**
+          * WHERE THE CARD DETAILS GO, said before the button rather than
+          * discovered after it.
+          *
+          * Pressing Pay leaves this site: `createSession` returns a Stripe
+          * Checkout URL and the handler above does a full navigation to it. A
+          * buyer who expected a card form here and lands on a different domain
+          * has to decide whether that is the payment step or something wrong,
+          * and the page they left said nothing either way.
+          *
+          * Two plain facts, both true and both checkable — the name of the
+          * processor, and that the card never touches this server. No padlock
+          * glyph, no "100% secure", no trust-seal image: a claim about security
+          * made by the party asking for the money is worth nothing, and the
+          * decoration is what a phishing page copies first.
+          *
+          * Only on the paid path. A free claim goes nowhere near Stripe.
+          */}
+        {!free && (
+          <p className="text-center text-xs text-subtle">
+            You will finish on Stripe, our payment processor. Your card details are
+            entered there and never reach us.
+          </p>
+        )}
+
         <button
           type="button" onClick={abandon} disabled={busy === 'release'}
+          aria-busy={busy === 'release' || undefined}
           className="es-btn es-btn--ghost es-btn--block"
         >
-          Release my seats
+          {busy === 'release' ? 'Releasing…' : `Release my ${noun.many}`}
         </button>
       </form>
     </div>

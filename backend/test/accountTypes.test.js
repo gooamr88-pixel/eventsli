@@ -109,8 +109,8 @@ describe('where each account lands', () => {
     assert.equal(landingFor({ account_types: ['organizer'] }), '/organizer');
   });
 
-  test('a buyer opens on their tickets, not the storefront', () => {
-    assert.equal(landingFor({ account_types: ['buyer'] }), '/account/tickets');
+  test('a buyer opens on their own dashboard, not the storefront', () => {
+    assert.equal(landingFor({ account_types: ['buyer'] }), '/account');
   });
 
   test('both opens on the dashboard — the surface with work waiting', () => {
@@ -120,8 +120,8 @@ describe('where each account lands', () => {
   });
 
   test('an account with nothing stored still lands somewhere', () => {
-    assert.equal(landingFor({}), '/account/tickets');
-    assert.equal(landingFor(null), '/account/tickets');
+    assert.equal(landingFor({}), '/account');
+    assert.equal(landingFor(null), '/account');
   });
 
   /**
@@ -144,7 +144,7 @@ describe('where each account lands', () => {
     // decides what they may do, not what they are shown first.
     assert.equal(
       landingFor({ account_types: ['buyer'], role: 'super_admin' }),
-      '/account/tickets',
+      '/account',
     );
     assert.equal(
       landingFor({ account_types: ['organizer'], role: 'attendee' }),

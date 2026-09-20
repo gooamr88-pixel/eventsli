@@ -59,7 +59,7 @@ export default function TicketPicker({ slug, focusTierId }) {
   const everythingFree = tiers.length > 0 && tiers.every((t) => t.priceCents === 0);
 
   if (loading && !event) return <Loading variant="card" label="Loading tickets" />;
-  if (error && !event) return <ErrorNotice error={error} action={{ href: `/e/${slug}`, label: 'Back to the event' }} />;
+  if (error && !event) return <ErrorNotice error={error} onRetry={reload} action={{ href: `/e/${slug}`, label: 'Back to the event' }} />;
   if (tiers.length === 0) {
     return <Empty title="No tickets yet" hint="The organizer has not put tickets on sale for this event." />;
   }

@@ -37,7 +37,19 @@ export default function SelectionBar({
             <p className="text-sm text-ink">
               Selected {seats.length === 1 ? 'seat' : 'seats'} ({seats.length})
             </p>
-            <button type="button" onClick={onClear} disabled={busy} className="text-sm text-accent">
+            {/* `.fx-hit`, not `.es-btn`. This bar is fixed to the bottom of a
+                phone over the seat map, so every row of it costs map — and the
+                text has to stay on the same baseline as the count beside it.
+                `.fx-hit` is the file's answer to exactly that trade: the press
+                area grows to the 44px floor, the painted control does not move.
+                It was a ~20px target that DISCARDS a selection, one thumb-width
+                from the button that pays for it. */}
+            <button
+              type="button"
+              onClick={onClear}
+              disabled={busy}
+              className="fx-hit text-sm text-accent disabled:opacity-40"
+            >
               Clear
             </button>
           </div>

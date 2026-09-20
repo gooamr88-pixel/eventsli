@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Image from 'next/image';
-import { trapTab } from '../utils/focusTrap';
+import { useModal } from '../hooks/useModal';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -36,27 +36,29 @@ export default function Lightbox({ items, index, onClose, onStep }) {
   const total = items.length;
   const item = items[index];
 
-  useEffect(() => {
-    // The page behind must not scroll. Restored to whatever it was rather than
-    // to a hard-coded value, so an overlay opened over another one does not
-    // unlock the page when only the inner one closed.
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    panel.current?.focus();
+  /**
+   * The panel itself, so the reader hears the figure's label rather than
+   * landing on the close button. Passive, which is `useModal`'s one contract —
+   * the hook captures the opener in a layout effect, before this runs.
+   */
+  useEffect(() => { panel.current?.focus(); }, []);
 
-    const onKey = (e) => {
-      if (e.key === 'Escape') { e.preventDefault(); onClose(); return; }
-      if (total > 1 && e.key === 'ArrowRight') { e.preventDefault(); onStep(1); return; }
-      if (total > 1 && e.key === 'ArrowLeft') { e.preventDefault(); onStep(-1); return; }
-      trapTab(e, panel.current);
-    };
-
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('keydown', onKey);
-      document.body.style.overflow = previous;
-    };
-  }, [onClose, onStep, total]);
+  /**
+   * Escape, the Tab trap, the scroll lock — and, new here, putting focus back
+   * on the thumbnail that was clicked. A gallery is the one place where losing
+   * it is most obvious: close the third photo and a keyboard user was returned
+   * to the top of the document instead of to the third thumbnail.
+   *
+   * The arrow keys stay this component's own business and arrive through
+   * `onKeyDown`. They `preventDefault`, which is also how the hook knows to
+   * leave the event alone.
+   */
+  useModal(panel, onClose, {
+    onKeyDown: (e) => {
+      if (total > 1 && e.key === 'ArrowRight') { e.preventDefault(); onStep(1); }
+      if (total > 1 && e.key === 'ArrowLeft') { e.preventDefault(); onStep(-1); }
+    },
+  });
 
   /**
    * A `document` guard rather than a mounted flag.

@@ -9,8 +9,11 @@ import Field from '../../components/forms/Field';
 import FormError from '../../components/forms/FormError';
 import SubmitButton from '../../components/forms/SubmitButton';
 import { Loading, ErrorNotice } from '../../components/Feedback';
+import { PageHeader } from '../../components/ui/Page';
 import { MIN_PASSWORD, isWeakPassword } from '../../lib/passwordRules';
 import NewPasswordFields from '../../components/forms/NewPassword';
+import { roleLabel } from '../../lib/roleLadder';
+import { workspacesFor, WORKSPACE } from '../../lib/workspaces';
 
 /**
  * Sessions and the password.
@@ -45,13 +48,43 @@ export default function Security() {
 
   return (
     <div className="fx-stack">
+      {/* The heading is this screen's own. It used to come from
+          `account/layout.jsx`, which made the reader's NAME the `<h1>` of every
+          page under it — so this page and My tickets shared one heading and
+          neither said which page it was. */}
+      <PageHeader
+        eyebrow="Your account"
+        title="Sign-in & security"
+        lede="Who you are here, where you are signed in, and your password."
+      />
+
       {user && (
         <section className="fx-stack fx-stack--sm es-card p-5">
           <h2 className="text-lg">Account</h2>
           <dl className="fx-stack fx-stack--sm text-sm">
             <Row term="Name">{user.fullName}</Row>
             <Row term="Email">{user.email}</Row>
-            <Row term="Role">{user.role}</Row>
+            {/**
+              * TWO ROWS, WHERE THERE WAS ONE THAT SAID "attendee".
+              *
+              * This card printed `user.role` raw, so an ordinary buyer read
+              * "Role: attendee" — a word that appears nowhere else in the
+              * product — and somebody who had signed up to sell but not finished
+              * setting up read the same thing, with no hint that the product knew
+              * otherwise. It was the account type / permission confusion in its
+              * most literal form: one field, showing the wrong one of the two
+              * facts, in the one place a person goes to check who they are.
+              *
+              * `What this account is for` is `account_types`: the preference,
+              * and the thing that decides which workspaces exist for them.
+              * `Permissions` is the role, through `roleLabel` so it reads as
+              * English, and it is shown only for staff — "Attendee" as a
+              * permission level is an implementation detail that means nothing
+              * to the person reading it, while "Admin" is something they need to
+              * know is switched on.
+              */}
+            <Row term="What this is for">{describeTypes(user)}</Row>
+            {user.isAdmin && <Row term="Permissions">{roleLabel(user.role)}</Row>}
           </dl>
         </section>
       )}
@@ -60,6 +93,24 @@ export default function Security() {
       <ChangePassword />
     </div>
   );
+}
+
+/**
+ * The account's types in the product's own words.
+ *
+ * `workspacesFor` rather than `accountTypes` directly, so this says the same
+ * thing the sidebar's switcher does — an organizer whose type column predates
+ * the column gets "Buying and organizing" here and the organizer workspace
+ * there, instead of the two disagreeing.
+ *
+ * Admin is left out on purpose: it is a permission, not what the account is for,
+ * and it has its own row above.
+ */
+function describeTypes(user) {
+  const mine = workspacesFor(user);
+  return mine.includes(WORKSPACE.ORGANIZER)
+    ? 'Buying tickets and organizing events'
+    : 'Buying tickets';
 }
 
 function SessionList({ sessions, error, onChanged }) {
@@ -129,10 +180,19 @@ function SessionList({ sessions, error, onChanged }) {
       <div className="fx-row fx-row--between">
         <h2 className="text-lg">Where you are signed in</h2>
         {sessions?.length > 1 && (
+          {/* Both controls in this panel end sessions, and both were ~20px
+              lines of text. `.es-btn--ghost` gives them the 44px floor and the
+              press feedback every other button in the product has, while
+              staying quiet enough to sit beside a heading.
+
+              `text-danger` on top of the component class is deliberate and it
+              works because of the layer order this file's header argues for:
+              utilities beat `@layer components`, so the tone survives without
+              inventing an `.es-btn--ghost-danger`. */}
           <button
             type="button"
             onClick={() => setConfirmAll(true)}
-            className="text-sm text-danger hover:underline disabled:opacity-40"
+            className="es-btn es-btn--ghost es-btn--sm text-danger"
           >
             Sign out everywhere
           </button>
@@ -140,7 +200,7 @@ function SessionList({ sessions, error, onChanged }) {
       </div>
 
       {error ? (
-        <ErrorNotice error={error} />
+        <ErrorNotice error={error} onRetry={onChanged} />
       ) : !sessions ? (
         <Loading variant="list" />
       ) : (
@@ -167,7 +227,7 @@ function SessionList({ sessions, error, onChanged }) {
                 type="button"
                 onClick={() => end(s)}
                 disabled={busy === s.id}
-                className="whitespace-nowrap text-sm text-muted hover:text-danger disabled:opacity-40"
+                className="es-btn es-btn--ghost es-btn--sm whitespace-nowrap"
               >
                 {busy === s.id ? 'Ending…' : s.current ? 'Sign out' : 'End'}
               </button>

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { trapTab } from '../../../../../utils/focusTrap';
+import { useModal } from '../../../../../hooks/useModal';
 import FloorPlanFigure from './FloorPlanFigure';
 import { SectionHeading, TableIndex, ZoneIndex, TableCards } from './PackSections';
 import { buildTableIndex, buildZoneIndex, packSummary, chunk } from './packRoster';
@@ -63,15 +63,22 @@ export default function SeatingPackModal({ eventTitle, tables, zones, categories
    * `document.body`, so "behind" is the whole page: the toolbar, the canvas
    * and every table on it, reachable but invisible under a full-screen sheet.
    */
-  useEffect(() => {
-    const onKey = (e) => {
-      if (e.key === 'Escape') { e.stopPropagation(); onClose(); return; }
-      trapTab(e, rootRef.current);
-    };
-    document.addEventListener('keydown', onKey);
-    closeRef.current?.focus();
-    return () => document.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  // The close button. Passive, which is `useModal`'s one contract: the hook
+  // captures where focus came from in a layout effect, before this runs.
+  useEffect(() => { closeRef.current?.focus(); }, []);
+
+  /**
+   * Escape, the Tab trap, the scroll lock and focus restoration — see
+   * `useModal`. `stopEscape`, because the map editor underneath binds Escape
+   * too and one press should close this sheet, not also clear the selection
+   * behind it.
+   *
+   * The scroll lock is new and it matters more here than anywhere: this is a
+   * full-screen sheet portalled to `<body>`, so the editor page kept scrolling
+   * underneath it, and closing the sheet revealed a canvas somewhere other
+   * than where it was left.
+   */
+  useModal(rootRef, onClose, { stopEscape: true });
 
   const box = paperBox(paper, orientation);
   const tableRows = useMemo(() => buildTableIndex(tables, categories), [tables, categories]);
@@ -351,13 +358,19 @@ function Toggle({ checked, onChange, label, hint, disabled }) {
  */
 function printCss(box) {
   return `
+    /* z-index and scrim from the tokens, not from numbers typed here.
+       This was a bare \`z-index: 50\`, and the shell's sidebar is 59 with its
+       bottom tab bar at 55 — so a full-screen print preview rendered with the
+       organizer navigation sitting on top of it. \`--es-z-modal\` is 5000 and is
+       what every other dialog in the product uses; \`--es-scrim\` is the one
+       agreed scrim, replacing a sixth hand-picked rgba. */
     .es-pack-root {
       position: fixed;
       inset: 0;
-      z-index: 50;
+      z-index: var(--es-z-modal);
       display: flex;
       flex-direction: column;
-      background: rgba(15, 29, 58, 0.6);
+      background: var(--es-scrim);
     }
     .es-pack-doc {
       transform: scale(var(--es-pack-zoom, 1));

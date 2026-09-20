@@ -10,15 +10,21 @@ import { resolveNav, pickTabs, currentLabel } from './navModel';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
- * The dashboard shell, shared by the organizer dashboard and the admin console
- * so the two read as one product: the same emerald sidebar, the same logo, the
- * same way to the other side and out.
+ * The dashboard shell — shared by ALL THREE workspaces now: the buyer's account,
+ * the organizer dashboard and the admin console, so the three read as one
+ * product with the same sidebar, the same logo and the same way out.
  *
  *   phone    an app bar, a bottom tab bar, and a drawer
  *   tablet   an icon rail (always there) and the same drawer for labels
  *   laptop+  the full sidebar
  * The arrangement is CSS (.es-nav-* in globals.css); this component renders one
  * markup for all three.
+ *
+ * THE BUYER'S ACCOUNT WAS NOT ONE OF THESE. It was a plain `<main>` under the
+ * marketing masthead with two segmented tabs, so the account type every user on
+ * the platform has got the least navigation of the three — and `SiteHeader`'s
+ * `APP_SHELL_PREFIXES` had to grow `/account` at the same time, or the site
+ * header would render on top of this sidebar's logo.
  *
  * Four behaviours are really bug fixes rather than styling, and are fancy's:
  *   · Real <Link>s, never onClick + router.push — middle-click and "open in new
@@ -31,10 +37,23 @@ import { resolveNav, pickTabs, currentLabel } from './navModel';
  * And one that is not fancy's: opening the drawer moves focus into it, and
  * closing it returns focus to the button that opened it. Before, a keyboard
  * user opened the menu and was still standing on the page behind the scrim.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * `workspace`, WHICH USED TO BE CALLED `role`.
+ *
+ * Renamed because "role" is the one word this pass exists to stop overloading.
+ * In this product a role is `attendee | organizer | admin | super_admin` — a
+ * PERMISSION, granted server-side, checked by `requireRole` — while this prop is
+ * the name of the surface somebody is looking at. They are not the same thing and
+ * conflating them in the client is what produced most of the confusion being
+ * fixed here; a prop called `role` holding "Tickets" was that conflation written
+ * into the shell's own signature.
+ *
+ * It is still only a LABEL. Nothing is decided from it.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 export default function AppShell({
-  role, label, home = '/', groups, tabKeys = [], head, foot, appbarAction, children,
+  workspace, label, home = '/', groups, tabKeys = [], head, foot, appbarAction, children,
 }) {
   const pathname = usePathname() || '';
   const [open, setOpen] = useState(false);
@@ -110,10 +129,14 @@ export default function AppShell({
       >
         <div className="es-nav__head">
           <div className="es-nav__brand">
-            <Link href={home} aria-label={`Eventsli — ${role} home`} className="fx-touch">
+            <Link href={home} aria-label={`Eventsli — ${workspace} home`} className="fx-touch">
               <Logo />
             </Link>
-            <span className="es-nav__role">{role}</span>
+            {/* The chip beside the logo IS the answer to "which workspace am I
+                in". `.es-nav__role` keeps its class name: renaming it would be a
+                CSS change with no behaviour behind it, and the shell's stylesheet
+                is not where this distinction needs restating. */}
+            <span className="es-nav__role">{workspace}</span>
           </div>
           {head}
         </div>
@@ -159,10 +182,39 @@ export default function AppShell({
           >
             <NavIcon name="menu" />
           </button>
-          <Link href={home} aria-label={`Eventsli — ${role} home`} className="fx-touch">
+          <Link href={home} aria-label={`Eventsli — ${workspace} home`} className="fx-touch">
             <Logo size="sm" mark />
           </Link>
-          <p className="fx-truncate fx-min0 flex-1 text-sm font-medium text-ink">{here || role}</p>
+          {/*
+            ─────────────────────────────────────────────────────────────────────
+            TWO LINES, BECAUSE ONE OF THEM ANSWERED THE WRONG QUESTION.
+
+            This was `{here || role}` — the page's name, falling back to the
+            workspace only when the route was not in the nav. So on a phone, which
+            is the width where the sidebar is a closed drawer and this bar is the
+            ONLY navigation on screen, an organizer on the orders screen read
+            "Orders" and a buyer on theirs read "Orders", with nothing anywhere
+            saying which half of the product they were in. The one place the
+            workspace is named — the chip beside the sidebar's logo — was behind
+            the menu.
+
+            Where am I, then what page: the workspace above, small and subtle,
+            and the page in the reading weight under it. Both fit at 320px because
+            they are stacked rather than joined by a separator, which is what a
+            single truncated line would have had to do.
+            ─────────────────────────────────────────────────────────────────────
+          */}
+          <span className="fx-min0 flex-1 flex flex-col justify-center leading-tight">
+            {/* `text-xs`, the token, rather than an arbitrary pixel value — the
+                two lines plus `leading-tight` come to about 30px inside a 56px
+                bar, so there is no reason to reach below the ramp for it. */}
+            <span className="fx-truncate text-xs uppercase tracking-wide text-subtle">
+              {workspace}
+            </span>
+            {here && (
+              <span className="fx-truncate text-sm font-medium text-ink">{here}</span>
+            )}
+          </span>
           {/* THE THEME CONTROL WAS HERE. It went with the theme — the product
               is one palette now, and the door scanner pins its own dark
               subtree without anybody choosing it. See globals.css. */}

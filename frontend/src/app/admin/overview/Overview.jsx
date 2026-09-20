@@ -25,9 +25,9 @@ import BarChart from '../../components/charts/BarChart';
 export default function Overview() {
   const [days, setDays] = useState(30);
   const [picked, setPicked] = useState(null);
-  const { data, error, loading } = useApi(`/admin/overview?days=${days}`);
+  const { data, error, loading, reload } = useApi(`/admin/overview?days=${days}`);
 
-  if (error) return <ErrorNotice error={error} />;
+  if (error) return <ErrorNotice error={error} onRetry={reload} />;
   if (loading && !data) return <Loading variant="stats" rows={4} label="Loading the overview" />;
 
   const currencies = [...new Set([

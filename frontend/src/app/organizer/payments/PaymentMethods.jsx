@@ -57,7 +57,7 @@ export default function PaymentMethods() {
   const { loading, organizer, error: orgError, refresh } = useOrganizer();
 
   if (loading) return <Loading variant="card" />;
-  if (orgError) return <ErrorNotice error={orgError} />;
+  if (orgError) return <ErrorNotice error={orgError} onRetry={refresh} />;
   if (!organizer || !organizer.setupComplete) return <CreateProfile organizer={organizer} onCreated={refresh} />;
 
   return <PaymentsPage organizer={organizer} onboarding={onboarding} onChanged={refresh} />;

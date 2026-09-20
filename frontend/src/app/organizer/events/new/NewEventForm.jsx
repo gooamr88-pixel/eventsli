@@ -62,7 +62,7 @@ export default function NewEventForm() {
   const { loading, organizer, error, refresh } = useOrganizer();
 
   if (loading) return <Loading variant="card" />;
-  if (error) return <ErrorNotice error={error} />;
+  if (error) return <ErrorNotice error={error} onRetry={refresh} />;
   if (!organizer || !organizer.setupComplete) return <CreateProfile organizer={organizer} onCreated={refresh} />;
 
   // `key={type}` so switching between the two products rebuilds the wizard
