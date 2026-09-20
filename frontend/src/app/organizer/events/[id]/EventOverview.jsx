@@ -1,36 +1,46 @@
 'use client';
 
+import Link from 'next/link';
 import NavIcon from '../../../components/shell/NavIcon';
 import { useSearchParams } from 'next/navigation';
 import { useEventContext } from './EventContext';
 import ReviewActions from './ReviewActions';
 import EventStats from './EventStats';
 import LaunchChecklist, { useLaunchSteps, NextStep } from './LaunchChecklist';
-import EventDetailsEditor from './EventDetailsEditor';
-import FeeSummary from './FeeSummary';
 import { Panel } from '../../../components/ui/Page';
 import { Loading, Notice } from '../../../components/Feedback';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
- * One event, from the organizer's side.
+ * One event, AT A GLANCE — and only at a glance.
  *
  * The event itself comes from the event layout (see EventContext).
  *
- * ARRANGED BY WHAT THE ORGANIZER IS DOING, not by what data exists:
- *   · before it is on sale — what is left, and the terms + submit step, side by
- *     side at the top, because that is the job;
- *   · once it is selling — the numbers first;
- *   · then the editable details, with the charges beside them.
+ * WHAT THIS SCREEN IS FOR: where the event stands, and what to do next.
+ *   · needs attention — the status notices, which are the only thing on the
+ *     page that can be urgent, so they are first;
+ *   · before it is on sale — the next step, every step, and the terms + submit
+ *     beside them, because that is the job;
+ *   · once it is selling — the numbers.
  *
- * What was removed, and why: a "Rules" card repeated three fields the details
- * form directly above it already edits, and "What you will be charged" sat at
- * the very bottom, far from the terms that agree to it. The charges now appear
- * beside the checkbox before acceptance, and in the side column after.
+ * ─────────────────────────────────────────────────────────────────────────────
+ * WHAT LEFT, AND WHY IT HAD TO.
  *
- * The money settings are READ ONLY for an organizer and that is BRD §05/§06:
- * every rate lives in the admin's field map. `feeBearer` is the single financial
- * field an organizer controls (BRD §04), and it is edited in the details form.
+ * `EventDetailsEditor` was rendered here, under everything else: 445 lines of
+ * form for the name, dates, venue, capacity, fee bearer and refund rules. It
+ * was by a long way the largest thing on the page, so this URL was really two
+ * screens — a summary and an editor — sharing one sidebar entry. Reading "how
+ * is my event doing" meant scrolling past a form, and changing a date meant
+ * scrolling past a checklist.
+ *
+ * It is a build step now, at `/details`, with its own place in the sidebar and
+ * its own place in the Back / Save and continue sequence. `FeeSummary` went
+ * with it rather than staying: `feeBearer` is the field that decides those
+ * charges and it is in that form, so the setting and its consequence belong on
+ * one screen.
+ *
+ * The overview keeps only what answers "where does this stand" — which is what
+ * an overview is, and what this one had stopped being.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 const PRE_LAUNCH = ['draft', 'rejected', 'pending_review'];
@@ -47,8 +57,6 @@ export default function EventOverview() {
   const ticketed = event.listingType !== 'display_only';
   const justCreated = params.get('created') === '1' && event.status === 'draft';
   const request = event.cancellationRequest;
-  // Before acceptance the charges are shown inside the terms step itself.
-  const feesInTermsStep = ['draft', 'rejected'].includes(event.status) && !event.review?.termsAccepted;
 
   return (
     <div className="fx-stack">
@@ -91,8 +99,14 @@ export default function EventOverview() {
         <Notice tone="warning" title="Eventsli asked for changes">
           <p className="fx-break">{event.review.rejectionReason}</p>
           <p>
-            Make them in <a href="#details" className="text-accent underline">Event details</a> and
-            submit again — this is not a final decision.
+            {/* A real route, not `#details`. The form this pointed at is a
+                screen of its own now, so an in-page anchor would scroll to
+                nothing on the page it is written on. */}
+            Make them in{' '}
+            <Link href={`/organizer/events/${event.id}/details`} className="text-accent underline">
+              Event details
+            </Link>{' '}
+            and submit again — this is not a final decision.
           </p>
         </Notice>
       )}
@@ -118,41 +132,20 @@ export default function EventOverview() {
 
       {preLaunch && <PreLaunch event={event} onChanged={ctx.refresh} />}
 
-      {/* THE COVER IS EDITED IN ONE PLACE, and it is Page & branding. It was
-          here as well, so the same picture had two editors on two screens —
-          while the launch checklist's "Cover image" step and the sidebar both
-          send an organizer to the other one, and the `#cover` anchor this
-          carried was linked from nowhere at all.
-
-          With the cover gone the side column holds the charges alone, so it is
-          only a split when there ARE charges to show. Before the terms are
-          accepted they appear inside the terms step instead, and a bare grid
-          would leave a third of a desktop screen empty beside the form. */}
-      <div className={feesInTermsStep ? 'fx-stack' : 'es-split'}>
-        <div className="fx-stack fx-min0">
-          {finished ? (
-            <Panel title="How it was sold">
-              <dl className="es-deflist">
-                <Row term="Tickets per order" value={event.rules.maxTicketsPerOrder} />
-                <Row term="Transfers" value={event.rules.allowTicketTransfer ? 'Allowed, once' : 'Off'} />
-                <Row term="Purchase mode" value={readable(event.purchaseMode)} />
-              </dl>
-            </Panel>
-          ) : (
-            <div id="details" className="scroll-mt-24">
-              <EventDetailsEditor event={event} onSaved={ctx.refresh} />
-            </div>
-          )}
-        </div>
-
-        {!feesInTermsStep && (
-          <div className="fx-stack fx-min0">
-            <Panel title="What you are charged" description="Set by Eventsli, and agreed when the terms were accepted.">
-              <FeeSummary event={event} />
-            </Panel>
-          </div>
-        )}
-      </div>
+      {/* ─────────────────────────────────────────────────────────────────
+          A FINISHED EVENT HAS NO STEPS LEFT, so this is the one thing it
+          gets: how it was set up when it sold. Every other event's details
+          are edited on their own screen — see below.
+          ───────────────────────────────────────────────────────────────── */}
+      {finished && (
+        <Panel title="How it was sold">
+          <dl className="es-deflist">
+            <Row term="Tickets per order" value={event.rules.maxTicketsPerOrder} />
+            <Row term="Transfers" value={event.rules.allowTicketTransfer ? 'Allowed, once' : 'Off'} />
+            <Row term="Purchase mode" value={readable(event.purchaseMode)} />
+          </dl>
+        </Panel>
+      )}
     </div>
   );
 }

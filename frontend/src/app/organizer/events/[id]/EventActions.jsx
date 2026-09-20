@@ -145,10 +145,14 @@ export default function EventActions({ event, onChanged }) {
 
   return (
     <div className="es-actionbar" role="group" aria-label="Event actions">
+      {/* A route, not an anchor: the details form left the overview for its own
+          build step, so `#details` scrolled to nothing. "Edit details" rather
+          than "Manage event" — it goes to one screen now, and the vaguer word
+          suggested it opened all of them. */}
       {!archived && !finished && (
-        <a href="#details" className="es-btn es-btn--secondary es-btn--sm">
-          <NavIcon name="pencil" size={16} /> Manage event
-        </a>
+        <Link href={`${base}/details`} className="es-btn es-btn--secondary es-btn--sm">
+          <NavIcon name="pencil" size={16} /> Edit details
+        </Link>
       )}
 
       {ticketed && !archived && !finished && (

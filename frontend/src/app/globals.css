@@ -2219,9 +2219,23 @@ body:has(.es-buybar) { padding-block-end: calc(5.5rem + var(--fx-safe-b)); }
   color: var(--es-text-subtle);
 }
 
-/* The call to action in the head. Its label is an .es-nav__label so the rail
-   reduces it to the icon, like every other destination. */
-.es-nav__cta .es-nav__label { flex: none; }
+/* `.es-nav__cta` WAS HERE and is gone with the thing it styled. It dressed a
+   call to action in the panel's head, back when that head carried "Create
+   event"; no JSX has rendered the class since that button moved into the page,
+   so it was a rule for an element that cannot exist. The rail had a second one.
+
+   ── The block above the first group ──────────────────────────────────────
+   `head` — in practice the workspace switcher — sits at the top of the
+   SCROLLER now rather than in the pinned block with the logo. AppShell's prop
+   note has the arithmetic; the short version is that everything pinned is
+   height the nav list cannot have, and past `100dvh` it is the footer that
+   gets clipped. A rule under it instead of the panel's own border, because it
+   is now inside the scrolling region rather than above it. */
+.es-nav__lead {
+  padding: 0.25rem 0.25rem 0.75rem;
+  margin-block-end: 0.5rem;
+  border-block-end: 1px solid var(--es-border);
+}
 
 /* ── Who is signed in ──────────────────────────────────────────────────── */
 .es-account {
@@ -2276,7 +2290,13 @@ body:has(.es-buybar) { padding-block-end: calc(5.5rem + var(--fx-safe-b)); }
     justify-content: center;
     padding-inline: 0;
   }
-  .es-nav:not(.es-nav--open) .es-nav__cta { padding-inline: 0; }
+  /* The lead block's rule would be a full-width line across a 76px rail under
+     a single centred icon, which reads as a divider between two groups rather
+     than the foot of one. The switcher's own rail rule centres what is left. */
+  .es-nav:not(.es-nav--open) .es-nav__lead {
+    padding-inline: 0;
+    border-block-end-color: transparent;
+  }
   .es-nav:not(.es-nav--open) .es-nav__group + .es-nav__group {
     margin-top: 0.375rem;
     padding-top: 0.375rem;
@@ -2347,10 +2367,29 @@ body:has(.es-buybar) { padding-block-end: calc(5.5rem + var(--fx-safe-b)); }
 }
 
 /* ══ The app bar, the content column, and the page head ══════════════════ */
-.es-appbar {
+
+/* ── The pinned top of the content column ──────────────────────────────
+   The app bar and whatever context bar the workspace supplies, stuck to the
+   window as ONE group.
+
+   They used to stick separately, and the second one carried a hard-coded
+   `top: 56px` to clear the first. That number is the app bar's `min-height`
+   and not its HEIGHT: the bar also pays `padding-block-start:
+   max(0.25rem, var(--fx-safe-t))` plus a 1px border, so on a notched phone in
+   portrait it is about 96px tall and the bar below it parked forty pixels
+   behind a translucent, blurred surface. Even with no inset it was one pixel
+   out, and the two borders sat on each other.
+
+   Nested inside one sticky parent there is no offset to keep in step and no
+   second opinion about the stacking order — and the app bar going
+   `display: none` at `lg` simply leaves the context bar pinned on its own. */
+.es-shell-top {
   position: sticky;
   inset-block-start: 0;
   z-index: var(--es-z-shell-appbar);
+}
+
+.es-appbar {
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -6402,24 +6441,39 @@ a.es-sponsor:hover { opacity: 0.7; }
 
    Sticky under the app bar rather than scrolling away: on a long orders
    table the answer to "whose orders are these" has to stay on screen. */
+/* A FULL-WIDTH STRIP, and no longer sticky on its own account.
+
+   It was a rounded, shadowed card with `position: sticky` and a bare
+   `z-index: 40` — a number rather than one of the `--es-z-*` tokens declared
+   at the top of this file, which warn in as many words that "a bare number in
+   a component is how stacking wars start". It happened to land below
+   `--es-z-shell-appbar` (50) and so happened to work; the token that LOOKS
+   right for a sticky element, `--es-z-sticky` (100), would have put it over
+   the sidebar.
+
+   Three things went with the card. The `margin-block-end` was adding to
+   `.es-app-main`'s flex `gap` rather than replacing it, so the space under
+   this one child was `--fx-gap` PLUS `--fx-gap-sm` while every other pair of
+   siblings got `--fx-gap`. The corner radius and the column's side padding
+   meant that at `lg`, pinned to the top of the window, the page scrolled
+   visibly up through the corners and past it in the gutters. And the sticky
+   offset is now the parent's problem — see `.es-shell-top`. */
 .es-evbar {
-  position: sticky;
-  inset-block-start: 0;
-  z-index: 40;
+  border-block-end: 1px solid var(--es-border);
+  background: var(--es-surface);
+}
+
+/* Held to the same column `.es-app-main` uses, so the event's name starts on
+   the same line as the heading under it rather than at the window's edge. */
+.es-evbar__inner {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  margin-block-end: var(--fx-gap-sm);
-  padding: 0.625rem 0.875rem;
-  border: 1px solid var(--es-border);
-  border-radius: var(--es-radius-lg);
-  background: var(--es-surface);
-  box-shadow: var(--es-shadow-sm);
+  width: 100%;
+  max-width: 90rem;
+  margin-inline: auto;
+  padding: 0.625rem var(--fx-pad-x);
 }
-/* Below `lg` the app bar is sticky above this, so the bar parks under it
-   rather than over it. From `lg` the app bar is gone and this sits at the
-   top of the column. */
-@media (width < 64rem) { .es-evbar { inset-block-start: 56px; } }
 
 .es-evbar__main { display: flex; align-items: center; gap: 0.625rem; min-width: 0; flex: 1; }
 .es-evbar__label {
@@ -6476,9 +6530,12 @@ a.es-sponsor:hover { opacity: 0.7; }
    a word, so the name beside it keeps its line and the control says what it
    does. `.es-evbar__new-word` is the long tail that goes, not the whole label.
 
-   The durable half of this fix is in organizerNav.js: the sidebar carries
-   "Create event" too now, so the menu somebody opens to go looking is no
-   longer the one place it had been removed from. */
+   THIS IS THE WHOLE FIX NOW. It used to say the durable half was in
+   organizerNav.js, which had grown a second "Create event" in the sidebar to
+   compensate for the icon-only button — but this rule is what stopped the
+   button being icon-only, so the compensation was for a problem that no longer
+   existed and the two ran side by side. The sidebar entry is gone; that file
+   records why. One labelled control, at every width. */
 @media (width < 40rem) {
   .es-evbar__new-word {
     position: absolute;

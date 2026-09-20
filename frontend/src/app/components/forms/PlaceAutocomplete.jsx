@@ -66,6 +66,12 @@ const MIN_CHARS = 3;
  */
 const DEBOUNCE_MS = 250;
 
+/** "No suggestions, for nothing in particular" — where this field starts.
+ *  `query: null` rather than `''` so it can never equal a real field value, and
+ *  at module scope so every render with nothing to show hands back the SAME
+ *  empty array rather than a new identity. */
+const EMPTY_RESULT = Object.freeze({ query: null, items: Object.freeze([]) });
+
 /**
  * ONE FLAG FOR THE WHOLE PAGE LOAD, deliberately at module scope.
  *
@@ -128,10 +134,28 @@ export default function PlaceAutocomplete({
   const errorId = `${id}-error`;
   const statusId = `${id}-status`;
 
-  const [open, setOpen] = useState(false);
-  const [items, setItems] = useState([]);
+  /**
+   * THE SUGGESTIONS, AND THE QUERY THEY ANSWER — stored as one fact.
+   *
+   * This was a bare `items` array that the effect below cleared whenever the
+   * field dropped under `MIN_CHARS` — three `setState` calls in an effect body,
+   * which `react-hooks/set-state-in-effect` refuses and was failing the lint.
+   * Correctly: that is a render React paints and throws away, and for one frame
+   * the old query's list hung under a field somebody had just emptied. Keeping
+   * the query beside its results makes the clearing unnecessary rather than
+   * moving it — "may this list show" is now answered during the render below.
+   *
+   * It also fixes a quieter bug: deleting a venue to one character and typing a
+   * different one put the field back over `MIN_CHARS` with the OLD results in
+   * state, so the previous venue's suggestions reappeared under the new text
+   * for the length of the debounce. A stale `query` cannot equal the live one.
+   */
+  const [result, setResult] = useState(EMPTY_RESULT);
+  /** What the list WOULD do given something fresh to show. Escape and a tap
+   *  outside lower this directly; `open` below is it and the results agreeing. */
+  const [openState, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
-  const [busy, setBusy] = useState(false);
+  const [busyState, setBusy] = useState(false);
   /**
    * WHETHER THIS FIELD CAN ACTUALLY SEARCH — which decides what it PROMISES.
    *
@@ -165,6 +189,31 @@ export default function PlaceAutocomplete({
   const filled = useRef(null);
 
   /**
+   * WHAT THE LIST IS DOING, WORKED OUT DURING THE RENDER THAT DECIDES IT.
+   *
+   * None of these is stored, and that is the point: each is a function of the
+   * field's text plus the last answer we got, so holding one in state means
+   * holding a copy that can disagree with the field — the bug the effect below
+   * was written to keep repairing.
+   *
+   *   searchable  long enough to ask about, and there is a key
+   *   fresh       the results in hand answer THIS text, not a previous one
+   *   items/open  therefore what may be shown, and whether it is on screen
+   *
+   * `open` is the conjunction, not `openState` alone: that is only the user's
+   * half of the answer and cannot describe a list that has gone stale. Reading
+   * it directly is how `aria-expanded` announces a listbox that is not there.
+   */
+  const query = String(value || '').trim();
+  const searchable = !placesDisabled && query.length >= MIN_CHARS;
+  const fresh = searchable && result.query === query;
+  const items = fresh ? result.items : EMPTY_RESULT.items;
+  const open = openState && items.length > 0;
+  // An aborted request still runs its `finally` — but not before this render,
+  // so the spinner is masked rather than left to clear itself.
+  const busy = busyState && searchable;
+
+  /**
    * ───────────────────────────────────────────────────────────────────────────
    * THE SEARCH, DEBOUNCED AND CANCELLABLE.
    *
@@ -182,16 +231,10 @@ export default function PlaceAutocomplete({
    * ───────────────────────────────────────────────────────────────────────────
    */
   useEffect(() => {
-    const query = String(value || '').trim();
-
-    // Nothing to do, and say so by closing: a list left open over a field
-    // somebody has just cleared is a list about the previous query.
-    if (placesDisabled || query.length < MIN_CHARS) {
-      setItems([]);
-      setOpen(false);
-      setBusy(false);
-      return undefined;
-    }
+    // Nothing to search for. This used to clear `items`, `open` and `busy`
+    // here; it no longer needs to, because `searchable` was false during the
+    // render above and the derived values are already empty and shut.
+    if (!searchable) return undefined;
 
     // The value we wrote ourselves on selection. Not a search.
     if (filled.current !== null && filled.current === query) return undefined;
@@ -210,7 +253,9 @@ export default function PlaceAutocomplete({
           cache: 'no-store',
           signal: controller.signal,
         });
-        setItems(Array.isArray(found) ? found : []);
+        // Stamped with the query they answer, so a render can tell whether
+        // they still describe the field.
+        setResult({ query, items: Array.isArray(found) ? found : [] });
         // Open only when there is something to show. An empty box that says
         // "no results" for a venue Google does not list is a box telling the
         // organizer their real venue is wrong.
@@ -234,7 +279,7 @@ export default function PlaceAutocomplete({
         // Every other failure is also silent, and that is deliberate: this is a
         // suggestion list on an optional field. Google being unreachable must
         // not put a red error under a venue name the organizer typed correctly.
-        setItems([]);
+        setResult(EMPTY_RESULT);
         setOpen(false);
       } finally {
         setBusy(false);
@@ -245,7 +290,9 @@ export default function PlaceAutocomplete({
       clearTimeout(timer);
       controller.abort();
     };
-  }, [value, country]);
+    /* `query`, not `value`: the trimmed text is what gets sent, so a trailing
+       space used to abort the request in flight and start an identical one. */
+  }, [query, searchable, country]);
 
   /**
    * A tap outside closes the list.

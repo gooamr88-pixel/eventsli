@@ -224,7 +224,12 @@ export default function ReviewActions({ event, onChanged, buildReady = true }) {
       {error?.code === 'PAYMENT_METHOD_REQUIRED' && (
         <div className="fx-row">
           <Link href="/organizer/payments" className="es-btn es-btn--secondary es-btn--sm">Set up payment methods</Link>
-          <a href="#details" className="es-btn es-btn--ghost es-btn--sm">Choose this event&rsquo;s payment option</a>
+          {/* The payment choice is a field in the details form, which is a
+              screen of its own now — this used to be an anchor to a section of
+              the page it is written on. */}
+          <Link href={`/organizer/events/${event.id}/details`} className="es-btn es-btn--ghost es-btn--sm">
+            Choose this event&rsquo;s payment option
+          </Link>
         </div>
       )}
 

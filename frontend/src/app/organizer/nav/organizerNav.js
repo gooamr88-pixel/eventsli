@@ -43,7 +43,11 @@ const CHOOSE_FIRST = 'Choose an event first';
  * map, orders, the door and every other selling screen would be empty rooms —
  * they are not shown at all for it, rather than shown and useless.
  */
-const DISPLAY_ONLY_KEYS = new Set(['overview', 'share']);
+/* `details` IS IN HERE, and leaving it out would be the bug this set invites.
+   A listing sells nothing — but it still has a name, a date, a venue and a
+   description, and that form is the only place they are edited. Everything
+   else dropped here is a SELLING screen; the event's own fields are not one. */
+const DISPLAY_ONLY_KEYS = new Set(['overview', 'details', 'share']);
 
 /**
  * WHAT A GENERAL-ADMISSION EVENT DOES NOT HAVE.
@@ -73,7 +77,7 @@ const RESERVED_ONLY_KEYS = new Set(['map', 'tables']);
  * checklist, which has one event's full detail, is where free is handled.
  */
 export function organizerNavGroups({
-  eventId, listingType = null, admissionType = null, canCreate = false,
+  eventId, listingType = null, admissionType = null,
 }) {
   const displayOnly = listingType === 'display_only';
   const generalAdmission = admissionType === 'general';
@@ -102,39 +106,28 @@ export function organizerNavGroups({
       { key: 'events', label: 'Your events', icon: 'calendar', href: '/organizer/events' },
       /**
        * ─────────────────────────────────────────────────────────────────────
-       * CREATE EVENT IS IN THE NAVIGATION — reported as "where is Create
-       * event", from a phone, with the drawer open.
+       * "CREATE EVENT" IS NOT HERE, AND THIS IS WHERE IT WAS.
        *
-       * It was in exactly one place: a button in `EventBar` at the top of the
-       * page. That was a deliberate move — it used to be in this panel's HEAD,
-       * which is a drawer below `lg`, and the note on the layout's `head` prop
-       * argues correctly that a control an organizer reaches for constantly
-       * should not be behind a menu.
+       * A `canCreate` item pointed at `/organizer/events/new` from this list.
+       * It was added because the same control in `EventBar` was ICON-ONLY
+       * below 40rem — an unlabelled `+` next to a chevron that opens something
+       * else — and got reported as the button not existing.
        *
-       * What that reasoning missed is that the bar's button is ICON-ONLY below
-       * 40rem: `.es-evbar__new-label` is clipped to a screen-reader-only span,
-       * so on a phone the product's single most important verb is an unlabelled
-       * `+` sharing a strip with a `↓` that opens a different control entirely.
-       * Somebody who cannot see it opens the menu to look — and the menu, by
-       * design, was the one place it had been removed from.
+       * That was fixed in the bar itself: `.es-evbar__new-word` clips the word
+       * " event" and nothing else, so the button reads "Create" on a phone and
+       * "Create event" from 40rem up. Labelled, at every width. The comment
+       * defending the duplicate still described the bar as icon-only long after
+       * it had stopped being, and the entry it justified stayed — so the verb
+       * appeared twice on one screen, same words, same route, a few hundred
+       * pixels apart, which is the duplicate navigation the rest of this file
+       * and `siteNav.js` both spend their comments removing.
        *
-       * BOTH, THEREFORE, AND THAT IS NOT A DUPLICATE. The bar is the fast path
-       * for somebody who already knows where it is; this is the discoverable
-       * one, next to "Your events", which is where a person looks for "and make
-       * another". The two point at the same route and the nav resolves exactly
-       * one item as current, so neither confuses the other.
-       *
-       * GATED ON `canCreate`, the same `user.isOrganizer` the bar's button
-       * uses. `/organizer/events/new` needs an organization to create the event
-       * under, and `POST /events` is behind `requireRole('organizer')` — so for
-       * an account that has not finished setup this would be a menu item
-       * leading to a refusal. They get the setup screen on the dashboard
-       * instead, which is the step that actually unblocks them.
+       * The bar keeps it. It is the copy that is on screen without opening a
+       * drawer, which was the original complaint, and it is beside the event
+       * switcher — starting an event and moving between them are the same
+       * question asked at different times.
        * ─────────────────────────────────────────────────────────────────────
        */
-      ...(canCreate
-        ? [{ key: 'create', label: 'Create event', icon: 'plus', href: '/organizer/events/new', exact: true }]
-        : []),
     ],
   };
 
@@ -179,6 +172,26 @@ export function organizerNavGroups({
       note: eventId ? null : 'Pick an event above to open these.',
       items: [
         item('overview', 'Overview', 'info', ''),
+        /**
+         * ─────────────────────────────────────────────────────────────────
+         * THE EVENT'S OWN FIELDS, which had no entry here at all.
+         *
+         * Name, dates, venue, capacity, fee bearer, refund rules — the form
+         * was rendered INSIDE the overview, so the longest editor in the
+         * product shared a sidebar row with the summary above it. The row
+         * said "Overview" whichever of the two you were reading, and there
+         * was no way to link anybody to the form: the launch checklist and
+         * the rejection notice both pointed at an `#details` anchor on a
+         * screen that also held a checklist telling you to go there.
+         *
+         * FIRST AFTER THE OVERVIEW, because it is first in fact: a ticket
+         * type is priced in the event's currency and a seat map is drawn for
+         * its venue, so the fields those depend on come before both. That
+         * also makes the Back / Save and continue sequence read as the order
+         * somebody actually builds an event in.
+         * ─────────────────────────────────────────────────────────────────
+         */
+        item('details', 'Event details', 'pencil', '/details'),
         item('tiers', 'Ticket types', 'ticket', '/tiers'),
         item('map', 'Seating map', 'map', '/map'),
         item('tables', 'Table categories', 'layers', '/tables'),

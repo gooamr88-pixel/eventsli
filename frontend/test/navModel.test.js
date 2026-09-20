@@ -57,6 +57,35 @@ describe('organizer destinations', () => {
     expect(groups.find((g) => g.id === 'event').note).toMatch(/open an event/i);
   });
 
+  /**
+   * "Create event" lives in `EventBar` and nowhere else.
+   *
+   * The sidebar carried a second copy, added when the bar's button was
+   * icon-only below 40rem and kept after that was fixed in the CSS — so the
+   * verb appeared twice on one screen, same words, same route. This is the
+   * guard, because the duplicate is easy to re-add and reads as helpful.
+   */
+  test('the sidebar does not offer Create event — the event bar does', () => {
+    for (const options of [{ eventId: null }, { eventId: EVENT }, { eventId: EVENT, listingType: 'ticketed' }]) {
+      const items = organizerNavGroups(options).flatMap((g) => g.items);
+      expect(items.map((i) => i.key), JSON.stringify(options)).not.toContain('create');
+      expect(
+        items.filter((i) => i.href === '/organizer/events/new'),
+        `${JSON.stringify(options)} routes to the create form from the sidebar`,
+      ).toHaveLength(0);
+    }
+  });
+
+  test('no two destinations point at the same page', () => {
+    // The general form of the bug above: one route reachable from two rows is
+    // two controls competing to be the current one.
+    for (const options of [{ eventId: null }, { eventId: EVENT }]) {
+      const hrefs = organizerNavGroups(options).flatMap((g) => g.items)
+        .filter((i) => !i.disabled).map((i) => i.href);
+      expect(new Set(hrefs).size, JSON.stringify(options)).toBe(hrefs.length);
+    }
+  });
+
   test('the bottom bar follows where the organizer is', () => {
     expect(organizerTabs({ eventId: null })).toEqual(ORGANIZER_TABS);
     expect(organizerTabs({ eventId: EVENT, listingType: 'ticketed' })).toContain('orders');
@@ -76,9 +105,9 @@ describe('organizer destinations', () => {
     // and two of them (`/events`, `/events/saved`) point at the storefront
     // rather than at its own prefix, which is exactly the kind of cross-surface
     // href that rots quietly when a route is renamed.
-    // `canCreate` / `canSell` on, so the two conditional destinations are
-    // covered as well — they are exactly the ones nothing else would catch.
-    const items = organizerNavGroups({ eventId: EVENT, canCreate: true }).flatMap((g) => g.items)
+    // `canSell` on, so the conditional destination is covered as well — it is
+    // exactly the one nothing else would catch.
+    const items = organizerNavGroups({ eventId: EVENT }).flatMap((g) => g.items)
       .concat(adminNavGroups().flatMap((g) => g.items))
       .concat(accountNavGroups({ canSell: true }).flatMap((g) => g.items));
     for (const item of items) {
@@ -91,7 +120,9 @@ describe('organizer destinations', () => {
   test('a display-only event shows no selling screens — only its overview and sharing', () => {
     const groups = organizerNavGroups({ eventId: EVENT, listingType: 'display_only' });
     const keys = groups.flatMap((g) => g.items).map((i) => i.key);
-    expect(keys).toEqual(expect.arrayContaining(['dashboard', 'events', 'overview', 'share', 'payments', 'profile']));
+    // `details` is in here deliberately: a listing sells nothing, but it still
+    // has a name, a date and a venue, and that form is where they are edited.
+    expect(keys).toEqual(expect.arrayContaining(['dashboard', 'events', 'overview', 'details', 'share', 'payments', 'profile']));
     for (const selling of ['tiers', 'map', 'tables', 'promos', 'orders', 'door', 'commission', 'attendees', 'staff', 'devices']) {
       expect(keys, `${selling} must not show for a listing`).not.toContain(selling);
     }
@@ -194,13 +225,27 @@ describe('the build sequence', () => {
 
   test('required screens come before the optional ones, in dependency order', () => {
     expect(buildKeys()).toEqual([
-      'overview', 'tiers', 'map', 'tables', 'content', 'promos',
+      'overview', 'details', 'tiers', 'map', 'tables', 'content', 'promos',
     ]);
+  });
+
+  /**
+   * The event's own fields come before everything priced or drawn in them: a
+   * tier is priced in the event's currency, a seat map is drawn for its venue.
+   */
+  test('event details is the first thing after the overview', () => {
+    expect(buildKeys().indexOf('details')).toBe(1);
+    for (const options of [
+      { listingType: 'ticketed', admissionType: 'general' },
+      { listingType: 'display_only' },
+    ]) {
+      expect(buildKeys(options).indexOf('details'), JSON.stringify(options)).toBe(1);
+    }
   });
 
   test('general admission drops the two map screens and keeps the rest in order', () => {
     expect(buildKeys({ listingType: 'ticketed', admissionType: 'general' }))
-      .toEqual(['overview', 'tiers', 'content', 'promos']);
+      .toEqual(['overview', 'details', 'tiers', 'content', 'promos']);
   });
 
   test('selling and on-the-day screens are not part of it', () => {

@@ -52,8 +52,34 @@ import { resolveNav, pickTabs, currentLabel } from './navModel';
  * It is still only a LABEL. Nothing is decided from it.
  * ─────────────────────────────────────────────────────────────────────────────
  */
+/**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * WHAT `head` AND `contextBar` ARE, after this pass rearranged both.
+ *
+ * `head`   goes at the top of the SCROLLING nav list, not in the pinned block
+ *          with the logo. The pinned block and the footer are both
+ *          `flex-shrink: 0` inside a panel that is exactly `100dvh` with
+ *          `overflow: hidden`, so everything pinned is height the list cannot
+ *          have — and once the pinned pair exceeds the viewport, the footer is
+ *          simply clipped. With the workspace switcher up there that is not
+ *          theoretical: brand + label + two 44px workspace cards + padding is
+ *          about 202px, the footer is about 180px, and a phone held sideways
+ *          has 375px of `dvh`. Sign out went off the bottom of a panel whose
+ *          own comment says it was rewritten to stop exactly that happening.
+ *          In the scroller it costs the list nothing.
+ *
+ * `contextBar`  a full-width strip BELOW THE APP BAR AND ABOVE THE PAGE, in the
+ *          shell's own chrome. The organizer's "Working on…" bar used to be the
+ *          first child of `<main>`, stickied with a hard-coded `top: 56px` to
+ *          clear an app bar whose height is `56px` PLUS the top safe-area inset
+ *          — so on any notched phone it parked forty pixels behind a blurred
+ *          translucent bar. Sticking the two together as one group means there
+ *          is no offset to keep in step, and no second opinion about the
+ *          stacking order either.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
 export default function AppShell({
-  workspace, label, home = '/', groups, tabKeys = [], head, foot, appbarAction, children,
+  workspace, label, home = '/', groups, slots, tabKeys = [], head, contextBar, foot, appbarAction, children,
 }) {
   const pathname = usePathname() || '';
   const [open, setOpen] = useState(false);
@@ -138,10 +164,13 @@ export default function AppShell({
                 is not where this distinction needs restating. */}
             <span className="es-nav__role">{workspace}</span>
           </div>
-          {head}
         </div>
 
         <nav className="es-nav__body" aria-label={label}>
+          {/* Above the first group and inside the scroller — see the note on
+              the props. It is separated by a rule rather than by the panel's
+              own border, so it still reads as its own block. */}
+          {head && <div className="es-nav__lead">{head}</div>}
           {resolved.map((group) => (
             <div key={group.id} className="es-nav__group">
               {group.label && (
@@ -170,56 +199,63 @@ export default function AppShell({
       )}
 
       <div className="es-nav-content">
-        <header className="es-appbar">
-          <button
-            ref={menuRef}
-            type="button"
-            className="es-btn es-btn--ghost fx-touch--icon"
-            aria-expanded={open}
-            aria-controls="app-nav"
-            aria-label="Open the menu"
-            onClick={() => setOpen(true)}
-          >
-            <NavIcon name="menu" />
-          </button>
-          <Link href={home} aria-label={`Eventsli — ${workspace} home`} className="fx-touch">
-            <Logo size="sm" mark />
-          </Link>
-          {/*
-            ─────────────────────────────────────────────────────────────────────
-            TWO LINES, BECAUSE ONE OF THEM ANSWERED THE WRONG QUESTION.
+        {/* ONE STICKY GROUP, not two stickies guessing at each other's height.
+            The app bar disappears at `lg`, so above that this is the context
+            bar alone, pinned to the top of the window on its own. */}
+        <div className="es-shell-top">
+          <header className="es-appbar">
+            <button
+              ref={menuRef}
+              type="button"
+              className="es-btn es-btn--ghost fx-touch--icon"
+              aria-expanded={open}
+              aria-controls="app-nav"
+              aria-label="Open the menu"
+              onClick={() => setOpen(true)}
+            >
+              <NavIcon name="menu" />
+            </button>
+            <Link href={home} aria-label={`Eventsli — ${workspace} home`} className="fx-touch">
+              <Logo size="sm" mark />
+            </Link>
+            {/*
+              ─────────────────────────────────────────────────────────────────────
+              TWO LINES, BECAUSE ONE OF THEM ANSWERED THE WRONG QUESTION.
 
-            This was `{here || role}` — the page's name, falling back to the
-            workspace only when the route was not in the nav. So on a phone, which
-            is the width where the sidebar is a closed drawer and this bar is the
-            ONLY navigation on screen, an organizer on the orders screen read
-            "Orders" and a buyer on theirs read "Orders", with nothing anywhere
-            saying which half of the product they were in. The one place the
-            workspace is named — the chip beside the sidebar's logo — was behind
-            the menu.
+              This was `{here || role}` — the page's name, falling back to the
+              workspace only when the route was not in the nav. So on a phone, which
+              is the width where the sidebar is a closed drawer and this bar is the
+              ONLY navigation on screen, an organizer on the orders screen read
+              "Orders" and a buyer on theirs read "Orders", with nothing anywhere
+              saying which half of the product they were in. The one place the
+              workspace is named — the chip beside the sidebar's logo — was behind
+              the menu.
 
-            Where am I, then what page: the workspace above, small and subtle,
-            and the page in the reading weight under it. Both fit at 320px because
-            they are stacked rather than joined by a separator, which is what a
-            single truncated line would have had to do.
-            ─────────────────────────────────────────────────────────────────────
-          */}
-          <span className="fx-min0 flex-1 flex flex-col justify-center leading-tight">
-            {/* `text-xs`, the token, rather than an arbitrary pixel value — the
-                two lines plus `leading-tight` come to about 30px inside a 56px
-                bar, so there is no reason to reach below the ramp for it. */}
-            <span className="fx-truncate text-xs uppercase tracking-wide text-subtle">
-              {workspace}
+              Where am I, then what page: the workspace above, small and subtle,
+              and the page in the reading weight under it. Both fit at 320px because
+              they are stacked rather than joined by a separator, which is what a
+              single truncated line would have had to do.
+              ─────────────────────────────────────────────────────────────────────
+            */}
+            <span className="fx-min0 flex-1 flex flex-col justify-center leading-tight">
+              {/* `text-xs`, the token, rather than an arbitrary pixel value — the
+                  two lines plus `leading-tight` come to about 30px inside a 56px
+                  bar, so there is no reason to reach below the ramp for it. */}
+              <span className="fx-truncate text-xs uppercase tracking-wide text-subtle">
+                {workspace}
+              </span>
+              {here && (
+                <span className="fx-truncate text-sm font-medium text-ink">{here}</span>
+              )}
             </span>
-            {here && (
-              <span className="fx-truncate text-sm font-medium text-ink">{here}</span>
-            )}
-          </span>
-          {/* THE THEME CONTROL WAS HERE. It went with the theme — the product
-              is one palette now, and the door scanner pins its own dark
-              subtree without anybody choosing it. See globals.css. */}
-          {appbarAction}
-        </header>
+            {/* THE THEME CONTROL WAS HERE. It went with the theme — the product
+                is one palette now, and the door scanner pins its own dark
+                subtree without anybody choosing it. See globals.css. */}
+            {appbarAction}
+          </header>
+
+          {contextBar}
+        </div>
 
         <main id="app-main" className="es-app-main">
           {children}

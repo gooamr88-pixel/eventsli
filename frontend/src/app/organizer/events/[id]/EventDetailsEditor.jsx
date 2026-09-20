@@ -16,6 +16,7 @@ import { Panel } from '../../../components/ui/Page';
 import Field, { SelectField, TextareaField } from '../../../components/forms/Field';
 import FormError from '../../../components/forms/FormError';
 import SubmitButton from '../../../components/forms/SubmitButton';
+import { useStepSave } from './BuildStep';
 import { Notice } from '../../../components/Feedback';
 
 /**
@@ -132,14 +133,34 @@ export default function EventDetailsEditor({ event, onSaved }) {
   const zones = zonesFor(event.country);
   const zoneOptions = zones.some(([z]) => z === form.timezone) ? zones : [[form.timezone, form.timezone], ...zones];
 
-  async function save(e) {
-    e.preventDefault();
-    if (blocked || changedKeys.length === 0) return;
+  /* The step bar's "Save and continue" runs this form's save, so the way on
+     from this screen commits it. Without this the bar would navigate and the
+     edits would go with it — see BuildStep.jsx. */
+  useStepSave(commit);
+
+  /**
+   * ───────────────────────────────────────────────────────────────────────────
+   * SAVE, AND SAY WHETHER IT IS SAFE TO MOVE ON.
+   *
+   * Split out of the submit handler so the step bar at the foot of the screen
+   * can call the same code. "Save and continue" has to mean it — and the only
+   * way it can is by running the form's own save, with the form's own
+   * validation, rather than a second copy that will drift from this one.
+   *
+   * `true` means continue. NOTHING TO SAVE IS ALSO `true`: a reader who opened
+   * this screen, changed nothing and pressed the way on is not being refused.
+   * Only a real refusal — a missing venue on an event that may not have one,
+   * or a server that said no — returns false and keeps them here, where the
+   * error is.
+   * ───────────────────────────────────────────────────────────────────────────
+   */
+  async function commit() {
+    if (blocked || changedKeys.length === 0) return true;
 
     // An event already with Eventsli or on sale cannot have its venue emptied
     // out; a draft can be saved without one. See `venueOptional` above.
     setTouched(true);
-    if (!venueOptional && venueMissing) return;
+    if (!venueOptional && venueMissing) return false;
 
     const body = {};
     for (const key of changedKeys) {
@@ -164,11 +185,18 @@ export default function EventDetailsEditor({ event, onSaved }) {
         ? 'Saved. It went back to draft — submit it again when it is ready.'
         : 'Event details saved.');
       onSaved?.();
+      return true;
     } catch (err) {
       setError(err);
+      return false;
     } finally {
       setBusy(false);
     }
+  }
+
+  function save(e) {
+    e.preventDefault();
+    commit();
   }
 
   return (

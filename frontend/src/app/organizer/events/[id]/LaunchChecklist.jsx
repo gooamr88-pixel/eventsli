@@ -54,7 +54,10 @@ export function useLaunchSteps(event) {
       label: 'Event details',
       // A title and dates exist on every event; a venue is what is usually missing.
       done: Boolean(event.title && event.startsAt && event.venue?.name),
-      href: `${base}#details`,
+      // `${base}/details`, not `${base}#details`. The form is its own build
+      // step now; the anchor pointed at a section of the overview, which is
+      // the page this checklist is ON — so following it went nowhere.
+      href: `${base}/details`,
       hint: 'Add the venue so buyers know where to go',
       cta: 'Add the venue',
     },
@@ -109,7 +112,7 @@ export function useLaunchSteps(event) {
           (event.payments?.acceptsStripe && organizer.payments?.stripeReady)
           || (event.payments?.acceptsManual && organizer.payments?.manualMethods > 0),
         ),
-        href: choosesPayment ? '/organizer/payments' : `${base}#details`,
+        href: choosesPayment ? '/organizer/payments' : `${base}/details`,
         hint: choosesPayment ? 'Finish setting up the payment option this event uses' : 'Choose how buyers pay for this event',
         cta: choosesPayment ? 'Set up payments' : 'Choose payment',
         build: true,

@@ -76,16 +76,70 @@ function walk(dir, out = []) {
   return out;
 }
 
+const WORD = '!important';
+
 /** Every unargued `!important` in one file's source. Exported so a test can
  *  hand it a string and prove the check still catches one — a checker nobody
  *  has ever seen fail is a checker nobody knows is working. */
 function scanSource(rel, raw) {
+  /**
+   * NOTHING TO FIND, AND THE CHEAPEST POSSIBLE WAY TO ESTABLISH IT.
+   *
+   * Four files in this tree contain the word and roughly two hundred do not,
+   * so this returns immediately for almost every call — before `stripComments`
+   * rewrites a file that could never have produced a finding.
+   */
+  if (!raw.includes(WORD)) return [];
+
   const src = stripComments(raw);
   const findings = [];
 
-  for (const match of src.matchAll(/([^\s;{}][^;{}]*?)\s*!important/g)) {
-    const declaration = match[1].trim();
-    const line = src.slice(0, match.index).split('\n').length;
+  /**
+   * ───────────────────────────────────────────────────────────────────────────
+   * BACKWARDS FROM EACH `!important`, NOT FORWARDS TOWARDS IT.
+   *
+   * This used to be `matchAll(/([^\s;{}][^;{}]*?)\s*!important/g)`, which reads
+   * well and took THIRTEEN SECONDS on this tree — long enough that the vitest
+   * case wrapping it hit the 20s timeout and the suite failed with nothing
+   * actually wrong in the CSS.
+   *
+   * The cause is the interaction between that pattern and the line above it.
+   * `stripComments` blanks comments to spaces rather than deleting them, to
+   * keep line numbers honest — and `globals.css` is 319KB that is mostly
+   * comment, so it becomes enormous runs of whitespace containing no `;`, `{`
+   * or `}`. `[^;{}]*?` matches whitespace happily, so from every one of those
+   * positions the engine lazily expands towards the end of the run looking for
+   * a `!important` that is not there, and fails. That is quadratic in the
+   * length of the run.
+   *
+   * The declaration the old pattern captured is exactly "everything back to
+   * the previous `;`, `{` or `}`, trimmed" — so this finds the word first,
+   * which `indexOf` does in one pass, and walks back to that delimiter. Linear,
+   * and it does no work at all in the space between declarations.
+   * ───────────────────────────────────────────────────────────────────────────
+   */
+  // Counted forward from the previous finding rather than re-slicing the file
+  // from byte zero for each one — the other half of the same quadratic.
+  let line = 1;
+  let counted = 0;
+
+  for (let at = src.indexOf(WORD); at !== -1; at = src.indexOf(WORD, at + WORD.length)) {
+    let start = at;
+    while (start > 0 && !';{}'.includes(src[start - 1])) start -= 1;
+
+    const declaration = src.slice(start, at).trim();
+    // Only whitespace since the last delimiter, so there is no declaration for
+    // this `!important` to belong to. The old pattern required a non-space
+    // character here too, and skipped the occurrence for the same reason.
+    if (!declaration) continue;
+
+    // The old pattern reported the line of the declaration's FIRST non-space
+    // character, which is where its capture group began.
+    const begin = start + src.slice(start, at).search(/\S/);
+    while (counted < begin) {
+      if (src[counted] === '\n') line += 1;
+      counted += 1;
+    }
 
     const permitted = ALLOWED.some((rule) => (
       rule.file === rel && rule.declarations.some((re) => re.test(declaration))

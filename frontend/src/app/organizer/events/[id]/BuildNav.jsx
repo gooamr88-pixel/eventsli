@@ -1,10 +1,12 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import NavIcon from '../../../components/shell/NavIcon';
 import { organizerNavGroups } from '../../nav/organizerNav';
 import { useEventContext } from './EventContext';
-import { usePathname } from 'next/navigation';
+import { useRunStepSave } from './BuildStep';
+import { usePathname, useRouter } from 'next/navigation';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -37,6 +39,9 @@ import { usePathname } from 'next/navigation';
  */
 export default function BuildNav() {
   const pathname = usePathname() || '';
+  const router = useRouter();
+  const runSave = useRunStepSave();
+  const [saving, setSaving] = useState(false);
   const { eventId, event } = useEventContext() || {};
 
   // Nothing until the event has loaded: the steps depend on what KIND of event
@@ -95,14 +100,43 @@ export default function BuildNav() {
         </Link>
       ) : <span />}
 
+      {/**
+        * A BUTTON, WHERE BACK IS A LINK, and the asymmetry is the meaning.
+        *
+        * Back only navigates, so it stays an anchor — middle-click and "open
+        * in a new tab" work on it, which this codebase cares about. This one
+        * performs an action first and navigates second; an anchor that must
+        * `preventDefault` before it can do its job is a button wearing the
+        * wrong element, and it would offer a new tab that silently skips the
+        * save.
+        */}
       {forward && (
-        <Link href={forward.href} className="es-buildnav__next">
+        <button
+          type="button"
+          className="es-buildnav__next"
+          // The double-submit guard: these save handlers are PATCHes, and a
+          // second press mid-flight is a second write of the same form.
+          disabled={saving}
+          aria-busy={saving || undefined}
+          onClick={async () => {
+            setSaving(true);
+            try {
+              // Only moves on if the screen says it is safe to. A failed save
+              // leaves the reader on their own form, with its own error.
+              if (!runSave || await runSave()) router.push(forward.href);
+            } finally {
+              setSaving(false);
+            }
+          }}
+        >
           <span className="fx-min0">
-            <span className="es-buildnav__label">{finish ? 'Finish' : 'Next'}</span>
+            <span className="es-buildnav__label">
+              {saving ? 'Saving…' : 'Save and continue'}
+            </span>
             <span className="es-buildnav__name fx-truncate">{forward.label}</span>
           </span>
           <span aria-hidden className="es-buildnav__arrow"><NavIcon name="arrow" size={16} /></span>
-        </Link>
+        </button>
       )}
     </nav>
   );

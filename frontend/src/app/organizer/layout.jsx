@@ -110,12 +110,23 @@ export default function OrganizerLayout({ children }) {
           workspace="Organizer"
           label="Organizer"
           home="/organizer"
-          // `canCreate` puts "Create event" in the sidebar as well as in the
-          // event bar — the bar's copy is icon-only on a phone, which is how it
-          // came to be reported as missing. See organizerNav.js.
-          groups={organizerNavGroups({
-            eventId, listingType, admissionType, canCreate: Boolean(user?.isOrganizer),
-          })}
+          /**
+           * NO `canCreate` ANY MORE, AND THE REASON IT EXISTED IS GONE.
+           *
+           * It put a second "Create event" in the sidebar because the event
+           * bar's button was ICON-ONLY below 40rem — an unlabelled `+` beside a
+           * chevron, which got reported as the button not existing. Both halves
+           * of that fix shipped: `.es-evbar__new-word` now clips only the word
+           * " event", so the bar reads "Create" on a phone and "Create event"
+           * above it, at every width, labelled.
+           *
+           * The compensating duplicate was never taken back out. So the verb sat
+           * in two places at once — once in this list and once in the bar at the
+           * top of the same screen, same words, same route, a few hundred pixels
+           * apart. The bar's copy is the one that survives: it is visible without
+           * opening a drawer, which is the complaint that started all of this.
+           */
+          groups={organizerNavGroups({ eventId, listingType, admissionType })}
           // Only an event in the URL changes the bar; a remembered one does not.
           tabKeys={organizerTabs({ eventId: pathEventId, listingType })}
           // Before the organization exists there is nothing to create an event
@@ -140,6 +151,14 @@ export default function OrganizerLayout({ children }) {
            * is.
            */
           head={<WorkspaceSwitcher />}
+          /* Which event this is about, and the way to start another — in the
+             shell's chrome directly under the app bar, so the two pin as one
+             group. It was the first child of `<main>` with a hard-coded
+             `top: 56px`, which is the app bar's height only on a phone with no
+             notch. See the note on AppShell's props. */
+          contextBar={(
+            <EventBar events={events} currentId={eventId} canCreate={Boolean(user?.isOrganizer)} />
+          )}
           // NO APP-BAR ACTION, deliberately. It was a phone-only "Create"
           // button, and the event bar directly under it now carries the same
           // one — two Create buttons stacked within 60px of each other is the
@@ -155,10 +174,6 @@ export default function OrganizerLayout({ children }) {
             />
           )}
         >
-          {/* First on the page, above everything: which event this is about,
-              and the way to start another. `EventBar` argues why it is here
-              rather than in the sidebar it came from. */}
-          <EventBar events={events} currentId={eventId} canCreate={Boolean(user?.isOrganizer)} />
           {children}
         </AppShell>
         </OrganizerEventsProvider>

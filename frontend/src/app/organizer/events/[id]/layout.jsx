@@ -13,6 +13,7 @@ import { organizerNavGroups } from '../../nav/organizerNav';
 import { EventProvider } from './EventContext';
 import EventActions from './EventActions';
 import BuildNav from './BuildNav';
+import { BuildStepProvider } from './BuildStep';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -78,15 +79,19 @@ export default function EventLayout({ children }) {
 
   return (
     <EventProvider value={value}>
-      <div className="fx-stack">
-        <EventHeader event={state.event} eventId={id} onChanged={refresh} />
-        {children}
-        {/* Once, here, rather than in each of the nine build pages — every one
-            of them would have to remember, and the one that forgot would be
-            the dead end this exists to remove. `BuildNav` renders nothing on
-            the screens that are not steps. */}
-        <BuildNav />
-      </div>
+      {/* Wraps the screen AND the bar, because the point of it is to carry a
+          save from the first to the second. See BuildStep.jsx. */}
+      <BuildStepProvider>
+        <div className="fx-stack">
+          <EventHeader event={state.event} eventId={id} onChanged={refresh} />
+          {children}
+          {/* Once, here, rather than in each of the nine build pages — every one
+              of them would have to remember, and the one that forgot would be
+              the dead end this exists to remove. `BuildNav` renders nothing on
+              the screens that are not steps. */}
+          <BuildNav />
+        </div>
+      </BuildStepProvider>
     </EventProvider>
   );
 }

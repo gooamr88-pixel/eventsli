@@ -20,6 +20,7 @@ import { useSelection, soleSelected } from './useSelection';
 import { useCanvasInteraction } from './useCanvasInteraction';
 import { useEditorKeys } from './useEditorKeys';
 import { useUnsavedGuard } from './useUnsavedGuard';
+import { useStepSave } from '../BuildStep';
 import { MAX_ZONES } from '../../../../components/seating/venueZones';
 
 /**
@@ -80,6 +81,29 @@ export default function MapEditor({ eventId }) {
   const panzoom = usePanZoom(EDITOR_BOUNDS, { wheelMode: 'pan' });
 
   useUnsavedGuard(dirty);
+
+  /**
+   * ───────────────────────────────────────────────────────────────────────────
+   * "SAVE AND CONTINUE" SAVES THE MAP.
+   *
+   * `useUnsavedGuard` above already stops a drawn-but-unsaved plan leaving by
+   * the browser's back button or a closed tab — but it can only ASK, and the
+   * answer it offers is "leave and lose it". The step bar is the one way out
+   * of this screen that can do better than ask, because it knows where the
+   * reader is going and can commit first.
+   *
+   * THE PROBLEM LIST IS A REFUSAL, not a warning. It is the same condition the
+   * Save button is disabled on — overlapping tables, seats outside the world
+   * box — and the server rejects those plans. Returning false keeps the reader
+   * on the canvas with the problems listed beside it, which is the only place
+   * they can be fixed.
+   * ───────────────────────────────────────────────────────────────────────────
+   */
+  useStepSave(async () => {
+    if (!dirty) return true;
+    if (problems.length > 0) return false;
+    return save();
+  });
 
   /* ── the selection's operations, shared by the panels and the keyboard ──── */
 
@@ -186,8 +210,10 @@ export default function MapEditor({ eventId }) {
       reset((map?.tables || []).map(fromApi), readZones(map?.layout));
       setLayout(map?.layout || {});
       selection.clear();
+      return true;
     } catch (err) {
       setSaveError(err);
+      return false;
     } finally {
       setSaving(false);
     }

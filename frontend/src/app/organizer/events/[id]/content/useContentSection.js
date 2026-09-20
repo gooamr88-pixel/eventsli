@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { get, post, patch, put, del } from '../../../../utils/apiClient';
+import { useStepSave } from '../BuildStep';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -244,6 +245,24 @@ export function useSectionDraft({ items, edit }) {
     setStatus('saved');
     return { ok: true };
   }, [dirty, dirtyIds, drafts, edit, status]);
+
+  /**
+   * ───────────────────────────────────────────────────────────────────────────
+   * THE STEP BAR SAVES THIS SECTION TOO.
+   *
+   * Registered HERE rather than in each of the four editors that use this
+   * hook — gallery, schedule, sponsors, policies. Doing it per editor would
+   * be the same three lines written four times, and the failure mode is the
+   * one this codebase keeps running into: the fifth section added later is
+   * the one that forgets, and its edits vanish on "Save and continue" while
+   * the other four save.
+   *
+   * `.ok` is this hook's contract; the bar's is a plain boolean. A section
+   * that is not dirty returns `{ ok: true }` above, so a clean screen never
+   * blocks the way on.
+   * ───────────────────────────────────────────────────────────────────────────
+   */
+  useStepSave(async () => (await save()).ok);
 
   return { setField, valueOf, dirty, save, discard, status, failure };
 }

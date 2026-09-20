@@ -56,7 +56,15 @@ export default function EventBar({ events, currentId, canCreate }) {
   const current = list.find((e) => e.id === currentId) || null;
 
   return (
+    /* A STRIP, NOT A CARD. It used to be a rounded, shadowed box inside
+       `<main>`'s padding, stickied on its own — so at `lg`, where it pins to
+       the top of the window, the page scrolled up through its corner radius
+       and past it in the gutters either side. As part of the shell's top group
+       it spans the full width and stacks under the app bar like a sub-header,
+       with `__inner` holding its contents to the same column `.es-app-main`
+       uses so the event name lines up with the page below it. */
     <div className="es-evbar">
+      <div className="es-evbar__inner">
       <div className="es-evbar__main">
         <label htmlFor={id} className="es-evbar__label">Working on</label>
 
@@ -91,6 +99,7 @@ export default function EventBar({ events, currentId, canCreate }) {
           </span>
         </Link>
       )}
+      </div>
     </div>
   );
 }

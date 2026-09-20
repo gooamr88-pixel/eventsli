@@ -4,9 +4,12 @@ import { useEffect, useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '../hooks/useAuth';
+import { useSavedCount } from '../hooks/useSavedEvents';
 import { LogoutConfirmDialog } from './auth/LogoutConfirm';
 import Logo from './brand/Logo';
-import { defaultLanding, hasWorkspace, WORKSPACE } from '../lib/workspaces';
+// The rules about who is offered what. Out of this file so they can be tested
+// without mounting a client component — see `lib/siteNav.js`.
+import { navLinks, navCta } from '../lib/siteNav';
 
 /**
  * The masthead.
@@ -172,7 +175,19 @@ function SiteNav({ pathname }) {
     return () => document.removeEventListener('pointerdown', onOutside);
   }, [menuOpen]);
 
-  const links = navLinks({ signedIn, loading, user, pathname });
+  /**
+   * HOW MANY EVENTS THIS BROWSER HAS SAVED — read here, used only when signed
+   * out. See `navLinks` for why the link is one-sided.
+   *
+   * The hook is called unconditionally because hooks cannot be skipped, and it
+   * is free to call: the store is already subscribed by every heart on the
+   * page. Its server snapshot is `0`, so the masthead the server sends is the
+   * one without a count and the number appears on hydration — the same
+   * asymmetry `useSavedEvents` documents, and harmless in a label.
+   */
+  const savedCount = useSavedCount();
+
+  const links = navLinks({ signedIn, loading, user, pathname, savedCount });
   const cta = navCta({ signedIn, loading, user });
 
   return (
@@ -338,166 +353,6 @@ function useOverHero(enabled) {
     () => enabled && window.scrollY < 8,
     () => false,
   );
-}
-
-/**
- * The link set, derived once.
- *
- * Returns `[]` while the session is in flight — see the note at the top about
- * not guessing. "Events" is the only link that does not depend on who is
- * asking, so it is the only one outside the conditional.
- */
-function navLinks({ signedIn, loading, user, pathname }) {
-  /**
-   * THE BROWSE LINKS EVERY VISITOR GETS, signed in or not.
-   *
-   * There was one — "Events" — and the bar had nothing in it. The design this
-   * storefront was built to carries six, and the four here are the ones that
-   * point at pages this product actually has. There is deliberately no
-   * "Pricing" or "Sponsors" entry: neither page exists, and a nav link to a
-   * 404 is worse than a shorter nav.
-   */
-  const browse = [
-    { href: '/events', label: 'Events' },
-    { href: '/how-it-works', label: 'How it works' },
-    { href: '/why-us', label: 'For organizers' },
-  ];
-  if (loading) return browse;
-
-  if (signedIn) {
-    /**
-     * THE ORGANIZER LINK FOLLOWS THE WORKSPACE, NOT THE PERMISSION.
-     *
-     * This read `user.isOrganizer` — true only once an organizer PROFILE exists —
-     * so somebody who signed up to sell and has not finished setting up was shown
-     * no route to the dashboard at all, while the API's landing rule (which reads
-     * the account TYPE) sent them there on every sign-in. The masthead disagreed
-     * with the login redirect about the same account.
-     *
-     * `hasWorkspace` reads both facts, and `lib/workspaces.js` argues why either
-     * alone strands somebody.
-     */
-    const organizing = hasWorkspace(user, WORKSPACE.ORGANIZER);
-
-    return [
-      ...browse,
-      /**
-       * `/account/tickets`, NOT `/account`.
-       *
-       * The button on the right of this bar goes to whichever dashboard this
-       * account belongs on, and for a buyer that IS `/account` — so a link here
-       * pointing at the same path would be two controls, differently labelled,
-       * landing on one page. That is the duplicate-label problem this pass exists
-       * to remove, and it would be self-inflicted.
-       *
-       * "My tickets" naming the tickets screen is also simply the honest reading
-       * of the label. The dashboard is reached by the thing labelled Dashboard.
-       */
-      { href: '/account/tickets', label: 'My tickets' },
-      /**
-       * THE PLAIN "Organizer" LINK IS GONE, and it is gone because it could not
-       * ever have been reachable.
-       *
-       * `navCta` sends anybody with the organizer workspace to `/organizer`, and
-       * `defaultWorkspace` prefers organizer over admin — so for every account
-       * that would have been offered this link, the button two positions to the
-       * right already went to the same page. It was a second, quieter control for
-       * one destination, styled exactly like "Events", which is the shape of
-       * duplicate navigation this pass exists to remove.
-       *
-       * `organizing` is still read, one line down, for the thing that is NOT a
-       * duplicate.
-       */
-      /**
-       * "CREATE EVENT" IS A MENU ITEM AND NOT THE BUTTON, which is the earlier
-       * fix and still right: before it, the button was the only route to the
-       * create form from the storefront, and changing the button to "Dashboard"
-       * left an organizer on the homepage with no way to start an event.
-       *
-       * ON `isOrganizer` — THE PERMISSION — DELIBERATELY, and this is the one
-       * place in this file where that is the correct fact to read.
-       * `/organizer/events/new` needs an organization to create the event under,
-       * so offering the form to somebody who has not created one is a click into
-       * a refusal. The WORKSPACE is what gets them to the setup screen; the
-       * PERMISSION is what says the setup is finished. `organizing` is in the
-       * condition as well so the two facts are read together and the intent is
-       * legible: has the workspace, and has finished setting it up.
-       */
-      ...(organizing && user?.isOrganizer
-        ? [{ href: '/organizer/events/new', label: 'Create event' }]
-        : []),
-    ];
-  }
-
-  return [
-    ...browse,
-    { href: '/tickets/find', label: 'Find my tickets' },
-    { href: `/login?next=${encodeURIComponent(pathname || '/')}`, label: 'Sign in' },
-  ];
-}
-
-/**
- * The one promoted action, and it changes with who is asking.
- *
- * The homepage has said since it was written that this site has two readers —
- * somebody looking for a ticket, and somebody deciding whether to sell here —
- * but the second reader could only find that out by scrolling to the fifth
- * band. This puts their next step in the masthead on every page.
- *
- * Routes only, no new ones: `/register` and `/organizer` both already exist and
- * are already linked from the homepage and the footer.
- *
- * Nothing at all while the session is in flight. A CTA that says "Start
- * selling" for a moment and then becomes "Organizer" is a button that moves
- * under the pointer of the organizer who was already reaching for it.
- */
-/**
- * ─────────────────────────────────────────────────────────────────────────────
- * THE ONE BUTTON IN THE BAR — and it says a different thing to each visitor.
- *
- * The earlier fix here still stands: it used to read "Create event" for
- * everybody, which is only the right words for one of the readers. An organizer
- * arriving at the storefront wants their DASHBOARD, and the bar had no button for
- * that — it was a plain "Organizer" link styled exactly like "Events".
- *
- * ─────────────────────────────────────────────────────────────────────────────
- * WHAT CHANGED: A SIGNED-IN BUYER IS NO LONGER TOLD TO CREATE AN EVENT.
- *
- * The rule was `if (signedIn) return { href: '/organizer', label: 'Create
- * event' }` — the fall-through for anybody without an organizer profile. The
- * comment that defended it argued that a buyer "has no dashboard, so labelling
- * the button Dashboard would be a promise the next screen breaks", and given the
- * product at the time that was a fair reading of a bad situation.
- *
- * It was still the single loudest thing in the masthead telling somebody who came
- * to buy a ticket that this site is for selling them — and it pointed at
- * `/organizer`, a form asking for an organization name and the country that
- * decides their Stripe entity. That is the most prominent control on every page
- * of the site aimed at the one thing that reader did not come to do.
- *
- * The premise is gone: a buyer HAS a dashboard now, so the honest button is the
- * one that goes to it. Somebody who wants to sell is not stranded — "For
- * organizers" is in the nav on every page, the hero's own CTA still routes them
- * to `/organizer` (`HeroCta` handles that and is unchanged), and the switcher
- * appears the moment they have the workspace.
- *
- * WORKSPACES, NOT PERMISSIONS, and `defaultLanding` is the shared rule — so this
- * button, `/login`'s fallback and the switcher's precedence are one answer rather
- * than three. Organizer before admin is that rule's, for the reason this function
- * worked out first: somebody who is both is far more often coming back to their
- * own events than to the console.
- *
- * A STRANGER STILL GETS "Create event" → `/register/organizer`. They have no
- * account either way, and this is the storefront's pitch to the reader who is
- * deciding whether to sell here.
- * ─────────────────────────────────────────────────────────────────────────────
- */
-function navCta({ signedIn, loading, user }) {
-  // Nothing while the session is unknown: guessing and correcting makes the
-  // button flip words on every page load for everyone who is signed in.
-  if (loading) return null;
-  if (signedIn) return { href: defaultLanding(user), label: 'Dashboard' };
-  return { href: '/register/organizer', label: 'Create event' };
 }
 
 /**
