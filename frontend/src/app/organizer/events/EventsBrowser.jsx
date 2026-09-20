@@ -73,13 +73,28 @@ export default function EventsBrowser() {
 
   return (
     <div className="fx-stack">
-      {/* No Create button here: the event bar above every organizer screen
-          carries "Create event" spelled out at every width. This one was shown
-          between 768px and 1024px, which made two primary buttons about 60px
-          apart on exactly the widths where the first was already legible. */}
+      {/**
+        * CREATE LIVES HERE, and on the dashboard, and nowhere else.
+        *
+        * It was taken out of this header when the event bar at the top of
+        * every organizer screen grew one — two primary buttons about 60px
+        * apart was the right thing to fix, and the wrong one to keep. The bar
+        * carried it onto all eleven event sections, so "start a new event" sat
+        * over the seat map, the door list and the orders table of an event
+        * already running.
+        *
+        * This page and the dashboard are where somebody is looking at their
+        * events as a set, which is the only place starting another one is the
+        * obvious next thing. */}
       <PageHeader
         title="Your events"
         lede="Tap an event to manage it. Drafts stay private until you submit them."
+        actions={(
+          <Link href="/organizer/events/new" className="es-btn es-btn--primary">
+            <NavIcon name="plus" size={18} />
+            Create event
+          </Link>
+        )}
       />
 
       <OrganizerNotices organizer={organizer} />

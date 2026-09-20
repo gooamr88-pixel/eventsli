@@ -111,21 +111,33 @@ export default function Dashboard() {
         title="Dashboard"
         lede="How your events are selling, and what needs you next."
         /**
-         * NO CREATE BUTTON HERE ANY MORE.
+         * CREATE IS BACK, at every width, and it is one of only two places it
+         * exists now — here and Your events.
          *
-         * It was shown between 768px and 1024px only, to cover the tablet rail
-         * that renders Create as a bare icon. The event bar directly above now
-         * carries "Create event" spelled out at EVERY width, so this was a
-         * second primary button roughly 60px below the first one, on exactly
-         * the widths where there was already room for it.
+         * It was removed when the event bar grew a copy that appeared on every
+         * organizer screen. That solved a duplicate and created a worse one:
+         * "start a new event" rode along on the seat map, the door list and
+         * the orders table of an event already running, and on a phone it sat
+         * in a third band of chrome above the page.
+         *
+         * The dashboard is where somebody sees all their events at once, so it
+         * is where starting another belongs. `EventBar` records the other half.
          */
-        actions={currencies.length > 1 && (
-          <Segmented
-            label="Currency"
-            value={currency}
-            onChange={setPicked}
-            options={currencies.map((c) => ({ value: c, label: c }))}
-          />
+        actions={(
+          <>
+            {currencies.length > 1 && (
+              <Segmented
+                label="Currency"
+                value={currency}
+                onChange={setPicked}
+                options={currencies.map((c) => ({ value: c, label: c }))}
+              />
+            )}
+            <Link href="/organizer/events/new" className="es-btn es-btn--primary">
+              <NavIcon name="plus" size={18} />
+              Create event
+            </Link>
+          </>
         )}
       />
 

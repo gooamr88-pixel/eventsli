@@ -2665,37 +2665,18 @@ body:has(.es-buybar) { padding-block-end: calc(5.5rem + var(--fx-safe-b)); }
 .es-meta__item { display: inline-flex; align-items: center; gap: 0.375rem; min-width: 0; }
 .es-meta__item > svg { flex: none; color: var(--es-text-subtle); }
 
-/* Below lg the sidebar is a rail or a drawer, so an event's sections sit under
-   its header as a strip. From lg the sidebar lists them and this goes. */
-.es-subnav {
-  display: flex;
-  gap: 1.25rem;
-  margin-bottom: -1px;
-  overflow-x: auto;
-  overscroll-behavior-x: contain;
-  scrollbar-width: none;
-}
-.es-subnav::-webkit-scrollbar { display: none; }
-.es-subnav__link {
-  display: inline-flex;
-  align-items: center;
-  min-height: var(--fx-touch);
-  border-bottom: 2px solid transparent;
-  font-size: var(--es-text-sm);
-  white-space: nowrap;
-  color: var(--es-text-muted);
-  transition: color var(--es-transition-fast), border-color var(--es-transition-fast);
-}
-.es-subnav__link:hover { color: var(--es-text); }
-.es-subnav__link[aria-current="page"] {
-  border-bottom-color: var(--es-accent);
-  color: var(--es-text);
-  font-weight: 500;
-}
-@media (width >= 64rem) {
-  .es-subnav { display: none; }
-  .es-event-head { padding-bottom: 1.25rem; }
-}
+/* `.es-subnav` WAS HERE — a sideways-scrolling strip of every event section,
+   shown below `lg` because the sidebar is a drawer there.
+
+   It went with the third band of chrome. On a phone the page opened with the
+   app bar, the "Working on" bar and then this, each a different shape, before
+   any content — and being a horizontal scroller it showed four of the eleven
+   sections with nothing to say the rest were a swipe away. The sidebar names
+   all of them vertically, with icons, and marks the current one; the bottom
+   bar carries the three opened most. See the note in `events/[id]/layout.jsx`.
+
+   The padding it used to pay for is now the header's at every width. */
+.es-event-head { padding-bottom: 1.25rem; }
 
 /* ── .es-logo — the framed star and the wordmark ───────────────────────
    The mark and the wordmark are the same height in the artwork, so they are
@@ -2934,12 +2915,23 @@ body:has(.es-buybar) { padding-block-end: calc(5.5rem + var(--fx-safe-b)); }
   padding-block: 0.125rem;
 }
 .es-actionbar > * { flex: none; }
-/* On a phone the actions are a two-column block of equal buttons — thumb
-   targets that line up — rather than a ragged row. */
+
+/* ON A PHONE, ONE ACTION PER ROW, FULL WIDTH.
+
+   This was a two-column grid, which lines up neatly only when the number of
+   actions is even and none of them is `__wide`. An archived event has exactly
+   two — Restore, and a wide "Request cancellation" — so it rendered a
+   half-width button, a hole beside it, and a spanning button underneath:
+   three shapes for two controls, reported as untidy and hard to read.
+
+   Odd counts are the common case, not the exception: which actions an event
+   has depends on its status, so the layout cannot assume pairs. One full-width
+   button per row is the same shape whatever the count, every label has room to
+   be read rather than truncated, and every target is the full width of the
+   thumb. `__wide` needs no special case any more, because everything is. */
 @media (width < 40rem) {
-  .es-actionbar { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .es-actionbar { display: grid; grid-template-columns: minmax(0, 1fr); }
   .es-actionbar > * { justify-content: center; min-height: var(--fx-touch); }
-  .es-actionbar > .es-actionbar__wide { grid-column: 1 / -1; }
 }
 
 /* ── A manual payment method, as a row ─────────────────────────────── */
@@ -6513,41 +6505,18 @@ a.es-sponsor:hover { opacity: 0.7; }
   color: var(--es-text-subtle);
   transform: rotate(90deg);
 }
-.es-evbar__none { font-size: var(--es-text-sm); color: var(--es-text-muted); }
-.es-evbar__new { flex: none; }
+/* `.es-evbar__new*` AND `.es-evbar__none` WERE HERE — the create button that
+   rode in this bar, and the "No events yet" line beside it.
 
-/* ── The create button on a phone ──────────────────────────────────────
-   IT USED TO BE THE ICON ALONE, and that was reported as the button not
-   existing: "where is Create event", from a phone, with the drawer open.
-
-   The original reasoning was sound as far as it went — "Create event" spelled
-   out beside a long event name is what pushes the name onto two lines — but
-   the fix it chose made the product's single most important verb an unlabelled
-   `+` sitting next to a `↓` that opens a different control. An icon nobody
-   recognises is not a smaller button; it is an absent one.
-
-   "Create" instead. One word, four fewer characters than the phrase and still
-   a word, so the name beside it keeps its line and the control says what it
-   does. `.es-evbar__new-word` is the long tail that goes, not the whole label.
-
-   THIS IS THE WHOLE FIX NOW. It used to say the durable half was in
-   organizerNav.js, which had grown a second "Create event" in the sidebar to
-   compensate for the icon-only button — but this rule is what stopped the
-   button being icon-only, so the compensation was for a problem that no longer
-   existed and the two ran side by side. The sidebar entry is gone; that file
-   records why. One labelled control, at every width. */
-@media (width < 40rem) {
-  .es-evbar__new-word {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
-  .es-evbar__new { padding-inline: 0.625rem; }
-  .es-evbar__new-label { font-size: var(--es-text-sm); }
-}
+   The whole of that story is worth one line, because it took three passes:
+   the button was icon-only and got reported as missing, so it was spelled out
+   AND duplicated into the sidebar, so the duplicate was removed again — and
+   the real answer was that it did not belong in a bar that appears on every
+   one of an event's eleven sections. Starting an event is something you do
+   looking at all of them, so it is on the dashboard and Your events, and this
+   bar is the event switcher and nothing else. With no button beside it there
+   is also nothing to say "No events yet" to: the bar does not render at all
+   without events. `EventBar.jsx` carries the argument. */
 
 /* ── The venue map ──────────────────────────────────────────────────────
    The map is the section, not an illustration beside it: it takes the full

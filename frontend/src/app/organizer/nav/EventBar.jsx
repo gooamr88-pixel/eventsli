@@ -1,7 +1,6 @@
 'use client';
 
 import { useId } from 'react';
-import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import NavIcon from '../../components/shell/NavIcon';
 import { pathForEvent } from './organizerNav';
@@ -17,10 +16,19 @@ import { pathForEvent } from './organizerNav';
  * numbers on screen belonged to.
  *
  * It is now the first thing on the page, at every width, and it says the
- * event's name in full before it offers to change it. "Create event" sits in
- * the same bar, because starting one and switching between them are the same
- * question asked at different times — and it was the other control people
- * could not find.
+ * event's name in full before it offers to change it.
+ *
+ * ONE CONTROL, AND ONLY ONE. "Create event" used to sit in this bar too, on
+ * the argument that starting an event and switching between them are the same
+ * question asked at different times. On a phone that argument does not
+ * survive contact with the screen: the bar became a label, a truncated event
+ * name, a chevron and a bright blue button, all on one 360px row, directly
+ * under an app bar and directly above a strip of section tabs. Three rows of
+ * navigation before any of the page.
+ *
+ * Starting an event is also not something you do FROM an event. It belongs
+ * where you are looking at the whole list — the dashboard and Your events —
+ * and that is the only place it is now.
  *
  * A <select>, not a custom menu: on a phone the native picker is the best list
  * UI there is, it scrolls a hundred events without any work, and it is
@@ -31,27 +39,16 @@ import { pathForEvent } from './organizerNav';
  * actually doing. `pathForEvent` owns that rule and the nav model tests it.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-export default function EventBar({ events, currentId, canCreate }) {
+export default function EventBar({ events, currentId }) {
   const id = useId();
   const router = useRouter();
   const pathname = usePathname() || '';
 
-  /**
-   * NOT ON THE PAGE THAT CREATES ONE. "Create event" directly above the
-   * create-event form is a button whose only effect is to restart the form the
-   * organizer is already filling in — and the wizard keeps a draft in session
-   * storage, so pressing it looks like it did nothing at all. The switcher
-   * stays: leaving for another event is still a thing to want here.
-   */
-  const creating = pathname === '/organizer/events/new';
-  const offerCreate = canCreate && !creating;
-
-  // Nothing to switch between and nothing to create: no bar at all. An
-  // organizer with no events sees the dashboard's own "getting started" panel,
-  // and a strip saying "Choose an event" above it would be a control whose
-  // only option is the one they have already been given.
+  // Nothing to switch between, so no bar at all. An organizer with no events
+  // sees the dashboard's own "getting started" panel, and a strip saying
+  // "Choose an event" above it would be a control with nothing in it.
   const list = Array.isArray(events) ? events : [];
-  if (list.length === 0 && !offerCreate) return null;
+  if (list.length === 0) return null;
 
   const current = list.find((e) => e.id === currentId) || null;
 
@@ -65,40 +62,22 @@ export default function EventBar({ events, currentId, canCreate }) {
        uses so the event name lines up with the page below it. */
     <div className="es-evbar">
       <div className="es-evbar__inner">
-      <div className="es-evbar__main">
         <label htmlFor={id} className="es-evbar__label">Working on</label>
 
-        {list.length > 0 ? (
-          <div className="es-evbar__pick">
-            <select
-              id={id}
-              className="es-evbar__select"
-              value={current?.id || ''}
-              onChange={(e) => { if (e.target.value) router.push(pathForEvent(pathname, e.target.value)); }}
-            >
-              <option value="">Choose an event…</option>
-              {list.map((event) => (
-                <option key={event.id} value={event.id}>{event.title}</option>
-              ))}
-            </select>
-            <span aria-hidden className="es-evbar__chev"><NavIcon name="arrow" size={16} /></span>
-          </div>
-        ) : (
-          <p className="es-evbar__none">No events yet</p>
-        )}
-      </div>
-
-      {offerCreate && (
-        <Link href="/organizer/events/new" className="es-btn es-btn--primary es-btn--sm es-evbar__new">
-          <NavIcon name="plus" size={16} />
-          {/* "Create" on a phone, "Create event" from 40rem up. The second word
-              is what gets clipped, not the whole label — an icon-only primary
-              action is what got this reported as missing. See globals.css. */}
-          <span className="es-evbar__new-label">
-            Create<span className="es-evbar__new-word"> event</span>
-          </span>
-        </Link>
-      )}
+        <div className="es-evbar__pick">
+          <select
+            id={id}
+            className="es-evbar__select"
+            value={current?.id || ''}
+            onChange={(e) => { if (e.target.value) router.push(pathForEvent(pathname, e.target.value)); }}
+          >
+            <option value="">Choose an event…</option>
+            {list.map((event) => (
+              <option key={event.id} value={event.id}>{event.title}</option>
+            ))}
+          </select>
+          <span aria-hidden className="es-evbar__chev"><NavIcon name="arrow" size={16} /></span>
+        </div>
       </div>
     </div>
   );

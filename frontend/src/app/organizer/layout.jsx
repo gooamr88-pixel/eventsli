@@ -156,9 +156,7 @@ export default function OrganizerLayout({ children }) {
              group. It was the first child of `<main>` with a hard-coded
              `top: 56px`, which is the app bar's height only on a phone with no
              notch. See the note on AppShell's props. */
-          contextBar={(
-            <EventBar events={events} currentId={eventId} canCreate={Boolean(user?.isOrganizer)} />
-          )}
+          contextBar={<EventBar events={events} currentId={eventId} />}
           // NO APP-BAR ACTION, deliberately. It was a phone-only "Create"
           // button, and the event bar directly under it now carries the same
           // one — two Create buttons stacked within 60px of each other is the

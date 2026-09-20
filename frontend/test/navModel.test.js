@@ -76,6 +76,53 @@ describe('organizer destinations', () => {
     }
   });
 
+  /**
+   * ───────────────────────────────────────────────────────────────────────────
+   * "CREATE EVENT" BELONGS WHERE YOU SEE ALL YOUR EVENTS, AND NOWHERE ELSE.
+   *
+   * It has now been in four places across three passes: the sidebar head, the
+   * sidebar list, the event bar, and the two pages that should have had it all
+   * along. The event bar was the worst of them, because that bar appears above
+   * every one of an event's eleven sections — so "start a new event" rode along
+   * on the seat map, the door list and the orders table of an event already
+   * running.
+   *
+   * Source-level, because these are JSX and the rule is about WHERE a control
+   * is rendered, which no data structure records.
+   * ───────────────────────────────────────────────────────────────────────────
+   */
+  describe('where Create event is offered', () => {
+    const NEW = '/organizer/events/new';
+    const read = (rel) => fs.readFileSync(path.resolve(__dirname, '../src/app', rel), 'utf8');
+
+    test('the event switcher that sits above every section does not offer it', () => {
+      expect(read('organizer/nav/EventBar.jsx')).not.toContain(NEW);
+    });
+
+    test('no screen belonging to a single event offers it', () => {
+      const dir = path.resolve(__dirname, '../src/app/organizer/events/[id]');
+      const walk = (at, out = []) => {
+        for (const entry of fs.readdirSync(at, { withFileTypes: true })) {
+          const full = path.join(at, entry.name);
+          if (entry.isDirectory()) walk(full, out);
+          else if (/\.jsx?$/.test(entry.name)) out.push(full);
+        }
+        return out;
+      };
+      const offenders = walk(dir)
+        .filter((file) => fs.readFileSync(file, 'utf8').includes(`"${NEW}"`))
+        .map((file) => path.relative(dir, file));
+
+      expect(offenders, `these are inside one event and must not start another:\n  ${offenders.join('\n  ')}`)
+        .toEqual([]);
+    });
+
+    test('the dashboard and Your events both do', () => {
+      expect(read('organizer/dashboard/Dashboard.jsx')).toContain(NEW);
+      expect(read('organizer/events/EventsBrowser.jsx')).toContain(NEW);
+    });
+  });
+
   test('no two destinations point at the same page', () => {
     // The general form of the bug above: one route reachable from two rows is
     // two controls competing to be the current one.

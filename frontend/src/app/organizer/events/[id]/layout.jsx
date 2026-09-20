@@ -7,9 +7,7 @@ import { get } from '../../../utils/apiClient';
 import { formatEventTime } from '../../../lib/eventTime';
 import StatusPill from '../../StatusPill';
 import NavIcon from '../../../components/shell/NavIcon';
-import { resolveNav } from '../../../components/shell/navModel';
 import { ErrorNotice } from '../../../components/Feedback';
-import { organizerNavGroups } from '../../nav/organizerNav';
 import { EventProvider } from './EventContext';
 import EventActions from './EventActions';
 import BuildNav from './BuildNav';
@@ -98,13 +96,6 @@ export default function EventLayout({ children }) {
 
 function EventHeader({ event, eventId, onChanged }) {
   const pathname = usePathname() || '';
-  const listingType = event?.listingType || null;
-  // A general-admission event has no seat map, so the strip does not offer one.
-  const admissionType = event?.admissionType || null;
-  const sections = useMemo(() => {
-    const groups = organizerNavGroups({ eventId, listingType, admissionType }).filter((g) => ['build', 'sell', 'day'].includes(g.id));
-    return resolveNav(groups, pathname).flatMap((g) => g.items);
-  }, [eventId, listingType, admissionType, pathname]);
 
   if (!event) {
     return (
@@ -130,6 +121,13 @@ function EventHeader({ event, eventId, onChanged }) {
         <div className="fx-stack fx-stack--sm fx-min0 gap-2">
           <h1 className="es-page-head__title fx-break">{event.title}</h1>
           <p className="es-meta">
+            {/* THE STATUS IS A FACT, SO IT SITS WITH THE OTHER FACTS.
+                It used to be the first thing in the actions row, which put
+                "Archived" — a read-only badge — in a line of buttons, where it
+                read as one and was tapped like one. Beside the date, the venue
+                and the currency it reads as what it is: something true about
+                this event. */}
+            <StatusPill status={event.status} />
             <span className="es-meta__item"><NavIcon name="calendar" size={16} />{when}</span>
             {event.venue?.name && (
               <span className="es-meta__item"><NavIcon name="pin" size={16} />{event.venue.name}</span>
@@ -142,7 +140,6 @@ function EventHeader({ event, eventId, onChanged }) {
           </p>
         </div>
         <div className="es-event-head__actions">
-          <StatusPill status={event.status} />
           {event.status === 'published' && (
             <a href={`/e/${event.slug}`} target="_blank" rel="noreferrer" className="es-btn es-btn--secondary es-btn--sm">
               <NavIcon name="external" size={16} />
@@ -161,13 +158,28 @@ function EventHeader({ event, eventId, onChanged }) {
           phone they pushed the section itself below the fold. */}
       {pathname === `/organizer/events/${eventId}` && <EventActions event={event} onChanged={onChanged} />}
 
-      <nav aria-label="Event sections" className="es-subnav">
-        {sections.map((item) => (
-          <Link key={item.key} href={item.href} className="es-subnav__link" aria-current={item.active ? 'page' : undefined}>
-            {item.label}
-          </Link>
-        ))}
-      </nav>
+      {/**
+        * ─────────────────────────────────────────────────────────────────────
+        * THE SECTION TABS ARE GONE, and they were the third row of navigation.
+        *
+        * A scrolling strip of every event section used to sit here, built from
+        * the same nav model the sidebar renders. It existed because below `lg`
+        * the sidebar is a drawer, so it was a shortcut past the menu.
+        *
+        * What it actually produced on a phone was: the app bar, then the
+        * "Working on" bar, then this strip — three bands of chrome, each a
+        * different shape, before a single word of the page. And because it was
+        * horizontally scrollable, the sections past "Seating" were behind a
+        * sideways swipe nothing indicated: the tab list said there were four
+        * sections when there are eleven.
+        *
+        * Every section is a page of its own, reached from one place. The
+        * sidebar names all of them, vertically, with icons, and lights the one
+        * you are on — which is the thing this strip was a worse copy of. On a
+        * phone the bottom bar carries the three opened most and "More" opens
+        * the same list.
+        * ─────────────────────────────────────────────────────────────────────
+        */}
     </header>
   );
 }
