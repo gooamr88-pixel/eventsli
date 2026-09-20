@@ -179,16 +179,24 @@ function SessionList({ sessions, error, onChanged }) {
     <section className="fx-stack fx-stack--sm es-card p-5">
       <div className="fx-row fx-row--between">
         <h2 className="text-lg">Where you are signed in</h2>
-        {sessions?.length > 1 && (
-          {/* Both controls in this panel end sessions, and both were ~20px
-              lines of text. `.es-btn--ghost` gives them the 44px floor and the
-              press feedback every other button in the product has, while
-              staying quiet enough to sit beside a heading.
+        {/* Both controls in this panel end sessions, and both were ~20px lines
+            of text. `.es-btn--ghost` gives them the 44px floor and the press
+            feedback every other button in the product has, while staying quiet
+            enough to sit beside a heading.
 
-              `text-danger` on top of the component class is deliberate and it
-              works because of the layer order this file's header argues for:
-              utilities beat `@layer components`, so the tone survives without
-              inventing an `.es-btn--ghost-danger`. */}
+            `text-danger` on top of the component class is deliberate and it
+            works because of the layer order this file's header argues for:
+            utilities beat `@layer components`, so the tone survives without
+            inventing an `.es-btn--ghost-danger`.
+
+            THE COMMENT IS OUT HERE, above the guard, and that is not a style
+            choice. `{/* … *}` is only valid in JSX CHILDREN position; the
+            parenthesis after `&&` is an EXPRESSION position, where the first
+            thing must be the element itself. Inside it, the parser reads `{` as
+            the start of an object literal and fails on the first JSX attribute
+            with "Expected '</', got 'type'" — pointing at the `<button>` two
+            lines down rather than at the comment that caused it. */}
+        {sessions?.length > 1 && (
           <button
             type="button"
             onClick={() => setConfirmAll(true)}
