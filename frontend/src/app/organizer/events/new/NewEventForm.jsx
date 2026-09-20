@@ -15,6 +15,7 @@ import {
 } from './wizardModel';
 import { TypeChooser, RadioCards, Review } from './WizardParts';
 import Field, { SelectField, TextareaField } from '../../../components/forms/Field';
+import PlaceAutocomplete from '../../../components/forms/PlaceAutocomplete';
 import FormError from '../../../components/forms/FormError';
 import SubmitButton from '../../../components/forms/SubmitButton';
 import NavIcon from '../../../components/shell/NavIcon';
@@ -124,6 +125,57 @@ function EventWizard({ type, organizer }) {
     setForm((f) => ({ ...f, country, timezone: defaultTimeZone(country, browserZone()) }));
   };
 
+  /**
+   * ───────────────────────────────────────────────────────────────────────────
+   * TYPING THE VENUE NAME DROPS THE CHOSEN PLACE.
+   *
+   * `PlaceAutocomplete` is a text input, so the name can be edited after a
+   * suggestion was picked — and the moment it is, the place id and the
+   * coordinates beside it describe a DIFFERENT venue from the one in the field.
+   *
+   * That is worse than having none: a stale pin puts the map on the public event
+   * page at the wrong building, and it does it confidently, with no visible sign
+   * that the name and the pin ever disagreed. Clearing them costs an organizer
+   * who mistyped one letter a re-pick, which is the cheap side of the trade.
+   *
+   * The address and the city are deliberately NOT cleared. They are free text
+   * the organizer may have corrected on purpose — a suite number, a building
+   * name Google renders differently — and wiping them on a keystroke in another
+   * field would delete work nobody asked to delete.
+   * ───────────────────────────────────────────────────────────────────────────
+   */
+  const setVenueName = (venueName) => setForm((f) => (
+    f.venuePlaceId || f.venueLat !== '' || f.venueLng !== ''
+      ? { ...f, venueName, venuePlaceId: '', venueLat: '', venueLng: '' }
+      : { ...f, venueName }
+  ));
+
+  /**
+   * A chosen suggestion, resolved — the one write that fills four fields.
+   *
+   * `null` means the details lookup failed after the name was already in the
+   * field. Nothing is overwritten in that case: the organizer keeps the name
+   * they picked and whatever address and city they had, and the event simply has
+   * no pin, which is the state every event had before this feature existed.
+   *
+   * The address and city only fill when the place HAS them and the field is
+   * still empty — re-picking a venue must not wipe a suite number somebody added
+   * to the address line by hand.
+   */
+  const applyPlace = (place) => {
+    if (!place) return;
+    setForm((f) => ({
+      ...f,
+      venueName: place.name || f.venueName,
+      venueAddress: place.address || f.venueAddress,
+      city: place.city || f.city,
+      venuePlaceId: place.placeId || '',
+      // Both or neither, always — `venue_coords_together` refuses half a pin.
+      venueLat: place.lat === null || place.lat === undefined ? '' : String(place.lat),
+      venueLng: place.lng === null || place.lng === undefined ? '' : String(place.lng),
+    }));
+  };
+
   const startIso = toIso(form.startsAt, form.timezone);
   const endIso = toIso(form.endsAt, form.timezone);
   const perOrder = Number(form.maxTicketsPerOrder);
@@ -200,6 +252,21 @@ function EventWizard({ type, organizer }) {
         // The column and the API have always accepted it; nothing ever sent
         // one, which is why "near me" could not see a manually entered venue.
         ...(form.city.trim() ? { city: form.city.trim() } : {}),
+        /**
+         * WHAT VENUE SEARCH ADDS TO THE PAYLOAD.
+         *
+         * Present only when a suggestion was chosen — an organizer who typed
+         * their venue sends the three text fields above and nothing else, which
+         * is the same request this form has always made.
+         *
+         * The coordinates go together or not at all: the route and the
+         * `venue_coords_together` CHECK both refuse half a pin, and `applyPlace`
+         * only ever sets both or neither.
+         */
+        ...(form.venuePlaceId ? { venuePlaceId: form.venuePlaceId } : {}),
+        ...(form.venueLat !== '' && form.venueLng !== ''
+          ? { venueLat: Number(form.venueLat), venueLng: Number(form.venueLng) }
+          : {}),
         ...(form.description.trim() ? { description: form.description.trim() } : {}),
       }, { noRedirect: true });
       try { sessionStorage.removeItem(draftKey(type)); } catch { /* fine */ }
@@ -284,11 +351,32 @@ function EventWizard({ type, organizer }) {
                   error={shown('endsAt')} value={form.endsAt} onChange={set('endsAt')}
                 />
               </div>
-              <Field
-                label="Venue name" name="venueName" maxLength={200}
-                placeholder="e.g. The Danforth Music Hall"
-                hint={pending('venueName')}
-                value={form.venueName} onChange={set('venueName')}
+              {/**
+                * ─────────────────────────────────────────────────────────────
+                * VENUE SEARCH, replacing a plain text box.
+                *
+                * Three characters in, this offers Google Places suggestions;
+                * choosing one fills the address, the city, the coordinates and
+                * the place id below in a single write. Typing a venue Google
+                * has never heard of still works exactly as it did — see
+                * `PlaceAutocomplete.jsx`, which is a text input first and a
+                * combobox second.
+                *
+                * `country` BIASES the results toward the market this event is
+                * being created in. It never restricts them: an organizer in
+                * Toronto running one night in Buffalo must still find it.
+                * ─────────────────────────────────────────────────────────────
+                */}
+              <PlaceAutocomplete
+                label="Venue name"
+                name="venueName"
+                maxLength={200}
+                country={form.country}
+                value={form.venueName}
+                onChange={setVenueName}
+                onPlace={applyPlace}
+                hint={pending('venueName')
+                  || 'Start typing and pick your venue — the address, city and map pin fill themselves in.'}
               />
               <Field
                 label="Street address" name="venueAddress" maxLength={300} autoComplete="street-address"
@@ -425,4 +513,4 @@ function EventWizard({ type, organizer }) {
     </div>
   );
 }
-
+

@@ -6462,10 +6462,25 @@ a.es-sponsor:hover { opacity: 0.7; }
 .es-evbar__none { font-size: var(--es-text-sm); color: var(--es-text-muted); }
 .es-evbar__new { flex: none; }
 
-/* On a narrow phone the button is the icon alone — "Create event" beside a
-   long event name is what pushes the name down to two lines. */
+/* ── The create button on a phone ──────────────────────────────────────
+   IT USED TO BE THE ICON ALONE, and that was reported as the button not
+   existing: "where is Create event", from a phone, with the drawer open.
+
+   The original reasoning was sound as far as it went — "Create event" spelled
+   out beside a long event name is what pushes the name onto two lines — but
+   the fix it chose made the product's single most important verb an unlabelled
+   `+` sitting next to a `↓` that opens a different control. An icon nobody
+   recognises is not a smaller button; it is an absent one.
+
+   "Create" instead. One word, four fewer characters than the phrase and still
+   a word, so the name beside it keeps its line and the control says what it
+   does. `.es-evbar__new-word` is the long tail that goes, not the whole label.
+
+   The durable half of this fix is in organizerNav.js: the sidebar carries
+   "Create event" too now, so the menu somebody opens to go looking is no
+   longer the one place it had been removed from. */
 @media (width < 40rem) {
-  .es-evbar__new-label {
+  .es-evbar__new-word {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -6473,7 +6488,8 @@ a.es-sponsor:hover { opacity: 0.7; }
     clip-path: inset(50%);
     white-space: nowrap;
   }
-  .es-evbar__new { padding-inline: 0.75rem; }
+  .es-evbar__new { padding-inline: 0.625rem; }
+  .es-evbar__new-label { font-size: var(--es-text-sm); }
 }
 
 /* ── The venue map ──────────────────────────────────────────────────────
@@ -7869,3 +7885,111 @@ a { color: inherit; text-decoration: none; }
 }
 
 }   /* end @layer components — the workspace switcher */
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   VENUE SEARCH — .es-place
+
+   The combobox in the create-event wizard. `PlaceAutocomplete.jsx` argues the
+   pattern; this is only its chrome, and it borrows `.es-input` and the label
+   and hint rules from `Field` so the control reads as one of the ordinary
+   fields it sits between.
+
+   THE LIST IS ABSOLUTE AND THE WRAPPER IS THE POSITIONING CONTEXT. A list that
+   pushed the fields below it down would move the "Street address" box out from
+   under the pointer every time a suggestion arrived — on a phone, where the
+   next field is a thumb's width away, that is a mis-tap.
+
+   `--es-z-dropdown` (200), which is the token this exact case was named for. It
+   has to clear the sticky event bar at 40 and the app bar at 50, and it must
+   stay UNDER `--es-z-modal` (5000) so a dialog opened over this screen covers
+   it rather than having a venue list floating on top of the scrim.
+   ═══════════════════════════════════════════════════════════════════════════ */
+@layer components {
+
+.es-place { position: relative; }
+
+.es-place__box { position: relative; display: flex; align-items: center; }
+
+/* Room for the spinner, so a long venue name does not run underneath it. */
+.es-place__input { padding-inline-end: 2.25rem; }
+
+/* A ring rather than a bar: it sits inside a text field and a moving bar there
+   reads as a progress indicator for the form, not for the list. */
+.es-place__busy {
+  position: absolute;
+  inset-inline-end: 0.75rem;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--es-border-strong);
+  border-block-start-color: var(--es-accent);
+  border-radius: var(--es-radius-full);
+  animation: es-place-spin 0.7s linear infinite;
+}
+@keyframes es-place-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .es-place__busy { animation: none; opacity: 0.6; }
+}
+
+.es-place__list {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-start: calc(100% + 0.25rem);
+  z-index: var(--es-z-dropdown);
+  /* Five results at ~56px plus padding. Capped so a list can never run off the
+     bottom of a phone with the field near the fold, and scrollable rather than
+     clipped if the type scales up. */
+  max-height: 19rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin: 0;
+  padding: 0.25rem;
+  list-style: none;
+  border: 1px solid var(--es-border);
+  border-radius: var(--es-radius-md);
+  background: var(--es-surface);
+  box-shadow: var(--es-shadow-lg);
+}
+
+.es-place__option {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  /* The touch-target floor. These are rows somebody taps on a phone while
+     holding it one-handed, and they carry two lines of text, so the minimum is
+     rarely what decides the height — it is here for the single-line case. */
+  min-height: var(--fx-touch);
+  padding: 0.5rem 0.625rem;
+  border-radius: var(--es-radius-sm);
+  cursor: pointer;
+}
+
+/* ONE HIGHLIGHT, DRIVEN BY `data-active`, which is set from the same state as
+   `aria-selected`. Hover is deliberately NOT a separate rule: the pointer sets
+   the active index on enter, so the mouse and the arrow keys move one
+   highlight instead of lighting two rows at once. */
+.es-place__option[data-active="true"] {
+  background: var(--es-accent-wash);
+}
+
+.es-place__mark { display: flex; flex: none; margin-block-start: 0.125rem; color: var(--es-accent); }
+
+.es-place__text { display: flex; flex-direction: column; min-width: 0; }
+
+.es-place__name {
+  font-size: var(--es-text-sm);
+  font-weight: 600;
+  line-height: var(--es-leading-snug);
+  color: var(--es-text);
+}
+
+/* The address wraps rather than truncating. A venue is chosen by ITS ADDRESS
+   when two carry the same name — "The Rec Centre, 12 King St" against "The Rec
+   Centre, 400 Queen St" — and an ellipsis cuts exactly the part that tells them
+   apart. */
+.es-place__addr {
+  font-size: var(--es-text-xs);
+  line-height: var(--es-leading-snug);
+  color: var(--es-text-muted);
+}
+
+}   /* end @layer components — venue search */

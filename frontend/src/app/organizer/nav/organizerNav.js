@@ -72,7 +72,9 @@ const RESERVED_ONLY_KEYS = new Set(['map', 'tables']);
  * which are merely empty on a free event rather than misleading. The launch
  * checklist, which has one event's full detail, is where free is handled.
  */
-export function organizerNavGroups({ eventId, listingType = null, admissionType = null }) {
+export function organizerNavGroups({
+  eventId, listingType = null, admissionType = null, canCreate = false,
+}) {
   const displayOnly = listingType === 'display_only';
   const generalAdmission = admissionType === 'general';
   const item = (key, label, icon, suffix) => ({
@@ -98,6 +100,41 @@ export function organizerNavGroups({ eventId, listingType = null, admissionType 
     items: [
       { key: 'dashboard', label: 'Dashboard', icon: 'home', href: '/organizer', exact: true },
       { key: 'events', label: 'Your events', icon: 'calendar', href: '/organizer/events' },
+      /**
+       * ─────────────────────────────────────────────────────────────────────
+       * CREATE EVENT IS IN THE NAVIGATION — reported as "where is Create
+       * event", from a phone, with the drawer open.
+       *
+       * It was in exactly one place: a button in `EventBar` at the top of the
+       * page. That was a deliberate move — it used to be in this panel's HEAD,
+       * which is a drawer below `lg`, and the note on the layout's `head` prop
+       * argues correctly that a control an organizer reaches for constantly
+       * should not be behind a menu.
+       *
+       * What that reasoning missed is that the bar's button is ICON-ONLY below
+       * 40rem: `.es-evbar__new-label` is clipped to a screen-reader-only span,
+       * so on a phone the product's single most important verb is an unlabelled
+       * `+` sharing a strip with a `↓` that opens a different control entirely.
+       * Somebody who cannot see it opens the menu to look — and the menu, by
+       * design, was the one place it had been removed from.
+       *
+       * BOTH, THEREFORE, AND THAT IS NOT A DUPLICATE. The bar is the fast path
+       * for somebody who already knows where it is; this is the discoverable
+       * one, next to "Your events", which is where a person looks for "and make
+       * another". The two point at the same route and the nav resolves exactly
+       * one item as current, so neither confuses the other.
+       *
+       * GATED ON `canCreate`, the same `user.isOrganizer` the bar's button
+       * uses. `/organizer/events/new` needs an organization to create the event
+       * under, and `POST /events` is behind `requireRole('organizer')` — so for
+       * an account that has not finished setup this would be a menu item
+       * leading to a refusal. They get the setup screen on the dashboard
+       * instead, which is the step that actually unblocks them.
+       * ─────────────────────────────────────────────────────────────────────
+       */
+      ...(canCreate
+        ? [{ key: 'create', label: 'Create event', icon: 'plus', href: '/organizer/events/new', exact: true }]
+        : []),
     ],
   };
 

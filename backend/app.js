@@ -189,6 +189,10 @@ app.use('/api/v1', require('./routes/healthRoutes'));
 app.use('/api/v1/auth', require('./routes/authRoutes'));
 app.use('/api/v1/organizer', require('./routes/organizerRoutes'));
 app.use('/api/v1/events', require('./routes/eventRoutes'));
+// Venue search for the create-event wizard. Proxied rather than called from
+// the browser so the Places key stays server-side and the CSP does not have to
+// admit Google — see services/placesService.js.
+app.use('/api/v1/places', require('./routes/placesRoutes'));
 app.use('/api/v1/public', require('./routes/publicRoutes'));
 app.use('/api/v1/tickets', require('./routes/ticketRoutes'));
 app.use('/api/v1/payments', require('./routes/paymentRoutes'));

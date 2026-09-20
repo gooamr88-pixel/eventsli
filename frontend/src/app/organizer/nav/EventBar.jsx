@@ -83,7 +83,12 @@ export default function EventBar({ events, currentId, canCreate }) {
       {offerCreate && (
         <Link href="/organizer/events/new" className="es-btn es-btn--primary es-btn--sm es-evbar__new">
           <NavIcon name="plus" size={16} />
-          <span className="es-evbar__new-label">Create event</span>
+          {/* "Create" on a phone, "Create event" from 40rem up. The second word
+              is what gets clipped, not the whole label — an icon-only primary
+              action is what got this reported as missing. See globals.css. */}
+          <span className="es-evbar__new-label">
+            Create<span className="es-evbar__new-word"> event</span>
+          </span>
         </Link>
       )}
     </div>

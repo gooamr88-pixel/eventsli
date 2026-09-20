@@ -18,10 +18,21 @@ const { sendOk, sendFail } = require('../utils/responseEnvelope');
 const { safeSearch } = require('../utils/search');
 const logger = require('../utils/logger');
 
+/**
+ * `city` AND `venue_place_id` WERE BOTH MISSING FROM THIS LIST.
+ *
+ * `city` has existed since 20260916100000 and is the column "events near me"
+ * filters on — but no organizer screen ever read it back, because it was not
+ * selected. Venue search fills it now, so it has to return.
+ *
+ * A PostgREST column list, not SQL: it has no comment syntax of its own, which
+ * is why this note is out here.
+ */
 const SELECT = `
   id, organizer_id, slug, title, description, venue_name, venue_address, country, timezone,
   starts_at, ends_at, status, listing_type, purchase_mode, admission_type, category,
   cover_url, cover_path, logo_url, logo_path, highlights, venue_lat, venue_lng, currency,
+  city, venue_place_id,
   commission_pct, commission_tax_pct, payment_fee_mode, payment_fee_pct,
   payment_fee_fixed_cents, fee_bearer, event_tax_pct,
   max_tickets_per_order, allow_ticket_transfer,
@@ -83,6 +94,37 @@ async function create(req, res, next) {
         description: req.body.description ? String(req.body.description) : null,
         venue_name: req.body.venueName || null,
         venue_address: req.body.venueAddress || null,
+        city: req.body.city || null,
+        /**
+         * ─────────────────────────────────────────────────────────────────────
+         * WHAT VENUE SEARCH WRITES, and all five move together.
+         *
+         * The wizard's venue field searches Google Places and fills the name,
+         * the address and the city from one chosen result; `venue_place_id`
+         * records WHICH result, and the coordinates draw the map on the public
+         * event page. Before this they were four hand-typed boxes and a
+         * separate screen that asked the organizer to copy two numbers out of
+         * Google Maps by hand.
+         *
+         * `city` is in this list because it was MISSING. The column has existed
+         * since 20260916100000 and the wizard has sent the field since it was
+         * added, and this insert never read it — so every event created since
+         * then has a null city, and "events near me", which filters on exactly
+         * this column, could not see any of them. The wizard's own comment says
+         * "manually entered venues never appeared there"; this is why.
+         *
+         * `|| null` rather than `?? null` throughout: an empty string is not a
+         * venue, and storing one would make `venue_name IS NULL` stop meaning
+         * "no venue".
+         * ─────────────────────────────────────────────────────────────────────
+         */
+        venue_place_id: req.body.venuePlaceId || null,
+        // Both or neither. The route refuses half a pin and `venue_coords_together`
+        // refuses it again in the database; this only has to avoid inventing one.
+        venue_lat: req.body.venueLat === undefined || req.body.venueLat === null || req.body.venueLat === ''
+          ? null : Number(req.body.venueLat),
+        venue_lng: req.body.venueLng === undefined || req.body.venueLng === null || req.body.venueLng === ''
+          ? null : Number(req.body.venueLng),
         country,
         timezone: req.body.timezone,
         starts_at: req.body.startsAt,
@@ -478,6 +520,11 @@ function shape(e, { currentTermsId = null } = {}) {
     title: e.title,
     description: e.description,
     venue: { name: e.venue_name, address: e.venue_address },
+    venueAddress: e.venue_address,
+    // The three fields venue search fills alongside the name, carried back so
+    // the wizard and "Manage event" can show what was chosen and re-edit it.
+    city: e.city || null,
+    venuePlaceId: e.venue_place_id || null,
     country: e.country,
     timezone: e.timezone,
     startsAt: e.starts_at,

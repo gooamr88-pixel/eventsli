@@ -66,6 +66,46 @@ router.post(
   body('category').optional().custom(categoryService.assertKnownSlug),
   body('city').optional({ values: 'falsy' }).isString().trim().isLength({ min: 1, max: 120 })
     .withMessage('A city name is at most 120 characters.'),
+  /**
+   * ─────────────────────────────────────────────────────────────────────────
+   * THE VENUE, WHICH THIS ROUTE NEVER VALIDATED.
+   *
+   * `venueName` and `venueAddress` have been written straight into the insert
+   * since the route existed, with no rule of their own — so the only thing
+   * bounding them was the column, and the columns are bare TEXT. `city` was
+   * checked and its two neighbours were not, which is the kind of gap that
+   * survives because nothing about it looks wrong.
+   *
+   * The lengths match the wizard's `maxLength` and the PATCH side, so a value
+   * that can be typed into the form is a value this accepts.
+   * ─────────────────────────────────────────────────────────────────────────
+   */
+  body('venueName').optional({ values: 'falsy' }).isString().trim().isLength({ min: 1, max: 200 })
+    .withMessage('A venue name is at most 200 characters.'),
+  body('venueAddress').optional({ values: 'falsy' }).isString().trim().isLength({ min: 1, max: 300 })
+    .withMessage('An address is at most 300 characters.'),
+  /**
+   * Set by venue search when the organizer picked a suggestion; absent when
+   * they typed the venue themselves. Opaque upstream token, so the rule is a
+   * shape and a bound rather than a format.
+   */
+  body('venuePlaceId').optional({ values: 'falsy' }).isString().trim()
+    .matches(/^[A-Za-z0-9_-]{1,255}$/).withMessage('That venue reference is not valid.'),
+  /**
+   * BOTH OR NEITHER — `venue_coords_together` in the schema refuses half a pin,
+   * and a CHECK violation surfaces as a 500 rather than as a field error. The
+   * PATCH route has carried this pair rule since the columns existed; creation
+   * could not send coordinates at all until venue search started producing
+   * them, which is why the rule was only needed on one side until now.
+   */
+  body('venueLat').optional({ values: 'falsy' }).isFloat({ min: -90, max: 90 }),
+  body('venueLng').optional({ values: 'falsy' }).isFloat({ min: -180, max: 180 }),
+  body().custom((v) => {
+    const lat = v.venueLat !== undefined && v.venueLat !== null && v.venueLat !== '';
+    const lng = v.venueLng !== undefined && v.venueLng !== null && v.venueLng !== '';
+    if (lat !== lng) throw new Error('A map pin needs both a latitude and a longitude.');
+    return true;
+  }),
   body('feeBearer').optional().isIn(['buyer', 'organizer']),
   // Which of the organizer's payment methods the event takes. Checked against
   // what they have set up in the controller; absent means "none yet".

@@ -110,7 +110,12 @@ export default function OrganizerLayout({ children }) {
           workspace="Organizer"
           label="Organizer"
           home="/organizer"
-          groups={organizerNavGroups({ eventId, listingType, admissionType })}
+          // `canCreate` puts "Create event" in the sidebar as well as in the
+          // event bar — the bar's copy is icon-only on a phone, which is how it
+          // came to be reported as missing. See organizerNav.js.
+          groups={organizerNavGroups({
+            eventId, listingType, admissionType, canCreate: Boolean(user?.isOrganizer),
+          })}
           // Only an event in the URL changes the bar; a remembered one does not.
           tabKeys={organizerTabs({ eventId: pathEventId, listingType })}
           // Before the organization exists there is nothing to create an event

@@ -134,6 +134,19 @@ export function initialForm(type, organizer) {
     title: '', category: 'other', description: '',
     country, timezone: defaultTimeZone(country, browserZone()),
     startsAt: '', endsAt: '', venueName: '', venueAddress: '', city: '',
+    /**
+     * WRITTEN BY VENUE SEARCH, NEVER TYPED.
+     *
+     * Set together when an organizer picks a suggestion, and cleared together
+     * the moment they edit the venue name by hand — a place id pointing at a
+     * different venue from the one named in the field is worse than no place id,
+     * because it is a wrong answer that looks authoritative. `NewEventForm`
+     * owns that clearing rule.
+     *
+     * Empty strings rather than nulls so the draft survives a JSON round trip
+     * through sessionStorage with the same shape it had in memory.
+     */
+    venuePlaceId: '', venueLat: '', venueLng: '',
     admissionType: 'reserved',
     purchaseMode: 'seat_only', feeBearer: 'buyer', maxTicketsPerOrder: '10', allowTicketTransfer: true,
     paymentOption: organizer?.payments?.choices?.[0] || '',

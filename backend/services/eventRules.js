@@ -52,6 +52,15 @@ const ORGANIZER_EDITABLE = Object.freeze({
   // venue can be findable by name with no coordinates at all.
   venueLat: 'venue_lat',
   venueLng: 'venue_lng',
+  /**
+   * WHICH venue, as opposed to what it is called.
+   *
+   * Written by the wizard's venue search when an organizer picks a suggestion,
+   * and null when they typed it by hand — both are ordinary. The four display
+   * fields above stay the snapshot that gets rendered; this is the stable
+   * identity behind them. See the 20260920120000 migration.
+   */
+  venuePlaceId: 'venue_place_id',
   feeBearer: 'fee_bearer',                      // BRD §04
   maxTicketsPerOrder: 'max_tickets_per_order',  // BRD §11
   allowTicketTransfer: 'allow_ticket_transfer', // BRD §10

@@ -76,9 +76,11 @@ describe('organizer destinations', () => {
     // and two of them (`/events`, `/events/saved`) point at the storefront
     // rather than at its own prefix, which is exactly the kind of cross-surface
     // href that rots quietly when a route is renamed.
-    const items = organizerNavGroups({ eventId: EVENT }).flatMap((g) => g.items)
+    // `canCreate` / `canSell` on, so the two conditional destinations are
+    // covered as well — they are exactly the ones nothing else would catch.
+    const items = organizerNavGroups({ eventId: EVENT, canCreate: true }).flatMap((g) => g.items)
       .concat(adminNavGroups().flatMap((g) => g.items))
-      .concat(accountNavGroups().flatMap((g) => g.items));
+      .concat(accountNavGroups({ canSell: true }).flatMap((g) => g.items));
     for (const item of items) {
       const route = item.href.replace(EVENT, '[id]');
       const page = path.join(app, route, 'page.jsx');

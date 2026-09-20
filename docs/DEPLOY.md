@@ -187,6 +187,13 @@ BREVO_FROM_NAME=Eventsli
 
 GOOGLE_CLIENT_ID=652713460612-t771u7c092ci6i1dcilfcif8t63c3oe5.apps.googleusercontent.com
 
+# Venue search in the create-event wizard. OPTIONAL — blank means the venue
+# field stays a plain text input and nothing breaks. Server-side only: the
+# browser never talks to Google, it calls /api/v1/places on this API.
+# Google Cloud → billing on → enable "Places API (New)" → create a key →
+# restrict it to that one API and to this server's IP.
+GOOGLE_PLACES_API_KEY=
+
 # openssl rand -hex 32 — the SAME value goes in frontend/.env
 REVALIDATE_SECRET=
 
