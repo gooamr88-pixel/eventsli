@@ -10,10 +10,16 @@ import GateServiceWorker from './GateServiceWorker';
  * tablet was the one nobody updated. Here the door and the storefront share the
  * API, the error table, the money rules and the deploy.
  *
- * What it does NOT share is chrome. `SiteHeader` returns null under /gate and
- * `proxy.ts` exempts the whole prefix, because the gate's principal is a device
- * with a PIN — a staff session cookie must not open it, and its absence must
- * not redirect somebody to a page asking for an email address.
+ * What it does NOT share is NAVIGATION. `SiteHeader` returns null under /gate
+ * and `proxy.ts` exempts the whole prefix, because the gate's principal is a
+ * device with a PIN — a staff session cookie must not open it, and its absence
+ * must not redirect somebody to a page asking for an email address.
+ *
+ * It DOES share the brand, which it did not until 2026-10-12. "No site header"
+ * had been read as "no identity", so the door was the one screen in the product
+ * with no logo, no blue and none of the type the rest of it is set in — on the
+ * surface a guest leans over and reads. `GateHead` is the masthead without the
+ * navigation: the mark, the wordmark, and nothing to tap.
  *
  * The manifest is served from /public and linked HERE rather than from
  * `app/manifest.js`, which is the Next convention. The convention emits one
@@ -31,10 +37,20 @@ export const metadata = {
 };
 
 export const viewport = {
-  // The gate pins the dark palette (see `.fx-gate` in globals.css), so the
-  // browser furniture around it is told the same thing — otherwise the address
-  // bar on a light-themed tablet is a white band above a black screen.
-  themeColor: '#09090b',
+  /**
+   * THE SITE'S BLUE, not the old near-black.
+   *
+   * The gate used to pin the dark palette and told the browser furniture the
+   * same thing. It follows the site now (see `.fx-gate` in globals.css), so an
+   * address bar left at #09090b would be the one black band on an otherwise
+   * white screen — the exact mismatch this value exists to prevent, pointing
+   * the other way.
+   *
+   * A plain string rather than the root layout's light/dark pair: the gate has
+   * one appearance and does not follow the device, so offering the browser a
+   * choice would be describing a screen that cannot happen.
+   */
+  themeColor: '#2c62bd',
   width: 'device-width',
   initialScale: 1,
   /**

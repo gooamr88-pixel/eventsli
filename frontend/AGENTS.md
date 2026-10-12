@@ -323,10 +323,15 @@ request is sent.
 thin IndexedDB adapter under it. Put new queue behaviour in the pure file; it is
 where the tests are, and where an admission gets lost.
 
-Two smaller things worth knowing: `.fx-gate` pins the dark palette by riding on
-the existing `[data-theme="dark"]` selector rather than copying it, and
-`public/gate-sw.js` is registered with `scope: '/gate'` and in production only —
-it never touches the storefront, and it never caches `/api/`.
+Two smaller things worth knowing: **the gate follows the site's palette**
+(white, `--es-accent` blue, the wordmark in `GateHead`) — it used to pin the
+dark one by riding on the `[data-theme="dark"]` selector, and that was reversed
+on 2026-10-12 because the door was the only screen in the product with no
+Eventsli on it. `.fx-gate__lens` keeps the camera viewport black, which is the
+part of the dark design that was load-bearing; adding `.fx-gate` back to the
+dark selector in `globals.css` is the whole revert. And `public/gate-sw.js` is
+registered with `scope: '/gate'` and in production only — it never touches the
+storefront, and it never caches `/api/`.
 
 <!-- BEGIN:nextjs-agent-rules -->
 

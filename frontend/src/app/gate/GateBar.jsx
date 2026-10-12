@@ -1,6 +1,7 @@
 'use client';
 
 import { doorTime } from './scanOutcome';
+import GateHead from './GateHead';
 
 /**
  * The strip along the top: who this device is, whether it can reach the server,
@@ -19,37 +20,46 @@ export default function GateBar({
   const locked = status?.gate?.locked;
 
   return (
-    <header className="fx-stack fx-stack--sm fx-safe-top border-b border-border-base bg-surface p-3">
-      <div className="fx-row fx-row--between">
-        <div className="fx-min0">
-          <p className="fx-truncate text-ink">{session?.label || 'This device'}</p>
-          <p className="text-xs text-subtle">Eventsli Gate</p>
-        </div>
-
-        <div className="fx-row">
-          <span
-            className={`fx-row whitespace-nowrap rounded-full px-2.5 py-1 text-xs ${
-              online ? 'bg-success/15 text-success' : 'bg-warning/15 text-warning'
-            }`}
-          >
+    <div className="fx-stack fx-stack--sm border-b border-border-base bg-surface pb-3">
+      {/* THE LOGO, AND THE DEVICE'S NAME UNDER IT.
+          This bar used to carry "Eventsli Gate" as 12px subtle text beneath
+          the device label — the brand set smaller and fainter than the name of
+          a tablet. The masthead is shared with the sign-in screen now, so the
+          two halves of the gate open the same way. */}
+      <GateHead
+        right={(
+          <div className="fx-row">
             <span
-              aria-hidden
-              className={`h-2 w-2 rounded-full ${online ? 'bg-success' : 'bg-warning'}`}
-            />
-            {online ? 'Online' : 'Offline'}
-          </span>
+              className={`fx-row whitespace-nowrap rounded-full px-2.5 py-1 text-xs ${
+                online ? 'bg-success/15 text-success' : 'bg-warning/15 text-warning'
+              }`}
+            >
+              <span
+                aria-hidden
+                className={`h-2 w-2 rounded-full ${online ? 'bg-success' : 'bg-warning'}`}
+              />
+              {online ? 'Online' : 'Offline'}
+            </span>
 
-          <button
-            type="button"
-            onClick={onSignOut}
-            className="es-btn es-btn--ghost es-btn--sm whitespace-nowrap"
-          >
-            Sign out
-          </button>
-        </div>
+            <button
+              type="button"
+              onClick={onSignOut}
+              className="es-btn es-btn--ghost es-btn--sm whitespace-nowrap"
+            >
+              Sign out
+            </button>
+          </div>
+        )}
+      />
+
+      <div className="fx-row fx-min0 px-3">
+        {/* WHOSE DEVICE THIS IS, and for a staff sign-in whose shift. It is
+            the one thing on this bar that answers "am I scanning the right
+            door", so it is a line of its own rather than a caption. */}
+        <p className="fx-truncate text-sm text-muted">{session?.label || 'This device'}</p>
       </div>
 
-      <div className="fx-row fx-row--between">
+      <div className="fx-row fx-row--between px-3">
         <div className="fx-row fx-row--scroll" aria-label="Tonight's numbers">
           {stats && (
             <>
@@ -80,7 +90,7 @@ export default function GateBar({
       {/* BRD §18. A locked gate is the one refusal the door staff cannot
           resolve, so it is said here rather than only appearing scan by scan. */}
       {locked && (
-        <p role="alert" className="rounded-(--es-radius-md) bg-danger/15 px-3 py-2 text-sm text-danger">
+        <p role="alert" className="mx-3 rounded-(--es-radius-md) bg-danger/15 px-3 py-2 text-sm text-danger">
           Scanning is switched off for this event
           {status.gate.reason === 'commission_overdue'
             ? ' — the organizer has an overdue commission invoice.'
@@ -90,19 +100,19 @@ export default function GateBar({
       )}
 
       {lastSync && lastSync.ok === false && (
-        <p className="text-xs text-warning">
+        <p className="px-3 text-xs text-warning">
           The last upload did not finish. Scans are still held on this device and will be
           retried.
         </p>
       )}
 
       {lastSync?.ok && lastSync.total > 0 && (
-        <p className="text-xs text-subtle">
+        <p className="px-3 text-xs text-subtle">
           Uploaded {lastSync.total} at {doorTime(lastSync.at)}
           {lastSync.replayed > 0 && ` · ${lastSync.replayed} already known`}
         </p>
       )}
-    </header>
+    </div>
   );
 }
 

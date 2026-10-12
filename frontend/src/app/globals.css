@@ -487,29 +487,36 @@
    get away from. A theme nobody asked for that contradicts the brand is not a
    feature, it is a second design to maintain — and this one had no owner.
 
-   WHAT SURVIVES, and why it is not a contradiction: `.fx-gate` below. The
-   door scanner PINS dark on purpose. It is a tablet at a venue at night, held
-   by someone who did not choose the OS setting and cannot change it between
-   guests; a white screen there is a torch pointed at the operator. It is a
-   subtree, not a theme, and no storefront page can reach it.
+   WHAT SURVIVED, AND NO LONGER DOES: `.fx-gate`.
 
-   `:root[data-theme="dark"]` is kept on the same selector so the gate's
-   palette is declared once and `scripts/contrast.js` can still measure it.
-   Nothing sets that attribute any more — see the note in layout.jsx. */
+   The door scanner used to ride on the selector below and pin this palette for
+   itself. The argument was a good one — a tablet at a venue at night, held by
+   someone who did not choose the OS setting, and a white screen there is a
+   torch pointed at the operator.
 
-/* `.fx-gate` rides along on this selector rather than getting a copy of it.
+   REVERSED 2026-10-12, BY THE OWNER, and the reason is not a preference about
+   dark screens. The gate was the one surface in the product with no Eventsli
+   on it: no logo, no blue, none of the type or the cards that every other
+   screen is built from. It read as a different, rougher application that the
+   door staff had been handed — which is what it was, in the previous platform,
+   as a separate Flutter app. A door is also where the product meets the
+   guest's eye at the only moment they are standing still.
 
-   The gate is the one subtree that PINS a theme instead of following the
-   viewer's: a tablet at a venue door, at night, held by someone who did not
-   choose the OS setting and cannot change it between guests. A white screen
-   there is not a preference, it is a torch pointed at the operator.
+   So the gate follows the site now: white, `--es-accent` blue, the wordmark in
+   its header. What is kept from the old argument is kept where it was actually
+   load-bearing — the CAMERA VIEWPORT stays black (`.fx-gate__lens` below), and
+   so do the scan-result banners, because those are the parts an operator looks
+   at in the dark for eight hours.
 
-   Adding the class here costs one selector and keeps the dark palette declared
-   exactly twice — once for the media query, once for the explicit choice — so
-   a token added below can never be added to two of three copies. Custom
-   properties inherit, so declaring them on a descendant of :root works the
-   same as declaring them on :root; only the SUBTREE differs. */
-:root[data-theme="dark"], .fx-gate {
+   TO PUT IT BACK: add `.fx-gate` to the selector below. That is the whole
+   revert; nothing in the gate hard-codes a colour, every surface in it reads a
+   role token, which is why this was a one-line change in both directions.
+
+   `:root[data-theme="dark"]` keeps the block alive so `scripts/contrast.js`
+   still measures a dark palette and a token added to `:root` cannot silently
+   go missing from it. Nothing sets that attribute — see the note in
+   layout.jsx. */
+:root[data-theme="dark"] {
   --es-bg:            var(--es-ink-950);
   --es-bg-sunken:     var(--es-ink-975);
   /* Same lift as the media-query copy above. */
@@ -978,22 +985,73 @@
 }
 
 /* ── The gate ───────────────────────────────────────────────────────────
-   The tokens come from the dark block above; this is only the paint and
-   the shape.
+   The tokens are the SITE'S now — see the note above the dark block. This
+   is only the paint and the shape.
 
-   `color-scheme: dark` is not decoration either — it is what makes the
-   browser's own furniture (form controls, the scrollbar, the tap
-   highlight) dark inside this subtree. Without it a light-themed tablet
-   renders a white scrollbar down the side of a black screen.
+   `color-scheme: light` is not decoration: it is what makes the browser's
+   own furniture (form controls, the scrollbar, the tap highlight) match
+   the subtree. Without it a dark-themed tablet renders a black scrollbar
+   down the side of a white screen, and a PIN field with light-on-dark text
+   in a white box.
 
    100dvh, not 100vh: on a phone or tablet browser 100vh is the tallest
    the viewport ever gets, so the action bar sits under the address bar
    until the operator scrolls — at a door, with one hand. */
 .fx-gate {
-  color-scheme: dark;
+  color-scheme: light;
   background: var(--es-bg);
   color: var(--es-text);
   min-height: 100dvh;
+}
+
+/* THE ONE SURFACE THAT STAYS BLACK.
+
+   The camera viewport, and anything else the operator stares into rather
+   than reads. It is black because the picture is, and a light frame around
+   a live camera feed is a ring of glare at the edge of the thing being
+   aimed — which is the part of the old all-dark gate that was actually
+   doing work, rather than the part that was a theme.
+
+   `color-scheme: dark` is scoped here with it, so the camera's own
+   controls and any scrollbar inside the frame follow the frame. */
+.fx-gate__lens {
+  color-scheme: dark;
+  background: #000;
+  overflow: hidden;
+  border-radius: var(--es-radius-lg);
+}
+
+/* The gate's masthead. The same proportions as `SiteHeader`, because it is
+   the same product — the difference is that this one names the EVENT being
+   scanned rather than offering anywhere to go, since the whole point of a
+   gate session is that it opens one door and no other. */
+.fx-gate__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  /* The top inset is MAXed rather than added, and it is set here rather than
+     by `.fx-safe-top`. Both write `padding-top`, this rule is later in the
+     file, and at equal specificity later wins — so composing the two classes
+     would silently drop the notch inset and put the logo under a camera
+     cut-out. Left and right come from `.fx-safe-inset` on the gate wrapper,
+     which is why they are not repeated here. */
+  padding: max(var(--fx-safe-t), 0.75rem) 1rem 0.75rem;
+  background: var(--es-surface);
+  border-bottom: 1px solid var(--es-border);
+}
+
+/* The word beside the logo. Not part of the wordmark — "Eventsli Gate" is
+   not a brand, it is this screen saying which of our screens it is. */
+.fx-gate__badge {
+  flex: none;
+  border-radius: 999px;
+  background: var(--es-accent-wash);
+  color: var(--es-accent);
+  padding: 0.125rem 0.625rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════

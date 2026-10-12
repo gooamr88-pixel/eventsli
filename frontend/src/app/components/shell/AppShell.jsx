@@ -314,6 +314,33 @@ function NavItem({ item }) {
     );
   }
 
+  /**
+   * A DESTINATION THAT LEAVES THIS WORKSPACE OPENS BESIDE IT.
+   *
+   * Only "Open the scanner" uses this today. The gate is a different shell and
+   * a different principal — a device with a PIN, scoped to one event — and it
+   * is opened to work a door, not to be read and left. Navigating there in the
+   * same tab costs the organizer the dashboard they were running the night
+   * from, and getting back means signing the gate out.
+   *
+   * `rel` is not optional on a `_blank` link: without `noopener` the page that
+   * opens can reach back through `window.opener`.
+   */
+  if (item.targetBlank) {
+    return (
+      <a
+        href={item.href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="es-nav__item"
+        title={item.hint || undefined}
+      >
+        {inner}
+        <span className="sr-only"> (opens in a new tab)</span>
+      </a>
+    );
+  }
+
   return (
     <Link href={item.href} className="es-nav__item" aria-current={item.active ? 'page' : undefined}>
       {inner}

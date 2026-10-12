@@ -71,9 +71,24 @@ export default function Devices({ eventId }) {
         title="Scanning devices"
         lede="Each shared tablet or phone that scans at the door. Staff sign it in with the device ID and its PIN, so a shift change needs nothing."
         actions={!adding && (
-          <button type="button" className="es-btn es-btn--primary" onClick={() => setAdding(true)}>
-            Register a device
-          </button>
+          <div className="fx-row">
+            {/* THE WAY INTO THE SCANNER, beside the screen that registers the
+                devices for it. This page could create a device id and a PIN
+                and then said nothing about where to type them — `/gate/login`
+                had no link anywhere in the product and was reached by knowing
+                the path. */}
+            <a
+              href="/gate/login"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="es-btn es-btn--secondary"
+            >
+              Open the scanner
+            </a>
+            <button type="button" className="es-btn es-btn--primary" onClick={() => setAdding(true)}>
+              Register a device
+            </button>
+          </div>
         )}
       />
       <p className="text-sm text-muted">

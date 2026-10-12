@@ -55,21 +55,44 @@ async function quoteReservation(reservationId) {
     throw fail('EVENT_NOT_PUBLISHED', 'This event is no longer on sale.');
   }
 
+  /**
+   * ───────────────────────────────────────────────────────────────────────────
+   * `quantity` IS SELECTED, AND BOTH SUMS BELOW MULTIPLY BY IT.
+   *
+   * General admission made `reservation_items.quantity` meaningful. A seat line
+   * is always one ticket, so every sum written before GA existed ignored the
+   * column and was right by accident; a GA line is "4 × Early bird" in ONE row.
+   *
+   * This function kept ignoring it, which made it the one place where the
+   * quantity silently vanished — and it is the place that decides what Stripe
+   * charges. Four GA tickets were quoted, charged and settled as one. The
+   * database had it right the whole time (`hold_general` sums
+   * `unit_price_cents * quantity`); only the quote disagreed.
+   * ───────────────────────────────────────────────────────────────────────────
+   */
   const { data: items } = await supabase
     .from('reservation_items')
-    .select('id, seat_id, table_id, tier_id, unit_price_cents')
+    .select('id, seat_id, table_id, tier_id, unit_price_cents, quantity')
     .eq('reservation_id', reservationId);
 
   if (!items || items.length === 0) {
     throw fail('RESERVATION_NOT_FOUND', 'That hold has nothing in it.');
   }
 
-  const subtotalCents = items.reduce((sum, i) => sum + Number(i.unit_price_cents), 0);
+  const qtyOf = (i) => Math.max(1, Number(i.quantity) || 1);
+
+  const subtotalCents = items.reduce(
+    (sum, i) => sum + Number(i.unit_price_cents) * qtyOf(i), 0,
+  );
 
   // How many people this admits — a whole-table item is one line at one price
-  // but seats the whole table, and that is the number the buyer counts.
+  // but seats the whole table, and that is the number the buyer counts. A GA
+  // line admits its quantity: it has neither a seat nor a table behind it, so
+  // before this it counted as nobody and the checkout read "Admits 0 people".
   const tableIds = items.filter((i) => i.table_id).map((i) => i.table_id);
-  let admits = items.filter((i) => i.seat_id).length;
+  let admits = items
+    .filter((i) => i.seat_id || (!i.table_id && i.tier_id))
+    .reduce((n, i) => n + (i.seat_id ? 1 : qtyOf(i)), 0);
   if (tableIds.length > 0) {
     const { count } = await supabase
       .from('seats').select('id', { count: 'exact', head: true }).in('table_id', tableIds);

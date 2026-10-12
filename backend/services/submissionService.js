@@ -106,8 +106,37 @@ async function eventSetup(event) {
   };
 }
 
+/**
+ * Seats on this event's map that resolve to NO price — no override, and no
+ * ticket type attached.
+ *
+ * `tier_id` is the whole test. The foreign key is ON DELETE SET NULL, so a seat
+ * whose ticket type was deleted ends up here too rather than pointing at a row
+ * that is gone — which is precisely the case `tierController.remove` refuses to
+ * create, and this is the other half of that guard.
+ *
+ * `head: true` — the count is the entire answer, and a map can hold thousands
+ * of seats. Counting them is a cheap index read; fetching them is not.
+ */
+async function unpricedSeatCount(eventId) {
+  const { count, error } = await supabase
+    .from('seats')
+    .select('id, venue_maps!inner ( event_id )', { count: 'exact', head: true })
+    .eq('venue_maps.event_id', eventId)
+    .is('price_override_cents', null)
+    .is('tier_id', null);
+
+  // Fails OPEN. This is a completeness check on the organizer's own work, not
+  // a security boundary — `hold_seats` refuses the sale regardless — and a
+  // submission that cannot be made because a count query timed out is worse
+  // than one that goes to a human reviewer with an unpriced map.
+  if (error) return 0;
+  return count || 0;
+}
+
 /** The columns every check below reads. */
-const SUBMIT_SELECT = `id, organizer_id, status, listing_type, admission_type, starts_at, ends_at,
+const SUBMIT_SELECT = `id, organizer_id, status, listing_type, admission_type, purchase_mode,
+                       starts_at, ends_at,
                        accepts_stripe, accepts_manual, venue_name, venue_address, city`;
 
 /**
@@ -211,6 +240,50 @@ async function submissionBlockers({ event, userId }) {
     });
   }
 
+  /**
+   * ───────────────────────────────────────────────────────────────────────────
+   * EVERY SEAT ON THE MAP HAS A PRICE.
+   *
+   * `seat_price_cents` resolves a seat as `COALESCE(override, tier.price_cents,
+   * 0)`, so a seat with neither an override nor a ticket type is not an error
+   * anywhere — it is a seat that costs nothing. A map is drawn before the
+   * tiers are attached to it, which makes "no tier on any seat" the NORMAL
+   * state of a half-built event, and nothing between that state and a live
+   * checkout ever mentioned it.
+   *
+   * It reached production: an event with one $100 ticket type and thirty
+   * unpriced seats advertised "From $100" and sold every seat for $0.00.
+   * `hold_seats` now refuses the sale (20261012090000), but a refusal at the
+   * till is the organizer finding out from a buyer. This is where they find out
+   * from us, while the event is still theirs to fix.
+   *
+   * A seat priced at ZERO passes. Free events are a feature, and the
+   * distinction this draws is between "costs nothing" and "has no price".
+   *
+   * `table_only` IS EXEMPT, and it is not an edge case. In that mode the table
+   * is the product and carries its own `price_cents`; the chairs around it are
+   * what the buyer gets, not what they choose. Demanding a ticket type on each
+   * one would be demanding a price for something nobody can buy — and
+   * `hold_seats` refuses an individual-seat hold on a table_only event before
+   * it ever reaches the price.
+   * ───────────────────────────────────────────────────────────────────────────
+   */
+  const unpriced = event.purchase_mode === 'table_only'
+    ? 0
+    : await unpricedSeatCount(event.id);
+  if (unpriced > 0) {
+    blockers.push({
+      status: 400,
+      error: 'VALIDATION_ERROR',
+      message: `${unpriced} seat${unpriced === 1 ? '' : 's'} on your seating map `
+             + `${unpriced === 1 ? 'has' : 'have'} no price. Attach a ticket type to `
+             + `${unpriced === 1 ? 'it' : 'them'} on the seating map, or set a price `
+             + 'directly — otherwise those seats sell for nothing. A ticket type priced '
+             + 'at zero is fine; no ticket type at all is not.',
+      meta: { unpricedSeats: unpriced },
+    });
+  }
+
   return {
     blockers,
     termsId,
@@ -270,7 +343,10 @@ function priceLine({ label, kind, priceCents, detail, fees, stripe }) {
 async function preview({ eventId, userId }) {
   const { data: event, error } = await supabase
     .from('events')
-    .select(`id, slug, title, description, status, listing_type, admission_type, category,
+    // `purchase_mode` is read by `submissionBlockers` — a table_only event is
+    // exempt from the unpriced-seat check. Selected here because this payload
+    // is the one it is handed.
+    .select(`id, slug, title, description, status, listing_type, admission_type, purchase_mode, category,
              venue_name, venue_address, city, country, venue_lat, venue_lng,
              starts_at, ends_at, timezone, currency, cover_url,
              max_tickets_per_order, allow_ticket_transfer,

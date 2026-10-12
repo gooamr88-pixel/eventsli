@@ -216,6 +216,43 @@ export function organizerNavGroups({
         item('attendees', 'Door list', 'users', '/attendees'),
         item('staff', 'Door team', 'shield', '/staff'),
         item('devices', 'Scanning devices', 'scan', '/devices'),
+        /**
+         * ─────────────────────────────────────────────────────────────────
+         * THE SCANNER ITSELF, WHICH HAD NO LINK ANYWHERE IN THE PRODUCT.
+         *
+         * `/gate/login` existed, worked, and was reachable only by TYPING IT.
+         * The Door team screen printed the path as monospace text in a list of
+         * instructions — "on the phone they will scan with, they open
+         * /gate/login" — which is a URL an organizer reads out over the phone
+         * to someone standing at a door in the dark. Nothing else in the
+         * sidebar, the dashboard or the event pages pointed at it.
+         *
+         * An organizer can already sign in to it with their own account:
+         * `StaffSignIn` lists the events they may scan and labels their own
+         * "your event". So the whole feature was built, shipped, and hidden
+         * behind knowledge of a path.
+         *
+         * NOT `item()` — the gate is not under `/organizer/events/<id>`. It is
+         * its own principal: a device with a PIN, or a named person on the door
+         * team, scoped to ONE event. Which event that is gets chosen at
+         * sign-in, so this href carries no id and never varies. It sits in this
+         * group all the same, beside the door team and the devices it is the
+         * point of, rather than in the account group where it would read as a
+         * setting.
+         *
+         * `targetBlank` because it is a SHIFT, not a page. Leaving the
+         * dashboard to scan and losing the dashboard is how an organizer ends
+         * up with the door open on their only tab.
+         * ─────────────────────────────────────────────────────────────────
+         */
+        {
+          key: 'scan',
+          label: 'Open the scanner',
+          icon: 'scan',
+          href: '/gate/login',
+          targetBlank: true,
+          hint: 'Scan tickets at the door',
+        },
       ],
     },
     account,

@@ -157,6 +157,22 @@ async function listEvents(req, res, next) {
  * A failure here costs the price and nothing else — the card falls back to
  * "Get tickets" — because a listing that 500s over a label is worse than a
  * listing without one.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * HIDDEN TIERS ARE EXCLUDED, and leaving them in was a lie on the busiest
+ * screen in the product.
+ *
+ * `eventBySlug` filters `is_hidden` out of the tiers it publishes — a hidden
+ * tier is one only somebody with its direct link may buy, which is the whole
+ * point of the flag. This function did not, so a card could advertise "From
+ * $100" for a price that is not on the event page, is not offered at checkout,
+ * and that nobody arriving from that card can pay. It was found in production:
+ * an event whose only tier was hidden read "From $100" on the homepage and
+ * charged $0.00 at the till.
+ *
+ * The honest answer when every tier is hidden is NO PRICE — the card falls back
+ * to "Get tickets" — not the cheapest thing a buyer cannot have.
+ * ─────────────────────────────────────────────────────────────────────────────
  */
 async function lowestTierPrices(eventIds) {
   const lowest = new Map();
@@ -165,6 +181,7 @@ async function lowestTierPrices(eventIds) {
   const { data, error } = await supabase
     .from('ticket_tiers')
     .select('event_id, price_cents')
+    .eq('is_hidden', false)
     .in('event_id', eventIds);
   if (error) return lowest;
 

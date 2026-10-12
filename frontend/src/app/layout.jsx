@@ -165,8 +165,11 @@ export const viewport = {
  *
  * It read `es-theme` from localStorage and stamped `data-theme` onto <html>
  * before the first paint, so a chosen theme did not flash. There is no chosen
- * theme any more — the storefront is light, and the dark palette survives only
- * as `.fx-gate`, a subtree the door scanner pins for itself.
+ * theme any more — the whole product is light, including the door scanner,
+ * which pinned the dark palette for itself until 2026-10-12. The dark block in
+ * globals.css is now declared and applied to nothing: it is kept so
+ * `scripts/contrast.js` has a second palette to measure and so the gate's
+ * revert is one selector rather than forty tokens.
  *
  * Deleting it is not just tidying. A visitor who had picked dark before today
  * still has `es-theme: dark` in their browser, and leaving the script in place

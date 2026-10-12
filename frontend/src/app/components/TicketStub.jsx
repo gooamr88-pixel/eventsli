@@ -42,7 +42,22 @@ export default function TicketStub({ ticket, qrSrc, timeZone = null, prominent =
         {/* A plain img, not next/image: this is a same-origin API response with
             no fixed dimensions to optimise, and routing it through the image
             proxy would cache a credential. */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
+        {/* A MISSING CODE SAYS SO, rather than rendering as a broken image.
+            `<img src={undefined}>` draws the browser's torn-page glyph beside
+            the alt text, which on a ticket reads as "the site is broken" and
+            tells the holder nothing about what to do. This is not hypothetical:
+            it is what /t/[token] showed for every ticket it ever served, because
+            it was reading `qr` off an object that does not carry one. */}
+        {!qrSrc ? (
+          <div
+            className={`grid place-items-center rounded-(--es-radius-sm) border border-dashed border-(--es-border-strong) bg-surface p-3 text-center text-xs text-muted ${
+              prominent ? 'h-[min(288px,72vw)] w-[min(288px,72vw)]' : 'h-[132px] w-[132px]'
+            }`}
+          >
+            Code unavailable — reload, or ask the organizer to resend your ticket.
+          </div>
+        ) : (
+        /* eslint-disable-next-line @next/next/no-img-element */
         <img
           src={qrSrc}
           alt={`Entry code for ${seatLabel(ticket) || 'this ticket'}`}
@@ -57,6 +72,7 @@ export default function TicketStub({ ticket, qrSrc, timeZone = null, prominent =
               : 'h-[132px] w-[132px]'
           } ${used || void_ ? 'opacity-30' : ''}`}
         />
+        )}
         {(used || void_) && (
           <span className="absolute inset-0 grid place-items-center">
             <span className="rounded-(--es-radius-sm) bg-ink/85 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.09em] text-bg">

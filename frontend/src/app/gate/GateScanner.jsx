@@ -138,10 +138,11 @@ export default function GateScanner() {
             hidden alongside it. */}
         {scanning && (
           <div className="fx-stack fx-stack--sm">
-            <div
-              id={scanner.readerId}
-              className="overflow-hidden rounded-(--es-radius-lg) bg-black"
-            />
+            {/* `.fx-gate__lens` — the one surface in the gate that stays
+                black now that the rest of it follows the site. The frame
+                around a live camera feed is the part of the old all-dark
+                design that was doing work; see the note in globals.css. */}
+            <div id={scanner.readerId} className="fx-gate__lens" />
             <div className="fx-row fx-row--between">
               <button
                 type="button"

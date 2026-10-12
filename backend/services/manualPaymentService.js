@@ -72,8 +72,33 @@ async function priceManualSale({ eventId, seatIds, tableId }) {
     if ((rows || []).length !== seats.length) {
       throw fail('NOT_FOUND', 'Some of those seats are not part of this event.');
     }
+    /**
+     * AN UNPRICED SEAT IS REFUSED, the same as an unpriced table is six lines
+     * above — and until now only the table was.
+     *
+     * The `?? 0` that used to close this reduce is the JavaScript twin of the
+     * `COALESCE(..., 0)` at the bottom of `seat_price_cents`, and it has the
+     * same two meanings folded into one number: a seat that costs nothing, and
+     * a seat that was never given a price. On the door-sales screen the second
+     * one is an organizer recording a cash sale and being told the commission
+     * is zero, which is both a wrong number and a story their own books will
+     * disagree with.
+     *
+     * A ticket type priced at 0 still passes: `price_cents` is 0, not absent.
+     */
+    const unpriced = (rows || []).filter(
+      (s) => s.price_override_cents === null
+        && (s.ticket_tiers?.price_cents === null || s.ticket_tiers?.price_cents === undefined),
+    ).length;
+    if (unpriced > 0) {
+      throw fail('SEAT_NOT_PRICED',
+        `${unpriced} of those seats ${unpriced === 1 ? 'has' : 'have'} no price set. `
+        + 'Attach a ticket type to them on the seating map first — a type priced at zero '
+        + 'is fine, no type at all is not.');
+    }
+
     subtotalCents = (rows || []).reduce(
-      (sum, s) => sum + Number(s.price_override_cents ?? s.ticket_tiers?.price_cents ?? 0), 0,
+      (sum, s) => sum + Number(s.price_override_cents ?? s.ticket_tiers.price_cents), 0,
     );
   }
 

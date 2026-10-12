@@ -81,6 +81,12 @@ export const ERRORS = Object.freeze(Object.fromEntries([
     'Check the password with the organizer and try again.', 'retry'),
   E('TIER_SOLD_OUT', 'Sold out',
     'That ticket type has gone. Try another.'),
+  // The seats carry no price — an unfinished seat map, not a free event. The
+  // buyer is told what is true for them and nothing about the organizer's
+  // configuration: "this event has no prices set" invites them to keep trying
+  // and tells a stranger the event is broken.
+  E('SEAT_NOT_PRICED', 'Not on sale yet',
+    'These seats have not been put on sale. Try again shortly, or contact the organizer.'),
   E('PURCHASE_LIMIT_EXCEEDED', 'Too many tickets',
     'This event limits how many one order can hold. Reduce your selection.'),
   E('RESERVATION_EXPIRED', 'Your hold expired',

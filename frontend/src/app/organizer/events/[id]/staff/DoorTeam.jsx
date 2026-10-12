@@ -114,10 +114,37 @@ export default function DoorTeam({ eventId }) {
 
         <Panel title="How they sign in">
           <ol className="fx-stack fx-stack--sm list-decimal pl-5 text-sm text-muted">
-            <li>On the phone or tablet they will scan with, they open <span className="font-mono text-ink">/gate/login</span>.</li>
+            {/* THE PATH IS A LINK NOW, not monospace text in a sentence.
+                Step one of three was a URL to be read out loud to somebody
+                standing at a door, and it was the only reference to the
+                scanner anywhere in the organizer's half of the product. */}
+            <li>
+              On the phone or tablet they will scan with, they open{' '}
+              <a
+                href="/gate/login"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-mono text-accent underline"
+              >
+                eventsli.com/gate/login
+              </a>.
+            </li>
             <li>They choose <span className="text-ink">Sign in with my account</span> and pick this event.</li>
             <li>They stay signed in for one shift — sixteen hours — and then sign in again.</li>
           </ol>
+
+          {/* The organizer is on the door team of their own event by
+              definition — `StaffSignIn` lists it and labels it "your event" —
+              so the quickest path to a working scanner is their own phone.
+              Nothing in the product said so. */}
+          <a
+            href="/gate/login"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="es-btn es-btn--secondary mt-3 self-start"
+          >
+            Open the scanner on this device
+          </a>
         </Panel>
       </div>
 

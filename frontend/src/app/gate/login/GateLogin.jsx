@@ -7,6 +7,7 @@ import Field from '../../components/forms/Field';
 import FormError from '../../components/forms/FormError';
 import { Segmented } from '../../components/ui/Filters';
 import { signIn, useGateSession } from '../gateSession';
+import GateHead from '../GateHead';
 import StaffSignIn from './StaffSignIn';
 
 /**
@@ -68,10 +69,16 @@ export default function GateLogin() {
   }
 
   return (
-    <main className="fx-container fx-container--xs fx-gutter fx-section">
+    <>
+      {/* The masthead, which this screen did not have. It opened on the word
+          "Eventsli Gate" set in 13px letterspaced caps directly under the
+          address bar — a label where every other screen in the product has a
+          logo. */}
+      <GateHead />
+
+      <main className="fx-container fx-container--xs fx-gutter fx-section">
       <div className="fx-stack">
         <div className="fx-stack fx-stack--sm">
-          <p className="text-sm uppercase tracking-[0.18em] text-accent">Eventsli Gate</p>
           <h1 className="text-2xl text-ink">Start scanning</h1>
           <p className="max-w-[54ch] text-muted">
             Sign in a shared device with its PIN, or sign in as yourself if the organizer added you to the
@@ -126,14 +133,21 @@ export default function GateLogin() {
               </button>
             </form>
 
-            <div className="fx-stack fx-stack--sm rounded-(--es-radius-lg) border border-border-base bg-surface p-4">
-              <p className="text-sm text-ink">A device stays signed in for seven days.</p>
-              <p className="text-sm text-muted">
+            {/* A DETAILS, NOT A PERMANENT SLAB.
+                This was an always-open box of four lines of policy prose, and
+                on a phone it filled the screen under the two fields anybody
+                came here to use — visible in the shot that started this. It is
+                worth saying and it is not worth saying first. */}
+            <details className="es-card p-4">
+              <summary className="cursor-pointer text-sm text-ink">
+                A device stays signed in for seven days
+              </summary>
+              <p className="pt-2 text-sm text-muted">
                 Long enough for a festival weekend without a re-login between guests, short enough that a
                 tablet left in a taxi stops working before the next event. If one goes missing, the organizer
                 revokes it from the dashboard — nobody&apos;s account is touched and its scans are kept.
               </p>
-            </div>
+            </details>
 
             {error && describeError(error).code === 'RATE_LIMITED' && (
               <p className="text-sm text-muted">
@@ -144,6 +158,7 @@ export default function GateLogin() {
           </>
         )}
       </div>
-    </main>
+      </main>
+    </>
   );
 }

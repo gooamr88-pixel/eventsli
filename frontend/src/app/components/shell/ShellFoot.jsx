@@ -48,8 +48,9 @@ export default function ShellFoot({ links = [], user }) {
 /* THE THEME ROW WAS HERE, and it is gone with the theme.
 
    It cycled system / light / dark from the shell's footer. The product has one
-   palette now; the only dark surface left is `.fx-gate`, which the door
-   scanner pins for itself and nobody chooses. */
+   palette now, everywhere — the door scanner was the last holdout and stopped
+   being one on 2026-10-12. The only dark surface left is `.fx-gate__lens`, the
+   camera viewport, which is black because the picture is. */
 
 /** "Yousef Amr" → "YA"; an account with no name → the first letter of the email. */
 export function initials({ fullName, email } = {}) {
