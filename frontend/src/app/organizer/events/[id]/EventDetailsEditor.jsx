@@ -14,6 +14,7 @@ import { useOrganizer } from '../../../hooks/useOrganizer';
 import Link from 'next/link';
 import { Panel } from '../../../components/ui/Page';
 import Field, { SelectField, TextareaField } from '../../../components/forms/Field';
+import PlaceAutocomplete from '../../../components/forms/PlaceAutocomplete';
 import FormError from '../../../components/forms/FormError';
 import SubmitButton from '../../../components/forms/SubmitButton';
 import { useStepSave } from './BuildStep';
@@ -50,6 +51,30 @@ function fromEvent(event) {
     venueName: event.venue?.name || '',
     venueAddress: event.venue?.address || '',
     city: event.city || '',
+    /**
+     * WHERE THE VENUE ACTUALLY IS — three fields this form did not have.
+     *
+     * The creation wizard has searched Google Places since 20260920120000 and
+     * writes `venuePlaceId` plus coordinates. THIS form, which is where a venue
+     * is edited for the rest of the event's life, had three plain text boxes
+     * and sent no pin at all. So the only way to get coordinates onto an event
+     * was to get them right at creation and never touch the venue again; any
+     * later correction silently left the event unpinned.
+     *
+     * The consequence is "events near me". `/public/events/near` measures to
+     * `venue_lat/lng` when they exist and falls back to a city centroid when
+     * they do not — and every published event on the platform is NULL, which is
+     * why proximity has only ever been accurate to a whole city.
+     *
+     * The API already accepted all three on PATCH (`ORGANIZER_EDITABLE` in
+     * eventRules.js names venueLat, venueLng and venuePlaceId). Nothing in the
+     * backend had to change; the form simply never sent them.
+     */
+    venuePlaceId: event.venuePlaceId || '',
+    venueLat: event.venueLocation?.lat === undefined || event.venueLocation?.lat === null
+      ? '' : String(event.venueLocation.lat),
+    venueLng: event.venueLocation?.lng === undefined || event.venueLocation?.lng === null
+      ? '' : String(event.venueLocation.lng),
     timezone: event.timezone,
     startsAt: toLocalInput(event.startsAt, event.timezone),
     endsAt: toLocalInput(event.endsAt, event.timezone),
@@ -96,6 +121,45 @@ export default function EventDetailsEditor({ event, onSaved }) {
 
   const live = event.status === 'published' || event.status === 'suspended';
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
+
+  /**
+   * TYPING THE VENUE NAME DROPS THE CHOSEN PLACE — the wizard's rule, for the
+   * same reason it exists there.
+   *
+   * `PlaceAutocomplete` is a text input, so the name can be edited after a
+   * suggestion was picked, and the moment it is, the pin beside it describes a
+   * DIFFERENT building. A stale pin is worse than none: it puts the map on the
+   * public event page at the wrong address, confidently, with nothing on screen
+   * saying the two ever disagreed. Clearing costs a re-pick; keeping costs
+   * somebody arriving at the wrong door.
+   *
+   * The address and the city are deliberately left alone. They are free text an
+   * organizer may have corrected on purpose — a suite number, a building name
+   * Google spells differently — and wiping them on a keystroke in another field
+   * would delete work nobody asked to delete.
+   */
+  const setVenueName = (venueName) => setForm((f) => (
+    f.venuePlaceId || f.venueLat !== '' || f.venueLng !== ''
+      ? { ...f, venueName, venuePlaceId: '', venueLat: '', venueLng: '' }
+      : { ...f, venueName }
+  ));
+
+  /** A chosen suggestion, resolved. `null` is a lookup that failed after the
+   *  name was already in the field: nothing is overwritten, and the event keeps
+   *  whatever it had — which is the state every event was in before this. */
+  const applyPlace = (place) => {
+    if (!place) return;
+    setForm((f) => ({
+      ...f,
+      venueName: place.name || f.venueName,
+      venueAddress: place.address || f.venueAddress,
+      city: place.city || f.city,
+      venuePlaceId: place.placeId || '',
+      // Both or neither, always — `venue_coords_together` refuses half a pin.
+      venueLat: place.lat === null || place.lat === undefined ? '' : String(place.lat),
+      venueLng: place.lng === null || place.lng === undefined ? '' : String(place.lng),
+    }));
+  };
 
   const original = fromEvent(event);
   const changedKeys = Object.keys(form).filter((k) => form[k] !== original[k]);
@@ -167,8 +231,34 @@ export default function EventDetailsEditor({ event, onSaved }) {
       if (key === 'startsAt' || key === 'endsAt' || key === 'timezone') continue;
       if (key === 'maxTicketsPerOrder') body.maxTicketsPerOrder = perOrder;
       else if (key === 'venueName' || key === 'venueAddress' || key === 'city') body[key] = form[key].trim() || null;
+      /**
+       * THE PIN TRAVELS AS A NUMBER OR AS NULL, never as "".
+       *
+       * The form holds coordinates as strings so the inputs and the "changed"
+       * comparison stay uniform, but an empty string is not a coordinate —
+       * `venue_coords_together` in the database refuses half a pin, and the
+       * create path already sends null for a blank. Sending "" here would make
+       * `Number('')` zero: a venue off the coast of Africa.
+       */
+      else if (key === 'venueLat' || key === 'venueLng') {
+        body[key] = form[key] === '' ? null : Number(form[key]);
+      } else if (key === 'venuePlaceId') body[key] = form[key] || null;
       else if (typeof form[key] === 'string') body[key] = form[key].trim();
       else body[key] = form[key];
+    }
+
+    /**
+     * BOTH COORDINATES MOVE TOGETHER, even when only one of them "changed".
+     *
+     * Picking a new venue writes lat and lng in one go, but a re-pick that
+     * happens to land on the same latitude would mark only `venueLng` as
+     * changed — and a PATCH carrying one half of a pin is exactly what the
+     * database constraint exists to refuse. Cheap to send both; expensive to
+     * debug the 400 that follows not sending them.
+     */
+    if ('venueLat' in body || 'venueLng' in body) {
+      body.venueLat = form.venueLat === '' ? null : Number(form.venueLat);
+      body.venueLng = form.venueLng === '' ? null : Number(form.venueLng);
     }
     // A zone change re-anchors both times, even if their wall-clock text is the same.
     if (datesMoved) {
@@ -252,9 +342,15 @@ export default function EventDetailsEditor({ event, onSaved }) {
         {!live && (
           <>
             <div className="fx-grid fx-grid--2">
-              <Field label="Venue name" name="venueName" required={!venueOptional} maxLength={200}
+              {/* VENUE SEARCH, as in the creation wizard — which had it and
+                  this form did not, so editing a venue after creation was the
+                  one path that could only ever produce an unpinned event.
+                  Typing a venue Google has never heard of still works: it is a
+                  text input first and a combobox second. */}
+              <PlaceAutocomplete label="Venue name" name="venueName" maxLength={200}
+                country={event.country} required={!venueOptional}
                 {...venueNote(form.venueName, 'Add the venue name.')}
-                value={form.venueName} onChange={set('venueName')} />
+                value={form.venueName} onChange={setVenueName} onPlace={applyPlace} />
               <Field label="Street address" name="venueAddress" required={!venueOptional} maxLength={300}
                 {...venueNote(form.venueAddress, 'Add the street address.')}
                 value={form.venueAddress} onChange={set('venueAddress')} />
@@ -268,6 +364,17 @@ export default function EventDetailsEditor({ event, onSaved }) {
                 {...venueNote(form.city, 'Add the city.')}
                 value={form.city} onChange={set('city')} />
             </div>
+
+            {/* Whether this event has a pin, said plainly. Without it the only
+                way to know is to publish and look at whether the map renders —
+                and the difference between "near me" measuring to this building
+                or to the middle of the city is invisible until somebody is
+                standing outside the wrong one. */}
+            <p className="text-sm text-muted">
+              {form.venueLat && form.venueLng
+                ? 'This venue is pinned on the map — “events near me” measures to the building.'
+                : 'No pin yet. Pick the venue from the suggestions above and “events near me” will measure to the building instead of the middle of the city.'}
+            </p>
 
             <div className="fx-grid fx-grid--2">
               <Field label="Starts" type="datetime-local" name="startsAt" required

@@ -102,25 +102,92 @@ function isEnabled() {
  */
 const TIMEOUT_MS = 4000;
 
-async function call(path, { method = 'GET', body, fieldMask }) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+/**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * IPv4, FORCED — and this is a key restriction, not a network preference.
+ *
+ * A Places API key is normally locked to the caller's IP, because the key lives
+ * on this server and never reaches a browser. The box has both an A and an AAAA
+ * address, and Node's connector runs Happy Eyeballs: it races both families and
+ * uses whichever answers first, which on this host is IPv6.
+ *
+ * Google then sees a source address that is not the one on the key's allow list
+ * and refuses with `API_KEY_IP_ADDRESS_BLOCKED` — naming the IPv6 address. The
+ * symptom is indistinguishable from "no suggestions": the route turns every
+ * upstream failure into an empty list on purpose, so venue search simply does
+ * nothing, silently, on a deployment where the key is present and valid.
+ *
+ * Pinning the family here means Google always sees the IPv4 address, which is
+ * the one an operator reads off `ifconfig.me` and pastes into the console.
+ *
+ * SCOPED TO THIS SERVICE, deliberately. The alternative — `--dns-result-order`
+ * or `/etc/gai.conf` — changes resolution for the whole process or the whole
+ * machine, and this box is shared with two other applications (see
+ * ecosystem.config.js). Nothing else here calls an IP-restricted API, so
+ * nothing else should pay for this.
+ *
+ * `node:https` rather than `fetch` for the same reason: forcing the family
+ * through `fetch` needs an undici `Agent`, and undici is not a dependency of
+ * this project — it is bundled inside Node and not importable. The built-in
+ * client takes `family` directly.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+const https = require('node:https');
 
+const agent = new https.Agent({
+  family: 4,
+  keepAlive: true,
+  // A handful of autocompletes per keystroke, from one process. Capped so a
+  // burst of typing cannot hold open more sockets than Google wants to see.
+  maxSockets: 8,
+});
+
+/** `fetch`'s shape, over `node:https`: `{ ok, status, text }`. */
+function requestJson(url, { method, headers, body }) {
+  return new Promise((resolve, reject) => {
+    const req = https.request(
+      url,
+      { method, headers, agent, family: 4, timeout: TIMEOUT_MS },
+      (res) => {
+        let text = '';
+        res.setEncoding('utf8');
+        res.on('data', (chunk) => { text += chunk; });
+        res.on('end', () => resolve({
+          ok: res.statusCode >= 200 && res.statusCode < 300,
+          status: res.statusCode,
+          text,
+        }));
+      },
+    );
+
+    // `timeout` only fires the event; it does not end the request. Without the
+    // destroy this would sit open past the deadline it was given.
+    req.on('timeout', () => req.destroy(new Error('places request timed out')));
+    req.on('error', reject);
+    if (body) req.write(body);
+    req.end();
+  });
+}
+
+async function call(path, { method = 'GET', body, fieldMask }) {
   try {
-    const response = await fetch(`${API_ROOT}${path}`, {
+    const payload = body ? JSON.stringify(body) : null;
+    const response = await requestJson(`${API_ROOT}${path}`, {
       method,
-      signal: controller.signal,
       headers: {
         'Content-Type': 'application/json',
         // The key travels in a header, never in the query string: a URL ends up
         // in access logs and error reports, and a header does not.
         'X-Goog-Api-Key': key(),
-        'X-Goog-FieldMask': fieldMask,
+        // Omitted rather than sent as the string "undefined", which is what a
+        // header object with an undefined value serialises to.
+        ...(fieldMask ? { 'X-Goog-FieldMask': fieldMask } : {}),
+        ...(payload ? { 'Content-Length': Buffer.byteLength(payload) } : {}),
       },
-      ...(body ? { body: JSON.stringify(body) } : {}),
+      body: payload,
     });
 
-    const text = await response.text();
+    const { text } = response;
     const data = text ? JSON.parse(text) : {};
 
     if (!response.ok) {
@@ -143,10 +210,22 @@ async function call(path, { method = 'GET', body, fieldMask }) {
 
     return data;
   } catch (err) {
-    if (err.code) throw err;
-    // An abort and a DNS failure are the same thing to the caller: no
+    /**
+     * ONLY OUR OWN CODE IS RE-THROWN, and the test used to be `if (err.code)`.
+     *
+     * That was correct against `fetch`, whose failures are a bare TypeError
+     * with no `code` — so a dropped connection fell through to the wrapper
+     * below and became "no suggestions". `node:https` errors DO carry a code
+     * (`ECONNREFUSED`, `ETIMEDOUT`, `ENOTFOUND`), so the old test would have
+     * re-thrown them untouched; the route only recognises `PLACES_UPSTREAM`,
+     * and everything else reaches the error handler as a 500. A venue field
+     * that 500s because Google was briefly unreachable is exactly the failure
+     * this whole path is written to avoid.
+     */
+    if (err.code === 'PLACES_UPSTREAM') throw err;
+    // A timeout and a DNS failure are the same thing to the caller: no
     // suggestions. Neither is worth a 500 on a page that works without them.
-    logger.error({ err: err.message }, 'places request errored');
+    logger.error({ err: err.message, code: err.code || null }, 'places request errored');
     const wrapped = new Error('Venue search is unavailable right now.');
     wrapped.code = 'PLACES_UPSTREAM';
     throw wrapped;

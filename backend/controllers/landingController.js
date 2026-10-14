@@ -209,40 +209,128 @@ async function eventsNear(req, res, next) {
       });
     }
 
+    /**
+     * ───────────────────────────────────────────────────────────────────────
+     * THE EVENT'S OWN COORDINATES COME FIRST, AND THEY WERE NOT READ AT ALL.
+     *
+     * This selected `city, country` and nothing else, so every distance in the
+     * answer was measured to a CITY CENTROID out of a hardcoded table of 146
+     * names. Two things followed, and both were reported as "near me does not
+     * work":
+     *
+     *   · ACCURACY. `events.venue_lat/lng` exist, are returned by
+     *     `/public/events/:slug` as `venueLocation`, and draw the map on the
+     *     event page — the exact spot was already known and this threw it away.
+     *     A venue at one end of a large city and a visitor at the other were
+     *     told "0 km".
+     *
+     *   · VISIBILITY. An event with real coordinates does not need a city to
+     *     be found at all, and `.not('city', 'is', null)` dropped it anyway.
+     *
+     * The city table stays as the FALLBACK. Most organizers type a city and
+     * never pin a venue, and a centroid is a good answer to "which city" — it
+     * is only a bad answer to "how far".
+     *
+     * WHAT THIS DOES NOT FIX, and it has to be said here because the symptom
+     * looks identical: an event with NO city AND NO coordinates cannot be
+     * placed by anything. Three published events are in that state today. The
+     * cure for those is data, not code — see `submissionBlockers`, which has
+     * required a city since before this was written, and the events that
+     * predate it.
+     * ───────────────────────────────────────────────────────────────────────
+     */
     const { data, error } = await supabase
       .from('events')
-      .select('city, country')
+      .select('city, country, venue_lat, venue_lng')
       .eq('status', 'published')
-      .not('city', 'is', null)
       .gte('ends_at', new Date().toISOString())
       .limit(5000);
 
     if (error) throw new Error(error.message);
 
-    // Group by city first, so distance is computed once per place rather than
-    // once per event — and so the answer counts what a visitor cares about.
+    /**
+     * Grouped by city, because that is what the caller renders and what a
+     * visitor picks — but the DISTANCE of a group is the distance to its
+     * CLOSEST event, not to the middle of the city.
+     *
+     * An event with coordinates contributes its own point. One without falls
+     * back to the centroid. A city holding both reports whichever is nearer,
+     * which is the honest reading of "the closest thing on in this city".
+     *
+     * A GROUP IS STILL KEYED BY CITY NAME, including for an event that has
+     * coordinates but no city — it is counted in `unmapped` rather than given
+     * a nameless group. `places[]` is a picker: the client renders
+     * `?city=<name>` links from it, so an entry with a null name would render
+     * the word "null" and link to a filter that matches nothing. Being honest
+     * that the answer is partial is better than a row nobody can use.
+     */
     const byKey = new Map();
+    const cityGroups = [];       // groups that may still need the centroid
     for (const row of data || []) {
       const city = String(row.city || '').trim();
+      const hasPoint = row.venue_lat !== null && row.venue_lat !== undefined
+        && row.venue_lng !== null && row.venue_lng !== undefined;
+
+      // Nothing to place it by, named or measured.
       if (!city) continue;
+
       const key = `${city.toLowerCase()}|${row.country}`;
       const seen = byKey.get(key);
-      if (seen) seen.events += 1;
-      else byKey.set(key, { city, country: row.country, events: 1 });
+      const entry = seen || {
+        city,
+        country: row.country,
+        events: 0,
+        // Infinity so the first real measurement always wins.
+        best: Infinity,
+        anyPoint: false,
+      };
+      entry.events += 1;
+
+      if (hasPoint) {
+        entry.anyPoint = true;
+        const d = geo.distanceKm(lat, lng, Number(row.venue_lat), Number(row.venue_lng));
+        if (d < entry.best) entry.best = d;
+      }
+
+      if (!seen) {
+        byKey.set(key, entry);
+        cityGroups.push(entry);
+      }
     }
+
+    // Events with no city at all. They cannot appear in a city picker, but the
+    // count is what lets the dialog say the answer is incomplete.
+    const cityless = (data || []).filter((r) => !String(r.city || '').trim()).length;
 
     if (byKey.size === 0) {
-      return sendOk(res, { places: [], within: [], nearest: null, unmapped: 0, radiusKm });
+      return sendOk(res, {
+        places: [], within: [], nearest: null, unmapped: cityless, radiusKm,
+      });
     }
 
-    let unmapped = 0;
+    // The centroid fallback, for groups where no event carried a point of its
+    // own. Looked up once per city, as before.
+    for (const entry of cityGroups) {
+      if (entry.best !== Infinity) continue;
+      const known = geo.locate(entry.city, entry.country);
+      if (known) entry.best = geo.distanceKm(lat, lng, known.lat, known.lng);
+    }
+
+    let unmapped = cityless;
     const places = [];
-    for (const place of byKey.values()) {
-      const known = geo.locate(place.city, place.country);
-      if (!known) { unmapped += 1; continue; }
+    for (const entry of byKey.values()) {
+      // Still unplaceable: no coordinates, and a city name the table does not
+      // hold. Counted so the dialog can say the answer is partial.
+      if (entry.best === Infinity) { unmapped += 1; continue; }
       places.push({
-        ...place,
-        distanceKm: Math.round(geo.distanceKm(lat, lng, known.lat, known.lng)),
+        city: entry.city,
+        country: entry.country,
+        events: entry.events,
+        distanceKm: Math.round(entry.best),
+        // Lets the client distinguish "12km from the door" from "12km from the
+        // middle of a city we guessed". Nothing renders it yet; it is here so
+        // that when something does, the answer is already in the payload.
+        precise: entry.anyPoint,
       });
     }
 
