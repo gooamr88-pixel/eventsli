@@ -13,29 +13,33 @@ export const ONBOARDING_STEPS = [
 
 export function OnboardingProgress({ current }) {
   const index = Math.max(0, ONBOARDING_STEPS.findIndex((s) => s.key === current));
-  const step = ONBOARDING_STEPS[index];
   return (
     <div className="es-wizard__progress">
       <p className="es-wizard__count">
         <span>Step {index + 1} of {ONBOARDING_STEPS.length}</span>
-        <span className="text-ink">{step.label}</span>
+        <span className="text-ink">Getting set up</span>
       </p>
-      <div
-        className="es-wizard__bar"
-        role="progressbar"
-        aria-valuemin={1}
-        aria-valuemax={ONBOARDING_STEPS.length}
-        aria-valuenow={index + 1}
-        aria-label={`Setup step ${index + 1} of ${ONBOARDING_STEPS.length}: ${step.label}`}
-      >
-        {ONBOARDING_STEPS.map((s, i) => (
-          <span
-            key={s.key}
-            className="es-wizard__seg"
-            data-state={i < index ? 'done' : i === index ? 'current' : 'upcoming'}
-          />
-        ))}
-      </div>
+      {/* The same named stepper the create-event wizard uses, so the road to a
+          first event reads as one sequence rather than three unrelated pages.
+          No buttons: the earlier steps are on other routes and are finished. */}
+      <ol className="es-wizard__steps" aria-label="Getting set up — steps">
+        {ONBOARDING_STEPS.map((s, i) => {
+          const state = i < index ? 'done' : i === index ? 'current' : 'upcoming';
+          return (
+            <li key={s.key} className="es-wizard__step" data-state={state} aria-current={state === 'current' ? 'step' : undefined}>
+              <span className="es-wizard__steplink">
+                <span aria-hidden className="es-wizard__seg" data-state={state} />
+                <span className="es-wizard__steplabel">
+                  {s.label}
+                  <span className="sr-only">
+                    {state === 'done' ? ' — done' : state === 'current' ? ' — this step' : ' — still to come'}
+                  </span>
+                </span>
+              </span>
+            </li>
+          );
+        })}
+      </ol>
     </div>
   );
 }

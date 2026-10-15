@@ -217,7 +217,14 @@ export default async function RootLayout({ children }) {
       </head>
       <body>
         <SiteHeader />
-        {children}
+        {/* The target of the public header's "Skip to content". The dashboard
+            shells have their own (#app-main); the storefront, the event pages
+            and the checkout had none, so a keyboard user tabbed through the
+            whole masthead on every page. `tabIndex={-1}` so following the link
+            moves focus here, not only the scroll position. */}
+        <div id="site-content" tabIndex={-1} className="outline-none">
+          {children}
+        </div>
         <SiteFooter />
       </body>
     </html>

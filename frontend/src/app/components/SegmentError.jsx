@@ -53,7 +53,17 @@ export default function SegmentError({
     console.error(error);
   }, [error]);
 
-  const { title, recovery, tone } = describeBoundaryError(error);
+  const { code, title, recovery, tone } = describeBoundaryError(error);
+  /**
+   * ONE SENTENCE, NOT THE SAME ONE TWICE. The generic recovery line already
+   * begins "This part of the page could not load", so with an `area` in front
+   * it read "This part of your console could not be shown. This part of the
+   * page could not load. Trying again usually works." For an unmapped error the
+   * area carries the subject; a mapped code keeps its own specific sentence.
+   */
+  const sentence = code === 'ERROR'
+    ? `${area} could not load. Trying again usually works.`
+    : `${area} could not be shown. ${recovery}`;
 
   return (
     // `role="alert"` so the failure is announced rather than silently swapped
@@ -65,9 +75,7 @@ export default function SegmentError({
           {tone === 'fatal' ? 'Stopped here' : 'Something broke'}
         </p>
         <h1 className="text-2xl">{title}</h1>
-        <p className="text-muted">
-          {area} could not be shown. {recovery}
-        </p>
+        <p className="text-muted">{sentence}</p>
 
         {/* Before the buttons, not under them. It is the reassurance that
             decides whether the reader presses one of them at all. */}

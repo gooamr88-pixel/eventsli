@@ -1,5 +1,6 @@
 'use client';
 
+import { usePathname } from 'next/navigation';
 import AppShell from '../components/shell/AppShell';
 import ShellFoot from '../components/shell/ShellFoot';
 import WorkspaceSwitcher from '../components/shell/WorkspaceSwitcher';
@@ -26,7 +27,59 @@ import { adminNavGroups, ADMIN_TABS } from './nav/adminNav';
  * ─────────────────────────────────────────────────────────────────────────────
  */
 export default function AdminLayout({ children }) {
-  const { user, loading } = useAuth();
+  const { user, loading, unknown, retry } = useAuth();
+  const pathname = usePathname();
+
+  /**
+   * WE COULD NOT ASK — WHICH IS NOT "NO".
+   *
+   * This branch is the fix for the console that "sometimes is not there". A
+   * failed `/auth/me` used to come back as no user at all, so the check below
+   * told a super admin the console was not for them. When the answer is
+   * unknown, say so and offer to ask again; `useAuth` is already retrying, and
+   * the console appears the moment one of those succeeds.
+   */
+  if (unknown) {
+    return (
+      <main className="fx-section fx-section--sm">
+        <div className="fx-container fx-container--md fx-gutter">
+          <Empty
+            title="We could not confirm your access just now."
+            hint="This is usually a brief connection problem, not a change to your account. We will keep trying."
+            action={(
+              <button type="button" className="es-btn es-btn--secondary es-btn--sm" onClick={() => retry()}>
+                Try again
+              </button>
+            )}
+          />
+        </div>
+      </main>
+    );
+  }
+
+  /**
+   * SIGNED OUT IS NOT "NOT STAFF".
+   *
+   * A session that ended — revoked on another device, expired, or signed out
+   * everywhere — still has its cookie, so proxy.ts lets the page render, and
+   * `/auth/me` then answers 401. That fell into the refusal below and told a
+   * super admin their account "does not have admin permissions". Their account
+   * is fine; their session is not. Say that, and carry them back here.
+   */
+  if (!loading && !user) {
+    const next = encodeURIComponent(pathname || '/admin/overview');
+    return (
+      <main className="fx-section fx-section--sm">
+        <div className="fx-container fx-container--md fx-gutter">
+          <Empty
+            title="Your session has ended."
+            hint="Sign in again to get back to the console."
+            action={{ href: `/login?reason=expired&next=${next}`, label: 'Sign in' }}
+          />
+        </div>
+      </main>
+    );
+  }
 
   /**
    * PERMISSION DENIED, AND IT SENDS THEM SOMEWHERE THEY CAN ACTUALLY BE.

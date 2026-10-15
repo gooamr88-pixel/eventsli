@@ -26,8 +26,11 @@ const { verifyTablePassword } = require('../../services/tableAccessService');
 const stamp = Date.now();
 const ids = {};
 
+// `seatPriceCents` because an unpriced seat cannot be held at all
+// (20261012090000_unpriced_seats_cannot_be_sold) — without it the hold in the
+// refusal tests below is refused for the wrong reason.
 const table = (over = {}) => ({
-  label: 'T1', seatCount: 4, priceCents: 20000, isPrivate: false,
+  label: 'T1', seatCount: 4, priceCents: 20000, seatPriceCents: 5000, isPrivate: false,
   position: { x: 10, y: 20, rotation: 0 }, shape: 'round', ...over,
 });
 

@@ -1,6 +1,9 @@
 import { defaultTimeZone } from '../../../lib/timezones';
 import { browserZone } from '../../../lib/eventTime';
 import { DEFAULT_COUNTRY } from '../../../lib/markets';
+// The pin's rules live with the fields that collect it, so the wizard and the
+// details editor refuse exactly the same shapes.
+import { pinProblem } from '../../../components/forms/VenuePin';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -44,10 +47,27 @@ export const STEP_TEXT = {
   review: ['Check and create', 'It is saved as a private draft. Nothing is public until Eventsli approves it.'],
 };
 
+/**
+ * Each step's name in the stepper, one short word.
+ *
+ * The progress bar was five unlabelled segments under "Step 2 of 5", so an
+ * organizer could count where they were but not see what was done or what was
+ * still to come — and a finished step could only be reached by pressing Back
+ * once per step. The stepper names every one, and a finished one is a button.
+ * One word because five of them share a 288px row on a 320px phone.
+ */
+export const STEP_SHORT = {
+  basics: 'Basics',
+  when: 'When',
+  tickets: 'Tickets',
+  payment: 'Payment',
+  review: 'Review',
+};
+
 /** Which fields each step reports on. */
 export const STEP_FIELDS = {
   basics: ['title'],
-  when: ['startsAt', 'endsAt', 'venueName', 'venueAddress', 'city'],
+  when: ['startsAt', 'endsAt', 'venueName', 'venueAddress', 'city', 'venuePin'],
   tickets: ['maxTicketsPerOrder'],
   payment: ['paymentOption'],
   review: [],
@@ -204,6 +224,21 @@ export function problemsFor({ form, startIso, endIso, choices }) {
       ? 'Add the street address before you submit this event.' : null,
     city: form.city.trim().length < 2
       ? 'Add the city — it is how buyers find this event near them.' : null,
+    /**
+     * THE PIN, WHICH BLOCKS WHEN IT IS HALF WRITTEN AND NEVER WHEN IT IS
+     * ABSENT.
+     *
+     * Coordinates are optional: most events are found by city, and a venue
+     * Google cannot place is still a venue. But `venue_coords_together` is a
+     * CHECK constraint, so ONE of the two is refused by the database — and
+     * that refusal reaches an organizer as an opaque error on save rather
+     * than as a sentence under the box they half-filled.
+     *
+     * Not in `SUBMIT_ONLY_FIELDS`: those are things that must be true before
+     * going on sale and may be blank in a draft. This is different in kind —
+     * it is not incomplete, it is invalid, and it cannot be stored at all.
+     */
+    venuePin: pinProblem({ lat: form.venueLat, lng: form.venueLng }),
     maxTicketsPerOrder: !(Number.isInteger(perOrder) && perOrder >= 1 && perOrder <= 100)
       ? 'Between 1 and 100.' : null,
     paymentOption: choices.length > 0 && !choices.includes(form.paymentOption)

@@ -10,6 +10,7 @@ import { readZones, writeZones } from '../../../../components/seating/layoutZone
 import { Loading } from '../../../../components/Feedback';
 import EditorCanvas, { EDITOR_BOUNDS } from './EditorCanvas';
 import EditorToolbar from './EditorToolbar';
+import PhoneTools from './PhoneTools';
 import AddElementDialog from './AddElementDialog';
 import TablePanel from './TablePanel';
 import ZonePanel from './ZonePanel';
@@ -71,6 +72,7 @@ export default function MapEditor({ eventId }) {
   const [eventTitle, setEventTitle] = useState('');
   const [showAdd, setShowAdd] = useState(false);
   const [showPack, setShowPack] = useState(false);
+  const [toolsOpen, setToolsOpen] = useState(false);   // phones only — PhoneTools.jsx
 
   const [tool, setTool] = useState('select');
   const [snapToGrid, setSnapToGrid] = useState(false);
@@ -298,6 +300,9 @@ export default function MapEditor({ eventId }) {
 
       {saveError && <SaveError error={saveError} />}
 
+      {/* Phones: a sentence and a switch, the toolbar folded — PhoneTools.jsx. */}
+      <PhoneTools open={toolsOpen} onToggle={() => setToolsOpen((open) => !open)} controls="map-tools" />
+      <div id="map-tools" className="es-maptools" data-open={toolsOpen ? 'true' : 'false'}>
       <EditorToolbar
         tables={tables}
         zones={zones}
@@ -318,6 +323,7 @@ export default function MapEditor({ eventId }) {
           fit: panzoom.fit,
         }}
       />
+      </div>
 
       <div className="fx-grid fx-grid--2" style={{ '--fx-col': '640px' }}>
         <EditorCanvas

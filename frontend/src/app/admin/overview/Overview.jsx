@@ -159,8 +159,10 @@ function Fact({ term, value, href }) {
   return (
     <div className="fx-row fx-row--between border-t border-border-base pt-2 first:border-0 first:pt-0">
       <dt className="text-muted">{term}</dt>
+      {/* A 44px target at the least. The figure was the whole link, so "1"
+          and "2" were links 4 and 8 pixels wide. */}
       <dd className="es-nums text-ink">
-        {href ? <Link href={href} className="hover:text-accent">{value}</Link> : value}
+        {href ? <Link href={href} className="fx-touch min-w-11 justify-end hover:text-accent">{value}</Link> : value}
       </dd>
     </div>
   );

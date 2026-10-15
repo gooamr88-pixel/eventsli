@@ -6,6 +6,7 @@ import { messageFor } from '../../utils/errors';
 import { useToast } from '../../components/ui/Toast';
 import { Panel } from '../../components/ui/Page';
 import FormError from '../../components/forms/FormError';
+import NavIcon from '../../components/shell/NavIcon';
 import ImageField from './ImageField';
 
 /**
@@ -81,7 +82,18 @@ export default function BlockForm({ block, values, onSaved }) {
       description={DESCRIPTIONS[block.key]}
       action={dirty ? <span className="es-pill es-pill--warning">Unsaved</span> : null}
     >
-      <form onSubmit={save} className="fx-stack">
+      {/* FOLDED, one block at a time. Six blocks of fields, all open, made this
+          page nine and a half screens on a phone, and the block somebody came
+          to change was somewhere in the middle of it. The heading and its
+          description stay, so the page still reads as a list of what can be
+          changed; "Unsaved" above shows on a closed block too. `<details>`,
+          so the form keeps its typed values while folded. */}
+      <details className="es-fold">
+        <summary className="es-fold__summary">
+          Edit {block.label.toLowerCase()}
+          <span aria-hidden className="es-fold__chev"><NavIcon name="chevronDown" size={16} /></span>
+        </summary>
+      <form onSubmit={save} className="fx-stack es-fold__body">
         {error && <FormError message={error} />}
 
         <div className="fx-grid fx-grid--2">
@@ -112,6 +124,7 @@ export default function BlockForm({ block, values, onSaved }) {
           </button>
         </div>
       </form>
+      </details>
     </Panel>
   );
 }

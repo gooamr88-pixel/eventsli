@@ -172,10 +172,27 @@
      Separate from the brand hue on purpose. A green "success" that is
      also the accent means a saved-successfully toast and a primary button
      are the same colour, and neither reads as the thing it is. */
-  --es-success: #16a34a;
-  --es-warning: #f59e0b;
-  --es-danger:  #ef4444;
-  --es-info:    #3b82f6;
+  /* SUCCESS, WARNING AND INFO ARE TEXT-SAFE TOO (2026-10-15), for the reason
+     danger is below. They colour words: the door's "Admitted" and "Already
+     scanned", hold timers, low-stock notes, the password rules. At #16a34a,
+     #f59e0b and #3b82f6 those words were 3.30, 2.15 and 3.68:1 on white, and
+     under 3:1 on their own alert tints. Green-800, amber-800 and the brand's
+     blue-800 pass 4.5:1 on white, bg-sunken and their own 15% tint (the gate
+     and alert grounds); scripts/contrast.js measures all of it. Where amber
+     is a GRAPHIC rather than words (a held seat, rating stars) it is the
+     lighter amber-700 below, which still clears the 3:1 graphics floor. */
+  --es-success: #166534;
+  --es-warning: #92400e;
+  --es-amber-700: #b45309;
+  /* Red-700, not red-500. #ef4444 was 3.76:1 on white and 3.38:1 on the
+     sunken ground, so every error message, "Sign out everywhere" and the
+     error page's eyebrow failed AA as text. #b91c1c measures 6.47:1 on white,
+     5.81:1 on bg-sunken, 5.01:1 on its own 15% tint (the pill and alert
+     grounds) and carries white at 6.47:1 as a fill. It is the red the danger
+     buttons already used, so this is one red now rather than two. Measured by
+     scripts/contrast.js. */
+  --es-danger:  #b91c1c;
+  --es-info:    var(--es-blue-800);
 
   /* ── Roles — what components actually reference ─────────────────────
      Every component takes its colour from a role, never from a scale
@@ -196,6 +213,12 @@
   --es-surface-raised:#ffffff;
   --es-border:        var(--es-mist-200);
   --es-border-strong: var(--es-mist-400);
+  /* The edge of a control a person types into or toggles — text fields and the
+     switch's off track. WCAG 1.4.11 asks 3:1 of the boundary that identifies a
+     component, and mist-400 was 1.86:1 on white: a white field on a white card
+     was found by its label alone. 3.34:1 on white, 3.0:1 on bg-sunken.
+     Decorative dividers keep the lighter border roles. */
+  --es-control-border: #7a8db3;
 
   /* ── Ink, and it is green ───────────────────────────────────────────
      The text roles were slate — a cool grey family chosen to sit under
@@ -257,7 +280,10 @@
      purchase page, and it has to survive a theme switch intact. */
   --es-seat-available: var(--es-blue-500);
   --es-seat-selected:  var(--es-blue-700);
-  --es-seat-held:      var(--es-warning);
+  /* A graphic, so 3:1: amber-700 is 5.02:1 on white where amber-500 was 2.15.
+     Sold and blocked stay faint on purpose — an unavailable seat is an
+     inactive control, which WCAG 1.4.11 exempts, and fading it is the signal. */
+  --es-seat-held:      var(--es-amber-700);
   --es-seat-sold:      var(--es-mist-400);
   --es-seat-blocked:   var(--es-mist-300);
 
@@ -525,6 +551,7 @@
   --es-surface-raised:var(--es-ink-raised);
   --es-border:        var(--es-ink-border);
   --es-border-strong: #34528a;
+  --es-control-border: var(--es-ink-subtle);
 
   --es-text:          #eff3fa;
   --es-text-muted:    #aabbdc;
@@ -1174,7 +1201,7 @@
   min-height: var(--fx-touch);
   padding-inline: 0.75rem;
   border-radius: var(--es-radius-md);
-  border: 1px solid var(--es-border-strong);
+  border: 1px solid var(--es-control-border);
   background: var(--es-surface);
   color: var(--es-text);
   font-family: inherit;
@@ -1197,7 +1224,9 @@
    written for. The box gets smaller; the text does not. */
 
 .es-input::placeholder { color: var(--es-text-subtle); }
-.es-input:hover { border-color: var(--es-accent-edge); }
+/* The accent on hover. It was --es-accent-edge (blue-200), LIGHTER than the
+   resting border — so pointing at a field made its edge fade. */
+.es-input:hover { border-color: var(--es-accent); }
 /* `aria-invalid`, not a `.es-input--error` class. The attribute is what a
    screen reader reads, so styling from it means the red border and the
    announcement can never disagree — one of them being set without the other
@@ -2783,7 +2812,7 @@ body:has(.es-buybar) { padding-block-end: calc(5.5rem + var(--fx-safe-b)); }
 .es-req {
   margin-inline-start: 0.2em;
   font-weight: 600;
-  color: #b91c1c;   /* red-700: 6.5:1 on white, where --es-danger is 3.8:1 */
+  color: var(--es-danger);   /* red-700, 6.5:1 on white */
 }
 .es-optional {
   display: inline-flex;
@@ -2956,41 +2985,19 @@ body:has(.es-buybar) { padding-block-end: calc(5.5rem + var(--fx-safe-b)); }
 }
 .es-result__mark--danger {
   background: color-mix(in srgb, var(--es-danger) 12%, transparent);
-  color: #b91c1c;
+  color: var(--es-danger);
 }
 .es-result__mark--busy { animation: es-result-pulse 1.4s ease-in-out infinite; }
 @keyframes es-result-pulse { 50% { opacity: 0.55; } }
 .es-result .es-btn { width: 100%; }
 @media (width >= 30rem) { .es-result .es-btn { width: auto; min-width: 14rem; } }
 
-/* ── .es-actionbar — an event's actions, beside its title ──────────────
-   A single row that scrolls sideways on a phone rather than wrapping into
-   three uneven lines. */
-.es-actionbar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  padding-block: 0.125rem;
-}
-.es-actionbar > * { flex: none; }
-
-/* ON A PHONE, ONE ACTION PER ROW, FULL WIDTH.
-
-   This was a two-column grid, which lines up neatly only when the number of
-   actions is even and none of them is `__wide`. An archived event has exactly
-   two — Restore, and a wide "Request cancellation" — so it rendered a
-   half-width button, a hole beside it, and a spanning button underneath:
-   three shapes for two controls, reported as untidy and hard to read.
-
-   Odd counts are the common case, not the exception: which actions an event
-   has depends on its status, so the layout cannot assume pairs. One full-width
-   button per row is the same shape whatever the count, every label has room to
-   be read rather than truncated, and every target is the full width of the
-   thumb. `__wide` needs no special case any more, because everything is. */
-@media (width < 40rem) {
-  .es-actionbar { display: grid; grid-template-columns: minmax(0, 1fr); }
-  .es-actionbar > * { justify-content: center; min-height: var(--fx-touch); }
-}
+/* .es-actionbar WAS HERE — an event's actions as a column of full-width,
+   equally weighted buttons on a phone. Six of them stood between an event's
+   title and its numbers, with Archive styled exactly like Edit. The actions now
+   share the header's own row (.es-event-head__actions) and the rare and
+   destructive ones live behind "More" (.es-more, in the mobile pass block at
+   the end of this file). See EventActions.jsx. */
 
 /* ── A manual payment method, as a row ─────────────────────────────── */
 .es-method {
@@ -3018,12 +3025,13 @@ body:has(.es-buybar) { padding-block-end: calc(5.5rem + var(--fx-safe-b)); }
 }
 
 /* ── .es-btn--danger ──────────────────────────────────────────────────────
-   Its own fill rather than --es-danger: white on #ef4444 is 3.76:1 and
-   fails AA at button size. Red-700 carries white at 6.5:1, and the pair is
-   fixed in both themes because a destructive action should not change
-   colour with the viewer's OS setting. */
+   Its own role, kept for the hover shade beside it. It was a separate red
+   because --es-danger was #ef4444, which carries white at only 3.76:1; the
+   token is red-700 itself now, so the fill simply follows it. White on it is
+   6.5:1, and the pair is fixed in both themes because a destructive action
+   should not change colour with the viewer's OS setting. */
 :root {
-  --es-danger-fill: #b91c1c;
+  --es-danger-fill: var(--es-danger);
   --es-danger-fill-hover: #991b1b;
   --es-text-on-danger: #ffffff;
 }
@@ -3041,7 +3049,11 @@ body:has(.es-buybar) { padding-block-end: calc(5.5rem + var(--fx-safe-b)); }
   scrollbar-width: none;
   padding-block: 2px;
 }
-/* Wraps from md up, for the same reason the category strip does. The scroll
+/* SUPERSEDED BY THE MOBILE PASS, which makes it wrap at every width (see
+   "filters above a list" near the end of this file): on a phone the hidden
+   scroll put options off the edge with nothing to say they were there.
+
+   Wraps from md up, for the same reason the category strip does. The scroll
    above is paired with `scrollbar-width: none`, which on a phone is right —
    a thumb swipes and a scrollbar would only eat 6px. On a desk it means an
    overflowing filter row is clipped with NO scrollbar and no gesture most
@@ -3084,10 +3096,21 @@ body:has(.es-buybar) { padding-block-end: calc(5.5rem + var(--fx-safe-b)); }
 }
 
 /* ── .es-table — a real table on a desktop, a stack of cards on a phone ──
-   One markup for both. Below md the header row is visually hidden (still
+   One markup for both. Below LG the header row is visually hidden (still
    read by a screen reader), each row becomes a card, and every cell shows
    its column name from data-label. A table that only scrolls sideways on a
-   phone hides every column but the first behind a gesture nobody finds. */
+   phone hides every column but the first behind a gesture nobody finds.
+
+   LG, NOT MD, since the mobile pass. Between 768 and 1023 the real table had
+   the content column beside the icon rail, about 650px for six columns, and
+   the first column was squeezed until names broke a letter at a time.
+
+   THE CARD IS A SMALL GRID: the first column is the card's heading across the
+   top, and the rest sit two or more to a row with the label above the value.
+   It was one row per field, so an order was six rows and 25 orders were about
+   4,000px of scrolling. A column marked wide (data-wide) takes a whole row:
+   dates and running totals that must not wrap. A cell with no label (the
+   actions) also takes a whole row and sits at the end. */
 .es-table-wrap {
   background: var(--es-surface);
   border: 1px solid var(--es-border);
@@ -3121,7 +3144,12 @@ body:has(.es-buybar) { padding-block-end: calc(5.5rem + var(--fx-safe-b)); }
 .es-table tbody tr:last-child td { border-block-end: 0; }
 .es-table [data-align="end"] { text-align: end; }
 
-@media (width < 48rem) {
+/* Cards below 80rem, not 64rem. At exactly 64rem (1024px, a landscape iPad and
+   many small laptops) the full sidebar arrives and takes ~17rem, which leaves
+   the table about the width of a portrait tablet: the Orders list squeezed its
+   buyer column to 69px and set one name over 26 lines. The width a table needs
+   is set by its content area, and 1024 to 1279 has no more of that than 768. */
+@media (width < 80rem) {
   .es-table--stack thead {
     position: absolute;
     width: 1px;
@@ -3131,38 +3159,42 @@ body:has(.es-buybar) { padding-block-end: calc(5.5rem + var(--fx-safe-b)); }
     white-space: nowrap;
   }
   .es-table--stack,
-  .es-table--stack tbody,
-  .es-table--stack tr,
-  .es-table--stack td { display: block; width: 100%; }
+  .es-table--stack tbody { display: block; width: 100%; }
   .es-table--stack tr {
-    padding: 0.75rem 0.875rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 8.5rem), 1fr));
+    gap: 0.625rem 1rem;
+    padding: 0.875rem;
     border-block-end: 1px solid var(--es-border);
   }
   .es-table--stack tbody tr:last-child { border-block-end: 0; }
   .es-table--stack td {
     display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    gap: 1rem;
-    padding: 0.25rem 0;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.125rem;
+    min-width: 0;
+    padding: 0;
     border: 0;
-    text-align: end;
+    text-align: start;
+    overflow-wrap: anywhere;
   }
   .es-table--stack td::before {
     content: attr(data-label);
-    flex-shrink: 0;
-    text-align: start;
     font-family: var(--es-font-sans);
-    font-size: var(--es-text-sm);
+    font-size: var(--es-text-xs);
     color: var(--es-text-subtle);
   }
-  .es-table--stack td[data-primary] {
-    display: block;
-    padding-block-end: 0.5rem;
-    text-align: start;
-    font-size: var(--es-text-base);
-  }
+  .es-table--stack td[data-primary],
+  .es-table--stack td[data-wide] { grid-column: 1 / -1; }
+  .es-table--stack td[data-primary] { font-size: var(--es-text-base); }
   .es-table--stack td[data-primary]::before { content: none; }
+  /* The actions cell has no label: a full row, its buttons at the end. */
+  .es-table--stack td:not([data-label]):not([data-primary]) {
+    grid-column: 1 / -1;
+    align-items: stretch;
+  }
+  .es-table--stack td:not([data-label]):not([data-primary])::before { content: none; }
 }
 
 /* ── .es-dialog — the native <dialog>, dressed ─────────────────────────── */
@@ -3897,7 +3929,7 @@ a.es-sponsor:hover { opacity: 0.7; }
    The stars are decorative; the accessible name is written out in text
    beside them and hidden visually. Five glyphs read aloud as "star star
    star star star" tells a listener nothing about how many were filled. */
-.es-stars { display: inline-flex; gap: 0.125rem; color: var(--es-warning); }
+.es-stars { display: inline-flex; gap: 0.125rem; color: var(--es-amber-700); }
 
 /* ── .es-figcard — a picture that is also a link ────────────────────────
    The guest band's photograph with a play control on it, and the shape a
@@ -8077,3 +8109,441 @@ a { color: inherit; text-decoration: none; }
 }
 
 }   /* end @layer components — venue search */
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   THE MOBILE PASS (October 2026) — the shell on phones.
+
+   The audit measured every signed-in screen at 320 to 1024px. Nothing
+   overflowed sideways; what failed was HOW MUCH stayed pinned. An organizer
+   on a 320x568 phone had an app bar, a "Working on" strip and a tab bar (178px
+   together) plus a full event header above every section, so the Orders
+   heading started 487px down. This block takes chrome away below the widths
+   where it costs most, and leaves the desktop arrangement exactly as it was.
+
+   A later block in the same layer, so it refines the shell rules above by
+   source order. No !important, no new breakpoint, no new colour.
+   ═══════════════════════════════════════════════════════════════════════════ */
+@layer components {
+
+/* ── The "Working on" strip is the desktop's ─────────────────────────────
+   Below lg the app bar exists, and on a route about one event it carries the
+   same switch on its own second line (EventPicker). Off an event's routes the
+   strip had nothing to say but "Choose an event…", which read as a step. */
+.es-evbar { display: none; }
+@media (width >= 64rem) { .es-evbar { display: block; } }
+
+/* ── The event switch inside the app bar ─────────────────────────────────
+   The native select lies over the whole title block, transparent, so the
+   target is both lines of the 56px bar rather than one line of text. 16px on
+   the select itself so iOS does not zoom the page when it takes focus. */
+.es-appbar__title { position: relative; min-height: var(--fx-touch); }
+.es-appbar__title:has(.es-evpick__select:focus-visible) {
+  outline: 2px solid var(--es-accent);
+  outline-offset: 2px;
+  border-radius: var(--es-radius-sm);
+}
+.es-evpick { display: flex; align-items: center; gap: 0.25rem; min-width: 0; }
+.es-evpick__name {
+  min-width: 0;
+  font-size: var(--es-text-sm);
+  font-weight: 600;
+  color: var(--es-text);
+}
+.es-evpick__chev { display: inline-flex; flex: none; color: var(--es-text-subtle); }
+.es-evpick__select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  border: 0;
+  appearance: none;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+/* ── Which event the drawer's tools act on ───────────────────────────── */
+.es-nav__caption {
+  padding: 0 0.75rem 0.375rem;
+  font-size: var(--es-text-sm);
+  font-weight: 600;
+  color: var(--es-text);
+}
+@media (width >= 48rem) and (width < 64rem) {
+  .es-nav:not(.es-nav--open) .es-nav__caption { display: none; }
+}
+
+/* ── The workspace switcher, now after the groups ────────────────────────
+   Its rule moves from under it to over it, since the block is the last thing
+   in the scroller rather than the first. */
+.es-nav__lead {
+  margin-block: 0.75rem 0;
+  padding: 0.875rem 0.25rem 0.25rem;
+  border-block-end: 0;
+  border-block-start: 1px solid var(--es-border);
+}
+@media (width >= 48rem) and (width < 64rem) {
+  .es-nav:not(.es-nav--open) .es-nav__lead { border-block-start-color: transparent; }
+}
+
+/* ── Focus mode: a task, not a place ─────────────────────────────────────
+   No tab bar is rendered, so nothing has to be cleared at the bottom, and the
+   page's own sticky action bar sits on the bottom edge where the tabs were. */
+.es-nav-content--focus { padding-bottom: 0; }
+@media (width < 48rem) {
+  .es-nav-content--focus .fx-sticky-actions {
+    bottom: 0;
+    padding-bottom: max(var(--fx-gap-sm), calc(var(--fx-safe-b) + 8px));
+  }
+}
+
+/* ── An event's header, compact on a section, below md ───────────────────
+   The way back, the title on one line, and the status. Date, venue, type and
+   Public page / Share stay on the overview, where they are read; the app bar
+   already names the event and the section. */
+.es-breadcrumb__back { display: none; }
+@media (width < 48rem) {
+  .es-event-head--sub { gap: 0.25rem; padding-bottom: 0.875rem; }
+  .es-event-head--sub :is(.es-breadcrumb__sep, .es-breadcrumb__here) { display: none; }
+  .es-event-head--sub .es-breadcrumb__up { gap: 0.375rem; }
+  .es-event-head--sub .es-breadcrumb__back { display: inline-flex; transform: scaleX(-1); }
+  .es-event-head--sub .es-event-head__main { gap: 0.375rem; }
+  .es-event-head--sub .es-page-head__title {
+    font-size: var(--es-text-lg);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .es-event-head--sub :is(.es-meta__item, .es-event-head__actions) { display: none; }
+}
+
+}   /* end @layer components — the mobile pass: shell */
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   THE MOBILE PASS — steps, actions and switches.
+
+   The named stepper the create-event wizard and the setup steps share; the
+   "Setup · step 3 of 6" line on a build screen; the "More" disclosure that
+   took an event's rare and destructive actions out of a column of six equal
+   buttons; quiet danger text for row actions; and a real switch where a
+   status pill was pretending to be a button.
+   ═══════════════════════════════════════════════════════════════════════════ */
+@layer components {
+
+/* ── The named stepper ──────────────────────────────────────────────────
+   Five one-word labels under the five segments: done, current and still to
+   come are each visible. A finished step is a button; its painted box stays
+   small and an after-box grows the target to the 44px floor, the .fx-hit
+   approach, so the stepper does not get taller. */
+.es-wizard__steps {
+  display: flex;
+  gap: 0.375rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.es-wizard__step { flex: 1 1 0; min-width: 0; }
+.es-wizard__steplink {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  text-align: start;
+  color: inherit;
+}
+/* The segment is a fixed-height bar here. Its base rule is flex: 1, which in
+   this vertical stack sets its HEIGHT basis to zero and the bar disappears. */
+.es-wizard__steplink .es-wizard__seg { flex: none; width: 100%; }
+button.es-wizard__steplink { cursor: pointer; }
+button.es-wizard__steplink::after {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  inset-block: -0.5rem;
+}
+button.es-wizard__steplink:focus-visible {
+  outline: 2px solid var(--es-accent);
+  outline-offset: 3px;
+  border-radius: var(--es-radius-sm);
+}
+.es-wizard__steplabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--es-text-xs);
+  color: var(--es-text-subtle);
+}
+.es-wizard__step[data-state="current"] .es-wizard__steplabel { color: var(--es-text); font-weight: 600; }
+.es-wizard__step[data-state="done"] .es-wizard__steplabel { color: var(--es-accent); }
+button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underline; }
+
+/* The refusal sits in the pinned bar, on its own line above the buttons. */
+.es-wizard__actions { flex-wrap: wrap; }
+.es-wizard__alert { flex-basis: 100%; }
+
+/* ── "Setup · step 3 of 6" on a build screen ───────────────────────────── */
+.es-buildstep { display: flex; flex-direction: column; gap: 0.375rem; }
+.es-buildstep__text { font-size: var(--es-text-sm); }
+.es-buildstep__bar { display: flex; gap: 0.25rem; max-width: 22rem; }
+.es-buildstep__bar .es-wizard__seg { height: 0.25rem; }
+
+/* ── The "More" disclosure ──────────────────────────────────────────────
+   A dropdown under its button from sm up. Below sm it is a sheet over the
+   bottom of the screen, above the tab bar: once a row of actions wraps the
+   button can sit at either edge, and a dropdown anchored to the wrong one
+   opens off the screen. */
+.es-more { position: relative; display: inline-flex; }
+.es-more__chev { display: inline-flex; color: var(--es-text-subtle); }
+.es-more__panel {
+  position: absolute;
+  inset-block-start: calc(100% + 0.375rem);
+  inset-inline-start: 0;
+  z-index: var(--es-z-dropdown);
+  display: flex;
+  flex-direction: column;
+  min-width: 15rem;
+  max-width: calc(100vw - 2 * var(--fx-pad-x));
+  padding: 0.375rem;
+  border: 1px solid var(--es-border);
+  border-radius: var(--es-radius-md);
+  background: var(--es-surface);
+  box-shadow: var(--es-shadow-lg);
+}
+@media (width < 40rem) {
+  .es-more__panel {
+    position: fixed;
+    inset-inline: 0.75rem;
+    inset-block-start: auto;
+    inset-block-end: calc(var(--es-nav-bar-h) + var(--fx-safe-b) + 0.75rem);
+    min-width: 0;
+    max-width: none;
+    padding: 0.5rem;
+    box-shadow: var(--es-shadow-xl);
+  }
+}
+.es-more__item {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  width: 100%;
+  min-height: var(--fx-touch);
+  padding: 0.5rem 0.75rem;
+  border: 0;
+  border-radius: var(--es-radius-sm);
+  background: none;
+  color: var(--es-text);
+  font: inherit;
+  font-size: var(--es-text-sm);
+  font-weight: 500;
+  text-align: start;
+  text-decoration: none;
+  cursor: pointer;
+}
+.es-more__item:hover,
+.es-more__item:focus-visible { background: var(--es-bg-sunken); }
+.es-more__item:disabled { opacity: 0.5; cursor: not-allowed; }
+.es-more__icon { display: inline-flex; flex: none; color: var(--es-text-subtle); }
+/* Red-700, which carries text at 6.5:1. Written against the fill role because
+   it was the only AA red when --es-danger was #ef4444; both are the same red
+   now. */
+.es-more__item[data-tone="danger"],
+.es-more__item[data-tone="danger"] .es-more__icon { color: var(--es-danger-fill); }
+.es-more__sep { height: 1px; margin: 0.25rem 0.5rem; background: var(--es-border); }
+
+/* ── Quiet danger text on a row action ──────────────────────────────────
+   Delete, Remove, Revoke and Block keep their secondary or ghost shape and say
+   what kind of action they are in colour; the filled red is kept for the
+   confirmation dialog that follows. Later in the layer than .es-btn--ghost,
+   so it wins that rule's muted colour by source order. */
+.es-btn--danger-text { color: var(--es-danger-fill); }
+.es-btn--danger-text:hover { color: var(--es-danger-fill-hover); }
+
+/* ── A switch ──────────────────────────────────────────────────────────── */
+.es-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: var(--fx-touch);
+  padding: 0 0.25rem;
+  border: 0;
+  background: none;
+  color: var(--es-text);
+  font: inherit;
+  font-size: var(--es-text-sm);
+  cursor: pointer;
+}
+.es-switch:disabled { opacity: 0.5; cursor: not-allowed; }
+.es-switch:focus-visible { outline: 2px solid var(--es-accent); outline-offset: 2px; border-radius: var(--es-radius-sm); }
+.es-switch__track {
+  position: relative;
+  flex: none;
+  width: 2.5rem;
+  height: 1.5rem;
+  border-radius: var(--es-radius-full);
+  /* The OFF state has to be visible as a state: a white thumb on mist-400 was
+     1.86:1. The control border is 3.34:1 against both the thumb and the page. */
+  background: var(--es-control-border);
+  transition: background-color var(--es-transition-fast);
+}
+.es-switch__thumb {
+  position: absolute;
+  inset-block-start: 0.1875rem;
+  inset-inline-start: 0.1875rem;
+  width: 1.125rem;
+  height: 1.125rem;
+  border-radius: var(--es-radius-full);
+  background: var(--es-surface);
+  box-shadow: var(--es-shadow-sm);
+  transition: transform var(--es-transition-fast);
+}
+.es-switch[aria-checked="true"] .es-switch__track { background: var(--es-accent); }
+.es-switch[aria-checked="true"] .es-switch__thumb { transform: translateX(1rem); }
+.es-switch__label { min-width: 2.5rem; text-align: start; }
+
+}   /* end @layer components — the mobile pass: steps, actions, switches */
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   THE MOBILE PASS — the homepage's first screen.
+
+   At 320–360px the hero's search packed three filters and a button into one
+   row, so the filters read "E…", "N…", "A…", and the "Event type" select was a
+   30x21 target. Below sm the bar is two rows and a full-width Search, the shape
+   the /events search already has and which works. The chat button waits until
+   the visitor has scrolled past the hero (ChatBubble.jsx), because it sat on
+   that Search button.
+   ═══════════════════════════════════════════════════════════════════════════ */
+@layer components {
+
+/* The select fills its field top to bottom, so the whole box is the target
+   and not one line of text inside it. */
+select.es-lp-filter__control { align-self: stretch; height: 100%; }
+
+@media (width < 40rem) {
+  .es-lp-filter {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 0.5rem 0.875rem;
+    padding: 0.625rem 0.875rem 0.875rem;
+  }
+  .es-lp-filter__field--date,
+  .es-lp-filter__submit { grid-column: 1 / -1; }
+  .es-lp-filter__submit { width: 100%; height: 3rem; margin-top: 0.25rem; }
+  .es-lp-filter__submit-label { display: inline; }
+
+  .es-lp-chat__button { transition: opacity var(--es-duration-fast) var(--es-ease-default); }
+  .es-lp-chat[data-scrolled="false"] .es-lp-chat__button { opacity: 0; visibility: hidden; }
+}
+
+}   /* end @layer components — the mobile pass: homepage */
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   THE MOBILE PASS — filters above a list.
+
+   A row of filter pills scrolled sideways below md with its scrollbar hidden,
+   so "Cancelled" and "Any" on Orders, or "Admin" on Accounts, sat off the edge
+   with nothing to say they were there — the same hidden-swipe problem the
+   event section strip was removed for. The pills now wrap at every width.
+   ═══════════════════════════════════════════════════════════════════════════ */
+@layer components {
+
+.es-segmented { flex-wrap: wrap; overflow-x: visible; }
+
+/* A filter row's own name, above it (Segmented with showLabel). */
+.es-filterrow { display: flex; flex-direction: column; gap: 0.375rem; min-width: 0; }
+.es-filterrow__label {
+  font-size: var(--es-text-xs);
+  font-weight: 600;
+  letter-spacing: var(--es-tracking-wide);
+  text-transform: uppercase;
+  color: var(--es-text-subtle);
+}
+
+}   /* end @layer components — the mobile pass: filters */
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   THE MOBILE PASS — polish: a 12px floor, a labelled rail, folds.
+   ═══════════════════════════════════════════════════════════════════════════ */
+@layer components {
+
+/* ── No reading text below 12px ─────────────────────────────────────────
+   These labels were set at 10–11px, under the --es-text-xs floor everything
+   else respects: the date badge's month, the event page's WHEN / WHERE /
+   ORGANIZER, Back and Save and continue over the setup steps, the events
+   list's month, the desktop "Working on". The illustrated phone mock-ups on
+   the marketing pages keep their miniature type; they are pictures. */
+.es-lp-datebadge small,
+.es-evcard--adaptive .es-lp-datebadge small,
+.es-lp-logos__label,
+.es-buildnav__label,
+.es-evbar__label,
+.es-ev-fact__label,
+.es-ev-fact__zone,
+.es-ev-sponsor__label,
+.es-evlist__month { font-size: var(--es-text-xs); }
+
+/* ── The tablet rail, with its words ────────────────────────────────────
+   Between md and lg the sidebar was a 76px column of about sixteen icons and
+   no words, several of them ambiguous (layers, image, tag, cash, percent) on
+   a touch screen where there is no hover to explain them. Each item now
+   carries its label under the icon, the way a phone's tab bar does, in a
+   slightly wider rail. Opening the menu still shows the full panel. */
+@media (width >= 48rem) and (width < 64rem) {
+  :root { --es-rail-w: 6rem; }
+  /* Less side padding in the narrow column, so a one-word label such as
+     "Dashboard" or "Discounts" fits whole instead of breaking mid-word. */
+  .es-nav:not(.es-nav--open) .es-nav__body { padding-inline: 0.25rem; }
+  .es-nav:not(.es-nav--open) .es-nav__item {
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.125rem;
+    padding: 0.375rem 0.25rem;
+    min-height: 3.25rem;
+  }
+  .es-nav:not(.es-nav--open) .es-nav__label {
+    position: static;
+    width: auto;
+    height: auto;
+    clip-path: none;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+    white-space: normal;
+    text-align: center;
+    font-size: var(--es-text-xs);
+    line-height: 1.15;
+    overflow-wrap: break-word;
+    hyphens: auto;
+  }
+}
+
+/* ── A folded section (admin homepage content) ──────────────────────────── */
+.es-fold__summary {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-height: var(--fx-touch);
+  list-style: none;
+  font-size: var(--es-text-sm);
+  font-weight: 600;
+  color: var(--es-accent);
+  cursor: pointer;
+}
+.es-fold__summary::-webkit-details-marker { display: none; }
+.es-fold__summary:focus-visible { outline: 2px solid var(--es-accent); outline-offset: 2px; border-radius: var(--es-radius-sm); }
+.es-fold__chev { display: inline-flex; transition: transform var(--es-transition-fast); }
+.es-fold[open] .es-fold__chev { transform: rotate(180deg); }
+.es-fold__body { padding-top: 0.75rem; }
+
+/* ── The seat-map editor's tools, folded on a phone ─────────────────────── */
+.es-maptools-bar { display: flex; flex-direction: column; gap: 0.5rem; }
+@media (width < 48rem) {
+  .es-maptools[data-open="false"] { display: none; }
+}
+
+}   /* end @layer components — the mobile pass: polish */

@@ -47,7 +47,23 @@ async function requireAuth(req, res, next) {
     });
   }
 
-  if (!(await sessions.isValid(decoded))) {
+  const session = await sessions.check(decoded);
+  if (session === 'unknown') {
+    /**
+     * REFUSED, BUT NOT SIGNED OUT.
+     *
+     * The lookup failed, so we do not know whether this session is live — and
+     * not knowing is a "no" for the request. It is not a "no" for the person.
+     * Clearing the cookie here turned every database blip into a sign-out, and
+     * a 401 told the client this account was gone. A 503 says "ask again", the
+     * cookie survives, and the next request after the blip simply works.
+     */
+    return sendFail(res, {
+      status: 503, error: 'SESSION_CHECK_FAILED',
+      message: 'We could not check your session just now. Try again in a moment.',
+    });
+  }
+  if (session !== 'live') {
     sessions.clearCookie(res);
     return sendFail(res, {
       status: 401, error: 'SESSION_REVOKED',

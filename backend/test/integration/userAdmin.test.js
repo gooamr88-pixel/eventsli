@@ -83,8 +83,14 @@ before(async () => {
   await makeUser('seller', 'organizer');
   await makeUser('buyer', 'attendee');
 
+  // A COMPLETE organization: name, legal name, description and the agreement.
+  // Without them POST /events answers ORGANIZER_SETUP_REQUIRED, and the ban
+  // tests below would be measuring setup rather than the ban.
   const { data: org } = await supabase.from('organizers').insert({
     owner_user_id: ids.seller, display_name: 'Suspendable Co', country: 'CA',
+    legal_name: 'Suspendable Company Ltd.',
+    description: 'An organizer this suite bans and unbans to prove the ban holds.',
+    policies_accepted_at: new Date().toISOString(),
   }).select('id').single();
   ids.organizer = org.id;
 });
@@ -249,17 +255,34 @@ test('the last super admin cannot be demoted or blocked', async () => {
   assert.equal(demote.status, 409);
   assert.equal(demote.body.error, 'SELF_ACTION', 'self-action is caught before anything else');
 
-  // Through another super admin it is the last-one guard that must stop it.
+  // BRD §19 as utils/roleLadder.js now states it: a super admin MAY act on
+  // another super admin — otherwise a compromised one could only be removed with
+  // SQL — and the last-one guard is what keeps the platform administrable.
   await supabase.from('profiles').update({ role: 'super_admin' }).eq('id', ids.admin2);
   const second = await login('admin2');
   assert.equal(second.status, 200);
 
-  // Two super admins now, so demoting one is allowed.
-  const ok = await call('PATCH', `/admin/users/${ids.super}/role`,
-    { role: 'admin' }, second.cookie);
-  assert.equal(ok.status, 403, 'still refused — a peer, not a subordinate');
-
+  // The race the guard exists for: two super admins demoting each other at the
+  // same moment. admin2's access is resolved (and cached) as super_admin, then
+  // admin2 is demoted underneath it — exactly what the other half of the race
+  // does. Its request still passes the ladder on the cached role, so it is the
+  // database count that must refuse to leave nobody in charge.
+  assert.equal((await call('GET', '/auth/me', null, second.cookie)).body.data.role, 'super_admin');
   await supabase.from('profiles').update({ role: 'admin' }).eq('id', ids.admin2);
+  const last = await call('PATCH', `/admin/users/${ids.super}/role`, { role: 'admin' }, second.cookie);
+  assert.equal(last.status, 409, JSON.stringify(last.body));
+  assert.equal(last.body.error, 'LAST_SUPER_ADMIN');
+
+  // With two genuine super admins, one may demote the other.
+  await supabase.from('profiles').update({ role: 'super_admin' }).eq('id', ids.admin2);
+  const peer = await login('admin2');
+  const ok = await call('PATCH', `/admin/users/${ids.super}/role`, { role: 'admin' }, peer.cookie);
+  assert.equal(ok.status, 200, JSON.stringify(ok.body));
+
+  // Put both back for the tests that follow.
+  await supabase.from('profiles').update({ role: 'super_admin' }).eq('id', ids.super);
+  await supabase.from('profiles').update({ role: 'admin' }).eq('id', ids.admin2);
+  cookies.super = (await login('super')).cookie;
 });
 
 // ── Banning an organizer ────────────────────────────────────────────────────

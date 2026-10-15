@@ -250,7 +250,9 @@ function ManualEntry({ onSubmit }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="self-start text-sm text-muted underline decoration-dotted hover:text-ink"
+        // `fx-touch`: a 44px target. It was a 20px line of text, on the one
+        // screen used one-handed at a door when a code will not scan.
+        className="fx-touch self-start text-sm text-muted underline decoration-dotted hover:text-ink"
       >
         Type a code instead
       </button>

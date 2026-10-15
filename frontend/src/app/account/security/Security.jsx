@@ -219,12 +219,17 @@ function SessionList({ sessions, error, onChanged }) {
               className="fx-row fx-row--between border-t border-border-base pt-3 first:border-0 first:pt-0"
             >
               <div className="fx-min0">
-                <p className="fx-truncate text-sm text-ink">
+                {/* "This device" FIRST AND ON ITS OWN. It was the tail of a
+                    one-line truncated user agent, so on a phone the ellipsis
+                    ate it — and it is the one fact on the row that decides
+                    which session somebody may safely end. */}
+                {s.current && <span className="es-pill es-pill--accent mb-1">This device</span>}
+                <p className="line-clamp-2 break-all text-sm text-ink">
                   {/* The user agent, plainly. It is what the API records, and
                       dressing it up as "Chrome on macOS" invents a confidence
-                      the string does not support. */}
+                      the string does not support. Two lines rather than one, so
+                      the part that tells two phones apart is still on screen. */}
                   {s.device || 'Unknown device'}
-                  {s.current && <span className="text-accent"> · this device</span>}
                 </p>
                 <p className="text-xs text-subtle">
                   Signed in {when(s.issuedAt)}

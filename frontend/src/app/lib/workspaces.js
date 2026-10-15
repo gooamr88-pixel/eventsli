@@ -67,9 +67,17 @@ export const WORKSPACE_HOME = Object.freeze({
   [WORKSPACE.ADMIN]: '/admin/overview',
 });
 
-/** What to call each one, in the sidebar heading and the switcher. */
+/**
+ * What to call each one, in the sidebar heading and the switcher.
+ *
+ * The buyer's is "My account", and it was "Tickets". In the organizer's menu the
+ * switch to it read "Tickets" with a ticket icon a few rows from "Ticket types"
+ * with the same icon — two words and one picture for two unrelated places. This
+ * workspace is also more than tickets: orders, saved events and security live
+ * in it, and its home is `/account`.
+ */
 export const WORKSPACE_LABEL = Object.freeze({
-  [WORKSPACE.BUYER]: 'Tickets',
+  [WORKSPACE.BUYER]: 'My account',
   [WORKSPACE.ORGANIZER]: 'Organizer',
   [WORKSPACE.ADMIN]: 'Admin',
 });
@@ -82,7 +90,7 @@ export const WORKSPACE_BLURB = Object.freeze({
 });
 
 export const WORKSPACE_ICON = Object.freeze({
-  [WORKSPACE.BUYER]: 'ticket',
+  [WORKSPACE.BUYER]: 'user',
   [WORKSPACE.ORGANIZER]: 'briefcase',
   [WORKSPACE.ADMIN]: 'shield',
 });

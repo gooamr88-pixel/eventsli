@@ -66,8 +66,8 @@ export default function Orders({ eventId }) {
 
       <div className="fx-stack fx-stack--sm">
         <div className="fx-row">
-          <Segmented label="Channel" value={channel} onChange={filter(setChannel)} options={CHANNELS} />
-          <Segmented label="Status" value={status} onChange={filter(setStatus)} options={STATUSES} />
+          <Segmented label="Channel" showLabel value={channel} onChange={filter(setChannel)} options={CHANNELS} />
+          <Segmented label="Status" showLabel value={status} onChange={filter(setStatus)} options={STATUSES} />
         </div>
         <SearchBox label="Search orders" placeholder="Buyer name or email" value={search} onSearch={filter(setSearch)} />
       </div>
@@ -114,6 +114,7 @@ export default function Orders({ eventId }) {
               {
                 key: 'when',
                 label: 'When',
+                wide: true,
                 render: (o) => <span className="whitespace-nowrap">{formatEventTime(o.paidAt || o.createdAt, timezone)}</span>,
               },
             ]}

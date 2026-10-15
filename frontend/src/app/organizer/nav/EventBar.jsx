@@ -53,6 +53,10 @@ export default function EventBar({ events, currentId }) {
   const current = list.find((e) => e.id === currentId) || null;
 
   return (
+    /* DESKTOP ONLY NOW — `.es-evbar` is `display: none` below `lg`. Under it
+       the app bar exists, and `EventPicker` below puts the same select into
+       the app bar's own second line on a route about one event. See the note
+       on AppShell's `appbarContext`. */
     /* A STRIP, NOT A CARD. It used to be a rounded, shadowed box inside
        `<main>`'s padding, stickied on its own — so at `lg`, where it pins to
        the top of the window, the page scrolled up through its corner radius
@@ -80,5 +84,53 @@ export default function EventBar({ events, currentId }) {
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * THE SAME SWITCH, IN THE APP BAR — phones and tablets, on an event's routes.
+ *
+ * The event's name is the visible line and the native select lies over the
+ * whole title block, transparent. That makes the target the full height of the
+ * two lines (the bar is 56px) rather than one 20px line of text, and the tap
+ * still opens the platform's own picker, which is the best long list on a
+ * phone. Focus is drawn on the block with `:focus-within`, so a keyboard user
+ * sees where they are.
+ *
+ * Only rendered when the URL names an event. The dashboard, Your events and the
+ * account pages are about all events; offering "Choose an event…" there read as
+ * a step somebody had to take first.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+export function EventPicker({ events, currentId }) {
+  const id = useId();
+  const router = useRouter();
+  const pathname = usePathname() || '';
+  const list = Array.isArray(events) ? events : [];
+  const current = list.find((e) => e.id === currentId) || null;
+
+  // The list may still be loading, or not contain a brand-new event yet; the
+  // name is not known, so the line says what it is rather than going blank.
+  if (!current) {
+    return <span className="fx-truncate text-sm font-medium text-ink">This event</span>;
+  }
+
+  return (
+    <span className="es-evpick">
+      <span className="es-evpick__name fx-truncate">{current.title}</span>
+      <span aria-hidden className="es-evpick__chev"><NavIcon name="chevronDown" size={16} /></span>
+      <label htmlFor={id} className="sr-only">Event you are working on</label>
+      <select
+        id={id}
+        className="es-evpick__select"
+        value={current.id}
+        onChange={(e) => { if (e.target.value) router.push(pathForEvent(pathname, e.target.value)); }}
+      >
+        {list.map((event) => (
+          <option key={event.id} value={event.id}>{event.title}</option>
+        ))}
+      </select>
+    </span>
   );
 }

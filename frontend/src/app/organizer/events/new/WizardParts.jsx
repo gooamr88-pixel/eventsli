@@ -5,7 +5,53 @@ import Link from 'next/link';
 import NavIcon from '../../../components/shell/NavIcon';
 import { categoryLabel } from '../../../lib/categories';
 import { formatEventTime } from '../../../lib/eventTime';
-import { ADMISSION_TYPES, PURCHASE_MODES, PAYMENT_OPTIONS } from './wizardModel';
+import { ADMISSION_TYPES, PURCHASE_MODES, PAYMENT_OPTIONS, STEP_SHORT } from './wizardModel';
+
+/**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * WHERE THE ORGANIZER IS IN THE WIZARD — every step named.
+ *
+ * It was five unlabelled segments under "Step 2 of 5": countable, but nobody
+ * could see what was done or what was still to come, and a finished step could
+ * only be reached by pressing Back once per step. Each step is named now, and a
+ * finished one is a button straight back to it. Forward is only ever Continue,
+ * which validates — nothing here skips a step.
+ *
+ * An ordered list with `aria-current="step"` rather than the `progressbar` it
+ * replaced: the steps are things to read and go back to, not a value.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+export function WizardStepper({ steps, index, title, onGo, disabled = false }) {
+  return (
+    <ol className="es-wizard__steps" aria-label={`${title} — steps`}>
+      {steps.map((s, i) => {
+        const state = i < index ? 'done' : i === index ? 'current' : 'upcoming';
+        const inner = (
+          <>
+            <span aria-hidden className="es-wizard__seg" data-state={state} />
+            <span className="es-wizard__steplabel">
+              {STEP_SHORT[s]}
+              <span className="sr-only">
+                {state === 'done' ? ' — done, go back to it' : state === 'current' ? ' — this step' : ' — still to come'}
+              </span>
+            </span>
+          </>
+        );
+        return (
+          <li key={s} className="es-wizard__step" data-state={state} aria-current={state === 'current' ? 'step' : undefined}>
+            {state === 'done' ? (
+              <button type="button" className="es-wizard__steplink" onClick={() => onGo(i)} disabled={disabled}>
+                {inner}
+              </button>
+            ) : (
+              <span className="es-wizard__steplink">{inner}</span>
+            )}
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────

@@ -147,10 +147,10 @@ export default function WhyUsPage() {
           >
             Create an organizer account
           </Link>
-          <Link href="/how-it-works#selling" className="text-sm text-accent hover:text-accent-hover">
+          <Link href="/how-it-works#selling" className="fx-touch text-sm text-accent hover:text-accent-hover">
             What setting up looks like →
           </Link>
-          <Link href="/trust" className="text-sm text-accent hover:text-accent-hover">
+          <Link href="/trust" className="fx-touch text-sm text-accent hover:text-accent-hover">
             How we handle security →
           </Link>
         </div>

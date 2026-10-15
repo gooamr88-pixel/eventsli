@@ -41,6 +41,9 @@ const ERROR_STATUS = {
   UNAUTHENTICATED: 401,
   INVALID_TOKEN: 401,
   SESSION_REVOKED: 401,
+  // The session lookup itself failed. NOT a 401: the session may be perfectly
+  // live, and a 401 is what makes a client sign somebody out (middleware/auth.js).
+  SESSION_CHECK_FAILED: 503,
   FORBIDDEN: 403,
   ACCOUNT_BANNED: 403,
   ORGANIZER_BANNED: 403,

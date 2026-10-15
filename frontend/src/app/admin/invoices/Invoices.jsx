@@ -127,6 +127,7 @@ export default function Invoices() {
               {
                 key: 'due',
                 label: 'Due',
+                wide: true,
                 render: (i) => (
                   <span className="fx-stack fx-stack--sm gap-0.5">
                     {/* Your own clock, with the zone named — the list spans events in several zones. */}

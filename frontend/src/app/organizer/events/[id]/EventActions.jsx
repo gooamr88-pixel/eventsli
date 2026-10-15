@@ -6,6 +6,7 @@ import { del, post } from '../../../utils/apiClient';
 import { describeError, messageFor } from '../../../utils/errors';
 import { useConfirm } from '../../../components/ui/Confirm';
 import { useToast } from '../../../components/ui/Toast';
+import MoreActions, { MoreItem, MoreDivider } from '../../../components/ui/MoreActions';
 import NavIcon from '../../../components/shell/NavIcon';
 
 /**
@@ -19,8 +20,27 @@ import NavIcon from '../../../components/shell/NavIcon';
  *
  * Every action that changes something asks first, in words that say what
  * happens to buyers — that is the part an organizer is actually worried about.
- * Shown on the event's overview only. On a phone they are a two-column block of
- * equal buttons.
+ * Shown on the event's overview only.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * ONE ROW, NOT SIX EQUAL BUTTONS — rearranged by the mobile pass.
+ *
+ * Every action was the same outlined button, and below 40rem each took a
+ * full-width row: on a phone the overview opened on Public page, Share, Edit
+ * details, Seating map and Archive stacked one under another, then a red
+ * Request cancellation, before any of the event's numbers — and on a draft,
+ * before the "Next step" card that is the one thing to do. Archive, which stops
+ * sales, looked exactly like Edit.
+ *
+ * Now the event header carries one row: Edit details, the header's own Public
+ * page and Share (passed in as `children`), and "More". Seating map, Archive and
+ * the cancellation request are in More, the destructive ones last and in the
+ * danger colour. An ARCHIVED event keeps Restore in the row, because bringing it
+ * back is the thing its owner came to do.
+ *
+ * Seating map is offered only where there is one. A general-admission event has
+ * no map and the sidebar hides that screen; this button used to lead to it
+ * anyway.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 const ARCHIVABLE = ['draft', 'pending_review', 'rejected', 'published', 'completed'];
@@ -29,7 +49,7 @@ const ARCHIVABLE = ['draft', 'pending_review', 'rejected', 'published', 'complet
 // "request cancellation" button there only invites a pointless review.
 const CANCELLABLE = ['pending_review', 'published', 'suspended'];
 
-export default function EventActions({ event, onChanged }) {
+export default function EventActions({ event, onChanged, children }) {
   const confirm = useConfirm();
   const toast = useToast();
   const [busy, setBusy] = useState(null);
@@ -142,9 +162,21 @@ export default function EventActions({ event, onChanged }) {
   const finished = ['cancelled'].includes(event.status);
   const canRequest = CANCELLABLE.includes(event.status)
     || (event.status === 'archived' && event.archivedFrom === 'published');
+  const hasMap = ticketed && event.admissionType !== 'general';
+  const live = event.status === 'published';
+
+  const showMap = hasMap && !archived && !finished;
+  const showArchive = !archived && ARCHIVABLE.includes(event.status);
+  const anyMore = showMap || showArchive || canRequest;
+
+  // Said on the button while a request is in flight, because the panel that
+  // started it has closed by then and the toast only arrives at the end.
+  const working = {
+    archive: 'Archiving…', restore: 'Restoring…', cancel: 'Sending…', withdraw: 'Withdrawing…',
+  }[busy];
 
   return (
-    <div className="es-actionbar" role="group" aria-label="Event actions">
+    <>
       {/* A route, not an anchor: the details form left the overview for its own
           build step, so `#details` scrolled to nothing. "Edit details" rather
           than "Manage event" — it goes to one screen now, and the vaguer word
@@ -155,33 +187,38 @@ export default function EventActions({ event, onChanged }) {
         </Link>
       )}
 
-      {ticketed && !archived && !finished && (
-        <Link href={`${base}/map`} className="es-btn es-btn--secondary es-btn--sm">
-          <NavIcon name="map" size={16} /> Seating map
-        </Link>
-      )}
-
-      {archived ? (
+      {archived && (
         <button type="button" className="es-btn es-btn--secondary es-btn--sm" onClick={restore} disabled={Boolean(busy)}>
           <NavIcon name="undo" size={16} /> {busy === 'restore' ? 'Restoring…' : 'Restore'}
         </button>
-      ) : ARCHIVABLE.includes(event.status) && (
-        <button type="button" className="es-btn es-btn--secondary es-btn--sm" onClick={archive} disabled={Boolean(busy)}>
-          <NavIcon name="archive" size={16} /> {busy === 'archive' ? 'Archiving…' : 'Archive'}
-        </button>
       )}
 
-      {canRequest && (
-        pending ? (
-          <button type="button" className="es-btn es-btn--ghost es-btn--sm es-actionbar__wide" onClick={withdraw} disabled={Boolean(busy)}>
-            <NavIcon name="close" size={16} /> {busy === 'withdraw' ? 'Withdrawing…' : 'Withdraw cancellation request'}
-          </button>
-        ) : (
-          <button type="button" className="es-btn es-btn--ghost es-btn--sm es-actionbar__wide text-danger" onClick={requestCancellation} disabled={Boolean(busy)}>
-            <NavIcon name="ban" size={16} /> {busy === 'cancel' ? 'Sending…' : 'Request cancellation'}
-          </button>
-        )
+      {children}
+
+      {anyMore && (
+        <MoreActions label={working || 'More'} srLabel="More actions for this event">
+          {showMap && <MoreItem href={`${base}/map`} icon="map">Seating map</MoreItem>}
+          {showArchive && (
+            <>
+              {showMap && <MoreDivider />}
+              <MoreItem onClick={archive} icon="archive" tone={live ? 'danger' : undefined} disabled={Boolean(busy)}>
+                {live ? 'Stop sales and archive' : 'Archive'}
+              </MoreItem>
+            </>
+          )}
+          {canRequest && (
+            pending ? (
+              <MoreItem onClick={withdraw} icon="close" disabled={Boolean(busy)}>
+                Withdraw cancellation request
+              </MoreItem>
+            ) : (
+              <MoreItem onClick={requestCancellation} icon="ban" tone="danger" disabled={Boolean(busy)}>
+                Request cancellation
+              </MoreItem>
+            )
+          )}
+        </MoreActions>
       )}
-    </div>
+    </>
   );
 }

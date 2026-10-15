@@ -119,8 +119,10 @@ export default function LoginForm() {
       </form>
 
       <div className="fx-row fx-row--between text-sm">
-        <Link href="/forgot-password" className="text-accent">Forgot your password?</Link>
-        <Link href={`/register${next !== '/' ? `?next=${encodeURIComponent(next)}` : ''}`} className="text-muted hover:text-ink">
+        {/* `fx-touch` — 44px targets. These were 20px tall, and "Forgot your
+            password?" is the one link a person who cannot get in has to hit. */}
+        <Link href="/forgot-password" className="fx-touch text-accent">Forgot your password?</Link>
+        <Link href={`/register${next !== '/' ? `?next=${encodeURIComponent(next)}` : ''}`} className="fx-touch text-muted hover:text-ink">
           Create an account
         </Link>
       </div>

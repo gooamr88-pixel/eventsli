@@ -29,6 +29,21 @@ const fs = require('node:fs');
  */
 const NODE_22 = '/usr/local/bin/node22';
 
+/**
+ * Next's CLI, wherever npm put it.
+ *
+ * This was the literal `node_modules/next/dist/bin/next` under `./frontend`,
+ * which is only true while npm happens to NEST next inside the workspace. It
+ * hoists it to the root `node_modules` as soon as nothing forces it down —
+ * upgrading next to 16.3.8 did exactly that — and pm2 would then fail to start
+ * the site with a missing-file error on the first deploy after the upgrade.
+ * Resolving it the way Node does, starting from the frontend, finds it in
+ * either place, and throws at `pm2 start` if it is genuinely missing.
+ */
+const NEXT_BIN = require.resolve('next/dist/bin/next', {
+  paths: [require('node:path').join(__dirname, 'frontend')],
+});
+
 /** `undefined` means pm2 uses its own interpreter — correct on a machine where
  *  the system node is already 22, and on a laptop. */
 const interpreter = fs.existsSync(NODE_22) ? NODE_22 : undefined;
@@ -80,7 +95,7 @@ module.exports = {
     },
     {
       name: 'eventsli-frontend',
-      script: 'node_modules/next/dist/bin/next',
+      script: NEXT_BIN,
       args: 'start -p 3100',
       cwd: './frontend',
       interpreter,

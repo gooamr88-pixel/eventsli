@@ -103,15 +103,27 @@ export default function Promos({ eventId }) {
               key: 'status',
               label: 'Status',
               align: 'end',
+              /**
+               * A SWITCH, not a pill that is secretly a button.
+               *
+               * It was a 26px status pill reading "Live — switch off": the
+               * state and the instruction in one label, on a target that looked
+               * like a badge. `role="switch"` with `aria-checked` says what it
+               * is to a screen reader, the track says it to everybody else, and
+               * the word beside it is only the state.
+               */
               render: (p) => (
                 <button
                   type="button"
+                  role="switch"
+                  aria-checked={p.isActive}
                   onClick={() => toggle(p)}
                   disabled={busyId === p.id}
-                  aria-pressed={p.isActive}
-                  className={`es-pill ${p.isActive ? 'es-pill--accent' : ''} cursor-pointer disabled:opacity-50`}
+                  className="es-switch"
                 >
-                  {busyId === p.id ? '…' : p.isActive ? 'Live — switch off' : 'Off — switch on'}
+                  <span aria-hidden className="es-switch__track"><span className="es-switch__thumb" /></span>
+                  <span className="es-switch__label">{busyId === p.id ? 'Saving…' : p.isActive ? 'Live' : 'Off'}</span>
+                  <span className="sr-only"> — {p.code}</span>
                 </button>
               ),
             },

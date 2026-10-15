@@ -23,9 +23,15 @@ enabled = true
 port = 54321
 schemas = ["public"]
 extra_search_path = ["public", "extensions"]
-# Above any single page the suite reads. A silent truncation here reads as
-# missing data in a test and sends you looking in the wrong place.
-max_rows = 5000
+# THE SAME CAP AS PRODUCTION (Supabase's default, 1000) — deliberately.
+#
+# This was 5000, "above any single page the suite reads". That is what hid a
+# real bug: both seat-map reads asked for every seat in one request, so a room
+# of more than 1,000 seats was silently cut to 1,000 in production and never in
+# a test. A truncation the tests cannot see is exactly the one that ships. Reads
+# that need everything page through utils/fetchAll.js; a test that trips over
+# this cap has found the next one.
+max_rows = 1000
 
 [db]
 port = 54322

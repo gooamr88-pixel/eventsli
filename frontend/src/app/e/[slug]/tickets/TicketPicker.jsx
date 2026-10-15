@@ -131,7 +131,12 @@ export default function TicketPicker({ slug, focusTierId }) {
                 focusTierId === tier.id ? 'border-accent' : ''
               }`}
             >
-              <div className="fx-min0 flex-1">
+              {/* A 12rem floor before the stepper is allowed beside it. With a
+                  bare `flex-1` the text could shrink to nothing, so on a 320px
+                  phone the stepper stayed on the line and the description ran
+                  down a 100px column, five lines for one sentence. Now the
+                  stepper drops under it when there is not room for both. */}
+              <div className="fx-min0 flex-[1_1_12rem]">
                 <p className="text-ink">
                   {tier.name}
                   {tier.kind === 'vip' && <span className="es-pill es-pill--accent ml-2">VIP</span>}
@@ -147,7 +152,7 @@ export default function TicketPicker({ slug, focusTierId }) {
               {unavailable ? (
                 <span className="es-pill shrink-0">{tier.soldOut ? 'Sold out' : 'Not on sale'}</span>
               ) : (
-                <div className="fx-row shrink-0 items-center gap-2">
+                <div className="fx-row ml-auto shrink-0 items-center gap-2">
                   <StepButton
                     onClick={() => change(tier, -1)}
                     disabled={count === 0 || busy}
@@ -197,8 +202,12 @@ export default function TicketPicker({ slug, focusTierId }) {
           <span className="text-ink">
             {chosen} {chosen === 1 ? 'ticket' : 'tickets'}
           </span>
+          {/* Nothing chosen on a paid event is no amount, not "Free" — that read
+              as a claim about the event before a single ticket was picked. */}
           <span className="es-nums text-lg font-medium text-ink">
-            {everythingFree || subtotal === 0 ? 'Free' : formatMoney(subtotal, event.currency)}
+            {chosen === 0 && !everythingFree
+              ? null
+              : everythingFree || subtotal === 0 ? 'Free' : formatMoney(subtotal, event.currency)}
           </span>
         </div>
 

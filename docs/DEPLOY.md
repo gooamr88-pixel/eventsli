@@ -232,6 +232,12 @@ chmod 600 /var/www/eventsli/backend/.env /var/www/eventsli/frontend/.env
 
 ## 4. Database
 
+**Max rows.** Supabase → Project Settings → API → *Max rows* must stay at its
+default of **1000** or above. Reads that need every row (all the seats in a
+room, all the tickets on a page of orders) page through `utils/fetchAll.js`
+and are correct at any cap, but `supabase/config.toml` pins the local and CI
+stacks to 1000 so a new unpaged read fails a test instead of production.
+
 Schema lives in `supabase/migrations/`, applied in filename order — from the
 Supabase SQL editor, or here:
 
@@ -360,6 +366,33 @@ server {
     }
 }
 ```
+
+**One host.** The block above answers both `eventsli.com` and
+`www.eventsli.com`, and the session cookie belongs to `eventsli.com` alone (the
+API sets it, with no Domain attribute). On `www.` the browser's API calls carry
+the cookie while the page's own server cannot see it — signed in and signed out
+at once, which is how the admin console "came and went". `frontend/src/proxy.ts`
+now answers any `www.` page with a 308 to the apex (driven by
+`NEXT_PUBLIC_SITE_URL`). A server-level redirect in nginx is the stronger place
+for it and is recommended as well — it also covers `/api/` and static files:
+
+```nginx
+# Before the main 443 block. Uses the same certificate, which covers www.
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name www.eventsli.com;
+    ssl_certificate     /etc/letsencrypt/live/eventsli.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/eventsli.com/privkey.pem;
+    return 301 https://eventsli.com$request_uri;
+}
+# …and drop www.eventsli.com from the main block's server_name.
+```
+
+Not applied by this repository — it is a change to the shared box's nginx and
+needs `nginx -t` like any other. A door tablet that was signed in on `www.` will
+need its PIN once more after either redirect, because its stored device session
+belongs to the old origin.
 
 The symlink in `sites-enabled/` already exists, so:
 

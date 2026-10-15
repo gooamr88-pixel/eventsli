@@ -129,13 +129,21 @@ export default function Approvals() {
                 label: 'Actions',
                 hideLabel: true,
                 align: 'end',
+                /**
+                 * REVIEW LEADS. It was plain grey text beside a filled blue
+                 * Approve, so the strongest thing on every card was "publish
+                 * this" and the quietest was "look at it first" — on a phone
+                 * the hierarchy steered an admin past the one step that is the
+                 * point of a review queue. Approve stays here for the case
+                 * where the event has already been read, as a secondary.
+                 */
                 render: (e) => (
                   <span className="fx-row justify-end">
-                    <Link href={`/admin/events/${e.id}`} className="es-btn es-btn--ghost es-btn--sm">Review</Link>
+                    <Link href={`/admin/events/${e.id}`} className="es-btn es-btn--primary es-btn--sm">Review</Link>
                     <button type="button" className="es-btn es-btn--secondary es-btn--sm" disabled={busyId === e.id} onClick={() => reject(e)}>
                       Ask for changes
                     </button>
-                    <button type="button" className="es-btn es-btn--primary es-btn--sm" disabled={busyId === e.id} onClick={() => approve(e)}>
+                    <button type="button" className="es-btn es-btn--secondary es-btn--sm" disabled={busyId === e.id} onClick={() => approve(e)}>
                       {busyId === e.id ? 'Working…' : 'Approve'}
                     </button>
                   </span>

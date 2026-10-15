@@ -134,6 +134,9 @@ jobs:
           {
             echo "SUPABASE_URL=$API_URL"
             echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
+            # Only for dataApiLockdown.test.js, which proves this public key
+            # reaches nothing. The API itself never uses it.
+            echo "SUPABASE_ANON_KEY=$ANON_KEY"
           } >> "$GITHUB_ENV"
 
       # The suite seeds organizers who must accept the current terms, so a
@@ -188,17 +191,36 @@ jobs:
         ports: ['5432:5432']
     steps:
       - uses: actions/checkout@v4
-      # The base schema references auth.users, which Supabase provides and a
-      # bare Postgres does not. A minimal stand-in lets CI prove the migrations
-      # are internally consistent without booting the whole Supabase stack.
-      - name: Stub the Supabase auth schema
+      # What a new Supabase project has before its first migration, and a bare
+      # Postgres does not: the auth schema the base migration references, the
+      # three Data API roles, the extensions schema, and the permissive default
+      # grants the lock-down migration exists to undo.
+      #
+      # The stand-in used to be auth.users ALONE — and 20260914090000 revokes
+      # from `anon`, which a bare Postgres has never heard of, so this job could
+      # not reach the end of the folder and had been red on every push.
+      - name: Stand in for what Supabase provides
         run: |
-          PGPASSWORD=postgres psql -h localhost -U postgres -c \
-            "CREATE SCHEMA IF NOT EXISTS auth;
-             CREATE TABLE IF NOT EXISTS auth.users (id uuid PRIMARY KEY);"
+          PGPASSWORD=postgres psql -h localhost -U postgres -v ON_ERROR_STOP=1 -c "
+            CREATE ROLE anon NOLOGIN NOINHERIT;
+            CREATE ROLE authenticated NOLOGIN NOINHERIT;
+            CREATE ROLE service_role NOLOGIN NOINHERIT BYPASSRLS;
+            CREATE SCHEMA extensions;
+            CREATE EXTENSION pgcrypto SCHEMA extensions;
+            GRANT USAGE ON SCHEMA extensions TO anon, authenticated, service_role;
+            ALTER ROLE postgres SET search_path = \"\$user\", public, extensions;
+            CREATE SCHEMA auth;
+            CREATE TABLE auth.users (id uuid PRIMARY KEY);
+            GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
+            ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated, service_role;
+            ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon, authenticated, service_role;
+            ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO anon, authenticated, service_role;"
+      # One transaction per file, as backend/scripts/apply-migration.js applies
+      # them to the real project — so a file that only works half-applied fails
+      # here too.
       - name: Apply every migration in order
         run: |
           for f in supabase/migrations/*.sql; do
             echo "── $f"
-            PGPASSWORD=postgres psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f "$f"
+            PGPASSWORD=postgres psql -h localhost -U postgres -v ON_ERROR_STOP=1 --single-transaction -f "$f"
           done

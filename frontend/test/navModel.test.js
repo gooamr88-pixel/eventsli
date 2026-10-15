@@ -145,6 +145,33 @@ describe('organizer destinations', () => {
     expect(pickTabs(organizerNavGroups({ eventId: null }), ORGANIZER_TABS)).toHaveLength(ORGANIZER_TABS.length);
   });
 
+  test('before launch the bar offers setup, not an empty Orders and Door list', () => {
+    // A draft cannot have orders or a door list yet; the two screens it CAN use
+    // are its overview (the checklist) and the next thing to build.
+    for (const status of ['draft', 'rejected', 'pending_review']) {
+      const ticketed = organizerTabs({ eventId: EVENT, listingType: 'ticketed', status });
+      expect(ticketed, status).not.toContain('orders');
+      expect(ticketed, status).not.toContain('attendees');
+      expect(ticketed, status).toContain('overview');
+      expect(pickTabs(organizerNavGroups({ eventId: EVENT, listingType: 'ticketed' }), ticketed)).toHaveLength(ticketed.length);
+
+      const listing = organizerTabs({ eventId: EVENT, listingType: 'display_only', status });
+      expect(pickTabs(organizerNavGroups({ eventId: EVENT, listingType: 'display_only' }), listing)).toHaveLength(listing.length);
+    }
+    // On sale, and in every state after it, the bar is the one used on the night.
+    for (const status of ['published', 'completed', 'suspended', 'cancelled', 'archived']) {
+      expect(organizerTabs({ eventId: EVENT, listingType: 'ticketed', status }), status).toContain('orders');
+    }
+  });
+
+  test('the event groups name the event they act on', () => {
+    const groups = organizerNavGroups({ eventId: EVENT, eventTitle: 'Spring Gala' });
+    expect(groups.find((g) => g.id === 'build').caption).toBe('Spring Gala');
+    // Pruning a listing's selling screens keeps the caption on what is left.
+    const listing = organizerNavGroups({ eventId: EVENT, listingType: 'display_only', eventTitle: 'Art Walk' });
+    expect(listing.find((g) => g.id === 'build').caption).toBe('Art Walk');
+  });
+
   test('every destination is a page that exists on disk', () => {
     const app = path.resolve(__dirname, '../src/app');
     // THE BUYER'S NAV IS IN HERE TOO. It is the third workspace and the newest,

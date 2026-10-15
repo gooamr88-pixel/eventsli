@@ -145,8 +145,8 @@ export default function HowItWorksPage() {
               minutes, and selling takes an afternoon to set up and then runs itself."
       >
         <div className="fx-row">
-          <a href="#buying" className="text-sm text-accent hover:text-accent-hover">Buying a ticket ↓</a>
-          <a href="#selling" className="text-sm text-accent hover:text-accent-hover">Selling one ↓</a>
+          <a href="#buying" className="fx-touch text-sm text-accent hover:text-accent-hover">Buying a ticket ↓</a>
+          <a href="#selling" className="fx-touch text-sm text-accent hover:text-accent-hover">Selling one ↓</a>
         </div>
       </PageHeader>
 
@@ -179,7 +179,7 @@ export default function HowItWorksPage() {
           >
             Create an organizer account
           </Link>
-          <Link href="/why-us" className="text-sm text-accent hover:text-accent-hover">
+          <Link href="/why-us" className="fx-touch text-sm text-accent hover:text-accent-hover">
             Why organizers choose us →
           </Link>
         </div>

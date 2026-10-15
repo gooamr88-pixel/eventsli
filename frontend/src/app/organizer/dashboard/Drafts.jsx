@@ -98,7 +98,7 @@ export default function Drafts() {
       title="Drafts"
       description={describeCount(saved.length + (started ? 1 : 0))}
       action={(
-        <Link href="/organizer/events?status=draft" className="text-sm text-accent hover:text-accent-hover">
+        <Link href="/organizer/events?status=draft" className="fx-touch text-sm text-accent hover:text-accent-hover">
           In Your events
         </Link>
       )}
@@ -173,15 +173,20 @@ export default function Drafts() {
                 <NavIcon name="arrow" size={16} />
                 {draft.next ? 'Continue' : 'Open'}
               </Link>
+              {/* AN ICON, QUIETER THAN CONTINUE. It was a red "Delete" the same
+                  size as Continue beside it, so the two ways out of a draft —
+                  finish it, or destroy it — looked equally recommended. The
+                  confirmation it opens names the draft and says there is no
+                  undo; the label carries the name for a screen reader. */}
               <button
                 type="button"
-                className="es-btn es-btn--ghost es-btn--sm text-danger"
+                className="es-btn es-btn--ghost es-btn--sm fx-touch--icon es-btn--danger-text"
                 disabled={busy === draft.id}
+                aria-label={busy === draft.id ? `Deleting ${draft.title}` : `Delete ${draft.title}`}
+                title="Delete this draft"
                 onClick={() => remove(draft)}
               >
-                <NavIcon name="trash" size={16} />
-                <span className="sr-only">Delete </span>
-                {busy === draft.id ? 'Deleting…' : 'Delete'}
+                <NavIcon name="trash" size={18} />
               </button>
             </div>
           </li>

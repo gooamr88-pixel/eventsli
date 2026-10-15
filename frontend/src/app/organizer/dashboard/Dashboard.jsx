@@ -124,20 +124,10 @@ export default function Dashboard() {
          * is where starting another belongs. `EventBar` records the other half.
          */
         actions={(
-          <>
-            {currencies.length > 1 && (
-              <Segmented
-                label="Currency"
-                value={currency}
-                onChange={setPicked}
-                options={currencies.map((c) => ({ value: c, label: c }))}
-              />
-            )}
-            <Link href="/organizer/events/new" className="es-btn es-btn--primary">
-              <NavIcon name="plus" size={18} />
-              Create event
-            </Link>
-          </>
+          <Link href="/organizer/events/new" className="es-btn es-btn--primary">
+            <NavIcon name="plus" size={18} />
+            Create event
+          </Link>
         )}
       />
 
@@ -164,6 +154,20 @@ export default function Dashboard() {
           {/* Unfinished work, before the finished. Renders nothing when there
               are no drafts. */}
           <Drafts />
+
+          {/* THE CURRENCY SWITCH SITS WITH THE FIGURES IT CHANGES. It was in the
+              page header beside Create event, and its selected option is a
+              filled blue pill — so the header offered two blue buttons side by
+              side, one of which only re-labels the numbers further down. */}
+          {currencies.length > 1 && (
+            <Segmented
+              label="Figures in"
+              showLabel
+              value={currency}
+              onChange={setPicked}
+              options={currencies.map((c) => ({ value: c, label: c }))}
+            />
+          )}
 
           <div className="es-statgrid">
             <StatCard

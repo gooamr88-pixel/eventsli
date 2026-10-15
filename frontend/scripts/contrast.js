@@ -188,6 +188,68 @@ function readThemes() {
 
 const THEMES = readThemes();
 
+/**
+ * THE DANGER RED, as text — read the same way as everything above.
+ *
+ * Every error message, every invalid field, "Sign out everywhere" and the error
+ * page's eyebrow are written in `--es-danger`. It was #ef4444 for months —
+ * 3.76:1 on white, an AA failure on every one of them — and this file passed,
+ * because it measured the four text roles and nothing else. A colour the gate
+ * does not read is a colour the gate cannot defend.
+ *
+ * LIGHT ONLY. Nothing in the product sets the dark theme (see layout.jsx), and
+ * the dark bands carry no error text; measuring a light-theme red against a
+ * dark ground would fail a combination that never renders.
+ */
+function readLightToken(name) {
+  const src = fs.readFileSync(CSS, 'utf8');
+  // Every `:root {` block, in order, as the cascade merges them — the danger
+  // fill and a few roles are declared in later :root blocks beside their rules.
+  const root = {};
+  for (let at = src.indexOf(':root {'); at !== -1; at = src.indexOf(':root {', at + 1)) {
+    Object.assign(root, declarations(blockAfter(src.slice(at), ':root {')));
+  }
+  let value = root[name];
+  for (let hop = 0; hop < 8 && value && value.startsWith('var('); hop += 1) {
+    value = root[value.match(/^var\((--[\w-]+)\)$/)[1]];
+  }
+  if (!/^#[0-9a-f]{6}$/i.test(value || '')) throw new Error(`contrast: ${name} resolves to \`${value}\``);
+  return value;
+}
+const DANGER = readLightToken('--es-danger');
+
+/**
+ * THE OTHER STATUS COLOURS, as text — the same reasoning as danger, found the
+ * same way (2026-10-15). Success, warning and info colour words at the door, on
+ * hold timers and in the password rules; they were 3.30, 2.15 and 3.68:1.
+ */
+const STATUS_TEXT = Object.fromEntries(['success', 'warning', 'info', 'danger']
+  .map((s) => [s, readLightToken(`--es-${s}`)]));
+
+/**
+ * NON-TEXT — WCAG 2.2 SC 1.4.11, 3:1 against what they sit on. The edges and
+ * states that tell somebody a control is there and what state it is in: the
+ * text-field border and the switch's off track, the focus ring, and the seat
+ * colours a buyer reads a map by. Sold and blocked seats are inactive controls,
+ * which 1.4.11 exempts, and are faint on purpose.
+ */
+const AA_NON_TEXT = 3;
+const NON_TEXT = {
+  'control border': readLightToken('--es-control-border'),
+  'focus ring': readLightToken('--es-focus-ring-color'),
+  'seat available': readLightToken('--es-seat-available'),
+  'seat selected': readLightToken('--es-seat-selected'),
+  'seat held': readLightToken('--es-seat-held'),
+  'rating stars': readLightToken('--es-amber-700'),
+};
+
+/** `color-mix(in srgb, C p%, base)`, as the alert and pill grounds are built. */
+function mix(color, p, base) {
+  const ch = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+  const [a, b] = [ch(color), ch(base)];
+  return `#${a.map((v, i) => Math.round(v * p + b[i] * (1 - p)).toString(16).padStart(2, '0')).join('')}`;
+}
+
 const GROUNDS = ['bg', 'bg-sunken', 'surface'];
 const TEXT_ROLES = ['ink', 'muted', 'subtle', 'accent'];
 
@@ -247,6 +309,34 @@ function check() {
       failures.push(
         `${theme}: text-on-accent on bg-accent is ${onAccent.toFixed(2)}:1 (needs ${AA_BODY})`,
       );
+    }
+  }
+
+  // ── The status colours as text (see STATUS_TEXT) ──────────────────────
+  for (const [status, hex] of Object.entries(STATUS_TEXT)) {
+    const light = THEMES.light;
+    const grounds = {
+      ...Object.fromEntries(GROUNDS.map((g) => [g, light[g]])),
+      // The alert (bg-*/10) and pill/result (12–15%) grounds, on white.
+      [`${status} 10% tint`]: mix(hex, 0.10, light.surface),
+      [`${status} 15% tint`]: mix(hex, 0.15, light.surface),
+    };
+    for (const [ground, g] of Object.entries(grounds)) {
+      const r = ratio(hex, g);
+      rows.push({ theme: 'light', ground, role: status, ratio: r, pass: r >= AA_BODY });
+      if (r < AA_BODY) failures.push(`light: text-${status} on ${ground} is ${r.toFixed(2)}:1 (needs ${AA_BODY})`);
+    }
+    const onFill = ratio('#ffffff', hex);
+    rows.push({ theme: 'light', ground: `${status} (fill)`, role: 'white', ratio: onFill, pass: onFill >= AA_BODY });
+    if (onFill < AA_BODY) failures.push(`light: white on bg-${status} is ${onFill.toFixed(2)}:1 (needs ${AA_BODY})`);
+  }
+
+  // ── Non-text: control edges, focus, seat states (WCAG 1.4.11) ─────────
+  for (const [what, hex] of Object.entries(NON_TEXT)) {
+    for (const g of GROUNDS) {
+      const r = ratio(hex, THEMES.light[g]);
+      rows.push({ theme: 'light', ground: g, role: what, ratio: r, pass: r >= AA_NON_TEXT });
+      if (r < AA_NON_TEXT) failures.push(`light: ${what} on bg-${g} is ${r.toFixed(2)}:1 (needs ${AA_NON_TEXT})`);
     }
   }
 

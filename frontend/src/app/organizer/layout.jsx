@@ -9,7 +9,7 @@ import { ToastProvider } from '../components/ui/Toast';
 import { ConfirmProvider } from '../components/ui/Confirm';
 import { useAuth } from '../hooks/useAuth';
 import { get } from '../utils/apiClient';
-import EventBar from './nav/EventBar';
+import EventBar, { EventPicker } from './nav/EventBar';
 import { OrganizerEventsProvider } from './nav/OrganizerEvents';
 import { organizerNavGroups, organizerTabs, eventIdFromPath } from './nav/organizerNav';
 
@@ -126,9 +126,14 @@ export default function OrganizerLayout({ children }) {
            * apart. The bar's copy is the one that survives: it is visible without
            * opening a drawer, which is the complaint that started all of this.
            */
-          groups={organizerNavGroups({ eventId, listingType, admissionType })}
+          groups={organizerNavGroups({ eventId, listingType, admissionType, eventTitle: current?.title || null })}
           // Only an event in the URL changes the bar; a remembered one does not.
-          tabKeys={organizerTabs({ eventId: pathEventId, listingType })}
+          // Its status picks between the setup bar and the selling one.
+          tabKeys={organizerTabs({
+            eventId: pathEventId,
+            listingType,
+            status: events?.find((e) => e.id === pathEventId)?.status || null,
+          })}
           // Before the organization exists there is nothing to create an event
           // under and no event to pick: setup is the page, and the sidebar does
           // not offer a shortcut past it.
@@ -157,6 +162,9 @@ export default function OrganizerLayout({ children }) {
              `top: 56px`, which is the app bar's height only on a phone with no
              notch. See the note on AppShell's props. */
           contextBar={<EventBar events={events} currentId={eventId} />}
+          // Phones and tablets: the same switch, in the app bar, and only on a
+          // route that is ABOUT an event. The strip above is desktop-only now.
+          appbarContext={pathEventId ? <EventPicker events={events} currentId={pathEventId} /> : null}
           // NO APP-BAR ACTION, deliberately. It was a phone-only "Create"
           // button, and the event bar directly under it now carries the same
           // one — two Create buttons stacked within 60px of each other is the

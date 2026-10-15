@@ -9,7 +9,7 @@ import { ConfirmProvider } from '../components/ui/Confirm';
 import { useAuth } from '../hooks/useAuth';
 import { get } from '../utils/apiClient';
 import { summariseOrders } from '../lib/buyerOrders';
-import { hasWorkspace, WORKSPACE } from '../lib/workspaces';
+import { hasWorkspace, WORKSPACE, WORKSPACE_LABEL } from '../lib/workspaces';
 import { AccountOrdersProvider } from './nav/AccountOrders';
 import { accountNavGroups, ACCOUNT_TABS } from './nav/accountNav';
 
@@ -120,7 +120,9 @@ export default function AccountLayout({ children }) {
       <ConfirmProvider>
         <AccountOrdersProvider value={ordersValue}>
           <AppShell
-            workspace="Tickets"
+            // The same word the switcher uses for this workspace, from the one
+            // table that names them — it was a literal here and "Tickets" there.
+            workspace={WORKSPACE_LABEL[WORKSPACE.BUYER]}
             label="Your account"
             home="/account"
             groups={accountNavGroups({ upcoming, canSell })}

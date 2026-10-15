@@ -1,6 +1,7 @@
 const express = require('express');
 const { body, param } = require('express-validator');
 const validate = require('../../middleware/validate');
+const { requireRole } = require('../../middleware/auth');
 const c = require('../../controllers/admin/storefrontController');
 
 /**
@@ -19,6 +20,24 @@ const c = require('../../controllers/admin/storefrontController');
  * remembers to update.
  */
 const router = express.Router();
+
+/**
+ * READS FOR EVERY ADMIN, WRITES FOR A SUPER ADMIN — enforced here, not in the
+ * console.
+ *
+ * The policy was always super-admin writes, "matching /admin/settings"
+ * (admin/content/Content.jsx), and the console honoured it by hiding the
+ * inputs. This file did not: it sat behind the admin guard alone, so any admin
+ * could rewrite the public homepage with one request the UI never offered.
+ *
+ * Router-level, by method, so a write route added to this file later is
+ * covered without anyone remembering to add the guard to it. Only paths under
+ * /storefront are touched — this router is mounted on the shared /admin path.
+ */
+const superAdmin = requireRole('super_admin');
+router.use('/storefront', (req, res, next) => (
+  req.method === 'GET' || req.method === 'HEAD' ? next() : superAdmin(req, res, next)
+));
 
 // ─── Content blocks ─────────────────────────────────────────────────────────
 router.get('/storefront/content', c.getContent);

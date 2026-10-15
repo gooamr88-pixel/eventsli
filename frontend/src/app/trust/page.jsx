@@ -200,10 +200,10 @@ export default function TrustPage() {
           report.
         </p>
         <div className="fx-row">
-          <Link href="/privacy" className="text-sm text-accent hover:text-accent-hover">
+          <Link href="/privacy" className="fx-touch text-sm text-accent hover:text-accent-hover">
             What we do with your data →
           </Link>
-          <Link href="/terms" className="text-sm text-accent hover:text-accent-hover">
+          <Link href="/terms" className="fx-touch text-sm text-accent hover:text-accent-hover">
             Ticket terms →
           </Link>
         </div>

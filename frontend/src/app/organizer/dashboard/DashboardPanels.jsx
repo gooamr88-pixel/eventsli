@@ -189,7 +189,7 @@ export function Upcoming({ events }) {
   return (
     <Panel
       title="Coming up"
-      action={<Link href="/organizer/events?status=published" className="text-sm text-accent hover:text-accent-hover">All on sale</Link>}
+      action={<Link href="/organizer/events?status=published" className="fx-touch text-sm text-accent hover:text-accent-hover">All on sale</Link>}
     >
       {!events?.length ? (
         <p className="text-sm text-muted">Nothing on sale is coming up. Published events appear here.</p>

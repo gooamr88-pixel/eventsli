@@ -24,7 +24,7 @@ const { canReceivePayouts } = require('../utils/payouts');
 const { normalise: normaliseTypes } = require('../utils/accountTypes');
 
 async function fetchContext(userId) {
-  const [{ data: profile, error: pErr }, { data: organizer }] = await Promise.all([
+  const [{ data: profile, error: pErr }, { data: organizer, error: oErr }] = await Promise.all([
     supabase
       .from('profiles')
       .select('id, email, full_name, role, is_blocked, account_types')
@@ -38,6 +38,17 @@ async function fetchContext(userId) {
   ]);
 
   if (pErr) throw new Error(`access lookup failed: ${pErr.message}`);
+  /**
+   * The organizer half fails as loudly as the profile half.
+   *
+   * Its error was not read at all, so a failed organizer lookup came back as
+   * "this account has no organizer profile" — and was CACHED as that for ten
+   * seconds. An organizer opening their dashboard during a blip was answered
+   * 403 on every event route and saw an empty "Your events", which is "the data
+   * is there, then it is not" from the inside. Throwing here is never cached
+   * (getAccessContext caches only a value) and requireAuth answers it.
+   */
+  if (oErr) throw new Error(`access lookup failed: ${oErr.message}`);
   if (!profile) return null;
 
   const role = profile.role || 'attendee';

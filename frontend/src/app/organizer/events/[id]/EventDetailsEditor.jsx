@@ -15,6 +15,7 @@ import Link from 'next/link';
 import { Panel } from '../../../components/ui/Page';
 import Field, { SelectField, TextareaField } from '../../../components/forms/Field';
 import PlaceAutocomplete from '../../../components/forms/PlaceAutocomplete';
+import VenuePin, { pinProblem } from '../../../components/forms/VenuePin';
 import FormError from '../../../components/forms/FormError';
 import SubmitButton from '../../../components/forms/SubmitButton';
 import { useStepSave } from './BuildStep';
@@ -137,9 +138,16 @@ export default function EventDetailsEditor({ event, onSaved }) {
    * organizer may have corrected on purpose — a suite number, a building name
    * Google spells differently — and wiping them on a keystroke in another field
    * would delete work nobody asked to delete.
+   *
+   * ONLY A GOOGLE PIN IS DROPPED, and `venuePlaceId` is what tells them apart.
+   * A pin that came from a suggestion belongs to that suggestion's name, so
+   * editing the name orphans it. A pin somebody TYPED belongs to the event —
+   * they looked it up and entered it deliberately — and clearing it because
+   * they fixed a capital letter in the venue name would delete the only pin the
+   * event has, on a deployment where venue search cannot supply another.
    */
   const setVenueName = (venueName) => setForm((f) => (
-    f.venuePlaceId || f.venueLat !== '' || f.venueLng !== ''
+    f.venuePlaceId
       ? { ...f, venueName, venuePlaceId: '', venueLat: '', venueLng: '' }
       : { ...f, venueName }
   ));
@@ -170,7 +178,13 @@ export default function EventDetailsEditor({ event, onSaved }) {
   const perOrder = Number(form.maxTicketsPerOrder);
   const perOrderInvalid = !(Number.isInteger(perOrder) && perOrder >= 1 && perOrder <= 100);
   const titleInvalid = form.title.trim().length < 3;
-  const blocked = endsBeforeStart || perOrderInvalid || titleInvalid;
+  /**
+   * Half a pin blocks the save, because `venue_coords_together` would refuse it
+   * anyway — and a database CHECK surfaces to an organizer as an opaque error
+   * rather than as the sentence under the two boxes they just filled in.
+   */
+  const pinInvalid = Boolean(pinProblem({ lat: form.venueLat, lng: form.venueLng }));
+  const blocked = endsBeforeStart || perOrderInvalid || titleInvalid || pinInvalid;
 
   /**
    * THE VENUE IS REQUIRED TO SUBMIT, NOT TO SAVE A DRAFT.
@@ -365,16 +379,17 @@ export default function EventDetailsEditor({ event, onSaved }) {
                 value={form.city} onChange={set('city')} />
             </div>
 
-            {/* Whether this event has a pin, said plainly. Without it the only
-                way to know is to publish and look at whether the map renders —
-                and the difference between "near me" measuring to this building
-                or to the middle of the city is invisible until somebody is
-                standing outside the wrong one. */}
-            <p className="text-sm text-muted">
-              {form.venueLat && form.venueLng
-                ? 'This venue is pinned on the map — “events near me” measures to the building.'
-                : 'No pin yet. Pick the venue from the suggestions above and “events near me” will measure to the building instead of the middle of the city.'}
-            </p>
+            {/* The pin, shown and editable. Filled by the venue search above
+                when a suggestion is picked, and typed by hand when search is
+                unavailable or the venue is somewhere Google has never heard
+                of — which, until the Places key is unrestricted, is every
+                venue on this deployment. */}
+            <VenuePin
+              lat={form.venueLat}
+              lng={form.venueLng}
+              fromSearch={Boolean(form.venuePlaceId)}
+              onChange={(key, value) => setForm((f) => ({ ...f, [key]: value }))}
+            />
 
             <div className="fx-grid fx-grid--2">
               <Field label="Starts" type="datetime-local" name="startsAt" required

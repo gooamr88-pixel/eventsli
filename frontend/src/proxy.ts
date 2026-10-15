@@ -109,6 +109,53 @@ const IS_DEV = process.env.NODE_ENV !== 'production';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
+ * ONE HOST. `www.` IS SENT TO THE CANONICAL ONE BEFORE ANYTHING ELSE RUNS.
+ *
+ * nginx serves this app on both `eventsli.com` and `www.eventsli.com`, and the
+ * browser's API is always `https://eventsli.com/api/v1`. The session cookie is
+ * set BY THE API, with no Domain attribute, so it belongs to `eventsli.com`
+ * alone. On `www.` that produced a split personality:
+ *
+ *   · the client's `/auth/me` goes to the apex, carries the cookie, and says
+ *     "super admin" — so the header, the admin card and the switcher appear;
+ *   · this file, and every server render, runs on `www.` and sees NO cookie —
+ *     so /admin, /organizer and /account bounce to /login, and signing in
+ *     there sets the cookie on the apex again and bounces straight back.
+ *
+ * Signed in and signed out at the same moment, depending on which half of the
+ * page was asking. The API then kept people on `www.`: activation, reset and
+ * Stripe return links echo the Origin they were requested from.
+ *
+ * Fixed at the HOST rather than by widening the cookie to `.eventsli.com`: one
+ * address is also what search engines want, and the cookie stays as narrow as
+ * it is. Only the exact `www` twin of NEXT_PUBLIC_SITE_URL's host is redirected
+ * — never "any host that is not canonical", which would turn a forged Host
+ * header into an open redirect. 308 keeps the method and the body.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+const CANONICAL = (() => {
+  try {
+    const url = new URL(process.env.NEXT_PUBLIC_SITE_URL as string);
+    return url.protocol === 'https:' || url.protocol === 'http:' ? url : null;
+  } catch {
+    return null;
+  }
+})();
+
+function twinOf(host: string) {
+  return host.startsWith('www.') ? host.slice(4) : `www.${host}`;
+}
+
+function canonicalRedirect(request: NextRequest): URL | null {
+  if (!CANONICAL) return null;
+  const host = (request.headers.get('host') || '').toLowerCase();
+  if (!host || host !== twinOf(CANONICAL.host.toLowerCase())) return null;
+  const { pathname, search } = request.nextUrl;
+  return new URL(`${pathname}${search}`, CANONICAL.origin);
+}
+
+/**
+ * ─────────────────────────────────────────────────────────────────────────────
  * THE SECOND JOB THIS FILE DOES: issue the Content Security Policy.
  *
  * It has to happen here rather than in next.config.mjs, because the policy
@@ -146,6 +193,11 @@ function withCsp(request: NextRequest, make: (headers: Headers) => NextResponse)
 
 export function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
+
+  // First, before the gate and the auth rules: on the wrong host, neither of
+  // them can see the session cookie, so neither can be right.
+  const canonical = canonicalRedirect(request);
+  if (canonical) return withCsp(request, () => NextResponse.redirect(canonical, 308));
 
   /**
    * The gate is exempt from the AUTH rules — its principal is a device with a

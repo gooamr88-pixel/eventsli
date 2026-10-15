@@ -1,5 +1,6 @@
 const { supabase } = require('../config/supabase');
 const { hashTablePassword } = require('./tableAccessService');
+const { fetchAll } = require('../utils/fetchAll');
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -29,31 +30,41 @@ const MAX_NEW_PASSWORDS_PER_SAVE = 50;
 
 /** The map as the organizer's editor needs it — including private tables. */
 async function getMapForOrganizer(eventId) {
-  const { data: map } = await supabase
+  const { data: map, error: mapError } = await supabase
     .from('venue_maps')
     .select('id, layout_json, version, updated_at')
     .eq('event_id', eventId)
     .maybeSingle();
+  // A failed read must not look like "no map yet": the editor would offer a
+  // blank room to draw, and saving it would replace the real one.
+  if (mapError) throw new Error(`could not read the venue map: ${mapError.message}`);
 
   if (!map) return null;
 
-  const { data: tables } = await supabase
+  const tables = await fetchAll(({ from, to }, first) => supabase
     .from('tables')
-    .select('id, label, seat_count, price_cents, is_private, password_hash, status, position_x, position_y, rotation, shape, category_id')
+    .select('id, label, seat_count, price_cents, is_private, password_hash, status, position_x, position_y, rotation, shape, category_id',
+      first ? { count: 'exact' } : undefined)
     .eq('venue_map_id', map.id)
-    .order('label');
+    .order('label')
+    .order('id')
+    .range(from, to), { what: 'tables' });
 
-  const { data: seats } = await supabase
+  // Every seat, in pages — one request stopped at 1,000 (utils/fetchAll.js).
+  const seats = await fetchAll(({ from, to }, first) => supabase
     .from('seats')
-    .select('id, table_id, tier_id, section_key, row_label, seat_number, price_override_cents, status')
-    .eq('venue_map_id', map.id);
+    .select('id, table_id, tier_id, section_key, row_label, seat_number, price_override_cents, status',
+      first ? { count: 'exact' } : undefined)
+    .eq('venue_map_id', map.id)
+    .order('id')
+    .range(from, to), { what: 'seats' });
 
   return {
     id: map.id,
     layout: map.layout_json,
     version: map.version,
     updatedAt: map.updated_at,
-    tables: (tables || []).map((t) => ({
+    tables: tables.map((t) => ({
       id: t.id,
       label: t.label,
       seatCount: t.seat_count,
@@ -67,12 +78,12 @@ async function getMapForOrganizer(eventId) {
       position: { x: Number(t.position_x), y: Number(t.position_y), rotation: Number(t.rotation) },
       shape: t.shape,
       categoryId: t.category_id,
-      seats: (seats || [])
+      seats: seats
         .filter((s) => s.table_id === t.id)
         .map(shapeSeat),
     })),
     // Seats not attached to a table — general rows.
-    looseSeats: (seats || []).filter((s) => !s.table_id).map(shapeSeat),
+    looseSeats: seats.filter((s) => !s.table_id).map(shapeSeat),
   };
 }
 

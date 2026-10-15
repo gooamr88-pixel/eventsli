@@ -168,7 +168,21 @@ export function usePanZoom(bounds, { wheelMode = 'zoom' } = {}) {
   const onPointerDown = useCallback((e) => {
     const svg = svgRef.current;
     if (!svg) return;
-    svg.setPointerCapture?.(e.pointerId);
+    /**
+     * ─────────────────────────────────────────────────────────────────────────
+     * NO POINTER CAPTURE ON PRESS — it is taken when a DRAG starts, below.
+     *
+     * This captured on every pointerdown, and Chrome then fires the `click` at
+     * the CAPTURING element: a mouse click on a seat arrived at the `<svg>`
+     * ("Seat map") instead of the seat, so on a desktop no seat could be chosen
+     * with a mouse at all. A touch tap still worked, which is why it hid. Found
+     * by the mobile pass's click checks; confirmed by disabling capture, after
+     * which the same click selected the seat.
+     *
+     * Capture is only needed once the pointer is MOVING the map — to keep the
+     * drag alive when it leaves the svg — so that is when it is taken.
+     * ─────────────────────────────────────────────────────────────────────────
+     */
 
     const pointers = gesture.current?.pointers || new Map();
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -216,6 +230,11 @@ export function usePanZoom(bounds, { wheelMode = 'zoom' } = {}) {
     // pixel and swallows the click, so seats become unselectable for anyone
     // with an unsteady hand.
     if (Math.abs(e.clientX - g.origin.x) > 4 || Math.abs(e.clientY - g.origin.y) > 4) {
+      // The moment a press becomes a drag, the drag takes the pointer — see
+      // onPointerDown for why it is not taken earlier.
+      if (!moved.current) {
+        try { svg.setPointerCapture?.(e.pointerId); } catch { /* pointer already gone */ }
+      }
       moved.current = true;
     }
     if (!moved.current) return;
@@ -232,7 +251,10 @@ export function usePanZoom(bounds, { wheelMode = 'zoom' } = {}) {
     const g = gesture.current;
     if (!g) return;
     g.pointers.delete(e.pointerId);
-    svgRef.current?.releasePointerCapture?.(e.pointerId);
+    // Only a pointer a drag captured is released; releasing one that was never
+    // captured throws in some engines.
+    const svg = svgRef.current;
+    if (svg?.hasPointerCapture?.(e.pointerId)) svg.releasePointerCapture(e.pointerId);
 
     if (g.pointers.size === 0) {
       gesture.current = null;

@@ -13,10 +13,21 @@ import { useId, useState } from 'react';
 /**
  * One-of-several. Buttons with `aria-pressed` rather than radio inputs: the
  * choice applies immediately, and that is what a toggle button promises.
+ *
+ * `showLabel` prints the label above the pills. Where two rows of pills sit
+ * one above the other — Orders has Channel then Status, the admin lists have
+ * Role then Status — they looked identical, and their names existed only for
+ * a screen reader. A single row whose meaning is plain from its options
+ * ("All · On sale · Drafts") leaves it off.
  */
-export function Segmented({ label, options, value, onChange }) {
-  return (
-    <div className="es-segmented" role="group" aria-label={label}>
+export function Segmented({ label, options, value, onChange, showLabel = false }) {
+  const id = useId();
+  const group = (
+    <div
+      className="es-segmented"
+      role="group"
+      {...(showLabel ? { 'aria-labelledby': id } : { 'aria-label': label })}
+    >
       {options.map((opt) => (
         <button
           key={opt.value || 'all'}
@@ -31,6 +42,14 @@ export function Segmented({ label, options, value, onChange }) {
           )}
         </button>
       ))}
+    </div>
+  );
+
+  if (!showLabel) return group;
+  return (
+    <div className="es-filterrow">
+      <span id={id} className="es-filterrow__label">{label}</span>
+      {group}
     </div>
   );
 }

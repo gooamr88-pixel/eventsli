@@ -71,12 +71,13 @@ export default function Audit() {
                   return <span className={`es-pill ${tone}`}>{label}</span>;
                 },
               },
-              { key: 'detail', label: 'Details', render: (entry) => <AuditDetail entry={entry} /> },
+              { key: 'detail', label: 'Details', wide: true, render: (entry) => <AuditDetail entry={entry} /> },
               { key: 'actor', label: 'By', render: (entry) => <span className="fx-break">{entry.actor?.name || entry.actor?.email || 'Unknown actor'}</span> },
               { key: 'target', label: 'On', render: (entry) => <Target target={entry.target} /> },
               {
                 key: 'at',
                 label: 'When',
+                wide: true,
                 // The viewer's own clock, labelled: the log is not about one event.
                 render: (entry) => <span className="whitespace-nowrap text-sm text-muted">{formatEventTime(entry.at)}</span>,
               },

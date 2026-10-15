@@ -72,16 +72,28 @@ async function issue(res, { userId, email, role, req, ttlHours = SESSION_TTL_HOU
 }
 
 /**
- * Is this token's session still live?
+ * Is this token's session still live — and do we actually KNOW?
  *
- * FAILS CLOSED at every branch. A lookup error used to be treated as "probably
- * fine" in systems like this, which means a revoked session slips through on a
- * transient database hiccup — precisely when you least want it to.
+ *   'live'     the row exists, is not revoked and has not expired
+ *   'ended'    revoked, expired, purged, forged, or no jti at all
+ *   'unknown'  the lookup itself failed
+ *
+ * THREE ANSWERS, NOT TWO, and the third is the reason this function exists.
+ * It used to return a boolean, so a database timeout came back `false` — the
+ * same answer as a revoked session. `requireAuth` then did what it must do for
+ * a revoked session: it CLEARED THE COOKIE. A ten-second blip in the session
+ * lookup signed every user who made a request during it out of the product,
+ * and the client, seeing a 401, hid everything a signed-in account sees —
+ * which is what "the Super Admin link is there, then it is gone" was made of.
+ *
+ * Both failure answers still REFUSE the request: nothing proceeds on a session
+ * we could not confirm. What differs is what happens to the cookie, and that is
+ * the caller's decision (see middleware/auth.js).
  */
-async function isValid(decoded) {
+async function check(decoded) {
   // No jti means the token predates this system or was forged. Either way it is
   // not revocable, so it is not accepted.
-  if (!decoded?.jti) return false;
+  if (!decoded?.jti) return 'ended';
 
   try {
     const { data, error } = await supabase
@@ -91,17 +103,22 @@ async function isValid(decoded) {
       .maybeSingle();
 
     if (error) {
-      logger.error({ err: error, jti: decoded.jti }, 'session lookup failed — denying');
-      return false;
+      logger.error({ err: error, jti: decoded.jti }, 'session lookup failed — refusing, not signing out');
+      return 'unknown';
     }
-    if (!data) return false;                 // revoked-and-purged, or forged
-    if (data.revoked_at) return false;
-    if (new Date(data.expires_at).getTime() < Date.now()) return false;
-    return true;
+    if (!data) return 'ended';                 // revoked-and-purged, or forged
+    if (data.revoked_at) return 'ended';
+    if (new Date(data.expires_at).getTime() < Date.now()) return 'ended';
+    return 'live';
   } catch (e) {
-    logger.error({ err: e, jti: decoded?.jti }, 'session lookup threw — denying');
-    return false;
+    logger.error({ err: e, jti: decoded?.jti }, 'session lookup threw — refusing, not signing out');
+    return 'unknown';
   }
+}
+
+/** The boolean form, for callers where "not known to be live" is the whole answer. */
+async function isValid(decoded) {
+  return (await check(decoded)) === 'live';
 }
 
 async function revoke(jti, reason = 'logout') {
@@ -157,6 +174,7 @@ function clearCookie(res) {
 
 module.exports = {
   issue,
+  check,
   isValid,
   revoke,
   revokeAllForUser,

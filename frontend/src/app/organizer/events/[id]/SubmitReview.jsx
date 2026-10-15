@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useApi } from '../../../hooks/useApi';
 import { formatEventTime } from '../../../lib/eventTime';
+import { categoryLabel } from '../../../lib/categories';
 import { Loading } from '../../../components/Feedback';
 import FormError from '../../../components/forms/FormError';
 import SubmitButton from '../../../components/forms/SubmitButton';
@@ -48,10 +49,16 @@ export default function SubmitReview({ eventId, onClose, onConfirm, busy = false
   useEffect(() => {
     const dialog = ref.current;
     if (!dialog) return undefined;
+    // Focus is handed back by hand on the way out — an unmounted dialog does
+    // not restore it. See the same note in components/ui/Confirm.jsx.
+    const opener = document.activeElement;
     // jsdom and some older engines have no showModal; the dialog still renders.
     if (typeof dialog.showModal === 'function' && !dialog.open) dialog.showModal();
     else dialog.setAttribute('open', '');
-    return () => { if (dialog.open && typeof dialog.close === 'function') dialog.close(); };
+    return () => {
+      if (dialog.open && typeof dialog.close === 'function') dialog.close();
+      if (opener?.isConnected && typeof opener.focus === 'function') opener.focus({ preventScroll: true });
+    };
   }, []);
 
   const event = data?.event;
@@ -100,7 +107,8 @@ export default function SubmitReview({ eventId, onClose, onConfirm, busy = false
                     : event.admissionType === 'general'
                       ? 'General admission'
                       : 'Reserved seating'],
-                  ['Category', event.category || 'Not set'],
+                  // The name a buyer sees ("Arts & culture"), not the stored key ("arts").
+                  ['Category', event.category ? categoryLabel(event.category) : 'Not set'],
                   ['Tickets per order', event.maxTicketsPerOrder ? String(event.maxTicketsPerOrder) : 'No limit'],
                   ['Ticket transfer', event.allowTicketTransfer ? 'Buyers may transfer their tickets' : 'Not allowed'],
                 ]} />

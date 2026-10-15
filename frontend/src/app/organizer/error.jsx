@@ -18,7 +18,9 @@ export default function OrganizerError({ error, reset }) {
     <SegmentError
       error={error}
       reset={reset}
-      area="This part of your console"
+      // "Console" is the admin's word for their own workspace. An organizer
+      // calls this a dashboard, and the failure is one screen of it.
+      area="This screen"
       home={{ href: '/organizer', label: 'Back to dashboard' }}
     />
   );

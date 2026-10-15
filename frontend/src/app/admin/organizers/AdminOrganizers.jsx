@@ -81,8 +81,8 @@ export default function AdminOrganizers() {
 
       <div className="fx-stack fx-stack--sm">
         <div className="fx-row">
-          <Segmented label="Standing" value={banned} onChange={(v) => set('banned', v)} options={STANDING} />
-          <Segmented label="Payouts" value={payouts} onChange={(v) => set('payouts', v)} options={PAYOUTS} />
+          <Segmented label="Standing" showLabel value={banned} onChange={(v) => set('banned', v)} options={STANDING} />
+          <Segmented label="Payouts" showLabel value={payouts} onChange={(v) => set('payouts', v)} options={PAYOUTS} />
         </div>
         <SearchBox label="Search organizers" placeholder="Organizer name" value={q} onSearch={(v) => set('q', v)} />
       </div>
@@ -114,6 +114,7 @@ export default function AdminOrganizers() {
               {
                 key: 'events',
                 label: 'Events',
+                wide: true,
                 render: (o) => (
                   <Link href={`/admin/events?organizerId=${o.id}`} className="es-nums whitespace-nowrap hover:text-accent">
                     {o.events.published} on sale · {o.events.total} total
@@ -159,7 +160,9 @@ export default function AdminOrganizers() {
                       type="button"
                       disabled={busyId === o.id}
                       onClick={() => toggleBan(o)}
-                      className={`es-btn es-btn--sm ${o.isBanned ? 'es-btn--secondary' : 'es-btn--danger'}`}
+                      // Secondary with danger text, not a filled red button on
+                      // every card — see the same note in admin/users/Users.jsx.
+                      className={`es-btn es-btn--sm es-btn--secondary ${o.isBanned ? '' : 'es-btn--danger-text'}`}
                     >
                       {busyId === o.id ? 'Working…' : o.isBanned ? 'Lift ban' : 'Ban from selling'}
                     </button>

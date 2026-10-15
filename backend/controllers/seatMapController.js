@@ -4,6 +4,7 @@ const access = require('../services/tableAccessService');
 const { sendOk, sendFail } = require('../utils/responseEnvelope');
 const accessTokens = require('../services/accessTokens');
 const logger = require('../utils/logger');
+const { fetchAll } = require('../utils/fetchAll');
 
 const TTL_MINUTES = () => parseInt(process.env.RESERVATION_TTL_MINUTES || '35', 10);
 
@@ -48,11 +49,16 @@ async function putMap(req, res, next) {
  */
 async function publicMap(req, res, next) {
   try {
-    const { data: event } = await supabase
+    // Every read here checks its error. They did not, so a failed read was
+    // indistinguishable from an absent row: a timeout on the event answered
+    // "That event is not available", and one on the seats drew an empty room.
+    // A failure is a 500 the page can offer to retry; absence is a real answer.
+    const { data: event, error: eventError } = await supabase
       .from('events')
       .select('id, slug, title, status, currency, purchase_mode, admission_type, max_tickets_per_order, starts_at, ends_at')
       .eq('slug', req.params.slug)
       .maybeSingle();
+    if (eventError) throw new Error(`seat map: event lookup failed: ${eventError.message}`);
 
     if (!event || event.status !== 'published') {
       // 404 for anything not on sale — draft, pending, suspended and cancelled
@@ -63,8 +69,9 @@ async function publicMap(req, res, next) {
       });
     }
 
-    const { data: map } = await supabase
+    const { data: map, error: mapError } = await supabase
       .from('venue_maps').select('id, layout_json, version').eq('event_id', event.id).maybeSingle();
+    if (mapError) throw new Error(`seat map: map lookup failed: ${mapError.message}`);
 
     if (!map) {
       return sendOk(res, { event: publicEvent(event), map: null, tables: [], seats: [] });
@@ -77,25 +84,34 @@ async function publicMap(req, res, next) {
       event.id,
     );
 
-    const { data: tables } = await supabase
+    const tables = await fetchAll(({ from, to }, first) => supabase
       .from('tables')
-      .select('id, label, seat_count, price_cents, is_private, status, position_x, position_y, rotation, shape, category_id')
-      .eq('venue_map_id', map.id);
+      .select('id, label, seat_count, price_cents, is_private, status, position_x, position_y, rotation, shape, category_id',
+        first ? { count: 'exact' } : undefined)
+      .eq('venue_map_id', map.id)
+      .order('id')
+      .range(from, to), { what: 'tables' });
 
-    const visible = (tables || []).filter((t) => !t.is_private || unlocked.has(t.id));
+    const visible = tables.filter((t) => !t.is_private || unlocked.has(t.id));
     const visibleIds = new Set(visible.map((t) => t.id));
 
-    const { data: seats } = await supabase
+    // ALL the seats, in pages. One request returned at most 1,000 of them, and a
+    // different 1,000 as holds and sales moved rows — see utils/fetchAll.js.
+    const seats = await fetchAll(({ from, to }, first) => supabase
       .from('seats')
-      .select('id, table_id, tier_id, section_key, row_label, seat_number, price_override_cents, status')
-      .eq('venue_map_id', map.id);
+      .select('id, table_id, tier_id, section_key, row_label, seat_number, price_override_cents, status',
+        first ? { count: 'exact' } : undefined)
+      .eq('venue_map_id', map.id)
+      .order('id')
+      .range(from, to), { what: 'seats' });
 
     // A seat belonging to a hidden table is hidden with it — otherwise the
     // table's existence, size and price leak through its seats.
-    const visibleSeats = (seats || []).filter((s) => !s.table_id || visibleIds.has(s.table_id));
+    const visibleSeats = seats.filter((s) => !s.table_id || visibleIds.has(s.table_id));
 
-    const { data: tiers } = await supabase
+    const { data: tiers, error: tierError } = await supabase
       .from('ticket_tiers').select('id, name, price_cents').eq('event_id', event.id);
+    if (tierError) throw new Error(`seat map: tier lookup failed: ${tierError.message}`);
     const tierPrice = Object.fromEntries((tiers || []).map((t) => [t.id, t.price_cents]));
 
     return sendOk(res, {
@@ -131,7 +147,7 @@ async function publicMap(req, res, next) {
       })),
       // Private tables the buyer has not unlocked are counted, not listed, so
       // the map can say "3 reserved tables" without naming them.
-      hiddenTableCount: (tables || []).length - visible.length,
+      hiddenTableCount: tables.length - visible.length,
     });
   } catch (err) { return next(err); }
 }

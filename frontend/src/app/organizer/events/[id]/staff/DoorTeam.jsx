@@ -183,8 +183,8 @@ export default function DoorTeam({ eventId }) {
               hideLabel: true,
               align: 'end',
               render: (m) => (m.active ? (
-                <button type="button" onClick={() => remove(m)} className="es-btn es-btn--ghost es-btn--sm">
-                  Remove
+                <button type="button" onClick={() => remove(m)} className="es-btn es-btn--ghost es-btn--sm es-btn--danger-text">
+                  Remove<span className="sr-only"> {m.email}</span>
                 </button>
               ) : null),
             },

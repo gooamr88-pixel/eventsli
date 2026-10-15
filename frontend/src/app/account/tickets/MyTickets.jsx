@@ -233,7 +233,7 @@ export default function MyTickets() {
                   <button
                     type="button"
                     onClick={() => setTransferring({ ticket, event: order.event })}
-                    className="self-start text-sm text-accent hover:text-accent-hover"
+                    className="fx-touch self-start text-sm text-accent hover:text-accent-hover"
                   >
                     Give this ticket to someone
                   </button>

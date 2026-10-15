@@ -8,6 +8,7 @@ import Field, { SelectField, TextareaField } from '../components/forms/Field';
 import FormError from '../components/forms/FormError';
 import SubmitButton from '../components/forms/SubmitButton';
 import NavIcon from '../components/shell/NavIcon';
+import { useShellFocus } from '../components/shell/shellFocus';
 import { OnboardingProgress } from './OnboardingProgress';
 import { COUNTRY_OPTIONS, DEFAULT_COUNTRY } from '../lib/markets';
 
@@ -43,6 +44,11 @@ export default function CreateProfile({ organizer = null, onCreated }) {
   const [brandTouched, setBrandTouched] = useState(Boolean(organizer?.displayName));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+
+  // A task, not a place: this form is rendered on the dashboard's route, and on
+  // a phone it sat under an app bar reading "Dashboard" and above Your events and
+  // Payments tabs that each led back to this same form. See shellFocus.js.
+  useShellFocus({ title: 'Set up your organization' });
 
   // Pre-fill from sign-up. Only into empty fields, so a slow answer never
   // overwrites what someone has already started typing.

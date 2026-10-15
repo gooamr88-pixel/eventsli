@@ -219,7 +219,7 @@ function DeviceRow({ eventId, device, timezone, onChanged }) {
           type="button"
           disabled={busy}
           onClick={() => setActive(!device.isActive)}
-          className={`es-btn es-btn--sm ${device.isActive ? 'es-btn--ghost' : 'es-btn--secondary'}`}
+          className={`es-btn es-btn--sm ${device.isActive ? 'es-btn--ghost es-btn--danger-text' : 'es-btn--secondary'}`}
         >
           {busy ? 'Working…' : device.isActive ? 'Revoke' : 'Switch back on'}
         </button>

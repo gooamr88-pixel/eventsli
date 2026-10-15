@@ -37,6 +37,60 @@ import { usePathname, useRouter } from 'next/navigation';
  * and would be the copy that forgets it.
  * ─────────────────────────────────────────────────────────────────────────────
  */
+/** The build sequence for this event, in the sidebar's order. Overview first. */
+function buildSteps(eventId, event) {
+  return organizerNavGroups({
+    eventId,
+    listingType: event.listingType || null,
+    admissionType: event.admissionType || null,
+  })
+    .filter((g) => g.id === 'build')
+    .flatMap((g) => g.items)
+    .filter((item) => item.href);
+}
+
+const PRE_LAUNCH = ['draft', 'rejected', 'pending_review'];
+
+/**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * "SETUP · STEP 3 OF 6" — at the top of a build screen, before launch.
+ *
+ * The wizard counts its steps; the six screens after it did not. They ended in
+ * Back / Save and continue at the very foot of each page, so on a phone the only
+ * sign of a sequence was below several screens of form. This line is the top of
+ * the same sequence `BuildNav` walks, from the same list, so the two cannot
+ * disagree about which step this is.
+ *
+ * Only before the event is on sale. Afterwards these screens are places an
+ * organizer returns to, not steps they are working through.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+export function BuildProgress() {
+  const pathname = usePathname() || '';
+  const { eventId, event } = useEventContext() || {};
+  if (!eventId || !event || !PRE_LAUNCH.includes(event.status)) return null;
+
+  // The overview is where the sequence is launched from, not one of its steps.
+  const steps = buildSteps(eventId, event).filter((s) => s.key !== 'overview');
+  const here = steps.findIndex((s) => s.href === pathname);
+  if (here < 0) return null;
+
+  return (
+    <div className="es-buildstep">
+      <p className="es-buildstep__text">
+        <span className="text-subtle">Setup · step {here + 1} of {steps.length}</span>
+        <span aria-hidden className="text-subtle"> · </span>
+        <span className="text-ink">{steps[here].label}</span>
+      </p>
+      <span aria-hidden className="es-buildstep__bar">
+        {steps.map((s, i) => (
+          <span key={s.key} className="es-wizard__seg" data-state={i < here ? 'done' : i === here ? 'current' : 'upcoming'} />
+        ))}
+      </span>
+    </div>
+  );
+}
+
 export default function BuildNav() {
   const pathname = usePathname() || '';
   const router = useRouter();
@@ -48,14 +102,7 @@ export default function BuildNav() {
   // it is, and guessing produces a bar that changes under the reader.
   if (!eventId || !event) return null;
 
-  const steps = organizerNavGroups({
-    eventId,
-    listingType: event.listingType || null,
-    admissionType: event.admissionType || null,
-  })
-    .filter((g) => g.id === 'build')
-    .flatMap((g) => g.items)
-    .filter((item) => item.href);
+  const steps = buildSteps(eventId, event);
 
   const here = steps.findIndex((s) => s.href === pathname);
   if (here < 0) return null;

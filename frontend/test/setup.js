@@ -16,7 +16,9 @@ afterEach(() => {
  *
  * A test that needs the other branch overrides window.matchMedia itself.
  */
-if (!window.matchMedia) {
+// A test that runs in the node environment (`// @vitest-environment node`, for
+// proxy.ts and its NextRequest) has no window at all.
+if (typeof window !== 'undefined' && !window.matchMedia) {
   window.matchMedia = (query) => ({
     matches: false,
     media: query,

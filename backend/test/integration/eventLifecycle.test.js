@@ -25,6 +25,14 @@ const stamp = Date.now();
 const ORG_EMAIL = `org-${stamp}@eventsli-test.invalid`;
 const ADMIN_EMAIL = `adm-${stamp}@eventsli-test.invalid`;
 
+// What organization setup asks for before the first event (organizerRoutes.js).
+// Without it every POST /events is ORGANIZER_SETUP_REQUIRED.
+const ORG_SETUP = {
+  legalName: 'Test Events Company Ltd.',
+  description: 'Runs the events this integration suite creates and deletes.',
+  acceptPolicies: true,
+};
+
 function client() {
   let cookie = null;
   return async function call(method, path, body) {
@@ -70,7 +78,10 @@ before(async () => {
 
 after(async () => {
   for (const id of cleanup.events) await supabase.from('events').delete().eq('id', id);
-  for (const id of cleanup.organizers) await supabase.from('organizers').delete().eq('id', id);
+  for (const id of cleanup.organizers) {
+    await supabase.from('organizer_payment_methods').delete().eq('organizer_id', id);
+    await supabase.from('organizers').delete().eq('id', id);
+  }
   for (const id of cleanup.profiles) {
     await supabase.from('terms_acceptances').delete().eq('user_id', id);
     await supabase.from('sessions').delete().eq('user_id', id);
@@ -83,9 +94,18 @@ test('creating an organizer profile grants the organizer role', async () => {
   const before = await organizer('GET', '/auth/me');
   assert.equal(before.body.data.role, 'attendee');
 
-  const res = await organizer('POST', '/organizer', { displayName: 'Test Events Co', country: 'CA' });
+  const res = await organizer('POST', '/organizer', {
+    displayName: 'Test Events Co', ...ORG_SETUP, country: 'CA',
+  });
   assert.equal(res.status, 201, JSON.stringify(res.body));
   cleanup.organizers.push(res.body.data.id);
+
+  // A way to be paid, so an event can be submitted (PAYMENT_METHOD_REQUIRED).
+  // Manual rather than Stripe: it needs no third party.
+  const method = await organizer('POST', '/organizer/payment-methods', {
+    kind: 'e_transfer', label: 'Interac e-Transfer', instructions: 'Send to pay@eventsli-test.invalid',
+  });
+  assert.equal(method.status, 201, JSON.stringify(method.body));
 
   // The role must be live on the very next request — the access cache is
   // invalidated explicitly for exactly this reason.
@@ -98,6 +118,9 @@ test('currency is derived from the event country, not chosen', async () => {
   const res = await organizer('POST', '/events', {
     title: 'Integration Test Gala',
     country: 'CA',
+    // Submitting refuses an event with no venue, address and city — buyers need
+    // to know where to go, and the city places it in "events near me".
+    venueName: 'Integration Hall', venueAddress: '1 Test Street', city: 'Toronto',
     timezone: 'America/Toronto',
     startsAt: new Date(Date.now() + 30 * 86400e3).toISOString(),
     endsAt: new Date(Date.now() + 30 * 86400e3 + 4 * 3600e3).toISOString(),
@@ -105,6 +128,8 @@ test('currency is derived from the event country, not chosen', async () => {
   assert.equal(res.status, 201, JSON.stringify(res.body));
   eventId = res.body.data.id;
   cleanup.events.push(eventId);
+  const channel = await organizer('PATCH', `/events/${eventId}`, { acceptsManual: true });
+  assert.equal(channel.status, 200, JSON.stringify(channel.body));
 
   assert.equal(res.body.data.currency, 'CAD', 'a Canadian event must be priced in CAD');
   assert.equal(res.body.data.status, 'draft');
@@ -370,7 +395,8 @@ test('one organizer cannot see another organizer\'s event', async () => {
   cleanup.profiles.push(s.body.data.id);
   await supabase.from('profiles').update({ email_verified_at: new Date().toISOString() }).eq('id', s.body.data.id);
   await stranger('POST', '/auth/login', { email: `stranger-${stamp}@eventsli-test.invalid`, password: PASSWORD });
-  const so = await stranger('POST', '/organizer', { displayName: 'Other Co', country: 'US' });
+  const so = await stranger('POST', '/organizer', { displayName: 'Other Co', ...ORG_SETUP, country: 'US' });
+  assert.equal(so.status, 201, JSON.stringify(so.body));
   cleanup.organizers.push(so.body.data.id);
 
   const res = await stranger('GET', `/events/${eventId}`);

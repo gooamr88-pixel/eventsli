@@ -40,6 +40,42 @@ its `<img>` at a public QR-generating service with the signed admission token in
 the query string. It is now wired up and renders the codes locally. See
 `controllers/ticketController.js → qrImage`.
 
+## 2026-10-15 — production clean, eight dev-only advisories open
+
+`npm audit --omit=dev` is **0** after this pass. Before it, what ships carried:
+
+| Package | Was | Now | Advisory | Exposure here |
+|---|---|---|---|---|
+| `next` | 16.3.4 | **16.3.8** | RCE in `next/og` (critical); SSRF in image optimisation (high); ISR cache poisoning in self-hosted apps (moderate ×2); metadata-route and dev-MCP disclosure | `next/og` is not used. Image optimisation and self-hosted ISR are both used, so the SSRF and cache-poisoning fixes matter. Patch release inside 16.3. |
+| `eslint-config-next` | 16.3.4 | **16.3.8** | — | Kept in step with `next`. |
+| `compression` | 1.8.1 | **1.8.2** | DoS via memory leak on premature close (high) | Wraps every API response. |
+| `proxy-addr` | 2.0.7 | **2.0.8** | IP spoofing via IPv4-mapped IPv6 trust subnet (critical) | Express's `trust proxy`; this API trusts a hop count, not a subnet, but the fix is a patch. |
+| `sharp` | 0.35.4 | **0.35.5** | librsvg CVE (high) | next/image's optimiser. |
+| `source-map-js`, `brace-expansion` | — | patched | DoS (high) | Build/tooling paths; updated within range. |
+
+**Resolved by removal:** `nodemon` (and with it `chokidar` → `braces`). It was
+only `npm run dev` for the backend; Node 22's built-in `node --watch` does the
+same job, so the script uses that now.
+
+**Note on upgrading next here.** npm placed 16.3.8 at the ROOT `node_modules`
+rather than under `frontend/`, after refusing for several runs to move off the
+nested 16.3.4 entry (it rewrote the manifest back to 16.3.4 — the "up to date"
+trap above, in a new shape). `ecosystem.config.js` started the frontend from
+the literal `frontend/node_modules/next/...` path, which would no longer exist
+on the server after `npm install`; it now resolves next's CLI the way Node does.
+
+### Still open — dev tooling only, never shipped
+
+| Chain | Advisory | Why it is still here |
+|---|---|---|
+| `vitest` 3.2.7 → `tinypool`, `@vitest/mocker` | prototype-pollution gadget in worker options (critical); path traversal via a redirect mock (moderate) | Fixed only in vitest **≥ 4.1.11** — a MAJOR upgrade of the runner behind ~600 frontend tests. Exploitable only by test code or test config, which is ours. Owner decision: upgrade the runner, or accept. |
+| `eslint-config-next` → `@next/eslint-plugin-next` → `fast-glob` → `micromatch` → `braces` | stack-exhaustion DoS on deeply nested glob patterns (high) | **No fixed `braces` exists** (3.0.3 is the latest and is affected), so no override can help. The patterns are eslint's own config globs, not input. |
+
+CI's `npm audit --audit-level=moderate` therefore still fails on these eight.
+Two ways to make it green, both the owner's call: upgrade vitest to 4.1.11+
+(and wait for `braces`), or gate CI on `npm audit --omit=dev` — what ships —
+with the dev-only list kept here.
+
 ## Adding one
 
 1. Confirm there is genuinely no upstream fix — check whether the direct

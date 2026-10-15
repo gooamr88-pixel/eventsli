@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import {
   WORLD, SEAT_RADIUS, tableBody, seatPositions, toWorld, contentBounds, normaliseShape,
 } from './seatingGeometry';
@@ -31,6 +31,19 @@ import { zoneLabel } from './venueZones';
  */
 const NO_ZONES = Object.freeze([]);
 
+/**
+ * THE OPENING ZOOM ON A SMALL SCREEN, in screen pixels of a seat's tap target.
+ *
+ * The map opened fitted to the whole room at every size. On a 320px phone that
+ * drew a seat's hit circle about 11px across — a target nobody hits first time,
+ * beside another one. On a touch screen, below MIN the map opens closer, enough
+ * to make the target COMFORTABLE, about the stage end of the room; above MIN,
+ * and with a mouse at any size, it opens fitted as it always did. "Fit" still
+ * shows the whole room in one press.
+ */
+const MIN_TARGET_PX = 24;
+const COMFORTABLE_TARGET_PX = 30;
+
 export default function SeatMapCanvas({
   tables = [],
   seats = [],
@@ -54,7 +67,43 @@ export default function SeatMapCanvas({
   className = '',
 }) {
   const bounds = useMemo(() => contentBounds(tables, zones), [tables, zones]);
-  const { svgRef, view, fit, zoomIn, zoomOut, wasDragged, handlers } = usePanZoom(bounds);
+  const {
+    svgRef, view, fit, zoomIn, zoomOut, zoomAt, wasDragged, handlers,
+  } = usePanZoom(bounds);
+
+  /**
+   * Zoom in once per room on a screen where the fitted view is too small to tap
+   * — see MIN_TARGET_PX. Measured from the SVG's real box, in a ResizeObserver
+   * callback rather than the effect body, because the box has no size until
+   * layout and the effect may run before it. Once per bounds: a buyer who zooms
+   * out again is not fought, and a private table unlocking re-frames the new
+   * room the same way the first one was framed.
+   */
+  const framedFor = useRef(null);
+  const boundsKey = `${bounds.x},${bounds.y},${bounds.width},${bounds.height}`;
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg || typeof ResizeObserver === 'undefined') return undefined;
+    // TOUCH SCREENS ONLY. A mouse is precise enough for the fitted view, and a
+    // desktop opening part-zoomed hides some of the room for no gain — on a
+    // 1440x900 screen the map's height made a seat 23px and tipped it over.
+    if (!window.matchMedia?.('(pointer: coarse)').matches) return undefined;
+    const observer = new ResizeObserver(() => {
+      if (framedFor.current === boundsKey) return;
+      const rect = svg.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+      framedFor.current = boundsKey;
+      // `meet` scaling: the room is drawn at the smaller of the two ratios.
+      const scale = Math.min(rect.width / bounds.width, rect.height / bounds.height);
+      const target = SEAT_RADIUS * 1.9 * 2 * scale;
+      if (target >= MIN_TARGET_PX) return;
+      // A factor under 1 narrows the viewBox, which zooms in. Anchored a third
+      // of the way down, where a stage usually is and where the eye starts.
+      zoomAt(target / COMFORTABLE_TARGET_PX, rect.left + rect.width / 2, rect.top + rect.height / 3);
+    });
+    observer.observe(svg);
+    return () => observer.disconnect();
+  }, [boundsKey, bounds, svgRef, zoomAt]);
 
   /**
    * The zones, as a sentence.
@@ -96,6 +145,11 @@ export default function SeatMapCanvas({
   const canPickTables = purchaseMode !== 'seat_only';
 
   return (
+    // The caption is a SIBLING of the sized box, not a child. Inside it, a box
+    // with a fixed height (the caller's className) pushed the line out of the
+    // bottom of the map, where the frame clipped it — the zones sentence had
+    // been half-hidden that way since it was written.
+    <div className="fx-stack fx-stack--sm gap-2">
     <div className={`relative ${className}`}>
       <svg
         ref={svgRef}
@@ -130,17 +184,22 @@ export default function SeatMapCanvas({
         ))}
       </svg>
 
-      <div className="absolute bottom-3 right-3 flex flex-col gap-1">
+      {/* TOP corner, not bottom. On the buyer's page the selection bar is
+          sticky at the bottom of the screen and covered zoom-out and fit —
+          the two controls somebody needs after zooming in to choose. */}
+      <div className="absolute right-3 top-3 flex flex-col gap-1">
         <MapButton onClick={zoomIn} label="Zoom in">+</MapButton>
         <MapButton onClick={zoomOut} label="Zoom out">−</MapButton>
         <MapButton onClick={fit} label="Fit the whole map">⤢</MapButton>
       </div>
+    </div>
 
-      {zoneSummary && (
-        <p className="mt-2 text-xs text-subtle">
-          Also on this map: {zoneSummary}.
-        </p>
-      )}
+      {/* How to move around, said once. Nothing on the map said it could be
+          zoomed, and a phone opened it too small to choose from. */}
+      <p className="text-xs text-subtle">
+        Pinch or use + and − to zoom, and drag to move around.
+        {zoneSummary && ` Also on this map: ${zoneSummary}.`}
+      </p>
     </div>
   );
 }

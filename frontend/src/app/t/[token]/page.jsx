@@ -146,7 +146,7 @@ export default async function TicketPage({ params }) {
         <SaveTicket />
 
         {event.slug && (
-          <Link href={`/e/${event.slug}`} className="es-ticket-print-hide text-sm text-accent">
+          <Link href={`/e/${event.slug}`} className="es-ticket-print-hide fx-touch text-sm text-accent">
             About this event →
           </Link>
         )}

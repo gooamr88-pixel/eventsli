@@ -63,8 +63,21 @@ before(async () => {
   baseUrl = `http://127.0.0.1:${server.address().port}/api/v1`;
 
   await register(organizer, 'org');
-  const org = await organizer('POST', '/organizer', { displayName: 'Dashboard Test Co', country: 'CA' });
+  // Organization setup is required before the first event (organizerRoutes.js).
+  const org = await organizer('POST', '/organizer', {
+    displayName: 'Dashboard Test Co',
+    legalName: 'Dashboard Test Company Ltd.',
+    description: 'Runs the events this integration suite creates and deletes.',
+    acceptPolicies: true,
+    country: 'CA',
+  });
+  assert.equal(org.status, 201, JSON.stringify(org.body));
   organizerId = org.body.data.id;
+  // A way to be paid, or the event cannot be submitted (PAYMENT_METHOD_REQUIRED).
+  const method = await organizer('POST', '/organizer/payment-methods', {
+    kind: 'e_transfer', label: 'Interac e-Transfer', instructions: 'Send to pay@eventsli-test.invalid',
+  });
+  assert.equal(method.status, 201, JSON.stringify(method.body));
   cleanup.organizers.push(organizerId);
 
   const adm = await register(admin, 'adm');
@@ -76,12 +89,16 @@ before(async () => {
   const ev = await organizer('POST', '/events', {
     title: 'Door Team Test Night',
     country: 'CA',
+    // Required before it can be submitted for review.
+    venueName: 'Door Test Hall', venueAddress: '1 Test Street', city: 'Toronto',
     timezone: 'America/Toronto',
     startsAt: new Date(Date.now() + 20 * 86400e3).toISOString(),
     endsAt: new Date(Date.now() + 20 * 86400e3 + 4 * 3600e3).toISOString(),
   });
+  assert.equal(ev.status, 201, JSON.stringify(ev.body));
   eventId = ev.body.data.id;
   cleanup.events.push(eventId);
+  assert.equal((await organizer('PATCH', `/events/${eventId}`, { acceptsManual: true })).status, 200);
 
   const tier = await organizer('POST', `/events/${eventId}/tiers`, { name: 'VIP', priceCents: 5000, quantity: 20 });
   tierId = tier.body.data.id;
@@ -95,7 +112,10 @@ after(async () => {
     await supabase.from('admin_audit').delete().eq('target_id', id);
     await supabase.from('events').delete().eq('id', id);
   }
-  for (const id of cleanup.organizers) await supabase.from('organizers').delete().eq('id', id);
+  for (const id of cleanup.organizers) {
+    await supabase.from('organizer_payment_methods').delete().eq('organizer_id', id);
+    await supabase.from('organizers').delete().eq('id', id);
+  }
   for (const id of cleanup.profiles) {
     await supabase.from('terms_acceptances').delete().eq('user_id', id);
     await supabase.from('sessions').delete().eq('user_id', id);

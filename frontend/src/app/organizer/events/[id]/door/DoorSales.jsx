@@ -235,6 +235,7 @@ export default function DoorSales({ eventId }) {
                 {
                   key: 'when',
                   label: 'When',
+                  wide: true,
                   render: (s) => <span className="whitespace-nowrap">{formatEventTime(s.recordedAt, event.timezone)}</span>,
                 },
               ]}

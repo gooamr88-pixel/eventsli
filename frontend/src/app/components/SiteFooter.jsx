@@ -74,12 +74,16 @@ export default function SiteFooter() {
             {FOOTER_GROUPS.map((group) => (
               <nav key={group.heading} className="fx-stack fx-stack--sm" aria-label={group.heading}>
                 <h2 className="font-sans text-xs font-semibold uppercase tracking-[0.14em] text-subtle">{group.heading}</h2>
-                <ul className="fx-stack fx-stack--sm gap-1.5">
+                {/* `fx-touch` and no gap: each link is a 44px row. They were
+                    18px tall on a 32px pitch, the smallest targets on every
+                    public page and the ones a thumb lands on at the end of
+                    one. */}
+                <ul className="fx-stack fx-stack--sm gap-0">
                   {group.links.map((link) => (
                     <li key={`${group.heading}-${link.path}`}>
                       <Link
                         href={link.path}
-                        className="text-sm text-muted transition-colors hover:text-ink"
+                        className="fx-touch text-sm text-muted transition-colors hover:text-ink"
                       >
                         {link.label}
                       </Link>

@@ -72,9 +72,11 @@ export default function ContentEditor({ eventId }) {
       <SponsorsEditor eventId={eventId} />
       <PoliciesEditor eventId={eventId} />
 
+      {/* Event details, not the overview: the form left the overview for its
+          own build step, and this line still sent people to the old place. */}
       <p className="text-sm text-subtle">
-        The description, venue and dates live on the{' '}
-        <Link href={`/organizer/events/${eventId}`} className="text-accent">event overview</Link>.
+        The description, venue and dates are in{' '}
+        <Link href={`/organizer/events/${eventId}/details`} className="text-accent">Event details</Link>.
       </p>
     </div>
   );

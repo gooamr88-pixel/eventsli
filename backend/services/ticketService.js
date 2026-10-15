@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const { supabase } = require('../config/supabase');
+const { fetchAll } = require('../utils/fetchAll');
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -51,13 +52,17 @@ function decodeQrToken(token) {
 
 /** Every ticket on an order, with its QR. */
 async function forOrder(orderId) {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('tickets')
     .select(`id, event_id, status, attendee_name, transfer_count, scanned_at,
              seats ( section_key, row_label, seat_number ),
              tables ( label )`)
     .eq('order_id', orderId)
-    .order('created_at');
+    .order('created_at')
+    .order('id');
+  // Thrown, not swallowed: a failed read used to render as an order with NO
+  // tickets — on the success page, seconds after somebody paid.
+  if (error) throw new Error(`could not read the order's tickets: ${error.message}`);
 
   return (data || []).map(shape);
 }
@@ -78,18 +83,22 @@ async function forOrders(orderIds) {
   const ids = [...new Set((orderIds || []).filter(Boolean))];
   if (ids.length === 0) return new Map();
 
-  const { data } = await supabase
+  // In pages: a hundred orders of whole tables is thousands of tickets, and one
+  // request stops at 1,000 without saying so (utils/fetchAll.js). Ordered once,
+  // for the whole set — grouping preserves it, so each order's tickets come out
+  // in the same sequence `forOrder` gives them.
+  const data = await fetchAll(({ from, to }, first) => supabase
     .from('tickets')
     .select(`id, order_id, event_id, status, attendee_name, transfer_count, scanned_at,
              seats ( section_key, row_label, seat_number ),
-             tables ( label )`)
+             tables ( label )`, first ? { count: 'exact' } : undefined)
     .in('order_id', ids)
-    // Ordered once, for the whole set. Grouping preserves it, so each order's
-    // tickets come out in the same sequence `forOrder` would have given them.
-    .order('created_at');
+    .order('created_at')
+    .order('id')
+    .range(from, to), { what: 'tickets' });
 
   const byOrder = new Map();
-  for (const row of data || []) {
+  for (const row of data) {
     if (!byOrder.has(row.order_id)) byOrder.set(row.order_id, []);
     byOrder.get(row.order_id).push(shape(row));
   }

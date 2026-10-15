@@ -78,7 +78,7 @@ export default function ContactPage() {
             >
               <h3 className="text-md text-ink">{item.title}</h3>
               <p className="text-sm text-muted">{item.body}</p>
-              <Link href={item.href} className="text-sm text-accent hover:text-accent-hover">
+              <Link href={item.href} className="fx-touch text-sm text-accent hover:text-accent-hover">
                 {item.cta} →
               </Link>
             </li>

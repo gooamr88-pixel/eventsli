@@ -24,11 +24,14 @@ function stub(rel, exports) {
 }
 
 let lookup = 'ok';
+let session = 'live';          // what sessions.check answers
+let cookieCleared = false;
 stub('config/supabase.js', { supabase: {} });
 stub('services/sessionService.js', {
   COOKIE_NAME: 'es_session',
-  isValid: async () => true,
-  clearCookie() {},
+  check: async () => session,
+  isValid: async () => session === 'live',
+  clearCookie() { cookieCleared = true; },
   touch() {},
 });
 stub('services/rbacService.js', {
@@ -48,6 +51,7 @@ const token = jwt.sign(
 );
 
 async function run() {
+  cookieCleared = false;
   const req = { headers: { authorization: `Bearer ${token}` }, cookies: {} };
   const res = {
     statusCode: null,
@@ -76,4 +80,34 @@ test('a failed lookup answers, and answers no', async () => {
   assert.equal(res.statusCode, 500);
   assert.equal(res.body.error, 'INTERNAL_ERROR');
   assert.equal(res.body.success, false);
+  lookup = 'ok';
+});
+
+/**
+ * REGRESSION — the session lookup failing signed people out.
+ *
+ * `isValid` answered `false` for a database error, the same as for a revoked
+ * session, so requireAuth cleared the cookie and answered 401. Every account
+ * that made a request during a blip was signed out, and the client hid the
+ * admin console and the organizer's data with it.
+ */
+test('a session that cannot be checked is refused, but the cookie stays', async () => {
+  session = 'unknown';
+  const { req, res, nextCalled } = await run();
+  assert.equal(nextCalled, false, 'nothing proceeds on a session nobody could confirm');
+  assert.equal(req.user, undefined);
+  assert.equal(res.statusCode, 503, 'a retryable answer, not a 401');
+  assert.equal(res.body.error, 'SESSION_CHECK_FAILED');
+  assert.equal(cookieCleared, false, 'a lookup failure is not a sign-out');
+  session = 'live';
+});
+
+test('a session that has ended is a 401, and the cookie goes', async () => {
+  session = 'ended';
+  const { res, nextCalled } = await run();
+  assert.equal(nextCalled, false);
+  assert.equal(res.statusCode, 401);
+  assert.equal(res.body.error, 'SESSION_REVOKED');
+  assert.equal(cookieCleared, true);
+  session = 'live';
 });

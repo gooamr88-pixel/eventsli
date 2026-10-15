@@ -98,7 +98,7 @@ export default function HeroSearch({ categories = [] }) {
           <span className="es-lp-filter__control">Near me</span>
         </button>
 
-        <label className="es-lp-filter__field" htmlFor={`${id}-from`}>
+        <label className="es-lp-filter__field es-lp-filter__field--date" htmlFor={`${id}-from`}>
           <span aria-hidden className="es-lp-filter__icon"><NavIcon name="calendar" size={17} /></span>
           <span className="sr-only">On or after</span>
           <span className="es-lp-filter__date">
@@ -115,8 +115,10 @@ export default function HeroSearch({ categories = [] }) {
           <span aria-hidden className="es-lp-filter__chev" />
         </label>
 
-        {/* aria-label, because the visible word is display:none on a phone
-            and a hidden label names nothing. */}
+        {/* aria-label stays, though the word is visible on a phone again: the
+            bar is two rows there and this is a full-width "Search" button
+            (see the mobile pass in globals.css). On a tablet it is still the
+            48px square, with the word hidden. */}
         <button type="submit" className="es-lp-filter__submit" aria-label="Search events">
           <NavIcon name="search" size={20} />
           <span aria-hidden className="es-lp-filter__submit-label">Search</span>

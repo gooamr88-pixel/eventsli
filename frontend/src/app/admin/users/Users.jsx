@@ -116,8 +116,8 @@ export default function Users() {
 
       <div className="fx-stack fx-stack--sm">
         <div className="fx-row">
-          <Segmented label="Role" value={role} onChange={(v) => set('role', v)} options={[{ value: '', label: 'Everyone' }, ...ROLES]} />
-          <Segmented label="Status" value={blocked} onChange={(v) => set('blocked', v)} options={STANDING} />
+          <Segmented label="Role" showLabel value={role} onChange={(v) => set('role', v)} options={[{ value: '', label: 'Everyone' }, ...ROLES]} />
+          <Segmented label="Status" showLabel value={blocked} onChange={(v) => set('blocked', v)} options={STANDING} />
         </div>
         <SearchBox label="Search accounts" placeholder="Name or email" value={q} onSearch={(v) => set('q', v)} />
       </div>
@@ -173,16 +173,20 @@ export default function Users() {
                       {r.organizer && (
                         <button
                           type="button"
-                          className="es-btn es-btn--secondary es-btn--sm"
+                          className={`es-btn es-btn--secondary es-btn--sm ${r.organizer.isBanned ? '' : 'es-btn--danger-text'}`}
                           disabled={busyId === r.id || banBusy}
                           onClick={() => ban.toggleBan(r.organizer)}
                         >
                           {banBusy ? 'Working…' : r.organizer.isBanned ? 'Lift ban' : 'Ban from selling'}
                         </button>
                       )}
+                      {/* NOT A FILLED RED BUTTON. On a phone every row is a card
+                          and every card ended in one, so the list read as a wall
+                          of red. Block still asks first, with a reason, in a
+                          dialog whose confirm IS the filled danger button. */}
                       <button
                         type="button"
-                        className={`es-btn es-btn--sm ${r.isBlocked ? 'es-btn--secondary' : 'es-btn--danger'}`}
+                        className={`es-btn es-btn--sm es-btn--secondary ${r.isBlocked ? '' : 'es-btn--danger-text'}`}
                         disabled={busyId === r.id}
                         onClick={() => toggleBlock(r)}
                       >

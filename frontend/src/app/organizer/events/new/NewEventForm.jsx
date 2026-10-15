@@ -13,12 +13,14 @@ import {
   TYPES, STEP_TEXT, ADMISSION_TYPES, PURCHASE_MODES, FEE_BEARERS,
   PAYMENT_OPTIONS, draftKey, initialForm, problemsFor, blockingFields, SUBMIT_ONLY_FIELDS,
 } from './wizardModel';
-import { TypeChooser, RadioCards, Review } from './WizardParts';
+import { TypeChooser, RadioCards, Review, WizardStepper } from './WizardParts';
 import Field, { SelectField, TextareaField } from '../../../components/forms/Field';
 import PlaceAutocomplete from '../../../components/forms/PlaceAutocomplete';
+import VenuePin, { pinProblem } from '../../../components/forms/VenuePin';
 import FormError from '../../../components/forms/FormError';
 import SubmitButton from '../../../components/forms/SubmitButton';
 import NavIcon from '../../../components/shell/NavIcon';
+import { useShellFocus } from '../../../components/shell/shellFocus';
 import { Loading, ErrorNotice, Notice } from '../../../components/Feedback';
 import CreateProfile from '../../CreateProfile';
 import { COUNTRY_OPTIONS } from '../../../lib/markets';
@@ -61,6 +63,18 @@ export default function NewEventForm() {
   const params = useSearchParams();
   const type = params.get('type');
   const { loading, organizer, error, refresh } = useOrganizer();
+
+  /**
+   * CREATING AN EVENT IS A TASK — the shell drops the tab bar and the event
+   * picker and names it "Create event" (see shellFocus.js). On a 320×568 phone
+   * the wizard was left about 160px between five bars.
+   *
+   * Not while the organization is still being set up: that form names its own
+   * task, and two pages claiming the shell at once would leave whichever
+   * effect ran last.
+   */
+  const settingUp = !loading && !error && (!organizer || !organizer.setupComplete);
+  useShellFocus(settingUp ? null : { title: 'Create event' });
 
   if (loading) return <Loading variant="card" />;
   if (error) return <ErrorNotice error={error} onRetry={refresh} />;
@@ -142,10 +156,17 @@ function EventWizard({ type, organizer }) {
    * the organizer may have corrected on purpose — a suite number, a building
    * name Google renders differently — and wiping them on a keystroke in another
    * field would delete work nobody asked to delete.
+   *
+   * ONLY A GOOGLE PIN IS DROPPED, and `venuePlaceId` is the test. The
+   * coordinates are typed into visible fields now (see `VenuePin`), so they are
+   * no longer necessarily Google's: a pin somebody entered by hand belongs to
+   * the event rather than to a suggestion's name, and clearing it because they
+   * corrected a letter in the venue name would delete the only pin the event
+   * has — on a deployment where venue search may not be able to supply another.
    * ───────────────────────────────────────────────────────────────────────────
    */
   const setVenueName = (venueName) => setForm((f) => (
-    f.venuePlaceId || f.venueLat !== '' || f.venueLng !== ''
+    f.venuePlaceId
       ? { ...f, venueName, venuePlaceId: '', venueLat: '', venueLng: '' }
       : { ...f, venueName }
   ));
@@ -288,15 +309,7 @@ function EventWizard({ type, organizer }) {
           <span>Step {index + 1} of {steps.length}</span>
           <span className="text-ink">{typeTitle}</span>
         </p>
-        <div
-          className="es-wizard__bar" role="progressbar"
-          aria-valuemin={1} aria-valuemax={steps.length} aria-valuenow={index + 1}
-          aria-label={`Step ${index + 1} of ${steps.length}: ${heading}`}
-        >
-          {steps.map((s, i) => (
-            <span key={s} className="es-wizard__seg" data-state={i < index ? 'done' : i === index ? 'current' : 'upcoming'} />
-          ))}
-        </div>
+        <WizardStepper steps={steps} index={index} title={typeTitle} onGo={go} disabled={busy} />
       </div>
 
       <div className="es-wizard__head">
@@ -397,6 +410,16 @@ function EventWizard({ type, organizer }) {
                   || 'Buyers filter by city, and this is what puts your event in “near me”.'}
                 value={form.city} onChange={set('city')}
               />
+              {/* The pin the venue search above fills — now visible, so it can
+                  be checked, corrected, or typed in when search cannot find
+                  the venue. A city puts an event in "near me" at all; this is
+                  what makes the distance the real one. */}
+              <VenuePin
+                lat={form.venueLat}
+                lng={form.venueLng}
+                fromSearch={Boolean(form.venuePlaceId)}
+                onChange={(key, value) => setForm((f) => ({ ...f, [key]: value }))}
+              />
             </>
           )}
 
@@ -494,11 +517,15 @@ function EventWizard({ type, organizer }) {
         </div>
 
         <FormError error={error} />
-        {showErrors && !stepValid && (
-          <p className="text-sm text-danger" role="alert">Fix the highlighted fields to continue.</p>
-        )}
 
         <div className="es-wizard__actions fx-sticky-actions">
+          {/* IN THE PINNED BAR, above the button that was refused. In the flow
+              of the form this line sat directly before the sticky bar, so on a
+              phone it rendered behind it and the only visible answer to a
+              refused Continue was a field somewhere above with focus on it. */}
+          {showErrors && !stepValid && (
+            <p className="es-wizard__alert text-sm text-danger" role="alert">Fix the highlighted fields to continue.</p>
+          )}
           {index > 0 ? (
             <button type="button" className="es-btn es-btn--ghost" onClick={() => go(index - 1)} disabled={busy}>
               Back

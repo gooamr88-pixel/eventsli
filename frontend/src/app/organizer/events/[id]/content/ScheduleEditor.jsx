@@ -6,6 +6,7 @@ import { Loading, Empty } from '../../../../components/Feedback';
 import FormError from '../../../../components/forms/FormError';
 import { useConfirm } from '../../../../components/ui/Confirm';
 import { useToast } from '../../../../components/ui/Toast';
+import { toIso, toLocalInput } from '../../../../lib/eventTime';
 import { useContentSection, useSectionDraft } from './useContentSection';
 import SaveBar from './SaveBar';
 import RowControls from './RowControls';
@@ -232,53 +233,38 @@ export default function ScheduleEditor({ eventId, timezone }) {
 
 /**
  * A `datetime-local` value, read as a wall-clock time AT THE VENUE, into an
- * instant.
+ * instant — or null for an empty or unreadable one.
  *
  * `new Date("2026-06-01T22:30")` is parsed in the BROWSER's zone, so an
  * organizer in Cairo scheduling a Toronto event would store 22:30 Cairo time —
  * seven hours out, and wrong in a way that looks right on their own screen.
  *
- * The offset is measured rather than looked up: the same instant is formatted
- * in the target zone and in UTC, and the difference between the two readings is
- * the offset in force at that moment. That handles daylight saving without a
- * table, including an event that straddles the change.
+ * ─────────────────────────────────────────────────────────────────────────────
+ * THE SHARED PAIR IN `lib/eventTime`, NOT A PRIVATE COPY — AND THE COPY CRASHED.
+ *
+ * This file measured the zone offset by formatting an instant with
+ * `toLocaleString('en-CA')` and parsing the text back with `new Date()`. V8
+ * renders that locale as "2026-11-01, 12:30:00 p.m.", which does not parse: the
+ * offset came out NaN, `toISOString()` threw a RangeError, and the whole Page &
+ * branding screen fell to its error boundary for ANY event with even one
+ * schedule row — in Chrome, Edge and every Android browser. The comment above
+ * it said the format "parses back reliably".
+ *
+ * `toLocalInput` reads the parts with `formatToParts` and never parses text;
+ * `toIso` is the two-pass conversion the event's own dates already use, which
+ * also handles a time near a daylight-saving change. Both are tested.
+ * ─────────────────────────────────────────────────────────────────────────────
  */
-function localToInstant(value, timezone) {
+export function localToInstant(value, timezone) {
   if (!value) return null;
-  if (!timezone) return new Date(value).toISOString();
-
-  const naive = new Date(`${value}:00Z`);
-  if (Number.isNaN(naive.getTime())) return null;
-
-  const offset = zoneOffsetMs(naive, timezone);
-  return new Date(naive.getTime() - offset).toISOString();
+  const iso = toIso(value, timezone || undefined);
+  // `toIso` hands back its input unchanged when it cannot convert it. Anything
+  // that is not an ISO instant is "not set", never a string the API would
+  // reject as a malformed date.
+  return typeof iso === 'string' && iso.endsWith('Z') ? iso : null;
 }
 
 /** The inverse — an instant back into what the venue's clock reads, for the input. */
-function instantToLocal(iso, timezone) {
-  if (!iso) return '';
-  const when = new Date(iso);
-  if (Number.isNaN(when.getTime())) return '';
-  if (!timezone) return when.toISOString().slice(0, 16);
-
-  const shifted = new Date(when.getTime() + zoneOffsetMs(when, timezone));
-  return shifted.toISOString().slice(0, 16);
-}
-
-/**
- * How far ahead of UTC a zone is at a given instant, in milliseconds.
- *
- * `en-CA` because its date format is ISO-like and parses back reliably; the
- * locale is an implementation detail, not a display choice.
- */
-function zoneOffsetMs(at, timezone) {
-  try {
-    const asUtc = new Date(at.toLocaleString('en-CA', { timeZone: 'UTC' }));
-    const asZone = new Date(at.toLocaleString('en-CA', { timeZone: timezone }));
-    return asZone.getTime() - asUtc.getTime();
-  } catch {
-    // An unknown zone should not make the field unusable. The event's own
-    // timezone is validated when it is set, so this is the belt on a brace.
-    return 0;
-  }
+export function instantToLocal(iso, timezone) {
+  return toLocalInput(iso, timezone || undefined);
 }

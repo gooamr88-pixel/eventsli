@@ -316,7 +316,8 @@ test('seats and a table cannot be held in one request', async () => {
     tableId: publicTableId, seatIds: [privateSeatIds[0]],
   });
   assert.equal(res.status, 400);
-  assert.match(res.body.message, /either seats or a whole table/i);
+  // The wording grew a third option when general admission arrived.
+  assert.match(res.body.message, /one of seats, a whole table/i);
 });
 
 test('an unpublished event is a 404 from outside', async () => {

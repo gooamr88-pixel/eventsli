@@ -67,9 +67,9 @@ export default function AdminEvents() {
       />
 
       <div className="fx-stack fx-stack--sm">
-        <Segmented label="Status" value={status} onChange={(v) => set('status', v)} options={STATUSES} />
+        <Segmented label="Status" showLabel value={status} onChange={(v) => set('status', v)} options={STATUSES} />
         <div className="fx-row">
-          <Segmented label="Date" value={when} onChange={(v) => set('when', v)} options={WHEN} />
+          <Segmented label="Date" showLabel value={when} onChange={(v) => set('when', v)} options={WHEN} />
           <SearchBox label="Search events" placeholder="Event title" value={q} onSearch={(v) => set('q', v)} />
         </div>
         {organizerId && (
@@ -118,6 +118,7 @@ export default function AdminEvents() {
                 key: 'sold',
                 label: 'Sold',
                 align: 'end',
+                wide: true,
                 render: (e) => (
                   <span className="es-nums whitespace-nowrap">
                     {e.sales.tickets} · {formatMoney(e.sales.grossCents, e.currency)}

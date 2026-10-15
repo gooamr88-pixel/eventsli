@@ -127,7 +127,16 @@ app.use(express.json({
 app.use(express.urlencoded({ extended: true, limit: '2mb' }));
 
 // ─── Rate limiting ──────────────────────────────────────────────────────────
-const RATE_LIMIT_DISABLED = process.env.DISABLE_RATE_LIMIT === 'true';
+// Never off in production, whatever the flag says — the same rule makeLimiter
+// applies to every route-level limiter. This one used to honour the flag in
+// production, so a DISABLE_RATE_LIMIT copied from a test config into a live
+// .env removed the global budget while leaving the login limits in place, and
+// nothing said so beyond one boot-time warning.
+const RATE_LIMIT_DISABLED = process.env.DISABLE_RATE_LIMIT === 'true'
+  && process.env.NODE_ENV !== 'production';
+if (process.env.DISABLE_RATE_LIMIT === 'true' && !RATE_LIMIT_DISABLED) {
+  logger.warn('DISABLE_RATE_LIMIT is set in production and is being IGNORED.');
+}
 
 // An optional shared store so limits are GLOBAL across pm2 cluster workers.
 // The default MemoryStore is per-process: with `instances: 'max'` the effective

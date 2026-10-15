@@ -18,6 +18,7 @@ import { PageHeader, Panel } from '../../components/ui/Page';
 import { Loading, ErrorNotice, Notice } from '../../components/Feedback';
 import CreateProfile from '../CreateProfile';
 import { OnboardingProgress } from '../OnboardingProgress';
+import { useShellFocus } from '../../components/shell/shellFocus';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -66,6 +67,11 @@ export default function PaymentMethods() {
 function PaymentsPage({ organizer, onboarding, onChanged }) {
   const choices = organizer.payments?.choices || [];
   const nothing = choices.length === 0;
+
+  // Step 2 of getting set up is a task with its own sticky Back / Continue, so
+  // the shell's tab bar stands down for it — the same as step 1 and the wizard.
+  // The everyday Payments page is a place and keeps the tabs.
+  useShellFocus(onboarding ? { title: 'Set up payments' } : null);
 
   return (
     <div className={onboarding ? 'es-wizard es-wizard--center' : 'fx-stack'}>

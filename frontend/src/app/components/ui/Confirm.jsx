@@ -72,10 +72,22 @@ export function ConfirmDialog({
   useEffect(() => {
     const dialog = ref.current;
     if (!dialog) return undefined;
+    /**
+     * FOCUS GOES BACK BY HAND. The native dialog restores focus when it is
+     * CLOSED — but this one is unmounted when it settles, and a dialog removed
+     * from the document hands focus to nothing: a keyboard user who pressed
+     * Cancel found themselves at the top of the page, not on the button they
+     * had just used. Found by the mobile pass's keyboard checks.
+     */
+    const opener = document.activeElement;
     // jsdom and some older engines have no showModal; the dialog still renders.
     if (typeof dialog.showModal === 'function' && !dialog.open) dialog.showModal();
     else dialog.setAttribute('open', '');
-    return () => { if (dialog.open && typeof dialog.close === 'function') dialog.close(); };
+    return () => {
+      if (dialog.open && typeof dialog.close === 'function') dialog.close();
+      // Not if the action removed it — an archived row, a deleted draft.
+      if (opener?.isConnected && typeof opener.focus === 'function') opener.focus({ preventScroll: true });
+    };
   }, []);
 
   const min = reason?.minLength || 0;

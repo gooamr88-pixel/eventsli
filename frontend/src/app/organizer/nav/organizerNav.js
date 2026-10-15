@@ -77,7 +77,7 @@ const RESERVED_ONLY_KEYS = new Set(['map', 'tables']);
  * checklist, which has one event's full detail, is where free is handled.
  */
 export function organizerNavGroups({
-  eventId, listingType = null, admissionType = null,
+  eventId, listingType = null, admissionType = null, eventTitle = null,
 }) {
   const displayOnly = listingType === 'display_only';
   const generalAdmission = admissionType === 'general';
@@ -169,6 +169,9 @@ export function organizerNavGroups({
     {
       id: 'build',
       label: 'Build the event',
+      // Which event every group below acts on. `AppShell` prints it under the
+      // label; without it a drawer that covers the page named no event at all.
+      caption: eventTitle,
       note: eventId ? null : 'Pick an event above to open these.',
       items: [
         item('overview', 'Overview', 'info', ''),
@@ -302,7 +305,28 @@ export const ORGANIZER_TABS = ['dashboard', 'events', 'payments'];
 export const ORGANIZER_EVENT_TABS = ['dashboard', 'orders', 'attendees'];
 export const ORGANIZER_LISTING_TABS = ['dashboard', 'overview', 'share'];
 
-export function organizerTabs({ eventId, listingType }) {
+/**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * BEFORE LAUNCH, THE BAR IS FOR BUILDING.
+ *
+ * A draft showed Dashboard, Orders and Door list — two screens that are empty
+ * until the event sells — while the setup steps the organizer actually had to
+ * do were only in the menu. Before it is on sale the bar carries the overview
+ * (the checklist and the next step) and the first thing to build: ticket types
+ * for a ticketed event, the details for a listing. Once it is on sale, and in
+ * every state after, it is the bar used on the night.
+ *
+ * `status` is optional and an unknown one is treated as selling, so a caller
+ * that has not loaded the event yet gets the bar it always had.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+export const ORGANIZER_SETUP_TABS = ['dashboard', 'overview', 'tiers'];
+export const ORGANIZER_LISTING_SETUP_TABS = ['dashboard', 'overview', 'details'];
+const PRE_LAUNCH = new Set(['draft', 'rejected', 'pending_review']);
+
+export function organizerTabs({ eventId, listingType, status = null }) {
   if (!eventId) return ORGANIZER_TABS;
-  return listingType === 'display_only' ? ORGANIZER_LISTING_TABS : ORGANIZER_EVENT_TABS;
+  const listing = listingType === 'display_only';
+  if (PRE_LAUNCH.has(status)) return listing ? ORGANIZER_LISTING_SETUP_TABS : ORGANIZER_SETUP_TABS;
+  return listing ? ORGANIZER_LISTING_TABS : ORGANIZER_EVENT_TABS;
 }

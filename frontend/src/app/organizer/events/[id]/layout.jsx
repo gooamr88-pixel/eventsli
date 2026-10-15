@@ -10,7 +10,7 @@ import NavIcon from '../../../components/shell/NavIcon';
 import { ErrorNotice } from '../../../components/Feedback';
 import { EventProvider } from './EventContext';
 import EventActions from './EventActions';
-import BuildNav from './BuildNav';
+import BuildNav, { BuildProgress } from './BuildNav';
 import { BuildStepProvider } from './BuildStep';
 
 /**
@@ -108,13 +108,32 @@ function EventHeader({ event, eventId, onChanged }) {
   }
 
   const when = formatEventTime(event.startsAt, event.timezone);
+  const onOverview = pathname === `/organizer/events/${eventId}`;
 
   return (
-    <header className="es-event-head">
+    /**
+     * ─────────────────────────────────────────────────────────────────────────
+     * COMPACT ON A SECTION, BELOW `md` — `.es-event-head--sub`.
+     *
+     * This header is the overview's, and it rendered in full above every one
+     * of the eleven sections: breadcrumb, a title of three or four lines, the
+     * date, venue and type, and Public page / Share. On a 320×568 phone that
+     * put the Orders heading 487px down, under the fold — every section opened
+     * on a screen of navigation. The app bar names the event and the section
+     * now, so on a phone a section keeps the way back, the title on one line
+     * and the status, and the facts stay on the overview where they are read.
+     * Tablets and desktops are unchanged.
+     * ─────────────────────────────────────────────────────────────────────────
+     */
+    <header className={`es-event-head ${onOverview ? '' : 'es-event-head--sub'}`}>
       <nav aria-label="Breadcrumb" className="es-breadcrumb">
-        <Link href="/organizer/events">Your events</Link>
-        <span aria-hidden="true">/</span>
-        <span aria-current="page" className="fx-truncate">{event.title}</span>
+        {/* `fx-touch`: this is the way back up, and it was a 76×21 target. */}
+        <Link href="/organizer/events" className="es-breadcrumb__up fx-touch">
+          <span aria-hidden className="es-breadcrumb__back"><NavIcon name="arrow" size={16} /></span>
+          Your events
+        </Link>
+        <span aria-hidden="true" className="es-breadcrumb__sep">/</span>
+        <span aria-current="page" className="es-breadcrumb__here fx-truncate">{event.title}</span>
       </nav>
 
       <div className="es-event-head__main">
@@ -139,24 +158,23 @@ function EventHeader({ event, eventId, onChanged }) {
             )}
           </p>
         </div>
-        <div className="es-event-head__actions">
-          {event.status === 'published' && (
-            <a href={`/e/${event.slug}`} target="_blank" rel="noreferrer" className="es-btn es-btn--secondary es-btn--sm">
-              <NavIcon name="external" size={16} />
-              Public page<span className="sr-only"> (opens in a new tab)</span>
-            </a>
+        <div className="es-event-head__actions" role="group" aria-label="Event actions">
+          {/* The event's own actions live on its overview, in this one row with
+              Public page and Share — see EventActions. On Ticket types or Orders
+              they were four more buttons between the title and the work. */}
+          {onOverview ? (
+            <EventActions event={event} onChanged={onChanged}>
+              <HeaderLinks event={event} />
+            </EventActions>
+          ) : (
+            <HeaderLinks event={event} />
           )}
-          <Link href={`/organizer/events/${event.id}/share`} className="es-btn es-btn--secondary es-btn--sm">
-            <NavIcon name="qr" size={16} />
-            Share
-          </Link>
         </div>
       </div>
 
-      {/* The event's own actions live on its overview. On Ticket types or Orders
-          they were four more buttons between the title and the work, and on a
-          phone they pushed the section itself below the fold. */}
-      {pathname === `/organizer/events/${eventId}` && <EventActions event={event} onChanged={onChanged} />}
+      {/* "Setup · step 3 of 6" on a build screen before launch. Renders nothing
+          anywhere else. */}
+      {!onOverview && <BuildProgress />}
 
       {/**
         * ─────────────────────────────────────────────────────────────────────
@@ -181,5 +199,23 @@ function EventHeader({ event, eventId, onChanged }) {
         * ─────────────────────────────────────────────────────────────────────
         */}
     </header>
+  );
+}
+
+/** Public page (once it is on sale) and Share — the two links every section's header offers. */
+function HeaderLinks({ event }) {
+  return (
+    <>
+      <Link href={`/organizer/events/${event.id}/share`} className="es-btn es-btn--secondary es-btn--sm">
+        <NavIcon name="qr" size={16} />
+        Share
+      </Link>
+      {event.status === 'published' && (
+        <a href={`/e/${event.slug}`} target="_blank" rel="noreferrer" className="es-btn es-btn--secondary es-btn--sm">
+          <NavIcon name="external" size={16} />
+          Public page<span className="sr-only"> (opens in a new tab)</span>
+        </a>
+      )}
+    </>
   );
 }

@@ -7,6 +7,7 @@ import NavIcon from './NavIcon';
 import { trapTab } from '../../utils/focusTrap';
 import Logo from '../brand/Logo';
 import { resolveNav, pickTabs, currentLabel } from './navModel';
+import { useShellFocusState } from './shellFocus';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -56,8 +57,8 @@ import { resolveNav, pickTabs, currentLabel } from './navModel';
  * ─────────────────────────────────────────────────────────────────────────────
  * WHAT `head` AND `contextBar` ARE, after this pass rearranged both.
  *
- * `head`   goes at the top of the SCROLLING nav list, not in the pinned block
- *          with the logo. The pinned block and the footer are both
+ * `head`   goes in the SCROLLING nav list — after the groups now, see the note
+ *          where it renders — not in the pinned block with the logo. The pinned block and the footer are both
  *          `flex-shrink: 0` inside a panel that is exactly `100dvh` with
  *          `overflow: hidden`, so everything pinned is height the list cannot
  *          have — and once the pinned pair exceeds the viewport, the footer is
@@ -77,12 +78,25 @@ import { resolveNav, pickTabs, currentLabel } from './navModel';
  *          is no offset to keep in step, and no second opinion about the
  *          stacking order either.
  * ─────────────────────────────────────────────────────────────────────────────
+ *
+ * `appbarContext`  what the app bar's second line says INSTEAD of the page's
+ *          name, below `lg` — in practice the organizer's event picker, on a
+ *          route that is about one event. The page's name moves up beside the
+ *          workspace ("Organizer · Orders") and the event takes the reading
+ *          line. That is the phone's answer to the "Working on" strip: the strip
+ *          is a 64px band of its own, and on a 568px screen it and the app bar
+ *          and the bottom tabs left the page about 300px before an event header
+ *          took most of that. `.es-evbar` is desktop-only now; see globals.css.
+ * ─────────────────────────────────────────────────────────────────────────────
  */
 export default function AppShell({
-  workspace, label, home = '/', groups, slots, tabKeys = [], head, contextBar, foot, appbarAction, children,
+  workspace, label, home = '/', groups, slots, tabKeys = [], head, contextBar, appbarContext, foot, appbarAction, children,
 }) {
   const pathname = usePathname() || '';
   const [open, setOpen] = useState(false);
+  // A task the page is running — see shellFocus.js. While it is set the bottom
+  // tabs and the context bar stand down and the app bar names the task.
+  const focus = useShellFocusState();
   const navRef = useRef(null);
   const menuRef = useRef(null);
   const wasOpen = useRef(false);
@@ -167,15 +181,17 @@ export default function AppShell({
         </div>
 
         <nav className="es-nav__body" aria-label={label}>
-          {/* Above the first group and inside the scroller — see the note on
-              the props. It is separated by a rule rather than by the panel's
-              own border, so it still reads as its own block. */}
-          {head && <div className="es-nav__lead">{head}</div>}
           {resolved.map((group) => (
             <div key={group.id} className="es-nav__group">
               {group.label && (
                 <p id={`nav-group-${group.id}`} className="es-nav__group-label">{group.label}</p>
               )}
+              {/* WHICH EVENT these tools act on. The event's groups were headed
+                  "Build the event", "Sell" and "On the day" with nothing naming
+                  the event — on a phone the drawer covers the page that does, so
+                  an organizer with four events opened the menu and could not tell
+                  whose Orders they were about to open. */}
+              {group.caption && <p className="es-nav__caption fx-truncate">{group.caption}</p>}
               {group.items.length > 0 && (
                 <ul
                   className="flex flex-col gap-0.5"
@@ -189,6 +205,17 @@ export default function AppShell({
               {group.note && <p className="es-nav__note">{group.note}</p>}
             </div>
           ))}
+          {/* ─────────────────────────────────────────────────────────────────
+              THE WORKSPACE SWITCHER, AFTER THIS WORKSPACE'S OWN DESTINATIONS.
+
+              It sat above the first group, so on a phone the first thing the
+              organizer's menu offered was a card leading OUT of the organizer
+              workspace — labelled "Tickets", a few rows above "Ticket types".
+              Switching workspace is rare and deliberate; the places in this one
+              are what the menu is opened for. The card still says where you are
+              ("You are in Organizer") and is still in the scroller, so it never
+              costs the pinned footer its room. */}
+          {head && <div className="es-nav__lead">{head}</div>}
         </nav>
 
         {foot && <div className="es-nav__foot">{foot}</div>}
@@ -198,7 +225,7 @@ export default function AppShell({
         <button type="button" className="es-nav-scrim" aria-label="Close the menu" onClick={() => setOpen(false)} />
       )}
 
-      <div className="es-nav-content">
+      <div className={`es-nav-content ${focus ? 'es-nav-content--focus' : ''}`}>
         {/* ONE STICKY GROUP, not two stickies guessing at each other's height.
             The app bar disappears at `lg`, so above that this is the context
             bar alone, pinned to the top of the window on its own. */}
@@ -237,16 +264,24 @@ export default function AppShell({
               single truncated line would have had to do.
               ─────────────────────────────────────────────────────────────────────
             */}
-            <span className="fx-min0 flex-1 flex flex-col justify-center leading-tight">
+            <span className="es-appbar__title fx-min0 flex-1 flex flex-col justify-center leading-tight">
               {/* `text-xs`, the token, rather than an arbitrary pixel value — the
                   two lines plus `leading-tight` come to about 30px inside a 56px
-                  bar, so there is no reason to reach below the ramp for it. */}
+                  bar, so there is no reason to reach below the ramp for it.
+
+                  THREE ANSWERS IN TWO LINES on a route about one event: the
+                  workspace and the section on the small line, the event on the
+                  reading line. In a task (focus mode) the reading line is the
+                  task's own name — "Create event" — rather than the nav item
+                  whose href happens to prefix the URL ("Your events"). */}
               <span className="fx-truncate text-xs uppercase tracking-wide text-subtle">
-                {workspace}
+                {!focus && appbarContext && here ? `${workspace} · ${here}` : workspace}
               </span>
-              {here && (
+              {focus ? (
+                <span className="fx-truncate text-sm font-medium text-ink">{focus.title}</span>
+              ) : appbarContext || (here && (
                 <span className="fx-truncate text-sm font-medium text-ink">{here}</span>
-              )}
+              ))}
             </span>
             {/* THE THEME CONTROL WAS HERE. It went with the theme — the product
                 is one palette now, and the door scanner pins its own dark
@@ -254,7 +289,7 @@ export default function AppShell({
             {appbarAction}
           </header>
 
-          {contextBar}
+          {!focus && contextBar}
         </div>
 
         <main id="app-main" className="es-app-main">
@@ -262,6 +297,7 @@ export default function AppShell({
         </main>
       </div>
 
+      {!focus && (
       <nav className="es-nav-bar" aria-label={`${label} shortcuts`}>
         {tabs.map((tab) => (
           tab.disabled ? (
@@ -292,6 +328,7 @@ export default function AppShell({
           <span>More</span>
         </button>
       </nav>
+      )}
     </>
   );
 }

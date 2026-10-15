@@ -40,7 +40,7 @@ export default function AdminEventDetail({ eventId }) {
   return (
     <div className="fx-stack">
       <nav aria-label="Breadcrumb" className="text-sm text-muted">
-        <Link href="/admin/events" className="hover:text-ink">All events</Link>
+        <Link href="/admin/events" className="fx-touch hover:text-ink">All events</Link>
         <span aria-hidden> / </span>
         <span className="text-ink" aria-current="page">{event.title}</span>
       </nav>

@@ -36,6 +36,9 @@ export const ERRORS = Object.freeze(Object.fromEntries([
     'Sign in again to pick up where you left off.', 'fatal'),
   E('SESSION_REVOKED', 'This session was ended',
     'It was signed out on another device, or by an administrator. Sign in again.', 'fatal'),
+  // A 503, not a 401: you are still signed in, we just could not check it.
+  E('SESSION_CHECK_FAILED', 'We could not check your session',
+    'You are still signed in. Wait a moment and try again.', 'retry'),
   E('FORBIDDEN', 'Not allowed',
     'Your account does not have access to this.', 'fatal'),
   E('ACCOUNT_BANNED', 'This account is suspended',

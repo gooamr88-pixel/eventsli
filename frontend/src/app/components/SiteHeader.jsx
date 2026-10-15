@@ -198,6 +198,14 @@ function SiteNav({ pathname }) {
       // sits in a later cascade layer and beat it. See globals.css.
       className="es-overhero sticky top-0 z-(--es-z-navbar) transition-colors duration-300"
     >
+      {/* The first stop for a keyboard, as in the dashboard shell. Hidden until
+          focused; see the target in app/layout.jsx. */}
+      <a
+        href="#site-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-(--es-z-max) es-btn es-btn--primary"
+      >
+        Skip to content
+      </a>
       <div className="fx-gutter">
         <div className="fx-container fx-container--xl">
           <div className="fx-row fx-row--between h-16">

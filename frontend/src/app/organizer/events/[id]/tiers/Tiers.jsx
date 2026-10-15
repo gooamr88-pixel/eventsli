@@ -137,7 +137,10 @@ export default function Tiers({ eventId }) {
               render: (t) => (
                 <span className="fx-row justify-end">
                   <button type="button" onClick={() => setEditing(t)} className="es-btn es-btn--ghost es-btn--sm">Edit</button>
-                  <button type="button" onClick={() => remove(t)} className="es-btn es-btn--ghost es-btn--sm">Delete</button>
+                  {/* Danger text, so it is not read as a twin of Edit beside it. */}
+                  <button type="button" onClick={() => remove(t)} className="es-btn es-btn--ghost es-btn--sm es-btn--danger-text">
+                    Delete<span className="sr-only"> {t.name}</span>
+                  </button>
                 </span>
               ),
             },

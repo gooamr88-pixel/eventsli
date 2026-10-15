@@ -19,6 +19,11 @@
  *
  * `primary` marks the column that becomes the card's heading on a phone.
  *
+ * `wide` marks a column that takes a whole row of the card instead of sharing
+ * one: a date, a running total, anything that must not wrap. The card is a
+ * small grid since the mobile pass, two or more fields to a row, and a value
+ * that refuses to wrap would otherwise run out of its half.
+ *
  * No loading or empty state inside: those are the page's to say (Feedback.jsx),
  * because only the page knows WHY a list is empty and what to do about it.
  * A server component — it renders what it is given and holds no state.
@@ -47,6 +52,7 @@ export default function DataTable({ columns, rows, rowKey = (row) => row.id, cap
                   data-label={col.hideLabel ? undefined : col.label}
                   data-align={col.align}
                   data-primary={col.primary ? '' : undefined}
+                  data-wide={col.wide ? '' : undefined}
                 >
                   {col.render ? col.render(row) : row[col.key]}
                 </td>

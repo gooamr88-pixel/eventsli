@@ -61,6 +61,10 @@ const isDev = process.env.NODE_ENV !== 'production';
 const nextConfig = {
   reactStrictMode: true,
 
+  // No `X-Powered-By: Next.js` on every response. It tells a scanner which
+  // framework to try first and does nothing for anybody else.
+  poweredByHeader: false,
+
   /**
    * Pin the workspace root.
    *
