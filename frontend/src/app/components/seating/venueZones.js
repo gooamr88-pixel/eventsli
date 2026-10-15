@@ -127,6 +127,45 @@ export function zoneColor(zone) {
 }
 
 /**
+ * THE COLOUR A ZONE'S LABEL AND ICON ARE DRAWN IN — readable on the zone itself.
+ *
+ * The label was drawn in the zone colour on a wash of that same colour (12%, or
+ * 20% selected). Ten of the fourteen kinds measured 3.68–4.23:1 against their own
+ * wash, under the 4.5:1 WCAG asks of text this size, and a custom colour can be
+ * anything an organizer picks. So the ink is the zone colour pulled toward black
+ * until it clears 4.5:1 against both washes, on both map grounds: the hue stays,
+ * the fill and outline stay as drawn, and only the words get darker.
+ */
+const ZONE_GROUNDS = ['#ffffff', '#eff3fa'];   // the map on a surface, and on bg-sunken
+export function zoneInk(color) {
+  const rgb = expandHex(color);
+  if (!rgb) return color;
+  const washes = ZONE_GROUNDS.flatMap((g) => [mixRgb(rgb, 0.12, expandHex(g)), mixRgb(rgb, 0.2, expandHex(g))]);
+  for (let k = 0.8; k >= 0; k -= 0.05) {
+    const ink = rgb.map((v) => Math.round(v * k));
+    if (washes.every((w) => contrast(ink, w) >= 4.5)) return toHex(ink);
+  }
+  return '#000000';
+}
+
+function expandHex(hex) {
+  const m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(String(hex || '').trim());
+  if (!m) return null;
+  const h = m[1].length === 3 ? m[1].split('').map((c) => c + c).join('') : m[1];
+  return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16));
+}
+function mixRgb(a, p, b) { return a.map((v, i) => Math.round(v * p + b[i] * (1 - p))); }
+function luminance(rgb) {
+  const [r, g, b] = rgb.map((c) => { const s = c / 255; return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4; });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+export function contrast(a, b) {
+  const [x, y] = [luminance(a), luminance(b)].sort((p, q) => q - p);
+  return (x + 0.05) / (y + 0.05);
+}
+function toHex(rgb) { return `#${rgb.map((v) => v.toString(16).padStart(2, '0')).join('')}`; }
+
+/**
  * The label a zone shows when it has none of its own.
  *
  * Falls back to the KIND's label rather than to empty. An unlabelled rectangle

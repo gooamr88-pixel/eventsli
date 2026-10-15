@@ -3,6 +3,7 @@ const eventContent = require('../services/eventContentService');
 const { parsePagination, applyPagination, buildMeta } = require('../middleware/pagination');
 const { sendOk, sendFail } = require('../utils/responseEnvelope');
 const { safeSearch } = require('../utils/search');
+const categoryService = require('../services/categoryService');
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -30,8 +31,13 @@ const SELECT = `
   listing_type, purchase_mode, admission_type, category, cover_url, logo_url,
   highlights, venue_lat, venue_lng, max_tickets_per_order,
   updated_at,
-  organizers ( display_name )
+  organizers ( display_name ),
+  event_categories ( label )
 `;
+// `event_categories ( label )`: the label the admin gave the category, so every
+// card names it the way the homepage tabs and /events filters do. It was named
+// from a hard-coded map in the browser, which disagreed with the database for
+// three of thirteen categories and never learned a renamed or added one.
 
 // `cover_path` is absent on purpose. It is the storage object key, which is the
 // dashboard's business; a public listing needs the URL and nothing else.
@@ -128,7 +134,19 @@ async function listEvents(req, res, next) {
       // rather than as text being searched for. Unescaped, `q` is a filter
       // injection point — and on a PUBLIC endpoint that is one anyone can reach.
       const safe = safeSearch(p.q);
-      if (safe) query = query.or(`title.ilike.%${safe}%,venue_name.ilike.%${safe}%`);
+      if (safe) {
+        // A search for "comedy" finds the comedy events, not only the ones that
+        // say "comedy" in their title. Matched against the admin's own labels
+        // and slugs, so it follows a renamed or added category.
+        const term = String(p.q).trim().toLowerCase();
+        const matched = term.length >= 3
+          ? (await categoryService.list({ enabledOnly: true }))
+            .filter((c) => c.slug.includes(term.replace(/\s+/g, '_')) || c.label.toLowerCase().includes(term))
+            .map((c) => c.slug)
+          : [];
+        const byCategory = matched.length ? `,category.in.(${matched.join(',')})` : '';
+        query = query.or(`title.ilike.%${safe}%,venue_name.ilike.%${safe}%${byCategory}`);
+      }
     }
 
     const { data, error, count } = await query
@@ -353,6 +371,7 @@ async function availability(event, tiers = []) {
 
 function shape(e) {
   const organizer = Array.isArray(e.organizers) ? e.organizers[0] : e.organizers;
+  const category = Array.isArray(e.event_categories) ? e.event_categories[0] : e.event_categories;
   return {
     id: e.id,
     slug: e.slug,
@@ -377,6 +396,7 @@ function shape(e) {
     updatedAt: e.updated_at,
     currency: e.currency,
     category: e.category,
+    categoryLabel: category?.label || null,
     // Null is a normal answer — an event may publish without artwork. The
     // listing renders a typographic placeholder from the title rather than a
     // broken image or a stock photo of a crowd that is not this crowd.
@@ -399,4 +419,6 @@ function shape(e) {
   };
 }
 
-module.exports = { listEvents, eventBySlug };
+// SELECT, shape and lowestTierPrices are shared with "near you"
+// (landingController.eventsNear), so a nearby card is the same card as a listed one.
+module.exports = { listEvents, eventBySlug, SELECT, shape, lowestTierPrices };

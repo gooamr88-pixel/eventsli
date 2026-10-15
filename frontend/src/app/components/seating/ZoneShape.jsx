@@ -1,7 +1,7 @@
 'use client';
 
 import { WORLD } from './seatingGeometry';
-import { zoneBox, zoneColor, zoneLabel, zoneMeta } from './venueZones';
+import { zoneBox, zoneColor, zoneInk, zoneLabel, zoneMeta } from './venueZones';
 import { iconPaths, ZONE_ICON_VIEWBOX } from './zoneIcons';
 
 /**
@@ -39,6 +39,8 @@ export default function ZoneShape({
   const box = zoneBox(zone, WORLD);
   const meta = zoneMeta(zone.kind);
   const color = zoneColor(zone);
+  // The words and the glyph, darkened just enough to read on the zone's own wash.
+  const ink = zoneInk(color);
   const label = zoneLabel(zone);
 
   const inv = (n) => n / Math.max(scale, 0.0001);
@@ -81,7 +83,7 @@ export default function ZoneShape({
       />
 
       {roomForIcon && (
-        <ZoneGlyph name={meta.icon} size={iconSize} color={color} y={-stackH / 2} />
+        <ZoneGlyph name={meta.icon} size={iconSize} color={ink} y={-stackH / 2} />
       )}
 
       <text
@@ -91,7 +93,7 @@ export default function ZoneShape({
         // to land in the same place on paper as it does on screen.
         y={-stackH / 2 + (roomForIcon ? iconSize + gap : 0) + fontSize * 0.8}
         textAnchor="middle"
-        fill={color}
+        fill={ink}
         style={{
           fontSize, fontWeight: 600, letterSpacing: '0.02em',
           pointerEvents: 'none', textTransform: 'uppercase',

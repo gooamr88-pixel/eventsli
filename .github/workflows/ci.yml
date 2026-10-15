@@ -182,7 +182,8 @@ jobs:
     # says plainly whether the SQL itself is sound.
     services:
       postgres:
-        image: postgres:16
+        # The hosted project's major version (17) — see supabase/config.toml.
+        image: postgres:17
         env:
           POSTGRES_PASSWORD: postgres
         options: >-

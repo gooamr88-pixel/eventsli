@@ -4,7 +4,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useApi } from '../../../hooks/useApi';
 import { formatEventTime } from '../../../lib/eventTime';
-import { categoryLabel } from '../../../lib/categories';
+import { useCategories } from '../../../hooks/useCategories';
 import { Loading } from '../../../components/Feedback';
 import FormError from '../../../components/forms/FormError';
 import SubmitButton from '../../../components/forms/SubmitButton';
@@ -45,6 +45,8 @@ export default function SubmitReview({ eventId, onClose, onConfirm, busy = false
   const agreeId = useId();
   const [agreed, setAgreed] = useState(false);
   const { data, error: loadError, loading } = useApi(`/events/${eventId}/submission-preview`);
+  // The category as the admin named it — the same words the buyer will see.
+  const categories = useCategories();
 
   useEffect(() => {
     const dialog = ref.current;
@@ -108,7 +110,7 @@ export default function SubmitReview({ eventId, onClose, onConfirm, busy = false
                       ? 'General admission'
                       : 'Reserved seating'],
                   // The name a buyer sees ("Arts & culture"), not the stored key ("arts").
-                  ['Category', event.category ? categoryLabel(event.category) : 'Not set'],
+                  ['Category', event.category ? categories.label(event.category) : 'Not set'],
                   ['Tickets per order', event.maxTicketsPerOrder ? String(event.maxTicketsPerOrder) : 'No limit'],
                   ['Ticket transfer', event.allowTicketTransfer ? 'Buyers may transfer their tickets' : 'Not allowed'],
                 ]} />

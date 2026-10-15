@@ -221,12 +221,20 @@ describe('the other security headers', () => {
     expect(prod['Content-Security-Policy']).toBeUndefined();
   });
 
-  test('the camera is allowed for us and for nobody else, and nothing else is', () => {
-    // /gate asks for it at the point of use. Everything else is denied so a
-    // compromised dependency cannot open a microphone on the checkout page.
+  test('the camera and location are allowed for us and for nobody else, and nothing else is', () => {
+    // /gate asks for the camera at the point of use. Everything else is denied
+    // so a compromised dependency cannot open a microphone on the checkout page.
     expect(prod['Permissions-Policy']).toBe(
-      'camera=(self), microphone=(), geolocation=(), payment=()',
+      'camera=(self), microphone=(), geolocation=(self), payment=()',
     );
+  });
+
+  test('REGRESSION: the policy never forbids the location the near-me features ask for', () => {
+    // `geolocation=()` made the browser refuse every "Near me" press before the
+    // visitor was asked — in production from 2026-09-16 until this fix.
+    const policy = prod['Permissions-Policy'];
+    expect(policy).toMatch(/geolocation=\(self\)/);
+    expect(policy).not.toMatch(/geolocation=\(\)/);
   });
 
   test('nosniff and a referrer policy are present', () => {

@@ -225,6 +225,15 @@ export function buildCsp({ isDev, apiOrigin, supabaseHost, nonce }) {
  * camera except /gate, which asks for it at the point of use. Denying the rest
  * by default means a compromised dependency cannot open a microphone on the
  * checkout page.
+ *
+ * GEOLOCATION IS `(self)`, NOT `()` (fixed 2026-10-16). It was `()` from the
+ * first commit, and the location buttons arrived ten days later — the "Near me"
+ * dialog, the /events "Near me" filter and now the homepage's "Near you". The
+ * browser refuses a call the policy forbids before the visitor is ever asked,
+ * and reports it exactly like a visitor who said no: every press, in every
+ * browser, ended at "location is turned off for this site". Unit tests mock
+ * `navigator.geolocation`, so only a real browser against a real build saw it.
+ * `(self)` lets our own pages ask; an embedded third-party frame still cannot.
  */
 export function securityHeaders({ isDev }) {
   return [
@@ -243,7 +252,7 @@ export function securityHeaders({ isDev }) {
      */
     { key: 'X-Content-Type-Options', value: 'nosniff' },
     { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-    { key: 'Permissions-Policy', value: 'camera=(self), microphone=(), geolocation=(), payment=()' },
+    { key: 'Permissions-Policy', value: 'camera=(self), microphone=(), geolocation=(self), payment=()' },
     /**
      * HSTS, production only.
      *

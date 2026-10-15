@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useApi } from '../../hooks/useApi';
 import { useUrlFilters } from '../../hooks/useUrlFilters';
+import { useCategories } from '../../hooks/useCategories';
 import { formatMoney } from '../../utils/money';
 import { formatEventTime } from '../../lib/eventTime';
 import { Loading, Empty, ErrorNotice } from '../../components/Feedback';
@@ -45,6 +46,9 @@ export default function AdminEvents() {
   const when = get('when');
   const q = get('q');
   const organizerId = get('organizerId');
+  const category = get('category');
+  // The same list, and the same labels, an organizer picks from.
+  const categories = useCategories();
 
   const soonestFirst = when === 'upcoming' || when === 'now';
   const query = new URLSearchParams({
@@ -54,6 +58,7 @@ export default function AdminEvents() {
   if (when) query.set('when', when);
   if (q) query.set('q', q);
   if (organizerId) query.set('organizerId', organizerId);
+  if (category) query.set('category', category);
 
   const { data, error, loading, reload } = useApi(`/admin/events?${query}`, { raw: true });
   const rows = data?.data || [];
@@ -72,6 +77,22 @@ export default function AdminEvents() {
           <Segmented label="Date" showLabel value={when} onChange={(v) => set('when', v)} options={WHEN} />
           <SearchBox label="Search events" placeholder="Event title" value={q} onSearch={(v) => set('q', v)} />
         </div>
+        <div className="fx-stack fx-stack--sm gap-1.5 max-w-sm">
+          <label htmlFor="admin-events-category" className="text-sm text-ink">Category</label>
+          <select
+            id="admin-events-category"
+            className="es-input"
+            value={category}
+            onChange={(e) => set('category', e.target.value)}
+          >
+            <option value="">Every category</option>
+            {categories.list.map((c) => <option key={c.slug} value={c.slug}>{c.label}</option>)}
+            {/* A link to a category since switched off still says what it filters on. */}
+            {category && !categories.list.some((c) => c.slug === category) && (
+              <option value={category}>{categories.label(category)}</option>
+            )}
+          </select>
+        </div>
         {organizerId && (
           <p className="fx-row text-sm text-muted">
             Showing one organizer&apos;s events.
@@ -87,7 +108,7 @@ export default function AdminEvents() {
       ) : loading && !data ? (
         <Loading variant="list" rows={5} label="Loading events" />
       ) : rows.length === 0 ? (
-        <Empty title="No events match." hint="Try another status or date, or clear the search." />
+        <Empty title="No events match." hint="Try another status, date or category, or clear the search." />
       ) : (
         <>
           <DataTable
@@ -112,6 +133,11 @@ export default function AdminEvents() {
                 key: 'when',
                 label: 'When',
                 render: (e) => <span className="whitespace-nowrap">{formatEventTime(e.startsAt, e.timezone, { time: false })}</span>,
+              },
+              {
+                key: 'category',
+                label: 'Category',
+                render: (e) => (e.category ? (e.categoryLabel || categories.label(e.category)) : <span className="text-muted">Not set</span>),
               },
               { key: 'status', label: 'Status', render: (e) => <StatusPill status={e.status} /> },
               {

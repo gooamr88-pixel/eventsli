@@ -126,6 +126,8 @@ router.get(
   query('lat').isFloat({ min: -90, max: 90 }),
   query('lng').isFloat({ min: -180, max: 180 }),
   query('radiusKm').optional().isInt({ min: 5, max: 2000 }),
+  // How many nearby events to return (the homepage's "Near you" asks for 8).
+  query('limit').optional().isInt({ min: 1, max: 24 }),
   validate,
   landing.eventsNear,
 );

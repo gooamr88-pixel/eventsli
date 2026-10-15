@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { get, patch } from '../../../utils/apiClient';
+import { useState } from 'react';
+import { patch } from '../../../utils/apiClient';
 import { categoryLabel } from '../../../lib/categories';
+import { useCategories } from '../../../hooks/useCategories';
 import { zonesFor } from '../../../lib/timezones';
 // All three from one module now. `toIso` used to be exported out of the
 // create-event wizard, so editing a date meant importing half its logic from a
@@ -93,7 +94,8 @@ function fromEvent(event) {
 export default function EventDetailsEditor({ event, onSaved }) {
   const toast = useToast();
   const { organizer } = useOrganizer();
-  const [categories, setCategories] = useState([]);
+  // The admin's categories, with the admin's labels (hooks/useCategories).
+  const categories = useCategories();
   const [form, setForm] = useState(() => fromEvent(event));
   const [busy, setBusy] = useState(false);
   // Set on the first save attempt, so the venue fields are not flagged red
@@ -108,17 +110,6 @@ export default function EventDetailsEditor({ event, onSaved }) {
     setSeenVersion(event.updatedAt);
     setForm(fromEvent(event));
   }
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const data = await get('/public/event-categories', { noRedirect: true });
-        if (!cancelled) setCategories(data?.categories || []);
-      } catch { /* the current category stays selectable */ }
-    })();
-    return () => { cancelled = true; };
-  }, []);
 
   const live = event.status === 'published' || event.status === 'suspended';
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
@@ -323,7 +314,7 @@ export default function EventDetailsEditor({ event, onSaved }) {
       {live && (
         <dl className="es-facts rounded-(--es-radius-md) bg-bg-sunken p-4">
           <Fact term="Title" value={event.title} />
-          <Fact term="Category" value={categoryLabel(event.category)} />
+          <Fact term="Category" value={categories.label(event.category)} />
           <Fact term="Starts" value={formatEventTime(event.startsAt, event.timezone)} />
           <Fact term="Ends" value={formatEventTime(event.endsAt, event.timezone)} />
           <Fact term="Venue" value={event.venue?.name || '—'} />
@@ -345,7 +336,9 @@ export default function EventDetailsEditor({ event, onSaved }) {
               value={form.title} onChange={set('title')} />
 
             <SelectField label="Category" required value={form.category} onChange={set('category')}
-              options={(categories.length ? categories : [form.category]).map((c) => [c, categoryLabel(c)])} />
+              options={categories.list.length
+                ? categories.list.map((c) => [c.slug, c.label])
+                : [[form.category, categoryLabel(form.category)]]} />
           </>
         )}
 

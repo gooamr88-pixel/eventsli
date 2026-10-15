@@ -143,7 +143,9 @@ export default function EventCard({ event, priority = false, headingLevel = 3, a
 
         <div className="es-evcard__foot">
           <span className="es-evcard__tag">
-            {event.category ? categoryLabel(event.category) : 'Event'}
+            {/* The database's label, which the listing now carries; the
+                fallback map only for an older payload. */}
+            {event.category ? (event.categoryLabel || categoryLabel(event.category)) : 'Event'}
           </span>
           {price && (
             <span className="es-evcard__price">

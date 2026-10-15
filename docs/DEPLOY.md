@@ -247,6 +247,16 @@ node scripts/apply-migration.js ../supabase/migrations/<file>.sql
 node scripts/verify-schema.js      # reports what the live DB actually has
 ```
 
+**Pending for the 2026-10-15 release:** `20261015090000_more_event_categories.sql`
+adds eleven categories (holidays, galas, dance, outdoors, wellness, fashion,
+conferences, tech & gaming, charity, culture, faith). It only inserts, with
+`ON CONFLICT (slug) DO NOTHING`, so it is safe to run twice and changes no
+existing row. Apply it **before** reloading; afterwards
+`curl -s localhost:5100/api/v1/public/event-categories` lists 24. If the code
+is rolled back the rows can stay — the older build lists whatever the table
+holds. Every migration applies to a fresh Postgres **17** (the hosted
+version); `config.toml` and CI were on 16 until this release.
+
 ---
 
 ## 5. Build and start
@@ -491,10 +501,32 @@ deliberately whether to reverse it.
 
 ## Before real traffic
 
-**Delete the 94 test events** published in the database — "Fulfilment Test",
-"Gate Test", "Manual Test". They are on the homepage, in `/events`, and in
-`sitemap.xml`, which invites Google to index 94 pages that are not real. They
-are leftovers from this project's own probes.
+**The test data is gone — done 2026-10-15, with the owner's approval.** This
+section used to say "delete the 94 test events". By the time the live database
+was inspected that morning it held 18 events (14 published, none named as a
+test); those, and every record hanging off them, were removed in one
+transaction. What the reset did, so nobody repeats or undoes it by accident:
+
+- **Backed up first, and the backup proven** — `pg_dump` of `public`, restored
+  into a fresh Postgres 17 with every error fatal, row counts matched for all
+  43 tables, RLS on everywhere, all 79 foreign keys valid. The event-media files
+  were copied out too. The backup is held off the server, by the owner.
+- **Emptied:** events, tiers, seat maps, seats, reservations, orders, tickets,
+  the ledger, webhook records, organizers, sessions, door devices, visits and
+  every other per-user or per-event table — 1,169 rows. The `event-media`
+  bucket was emptied through the Storage API.
+- **Kept:** the two super admins, the schema and migration history, categories,
+  platform settings, homepage content, sponsors and the terms versions. One
+  `admin_audit` row records the reset itself.
+- **Consequences you will notice:** every session was deleted, so everyone —
+  the super admins included — signs in again. **Both door tablets were
+  unregistered** (their device rows went with the events): sign each one in
+  again at `/gate/login` once there is an event to scan for. Nothing in the
+  sitemap or on the homepage is a test any more; the homepage shows its empty
+  states until the first real event is approved.
+
+Rolling the reset back means restoring that dump — a deliberate, owner-only
+decision, not part of a code rollback.
 
 Optional but cheap: this box has **no swap** and two cores. `next build` is the
 memory-hungry step and currently succeeds with ~4.5 GB free — but a future build

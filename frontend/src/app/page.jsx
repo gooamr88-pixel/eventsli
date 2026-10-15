@@ -5,6 +5,7 @@ import { SponsorStrip, Testimonials, Closing } from './components/landing/Social
 import VideoBand from './components/landing/VideoBand';
 import ChatBubble from './components/landing/ChatBubble';
 import VisitBeacon from './components/landing/VisitBeacon';
+import NearbyEvents from './components/landing/NearbyEvents';
 import { serverFetch } from './utils/apiClient';
 
 /**
@@ -84,6 +85,9 @@ export default async function HomePage() {
       <VisitBeacon path="/" />
 
       <Hero content={content} categories={categories} events={events} stats={stats} />
+      {/* Nearby events by default, when this browser already allows location;
+          otherwise a button and a city list. Client-side, after first paint. */}
+      <NearbyEvents />
       <SearchBand categories={categories} />
       <PopularEvents copy={copy} categories={categories} events={events} failed={failed} />
       <Roles />

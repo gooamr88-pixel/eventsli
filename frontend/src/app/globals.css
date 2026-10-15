@@ -8547,3 +8547,14 @@ select.es-lp-filter__control { align-self: stretch; height: 100%; }
 }
 
 }   /* end @layer components — the mobile pass: polish */
+
+@layer components {
+/* ── "Near you" on the homepage (NearbyEvents.jsx) ─────────────────────────
+   A location button and a city list on one row that wraps, then the same card
+   rail the popular-events band uses, each card with its distance under it. */
+.es-near__controls { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0.75rem 1rem; margin-block: 0.25rem 0.5rem; }
+.es-near__city { display: grid; gap: 0.25rem; flex: 1 1 14rem; max-width: 22rem; }
+.es-near__privacy { margin-block-end: 1rem; max-width: 60ch; }
+.es-near__item { display: grid; gap: 0.375rem; align-content: start; }
+.es-near__distance { display: inline-flex; align-items: center; gap: 0.25rem; }
+}   /* end @layer components — near you */

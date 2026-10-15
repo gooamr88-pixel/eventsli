@@ -6,6 +6,8 @@ const categories = require('../services/categoryService');
 const { platformStats } = require('../services/statsService');
 const geo = require('../utils/cityCoordinates');
 const logger = require('../utils/logger');
+const discovery = require('./discoveryController');
+const { fetchAll } = require('../utils/fetchAll');
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -60,6 +62,23 @@ async function landing(req, res, next) {
   } catch (err) { return next(err); }
 }
 
+/**
+ * The city and country of every upcoming published event that names a city.
+ * In pages: these two reads used `.limit(5000)`, which the Data API cuts to 1,000
+ * without saying so (utils/fetchAll.js).
+ */
+function upcomingCities() {
+  const now = new Date().toISOString();
+  return fetchAll(({ from, to }, first) => supabase
+    .from('events')
+    .select('id, city, country', first ? { count: 'exact' } : undefined)
+    .eq('status', 'published')
+    .not('city', 'is', null)
+    .gte('ends_at', now)
+    .order('id')
+    .range(from, to), { what: 'event cities' });
+}
+
 // ─── GET /public/cities ─────────────────────────────────────────────────────
 /**
  * The cities that have something on, for the hero's location picker.
@@ -76,15 +95,7 @@ async function landing(req, res, next) {
  */
 async function cities(req, res, next) {
   try {
-    const { data, error } = await supabase
-      .from('events')
-      .select('city, country')
-      .eq('status', 'published')
-      .not('city', 'is', null)
-      .gte('ends_at', new Date().toISOString())
-      .limit(5000);
-
-    if (error) throw new Error(error.message);
+    const data = await upcomingCities();
 
     const byKey = new Map();
     for (const row of data || []) {
@@ -142,15 +153,7 @@ async function nearestCity(req, res, next) {
       });
     }
 
-    const { data, error } = await supabase
-      .from('events')
-      .select('city, country')
-      .eq('status', 'published')
-      .not('city', 'is', null)
-      .gte('ends_at', new Date().toISOString())
-      .limit(5000);
-
-    if (error) throw new Error(error.message);
+    const data = await upcomingCities();
 
     const seen = new Map();
     for (const row of data || []) {
@@ -239,14 +242,17 @@ async function eventsNear(req, res, next) {
      * predate it.
      * ───────────────────────────────────────────────────────────────────────
      */
-    const { data, error } = await supabase
+    // Every upcoming event, in pages — `.limit(5000)` was capped at 1,000 by the
+    // Data API without a word (utils/fetchAll.js). The full card columns, because
+    // this now answers with the events themselves as well as the places.
+    const now = new Date().toISOString();
+    const data = await fetchAll(({ from, to }, first) => supabase
       .from('events')
-      .select('city, country, venue_lat, venue_lng')
+      .select(discovery.SELECT, first ? { count: 'exact' } : undefined)
       .eq('status', 'published')
-      .gte('ends_at', new Date().toISOString())
-      .limit(5000);
-
-    if (error) throw new Error(error.message);
+      .gte('ends_at', now)
+      .order('id')
+      .range(from, to), { what: 'events' });
 
     /**
      * Grouped by city, because that is what the caller renders and what a
@@ -302,9 +308,48 @@ async function eventsNear(req, res, next) {
     // count is what lets the dialog say the answer is incomplete.
     const cityless = (data || []).filter((r) => !String(r.city || '').trim()).length;
 
+    /**
+     * ─────────────────────────────────────────────────────────────────────────
+     * THE EVENTS THEMSELVES, NEAREST FIRST — what "near you" on the homepage
+     * shows by default (2026-10-15).
+     *
+     * `places` answers "which city"; a person deciding what to do on Friday
+     * wants the events. Each one is measured to its own venue when the organizer
+     * pinned it (`precise: true`), and to its city's centroid otherwise
+     * (`precise: false`), so the client can say "about 12 km" honestly. An event
+     * that can be placed by neither is left out rather than guessed at.
+     * ─────────────────────────────────────────────────────────────────────────
+     */
+    const limit = Math.min(Math.max(Number(req.query.limit) || 8, 1), 24);
+    const placed = [];
+    for (const row of data) {
+      const hasPoint = row.venue_lat !== null && row.venue_lat !== undefined
+        && row.venue_lng !== null && row.venue_lng !== undefined;
+      let distance = null;
+      if (hasPoint) {
+        distance = geo.distanceKm(lat, lng, Number(row.venue_lat), Number(row.venue_lng));
+      } else if (String(row.city || '').trim()) {
+        const known = geo.locate(String(row.city).trim(), row.country);
+        if (known) distance = geo.distanceKm(lat, lng, known.lat, known.lng);
+      }
+      if (distance !== null && distance <= radiusKm) placed.push({ row, distance, precise: hasPoint });
+    }
+    placed.sort((a, b) => a.distance - b.distance
+      || new Date(a.row.starts_at) - new Date(b.row.starts_at));
+    const nearby = placed.slice(0, limit);
+    const fromPrices = await discovery.lowestTierPrices(nearby.map((p) => p.row.id));
+    const events = nearby.map(({ row, distance, precise }) => ({
+      ...discovery.shape(row),
+      fromPriceCents: fromPrices.get(row.id) ?? null,
+      // One decimal under 10 km, where the difference is a walk; whole
+      // kilometres beyond.
+      distanceKm: distance < 10 ? Math.round(distance * 10) / 10 : Math.round(distance),
+      precise,
+    }));
+
     if (byKey.size === 0) {
       return sendOk(res, {
-        places: [], within: [], nearest: null, unmapped: cityless, radiusKm,
+        places: [], within: [], nearest: null, unmapped: cityless, radiusKm, events,
       });
     }
 
@@ -342,6 +387,7 @@ async function eventsNear(req, res, next) {
       nearest: places[0] || null,
       unmapped,
       radiusKm,
+      events,
     });
   } catch (err) { return next(err); }
 }

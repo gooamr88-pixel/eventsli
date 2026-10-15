@@ -36,7 +36,9 @@ max_rows = 1000
 [db]
 port = 54322
 shadow_port = 54320
-major_version = 16
+# What the hosted project runs (17.6, read from the live server 2026-10-15). It
+# said 16, so every local and CI run tested a major version production is not on.
+major_version = 17
 
 [auth]
 enabled = true

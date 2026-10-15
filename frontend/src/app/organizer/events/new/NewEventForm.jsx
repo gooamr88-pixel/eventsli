@@ -7,6 +7,7 @@ import { get, post } from '../../../utils/apiClient';
 import { useOrganizer } from '../../../hooks/useOrganizer';
 import { useFocusFirstInvalid } from '../../../hooks/useFocusFirstInvalid';
 import { categoryLabel } from '../../../lib/categories';
+import { useCategories } from '../../../hooks/useCategories';
 import { defaultTimeZone, zonesFor } from '../../../lib/timezones';
 import { toIso, browserZone } from '../../../lib/eventTime';
 import {
@@ -99,7 +100,8 @@ function EventWizard({ type, organizer }) {
   // Bumped on every refused submit, so focus moves to the problem each time
   // rather than only on the first press. See `next()` below.
   const [attempt, setAttempt] = useState(0);
-  const [categories, setCategories] = useState([]);
+  // The admin's categories, with the admin's labels (hooks/useCategories).
+  const categories = useCategories();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const moved = useRef(false);
@@ -109,17 +111,6 @@ function EventWizard({ type, organizer }) {
 
   const step = steps[index];
   const choices = organizer.payments?.choices || [];
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const data = await get('/public/event-categories', { noRedirect: true });
-        if (!cancelled) setCategories(data?.categories || []);
-      } catch { /* the select falls back to "Other" */ }
-    })();
-    return () => { cancelled = true; };
-  }, []);
 
   // Keep the answers as they are typed.
   useEffect(() => {
@@ -328,7 +319,9 @@ function EventWizard({ type, organizer }) {
               />
               <SelectField
                 label="Category" required value={form.category} onChange={set('category')}
-                options={(categories.length ? categories : ['other']).map((c) => [c, categoryLabel(c)])}
+                options={categories.list.length
+                  ? categories.list.map((c) => [c.slug, c.label])
+                  : [[form.category || 'other', categoryLabel(form.category || 'other')]]}
                 hint="Helps people find it on Eventsli."
               />
               <TextareaField

@@ -3,6 +3,7 @@ const { param, query } = require('express-validator');
 const validate = require('../../middleware/validate');
 const insight = require('../../controllers/admin/insightController');
 const events = require('../../controllers/admin/eventAdminController');
+const categoryService = require('../../services/categoryService');
 
 /**
  * The admin console's read side (BRD §19, §20): the overview, every event and
@@ -24,6 +25,8 @@ router.get(
   // `now` — started and not yet ended. A live event matched neither of the
   // other two, so the one an admin most needs to find was in no list.
   query('when').optional().isIn(['upcoming', 'now', 'past']),
+  // The same validator the public listing uses: a real category or a 400.
+  query('category').optional().custom(categoryService.assertKnownSlug),
   validate,
   events.list,
 );

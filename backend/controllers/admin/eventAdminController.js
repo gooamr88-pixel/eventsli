@@ -27,9 +27,12 @@ async function list(req, res, next) {
       .from('events')
       .select(`id, slug, title, status, country, currency, timezone, starts_at, ends_at,
                listing_type, category, created_at, updated_at,
-               organizers ( id, display_name, is_banned )`, { count: 'exact' });
+               organizers ( id, display_name, is_banned ),
+               event_categories ( label )`, { count: 'exact' });
 
     if (req.query.status) query = query.eq('status', req.query.status);
+    // Validated against the category table in the route.
+    if (req.query.category) query = query.eq('category', req.query.category);
     if (req.query.organizerId) query = query.eq('organizer_id', req.query.organizerId);
     const now = new Date().toISOString();
     if (req.query.when === 'upcoming') query = query.gt('starts_at', now);
@@ -68,6 +71,7 @@ async function list(req, res, next) {
         endsAt: e.ends_at,
         listingType: e.listing_type,
         category: e.category,
+        categoryLabel: one(e.event_categories)?.label || null,
         createdAt: e.created_at,
         updatedAt: e.updated_at,
         organizer: org && { id: org.id, name: org.display_name, isBanned: !!org.is_banned },
