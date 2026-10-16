@@ -36,13 +36,12 @@ import { serverFetch } from './utils/apiClient';
 export const revalidate = 60;
 
 /**
- * Two independent fetches, and a failure in either costs that section and
+ * Three independent fetches, and a failure in any one costs that section and
  * nothing else.
  *
- * The city list used to be a third: the hero's search had a datalist of places
- * with events on. That field became the "events near me" button, which resolves
- * a location on demand — so the list was a request every visitor paid for and
- * nothing rendered.
+ * The city list was dropped once, when the hero's datalist of places became the
+ * "events near me" button and nothing rendered it. It is back because "Near
+ * you" renders it — and decides from it whether to appear at all.
  *
  * `failed` on the events call matters for the same reason it did before: a
  * static prerender caches whatever it produced, and CI builds against an
@@ -53,7 +52,7 @@ export const revalidate = 60;
  * because the page must still render its headline when the CMS is unreachable.
  */
 async function load() {
-  const [events, landing] = await Promise.all([
+  const [events, landing, cities] = await Promise.all([
     serverFetch('/public/events?limit=8', { tags: ['events:published'], revalidate: 60 })
       .then((rows) => ({ rows: Array.isArray(rows) ? rows : [], failed: false }))
       .catch(() => ({ rows: [], failed: true })),
@@ -64,13 +63,19 @@ async function load() {
     serverFetch('/public/landing', { tags: ['landing'], revalidate: 60 })
       .catch(() => null),
 
+    // Back, for "Near you": its city picker, and whether to show it at all.
+    // `null` on failure means "unknown" — the section then loads its own list
+    // rather than vanishing because one request did.
+    serverFetch('/public/cities', { tags: ['events:published'], revalidate: 60 })
+      .then((d) => (Array.isArray(d?.cities) ? d.cities : null))
+      .catch(() => null),
   ]);
 
-  return { events: events.rows, failed: events.failed, landing };
+  return { events: events.rows, failed: events.failed, landing, cities };
 }
 
 export default async function HomePage() {
-  const { events, failed, landing } = await load();
+  const { events, failed, landing, cities } = await load();
 
   const content = landing?.content || {};
   const copy = content.sections || {};
@@ -86,8 +91,10 @@ export default async function HomePage() {
 
       <Hero content={content} categories={categories} events={events} stats={stats} />
       {/* Nearby events by default, when this browser already allows location;
-          otherwise a button and a city list. Client-side, after first paint. */}
-      <NearbyEvents />
+          otherwise a location bar. LEFT OUT while no city has an upcoming event:
+          it could only show controls that find nothing, above a "Nothing is on
+          sale just yet" that already says so (owner's review, 2026-10-16). */}
+      {(cities === null || cities.length > 0) && <NearbyEvents initialCities={cities} />}
       <SearchBand categories={categories} />
       <PopularEvents copy={copy} categories={categories} events={events} failed={failed} />
       <Roles />

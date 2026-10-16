@@ -43,10 +43,14 @@ export function SponsorStrip({ copy, sponsors }) {
   return (
     <section className="es-band es-lp-logos" aria-label={copy.sponsorsEyebrow || 'Our sponsors'}>
       <p className="es-lp-logos__label">{copy.sponsorsEyebrow || 'Partners & venues'}</p>
-      <ul className="es-lp-logos__track">
-        {logos(false)}
-        {logos(true)}
-      </ul>
+      {/* The viewport clips and fades the drifting track; the track itself
+          is twice as wide as one list and moves by half of itself. */}
+      <div className="es-lp-logos__viewport">
+        <ul className="es-lp-logos__track">
+          {logos(false)}
+          {logos(true)}
+        </ul>
+      </div>
     </section>
   );
 }

@@ -5390,14 +5390,35 @@ a.es-sponsor:hover { opacity: 0.7; }
       rotate(calc(var(--i) * 5deg));
   }
   .es-lp-poster--lead { top: 0; width: 280px; margin-left: -140px; }
-  .es-lp-poster--solo { top: 0; width: min(100%, 44rem); margin-left: min(-50%, -22rem); aspect-ratio: 16 / 9; }
+  /* Centred: the left margin is minus HALF THE WIDTH, and the width is the
+     smaller of 100% and 44rem — so the margin is the LESS negative of -50%
+     and -22rem, which is max(). It was min(), which on any screen wider than
+     44rem picked -50% and pinned the artwork to the left edge (found
+     2026-10-16 in the owner's review). */
+  .es-lp-poster--solo { top: 0; width: min(100%, 44rem); margin-left: max(-50%, -22rem); aspect-ratio: 16 / 9; }
+}
+
+/* ── The picture and the search as one piece, on a phone ────────────────
+   2026-10-16, owner's review. With no event covers yet the admin's artwork
+   stands alone, and it used to sit BELOW the search card as a second box
+   with a gap between. Below lg the artwork now comes first and the search
+   card overlaps its lower edge. Visual order only — see Hero.jsx. From lg up
+   nothing changes: the search above, the wide artwork beneath. */
+.es-lp-stage { display: flex; flex-direction: column; }
+@media (width < theme(--breakpoint-lg)) {
+  .es-lp-stage--solo .es-lp-fan { order: -1; margin-top: clamp(1.5rem, 6vw, 2rem); padding-bottom: 0; }
+  .es-lp-stage--solo .es-lp-poster--solo { aspect-ratio: 4 / 3; border-radius: 20px; }
+  .es-lp-stage--solo .es-lp-filter { margin-top: -3.25rem; margin-inline: 0.75rem; }
 }
 
 /* The numbers, in a white card under the posters */
 .es-lp-stats { position: relative; z-index: 3; margin-top: clamp(0.5rem, 2vw, 1rem); }
+/* FLEX, CENTRED, on a phone. It was a fixed two-column grid, so an odd count
+   left the last number alone in the left half of an empty row. */
 .es-lp-stats__card {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 1.25rem 0.75rem;
   padding: 1.5rem 1rem;
   border: 1px solid var(--es-border);
@@ -5405,7 +5426,7 @@ a.es-sponsor:hover { opacity: 0.7; }
   background: var(--es-surface);
   box-shadow: var(--es-shadow-md);
 }
-.es-lp-stat { display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; }
+.es-lp-stat { display: flex; flex: 1 1 40%; flex-direction: column; align-items: center; gap: 2px; text-align: center; }
 .es-lp-stat__value {
   font-size: clamp(1.75rem, 1.1rem + 2.2vw, 2.625rem);
   font-weight: 700;
@@ -5422,7 +5443,7 @@ a.es-sponsor:hover { opacity: 0.7; }
 }
 .es-lp-stat__label svg { color: var(--es-accent); }
 @media (width >= theme(--breakpoint-md)) {
-  .es-lp-stats__card { grid-template-columns: repeat(var(--es-lp-cols, 4), minmax(0, 1fr)); padding: 1.875rem 1.25rem; }
+  .es-lp-stats__card { display: grid; grid-template-columns: repeat(var(--es-lp-cols, 4), minmax(0, 1fr)); padding: 1.875rem 1.25rem; }
   .es-lp-stat + .es-lp-stat { border-inline-start: 1px solid var(--es-border); }
 }
 
@@ -5764,10 +5785,46 @@ a.es-sponsor:hover { opacity: 0.7; }
 .es-lp-pagemini span { display: block; height: 7px; border-radius: 4px; background: var(--es-bg-sunken); }
 .es-lp-pagemini span:first-child { width: 70%; background: var(--es-border-strong); }
 .es-lp-pagemini span:last-child { width: 40%; }
-.es-lp-seatmini { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 4px; margin-top: 20px; }
-.es-lp-seatmini i { aspect-ratio: 1; border-radius: 3px; background: var(--es-bg-sunken); }
-.es-lp-seatmini i.is-sold { background: var(--es-accent); }
-.es-lp-seatmini i.is-held { background: var(--es-accent-edge); }
+/* The seat map in miniature (Sections.jsx → SeatMapMini). Replaced a grid of
+   random squares on 2026-10-16: it is drawn in the seat map's own colour
+   roles, so it shows what a buyer actually sees. */
+.es-lp-seatmap {
+  margin-top: 20px;
+  padding: 12px 12px 10px;
+  border: 1px solid var(--es-border);
+  border-radius: 14px;
+  background: var(--es-bg-sunken);
+}
+.es-lp-seatmap__svg { display: block; width: 100%; height: auto; }
+.es-lp-seatmap__stage { fill: var(--es-text); }
+.es-lp-seatmap__stage-label {
+  fill: var(--es-surface);
+  font-family: var(--es-font-sans);
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+}
+.es-lp-seatmap__seat.is-open   { fill: var(--es-seat-available); }
+.es-lp-seatmap__seat.is-sold   { fill: var(--es-seat-sold); }
+.es-lp-seatmap__seat.is-picked { fill: var(--es-seat-selected); stroke: var(--es-surface); stroke-width: 1.5; }
+.es-lp-seatmap__table { fill: var(--es-surface); stroke: var(--es-border-strong); stroke-width: 1.5; }
+.es-lp-seatmap__table-label { fill: var(--es-text-muted); font-family: var(--es-font-sans); font-size: 7px; font-weight: 600; }
+.es-lp-seatmap__legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.375rem 1rem;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--es-text-xs);
+  color: var(--es-text-muted);
+}
+.es-lp-seatmap__legend li { display: inline-flex; align-items: center; gap: 0.375rem; }
+.es-lp-seatmap__legend i { width: 10px; height: 10px; border-radius: 3px; }
+.es-lp-seatmap__legend i.is-open   { background: var(--es-seat-available); }
+.es-lp-seatmap__legend i.is-picked { background: var(--es-seat-selected); }
+.es-lp-seatmap__legend i.is-sold   { background: var(--es-seat-sold); }
 .es-lp-scanmini {
   display: flex;
   align-items: center;
@@ -5787,29 +5844,52 @@ a.es-sponsor:hover { opacity: 0.7; }
    Each logo carries its own trailing space rather than the track using
    gap, so the doubled list is exactly twice one list and -50% lands on the
    seam with no jump. */
-.es-lp-logos { overflow: hidden; padding-block: 1.75rem; }
+/* REDESIGNED 2026-10-16 (owner: "more large and very clear"). Logos were
+   bare marks capped at 48px tall and 144px wide, floating on white — a small
+   grey row the eye slid past. Each sponsor now has a white TILE of its own,
+   about twice the size, with the logo contained inside it, so a wide wordmark
+   and a square crest read at the same visual weight. The strip fades out at
+   both edges instead of being cut by them. */
+.es-lp-logos { overflow: hidden; padding-block: clamp(2.5rem, 6vw, 4rem); }
 .es-lp-logos__label {
-  margin: 0 0 0.875rem;
+  margin: 0 0 1.5rem;
   font-family: var(--es-font-mono);
-  font-size: 0.6875rem;
-  letter-spacing: 0.14em;
+  font-size: 0.8125rem;
+  letter-spacing: 0.16em;
   text-align: center;
   text-transform: uppercase;
-  color: var(--es-text-subtle);
+  color: var(--es-accent);
 }
-.es-lp-logos__track { display: flex; width: max-content; animation: es-lp-drift 40s linear infinite; }
+.es-lp-logos__viewport {
+  overflow: hidden;
+  padding-block: 6px 10px;   /* room for the tiles' shadow */
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
+          mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
+}
+.es-lp-logos__track { display: flex; width: max-content; margin: 0; padding: 0; list-style: none; animation: es-lp-drift 55s linear infinite; }
 .es-lp-logos:hover .es-lp-logos__track { animation-play-state: paused; }
 .es-lp-logos__item {
   display: flex;
   flex-shrink: 0;
   align-items: center;
-  height: 3rem;
-  margin-inline-end: clamp(2rem, 5vw, 3.5rem);
+  justify-content: center;
+  width: clamp(10rem, 38vw, 13.5rem);
+  height: clamp(5.5rem, 16vw, 7rem);
+  /* Its own trailing space, not the track's gap — see the note above. */
+  margin-inline-end: 1rem;
+  padding: 0.875rem 1.25rem;
+  border: 1px solid var(--es-border);
+  border-radius: 18px;
+  background: var(--es-surface);
+  box-shadow: var(--es-shadow-xs);
 }
-.es-lp-logos__mark { width: auto; max-width: 9rem; max-height: 100%; object-fit: contain; }
+/* No `mix-blend-mode` here: tried on 2026-10-16 to hide a logo's own grey
+   backdrop, it blanked every logo inside the masked viewport. A logo with a
+   box around it needs a tightly cropped upload instead. */
+.es-lp-logos__mark { display: block; width: 100%; height: 100%; object-fit: contain; }
 @keyframes es-lp-drift { to { transform: translateX(-50%); } }
 @media (prefers-reduced-motion: reduce) {
-  .es-lp-logos { overflow-x: auto; }
+  .es-lp-logos__viewport { overflow-x: auto; }
   .es-lp-logos__track { animation: none; }
 }
 
@@ -6471,49 +6551,99 @@ a.es-sponsor:hover { opacity: 0.7; }
    go back to the overview and read the checklist again — a step the
    creation wizard had just spent five screens teaching the organizer not to
    need. */
+/* REDESIGNED 2026-10-16. They were two tinted cards with a 12px monospaced
+   caption; the owner read them as "simple and cheap", and on a phone the step
+   name was cut to "Table categor…". Now: the way on is a solid primary button
+   — the one filled control on the screen — and the way back an outline
+   button. Two columns from 40rem; below that one column, full width, so
+   neither name is truncated. */
 .es-buildnav {
-  display: flex;
-  align-items: stretch;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.75rem;
   margin-block-start: var(--fx-gap);
-  padding-block-start: var(--fx-gap-sm);
+  padding-block-start: var(--fx-gap);
   border-block-start: 1px solid var(--es-border);
 }
-.es-buildnav__back,
-.es-buildnav__next {
+@media (width >= 40rem) {
+  .es-buildnav { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  /* Always the right-hand column, even when there is no Back beside it. */
+  .es-buildnav__btn--next { grid-column: 2; }
+}
+
+.es-buildnav__btn {
   display: flex;
   align-items: center;
-  gap: 0.625rem;
+  gap: 0.875rem;
   min-width: 0;
-  min-height: var(--fx-touch);
-  max-width: 48%;
-  padding: 0.625rem 0.875rem;
-  border: 1px solid var(--es-border);
-  border-radius: var(--es-radius-md);
-  color: var(--es-text);
+  min-height: 3.75rem;
+  padding: 0.75rem 1rem 0.75rem 1.125rem;
+  border: 1px solid transparent;
+  border-radius: var(--es-radius-lg);
+  font-family: var(--es-font-sans);
+  text-align: start;
   text-decoration: none;
-  transition: border-color var(--es-transition-fast), background var(--es-transition-fast);
+  cursor: pointer;
+  transition:
+    background-color var(--es-transition-fast),
+    border-color var(--es-transition-fast),
+    box-shadow var(--es-transition-fast),
+    transform var(--es-transition-fast);
 }
-/* The next step is the one being offered, so it is the one that looks like
-   an offer — the way back is a way back. */
-.es-buildnav__next { border-color: var(--es-accent); background: var(--es-accent-wash); }
-.es-buildnav__back:hover { border-color: var(--es-border-strong); background: var(--es-bg-sunken); }
-.es-buildnav__next:hover { background: var(--es-surface); }
+/* 1px on press, as .es-btn does: feedback, not decoration. */
+.es-buildnav__btn:active { transform: translateY(1px); }
 
-.es-buildnav__label {
-  display: block;
-  font-family: var(--es-font-mono);
-  font-size: 0.625rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--es-text-subtle);
+.es-buildnav__btn--back {
+  background: var(--es-surface);
+  border-color: var(--es-border-strong);
+  color: var(--es-text);
 }
-.es-buildnav__name { display: block; font-size: var(--es-text-sm); font-weight: 600; }
-.es-buildnav__next .es-buildnav__name { color: var(--es-accent); }
-.es-buildnav__arrow { display: flex; flex: none; color: var(--es-text-subtle); }
-.es-buildnav__next .es-buildnav__arrow { color: var(--es-accent); }
-.es-buildnav__arrow--back { transform: rotate(180deg); }
+.es-buildnav__btn--back:hover { background: var(--es-bg-sunken); border-color: var(--es-control-border); }
+
+.es-buildnav__btn--next {
+  justify-content: space-between;
+  background: var(--es-accent);
+  color: var(--es-text-on-accent);
+  box-shadow: var(--es-shadow-accent);
+}
+.es-buildnav__btn--next:hover { background: var(--es-accent-hover); }
+/* Busy, not unavailable: it stays full strength while it saves. */
+.es-buildnav__btn--next:disabled { cursor: progress; transform: none; }
+
+.es-buildnav__text { display: grid; gap: 0.125rem; min-width: 0; }
+.es-buildnav__main {
+  font-size: var(--es-text-base);
+  font-weight: 600;
+  line-height: 1.25;
+}
+.es-buildnav__sub { font-size: var(--es-text-sm); line-height: 1.3; }
+/* White on the accent is 5.85:1; muted on white 7.43:1. */
+.es-buildnav__btn--back .es-buildnav__sub { color: var(--es-text-muted); }
+.es-buildnav__btn--next .es-buildnav__sub { color: var(--es-text-on-accent); }
+
+.es-buildnav__icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 999px;
+}
+.es-buildnav__btn--back .es-buildnav__icon { background: var(--es-bg-sunken); color: var(--es-text); }
+.es-buildnav__btn--next .es-buildnav__icon { background: rgb(255 255 255 / 0.18); }
+.es-buildnav__icon--back svg { transform: rotate(180deg); }
+
+.es-buildnav__spin {
+  width: 1.125rem;
+  height: 1.125rem;
+  border: 2px solid currentColor;
+  border-inline-end-color: transparent;
+  border-radius: 999px;
+  animation: es-buildnav-spin 0.8s linear infinite;
+}
+@keyframes es-buildnav-spin { to { transform: rotate(1turn); } }
+/* "Saving…" carries the meaning; the ring is only reassurance, so it stops. */
+@media (prefers-reduced-motion: reduce) { .es-buildnav__spin { animation: none; } }
 
 /* ── .es-evbar — which event am I working on ────────────────────────────
    The first thing on every organizer screen. The switcher used to live in
@@ -8478,8 +8608,6 @@ select.es-lp-filter__control { align-self: stretch; height: 100%; }
    the marketing pages keep their miniature type; they are pictures. */
 .es-lp-datebadge small,
 .es-evcard--adaptive .es-lp-datebadge small,
-.es-lp-logos__label,
-.es-buildnav__label,
 .es-evbar__label,
 .es-ev-fact__label,
 .es-ev-fact__zone,
@@ -8550,11 +8678,188 @@ select.es-lp-filter__control { align-self: stretch; height: 100%; }
 
 @layer components {
 /* ── "Near you" on the homepage (NearbyEvents.jsx) ─────────────────────────
-   A location button and a city list on one row that wraps, then the same card
-   rail the popular-events band uses, each card with its distance under it. */
-.es-near__controls { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0.75rem 1rem; margin-block: 0.25rem 0.5rem; }
-.es-near__city { display: grid; gap: 0.25rem; flex: 1 1 14rem; max-width: 22rem; }
-.es-near__privacy { margin-block-end: 1rem; max-width: 60ch; }
+   REDESIGNED 2026-10-16 after the owner's review. It read as a form: a large
+   empty gap above it (this section's top padding stacked on the hero's
+   bottom one), a heading with its link dropped underneath, an outline
+   button, a labelled full-width select and a paragraph of small print.
+
+   Now: the heading with "See all" on the same line, then ONE location bar —
+   a pin, where we are looking, the privacy promise as its subtitle — and the
+   two ways to change it side by side as real buttons. Results are the same
+   card rail the popular-events band uses, each with its distance in blue. */
+.es-near.fx-section { padding-top: clamp(2rem, 5vw, 3.5rem); }
+
+.es-near__head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+/* Room to press: a bare text link at the end of a heading row is easy to miss. */
+.es-near__all { flex: none; min-height: var(--fx-touch); }
+
+.es-near__bar {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--es-border);
+  border-radius: 20px;
+  background: var(--es-surface);
+  box-shadow: var(--es-shadow-sm);
+}
+.es-near__where { display: flex; align-items: center; gap: 0.875rem; min-width: 0; }
+.es-near__pin {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 999px;
+  background: var(--es-accent-wash);
+  color: var(--es-accent);
+}
+.es-near__place {
+  margin: 0;
+  font-size: var(--es-text-md);
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--es-text);
+}
+.es-near__hint {
+  margin: 0.125rem 0 0;
+  font-size: var(--es-text-sm);
+  line-height: 1.4;
+  color: var(--es-text-muted);
+}
+
+/* Two equal halves on a phone, and on a wide screen beside the text. */
+.es-near__actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+  gap: 0.625rem;
+}
+.es-near__locate {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 3rem;
+  padding: 0 1rem;
+  border: 0;
+  border-radius: 12px;
+  background: var(--es-accent);
+  color: var(--es-text-on-accent);
+  font-family: var(--es-font-sans);
+  font-size: var(--es-text-sm);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color var(--es-transition-fast);
+}
+.es-near__locate:hover { background: var(--es-accent-hover); }
+.es-near__locate:disabled { cursor: progress; opacity: 0.7; }
+.es-near__city { display: block; min-width: 0; }
+.es-near__select { width: 100%; min-height: 3rem; border-radius: 12px; font-weight: 500; }
+
+@media (width >= 48rem) {
+  .es-near__bar {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    padding: 1rem 1rem 1rem 1.25rem;
+  }
+  .es-near__actions { grid-template-columns: auto minmax(12rem, 16rem); }
+}
+
+.es-near__note { margin: 0.75rem 0 0; font-size: var(--es-text-sm); color: var(--es-text-muted); }
+.es-near__results { margin-top: 1.25rem; }
+.es-near__results:empty { display: none; }
 .es-near__item { display: grid; gap: 0.375rem; align-content: start; }
-.es-near__distance { display: inline-flex; align-items: center; gap: 0.25rem; }
+.es-near__distance {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin: 0;
+  font-size: var(--es-text-sm);
+  font-weight: 500;
+  color: var(--es-accent);
+}
+.es-near__empty { border-radius: 20px; background: var(--es-bg-sunken); }
+.es-near__empty-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem; }
 }   /* end @layer components — near you */
+
+@layer components {
+/* ── The seating map editor, made to look like a tool (MapEditor.jsx) ──────
+   2026-10-16, owner's review: "develop our seating map professionally".
+   The capacity line becomes chips an organizer plans by; the properties panel
+   sits beside the map whenever the editor is wide enough (a CONTAINER query,
+   because the sidebar decides how wide the editor is, not the window); the
+   canvas's help line is a pill on the surface instead of loose text. */
+.es-mapsum {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.es-mapsum li {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.25rem;
+  padding: 0.25rem 0.625rem;
+  border: 1px solid var(--es-border);
+  border-radius: 999px;
+  background: var(--es-surface);
+  font-size: var(--es-text-sm);
+  color: var(--es-text-muted);
+}
+.es-mapsum li b { font-weight: 700; color: var(--es-text); }
+.es-mapsum__dirty.es-mapsum__dirty {
+  border-color: color-mix(in srgb, var(--es-warning) 40%, transparent);
+  background: color-mix(in srgb, var(--es-warning) 10%, var(--es-surface));
+  font-weight: 600;
+  color: var(--es-warning);
+}
+
+/* THE CANVAS HAS THE ROOM'S SHAPE. It was 68vh tall whatever its width, so
+   beside the panel it was portrait while the room is landscape — the room
+   sat small in a tall box, and on a phone between two bands of empty dots.
+   11:8 is the framed room (1000×700 plus the margin `frameFor` adds). */
+/* `min-width: 0` and the floor only from 48rem: a min-height is transferred
+   through aspect-ratio into a MINIMUM WIDTH, so 300px tall forced 412px wide
+   and pushed the canvas off a 390px phone. */
+.es-mapcanvas { width: 100%; min-width: 0; aspect-ratio: 11 / 8; max-height: 78vh; }
+@media (width >= 48rem) { .es-mapcanvas { min-height: 300px; } }
+
+.es-mapeditor { container-type: inline-size; }
+.es-mapeditor__body { display: grid; gap: var(--fx-gap); }
+.es-mapeditor__panel { min-width: 0; }
+@container (min-width: 52rem) {
+  .es-mapeditor__body { grid-template-columns: minmax(0, 1fr) 19rem; align-items: start; }
+  /* Stays in view while the map is long; scrolls itself if the panel is. */
+  .es-mapeditor__panel {
+    position: sticky;
+    top: 1rem;
+    max-height: calc(100dvh - 2rem);
+    overflow-y: auto;
+  }
+}
+
+.es-mapcanvas__hint {
+  position: absolute;
+  bottom: 0.75rem;
+  left: 0.75rem;
+  max-width: calc(100% - 1.5rem);
+  margin: 0;
+  padding: 0.3125rem 0.75rem;
+  border: 1px solid var(--es-border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--es-surface) 92%, transparent);
+  box-shadow: var(--es-shadow-xs);
+  font-size: var(--es-text-xs);
+  color: var(--es-text-muted);
+  pointer-events: none;
+}
+@media (width < 48rem) { .es-mapcanvas__hint { display: none; } }
+}   /* end @layer components — the seating map editor */

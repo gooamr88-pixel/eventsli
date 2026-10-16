@@ -99,8 +99,10 @@ export default function SponsorsEditor({ eventId }) {
     setError(null);
     try {
       const path = await uploadImage(eventId, chosen, 'sponsor');
-      await edit(sponsor.id, { path });
-      toast.success('Logo updated.');
+      // `edit` reports a failure in its result rather than throwing (it has
+      // already shown the error), so "updated" is said only when it was.
+      const { ok } = await edit(sponsor.id, { path });
+      if (ok) toast.success('Logo updated.');
     } catch (err) {
       setError(err);
     }

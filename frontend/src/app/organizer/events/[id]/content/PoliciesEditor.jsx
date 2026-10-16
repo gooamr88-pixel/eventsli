@@ -36,11 +36,37 @@ const KINDS = [
 
 const KIND_LABEL = Object.fromEntries(KINDS);
 
-export default function PoliciesEditor({ eventId }) {
+/**
+ * A LISTING (display-only event) has no checkout on Eventsli, so for one this
+ * panel drops everything that talks about it: the "show at the checkout" box,
+ * the line about Eventsli's terms being accepted there, and refunds as the
+ * default — the policies a visitor to a listing looks for are entry rules.
+ */
+const COPY = {
+  ticketed: {
+    description: 'Your rules for this event — refunds, age limits, what people can bring.',
+    notice: 'Eventsli’s terms still apply to every sale and are accepted separately at the checkout. Use these for the things only you decide.',
+    empty: 'A refund policy is the one buyers look for. Without it, every question comes to you by email.',
+    placeholder: 'Refunds up to 7 days before the event. After that, tickets can be transferred but not refunded.',
+    removeBody: 'It comes off your event page, and off the checkout if it was shown there.',
+    defaultKind: 'refund',
+  },
+  listing: {
+    description: 'Your rules for this event — age limits, entry, what people can bring.',
+    notice: 'Use these for the things only you decide. Eventsli sells no tickets for this event, so nothing here is shown at a checkout.',
+    empty: 'Age limits and entry rules are what visitors ask about most. Answer them here once.',
+    placeholder: 'Over 18s only — photo ID may be checked at the entrance. No outside food or drink.',
+    removeBody: 'It comes off your event page.',
+    defaultKind: 'other',
+  },
+};
+
+export default function PoliciesEditor({ eventId, listing = false }) {
   const { items, error, busy, add, edit, remove, move, setError } = useContentSection(eventId, 'policies');
   const confirm = useConfirm();
   const toast = useToast();
-  const [draft, setDraft] = useState({ kind: 'refund', title: '', body: '' });
+  const copy = listing ? COPY.listing : COPY.ticketed;
+  const [draft, setDraft] = useState({ kind: copy.defaultKind, title: '', body: '' });
 
   /**
    * Pending edits to SAVED policies. `draft` above is the blank add-form —
@@ -65,11 +91,12 @@ export default function PoliciesEditor({ eventId }) {
       kind: draft.kind,
       title: draft.title.trim(),
       body: draft.body.trim(),
-      // Refunds are what a buyer needs before paying, not after.
-      showAtCheckout: draft.kind === 'refund',
+      // Refunds are what a buyer needs before paying, not after. A listing
+      // has no checkout to show anything at.
+      showAtCheckout: !listing && draft.kind === 'refund',
     });
     if (ok) {
-      setDraft({ kind: 'refund', title: '', body: '' });
+      setDraft({ kind: copy.defaultKind, title: '', body: '' });
       toast.success('Policy added.');
     }
   }
@@ -78,7 +105,7 @@ export default function PoliciesEditor({ eventId }) {
     const ok = await confirm({
       title: `Remove "${policy.title}"?`,
       tone: 'danger',
-      body: <p>It comes off your event page, and off the checkout if it was shown there.</p>,
+      body: <p>{copy.removeBody}</p>,
       confirmLabel: 'Remove policy',
     });
     if (ok) remove(policy.id);
@@ -87,13 +114,10 @@ export default function PoliciesEditor({ eventId }) {
   return (
     <Panel
       title="Event policies"
-      description="Your rules for this event — refunds, age limits, what people can bring."
+      description={copy.description}
     >
       <Notice tone="neutral" title="These are your policies, not Eventsli's.">
-        <p>
-          Eventsli&apos;s terms still apply to every sale and are accepted separately at the
-          checkout. Use these for the things only you decide.
-        </p>
+        <p>{copy.notice}</p>
       </Notice>
 
       <FormError error={error} />
@@ -103,7 +127,7 @@ export default function PoliciesEditor({ eventId }) {
       ) : items.length === 0 ? (
         <Empty
           title="No policies yet"
-          hint="A refund policy is the one buyers look for. Without it, every question comes to you by email."
+          hint={copy.empty}
         />
       ) : (
         <ul className="fx-stack fx-stack--sm">
@@ -145,20 +169,22 @@ export default function PoliciesEditor({ eventId }) {
                 />
               </label>
 
-              <label className="fx-row items-start gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  className="mt-0.5"
-                  checked={policy.showAtCheckout}
-                  onChange={(e) => edit(policy.id, { showAtCheckout: e.target.checked })}
-                />
-                <span>
-                  <span className="block text-ink">Show this at the checkout</span>
-                  <span className="block text-xs text-subtle">
-                    Buyers read it before they pay, not after they ask.
+              {!listing && (
+                <label className="fx-row items-start gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5"
+                    checked={policy.showAtCheckout}
+                    onChange={(e) => edit(policy.id, { showAtCheckout: e.target.checked })}
+                  />
+                  <span>
+                    <span className="block text-ink">Show this at the checkout</span>
+                    <span className="block text-xs text-subtle">
+                      Buyers read it before they pay, not after they ask.
+                    </span>
                   </span>
-                </span>
-              </label>
+                </label>
+              )}
 
               <RowControls
                 index={index}
@@ -209,7 +235,7 @@ export default function PoliciesEditor({ eventId }) {
           <span className="text-sm text-ink">What it says</span>
           <textarea
             className="es-input" rows={4} required maxLength={20000}
-            placeholder="Refunds up to 7 days before the event. After that, tickets can be transferred but not refunded."
+            placeholder={copy.placeholder}
             value={draft.body}
             onChange={(e) => setDraft({ ...draft, body: e.target.value })}
           />

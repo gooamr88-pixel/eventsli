@@ -46,8 +46,15 @@ const CHOOSE_FIRST = 'Choose an event first';
 /* `details` IS IN HERE, and leaving it out would be the bug this set invites.
    A listing sells nothing — but it still has a name, a date, a venue and a
    description, and that form is the only place they are edited. Everything
-   else dropped here is a SELLING screen; the event's own fields are not one. */
-const DISPLAY_ONLY_KEYS = new Set(['overview', 'details', 'share']);
+   else dropped here is a SELLING screen; the event's own fields are not one.
+
+   `content` (Page & branding) IS IN HERE TOO, added 2026-10-16 at the owner's
+   request. It was left out with the selling screens, but nothing on it sells:
+   the cover, logo, gallery, schedule, sponsors and policies are what a listing
+   is FOR, and the public page shows every one of them for a listing. Without
+   it a listing's setup was Overview → Event details → submit, with no way to
+   give the page a single picture. */
+const DISPLAY_ONLY_KEYS = new Set(['overview', 'details', 'content', 'share']);
 
 /**
  * WHAT A GENERAL-ADMISSION EVENT DOES NOT HAVE.

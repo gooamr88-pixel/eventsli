@@ -70,7 +70,8 @@ export default function ContentEditor({ eventId }) {
       <GalleryEditor eventId={eventId} />
       <ScheduleEditor eventId={eventId} timezone={event.timezone} />
       <SponsorsEditor eventId={eventId} />
-      <PoliciesEditor eventId={eventId} />
+      {/* A listing has no checkout, so its policies say nothing about one. */}
+      <PoliciesEditor eventId={eventId} listing={event.listingType === 'display_only'} />
 
       {/* Event details, not the overview: the form left the overview for its
           own build step, and this line still sent people to the old place. */}

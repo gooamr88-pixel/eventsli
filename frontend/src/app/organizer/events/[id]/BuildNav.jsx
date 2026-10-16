@@ -133,19 +133,30 @@ export default function BuildNav() {
   const forward = next || finish;
   if (!previous && !forward) return null;
 
+  /**
+   * REAL BUTTONS (redesigned 2026-10-16, at the owner's request).
+   *
+   * These were two pale cards with a 12px monospaced caption — "SAVE AND
+   * CONTINUE" in a tinted box read as a label, not as the thing to press, and
+   * the step name was cut to "Table categor…" on a phone. Now the way on is the
+   * page's one solid primary button, with what it leads to under it, and Back
+   * is an outline button beside it (stacked full width on a phone, Back first
+   * so the reading order and the tab order agree and the primary sits nearest
+   * the thumb). Every build screen of both kinds of event uses this one bar.
+   */
   return (
     <nav className="es-buildnav" aria-label="Event setup steps">
       {previous ? (
-        <Link href={previous.href} className="es-buildnav__back">
-          <span aria-hidden className="es-buildnav__arrow es-buildnav__arrow--back">
-            <NavIcon name="arrow" size={16} />
+        <Link href={previous.href} className="es-buildnav__btn es-buildnav__btn--back">
+          <span aria-hidden className="es-buildnav__icon es-buildnav__icon--back">
+            <NavIcon name="arrow" size={18} />
           </span>
-          <span className="fx-min0">
-            <span className="es-buildnav__label">Back</span>
-            <span className="es-buildnav__name fx-truncate">{previous.label}</span>
+          <span className="es-buildnav__text">
+            <span className="es-buildnav__main">Back</span>
+            <span className="es-buildnav__sub fx-truncate">{previous.label}</span>
           </span>
         </Link>
-      ) : <span />}
+      ) : <span aria-hidden />}
 
       {/**
         * A BUTTON, WHERE BACK IS A LINK, and the asymmetry is the meaning.
@@ -160,7 +171,7 @@ export default function BuildNav() {
       {forward && (
         <button
           type="button"
-          className="es-buildnav__next"
+          className="es-buildnav__btn es-buildnav__btn--next"
           // The double-submit guard: these save handlers are PATCHes, and a
           // second press mid-flight is a second write of the same form.
           disabled={saving}
@@ -176,13 +187,15 @@ export default function BuildNav() {
             }
           }}
         >
-          <span className="fx-min0">
-            <span className="es-buildnav__label">
+          <span className="es-buildnav__text">
+            <span className="es-buildnav__main">
               {saving ? 'Saving…' : 'Save and continue'}
             </span>
-            <span className="es-buildnav__name fx-truncate">{forward.label}</span>
+            <span className="es-buildnav__sub fx-truncate">Next: {forward.label}</span>
           </span>
-          <span aria-hidden className="es-buildnav__arrow"><NavIcon name="arrow" size={16} /></span>
+          <span aria-hidden className="es-buildnav__icon">
+            {saving ? <span className="es-buildnav__spin" /> : <NavIcon name="arrow" size={18} />}
+          </span>
         </button>
       )}
     </nav>

@@ -204,6 +204,15 @@ describe('organizer destinations', () => {
     expect(groups.every((g) => g.items.length > 0)).toBe(true);
   });
 
+  test('a display-only event is built in three steps, and Page & branding is one of them', () => {
+    // REGRESSION (2026-10-16): Page & branding was dropped with the selling
+    // screens, so a listing could not be given a cover, a gallery or sponsors —
+    // which are what a listing is for. Back / Save and continue walks this list.
+    const build = organizerNavGroups({ eventId: EVENT, listingType: 'display_only' })
+      .find((g) => g.id === 'build').items.map((i) => i.key);
+    expect(build).toEqual(['overview', 'details', 'content']);
+  });
+
   test('a ticketed event keeps every screen', () => {
     const all = organizerNavGroups({ eventId: EVENT }).flatMap((g) => g.items).length;
     expect(organizerNavGroups({ eventId: EVENT, listingType: 'ticketed' }).flatMap((g) => g.items)).toHaveLength(all);

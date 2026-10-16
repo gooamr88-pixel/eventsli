@@ -108,7 +108,73 @@ export function Roles() {
  * information. Each step has a small drawing of the screen it describes,
  * built from the design tokens rather than a screenshot that would go stale.
  */
-const SEATS = 'ssffhsffsffsssffhhfs'.split('');
+/**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * A SEAT MAP THAT LOOKS LIKE OURS (2026-10-16, owner's review).
+ *
+ * This was twenty squares in a grid, coloured at random — the owner called it
+ * false, and it was: nothing in the product looks like that. It is now a small
+ * drawing of what the seat map really is — a stage, curved rows facing it,
+ * round tables with their chairs — in the seat map's OWN colour roles
+ * (`--es-seat-*`), so the picture and the product cannot drift apart in colour.
+ *
+ * Built once at module load from fixed numbers: a drawing, not data, so it
+ * never reorders and needs no state.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+const MINI_SOLD = new Set(['0-3', '0-4', '0-5', '1-4', '1-5', '1-6', '1-9', '2-2', '2-10', '3-6', '3-7']);
+const MINI_PICKED = new Set(['2-6', '2-7']);
+const MINI_ROWS = [0, 1, 2, 3].flatMap((row) => {
+  const count = 12 + row;
+  return Array.from({ length: count }, (_, i) => {
+    const t = count === 1 ? 0.5 : i / (count - 1);
+    const x = 48 + t * 204;
+    // A gentle arc, deeper at the ends, so the rows face the stage.
+    const y = 46 + row * 15 + ((x - 150) ** 2) / 1300;
+    const key = `${row}-${i}`;
+    return { key, x, y, state: MINI_PICKED.has(key) ? 'picked' : MINI_SOLD.has(key) ? 'sold' : 'open' };
+  });
+});
+const MINI_TABLES = [
+  { cx: 78, cy: 146, label: 'T1', sold: [0, 1, 2] },
+  { cx: 150, cy: 150, label: 'T2', sold: [] },
+  { cx: 222, cy: 146, label: 'T3', sold: [0, 1, 2, 3, 4, 5] },
+].map((t) => ({
+  ...t,
+  chairs: Array.from({ length: 6 }, (_, i) => {
+    const a = (i / 6) * Math.PI * 2 - Math.PI / 2;
+    return { x: t.cx + Math.cos(a) * 17, y: t.cy + Math.sin(a) * 17, sold: t.sold.includes(i) };
+  }),
+}));
+
+function SeatMapMini() {
+  return (
+    <div aria-hidden className="es-lp-seatmap">
+      <svg viewBox="0 0 300 176" className="es-lp-seatmap__svg">
+        <rect x="95" y="8" width="110" height="20" rx="6" className="es-lp-seatmap__stage" />
+        <text x="150" y="22" textAnchor="middle" className="es-lp-seatmap__stage-label">STAGE</text>
+        {MINI_ROWS.map((s) => (
+          <rect key={s.key} x={s.x - 4.5} y={s.y - 4.5} width="9" height="9" rx="2.5" className={`es-lp-seatmap__seat is-${s.state}`} />
+        ))}
+        {MINI_TABLES.map((t) => (
+          <g key={t.label}>
+            <circle cx={t.cx} cy={t.cy} r="10.5" className="es-lp-seatmap__table" />
+            <text x={t.cx} y={t.cy + 3} textAnchor="middle" className="es-lp-seatmap__table-label">{t.label}</text>
+            {t.chairs.map((c, i) => (
+              // Index keys: a fixed drawing that never reorders.
+              <circle key={i} cx={c.x} cy={c.y} r="4" className={`es-lp-seatmap__seat ${c.sold ? 'is-sold' : 'is-open'}`} />
+            ))}
+          </g>
+        ))}
+      </svg>
+      <ul className="es-lp-seatmap__legend">
+        <li><i className="is-open" />Available</li>
+        <li><i className="is-picked" />Your seats</li>
+        <li><i className="is-sold" />Sold</li>
+      </ul>
+    </div>
+  );
+}
 
 export function Steps() {
   return (
@@ -133,12 +199,7 @@ export function Steps() {
             <span className="es-lp-step__n">2</span>
             <h3>Draw your seat map</h3>
             <p>Rows, sections and round tables — guests pick the exact chair they want.</p>
-            <div aria-hidden className="es-lp-seatmini">
-              {SEATS.map((kind, i) => (
-                // Index keys: a fixed drawing that never reorders.
-                <i key={i} className={kind === 's' ? 'is-sold' : kind === 'h' ? 'is-held' : undefined} />
-              ))}
-            </div>
+            <SeatMapMini />
           </li>
           <li className="es-lp-step">
             <span className="es-lp-step__n">3</span>

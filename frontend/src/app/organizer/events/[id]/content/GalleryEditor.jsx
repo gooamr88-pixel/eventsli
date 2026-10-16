@@ -30,6 +30,12 @@ import RowControls from './RowControls';
  * "image 1", "image 2".
  * ─────────────────────────────────────────────────────────────────────────────
  */
+/** What the toast says after a batch: only what was actually saved. */
+export function addedMessage(added, chosen) {
+  if (added < chosen) return `${added} of ${chosen} photos added.`;
+  return added === 1 ? 'Photo added.' : `${added} photos added.`;
+}
+
 export default function GalleryEditor({ eventId }) {
   const { items, error, busy, add, edit, remove, move, setError } = useContentSection(eventId, 'media');
   const input = useRef(null);
@@ -54,6 +60,10 @@ export default function GalleryEditor({ eventId }) {
     if (!files || files.length === 0) return;
     setUploading(true);
     setError(null);
+    // Counted, not assumed. This used to announce `${files.length} photos added`
+    // after the loop whether or not any had been — so an organizer whose every
+    // save failed read "3 photos added" right under the error saying otherwise.
+    let added = 0;
     try {
       // One at a time rather than in parallel. A phone gallery hands over eight
       // 4MB photographs at once, and eight simultaneous uploads on a venue's
@@ -62,11 +72,12 @@ export default function GalleryEditor({ eventId }) {
         const path = await uploadImage(eventId, file, 'gallery');
         const { ok } = await add({ kind: 'image', path });
         if (!ok) break;
+        added += 1;
       }
-      toast.success(files.length === 1 ? 'Photo added.' : `${files.length} photos added.`);
     } catch (err) {
       setError(err);
     } finally {
+      if (added > 0) toast.success(addedMessage(added, files.length));
       setUploading(false);
       // Cleared so choosing the SAME file again still fires a change event.
       if (input.current) input.current.value = '';

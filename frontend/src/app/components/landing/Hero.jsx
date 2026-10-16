@@ -30,6 +30,16 @@ import { statTiles } from './Proof';
  */
 export default function Hero({ content, categories, events, stats }) {
   const hero = content?.hero || {};
+  /**
+   * THE PICTURE AND THE SEARCH ARE ONE PIECE on a phone (2026-10-16, owner's
+   * review). With no event covers yet, the admin's artwork stands alone — and
+   * it used to land BELOW the search card as a second, unrelated box. Now the
+   * artwork comes first and the search card overlaps its lower edge, the way a
+   * travel or events app opens. Only the visual order moves (CSS `order`):
+   * the search stays first in the document, so keyboard and screen-reader
+   * order are unchanged, and the picture is decorative (`alt=""`).
+   */
+  const solo = !events.some((e) => e.coverUrl) && Boolean(hero.imageUrl);
 
   return (
     <section className="es-lp-hero fx-section">
@@ -80,9 +90,10 @@ export default function Hero({ content, categories, events, stats }) {
           </div>
         </div>
 
-        {hero.showSearch !== false && <HeroSearch categories={categories} />}
-
-        <Posters events={events} hero={hero} />
+        <div className={`es-lp-stage ${solo ? 'es-lp-stage--solo' : ''}`}>
+          {hero.showSearch !== false && <HeroSearch categories={categories} />}
+          <Posters events={events} hero={hero} />
+        </div>
 
         <Numbers block={content?.stats || {}} stats={stats} />
       </div>
@@ -188,7 +199,10 @@ function Numbers({ block, stats }) {
   // and still the one number that makes a storefront look empty; the honest
   // way to say nothing is to show nothing.
   const tiles = statTiles(block, stats).filter((tile) => Number(tile.value) > 0);
-  if (tiles.length === 0) return null;
+  // And ONE number alone is the same problem in a bigger card: "2 Organizers"
+  // in a panel built for four read as the size of the platform, not as proof
+  // of it (owner's review, 2026-10-16). The card returns at two.
+  if (tiles.length < 2) return null;
 
   return (
     <div className="es-lp-stats">

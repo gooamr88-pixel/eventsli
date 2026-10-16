@@ -134,7 +134,37 @@ export default function EditorCanvas({
           <pattern id="es-map-grid" width={SNAP_WORLD} height={SNAP_WORLD} patternUnits="userSpaceOnUse">
             <circle cx={0} cy={0} r={1} fill="var(--es-border-strong)" opacity={0.55} />
           </pattern>
+          {/* The work surface around the room: a fine dot field, sized so a
+              dot stays about one pixel whatever the zoom. */}
+          <pattern id="es-map-surface" width={24} height={24} patternUnits="userSpaceOnUse">
+            <circle cx={1} cy={1} r={Math.min(1.6, 1 / scale)} fill="var(--es-border-strong)" opacity={0.6} />
+          </pattern>
+          <filter id="es-map-room-shadow" x="-6%" y="-6%" width="112%" height="116%">
+            <feDropShadow dx="0" dy={6 / scale} stdDeviation={10 / scale} floodColor="#0f1d3a" floodOpacity="0.14" />
+          </filter>
         </defs>
+
+        {/* THE ROOM IS A SHEET ON A DESK (2026-10-16, owner's review). It was a
+            dashed outline on a flat blue box, which read as a placeholder rather
+            than as a design tool. Now the floor is a white sheet with a soft
+            shadow on a dotted surface, the way layout tools draw a page — and
+            its edges are still exactly where `toPercent` clamps a drag to.
+            Every layer here ignores the pointer, so a press on the floor still
+            reaches the canvas (box-select, double-click to add). */}
+        <rect
+          x={view.x} y={view.y} width={view.width} height={view.height}
+          fill="url(#es-map-surface)" style={{ pointerEvents: 'none' }}
+        />
+        <rect
+          x={0} y={0} width={WORLD.width} height={WORLD.height}
+          rx={6}
+          fill="var(--es-surface)"
+          stroke="var(--es-border-strong)"
+          strokeWidth={1.25}
+          vectorEffect="non-scaling-stroke"
+          filter="url(#es-map-room-shadow)"
+          style={{ pointerEvents: 'none' }}
+        />
 
         {snapToGrid && (
           <rect
@@ -142,17 +172,6 @@ export default function EditorCanvas({
             fill="url(#es-map-grid)" style={{ pointerEvents: 'none' }}
           />
         )}
-
-        {/* The floor. Its edges are where `toPercent` clamps to, so drawing it
-            tells the organizer where the room actually ends — without it,
-            dragging past the boundary just stops for no visible reason. */}
-        <rect
-          x={0} y={0} width={WORLD.width} height={WORLD.height}
-          fill="none"
-          stroke="var(--es-border-strong)"
-          strokeWidth={2}
-          strokeDasharray="8 6"
-        />
 
         {/* ZONES FIRST — SVG has no z-index, so paint order is the only thing
             that keeps a dance floor from covering the seats around it. */}
@@ -222,8 +241,10 @@ export default function EditorCanvas({
         </p>
       )}
 
-      <p className="absolute bottom-3 left-3 max-w-[60%] text-xs text-subtle">
-        Scroll to move · Ctrl+scroll to zoom · drag the floor to box-select · space or the Move tool to pan
+      {/* A pill on the surface rather than loose text, so it reads as help
+          and not as part of the plan. */}
+      <p className="es-mapcanvas__hint">
+        Scroll to move · Ctrl+scroll to zoom · drag the floor to select · Space to pan
       </p>
     </div>
   );

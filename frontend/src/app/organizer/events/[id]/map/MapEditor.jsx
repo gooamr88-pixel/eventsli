@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { get, put } from '../../../../utils/apiClient';
 import { describeError, messageFor } from '../../../../utils/errors';
-import { WORLD } from '../../../../components/seating/seatingGeometry';
+import { WORLD, contentBounds } from '../../../../components/seating/seatingGeometry';
 import { usePanZoom } from '../../../../components/seating/usePanZoom';
 import { readZones, writeZones } from '../../../../components/seating/layoutZones';
 import { Loading } from '../../../../components/Feedback';
@@ -80,7 +80,22 @@ export default function MapEditor({ eventId }) {
   const setToolBoth = useCallback((next) => { toolRef.current = next; setTool(next); }, []);
 
   const selection = useSelection();
-  const panzoom = usePanZoom(EDITOR_BOUNDS, { wheelMode: 'pan' });
+  /**
+   * WHAT THE EDITOR FRAMES: the room, plus anything drawn outside it, with a
+   * margin (2026-10-16, owner's review). It framed the fixed room box alone —
+   * edge to edge, with nothing around it to say "this is the sheet" — and
+   * anything placed outside the room (an older map, an import) was not just
+   * off screen but out of reach, because panning is held inside the frame.
+   * Set once the map has loaded, and again by Fit; never on an edit, which
+   * would yank the view while a table is being dragged.
+   */
+  const [frame, setFrame] = useState(EDITOR_BOUNDS);
+  const panzoom = usePanZoom(frame, { wheelMode: 'pan' });
+  const fitRoom = () => {
+    const next = frameFor(tables, zones);
+    // The same frame again does not re-trigger the hook, so ask it directly.
+    if (sameBox(next, frame)) panzoom.fit(); else setFrame(next);
+  };
 
   useUnsavedGuard(dirty);
 
@@ -176,7 +191,10 @@ export default function MapEditor({ eventId }) {
         ]);
         if (cancelled) return;
 
-        reset((map?.tables || []).map(fromApi), readZones(map?.layout));
+        const loadedTables = (map?.tables || []).map(fromApi);
+        const loadedZones = readZones(map?.layout);
+        reset(loadedTables, loadedZones);
+        setFrame(frameFor(loadedTables, loadedZones));
         setLayout(map?.layout || {});
         setTiers(Array.isArray(tierList) ? tierList : []);
         setCategories(Array.isArray(categoryList) ? categoryList : []);
@@ -236,6 +254,9 @@ export default function MapEditor({ eventId }) {
     return map;
   }, [tables]);
 
+  const seatTotal = tables.reduce((sum, t) => sum + (Number(t.seatCount) || 0), 0);
+  const soldTotal = tables.reduce((sum, t) => sum + (Number(t.soldSeats) || 0), 0);
+
   /** Where a newly added element lands: the top-left of what is on screen,
    *  inset a little, so a section built after panning appears where the
    *  organizer is looking rather than in the middle of the world. */
@@ -262,13 +283,27 @@ export default function MapEditor({ eventId }) {
   return (
     <div className="fx-stack">
       <div className="fx-row fx-row--between flex-wrap gap-3">
-        <div className="fx-min0">
+        <div className="fx-stack fx-stack--sm fx-min0 gap-2">
           <h2 className="text-xl">Seating map</h2>
-          <p className="text-sm text-muted">
-            {tables.length} of {MAX_TABLES} tables
-            {zones.length > 0 && ` · ${zones.length} of ${MAX_ZONES} zones`}
-            {dirty && <span className="text-warning"> · unsaved changes</span>}
-          </p>
+          {/* What the room holds, as figures an organizer plans by — seats,
+              not just tables. The limits appear only when they are close. */}
+          <ul className="es-mapsum" aria-label="This room">
+            <li>
+              <b className="es-nums">{tables.length}</b>
+              {tables.length === 1 ? ' table' : ' tables'}
+              {tables.length >= MAX_TABLES * 0.8 && <span className="text-subtle"> of {MAX_TABLES}</span>}
+            </li>
+            <li><b className="es-nums">{seatTotal}</b>{seatTotal === 1 ? ' seat' : ' seats'}</li>
+            {zones.length > 0 && (
+              <li>
+                <b className="es-nums">{zones.length}</b>
+                {zones.length === 1 ? ' zone' : ' zones'}
+                {zones.length >= MAX_ZONES * 0.8 && <span className="text-subtle"> of {MAX_ZONES}</span>}
+              </li>
+            )}
+            {soldTotal > 0 && <li><b className="es-nums">{soldTotal}</b> sold or held</li>}
+            {dirty && <li className="es-mapsum__dirty">Unsaved changes</li>}
+          </ul>
         </div>
 
         <div className="fx-row flex-wrap gap-2">
@@ -320,14 +355,21 @@ export default function MapEditor({ eventId }) {
           scale: WORLD.width / Math.max(panzoom.view.width, 1),
           in: panzoom.zoomIn,
           out: panzoom.zoomOut,
-          fit: panzoom.fit,
+          fit: fitRoom,
         }}
       />
       </div>
 
-      <div className="fx-grid fx-grid--2" style={{ '--fx-col': '640px' }}>
+      {/* THE PROPERTIES SIT BESIDE THE MAP once there is room (2026-10-16,
+          owner's review). This was a two-column grid whose columns had to be
+          640px each, so below about 1,500px of screen the panel wrapped UNDER
+          the canvas: select a table on a laptop and its settings appeared
+          below the fold. Now a container query puts a fixed 19rem panel to the
+          right whenever the editor itself is 52rem wide. */}
+      <div className="es-mapeditor">
+      <div className="es-mapeditor__body">
         <EditorCanvas
-          className="h-[62vh] min-h-[400px]"
+          className="es-mapcanvas"
           tables={tables}
           zones={zones}
           categories={categories}
@@ -345,6 +387,7 @@ export default function MapEditor({ eventId }) {
           onNudge={onElementKeyDown}
         />
 
+        <div className="es-mapeditor__panel">
         {selection.count > 1 ? (
           <SelectionPanel
             tableCount={selection.selection.tables.size}
@@ -378,6 +421,8 @@ export default function MapEditor({ eventId }) {
             onRemove={(key) => { draft.removeTable(key); selection.clear(); }}
           />
         )}
+        </div>
+      </div>
       </div>
 
       {showAdd && (
@@ -483,4 +528,20 @@ function toApi(t) {
 
 function clamp(v, lo, hi) {
   return Math.min(hi, Math.max(lo, v));
+}
+
+/** The room box united with everything drawn, plus a 5% margin all round, so
+ *  the sheet sits ON the canvas instead of being cut by its edges. */
+function frameFor(tables, zones) {
+  const c = (tables.length || zones.length) ? contentBounds(tables, zones) : { x: 0, y: 0, width: 0, height: 0 };
+  const x0 = Math.min(0, c.x);
+  const y0 = Math.min(0, c.y);
+  const x1 = Math.max(WORLD.width, c.x + c.width);
+  const y1 = Math.max(WORLD.height, c.y + c.height);
+  const pad = Math.max(x1 - x0, y1 - y0) * 0.05;
+  return { x: x0 - pad, y: y0 - pad, width: x1 - x0 + pad * 2, height: y1 - y0 + pad * 2 };
+}
+
+function sameBox(a, b) {
+  return a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height;
 }
