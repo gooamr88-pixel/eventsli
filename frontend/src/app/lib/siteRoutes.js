@@ -121,13 +121,18 @@ export const FOOTER_GROUPS = [
 ];
 
 /**
- * The line under the wordmark in the footer.
+ * The brand's tagline, as the brand guide sets it under the wordmark.
  *
- * In source rather than in the CMS: it is the product's one-sentence
- * description and it appears in `metadata.description` too. Two copies that can
- * disagree is worse than one an admin cannot edit.
+ * It was "Events for a brighter tomorrow." until 2026-10-16, when Via
+ * Marketing's guide made DISCOVER - BOOK - ENJOY part of the logo lockup. It is
+ * spelled the way the artwork spells it, capitals and hyphens, because it is
+ * drawn as part of the logo (`brand/Logo.jsx` reads it from here) rather than
+ * set as a sentence.
+ *
+ * In source rather than in the CMS: it is part of the logo, and the guide says
+ * the logo does not change.
  */
-export const TAGLINE = 'Events for a brighter tomorrow.';
+export const TAGLINE = 'DISCOVER - BOOK - ENJOY';
 
 /** The one address that exists. Everything else would be a promise the mailbox
  *  cannot keep. */

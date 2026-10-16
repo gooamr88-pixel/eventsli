@@ -38,7 +38,7 @@ export const metadata = {
 
 export const viewport = {
   /**
-   * THE SITE'S BLUE, not the old near-black.
+   * THE BRAND TEAL (#0D5B5E, the guide's value), not the old near-black.
    *
    * The gate used to pin the dark palette and told the browser furniture the
    * same thing. It follows the site now (see `.fx-gate` in globals.css), so an
@@ -50,7 +50,7 @@ export const viewport = {
    * one appearance and does not follow the device, so offering the browser a
    * choice would be describing a screen that cannot happen.
    */
-  themeColor: '#2c62bd',
+  themeColor: '#0d5b5e',
   width: 'device-width',
   initialScale: 1,
   /**

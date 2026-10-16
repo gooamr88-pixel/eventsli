@@ -140,7 +140,7 @@ export default function EditorCanvas({
             <circle cx={1} cy={1} r={Math.min(1.6, 1 / scale)} fill="var(--es-border-strong)" opacity={0.6} />
           </pattern>
           <filter id="es-map-room-shadow" x="-6%" y="-6%" width="112%" height="116%">
-            <feDropShadow dx="0" dy={6 / scale} stdDeviation={10 / scale} floodColor="#0f1d3a" floodOpacity="0.14" />
+            <feDropShadow dx="0" dy={6 / scale} stdDeviation={10 / scale} floodColor="#0b1617" floodOpacity="0.14" />
           </filter>
         </defs>
 

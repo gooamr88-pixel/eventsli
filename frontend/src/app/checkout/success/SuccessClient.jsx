@@ -210,6 +210,7 @@ export default function SuccessClient() {
             <TicketStub
               key={ticket.id}
               ticket={ticket}
+              event={event}
               timeZone={event?.timezone}
               qrSrc={`${PUBLIC_API_URL}/public/qr/${encodeURIComponent(ticket.qr)}`}
             />

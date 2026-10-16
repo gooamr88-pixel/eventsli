@@ -6,8 +6,8 @@
   "start_url": "/gate",
   "scope": "/gate",
   "display": "standalone",
-  "background_color": "#09090b",
-  "theme_color": "#09090b",
+  "background_color": "#ffffff",
+  "theme_color": "#0d5b5e",
   "orientation": "any",
   "categories": ["utilities", "productivity"],
   "icons": [

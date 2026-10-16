@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { CONTACT_EMAIL, FOOTER_GROUPS, TAGLINE } from '../lib/siteRoutes';
+import { CONTACT_EMAIL, FOOTER_GROUPS } from '../lib/siteRoutes';
 import { inAppShell } from './SiteHeader';
 import Logo from './brand/Logo';
 
@@ -29,24 +29,19 @@ export default function SiteFooter() {
   if (inAppShell(pathname) || pathname?.startsWith('/checkout')) return null;
 
   return (
-    /* THE DEEPEST GREEN, and the page's last note.
+    /* WHITE, under a thin rule of the brand teal.
 
-       Every band above this one is white or mint, so the footer is where the
-       tone inverts — which is what makes the page end rather than just stop.
-       `.es-band--ink` re-points the text roles inside itself, so `text-muted`
-       on a link below is a pale green on forest-950 rather than slate-600 on
-       it (2.6:1). Setting `color` alone on a dark footer is the commonest
-       contrast failure on a site, precisely because the headings look right.
-
-       IT WAS NEAR-BLACK until 2026-09-16 — `--ink` resolved to zinc-950. On a
-       product whose palette is green and white, a black footer under a green
-       page was the one place a third colour was unmissable. The band is the
-       same hue as `--field` now, two steps deeper.
+       It was zinc-950, then a deep green, and since 2026-09-16 it is white:
+       the owner rejected dark bands, and confirmed it again when the brand
+       guide arrived on 2026-10-16. What ends the page is the teal rule — the
+       guide's own top-bar motif — and the change of type size, which is how a
+       printed page ends, not a slab of colour. `.es-band--ink` still declares
+       its text roles, so the footer reads the same under any page.
 
        No `mt-16`: the band above supplies its own bottom padding, and adding a
        margin here on top of it gives the footer a gap that changes size
        depending on which page it is under. */
-    <footer className="es-band--ink">
+    <footer className="es-band--ink es-site-foot">
       <div className="fx-gutter">
         <div className="fx-container fx-container--xl fx-section fx-section--sm">
           {/* `gap-y-10` and not the grid's own gap. Stacked into one column on
@@ -60,12 +55,14 @@ export default function SiteFooter() {
               groups made the footer alone a screen and a half of scrolling. */}
           <div className="grid grid-cols-2 gap-x-6 gap-y-10 md:grid-cols-4">
             <div className="col-span-2 fx-stack fx-stack--sm md:col-span-1">
-              {/* The drawn mark, not the word set in the serif. The masthead,
-                  the sidebar and the favicon all show the leaf; a footer that
-                  spells the name instead is the one place the brand is absent
-                  on a page that has just ended. */}
-              <Logo size="md" />
-              <p className="text-sm text-muted">{TAGLINE}</p>
+              {/* THE FULL LOCKUP — mark, word and DISCOVER - BOOK - ENJOY — as
+                  the brand guide draws it. The footer is the one place on a
+                  page with room for the tagline at a size someone can read; in
+                  the masthead it would be 6px tall. It replaced a separate
+                  tagline paragraph, which made two slogans side by side. */}
+              {/* `lg`: at the default size the tagline is 7px, which is
+                  decoration nobody can read. Large puts it near 10px. */}
+              <Logo size="lg" tagline />
               <p className="max-w-[34ch] text-sm text-subtle">
                 Tickets and seat maps for events across Canada and the United States.
               </p>
@@ -114,10 +111,9 @@ export default function SiteFooter() {
             <p className="text-xs text-subtle" suppressHydrationWarning>
               © {new Date().getFullYear()} Eventsli
             </p>
+            {/* One slogan, the brand's: it is in the lockup above. A second
+                line here ("More than events…") competed with it. */}
             <span className="fx-row items-center gap-4">
-              <span className="fx-hide-below-md text-xs text-subtle">
-                More than events. A more connected world.
-              </span>
               <a
                 href={`mailto:${CONTACT_EMAIL}`}
                 className="text-xs text-muted transition-colors hover:text-ink"

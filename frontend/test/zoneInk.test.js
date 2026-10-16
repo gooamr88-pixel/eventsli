@@ -9,7 +9,7 @@ import { ZONES, zoneInk, contrast } from '../src/app/components/seating/venueZon
  */
 const rgb = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
 const wash = (c, p, g) => rgb(c).map((v, i) => Math.round(v * p + rgb(g)[i] * (1 - p)));
-const GROUNDS = ['#ffffff', '#eff3fa'];
+const GROUNDS = ['#ffffff', '#f2f4f5'];
 
 function worst(color) {
   const ink = rgb(zoneInk(color));
@@ -24,7 +24,8 @@ describe('zone label ink', () => {
   });
 
   test('so does any custom colour, however light', () => {
-    for (const c of ['#ffff00', '#fafafa', '#ff0000', '#00ffcc', '#2c62bd', '#abc']) {
+    // #2c62bd is the old brand blue: an organizer's stored custom colour can be anything.
+    for (const c of ['#ffff00', '#fafafa', '#ff0000', '#00ffcc', '#2c62bd', '#0d5b5e', '#abc']) {
       const full = c.length === 4 ? `#${c.slice(1).split('').map((x) => x + x).join('')}` : c;
       expect(worst(full), c).toBeGreaterThanOrEqual(4.5);
     }

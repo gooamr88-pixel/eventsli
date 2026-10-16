@@ -59,7 +59,7 @@ async function create(req, res, next) {
     if (color && !HEX.test(color)) {
       return sendFail(res, {
         status: 400, error: 'VALIDATION_ERROR',
-        message: 'A colour must be a six-digit hex value, e.g. #047857.',
+        message: 'A colour must be a six-digit hex value, e.g. #0D5B5E.',
       });
     }
 
@@ -105,7 +105,7 @@ async function update(req, res, next) {
       if (color && !HEX.test(color)) {
         return sendFail(res, {
           status: 400, error: 'VALIDATION_ERROR',
-          message: 'A colour must be a six-digit hex value, e.g. #047857.',
+          message: 'A colour must be a six-digit hex value, e.g. #0D5B5E.',
         });
       }
       patch.color = color;

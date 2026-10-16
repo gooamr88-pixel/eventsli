@@ -56,7 +56,8 @@ async function forOrder(orderId) {
     .from('tickets')
     .select(`id, event_id, status, attendee_name, transfer_count, scanned_at,
              seats ( section_key, row_label, seat_number ),
-             tables ( label )`)
+             tables ( label ),
+             ticket_tiers ( name )`)
     .eq('order_id', orderId)
     .order('created_at')
     .order('id');
@@ -91,7 +92,8 @@ async function forOrders(orderIds) {
     .from('tickets')
     .select(`id, order_id, event_id, status, attendee_name, transfer_count, scanned_at,
              seats ( section_key, row_label, seat_number ),
-             tables ( label )`, first ? { count: 'exact' } : undefined)
+             tables ( label ),
+             ticket_tiers ( name )`, first ? { count: 'exact' } : undefined)
     .in('order_id', ids)
     .order('created_at')
     .order('id')
@@ -114,6 +116,7 @@ async function forToken(token) {
     .select(`id, event_id, status, attendee_name, transfer_count, scanned_at,
              seats ( section_key, row_label, seat_number ),
              tables ( label ),
+             ticket_tiers ( name ),
              events ( title, slug, starts_at, ends_at, timezone, venue_name, status )`)
     .eq('id', decoded.ticketId)
     .maybeSingle();
@@ -134,6 +137,10 @@ function shape(t) {
       ? { section: t.seats.section_key, row: t.seats.row_label, number: t.seats.seat_number }
       : null,
     table: t.tables?.label || null,
+    // The ticket type the printed ticket names ("General Admission", "VIP").
+    // Null when the tier was deleted after the sale (tier_id is ON DELETE SET
+    // NULL); the ticket then simply leaves the line out.
+    tierName: t.ticket_tiers?.name || null,
     transferred: (t.transfer_count || 0) > 0,
     scannedAt: t.scanned_at,
     qr: issueQrToken({ ticketId: t.id, eventId: t.event_id }),

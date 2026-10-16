@@ -61,34 +61,47 @@
    ═══════════════════════════════════════════════════════════════════════ */
 
 :root {
-  /* ── Brand: emerald ─────────────────────────────────────────────────
-     700 is the primary in light and 400 in dark. The token file arrived
-     with 600 in light and already knew a 600-on-near-black button fails
-     contrast; it had not measured the other direction, where white ON
-     600 is 3.77:1 and 600 as link text is worse. Both are AA failures on
-     the brand's most-used colour. See --es-accent below. */
-  /* ── BLUE, 2026-09-16 ──────────────────────────────────────────────
-     The brand hue changed from emerald to blue. The site stays WHITE; blue
-     takes exactly the places green had — buttons, links, accent words,
-     icons, active states, the seat map — and nothing more. The ramps were
-     renamed with it (emerald → blue, mint → mist, forest → navy) so no
-     variable name describes a colour it no longer holds. The accent role is
-     the 700 step (#2c62bd), a MEDIUM blue. The first pass used a saturated
-     royal (#1649e0) and was rejected the same day as too loud and too dark:
-     the brief is calm, not neon. This ramp is desaturated end to end, and
-     700 is the lightest step that still clears AA both as white-on-blue and
-     as blue text on the mist tint. Do not brighten it without re-running
-     scripts/contrast.js. */
-  --es-blue-50:  #f2f6fc;
-  --es-blue-100: #e1eaf7;
-  --es-blue-200: #c5d6ef;
-  --es-blue-300: #9dbae3;
-  --es-blue-400: #6f97d3;
-  --es-blue-500: #5287d6;
-  --es-blue-600: #3f76cf;
-  --es-blue-700: #2c62bd;
-  --es-blue-800: #2657ad;
-  --es-blue-900: #1f4789;
+  /* ── Brand: TEAL, 2026-10-16 ───────────────────────────────────────
+     THE BRAND GUIDE SETS THESE, not this file. Via Marketing's "Full
+     Branding Package" names four colours and this palette uses all four
+     EXACTLY:
+
+       Teal        #0D5B5E   R13 G91 B94     --es-teal-700, the accent
+       Black       #000000                   --es-black, the logo's word
+       White       #FFFFFF                   --es-bg, the page
+       Light Grey  #F2F4F5   R242 G244 B245  --es-grey-100, the sunken band
+
+     It replaced blue (#2c62bd), which replaced emerald before it. The ramp
+     names moved with the hue (blue → teal, mist → grey, navy → night) so no
+     variable describes a colour it no longer holds.
+
+     WHY THE ACCENT IS THE BRAND VALUE ITSELF, with no lighter "web teal".
+     Every earlier brand colour had to be shifted a step to pass AA — emerald
+     600 → 700 → 800, blue settled on 700 as the lightest step that cleared.
+     The guide's teal does not need it: it measures 7.85:1 on white and 7.12:1
+     on the light grey, and white on it is 7.85:1. So the colour on a button is
+     the colour on the business card. Do not lighten it to "brighten" the
+     site; that is how a brand colour drifts away from the brand.
+
+     The other steps are built on the teal's own hue (182°) for the jobs one
+     colour cannot do: hover (800), tints (50–200), the seat map (400) and the
+     focus ring (600). Measured by scripts/contrast.js. */
+  --es-teal-50:  #eef6f6;
+  --es-teal-100: #d8ebeb;
+  --es-teal-200: #b3d8d9;
+  --es-teal-300: #80bcbe;
+  --es-teal-400: #3f9599;
+  --es-teal-500: #1d7a7e;
+  --es-teal-600: #136a6d;
+  --es-teal-700: #0d5b5e;
+  --es-teal-800: #0a4b4e;
+  --es-teal-900: #083c3e;
+
+  /* The guide's black, for the logo. Body text is `--es-ink-on-light` below,
+     a black carrying a trace of the teal (18.4:1), which is the convention for
+     long reading on a screen; the WORD "Events" in the logo is this value
+     exactly, because the guide says not to change the logo's colours. */
+  --es-black: #000000;
 
   /* ── Neutrals ───────────────────────────────────────────────────────
      Slate in light (cool, sits under emerald without going muddy), zinc
@@ -114,59 +127,62 @@
   --es-zinc-900: #18181b;
   --es-zinc-950: #09090b;
 
-  /* ── Mint: the only tint the light theme has ────────────────────────
-     REPLACED THE SAND RAMP, 2026-09-16.
+  /* ── Grey: the light grounds and the lines ──────────────────────────
+     REPLACED THE MIST RAMP, 2026-10-16. 100 is the guide's Light Grey
+     (#F2F4F5) exactly, and it is the page's only alternating ground.
 
-     Sand was a warm cream (#faf8f4 … #c3b9a4) introduced so the light
-     theme's bands would be perceptibly apart — the three grounds before
-     it sat 1.8 L* from each other, which is invisible. It solved that and
-     it brought a second hue into a brand that has one.
+     It is 3.9 L* from white. That is closer than mist was (5.0) and still
+     above the 3.0 floor contrast.js holds every pair of grounds to — the
+     floor below which two bands are the same colour to a human eye. Card
+     grids sit on it; a flush white card on it is a visible object.
 
-     The storefront is green and white. Nothing else. So the alternating
-     ground is not a warm paper, it is the BRAND at 5% — the page reads as
-     white with green in it rather than as cream with green on it, and
-     there is no second family to keep in step.
+     The rest of the ramp shares its cool, faintly teal bias so a border, a
+     divider and a disabled seat all read as the same family as the band
+     they sit on. 50 is the hover for a white surface. */
+  --es-grey-50:  #f8f9fa;
+  --es-grey-100: #f2f4f5;
+  --es-grey-200: #e2e7e8;
+  --es-grey-300: #cfd7d9;
+  --es-grey-400: #b3bfc2;
+  --es-grey-500: #93a3a6;
 
-     The separation the sand ramp existed for is preserved: `bg` (white)
-     and `bg-sunken` (mint-100) are 5.0 L* apart, which contrast.js
-     measures and which is above the 3.0 floor. */
-  --es-mist-50:  #f7f9fd;
-  --es-mist-100: #eff3fa;
-  --es-mist-200: #e1e8f4;
-  --es-mist-300: #cdd8ea;
-  --es-mist-400: #b0bfd9;
-  --es-mist-500: #93a5c6;
+  /* ── Night: the teal-black ──────────────────────────────────────────
+     The darkest tone in the product, and on the storefront it is never a
+     band (the owner rejected dark bands on 2026-09-16, and confirmed it on
+     2026-10-16). It is the VEIL over a photograph, so white type measures
+     the same whatever picture an admin uploads, and the bezel of the drawn
+     phone. It is the black of the guide's posters and banners: black with
+     the teal in it. */
+  --es-night-950: #031012;
+  --es-night-900: #061e20;
+  --es-night-800: #0a2729;
+  --es-night-700: #0e3436;
 
-  /* ── Forest: the emerald field ──────────────────────────────────────
-     Not a step on the emerald ramp — those are all saturated enough to be
-     a fill and none of them is dark enough to be a GROUND. This is the
-     tone a full-bleed band uses so the brand can occupy area instead of
-     only colouring links. See .es-band--field. */
-  --es-navy-950: #070e1f;
-  --es-navy-900: #0b1631;
-  --es-navy-800: #0f1e40;
-  --es-navy-700: #14264d;
+  /* ── Ink: the dark theme's grounds ──────────────────────────────────
+     RETONED 2026-10-16 to the teal, as they were to blue and to green before
+     it. The dark palette is applied to nothing on the site (see the note on
+     `:root[data-theme="dark"]` below); it is kept so contrast.js measures a
+     second palette, and these primitives are declared once so its grounds
+     cannot drift. Still 3.5 L* apart at the tightest pair. */
+  --es-ink-900: #0e2a2c;
+  --es-ink-950: #0a2022;
+  --es-ink-975: #061719;
+  --es-ink-raised: #133436;
+  --es-ink-border: #1f4a4d;
+  --es-ink-subtle: #93b6b8;
 
-  /* ── Ink: the dark grounds, and they are GREEN ──────────────────────
-     RETONED 2026-09-16. These were neutral near-blacks with a trace of
-     blue (#161619 … #2b2b32). The brief for this product is two colours,
-     green and white, and a near-black footer under a green page is the
-     one place a third colour was most visible — it read as a different
-     site's footer stapled to the bottom.
+  /* ── Text for a LIGHT ground, named once ────────────────────────────
+     Five scopes re-declare the light theme's text roles for themselves — a
+     band, the search bar on a photograph, the locate pill, the modal — because
+     an element that changes its ground must state its text (see the note on
+     `.es-band--ink`). They used to each carry the hex literally, so a palette
+     change was five hunts for #0f1d3a. They point here now.
 
-     They are the forest hue at four depths now. Still dark enough to be
-     grounds, still 3.7 L* apart at the tightest pair, and there is no
-     black anywhere in the product.
-
-     Declared as primitives because the dark palette is written out TWICE
-     below (media query and [data-theme]) and a raw hex in both is a value
-     that can drift between the two copies. */
-  --es-ink-900: #16284a;
-  --es-ink-950: #0f1e3a;
-  --es-ink-975: #09142a;
-  --es-ink-raised: #1b3059;
-  --es-ink-border: #26406f;
-  --es-ink-subtle: #93a8cf;
+     Measured on white AND on the light grey, because both are grounds a
+     paragraph sits on. */
+  --es-ink-on-light:    #0b1617;
+  --es-muted-on-light:  #45585b;
+  --es-subtle-on-light: #566a6d;
 
   /* ── Semantic ───────────────────────────────────────────────────────
      Separate from the brand hue on purpose. A green "success" that is
@@ -177,7 +193,7 @@
      scanned", hold timers, low-stock notes, the password rules. At #16a34a,
      #f59e0b and #3b82f6 those words were 3.30, 2.15 and 3.68:1 on white, and
      under 3:1 on their own alert tints. Green-800, amber-800 and the brand's
-     blue-800 pass 4.5:1 on white, bg-sunken and their own 15% tint (the gate
+     own 800 step pass 4.5:1 on white, bg-sunken and their own 15% tint (the gate
      and alert grounds); scripts/contrast.js measures all of it. Where amber
      is a GRAPHIC rather than words (a held seat, rating stars) it is the
      lighter amber-700 below, which still clears the 3:1 graphics floor. */
@@ -192,7 +208,10 @@
      buttons already used, so this is one red now rather than two. Measured by
      scripts/contrast.js. */
   --es-danger:  #b91c1c;
-  --es-info:    var(--es-blue-800);
+  /* Info is the brand, one step deeper than the accent: an information notice
+     is the product speaking, not a warning, and a third hue (it was a stock
+     blue once) would be the one colour on the page the guide does not name. */
+  --es-info:    var(--es-teal-800);
 
   /* ── Roles — what components actually reference ─────────────────────
      Every component takes its colour from a role, never from a scale
@@ -205,87 +224,83 @@
      off-white reads as a slightly dirty white next to the real white of a
      card sitting on it, which is exactly what the surface role is. */
   --es-bg:            #ffffff;
-  --es-bg-sunken:     var(--es-mist-100);
-  /* The fourth ground, and the only dark one. A page gets its rhythm from
-     the GREEN band, not from 2% differences between three papers. */
-  --es-bg-deep:       var(--es-navy-900);
+  /* The guide's Light Grey, exactly. See the grey ramp above for the 3.9 L*. */
+  --es-bg-sunken:     var(--es-grey-100);
+  /* The darkest ground. Never a band on the storefront — the veil a
+     photograph sits under. */
+  --es-bg-deep:       var(--es-night-900);
   --es-surface:       #ffffff;
   --es-surface-raised:#ffffff;
-  --es-border:        var(--es-mist-200);
-  --es-border-strong: var(--es-mist-400);
+  --es-border:        var(--es-grey-200);
+  --es-border-strong: var(--es-grey-400);
   /* The edge of a control a person types into or toggles — text fields and the
      switch's off track. WCAG 1.4.11 asks 3:1 of the boundary that identifies a
-     component, and mist-400 was 1.86:1 on white: a white field on a white card
-     was found by its label alone. 3.34:1 on white, 3.0:1 on bg-sunken.
-     Decorative dividers keep the lighter border roles. */
-  --es-control-border: #7a8db3;
+     component, and a decorative grey is under 2:1 on white: a white field on a
+     white card was found by its label alone. 3.41:1 on white, 3.09:1 on the
+     light grey. Decorative dividers keep the lighter border roles. */
+  --es-control-border: #7d8e91;
 
-  /* ── Ink, and it is green ───────────────────────────────────────────
-     The text roles were slate — a cool grey family chosen to sit under
-     emerald without going muddy. Slate is a colour, and the brief allows
-     two. So the ink is the brand at its darkest instead: near-black to
-     read, unmistakably green where it is large enough to see.
-
-     Every value below is measured by scripts/contrast.js against white
-     AND against mint-100, because both are grounds a paragraph sits on. */
-  --es-text:          #0f1d3a;
-  --es-text-muted:    #44557a;
-  /* OFF-RAMP, and deliberately — as the slate version was.
-     A third level of hierarchy has to clear AA on the sunken band too,
-     and the obvious next step down (#5b6d95) measures 4.39:1 on white,
-     which is a fail at body size. This is the darkest value that clears
-     4.5 on BOTH grounds: 5.44 on white, 4.80 on mint-100. */
-  --es-text-subtle:   #4f6088;
+  /* ── Ink ────────────────────────────────────────────────────────────
+     Black to read, with a trace of the teal in it so it sits with the brand
+     rather than beside it. Three levels, each measured by scripts/contrast.js
+     against white AND the light grey, because both are grounds a paragraph
+     sits on. `subtle` is the third level and the one with the least room:
+     it is the lightest value that still clears 4.5:1 on the grey. */
+  --es-text:          var(--es-ink-on-light);
+  --es-text-muted:    var(--es-muted-on-light);
+  --es-text-subtle:   var(--es-subtle-on-light);
   --es-text-on-accent:#ffffff;
 
-  /* emerald-600 (#3f76cf) was here and it failed AA twice over.
-
-     As TEXT it measured 3.44–3.77:1 depending on the ground — every link,
-     every eyebrow label. And white ON it, which is every primary button and
-     the active filter pill, measured 3.77:1. Both are body-sized, so both
-     need 4.5.
-
-     emerald-700 clears it in every combination (5.01–5.48) and is a colour
-     already in the ramp, so the identity does not move — the brand emerald
-     is still the brand emerald in `theme-color`, in the icon and in the
-     seat map. What changed is the shade that carries TEXT. */
-  /* AMENDED 2026-09-06: 700 -> 800, and it is the one trade the warm
-     ground cost. On the old slate-50 page emerald-700 measured 5.00:1;
-     on sand-300 it measures 4.42:1 and fails the same AA bar the note
-     above was written about. emerald-800 measures 6.36:1 there and
-     7.68:1 on white.
-
-     The identity does not move again: `theme-color`, the icon, the seat
-     map and every FILL still carry emerald-500/600/700. Only the shade
-     that carries text and the primary button changed. */
-  --es-accent:        var(--es-blue-700);
-  --es-accent-hover:  var(--es-blue-800);
-  /* The page's own tint, one step down from the sunken ground so a wash
-     inside a card is still distinguishable from the band behind it. */
-  --es-accent-wash:   var(--es-mist-200);
-  --es-accent-edge:   var(--es-blue-200);
+  /* THE BRAND TEAL, unmodified — see the note on the teal ramp. 7.85:1 as
+     text on white, 7.12:1 on the light grey, and white on it is 7.85:1, so it
+     carries links, eyebrows, the primary button and the active pill as the
+     guide's own value. Hover goes DEEPER (800), never lighter: a lighter
+     hover is a lighter brand for as long as the pointer rests on it. */
+  --es-accent:        var(--es-teal-700);
+  --es-accent-hover:  var(--es-teal-800);
+  /* The brand at its palest, for a selected row or a confirmation circle.
+     teal-100 is 4.4 L* below the light grey, so a wash inside a card is still
+     distinguishable from the band behind it. */
+  --es-accent-wash:   var(--es-teal-100);
+  --es-accent-edge:   var(--es-teal-200);
 
   /* CORRECTION 1 of 3, carried over from the old tokens.
      `--border-focus`, `--shadow-accent` and `--accent-subtle` were all
      still `rgba(79,70,229,…)` — indigo, from an identity two rebrands
      ago. Every focus ring and every button shadow on the platform was
-     purple underneath a green skin. They are emerald here. */
-  --es-focus-ring-color: var(--es-blue-600);
-  --es-shadow-accent: 0 4px 16px rgba(48, 104, 200, 0.20);
-  --es-accent-subtle: rgba(48, 104, 200, 0.12);
+     purple underneath a green skin. They follow the brand here, and are
+     the teal's own RGB (13 91 94) at low alpha. */
+  --es-focus-ring-color: var(--es-teal-600);
+  --es-shadow-accent: 0 4px 16px rgba(13, 91, 94, 0.22);
+  --es-accent-subtle: rgba(13, 91, 94, 0.12);
+
+  /* ── The logo's three colours ───────────────────────────────────────
+     Not the accent role, and that is deliberate. The accent is a ROLE and a
+     scope may re-point it (the photo band makes it white so a link reads on
+     a picture); the logo is a MARK, and the guide says its colours do not
+     change. So it has its own three, which are the full-colour logo here and
+     are redefined only where the guide's reversed (all-white) version is the
+     right one: `.es-band--photo` and the ticket stub. See Logo.jsx. */
+  --es-logo-mark: var(--es-teal-700);
+  --es-logo-ink:  var(--es-black);
+  --es-logo-li:   var(--es-teal-700);
 
   /* ── Seat map ───────────────────────────────────────────────────────
      Named here rather than in the seat-map stylesheet because a seat's
      colour is the single most load-bearing piece of information on the
-     purchase page, and it has to survive a theme switch intact. */
-  --es-seat-available: var(--es-blue-500);
-  --es-seat-selected:  var(--es-blue-700);
+     purchase page, and it has to survive a theme switch intact.
+
+     Available is teal-400 and selected is the brand teal: 3.52:1 and 7.85:1
+     on white (a graphic needs 3), and 22 L* apart from each other, so the
+     seat a buyer just tapped is unmistakably not the one beside it. */
+  --es-seat-available: var(--es-teal-400);
+  --es-seat-selected:  var(--es-teal-700);
   /* A graphic, so 3:1: amber-700 is 5.02:1 on white where amber-500 was 2.15.
      Sold and blocked stay faint on purpose — an unavailable seat is an
      inactive control, which WCAG 1.4.11 exempts, and fading it is the signal. */
   --es-seat-held:      var(--es-amber-700);
-  --es-seat-sold:      var(--es-mist-400);
-  --es-seat-blocked:   var(--es-mist-300);
+  --es-seat-sold:      var(--es-grey-400);
+  --es-seat-blocked:   var(--es-grey-300);
 
   /* ── Type ───────────────────────────────────────────────────────────
      CORRECTION 2 of 3: the old index.html still pulled Cormorant
@@ -435,12 +450,13 @@
      This is `.es-modal`'s value, because it is the one that was reasoned
      about: ink-tinted rather than neutral black, and 0.55 is "dark enough
      to sit the panel forward, light enough that what is behind it is
-     still recognisably there".
+     still recognisably there". The tint follows the brand: it was navy, and
+     since 2026-10-16 it is the night tone (the teal-black).
 
      THE LIGHTBOX KEEPS ITS OWN, at 0.94, and that is the one argued
      exception: it is a picture viewer, and a photograph read through a
      55% scrim of the page behind it is not a picture viewer. */
-  --es-scrim: rgb(8 19 41 / 0.55);
+  --es-scrim: rgb(3 16 18 / 0.55);
 
   /* ── Radius, shadow ─────────────────────────────────────────────────*/
   --es-radius-sm:   6px;
@@ -450,11 +466,11 @@
   --es-radius-2xl: 24px;
   --es-radius-full: 9999px;
 
-  --es-shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.05);
-  --es-shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.08), 0 1px 2px rgba(15, 23, 42, 0.04);
-  --es-shadow-md: 0 4px 12px rgba(15, 23, 42, 0.10), 0 1px 3px rgba(15, 23, 42, 0.06);
-  --es-shadow-lg: 0 8px 30px rgba(15, 23, 42, 0.15), 0 2px 6px rgba(15, 23, 42, 0.08);
-  --es-shadow-xl: 0 16px 50px rgba(15, 23, 42, 0.20), 0 4px 12px rgba(15, 23, 42, 0.10);
+  --es-shadow-xs: 0 1px 2px rgba(6, 24, 26, 0.05);
+  --es-shadow-sm: 0 1px 3px rgba(6, 24, 26, 0.08), 0 1px 2px rgba(6, 24, 26, 0.04);
+  --es-shadow-md: 0 4px 12px rgba(6, 24, 26, 0.10), 0 1px 3px rgba(6, 24, 26, 0.06);
+  --es-shadow-lg: 0 8px 30px rgba(6, 24, 26, 0.15), 0 2px 6px rgba(6, 24, 26, 0.08);
+  --es-shadow-xl: 0 16px 50px rgba(6, 24, 26, 0.20), 0 4px 12px rgba(6, 24, 26, 0.10);
 
   /* Two shadows that are not a step on the ramp above, because they do a
      different job. The ramp separates a surface from the page by a few
@@ -472,12 +488,12 @@
      Both are long (large blur, negative spread) and start well below the
      element, which is what separates "lifted" from "glowing". */
   --es-shadow-plate:
-    0 46px 92px -26px rgba(15, 23, 42, 0.32),
-    0 10px 24px -10px rgba(15, 23, 42, 0.16),
-    0 0 0 1px rgba(15, 23, 42, 0.05);
+    0 46px 92px -26px rgba(6, 24, 26, 0.32),
+    0 10px 24px -10px rgba(6, 24, 26, 0.16),
+    0 0 0 1px rgba(6, 24, 26, 0.05);
   --es-shadow-window:
-    0 54px 110px -34px rgba(15, 23, 42, 0.30),
-    0 14px 34px -14px rgba(15, 23, 42, 0.14);
+    0 54px 110px -34px rgba(6, 24, 26, 0.30),
+    0 14px 34px -14px rgba(6, 24, 26, 0.14);
 
   /* ── Motion ─────────────────────────────────────────────────────────
      Ported verbatim. Named curves rather than `ease-in-out` everywhere:
@@ -528,7 +544,7 @@
    as a separate Flutter app. A door is also where the product meets the
    guest's eye at the only moment they are standing still.
 
-   So the gate follows the site now: white, `--es-accent` blue, the wordmark in
+   So the gate follows the site now: white, the `--es-accent` brand colour, the wordmark in
    its header. What is kept from the old argument is kept where it was actually
    load-bearing — the CAMERA VIEWPORT stays black (`.fx-gate__lens` below), and
    so do the scan-result banners, because those are the parts an operator looks
@@ -546,29 +562,36 @@
   --es-bg:            var(--es-ink-950);
   --es-bg-sunken:     var(--es-ink-975);
   /* Same lift as the media-query copy above. */
-  --es-bg-deep:       #243f6e;
+  --es-bg-deep:       #1d4447;
   --es-surface:       var(--es-ink-900);
   --es-surface-raised:var(--es-ink-raised);
   --es-border:        var(--es-ink-border);
-  --es-border-strong: #34528a;
+  --es-border-strong: #2f6164;
   --es-control-border: var(--es-ink-subtle);
 
-  --es-text:          #eff3fa;
-  --es-text-muted:    #aabbdc;
+  --es-text:          var(--es-teal-50);
+  --es-text-muted:    #b3cfd0;
   --es-text-subtle:   var(--es-ink-subtle);
-  --es-text-on-accent:#09142a;
+  --es-text-on-accent:var(--es-ink-975);
 
-  --es-accent:        #8fb0e6;
-  --es-accent-hover:  #a9c3ec;
-  --es-accent-wash:   #0e1f47;
-  --es-accent-edge:   #24467a;
+  /* A pale teal: the brand value is 2.2:1 on these grounds, so on dark the
+     accent is the bright end of the hue and the text on it is the dark end. */
+  --es-accent:        #7fc9cc;
+  --es-accent-hover:  #a6dcde;
+  --es-accent-wash:   #0c3537;
+  --es-accent-edge:   #1d5a5d;
 
-  --es-focus-ring-color: var(--es-blue-400);
-  --es-shadow-accent: 0 4px 16px rgba(111, 151, 211, 0.20);
-  --es-accent-subtle: rgba(111, 151, 211, 0.14);
+  /* On a dark ground the logo is the guide's reversed version. */
+  --es-logo-mark: #ffffff;
+  --es-logo-ink:  #ffffff;
+  --es-logo-li:   #ffffff;
 
-  --es-seat-available: var(--es-blue-400);
-  --es-seat-selected:  var(--es-blue-200);
+  --es-focus-ring-color: var(--es-teal-400);
+  --es-shadow-accent: 0 4px 16px rgba(63, 149, 153, 0.20);
+  --es-accent-subtle: rgba(63, 149, 153, 0.14);
+
+  --es-seat-available: var(--es-teal-400);
+  --es-seat-selected:  var(--es-teal-200);
   --es-seat-held:      var(--es-warning);
   --es-seat-sold:      var(--es-zinc-700);
   --es-seat-blocked:   var(--es-zinc-800);
@@ -1593,10 +1616,10 @@
      maps a `tone` prop onto it and contrast.js measures it by name. It is
      the page ground with a border, which is a real tone and an honest one. */
   --es-bg:         #ffffff;
-  --es-bg-sunken:  var(--es-mist-100);
+  --es-bg-sunken:  var(--es-grey-100);
   --es-surface:    #ffffff;
-  --es-border:     var(--es-mist-200);
-  --es-border-strong: var(--es-mist-400);
+  --es-border:     var(--es-grey-200);
+  --es-border-strong: var(--es-grey-400);
   /* A BAND THAT CHANGES ITS GROUND MUST DECLARE ITS TEXT, whichever theme
      it is sitting in. This block used to be dark and redeclared nine roles
      for that reason; now it is light and it has to redeclare them for the
@@ -1604,17 +1627,23 @@
      ink is pale, and pale ink on a mint ground is nothing at all.
      These are the light theme's measured values, named rather than
      inherited. */
-  --es-text:          #0f1d3a;
-  --es-text-muted:    #44557a;
-  --es-text-subtle:   #4a5b83;
-  --es-accent:        var(--es-blue-700);
-  --es-accent-hover:  var(--es-blue-800);
-  --es-accent-wash:   var(--es-mist-200);
-  --es-accent-edge:   var(--es-mist-400);
+  --es-text:          var(--es-ink-on-light);
+  --es-text-muted:    var(--es-muted-on-light);
+  --es-text-subtle:   var(--es-subtle-on-light);
+  --es-accent:        var(--es-teal-700);
+  --es-accent-hover:  var(--es-teal-800);
+  --es-accent-wash:   var(--es-teal-100);
+  --es-accent-edge:   var(--es-teal-200);
   --es-text-on-accent:#ffffff;
   background: var(--es-bg);
   color: var(--es-text);
 }
+
+/* The site footer's top edge: a thin rule of the brand teal, which is the
+   brand guide's own motif (every page of it opens under a teal bar). The
+   footer is white, so the rule is what ends the page. Its own class rather
+   than a border on `.es-band--ink`, which marketing blocks also use mid-page. */
+.es-site-foot { border-top: 3px solid var(--es-teal-700); }
 
 /* ── .es-band--field — the brand as a GROUND ────────────────────────────
    ADDED 2026-09-06. The measurement that produced it: emerald appeared 62
@@ -1651,12 +1680,12 @@
      Only `--es-bg` moves. The text roles are the page's, because on a light
      ground they are already the measured ones — the whole reason this block
      used to redeclare nine of them was that it was dark. */
-  --es-bg:            var(--es-mist-100);
-  --es-bg-sunken:     var(--es-mist-200);
+  --es-bg:            var(--es-grey-100);
+  --es-bg-sunken:     var(--es-grey-200);
   --es-surface:       #ffffff;
   --es-surface-raised:#ffffff;
-  --es-border:        var(--es-mist-300);
-  --es-border-strong: var(--es-mist-400);
+  --es-border:        var(--es-grey-300);
+  --es-border-strong: var(--es-grey-400);
   /* A BAND THAT CHANGES ITS GROUND MUST DECLARE ITS TEXT, whichever theme
      it is sitting in. This block used to be dark and redeclared nine roles
      for that reason; now it is light and it has to redeclare them for the
@@ -1664,13 +1693,13 @@
      ink is pale, and pale ink on a mint ground is nothing at all.
      These are the light theme's measured values, named rather than
      inherited. */
-  --es-text:          #0f1d3a;
-  --es-text-muted:    #44557a;
-  --es-text-subtle:   #4a5b83;
-  --es-accent:        var(--es-blue-700);
-  --es-accent-hover:  var(--es-blue-800);
-  --es-accent-wash:   var(--es-mist-200);
-  --es-accent-edge:   var(--es-mist-400);
+  --es-text:          var(--es-ink-on-light);
+  --es-text-muted:    var(--es-muted-on-light);
+  --es-text-subtle:   var(--es-subtle-on-light);
+  --es-accent:        var(--es-teal-700);
+  --es-accent-hover:  var(--es-teal-800);
+  --es-accent-wash:   var(--es-teal-100);
+  --es-accent-edge:   var(--es-teal-200);
   --es-text-on-accent:#ffffff;
   background: var(--es-bg);
   color: var(--es-text);
@@ -1686,20 +1715,24 @@
    ground to measure the white type against, and it is the veil's colour
    rather than a guess. */
 .es-band--photo {
-  --es-bg:            var(--es-navy-900);
-  --es-bg-sunken:     var(--es-navy-950);
+  --es-bg:            var(--es-night-900);
+  --es-bg-sunken:     var(--es-night-950);
   --es-surface:       #ffffff;
   --es-surface-raised:#ffffff;
   --es-text:          #ffffff;
-  --es-text-muted:    #dde7fb;
-  --es-text-subtle:   #bccdf0;
+  --es-text-muted:    #dcebeb;
+  --es-text-subtle:   #b9d3d4;
   --es-border:        rgba(255, 255, 255, 0.22);
   --es-border-strong: rgba(255, 255, 255, 0.34);
   --es-accent:        #ffffff;
-  --es-accent-hover:  #dde7fb;
+  --es-accent-hover:  #dcebeb;
   --es-accent-wash:   rgba(255, 255, 255, 0.14);
   --es-accent-edge:   rgba(255, 255, 255, 0.45);
-  --es-text-on-accent:var(--es-navy-900);
+  --es-text-on-accent:var(--es-night-900);
+  /* On a photograph the logo is the guide's reversed (all-white) version. */
+  --es-logo-mark: #ffffff;
+  --es-logo-ink:  #ffffff;
+  --es-logo-li:   #ffffff;
   background: var(--es-bg);
   color: var(--es-text);
 }
@@ -1716,7 +1749,7 @@
    that needs both at once, so it names its ink rather than inheriting it.
    Anything else on this band that takes a white surface needs the same. */
 .es-band--photo :is(.es-btn--secondary, .es-card, .es-panel) {
-  color: var(--es-navy-900);
+  color: var(--es-night-900);
 }
 .es-band--photo .es-btn--secondary { border-color: transparent; }
 
@@ -1733,12 +1766,12 @@
 .es-band--photo .es-chip {
   background: #ffffff;
   border-color: #ffffff;
-  color: var(--es-navy-900);
+  color: var(--es-night-900);
   font-weight: 500;
 }
 .es-band--photo .es-chip:hover {
-  background: var(--es-mist-100);
-  border-color: var(--es-mist-100);
+  background: var(--es-grey-100);
+  border-color: var(--es-grey-100);
 }
 
 /* The "explore more" chip keeps its fill inside the photo band.
@@ -1747,13 +1780,13 @@
    brand colour came out white among four white ones — indistinguishable from
    the categories it is meant to close. Same specificity, stated once. */
 .es-band--photo .es-chip--more {
-  background: var(--es-blue-700);
-  border-color: var(--es-blue-700);
+  background: var(--es-teal-700);
+  border-color: var(--es-teal-700);
   color: #ffffff;
 }
 .es-band--photo .es-chip--more:hover {
-  background: var(--es-blue-800);
-  border-color: var(--es-blue-800);
+  background: var(--es-teal-800);
+  border-color: var(--es-teal-800);
 }
 
 /* `.es-bloom` WAS HERE and is deleted, 2026-09-16.
@@ -1941,7 +1974,7 @@
   margin-inline: auto;
   background: var(--es-surface);
   border-block-start: 1px solid var(--es-border);
-  box-shadow: 0 -6px 20px rgb(15 23 42 / 0.10);
+  box-shadow: 0 -6px 20px rgb(6 24 26 / 0.10);
   padding: 0.625rem max(var(--fx-pad-x), var(--fx-safe-l));
   padding-block-end: max(0.625rem, calc(var(--fx-safe-b) + 0.375rem));
 }
@@ -2053,11 +2086,12 @@ body:has(.es-buybar) { padding-block-end: calc(5.5rem + var(--fx-safe-b)); }
                         as a phone app blown up
      laptop+ (≥ lg)     the full sidebar
 
-   The sidebar is the EMERALD FIELD (.es-band--field on the element, see
-   AppShell). It used to be the same sand as the page, so the only thing
-   separating navigation from content was a hairline, and the product's colour
-   appeared nowhere in either console. The field band inverts every text role
-   inside itself and is already measured by scripts/contrast.js in both themes.
+   The sidebar is the FIELD BAND (.es-band--field on the element, see
+   AppShell): the brand's light grey since 2026-10-16, a tint of the brand
+   colour before that, and once a dark emerald. It is one tone off the white
+   content area so navigation and content are separated by more than a
+   hairline. The field band declares its own text roles and is measured by
+   scripts/contrast.js in both themes.
 
    WHY THIS IS HERE AND NOT BESIDE THE COMPONENT. The navigation renders from
    the layouts, which are different component functions from every page they
@@ -2109,9 +2143,12 @@ body:has(.es-buybar) { padding-block-end: calc(5.5rem + var(--fx-safe-b)); }
    unreachable. dvh so a phone drawer is not sized against a URL bar that has
    already scrolled away.
 
-   color-scheme: dark because the panel is always the dark emerald field: the
-   event switcher's native option list, the scrollbar and the focus ring then
-   render for a dark ground instead of white-on-white. */
+   color-scheme: LIGHT, and it said dark until 2026-10-16. It was written when
+   the panel was the dark emerald field, so the event switcher's native option
+   list and the scrollbar would render for a dark ground. The field band has
+   been the light grey since 2026-09-16 and this line was never moved with it:
+   the sidebar drew a dark native dropdown and a dark scrollbar on a pale
+   panel. It follows the ground the panel actually has. */
 .es-nav {
   position: fixed;
   inset-block-start: 0;
@@ -2122,7 +2159,7 @@ body:has(.es-buybar) { padding-block-end: calc(5.5rem + var(--fx-safe-b)); }
   height: 100dvh;
   display: flex;
   flex-direction: column;
-  color-scheme: dark;
+  color-scheme: light;
   background: var(--es-bg);
   border-inline-end: 1px solid var(--es-border);
   /* The PANEL does not scroll; its middle does — see .es-nav__body. Scrolling
@@ -2418,7 +2455,7 @@ body:has(.es-buybar) { padding-block-end: calc(5.5rem + var(--fx-safe-b)); }
   background: var(--es-surface);
   border-block-start: 1px solid var(--es-border);
   padding: 4px 4px max(4px, var(--fx-safe-b));
-  box-shadow: 0 -4px 16px rgb(15 23 42 / 0.06);
+  box-shadow: 0 -4px 16px rgb(6 24 26 / 0.06);
 }
 @media (width >= 48rem) { .es-nav-bar { display: none; } }
 
@@ -2765,23 +2802,215 @@ body:has(.es-buybar) { padding-block-end: calc(5.5rem + var(--fx-safe-b)); }
    The padding it used to pay for is now the header's at every width. */
 .es-event-head { padding-bottom: 1.25rem; }
 
-/* ── .es-logo — the framed star and the wordmark ───────────────────────
-   The mark and the wordmark are the same height in the artwork, so they are
-   here. The mark takes the ACCENT role, so it is emerald-800 on sand,
-   emerald-400 on the dark theme and on the emerald sidebar. */
+/* ── .es-logo — the framed star, the two-colour word, the tagline ──────
+   REBUILT 2026-10-16 to the brand guide's lockup, and every proportion here
+   is measured off the artwork rather than chosen:
+
+     · the mark is 0.96 of the word's height (they share a cap line),
+     · the gap between them is 0.35 of it,
+     · the tagline line sits under the word and spans it (Logo.jsx draws it
+       inside the word's own SVG, so its width cannot drift).
+
+   One length, `--es-logo-h`, drives all three, so a size step scales the
+   whole lockup and cannot distort it — the guide's "do not stretch".
+
+   THE COLOURS ARE THE `--es-logo-*` ROLES, never the accent. See the note at
+   their declaration: full colour by default, white only where the guide's
+   reversed version belongs. Nothing below sets a colour of its own.
+
+   CLEAR SPACE is the guide's "X = the height of the star", which is 0.44 of
+   the word height. It is padding on the LOCKUP (the footer and sign-in
+   placements, where nothing else positions the logo). Inline-start is left
+   to the column: the gutter the lockup sits in is already wider than X, and
+   padding there would knock the logo out of line with the text below it. The
+   masthead, sidebar and gate give the bare logo more room than X by
+   construction — a 4rem bar around a 1.4rem logo. */
 .es-logo {
+  --es-logo-h: 1.4rem;
   display: inline-flex;
   align-items: center;
-  gap: 0.625rem;
+  gap: calc(var(--es-logo-h) * 0.35);
   line-height: 1;
-  color: var(--es-text);
 }
-.es-logo__mark { flex: none; width: auto; height: 1.5rem; color: var(--es-accent); }
-.es-logo__word { flex: none; width: auto; height: 1.4rem; }
-.es-logo--sm .es-logo__mark { height: 1.25rem; }
-.es-logo--sm .es-logo__word { height: 1.15rem; }
-.es-logo--lg .es-logo__mark { height: 2.25rem; }
-.es-logo--lg .es-logo__word { height: 2.1rem; }
+.es-logo--sm { --es-logo-h: 1.15rem; }
+.es-logo--lg { --es-logo-h: 2.1rem; }
+.es-logo__mark { flex: none; width: auto; height: calc(var(--es-logo-h) * 0.96); fill: var(--es-logo-mark); }
+.es-logo__word { flex: none; width: auto; height: var(--es-logo-h); }
+.es-logo__events,
+.es-logo__tagline { fill: var(--es-logo-ink); }
+.es-logo__li { fill: var(--es-logo-li); }
+/* In the word's own units (its viewBox is 101 tall), so 31 is the artwork's
+   tagline cap height at any rendered size. */
+.es-logo__tagline { font-family: var(--es-font-sans); font-size: 31px; font-weight: 500; }
+.es-logo--lockup {
+  align-items: flex-start;
+  padding-block: calc(var(--es-logo-h) * 0.44);
+  padding-inline-end: calc(var(--es-logo-h) * 0.44);
+}
+/* 152 / 101: the word's viewBox extended down by the tagline's line. */
+.es-logo--lockup .es-logo__word { height: calc(var(--es-logo-h) * 1.505); }
+
+/* ── .es-tkt — the ticket, after the brand guide's "Digital ticket" ────
+   ADDED 2026-10-16 (TicketStub.jsx). Three parts: a teal STUB with the
+   reversed logo, the BODY with the event and the labelled facts, and a
+   perforated TEAR-OFF with the code.
+
+   THE CODE NEVER SITS ON TEAL. It keeps a white pad and the full size it had,
+   because a door scanner reads contrast and quiet margin. The brand colour is
+   all on the stub.
+
+   ONE COLUMN until the TICKET (not the screen) is 40rem wide, then the
+   guide's three across — a container query, because the same component is a
+   full-width door pass on /t, one of several in My Tickets, and a receipt
+   item on the confirmation, at three different widths on the same screen. The
+   door version (`--door`) always stacks: there the code gets the whole width
+   of the phone. Placed after `.es-logo` so the watermark's sizing wins at
+   equal specificity. */
+.es-tkt { container-type: inline-size; }
+.es-tkt__card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  overflow: hidden;
+  border: 1px solid var(--es-border);
+  border-radius: var(--es-radius-lg);
+  background: var(--es-surface);
+  box-shadow: var(--es-shadow-md);
+}
+
+/* The stub is the guide's reversed logo on the brand teal: the logo roles are
+   re-pointed to white here, which is one of the two places they ever are. */
+.es-tkt__stub {
+  --es-logo-mark: #ffffff;
+  --es-logo-ink:  #ffffff;
+  --es-logo-li:   #ffffff;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  background: var(--es-teal-700);
+  color: #ffffff;
+}
+/* White on the brand teal is 7.85:1. */
+.es-tkt__thanks { max-width: 22ch; font-size: var(--es-text-sm); font-weight: 600; line-height: var(--es-leading-snug); }
+.es-tkt__watermark {
+  position: absolute;
+  inset-inline-end: -1.75rem;
+  inset-block-end: -2.25rem;
+  z-index: -1;
+  width: auto;
+  height: 7.5rem;
+  fill: rgb(255 255 255 / 0.08);
+}
+
+.es-tkt__body { display: flex; flex-direction: column; gap: 0.5rem; min-width: 0; padding: 1rem 1.25rem; }
+.es-tkt__title {
+  color: var(--es-text);
+  font-size: var(--es-text-lg);
+  font-weight: 700;
+  line-height: var(--es-leading-snug);
+  letter-spacing: var(--es-tracking-tight);
+}
+.es-tkt__line { display: flex; align-items: flex-start; gap: 0.5rem; min-width: 0; color: var(--es-text-muted); font-size: var(--es-text-sm); }
+.es-tkt__line svg { flex: none; margin-top: 0.15em; color: var(--es-accent); }
+.es-tkt__facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(6.5rem, 1fr));
+  gap: 0.625rem 1rem;
+  margin: 0.25rem 0 0;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--es-border);
+}
+.es-tkt__facts dt {
+  color: var(--es-text-subtle);
+  font-size: var(--es-text-xs);
+  font-weight: 600;
+  letter-spacing: var(--es-tracking-widest);
+  text-transform: uppercase;
+}
+.es-tkt__facts dd { margin: 0.125rem 0 0; color: var(--es-text); font-weight: 600; }
+
+/* The tear-off. The dashed rule is the perforation; the two discs painted in
+   the PAGE's ground (`--es-bg`, whichever band the ticket sits in) are the
+   notches at its ends. */
+.es-tkt__code {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1rem 1.25rem 1.125rem;
+  border-top: 2px dashed var(--es-border-strong);
+}
+.es-tkt__code::before,
+.es-tkt__code::after {
+  content: '';
+  position: absolute;
+  top: -0.6875rem;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: var(--es-radius-full);
+  background: var(--es-bg);
+}
+.es-tkt__code::before { left: -0.6875rem; }
+.es-tkt__code::after { right: -0.6875rem; }
+.es-tkt__brand { display: flex; }
+.es-tkt__qr { position: relative; }
+.es-tkt__img {
+  display: block;
+  width: 132px;
+  height: 132px;
+  padding: 4px;
+  border-radius: var(--es-radius-sm);
+  background: #ffffff;
+}
+.es-tkt__missing {
+  display: grid;
+  place-items: center;
+  width: 132px;
+  height: 132px;
+  padding: 0.75rem;
+  border: 1px dashed var(--es-border-strong);
+  border-radius: var(--es-radius-sm);
+  background: var(--es-surface);
+  color: var(--es-text-muted);
+  font-size: var(--es-text-xs);
+  text-align: center;
+}
+/* `min()` so the door code fills a 320px phone's width but never grows past
+   its rendered resolution on a tablet, where a stretched QR is a blurrier one. */
+.es-tkt--door :is(.es-tkt__img, .es-tkt__missing) { width: min(288px, 72vw); height: min(288px, 72vw); }
+.es-tkt__scan { color: var(--es-text); font-size: var(--es-text-xs); font-weight: 600; letter-spacing: var(--es-tracking-wide); }
+
+@container (min-width: 40rem) {
+  .es-tkt:not(.es-tkt--door) .es-tkt__card { grid-template-columns: minmax(10rem, 0.8fr) minmax(0, 1.7fr) auto; }
+  .es-tkt:not(.es-tkt--door) .es-tkt__stub { padding: 1.25rem; }
+  .es-tkt:not(.es-tkt--door) .es-tkt__body { padding: 1.25rem 1.5rem; }
+  /* The perforation turns vertical, so the notches move to its top and bottom. */
+  .es-tkt:not(.es-tkt--door) .es-tkt__code { border-top: 0; border-inline-start: 2px dashed var(--es-border-strong); }
+  .es-tkt:not(.es-tkt--door) .es-tkt__code::before { top: -0.6875rem; left: -0.75rem; }
+  .es-tkt:not(.es-tkt--door) .es-tkt__code::after { top: auto; right: auto; bottom: -0.6875rem; left: -0.75rem; }
+}
+
+/* On paper the teal fill goes: a ticket is printed on an office printer far
+   more often than at a print shop, and a solid band is most of a cartridge.
+   The stub becomes the full-colour logo on white inside the card's own
+   border — still the brand, and the code is untouched. */
+@media print {
+  .es-tkt__card { box-shadow: none; }
+  .es-tkt__stub {
+    --es-logo-mark: var(--es-teal-700);
+    --es-logo-ink:  var(--es-black);
+    --es-logo-li:   var(--es-teal-700);
+    background: #ffffff;
+    color: var(--es-text);
+  }
+  .es-tkt__watermark { display: none; }
+}
 
 /* ── .es-onboard — the first thing a new organizer sees ────────────────── */
 .es-onboard {
@@ -3552,11 +3781,11 @@ body:has(.es-buybar) { padding-block-end: calc(5.5rem + var(--fx-safe-b)); }
    background without the text roles leaves every child at the band's
    inverted white, which on white is nothing at all. */
 .es-searchbar {
-  --es-text:        #0f1d3a;
-  --es-text-muted:  #44557a;
-  --es-text-subtle: #4f6088;
-  --es-border:      var(--es-mist-200);
-  --es-accent-edge: var(--es-mist-400);
+  --es-text:        var(--es-ink-on-light);
+  --es-text-muted:  var(--es-muted-on-light);
+  --es-text-subtle: var(--es-subtle-on-light);
+  --es-border:      var(--es-grey-200);
+  --es-accent-edge: var(--es-teal-200);
   color: var(--es-text);
   display: flex;
   flex-direction: column;
@@ -3682,7 +3911,7 @@ body:has(.es-buybar) { padding-block-end: calc(5.5rem + var(--fx-safe-b)); }
   pointer-events: none;
 }
 
-/* The submit is a green disc, not an `.es-btn`.
+/* The submit is a brand-teal disc, not an `.es-btn`.
    A full-width primary button inside a white pill is a second pill; the
    design ends the bar with a circle, and a circle is what an arrow wants.
    Below md it stretches, because a 48px disc under three full-width
@@ -3697,11 +3926,11 @@ body:has(.es-buybar) { padding-block-end: calc(5.5rem + var(--fx-safe-b)); }
   margin-block-start: 0.25rem;
   border: 0;
   border-radius: var(--es-radius-md);
-  background: var(--es-blue-700);
+  background: var(--es-teal-700);
   color: #ffffff;
   transition: background var(--es-dur-fast) var(--es-ease);
 }
-.es-searchbar__submit:hover { background: var(--es-blue-800); }
+.es-searchbar__submit:hover { background: var(--es-teal-800); }
 @media (width >= 48rem) {
   .es-searchbar__submit {
     width: var(--fx-touch);
@@ -3724,9 +3953,9 @@ body:has(.es-buybar) { padding-block-end: calc(5.5rem + var(--fx-safe-b)); }
 .es-locate {
   /* Same reasoning as `.es-searchbar`: it sits on the photograph, so it is a
      surface and it carries its own ink. */
-  --es-text:       #0f1d3a;
-  --es-accent:     var(--es-blue-700);
-  --es-accent-wash:var(--es-mist-100);
+  --es-text:       var(--es-ink-on-light);
+  --es-accent:     var(--es-teal-700);
+  --es-accent-wash:var(--es-teal-50);
   --es-text-on-accent: #ffffff;
   display: inline-flex;
   align-items: center;
@@ -3734,7 +3963,7 @@ body:has(.es-buybar) { padding-block-end: calc(5.5rem + var(--fx-safe-b)); }
   min-height: var(--fx-touch);
   padding-inline: 0.5rem 1.125rem;
   border-radius: var(--es-radius-full);
-  border: 1px solid var(--es-mist-300);
+  border: 1px solid var(--es-grey-300);
   background: #ffffff;
   color: var(--es-text);
   font-size: var(--es-text-sm);
@@ -3802,20 +4031,20 @@ body:has(.es-buybar) { padding-block-end: calc(5.5rem + var(--fx-safe-b)); }
 /* The last chip in a rail: "there are more of these". Filled rather than
    outlined, so it reads as the end of the row and not as a fifth
    category somebody might be looking for. */
-/* NAMED GREEN, not `--es-accent`.
+/* NAMED TEAL, not `--es-accent`.
    On `.es-band--photo` the accent role is WHITE — that is what makes a link
    legible on a photograph — so a chip filled with it came out white on white
    type. This chip is the one control on the rail that has to be the brand
    colour wherever it sits, so it says which colour that is. */
 .es-chip--more {
-  background: var(--es-blue-700);
-  border-color: var(--es-blue-700);
+  background: var(--es-teal-700);
+  border-color: var(--es-teal-700);
   color: #ffffff;
   font-weight: 600;
 }
 .es-chip--more:hover {
-  background: var(--es-blue-800);
-  border-color: var(--es-blue-800);
+  background: var(--es-teal-800);
+  border-color: var(--es-teal-800);
   color: #ffffff;
 }
 
@@ -4122,9 +4351,13 @@ a.es-sponsor:hover { opacity: 0.7; }
   --es-text-muted: rgb(255 255 255 / 0.86);
   --es-border:     rgb(255 255 255 / 0.20);
   --es-bg-sunken:  rgb(255 255 255 / 0.14);
-  --es-accent:     #a9c3ec;
-  --es-accent-hover: #c5d6ef;
-  --es-text-on-accent: var(--es-navy-950);
+  --es-accent:     var(--es-teal-200);
+  --es-accent-hover: var(--es-teal-100);
+  --es-text-on-accent: var(--es-night-950);
+  /* Over a photograph the logo is the guide's reversed version. */
+  --es-logo-mark: #ffffff;
+  --es-logo-ink:  #ffffff;
+  --es-logo-li:   #ffffff;
   color: var(--es-text);
 }
 /* No backdrop blur in the transparent state: blurring a hero's own
@@ -4289,13 +4522,13 @@ a.es-sponsor:hover { opacity: 0.7; }
   margin-inline: auto;
   aspect-ratio: 9 / 18.5;
   border-radius: 2.5rem;
-  background: #0f1c38;
+  background: var(--es-night-900);
   padding: 0.5rem;
   box-shadow:
     0 0 0 1px rgba(255, 255, 255, 0.10) inset,
     0 2px 0 rgba(255, 255, 255, 0.16) inset,
-    0 32px 60px -24px rgba(8, 19, 41, 0.55),
-    0 8px 20px -8px rgba(8, 19, 41, 0.35);
+    0 32px 60px -24px rgba(3, 16, 18, 0.55),
+    0 8px 20px -8px rgba(3, 16, 18, 0.35);
 }
 /* The pill cut-out. On the bezel, above the screen, in the bezel's own
    colour — a notch drawn in a border colour reads as a sticker. */
@@ -4308,7 +4541,7 @@ a.es-sponsor:hover { opacity: 0.7; }
   width: 3.75rem;
   height: 1.05rem;
   border-radius: var(--es-radius-full);
-  background: #0f1c38;
+  background: var(--es-night-900);
   z-index: 2;
 }
 .es-phone__screen {
@@ -4481,7 +4714,7 @@ a.es-sponsor:hover { opacity: 0.7; }
   inset-block-end: 0.75rem;
   inset-inline-start: 0.75rem;
   background: #ffffff;
-  color: var(--es-blue-700);
+  color: var(--es-teal-700);
   font-weight: 600;
 }
 
@@ -4559,7 +4792,7 @@ a.es-sponsor:hover { opacity: 0.7; }
   height: 3.5rem;
   border: 0;
   background: #ffffff;
-  color: var(--es-blue-700);
+  color: var(--es-teal-700);
   box-shadow: var(--es-shadow-lg);
 }
 .es-roundbtn--lg:hover { transform: scale(1.06); background: #ffffff; }
@@ -4795,16 +5028,16 @@ a.es-sponsor:hover { opacity: 0.7; }
      is the same trap as the header's inverted roles leaking into the phone
      menu, and the same fix: an element that changes its ground states its
      text. These are the light theme's measured values, named. */
-  --es-text:          #0f1d3a;
-  --es-text-muted:    #44557a;
-  --es-text-subtle:   #4a5b83;
-  --es-border:        var(--es-mist-200);
-  --es-border-strong: var(--es-mist-400);
+  --es-text:          var(--es-ink-on-light);
+  --es-text-muted:    var(--es-muted-on-light);
+  --es-text-subtle:   var(--es-subtle-on-light);
+  --es-border:        var(--es-grey-200);
+  --es-border-strong: var(--es-grey-400);
   --es-surface:       #ffffff;
-  --es-bg-sunken:     var(--es-mist-100);
-  --es-accent:        var(--es-blue-700);
-  --es-accent-hover:  var(--es-blue-800);
-  --es-accent-wash:   var(--es-mist-100);
+  --es-bg-sunken:     var(--es-grey-100);
+  --es-accent:        var(--es-teal-700);
+  --es-accent-hover:  var(--es-teal-800);
+  --es-accent-wash:   var(--es-teal-50);
   --es-text-on-accent:#ffffff;
   color: var(--es-text);
 
@@ -4821,7 +5054,7 @@ a.es-sponsor:hover { opacity: 0.7; }
      rounded corner against a straight screen edge reads as a mistake. */
   border-radius: var(--es-radius-xl) var(--es-radius-xl) 0 0;
   background: #ffffff;
-  box-shadow: 0 -24px 60px -20px rgba(8, 19, 41, 0.4);
+  box-shadow: 0 -24px 60px -20px rgba(3, 16, 18, 0.4);
   animation: es-sheet-in var(--es-dur-base) var(--es-ease);
 }
 
@@ -4856,7 +5089,7 @@ a.es-sponsor:hover { opacity: 0.7; }
   color: var(--es-text-muted);
   transition: background var(--es-dur-fast) var(--es-ease);
 }
-.es-modal__close:hover { background: var(--es-mist-100); color: var(--es-text); }
+.es-modal__close:hover { background: var(--es-grey-100); color: var(--es-text); }
 
 .es-modal__mark {
   display: inline-flex;
@@ -4865,7 +5098,7 @@ a.es-sponsor:hover { opacity: 0.7; }
   width: 3.5rem;
   height: 3.5rem;
   border-radius: var(--es-radius-full);
-  background: var(--es-mist-100);
+  background: var(--es-grey-100);
   color: var(--es-accent);
 }
 .es-modal__mark--muted { color: var(--es-text-muted); }
@@ -4894,7 +5127,7 @@ a.es-sponsor:hover { opacity: 0.7; }
   height: 2rem;
   flex-shrink: 0;
   border-radius: var(--es-radius-md);
-  background: var(--es-mist-100);
+  background: var(--es-grey-100);
   color: var(--es-accent);
 }
 .es-modal__point-title { display: block; font-size: var(--es-text-sm); font-weight: 600; color: var(--es-text); }
@@ -4913,7 +5146,7 @@ a.es-sponsor:hover { opacity: 0.7; }
   transition: border-color var(--es-dur-fast) var(--es-ease),
               background var(--es-dur-fast) var(--es-ease);
 }
-.es-modal__place:hover { border-color: var(--es-accent); background: var(--es-mist-100); }
+.es-modal__place:hover { border-color: var(--es-accent); background: var(--es-grey-100); }
 .es-modal__place-mark { display: inline-flex; flex-shrink: 0; color: var(--es-accent); }
 .es-modal__place-city { display: block; font-size: var(--es-text-sm); font-weight: 600; }
 .es-modal__place-note { display: block; font-size: var(--es-text-xs); color: var(--es-text-muted); }
@@ -4972,7 +5205,8 @@ a.es-sponsor:hover { opacity: 0.7; }
    THE STOREFRONT — 2026-09-17, built from the approved mockup (version 3
    of the blue storefront review).
 
-   White page, one calm medium blue. Every colour below is a ROLE, so the
+   White page, one brand colour — a calm medium blue then, the brand guide's
+   teal since 2026-10-16; the layout did not change. Every colour below is a ROLE, so the
    dark theme follows without a second block. The only literals are the
    white chips and captions that sit on PHOTOGRAPHS (date badges, poster
    names, the play button, the closing panel's buttons) — a photograph is
@@ -5080,15 +5314,15 @@ a.es-sponsor:hover { opacity: 0.7; }
   cursor: not-allowed;
   transform: none;
 }
-.es-lp-btn--solid { background: var(--es-accent); color: var(--es-text-on-accent); box-shadow: 0 6px 16px rgb(44 98 189 / 0.22); }
+.es-lp-btn--solid { background: var(--es-accent); color: var(--es-text-on-accent); box-shadow: 0 6px 16px rgb(13 91 94 / 0.22); }
 .es-lp-btn--solid:hover { background: var(--es-accent-hover); }
 .es-lp-btn--outline { border-color: var(--es-border-strong); background: var(--es-surface); color: var(--es-text); }
 .es-lp-btn--outline:hover { border-color: var(--es-text); }
 .es-lp-btn--ghost { border-color: var(--es-accent); color: var(--es-accent); }
 .es-lp-btn--ghost:hover { background: var(--es-accent-wash); }
-/* The two on the closing panel, which is a fixed blue in both themes. */
-.es-lp-btn--white { background: #ffffff; color: #2c62bd; }
-.es-lp-btn--white:hover { background: #eef3fb; }
+/* The two on the closing panel, which is a fixed brand teal in both themes. */
+.es-lp-btn--white { background: #ffffff; color: var(--es-teal-700); }
+.es-lp-btn--white:hover { background: var(--es-teal-50); }
 .es-lp-btn--glass { border-color: rgb(255 255 255 / 0.55); color: #ffffff; }
 .es-lp-btn--glass:hover { background: rgb(255 255 255 / 0.12); }
 
@@ -5319,7 +5553,7 @@ a.es-sponsor:hover { opacity: 0.7; }
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(to top, rgb(15 29 58 / 0.7), transparent 50%);
+  background: linear-gradient(to top, rgb(6 24 26 / 0.7), transparent 50%);
   pointer-events: none;
 }
 .es-lp-poster--solo { flex-basis: 100%; aspect-ratio: 4 / 3; }
@@ -5338,7 +5572,7 @@ a.es-sponsor:hover { opacity: 0.7; }
   border-radius: 10px;
   background: #ffffff;
   line-height: 1;
-  color: #0f1d3a;
+  color: var(--es-ink-on-light);
   box-shadow: var(--es-shadow-sm);
 }
 .es-lp-datebadge b { font-size: 1.125rem; font-weight: 700; }
@@ -5348,7 +5582,7 @@ a.es-sponsor:hover { opacity: 0.7; }
   font-size: 0.625rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #2c62bd;
+  color: var(--es-teal-700);
 }
 .es-lp-poster__name {
   position: absolute;
@@ -5927,7 +6161,7 @@ a.es-sponsor:hover { opacity: 0.7; }
   backdrop-filter: blur(8px);
   transition: transform var(--es-duration-fast) var(--es-ease-default), background-color var(--es-duration-fast) var(--es-ease-default);
 }
-.es-lp-film__play:hover { transform: scale(1.06); background: #2c62bd; border-color: #2c62bd; }
+.es-lp-film__play:hover { transform: scale(1.06); background: var(--es-teal-700); border-color: var(--es-teal-700); }
 @media (width >= theme(--breakpoint-md)) { .es-lp-film { aspect-ratio: 21 / 9; } }
 
 /* ── 8 · Testimonials ─────────────────────────────────────────────────── */
@@ -5975,9 +6209,9 @@ a.es-sponsor:hover { opacity: 0.7; }
 }
 
 /* ── 9 · Closing ──────────────────────────────────────────────────────────
-   The page's one blue panel. A fixed gradient rather than roles: it is the
-   same panel in both themes, and the white type on it measures 5.5:1 at
-   its lightest end. */
+   The page's one panel in the brand colour. A fixed gradient rather than
+   roles: it is the same panel in both themes. Teal 700 to 600, and the white
+   type on it measures 6.34:1 at its lightest end. */
 .es-lp-close {
   position: relative;
   overflow: hidden;
@@ -5986,7 +6220,7 @@ a.es-sponsor:hover { opacity: 0.7; }
   gap: 1.25rem;
   padding: clamp(2.25rem, 6vw, 4.5rem) clamp(1.25rem, 5vw, 4rem);
   border-radius: 28px;
-  background: linear-gradient(135deg, #2c62bd 0%, #2f66c2 100%);
+  background: linear-gradient(135deg, var(--es-teal-700) 0%, var(--es-teal-600) 100%);
   text-align: center;
   color: #ffffff;
 }
@@ -6096,7 +6330,7 @@ a.es-sponsor:hover { opacity: 0.7; }
   border-radius: 50%;
   background: var(--es-accent);
   color: var(--es-text-on-accent);
-  box-shadow: 0 10px 24px rgb(44 98 189 / 0.3);
+  box-shadow: 0 10px 24px rgb(13 91 94 / 0.3);
   transition: transform var(--es-duration-fast) var(--es-ease-default);
 }
 .es-lp-chat__button:hover { transform: scale(1.06); }
@@ -6106,7 +6340,7 @@ a.es-sponsor:hover { opacity: 0.7; }
 /* ═══════════════════════════════════════════════════════════════════════
    /events — 2026-09-17, in the storefront's language.
 
-   The controls sit in a white header with the homepage's faint blue glow;
+   The controls sit in a white header with the homepage's faint brand glow;
    the answer sits below on the page. On a phone every event is a compact
    ROW (photo left, details right) rather than a tall card, so ten events
    are about one and a half screens instead of ten.
@@ -6807,7 +7041,7 @@ a.es-sponsor:hover { opacity: 0.7; }
   border-start-start-radius: var(--es-radius-xl);
   border-start-end-radius: var(--es-radius-xl);
   background: var(--es-surface);
-  box-shadow: 0 -10px 30px rgb(15 23 42 / 0.12);
+  box-shadow: 0 -10px 30px rgb(6 24 26 / 0.12);
 }
 
 /* The chosen seats. Capped and scrolled, because this is fixed over the map
@@ -6943,7 +7177,7 @@ a.es-sponsor:hover { opacity: 0.7; }
   z-index: var(--es-z-modal);
   display: flex;
   padding: 0;
-  background: rgb(6 11 22 / 0.94);
+  background: rgb(2 12 13 / 0.94);
   backdrop-filter: blur(6px);
 }
 .es-lightbox__panel {
@@ -7015,7 +7249,7 @@ a.es-sponsor:hover { opacity: 0.7; }
   width: 2rem;
   height: 2rem;
   border-radius: var(--es-radius-full);
-  background: rgb(6 11 22 / 0.55);
+  background: rgb(2 12 13 / 0.55);
   color: #ffffff;
   opacity: 0;
   transition: opacity var(--es-transition-fast);
@@ -7442,7 +7676,7 @@ a.es-sponsor:hover { opacity: 0.7; }
 }
 @media (width >= theme(--breakpoint-lg)) { .es-mk-steps { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.25rem; } }
 
-/* Points: white cards with a blue tick. On a phone they are one swipeable
+/* Points: white cards with a brand-teal tick. On a phone they are one swipeable
    row (.es-lp-rail); from md a grid. */
 .es-mk-points { display: grid; gap: 1rem; }
 .es-mk-point {
@@ -7568,7 +7802,7 @@ a.es-sponsor:hover { opacity: 0.7; }
   box-shadow: var(--es-shadow-lg);
 }
 
-/* The photograph panel — lg and up only. A fixed navy veil over it, so the
+/* The photograph panel — lg and up only. A fixed night (teal-black) veil over it, so the
    white type measures the same whatever photograph an admin uploads. */
 .es-auth__aside {
   position: relative;
@@ -7579,7 +7813,7 @@ a.es-sponsor:hover { opacity: 0.7; }
   min-height: 38rem;
   padding: 3rem;
   overflow: hidden;
-  background: linear-gradient(150deg, #2c62bd, #1f4789);
+  background: linear-gradient(150deg, var(--es-teal-700), var(--es-teal-900));
   color: #ffffff;
 }
 .es-auth__photo { position: absolute; inset: 0; z-index: -2; width: 100%; height: 100%; object-fit: cover; }
@@ -7588,7 +7822,7 @@ a.es-sponsor:hover { opacity: 0.7; }
   position: absolute;
   inset: 0;
   z-index: -1;
-  background: linear-gradient(180deg, rgb(11 22 49 / 0.15) 0%, rgb(11 22 49 / 0.55) 45%, rgb(11 22 49 / 0.9) 100%);
+  background: linear-gradient(180deg, rgb(6 30 32 / 0.15) 0%, rgb(6 30 32 / 0.55) 45%, rgb(6 30 32 / 0.9) 100%);
 }
 .es-auth__aside-body { display: flex; flex-direction: column; gap: 1rem; }
 .es-auth__aside-kicker {
@@ -7623,20 +7857,14 @@ a.es-sponsor:hover { opacity: 0.7; }
 
 .es-auth__main { display: flex; align-items: center; min-width: 0; padding: clamp(1.25rem, 5vw, 3.5rem); }
 .es-auth__form { width: 100%; min-width: 0; max-width: 26rem; margin-inline: auto; }
-.es-auth__mark {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 48px;
-  height: 48px;
-  margin-bottom: 1.25rem;
-  border-radius: 14px;
-  background: var(--es-accent-wash);
-  color: var(--es-accent);
-}
-.es-auth__mark svg { width: 26px; height: 26px; }
+/* The full lockup above the form — mark, word and tagline — where it was a
+   bare mark in a tinted tile. A sign-in page is where a person checks they
+   are on the real site before typing a password, so it carries the whole
+   logo as the guide draws it. The lockup's own clear space supplies the gap
+   above the heading. */
+.es-auth__brand { display: flex; margin-bottom: 0.5rem; }
 
-/* The form parts, scoped: taller, softer fields with a blue focus ring, and
+/* The form parts, scoped: taller, softer fields with a brand focus ring, and
    a square-cornered full-width button like the storefront's. */
 .es-auth label { font-weight: 500; }
 .es-auth .es-input {
@@ -7655,7 +7883,7 @@ a.es-sponsor:hover { opacity: 0.7; }
   min-height: 50px;
   border-radius: 12px;
   font-weight: 600;
-  box-shadow: 0 6px 16px rgb(44 98 189 / 0.22);
+  box-shadow: 0 6px 16px rgb(13 91 94 / 0.22);
 }
 .es-auth a.text-accent { font-weight: 600; }
 
@@ -8686,7 +8914,7 @@ select.es-lp-filter__control { align-self: stretch; height: 100%; }
    Now: the heading with "See all" on the same line, then ONE location bar —
    a pin, where we are looking, the privacy promise as its subtitle — and the
    two ways to change it side by side as real buttons. Results are the same
-   card rail the popular-events band uses, each with its distance in blue. */
+   card rail the popular-events band uses, each with its distance in the brand teal. */
 .es-near.fx-section { padding-top: clamp(2rem, 5vw, 3.5rem); }
 
 .es-near__head {

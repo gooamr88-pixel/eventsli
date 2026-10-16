@@ -1,5 +1,5 @@
 import NavIcon from '../components/shell/NavIcon';
-import { LogoMark } from '../components/brand/Logo';
+import Logo from '../components/brand/Logo';
 import { serverFetch } from '../utils/apiClient';
 
 /**
@@ -18,7 +18,7 @@ import { serverFetch } from '../utils/apiClient';
  *
  * The photograph is the one the admin uploaded for the homepage hero, read from
  * the same cached landing payload. If it cannot be loaded the panel falls back
- * to the brand blue, so a slow CMS never costs anyone the sign-in form.
+ * to the brand teal, so a slow CMS never costs anyone the sign-in form.
  */
 const REASONS = [
   ['ticket', 'Every ticket you buy, in one place — including ones bought as a guest with the same email.'],
@@ -62,7 +62,9 @@ export default async function AuthLayout({ children }) {
 
         <div className="es-auth__main">
           <div className="es-auth__form">
-            <span aria-hidden className="es-auth__mark"><LogoMark /></span>
+            {/* Not a link: the form is the page's only task, and the header
+                above already carries the way home. */}
+            <span aria-hidden className="es-auth__brand"><Logo size="lg" tagline /></span>
             {children}
           </div>
         </div>

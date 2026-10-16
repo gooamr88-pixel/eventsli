@@ -22,7 +22,7 @@ import { Loading, Empty, ErrorNotice } from '../../../../components/Feedback';
  *
  * Renaming and recolouring are offered — the API always allowed both.
  */
-const DEFAULT_COLOR = '#2c62bd';
+const DEFAULT_COLOR = '#0d5b5e';   // the brand teal, --es-teal-700
 
 export default function TableCategories({ eventId }) {
   const toast = useToast();

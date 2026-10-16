@@ -222,6 +222,7 @@ export default function MyTickets() {
               <div key={ticket.id} className="fx-stack fx-stack--sm">
                 <TicketStub
                   ticket={ticket}
+                  event={order.event}
                   timeZone={order.event?.timezone}
                   qrSrc={`${PUBLIC_API_URL}/public/qr/${encodeURIComponent(ticket.qr)}`}
                 />

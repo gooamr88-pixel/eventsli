@@ -93,8 +93,11 @@ export default async function TicketPage({ params }) {
             {single ? 'Your ticket' : `Your tickets · ${tickets.length}`}
           </p>
           <h1 className="text-xl">{event.title || 'Ticket'}</h1>
-          {when && <p className="text-muted">{when}</p>}
-          {venue && <p className="text-muted">{venue}</p>}
+          {/* The time and the venue are ON the ticket now (the brand guide's
+              ticket carries them), so the page does not say them twice. Only
+              when there is no ticket to carry them does the page keep them. */}
+          {tickets.length === 0 && when && <p className="text-muted">{when}</p>}
+          {tickets.length === 0 && venue && <p className="text-muted">{venue}</p>}
           {event.cancelled && (
             <p className="es-notice es-notice--warning">
               This event has been cancelled. Your ticket is kept for your records; the
@@ -125,6 +128,7 @@ export default async function TicketPage({ params }) {
                     others; here the code is what the door is trying to read. */}
                 <TicketStub
                   ticket={ticket}
+                  event={event}
                   timeZone={event.timezone}
                   qrSrc={codes[i]}
                   prominent

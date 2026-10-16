@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Eventsli — app icon (reversed mark on teal). Generated from the product's logo source. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <title>Eventsli</title>
+  <rect width="1024" height="1024" fill="#0D5B5E"/>
+  <g transform="translate(250 256) scale(1.0234)">
+    <path fill-rule="evenodd" d="M90 0H420L512 90V432H420V500H92V432H0V90ZM92 70V432H420V70Z" fill="#FFFFFF"/>
+    <path d="M256 118L284.2 204.7H375.4L301.7 258.3L329.8 345L256 291.5L182.2 345L210.3 258.3L136.6 204.7H227.8Z" fill="#FFFFFF"/>
+  </g>
+</svg>

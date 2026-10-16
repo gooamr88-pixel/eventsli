@@ -149,8 +149,10 @@ export const metadata = {
 
 export const viewport = {
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#2c62bd' },
-    { media: '(prefers-color-scheme: dark)', color: '#09090b' },
+    // The brand guide's teal, and its teal-black for a browser in dark mode:
+    // the site itself is light-only, so the dark entry only tints the chrome.
+    { media: '(prefers-color-scheme: light)', color: '#0d5b5e' },
+    { media: '(prefers-color-scheme: dark)', color: '#061e20' },
   ],
   width: 'device-width',
   initialScale: 1,

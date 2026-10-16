@@ -64,7 +64,7 @@ export const ZONES = Object.freeze({
   welcome_desk: { label: 'Welcome desk', w: 68,  h: 34,  icon: 'clipboard',  color: '#4f6b54' },
   buffet:       { label: 'Buffet',       w: 88,  h: 36,  icon: 'buffet',     color: '#86603a' },
   lounge:       { label: 'Lounge',       w: 88,  h: 64,  icon: 'sofa',       color: '#6a5f85' },
-  custom:       { label: 'Custom area',  w: 76,  h: 52,  icon: 'area',       color: '#2c62bd' },
+  custom:       { label: 'Custom area',  w: 76,  h: 52,  icon: 'area',       color: '#0d5b5e' },
 });
 
 /** The catalogue in the order the Add dialog offers it. Insertion order of a
@@ -136,7 +136,7 @@ export function zoneColor(zone) {
  * until it clears 4.5:1 against both washes, on both map grounds: the hue stays,
  * the fill and outline stay as drawn, and only the words get darker.
  */
-const ZONE_GROUNDS = ['#ffffff', '#eff3fa'];   // the map on a surface, and on bg-sunken
+const ZONE_GROUNDS = ['#ffffff', '#f2f4f5'];   // the map on a surface, and on bg-sunken (--es-grey-100)
 export function zoneInk(color) {
   const rgb = expandHex(color);
   if (!rgb) return color;

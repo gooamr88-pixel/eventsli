@@ -37,15 +37,25 @@
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
-/** The storefront's palette (frontend `globals.css`), named the same way. */
-const BRAND = '#2c62bd';
-const BRAND_DARK = '#1e4a94';
-const INK = '#0f1b2d';
-const MUTED = '#5a6b80';
-const SUBTLE = '#8494a6';
-const LINE = '#e3e8f0';
+/**
+ * The storefront's palette (frontend `globals.css`), named the same way.
+ *
+ * THE BRAND GUIDE'S VALUES since 2026-10-16: Teal #0D5B5E and Light Grey
+ * #F2F4F5 exactly, with the site's measured ink. SUBTLE was #8494a6, which is
+ * 3.0:1 on white — the footer's 12px "why you got this" line failed the same
+ * AA bar the site holds itself to. It is the site's subtle text now (5.7:1).
+ * `BRAND_TINT` is the pale teal the site uses for secondary text ON the brand
+ * colour (4.98:1 on it), for the ticket's header row.
+ */
+const BRAND = '#0d5b5e';
+const BRAND_DARK = '#0a4b4e';
+const BRAND_TINT = '#b9d3d4';
+const INK = '#0b1617';
+const MUTED = '#45585b';
+const SUBTLE = '#566a6d';
+const LINE = '#e2e7e8';
 const SURFACE = '#ffffff';
-const SUNKEN = '#f4f6fb';
+const SUNKEN = '#f2f4f5';
 const WARN_BG = '#fef6e7';
 const WARN_LINE = '#b45309';
 const DANGER_BG = '#fdecec';
@@ -154,26 +164,40 @@ function seatLabel(ticket) {
 /* ── Blocks ──────────────────────────────────────────────────────────────── */
 
 /**
- * The masthead: the mark, then the name in type.
+ * The masthead: a teal bar, the mark, then the name in type with its tagline.
  *
  * The NAME IS TEXT, not part of the image, and that is deliberate. Gmail
  * blocks images from an unknown sender by default, so a logo-as-image
  * masthead is a blank strip on the first email anybody ever gets from us —
  * which is the one that has to look legitimate.
+ *
+ * SET AS THE BRAND GUIDE SETS IT (2026-10-16): "Events" in ink, "li" in the
+ * brand teal, and DISCOVER - BOOK - ENJOY under it — the logo lockup rebuilt
+ * from text, because the real wordmark is an SVG and mail clients drop SVG.
+ * The mark beside it is the framed star on a teal tile (`apple-icon.png`,
+ * rendered from the same paths as the site's logo by scripts/brandIcons.js).
+ *
+ * The 4px bar above is the guide's own motif: every page of it opens under
+ * one. A filled cell rather than a border, because Outlook draws a border-top
+ * on a rounded table as a square line poking out of the corners.
  */
 function header() {
   const logo = `${siteUrl()}/apple-icon.png`;
   return `
   <tr>
-    <td style="padding:28px 32px 20px;background-color:${SURFACE}">
+    <td style="height:4px;line-height:4px;font-size:0;background-color:${BRAND}" bgcolor="${BRAND}">&nbsp;</td>
+  </tr>
+  <tr>
+    <td style="padding:24px 32px 20px;background-color:${SURFACE}">
       <table role="presentation" cellpadding="0" cellspacing="0" border="0">
         <tr>
           <td style="padding-right:10px;vertical-align:middle">
-            <img src="${logo}" width="32" height="32" alt=""
-                 style="display:block;width:32px;height:32px;border:0;border-radius:8px" />
+            <img src="${logo}" width="34" height="34" alt=""
+                 style="display:block;width:34px;height:34px;border:0;border-radius:8px" />
           </td>
           <td style="vertical-align:middle">
-            <span style="font-family:${FONT};font-size:19px;font-weight:700;letter-spacing:-0.02em;color:${INK}">Eventsli</span>
+            <span style="display:block;font-family:${FONT};font-size:20px;line-height:1.1;font-weight:700;letter-spacing:-0.02em;color:${INK}">Events<span style="color:${BRAND}">li</span></span>
+            <span style="display:block;margin-top:2px;font-family:${FONT};font-size:9px;line-height:1.2;font-weight:600;letter-spacing:0.14em;color:${MUTED}">DISCOVER - BOOK - ENJOY</span>
           </td>
         </tr>
       </table>
@@ -357,20 +381,27 @@ function ticketCard(ticket, { index, total } = {}) {
   const label = seatLabel(ticket);
   const counter = total > 1 ? `Ticket ${index + 1} of ${total}` : 'Admits one';
 
+  // THE BRAND GUIDE'S TICKET, in what a mail client can draw: a teal header row
+  // standing in for the stub (the counter, and the ticket type when there is
+  // one), then the seat, the code on white, and "Scan at entry". The code never
+  // sits on teal — a scanner reads contrast, not branding.
   return `
   <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"
-         style="width:100%;margin:0 0 14px;background-color:${SURFACE};border:1px solid ${LINE};border-radius:12px">
+         style="width:100%;margin:0 0 14px;background-color:${SURFACE};border:1px solid ${LINE};border-radius:12px;overflow:hidden">
     <tr>
-      <td align="center" style="padding:20px 18px;background-color:${SURFACE}">
-        <p style="margin:0 0 4px;font-family:${FONT};font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:${SUBTLE}">
-          ${escapeHtml(counter)}
-        </p>
+      <td bgcolor="${BRAND}" style="padding:11px 18px;background-color:${BRAND};font-family:${FONT};font-size:12px;line-height:1.4;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#ffffff">
+        ${escapeHtml(counter)}${ticket.tierName ? `<span style="color:${BRAND_TINT}"> &nbsp;·&nbsp; ${escapeHtml(ticket.tierName)}</span>` : ''}
+      </td>
+    </tr>
+    <tr>
+      <td align="center" style="padding:18px 18px 20px;background-color:${SURFACE}">
         <p style="margin:0 0 14px;font-family:${FONT};font-size:16px;font-weight:700;line-height:1.35;color:${INK}">
           ${escapeHtml(label)}
         </p>
         <img src="${src}" alt="Entry code for ${escapeHtml(label)}" width="200" height="200"
              style="display:block;margin:0 auto;width:200px;height:200px;border:0;background-color:#ffffff;padding:8px;border-radius:8px" />
-        ${ticket.attendeeName ? `<p style="margin:12px 0 0;font-family:${FONT};font-size:13px;color:${MUTED}">
+        <p style="margin:10px 0 0;font-family:${FONT};font-size:12px;font-weight:600;letter-spacing:0.04em;color:${INK}">Scan at entry</p>
+        ${ticket.attendeeName ? `<p style="margin:6px 0 0;font-family:${FONT};font-size:13px;color:${MUTED}">
           ${escapeHtml(ticket.attendeeName)}
         </p>` : ''}
       </td>
@@ -417,7 +448,7 @@ function facts(pairs) {
 }
 
 module.exports = {
-  BRAND, BRAND_DARK, INK, MUTED, SUBTLE, LINE, SURFACE, SUNKEN, FONT, MONO,
+  BRAND, BRAND_DARK, BRAND_TINT, INK, MUTED, SUBTLE, LINE, SURFACE, SUNKEN, FONT, MONO,
   escapeHtml, siteUrl, apiUrl, money, whenText, seatLabel,
   layout, p, button, eventCard, ticketCard, note, quote, facts,
 };
