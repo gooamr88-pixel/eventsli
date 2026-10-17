@@ -1639,11 +1639,102 @@
   color: var(--es-text);
 }
 
-/* The site footer's top edge: a thin rule of the brand teal, which is the
-   brand guide's own motif (every page of it opens under a teal bar). The
-   footer is white, so the rule is what ends the page. Its own class rather
-   than a border on `.es-band--ink`, which marketing blocks also use mid-page. */
-.es-site-foot { border-top: 3px solid var(--es-teal-700); }
+/* ── The site footer (SiteFooter.jsx) ───────────────────────────────────
+   REBUILT 2026-10-17 from the owner's mockup. Light, as the site is: a soft
+   teal-grey wash with two faint curves, under a hairline rather than the old
+   3px teal bar the mockup does not have. After .es-band--ink, so its
+   background wins over that band's plain one. */
+.es-site-foot {
+  position: relative;
+  overflow: hidden;
+  border-top: 1px solid var(--es-border);
+  background:
+    linear-gradient(180deg, rgb(13 91 94 / 0.02), rgb(13 91 94 / 0.045)),
+    var(--es-bg);
+}
+.es-site-foot__shapes { position: absolute; inset: 0; pointer-events: none; }
+.es-site-foot__shapes i { position: absolute; display: block; border-radius: 50%; background: rgb(13 91 94 / 0.045); }
+.es-site-foot__shapes i:nth-child(1) { left: -14rem; bottom: -16rem; width: 30rem; height: 30rem; }
+.es-site-foot__shapes i:nth-child(2) { left: 48%; bottom: -19rem; width: 26rem; height: 22rem; }
+.es-site-foot__inner { position: relative; padding-block: clamp(2.75rem, 6vw, 4.5rem) 1.75rem; }
+.es-site-foot__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2.5rem 1.5rem;
+}
+.es-site-foot__brand {
+  display: flex;
+  grid-column: 1 / -1;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1.25rem;
+}
+.es-site-foot__about {
+  max-width: 36ch;
+  margin: 0;
+  font-size: 0.9375rem;
+  line-height: 1.65;
+  color: var(--es-text-muted);
+}
+.es-site-foot__social { display: flex; flex-wrap: wrap; gap: 0.75rem; margin: 0; padding: 0; list-style: none; }
+.es-site-foot__social a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border: 1px solid var(--es-border);
+  border-radius: 50%;
+  background: var(--es-surface);
+  color: var(--es-text);
+  box-shadow: var(--es-shadow-xs);
+  transition: color var(--es-duration-fast) var(--es-ease-default), border-color var(--es-duration-fast) var(--es-ease-default);
+}
+.es-site-foot__social a:hover { border-color: var(--es-accent); color: var(--es-accent); }
+.es-site-foot__heading {
+  margin: 0 0 0.75rem;
+  font-family: var(--es-font-sans);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--es-accent);
+}
+.es-site-foot__group ul { margin: 0; padding: 0; list-style: none; }
+/* A 44px row on a phone, where a thumb lands on these at the end of every
+   page; the rhythm of the mockup from md up. */
+.es-site-foot__link {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: 0.9375rem;
+  color: var(--es-text);
+  transition: color var(--es-duration-fast) var(--es-ease-default);
+}
+.es-site-foot__link:hover { color: var(--es-accent); }
+.es-site-foot__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1.5rem;
+  margin-top: clamp(2rem, 5vw, 3.5rem);
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--es-border);
+  font-size: 0.875rem;
+  color: var(--es-text-muted);
+}
+.es-site-foot__bar p { margin: 0; }
+.es-site-foot__mail { color: var(--es-text-muted); transition: color var(--es-duration-fast) var(--es-ease-default); }
+.es-site-foot__mail:hover { color: var(--es-text); }
+@media (width >= theme(--breakpoint-md)) {
+  .es-site-foot__grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .es-site-foot__link { min-height: 2.5rem; }
+}
+@media (width >= theme(--breakpoint-lg)) {
+  .es-site-foot__grid { grid-template-columns: minmax(0, 1.7fr) repeat(4, minmax(0, 1fr)); gap: 3rem; }
+  .es-site-foot__brand { grid-column: auto; }
+}
 
 /* ── .es-band--field — the brand as a GROUND ────────────────────────────
    ADDED 2026-09-06. The measurement that produced it: emerald appeared 62
@@ -5320,6 +5411,9 @@ a.es-sponsor:hover { opacity: 0.7; }
 .es-lp-btn--outline:hover { border-color: var(--es-text); }
 .es-lp-btn--ghost { border-color: var(--es-accent); color: var(--es-accent); }
 .es-lp-btn--ghost:hover { background: var(--es-accent-wash); }
+/* The hero's second button: the ghost's teal outline on a white face. */
+.es-lp-btn--line { border-color: var(--es-accent); background: var(--es-surface); color: var(--es-accent); }
+.es-lp-btn--line:hover { background: var(--es-accent-wash); }
 /* The two on the closing panel, which is a fixed brand teal in both themes. */
 .es-lp-btn--white { background: #ffffff; color: var(--es-teal-700); }
 .es-lp-btn--white:hover { background: var(--es-teal-50); }
@@ -5327,46 +5421,61 @@ a.es-sponsor:hover { opacity: 0.7; }
 .es-lp-btn--glass:hover { background: rgb(255 255 255 / 0.12); }
 
 /* ── 1 · Hero ─────────────────────────────────────────────────────────── */
+/* REBUILT 2026-10-17 from the owner's mockup — see Hero.jsx.
+
+   Below lg it is one column: the copy, the search card, then a full-width
+   photograph that the card overlaps. From lg up the photograph leaves the
+   flow and fills the right half, cut on a diagonal by an SVG mask with a
+   translucent teal shape behind it, and runs off the edge of the screen; the
+   search bar reaches across onto it and the partner card covers its foot.
+
+   No `.fx-section` on the hero itself: the phone photograph is full-bleed, so
+   the gutters are on the two wrappers instead (`__inner`, `__partners`), with
+   the same values `.fx-section` uses. */
 .es-lp-hero {
   position: relative;
   overflow: hidden;
   background:
-    radial-gradient(45% 45% at 90% 10%, var(--es-accent-subtle), transparent 70%),
-    radial-gradient(40% 40% at 6% 60%, var(--es-accent-subtle), transparent 70%),
+    radial-gradient(55% 45% at 0% 0%, var(--es-accent-subtle), transparent 72%),
+    radial-gradient(30% 26% at 100% 4%, var(--es-accent-subtle), transparent 70%),
     var(--es-bg);
 }
-.es-lp-hero__head {
+.es-lp-hero__top { position: relative; }
+.es-lp-hero__inner,
+.es-lp-hero__partners {
   position: relative;
-  z-index: 1;
+  z-index: 2;
+  padding-left: max(var(--fx-pad-x), var(--fx-safe-l));
+  padding-right: max(var(--fx-pad-x), var(--fx-safe-r));
+}
+.es-lp-hero__inner { padding-top: clamp(2.25rem, 6vw, 6rem); }
+.es-lp-hero:not(.es-lp-hero--art) .es-lp-hero__inner { padding-bottom: clamp(2rem, 5vw, 3rem); }
+
+.es-lp-hero__copy {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   gap: 1.125rem;
-  max-width: 52rem;
-  margin-inline: auto;
-  text-align: center;
+  max-width: 38rem;
 }
 .es-lp-pill {
   display: inline-flex;
   align-items: center;
-  gap: 0.625rem;
-  padding: 5px 14px 5px 5px;
+  gap: 0.5rem;
+  padding: 0.4375rem 0.875rem 0.4375rem 0.75rem;
   border: 1px solid var(--es-border);
   border-radius: var(--es-radius-full);
   background: var(--es-surface);
   box-shadow: var(--es-shadow-xs);
-  font-size: var(--es-text-sm);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
   color: var(--es-text-muted);
 }
-.es-lp-pill b {
-  padding: 3px 10px;
-  border-radius: var(--es-radius-full);
-  background: var(--es-accent-wash);
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.03em;
-  color: var(--es-accent);
-}
+.es-lp-pill svg { flex-shrink: 0; color: var(--es-accent); }
+.es-lp-pill b { font-weight: 700; color: var(--es-accent); }
 /* Only when the admin has given the badge somewhere to go. A pill that looks
    clickable and is not is worse than one that plainly is not, so the hover
    affordance is on the variant rather than on the base. */
@@ -5381,81 +5490,76 @@ a.es-sponsor:hover { opacity: 0.7; }
 .es-lp-hero__title {
   margin: 0;
   font-family: var(--es-font-sans);
-  font-size: clamp(2.125rem, 1.1rem + 4.6vw, 4.25rem);
+  font-size: clamp(2.375rem, 1.2rem + 3.9vw, 4.25rem);
   font-weight: 700;
-  line-height: 1.07;
-  letter-spacing: -0.032em;
+  line-height: 1.04;
+  letter-spacing: -0.035em;
   color: var(--es-text);
-  text-wrap: balance;
 }
-.es-lp-swash { position: relative; display: inline-block; color: var(--es-accent); }
-.es-lp-swash svg {
-  position: absolute;
-  left: 0;
-  bottom: -0.14em;
-  width: 100%;
-  height: 0.26em;
-  color: var(--es-accent-edge);
-}
+/* Its own line on a phone ("Extraordinary / Moments / Live Here"); never
+   broken in two on a desktop. */
+.es-lp-hero__accent { display: block; color: var(--es-accent); }
 .es-lp-hero__body {
   margin: 0;
-  max-width: 56ch;
+  max-width: 35rem;
   font-size: clamp(1rem, 0.95rem + 0.3vw, 1.1875rem);
-  line-height: 1.6;
+  line-height: 1.55;
   color: var(--es-text-muted);
   text-wrap: pretty;
 }
-.es-lp-hero__ctas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.625rem; width: 100%; padding-top: 0.375rem; }
-.es-lp-hero__ctas .es-lp-btn { padding-inline: 0.75rem; }
-
-/* Soft rings and dots around the headline. Decoration only, and only
-   where there is room — on a phone they land on the words. */
-.es-lp-dots { position: absolute; inset: 0; display: none; pointer-events: none; }
-.es-lp-dots i { position: absolute; display: block; border-radius: 50%; }
-.es-lp-dots i:nth-child(1) { left: 8%; top: 18%; width: 10px; height: 10px; background: var(--es-accent-edge); }
-.es-lp-dots i:nth-child(2) { left: 15%; top: 46%; width: 18px; height: 18px; border: 2px solid var(--es-accent-edge); }
-.es-lp-dots i:nth-child(3) { right: 10%; top: 14%; width: 14px; height: 14px; border: 2px solid var(--es-accent-edge); }
-.es-lp-dots i:nth-child(4) { right: 16%; top: 42%; width: 8px; height: 8px; background: var(--es-accent-edge); }
-.es-lp-dots i:nth-child(5) { left: 30%; top: 6%; width: 6px; height: 6px; background: var(--es-accent-edge); }
-.es-lp-dots i:nth-child(6) { right: 32%; top: 5%; width: 5px; height: 5px; background: var(--es-accent-edge); }
+.es-lp-hero__ctas {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  width: 100%;
+  padding-top: 0.375rem;
+}
+.es-lp-hero__ctas .es-lp-btn { min-height: 52px; padding-inline: 0.75rem; border-radius: 10px; }
+/* The mockup drops the arrow on a phone, where the two buttons share a row. */
+.es-lp-hero__ctas .es-lp-btn svg { display: none; }
 
 @media (width >= theme(--breakpoint-sm)) {
-  .es-lp-hero__ctas { display: flex; justify-content: center; width: auto; }
-  .es-lp-hero__ctas .es-lp-btn { min-width: 12rem; padding-inline: 1.5rem; }
+  .es-lp-hero__ctas { display: flex; width: auto; gap: 1.25rem; }
+  .es-lp-hero__ctas .es-lp-btn { min-width: 10.5rem; padding-inline: 1.5rem; }
+  .es-lp-hero__ctas .es-lp-btn svg { display: inline; }
 }
-@media (width >= theme(--breakpoint-md)) { .es-lp-dots { display: block; } }
+@media (width >= theme(--breakpoint-lg)) {
+  .es-lp-hero__accent { display: inline; white-space: nowrap; }
+}
 
-/* The filter bar */
+/* The search bar. A card of three stacked rows beside a round arrow on a
+   phone; one row with dividers and a "Search" button from sm up. */
 .es-lp-filter {
   position: relative;
-  z-index: 2;
+  z-index: 3;
   display: flex;
   align-items: center;
-  gap: 0.625rem;
-  max-width: 56rem;
-  margin: clamp(1.75rem, 4vw, 2.5rem) auto 0;
-  padding: 8px 8px 8px 14px;
+  gap: 0.75rem;
+  margin-top: 1.75rem;
+  padding: 0.25rem 0.875rem 0.25rem 1rem;
   border: 1px solid var(--es-border);
-  border-radius: 16px;
+  border-radius: 18px;
   background: var(--es-surface);
-  box-shadow: var(--es-shadow-lg);
+  box-shadow: 0 22px 44px -18px rgb(6 24 26 / 0.22), 0 2px 6px rgb(6 24 26 / 0.05);
 }
+.es-lp-filter__fields { display: flex; flex: 1 1 auto; flex-direction: column; min-width: 0; }
 .es-lp-filter__field {
   position: relative;
   display: flex;
-  flex: 1 1 0;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.75rem;
   min-width: 0;
-  height: var(--fx-touch);
-  padding-inline: 2px 18px;
-  border-bottom: 1.5px solid var(--es-border);
+  height: 3.25rem;
   color: var(--es-text-muted);
   text-align: start;
   cursor: pointer;
 }
-.es-lp-filter__field:focus-within { border-bottom-color: var(--es-accent); }
-.es-lp-filter__icon { display: inline-flex; flex-shrink: 0; color: var(--es-accent); }
+.es-lp-filter__field + .es-lp-filter__field { border-top: 1px solid var(--es-border); }
+/* The ring is the field's underline, not an outline inside a transparent
+   control where it clips. */
+.es-lp-filter__field:focus-within { box-shadow: inset 0 -2px 0 var(--es-accent); }
+.es-lp-filter__field:focus-within .es-lp-filter__icon { color: var(--es-accent); }
+.es-lp-filter__icon { display: inline-flex; flex-shrink: 0; color: var(--es-text-muted); }
 .es-lp-filter__control {
   display: block;
   flex: 1 1 auto;
@@ -5466,30 +5570,20 @@ a.es-sponsor:hover { opacity: 0.7; }
   appearance: none;
   background: transparent;
   font: inherit;
-  font-size: var(--es-text-sm);
+  font-size: 0.9375rem;
   color: var(--es-text-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   cursor: pointer;
 }
-/* The ring is the field's underline, not an outline inside a transparent
-   control where it clips. */
 .es-lp-filter__control:focus { outline: none; }
-.es-lp-filter__chev {
-  position: absolute;
-  inset-inline-end: 4px;
-  top: 50%;
-  width: 7px;
-  height: 7px;
-  border-right: 1.5px solid currentColor;
-  border-bottom: 1.5px solid currentColor;
-  transform: translateY(-70%) rotate(45deg);
-  pointer-events: none;
-}
+input.es-lp-filter__control[type='search'] { height: 100%; color: var(--es-text); cursor: text; }
+input.es-lp-filter__control::placeholder { color: var(--es-text-muted); opacity: 1; }
+input.es-lp-filter__control::-webkit-search-cancel-button { display: none; }
 .es-lp-filter__date { position: relative; display: flex; flex: 1 1 auto; align-items: center; min-width: 0; height: 100%; }
 .es-lp-filter__date > span { position: absolute; inset-inline: 0; pointer-events: none; }
-.es-lp-filter__control--date { height: 100%; }
+.es-lp-filter__control--date { height: 100%; color: var(--es-text); }
 .es-lp-filter__control--blank { color: transparent; }
 .es-lp-filter__control--blank::-webkit-datetime-edit { opacity: 0; }
 .es-lp-filter__control--date::-webkit-calendar-picker-indicator {
@@ -5505,60 +5599,323 @@ a.es-sponsor:hover { opacity: 0.7; }
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
+  width: 3.25rem;
+  height: 3.25rem;
+  border-radius: 50%;
   background: var(--es-accent);
   font-weight: 600;
   color: var(--es-text-on-accent);
+  box-shadow: 0 8px 18px -6px rgb(13 91 94 / 0.45);
   transition: background-color var(--es-duration-fast) var(--es-ease-default);
 }
 .es-lp-filter__submit:hover { background: var(--es-accent-hover); }
+.es-lp-filter__submit-icon { display: inline-flex; }
 .es-lp-filter__submit-label { display: none; }
 
-@media (width >= theme(--breakpoint-md)) {
-  .es-lp-filter { gap: 1.375rem; padding: 10px 10px 10px 22px; }
-  .es-lp-filter__submit { width: auto; height: 52px; padding-inline: 1.5rem; }
+@media (width >= theme(--breakpoint-sm)) {
+  .es-lp-filter { padding: 0.5rem 0.5rem 0.5rem 1.25rem; border-radius: 16px; }
+  .es-lp-filter__fields { flex-direction: row; align-items: center; }
+  .es-lp-filter__field { flex: 1 1 0; padding-inline: 1.125rem; }
+  .es-lp-filter__field:first-child { flex-grow: 1.2; padding-inline-start: 0; }
+  /* Short dividers between the segments, not full-height rules. */
+  .es-lp-filter__field + .es-lp-filter__field { border-top: 0; }
+  .es-lp-filter__field + .es-lp-filter__field::before {
+    content: '';
+    position: absolute;
+    inset-inline-start: 0;
+    top: 26%;
+    bottom: 26%;
+    width: 1px;
+    background: var(--es-border);
+  }
+  .es-lp-filter__submit { width: auto; height: 3.25rem; padding-inline: 2rem; border-radius: 12px; box-shadow: none; }
+  .es-lp-filter__submit-icon { display: none; }
   .es-lp-filter__submit-label { display: inline; }
 }
+@media (width >= theme(--breakpoint-lg)) {
+  .es-lp-filter { width: 77%; margin-top: 2.25rem; }
+}
 
-/* The poster fan. A snapping rail on a phone; from lg up, the posters fan
-   out from the middle one, which is larger and in front. `--i` is each
-   poster's distance from the centre, set by the component. */
-.es-lp-fan {
+/* The photograph. A full-width strip under the search card below lg. */
+.es-lp-hero__art {
   position: relative;
-  display: flex;
-  gap: 0.75rem;
-  margin: 2rem calc(-1 * var(--fx-pad-x)) 0;
-  padding: 8px var(--fx-pad-x) 14px;
-  overflow-x: auto;
-  scroll-snap-type: x mandatory;
-  scroll-padding-inline: var(--fx-pad-x);
-  scrollbar-width: none;
+  z-index: 1;
+  aspect-ratio: 2 / 1;
+  max-height: 24rem;
+  margin-top: 2rem;
 }
-.es-lp-fan::-webkit-scrollbar { display: none; }
-.es-lp-poster {
+.es-lp-hero__top:has(.es-lp-filter) .es-lp-hero__art { margin-top: -3.25rem; }
+.es-lp-hero__glow { display: none; }
+.es-lp-hero__photo,
+.es-lp-hero__photo img { display: block; width: 100%; height: 100%; }
+.es-lp-hero__photo img { object-fit: cover; object-position: 40% 55%; }
+/* The strip fades in behind the search card instead of starting on a hard
+   line, and settles into the partners band below it. */
+@media (width < theme(--breakpoint-lg)) {
+  .es-lp-hero__photo {
+    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 30%, #000 88%, transparent);
+            mask-image: linear-gradient(to bottom, transparent, #000 30%, #000 88%, transparent);
+  }
+}
+
+@media (width >= theme(--breakpoint-lg)) {
+  .es-lp-hero--art .es-lp-hero__top { min-height: 37rem; }
+  .es-lp-hero__art {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: calc(50% - 2rem);
+    height: auto;
+    max-height: none;
+    aspect-ratio: auto;
+    margin: 0;
+  }
+  /* Only the margin: a `bottom` here would outrank the partners rule below,
+     because `:has()` carries the specificity of its argument. */
+  .es-lp-hero__top:has(.es-lp-filter) .es-lp-hero__art { margin-top: 0; }
+  /* Down behind the partner card, which is white and sits above it, so the
+     photograph's foot passes under the search bar as in the mockup. */
+  .es-lp-hero--partners .es-lp-hero__art { bottom: -10.5rem; }
+  .es-lp-hero__photo,
+  .es-lp-hero__glow {
+    position: absolute;
+    inset: 0;
+    -webkit-mask-size: 100% 100%;
+            mask-size: 100% 100%;
+    -webkit-mask-repeat: no-repeat;
+            mask-repeat: no-repeat;
+  }
+  .es-lp-hero__photo {
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cpath d='M16 0H100V86C97 84.5 93 84 88 84H56C51.5 84 48.5 82 46.5 78.5L7.2 12C4.8 7 8 0 16 0Z'/%3E%3C/svg%3E");
+            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cpath d='M16 0H100V86C97 84.5 93 84 88 84H56C51.5 84 48.5 82 46.5 78.5L7.2 12C4.8 7 8 0 16 0Z'/%3E%3C/svg%3E");
+  }
+  .es-lp-hero__photo img { object-position: 18% 50%; }
+  /* The translucent teal shape a little behind and below the photograph,
+     deepening to the brand teal where it shows under the corner. */
+  .es-lp-hero__glow {
+    display: block;
+    background:
+      radial-gradient(55% 34% at 100% 100%, rgb(13 91 94 / 0.7), transparent 78%),
+      linear-gradient(160deg, rgb(13 91 94 / 0.07), rgb(13 91 94 / 0.14));
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cpath d='M12 0H100V100C97 95.5 92.5 92.5 86 92H54C48 92 44.5 89.5 42.5 85.5L3.8 13C1.8 7.5 5 0 12 0Z'/%3E%3C/svg%3E");
+            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cpath d='M12 0H100V100C97 95.5 92.5 92.5 86 92H54C48 92 44.5 89.5 42.5 85.5L3.8 13C1.8 7.5 5 0 12 0Z'/%3E%3C/svg%3E");
+  }
+}
+
+/* The partner logos, in a white card at the foot of the hero.
+   LARGE ON PURPOSE (owner, 2026-10-17: "more large and very clear for any
+   visitor"): each logo has a tile tall enough to read a wordmark's small
+   print, and the heading is full-strength text rather than a grey whisper. */
+.es-lp-hero__partners { padding-top: clamp(2rem, 4vw, 2.75rem); padding-bottom: clamp(2.5rem, 5vw, 4rem); }
+.es-lp-partners__label {
+  margin: 0 0 1.25rem;
+  font-size: clamp(0.8125rem, 0.75rem + 0.3vw, 0.9375rem);
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-align: center;
+  text-transform: uppercase;
+  color: var(--es-text);
+}
+.es-lp-partners__frame { display: flex; align-items: center; }
+/* The card is the viewport; the track inside it glides (PartnerCarousel.jsx).
+   Its ends fade into the card so a logo slides in and out rather than being
+   cut by the border. With touch-action pan-y a vertical swipe still scrolls
+   the page, and a sideways one drags the logos. */
+.es-lp-partners__viewport {
   position: relative;
-  flex: 0 0 56%;
+  flex: 1 1 auto;
+  min-width: 0;
   overflow: hidden;
-  aspect-ratio: 4 / 5;
-  border-radius: 16px;
-  background: var(--es-bg-sunken);
-  box-shadow: var(--es-shadow-md);
-  scroll-snap-align: center;
-  transition: transform 400ms var(--es-ease-spring), box-shadow 400ms var(--es-ease-default);
+  padding-block: 0.875rem;
+  border: 1px solid var(--es-border);
+  border-radius: 26px;
+  background: var(--es-surface);
+  box-shadow: 0 18px 40px -20px rgb(6 24 26 / 0.25), 0 2px 6px rgb(6 24 26 / 0.04);
+  touch-action: pan-y;
+  cursor: grab;
+  user-select: none;
 }
-.es-lp-poster::after {
+.es-lp-partners__viewport:active { cursor: grabbing; }
+.es-lp-partners__viewport::before,
+.es-lp-partners__viewport::after {
   content: '';
   position: absolute;
-  inset: 0;
-  background: linear-gradient(to top, rgb(6 24 26 / 0.7), transparent 50%);
+  top: 0;
+  bottom: 0;
+  z-index: 1;
+  width: 2.5rem;
   pointer-events: none;
 }
-.es-lp-poster--solo { flex-basis: 100%; aspect-ratio: 4 / 3; }
-.es-lp-poster--solo::after { display: none; }
-.es-lp-poster__img { width: 100%; height: 100%; object-fit: cover; }
+.es-lp-partners__viewport::before { left: 0; background: linear-gradient(90deg, var(--es-surface), transparent); }
+.es-lp-partners__viewport::after { right: 0; background: linear-gradient(-90deg, var(--es-surface), transparent); }
+.es-lp-partners__track {
+  display: flex;
+  width: max-content;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  will-change: transform;
+}
+.es-lp-partners__item {
+  position: relative;
+  display: flex;
+  flex: 0 0 8.5rem;
+  align-items: center;
+  justify-content: center;
+  height: 4.25rem;
+  padding-inline: 1rem;
+}
+/* On every tile's trailing side, so the divider at the loop's seam is the
+   same one either side of the wrap. */
+.es-lp-partners__item::after {
+  content: '';
+  position: absolute;
+  inset-inline-end: 0;
+  top: 12%;
+  bottom: 12%;
+  width: 1px;
+  background: var(--es-border);
+}
+/* No `mix-blend-mode`: it blanked logos inside a clipped scroller when the
+   old strip tried it. A logo with a box around it needs a cropped upload. */
+.es-lp-partners__mark { display: block; max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; }
+.es-lp-partners__nav {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 3rem;
+  color: var(--es-text);
+  cursor: pointer;
+  transition: opacity var(--es-duration-fast) var(--es-ease-default), color var(--es-duration-fast) var(--es-ease-default);
+}
+.es-lp-partners__nav:hover { color: var(--es-accent); }
+.es-lp-partners__progress {
+  position: relative;
+  overflow: hidden;
+  width: min(9rem, 40%);
+  height: 3px;
+  margin: 1rem auto 0;
+  border-radius: 3px;
+  background: var(--es-border);
+}
+.es-lp-partners__progress i {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 25%;
+  border-radius: inherit;
+  background: var(--es-accent);
+}
+@media (width >= theme(--breakpoint-lg)) {
+  .es-lp-partners__viewport { padding-block: 1.25rem; border-radius: 32px; }
+  .es-lp-partners__viewport::before,
+  .es-lp-partners__viewport::after { width: 4.5rem; }
+  .es-lp-partners__item { flex-basis: 13rem; height: 6rem; padding-inline: 1.75rem; }
+  /* Round white buttons that overlap the card's ends. */
+  .es-lp-partners__nav {
+    width: 2.75rem;
+    border: 1px solid var(--es-border);
+    border-radius: 50%;
+    background: var(--es-surface);
+    box-shadow: var(--es-shadow-md);
+  }
+  .es-lp-partners__nav--prev { margin-inline-end: -1.375rem; }
+  .es-lp-partners__nav--next { margin-inline-start: -1.375rem; }
+}
+
+/* The "tiles" look (the band above the footer): no card, a white tile per
+   logo, round white arrows beside the row and no progress bar. The row's
+   ends fade with a mask, because the band behind it is a wash and not a flat
+   colour a gradient could match. */
+.es-lp-partners--tiles .es-lp-partners__frame { gap: 0.5rem; }
+.es-lp-partners--tiles .es-lp-partners__viewport {
+  padding-block: 0.5rem 1rem;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent);
+          mask-image: linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent);
+}
+.es-lp-partners--tiles .es-lp-partners__viewport::before,
+.es-lp-partners--tiles .es-lp-partners__viewport::after,
+.es-lp-partners--tiles .es-lp-partners__item::after,
+.es-lp-partners--tiles .es-lp-partners__progress { display: none; }
+.es-lp-partners--tiles .es-lp-partners__item {
+  flex-basis: 9.5rem;
+  height: 5.25rem;
+  margin-inline-end: 0.75rem;
+  padding: 0.875rem 1.25rem;
+  border: 1px solid var(--es-border);
+  border-radius: 14px;
+  background: var(--es-surface);
+  box-shadow: 0 10px 24px -16px rgb(6 24 26 / 0.3), 0 1px 2px rgb(6 24 26 / 0.04);
+}
+.es-lp-partners--tiles .es-lp-partners__nav {
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 1px solid var(--es-border);
+  border-radius: 50%;
+  background: var(--es-surface);
+  box-shadow: var(--es-shadow-sm);
+}
+@media (width >= theme(--breakpoint-lg)) {
+  .es-lp-partners--tiles .es-lp-partners__frame { gap: 1rem; }
+  .es-lp-partners--tiles .es-lp-partners__item { flex-basis: 12rem; height: 6.5rem; padding: 1rem 1.5rem; }
+  .es-lp-partners--tiles .es-lp-partners__nav { width: 3rem; height: 3rem; margin: 0; }
+}
+
+/* The partners band — the last band of the homepage, above the footer. */
+.es-lp-band-partners {
+  position: relative;
+  overflow: hidden;
+  padding-block: clamp(3rem, 7vw, 5.5rem);
+  padding-left: max(var(--fx-pad-x), var(--fx-safe-l));
+  padding-right: max(var(--fx-pad-x), var(--fx-safe-r));
+  background:
+    linear-gradient(180deg, rgb(13 91 94 / 0.04), rgb(13 91 94 / 0.07)),
+    var(--es-bg);
+}
+.es-lp-band-partners__shapes { position: absolute; inset: 0; pointer-events: none; }
+.es-lp-band-partners__shapes i { position: absolute; display: block; border-radius: 50%; background: rgb(13 91 94 / 0.05); }
+.es-lp-band-partners__shapes i:nth-child(1) { left: -12rem; bottom: -14rem; width: 28rem; height: 28rem; }
+.es-lp-band-partners__shapes i:nth-child(2) { right: -9rem; top: -11rem; width: 22rem; height: 22rem; }
+.es-lp-band-partners__shapes i:nth-child(3) { right: -4rem; bottom: -7rem; width: 12rem; height: 12rem; }
+.es-lp-band-partners__inner { position: relative; text-align: center; }
+.es-lp-band-partners__eyebrow {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--es-accent);
+}
+.es-lp-band-partners__title {
+  margin: 0.75rem 0 0;
+  font-family: var(--es-font-sans);
+  font-size: clamp(1.875rem, 1.2rem + 2.4vw, 2.75rem);
+  font-weight: 700;
+  line-height: 1.12;
+  letter-spacing: -0.03em;
+  color: var(--es-text);
+  text-wrap: balance;
+}
+.es-lp-band-partners__lede {
+  max-width: 46ch;
+  margin: 0.875rem auto clamp(1.75rem, 4vw, 2.5rem);
+  font-size: clamp(0.9375rem, 0.9rem + 0.2vw, 1.0625rem);
+  line-height: 1.6;
+  color: var(--es-text-muted);
+}
+
+/* The date badge on an event card's cover (EventCard.jsx). It was born on
+   the hero's posters and stayed when they went. */
 .es-lp-datebadge {
   position: absolute;
   left: 12px;
@@ -5583,102 +5940,6 @@ a.es-sponsor:hover { opacity: 0.7; }
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--es-teal-700);
-}
-.es-lp-poster__name {
-  position: absolute;
-  left: 14px;
-  right: 14px;
-  bottom: 14px;
-  z-index: 1;
-  font-size: var(--es-text-base);
-  font-weight: 600;
-  line-height: 1.25;
-  color: #ffffff;
-}
-.es-lp-poster__name small { display: block; margin-top: 2px; font-size: 0.8125rem; font-weight: 400; opacity: 0.88; }
-/* Two lines at most: a long title on a 240px poster otherwise climbs into
-   the neighbour's artwork. */
-.es-lp-poster__title { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
-
-@media (width >= theme(--breakpoint-lg)) {
-  .es-lp-fan { height: 27rem; margin: 3rem 0 0; padding: 0; overflow: visible; }
-  .es-lp-poster {
-    position: absolute;
-    left: 50%;
-    top: 24px;
-    width: 240px;
-    flex: none;
-    margin-left: -120px;
-    transform:
-      translateX(calc(var(--i) * clamp(150px, 16vw, 200px)))
-      translateY(calc(var(--i) * var(--i) * 12px))
-      rotate(calc(var(--i) * 5deg));
-    z-index: calc(10 - var(--i) * var(--i));
-  }
-  .es-lp-poster:hover {
-    z-index: 20;
-    box-shadow: var(--es-shadow-lg);
-    transform:
-      translateX(calc(var(--i) * clamp(150px, 16vw, 200px)))
-      translateY(calc(var(--i) * var(--i) * 12px - 12px))
-      rotate(calc(var(--i) * 5deg));
-  }
-  .es-lp-poster--lead { top: 0; width: 280px; margin-left: -140px; }
-  /* Centred: the left margin is minus HALF THE WIDTH, and the width is the
-     smaller of 100% and 44rem — so the margin is the LESS negative of -50%
-     and -22rem, which is max(). It was min(), which on any screen wider than
-     44rem picked -50% and pinned the artwork to the left edge (found
-     2026-10-16 in the owner's review). */
-  .es-lp-poster--solo { top: 0; width: min(100%, 44rem); margin-left: max(-50%, -22rem); aspect-ratio: 16 / 9; }
-}
-
-/* ── The picture and the search as one piece, on a phone ────────────────
-   2026-10-16, owner's review. With no event covers yet the admin's artwork
-   stands alone, and it used to sit BELOW the search card as a second box
-   with a gap between. Below lg the artwork now comes first and the search
-   card overlaps its lower edge. Visual order only — see Hero.jsx. From lg up
-   nothing changes: the search above, the wide artwork beneath. */
-.es-lp-stage { display: flex; flex-direction: column; }
-@media (width < theme(--breakpoint-lg)) {
-  .es-lp-stage--solo .es-lp-fan { order: -1; margin-top: clamp(1.5rem, 6vw, 2rem); padding-bottom: 0; }
-  .es-lp-stage--solo .es-lp-poster--solo { aspect-ratio: 4 / 3; border-radius: 20px; }
-  .es-lp-stage--solo .es-lp-filter { margin-top: -3.25rem; margin-inline: 0.75rem; }
-}
-
-/* The numbers, in a white card under the posters */
-.es-lp-stats { position: relative; z-index: 3; margin-top: clamp(0.5rem, 2vw, 1rem); }
-/* FLEX, CENTRED, on a phone. It was a fixed two-column grid, so an odd count
-   left the last number alone in the left half of an empty row. */
-.es-lp-stats__card {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 1.25rem 0.75rem;
-  padding: 1.5rem 1rem;
-  border: 1px solid var(--es-border);
-  border-radius: 20px;
-  background: var(--es-surface);
-  box-shadow: var(--es-shadow-md);
-}
-.es-lp-stat { display: flex; flex: 1 1 40%; flex-direction: column; align-items: center; gap: 2px; text-align: center; }
-.es-lp-stat__value {
-  font-size: clamp(1.75rem, 1.1rem + 2.2vw, 2.625rem);
-  font-weight: 700;
-  line-height: 1.1;
-  letter-spacing: -0.03em;
-  color: var(--es-accent);
-}
-.es-lp-stat__label {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.375rem;
-  font-size: var(--es-text-sm);
-  color: var(--es-text-muted);
-}
-.es-lp-stat__label svg { color: var(--es-accent); }
-@media (width >= theme(--breakpoint-md)) {
-  .es-lp-stats__card { display: grid; grid-template-columns: repeat(var(--es-lp-cols, 4), minmax(0, 1fr)); padding: 1.875rem 1.25rem; }
-  .es-lp-stat + .es-lp-stat { border-inline-start: 1px solid var(--es-border); }
 }
 
 /* ── 2 · Search ───────────────────────────────────────────────────────── */
@@ -6073,59 +6334,6 @@ a.es-sponsor:hover { opacity: 0.7; }
 }
 .es-lp-steps__cta { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.75rem; margin-top: 2rem; }
 @media (width >= theme(--breakpoint-lg)) { .es-lp-steps { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.25rem; } }
-
-/* ── 6 · Sponsor logos ────────────────────────────────────────────────────
-   Each logo carries its own trailing space rather than the track using
-   gap, so the doubled list is exactly twice one list and -50% lands on the
-   seam with no jump. */
-/* REDESIGNED 2026-10-16 (owner: "more large and very clear"). Logos were
-   bare marks capped at 48px tall and 144px wide, floating on white — a small
-   grey row the eye slid past. Each sponsor now has a white TILE of its own,
-   about twice the size, with the logo contained inside it, so a wide wordmark
-   and a square crest read at the same visual weight. The strip fades out at
-   both edges instead of being cut by them. */
-.es-lp-logos { overflow: hidden; padding-block: clamp(2.5rem, 6vw, 4rem); }
-.es-lp-logos__label {
-  margin: 0 0 1.5rem;
-  font-family: var(--es-font-mono);
-  font-size: 0.8125rem;
-  letter-spacing: 0.16em;
-  text-align: center;
-  text-transform: uppercase;
-  color: var(--es-accent);
-}
-.es-lp-logos__viewport {
-  overflow: hidden;
-  padding-block: 6px 10px;   /* room for the tiles' shadow */
-  -webkit-mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
-          mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
-}
-.es-lp-logos__track { display: flex; width: max-content; margin: 0; padding: 0; list-style: none; animation: es-lp-drift 55s linear infinite; }
-.es-lp-logos:hover .es-lp-logos__track { animation-play-state: paused; }
-.es-lp-logos__item {
-  display: flex;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  width: clamp(10rem, 38vw, 13.5rem);
-  height: clamp(5.5rem, 16vw, 7rem);
-  /* Its own trailing space, not the track's gap — see the note above. */
-  margin-inline-end: 1rem;
-  padding: 0.875rem 1.25rem;
-  border: 1px solid var(--es-border);
-  border-radius: 18px;
-  background: var(--es-surface);
-  box-shadow: var(--es-shadow-xs);
-}
-/* No `mix-blend-mode` here: tried on 2026-10-16 to hide a logo's own grey
-   backdrop, it blanked every logo inside the masked viewport. A logo with a
-   box around it needs a tightly cropped upload instead. */
-.es-lp-logos__mark { display: block; width: 100%; height: 100%; object-fit: contain; }
-@keyframes es-lp-drift { to { transform: translateX(-50%); } }
-@media (prefers-reduced-motion: reduce) {
-  .es-lp-logos__viewport { overflow-x: auto; }
-  .es-lp-logos__track { animation: none; }
-}
 
 /* ── 7 · Highlights ───────────────────────────────────────────────────── */
 .es-lp-film {
@@ -8777,22 +8985,7 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
    ═══════════════════════════════════════════════════════════════════════════ */
 @layer components {
 
-/* The select fills its field top to bottom, so the whole box is the target
-   and not one line of text inside it. */
-select.es-lp-filter__control { align-self: stretch; height: 100%; }
-
 @media (width < 40rem) {
-  .es-lp-filter {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: 0.5rem 0.875rem;
-    padding: 0.625rem 0.875rem 0.875rem;
-  }
-  .es-lp-filter__field--date,
-  .es-lp-filter__submit { grid-column: 1 / -1; }
-  .es-lp-filter__submit { width: 100%; height: 3rem; margin-top: 0.25rem; }
-  .es-lp-filter__submit-label { display: inline; }
-
   .es-lp-chat__button { transition: opacity var(--es-duration-fast) var(--es-ease-default); }
   .es-lp-chat[data-scrolled="false"] .es-lp-chat__button { opacity: 0; visibility: hidden; }
 }

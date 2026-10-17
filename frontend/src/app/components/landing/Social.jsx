@@ -1,11 +1,12 @@
 import Link from 'next/link';
 import NavIcon from '../shell/NavIcon';
 import Accent from './Accent';
+import PartnerCarousel from './PartnerCarousel';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
- * The bands whose content is other people's: sponsors and what guests said —
- * plus the closing call to action that ends the page.
+ * The bands whose content is other people's — the partners and what guests
+ * said — plus the closing call to action.
  *
  * NOTHING HERE IS SEEDED. A logo is a claim that a company works with the
  * platform, a quotation is a claim that a person said it; a placeholder of
@@ -14,42 +15,34 @@ import Accent from './Accent';
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
-// ─── Sponsor logos ──────────────────────────────────────────────────────────
+// ─── Partners ───────────────────────────────────────────────────────────────
 /**
- * A strip of logos that drifts sideways. The list is rendered twice so the
- * loop has no seam; the second copy is `aria-hidden`, so a screen reader hears
- * each sponsor once. Under `prefers-reduced-motion` it stops and scrolls.
+ * "Trusted by leading brands" — the band that closes the homepage, just above
+ * the footer (2026-10-17, owner's footer mockup). The old drifting sponsor
+ * strip in the middle of the page is gone; the logos open the page in the
+ * hero's card and close it here as tiles.
+ *
+ * The eyebrow and heading are the admin's (`sponsorsEyebrow`,
+ * `sponsorsTitle`); the line under them is in source and says "partners", not
+ * the mockup's "global brands" — that is a claim about who the sponsors are,
+ * and the admin decides who they are.
  */
-export function SponsorStrip({ copy, sponsors }) {
+export function PartnersBand({ copy, sponsors }) {
   if (sponsors.length === 0) return null;
-
-  const logos = (hidden) => sponsors.map((sponsor) => (
-    <li key={`${hidden ? 'b' : 'a'}-${sponsor.id}`} aria-hidden={hidden || undefined} className="es-lp-logos__item">
-      {/* eslint-disable-next-line @next/next/no-img-element --
-          sponsor logos are frequently SVG, which next/image passes through
-          unoptimised, and they have no intrinsic dimensions we could give
-          `fill` without inventing them. */}
-      <img
-        src={sponsor.logoUrl}
-        alt={hidden ? '' : sponsor.name}
-        // NOT lazy. A logo has no box until it loads (its width is `auto`),
-        // so a lazy one never intersects the viewport and is never fetched.
-        decoding="async"
-        className="es-lp-logos__mark"
-      />
-    </li>
-  ));
+  const eyebrow = copy.sponsorsEyebrow || 'Our partners';
 
   return (
-    <section className="es-band es-lp-logos" aria-label={copy.sponsorsEyebrow || 'Our sponsors'}>
-      <p className="es-lp-logos__label">{copy.sponsorsEyebrow || 'Partners & venues'}</p>
-      {/* The viewport clips and fades the drifting track; the track itself
-          is twice as wide as one list and moves by half of itself. */}
-      <div className="es-lp-logos__viewport">
-        <ul className="es-lp-logos__track">
-          {logos(false)}
-          {logos(true)}
-        </ul>
+    <section className="es-lp-band-partners" aria-label={eyebrow}>
+      <div aria-hidden className="es-lp-band-partners__shapes"><i /><i /><i /></div>
+      <div className="fx-container fx-container--xl es-lp-band-partners__inner">
+        <p className="es-lp-band-partners__eyebrow">{eyebrow}</p>
+        <h2 className="es-lp-band-partners__title">
+          <Accent text={copy.sponsorsTitle || 'Trusted by leading brands'} lastWord />
+        </h2>
+        <p className="es-lp-band-partners__lede">
+          We&apos;re proud to work with partners who believe in the power of extraordinary events.
+        </p>
+        <PartnerCarousel label={eyebrow} sponsors={sponsors} heading={false} variant="tiles" />
       </div>
     </section>
   );

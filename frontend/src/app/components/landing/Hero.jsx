@@ -1,123 +1,129 @@
 import Link from 'next/link';
-import Image from 'next/image';
 
 import Accent from './Accent';
 import HeroCta from './HeroCta';
 import HeroSearch from './HeroSearch';
+import PartnerCarousel from './PartnerCarousel';
 import NavIcon from '../shell/NavIcon';
-import { eventDateParts } from '../EventCard';
-import { statTiles } from './Proof';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
  * The hero.
  *
- * REBUILT 2026-09-17 from the approved mockup: a centred headline whose second
- * half is blue with a soft underline, the filter bar, a fan of real event
- * posters, and the counted numbers in a white card beneath them.
+ * REBUILT 2026-10-17 from the owner's mockup: the headline, the two buttons and
+ * the search bar on the left; one photograph on the right, cut on a diagonal
+ * and running off the edge of the screen; the partner logos in a card that
+ * overlaps its foot. On a phone everything stacks, and the search card sits
+ * over the top edge of a full-width photo.
  *
- * A SERVER component with one client island (the filter bar). The headline and
- * the buttons are what a crawler and a share-card scraper need, and neither
- * requires JavaScript.
+ * It replaces the poster fan and the numbers card — neither is in the mockup.
  *
- * ── The posters ─────────────────────────────────────────────────────────────
- * REAL COVERS, from the same events the page already fetched — no second
- * request, and never a stock picture of something that is not on sale. Up to
- * five, fanned out from the middle one on a desktop and a snapping rail on a
- * phone. With no covers, the admin's hero artwork stands alone in their place,
- * so a young platform opens on its own picture rather than a gap.
+ * A SERVER component with two client islands (the search bar and the logo
+ * carousel). The headline and the buttons are what a crawler and a share-card
+ * scraper need, and neither requires JavaScript.
+ *
+ * ── The photograph ──────────────────────────────────────────────────────────
+ * The admin's hero artwork (`imageUrl`, the landscape file, at every width). A
+ * platform with no artwork yet falls back to the first real event cover, and
+ * with neither the copy simply stands alone — never a stock picture of
+ * something that is not on sale. Decorative (`alt=""`, `aria-hidden`), so its
+ * place in the document is free to follow the phone layout: after the search.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-export default function Hero({ content, categories, events, stats }) {
+export default function Hero({ content, events, sponsors = [] }) {
   const hero = content?.hero || {};
+  const copy = content?.sections || {};
+  const cover = events.find((e) => e.coverUrl)?.coverUrl;
   /**
-   * THE PICTURE AND THE SEARCH ARE ONE PIECE on a phone (2026-10-16, owner's
-   * review). With no event covers yet, the admin's artwork stands alone — and
-   * it used to land BELOW the search card as a second, unrelated box. Now the
-   * artwork comes first and the search card overlaps its lower edge, the way a
-   * travel or events app opens. Only the visual order moves (CSS `order`):
-   * the search stays first in the document, so keyboard and screen-reader
-   * order are unchanged, and the picture is decorative (`alt=""`).
+   * ONE FILE AT EVERY WIDTH. The phone layout shows the photograph as a
+   * landscape strip, so the landscape artwork is the right crop there too;
+   * the portrait `mobileImageUrl` cut down to a 2:1 band showed a wall and
+   * the tops of heads (owner's review, 2026-10-17). It is only a fallback now.
    */
-  const solo = !events.some((e) => e.coverUrl) && Boolean(hero.imageUrl);
+  const photo = hero.imageUrl || hero.mobileImageUrl || cover;
 
   return (
-    <section className="es-lp-hero fx-section">
-      <div aria-hidden className="es-lp-dots"><i /><i /><i /><i /><i /><i /></div>
+    <section className={`es-lp-hero ${photo ? 'es-lp-hero--art' : ''} ${sponsors.length ? 'es-lp-hero--partners' : ''}`}>
+      <div className="es-lp-hero__top">
+        <div className="es-lp-hero__inner">
+          <div className="fx-container fx-container--xl">
+            <div className="es-lp-hero__copy">
+              {/* Admin-owned, from `landingSchema`'s hero block. Clearing
+                  `badgeText` in the console removes it entirely; that is the off
+                  switch, so there is no boolean to fall out of sync with the copy. */}
+              <HeroBadge hero={hero} />
 
-      <div className="fx-container fx-container--xl relative">
-        <div className="es-lp-hero__head">
-          {/* Admin-owned, from `landingSchema`'s hero block — it used to be a
-              literal here, which made the most prominent claim on the homepage
-              the one line nobody could change without a deploy. Clearing
-              `badgeText` in the console removes it entirely; that is the off
-              switch, so there is no boolean to fall out of sync with the copy. */}
-          <HeroBadge hero={hero} />
+              <h1 className="es-lp-hero__title">
+                <Accent text={hero.title} />
+                {hero.titleAccent && (
+                  <>
+                    {' '}
+                    <span className="es-lp-hero__accent">{hero.titleAccent}</span>
+                  </>
+                )}
+              </h1>
 
-          <h1 className="es-lp-hero__title">
-            <Accent text={hero.title} />
-            {hero.titleAccent && (
-              <>
-                {' '}
-                <span className="es-lp-swash">
-                  {hero.titleAccent}
-                  <svg viewBox="0 0 200 16" preserveAspectRatio="none" aria-hidden="true">
-                    <path d="M3 11C45 4 125 2 197 8" fill="none" stroke="currentColor" strokeWidth="5" strokeLinecap="round" />
-                  </svg>
-                </span>
-              </>
-            )}
-          </h1>
+              {hero.body && <p className="es-lp-hero__body"><Accent text={hero.body} /></p>}
 
-          {hero.body && <p className="es-lp-hero__body"><Accent text={hero.body} /></p>}
+              <div className="es-lp-hero__ctas">
+                {hero.primaryCtaLabel && (
+                  <Link href={hero.primaryCtaHref || '/events'} className="es-lp-btn es-lp-btn--solid">
+                    {hero.primaryCtaLabel}
+                    <NavIcon name="arrow" size={18} />
+                  </Link>
+                )}
+                {/* `HeroCta`, not a plain Link: pointed at `/register` — which is
+                    its default — this button bounced every signed-in visitor back
+                    to this same page, because the proxy has nothing to register
+                    them for. See HeroCta for the rule. */}
+                {hero.secondaryCtaLabel && (
+                  <HeroCta href={hero.secondaryCtaHref} className="es-lp-btn es-lp-btn--line">
+                    {hero.secondaryCtaLabel}
+                  </HeroCta>
+                )}
+              </div>
+            </div>
 
-          <div className="es-lp-hero__ctas">
-            {/* `HeroCta`, not a plain Link: pointed at `/register` — which is
-                its default — this button bounced every signed-in visitor back
-                to this same page, because the proxy has nothing to register
-                them for. See HeroCta for the rule. */}
-            {hero.secondaryCtaLabel && (
-              <HeroCta href={hero.secondaryCtaHref} className="es-lp-btn es-lp-btn--outline">
-                {hero.secondaryCtaLabel}
-              </HeroCta>
-            )}
-            {hero.primaryCtaLabel && (
-              <Link href={hero.primaryCtaHref || '/events'} className="es-lp-btn es-lp-btn--solid">
-                {hero.primaryCtaLabel}
-                <NavIcon name="arrow" size={18} />
-              </Link>
-            )}
+            {hero.showSearch !== false && <HeroSearch />}
           </div>
         </div>
 
-        <div className={`es-lp-stage ${solo ? 'es-lp-stage--solo' : ''}`}>
-          {hero.showSearch !== false && <HeroSearch categories={categories} />}
-          <Posters events={events} hero={hero} />
-        </div>
-
-        <Numbers block={content?.stats || {}} stats={stats} />
+        {photo && (
+          <div aria-hidden className="es-lp-hero__art">
+            <i className="es-lp-hero__glow" />
+            {/* A plain <img> straight from storage: the file is uploaded already
+                encoded, and the optimiser's first-request re-encode cost five
+                seconds here. */}
+            <span className="es-lp-hero__photo">
+              {/* eslint-disable-next-line @next/next/no-img-element -- see above */}
+              <img src={photo} alt="" loading="eager" fetchPriority="high" decoding="async" />
+            </span>
+          </div>
+        )}
       </div>
+
+      {/* The sponsors band used to be its own section further down the page;
+          the mockup moves it into the hero. Still nothing until an admin
+          publishes a real logo — see Social.jsx on why nothing is seeded. */}
+      {sponsors.length > 0 && (
+        <div className="es-lp-hero__partners">
+          <div className="fx-container fx-container--xl">
+            <PartnerCarousel label={copy.sponsorsEyebrow || 'Proudly partnered with'} sponsors={sponsors} />
+          </div>
+        </div>
+      )}
     </section>
   );
 }
-
-/** Distance from the centre for each position, so the middle poster is the
- *  front one whatever the count: one poster is [0], three are [-1, 0, 1]. */
-const FAN = { 1: [0], 2: [-1, 0], 3: [-1, 0, 1], 4: [-2, -1, 0, 1], 5: [-2, -1, 0, 1, 2] };
 
 /**
  * The badge over the headline, entirely from the admin's content.
  *
  * Nothing at all when `badgeText` is empty — not an empty pill, not a gap.
- * That is the off switch, and it is the text field itself so there is no
- * boolean to disagree with the copy.
- *
  * `badgeTag` is optional on its own: a badge with a claim and no "NEW" is a
  * perfectly good badge, while a "NEW" with nothing after it is not.
  *
- * With a link it becomes one; without, it stays a plain statement. An
- * announcement pointing at nothing is fine — "you can now pick your seat" is a
- * fact, not a destination — so the link is not required to make the rest work.
+ * With a link it becomes one; without, it stays a plain statement.
  */
 function HeroBadge({ hero }) {
   const text = (hero.badgeText || '').trim();
@@ -126,6 +132,7 @@ function HeroBadge({ hero }) {
   const tag = (hero.badgeTag || '').trim();
   const inner = (
     <>
+      <NavIcon name="sparkle" size={14} />
       {tag && <b>{tag}</b>}
       {text}
     </>
@@ -134,89 +141,4 @@ function HeroBadge({ hero }) {
   return hero.badgeHref
     ? <Link href={hero.badgeHref} className="es-lp-pill es-lp-pill--link">{inner}</Link>
     : <span className="es-lp-pill">{inner}</span>;
-}
-
-function Posters({ events, hero }) {
-  const posters = events.filter((e) => e.coverUrl).slice(0, 5);
-
-  if (posters.length === 0) {
-    if (!hero.imageUrl) return null;
-    return (
-      <div className="es-lp-fan">
-        <div className="es-lp-poster es-lp-poster--solo" style={{ '--i': 0 }}>
-          {/* A plain <picture> straight from storage: both files are uploaded
-              already encoded at the width each breakpoint paints, and the
-              optimiser's first-request re-encode cost five seconds here. */}
-          <picture>
-            <source media="(max-width: 47.99rem)" srcSet={hero.mobileImageUrl || hero.imageUrl} />
-            <source media="(min-width: 48rem)" srcSet={hero.imageUrl} />
-            <img src={hero.imageUrl} alt="" loading="eager" fetchPriority="high" decoding="async" className="es-lp-poster__img" />
-          </picture>
-        </div>
-      </div>
-    );
-  }
-
-  const offsets = FAN[posters.length];
-
-  return (
-    <ul className="es-lp-fan" aria-label="On sale now">
-      {posters.map((event, i) => {
-        const when = eventDateParts(event);
-        const lead = offsets[i] === 0;
-        return (
-          <li key={event.id} className={`es-lp-poster ${lead ? 'es-lp-poster--lead' : ''}`} style={{ '--i': offsets[i] }}>
-            <Link href={`/e/${event.slug}`} className="block h-full">
-              <Image
-                src={event.coverUrl}
-                alt=""
-                fill
-                sizes="(max-width: 1024px) 66vw, 280px"
-                priority={lead}
-                className="object-cover"
-              />
-              {when && (
-                <span className="es-lp-datebadge"><b>{when.day}</b><small>{when.month}</small></span>
-              )}
-              <span className="es-lp-poster__name">
-                <span className="es-lp-poster__title">{event.title}</span>
-                {event.city && <small>{event.city}</small>}
-              </span>
-            </Link>
-          </li>
-        );
-      })}
-    </ul>
-  );
-}
-
-/**
- * COUNTED, NEVER TYPED. `statsService` produces every value; the CMS chooses
- * only which measures appear and what they are called. See Proof.js.
- */
-function Numbers({ block, stats }) {
-  // A zero is dropped, not shown. "0 happy guests" is true on a young platform
-  // and still the one number that makes a storefront look empty; the honest
-  // way to say nothing is to show nothing.
-  const tiles = statTiles(block, stats).filter((tile) => Number(tile.value) > 0);
-  // And ONE number alone is the same problem in a bigger card: "2 Organizers"
-  // in a panel built for four read as the size of the platform, not as proof
-  // of it (owner's review, 2026-10-16). The card returns at two.
-  if (tiles.length < 2) return null;
-
-  return (
-    <div className="es-lp-stats">
-      <ul className="es-lp-stats__card" style={{ '--es-lp-cols': tiles.length }} aria-label="Eventsli in numbers">
-        {tiles.map((tile) => (
-          <li key={tile.key} className="es-lp-stat">
-            <span className="es-lp-stat__value es-nums">{tile.display}</span>
-            <span className="es-lp-stat__label">
-              <NavIcon name={tile.icon} size={16} />
-              {tile.label}
-            </span>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
 }

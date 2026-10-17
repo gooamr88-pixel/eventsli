@@ -1,7 +1,7 @@
 import Hero from './components/landing/Hero';
 import PopularEvents from './components/landing/PopularEvents';
 import { SearchBand, Roles, Steps } from './components/landing/Sections';
-import { SponsorStrip, Testimonials, Closing } from './components/landing/Social';
+import { Testimonials, Closing, PartnersBand } from './components/landing/Social';
 import VideoBand from './components/landing/VideoBand';
 import ChatBubble from './components/landing/ChatBubble';
 import VisitBeacon from './components/landing/VisitBeacon';
@@ -15,15 +15,15 @@ import { serverFetch } from './utils/apiClient';
  * REBUILT 2026-09-17 from the mockup the owner approved (version 3 of the blue
  * storefront review): a white page with one calm medium blue.
  *
- *   1  hero            headline, filter bar, poster fan, counted numbers
+ *   1  hero            headline, search bar, photograph, partner logos
  *   2  search          find an event by name; the first four categories
  *   3  popular events  category tabs and the cards
  *   4  roles           who the product is for, and where each starts
  *   5  three steps     how an organizer goes on sale
- *   6  sponsors        only if there are any
- *   7  highlights      only if there is a film
- *   8  testimonials    only if any are published
- *   9  closing         the one blue panel
+ *   6  highlights      only if there is a film
+ *   7  testimonials    only if any are published
+ *   8  closing         the one teal panel
+ *   9  partners        the logos as tiles, above the footer; only if any
  *
  * ── Where the words come from ────────────────────────────────────────────
  * The hero, the event-list heading, the statistics labels, the film and the
@@ -82,14 +82,13 @@ export default async function HomePage() {
   const categories = landing?.categories || [];
   const sponsors = landing?.sponsors || [];
   const testimonials = landing?.testimonials || [];
-  const stats = landing?.stats || null;
 
   return (
     <main>
       {/* Counts this view. Renders nothing — see VisitBeacon. */}
       <VisitBeacon path="/" />
 
-      <Hero content={content} categories={categories} events={events} stats={stats} />
+      <Hero content={content} events={events} sponsors={sponsors} />
       {/* Nearby events by default, when this browser already allows location;
           otherwise a location bar. LEFT OUT while no city has an upcoming event:
           it could only show controls that find nothing, above a "Nothing is on
@@ -99,10 +98,10 @@ export default async function HomePage() {
       <PopularEvents copy={copy} categories={categories} events={events} failed={failed} />
       <Roles />
       <Steps />
-      <SponsorStrip copy={copy} sponsors={sponsors} />
       <VideoBand block={content.video} />
       <Testimonials copy={copy} testimonials={testimonials} />
       <Closing />
+      <PartnersBand copy={copy} sponsors={sponsors} />
 
       <ChatBubble />
     </main>

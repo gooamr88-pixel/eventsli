@@ -40,6 +40,8 @@ const PATHS = {
    */
   chevronUp: ['M6.5 14.5 12 9l5.5 5.5'],
   chevronDown: ['M6.5 9.5 12 15l5.5-5.5'],
+  chevronLeft: ['M14.5 6.5 9 12l5.5 5.5'],
+  chevronRight: ['M9.5 6.5 15 12l-5.5 5.5'],
   /**
    * A picture. "Page & branding" in the organizer's sidebar asked for `image`,
    * which did not exist — so it fell through to `info` and sat directly under

@@ -93,10 +93,13 @@ export function isPrivatePath(path) {
  * sitemap does not know about is a page nothing else points at either.
  */
 export const FOOTER_GROUPS = [
+  /* The four columns of the owner's footer mockup (2026-10-17). The mockup
+     also lists Organizers, Cities, Venues, Pricing, Blog, Careers, Press and
+     a cookie policy; none of those pages exists, so none is here. */
   {
-    heading: 'Product',
+    heading: 'Explore',
     links: [
-      { path: '/events', label: 'Browse events' },
+      { path: '/events', label: 'Events' },
       { path: '/how-it-works', label: 'How it works' },
       { path: '/tickets/find', label: 'Find my tickets' },
     ],
@@ -106,19 +109,37 @@ export const FOOTER_GROUPS = [
     links: [
       { path: '/why-us', label: 'Why Eventsli' },
       { path: '/how-it-works', label: 'Selling with us' },
-      { path: '/terms/organizer', label: 'Organizer agreement' },
+      { path: '/trust', label: 'Security and trust' },
     ],
   },
   {
     heading: 'Company',
     links: [
-      { path: '/trust', label: 'Security and trust' },
+      { path: '/why-us', label: 'About' },
       { path: '/contact', label: 'Contact' },
+    ],
+  },
+  {
+    heading: 'Legal',
+    links: [
       { path: '/terms', label: 'Ticket terms' },
-      { path: '/privacy', label: 'Privacy' },
+      { path: '/terms/organizer', label: 'Organizer agreement' },
+      { path: '/privacy', label: 'Privacy policy' },
     ],
   },
 ];
+
+/**
+ * The brand's social profiles, in the order the footer shows them.
+ *
+ * EMPTY UNTIL THE ACCOUNTS EXIST. An icon linking to a profile that does not
+ * exist is a dead end on every page of the site, so the footer renders the
+ * row only for entries here. `network` is one of: instagram, x, facebook,
+ * linkedin, youtube.
+ *
+ *   { network: 'instagram', href: 'https://www.instagram.com/…' },
+ */
+export const SOCIAL_LINKS = [];
 
 /**
  * The brand's tagline, as the brand guide sets it under the wordmark.
