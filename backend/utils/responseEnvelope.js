@@ -126,6 +126,15 @@ const ERROR_STATUS = {
   EVENT_ARCHIVED: 409,             // restore it before changing it
   CANCELLATION_PENDING: 409,       // one open request per event
 
+  // Eventsli AI (routes/aiRoutes.js). None of these spends an organizer's
+  // daily allowance: a draft only counts once one is actually returned.
+  AI_DISABLED: 503,                // switched off, no provider key, or the platform's daily cap
+  AI_ORGANIZER_ONLY: 403,          // an admin would be spending an organizer's allowance (D-014)
+  AI_QUOTA_EXHAUSTED: 429,         // two drafts in the last 24 hours; meta.nextAvailableAt
+  AI_GENERATION_IN_PROGRESS: 409,  // the same request is still being answered
+  AI_GENERATION_DUPLICATE: 409,    // that request was already answered once
+  AI_UNAVAILABLE: 503,             // every provider failed; nothing was counted
+
   // app.js's catch-all. A client can receive it, so it needs a sentence.
   INTERNAL_ERROR: 500,
 

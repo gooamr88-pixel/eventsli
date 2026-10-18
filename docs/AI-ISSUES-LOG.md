@@ -41,6 +41,12 @@ Statuses: `Open` · `In progress` · `Fixed (verified)` · `Deferred` ·
 | D-013 | 2026-10-17 | call Gemini and Groq over REST with Node 22's built-in `fetch` (the `placesService.js` pattern), adding **no npm dependencies** — CI blocks on `npm audit --audit-level=moderate`. | Owner approved 2026-10-17 | |
 | D-014 | 2026-10-17 | AI is organizer-only. Quota is keyed to `organizer_id`; an admin (who bypasses `verifyEventOwner`) is refused rather than silently spending an organizer's quota. | Owner approved 2026-10-17 | |
 | D-015 | 2026-10-17 | the Seating Designer applies its layout as ONE undo step into the editor's unsaved draft (`useMapDraft.apply`) and is offered only for ticketed, reserved-seating events with no held or sold seats. | Owner approved 2026-10-17 | |
+| D-016 | 2026-10-18 | **Build order changed: the AI Smart Event Creator is built first.** Supersedes the order in D-001. The shared foundation (quota table, provider client) is built with it and reused by the Seating Designer. | Owner | Answer "Ai event creation" to the Phase 1 report. |
+| D-017 | 2026-10-18 | **Fix every bug found during the audit** (I-017 to I-022 where code can fix them). | Owner | Answer "Fix all". |
+| D-018 | 2026-10-18 | **A suggested ticket type with no price blocks saving** until the organizer enters a price, marks it free, or removes it. | Owner | Answer "Yes restrict". Matches I-014: the API cannot create an unpriced tier. |
+| D-019 | 2026-10-18 | **Free tiers of Gemini and Groq, as a hybrid**: Gemini primary, Groq automatic fallback (D-011 unchanged). | Owner | "grok" in the answer is read as Groq, the provider chosen in D-003; if xAI Grok was meant, it is one provider adapter. Consequence: Google's pricing page marks free-tier content "Used to improve our products: Yes" (checked 2026-10-18). This is disclosed on the describe screen and in the privacy policy. Resolves the billing half of I-011. |
+| D-020 | 2026-10-18 | Defaults applied where the owner gave no answer (the recommendations in the Phase 1 report): emails and phone numbers are removed before text is sent; no prompt or AI output is stored, only usage metadata; the generation is linked to the event it created, and admins see "AI-assisted"; "Change it and regenerate" is allowed and costs one draft; new issues are recorded here. | Claude, on the owner's go-ahead | Any of these can be reversed by the owner. |
+| D-021 | 2026-10-18 | Amends D-013: providers are called over `node:https` with an IPv4-only agent (the `placesService.js` pattern), not `fetch`. Gemini is called with `generateContent` + `responseSchema` (OpenAPI subset); Groq with strict `json_schema`. Both schemas are generated from one definition. | Claude | See I-019. Model IDs as env settings: `gemini-3.8-flash`, `openai/gpt-oss-120b` (both read from provider docs 2026-10-18; confirmed only by `scripts/probe-ai.js` with real keys, I-010). |
 
 ---
 
@@ -64,6 +70,12 @@ Statuses: `Open` · `In progress` · `Fixed (verified)` · `Deferred` ·
 | I-014 | 2026-10-17 | Design constraint | Medium | Open | A ticket type cannot be created without a price |
 | I-015 | 2026-10-17 | Housekeeping, pre-existing | Medium | Needs owner | Production backup (PII) still sits in an old session's scratchpad |
 | I-016 | 2026-10-17 | Process, pre-existing | Low | Open | Recent commits have meaningless messages; CI status unknown |
+| I-017 | 2026-10-18 | Bug, pre-existing | High | Fixed (verified) | `POST /events` ignores `admissionType`, so every General admission event is stored as reserved seating |
+| I-018 | 2026-10-18 | Gap, pre-existing | Low | Fixed (verified) | Event `description` has no length limit on `POST` or `PATCH /events` |
+| I-019 | 2026-10-18 | Design correction | Medium | Fixed (verified) | D-013 named `fetch`; the Places client actually needs IPv4-forced `node:https`, and so will the AI client |
+| I-020 | 2026-10-18 | Compliance, pre-existing | Medium | Needs owner | The privacy page's processor list omits Google Places, and will need Gemini and Groq |
+| I-021 | 2026-10-18 | Constraint | Low | Fixed (verified) | The browser client gives up after 30 s, which caps the AI request budget |
+| I-022 | 2026-10-18 | Design constraint | Low | Fixed (verified) | No bulk endpoints for ticket types or schedule, so saving an AI draft is several requests and not atomic |
 
 ### I-001 — Overlapping tables are not detected anywhere
 - **Where:** `frontend/src/app/organizer/events/[id]/map/MapEditor.jsx:112-115` says the problem list (the Save-button gate) covers "overlapping tables, seats outside the world box … and the server rejects those plans". `draftRules.mapProblems` checks neither; `venueService.saveMap` and `save_venue_map` check neither. A search of frontend, backend and migrations for overlap/collision logic finds none.
@@ -134,6 +146,39 @@ Statuses: `Open` · `In progress` · `Fixed (verified)` · `Deferred` ·
 ### I-015 — Production backup (PII) still in an old scratchpad
 - The 2026-10-15 reset backup (production PII) is in session 68521cce's scratchpad `reset/backup/`, "until the owner says delete".
 - **Status:** Needs owner — delete once the backup is no longer needed (part of the end-of-project cleanup with I-002).
+
+### I-017 — `POST /events` ignored `admissionType`
+- **Where:** `backend/controllers/eventController.js` `create`. The route validated `admissionType` and the wizard sent it (`NewEventForm.jsx`), but the insert never wrote `admission_type`, so the column default `'reserved'` won and every General admission event asked for a seating map.
+- **Fix:** the insert writes `admission_type: req.body.admissionType || 'reserved'` (same default as the column).
+- **Verified:** `backend/test/integration/aiCreator.test.js` — "the draft saves as an ordinary private draft, general admission kept (I-017)" asserts the created event reads back `admissionType: 'general'`; run on the local stack 2026-10-18, 11/11 pass.
+- **Status:** Fixed (verified).
+
+### I-018 — Event description had no length limit on the API
+- **Fix:** `body('description')…isLength({ max: 5000 })` on `POST /events` and `PATCH /events/:id`, matching both forms' `maxLength`.
+- **Verified:** `aiCreator.test.js` — "an event description is bounded on create and edit (I-018)": 5,001 characters refused on create and on PATCH, 5,000 accepted.
+- **Status:** Fixed (verified).
+
+### I-019 — The AI client must use IPv4-forced `node:https`, not `fetch`
+- **Fix:** `backend/services/ai/aiHttp.js` copies the `placesService.js` agent (`family: 4`). Recorded as D-021.
+- **Verified in code and unit tests** (`aiProviders.test.js` runs through the same transport seam). The IPv4 path against a real IP-restricted key can only be proven on the VPS: `node scripts/probe-ai.js` (deployment checklist).
+- **Status:** Fixed (verified locally); VPS proof is part of I-010.
+
+### I-020 — Privacy page processor list
+- **Fix:** `frontend/src/app/privacy/page.jsx` now names Google for venue search and Gemini drafts — including that the free tier may use the description to improve Google's products (D-019) — and Groq as the fallback. The describe screen says the same at the moment of sending.
+- **2026-10-18, owner asked "make the privacy policy ready":** `/privacy` rewritten in full from the schema and services, re-verified claim by claim (sessions keep a hashed IP and browser description; the visit counter; guest checkout; transfers; door scans; organizer and door-team data; OpenStreetMap, YouTube/Vimeo (on play only), Google sign-in; the database in AWS us-west-1; 24 h sessions, 10 min codes, 60 min reset links; transactional email only). Owner answers: name "Eventsli", contact info@eventsli.com, server in the United States, accounts 16+. Adds cross-border, retention, rights (PIPEDA, Quebec, US states), breach, children and changes sections. A claim the old page made but the terms on disk do not support ("organizers may not market to you") was removed.
+- **Guard:** `frontend/test/privacyPolicy.test.jsx` fails if a host is added to the CSP or a provider to `services/ai/config.js` without being named on the page. Verified: 19/19 with `seoRoutes.test.js`; eslint, `npm run check` and a production build pass.
+- **Still the owner's:** (1) a lawyer's review before launch; (2) confirm the VPS rotates and deletes nginx access logs, since the page says request logs are "deleted automatically after a short period"; (3) the account sign-up has no "I am 16 or older" confirmation yet; (4) consider adding a "no marketing to buyers without consent" clause to the organizer terms, which the page no longer claims.
+- **Status:** Needs owner (the four items above).
+
+### I-021 — The 30 s browser timeout caps the AI request
+- **Fix:** provider deadlines 11 s + 9 s, and no fallback starts after 15 s (`services/ai/config.js`, `eventDraftService.js`), so the API answers well inside the browser's 30 s.
+- **Verified:** `aiProviders.test.js` (fallback order and budget logic).
+- **Status:** Fixed (verified).
+
+### I-022 — Saving an AI draft is several requests, not one
+- **Fix:** `saveAiDraft.js` creates the event first (the only request that can fail the save), then highlights, ticket types and schedule in order; anything that fails is named and "Try adding them again" retries only those. No item is sent twice.
+- **Verified:** `frontend/test/aiCreator.test.jsx` — "a ticket type that fails to save is named, and retrying adds only that one".
+- **Status:** Fixed (verified).
 
 ### I-016 — Recent commits have meaningless messages; CI status unknown
 - `fc255f3 cxbnd`, `ac6dee5 cdjbnd`, `edc8370 cddghbn`, `184a39e gdhcdbh`. History is hard to audit, and whether CI is green on `main` is not recorded.

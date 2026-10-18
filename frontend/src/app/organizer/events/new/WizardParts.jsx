@@ -6,6 +6,8 @@ import NavIcon from '../../../components/shell/NavIcon';
 import { categoryLabel } from '../../../lib/categories';
 import { formatEventTime } from '../../../lib/eventTime';
 import { ADMISSION_TYPES, PURCHASE_MODES, PAYMENT_OPTIONS, STEP_SHORT } from './wizardModel';
+import { useAiQuota } from '../../../hooks/useAiQuota';
+import { QuotaDots } from './ai/AiParts';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -75,13 +77,39 @@ export function WizardStepper({ steps, index, title, onGo, disabled = false }) {
  * undo it and a half-filled draft of one type cannot leak into the other.
  */
 export function TypeChooser() {
+  const { quota } = useAiQuota();
+  const ai = quota?.enabled;
   return (
     <div className="es-wizard es-wizard--center">
       <div className="es-wizard__head">
         <p className="es-eyebrow">New event</p>
-        <h1 className="es-wizard__title">What kind of event are you creating?</h1>
-        <p className="es-wizard__lede">Pick one. You will only be asked what that kind of event needs.</p>
+        <h1 className="es-wizard__title">{ai ? 'Create an event' : 'What kind of event are you creating?'}</h1>
+        <p className="es-wizard__lede">
+          {ai ? 'Start from a description, or set it up step by step.' : 'Pick one. You will only be asked what that kind of event needs.'}
+        </p>
       </div>
+
+      {/* THE SMART EVENT CREATOR, offered only when the API says it is on
+          (`/ai/quota`). Off, or unreachable, and this page is exactly what it
+          was: the two manual choices below. */}
+      {ai && (
+        <>
+          <Link href="/organizer/events/new?mode=ai" className="es-ai-hero">
+            <span className="es-ai-hero__badge"><NavIcon name="sparkle" size={14} /> New</span>
+            <span className="es-ai-hero__icon" aria-hidden="true"><NavIcon name="sparkle" size={26} /></span>
+            <span className="es-ai-hero__title">Describe it, and we&rsquo;ll draft it</span>
+            <span className="es-ai-hero__text">
+              Write a few sentences. You get the details, ticket types and schedule ready to check, usually in under
+              15 seconds. Nothing is saved until you say so, and nothing is published.
+            </span>
+            <span className="es-ai-hero__foot">
+              <QuotaDots quota={quota} tone="light" />
+              <span className="es-ai-hero__cta">Start with AI <NavIcon name="arrow" size={18} /></span>
+            </span>
+          </Link>
+          <p className="es-ai-or">Or set it up step by step</p>
+        </>
+      )}
 
       <div className="es-choice-grid es-choice-grid--2">
         <Link href="/organizer/events/new?type=ticketed" className="es-choice es-choice--lg">

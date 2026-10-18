@@ -118,6 +118,9 @@ export default function Approvals() {
                   <span className="fx-row gap-1">
                     <span className="es-pill">{e.country} · {e.currency}</span>
                     {e.listingType === 'display_only' && <span className="es-pill">Listing only</span>}
+                    {/* Drafted with the Smart Event Creator: its description
+                        and highlights are AI-written copy the organizer kept. */}
+                    {e.aiAssisted && <span className="es-pill es-pill--accent">AI-assisted</span>}
                     {e.listingType !== 'display_only' && !e.organizer?.canReceivePayouts && (
                       <span className="es-pill es-pill--warning">Payouts not set up</span>
                     )}

@@ -24,6 +24,7 @@ import NavIcon from '../../../components/shell/NavIcon';
 import { useShellFocus } from '../../../components/shell/shellFocus';
 import { Loading, ErrorNotice, Notice } from '../../../components/Feedback';
 import CreateProfile from '../../CreateProfile';
+import AiCreator from './ai/AiCreator';
 import { COUNTRY_OPTIONS } from '../../../lib/markets';
 
 /**
@@ -81,6 +82,8 @@ export default function NewEventForm() {
   if (error) return <ErrorNotice error={error} onRetry={refresh} />;
   if (!organizer || !organizer.setupComplete) return <CreateProfile organizer={organizer} onCreated={refresh} />;
 
+  // The Smart Event Creator (`?mode=ai`) — its own three steps, in ./ai.
+  if (params.get('mode') === 'ai') return <AiCreator organizer={organizer} />;
   // `key={type}` so switching between the two products rebuilds the wizard
   // rather than carrying one type's answers into the other's steps.
   if (!TYPES[type]) return <TypeChooser />;

@@ -26,6 +26,8 @@ const TABLES = [
   'event_staff', 'email_verifications',
   // The organizer journey (20260917091000).
   'organizer_payment_methods', 'event_cancellation_requests',
+  // Eventsli AI — the daily allowance (20261018090000).
+  'ai_generations',
 ];
 
 // Business rules that live in the database. If one of these is absent, the rule
@@ -57,6 +59,8 @@ const FUNCTIONS = [
   'sync_tier_sold_count', 'tier_allocation_exceeded', 'claim_promo_code', 'release_promo_claim',
   // Sums in the database, and the door PIN lockout (20260915140000).
   'event_order_totals', 'admin_event_sales', 'admin_organizer_sales', 'record_device_pin_failure',
+  // Eventsli AI: two drafts a day, counted under a row lock (20261018090000).
+  'ai_reserve_generation', 'ai_finish_generation', 'ai_generation_status',
 ];
 
 // Rules the database enforces as CHECKs (20260915140000).
@@ -65,6 +69,7 @@ const CONSTRAINTS = [
   'events_country_supported',
   'events_currency_follows_country',  // CAD in Canada, USD in the US
   'terms_versions_audience_version_key',
+  'ai_generations_request',           // a retried request is never charged twice
 ];
 
 const INDEXES = [

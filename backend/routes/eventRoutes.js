@@ -106,11 +106,19 @@ router.post(
     if (lat !== lng) throw new Error('A map pin needs both a latitude and a longitude.');
     return true;
   }),
+  // Bounded at the length both event forms already enforce. Unbounded until
+  // now: the column is TEXT, so only the form stood between a script and a
+  // megabyte on a public page (I-018).
+  body('description').optional({ values: 'null' }).isString().isLength({ max: 5000 })
+    .withMessage('A description is at most 5,000 characters.'),
   body('feeBearer').optional().isIn(['buyer', 'organizer']),
   // Which of the organizer's payment methods the event takes. Checked against
   // what they have set up in the controller; absent means "none yet".
   body('paymentOption').optional({ values: 'falsy' }).isIn(['both', 'stripe', 'manual'])
     .withMessage('Choose how buyers pay: Stripe, manual, or both.'),
+  // The Smart Event Creator generation this event was drafted from, if any.
+  // Only ever links the organizer's own successful generation (quotaService).
+  body('aiGenerationId').optional({ values: 'falsy' }).isUUID(),
   validate,
   c.create,
 );
@@ -140,6 +148,9 @@ router.patch(
   // Only shape-check what is present. WHICH fields an organizer may set at all
   // is decided in eventService.partitionPatch, not here — one list, one place.
   body('title').optional().isString().trim().isLength({ min: 3, max: 200 }),
+  // The same bound as creation (I-018).
+  body('description').optional({ values: 'null' }).isString().isLength({ max: 5000 })
+    .withMessage('A description is at most 5,000 characters.'),
   body('startsAt').optional().isISO8601(),
   body('endsAt').optional().isISO8601(),
   body('timezone').optional().custom(isTimeZone)

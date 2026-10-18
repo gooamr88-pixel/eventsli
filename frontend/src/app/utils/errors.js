@@ -52,6 +52,22 @@ export const ERRORS = Object.freeze(Object.fromEntries([
   E('CODE_EXPIRED', 'That code has expired',
     'Codes last ten minutes. Send yourself a new one and use that instead.'),
 
+  // ── Eventsli AI ───────────────────────────────────────────────────────────
+  // None of these used one of the organizer's daily drafts, and each says so
+  // where it matters — that is the first thing somebody on a limit wonders.
+  E('AI_DISABLED', 'AI drafts are not available right now',
+    'Create the event step by step instead. Your description is kept so you can copy from it.', 'fatal'),
+  E('AI_ORGANIZER_ONLY', 'AI drafts are for organizers',
+    'Sign in with the organizer account that owns the event to use an AI draft.', 'fatal'),
+  E('AI_QUOTA_EXHAUSTED', 'You have used today’s AI drafts',
+    'Each organizer gets two a day. Set this one up step by step, or come back when the next one is available.', 'waiting'),
+  E('AI_GENERATION_IN_PROGRESS', 'Your draft is still being written',
+    'Wait a few seconds for it to finish. Pressing again will not make it faster.', 'waiting'),
+  E('AI_GENERATION_DUPLICATE', 'That request was already answered',
+    'Reload the page to see your draft, or press Generate draft again to write a new one.'),
+  E('AI_UNAVAILABLE', 'We couldn’t write a draft',
+    'Our AI services did not answer in time. This did not use any of your daily drafts. Try again.', 'retry'),
+
   // ── Events ────────────────────────────────────────────────────────────────
   E('EVENT_NOT_FOUND', 'Event not found',
     'The link may be wrong, or the event may no longer be listed.', 'fatal'),

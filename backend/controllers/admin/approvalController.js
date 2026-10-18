@@ -6,6 +6,7 @@ const logger = require('../../utils/logger');
 const { closeOpenCheckouts } = require('../../services/openCheckouts');
 const { canReceivePayouts } = require('../../utils/payouts');
 const { cancelEvent } = require('../../services/eventCancellation');
+const aiQuota = require('../../services/ai/quotaService');
 
 /**
  * BRD §16 — every event is reviewed before the public can see it.
@@ -39,10 +40,18 @@ async function queue(req, res, next) {
     );
     if (error) throw new Error(error.message);
 
+    // Drafted with the Smart Event Creator. Shown so the reviewer reads the
+    // description and highlights as AI-written copy the organizer accepted —
+    // the review itself is unchanged (D-020). A failed lookup shows nothing
+    // rather than failing the queue.
+    const aiAssisted = await aiQuota.aiAssistedEventIds((data || []).map((e) => e.id))
+      .catch(() => new Set());
+
     return sendOk(res, (data || []).map((e) => ({
       id: e.id,
       slug: e.slug,
       title: e.title,
+      aiAssisted: aiAssisted.has(e.id),
       country: e.country,
       currency: e.currency,
       startsAt: e.starts_at,

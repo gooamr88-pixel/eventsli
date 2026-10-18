@@ -17,6 +17,7 @@ const { parsePagination, applyPagination, buildMeta } = require('../middleware/p
 const { sendOk, sendFail } = require('../utils/responseEnvelope');
 const { safeSearch } = require('../utils/search');
 const logger = require('../utils/logger');
+const aiQuota = require('../services/ai/quotaService');
 
 /**
  * `city` AND `venue_place_id` WERE BOTH MISSING FROM THIS LIST.
@@ -132,6 +133,15 @@ async function create(req, res, next) {
         currency,
         listing_type: req.body.listingType || 'ticketed',
         purchase_mode: req.body.purchaseMode || 'seat_only',
+        /**
+         * WRITTEN AT LAST. The route has validated `admissionType` since general
+         * admission existed and the wizard has always sent it, but this insert
+         * never read it — so the column's default, 'reserved', won every time,
+         * and an organizer who chose General admission was then asked to draw a
+         * seating map for an event that has none (I-017). Same default here as
+         * the column, so an older client that omits it is unchanged.
+         */
+        admission_type: req.body.admissionType || 'reserved',
         category: req.body.category || 'other',
         fee_bearer: req.body.feeBearer || 'buyer',
         // Only when sent, so the column defaults still decide otherwise. Both
@@ -148,6 +158,14 @@ async function create(req, res, next) {
       .single();
 
     if (error) throw new Error(error.message);
+
+    // Drafted with the Smart Event Creator: tie the generation to the event so
+    // a reviewer can see it was AI-assisted (D-020). Best effort — the event
+    // exists either way, and a failed link must not turn a 201 into a 500.
+    if (req.body.aiGenerationId) {
+      await aiQuota.attachEvent({ generationId: req.body.aiGenerationId, organizerId, eventId: data.id })
+        .catch((e) => logger.warn({ err: e.message, eventId: data.id }, 'could not link the AI generation to its event'));
+    }
     return sendOk(res, shape(data), { status: 201 });
   } catch (err) {
     if (err.code === 'VALIDATION_ERROR') {

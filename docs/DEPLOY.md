@@ -194,6 +194,22 @@ GOOGLE_CLIENT_ID=652713460612-t771u7c092ci6i1dcilfcif8t63c3oe5.apps.googleuserco
 # restrict it to that one API and to this server's IP.
 GOOGLE_PLACES_API_KEY=
 
+# Eventsli AI (the Smart Event Creator). OPTIONAL — off unless AI_ENABLED=true
+# AND a key is set; off, the "Create with AI" card is simply not shown.
+# Keys go HERE ONLY: never in frontend/.env, never NEXT_PUBLIC_, never in the
+# Desktop notes file (I-002). Free tiers (D-019).
+#   Gemini: aistudio.google.com → Get API key. If you restrict it by IP, use
+#           this server's IPv4 address — the API calls over IPv4 only.
+#   Groq:   console.groq.com → API keys.
+AI_ENABLED=false
+AI_GEMINI_API_KEY=
+AI_GEMINI_MODEL=gemini-3.8-flash
+AI_GROQ_API_KEY=
+AI_GROQ_MODEL=openai/gpt-oss-120b
+AI_PROVIDER_ORDER=gemini,groq
+# Optional: most successful drafts per 24 h across all organizers. Blank = none.
+AI_GLOBAL_DAILY_CAP=
+
 # openssl rand -hex 32 — the SAME value goes in frontend/.env
 REVALIDATE_SECRET=
 
@@ -203,6 +219,17 @@ SCHEDULER_ENABLED=true
 
 `JWT_SECRET` and `QR_JWT_SECRET` must **differ**: a leaked ticket-signing key
 must not also mint logins.
+
+**Turning AI on.** Apply `supabase/migrations/20261018090000_ai_generations.sql`
+first (see Database below), then, on this server, with `cwd` = `backend/`:
+
+```bash
+node scripts/probe-ai.js        # each provider once, with a made-up event; prints no key
+```
+
+Both providers should print `✓`. Only then set `AI_ENABLED=true` and
+`pm2 restart eventsli-backend`. Turning it off again is the whole rollback:
+`AI_ENABLED=false` and a restart. Nothing else depends on it.
 
 ### `/var/www/eventsli/frontend/.env`
 

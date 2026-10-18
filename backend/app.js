@@ -202,6 +202,9 @@ app.use('/api/v1/events', require('./routes/eventRoutes'));
 // the browser so the Places key stays server-side and the CSP does not have to
 // admit Google — see services/placesService.js.
 app.use('/api/v1/places', require('./routes/placesRoutes'));
+// Eventsli AI — read-only drafts; every write still goes through /events.
+// Off unless AI_ENABLED is set and a provider key exists (services/ai/config.js).
+app.use('/api/v1/ai', require('./routes/aiRoutes'));
 app.use('/api/v1/public', require('./routes/publicRoutes'));
 app.use('/api/v1/tickets', require('./routes/ticketRoutes'));
 app.use('/api/v1/payments', require('./routes/paymentRoutes'));
