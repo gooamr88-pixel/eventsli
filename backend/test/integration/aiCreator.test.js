@@ -230,7 +230,9 @@ test('only an organizer can draft: an admin is refused, an attendee too', async 
   const a = await adminUser.call('POST', '/ai/event-drafts', draftBody());
   assert.equal(a.status, 403);
   assert.equal(a.body.error, 'AI_ORGANIZER_ONLY');
-  assert.equal((await adminUser.call('GET', '/ai/quota')).body.data.enabled, false);
+  const adminQuota = (await adminUser.call('GET', '/ai/quota')).body.data;
+  assert.equal(adminQuota.enabled, false);
+  assert.equal(adminQuota.reason, 'ADMIN_ACCOUNT', 'says why, so an admin is not left looking for a missing card');
 
   const attendee = await signedIn('attendee');
   assert.equal((await attendee.call('POST', '/ai/event-drafts', draftBody())).status, 403);
@@ -241,7 +243,9 @@ test('switched off, AI says so and spends nothing', async () => {
   const o = await organizer('off');
   process.env.AI_ENABLED = 'false';
   try {
-    assert.equal((await o.call('GET', '/ai/quota')).body.data.enabled, false);
+    const off = (await o.call('GET', '/ai/quota')).body.data;
+    assert.equal(off.enabled, false);
+    assert.equal(off.reason, 'NOT_CONFIGURED');
     const res = await o.call('POST', '/ai/event-drafts', draftBody());
     assert.equal(res.status, 503);
     assert.equal(res.body.error, 'AI_DISABLED');

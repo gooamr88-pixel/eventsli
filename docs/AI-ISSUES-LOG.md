@@ -75,6 +75,7 @@ Statuses: `Open` · `In progress` · `Fixed (verified)` · `Deferred` ·
 | I-019 | 2026-10-18 | Design correction | Medium | Fixed (verified) | D-013 named `fetch`; the Places client actually needs IPv4-forced `node:https`, and so will the AI client |
 | I-020 | 2026-10-18 | Compliance, pre-existing | Medium | Needs owner | The privacy page's processor list omits Google Places, and will need Gemini and Groq |
 | I-021 | 2026-10-18 | Constraint | Low | Fixed (verified) | The browser client gives up after 30 s, which caps the AI request budget |
+| I-023 | 2026-10-18 | Operability | Medium | Fixed (verified) | After deploy with AI "enabled in env", no card appeared, and the five possible causes were indistinguishable |
 | I-022 | 2026-10-18 | Design constraint | Low | Fixed (verified) | No bulk endpoints for ticket types or schedule, so saving an AI draft is several requests and not atomic |
 
 ### I-001 — Overlapping tables are not detected anywhere
@@ -179,6 +180,12 @@ Statuses: `Open` · `In progress` · `Fixed (verified)` · `Deferred` ·
 - **Fix:** `saveAiDraft.js` creates the event first (the only request that can fail the save), then highlights, ticket types and schedule in order; anything that fails is named and "Try adding them again" retries only those. No item is sent twice.
 - **Verified:** `frontend/test/aiCreator.test.jsx` — "a ticket type that fails to save is named, and retrying adds only that one".
 - **Status:** Fixed (verified).
+
+### I-023 — "AI is enabled but the card does not appear"
+- **Reported by the owner after the first deploy (commit d251e04).** The card shows only when `GET /ai/quota` says `enabled: true`, and five causes all produced the same silent "off": backend not restarted on the new code; frontend not rebuilt; `AI_ENABLED` or the keys not in `backend/.env`; migration `20261018090000` not applied (the quota RPC fails); signed in as an admin (D-014).
+- **Fix:** the boot log now says `AI: ENABLED (gemini → groq)` + `AI: database ready`, or `AI: off — <exact reason>`, or `AI: database NOT ready — apply …`. `/ai/quota` returns `reason`: `NOT_CONFIGURED`, `ADMIN_ACCOUNT`, `NO_ORGANIZER` or `DATABASE_NOT_READY`. An admin sees a one-line note on the create page instead of nothing.
+- **Verified:** the three boot lines printed by the real `server.js` on the local stack; `aiProviders.test.js` (reason text), `aiCreator.test.js` integration (11/11, asserts `ADMIN_ACCOUNT` and `NOT_CONFIGURED`), `aiCreator.test.jsx` (10/10, admin note); backend unit 332/332.
+- **Status:** Fixed (verified). Which cause applied on the server is for the owner to read from the log.
 
 ### I-016 — Recent commits have meaningless messages; CI status unknown
 - `fc255f3 cxbnd`, `ac6dee5 cdjbnd`, `edc8370 cddghbn`, `184a39e gdhcdbh`. History is hard to audit, and whether CI is green on `main` is not recorded.

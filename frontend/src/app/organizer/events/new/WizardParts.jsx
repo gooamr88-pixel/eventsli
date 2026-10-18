@@ -110,6 +110,18 @@ export function TypeChooser() {
           <p className="es-ai-or">Or set it up step by step</p>
         </>
       )}
+      {/* The one "why is there no AI card" an admin can do something about, said
+          on the page: the API refuses admins on purpose (D-014). Every other
+          reason is configuration, and stays in the server log. */}
+      {quota?.reason === 'ADMIN_ACCOUNT' && (
+        <p className="fx-row items-start text-sm text-muted">
+          <span className="text-accent"><NavIcon name="info" size={18} /></span>
+          <span className="fx-min0 flex-1">
+            &ldquo;Create with AI&rdquo; is offered to organizer accounts only, so it is hidden while you are signed
+            in as an admin.
+          </span>
+        </p>
+      )}
 
       <div className="es-choice-grid es-choice-grid--2">
         <Link href="/organizer/events/new?type=ticketed" className="es-choice es-choice--lg">

@@ -30,6 +30,23 @@ const server = app.listen(PORT, () => {
   const paymentsOn = /^(1|true|yes|on)$/i.test(String(process.env.PAYMENTS_STRIPE_ENABLED || ''));
   logger.info(`Payments: ${paymentsOn ? 'ENABLED (Stripe)' : 'disabled — manual only'}`);
 
+  // The same for Eventsli AI, with the reason when it is off — and a check that
+  // the database half (migration 20261018090000) is there too, because the
+  // code without the migration looks exactly like AI switched off.
+  const ai = require('./services/ai/config').aiConfig();
+  if (!ai.enabled) {
+    logger.info(`AI: off — ${ai.reason}`);
+  } else {
+    logger.info(`AI: ENABLED (${ai.order.join(' → ')})`);
+    require('./services/ai/quotaService')
+      .status({ organizerId: '00000000-0000-0000-0000-000000000000', cfg: ai })
+      .then(() => logger.info('AI: database ready'))
+      .catch((err) => logger.error(
+        { err: err.message },
+        'AI: database NOT ready — apply supabase/migrations/20261018090000_ai_generations.sql. Until then the AI card stays hidden.',
+      ));
+  }
+
   // Background jobs. Without these an abandoned checkout holds its seats
   // forever — three DB functions sat correct and uncalled until this existed.
   try {

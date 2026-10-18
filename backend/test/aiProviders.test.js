@@ -72,6 +72,19 @@ test('AI is off unless it is switched on AND a provider has a key', () => {
   assert.equal(aiConfig().limit, 2, 'the owner set two a day (D-002)');
 });
 
+test('when AI is off, the config says why, in words an operator can act on', () => {
+  assert.equal(aiConfig().reason, null);
+  process.env.AI_ENABLED = 'false';
+  assert.match(aiConfig().reason, /AI_ENABLED is not "true"/);
+  process.env.AI_ENABLED = 'TRUE';
+  delete process.env.AI_GEMINI_API_KEY;
+  delete process.env.AI_GROQ_API_KEY;
+  assert.match(aiConfig().reason, /no provider .* has a key/);
+  process.env.AI_GROQ_API_KEY = 'k';
+  process.env.AI_PROVIDER_ORDER = 'gemini';
+  assert.match(aiConfig().reason, /AI_PROVIDER_ORDER \(gemini\)/, 'a key for a provider the order does not list does not count');
+});
+
 test('Gemini is asked for schema-shaped JSON, with the key in a header', async () => {
   let sent;
   aiHttp.setTransport(async (req) => { sent = req; return geminiOk(GOOD); });

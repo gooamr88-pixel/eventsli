@@ -14,7 +14,7 @@ import { get } from '../utils/apiClient';
  * `refresh` bumps a version rather than fetching itself, so the only setState
  * is in the request's callback (react-hooks/set-state-in-effect).
  */
-const OFF = Object.freeze({ enabled: false, limit: 2, used: 0, remaining: 0, nextAvailableAt: null });
+const OFF = Object.freeze({ enabled: false, limit: 2, used: 0, remaining: 0, nextAvailableAt: null, reason: 'UNREACHABLE' });
 
 export function useAiQuota() {
   const [quota, setQuota] = useState(null);

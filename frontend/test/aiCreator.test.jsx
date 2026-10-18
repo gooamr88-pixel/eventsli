@@ -49,6 +49,13 @@ describe('the entry', () => {
     expect(screen.getByText(/2 of 2 AI drafts left today/)).toBeInTheDocument();
   });
 
+  test('an admin is told why there is no AI card, instead of being left to look for it', async () => {
+    api({ quota: { ...QUOTA, enabled: false, reason: 'ADMIN_ACCOUNT' } });
+    render(<TypeChooser />);
+    expect(await screen.findByText(/offered to organizer accounts only/)).toBeInTheDocument();
+    expect(screen.queryByText(/we.ll draft it/)).not.toBeInTheDocument();
+  });
+
   test('without AI the page is the two manual choices it always was', async () => {
     api({ quota: { ...QUOTA, enabled: false } });
     render(<TypeChooser />);

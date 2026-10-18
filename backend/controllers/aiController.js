@@ -44,15 +44,38 @@ function quotaShape(row, cfg) {
 }
 
 // ─── GET /ai/quota ──────────────────────────────────────────────────────────
+/**
+ * Disabled is an answer, not an error: the entry card simply does not show.
+ *
+ * `reason` says WHICH disabled, because "the card is not there" has five causes
+ * that look identical from the browser. Codes, not configuration: an organizer
+ * learns only that AI is not set up, never which key is missing.
+ *
+ *   NOT_CONFIGURED       AI_ENABLED off, or no provider key (details in the boot log)
+ *   ADMIN_ACCOUNT        admins never spend an organizer's allowance (D-014)
+ *   NO_ORGANIZER         the account has no organizer profile yet
+ *   DATABASE_NOT_READY   the ai_generations migration is not applied
+ */
 async function getQuota(req, res, next) {
   try {
     const cfg = aiConfig();
     const organizerId = req.user.access.organizerId;
-    // Disabled is an answer, not an error: the entry card simply does not show.
-    if (!cfg.enabled || req.user.access.isAdmin || !organizerId) {
-      return sendOk(res, { ...quotaShape(null, cfg), enabled: false });
+    const off = (reason) => sendOk(res, { ...quotaShape(null, cfg), enabled: false, reason });
+    if (!cfg.enabled) return off('NOT_CONFIGURED');
+    if (req.user.access.isAdmin) return off('ADMIN_ACCOUNT');
+    if (!organizerId) return off('NO_ORGANIZER');
+
+    let row;
+    try {
+      row = await quota.status({ organizerId, cfg });
+    } catch (err) {
+      // Almost always "function ai_generation_status does not exist": the code
+      // is deployed and the migration is not. Said loudly in the log, once per
+      // request, and answered as "off" so the page still works without AI.
+      logger.error({ err: err.message }, 'AI quota lookup failed — is migration 20261018090000_ai_generations.sql applied?');
+      return off('DATABASE_NOT_READY');
     }
-    return sendOk(res, quotaShape(await quota.status({ organizerId, cfg }), cfg));
+    return sendOk(res, { ...quotaShape(row, cfg), reason: null });
   } catch (err) {
     return next(err);
   }

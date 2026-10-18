@@ -67,10 +67,28 @@ function globalCap() {
   return Number.isInteger(n) && n > 0 ? n : null;
 }
 
+/**
+ * Why AI is off, in words an operator can act on — or null when it is on.
+ *
+ * Added after the first deploy: AI was "enabled in env" and the card did not
+ * appear, and from the outside every cause looks the same. The boot log and the
+ * quota route both say which one it is now.
+ */
+function disabledReason(order) {
+  if (!truthy(process.env.AI_ENABLED)) return 'AI_ENABLED is not "true" in backend/.env';
+  if (order.length === 0) {
+    const asked = str(process.env.AI_PROVIDER_ORDER || 'gemini,groq');
+    return `AI_ENABLED is on, but no provider in AI_PROVIDER_ORDER (${asked}) has a key — set AI_GEMINI_API_KEY and/or AI_GROQ_API_KEY`;
+  }
+  return null;
+}
+
 function aiConfig() {
   const order = providerOrder();
+  const reason = disabledReason(order);
   return {
-    enabled: truthy(process.env.AI_ENABLED) && order.length > 0,
+    enabled: reason === null,
+    reason,
     order,
     limit: DAILY_LIMIT,
     window: WINDOW,
