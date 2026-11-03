@@ -134,6 +134,7 @@ const ERROR_STATUS = {
   AI_GENERATION_IN_PROGRESS: 409,  // the same request is still being answered
   AI_GENERATION_DUPLICATE: 409,    // that request was already answered once
   AI_UNAVAILABLE: 503,             // every provider failed; nothing was counted
+  AI_NOT_AN_EVENT: 422,            // the poster image shows no event; nothing was counted
 
   // app.js's catch-all. A client can receive it, so it needs a sentence.
   INTERNAL_ERROR: 500,

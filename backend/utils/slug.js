@@ -37,15 +37,45 @@ function suffix(bytes = 3) {
 }
 
 /**
+ * The readable alternatives to try before a random suffix, when the plain
+ * slug is taken: the city, then the city and the year, then the year.
+ *
+ * WHY. A slug is the one part of the URL a search result shows in full, and
+ * "jazz-night-toronto-2026" matches what somebody types ("jazz night toronto")
+ * where "jazz-night-3fa9c1" matches nothing. Only words the slug does not
+ * already contain are added, and only for NEW events — a published slug is
+ * never rewritten (see the note at the top).
+ */
+function qualifiedSlugs(base, { city, year } = {}) {
+  const has = (word) => word && `-${base}-`.includes(`-${word}-`);
+  const c = city ? slugify(city, { maxLength: 30 }) : null;
+  const y = year ? String(year).replace(/\D/g, '').slice(0, 4) : null;
+  const cityPart = c && c !== 'event' && !has(c) ? c : null;
+  const yearPart = y && y.length === 4 && !has(y) ? y : null;
+  return [
+    cityPart && `${base}-${cityPart}`,
+    cityPart && yearPart && `${base}-${cityPart}-${yearPart}`,
+    yearPart && `${base}-${yearPart}`,
+  ].filter(Boolean).map((s) => s.slice(0, 90).replace(/-+$/g, ''));
+}
+
+/**
  * Finds a free slug.
  *
  * `isTaken` is injected rather than querying here so this file stays pure and
  * testable without a database. Bounded retries: after a few collisions the
  * suffix grows instead of looping, so a pathological case terminates.
+ *
+ * `qualifiers` ({ city, year }) are tried first, readable, before any random
+ * suffix — see `qualifiedSlugs`.
  */
-async function uniqueSlug(title, isTaken, { maxAttempts = 5 } = {}) {
+async function uniqueSlug(title, isTaken, { maxAttempts = 5, qualifiers = null } = {}) {
   const base = slugify(title);
   if (!(await isTaken(base))) return base;
+
+  for (const candidate of qualifiedSlugs(base, qualifiers || {})) {
+    if (!(await isTaken(candidate))) return candidate;
+  }
 
   for (let i = 0; i < maxAttempts; i += 1) {
     const candidate = `${base}-${suffix(3 + i)}`;
@@ -55,4 +85,4 @@ async function uniqueSlug(title, isTaken, { maxAttempts = 5 } = {}) {
   return `${base}-${Date.now().toString(36)}`;
 }
 
-module.exports = { slugify, uniqueSlug };
+module.exports = { slugify, uniqueSlug, qualifiedSlugs };

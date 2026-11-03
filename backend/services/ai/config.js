@@ -32,6 +32,15 @@ const STALE = '2 minutes';
  */
 const TIMEOUTS = Object.freeze({ primary: 11_000, fallback: 9_000 });
 
+/**
+ * Reading a poster takes longer than reading a paragraph — the model looks at
+ * the image, transcribes it and then fills the form — and the browser has
+ * already spent part of its 30 s uploading the image. So the primary gets a
+ * little more, the fallback a little less, and no fallback starts after 14 s:
+ * 14 + 8 leaves the upload and the database round trips room inside 30.
+ */
+const VISION_TIMEOUTS = Object.freeze({ primary: 13_000, fallback: 8_000, lastStart: 14_000 });
+
 const truthy = (v) => /^(1|true|yes|on)$/i.test(String(v || '').trim());
 const str = (v) => String(v || '').trim();
 
@@ -41,11 +50,19 @@ const PROVIDERS = Object.freeze({
     // Read from Google's model list on 2026-10-18 (D-021). A setting, because
     // model IDs are retired on Google's schedule, not ours.
     model: () => str(process.env.AI_GEMINI_MODEL) || 'gemini-3.8-flash',
+    // Gemini Flash models read images natively, so posters use the same model
+    // unless an operator names another. `off` keeps this provider for text only.
+    visionModel: () => str(process.env.AI_GEMINI_VISION_MODEL) || PROVIDERS.gemini.model(),
   },
   groq: {
     key: () => str(process.env.AI_GROQ_API_KEY),
     // One of the two Groq models documented for strict json_schema output.
     model: () => str(process.env.AI_GROQ_MODEL) || 'openai/gpt-oss-120b',
+    // gpt-oss reads text only; Groq's image-capable models are the Llama 4
+    // family (base64 images up to 4 MB). They support JSON mode but strict
+    // json_schema is not documented for them, so `providers.groq` asks for a
+    // JSON object and the server validator stays the guarantee.
+    visionModel: () => str(process.env.AI_GROQ_VISION_MODEL) || 'meta-llama/llama-4-scout-17b-16e-instruct',
   },
 });
 
@@ -59,6 +76,14 @@ function providerOrder() {
     seen.add(name);
     return true;
   });
+}
+
+/**
+ * The providers that can read a poster: the text order, minus any whose
+ * vision model an operator has switched `off`.
+ */
+function visionOrder(order) {
+  return order.filter((name) => !/^(off|none|false)$/i.test(PROVIDERS[name].visionModel()));
 }
 
 /** A positive whole number, or null for "no ceiling". */
@@ -86,16 +111,24 @@ function disabledReason(order) {
 function aiConfig() {
   const order = providerOrder();
   const reason = disabledReason(order);
+  const vision = visionOrder(order);
   return {
     enabled: reason === null,
     reason,
     order,
+    visionOrder: vision,
+    // Poster import is on with AI unless AI_POSTER_ENABLED is set to false, or
+    // no configured provider can read images.
+    poster: reason === null && vision.length > 0 && !/^(0|false|no|off)$/i.test(str(process.env.AI_POSTER_ENABLED)),
     limit: DAILY_LIMIT,
     window: WINDOW,
     stale: STALE,
     globalCap: globalCap(),
     timeouts: TIMEOUTS,
+    visionTimeouts: VISION_TIMEOUTS,
   };
 }
 
-module.exports = { aiConfig, PROVIDERS, DAILY_LIMIT, WINDOW, STALE, TIMEOUTS };
+module.exports = {
+  aiConfig, PROVIDERS, DAILY_LIMIT, WINDOW, STALE, TIMEOUTS, VISION_TIMEOUTS,
+};

@@ -9661,4 +9661,105 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
 .es-ai-faillist { gap: 0.5rem; font-size: var(--es-text-sm); }
 .es-ai-faillist li { display: flex; gap: 0.375rem; align-items: flex-start; }
 .es-ai-faillist svg { flex: none; margin-top: 0.125rem; color: var(--es-ai-need); }
+
+/* ── From a poster ───────────────────────────────────────────────────────
+   The source switch sits above the panel; inside it, the drop zone takes the
+   place of the big text box, and the note under it is a short one. */
+.es-ai-seg--source { max-width: 26rem; }
+.es-ai-ta--short textarea { min-height: 5.5rem; }
+@media (width >= 48rem) { .es-ai-ta--short textarea { min-height: 6rem; } }
+.es-ai-ta__label { display: block; padding: 0.75rem 1rem 0; font-size: var(--es-text-sm); font-weight: 600; color: var(--es-text); }
+.es-ai-ta__opt { font-weight: 500; color: var(--es-text-subtle); }
+.es-ai-ta--short textarea { padding-top: 0.375rem; }
+
+.es-ai-drop {
+  display: flex; flex-direction: column; align-items: center; gap: 0.5rem; padding: 1.75rem 1rem;
+  border: 1.5px dashed var(--es-border-strong); border-radius: var(--es-radius-lg); background: var(--es-bg-sunken);
+  text-align: center; cursor: pointer; transition: border-color 150ms ease, background 150ms ease;
+}
+@media (width >= 48rem) { .es-ai-drop { padding: 2.5rem 1.5rem; } }
+.es-ai-drop:hover, .es-ai-drop.is-over { border-color: var(--es-accent); background: var(--es-accent-wash); }
+.es-ai-drop:has(+ input:focus-visible) { outline: 2px solid var(--es-accent); outline-offset: 2px; }
+.es-ai-drop.is-error { border-color: var(--es-danger); }
+.es-ai-drop__icon {
+  display: grid; place-items: center; width: 3.25rem; height: 3.25rem; border-radius: var(--es-radius-lg);
+  background: var(--es-surface); color: var(--es-accent); box-shadow: var(--es-shadow-xs);
+}
+.es-ai-drop__title { font-size: var(--es-text-md); font-weight: 600; color: var(--es-text); }
+.es-ai-drop__text { max-width: 26rem; font-size: var(--es-text-sm); line-height: 1.5; color: var(--es-text-muted); }
+.es-ai-drop__cta { color: var(--es-accent); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+.es-ai-drop__fine { font-size: var(--es-text-xs); color: var(--es-text-subtle); }
+
+.es-ai-poster {
+  display: grid; grid-template-columns: 6.5rem minmax(0, 1fr); gap: 0.875rem; align-items: start; padding: 0.75rem;
+  border: 1px solid var(--es-border); border-radius: var(--es-radius-lg); background: var(--es-bg-sunken);
+}
+@media (width >= 48rem) { .es-ai-poster { grid-template-columns: 9rem minmax(0, 1fr); } }
+.es-ai-poster__frame { overflow: hidden; border-radius: var(--es-radius-md); background: var(--es-surface); box-shadow: var(--es-shadow-sm); }
+.es-ai-poster__img { display: block; width: 100%; height: auto; max-height: 14rem; object-fit: contain; }
+.es-ai-poster__meta { display: flex; flex-direction: column; gap: 0.375rem; min-width: 0; }
+.es-ai-poster__name { display: flex; align-items: center; gap: 0.375rem; font-weight: 600; }
+.es-ai-poster__name svg { flex: none; color: var(--es-accent); }
+.es-ai-poster__sub { font-size: var(--es-text-xs); color: var(--es-text-subtle); }
+.es-ai-poster__tools { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.25rem; }
+
+/* The poster as the cover on the review page: shown whole, never cropped
+   (its title and date are usually at the edges), over a blurred copy of
+   itself — the same treatment the public event page gives it. */
+.es-ai-pcover { border-bottom: 1px solid var(--es-border); }
+.es-ai-pcover__art { position: relative; display: grid; place-items: center; overflow: hidden; height: 15rem; background: var(--es-bg-sunken); }
+@media (width >= 64rem) { .es-ai-pcover__art { height: 22rem; } }
+.es-ai-pcover__wash { position: absolute; inset: -1.5rem; filter: blur(24px) saturate(1.2); opacity: 0.55; }
+.es-ai-pcover__wash img { width: 100%; height: 100%; object-fit: cover; }
+.es-ai-pcover__img { position: relative; max-width: 100%; max-height: 100%; object-fit: contain; box-shadow: var(--es-shadow-md); }
+.es-ai-pcover__bar { display: flex; flex-direction: column; gap: 0.625rem; padding: 0.875rem 1.125rem; }
+@media (width >= 64rem) { .es-ai-pcover__bar { padding-inline: 2rem; } }
+.es-ai-read summary {
+  display: inline-flex; align-items: center; gap: 0.375rem; color: var(--es-accent);
+  font-size: var(--es-text-sm); font-weight: 600; cursor: pointer; list-style: none;
+}
+.es-ai-read summary::-webkit-details-marker { display: none; }
+.es-ai-read__text {
+  margin-top: 0.5rem; padding: 0.75rem 0.875rem; max-height: 14rem; overflow-y: auto;
+  border-radius: var(--es-radius-md); background: var(--es-bg-sunken);
+  font-family: var(--es-font-code); font-size: var(--es-text-xs); line-height: 1.6; white-space: pre-line; overflow-wrap: anywhere;
+}
+.es-ai-read__note { margin-top: 0.375rem; font-size: var(--es-text-xs); color: var(--es-text-subtle); }
 }   /* end @layer components — the Smart Event Creator */
+
+/* ── The event page: what helps it be found ───────────────────────────────
+   The breadcrumb over the poster, the quick answers in the FAQs tab, and the
+   related events under the tickets. See e/[slug]/EventDiscovery.jsx. */
+@layer components {
+.es-ev-crumbs ol { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.5rem; font-size: var(--es-text-sm); color: var(--es-text-subtle); }
+.es-ev-crumbs li { display: inline-flex; align-items: center; gap: 0.5rem; min-width: 0; max-width: 100%; }
+.es-ev-crumbs li + li::before { content: "\203A"; color: var(--es-text-subtle); }
+.es-ev-crumbs a { color: var(--es-text-muted); text-decoration: none; }
+.es-ev-crumbs a:hover { color: var(--es-accent); text-decoration: underline; }
+.es-ev-crumbs [aria-current] { color: var(--es-text-muted); }
+.es-ev-answers { display: flex; flex-direction: column; }
+.es-ev-answers__row { display: flex; flex-direction: column; gap: 0.25rem; padding-block: 0.75rem; }
+.es-ev-answers__row + .es-ev-answers__row { border-top: 1px solid var(--es-border); }
+.es-ev-answers dt { font-weight: 600; color: var(--es-text); }
+.es-ev-answers dd { max-width: 62ch; font-size: var(--es-text-sm); line-height: 1.6; color: var(--es-text-muted); }
+.es-ev-related { margin: 0; padding: 0; list-style: none; }
+
+/* The organizer's search preview: a search result drawn in the site's own
+   type, close enough to read as one, without imitating anybody's brand. */
+.es-serp { display: flex; flex-direction: column; gap: 0.25rem; padding: 1rem; border: 1px solid var(--es-border); border-radius: var(--es-radius-lg); background: var(--es-surface); }
+.es-serp__site { display: flex; align-items: center; gap: 0.625rem; min-width: 0; }
+.es-serp__site > span:last-child { display: flex; flex-direction: column; }
+.es-serp__fav { display: grid; place-items: center; flex: none; width: 1.75rem; height: 1.75rem; border-radius: 999px; background: var(--es-accent-wash); color: var(--es-accent); font-size: var(--es-text-xs); font-weight: 700; }
+.es-serp__name { font-size: var(--es-text-sm); color: var(--es-text); }
+.es-serp__url { font-size: var(--es-text-xs); color: var(--es-text-subtle); }
+.es-serp__title { margin-top: 0.25rem; font-size: var(--es-text-lg); line-height: 1.3; color: var(--es-accent); }
+.es-serp__desc { font-size: var(--es-text-sm); line-height: 1.55; color: var(--es-text-muted); }
+.es-serp__facts { font-size: var(--es-text-xs); color: var(--es-text-subtle); }
+.es-serp__meter { position: relative; flex: 1 1 8rem; max-width: 14rem; height: 0.375rem; overflow: hidden; border-radius: 999px; background: var(--es-bg-sunken); }
+.es-serp__meter > span { position: absolute; inset: 0 auto 0 0; border-radius: 999px; background: var(--es-accent); }
+.es-serp__checks { display: flex; flex-direction: column; }
+.es-serp__checks li { display: flex; align-items: center; gap: 0.625rem; padding-block: 0.5rem; }
+.es-serp__checks li + li { border-top: 1px solid var(--es-border); }
+.es-serp__mark { display: grid; place-items: center; flex: none; width: 1.5rem; height: 1.5rem; border-radius: 999px; background: var(--es-bg-sunken); color: var(--es-text-subtle); }
+.es-serp__checks [data-done] .es-serp__mark { background: var(--es-accent-wash); color: var(--es-success); }
+}   /* end @layer components — the event page: what helps it be found */

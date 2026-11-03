@@ -53,8 +53,13 @@ function parseJson(text) {
   }
 }
 
-async function gemini({ system, user, geminiSchema, timeoutMs }) {
-  const model = PROVIDERS.gemini.model();
+/**
+ * `image` — `{ mimeType, data }` from `posterImage.readPosterImage` — is sent
+ * inline beside the text, and switches each provider to its vision model.
+ * Without it, both calls are exactly what they were.
+ */
+async function gemini({ system, user, geminiSchema, timeoutMs, image = null }) {
+  const model = image ? PROVIDERS.gemini.visionModel() : PROVIDERS.gemini.model();
   if (!SAFE_MODEL.test(model)) throw aiError('AI_REQUEST_REJECTED', 'The Gemini model setting is not a model id.');
 
   const res = await postJson({
@@ -64,12 +69,18 @@ async function gemini({ system, user, geminiSchema, timeoutMs }) {
     timeoutMs,
     body: {
       systemInstruction: { parts: [{ text: system }] },
-      contents: [{ role: 'user', parts: [{ text: user }] }],
+      contents: [{
+        role: 'user',
+        parts: image
+          ? [{ text: user }, { inlineData: { mimeType: image.mimeType, data: image.data } }]
+          : [{ text: user }],
+      }],
       generationConfig: {
         responseMimeType: 'application/json',
         responseSchema: geminiSchema,
         temperature: 0.2,
-        maxOutputTokens: 4096,
+        // A poster's transcript is written out before the draft, so it gets room.
+        maxOutputTokens: image ? 6144 : 4096,
       },
     },
   });
@@ -95,15 +106,41 @@ async function gemini({ system, user, geminiSchema, timeoutMs }) {
   };
 }
 
-async function groq({ system, user, jsonSchema, timeoutMs }) {
-  const model = PROVIDERS.groq.model();
+/**
+ * With an image, Groq's vision model is asked for a JSON OBJECT, with the
+ * schema written into the prompt, rather than strict `json_schema`: strict
+ * mode is documented for the gpt-oss models, which cannot see, and not for
+ * the Llama 4 models, which can. The shape is then only as good as the model's
+ * obedience — which is exactly the case `validateDraft` exists for.
+ */
+function groqVisionMessages({ system, user, jsonSchema, image }) {
+  return [
+    { role: 'system', content: system },
+    {
+      role: 'user',
+      content: [
+        { type: 'text', text: `${user}\n\nAnswer with one JSON object that matches this JSON Schema exactly:\n${JSON.stringify(jsonSchema)}` },
+        { type: 'image_url', image_url: { url: `data:${image.mimeType};base64,${image.data}` } },
+      ],
+    },
+  ];
+}
+
+async function groq({ system, user, jsonSchema, timeoutMs, image = null }) {
+  const model = image ? PROVIDERS.groq.visionModel() : PROVIDERS.groq.model();
   if (!SAFE_MODEL.test(model)) throw aiError('AI_REQUEST_REJECTED', 'The Groq model setting is not a model id.');
 
   const res = await postJson({
     url: 'https://api.groq.com/openai/v1/chat/completions',
     headers: { Authorization: `Bearer ${PROVIDERS.groq.key()}` },
     timeoutMs,
-    body: {
+    body: image ? {
+      model,
+      messages: groqVisionMessages({ system, user, jsonSchema, image }),
+      response_format: { type: 'json_object' },
+      temperature: 0.2,
+      max_completion_tokens: 6144,
+    } : {
       model,
       messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
       response_format: { type: 'json_schema', json_schema: { name: 'event_draft', strict: true, schema: jsonSchema } },

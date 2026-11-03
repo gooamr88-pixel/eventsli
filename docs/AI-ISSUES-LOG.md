@@ -47,6 +47,11 @@ Statuses: `Open` · `In progress` · `Fixed (verified)` · `Deferred` ·
 | D-019 | 2026-10-18 | **Free tiers of Gemini and Groq, as a hybrid**: Gemini primary, Groq automatic fallback (D-011 unchanged). | Owner | "grok" in the answer is read as Groq, the provider chosen in D-003; if xAI Grok was meant, it is one provider adapter. Consequence: Google's pricing page marks free-tier content "Used to improve our products: Yes" (checked 2026-10-18). This is disclosed on the describe screen and in the privacy policy. Resolves the billing half of I-011. |
 | D-020 | 2026-10-18 | Defaults applied where the owner gave no answer (the recommendations in the Phase 1 report): emails and phone numbers are removed before text is sent; no prompt or AI output is stored, only usage metadata; the generation is linked to the event it created, and admins see "AI-assisted"; "Change it and regenerate" is allowed and costs one draft; new issues are recorded here. | Claude, on the owner's go-ahead | Any of these can be reversed by the owner. |
 | D-021 | 2026-10-18 | Amends D-013: providers are called over `node:https` with an IPv4-only agent (the `placesService.js` pattern), not `fetch`. Gemini is called with `generateContent` + `responseSchema` (OpenAPI subset); Groq with strict `json_schema`. Both schemas are generated from one definition. | Claude | See I-019. Model IDs as env settings: `gemini-3.8-flash`, `openai/gpt-oss-120b` (both read from provider docs 2026-10-18; confirmed only by `scripts/probe-ai.js` with real keys, I-010). |
+| D-022 | 2026-11-03 | **Draft from a poster image**, as a second way into the same Smart Event Creator: same quota (one draft), same review, same save, same validator. | Claude, on the owner's brief | `POST /ai/event-drafts/from-image`. The model transcribes the poster (`posterText`) before filling any field, and every fact's evidence is checked against that transcript plus the organizer's optional note — D-006/D-012 apply unchanged. |
+| D-023 | 2026-11-03 | The poster is downscaled and re-encoded **in the browser** (1600 px JPEG, ≤1.2 MB). The server re-checks it by its bytes (type signature, dimensions, size) before any reservation. | Claude | Fits the 2 MB JSON limit with no `app.js` change, keeps upload inside the 30 s budget (I-021), and drops EXIF/GPS. Nothing is stored by the AI endpoint (D-020); the poster is saved only as the cover, through the existing signed cover upload, if the organizer keeps the default "use as cover". |
+| D-024 | 2026-11-03 | Groq's poster fallback uses a **vision model in JSON-object mode** (`AI_GROQ_VISION_MODEL`, default Llama 4 Scout), not strict `json_schema`. | Claude | Strict mode is documented for gpt-oss (text only), not for the Llama 4 vision models. The validator remains the guarantee. `off` disables either provider for posters only. |
+| D-025 | 2026-11-03 | An image the model says is **not an event** returns `AI_NOT_AN_EVENT` (422), is released (costs nothing, D-010) and is **not** retried on the fallback provider. | Claude | Bounded by the existing 10-per-10-minutes limiter. |
+| D-026 | 2026-11-03 | **Event-page SEO** is derived from existing fields only (`lib/eventSeo.js`); no new columns, no migration. A colliding slug tries `-city`, `-city-year`, `-year` before a random suffix, for new events only. | Claude | Avoids the migration-lag risk seen in I-003/I-004. Existing slugs never change. |
 
 ---
 
@@ -77,6 +82,9 @@ Statuses: `Open` · `In progress` · `Fixed (verified)` · `Deferred` ·
 | I-021 | 2026-10-18 | Constraint | Low | Fixed (verified) | The browser client gives up after 30 s, which caps the AI request budget |
 | I-023 | 2026-10-18 | Operability | Medium | Fixed (verified) | After deploy with AI "enabled in env", no card appeared, and the five possible causes were indistinguishable |
 | I-022 | 2026-10-18 | Design constraint | Low | Fixed (verified) | No bulk endpoints for ticket types or schedule, so saving an AI draft is several requests and not atomic |
+| I-024 | 2026-11-03 | Unverified | Medium | Open | Poster import is unverified against the live providers (vision model IDs, Groq JSON mode with images) |
+| I-025 | 2026-11-03 | Unverified | Medium | Open | Poster integration tests written but not run (no local stack; `.env` points at production) |
+| I-026 | 2026-11-03 | Gap | Low | Fixed (verified) | AI-written tier names and schedule titles were not scrubbed of phone numbers or emails |
 
 ### I-001 — Overlapping tables are not detected anywhere
 - **Where:** `frontend/src/app/organizer/events/[id]/map/MapEditor.jsx:112-115` says the problem list (the Save-button gate) covers "overlapping tables, seats outside the world box … and the server rejects those plans". `draftRules.mapProblems` checks neither; `venueService.saveMap` and `save_venue_map` check neither. A search of frontend, backend and migrations for overlap/collision logic finds none.
@@ -190,3 +198,19 @@ Statuses: `Open` · `In progress` · `Fixed (verified)` · `Deferred` ·
 ### I-016 — Recent commits have meaningless messages; CI status unknown
 - `fc255f3 cxbnd`, `ac6dee5 cdjbnd`, `edc8370 cddghbn`, `184a39e gdhcdbh`. History is hard to audit, and whether CI is green on `main` is not recorded.
 - **Status:** Open — check CI before AI work merges; AI work will use descriptive commits (only when the owner asks to commit).
+
+### I-024 — Poster import unverified against the live providers
+- `gemini-3.8-flash` (the configured text model) is assumed to accept inline images; the Groq vision default `meta-llama/llama-4-scout-17b-16e-instruct` was read from third-party docs on 2026-11-03 and may be retired by Groq. Both are env settings (`AI_GEMINI_VISION_MODEL`, `AI_GROQ_VISION_MODEL`).
+- **To verify:** with real keys, send one real poster through `/ai/event-drafts/from-image` (or extend `scripts/probe-ai.js`) and confirm each provider answers. If Groq's vision model is gone, set a current one or `AI_GROQ_VISION_MODEL=off`.
+- **Status:** Open.
+
+### I-025 — Poster integration tests not run
+- `backend/test/integration/aiCreator.test.js` gained two cases (a poster draft costs one draft and returns `posterText`; a non-event image and a non-image file cost nothing, and the bad file never reserves). No local Supabase stack was available, and `backend/.env` points at the live project, so they were not run (that suite must never run against production).
+- **Verified instead:** `backend/test/aiPoster.test.js` (15, unit, recorded provider answers), `frontend/test/aiPoster.test.jsx` (10).
+- **Status:** Open — run `npm run test:integration --workspace=backend` on the local stack.
+
+### I-026 — Contacts in AI-written labels
+- `scrubCopy` covered description, highlights and tier descriptions, but tier names and schedule titles only passed `clean()`. Harmless for typed descriptions (redacted first), but a poster's printed phone number could reach a ticket name.
+- **Fix:** `noContacts()` on tier names and schedule titles; `scrubCopy` also removes phone numbers.
+- **Verified:** `aiPoster.test.js` — "a contact printed on a poster cannot ride into a ticket name or a schedule row", "AI copy never keeps a phone number".
+- **Status:** Fixed (verified).

@@ -49,6 +49,15 @@ const { organizerReadiness, eventSetup: setup } = submission;
 
 const PAYMENT_UNAVAILABLE = 'Choose a payment option you have set up: connect Stripe or add a manual payment method first.';
 
+/** The event's year where it happens — a New Year's Eve party is that year's. */
+function yearIn(startsAt, timezone) {
+  try {
+    return new Intl.DateTimeFormat('en-CA', { year: 'numeric', timeZone: timezone }).format(new Date(startsAt));
+  } catch {
+    return null;
+  }
+}
+
 // ─── POST /events ───────────────────────────────────────────────────────────
 async function create(req, res, next) {
   try {
@@ -84,7 +93,7 @@ async function create(req, res, next) {
     const slug = await uniqueSlug(req.body.title, async (candidate) => {
       const { data } = await supabase.from('events').select('id').eq('slug', candidate).maybeSingle();
       return !!data;
-    });
+    }, { qualifiers: { city: req.body.city, year: yearIn(req.body.startsAt, req.body.timezone) } });
 
     const { data, error } = await supabase
       .from('events')

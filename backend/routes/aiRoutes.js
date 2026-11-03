@@ -4,6 +4,7 @@ const validate = require('../middleware/validate');
 const { requireAuth, requireRole, requireActiveOrganizer } = require('../middleware/auth');
 const { makeLimiter } = require('../middleware/rateLimit');
 const ai = require('../controllers/aiController');
+const { TYPES, MAX_BASE64 } = require('../services/ai/posterImage');
 
 /**
  * Eventsli AI. Organizer accounts only, and an organizer that is banned is
@@ -36,11 +37,8 @@ const draftLimiter = makeLimiter({
   message: 'That is a lot of drafts in a few minutes. Wait a moment and try again.',
 });
 
-router.get('/quota', ai.getQuota);
-
-router.post(
-  '/event-drafts',
-  draftLimiter,
+/** What every draft request carries, whatever it is drafted from. */
+const draftBasics = () => [
   body('requestId').isUUID().withMessage('Send a request id.'),
   body('listingType').isIn(['ticketed', 'display_only'])
     .withMessage('Choose a ticketed event or a display-only listing.'),
@@ -48,12 +46,42 @@ router.post(
     .withMessage('Country must be a two-letter code, e.g. CA or US.'),
   body('timezone').isString().trim().custom(isTimeZone)
     .withMessage('Choose a time zone from the list, e.g. America/Toronto.'),
+];
+
+router.get('/quota', ai.getQuota);
+
+router.post(
+  '/event-drafts',
+  draftLimiter,
+  ...draftBasics(),
   // 40 so there is something to work from; 2,000 is about 600 tokens, which
   // bounds what a single press can cost on any provider.
   body('description').isString().trim().isLength({ min: 40, max: 2000 })
     .withMessage('Describe the event in 40 to 2,000 characters.'),
   validate,
   ai.createEventDraft,
+);
+
+/**
+ * From a poster. The SAME limiter instance as above, so a description and a
+ * poster share one budget of presses rather than getting ten each. The
+ * image's bytes are checked properly in the controller (`readPosterImage`,
+ * by signature and dimensions); these only bound the request's shape and
+ * length before anything is decoded.
+ */
+router.post(
+  '/event-drafts/from-image',
+  draftLimiter,
+  ...draftBasics(),
+  body('notes').optional({ values: 'null' }).isString().trim().isLength({ max: 1000 })
+    .withMessage('Keep the note under 1,000 characters.'),
+  body('image').isObject().withMessage('Add a poster image.'),
+  body('image.mimeType').isIn(TYPES).withMessage('Upload the poster as a JPEG, PNG or WebP image.'),
+  // A data: prefix is allowed and stripped, hence the small allowance.
+  body('image.data').isString().isLength({ min: 1, max: MAX_BASE64 + 64 })
+    .withMessage('That image is too large. Use one under 1.4 MB.'),
+  validate,
+  ai.createEventDraftFromImage,
 );
 
 module.exports = router;

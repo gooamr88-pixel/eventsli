@@ -7,6 +7,7 @@ import { useEventContext } from './EventContext';
 import ReviewActions from './ReviewActions';
 import EventStats from './EventStats';
 import LaunchChecklist, { useLaunchSteps, NextStep } from './LaunchChecklist';
+import SearchAppearance from './SearchAppearance';
 import { Panel } from '../../../components/ui/Page';
 import { Loading, Notice } from '../../../components/Feedback';
 
@@ -131,6 +132,10 @@ export default function EventOverview() {
       {!preLaunch && ticketed && <EventStats eventId={event.id} currency={event.currency} />}
 
       {preLaunch && <PreLaunch event={event} onChanged={ctx.refresh} />}
+
+      {/* How the public page reads to a search engine, built by the same
+          functions that page uses, while there is still time to improve it. */}
+      {!finished && <SearchAppearance event={event} />}
 
       {/* ─────────────────────────────────────────────────────────────────
           A FINISHED EVENT HAS NO STEPS LEFT, so this is the one thing it

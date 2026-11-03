@@ -19,6 +19,12 @@ import { priceToCents, laterNeeds, sectionState, TIER_KINDS } from './aiDraftMod
  * row with a button that fixes it; everything that is fine is just content.
  * Where a fact came from is shown in the editor, on demand, as the organizer's
  * own words — not as a badge on every line.
+ *
+ * FROM A POSTER, the poster is the cover — shown where the cover will be, with
+ * one switch to keep it or not — and "What we read" sits under it: the
+ * model's transcript of the image. Every fact was checked against that
+ * transcript on the server, but the transcript itself is the one thing no
+ * server can check, so it is put where the organizer can, beside the picture.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
@@ -88,7 +94,38 @@ function whenText(form) {
   return { date, time: to ? `${from} – ${to}` : `Starts ${from}` };
 }
 
-export default function DraftReview({ form, problems, onEdit, onContinue, onRegenerate, quota, categories }) {
+function PosterCover({ poster, form, onToggleCover }) {
+  return (
+    <div className="es-ai-pcover">
+      <div className="es-ai-pcover__art">
+        <span aria-hidden="true" className="es-ai-pcover__wash">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={poster.dataUrl} alt="" />
+        </span>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={poster.dataUrl} alt="Your poster" className="es-ai-pcover__img" />
+      </div>
+      <div className="es-ai-pcover__bar">
+        <label className="es-ai-toggle">
+          <input type="checkbox" checked={Boolean(form.useAsCover)} onChange={(e) => onToggleCover(e.target.checked)} />
+          <span className="es-ai-toggle__track" aria-hidden="true" />
+          Use this poster as the event&rsquo;s cover image
+        </label>
+        {form.posterText && (
+          <details className="es-ai-read">
+            <summary><NavIcon name="eye" size={15} /> What we read on your poster</summary>
+            <p className="es-ai-read__text">{form.posterText}</p>
+            <p className="es-ai-read__note">Dates, venues and prices were only kept where these words state them.</p>
+          </details>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default function DraftReview({
+  form, problems, onEdit, onContinue, onRegenerate, quota, categories, poster = null, onToggleCover = () => {},
+}) {
   const sections = sectionState(form, problems);
   const has = (field) => problems.some((p) => p.field === field);
   const ticketed = form.listingType !== 'display_only';
@@ -106,7 +143,7 @@ export default function DraftReview({ form, problems, onEdit, onContinue, onRege
 
   const regen = (
     <div className="es-ai-regen">
-      <p><NavIcon name="sparkle" size={15} /> Built from your description</p>
+      <p><NavIcon name="sparkle" size={15} /> Built from your {form.source === 'poster' ? 'poster' : 'description'}</p>
       <button type="button" className="es-ai-link" onClick={onRegenerate} disabled={quota && quota.remaining < 1}>
         <NavIcon name="undo" size={15} /> Change it and regenerate
       </button>
@@ -152,7 +189,13 @@ export default function DraftReview({ form, problems, onEdit, onContinue, onRege
           )}
 
           <article className="es-ai-page" aria-label="Your event page">
-            <div className="es-ai-cover"><span className="es-ai-cover__chip"><NavIcon name="image" size={16} /> Add a cover after saving</span></div>
+            {poster ? <PosterCover poster={poster} form={form} onToggleCover={onToggleCover} /> : (
+              <div className="es-ai-cover">
+                <span className="es-ai-cover__chip">
+                  <NavIcon name="image" size={16} /> {form.source === 'poster' ? 'Choose the poster again to use it as the cover' : 'Add a cover after saving'}
+                </span>
+              </div>
+            )}
             <div className="es-ai-pad">
               <Block id="basics" title="Title and category" onEdit={onEdit} eyebrow={<p className="es-ai-eyebrow">{label}</p>}>
                 <h1 className="es-ai-h1">{form.title || 'Untitled event'}</h1>
@@ -161,8 +204,8 @@ export default function DraftReview({ form, problems, onEdit, onContinue, onRege
 
               <Block id="when" title="When and where" onEdit={onEdit}>
                 {when && !has('startsAt') ? <Fact icon="calendar" main={when.date} sub={when.time} />
-                  : <Need title="When does it start?" detail={form.startEvidence ? `You wrote “${form.startEvidence}” — add the time.` : 'Your description doesn’t say.'} action="Add" onClick={() => onEdit('when')} />}
-                {has('endsAt') && <Need title="When does it end?" detail={problems.find((p) => p.field === 'endsAt').message === 'When does it end?' ? 'Your description doesn’t say.' : problems.find((p) => p.field === 'endsAt').message} action="Add" onClick={() => onEdit('when')} />}
+                  : <Need title="When does it start?" detail={form.startEvidence ? `${form.source === 'poster' ? 'The poster says' : 'You wrote'} “${form.startEvidence}” — add the time.` : `Your ${form.source === 'poster' ? 'poster' : 'description'} doesn’t say.`} action="Add" onClick={() => onEdit('when')} />}
+                {has('endsAt') && <Need title="When does it end?" detail={problems.find((p) => p.field === 'endsAt').message === 'When does it end?' ? `Your ${form.source === 'poster' ? 'poster' : 'description'} doesn’t say.` : problems.find((p) => p.field === 'endsAt').message} action="Add" onClick={() => onEdit('when')} />}
                 {form.venueName || form.venueAddress
                   ? <Fact icon="pin" main={form.venueName || 'Venue to be added'} sub={[form.venueAddress, form.city].filter(Boolean).join(', ')} />
                   : null}
@@ -175,7 +218,7 @@ export default function DraftReview({ form, problems, onEdit, onContinue, onRege
                 {form.description
                   ? <p className="es-ai-body">{form.description}</p>
                   : <p className="es-ai-later">No description yet. Optional, but it is what people read.</p>}
-                <p className="es-ai-aiwrote"><NavIcon name="sparkle" size={14} /> Written by AI from your description. Read it once before you save.</p>
+                <p className="es-ai-aiwrote"><NavIcon name="sparkle" size={14} /> Written by AI from your {form.source === 'poster' ? 'poster' : 'description'}. Read it once before you save.</p>
                 {form.highlights.length > 0 && (
                   <ul className="es-ai-hl" aria-label="Highlights">{form.highlights.map((h) => <li key={h}>{h}</li>)}</ul>
                 )}
@@ -194,7 +237,7 @@ export default function DraftReview({ form, problems, onEdit, onContinue, onRege
                       const needs = problems.find((p) => p.field.startsWith(`tier-${t.key}`));
                       return needs ? (
                         <li key={t.key} className="es-ai-tiers__need">
-                          <Need title={t.name || 'New ticket type'} detail={cents === null && !t.priceEvidence ? 'No price in your description.' : needs.message} action={cents === null ? 'Add price' : 'Fix'} onClick={() => onEdit('tickets')} />
+                          <Need title={t.name || 'New ticket type'} detail={cents === null && !t.priceEvidence ? `No price in your ${form.source === 'poster' ? 'poster' : 'description'}.` : needs.message} action={cents === null ? 'Add price' : 'Fix'} onClick={() => onEdit('tickets')} />
                         </li>
                       ) : (
                         <li key={t.key}>

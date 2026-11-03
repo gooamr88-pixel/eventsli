@@ -32,7 +32,15 @@ function Option({ name, value, current, onChange, icon, title, desc }) {
   );
 }
 
-export default function SaveStep({ form, set, organizer, summary, busy, error, partial, onBack, onSave, onRetryPartial }) {
+/** "add a cover, draw the seating map, then submit for review." — minus what is done. */
+function nextSteps(hasCover, needsMap) {
+  const steps = [!hasCover && 'add a cover', needsMap && 'draw the seating map'].filter(Boolean);
+  return steps.length ? `${steps.join(', ')}, then submit for review.` : 'submit for review.';
+}
+
+export default function SaveStep({
+  form, set, organizer, summary, busy, error, partial, onBack, onSave, onRetryPartial, hasCover = false,
+}) {
   const ticketed = form.listingType !== 'display_only';
   const choices = organizer.payments?.choices || [];
   const perOrder = Number(form.maxTicketsPerOrder);
@@ -123,7 +131,8 @@ export default function SaveStep({ form, set, organizer, summary, busy, error, p
         <p className="es-ai-summary__title">Saved as a private draft</p>
         <p className="es-ai-summary__sub">{summary}</p>
         <p className="es-ai-summary__next">
-          Next: {ticketed ? (form.admissionType === 'reserved' ? 'add a cover, draw the seating map, then submit for review.' : 'add a cover, then submit for review.') : 'add a cover, then submit for review.'}{' '}
+          {hasCover && 'Your poster is saved as the cover. '}
+          Next: {nextSteps(hasCover, ticketed && form.admissionType === 'reserved')}{' '}
           Eventsli approves every event before it goes live.
         </p>
       </div>

@@ -34,4 +34,4 @@ function redact(input) {
   return { text, removed };
 }
 
-module.exports = { redact };
+module.exports = { redact, EMAIL, NANP, INTL };

@@ -3,6 +3,7 @@ const { aiConfig } = require('../services/ai/config');
 const quota = require('../services/ai/quotaService');
 const { generateEventDraft } = require('../services/ai/eventDraftService');
 const { redact } = require('../services/ai/redact');
+const { readPosterImage } = require('../services/ai/posterImage');
 const categoryService = require('../services/categoryService');
 const events = require('../services/eventService');
 const { organizerReadiness } = require('../services/submissionService');
@@ -36,6 +37,9 @@ function adminRefusal(req, res) {
 function quotaShape(row, cfg) {
   return {
     enabled: cfg.enabled,
+    // Whether "Start from a poster" is offered. Same allowance as a typed
+    // description: a poster is one draft, whichever provider reads it.
+    poster: Boolean(cfg.enabled && cfg.poster),
     limit: cfg.limit,
     used: row ? Number(row.used) : 0,
     remaining: row ? Number(row.remaining) : 0,
@@ -81,8 +85,18 @@ async function getQuota(req, res, next) {
   }
 }
 
-// ─── POST /ai/event-drafts ──────────────────────────────────────────────────
-async function createEventDraft(req, res, next) {
+// ─── POST /ai/event-drafts  ·  POST /ai/event-drafts/from-image ─────────────
+/**
+ * ONE RUNNER FOR BOTH. A typed description and a poster differ in what is
+ * sent and what the evidence is checked against (`generateEventDraft`), and in
+ * nothing else: the same refusals before any cost, the same reservation, the
+ * same release on every failure. Two copies of this function is how one of
+ * them would start charging for a failure the other refunds.
+ *
+ * The poster is read and checked (`readPosterImage`) BEFORE the reservation,
+ * so a file that is not an image, or not a readable one, never costs a draft.
+ */
+async function runDraft(req, res, next, { fromImage }) {
   const cfg = aiConfig();
   let reservation = null;
 
@@ -90,8 +104,15 @@ async function createEventDraft(req, res, next) {
     if (!cfg.enabled) {
       return sendFail(res, { status: 503, error: 'AI_DISABLED', message: 'AI drafts are not available on Eventsli right now.' });
     }
+    if (fromImage && !cfg.poster) {
+      return sendFail(res, {
+        status: 503, error: 'AI_DISABLED',
+        message: 'Drafting from a poster is not available right now. Describe the event instead.',
+      });
+    }
     const refused = adminRefusal(req, res);
     if (refused) return refused;
+    const image = fromImage ? readPosterImage(req.body.image) : null;   // VALIDATION_ERROR → 400
 
     const organizerId = req.user.access.organizerId;
     const readiness = organizerId ? await organizerReadiness(organizerId) : { setupComplete: false };
@@ -105,7 +126,7 @@ async function createEventDraft(req, res, next) {
     const country = String(req.body.country).toUpperCase();
     const currency = await events.currencyForCountry(country);   // VALIDATION_ERROR for a market we do not serve
     const categories = await categoryService.list({ enabledOnly: true });
-    const { text, removed } = redact(String(req.body.description).trim());
+    const { text, removed } = redact(String((fromImage ? req.body.notes : req.body.description) || '').trim());
 
     reservation = await quota.reserve({
       organizerId,
@@ -141,6 +162,7 @@ async function createEventDraft(req, res, next) {
     try {
       result = await generateEventDraft({
         text,
+        image,
         listingType: req.body.listingType,
         country,
         currency,
@@ -157,6 +179,13 @@ async function createEventDraft(req, res, next) {
           message: 'Our AI services did not answer in time. This did not use any of your daily drafts.',
         });
       }
+      if (err.code === 'AI_NOT_AN_EVENT') {
+        return sendFail(res, {
+          status: 422, error: 'AI_NOT_AN_EVENT',
+          message: 'We couldn’t find event details in that image. Try a poster or flyer that shows the event’s '
+            + 'name and date. This did not use any of your daily drafts.',
+        });
+      }
       throw err;
     }
 
@@ -168,6 +197,10 @@ async function createEventDraft(req, res, next) {
     return sendOk(res, {
       generationId,
       draft: { ...result.draft, currency, country, timezone: req.body.timezone },
+      source: fromImage ? 'poster' : 'text',
+      // What the model read off the poster, shown beside it on the review
+      // screen: the one input the server cannot check, so the organizer can.
+      ...(fromImage ? { posterText: result.posterText } : {}),
       redacted: removed,
       quota: quotaShape(after, cfg),
     });
@@ -184,4 +217,7 @@ async function createEventDraft(req, res, next) {
   }
 }
 
-module.exports = { getQuota, createEventDraft };
+const createEventDraft = (req, res, next) => runDraft(req, res, next, { fromImage: false });
+const createEventDraftFromImage = (req, res, next) => runDraft(req, res, next, { fromImage: true });
+
+module.exports = { getQuota, createEventDraft, createEventDraftFromImage };

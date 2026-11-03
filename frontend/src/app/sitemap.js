@@ -94,6 +94,10 @@ export default async function sitemap() {
     // Omitted rather than guessed when the API has not sent one — `startsAt`
     // would look plausible and would be a lie about when the page changed.
     ...(event.updatedAt ? { lastModified: new Date(event.updatedAt) } : {}),
+    // An image sitemap entry for the poster. An event's cover is very often
+    // what someone finds it by — in image search, the poster IS the event — and
+    // this ties that image to this URL rather than to wherever else it is hosted.
+    ...(event.coverUrl ? { images: [event.coverUrl] } : {}),
     changeFrequency: 'daily',
     // Above the marketing pages and below the two listings. These are the pages
     // people share and search for; everything else on the site exists to get

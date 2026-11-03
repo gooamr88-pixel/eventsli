@@ -28,6 +28,8 @@ import { pinProblem } from '../../../../components/forms/VenuePin';
 export const STORAGE_KEY = 'eventsli.newEvent.ai';
 export const MIN_DESCRIPTION = 40;
 export const MAX_DESCRIPTION = 2000;
+/** The optional note sent with a poster (`/ai/event-drafts/from-image`). */
+export const MAX_NOTES = 1000;
 export const MAX_HIGHLIGHTS = 12;
 
 export const TIER_KINDS = [
@@ -59,6 +61,13 @@ export function formFromDraft(result, organizer) {
   const tz = d.timezone;
   return {
     generationId: result.generationId,
+    // 'poster' when it was read off an image. The review screen then shows the
+    // poster as the cover, and "What we read" beside it.
+    source: result.source === 'poster' ? 'poster' : 'text',
+    posterText: result.posterText || '',
+    // On by default: the organizer already chose this picture to represent
+    // the event, and an event with a cover is the one people click.
+    useAsCover: result.source === 'poster',
     listingType: d.listingType,
     country: d.country,
     timezone: tz,
@@ -165,7 +174,7 @@ export function laterNeeds(form) {
  * a commission or a status — `POST /events` makes a private draft and the
  * organizer submits it later, from the event, like any other.
  */
-export function savePlan(form, choices = []) {
+export function savePlan(form, choices = [], poster = null) {
   const ticketed = form.listingType !== 'display_only';
   const event = {
     title: form.title.trim(),
@@ -216,7 +225,11 @@ export function savePlan(form, choices = []) {
   }));
 
   const highlights = form.highlights.map((h) => h.trim()).filter(Boolean).slice(0, MAX_HIGHLIGHTS);
-  return { event, highlights, tiers, schedule };
+  // The poster as the cover: a data URL the save turns into the ordinary
+  // signed cover upload once the event exists. Null when there is no poster
+  // or the organizer unticked it.
+  const cover = form.useAsCover && poster?.dataUrl ? poster.dataUrl : null;
+  return { event, highlights, tiers, schedule, cover };
 }
 
 /** How each section stands, for the rail and the review blocks. */

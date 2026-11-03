@@ -1,4 +1,6 @@
 import { post, patch } from '../../../../utils/apiClient';
+import { uploadEventCover } from '../../../../utils/uploadEventImage';
+import { dataUrlToBlob } from './posterImage';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -14,7 +16,11 @@ import { post, patch } from '../../../../utils/apiClient';
  *   saveAiDraft(plan)                    → { eventId, failed: [] }
  *   saveAiDraft(plan, { eventId, only }) → retries just the `only` keys
  *
- * `failed` entries are `{ kind: 'tier' | 'schedule' | 'highlights', key, label, error }`.
+ * `failed` entries are `{ kind: 'tier' | 'schedule' | 'highlights' | 'cover', key, label, error }`.
+ *
+ * The cover (a poster the draft was read from) goes right after the event: it
+ * is the largest request and the one most likely to meet a flaky connection,
+ * and a failure is just another named item with its own retry.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 export async function saveAiDraft(plan, { eventId: existing = null, only = null } = {}) {
@@ -26,6 +32,13 @@ export async function saveAiDraft(plan, { eventId: existing = null, only = null 
   }
 
   const failed = [];
+  if (plan.cover && wanted('cover')) {
+    try {
+      await uploadEventCover(eventId, dataUrlToBlob(plan.cover));
+    } catch (error) {
+      failed.push({ kind: 'cover', key: 'cover', label: 'Cover image (your poster)', error });
+    }
+  }
   if (plan.highlights.length && wanted('highlights')) {
     try {
       await patch(`/events/${eventId}`, { highlights: plan.highlights }, { noRedirect: true });

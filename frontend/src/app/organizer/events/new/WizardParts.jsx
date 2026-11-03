@@ -85,7 +85,9 @@ export function TypeChooser() {
         <p className="es-eyebrow">New event</p>
         <h1 className="es-wizard__title">{ai ? 'Create an event' : 'What kind of event are you creating?'}</h1>
         <p className="es-wizard__lede">
-          {ai ? 'Start from a description, or set it up step by step.' : 'Pick one. You will only be asked what that kind of event needs.'}
+          {ai
+            ? (quota?.poster ? 'Start from your poster or a description, or set it up step by step.' : 'Start from a description, or set it up step by step.')
+            : 'Pick one. You will only be asked what that kind of event needs.'}
         </p>
       </div>
 
@@ -97,10 +99,14 @@ export function TypeChooser() {
           <Link href="/organizer/events/new?mode=ai" className="es-ai-hero">
             <span className="es-ai-hero__badge"><NavIcon name="sparkle" size={14} /> New</span>
             <span className="es-ai-hero__icon" aria-hidden="true"><NavIcon name="sparkle" size={26} /></span>
-            <span className="es-ai-hero__title">Describe it, and we&rsquo;ll draft it</span>
+            <span className="es-ai-hero__title">
+              {quota?.poster ? <>Upload your poster, and we&rsquo;ll draft it</> : <>Describe it, and we&rsquo;ll draft it</>}
+            </span>
             <span className="es-ai-hero__text">
-              Write a few sentences. You get the details, ticket types and schedule ready to check, usually in under
-              15 seconds. Nothing is saved until you say so, and nothing is published.
+              {quota?.poster
+                ? 'Add the poster or flyer you already have — or write a few sentences. We read the date, venue, prices and line-up, write the listing, and use the poster as your cover.'
+                : 'Write a few sentences. You get the details, ticket types and schedule ready to check, usually in under 15 seconds.'}
+              {' '}Nothing is saved until you say so, and nothing is published.
             </span>
             <span className="es-ai-hero__foot">
               <QuotaDots quota={quota} tone="light" />

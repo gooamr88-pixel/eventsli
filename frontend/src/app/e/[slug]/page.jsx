@@ -10,6 +10,10 @@ import {
   EventSchedule, EventSponsors, EventPolicies, VenueMap,
 } from './EventSections';
 import { serverFetch } from '../../utils/apiClient';
+import {
+  seoTitle, seoDescription, seoKeywords, eventJsonLd, breadcrumbJsonLd, eventUrl,
+} from '../../lib/eventSeo';
+import { EventBreadcrumbs, EventQuickAnswers, RelatedEvents } from './EventDiscovery';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -51,14 +55,38 @@ export async function generateMetadata({ params }) {
   const event = await loadEvent(slug);
   if (!event) return { title: 'Event not found' };
 
-  const when = new Intl.DateTimeFormat('en-US', {
-    dateStyle: 'full', timeZone: event.timezone,
-  }).format(new Date(event.startsAt));
+  /**
+   * SEARCH-SHAPED, FROM THE SAME FIELDS THE PAGE RENDERS — see lib/eventSeo.js
+   * for why the title says "Tickets", the city and the date, and why the
+   * description leads with when, where and how much.
+   *
+   * `title.absolute`: the title already ends in "| Eventsli" when there is room,
+   * so the layout's " · Eventsli" template must not add a second one.
+   */
+  const title = seoTitle(event);
+  const description = seoDescription(event);
+  const canonical = eventUrl(event.slug);
 
   return {
-    title: event.title,
-    description: (event.description || `${event.title} — ${when}`).slice(0, 300),
-    alternates: { canonical: `/e/${event.slug}` },
+    title: { absolute: title },
+    description,
+    keywords: seoKeywords(event, event.categoryLabel),
+    // Absolute, and never carrying `?tier=`: every deep link an organizer shares
+    // is the same page, and its ranking belongs to one URL.
+    alternates: { canonical },
+    // Large image previews and full snippets: an event page is exactly the
+    // result a big poster thumbnail helps someone recognise.
+    robots: {
+      index: true,
+      follow: true,
+      googleBot: { index: true, follow: true, 'max-image-preview': 'large', 'max-snippet': -1, 'max-video-preview': -1 },
+    },
+    twitter: {
+      card: event.coverUrl ? 'summary_large_image' : 'summary',
+      title: event.title,
+      description,
+      images: [event.coverUrl || '/og-default.png'],
+    },
     /**
      * A PAGE'S `openGraph` REPLACES THE LAYOUT'S. It does not merge into it.
      *
@@ -72,9 +100,9 @@ export async function generateMetadata({ params }) {
      */
     openGraph: {
       title: event.title,
-      description: (event.description || when).slice(0, 300),
+      description,
       type: 'website',
-      url: `/e/${event.slug}`,
+      url: canonical,
       siteName: 'Eventsli',
       locale: 'en_US',
       // The cover doubles as the share card. There is no separate og_image
@@ -164,11 +192,17 @@ export default async function EventPage({ params, searchParams }) {
           ends this block before any JavaScript is parsed. See utils/jsonLd.js. */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: jsonLdScript(jsonLd(event)) }}
+        dangerouslySetInnerHTML={{ __html: jsonLdScript(eventJsonLd(event)) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: jsonLdScript(breadcrumbJsonLd(event)) }}
       />
 
       <div className="fx-gutter">
         <div className="es-ev-page fx-stack">
+          <EventBreadcrumbs event={event} />
+
           {/* ── 1. The picture, on its own ───────────────────────────────── */}
           <EventHero event={event} kicker={kicker} lede={lede} />
 
@@ -277,8 +311,14 @@ export default async function EventPage({ params, searchParams }) {
               {
                 key: 'faqs',
                 label: 'FAQs',
-                content: (event.policies || []).length > 0 && (
-                  <EventPolicies items={event.policies} />
+                // The quick answers are always there, so this tab always is:
+                // they are the plain-language "when / where / how much" that
+                // search queries about one event ask.
+                content: (
+                  <div className="fx-stack">
+                    <EventQuickAnswers event={event} />
+                    <EventPolicies items={event.policies} />
+                  </div>
                 ),
               },
             ]}
@@ -290,6 +330,9 @@ export default async function EventPage({ params, searchParams }) {
           {/* The reasons a buyer might not be able to buy, said in full. The
               bar below has room for a label and a button and nothing else. */}
           <EventPurchaseNotice event={event} soldOut={soldOut} focusTier={focusTier} />
+
+          {/* ── 6. Somewhere else to go ──────────────────────────────────── */}
+          <RelatedEvents event={event} />
         </div>
       </div>
 
@@ -389,46 +432,4 @@ export function firstSentence(text, max) {
 function sameDay(a, b, timeZone) {
   const f = new Intl.DateTimeFormat('en-CA', { dateStyle: 'short', timeZone });
   return f.format(a) === f.format(b);
-}
-
-function jsonLd(event) {
-  return {
-    '@context': 'https://schema.org',
-    '@type': 'Event',
-    name: event.title,
-    startDate: event.startsAt,
-    endDate: event.endsAt,
-    eventStatus: 'https://schema.org/EventScheduled',
-    eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
-    ...(event.description ? { description: event.description.slice(0, 500) } : {}),
-    ...(event.coverUrl ? { image: [event.coverUrl] } : {}),
-    ...(event.venue
-      ? {
-        location: {
-          '@type': 'Place',
-          name: event.venue,
-          ...(event.venueAddress ? { address: event.venueAddress } : {}),
-        },
-      }
-      : {}),
-    ...(event.organizer?.name
-      ? { organizer: { '@type': 'Organization', name: event.organizer.name } }
-      : {}),
-    // Offers are omitted entirely for a display-only listing rather than
-    // written as zero — a structured price of 0 tells Google the event is free,
-    // which is a different and wrong claim.
-    ...(!event.displayOnly && event.tiers?.length
-      ? {
-        offers: event.tiers.map((t) => ({
-          '@type': 'Offer',
-          name: t.name,
-          price: (t.priceCents / 100).toFixed(2),
-          priceCurrency: event.currency,
-          availability: event.availability?.soldOut
-            ? 'https://schema.org/SoldOut'
-            : 'https://schema.org/InStock',
-        })),
-      }
-      : {}),
-  };
 }

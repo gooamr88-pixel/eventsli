@@ -11,6 +11,7 @@ import { DEFAULT_COUNTRY } from '../../../../lib/markets';
 import { draftKey } from '../wizardModel';
 import { STORAGE_KEY, formFromDraft, problemsFor, savePlan } from './aiDraftModel';
 import { saveAiDraft } from './saveAiDraft';
+import { base64Of, loadPoster, storePoster } from './posterImage';
 import DescribeStep from './DescribeStep';
 import { GeneratingStep, GenerationFailed } from './GeneratingStep';
 import DraftReview from './DraftReview';
@@ -22,7 +23,7 @@ import SaveStep from './SaveStep';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
- * The Smart Event Creator: Describe → Review → Save.
+ * The Smart Event Creator: Describe (or a poster) → Review → Save.
  *
  * Where the organizer is, and what each button does. The screens are their
  * own files; the rules (what blocks saving, what is sent) are in
@@ -31,7 +32,9 @@ import SaveStep from './SaveStep';
  * THE DRAFT SURVIVES A RELOAD, in sessionStorage like the manual wizard's
  * answers — a reload must never be the reason somebody spends their second
  * AI draft of the day. A generation in flight is not kept: reloading mid-wait
- * lands back on the description, which is still there.
+ * lands back on the description, which is still there. The poster is kept the
+ * same way, under its own key (`posterImage.js`), because it is large and its
+ * storage can fail without the draft's failing with it.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
@@ -43,7 +46,11 @@ function loadSaved() {
 
 function initialRequest(organizer) {
   const country = organizer?.country || DEFAULT_COUNTRY;
-  return { listingType: 'ticketed', country, timezone: defaultTimeZone(country, browserZone()), description: '' };
+  // `mode: 'poster'` is only honoured when the API offers posters
+  // (`quota.poster`); otherwise the describe screen is exactly what it was.
+  return {
+    mode: 'poster', listingType: 'ticketed', country, timezone: defaultTimeZone(country, browserZone()), description: '', notes: '',
+  };
 }
 
 export default function AiCreator({ organizer }) {
@@ -58,7 +65,14 @@ export default function AiCreator({ organizer }) {
   const [editing, setEditing] = useState(null);
   const [busy, setBusy] = useState(false);
   const [partial, setPartial] = useState(null);
+  const [poster, setPosterState] = useState(loadPoster);
   const abort = useRef(null);
+  const fromPoster = Boolean(quota?.poster) && request.mode === 'poster';
+
+  function setPoster(next) {
+    setPosterState(next);
+    storePoster(next);
+  }
 
   useEffect(() => {
     try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ request, form, stage: stage === 'generating' || stage === 'failed' ? 'describe' : stage })); } catch { /* private mode */ }
@@ -77,7 +91,17 @@ export default function AiCreator({ organizer }) {
     setError(null);
     setStage('generating');
     try {
-      const data = await post('/ai/event-drafts', { ...request, requestId: crypto.randomUUID() }, { noRedirect: true, signal: controller.signal });
+      const requestId = crypto.randomUUID();
+      const { listingType, country, timezone } = request;
+      const data = fromPoster
+        ? await post('/ai/event-drafts/from-image', {
+          requestId, listingType, country, timezone,
+          notes: (request.notes || '').trim(),
+          image: { mimeType: 'image/jpeg', data: base64Of(poster?.dataUrl) },
+        }, { noRedirect: true, signal: controller.signal })
+        : await post('/ai/event-drafts', {
+          requestId, listingType, country, timezone, description: request.description,
+        }, { noRedirect: true, signal: controller.signal });
       setForm(formFromDraft(data, organizer));
       setQuota(data.quota);
       setStage('review');
@@ -100,7 +124,12 @@ export default function AiCreator({ organizer }) {
   function handOff() {
     try {
       sessionStorage.setItem(draftKey(request.listingType), JSON.stringify({
-        form: { description: request.description.trim(), country: request.country, timezone: request.timezone }, step: 0,
+        form: {
+          description: (fromPoster ? request.notes || '' : request.description).trim(),
+          country: request.country,
+          timezone: request.timezone,
+        },
+        step: 0,
       }));
     } catch { /* the manual wizard simply starts empty */ }
     router.push(`/organizer/events/new?type=${request.listingType}`);
@@ -108,13 +137,14 @@ export default function AiCreator({ organizer }) {
 
   function finish(eventId) {
     try { sessionStorage.removeItem(STORAGE_KEY); } catch { /* fine */ }
+    storePoster(null);
     router.push(`/organizer/events/${eventId}?created=1`);
   }
 
   async function save() {
     setBusy(true);
     setError(null);
-    const plan = savePlan(form, organizer.payments?.choices || []);
+    const plan = savePlan(form, organizer.payments?.choices || [], poster);
     try {
       const result = await saveAiDraft(plan);
       if (result.failed.length) setPartial({ ...result, plan });
@@ -137,7 +167,9 @@ export default function AiCreator({ organizer }) {
     }
   }
 
-  if (stage === 'generating') return <GeneratingStep onCancel={() => abort.current?.abort()} />;
+  if (stage === 'generating') {
+    return <GeneratingStep source={fromPoster ? 'poster' : 'text'} onCancel={() => abort.current?.abort()} />;
+  }
   if (stage === 'failed') {
     return <GenerationFailed quota={quota} onRetry={generate} onEdit={() => setStage('describe')} onManual={handOff} />;
   }
@@ -145,7 +177,7 @@ export default function AiCreator({ organizer }) {
     return (
       <DescribeStep
         request={request} setRequest={setRequest} quota={quota} error={error}
-        onGenerate={generate} onManual={handOff}
+        onGenerate={generate} onManual={handOff} poster={poster} onPoster={setPoster}
         onBackToDraft={form ? () => { setError(null); setStage('review'); } : null}
       />
     );
@@ -158,6 +190,7 @@ export default function AiCreator({ organizer }) {
     return (
       <SaveStep
         form={form} set={set} organizer={organizer} summary={summary} busy={busy} error={error} partial={partial}
+        hasCover={Boolean(form.useAsCover && poster)}
         onBack={() => setStage('review')} onSave={save} onRetryPartial={retryPartial}
       />
     );
@@ -175,6 +208,7 @@ export default function AiCreator({ organizer }) {
     <>
       <DraftReview
         form={form} problems={problems} quota={quota} categories={categories.list}
+        poster={form.source === 'poster' ? poster : null} onToggleCover={(on) => set({ useAsCover: on })}
         onEdit={setEditing}
         onContinue={() => { if (problems.length === 0) setStage('save'); }}
         onRegenerate={() => setStage('describe')}

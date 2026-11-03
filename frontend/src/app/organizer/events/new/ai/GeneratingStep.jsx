@@ -15,20 +15,29 @@ import { AiStepper, QuotaDots } from './AiParts';
  *
  * `aria-live` on the list only: the skeleton is decoration and is hidden.
  */
-const STAGES = [
-  ['Reading your description', 0],
-  ['Filling in the details, tickets and schedule', 2500],
-  ['Checking dates and prices against your text', 7000],
-];
+const STAGES = {
+  text: [
+    ['Reading your description', 0],
+    ['Filling in the details, tickets and schedule', 2500],
+    ['Checking dates and prices against your text', 7000],
+  ],
+  poster: [
+    ['Uploading your poster', 0],
+    ['Reading every word on it', 1500],
+    ['Filling in the details, tickets and schedule', 6000],
+    ['Checking dates and prices against the poster', 10000],
+  ],
+};
 
-export function GeneratingStep({ onCancel }) {
+export function GeneratingStep({ onCancel, source = 'text' }) {
+  const stages = STAGES[source] || STAGES.text;
   const [elapsed, setElapsed] = useState(0);
   useEffect(() => {
     const started = Date.now();
     const timer = setInterval(() => setElapsed(Date.now() - started), 500);
     return () => clearInterval(timer);
   }, []);
-  const current = STAGES.reduce((at, [, ms], i) => (elapsed >= ms ? i : at), 0);
+  const current = stages.reduce((at, [, ms], i) => (elapsed >= ms ? i : at), 0);
 
   return (
     <div className="es-ai es-ai--narrow">
@@ -37,7 +46,7 @@ export function GeneratingStep({ onCancel }) {
         <span className="es-ai-gen__orb" aria-hidden="true"><NavIcon name="sparkle" size={26} /></span>
         <h1 className="es-ai-gen__title">Drafting your event</h1>
         <ol className="es-ai-gen__list" aria-live="polite">
-          {STAGES.map(([label], i) => {
+          {stages.map(([label], i) => {
             const state = i < current ? 'done' : i === current ? 'now' : 'todo';
             return (
               <li key={label} data-state={state}>
@@ -62,7 +71,7 @@ export function GeneratingStep({ onCancel }) {
       </div>
 
       <p className="es-ai-foot">
-        Usually under 15 seconds ·{' '}
+        {source === 'poster' ? 'Usually under 20 seconds' : 'Usually under 15 seconds'} ·{' '}
         <button type="button" className="es-ai-link" onClick={onCancel}>Stop waiting</button>
       </p>
     </div>

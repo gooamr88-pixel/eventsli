@@ -97,8 +97,8 @@ const SHARED = [
   ['Brevo', 'Sends our emails: tickets, receipts, codes and notices.', 'France (European Union)'],
   ['Supabase, on Amazon Web Services', 'Hosts our database and the images organizers upload.', 'United States (us-west-1)'],
   ['Our server host', 'Runs the website and the API that handle every request.', 'United States'],
-  ['Google', 'Only in three cases. If you choose to sign in with Google, to confirm who you are. For organizers, the venue name typed into venue search, to suggest the place. And for organizers who use "Create with AI", the event description, which Google Gemini turns into a draft. We use Gemini’s free tier, and on that tier Google may use what it is sent to improve its products.', 'United States and other countries'],
-  ['Groq', 'For organizers using "Create with AI", when Gemini cannot answer: the same event description, to write the draft. Groq says it does not keep it, except for up to 30 days when investigating abuse or a reliability problem.', 'United States'],
+  ['Google', 'Only in three cases. If you choose to sign in with Google, to confirm who you are. For organizers, the venue name typed into venue search, to suggest the place. And for organizers who use "Create with AI", the event description or the event poster image (with an optional note), which Google Gemini turns into a draft. We use Gemini’s free tier, and on that tier Google may use what it is sent to improve its products.', 'United States and other countries'],
+  ['Groq', 'For organizers using "Create with AI", when Gemini cannot answer: the same event description or poster image, to write the draft. Groq says it does not keep it, except for up to 30 days when investigating abuse or a reliability problem.', 'United States'],
   ['OpenStreetMap', 'When you open the map on an event page, your browser loads it from OpenStreetMap, which sees your IP address. We send no referrer.', 'OpenStreetMap Foundation, United Kingdom'],
   ['YouTube and Vimeo', 'Only if you press play on a video on our homepage. Nothing is loaded from them before you do.', 'United States'],
 ];
@@ -205,11 +205,15 @@ export default function PrivacyPage() {
 
         <Section id="ai" title="Creating events with AI">
           <p className="max-w-[62ch] text-muted">
-            Organizers can describe an event in their own words and get a draft to review. Only the organizer&rsquo;s
-            description is sent, first to Google Gemini and, if that fails, to Groq. Email addresses and phone numbers
-            are removed from it before it leaves our server. No ticket buyer&rsquo;s information is ever sent. We do not
-            keep the description or the draft: the draft stays in the organizer&rsquo;s browser until they save it as an
-            event. Every draft is checked and edited by the organizer before anything is saved, and nothing is published
+            Organizers can describe an event in their own words, or upload the event&rsquo;s poster or flyer, and get a
+            draft to review. Only the organizer&rsquo;s description, or the poster image and an optional note, is sent,
+            first to Google Gemini and, if that fails, to Groq. Email addresses and phone numbers are removed from a
+            description before it leaves our server, and from what is read off a poster before it reaches the draft. A
+            poster is resized in the organizer&rsquo;s browser before it is sent, which also removes the photo&rsquo;s
+            location and camera details. No ticket buyer&rsquo;s information is ever sent. We do not keep the
+            description, the poster or the draft: the draft stays in the organizer&rsquo;s browser until they save it
+            as an event, and the poster is stored only if the organizer chooses to keep it as the event&rsquo;s cover
+            image. Every draft is checked and edited by the organizer before anything is saved, and nothing is published
             without Eventsli&rsquo;s review. Organizers who prefer not to use AI can create every event by hand.
           </p>
         </Section>

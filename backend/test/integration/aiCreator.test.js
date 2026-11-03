@@ -321,3 +321,72 @@ test('the browser’s public key can neither read the usage nor call the quota f
     assert.ok([401, 403, 404].includes(res.status), `${fn}: ${res.status}`);
   }
 });
+
+// ─── From a poster ─────────────────────────────────────────────────────────
+function posterPng(width = 900, height = 1200) {
+  const head = Buffer.alloc(4000);
+  Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).copy(head, 0);
+  head.writeUInt32BE(13, 8);
+  head.write('IHDR', 12, 'latin1');
+  head.writeUInt32BE(width, 16);
+  head.writeUInt32BE(height, 20);
+  return { mimeType: 'image/png', data: head.toString('base64') };
+}
+
+const POSTER_TEXT = 'COMEDY NIGHT\nTHE REX · 194 QUEEN ST W · TORONTO\nFRIDAY NOVEMBER 13 FROM 8PM UNTIL 10:30PM\n'
+  + '300 TICKETS · GENERAL ADMISSION $25\nDOORS 7:30';
+
+const posterBody = (over = {}) => ({
+  requestId: randomUUID(), listingType: 'ticketed', country: 'CA', timezone: 'America/Toronto',
+  notes: '', image: posterPng(), ...over,
+});
+
+async function withPosterAnswer(answer, fn) {
+  aiHttp.setTransport(async () => {
+    const json = JSON.stringify(answer);
+    return { status: 200, text: JSON.stringify({ candidates: [{ finishReason: 'STOP', content: { parts: [{ text: json }] } }] }) };
+  });
+  try {
+    return await fn();
+  } finally {
+    aiHttp.setTransport(async ({ url }) => {
+      const json = JSON.stringify(ANSWER);
+      return url.includes('generativelanguage')
+        ? { status: 200, text: JSON.stringify({ candidates: [{ finishReason: 'STOP', content: { parts: [{ text: json }] } }] }) }
+        : { status: 200, text: JSON.stringify({ choices: [{ finish_reason: 'stop', message: { content: json } }] }) };
+    });
+  }
+}
+
+test('a poster becomes a draft for one of the same daily drafts, with what was read off it', async () => {
+  const o = await organizer('poster');
+  assert.equal((await o.call('GET', '/ai/quota')).body.data.poster, true);
+  const res = await withPosterAnswer(
+    { ...ANSWER, posterText: POSTER_TEXT, isEventPoster: true, starts: { value: '2026-11-13T20:00', evidence: 'FRIDAY NOVEMBER 13 FROM 8PM' } },
+    () => o.call('POST', '/ai/event-drafts/from-image', posterBody()),
+  );
+  assert.equal(res.status, 200, JSON.stringify(res.body));
+  assert.equal(res.body.data.source, 'poster');
+  assert.match(res.body.data.posterText, /COMEDY NIGHT/);
+  assert.equal(res.body.data.draft.tiers[0].priceCents, 2500);
+  assert.equal(res.body.data.quota.remaining, 1, 'a poster is one draft, like a description');
+});
+
+test('an image that is not an event, or not an image, costs nothing', async () => {
+  const o = await organizer('notposter');
+  const res = await withPosterAnswer(
+    { ...ANSWER, posterText: '', isEventPoster: false },
+    () => o.call('POST', '/ai/event-drafts/from-image', posterBody()),
+  );
+  assert.equal(res.status, 422);
+  assert.equal(res.body.error, 'AI_NOT_AN_EVENT');
+
+  const pdf = { mimeType: 'image/png', data: Buffer.concat([Buffer.from('%PDF-1.7\n'), Buffer.alloc(3000)]).toString('base64') };
+  const bad = await o.call('POST', '/ai/event-drafts/from-image', posterBody({ image: pdf }));
+  assert.equal(bad.status, 400);
+  assert.equal(bad.body.error, 'VALIDATION_ERROR');
+
+  assert.equal((await o.call('GET', '/ai/quota')).body.data.remaining, 2);
+  const rows = await supabase.from('ai_generations').select('status, failure_code').eq('organizer_id', o.organizerId);
+  assert.deepEqual(rows.data.map((r) => [r.status, r.failure_code]), [['released', 'AI_NOT_AN_EVENT']], 'the bad file never reserved anything');
+});

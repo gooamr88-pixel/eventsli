@@ -207,6 +207,11 @@ AI_GEMINI_MODEL=gemini-3.8-flash
 AI_GROQ_API_KEY=
 AI_GROQ_MODEL=openai/gpt-oss-120b
 AI_PROVIDER_ORDER=gemini,groq
+# Poster import ("Upload your poster"). On with AI unless false. Blank Gemini
+# vision model = AI_GEMINI_MODEL. `off` keeps a provider for text only.
+AI_POSTER_ENABLED=true
+AI_GEMINI_VISION_MODEL=
+AI_GROQ_VISION_MODEL=meta-llama/llama-4-scout-17b-16e-instruct
 # Optional: most successful drafts per 24 h across all organizers. Blank = none.
 AI_GLOBAL_DAILY_CAP=
 

@@ -33,6 +33,7 @@
  */
 const { zonedToUtcIso } = require('../../utils/zonedTime');
 const { TIER_KINDS, ADMISSION, PURCHASE, LIMITS } = require('./eventDraftPrompt');
+const { NANP, INTL } = require('./redact');
 
 const MAX = Object.freeze({
   title: 200, description: 3000, venueName: 200, venueAddress: 300, city: 120,
@@ -273,6 +274,13 @@ const STOP = new Set(['with', 'from', 'that', 'this', 'your', 'have', 'will', 't
   'event', 'night', 'evening', 'what', 'when', 'where', 'them', 'they', 'also', 'just', 'each', 'very', 'come', 'join']);
 const words = (value) => new Set(norm(value).match(/[a-zÀ-ɏ]{4,}/g)?.filter((w) => !STOP.has(w)) || []);
 
+/** Emails and phone numbers out of a short label (a ticket name, a schedule row). */
+function noContacts(value, max) {
+  const out = clean(value, max);
+  if (!out) return null;
+  return clean(out.replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '').replace(INTL, '').replace(NANP, ''), max);
+}
+
 /** Cut links, contacts and amounts the organizer never wrote out of AI copy. */
 function scrubCopy(value, text, max) {
   let out = clean(value, max * 2);
@@ -280,6 +288,10 @@ function scrubCopy(value, text, max) {
   const source = norm(text);
   out = out.replace(/\bhttps?:\/\/\S+|\bwww\.\S+/gi, (url) => (source.includes(norm(url)) ? url : ''));
   out = out.replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '');
+  // Phone numbers too. The text creator's model never receives one (`redact`
+  // runs first), but a model reading a POSTER sees whatever is printed on it,
+  // and a box-office mobile does not belong in AI-written copy (D-020).
+  out = out.replace(INTL, '').replace(NANP, '');
   const known = new Set(amountsIn(text).map(String));
   // A sentence that quotes a price the organizer did not give goes entirely.
   out = out.split(/(?<=[.!?])\s+/)
@@ -309,7 +321,7 @@ function tiersFrom(raw, { text, listingType, admissionType }) {
   const seen = new Set();
   const out = [];
   for (const t of Array.isArray(raw) ? raw : []) {
-    const name = clean(t?.name, MAX.tierName);
+    const name = noContacts(t?.name, MAX.tierName);
     if (!name || seen.has(norm(name))) continue;
     seen.add(norm(name));
     const price = priceFact(t.price, t.priceEvidence, text);
@@ -334,7 +346,7 @@ function tiersFrom(raw, { text, listingType, admissionType }) {
 function scheduleFrom(raw, ctx, eventStart) {
   const out = [];
   for (const item of Array.isArray(raw) ? raw : []) {
-    const title = clean(item?.title, MAX.scheduleTitle);
+    const title = noContacts(item?.title, MAX.scheduleTitle);
     if (!title) continue;
     const time = timeFact({ value: item.startsLocal, evidence: item.timeEvidence }, ctx);
     // A running-order time belongs near the event. A model that put "doors"
@@ -406,5 +418,5 @@ function validateDraft(raw, ctx) {
 }
 
 module.exports = {
-  validateDraft, norm, quoted, timesIn, dateAgrees, priceFact, quantityFact, amountsIn, scrubCopy, highlightsFrom, MAX,
+  validateDraft, clean, norm, quoted, timesIn, dateAgrees, priceFact, quantityFact, amountsIn, scrubCopy, highlightsFrom, MAX,
 };

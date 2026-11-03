@@ -2,7 +2,8 @@
 
 import { useRef, useState } from 'react';
 import Image from 'next/image';
-import { post, put, del } from '../../../utils/apiClient';
+import { del } from '../../../utils/apiClient';
+import { uploadEventCover } from '../../../utils/uploadEventImage';
 import { useConfirm } from '../../../components/ui/Confirm';
 import { useToast } from '../../../components/ui/Toast';
 import { Panel } from '../../../components/ui/Page';
@@ -48,32 +49,7 @@ export default function CoverUpload({ event, onChanged }) {
     setBusy(true);
     setError(null);
     try {
-      const signed = await post(`/events/${event.id}/cover-upload`, {
-        contentType: file.type,
-      }, { noRedirect: true });
-
-      // Checked here as well as by the bucket. The bucket's refusal happens
-      // during the PUT, which the confirm step never sees — so without this the
-      // failure reads as "the upload silently did nothing".
-      if (file.size > signed.maxBytes) {
-        throw Object.assign(new Error(
-          `That image is ${(file.size / 1048576).toFixed(1)} MB. The limit is `
-          + `${Math.round(signed.maxBytes / 1048576)} MB.`,
-        ), { code: 'VALIDATION_ERROR' });
-      }
-
-      const uploaded = await fetch(signed.uploadUrl, {
-        method: 'PUT',
-        headers: { 'Content-Type': file.type },
-        body: file,
-      });
-      if (!uploaded.ok) {
-        throw Object.assign(new Error('The image did not upload. Try again.'), {
-          code: 'CONFLICT',
-        });
-      }
-
-      await put(`/events/${event.id}/cover`, { path: signed.path }, { noRedirect: true });
+      await uploadEventCover(event.id, file);
       toast.success(event.cover ? 'The new cover is live everywhere the event appears.' : 'Cover image added.');
       onChanged();
     } catch (err) {
