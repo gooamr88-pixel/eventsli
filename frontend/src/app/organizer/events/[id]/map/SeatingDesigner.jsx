@@ -10,6 +10,7 @@ import { QuotaDots } from '../../new/ai/AiParts';
 import { SHAPE_NAMES } from './shapeNames';
 import { zoneMeta } from '../../../../components/seating/venueZones';
 import { layoutPlan } from './seatingLayout';
+import { keepKey, keptWhen, readKept, writeKept } from '../../../../utils/localKeep';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -23,6 +24,10 @@ import { layoutPlan } from './seatingLayout';
  * The plan is laid out the moment it arrives, before Apply, so the summary can
  * say "placed 38 of 42" while the organizer can still go back and ask for
  * smaller tables — not after their map has been replaced.
+ *
+ * THE LAST PLAN IS KEPT in this browser, per event (`localKeep.js`). It cost a
+ * daily draft; closing the dialog, reloading, or undoing an applied layout
+ * must not mean paying again to see it.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 const EXAMPLES = [
@@ -31,13 +36,15 @@ const EXAMPLES = [
   'Conference talk: 12 rows of 20 chairs facing the stage, welcome desk at the entrance.',
 ];
 
-export default function SeatingDesigner({ eventId, tiers, categories, replacing, onApply, onClose }) {
+export default function SeatingDesigner({ eventId, tiers, categories, replacing, blocked = null, onApply, onClose }) {
   const ref = useRef(null);
   const { quota, setQuota } = useAiQuota();
-  const [description, setDescription] = useState('');
+  const [kept] = useState(() => readKept(keepKey('seating-plan', eventId), { maxAgeDays: 14 }));
+  const [description, setDescription] = useState(() => kept?.description || '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
-  const [plan, setPlan] = useState(null);
+  const [plan, setPlan] = useState(() => kept?.plan || null);
+  const [madeAt, setMadeAt] = useState(() => kept?.at || null);
 
   useEffect(() => { ref.current?.focus(); }, []);
   // `stopEscape`: the editor underneath clears its selection on Escape too.
@@ -57,6 +64,8 @@ export default function SeatingDesigner({ eventId, tiers, categories, replacing,
         requestId: crypto.randomUUID(), description: description.trim(),
       }, { noRedirect: true });
       setPlan(data.plan);
+      writeKept(keepKey('seating-plan', eventId), { plan: data.plan, description: description.trim() });
+      setMadeAt(new Date().toISOString());
       if (data.quota) setQuota(data.quota);
     } catch (err) {
       setError(err);
@@ -77,7 +86,14 @@ export default function SeatingDesigner({ eventId, tiers, categories, replacing,
           <h2 id="es-design-title" className="text-lg">Design the room with AI</h2>
         </div>
 
-        {!layout ? (
+        {blocked ? (
+          <>
+            <p className="es-ai-later"><NavIcon name="info" size={15} /> {blocked}</p>
+            <div className="fx-row flex-wrap justify-end gap-2">
+              <button type="button" className="es-btn es-btn--primary" onClick={onClose}>OK</button>
+            </div>
+          </>
+        ) : !layout ? (
           <>
             <p className="text-sm text-muted">
               Describe the room and your guests. AI plans the sections; Eventsli places every table so nothing overlaps.
@@ -117,7 +133,7 @@ export default function SeatingDesigner({ eventId, tiers, categories, replacing,
           </>
         ) : (
           <PlanSummary
-            plan={plan} layout={layout}
+            plan={plan} layout={layout} madeAt={madeAt}
             onBack={() => setPlan(null)}
             onApply={() => { onApply(layout); onClose(); }}
           />
@@ -127,11 +143,41 @@ export default function SeatingDesigner({ eventId, tiers, categories, replacing,
   );
 }
 
-function PlanSummary({ plan, layout, onBack, onApply }) {
+/**
+ * The way in, above the map rather than inside the toolbar: on a phone the
+ * toolbar is folded away, and on a desktop one more small button among a
+ * dozen is one nobody notices. An empty map gets the full invitation — it is
+ * the moment describing the room saves the most work.
+ */
+export function DesignBanner({ empty, onOpen }) {
+  return (
+    <div className={`es-ai-designbar${empty ? ' es-ai-designbar--empty' : ''}`}>
+      <span className="es-ai-design__orb" aria-hidden="true"><NavIcon name="sparkle" size={18} /></span>
+      <div className="fx-min0 flex-1">
+        <p className="font-medium text-ink">{empty ? 'Describe your room and AI lays it out' : 'Design the room with AI'}</p>
+        <p className="text-sm text-muted">
+          {empty
+            ? 'Guests, table sizes, VIP near the stage, dance floor, bars — Eventsli places every table so nothing overlaps.'
+            : 'Replace this layout with one planned from a description. Undo brings this one back.'}
+        </p>
+      </div>
+      <button type="button" className={`es-btn ${empty ? 'es-btn--primary' : 'es-btn--secondary'} es-btn--sm`} onClick={onOpen}>
+        <NavIcon name="sparkle" size={15} /> Design with AI
+      </button>
+    </div>
+  );
+}
+
+function PlanSummary({ plan, layout, madeAt, onBack, onApply }) {
   const { report, zones } = layout;
   const short = report.wanted - report.placed;
   return (
     <>
+      {madeAt && (
+        <p className="text-xs text-subtle">
+          Planned {keptWhen(madeAt)} and kept in this browser — applying it again costs nothing.
+        </p>
+      )}
       {plan.summary && <p className="text-sm text-muted">{plan.summary}</p>}
       <div className="es-ai-design__stats" role="status">
         <span><b className="es-nums">{report.placed}</b> tables</span>

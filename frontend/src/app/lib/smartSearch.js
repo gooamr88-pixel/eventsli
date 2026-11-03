@@ -209,7 +209,18 @@ export function parseSearch(input, { now = new Date(), timeZone = 'America/Toron
     break;
   }
 
-  out.keywords = rest.split(' ').filter((w) => w && !FILLER.has(w)).join(' ').trim();
+  // What is left is searched as text. Nothing recognised: exactly what was
+  // typed. Otherwise the recognised phrases are gone and only filler at the
+  // EDGES is trimmed ("things to do …"), never inside — "evening of elegance"
+  // must stay that, or it no longer matches the title it was copied from.
+  if (understood.length === 0) {
+    out.keywords = String(input || '').replace(/\s+/g, ' ').trim();
+    return out;
+  }
+  const left = rest.split(' ').filter(Boolean);
+  while (left.length && FILLER.has(left[0])) left.shift();
+  while (left.length && FILLER.has(left.at(-1))) left.pop();
+  out.keywords = left.join(' ');
   return out;
 }
 

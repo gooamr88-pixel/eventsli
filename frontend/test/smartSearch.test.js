@@ -83,8 +83,14 @@ describe('places and kinds', () => {
     expect(parse('free concerts')).toMatchObject({ maxPriceCents: 0, category: 'music', keywords: '' });
   });
 
-  test('plain text stays plain text', () => {
-    expect(parse('Neon Nights')).toMatchObject({ keywords: 'neon nights', city: null, category: null, from: null, maxPriceCents: null, understood: [] });
+  test('plain text stays exactly as typed, small words included', () => {
+    expect(parse('Neon Nights')).toMatchObject({ keywords: 'Neon Nights', city: null, category: null, from: null, maxPriceCents: null, understood: [] });
+    expect(parse('An Evening of Elegance').keywords).toBe('An Evening of Elegance');
+  });
+
+  test('around a recognised phrase, inner words are kept and only edge filler goes', () => {
+    expect(parse('evening of elegance in Ottawa')).toMatchObject({ city: 'Ottawa', keywords: 'evening of elegance' });
+    expect(parse('things to do this weekend')).toMatchObject({ keywords: '', from: '2026-11-06T05:00:00.000Z' });
   });
 });
 

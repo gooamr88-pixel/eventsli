@@ -92,6 +92,9 @@ Statuses: `Open` · `In progress` · `Fixed (verified)` · `Deferred` ·
 | I-026 | 2026-11-03 | Gap | Low | Fixed (verified) | AI-written tier names and schedule titles were not scrubbed of phone numbers or emails |
 | I-027 | 2026-11-03 | Bug, pre-existing | Medium | Fixed (verified) | "This weekend" on /events filtered nothing: the page dropped `to` and any `from` that was not a bare date |
 | I-028 | 2026-11-03 | Unverified | Medium | Open | Seating Designer and launch kit not yet run against the live providers or the database |
+| I-029 | 2026-11-03 | Bug | High | Fixed (verified) | Smart search broke plain title searches and over-narrowed on category words |
+| I-030 | 2026-11-03 | Bug | High | Fixed (verified) | Launch kit posts (and an unapplied seating plan) were lost on reload after costing a draft |
+| I-031 | 2026-11-03 | UX | Medium | Fixed (verified) | "Design with AI" was silently hidden for admins and maps with sales |
 
 ### I-001 — Overlapping tables are not detected anywhere
 - **Where:** `frontend/src/app/organizer/events/[id]/map/MapEditor.jsx:112-115` says the problem list (the Save-button gate) covers "overlapping tables, seats outside the world box … and the server rejects those plans". `draftRules.mapProblems` checks neither; `venueService.saveMap` and `save_venue_map` check neither. A search of frontend, backend and migrations for overlap/collision logic finds none.
@@ -234,3 +237,20 @@ Statuses: `Open` · `In progress` · `Fixed (verified)` · `Deferred` ·
 - Unit: `aiSeatingLaunch.test.js` (10), `seatingLayout.test.js` (13), `aiTools.test.jsx` (4). The controller paths (`createSeatingPlan`, `createLaunchKit`) and the held/sold-seat refusal touch the database and were not run (no local stack; `.env` points at production).
 - **To verify:** apply `20261103090000_ai_launch_kit_feature.sql`; on a reserved-seating draft with no sales, open the map → Design with AI; on any event, Share → Launch kit → Write my posts.
 - **Status:** Open.
+
+### I-029 — Smart search broke plain searches
+- **Reported by the owner, 2026-11-03:** "search not work". Production holds one published event, "The Grand Experience — An Evening of Elegance" (Arts, display only).
+- **Causes:** (1) the parser removed filler words from inside the query ("an evening of elegance" → "evening elegance"), and the API matched the whole string as one phrase, so the title no longer matched; (2) "gala" became the Galas category, so an evening filed under Arts was excluded.
+- **Fix:** nothing recognised → the words go through exactly as typed; otherwise only edge filler is trimmed. The API matches word by word in title, venue, city and description (`utils/search.textFilter`), falling back to the old phrase match if the database API ever refuses the nested filter. When smart filters find nothing, /events re-runs the plain search and says so.
+- **Verified:** `searchFilter.test.js` (4), `smartSearch.test.js` (14); the built page against a mock API: "An Evening of Elegance" reaches the API unchanged, and an empty category falls back with the note.
+- **Not verified:** the nested and/or filter against the real PostgREST (no local stack) — the fallback covers a refusal, and logs `search: word filter refused`.
+- **Status:** Fixed (verified locally).
+
+### I-030 — AI output lost on reload
+- **Fix:** the launch kit and the last seating plan are kept in the browser per event (`utils/localKeep.js`; not server-side, per D-020), with when they were made; writing again is an explicit new draft.
+- **Verified:** `aiTools.test.jsx` — "a written launch kit is still there after a reload, without spending another draft", "a seating plan not yet applied is still there when the designer is reopened".
+- **Status:** Fixed (verified).
+
+### I-031 — "Design with AI" silently hidden
+- Hidden for an admin account (D-014) and when seats were held or sold (D-015), which looks like a broken feature. Now shown whenever AI is set up, and the dialog says why it cannot run.
+- **Status:** Fixed (verified: `aiTools.test.jsx`).

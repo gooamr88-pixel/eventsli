@@ -120,7 +120,20 @@ export default async function EventsPage({ searchParams }) {
     maxPrice: smart?.maxPriceCents ?? null,
   };
 
-  const { events, categories, failed } = await load({ ...effective, country: params.country });
+  let { events, categories, failed } = await load({ ...effective, country: params.country });
+
+  /**
+   * NEVER WORSE THAN A PLAIN SEARCH. When what smart search understood finds
+   * nothing — "gala" read as the Galas category, for an evening filed under
+   * Arts — the words are searched exactly as typed, with only the filters the
+   * reader set explicitly, and the page says that is what it did.
+   */
+  let relaxed = false;
+  if (smart?.understood.length && events.length === 0 && !failed) {
+    const plain = await load({ q, category: active, city, from, to, country: params.country });
+    if (plain.events.length > 0) ({ events, categories, failed } = { ...plain, categories: plain.categories.length ? plain.categories : categories });
+    relaxed = plain.events.length > 0;
+  }
 
   /** Every link on this page keeps the filters already applied. */
   const href = (category) => {
@@ -136,7 +149,7 @@ export default async function EventsPage({ searchParams }) {
   };
 
   /** What the reader filtered by, in words, so it can be shown and undone. */
-  const applied = smart ? [
+  const applied = smart && !relaxed ? [
     // What smart search understood, each removable on its own: the chip's
     // link is the same query with that phrase taken out.
     // Removing the words keeps the filters they came with \u2014 except a genre
@@ -243,8 +256,13 @@ export default async function EventsPage({ searchParams }) {
                 the page, not only seen. */}
             <p className="es-ev-count" aria-live="polite">
               <b>{count}</b> {events.length === 1 ? 'event' : 'events'}
-              {effective.category ? <> in <b>{categories.find((c) => c.slug === effective.category)?.label || label(effective.category)}</b></> : ''}
+              {effective.category && !relaxed ? <> in <b>{categories.find((c) => c.slug === effective.category)?.label || label(effective.category)}</b></> : ''}
             </p>
+            {relaxed && (
+              <p className="text-sm text-muted">
+                Nothing matched {smart.understood.map((u) => u.label).join(' · ')} exactly, so these are results for the words you typed.
+              </p>
+            )}
 
             {/* The filters the URL is carrying, each one removable. Without
                 this a reader who arrived from the homepage's search sees a

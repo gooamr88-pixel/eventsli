@@ -20,7 +20,7 @@ vi.mock('../src/app/organizer/events/[id]/share/shareImage', async (orig) => ({
 vi.mock('../src/app/components/ui/Toast', () => ({ useToast: () => ({ success: vi.fn(), show: vi.fn() }) }));
 
 import { get, post } from '../src/app/utils/apiClient';
-import SeatingDesigner from '../src/app/organizer/events/[id]/map/SeatingDesigner';
+import SeatingDesigner, { DesignBanner } from '../src/app/organizer/events/[id]/map/SeatingDesigner';
 import LaunchKit from '../src/app/organizer/events/[id]/share/LaunchKit';
 
 /**
@@ -33,6 +33,7 @@ const QUOTA = { enabled: true, limit: 2, used: 0, remaining: 2, nextAvailableAt:
 
 beforeEach(() => {
   vi.clearAllMocks();
+  localStorage.clear();
   get.mockImplementation(async (p) => (p === '/ai/quota' ? QUOTA : {}));
   if (!globalThis.crypto?.randomUUID) globalThis.crypto = { ...globalThis.crypto, randomUUID: () => '00000000-0000-4000-8000-000000000000' };
 });
@@ -121,4 +122,61 @@ describe('the launch kit', () => {
     expect(open[2]).toMatch(/^mailto:\?subject=You%20are%20invited/);
     expect(screen.getByRole('radio', { name: 'One night. All neon.' })).toHaveAttribute('aria-checked', 'true');
   });
+});
+
+describe('nothing paid for is lost', () => {
+  const KIT = {
+    instagram: 'Neon Nights.\nLink in bio.', facebook: 'Join us.', whatsapp: 'Coming?', x: 'Neon Nights',
+    email: { subject: 'Invite', body: 'Join us.' }, hashtags: ['#NeonNights'], taglines: ['All neon.'], links: {},
+  };
+
+  test('a written launch kit is still there after a reload, without spending another draft', async () => {
+    post.mockResolvedValue({ kit: KIT, quota: { ...QUOTA, remaining: 1 } });
+    const user = userEvent.setup();
+    const first = render(<LaunchKit eventId="e1" shareEvent={{ url: 'https://eventsli.com/e/neon-nights' }} />);
+    await user.click(await screen.findByRole('button', { name: /Write my posts/ }));
+    expect(await screen.findByText(/#NeonNights/)).toBeInTheDocument();
+    first.unmount();
+
+    post.mockClear();
+    render(<LaunchKit eventId="e1" shareEvent={{ url: 'https://eventsli.com/e/neon-nights' }} />);
+    expect(await screen.findByText(/#NeonNights/)).toBeInTheDocument();
+    expect(screen.getByText(/kept in this browser/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Write again/ })).toBeInTheDocument();
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  test('a seating plan not yet applied is still there when the designer is reopened', async () => {
+    const PLAN = { sections: [{ name: 'Guests', tableCount: 4, seatsPerTable: 8, shape: 'round', area: 'anywhere', ticketType: null, tableCategory: null }], zones: [], summary: 'Four tables.' };
+    post.mockResolvedValue({ plan: PLAN, quota: QUOTA });
+    const user = userEvent.setup();
+    const first = render(<SeatingDesigner eventId="e9" tiers={[]} categories={[]} replacing={false} onApply={() => {}} onClose={() => {}} />);
+    await user.type(screen.getByLabelText('Your room'), '32 guests at round tables of eight');
+    await user.click(screen.getByRole('button', { name: /Plan the room/ }));
+    expect(await screen.findByText('Four tables.')).toBeInTheDocument();
+    first.unmount();
+
+    post.mockClear();
+    render(<SeatingDesigner eventId="e9" tiers={[]} categories={[]} replacing={false} onApply={() => {}} onClose={() => {}} />);
+    expect(screen.getByText('Four tables.')).toBeInTheDocument();
+    expect(screen.getByText(/applying it again costs nothing/)).toBeInTheDocument();
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  test('when the designer cannot run, it says why instead of hiding', () => {
+    render(<SeatingDesigner eventId="e1" tiers={[]} categories={[]} replacing blocked="3 seats are already held or sold on this map." onApply={() => {}} onClose={() => {}} />);
+    expect(screen.getByText(/3 seats are already held or sold/)).toBeInTheDocument();
+    expect(screen.queryByLabelText('Your room')).not.toBeInTheDocument();
+  });
+});
+
+test('the way into the designer is a banner above the map, an invitation when the map is empty', async () => {
+  const onOpen = vi.fn();
+  const user = userEvent.setup();
+  const { rerender } = render(<DesignBanner empty onOpen={onOpen} />);
+  expect(screen.getByText('Describe your room and AI lays it out')).toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: /Design with AI/ }));
+  expect(onOpen).toHaveBeenCalledTimes(1);
+  rerender(<DesignBanner empty={false} onOpen={onOpen} />);
+  expect(screen.getByText(/Undo brings this one back/)).toBeInTheDocument();
 });

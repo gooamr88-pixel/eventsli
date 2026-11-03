@@ -2,7 +2,8 @@ const { supabase } = require('../config/supabase');
 const eventContent = require('../services/eventContentService');
 const { parsePagination, applyPagination, buildMeta } = require('../middleware/pagination');
 const { sendOk, sendFail } = require('../utils/responseEnvelope');
-const { safeSearch } = require('../utils/search');
+const { safeSearch, textFilter } = require('../utils/search');
+const logger = require('../utils/logger');
 const categoryService = require('../services/categoryService');
 
 /**
@@ -51,7 +52,7 @@ const SELECT = `
  * something to go to; an archive is a different question and answering both by
  * default answers neither.
  */
-async function listEvents(req, res, next) {
+async function listEvents(req, res, next, { phraseSearch = false } = {}) {
   try {
     const p = parsePagination(req, {
       sortable: ['starts_at', 'created_at', 'title'], defaultSort: 'starts_at',
@@ -166,13 +167,23 @@ async function listEvents(req, res, next) {
             .map((c) => c.slug)
           : [];
         const byCategory = matched.length ? `,category.in.(${matched.join(',')})` : '';
-        query = query.or(`title.ilike.%${safe}%,venue_name.ilike.%${safe}%${byCategory}`);
+        const filter = phraseSearch
+          ? `title.ilike.%${safe}%,venue_name.ilike.%${safe}%${byCategory}`
+          : textFilter(safe, matched);
+        if (filter) query = query.or(filter);
       }
     }
 
     const { data, error, count } = await query
       .order(p.sort, { ascending })
       .range(p.from, p.to);
+    if (error && p.q && !phraseSearch) {
+      // The word-by-word filter nests and/or; should the database API ever
+      // refuse that form, search falls back to the old whole-phrase match
+      // rather than failing the public listing. Logged so it is seen.
+      logger.warn({ err: error.message }, 'search: word filter refused, falling back to phrase search');
+      return listEvents(req, res, next, { phraseSearch: true });
+    }
     if (error) throw new Error(error.message);
 
     const rows = data || [];

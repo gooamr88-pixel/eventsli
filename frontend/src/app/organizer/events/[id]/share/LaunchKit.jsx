@@ -9,6 +9,7 @@ import NavIcon from '../../../../components/shell/NavIcon';
 import { QuotaDots } from '../../new/ai/AiParts';
 import { useEventContext } from '../EventContext';
 import { FORMATS, dateLine, drawShareImage, loadImage } from './shareImage';
+import { keepKey, keptWhen, readKept, writeKept } from '../../../../utils/localKeep';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -22,8 +23,10 @@ import { FORMATS, dateLine, drawShareImage, loadImage } from './shareImage';
  *      which post sold. Prices, dates and links the event does not have are
  *      cut on the server (`backend/services/ai/launchKit.js`).
  *
- * Nothing here is stored or posted anywhere: the organizer copies, downloads
- * or opens their own app with the text filled in.
+ * Nothing is posted anywhere: the organizer copies, downloads or opens their
+ * own app with the text filled in. The written kit IS kept in this browser,
+ * per event (`localKeep.js`) — it cost a daily draft, and a reload used to
+ * throw it away.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 const TONES = [['friendly', 'Friendly'], ['elegant', 'Elegant'], ['energetic', 'Energetic'], ['professional', 'Professional']];
@@ -44,8 +47,15 @@ export default function LaunchKit({ eventId, shareEvent }) {
   const ctx = useEventContext();
   const event = ctx?.event;
   const { quota, setQuota } = useAiQuota();
-  const [tagline, setTagline] = useState('');
-  const [kit, setKit] = useState(null);
+  const [kept] = useState(() => (eventId ? readKept(keepKey('launch-kit', eventId)) : null));
+  const [tagline, setTagline] = useState(() => kept?.tagline || '');
+  const [kit, setKit] = useState(() => kept?.kit || null);
+  const [madeAt, setMadeAt] = useState(() => kept?.at || null);
+
+  function keep(nextKit, nextTagline) {
+    writeKept(keepKey('launch-kit', eventId), { kit: nextKit, tagline: nextTagline });
+    setMadeAt(new Date().toISOString());
+  }
 
   if (!event) return null;
   const info = {
@@ -69,9 +79,15 @@ export default function LaunchKit({ eventId, shareEvent }) {
 
       {quota?.enabled && (
         <AiPosts
-          eventId={eventId} quota={quota} setQuota={setQuota} kit={kit}
-          onKit={(k) => { setKit(k); if (k?.taglines?.[0]) setTagline(k.taglines[0]); }}
-          tagline={tagline} onTagline={setTagline}
+          eventId={eventId} quota={quota} setQuota={setQuota} kit={kit} madeAt={madeAt}
+          onKit={(k) => {
+            const first = k?.taglines?.[0] || '';
+            setKit(k);
+            setTagline(first);
+            keep(k, first);
+          }}
+          tagline={tagline}
+          onTagline={(t) => { setTagline(t); if (kit) keep(kit, t); }}
         />
       )}
     </section>
@@ -129,7 +145,7 @@ function ShareImages({ coverUrl, info, slug }) {
   );
 }
 
-function AiPosts({ eventId, quota, setQuota, kit, onKit, tagline, onTagline }) {
+function AiPosts({ eventId, quota, setQuota, kit, madeAt, onKit, tagline, onTagline }) {
   const [tone, setTone] = useState('friendly');
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
@@ -192,6 +208,11 @@ function AiPosts({ eventId, quota, setQuota, kit, onKit, tagline, onTagline }) {
 
       {kit && (
         <>
+          {madeAt && (
+            <p className="text-xs text-subtle">
+              Written {keptWhen(madeAt)} and kept in this browser. Writing again uses another AI draft.
+            </p>
+          )}
           {kit.taglines.length > 0 && (
             <div className="fx-stack fx-stack--sm gap-1">
               <span className="text-sm font-medium text-ink">Line on the images</span>

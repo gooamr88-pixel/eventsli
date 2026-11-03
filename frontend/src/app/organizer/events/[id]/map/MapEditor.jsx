@@ -16,7 +16,7 @@ import TablePanel from './TablePanel';
 import ZonePanel from './ZonePanel';
 import SelectionPanel from './SelectionPanel';
 import SeatingPackModal from './print/SeatingPackModal';
-import SeatingDesigner from './SeatingDesigner';
+import SeatingDesigner, { DesignBanner } from './SeatingDesigner';
 import { useAiQuota } from '../../../../hooks/useAiQuota';
 import { useMapDraft, keyOf, MAX_TABLES } from './useMapDraft';
 import { useSelection, soleSelected } from './useSelection';
@@ -339,6 +339,12 @@ export default function MapEditor({ eventId }) {
 
       {saveError && <SaveError error={saveError} />}
 
+      {/* Outside the folded tools, so it is seen on a phone too (2026-11-03:
+          "no AI button" — it was inside the toolbar a phone hides). */}
+      {(aiQuota?.enabled || aiQuota?.reason === 'ADMIN_ACCOUNT') && (
+        <DesignBanner empty={tables.length === 0 && zones.length === 0} onOpen={() => setShowDesigner(true)} />
+      )}
+
       {/* Phones: a sentence and a switch, the toolbar folded — PhoneTools.jsx. */}
       <PhoneTools open={toolsOpen} onToggle={() => setToolsOpen((open) => !open)} controls="map-tools" />
       <div id="map-tools" className="es-maptools" data-open={toolsOpen ? 'true' : 'false'}>
@@ -355,7 +361,9 @@ export default function MapEditor({ eventId }) {
         onUndo={draft.undo}
         onRedo={draft.redo}
         onAdd={() => setShowAdd(true)}
-        onDesign={aiQuota?.enabled && soldTotal === 0 ? () => setShowDesigner(true) : null}
+        // Shown whenever AI is set up — and when it cannot run here, the dialog
+        // says why, rather than the button silently not being there.
+        onDesign={aiQuota?.enabled || aiQuota?.reason === 'ADMIN_ACCOUNT' ? () => setShowDesigner(true) : null}
         zoom={{
           scale: WORLD.width / Math.max(panzoom.view.width, 1),
           in: panzoom.zoomIn,
@@ -448,6 +456,11 @@ export default function MapEditor({ eventId }) {
           tiers={tiers}
           categories={categories}
           replacing={tables.length > 0 || zones.length > 0}
+          blocked={aiQuota?.reason === 'ADMIN_ACCOUNT'
+            ? 'The Seating Designer is used from the organizer\u2019s own account, so it never spends their daily AI drafts on their behalf. Sign in as the organizer to use it.'
+            : soldTotal > 0
+              ? `${soldTotal} seat${soldTotal === 1 ? ' is' : 's are'} already held or sold on this map, so the layout can\u2019t be replaced. Edit the map by hand instead.`
+              : null}
           onClose={() => setShowDesigner(false)}
           onApply={(layout) => {
             const { tableKeys, zoneIds } = draft.replaceLayout(layout.tables, layout.zones);
