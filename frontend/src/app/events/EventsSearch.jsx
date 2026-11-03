@@ -105,7 +105,7 @@ export default function EventsSearch({ q, city, from, category }) {
     if (typed === shown) return undefined;
     const timer = setTimeout(() => {
       setApplied(typed);
-      router.replace(typed, { scroll: false });
+      router.replace(withZone(typed), { scroll: false });
     }, DEBOUNCE_MS);
     return () => clearTimeout(timer);
   }, [typed, shown, router]);
@@ -178,6 +178,22 @@ export default function EventsSearch({ q, city, from, category }) {
  * undefined}` on each input above. The two have to agree: if they did not, the
  * button and the typing would produce different listings from the same boxes.
  */
+/**
+ * Smart search reads "this weekend" and "tomorrow" in the READER's time zone
+ * (lib/smartSearch.js), so a query carries it. Added only when there is a
+ * query, and only here at navigation time — never during render, where the
+ * server's zone and the browser's would disagree and break hydration.
+ */
+function withZone(url) {
+  if (!url.includes('q=')) return url;
+  try {
+    const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    return zone ? `${url}&tz=${encodeURIComponent(zone)}` : url;
+  } catch {
+    return url;
+  }
+}
+
 function urlFor({ what, where, when, category }) {
   const params = new URLSearchParams();
   if (category) params.set('category', category);

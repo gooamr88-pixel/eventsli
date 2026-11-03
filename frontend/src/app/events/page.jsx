@@ -6,6 +6,7 @@ import QuickFilters from './QuickFilters';
 import { categoryLabel } from '../lib/categories';
 import NavIcon from '../components/shell/NavIcon';
 import EventsSearch from './EventsSearch';
+import { parseSearch, withoutPhrase, safeTimeZone } from '../lib/smartSearch';
 
 /**
  * Browse.
@@ -36,6 +37,10 @@ async function load(params) {
   // no filter, because the reader believes it applied.
   if (params.city) query.set('city', params.city);
   if (params.from) query.set('from', params.from);
+  // `to` was dropped here, so "This weekend" (from + to) listed everything
+  // from Friday onwards. Forwarded now, like every other filter.
+  if (params.to) query.set('to', params.to);
+  if (Number.isInteger(params.maxPrice)) query.set('maxPrice', String(params.maxPrice));
   query.set('limit', '24');
 
   try {
@@ -60,6 +65,36 @@ async function load(params) {
   }
 }
 
+/** A calendar date, or an instant (what "This weekend" and smart search send). */
+const DATE_PARAM = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?(Z|[+-]\d{2}:\d{2})?)?$/;
+const dateParam = (v) => (typeof v === 'string' && DATE_PARAM.test(v) && !Number.isNaN(Date.parse(v)) ? v : '');
+
+/**
+ * SMART SEARCH (lib/smartSearch.js): "jazz this weekend in Toronto under $40"
+ * becomes a category, a date range, a city and a price, and only "jazz" is
+ * searched as text. Read against the cities that have events and the live
+ * categories, both cached for an hour, so half-typed words are not filters.
+ * Outside the component because it reads the clock.
+ */
+async function understand(q, tz, categories) {
+  if (!q) return null;
+  let cities = [];
+  try {
+    const data = await serverFetch('/public/cities', { tags: ['events:published'], revalidate: 3600 });
+    cities = (data?.cities || []).map((c) => c.city);
+  } catch { /* no cities: the rest of the query is still read */ }
+  return parseSearch(q, { now: new Date(), timeZone: tz, cities, categories });
+}
+
+async function liveCategories() {
+  try {
+    const data = await serverFetch('/public/event-categories', { tags: ['event-categories'], revalidate: 3600 });
+    return data?.labelled || [];
+  } catch {
+    return [];
+  }
+}
+
 export default async function EventsPage({ searchParams }) {
   const params = await searchParams;
   const active = typeof params.category === 'string' ? params.category : null;
@@ -69,13 +104,23 @@ export default async function EventsPage({ searchParams }) {
   // edit and is forwarded to an API that validates it — but a malformed one
   // would come back as a 400 for the whole listing, so the page drops it and
   // shows everything rather than showing an error about a date.
-  const from = typeof params.from === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(params.from)
-    ? params.from
-    : '';
+  // Instants are allowed too: "This weekend" sends them, and dropping them
+  // made that chip filter nothing on this page.
+  const from = dateParam(params.from);
+  const to = dateParam(params.to);
+  const tz = safeTimeZone(params.tz);
 
-  const { events, categories, failed } = await load({
-    q, category: active, country: params.country, city, from,
-  });
+  const smart = await understand(q, tz, await liveCategories());
+  const effective = {
+    q: smart ? smart.keywords : q,
+    category: active || smart?.category || null,
+    city: city || smart?.city || '',
+    from: from || smart?.from || '',
+    to: to || smart?.to || '',
+    maxPrice: smart?.maxPriceCents ?? null,
+  };
+
+  const { events, categories, failed } = await load({ ...effective, country: params.country });
 
   /** Every link on this page keeps the filters already applied. */
   const href = (category) => {
@@ -83,28 +128,48 @@ export default async function EventsPage({ searchParams }) {
     if (q) next.set('q', q);
     if (city) next.set('city', city);
     if (from) next.set('from', from);
+    if (to) next.set('to', to);
+    if (params.tz) next.set('tz', tz);
     if (category) next.set('category', category);
     const s = next.toString();
     return s ? `/events?${s}` : '/events';
   };
 
   /** What the reader filtered by, in words, so it can be shown and undone. */
-  const applied = [
-    q && { label: `“${q}”`, key: 'q' },
+  const applied = smart ? [
+    // What smart search understood, each removable on its own: the chip's
+    // link is the same query with that phrase taken out.
+    // Removing the words keeps the filters they came with \u2014 except a genre
+    // ("jazz"), which is both the words and the category, and goes with them.
+    smart.keywords && {
+      label: `\u201c${smart.keywords}\u201d`,
+      key: 'q',
+      href: without('q', smart.understood
+        .filter((u) => !smart.keywords.split(' ').includes(u.phrase))
+        .map((u) => u.phrase).join(' ')),
+    },
+    ...smart.understood.map((u) => ({ label: u.label, key: `smart-${u.key}`, href: without('q', withoutPhrase(q, u.phrase)) })),
     city && { label: `in ${city}`, key: 'city' },
-    from && { label: `from ${from}`, key: 'from' },
+    from && { label: `from ${from.slice(0, 10)}`, key: 'from' },
+  ].filter(Boolean) : [
+    q && { label: `\u201c${q}\u201d`, key: 'q' },
+    city && { label: `in ${city}`, key: 'city' },
+    from && { label: `from ${from.slice(0, 10)}`, key: 'from' },
   ].filter(Boolean);
 
   /** This page's URL with one filter removed. */
-  const without = (key) => {
+  function without(key, replacement = null) {
     const next = new URLSearchParams();
-    if (q && key !== 'q') next.set('q', q);
+    const keptQ = key === 'q' ? replacement : q;
+    if (keptQ) next.set('q', keptQ);
     if (active) next.set('category', active);
     if (city && key !== 'city') next.set('city', city);
     if (from && key !== 'from') next.set('from', from);
+    if (to && key !== 'from') next.set('to', to);
+    if (params.tz && keptQ) next.set('tz', tz);
     const s = next.toString();
     return s ? `/events?${s}` : '/events';
-  };
+  }
 
   const filtered = Boolean(q || active || city || from);
   // The API pages at 24, so a full page may not be everything.
@@ -178,7 +243,7 @@ export default async function EventsPage({ searchParams }) {
                 the page, not only seen. */}
             <p className="es-ev-count" aria-live="polite">
               <b>{count}</b> {events.length === 1 ? 'event' : 'events'}
-              {active ? <> in <b>{label(active)}</b></> : ''}
+              {effective.category ? <> in <b>{categories.find((c) => c.slug === effective.category)?.label || label(effective.category)}</b></> : ''}
             </p>
 
             {/* The filters the URL is carrying, each one removable. Without
@@ -188,7 +253,7 @@ export default async function EventsPage({ searchParams }) {
               <ul className="es-ev-applied">
                 {applied.map((filter) => (
                   <li key={filter.key}>
-                    <Link href={without(filter.key)} className="es-ev-applied__chip">
+                    <Link href={filter.href || without(filter.key)} className="es-ev-applied__chip">
                       {filter.label}
                       <NavIcon name="close" size={13} />
                       <span className="sr-only">— remove this filter</span>

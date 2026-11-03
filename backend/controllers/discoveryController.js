@@ -129,6 +129,27 @@ async function listEvents(req, res, next) {
     // cast error surfacing as a 500 on a public endpoint.
     if (req.query.category) query = query.eq('category', req.query.category);
 
+    /**
+     * `?maxPrice=` (cents): events with at least one ticket type a buyer can
+     * see at or under that price — "under $40", and `0` for "free" (smart
+     * search). Hidden types are excluded for the same reason they are excluded
+     * from "From $…" (see `lowestTierPrices`): a price nobody browsing can pay
+     * is not an answer to "how much". A listing that sells nothing has no price
+     * and does not match a price filter.
+     */
+    if (req.query.maxPrice !== undefined) {
+      const { data: cheap, error: priceError } = await supabase
+        .from('ticket_tiers')
+        .select('event_id')
+        .eq('is_hidden', false)
+        .lte('price_cents', Number(req.query.maxPrice))
+        .limit(2000);
+      if (priceError) throw new Error(priceError.message);
+      const ids = [...new Set((cheap || []).map((t) => t.event_id))];
+      if (ids.length === 0) return sendOk(res, [], { pagination: buildMeta(p, 0) });
+      query = query.in('id', ids);
+    }
+
     if (p.q) {
       // Escaped: a comma or a parenthesis reaches PostgREST as `or()` syntax
       // rather than as text being searched for. Unescaped, `q` is a filter

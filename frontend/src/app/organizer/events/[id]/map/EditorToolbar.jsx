@@ -26,7 +26,7 @@ import { keyOf } from './useMapDraft';
  */
 export default function EditorToolbar({
   tables, zones, selection, tool, onToolChange, snapToGrid, onSnapChange,
-  canUndo, canRedo, onUndo, onRedo, onAdd, zoom,
+  canUndo, canRedo, onUndo, onRedo, onAdd, zoom, onDesign = null,
 }) {
   return (
     <div className="fx-row fx-row--between flex-wrap gap-2 rounded-(--es-radius-lg) border border-border-base bg-surface px-3 py-2">
@@ -34,6 +34,13 @@ export default function EditorToolbar({
         <button type="button" onClick={onAdd} className="es-btn es-btn--primary es-btn--sm">
           Add element
         </button>
+        {/* Only when AI is on for this organizer and no seat is held or sold
+            (D-015) — MapEditor decides, and passes null otherwise. */}
+        {onDesign && (
+          <button type="button" onClick={onDesign} className="es-btn es-btn--secondary es-btn--sm">
+            Design with AI
+          </button>
+        )}
         <ToolbarButton onClick={onUndo} disabled={!canUndo} title="Undo (Ctrl+Z)">Undo</ToolbarButton>
         <ToolbarButton onClick={onRedo} disabled={!canRedo} title="Redo (Ctrl+Shift+Z)">Redo</ToolbarButton>
         <SelectMenu tables={tables} zones={zones} selection={selection} />

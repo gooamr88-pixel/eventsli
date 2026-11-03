@@ -207,6 +207,9 @@ AI_GEMINI_MODEL=gemini-3.8-flash
 AI_GROQ_API_KEY=
 AI_GROQ_MODEL=openai/gpt-oss-120b
 AI_PROVIDER_ORDER=gemini,groq
+# Seating Designer and launch kit share the same allowance and keys. The launch
+# kit needs migration 20261103090000_ai_launch_kit_feature.sql applied first
+# (until then it answers "not set up yet"; nothing else is affected).
 # Poster import ("Upload your poster"). On with AI unless false. Blank Gemini
 # vision model = AI_GEMINI_MODEL. `off` keeps a provider for text only.
 AI_POSTER_ENABLED=true

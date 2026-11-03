@@ -52,6 +52,8 @@ router.get(
   query('to').optional().isISO8601(),
   query('includePast').optional().isIn(['true', 'false']),
   query('city').optional().isString().trim().isLength({ min: 1, max: 120 }),
+  // Cents. "Under $40" from smart search is 4000; "free" is 0.
+  query('maxPrice').optional().isInt({ min: 0, max: 10_000_000 }).toInt(),
   /**
    * A comma-separated slug list, for "saved events" — a browser holds slugs in
    * localStorage and needs the events behind them.

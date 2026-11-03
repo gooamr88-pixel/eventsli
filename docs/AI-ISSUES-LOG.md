@@ -52,6 +52,11 @@ Statuses: `Open` · `In progress` · `Fixed (verified)` · `Deferred` ·
 | D-024 | 2026-11-03 | Groq's poster fallback uses a **vision model in JSON-object mode** (`AI_GROQ_VISION_MODEL`, default Llama 4 Scout), not strict `json_schema`. | Claude | Strict mode is documented for gpt-oss (text only), not for the Llama 4 vision models. The validator remains the guarantee. `off` disables either provider for posters only. |
 | D-025 | 2026-11-03 | An image the model says is **not an event** returns `AI_NOT_AN_EVENT` (422), is released (costs nothing, D-010) and is **not** retried on the fallback provider. | Claude | Bounded by the existing 10-per-10-minutes limiter. |
 | D-026 | 2026-11-03 | **Event-page SEO** is derived from existing fields only (`lib/eventSeo.js`); no new columns, no migration. A colliding slug tries `-city`, `-city-year`, `-year` before a random suffix, for new events only. | Claude | Avoids the migration-lag risk seen in I-003/I-004. Existing slugs never change. |
+| D-027 | 2026-11-03 | Next AI features: **Seating Designer, launch kit, smart search**, all organizer AI sharing the existing 2-a-day allowance. | Owner | Answers to "Which AI features should I build next?" and "Should the new organizer AI features share the existing allowance?" ("Share the 2 a day"). |
+| D-028 | 2026-11-03 | Every AI feature runs through ONE provider loop (`services/ai/providerLoop.js`) and ONE spend path (`spend()` in `aiController.js`): same fallback, overload retry, clock, reservation, count-or-release. | Claude | Extracted from the event creator; the existing suites passed unchanged before any new feature was added on top. |
+| D-029 | 2026-11-03 | Seating Designer: the AI returns sections and zones only; `map/seatingLayout.js` places them deterministically (no overlap, inside the 1000 × 700 world, front = stage side) and reports what did not fit. Applied as one undo step, unsaved, only when no seat is held or sold (refused server-side too). Prices only through the event's existing ticket types. | Claude | Implements D-001, D-005, D-006, D-015. |
+| D-030 | 2026-11-03 | Launch kit: share images drawn in the browser (no AI, always available); posts per channel by AI from the saved event, with the event URL inserted by the server and tagged per channel (utm); invented prices, dates, links and contacts are cut. Needs migration `20261103090000_ai_launch_kit_feature.sql`. | Claude | Without the migration the kit answers "not set up yet" and logs which migration is missing; nothing else is affected. |
+| D-031 | 2026-11-03 | Smart search is **deterministic, not AI**: a public, unmetered search box on a free-tier daily cap would be spent by the first crawler. Cities and categories are only recognised if they exist on Eventsli. New API filter `?maxPrice=` (cents). | Claude | Also fixes a pre-existing bug: /events dropped `to` and any non-date `from`, so the "This weekend" chip filtered nothing. |
 
 ---
 
@@ -85,6 +90,8 @@ Statuses: `Open` · `In progress` · `Fixed (verified)` · `Deferred` ·
 | I-024 | 2026-11-03 | Bug | High | Fixed (verified) | Poster drafts failed in production: Gemini 503 overload, and Groq's default vision model (Llama 4 Scout) no longer exists |
 | I-025 | 2026-11-03 | Unverified | Medium | Open | Poster integration tests written but not run (no local stack; `.env` points at production) |
 | I-026 | 2026-11-03 | Gap | Low | Fixed (verified) | AI-written tier names and schedule titles were not scrubbed of phone numbers or emails |
+| I-027 | 2026-11-03 | Bug, pre-existing | Medium | Fixed (verified) | "This weekend" on /events filtered nothing: the page dropped `to` and any `from` that was not a bare date |
+| I-028 | 2026-11-03 | Unverified | Medium | Open | Seating Designer and launch kit not yet run against the live providers or the database |
 
 ### I-001 — Overlapping tables are not detected anywhere
 - **Where:** `frontend/src/app/organizer/events/[id]/map/MapEditor.jsx:112-115` says the problem list (the Save-button gate) covers "overlapping tables, seats outside the world box … and the server rejects those plans". `draftRules.mapProblems` checks neither; `venueService.saveMap` and `save_venue_map` check neither. A search of frontend, backend and migrations for overlap/collision logic finds none.
@@ -216,3 +223,14 @@ Statuses: `Open` · `In progress` · `Fixed (verified)` · `Deferred` ·
 - **Fix:** `noContacts()` on tier names and schedule titles; `scrubCopy` also removes phone numbers.
 - **Verified:** `aiPoster.test.js` — "a contact printed on a poster cannot ride into a ticket name or a schedule row", "AI copy never keeps a phone number".
 - **Status:** Fixed (verified).
+
+### I-027 — "This weekend" filtered nothing on /events
+- **Where:** `frontend/src/app/events/page.jsx`. `QuickFilters` links to `?from=<instant>&to=<instant>`; the page accepted only a bare `yyyy-mm-dd` `from` and never forwarded `to`, so the API was called with neither.
+- **Fix:** `from` and `to` accept a date or an ISO instant and are both forwarded.
+- **Verified:** the built page against a logging mock API: `?from=…&to=…` now reaches `/public/events?from=…&to=…`.
+- **Status:** Fixed (verified).
+
+### I-028 — Seating Designer and launch kit unverified live
+- Unit: `aiSeatingLaunch.test.js` (10), `seatingLayout.test.js` (13), `aiTools.test.jsx` (4). The controller paths (`createSeatingPlan`, `createLaunchKit`) and the held/sold-seat refusal touch the database and were not run (no local stack; `.env` points at production).
+- **To verify:** apply `20261103090000_ai_launch_kit_feature.sql`; on a reserved-seating draft with no sales, open the map → Design with AI; on any event, Share → Launch kit → Write my posts.
+- **Status:** Open.

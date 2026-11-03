@@ -151,32 +151,30 @@ export function useMapDraft() {
     if (room === 0) return [];
 
     const taken = new Set(current.tables.map((t) => String(t.label).trim().toLowerCase()));
-    const stamp = Date.now();
-    const created = list.slice(0, room).map((spec, i) => {
-      const label = String(spec?.label || '').trim() || nextLabel(taken);
-      taken.add(label.toLowerCase());
-      return {
-        // No `id`: the API reads its absence as "create". A client-generated
-        // one would be sent as an existing row to update and match nothing.
-        localKey: `new-${stamp}-${i}-${Math.random().toString(36).slice(2, 8)}`,
-        label,
-        seatCount: clampSeats(spec?.seatCount ?? 8),
-        priceCents: spec?.priceCents ?? null,
-        isPrivate: false,
-        shape: spec?.shape || 'round',
-        categoryId: spec?.categoryId ?? null,
-        tierId: spec?.tierId ?? null,
-        seatPriceCents: null,
-        position: {
-          x: clamp(Number(spec?.position?.x) || 0, 0, 100),
-          y: clamp(Number(spec?.position?.y) || 0, 0, 100),
-          rotation: Number(spec?.position?.rotation) || 0,
-        },
-      };
-    });
+    const created = buildTables(list.slice(0, room), taken);
 
     apply((p) => ({ ...p, tables: [...p.tables, ...created] }));
     return created.map((t) => t.localKey);
+  }, [apply]);
+
+  /**
+   * Replaces the WHOLE layout — tables and zones — in one undo step.
+   *
+   * The Seating Designer's entry point (D-015): its plan lands in the unsaved
+   * draft exactly as if the organizer had drawn it, Ctrl+Z puts the old room
+   * back in one press, and nothing reaches the server until Save. Only offered
+   * while no seat is held or sold, because a save is a full replace and a
+   * bought seat must not be redrawn (the API refuses that save regardless).
+   */
+  const replaceLayout = useCallback((tableSpecs, zoneSpecs) => {
+    const tablesNext = buildTables((tableSpecs || []).slice(0, MAX_TABLES), new Set());
+    const zonesNext = (zoneSpecs || []).map((spec) => {
+      const zone = makeZone(spec.kind, spec.position, spec.overrides);
+      if (spec.label) zone.label = String(spec.label);
+      return zone;
+    });
+    apply({ tables: tablesNext, zones: zonesNext });
+    return { tableKeys: tablesNext.map((t) => t.localKey), zoneIds: zonesNext.map((z) => z.id) };
   }, [apply]);
 
   /** The single-table form the "Add table" button and a double-click use. */
@@ -412,6 +410,7 @@ export function useMapDraft() {
     redo,
     addTable,
     addTables,
+    replaceLayout,
     updateTable,
     removeTable,
     addZones,
@@ -424,6 +423,36 @@ export function useMapDraft() {
     resizeZone,
     resetZoneSize,
   };
+}
+
+/**
+ * New table rows from specs, naming any that arrive unnamed against `taken`
+ * (which grows as it goes, so a batch cannot collide with itself).
+ */
+function buildTables(specs, taken) {
+  const stamp = Date.now();
+  return specs.map((spec, i) => {
+    const label = String(spec?.label || '').trim() || nextLabel(taken);
+    taken.add(label.toLowerCase());
+    return {
+      // No `id`: the API reads its absence as "create". A client-generated
+      // one would be sent as an existing row to update and match nothing.
+      localKey: `new-${stamp}-${i}-${Math.random().toString(36).slice(2, 8)}`,
+      label,
+      seatCount: clampSeats(spec?.seatCount ?? 8),
+      priceCents: spec?.priceCents ?? null,
+      isPrivate: false,
+      shape: spec?.shape || 'round',
+      categoryId: spec?.categoryId ?? null,
+      tierId: spec?.tierId ?? null,
+      seatPriceCents: null,
+      position: {
+        x: clamp(Number(spec?.position?.x) || 0, 0, 100),
+        y: clamp(Number(spec?.position?.y) || 0, 0, 100),
+        rotation: Number(spec?.position?.rotation) || 0,
+      },
+    };
+  });
 }
 
 /** A saved table has an `id`; a new one only has a local key. Both need a

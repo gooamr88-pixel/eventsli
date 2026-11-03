@@ -1,10 +1,13 @@
 const express = require('express');
 const { body } = require('express-validator');
 const validate = require('../middleware/validate');
-const { requireAuth, requireRole, requireActiveOrganizer } = require('../middleware/auth');
+const {
+  requireAuth, requireRole, requireActiveOrganizer, verifyEventOwner,
+} = require('../middleware/auth');
 const { makeLimiter } = require('../middleware/rateLimit');
 const ai = require('../controllers/aiController');
 const { TYPES, MAX_BASE64 } = require('../services/ai/posterImage');
+const { TONES } = require('../services/ai/launchKit');
 
 /**
  * Eventsli AI. Organizer accounts only, and an organizer that is banned is
@@ -82,6 +85,34 @@ router.post(
     .withMessage('That image is too large. Use one under 1.4 MB.'),
   validate,
   ai.createEventDraftFromImage,
+);
+
+/**
+ * The Seating Designer and the launch kit work on one SAVED event, so the
+ * event's owner is checked first (`verifyEventOwner`), and both share the
+ * draft limiter above: one budget of presses across every AI button.
+ */
+router.post(
+  '/events/:eventId/seating-plan',
+  draftLimiter,
+  verifyEventOwner,
+  body('requestId').isUUID().withMessage('Send a request id.'),
+  body('description').isString().trim().isLength({ min: 20, max: 1500 })
+    .withMessage('Describe the room in 20 to 1,500 characters.'),
+  validate,
+  ai.createSeatingPlan,
+);
+
+router.post(
+  '/events/:eventId/launch-kit',
+  draftLimiter,
+  verifyEventOwner,
+  body('requestId').isUUID().withMessage('Send a request id.'),
+  body('tone').optional().isIn(TONES).withMessage(`Choose a tone: ${TONES.join(', ')}.`),
+  body('note').optional({ values: 'null' }).isString().trim().isLength({ max: 300 })
+    .withMessage('Keep the note under 300 characters.'),
+  validate,
+  ai.createLaunchKit,
 );
 
 module.exports = router;

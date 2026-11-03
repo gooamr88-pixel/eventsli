@@ -1,25 +1,14 @@
 /**
  * ─────────────────────────────────────────────────────────────────────────────
- * One organizer request → one validated draft, from whichever provider can
- * give one (D-011).
+ * One organizer request → one validated event draft, from a description or
+ * from a poster.
  *
- * THE ORDER. Providers are tried in `AI_PROVIDER_ORDER` (Gemini, then Groq).
- * The next one is tried after ANY failure of the previous — a timeout, a 429
- * from a free tier that has run out for the minute, a refusal, JSON that does
- * not parse, or an answer the validator cannot use. The same provider is not
- * retried — a second 429 is the likeliest answer to a first — with ONE
- * exception: a fast 503 "high demand" (`OVERLOAD_RETRY`). Google sheds free-tier
- * load in short bursts; production logged exactly that, three times in four
- * minutes, each answered in 1–3 s. One retry a second later is cheap, and is
- * only made while there is time left for the fallback after it.
- *
- * THE CLOCK. Each provider has its own deadline (config.TIMEOUTS) and the
- * whole thing has one more: a fallback is not started once the request is
- * nearly out of the browser's 30 s, because an answer that arrives after the
- * browser has given up is a generation spent on nothing (I-021).
- *
- * WHAT COMES BACK. The draft, and metadata for `ai_generations`: provider,
- * model, attempts, tokens, latency. Never the prompt or the raw answer.
+ * The provider order, the fallback, the overload retry and the clock are
+ * `providerLoop.runProviders`, shared with every other AI feature. What is
+ * specific to a draft is here: which prompt, which providers can be asked
+ * (only those that can see, for a poster), and how an answer is accepted —
+ * `validateDraft` against the organizer's words, or against the poster's
+ * transcript plus the organizer's note.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 const { buildRequest, buildPosterRequest } = require('./eventDraftPrompt');
@@ -27,16 +16,10 @@ const { validateDraft, clean } = require('./eventDraftValidate');
 const { redact } = require('./redact');
 const { CALLERS } = require('./providers');
 const { aiError } = require('./aiHttp');
-const logger = require('../../utils/logger');
+const { runProviders } = require('./providerLoop');
 
-/** No fallback starts after this much of the request has gone. */
+/** No fallback starts after this much of a TEXT request has gone. */
 const LAST_START_MS = 15_000;
-
-/** A 503 that came back this early is retried once, this long after. */
-const OVERLOAD_RETRY = Object.freeze({ before: 5_000, wait: 1_000, minTimeout: 3_000 });
-
-const sleep = (ms) => new Promise((resolve) => { setTimeout(resolve, ms); });
-const overloaded = (err) => err?.code === 'AI_UPSTREAM' && err.status === 503;
 
 /** Longer than any real poster; past this the "transcript" is not one. */
 const MAX_POSTER_TEXT = 4000;
@@ -67,9 +50,7 @@ function readPoster(json, notes) {
 
 /**
  * One draft, from a description (`text`) or from a poster (`image`, with
- * `text` as the organizer's optional note). Same loop, same validator; a
- * poster only changes the prompt, the providers that can be asked, the clock,
- * and what the evidence is checked against.
+ * `text` as the organizer's optional note).
  */
 async function generateEventDraft({
   text, image = null, listingType, country, currency, timezone, categories, cfg, now = new Date(), callers = CALLERS,
@@ -78,88 +59,31 @@ async function generateEventDraft({
   const request = poster
     ? buildPosterRequest({ notes: text, listingType, country, currency, timezone, categories, now })
     : buildRequest({ text, listingType, country, currency, timezone, categories, now });
-  const order = poster ? cfg.visionOrder : cfg.order;
-  const clock = poster ? cfg.visionTimeouts : { total: 20_000, ...cfg.timeouts, lastStart: LAST_START_MS };
-  const started = Date.now();
-  const tried = [];
-  let last = null;
+  const slugs = categories.map((c) => c.slug);
 
-  const elapsed = () => Date.now() - started;
-  /**
-   * The primary gets its own deadline. A fallback gets AT LEAST its own, and
-   * more when the primary failed fast: a 503 in 2 s should not leave the
-   * fallback the same 8 s it would have had after a full timeout. Bounded by
-   * the clock's total, so the browser's 30 s is never at risk (I-021).
-   */
-  const deadline = (i) => (i === 0 ? clock.primary : Math.max(clock.fallback, clock.total - elapsed()));
-
-  for (const [i, name] of order.entries()) {
-    if (i > 0 && elapsed() > clock.lastStart) break;
-    const call = callers[name];
-    if (!call) continue;
-    const at = Date.now();
-    try {
-      let answer;
-      try {
-        answer = await call({ ...request, image, timeoutMs: deadline(i) });
-      } catch (err) {
-        if (!overloaded(err) || elapsed() > OVERLOAD_RETRY.before) throw err;
-        tried.push({ provider: name, ok: false, code: 'AI_OVERLOADED', ms: Date.now() - at });
-        await sleep(OVERLOAD_RETRY.wait);
-        // Leave the next provider its start: finish before `lastStart`.
-        const room = clock.lastStart - elapsed() - OVERLOAD_RETRY.wait;
-        answer = await call({ ...request, image, timeoutMs: Math.max(OVERLOAD_RETRY.minTimeout, Math.min(deadline(i), room)) });
-      }
-      const read = poster ? readPoster(answer.json, text) : null;
+  let read = null;
+  const { result, meta } = await runProviders({
+    request,
+    image,
+    order: poster ? cfg.visionOrder : cfg.order,
+    clock: poster ? cfg.visionTimeouts : { total: 20_000, ...cfg.timeouts, lastStart: LAST_START_MS },
+    label: poster ? 'event draft (poster)' : 'event draft',
+    inputChars: text.length,
+    final: ['AI_NOT_AN_EVENT'],
+    callers,
+    accept: (answer) => {
+      read = poster ? readPoster(answer.json, text) : null;
       const evidence = read ? read.evidence : text;
-      const { draft, dropped } = validateDraft(answer.json, {
-        text: evidence, listingType, timezone, categories: categories.map((c) => c.slug), now,
-      });
-      tried.push({ provider: name, ok: true, ms: Date.now() - at });
-      logger.info({
-        provider: name, attempts: tried.length, ms: Date.now() - started, dropped, source: poster ? 'poster' : 'text',
-      }, 'ai event draft generated');
-      return {
-        draft,
-        posterText: read ? read.posterText : null,
-        meta: {
-          provider: name,
-          model: answer.model,
-          attempts: tried.length,
-          input_chars: evidence.length,
-          input_tokens: answer.usage.input,
-          output_tokens: answer.usage.output,
-          latency_ms: Date.now() - started,
-        },
-      };
-    } catch (err) {
-      last = err;
-      tried.push({ provider: name, ok: false, code: err.code || 'AI_ERROR', ms: Date.now() - at });
-      if (err.code === 'AI_NOT_AN_EVENT') {
-        logger.info({ provider: name }, 'ai poster draft: the image is not an event');
-        throw aiError('AI_NOT_AN_EVENT', err.message, {
-          meta: {
-            provider: name, attempts: tried.length, input_chars: text.length,
-            latency_ms: Date.now() - started, failure_code: 'AI_NOT_AN_EVENT',
-          },
-        });
-      }
-      // A bug of ours (a TypeError in the validator) must not look like an
-      // outage forever: it is logged loudly with its stack, then falls back.
-      if (!err.code) logger.error({ err, provider: name }, 'ai provider call threw without a code');
-    }
-  }
-
-  logger.warn({ tried, source: poster ? 'poster' : 'text' }, 'ai event draft: every provider failed');
-  throw aiError('AI_UNAVAILABLE', 'No provider could write a draft.', {
-    meta: {
-      provider: tried.at(-1)?.provider || null,
-      attempts: tried.length,
-      input_chars: text.length,
-      latency_ms: Date.now() - started,
-      failure_code: last?.code || 'AI_NO_PROVIDER',
+      const { draft } = validateDraft(answer.json, { text: evidence, listingType, timezone, categories: slugs, now });
+      return draft;
     },
   });
+
+  return {
+    draft: result,
+    posterText: read ? read.posterText : null,
+    meta: { ...meta, input_chars: read ? read.evidence.length : text.length },
+  };
 }
 
 module.exports = { generateEventDraft, readPoster, LAST_START_MS };

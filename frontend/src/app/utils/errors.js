@@ -67,6 +67,8 @@ export const ERRORS = Object.freeze(Object.fromEntries([
     'Reload the page to see your draft, or press Generate draft again to write a new one.'),
   E('AI_UNAVAILABLE', 'We couldn’t write a draft',
     'Our AI services did not answer in time. This did not use any of your daily drafts. Try again.', 'retry'),
+  E('AI_NOT_A_ROOM', 'That doesn’t describe a room',
+    'Say how many guests, what kind of tables, and what else is in the room. This did not use any of your daily drafts.'),
   E('AI_NOT_AN_EVENT', 'We couldn’t find an event in that image',
     'Try a poster or flyer that shows the event’s name and date, or describe the event instead. This did not use any of your daily drafts.'),
 

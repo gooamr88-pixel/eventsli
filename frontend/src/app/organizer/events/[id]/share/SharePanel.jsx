@@ -4,6 +4,7 @@ import { useApi } from '../../../../hooks/useApi';
 import { formatPrice } from '../../../../utils/money';
 import { Loading, ErrorNotice, Notice } from '../../../../components/Feedback';
 import QrCard from './QrCard';
+import LaunchKit from './LaunchKit';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -56,6 +57,8 @@ export default function SharePanel({ eventId }) {
         filename={`${event.slug}-qr.png`}
         featured
       />
+
+      <LaunchKit eventId={eventId} shareEvent={event} />
 
       {tiers.length > 0 && (
         <section className="fx-stack fx-stack--sm">

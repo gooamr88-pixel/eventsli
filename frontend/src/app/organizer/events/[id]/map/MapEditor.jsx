@@ -16,6 +16,8 @@ import TablePanel from './TablePanel';
 import ZonePanel from './ZonePanel';
 import SelectionPanel from './SelectionPanel';
 import SeatingPackModal from './print/SeatingPackModal';
+import SeatingDesigner from './SeatingDesigner';
+import { useAiQuota } from '../../../../hooks/useAiQuota';
 import { useMapDraft, keyOf, MAX_TABLES } from './useMapDraft';
 import { useSelection, soleSelected } from './useSelection';
 import { useCanvasInteraction } from './useCanvasInteraction';
@@ -72,6 +74,8 @@ export default function MapEditor({ eventId }) {
   const [eventTitle, setEventTitle] = useState('');
   const [showAdd, setShowAdd] = useState(false);
   const [showPack, setShowPack] = useState(false);
+  const [showDesigner, setShowDesigner] = useState(false);
+  const { quota: aiQuota } = useAiQuota();
   const [toolsOpen, setToolsOpen] = useState(false);   // phones only — PhoneTools.jsx
 
   const [tool, setTool] = useState('select');
@@ -351,6 +355,7 @@ export default function MapEditor({ eventId }) {
         onUndo={draft.undo}
         onRedo={draft.redo}
         onAdd={() => setShowAdd(true)}
+        onDesign={aiQuota?.enabled && soldTotal === 0 ? () => setShowDesigner(true) : null}
         zoom={{
           scale: WORLD.width / Math.max(panzoom.view.width, 1),
           in: panzoom.zoomIn,
@@ -433,6 +438,20 @@ export default function MapEditor({ eventId }) {
           onAdd={({ tables: newTables, zones: newZones }) => {
             if (newTables) selection.replace(draft.addTables(newTables), []);
             if (newZones) selection.replace([], draft.addZones(newZones));
+          }}
+        />
+      )}
+
+      {showDesigner && (
+        <SeatingDesigner
+          eventId={eventId}
+          tiers={tiers}
+          categories={categories}
+          replacing={tables.length > 0 || zones.length > 0}
+          onClose={() => setShowDesigner(false)}
+          onApply={(layout) => {
+            const { tableKeys, zoneIds } = draft.replaceLayout(layout.tables, layout.zones);
+            selection.replace(tableKeys, zoneIds);
           }}
         />
       )}
