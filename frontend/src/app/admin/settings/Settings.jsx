@@ -34,6 +34,16 @@ const percent = { unit: '%', step: '0.01', min: 0, max: 100 };
 const cents = { unit: 'cents', step: '1', min: 0, max: 10000 };
 
 const FORMS = {
+  // Publish first, review after (2026-11-03). Off: an organizer's Publish puts
+  // the event live and every admin is emailed to review it. On: it waits in
+  // the approval queue until an admin approves it.
+  event_publishing: {
+    title: 'Publishing events',
+    hint: 'Off: organizers publish immediately and every admin is emailed to review the new event afterwards. On: events wait in the approval queue until an admin approves them.',
+    fields: [
+      { name: 'require_approval', label: 'Review events before they go live', type: 'boolean' },
+    ],
+  },
   currencies: {
     title: 'Markets open for new events',
     hint: 'Where organizers can create events. The currency follows the country and cannot be chosen separately.',
@@ -150,7 +160,9 @@ function SettingCard({ setting, canEdit, onSaved }) {
       tone: closing ? 'danger' : 'default',
       body: closing
         ? <p>Organizers in a market you close can no longer create events there. Events that already exist are not affected.</p>
-        : <p>New events use this from the moment it is saved.</p>,
+        : setting.key === 'event_publishing'
+          ? <p>Applies to the next event an organizer publishes. Events already live are not affected.</p>
+          : <p>New events use this from the moment it is saved.</p>,
       confirmLabel: 'Save setting',
       reason: { label: 'Why is this changing?', minLength: 5, maxLength: 500 },
     });
@@ -194,6 +206,18 @@ function SettingCard({ setting, canEdit, onSaved }) {
           <div className="fx-grid fx-grid--2">
             {form.fields.map((f) => {
               const id = `set-${setting.key}-${f.name}`;
+              if (f.type === 'boolean') {
+                return (
+                  <label key={f.name} htmlFor={id} className="fx-row items-center gap-2 text-sm text-ink">
+                    <input
+                      id={id} type="checkbox" className="size-5 accent-[var(--es-accent)]"
+                      checked={draft[f.name] === 'true'}
+                      onChange={(e) => setDraft((d) => ({ ...d, [f.name]: String(e.target.checked) }))}
+                    />
+                    {f.label}
+                  </label>
+                );
+              }
               return (
                 <div key={f.name} className="fx-stack fx-stack--sm gap-1.5">
                   <label htmlFor={id} className="text-sm text-ink">{f.label} ({f.unit})</label>
@@ -218,7 +242,9 @@ function SettingCard({ setting, canEdit, onSaved }) {
             {form.fields.map((f) => (
               <div key={f.name} className="fx-row fx-row--between border-t border-border-base pt-2 first:border-0 first:pt-0">
                 <dt className="text-muted">{f.label}</dt>
-                <dd className="es-nums text-ink">{String(base[f.name] ?? '—')} {f.unit}</dd>
+                <dd className="es-nums text-ink">
+                  {f.type === 'boolean' ? (base[f.name] ? 'On' : 'Off') : `${String(base[f.name] ?? '—')} ${f.unit}`}
+                </dd>
               </div>
             ))}
           </dl>
@@ -270,6 +296,7 @@ function buildValue(key, base, draft) {
   // Optional fields the form does not show (payment_fee.default_mode) are kept.
   const value = key === 'payment_fee' && base.default_mode ? { default_mode: base.default_mode } : {};
   for (const f of FORMS[key].fields) {
+    if (f.type === 'boolean') { value[f.name] = draft[f.name] === 'true'; continue; }
     const text = String(draft[f.name] ?? '').trim();
     const n = Number(text);
     if (!text || !Number.isFinite(n) || n < f.min || n > f.max) return null;

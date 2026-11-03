@@ -32,10 +32,10 @@ function Option({ name, value, current, onChange, icon, title, desc }) {
   );
 }
 
-/** "add a cover, draw the seating map, then submit for review." — minus what is done. */
+/** "add a cover, draw the seating map, then publish." — minus what is done. */
 function nextSteps(hasCover, needsMap) {
   const steps = [!hasCover && 'add a cover', needsMap && 'draw the seating map'].filter(Boolean);
-  return steps.length ? `${steps.join(', ')}, then submit for review.` : 'submit for review.';
+  return steps.length ? `${steps.join(', ')}, then publish.` : 'publish.';
 }
 
 export default function SaveStep({
@@ -133,7 +133,7 @@ export default function SaveStep({
         <p className="es-ai-summary__next">
           {hasCover && 'Your poster is saved as the cover. '}
           Next: {nextSteps(hasCover, ticketed && form.admissionType === 'reserved')}{' '}
-          Eventsli approves every event before it goes live.
+          Eventsli reviews every new event.
         </p>
       </div>
 

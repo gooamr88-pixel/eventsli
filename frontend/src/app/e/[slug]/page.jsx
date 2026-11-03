@@ -15,6 +15,7 @@ import {
 } from '../../lib/eventSeo';
 import { EventBreadcrumbs, EventQuickAnswers, RelatedEvents } from './EventDiscovery';
 import { isDateOnly, formatDateOnly } from '../../lib/dateOnly';
+import VisitBeacon from '../../components/landing/VisitBeacon';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -184,6 +185,8 @@ export default async function EventPage({ params, searchParams }) {
 
   return (
     <main className="fx-section fx-section--xs">
+      {/* Counts this view for the organizer's "Event views". Renders nothing. */}
+      <VisitBeacon path={`/e/${event.slug || slug}`} />
       {/* JSON-LD so the event is eligible for a rich result. Built from the
           same values rendered below — a second, hand-written copy is one that
           goes stale the first time a date changes.

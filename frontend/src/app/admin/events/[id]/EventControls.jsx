@@ -39,17 +39,28 @@ const ACTIONS = {
     },
     done: 'Published.',
   },
+  /**
+   * Events publish first and are reviewed after (owner, 2026-11-03), so
+   * "Reject" works on a LIVE event too: it comes off the site until the
+   * organizer fixes it, and they are emailed your reason. Tickets already
+   * sold stay valid; anyone mid-checkout is stopped.
+   */
   reject: {
-    label: 'Ask for changes',
+    label: 'Reject',
     className: 'es-btn es-btn--secondary',
-    from: ['pending_review'],
+    from: ['pending_review', 'published'],
     confirm: {
-      title: 'Send this event back to the organizer?',
-      body: <p>They see your reason on their event, fix it, and can submit again.</p>,
-      confirmLabel: 'Send it back',
-      reason: { label: 'What needs to change?', minLength: 10, maxLength: 2000, hint: 'Shown to the organizer.' },
+      title: 'Reject this event?',
+      body: (
+        <>
+          <p>It comes off the public site (if it is live) and goes back to the organizer to fix. They can publish it again once it is changed.</p>
+          <p>The organizer is emailed your reason straight away. Tickets already sold stay valid.</p>
+        </>
+      ),
+      confirmLabel: 'Reject and email the organizer',
+      reason: { label: 'What needs to change?', minLength: 10, maxLength: 2000, hint: 'Emailed to the organizer and shown on their event.' },
     },
-    done: 'Sent back to the organizer.',
+    done: 'Rejected. The organizer has been emailed your reason.',
   },
   suspend: {
     label: 'Suspend',
@@ -59,9 +70,9 @@ const ACTIONS = {
       title: 'Suspend this event?',
       body: <p>It comes off sale and out of public view. This is reversible — it is not a cancellation.</p>,
       confirmLabel: 'Suspend',
-      reason: { label: 'Why is it being suspended?', minLength: 10, maxLength: 2000 },
+      reason: { label: 'Why is it being suspended?', minLength: 10, maxLength: 2000, hint: 'Emailed to the organizer.' },
     },
-    done: 'Suspended.',
+    done: 'Suspended. The organizer has been emailed your reason.',
   },
   unsuspend: {
     label: 'Put back on sale',
@@ -92,9 +103,9 @@ const ACTIONS = {
         </>
       ),
       confirmLabel: 'Cancel the event',
-      reason: { label: 'Why is it being cancelled?', minLength: 10, maxLength: 1000 },
+      reason: { label: 'Why is it being cancelled?', minLength: 10, maxLength: 1000, hint: 'Emailed to the organizer.' },
     },
-    done: 'Cancelled.',
+    done: 'Cancelled. The organizer has been emailed your reason.',
   },
 };
 

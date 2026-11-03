@@ -62,7 +62,7 @@ const KNOWLEDGE = `About Eventsli:
 - Tickets arrive by email with a QR code, and are in the account under My tickets. They can be sent again from Find my tickets without signing in.
 - A ticket can be shown on a phone or printed. It can be passed to someone else once, where the organizer allows transfers.
 - Tickets are non-refundable by default. Any refund is arranged between the buyer and the organizer, because the money goes to the organizer; Eventsli does not issue refunds itself. If an event is cancelled, its tickets stop admitting anyone.
-- Organizers: create an organizer account, create the event as a private draft (by hand, or with AI from a description or a poster), connect Stripe in their own name so card money goes straight to them, add ticket types and an optional seat map, accept the organizer agreement and submit. Eventsli reviews every event before it is published.
+- Organizers: create an organizer account, create the event as a private draft (by hand, or with AI from a description or a poster), connect Stripe in their own name so card money goes straight to them, add ticket types and an optional seat map, accept the organizer agreement and publish. The event goes live straight away; Eventsli reviews every new event and takes down anything that breaks the rules.
 - Organizers get a link and QR code for the event and each ticket type, orders, attendees, promo codes, door sales, and a door scanner that works without internet.
 - To reach a person: the contact page (the link button), where the Eventsli team answers.`;
 

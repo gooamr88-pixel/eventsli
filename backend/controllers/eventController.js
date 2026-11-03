@@ -18,6 +18,8 @@ const { sendOk, sendFail } = require('../utils/responseEnvelope');
 const { safeSearch } = require('../utils/search');
 const logger = require('../utils/logger');
 const aiQuota = require('../services/ai/quotaService');
+const publishing = require('../services/eventPublishing');
+const { frontendOrigin } = require('../utils/frontendOrigin');
 
 /**
  * `city` AND `venue_place_id` WERE BOTH MISSING FROM THIS LIST.
@@ -232,6 +234,9 @@ async function get(req, res, next) {
       ...shape(data, { currentTermsId }),
       ...await setup(data),
       cancellationRequest: shapeCancellationRequest(requests?.[0]),
+      // Whether "Publish" puts it live now or sends it to the approval queue
+      // (services/eventPublishing.js) — so the page can say which.
+      requiresApproval: await publishing.requiresApproval(),
     });
   } catch (err) {
     return next(err);
@@ -432,12 +437,21 @@ async function submitForReview(req, res, next) {
       });
     }
 
+    /**
+     * PUBLISH FIRST, REVIEW AFTER (services/eventPublishing.js). Every check a
+     * reviewer relied on has just passed (`submissionBlockers`: terms, venue or
+     * city, tickets, payment, a banned organizer never reaching this route), so
+     * the event goes live at once and the admins are emailed to review it.
+     * With `require_approval` switched on it waits in the queue as before.
+     */
+    const direct = !(await publishing.requiresApproval());
     const { data, error } = await supabase
       .from('events')
       .update({
-        status: 'pending_review',
+        status: direct ? 'published' : 'pending_review',
         rejection_reason: null,      // a resubmission clears the previous verdict
         terms_accepted_id: termsId,
+        ...(direct ? { reviewed_by: null, reviewed_at: null } : {}),
         updated_at: new Date().toISOString(),
       })
       .eq('id', event.id)
@@ -446,7 +460,13 @@ async function submitForReview(req, res, next) {
       .single();
 
     if (error) throw new Error(error.message);
-    return sendOk(res, shape(data, { currentTermsId: termsId }));
+    if (direct) {
+      logger.info({ eventId: event.id }, 'event published directly by its organizer');
+      publishing.inBackground('publish notices', publishing.notifyPublished({
+        eventId: event.id, origin: frontendOrigin(req.headers.origin), direct: true,
+      }));
+    }
+    return sendOk(res, { ...shape(data, { currentTermsId: termsId }), publishedDirectly: direct });
   } catch (err) {
     return next(err);
   }
@@ -465,9 +485,11 @@ async function submitForReview(req, res, next) {
  */
 async function submissionPreview(req, res, next) {
   try {
-    return sendOk(res, await submission.preview({
-      eventId: req.params.eventId, userId: req.user.id,
-    }));
+    const [preview, requiresApproval] = await Promise.all([
+      submission.preview({ eventId: req.params.eventId, userId: req.user.id }),
+      publishing.requiresApproval(),
+    ]);
+    return sendOk(res, { ...preview, requiresApproval });
   } catch (err) {
     return next(err);
   }

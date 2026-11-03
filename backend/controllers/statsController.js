@@ -1,5 +1,6 @@
 const { supabase } = require('../config/supabase');
 const { sendOk, sendFail } = require('../utils/responseEnvelope');
+const logger = require('../utils/logger');
 
 /**
  * The dashboard's numbers. Each is ONE database round trip — the aggregation
@@ -20,11 +21,26 @@ async function organizerDashboard(req, res, next) {
       });
     }
     const days = windowDays(req.query.days);
-    const { data, error } = await supabase.rpc('organizer_dashboard_summary', {
-      p_organizer_id: organizerId, p_days: days,
+    const args = { p_organizer_id: organizerId, p_days: days };
+    // Two independent questions, asked together. The trends are the badges on
+    // the stat cards; a database without migration 20261103120000 answers the
+    // page without them rather than not at all.
+    // The insights (events list, performance, type and city breakdowns) the
+    // same way, from migration 20261103130000.
+    const [summary, trend, insight] = await Promise.all([
+      supabase.rpc('organizer_dashboard_summary', args),
+      supabase.rpc('organizer_dashboard_trends', args),
+      supabase.rpc('organizer_dashboard_insights', args),
+    ]);
+    if (summary.error) throw new Error(summary.error.message);
+    if (trend.error) logger.warn({ err: trend.error.message }, 'dashboard: trends unavailable — apply the latest supabase migration');
+    if (insight.error) logger.warn({ err: insight.error.message }, 'dashboard: insights unavailable — apply the latest supabase migration');
+    return sendOk(res, {
+      ...summary.data,
+      trends: trend.error ? null : trend.data,
+      insights: insight.error ? null : insight.data,
+      days,
     });
-    if (error) throw new Error(error.message);
-    return sendOk(res, { ...data, days });
   } catch (err) { return next(err); }
 }
 

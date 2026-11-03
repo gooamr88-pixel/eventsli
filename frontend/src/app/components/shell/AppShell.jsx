@@ -90,7 +90,7 @@ import { useShellFocusState } from './shellFocus';
  * ─────────────────────────────────────────────────────────────────────────────
  */
 export default function AppShell({
-  workspace, label, home = '/', groups, slots, tabKeys = [], head, contextBar, appbarContext, foot, appbarAction, children,
+  workspace, label, home = '/', groups, slots, tabKeys = [], head, contextBar, appbarContext, foot, appbarAction, topbar, children,
 }) {
   const pathname = usePathname() || '';
   const [open, setOpen] = useState(false);
@@ -230,6 +230,10 @@ export default function AppShell({
             The app bar disappears at `lg`, so above that this is the context
             bar alone, pinned to the top of the window on its own. */}
         <div className="es-shell-top">
+          {/* `topbar`: the desktop's bar (search, alerts, account), shown from
+              `lg` — exactly where the app bar below stops. Optional; a
+              workspace without one keeps the context bar alone up here. */}
+          {topbar}
           <header className="es-appbar">
             <button
               ref={menuRef}

@@ -76,11 +76,19 @@ test('a new column is not editable until someone adds it deliberately', () => {
 
 // ── Status machine ──────────────────────────────────────────────────────────
 
-test('an organizer submits; only an admin publishes', () => {
+test('publish first, review after: the organizer publishes, an admin can take it down (owner, 2026-11-03)', () => {
+  assert.equal(transitionActor('draft', 'published'), 'organizer', "publishing directly is the organizer's");
+  assert.equal(transitionActor('rejected', 'published'), 'organizer', 'and so is republishing after a fix');
+  assert.equal(transitionActor('published', 'rejected'), 'admin', "reviewing a live event and taking it down is the admin's");
+  // With approval switched back on, the queue still works as it did.
   assert.equal(canTransition('draft', 'pending_review'), true);
-  assert.equal(canTransition('draft', 'published'), false, 'self-publishing must be impossible');
-  assert.equal(transitionActor('draft', 'pending_review'), 'organizer');
   assert.equal(transitionActor('pending_review', 'published'), 'admin');
+});
+
+test('no ordinary edit can publish: status is not a field an organizer can write', () => {
+  const { allowed, denied } = partitionPatch({ status: 'published', title: 'x' }, { isAdmin: false });
+  assert.ok(!Object.values(allowed).includes('published'));
+  assert.ok(denied.includes('status'));
 });
 
 test('a rejected event can go round again', () => {

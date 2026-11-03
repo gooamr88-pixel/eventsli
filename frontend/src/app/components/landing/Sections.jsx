@@ -193,7 +193,7 @@ export function Steps() {
           <li className="es-lp-step">
             <span className="es-lp-step__n">1</span>
             <h3>Create your event page</h3>
-            <p>Photos, date, venue and ticket prices. Every page is reviewed before it goes live.</p>
+            <p>Photos, date, venue and ticket prices. Publish when you are ready — Eventsli reviews every new event.</p>
             <div aria-hidden className="es-lp-pagemini"><div /><div><span /><span /><span /></div></div>
           </li>
           <li className="es-lp-step">

@@ -194,6 +194,10 @@ GOOGLE_CLIENT_ID=652713460612-t771u7c092ci6i1dcilfcif8t63c3oe5.apps.googleuserco
 # restrict it to that one API and to this server's IP.
 GOOGLE_PLACES_API_KEY=
 
+# Publish first, review after: every admin (role admin or super_admin) is emailed
+# when an event goes live. Extra addresses to copy, comma-separated (optional).
+EVENT_ALERT_EMAILS=
+
 # Eventsli AI (the Smart Event Creator). OPTIONAL — off unless AI_ENABLED=true
 # AND a key is set; off, the "Create with AI" card is simply not shown.
 # Keys go HERE ONLY: never in frontend/.env, never NEXT_PUBLIC_, never in the

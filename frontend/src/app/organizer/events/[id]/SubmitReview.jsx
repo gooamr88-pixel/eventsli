@@ -206,8 +206,9 @@ export default function SubmitReview({ eventId, onClose, onConfirm, busy = false
               onChange={(e) => setAgreed(e.target.checked)}
             />
             <span className="text-sm text-ink">
-              I have checked the details, the fees and the policies above, and I want to send this
-              event to Eventsli for review.
+              {data?.requiresApproval === false
+                ? 'I have checked the details, the fees and the policies above, and I want to publish this event now.'
+                : 'I have checked the details, the fees and the policies above, and I want to send this event to Eventsli for review.'}
             </span>
           </label>
 
@@ -218,11 +219,11 @@ export default function SubmitReview({ eventId, onClose, onConfirm, busy = false
             <SubmitButton
               type="button"
               busy={busy}
-              busyLabel="Submitting…"
+              busyLabel={data?.requiresApproval === false ? 'Publishing…' : 'Submitting…'}
               disabled={!ready}
               onClick={onConfirm}
             >
-              Submit for review
+              {data?.requiresApproval === false ? 'Publish now' : 'Submit for review'}
             </SubmitButton>
           </div>
         </footer>

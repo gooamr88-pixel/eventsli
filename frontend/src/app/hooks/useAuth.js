@@ -47,6 +47,10 @@ import { get, post } from '../utils/apiClient';
  */
 let state = { status: 'idle', user: null };
 let inflight = null;
+/** Which `/auth/me` is the latest. An older answer that arrives late — the
+ *  signed-out reply to the login page's own check, landing after the sign-in
+ *  — must not overwrite a newer one. */
+let generation = 0;
 const listeners = new Set();
 
 /** Backoff for an answer we could not get. After the last, focus or a
@@ -91,12 +95,18 @@ async function load() {
     emit();
   }
 
+  const mine = ++generation;
   inflight = (async () => {
     try {
       const user = await get('/auth/me', { noRedirect: true, cache: 'no-store' });
-      state = { status: 'ready', user };
+      if (mine !== generation) return;
+      // The same person, more fully described: keep anything the sign-in
+      // answer seeded that this one does not repeat.
+      const same = user && state.user && user.id === state.user.id;
+      state = { status: 'ready', user: same ? { ...state.user, ...user } : user };
       attempt = 0;
     } catch (err) {
+      if (mine !== generation) return;
       if (isSignedOutAnswer(err)) {
         state = { status: 'ready', user: null };
         attempt = 0;
@@ -106,8 +116,10 @@ async function load() {
         scheduleRetry();
       }
     } finally {
-      inflight = null;
-      emit();
+      if (mine === generation) {
+        inflight = null;
+        emit();
+      }
     }
   })();
 
@@ -154,16 +166,34 @@ export function refreshAuth() {
 
 /** Set directly from a login response, so the next paint is already correct
  *  instead of showing a signed-out header for one round trip. */
+/**
+ * Seeds who is signed in straight from a sign-in, sign-up or verification
+ * answer, so the next paint already knows them — then asks `/auth/me` at once
+ * for the rest.
+ *
+ * WHY THE SECOND ASK. Those answers carry only the identity (id, email, name,
+ * role). The access picture — `isAdmin`, `isSuperAdmin`, `isOrganizer`,
+ * `organizerId`, payouts — comes from `/auth/me`. Seeding without asking
+ * marked the state "ready", so nothing asked again until a reload, and every
+ * screen that reads those facts was wrong until then: an admin signing in saw
+ * no "Super admin access" card on their organizer dashboard (2026-11-03).
+ * Already "ready", the re-check shows no loading state; it just fills in.
+ */
 export function setAuthUser(user) {
   clearTimeout(retryTimer);
   retryTimer = null;
   attempt = 0;
   state = { status: 'ready', user: user || null };
   emit();
+  if (user) {
+    inflight = null;
+    load();
+  }
 }
 
 /** Tests only: back to a fresh page load. */
 export function resetAuthForTests() {
+  generation += 1;
   clearTimeout(retryTimer);
   retryTimer = null;
   attempt = 0;

@@ -206,38 +206,131 @@ async function sendInvoiceSettled({ to, organizerName, invoice, event }) {
   });
 }
 
-/** BRD §16 — a rejection the organizer can act on. */
-async function sendEventRejected({ to, organizerName, event, reason }) {
+/**
+ * BRD §16 — a rejection the organizer can act on, with the admin's reason in
+ * their own words. `wasLive`: the event had already been published (events
+ * publish straight away unless the platform requires review first), so it has
+ * been taken off Eventsli rather than held back.
+ */
+async function sendEventRejected({ to, organizerName, event, reason, wasLive = false }) {
   const site = T.siteUrl();
   return send({
     to,
-    subject: `Changes needed — ${event.title}`,
+    subject: wasLive ? `Taken down for changes — ${event.title}` : `Changes needed — ${event.title}`,
     html: T.layout({
-      title: 'Changes needed before publishing',
-      preheader: 'One change and it can go back for review.',
-      reason: 'You are receiving this because you submitted an event for review on Eventsli.',
+      title: wasLive ? 'Your event was taken down for changes' : 'Changes needed before publishing',
+      preheader: wasLive ? 'An Eventsli admin reviewed it. Here is why, and what to do next.' : 'One change and it can go back for review.',
+      reason: 'You are receiving this because you published an event on Eventsli.',
       body: `
         ${T.p(`Hi ${escapeHtml(organizerName || 'there')},`)}
-        ${T.p('Your event was reviewed and needs a change before it can go on sale:')}
+        ${T.p(wasLive
+          ? 'An Eventsli admin reviewed your event and has taken it off the site until it is changed. Their reason:'
+          : 'Your event was reviewed and needs a change before it can go on sale:')}
         ${T.quote(reason)}
         ${T.eventCard(event)}
-        ${T.p('Update it in your dashboard and submit it again — reviews are usually answered within a day.')}
-        ${site && event.id ? T.button(`${site}/organizer/events/${event.id}`, 'Open my event') : ''}`,
+        ${wasLive ? T.note('info', 'Tickets already sold stay valid. Nobody can buy new ones while the event is down.') : ''}
+        ${T.p('Make the change in your dashboard and publish it again.')}
+        ${site && event.id ? T.button(`${site}/organizer/events/${event.id}`, 'Open my event') : ''}
+        ${T.p('Questions about this decision? Reply to this email or contact the Eventsli team.', { small: true, color: T.MUTED })}`,
     }),
   });
 }
 
-async function sendEventApproved({ to, organizerName, event, url }) {
+/** An admin pulled a live event from view (reversible). The reason is the admin's. */
+async function sendEventSuspended({ to, organizerName, event, reason }) {
+  const site = T.siteUrl();
+  return send({
+    to,
+    subject: `Suspended — ${event.title}`,
+    html: T.layout({
+      title: 'Your event has been suspended',
+      preheader: 'It is off Eventsli for now. Here is why.',
+      reason: 'You are receiving this because you published an event on Eventsli.',
+      body: `
+        ${T.p(`Hi ${escapeHtml(organizerName || 'there')},`)}
+        ${T.p('An Eventsli admin has suspended your event. It is not visible on Eventsli and nobody can buy tickets for it. Their reason:')}
+        ${T.quote(reason)}
+        ${T.eventCard(event)}
+        ${T.note('info', 'This is not a cancellation: tickets already sold stay valid, and Eventsli can put the event back.')}
+        ${site && event.id ? T.button(`${site}/organizer/events/${event.id}`, 'Open my event') : ''}
+        ${T.p('Questions about this decision? Reply to this email or contact the Eventsli team.', { small: true, color: T.MUTED })}`,
+    }),
+  });
+}
+
+/** An admin cancelled the event outright (BRD §17) — terminal. */
+async function sendEventCancelledByAdmin({ to, organizerName, event, reason }) {
+  return send({
+    to,
+    subject: `Cancelled by Eventsli — ${event.title}`,
+    html: T.layout({
+      title: 'Your event has been cancelled',
+      preheader: 'An Eventsli admin cancelled it. Here is why.',
+      reason: 'You are receiving this because you published an event on Eventsli.',
+      body: `
+        ${T.p(`Hi ${escapeHtml(organizerName || 'there')},`)}
+        ${T.p('An Eventsli admin has cancelled your event and removed it from Eventsli. Their reason:')}
+        ${T.quote(reason)}
+        ${T.eventCard(event)}
+        ${T.note('warning', 'Its tickets no longer admit anyone at the door. Any refunds to buyers are arranged between you and them.')}
+        ${T.p('Questions about this decision? Reply to this email or contact the Eventsli team.', { small: true, color: T.MUTED })}`,
+    }),
+  });
+}
+
+/** A suspended event is back on Eventsli. */
+async function sendEventRestored({ to, organizerName, event, url }) {
+  return send({
+    to,
+    subject: `Back online — ${event.title}`,
+    html: T.layout({
+      title: 'Your event is back on Eventsli',
+      preheader: 'The suspension has been lifted.',
+      reason: 'You are receiving this because you published an event on Eventsli.',
+      body: `
+        ${T.p(`Hi ${escapeHtml(organizerName || 'there')},`)}
+        ${T.p('An Eventsli admin has lifted the suspension. Your event is visible again and tickets are on sale.')}
+        ${T.eventCard(event)}
+        ${url ? T.button(url, 'View my event page') : ''}`,
+    }),
+  });
+}
+
+/**
+ * To every admin: a new event just went live without waiting for review, and
+ * here is where to look at it. Review now happens after publishing.
+ */
+async function sendEventPublishedToAdmins({ to, event, organizerName, adminUrl, publicUrl }) {
+  return send({
+    to,
+    subject: `New event live — ${event.title}`,
+    html: T.layout({
+      title: 'A new event was just published',
+      preheader: `${organizerName || 'An organizer'} published ${event.title}. Review it when you can.`,
+      reason: 'You are receiving this because you are an Eventsli administrator.',
+      body: `
+        ${T.p(`<strong>${escapeHtml(organizerName || 'An organizer')}</strong> published a new ${event.listingType === 'display_only' ? 'listing' : 'ticketed event'}. It is live on Eventsli now.`)}
+        ${T.eventCard({ ...event, organizerName })}
+        ${adminUrl ? T.button(adminUrl, 'Review it in the admin console') : ''}
+        ${T.p(`If something is wrong, <strong>Reject</strong> takes it down and emails the organizer your reason; <strong>Suspend</strong> and <strong>Cancel</strong> do the same.${publicUrl ? ` Public page: <a href="${escapeHtml(publicUrl)}">${escapeHtml(publicUrl)}</a>` : ''}`, { small: true, color: T.MUTED })}`,
+    }),
+  });
+}
+
+/** The event is live — approved by an admin, or (`direct`) published straight away. */
+async function sendEventApproved({ to, organizerName, event, url, direct = false }) {
+  const sells = event.listingType !== 'display_only';
   return send({
     to,
     subject: `${event.title} is live`,
     html: T.layout({
       title: 'Your event is live',
-      preheader: `${event.title} has been approved and is now on sale.`,
-      reason: 'You are receiving this because you submitted an event for review on Eventsli.',
+      preheader: `${event.title} is now on Eventsli${sells ? ' and on sale' : ''}.`,
+      reason: 'You are receiving this because you published an event on Eventsli.',
       body: `
         ${T.p(`Hi ${escapeHtml(organizerName || 'there')},`)}
-        ${T.p('Your event has been approved and is now on sale. Here is what people will see:')}
+        ${T.p(`Your event ${direct ? 'is published' : 'has been approved'} and is now ${sells ? 'on sale' : 'listed on Eventsli'}. Here is what people will see:`)}
+        ${direct ? T.p('Eventsli reviews new events after they go live. If anything needs to change, we will email you with the reason.', { small: true, color: T.MUTED }) : ''}
         ${T.eventCard(event)}
         ${url ? T.button(url, 'View my event page') : ''}
         ${T.p('Share that link anywhere — the QR codes and social cards for it are in Share &amp; QR in your dashboard.', { small: true, color: T.MUTED })}`,
@@ -385,6 +478,10 @@ module.exports = {
   sendInvoiceSettled,
   sendEventRejected,
   sendEventApproved,
+  sendEventSuspended,
+  sendEventCancelledByAdmin,
+  sendEventRestored,
+  sendEventPublishedToAdmins,
   sendTicketTransferred,
   sendVerificationCode,
   sendCancellationRequested,

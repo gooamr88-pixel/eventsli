@@ -118,7 +118,9 @@ describe('organizer destinations', () => {
     });
 
     test('the dashboard and Your events both do', () => {
-      expect(read('organizer/dashboard/Dashboard.jsx')).toContain(NEW);
+      // The dashboard's lives in its greeting, beside the hero card.
+      expect(read('organizer/dashboard/Dashboard.jsx')).toContain('<DashboardHero');
+      expect(read('organizer/dashboard/DashboardHero.jsx')).toContain(NEW);
       expect(read('organizer/events/EventsBrowser.jsx')).toContain(NEW);
     });
   });

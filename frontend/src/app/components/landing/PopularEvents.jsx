@@ -122,7 +122,7 @@ function Empty({ failed, label }) {
       <p className="max-w-[44ch] text-center text-sm text-muted">
         {failed
           ? 'This one is on us — please try again in a moment.'
-          : 'Every event is reviewed before it goes on sale. Check back soon, or be the first to put something on.'}
+          : 'New events appear here as soon as organizers publish them. Check back soon, or be the first to put something on.'}
       </p>
     </div>
   );

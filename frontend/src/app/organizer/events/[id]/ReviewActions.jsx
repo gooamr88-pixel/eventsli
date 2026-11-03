@@ -68,6 +68,9 @@ export default function ReviewActions({ event, onChanged, buildReady = true }) {
     }
   }
 
+  // Older API without the flag: say what it always said.
+  const direct = event.requiresApproval === false;
+
   async function submit() {
     setBusy('submit');
     setError(null);
@@ -77,9 +80,15 @@ export default function ReviewActions({ event, onChanged, buildReady = true }) {
       // click and fails behind the page is how somebody believes an event was
       // submitted that never was.
       setReviewing(false);
-      toast.success('Eventsli reviews it next — usually within a day. You will get an email either way.', {
-        title: 'Submitted for review',
-      });
+      if (updated?.publishedDirectly) {
+        toast.success('It is live on Eventsli now. Eventsli reviews new events afterwards and emails you if anything needs to change.', {
+          title: 'Published',
+        });
+      } else {
+        toast.success('Eventsli reviews it next — usually within a day. You will get an email either way.', {
+          title: 'Submitted for review',
+        });
+      }
       onChanged?.(updated);
     } catch (err) {
       setError(err);
@@ -180,12 +189,18 @@ export default function ReviewActions({ event, onChanged, buildReady = true }) {
           <li className="es-steps__item" data-state={accepted ? 'current' : 'upcoming'}>
             <span className="es-steps__marker" aria-hidden="true">2</span>
             <div className="es-steps__body">
-              <p className="es-steps__title">Submit for review</p>
+              {/* Publish first, review after (2026-11-03) unless the platform
+                  requires approval — the API says which (`requiresApproval`). */}
+              <p className="es-steps__title">{direct ? 'Publish' : 'Submit for review'}</p>
               <p className="text-sm text-muted">
-                {event.status === 'rejected'
-                  ? 'Submit it again once you have made the changes Eventsli asked for.'
-                  : 'Eventsli reviews every event before it goes on sale. It usually takes a day.'}
-                {' '}Nothing is sent until you have read the summary and confirmed it.
+                {direct
+                  ? (event.status === 'rejected'
+                    ? 'Publish it again once you have made the changes Eventsli asked for.'
+                    : 'It goes live as soon as you confirm. Eventsli reviews new events afterwards and emails you if anything needs to change.')
+                  : (event.status === 'rejected'
+                    ? 'Submit it again once you have made the changes Eventsli asked for.'
+                    : 'Eventsli reviews every event before it goes on sale. It usually takes a day.')}
+                {' '}Nothing {direct ? 'goes live' : 'is sent'} until you have read the summary and confirmed it.
               </p>
               <div>
                 <button
@@ -194,7 +209,9 @@ export default function ReviewActions({ event, onChanged, buildReady = true }) {
                   disabled={!accepted || !buildReady || Boolean(busy)}
                   onClick={() => { setError(null); setReviewing(true); }}
                 >
-                  {event.status === 'rejected' ? 'Review and submit again' : 'Review and submit'}
+                  {direct
+                    ? (event.status === 'rejected' ? 'Review and publish again' : 'Review and publish')
+                    : (event.status === 'rejected' ? 'Review and submit again' : 'Review and submit')}
                 </button>
               </div>
               {!buildReady

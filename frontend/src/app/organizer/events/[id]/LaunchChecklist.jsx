@@ -152,8 +152,10 @@ export function useLaunchSteps(event) {
       hint: 'See the fees and agree to them', cta: 'Review the fees',
     },
     {
-      key: 'submit', label: 'Submit for review', done: submitted, href: '#going-on-sale',
-      hint: 'Eventsli checks it, usually within a day', cta: 'Submit for review',
+      // Publish first, review after, unless the platform requires approval.
+      ...(event.requiresApproval === false
+        ? { key: 'submit', label: 'Publish', done: submitted, href: '#going-on-sale', hint: 'It goes live straight away', cta: 'Publish' }
+        : { key: 'submit', label: 'Submit for review', done: submitted, href: '#going-on-sale', hint: 'Eventsli checks it, usually within a day', cta: 'Submit for review' }),
     },
   ];
 

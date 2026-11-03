@@ -215,7 +215,7 @@ export default function DraftReview({
                   ? <Fact icon="pin" main={form.venueName || 'Venue to be added'} sub={[form.venueAddress, form.city].filter(Boolean).join(', ')} />
                   : null}
                 {later.length > 0 && (
-                  <p className="es-ai-later"><NavIcon name="info" size={15} /> Needed before you submit for review: {later.join(', ')}.</p>
+                  <p className="es-ai-later"><NavIcon name="info" size={15} /> Needed before you publish: {later.join(', ')}.</p>
                 )}
               </Block>
 

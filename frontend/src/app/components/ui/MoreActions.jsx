@@ -26,7 +26,16 @@ import NavIcon from '../shell/NavIcon';
  * anchored to the wrong edge opens off the screen.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-export default function MoreActions({ label = 'More', srLabel = 'More actions', children }) {
+/**
+ * `compact` is the three-dot form for a row in a list, where a labelled button
+ * per row would be a column of "More". `align="end"` opens the panel leftward,
+ * for a trigger at the right edge of its row. `trigger` (with
+ * `triggerClassName`) replaces the button's face entirely — the app bar's bell
+ * and account menu.
+ */
+export default function MoreActions({
+  label = 'More', srLabel = 'More actions', compact = false, align = 'start', trigger, triggerClassName, children,
+}) {
   const [open, setOpen] = useState(false);
   const panelId = useId();
   const rootRef = useRef(null);
@@ -67,18 +76,32 @@ export default function MoreActions({ label = 'More', srLabel = 'More actions', 
   }
 
   return (
-    <div className="es-more" ref={rootRef}>
+    <div className="es-more" data-align={align} ref={rootRef}>
       <button
         ref={buttonRef}
         type="button"
-        className="es-btn es-btn--secondary es-btn--sm"
+        className={triggerClassName || (compact ? 'es-more__kebab' : 'es-btn es-btn--secondary es-btn--sm')}
         aria-expanded={open}
         aria-controls={panelId}
         onClick={() => setOpen((o) => !o)}
       >
-        {label}
-        <span className="sr-only"> — {srLabel}</span>
-        <span aria-hidden className="es-more__chev"><NavIcon name="chevronDown" size={16} /></span>
+        {trigger ? (
+          <>
+            {trigger}
+            <span className="sr-only">{srLabel}</span>
+          </>
+        ) : compact ? (
+          <>
+            <span className="sr-only">{srLabel}</span>
+            <NavIcon name="kebab" size={20} />
+          </>
+        ) : (
+          <>
+            {label}
+            <span className="sr-only"> — {srLabel}</span>
+            <span aria-hidden className="es-more__chev"><NavIcon name="chevronDown" size={16} /></span>
+          </>
+        )}
       </button>
       {open && (
         <div id={panelId} className="es-more__panel" onClick={onPanelClick}>

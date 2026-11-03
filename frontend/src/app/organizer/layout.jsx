@@ -10,6 +10,7 @@ import { ConfirmProvider } from '../components/ui/Confirm';
 import { useAuth } from '../hooks/useAuth';
 import { get } from '../utils/apiClient';
 import EventBar, { EventPicker } from './nav/EventBar';
+import TopBar from './nav/TopBar';
 import { OrganizerEventsProvider } from './nav/OrganizerEvents';
 import { organizerNavGroups, organizerTabs, eventIdFromPath } from './nav/organizerNav';
 
@@ -161,7 +162,11 @@ export default function OrganizerLayout({ children }) {
              group. It was the first child of `<main>` with a hard-coded
              `top: 56px`, which is the app bar's height only on a phone with no
              notch. See the note on AppShell's props. */
-          contextBar={<EventBar events={events} currentId={eventId} />}
+          // Only on a route about one event: elsewhere the top bar's search
+          // and the dashboard's Your events are the way to an event, and the
+          // strip had nothing to say but "Choose an event…".
+          contextBar={pathEventId ? <EventBar events={events} currentId={eventId} /> : null}
+          topbar={<TopBar events={events} user={user} />}
           // Phones and tablets: the same switch, in the app bar, and only on a
           // route that is ABOUT an event. The strip above is desktop-only now.
           appbarContext={pathEventId ? <EventPicker events={events} currentId={pathEventId} /> : null}

@@ -75,9 +75,9 @@ const SELLING = [
       + 'and oval tables, private tables behind a password.',
   },
   {
-    title: 'Submit for review',
-    body: 'You accept the organizer agreement and send it in; we publish it. Review is not a '
-      + 'formality — it is what keeps the listings on this platform worth trusting.',
+    title: 'Publish',
+    body: 'You accept the organizer agreement and publish — it goes live straight away. Eventsli reviews every '
+      + 'new event and takes down anything that breaks the rules, which is what keeps the listings worth trusting.',
   },
   {
     title: 'Share it, sell it, watch it',

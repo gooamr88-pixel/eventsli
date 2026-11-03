@@ -131,11 +131,19 @@ const ADMIN_EDITABLE = Object.freeze({
  * round again; a cancelled one never comes back; a published one cannot slip
  * back into draft once tickets have sold.
  */
+/**
+ * PUBLISH FIRST, REVIEW AFTER (owner, 2026-11-03). An organizer's submit goes
+ * straight to `published` unless the platform requires approval
+ * (`event_publishing.require_approval`, services/eventPublishing.js), and an
+ * admin who reviews a live event afterwards can send it back: published →
+ * rejected. Only `submitForReview` makes the organizer's edges, after every
+ * submission check has passed — no PATCH can.
+ */
 const TRANSITIONS = Object.freeze({
-  draft:          ['pending_review', 'cancelled', 'archived'],
+  draft:          ['pending_review', 'published', 'cancelled', 'archived'],
   pending_review: ['published', 'rejected', 'draft', 'cancelled', 'archived'],   // BRD §16; an edit withdraws it
-  rejected:       ['draft', 'pending_review', 'cancelled', 'archived'],
-  published:      ['cancelled', 'suspended', 'completed', 'archived'],
+  rejected:       ['draft', 'pending_review', 'published', 'cancelled', 'archived'],
+  published:      ['rejected', 'cancelled', 'suspended', 'completed', 'archived'],
   suspended:      ['published', 'cancelled'],
   // Restoring goes back to where it came from — see restoreTarget.
   archived:       ['draft', 'rejected', 'published', 'completed', 'cancelled'],
@@ -161,6 +169,9 @@ const TRANSITION_ACTOR = Object.freeze({
   'pending_review→draft':     'organizer',  // editing an event under review withdraws it
   'pending_review→published': 'admin',      // BRD §16 — approval is the admin's
   'pending_review→rejected':  'admin',
+  'draft→published':          'organizer',  // publish directly (approval not required)
+  'rejected→published':       'organizer',  // republish after making the asked-for change
+  'published→rejected':       'admin',      // reviewed after going live, and taken down
   'published→suspended':      'admin',
   'suspended→published':      'admin',
   'published→completed':      'system',     // a job, once ends_at passes

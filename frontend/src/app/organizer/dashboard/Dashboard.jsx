@@ -1,23 +1,21 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
 import { useOrganizer } from '../../hooks/useOrganizer';
+import { useAuth } from '../../hooks/useAuth';
 import { useApi } from '../../hooks/useApi';
 import { formatMoney } from '../../utils/money';
-import { formatDay } from '../../lib/eventTime';
-import { PERIODS } from '../../lib/periods';
 import { Loading, ErrorNotice } from '../../components/Feedback';
-import { PageHeader, StatCard, Panel } from '../../components/ui/Page';
 import { Segmented } from '../../components/ui/Filters';
-import NavIcon from '../../components/shell/NavIcon';
-import BarChart from '../../components/charts/BarChart';
-import { percent } from '../../components/charts/chartMath';
 import AdminEntry from '../AdminEntry';
+import { DashboardHero, TrendStat, trendOf } from './DashboardHero';
 import Drafts from './Drafts';
 import CreateProfile from '../CreateProfile';
 import OrganizerNotices from '../OrganizerNotices';
-import { Attention, Upcoming, RecentOrders, GettingStarted } from './DashboardPanels';
+import { GettingStarted } from './DashboardPanels';
+import { RevenueOverview, NeedsYou, QuickActions } from './OverviewPanels';
+import YourEvents from './YourEvents';
+import { EventPerformance, TicketsByType, AttendeesByLocation } from './InsightPanels';
 import { currencyFor } from '../../lib/markets';
 
 /**
@@ -36,16 +34,18 @@ import { currencyFor } from '../../lib/markets';
  * Money is shown ONE CURRENCY AT A TIME. A Toronto event and a Denver event are
  * CAD and USD, and one "revenue" adding the two is wrong in both.
  *
- * THE ORDER IS WHAT TO DO, THEN WHAT HAPPENED, and it was the other way
- * round. `.es-split` is one column below 1280px — every phone, every tablet
- * and most laptops — so the real reading order was: four figures, a 30-bar
- * chart, and THEN "Needs you", the only panel on the page with anything to
- * act on. The lede promises "what needs you next" and it arrived third,
- * under a chart. Now: what needs you, what is unfinished, then the numbers.
+ * THE LAYOUT FOLLOWS THE 2026-11 DESIGN: greeting and Create, four figures,
+ * revenue beside Needs you and Quick Actions, Your events, then performance,
+ * ticket types and cities. Below 1280px the band is one column, and Needs you
+ * moves ABOVE the chart there (CSS `order`) — it is the only panel with
+ * anything to act on, and "beside" would otherwise mean "after a chart".
  * ─────────────────────────────────────────────────────────────────────────────
  */
+const firstName = (fullName) => String(fullName || '').trim().split(/\s+/)[0] || null;
+
 export default function Dashboard() {
   const { loading, organizer, error, refresh } = useOrganizer();
+  const { user } = useAuth();
   const [days, setDays] = useState(30);
   const [picked, setPicked] = useState(null);
   /**
@@ -83,8 +83,9 @@ export default function Dashboard() {
   const fallback = currencyFor(organizer.country);
   const currency = picked && currencies.includes(picked) ? picked : (currencies[0] || fallback);
   const sales = data?.sales?.[currency] || { orders: 0, tickets: 0, grossCents: 0, netCents: 0 };
-  const { issued = 0, admitted = 0 } = data?.admissions || {};
-  const checkedIn = percent(admitted, issued);
+  const { admitted = 0 } = data?.admissions || {};
+  const trends = data?.trends || null;
+  const insights = data?.insights || null;
 
   // A new organizer gets the welcome and its steps, and nothing above it: a
   // "Dashboard" title and a second Create button over a page that is entirely
@@ -106,122 +107,93 @@ export default function Dashboard() {
 
   return (
     <div className="fx-stack">
-      <PageHeader
-        eyebrow={organizer.displayName}
-        title="Dashboard"
-        lede="How your events are selling, and what needs you next."
-        /**
-         * CREATE IS BACK, at every width, and it is one of only two places it
-         * exists now — here and Your events.
-         *
-         * It was removed when the event bar grew a copy that appeared on every
-         * organizer screen. That solved a duplicate and created a worse one:
-         * "start a new event" rode along on the seat map, the door list and
-         * the orders table of an event already running, and on a phone it sat
-         * in a third band of chrome above the page.
-         *
-         * The dashboard is where somebody sees all their events at once, so it
-         * is where starting another belongs. `EventBar` records the other half.
-         */
-        actions={(
-          <Link href="/organizer/events/new" className="es-btn es-btn--primary">
-            <NavIcon name="plus" size={18} />
-            Create event
-          </Link>
-        )}
-      />
+      {/* CREATE lives here and on Your events only — the dashboard is where
+          somebody sees all their events at once, so it is where starting
+          another belongs. `EventBar` records the other half. */}
+      <DashboardHero name={firstName(user?.fullName) || organizer.displayName} />
 
-      {/* Renders nothing for an ordinary organizer. Above the notices because
-          somebody with approvals waiting came here to get to them. */}
+      {/* The four figures, each with how it moved against the window before.
+          `trends` is absent until its migration is applied: no badges then.
+          THE CURRENCY SWITCH SITS WITH THE FIGURES IT CHANGES, and never
+          beside Create event, where it read as a second primary button. */}
+      {data && currencies.length > 1 && (
+        <Segmented
+          label="Figures in"
+          showLabel
+          value={currency}
+          onChange={setPicked}
+          options={currencies.map((c) => ({ value: c, label: c }))}
+        />
+      )}
+      {data && (
+        <div className="es-statgrid">
+          <TrendStat
+            label="Total Events"
+            value={data.events.total}
+            icon="calendarPlus"
+            href="/organizer/events"
+            trend={trendOf(trends?.events)}
+            days={days}
+          />
+          <TrendStat
+            label="Tickets Sold"
+            value={sales.tickets.toLocaleString()}
+            icon="ticket"
+            trend={trendOf(trends?.sales?.[currency]?.tickets)}
+            days={days}
+          />
+          <TrendStat
+            label="Revenue"
+            value={formatMoney(sales.grossCents, currency)}
+            icon="coins"
+            trend={trendOf(trends?.sales?.[currency]?.grossCents)}
+            days={days}
+          />
+          <TrendStat
+            label="Total Attendees"
+            value={admitted.toLocaleString()}
+            icon="users"
+            trend={trendOf(trends?.attendees)}
+            days={days}
+          />
+        </div>
+      )}
+
+      {/* Renders nothing for an ordinary organizer. */}
       <AdminEntry />
-
-      {/* Payouts are the first line of Needs you and a step of Getting started. */}
       <OrganizerNotices organizer={organizer} payouts={false} />
 
-      {/* `!data` cannot reach here — the early return above already held the
-          page on a skeleton until the numbers arrived — so the branch that
-          used to render a second identical skeleton is gone. */}
       {stats.error ? (
         <ErrorNotice error={stats.error} onRetry={stats.reload} />
       ) : (
         <>
-          {/* ── What needs you, first and full width ───────────────────────
-              Not in the split beside the chart: below 1280px that split is one
-              column, so "beside" meant "after a 30-bar chart" on every phone,
-              every tablet and most laptops. */}
-          <Attention data={data} organizer={organizer} />
+          {/* Revenue beside what needs doing; one column below xl, where
+              Needs you comes first because it is the only panel to act on. */}
+          <div className="es-dash-band">
+            <RevenueOverview
+              timeline={data.timeline}
+              currency={currency}
+              trend={trends?.sales?.[currency]?.grossCents}
+              days={days}
+              onDays={setDays}
+            />
+            <div className="es-dash-side">
+              <NeedsYou data={data} organizer={organizer} />
+              <QuickActions focus={data.upcoming?.[0] || insights?.eventList?.[0] || null} />
+            </div>
+          </div>
 
-          {/* Unfinished work, before the finished. Renders nothing when there
-              are no drafts. */}
+          <YourEvents events={insights?.eventList} />
+
+          <div className="es-dash-trio">
+            <EventPerformance performance={insights?.performance} days={days} onDays={setDays} />
+            <TicketsByType types={insights?.ticketTypes} />
+            <AttendeesByLocation locations={insights?.locations} />
+          </div>
+
+          {/* Unfinished wizard drafts in this browser. Renders nothing when
+              there are none. */}
           <Drafts />
-
-          {/* THE CURRENCY SWITCH SITS WITH THE FIGURES IT CHANGES. It was in the
-              page header beside Create event, and its selected option is a
-              filled blue pill — so the header offered two blue buttons side by
-              side, one of which only re-labels the numbers further down. */}
-          {currencies.length > 1 && (
-            <Segmented
-              label="Figures in"
-              showLabel
-              value={currency}
-              onChange={setPicked}
-              options={currencies.map((c) => ({ value: c, label: c }))}
-            />
-          )}
-
-          <div className="es-statgrid">
-            <StatCard
-              label="Revenue"
-              value={formatMoney(sales.grossCents, currency)}
-              note={`${formatMoney(sales.netCents, currency)} to you after commission`}
-              icon="money"
-            />
-            <StatCard
-              label="Tickets sold"
-              value={sales.tickets}
-              note={`${sales.orders} ${sales.orders === 1 ? 'order' : 'orders'} in ${currency}`}
-              icon="ticket"
-            />
-            <StatCard
-              label="On sale"
-              value={data.events.published}
-              note={`${data.events.total} ${data.events.total === 1 ? 'event' : 'events'} in all`}
-              icon="calendar"
-              href="/organizer/events?status=published"
-            />
-            <StatCard
-              label="Checked in"
-              value={checkedIn === null ? '—' : `${checkedIn}%`}
-              note={`${admitted} of ${issued} tickets`}
-              icon="scan"
-            />
-          </div>
-
-          <Panel
-            title="Revenue"
-            description={`Per day, in ${currency}.`}
-            action={<Segmented label="Period" value={days} onChange={setDays} options={PERIODS} />}
-          >
-            <BarChart
-              ariaLabel={`Revenue per day in ${currency}, last ${days} days`}
-              format={(v) => formatMoney(v, currency)}
-              data={(data.timeline || []).map((d) => {
-                const day = d.byCurrency?.[currency];
-                return {
-                  label: formatDay(d.date),
-                  value: Number(day?.grossCents || 0),
-                  detail: day
-                    ? `${formatMoney(day.grossCents, currency)} · ${day.tickets} tickets`
-                    : 'No sales',
-                };
-              })}
-            />
-          </Panel>
-
-          <div className="es-split es-split--even">
-            <Upcoming events={data.upcoming} />
-            <RecentOrders orders={data.recentOrders} />
-          </div>
         </>
       )}
     </div>

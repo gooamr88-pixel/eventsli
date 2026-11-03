@@ -26,6 +26,9 @@ const SETTING_DEFAULTS = Object.freeze({
   stripe_cost: { pct: 2.9, fixed_cents: 30 },
   currencies: { allowed: ['CAD', 'USD'], by_country: { CA: 'CAD', US: 'USD' } },
   manual_invoice: { due_days: 7, min_hours_before_event: 24 },
+  // 2026-11-03, owner: organizers publish immediately; admins are emailed and
+  // review afterwards. Set to true to bring back review BEFORE publishing.
+  event_publishing: { require_approval: false },
 });
 
 const percent = { type: 'number', min: 0, max: 100, decimals: 2 };
@@ -49,6 +52,9 @@ const SCHEMAS = {
     due_days: { type: 'integer', min: 1, max: 90, label: 'Days to pay' },
     min_hours_before_event: { type: 'integer', min: 0, max: 720, label: 'Hours before the event' },
   },
+  event_publishing: {
+    require_approval: { type: 'boolean', label: 'Review events before they go live' },
+  },
   currencies: null,   // validated by validateCurrencies — its shape is relational
 };
 
@@ -60,6 +66,10 @@ function checkField(name, rule, value, errors) {
   if (value === undefined) {
     if (!rule.optional) errors.push(`${rule.label} (${name}) is required.`);
     return undefined;
+  }
+  if (rule.type === 'boolean') {
+    if (typeof value !== 'boolean') errors.push(`${rule.label} must be on or off.`);
+    return value;
   }
   if (rule.type === 'enum') {
     if (!rule.values.includes(value)) errors.push(`${rule.label} must be one of: ${rule.values.join(', ')}.`);

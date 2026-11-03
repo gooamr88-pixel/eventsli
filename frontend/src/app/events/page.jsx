@@ -310,7 +310,7 @@ export default async function EventsPage({ searchParams }) {
                   ? 'This one is on us — please try again in a moment.'
                   : filtered
                     ? 'Try another city or date, or browse every category.'
-                    : 'Every event is reviewed before it goes on sale. Check back soon.'}
+                    : 'New events appear here as soon as organizers publish them. Check back soon.'}
               </p>
               {filtered && !failed && (
                 <Link href="/events" className="es-lp-btn es-lp-btn--outline mt-2">Clear filters</Link>

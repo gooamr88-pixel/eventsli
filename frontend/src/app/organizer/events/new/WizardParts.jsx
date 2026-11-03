@@ -277,12 +277,12 @@ export function Review({ form, ticketed, startIso, endIso = null, choices, onEdi
             <>
               <li>Add ticket types and prices.</li>
               <li>Build the seating map.</li>
-              <li>Accept the terms and submit for review.</li>
+              <li>Accept the terms and publish.</li>
             </>
           ) : (
             <>
               <li>Add a cover image (recommended).</li>
-              <li>Accept the terms and submit for review.</li>
+              <li>Accept the terms and publish.</li>
             </>
           )}
           <li>Eventsli reviews it — usually within a day.</li>

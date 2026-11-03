@@ -50,7 +50,7 @@ export const STEP_TEXT = {
   when: ['When and where', 'Times are local to the venue.'],
   tickets: ['How tickets sell', 'You add ticket types and the seat map right after this.'],
   payment: ['How buyers pay', 'Choose from the payment methods you have set up.'],
-  review: ['Check and create', 'It is saved as a private draft. Nothing is public until Eventsli approves it.'],
+  review: ['Check and create', 'It is saved as a private draft. Nothing is public until you publish it.'],
 };
 
 /**

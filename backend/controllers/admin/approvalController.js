@@ -7,6 +7,8 @@ const { closeOpenCheckouts } = require('../../services/openCheckouts');
 const { canReceivePayouts } = require('../../utils/payouts');
 const { cancelEvent } = require('../../services/eventCancellation');
 const aiQuota = require('../../services/ai/quotaService');
+const publishing = require('../../services/eventPublishing');
+const { frontendOrigin } = require('../../utils/frontendOrigin');
 
 /**
  * BRD §16 — every event is reviewed before the public can see it.
@@ -87,7 +89,9 @@ async function approve(req, res, next) {
     if (!event) {
       return sendFail(res, { status: 404, error: 'EVENT_NOT_FOUND', message: 'That event does not exist.' });
     }
-    if (!events.canTransition(event.status, 'published')) {
+    // Explicitly the queue: a draft may now go to published too, but only by
+    // its organizer's own Publish, never by an admin approving it.
+    if (event.status !== 'pending_review') {
       return sendFail(res, {
         status: 409, error: 'CONFLICT',
         message: `Only an event awaiting review can be approved — this one is ${event.status}.`,
@@ -137,6 +141,9 @@ async function approve(req, res, next) {
 
     await audit(req, 'event.approved', event.id, {});
     logger.info({ eventId: event.id, by: req.user.id }, 'event approved');
+    publishing.inBackground('approval notice', publishing.notifyPublished({
+      eventId: event.id, origin: frontendOrigin(req.headers.origin), direct: false,
+    }));
     return sendOk(res, { id: data.id, slug: data.slug, status: data.status, reviewedAt: data.reviewed_at });
   } catch (err) {
     return next(err);
@@ -154,12 +161,15 @@ async function reject(req, res, next) {
     if (!event) {
       return sendFail(res, { status: 404, error: 'EVENT_NOT_FOUND', message: 'That event does not exist.' });
     }
-    if (!events.canTransition(event.status, 'rejected')) {
+    // From the queue, or — now that events publish first — a live event
+    // reviewed afterwards: it comes down until the organizer fixes it.
+    if (!['pending_review', 'published'].includes(event.status)) {
       return sendFail(res, {
         status: 409, error: 'CONFLICT',
-        message: `Only an event awaiting review can be rejected — this one is ${event.status}.`,
+        message: `Only an event awaiting review or live on Eventsli can be rejected — this one is ${event.status}.`,
       });
     }
+    const wasLive = event.status === 'published';
 
     const { data, error } = await supabase
       .from('events')
@@ -171,7 +181,7 @@ async function reject(req, res, next) {
         updated_at: new Date().toISOString(),
       })
       .eq('id', event.id)
-      .eq('status', 'pending_review')
+      .eq('status', event.status)
       .select('id, status, rejection_reason, reviewed_at')
       .single();
 
@@ -182,7 +192,10 @@ async function reject(req, res, next) {
       });
     }
 
-    await audit(req, 'event.rejected', event.id, { reason });
+    // Anyone mid-checkout on a live event is stopped before paying for it.
+    const checkouts = wasLive ? await closeOpenCheckouts(event.id) : { released: 0 };
+    await audit(req, 'event.rejected', event.id, { reason, wasLive, openCheckoutsClosed: checkouts.released });
+    publishing.inBackground('rejection notice', publishing.notifyOrganizer({ eventId: event.id, action: 'rejected', reason, wasLive }));
     return sendOk(res, {
       id: data.id, status: data.status,
       rejectionReason: data.rejection_reason, reviewedAt: data.reviewed_at,
@@ -233,6 +246,7 @@ async function suspend(req, res, next) {
     const checkouts = await closeOpenCheckouts(event.id);
 
     await audit(req, 'event.suspended', event.id, { reason, openCheckoutsClosed: checkouts.released });
+    publishing.inBackground('suspension notice', publishing.notifyOrganizer({ eventId: event.id, action: 'suspended', reason }));
     return sendOk(res, {
       id: data.id, status: data.status,
       suspendedAt: data.suspended_at, suspendedReason: data.suspended_reason,
@@ -260,6 +274,7 @@ async function unsuspend(req, res, next) {
       return sendFail(res, { status: 409, error: 'CONFLICT', message: 'That event is not suspended.' });
     }
     await audit(req, 'event.unsuspended', req.params.eventId, {});
+    publishing.inBackground('restored notice', publishing.notifyOrganizer({ eventId: req.params.eventId, action: 'restored' }));
     return sendOk(res, { id: data.id, status: data.status });
   } catch (err) {
     return next(err);
@@ -282,6 +297,7 @@ async function cancel(req, res, next) {
 
     await audit(req, 'event.cancelled', result.event.id,
       { reason, from: result.from, openCheckoutsClosed: result.openCheckoutsClosed });
+    publishing.inBackground('cancellation notice', publishing.notifyOrganizer({ eventId: result.event.id, action: 'cancelled', reason }));
     return sendOk(res, {
       id: result.event.id, status: result.event.status,
       cancelledAt: result.event.cancelled_at, cancelledReason: result.event.cancelled_reason,

@@ -221,7 +221,7 @@ export default function PrivacyPage() {
             with a list of published events. We do not keep the conversation: it stays in your browser tab and is gone
             when you close it. The assistant cannot see your account, orders or tickets. Please do not type personal or
             payment details into it. Every draft is checked and edited by the organizer before anything is saved, and nothing is published
-            without Eventsli&rsquo;s review. Organizers who prefer not to use AI can create every event by hand.
+            until the organizer publishes it; Eventsli then reviews every new event. Organizers who prefer not to use AI can create every event by hand.
           </p>
         </Section>
 
