@@ -57,4 +57,16 @@ function textFilter(q, categorySlugs = []) {
   return categorySlugs.length ? `${allWords},category.in.(${categorySlugs.join(',')})` : allWords;
 }
 
-module.exports = { safeSearch, escapeLike, textFilter };
+/**
+ * ANY of the words, in any searchable column — for finding candidates to show
+ * the assistant, where recall matters more than precision: the model chooses
+ * from what comes back. Same escaping and cap as `textFilter`.
+ */
+function anyWordFilter(input) {
+  const list = Array.isArray(input) ? input.join(' ') : String(input || '');
+  const words = [...new Set(safeSearch(list).replace(/"/g, ' ').toLowerCase().split(' ').filter((w) => w.length >= 2))].slice(0, MAX_WORDS);
+  if (words.length === 0) return null;
+  return words.flatMap((w) => COLUMNS.map((c) => `${c}.ilike.%${w}%`)).join(',');
+}
+
+module.exports = { safeSearch, escapeLike, textFilter, anyWordFilter };

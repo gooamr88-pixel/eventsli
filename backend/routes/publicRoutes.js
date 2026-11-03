@@ -188,6 +188,29 @@ router.get(
   },
 );
 
+// ─── The homepage assistant ─────────────────────────────────────────────────
+// Public and anonymous, so bounded per visitor here, per message by these
+// validators, and per day in the controller (AI_ASSISTANT_DAILY_CAP).
+const assistant = require('../controllers/assistantController');
+
+router.get('/assistant', assistant.status);
+router.post(
+  '/assistant/messages',
+  makeLimiter({
+    windowMs: 10 * 60 * 1000, max: 20, name: 'assistant',
+    message: 'That is a lot of questions in a few minutes. Wait a moment, or browse events in the meantime.',
+  }),
+  body('messages').isArray({ min: 1, max: 12 }).withMessage('Send the conversation as a list of messages.'),
+  body('messages.*.role').isIn(['user', 'assistant']),
+  body('messages.*.text').isString().trim().isLength({ min: 1, max: 700 }).withMessage('Keep each message under 500 characters.'),
+  body('timezone').optional().isString().isLength({ max: 64 }).custom((v) => {
+    new Intl.DateTimeFormat('en-US', { timeZone: v }).format(0);
+    return true;
+  }),
+  validate,
+  assistant.reply,
+);
+
 router.get('/events/:slug', discovery.eventBySlug);
 
 router.get('/events/:slug/seat-map', c.publicMap);

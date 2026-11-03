@@ -215,6 +215,10 @@ AI_PROVIDER_ORDER=gemini,groq
 AI_POSTER_ENABLED=true
 AI_GEMINI_VISION_MODEL=
 AI_GROQ_VISION_MODEL=qwen/qwen3.8-27b
+# Homepage assistant: on with AI unless false; AI answers per day across all
+# visitors (then it answers without AI). Not counted against organizers.
+AI_ASSISTANT_ENABLED=true
+AI_ASSISTANT_DAILY_CAP=300
 # Optional: most successful drafts per 24 h across all organizers. Blank = none.
 AI_GLOBAL_DAILY_CAP=
 

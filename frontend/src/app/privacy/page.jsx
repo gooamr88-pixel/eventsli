@@ -97,8 +97,8 @@ const SHARED = [
   ['Brevo', 'Sends our emails: tickets, receipts, codes and notices.', 'France (European Union)'],
   ['Supabase, on Amazon Web Services', 'Hosts our database and the images organizers upload.', 'United States (us-west-1)'],
   ['Our server host', 'Runs the website and the API that handle every request.', 'United States'],
-  ['Google', 'Only in three cases. If you choose to sign in with Google, to confirm who you are. For organizers, the venue name typed into venue search, to suggest the place. And for organizers who use "Create with AI", the event description or the event poster image (with an optional note), which Google Gemini turns into a draft. We use Gemini’s free tier, and on that tier Google may use what it is sent to improve its products.', 'United States and other countries'],
-  ['Groq', 'For organizers using "Create with AI", when Gemini cannot answer: the same event description or poster image, to write the draft. Groq says it does not keep it, except for up to 30 days when investigating abuse or a reliability problem.', 'United States'],
+  ['Google', 'Only in three cases. If you choose to sign in with Google, to confirm who you are. For organizers, the venue name typed into venue search, to suggest the place. For organizers who use "Create with AI", the event description or the event poster image (with an optional note), which Google Gemini turns into a draft. And for anyone who uses the Eventsli assistant on the homepage, the questions they type. We use Gemini’s free tier, and on that tier Google may use what it is sent to improve its products.', 'United States and other countries'],
+  ['Groq', 'When Gemini cannot answer: the same event description or poster image for "Create with AI", or the same question for the Eventsli assistant. Groq says it does not keep it, except for up to 30 days when investigating abuse or a reliability problem.', 'United States'],
   ['OpenStreetMap', 'When you open the map on an event page, your browser loads it from OpenStreetMap, which sees your IP address. We send no referrer.', 'OpenStreetMap Foundation, United Kingdom'],
   ['YouTube and Vimeo', 'Only if you press play on a video on our homepage. Nothing is loaded from them before you do.', 'United States'],
 ];
@@ -213,7 +213,14 @@ export default function PrivacyPage() {
             location and camera details. No ticket buyer&rsquo;s information is ever sent. We do not keep the
             description, the poster or the draft: the draft stays in the organizer&rsquo;s browser until they save it
             as an event, and the poster is stored only if the organizer chooses to keep it as the event&rsquo;s cover
-            image. Every draft is checked and edited by the organizer before anything is saved, and nothing is published
+            image.
+          </p>
+          <p className="max-w-[62ch] text-muted">
+            The Eventsli assistant on the homepage answers questions about events and tickets. What you type is sent to
+            Google Gemini (or Groq if Gemini cannot answer), with email addresses and phone numbers removed first, along
+            with a list of published events. We do not keep the conversation: it stays in your browser tab and is gone
+            when you close it. The assistant cannot see your account, orders or tickets. Please do not type personal or
+            payment details into it. Every draft is checked and edited by the organizer before anything is saved, and nothing is published
             without Eventsli&rsquo;s review. Organizers who prefer not to use AI can create every event by hand.
           </p>
         </Section>

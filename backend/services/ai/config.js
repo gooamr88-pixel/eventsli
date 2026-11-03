@@ -127,6 +127,17 @@ function aiConfig() {
     globalCap: globalCap(),
     timeouts: TIMEOUTS,
     visionTimeouts: VISION_TIMEOUTS,
+    // The public homepage assistant. On with AI unless AI_ASSISTANT_ENABLED is
+    // false; at most AI_ASSISTANT_DAILY_CAP AI answers a day across everyone
+    // (default 300), after which it answers in basic mode. Never counted
+    // against an organizer's allowance — visitors have none.
+    assistant: {
+      enabled: !/^(0|false|no|off)$/i.test(str(process.env.AI_ASSISTANT_ENABLED)),
+      cap: (() => {
+        const n = Number.parseInt(str(process.env.AI_ASSISTANT_DAILY_CAP), 10);
+        return Number.isInteger(n) && n >= 0 ? n : 300;
+      })(),
+    },
   };
 }
 
