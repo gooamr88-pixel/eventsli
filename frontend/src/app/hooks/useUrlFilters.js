@@ -33,7 +33,19 @@ export function useUrlFilters() {
     router.replace(`${pathname}${qs ? `?${qs}` : ''}`);
   }, [params, pathname, router]);
 
+  // Several keys in ONE navigation. Two `set` calls in a row each start from
+  // the same params, so the second replace would undo the first.
+  const setMany = useCallback((values) => {
+    const next = new URLSearchParams(params);
+    for (const [key, value] of Object.entries(values)) {
+      if (value) next.set(key, String(value)); else next.delete(key);
+    }
+    next.delete('page');
+    const qs = next.toString();
+    router.replace(`${pathname}${qs ? `?${qs}` : ''}`);
+  }, [params, pathname, router]);
+
   const page = Math.max(1, Number(params.get('page')) || 1);
 
-  return { get, set, page };
+  return { get, set, setMany, page };
 }

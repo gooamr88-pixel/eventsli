@@ -1,44 +1,18 @@
 'use client';
 
-import { useState, useSyncExternalStore } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { formatEventTime } from '../../lib/eventTime';
 import NavIcon from '../../components/shell/NavIcon';
 import MoreActions, { MoreItem } from '../../components/ui/MoreActions';
+import { whenOf, eventLook } from '../events/eventLook';
+import { useNowMinute } from '../../hooks/useNowMinute';
 
 /**
  * Your events, split by WHEN rather than by status: a draft dated next month
  * is upcoming, and its status pill says it is a draft. All = the other three.
- *
- * "Now" is read through a store, once a minute, so a render stays pure.
  */
-const MINUTE = 60_000;
-const subscribeMinute = (onChange) => {
-  const t = setInterval(onChange, MINUTE);
-  return () => clearInterval(t);
-};
-const readMinute = () => Math.floor(Date.now() / MINUTE) * MINUTE;
-const serverMinute = () => null;
-
 const ROWS = 3;
-
-const LOOKS = {
-  draft: ['Draft', 'warning', 'pencil'],
-  pending_review: ['In review', 'info', 'clock'],
-  rejected: ['Changes needed', 'warning', 'alert'],
-  published: ['Published', 'success', 'check'],
-  suspended: ['Suspended', 'danger', 'ban'],
-  cancelled: ['Cancelled', 'muted', 'ban'],
-  completed: ['Finished', 'muted', 'tick'],
-};
-
-export function whenOf(event, now) {
-  const starts = Date.parse(event.startsAt);
-  const ends = Date.parse(event.endsAt || event.startsAt);
-  if (starts > now) return 'upcoming';
-  if (ends >= now) return 'ongoing';
-  return 'past';
-}
 
 /** Ongoing first, then the soonest upcoming, then the most recent past. */
 function order(events, now) {
@@ -54,7 +28,7 @@ function order(events, now) {
 }
 
 export default function YourEvents({ events }) {
-  const now = useSyncExternalStore(subscribeMinute, readMinute, serverMinute);
+  const now = useNowMinute();
   const [tab, setTab] = useState('all');
   const list = events || [];
   const counts = { all: list.length, upcoming: 0, ongoing: 0, past: 0 };
@@ -97,17 +71,18 @@ export default function YourEvents({ events }) {
         </p>
       ) : (
         <ul className="es-evrows" role="tabpanel">
-          {shown.map((event) => <EventRow key={event.id} event={event} />)}
+          {shown.map((event) => <EventRow key={event.id} event={event} now={now} />)}
         </ul>
       )}
     </section>
   );
 }
 
-function EventRow({ event }) {
-  const [label, tone, icon] = LOOKS[event.status] || [event.status, 'muted', 'info'];
+/** One event as a row — here, and as the list view of the Your events page. */
+export function EventRow({ event, now }) {
+  const [label, tone, icon] = eventLook(event, now);
   const place = event.city || event.venue;
-  const fill = event.capacity ? Math.min(100, Math.round((event.sold / event.capacity) * 100)) : null;
+  const fill = event.capacity && event.sold !== null && event.sold !== undefined ? Math.min(100, Math.round((event.sold / event.capacity) * 100)) : null;
   const href = `/organizer/events/${event.id}`;
 
   return (
@@ -138,7 +113,9 @@ function EventRow({ event }) {
       <span className="es-evrow__cap">
         <span className="es-evrow__count">
           <NavIcon name="users" size={16} />
-          {event.sold.toLocaleString()}{event.capacity ? ` / ${event.capacity.toLocaleString()}` : ' sold'}
+          {event.sold === null || event.sold === undefined
+            ? '—'
+            : `${event.sold.toLocaleString()}${event.capacity ? ` / ${event.capacity.toLocaleString()}` : ' sold'}`}
         </span>
         {fill !== null && (
           <span className="es-evrow__bar" role="img" aria-label={`${fill}% of capacity sold`}>

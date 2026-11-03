@@ -44,6 +44,22 @@ async function organizerDashboard(req, res, next) {
   } catch (err) { return next(err); }
 }
 
+// GET /organizer/event-figures — sold, capacity and gross per event, keyed by
+// id, for the cards on "Your events". A database without migration
+// 20261103140000 answers an empty map: the cards show "—", not an error page.
+async function organizerEventFigures(req, res, next) {
+  try {
+    const organizerId = req.user.access.organizerId;
+    if (!organizerId) return sendOk(res, {});
+    const { data, error } = await supabase.rpc('organizer_event_figures', { p_organizer_id: organizerId });
+    if (error) {
+      logger.warn({ err: error.message }, 'event figures unavailable — apply the latest supabase migration');
+      return sendOk(res, {});
+    }
+    return sendOk(res, data || {});
+  } catch (err) { return next(err); }
+}
+
 // GET /events/:eventId/stats
 async function eventStats(req, res, next) {
   try {
@@ -59,4 +75,4 @@ async function eventStats(req, res, next) {
   } catch (err) { return next(err); }
 }
 
-module.exports = { organizerDashboard, eventStats, windowDays, WINDOWS };
+module.exports = { organizerDashboard, organizerEventFigures, eventStats, windowDays, WINDOWS };

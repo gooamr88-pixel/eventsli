@@ -52,6 +52,9 @@ router.get(
   stats.organizerDashboard,
 );
 
+// Sold, capacity and revenue per event, for the cards on "Your events".
+router.get('/event-figures', requireAuth, requireRole('organizer'), stats.organizerEventFigures);
+
 // A banned organizer keeps READING their profile and payouts, but cannot
 // rename themselves or start a payout account — the same line the event
 // routes draw with requireActiveOrganizer.
