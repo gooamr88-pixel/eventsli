@@ -245,3 +245,13 @@ test('contact details are removed before anything is sent, and prices and addres
   assert.ok(!text.includes('555-0199'));
   assert.ok(!text.includes('7946'));
 });
+
+test('a date with no time keeps the DAY when the quote names it — what a date-only listing needs', () => {
+  const ok = draftOf({ starts: { value: '2026-11-07', evidence: 'Saturday November 7' } });
+  assert.equal(ok.startsAt.at, null, 'still no time: a ticketed event asks for one');
+  assert.equal(ok.startsAt.date, '2026-11-07');
+  const wrong = draftOf({ starts: { value: '2026-11-09', evidence: 'Saturday November 7' } });
+  assert.equal(wrong.startsAt.date, null, 'a day the quote contradicts is not kept');
+  const bare = draftOf({ starts: { value: '2026-11-07', evidence: 'at the Palais Royale' } });
+  assert.equal(bare.startsAt.date, null, 'a quote that names no day is not evidence for one');
+});

@@ -8,6 +8,7 @@ import NavIcon from '../../../../components/shell/NavIcon';
 import { categoryLabel } from '../../../../lib/categories';
 import { zonesFor } from '../../../../lib/timezones';
 import { MAX_HIGHLIGHTS } from './aiDraftModel';
+import DateOnlyFields from '../DateOnlyFields';
 
 /**
  * The editors behind the review page's "Edit" buttons, for the parts of the
@@ -115,26 +116,39 @@ export function EditWhen({ form, set, errorFor }) {
         label="Time zone" required value={form.timezone} options={zonesFor(form.country)}
         onChange={(e) => set({ timezone: e.target.value })}
       />
-      <div className="fx-stack fx-stack--sm gap-1">
-        <Field
-          label="Starts" type="datetime-local" name="startsAt" required hint={`Local time, ${zoneLabel}.`}
-          value={form.startsAt} onChange={(e) => set({ startsAt: e.target.value })} error={errorFor('startsAt')}
-        />
-        <Source text={form.startEvidence} />
-      </div>
-      <div className="fx-stack fx-stack--sm gap-1">
-        <Field
-          label="Ends" type="datetime-local" name="endsAt" required min={form.startsAt || undefined}
-          value={form.endsAt} onChange={(e) => set({ endsAt: e.target.value })} error={errorFor('endsAt')}
-        />
-        <Source text={form.endEvidence} />
-      </div>
+      {form.listingType === 'display_only' ? (
+        <div className="fx-stack fx-stack--sm gap-1">
+          <DateOnlyFields
+            firstDay={form.firstDay} lastDay={form.lastDay} timezone={form.timezone} zoneLabel={zoneLabel}
+            errorFirst={errorFor('startsAt')} errorLast={errorFor('endsAt')} onChange={set}
+          />
+          <Source text={form.startEvidence} />
+        </div>
+      ) : (
+        <>
+          <div className="fx-stack fx-stack--sm gap-1">
+            <Field
+              label="Starts" type="datetime-local" name="startsAt" required hint={`Local time, ${zoneLabel}.`}
+              value={form.startsAt} onChange={(e) => set({ startsAt: e.target.value })} error={errorFor('startsAt')}
+            />
+            <Source text={form.startEvidence} />
+          </div>
+          <div className="fx-stack fx-stack--sm gap-1">
+            <Field
+              label="Ends" type="datetime-local" name="endsAt" required min={form.startsAt || undefined}
+              value={form.endsAt} onChange={(e) => set({ endsAt: e.target.value })} error={errorFor('endsAt')}
+            />
+            <Source text={form.endEvidence} />
+          </div>
+        </>
+      )}
       <PlaceAutocomplete
-        label="Venue name" name="venueName" maxLength={200} country={form.country}
+        label={form.listingType === 'display_only' ? 'Venue name (optional)' : 'Venue name'} name="venueName" maxLength={200} country={form.country}
         value={form.venueName} onChange={setVenueName} onPlace={applyPlace}
       />
       <Field
-        label="Street address" name="venueAddress" maxLength={300} autoComplete="street-address"
+        label={form.listingType === 'display_only' ? 'Street address (optional)' : 'Street address'}
+        name="venueAddress" maxLength={300} autoComplete="street-address"
         value={form.venueAddress} onChange={(e) => set({ venueAddress: e.target.value })}
       />
       <Field

@@ -97,10 +97,11 @@ export function EventFacts({ event, when, organizerHref }) {
   return (
     <ul className="es-ev-facts">
       <Fact icon="calendar" label="When" value={when.date}>
-        <span className="es-ev-fact__note">{when.time}</span>
+        {/* No time on a date-only listing, and so no zone either. */}
+        {when.time && <span className="es-ev-fact__note">{when.time}</span>}
         {/* `fx-break` and its own line: a zone name is one unbreakable token
             and will otherwise set the width of the column it sits in. */}
-        <span className="es-ev-fact__zone fx-break">{event.timezone}</span>
+        {when.time && <span className="es-ev-fact__zone fx-break">{event.timezone}</span>}
       </Fact>
 
       <Fact icon="pin" label="Where" value={event.venue || event.city || 'To be announced'}>

@@ -200,9 +200,16 @@ async function submissionBlockers({ event, userId }) {
    * — so an event published without one is invisible to that feature and to
    * `?city=`, silently, forever.
    */
+  //
+  // A DISPLAY-ONLY LISTING NEEDS ONLY THE CITY (2026-11-03, owner: "make
+  // required information easier"). It sells nothing and nobody is scanned at
+  // a door, so there is no "where do I go with my ticket" to answer — and a
+  // city-wide festival or a venue still to be announced is still worth
+  // listing. The city stays required: it is what makes the listing findable.
+  const listing = event.listing_type === 'display_only';
   const missing = [
-    !String(event.venue_name || '').trim() && 'a venue name',
-    !String(event.venue_address || '').trim() && 'a street address',
+    !listing && !String(event.venue_name || '').trim() && 'a venue name',
+    !listing && !String(event.venue_address || '').trim() && 'a street address',
     !String(event.city || '').trim() && 'a city',
   ].filter(Boolean);
 

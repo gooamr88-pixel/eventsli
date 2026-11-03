@@ -1,3 +1,5 @@
+import { isDateOnly, formatDateOnly, dateOnlyDays } from './dateOnly';
+
 /**
  * ─────────────────────────────────────────────────────────────────────────────
  * HOW ONE EVENT PAGE PRESENTS ITSELF TO A SEARCH ENGINE.
@@ -133,6 +135,7 @@ export function seoTitle(event) {
 /** "Sat, Nov 14, 2026 at 9:00 PM" in the event's own zone. */
 export function whenPhrase(event) {
   if (!event.startsAt) return '';
+  if (isDateOnly(event)) return formatDateOnly(event, { style: 'short' });
   const day = fmt(event.startsAt, event.timezone, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
   const time = fmt(event.startsAt, event.timezone, { hour: 'numeric', minute: '2-digit' });
   return `${day} at ${time}`;
@@ -158,7 +161,9 @@ export function pricePhrase(event) {
 export function seoDescription(event) {
   const when = whenPhrase(event);
   const where = wherePhrase(event);
-  const facts = [when, where && `${when ? 'at ' : ''}${where}`].filter(Boolean).join(' ');
+  // "at The Mod Club, Toronto", but "in Toronto" when there is only a city.
+  const prep = squash(event.venue) ? 'at' : 'in';
+  const facts = [when, where && `${when ? `${prep} ` : ''}${where}`].filter(Boolean).join(' ');
   const lead = facts ? `${facts}.` : '';
   const price = pricePhrase(event);
   const about = openingSentence(event.description);
@@ -274,8 +279,14 @@ export function eventJsonLd(event, { origin = siteOrigin(), now = new Date() } =
     url,
     name: squash(event.title),
     ...(event.description ? { description: plain(event.description, 1500) } : {}),
-    startDate: isoWithOffset(event.startsAt, event.timezone),
-    ...(event.endsAt ? { endDate: isoWithOffset(event.endsAt, event.timezone) } : {}),
+    // A date-only listing is written as dates (schema.org allows Date), so
+    // Google shows the day rather than a midnight start.
+    ...(isDateOnly(event)
+      ? { startDate: dateOnlyDays(event).first, endDate: dateOnlyDays(event).last }
+      : {
+        startDate: isoWithOffset(event.startsAt, event.timezone),
+        ...(event.endsAt ? { endDate: isoWithOffset(event.endsAt, event.timezone) } : {}),
+      }),
     eventStatus: 'https://schema.org/EventScheduled',
     eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
     inLanguage: 'en',
@@ -331,7 +342,9 @@ export function breadcrumbJsonLd(event, origin = siteOrigin()) {
 export function quickAnswers(event) {
   const name = squash(event.title);
   const out = [];
-  if (event.startsAt) {
+  if (event.startsAt && isDateOnly(event)) {
+    out.push({ q: `When is ${name}?`, a: `${name} is on ${formatDateOnly(event)}.` });
+  } else if (event.startsAt) {
     const day = fmt(event.startsAt, event.timezone, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
     const from = fmt(event.startsAt, event.timezone, { hour: 'numeric', minute: '2-digit' });
     const until = event.endsAt ? fmt(event.endsAt, event.timezone, { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' }) : null;

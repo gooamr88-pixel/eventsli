@@ -5,6 +5,7 @@ import { categoryLabel } from '../../../../lib/categories';
 import { toIso, formatEventTime } from '../../../../lib/eventTime';
 import { AiStepper, ActionBar } from './AiParts';
 import { priceToCents, laterNeeds, sectionState, TIER_KINDS } from './aiDraftModel';
+import { dateOnlyRange, formatDateOnly } from '../../../../lib/dateOnly';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -132,7 +133,11 @@ export default function DraftReview({
   const n = problems.length;
   const later = laterNeeds(form);
   const label = categories?.find((c) => c.slug === form.category)?.label || categoryLabel(form.category);
-  const when = form.startsAt ? whenText(form) : null;
+  const listing = form.listingType === 'display_only';
+  const days = listing && form.firstDay ? dateOnlyRange(form.firstDay, form.lastDay, form.timezone) : null;
+  const when = listing
+    ? (days?.startsAt ? { date: formatDateOnly({ displayOnly: true, ...days, timezone: form.timezone }), time: 'Date only — no times needed for a listing' } : null)
+    : (form.startsAt ? whenText(form) : null);
 
   function fixFirst() {
     const first = problems[0];
@@ -204,8 +209,8 @@ export default function DraftReview({
 
               <Block id="when" title="When and where" onEdit={onEdit}>
                 {when && !has('startsAt') ? <Fact icon="calendar" main={when.date} sub={when.time} />
-                  : <Need title="When does it start?" detail={form.startEvidence ? `${form.source === 'poster' ? 'The poster says' : 'You wrote'} “${form.startEvidence}” — add the time.` : `Your ${form.source === 'poster' ? 'poster' : 'description'} doesn’t say.`} action="Add" onClick={() => onEdit('when')} />}
-                {has('endsAt') && <Need title="When does it end?" detail={problems.find((p) => p.field === 'endsAt').message === 'When does it end?' ? `Your ${form.source === 'poster' ? 'poster' : 'description'} doesn’t say.` : problems.find((p) => p.field === 'endsAt').message} action="Add" onClick={() => onEdit('when')} />}
+                  : <Need title={listing ? 'What date is it on?' : 'When does it start?'} detail={form.startEvidence ? `${form.source === 'poster' ? 'The poster says' : 'You wrote'} “${form.startEvidence}” — add the time.` : `Your ${form.source === 'poster' ? 'poster' : 'description'} doesn’t say.`} action="Add" onClick={() => onEdit('when')} />}
+                {has('endsAt') && <Need title={listing ? 'Check the last day' : 'When does it end?'} detail={problems.find((p) => p.field === 'endsAt').message === 'When does it end?' ? `Your ${form.source === 'poster' ? 'poster' : 'description'} doesn’t say.` : problems.find((p) => p.field === 'endsAt').message} action="Add" onClick={() => onEdit('when')} />}
                 {form.venueName || form.venueAddress
                   ? <Fact icon="pin" main={form.venueName || 'Venue to be added'} sub={[form.venueAddress, form.city].filter(Boolean).join(', ')} />
                   : null}

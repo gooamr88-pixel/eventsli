@@ -5,6 +5,7 @@ import Link from 'next/link';
 import NavIcon from '../../../components/shell/NavIcon';
 import { categoryLabel } from '../../../lib/categories';
 import { formatEventTime } from '../../../lib/eventTime';
+import { formatDateOnly } from '../../../lib/dateOnly';
 import { ADMISSION_TYPES, PURCHASE_MODES, PAYMENT_OPTIONS, STEP_SHORT } from './wizardModel';
 import { useAiQuota } from '../../../hooks/useAiQuota';
 import { QuotaDots } from './ai/AiParts';
@@ -231,11 +232,13 @@ export function RadioCards({ legend, name, value, onChange, options, columns = 2
  * suffix names what is being edited, so five identical "Edit" buttons are five
  * distinct controls to a screen reader.
  */
-export function Review({ form, ticketed, startIso, choices, onEdit }) {
+export function Review({ form, ticketed, startIso, endIso = null, choices, onEdit }) {
   const rows = [
     ['basics', 'Title', form.title.trim()],
     ['basics', 'Category', categoryLabel(form.category)],
-    ['when', 'Starts', form.startsAt ? formatEventTime(startIso, form.timezone) : '—'],
+    ticketed
+      ? ['when', 'Starts', form.startsAt ? formatEventTime(startIso, form.timezone) : '—']
+      : ['when', 'Date', startIso ? formatDateOnly({ displayOnly: true, startsAt: startIso, endsAt: endIso, timezone: form.timezone }) : '—'],
     ['when', 'Venue', form.venueName.trim() || 'Not added yet'],
     ['when', 'City', form.city.trim() || 'Not added yet'],
     ...(ticketed ? [

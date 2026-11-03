@@ -4,6 +4,7 @@ import { formatMoneyCompact } from '../utils/money';
 import { categoryLabel } from '../lib/categories';
 import NavIcon from './shell/NavIcon';
 import SaveEventButton from './SaveEventButton';
+import { isDateOnly, formatDateOnly } from '../lib/dateOnly';
 
 /**
  * One event in a listing. Used by the homepage and by /events, so the two can
@@ -130,7 +131,8 @@ export default function EventCard({ event, priority = false, headingLevel = 3, a
           {when && (
             <p className="es-evcard__line">
               <span aria-hidden className="es-evcard__icon"><NavIcon name="clock" size={16} /></span>
-              <span>{`${when.weekday} · ${when.time}`}</span>
+              {/* A date-only listing shows its day(s), never a midnight. */}
+              <span>{isDateOnly(event) ? formatDateOnly(event, { style: 'short' }) : `${when.weekday} · ${when.time}`}</span>
             </p>
           )}
           {place && (

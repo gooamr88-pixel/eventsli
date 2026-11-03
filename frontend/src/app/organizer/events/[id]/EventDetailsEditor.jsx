@@ -21,6 +21,8 @@ import FormError from '../../../components/forms/FormError';
 import SubmitButton from '../../../components/forms/SubmitButton';
 import { useStepSave } from './BuildStep';
 import { Notice } from '../../../components/Feedback';
+import DateOnlyFields from '../new/DateOnlyFields';
+import { isDateOnly, formatDateOnly } from '../../../lib/dateOnly';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -190,7 +192,11 @@ export default function EventDetailsEditor({ event, onSaved }) {
    * draft still cannot reach the review queue without all three.
    */
   const venueOptional = ['draft', 'rejected'].includes(event.status);
-  const venueMissing = !form.venueName.trim() || !form.venueAddress.trim() || !form.city.trim();
+  // A display-only listing needs only the city (submissionService.js).
+  const listing = form.listingType === 'display_only';
+  const venueMissing = listing
+    ? !form.city.trim()
+    : !form.venueName.trim() || !form.venueAddress.trim() || !form.city.trim();
   /** The message a missing part gets: a refusal, or a reminder. */
   const venueNote = (value, refusal) => {
     if (value.trim()) return {};
@@ -315,8 +321,14 @@ export default function EventDetailsEditor({ event, onSaved }) {
         <dl className="es-facts rounded-(--es-radius-md) bg-bg-sunken p-4">
           <Fact term="Title" value={event.title} />
           <Fact term="Category" value={categories.label(event.category)} />
-          <Fact term="Starts" value={formatEventTime(event.startsAt, event.timezone)} />
-          <Fact term="Ends" value={formatEventTime(event.endsAt, event.timezone)} />
+          {isDateOnly(event) ? (
+            <Fact term="Date" value={formatDateOnly(event)} />
+          ) : (
+            <>
+              <Fact term="Starts" value={formatEventTime(event.startsAt, event.timezone)} />
+              <Fact term="Ends" value={formatEventTime(event.endsAt, event.timezone)} />
+            </>
+          )}
           <Fact term="Venue" value={event.venue?.name || '—'} />
           <Fact term="Address" value={event.venue?.address || '—'} />
           {event.listingType === 'ticketed' && (
@@ -354,12 +366,13 @@ export default function EventDetailsEditor({ event, onSaved }) {
                   one path that could only ever produce an unpinned event.
                   Typing a venue Google has never heard of still works: it is a
                   text input first and a combobox second. */}
-              <PlaceAutocomplete label="Venue name" name="venueName" maxLength={200}
-                country={event.country} required={!venueOptional}
-                {...venueNote(form.venueName, 'Add the venue name.')}
+              <PlaceAutocomplete label={listing ? 'Venue name (optional)' : 'Venue name'} name="venueName" maxLength={200}
+                country={event.country} required={!venueOptional && !listing}
+                {...(listing ? {} : venueNote(form.venueName, 'Add the venue name.'))}
                 value={form.venueName} onChange={setVenueName} onPlace={applyPlace} />
-              <Field label="Street address" name="venueAddress" required={!venueOptional} maxLength={300}
-                {...venueNote(form.venueAddress, 'Add the street address.')}
+              <Field label={listing ? 'Street address (optional)' : 'Street address'} name="venueAddress"
+                required={!venueOptional && !listing} maxLength={300}
+                {...(listing ? {} : venueNote(form.venueAddress, 'Add the street address.'))}
                 value={form.venueAddress} onChange={set('venueAddress')} />
               {/* The field that makes an event findable. "Events near me"
                   matches `events.city` against a local coordinate table, and
@@ -384,16 +397,31 @@ export default function EventDetailsEditor({ event, onSaved }) {
               onChange={(key, value) => setForm((f) => ({ ...f, [key]: value }))}
             />
 
-            <div className="fx-grid fx-grid--2">
-              <Field label="Starts" type="datetime-local" name="startsAt" required
-                value={form.startsAt} onChange={set('startsAt')} />
-              <Field label="Ends" type="datetime-local" name="endsAt" required
-                min={form.startsAt || undefined}
-                error={endsBeforeStart ? 'The event has to end after it starts.' : null}
-                value={form.endsAt} onChange={set('endsAt')} />
-            </div>
+            {listing ? (
+              /* A listing has a date, not a time (lib/dateOnly.js): the
+                 whole day(s) at the venue, written through the same two
+                 fields so this form's save and checks are unchanged. */
+              <DateOnlyFields
+                firstDay={form.startsAt.slice(0, 10)} lastDay={form.endsAt.slice(0, 10)} timezone={form.timezone}
+                errorLast={endsBeforeStart ? 'The last day has to be on or after the first.' : null}
+                onChange={({ firstDay, lastDay }) => setForm((f) => {
+                  const first = firstDay ?? f.startsAt.slice(0, 10);
+                  const last = lastDay === undefined ? f.endsAt.slice(0, 10) : (lastDay || first);
+                  return { ...f, startsAt: first ? `${first}T00:00` : '', endsAt: first ? `${last < first ? first : last}T23:59` : '' };
+                })}
+              />
+            ) : (
+              <div className="fx-grid fx-grid--2">
+                <Field label="Starts" type="datetime-local" name="startsAt" required
+                  value={form.startsAt} onChange={set('startsAt')} />
+                <Field label="Ends" type="datetime-local" name="endsAt" required
+                  min={form.startsAt || undefined}
+                  error={endsBeforeStart ? 'The event has to end after it starts.' : null}
+                  value={form.endsAt} onChange={set('endsAt')} />
+              </div>
+            )}
             <SelectField label="Time zone" required value={form.timezone} onChange={set('timezone')}
-              options={zoneOptions} hint="Both times are local to the venue in this zone." />
+              options={zoneOptions} hint={listing ? 'The dates are the venue\u2019s, in this zone.' : 'Both times are local to the venue in this zone.'} />
           </>
         )}
 

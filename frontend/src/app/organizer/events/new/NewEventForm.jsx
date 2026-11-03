@@ -11,7 +11,7 @@ import { useCategories } from '../../../hooks/useCategories';
 import { defaultTimeZone, zonesFor } from '../../../lib/timezones';
 import { toIso, browserZone } from '../../../lib/eventTime';
 import {
-  TYPES, STEP_TEXT, ADMISSION_TYPES, PURCHASE_MODES, FEE_BEARERS,
+  TYPES, STEP_TEXT, STEP_TEXT_DISPLAY, ADMISSION_TYPES, PURCHASE_MODES, FEE_BEARERS,
   PAYMENT_OPTIONS, draftKey, initialForm, problemsFor, blockingFields, SUBMIT_ONLY_FIELDS,
 } from './wizardModel';
 import { TypeChooser, RadioCards, Review, WizardStepper } from './WizardParts';
@@ -25,6 +25,8 @@ import { useShellFocus } from '../../../components/shell/shellFocus';
 import { Loading, ErrorNotice, Notice } from '../../../components/Feedback';
 import CreateProfile from '../../CreateProfile';
 import AiCreator from './ai/AiCreator';
+import DateOnlyFields from './DateOnlyFields';
+import { dateOnlyRange } from '../../../lib/dateOnly';
 import { COUNTRY_OPTIONS } from '../../../lib/markets';
 
 /**
@@ -191,11 +193,13 @@ function EventWizard({ type, organizer }) {
     }));
   };
 
-  const startIso = toIso(form.startsAt, form.timezone);
-  const endIso = toIso(form.endsAt, form.timezone);
+  // A listing is date-only: the whole day(s) at the venue (lib/dateOnly.js).
+  const days = ticketed ? null : dateOnlyRange(form.firstDay, form.lastDay, form.timezone);
+  const startIso = ticketed ? toIso(form.startsAt, form.timezone) : days.startsAt;
+  const endIso = ticketed ? toIso(form.endsAt, form.timezone) : days.endsAt;
   const perOrder = Number(form.maxTicketsPerOrder);
 
-  const problems = problemsFor({ form, startIso, endIso, choices });
+  const problems = problemsFor({ form, startIso, endIso, choices, type });
   /**
    * WHAT BLOCKS CONTINUE, AND WHAT ONLY WARNS.
    *
@@ -292,7 +296,7 @@ function EventWizard({ type, organizer }) {
     }
   }
 
-  const [heading, lede] = STEP_TEXT[step];
+  const [heading, lede] = (!ticketed && STEP_TEXT_DISPLAY[step]) || STEP_TEXT[step];
   const zone = zonesFor(form.country).find(([z]) => z === form.timezone);
   const zoneLabel = zone ? `${zone[1].split(' — ')[0]} time` : form.timezone;
 
@@ -348,18 +352,26 @@ function EventWizard({ type, organizer }) {
                   options={zonesFor(form.country)}
                 />
               </div>
-              <div className="fx-grid fx-grid--2">
-                <Field
-                  label="Starts" type="datetime-local" name="startsAt" required
-                  hint={`Local time, ${zoneLabel}.`}
-                  error={shown('startsAt')} value={form.startsAt} onChange={set('startsAt')}
+              {ticketed ? (
+                <div className="fx-grid fx-grid--2">
+                  <Field
+                    label="Starts" type="datetime-local" name="startsAt" required
+                    hint={`Local time, ${zoneLabel}.`}
+                    error={shown('startsAt')} value={form.startsAt} onChange={set('startsAt')}
+                  />
+                  <Field
+                    label="Ends" type="datetime-local" name="endsAt" required
+                    min={form.startsAt || undefined}
+                    error={shown('endsAt')} value={form.endsAt} onChange={set('endsAt')}
+                  />
+                </div>
+              ) : (
+                <DateOnlyFields
+                  firstDay={form.firstDay} lastDay={form.lastDay} timezone={form.timezone} zoneLabel={zoneLabel}
+                  errorFirst={shown('startsAt')} errorLast={shown('endsAt')}
+                  onChange={(patch) => setForm((f) => ({ ...f, ...patch }))}
                 />
-                <Field
-                  label="Ends" type="datetime-local" name="endsAt" required
-                  min={form.startsAt || undefined}
-                  error={shown('endsAt')} value={form.endsAt} onChange={set('endsAt')}
-                />
-              </div>
+              )}
               {/**
                 * ─────────────────────────────────────────────────────────────
                 * VENUE SEARCH, replacing a plain text box.
@@ -377,7 +389,7 @@ function EventWizard({ type, organizer }) {
                 * ─────────────────────────────────────────────────────────────
                 */}
               <PlaceAutocomplete
-                label="Venue name"
+                label={ticketed ? 'Venue name' : 'Venue name (optional)'}
                 name="venueName"
                 maxLength={200}
                 country={form.country}
@@ -390,7 +402,7 @@ function EventWizard({ type, organizer }) {
                 hint={pending('venueName')}
               />
               <Field
-                label="Street address" name="venueAddress" maxLength={300} autoComplete="street-address"
+                label={ticketed ? 'Street address' : 'Street address (optional)'} name="venueAddress" maxLength={300} autoComplete="street-address"
                 placeholder="e.g. 147 Danforth Ave"
                 hint={pending('venueAddress')}
                 value={form.venueAddress} onChange={set('venueAddress')}
@@ -508,7 +520,7 @@ function EventWizard({ type, organizer }) {
           )}
 
           {step === 'review' && (
-            <Review form={form} ticketed={ticketed} startIso={startIso} choices={choices} onEdit={(s) => go(steps.indexOf(s))} />
+            <Review form={form} ticketed={ticketed} startIso={startIso} endIso={endIso} choices={choices} onEdit={(s) => go(steps.indexOf(s))} />
           )}
         </div>
 

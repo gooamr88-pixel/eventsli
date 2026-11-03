@@ -10,6 +10,7 @@ import FormError from '../../../components/forms/FormError';
 import SubmitButton from '../../../components/forms/SubmitButton';
 import NavIcon from '../../../components/shell/NavIcon';
 import MoneyLines from './MoneyLines';
+import { isDateOnly, formatDateOnly } from '../../../lib/dateOnly';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -120,7 +121,10 @@ export default function SubmitReview({ eventId, onClose, onConfirm, busy = false
               </Section>
 
               <Section title="When" icon="clock">
-                <Facts rows={[
+                <Facts rows={isDateOnly(event) ? [
+                  ['Date', formatDateOnly(event)],
+                  ['Time zone', event.timezone || 'Not set'],
+                ] : [
                   ['Starts', formatEventTime(event.startsAt, event.timezone)],
                   ['Ends', formatEventTime(event.endsAt, event.timezone)],
                   ['Time zone', event.timezone || 'Not set'],
@@ -132,8 +136,9 @@ export default function SubmitReview({ eventId, onClose, onConfirm, busy = false
 
               <Section title="Where" icon="map">
                 <Facts rows={[
-                  ['Venue', event.venueName || <Missing>No venue name</Missing>],
-                  ['Address', event.venueAddress || <Missing>No street address</Missing>],
+                  // Optional on a display-only listing (submissionService.js).
+                  ['Venue', event.venueName || (event.listingType === 'display_only' ? 'Not given' : <Missing>No venue name</Missing>)],
+                  ['Address', event.venueAddress || (event.listingType === 'display_only' ? 'Not given' : <Missing>No street address</Missing>)],
                   ['City', event.city || <Missing>No city</Missing>],
                   ['Country', event.country || 'Not set'],
                 ]} />

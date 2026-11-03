@@ -1,4 +1,5 @@
 import { toIso, toLocalInput } from '../../../../lib/eventTime';
+import { dateOnlyRange, todayAt } from '../../../../lib/dateOnly';
 import { pinProblem } from '../../../../components/forms/VenuePin';
 
 /**
@@ -55,6 +56,9 @@ export function centsToPrice(cents) {
   return `${Math.floor(n / 100)}.${String(n % 100).padStart(2, '0')}`;
 }
 
+/** The day a time fact is on: the server's `date`, or the day of its local time. */
+const dayOf = (fact) => fact?.date || (fact?.local ? fact.local.slice(0, 10) : '');
+
 /** The API's answer → the form the review screen edits. */
 export function formFromDraft(result, organizer) {
   const d = result.draft;
@@ -77,6 +81,10 @@ export function formFromDraft(result, organizer) {
     description: d.description || '',
     startsAt: d.startsAt?.at ? toLocalInput(d.startsAt.at, tz) : '',
     endsAt: d.endsAt?.at ? toLocalInput(d.endsAt.at, tz) : '',
+    // A display-only listing is date-only (lib/dateOnly.js): just the day(s),
+    // which the server keeps when the words name them, time or no time.
+    firstDay: dayOf(d.startsAt),
+    lastDay: dayOf(d.endsAt) && dayOf(d.endsAt) !== dayOf(d.startsAt) ? dayOf(d.endsAt) : '',
     // Shown under the field, so the organizer can check how their words were read.
     startEvidence: d.startsAt?.evidence || null,
     endEvidence: d.endsAt?.evidence || null,
@@ -128,10 +136,16 @@ export function problemsFor(form, now = new Date()) {
   const endIso = toIso(form.endsAt, form.timezone);
 
   if (form.title.trim().length < 3) add('basics', 'title', 'Give the event a title of at least 3 characters.');
-  if (!form.startsAt) add('when', 'startsAt', 'When does it start?');
-  else if (new Date(startIso) <= now) add('when', 'startsAt', 'The start has to be in the future.');
-  if (!form.endsAt) add('when', 'endsAt', 'When does it end?');
-  else if (form.startsAt && new Date(endIso) <= new Date(startIso)) add('when', 'endsAt', 'It has to end after it starts.');
+  if (form.listingType === 'display_only') {
+    if (!form.firstDay) add('when', 'startsAt', 'What date is it on?');
+    else if (form.firstDay < todayAt(form.timezone, now)) add('when', 'startsAt', 'The date has to be today or later.');
+    if (form.lastDay && form.firstDay && form.lastDay < form.firstDay) add('when', 'endsAt', 'The last day has to be on or after the first.');
+  } else {
+    if (!form.startsAt) add('when', 'startsAt', 'When does it start?');
+    else if (new Date(startIso) <= now) add('when', 'startsAt', 'The start has to be in the future.');
+    if (!form.endsAt) add('when', 'endsAt', 'When does it end?');
+    else if (form.startsAt && new Date(endIso) <= new Date(startIso)) add('when', 'endsAt', 'It has to end after it starts.');
+  }
   const pin = pinProblem({ lat: form.venueLat, lng: form.venueLng });
   if (pin) add('when', 'venuePin', pin);
 
@@ -161,9 +175,11 @@ export function problemsFor(form, now = new Date()) {
 
 /** The submit-only gaps: shown in the section, never blocking a draft. */
 export function laterNeeds(form) {
+  // A display-only listing needs only the city (backend submissionService.js).
+  const listing = form.listingType === 'display_only';
   return [
-    !form.venueName.trim() && 'the venue name',
-    !form.venueAddress.trim() && 'the street address',
+    !listing && !form.venueName.trim() && 'the venue name',
+    !listing && !form.venueAddress.trim() && 'the street address',
     !form.city.trim() && 'the city',
   ].filter(Boolean);
 }
@@ -181,8 +197,9 @@ export function savePlan(form, choices = [], poster = null) {
     category: form.category,
     country: form.country,
     timezone: form.timezone,
-    startsAt: toIso(form.startsAt, form.timezone),
-    endsAt: toIso(form.endsAt, form.timezone),
+    ...(ticketed
+      ? { startsAt: toIso(form.startsAt, form.timezone), endsAt: toIso(form.endsAt, form.timezone) }
+      : dateOnlyRange(form.firstDay, form.lastDay, form.timezone)),
     listingType: form.listingType,
     aiGenerationId: form.generationId,
     ...(ticketed ? {

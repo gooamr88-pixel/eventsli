@@ -14,6 +14,7 @@ import {
   seoTitle, seoDescription, seoKeywords, eventJsonLd, breadcrumbJsonLd, eventUrl,
 } from '../../lib/eventSeo';
 import { EventBreadcrumbs, EventQuickAnswers, RelatedEvents } from './EventDiscovery';
+import { isDateOnly, formatDateOnly } from '../../lib/dateOnly';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -209,7 +210,9 @@ export default async function EventPage({ params, searchParams }) {
           {/* ── 2. The three facts ───────────────────────────────────────── */}
           <EventFacts
             event={event}
-            when={{
+            // A date-only listing (lib/dateOnly.js) states its day(s) and no
+            // time — it never had one, and "12:00 AM – 11:59 PM" is not one.
+            when={isDateOnly(event) ? { date: formatDateOnly(event), time: null } : {
               date: fmt(starts, { dateStyle: 'medium' }),
               time: `${fmt(starts, { timeStyle: 'short' })} – ${
                 sameDay(starts, ends, event.timezone)

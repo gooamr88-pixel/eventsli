@@ -68,7 +68,7 @@ const SYSTEM = `You turn an event organizer's own description into a draft event
 
 FACTS COME ONLY FROM THE DESCRIPTION.
 - starts, ends, venueName, venueAddress, city: give a value only if the description states it. Put in "evidence" the exact words copied from the description that state it, as few words as possible. If it is not stated, value and evidence are both null. Never guess or look up a venue, address, city, date or time.
-- starts and ends are local time at the event, written YYYY-MM-DDTHH:mm. Resolve words like "next Friday" from today's date given below. If a date is stated with no time, set value to null and put the date words in evidence. An end after midnight belongs to the next day.
+- starts and ends are local time at the event, written YYYY-MM-DDTHH:mm. Resolve words like "next Friday" from today's date given below. If a date is stated with no time, set value to the date alone, YYYY-MM-DD, and put the date words in evidence. An end after midnight belongs to the next day.
 
 PRICES.
 - A ticket type's price is a number only when the description states that ticket's price; priceEvidence is the exact words containing the amount. Otherwise price and priceEvidence are null.
@@ -161,7 +161,7 @@ FIRST, TRANSCRIBE THE IMAGE.
 
 FACTS COME ONLY FROM posterText AND THE ORGANIZER'S NOTE.
 - starts, ends, venueName, venueAddress, city: give a value only if posterText or the note states it. Put in "evidence" the exact words copied from posterText or the note that state it, as few words as possible. If it is not stated, value and evidence are both null. Never guess or look up a venue, address, city, date or time, even if you recognise the artwork.
-- starts and ends are local time at the event, written YYYY-MM-DDTHH:mm. A date without a year is the next one after today's date, given below. Resolve words like "this Friday" from today's date. If a date is stated with no time, set value to null and put the date words in evidence. An end after midnight belongs to the next day. "Doors" is not the start when a show or start time is also printed.
+- starts and ends are local time at the event, written YYYY-MM-DDTHH:mm. A date without a year is the next one after today's date, given below. Resolve words like "this Friday" from today's date. If a date is stated with no time, set value to the date alone, YYYY-MM-DD, and put the date words in evidence. An end after midnight belongs to the next day. "Doors" is not the start when a show or start time is also printed.
 
 PRICES.
 - A ticket type's price is a number only when posterText or the note states that ticket's price; priceEvidence is the exact words containing the amount. Otherwise price and priceEvidence are null.

@@ -4,6 +4,7 @@ import { DEFAULT_COUNTRY } from '../../../lib/markets';
 // The pin's rules live with the fields that collect it, so the wizard and the
 // details editor refuse exactly the same shapes.
 import { pinProblem } from '../../../components/forms/VenuePin';
+import { todayAt } from '../../../lib/dateOnly';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -37,6 +38,11 @@ export const TYPES = {
     title: 'Display-only event',
     steps: ['basics', 'when', 'review'],
   },
+};
+
+/** A display-only listing's "when" is a date, and only the city is required. */
+export const STEP_TEXT_DISPLAY = {
+  when: ['When and where', 'The date and the city are all a listing needs. The venue and address are optional.'],
 };
 
 export const STEP_TEXT = {
@@ -153,7 +159,7 @@ export function initialForm(type, organizer) {
   const base = {
     title: '', category: 'other', description: '',
     country, timezone: defaultTimeZone(country, browserZone()),
-    startsAt: '', endsAt: '', venueName: '', venueAddress: '', city: '',
+    startsAt: '', endsAt: '', firstDay: '', lastDay: '', venueName: '', venueAddress: '', city: '',
     /**
      * WRITTEN BY VENUE SEARCH, NEVER TYPED.
      *
@@ -195,14 +201,23 @@ export function initialForm(type, organizer) {
  * `Review` shows every answer and the last step has to be able to refuse a
  * value the organizer went back and broke.
  */
-export function problemsFor({ form, startIso, endIso, choices }) {
+export function problemsFor({ form, startIso, endIso, choices, type = 'ticketed' }) {
   const perOrder = Number(form.maxTicketsPerOrder);
+  const listing = type === 'display_only';
   return {
     title: form.title.trim().length < 3 ? 'Give your event a title of at least 3 characters.' : null,
-    startsAt: !form.startsAt ? 'Choose when it starts.'
-      : new Date(startIso) <= new Date() ? 'The start has to be in the future.' : null,
-    endsAt: !form.endsAt ? 'Choose when it ends.'
-      : form.startsAt && new Date(endIso) <= new Date(startIso) ? 'The event has to end after it starts.' : null,
+    /**
+     * A LISTING HAS A DATE, NOT A TIME (lib/dateOnly.js). Today counts as "in
+     * the future" — the listing runs until the end of its last day.
+     */
+    startsAt: listing
+      ? (!form.firstDay ? 'Choose the date.' : form.firstDay < todayAt(form.timezone) ? 'The date has to be today or later.' : null)
+      : !form.startsAt ? 'Choose when it starts.'
+        : new Date(startIso) <= new Date() ? 'The start has to be in the future.' : null,
+    endsAt: listing
+      ? (form.lastDay && form.lastDay < form.firstDay ? 'The last day has to be on or after the first.' : null)
+      : !form.endsAt ? 'Choose when it ends.'
+        : form.startsAt && new Date(endIso) <= new Date(startIso) ? 'The event has to end after it starts.' : null,
     /**
      * THE VENUE — required to SUBMIT, never to save a draft. See
      * `SUBMIT_ONLY_FIELDS` above for why the difference matters.
@@ -218,9 +233,11 @@ export function problemsFor({ form, startIso, endIso, choices }) {
      * city and could not appear in Near me, or under `?city=`, at all. The
      * column, the API and the filter were all ready; nothing collected it.
      */
-    venueName: form.venueName.trim().length < 2
+    // Optional for a listing: a festival across a city, or "venue to be
+    // announced", is still worth listing. The city is what makes it findable.
+    venueName: !listing && form.venueName.trim().length < 2
       ? 'Add the venue name before you submit this event.' : null,
-    venueAddress: form.venueAddress.trim().length < 4
+    venueAddress: !listing && form.venueAddress.trim().length < 4
       ? 'Add the street address before you submit this event.' : null,
     city: form.city.trim().length < 2
       ? 'Add the city — it is how buyers find this event near them.' : null,

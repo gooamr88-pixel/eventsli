@@ -178,10 +178,21 @@ function dateAgrees(local, evidence) {
 function timeFact(raw, { text, timezone }) {
   const evidence = quoted(raw?.evidence, text);
   const local = typeof raw?.value === 'string' ? raw.value.trim().slice(0, 16) : null;
-  const missing = (note) => ({ at: null, local: null, evidence, note });
+  /**
+   * `date` — the DAY alone, kept when the quote names a month or a weekday and
+   * agrees with it. A display-only listing is date-only (frontend
+   * lib/dateOnly.js), so "Saturday November 7" with no time is a complete
+   * answer for it, where a ticketed event still asks for the time.
+   */
+  const words = norm(evidence);
+  const date = evidence && /^\d{4}-\d{2}-\d{2}/.test(local || '')
+    && (monthsNamed(words).length || daysNamed(words).length) && dateAgrees(local, evidence)
+    ? local.slice(0, 10) : null;
+  const missing = (note) => ({ at: null, local: null, evidence, note, date });
 
-  if (!evidence) return missing(local ? 'NOT_IN_TEXT' : null);
+  if (!evidence) return { ...missing(local ? 'NOT_IN_TEXT' : null), date: null };
   if (!local) return missing(timesIn(evidence).size ? null : 'DATE_WITHOUT_TIME');
+  if (/^\d{4}-\d{2}-\d{2}$/.test(local)) return missing('DATE_WITHOUT_TIME');
   if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(local)) return missing('UNREADABLE');
 
   const minutes = Number(local.slice(11, 13)) * 60 + Number(local.slice(14, 16));
@@ -192,7 +203,7 @@ function timeFact(raw, { text, timezone }) {
 
   const at = zonedToUtcIso(local, timezone);
   if (!at) return missing('UNREADABLE');
-  return { at, local, evidence, note: null };
+  return { at, local, evidence, note: null, date: local.slice(0, 10) };
 }
 
 function shiftDay(local) {
