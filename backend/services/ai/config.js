@@ -30,7 +30,7 @@ const STALE = '2 minutes';
  * I-021). Primary plus fallback stays under it with room for the validation
  * and the two database round trips on either side.
  */
-const TIMEOUTS = Object.freeze({ primary: 11_000, fallback: 9_000 });
+const TIMEOUTS = Object.freeze({ primary: 11_000, fallback: 9_000, total: 20_000 });
 
 /**
  * Reading a poster takes longer than reading a paragraph — the model looks at
@@ -39,7 +39,7 @@ const TIMEOUTS = Object.freeze({ primary: 11_000, fallback: 9_000 });
  * little more, the fallback a little less, and no fallback starts after 14 s:
  * 14 + 8 leaves the upload and the database round trips room inside 30.
  */
-const VISION_TIMEOUTS = Object.freeze({ primary: 13_000, fallback: 8_000, lastStart: 14_000 });
+const VISION_TIMEOUTS = Object.freeze({ primary: 13_000, fallback: 8_000, lastStart: 14_000, total: 22_000 });
 
 const truthy = (v) => /^(1|true|yes|on)$/i.test(String(v || '').trim());
 const str = (v) => String(v || '').trim();
@@ -58,11 +58,12 @@ const PROVIDERS = Object.freeze({
     key: () => str(process.env.AI_GROQ_API_KEY),
     // One of the two Groq models documented for strict json_schema output.
     model: () => str(process.env.AI_GROQ_MODEL) || 'openai/gpt-oss-120b',
-    // gpt-oss reads text only; Groq's image-capable models are the Llama 4
-    // family (base64 images up to 4 MB). They support JSON mode but strict
-    // json_schema is not documented for them, so `providers.groq` asks for a
-    // JSON object and the server validator stays the guarantee.
-    visionModel: () => str(process.env.AI_GROQ_VISION_MODEL) || 'meta-llama/llama-4-scout-17b-16e-instruct',
+    // gpt-oss reads text only. Groq's image model, read from its vision page
+    // on 2026-11-03: qwen/qwen3.8-27b (JSON mode yes, strict json_schema not
+    // documented — so `providers.groq` asks for a JSON object and the server
+    // validator stays the guarantee). Llama 4 Scout, the first default here,
+    // was shut down on 2026-07-17 and answered 404 in production (I-024).
+    visionModel: () => str(process.env.AI_GROQ_VISION_MODEL) || 'qwen/qwen3.8-27b',
   },
 });
 

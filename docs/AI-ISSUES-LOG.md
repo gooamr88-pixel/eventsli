@@ -82,7 +82,7 @@ Statuses: `Open` · `In progress` · `Fixed (verified)` · `Deferred` ·
 | I-021 | 2026-10-18 | Constraint | Low | Fixed (verified) | The browser client gives up after 30 s, which caps the AI request budget |
 | I-023 | 2026-10-18 | Operability | Medium | Fixed (verified) | After deploy with AI "enabled in env", no card appeared, and the five possible causes were indistinguishable |
 | I-022 | 2026-10-18 | Design constraint | Low | Fixed (verified) | No bulk endpoints for ticket types or schedule, so saving an AI draft is several requests and not atomic |
-| I-024 | 2026-11-03 | Unverified | Medium | Open | Poster import is unverified against the live providers (vision model IDs, Groq JSON mode with images) |
+| I-024 | 2026-11-03 | Bug | High | Fixed (verified) | Poster drafts failed in production: Gemini 503 overload, and Groq's default vision model (Llama 4 Scout) no longer exists |
 | I-025 | 2026-11-03 | Unverified | Medium | Open | Poster integration tests written but not run (no local stack; `.env` points at production) |
 | I-026 | 2026-11-03 | Gap | Low | Fixed (verified) | AI-written tier names and schedule titles were not scrubbed of phone numbers or emails |
 
@@ -199,10 +199,12 @@ Statuses: `Open` · `In progress` · `Fixed (verified)` · `Deferred` ·
 - `fc255f3 cxbnd`, `ac6dee5 cdjbnd`, `edc8370 cddghbn`, `184a39e gdhcdbh`. History is hard to audit, and whether CI is green on `main` is not recorded.
 - **Status:** Open — check CI before AI work merges; AI work will use descriptive commits (only when the owner asks to commit).
 
-### I-024 — Poster import unverified against the live providers
-- `gemini-3.8-flash` (the configured text model) is assumed to accept inline images; the Groq vision default `meta-llama/llama-4-scout-17b-16e-instruct` was read from third-party docs on 2026-11-03 and may be retired by Groq. Both are env settings (`AI_GEMINI_VISION_MODEL`, `AI_GROQ_VISION_MODEL`).
-- **To verify:** with real keys, send one real poster through `/ai/event-drafts/from-image` (or extend `scripts/probe-ai.js`) and confirm each provider answers. If Groq's vision model is gone, set a current one or `AI_GROQ_VISION_MODEL=off`.
-- **Status:** Open.
+### I-024 — Poster drafts failed in production
+- **Seen 2026-11-03, first deploy:** every poster draft answered "We couldn't write a draft". The backend log showed both causes on every attempt: Gemini `503 "This model is currently experiencing high demand"` in 1.4–3.4 s, then Groq `404 "The model meta-llama/llama-4-scout-17b-16e-instruct does not exist"`. Groq shut Scout down on 2026-07-17; its suggested replacement `qwen/qwen3.6-27b` was itself shut down on 2026-09-14 (Groq deprecations page, read 2026-11-03). Nothing was charged (D-010 held).
+- **Fix:** (1) the Groq vision default is `qwen/qwen3.8-27b`, the model Groq's vision page lists, sent with `reasoning_effort: "none"` and `reasoning_format: "hidden"` (JSON mode refuses `raw` with a 400); (2) a fast Gemini 503 is retried once after 1 s, only while the fallback still has time to start; (3) a fallback after a fast failure gets the time the primary left unused (bounded by 22 s for posters, 20 s for text); (4) a leading `<think>` block is stripped before JSON parsing.
+- **Verified:** `aiPoster.test.js` — including "still overloaded after the retry, the draft comes from Groq — the production failure of 2026-11-03"; backend unit 356/356. Not yet confirmed against the live providers: send one real poster after deploying.
+- **Immediate relief without a deploy:** `AI_GROQ_VISION_MODEL=qwen/qwen3.8-27b` in `backend/.env`, then `pm2 restart eventsli-backend --update-env`.
+- **Status:** Fixed (verified in tests); live confirmation pending.
 
 ### I-025 — Poster integration tests not run
 - `backend/test/integration/aiCreator.test.js` gained two cases (a poster draft costs one draft and returns `posterText`; a non-event image and a non-image file cost nothing, and the bad file never reserves). No local Supabase stack was available, and `backend/.env` points at the live project, so they were not run (that suite must never run against production).

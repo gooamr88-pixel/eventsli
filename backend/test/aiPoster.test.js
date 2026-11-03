@@ -172,12 +172,15 @@ test('Groq gets the poster as a data URL on its vision model, in JSON mode', asy
   let sent;
   aiHttp.setTransport(async (r) => { sent = r; return groqOk({ ok: true }); });
   await CALLERS.groq({ ...buildPosterRequest({ ...BASE, notes: '' }), image: IMAGE, timeoutMs: 5000 });
-  assert.equal(sent.body.model, 'meta-llama/llama-4-scout-17b-16e-instruct');
+  assert.equal(sent.body.model, 'qwen/qwen3.8-27b');
   assert.deepEqual(sent.body.response_format, { type: 'json_object' });
   const [text, picture] = sent.body.messages[1].content;
   assert.match(text.text, /matches this JSON Schema exactly/);
   assert.equal(picture.image_url.url, `data:image/jpeg;base64,${IMAGE.data}`);
-  assert.ok(!('reasoning_effort' in sent.body));
+  // Qwen 3.8 thinks by default; copying a poster needs none of it, and JSON
+  // mode refuses `raw` reasoning with a 400 (Groq reasoning docs, 2026-11-03).
+  assert.equal(sent.body.reasoning_effort, 'none');
+  assert.equal(sent.body.reasoning_format, 'hidden');
 });
 
 test('without an image, both providers send exactly what they did before', async () => {
@@ -277,9 +280,9 @@ test('a failed poster read falls back to Groq’s vision model', async () => {
     return groqOk(posterAnswer());
   });
   const { meta } = await draftFrom();
-  assert.deepEqual(asked, ['gemini', 'meta-llama/llama-4-scout-17b-16e-instruct']);
+  assert.deepEqual(asked, ['gemini', 'qwen/qwen3.8-27b']);
   assert.equal(meta.provider, 'groq');
-  assert.equal(meta.model, 'meta-llama/llama-4-scout-17b-16e-instruct');
+  assert.equal(meta.model, 'qwen/qwen3.8-27b');
 });
 
 test('posters use only the providers that can see', async () => {
@@ -305,4 +308,64 @@ test('a contact printed on a poster cannot ride into a ticket name or a schedule
   const { draft } = await draftFrom();
   assert.equal(draft.tiers[0].name, 'Tables — call');
   assert.equal(draft.schedule[0].title, 'RSVP to');
+});
+
+// ─── When a provider is busy ───────────────────────────────────────────────
+const overloaded = { status: 503, text: JSON.stringify({ error: { message: 'This model is currently experiencing high demand.' } }) };
+
+test('a fast 503 "high demand" from Gemini is retried once, a second later, before falling back', async () => {
+  const asked = [];
+  let geminiCalls = 0;
+  aiHttp.setTransport(async (r) => {
+    if (r.url.includes('googleapis')) {
+      geminiCalls += 1;
+      asked.push(`gemini#${geminiCalls}`);
+      return geminiCalls === 1 ? overloaded : geminiOk(posterAnswer());
+    }
+    asked.push('groq');
+    return groqOk(posterAnswer());
+  });
+  const { meta } = await draftFrom();
+  assert.deepEqual(asked, ['gemini#1', 'gemini#2']);
+  assert.equal(meta.provider, 'gemini');
+});
+
+test('still overloaded after the retry, the draft comes from Groq — the production failure of 2026-11-03', async () => {
+  const asked = [];
+  aiHttp.setTransport(async (r) => {
+    if (r.url.includes('googleapis')) { asked.push('gemini'); return overloaded; }
+    asked.push(r.body.model);
+    return groqOk(posterAnswer());
+  });
+  const { meta } = await draftFrom();
+  assert.deepEqual(asked, ['gemini', 'gemini', 'qwen/qwen3.8-27b']);
+  assert.equal(meta.provider, 'groq');
+});
+
+test('a 500 is not a busy signal and is not retried', async () => {
+  const asked = [];
+  aiHttp.setTransport(async (r) => {
+    asked.push(r.url.includes('googleapis') ? 'gemini' : 'groq');
+    return r.url.includes('googleapis') ? { status: 500, text: '{}' } : groqOk(posterAnswer());
+  });
+  await draftFrom();
+  assert.deepEqual(asked, ['gemini', 'groq']);
+});
+
+test('a fallback after a fast failure gets the time the primary did not use', async () => {
+  const deadlines = [];
+  aiHttp.setTransport(async (r) => {
+    deadlines.push(r.timeoutMs);
+    return r.url.includes('googleapis') ? { status: 429, text: '{}' } : groqOk(posterAnswer());
+  });
+  await draftFrom();
+  const [, fallback] = deadlines;
+  assert.equal(deadlines[0], 13_000);
+  assert.ok(fallback > 8_000 && fallback <= 22_000, `fallback deadline ${fallback}`);
+});
+
+test('a reasoning block before the JSON is dropped, not treated as a broken answer', async () => {
+  const { parseJson } = require('../services/ai/providers');
+  assert.deepEqual(parseJson('<think>Read the poster first.</think>\n{"a":1}'), { a: 1 });
+  assert.deepEqual(parseJson('```json\n{"a":2}\n```'), { a: 2 });
 });

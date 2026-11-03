@@ -6,9 +6,12 @@
  * THE ORDER. Providers are tried in `AI_PROVIDER_ORDER` (Gemini, then Groq).
  * The next one is tried after ANY failure of the previous — a timeout, a 429
  * from a free tier that has run out for the minute, a refusal, JSON that does
- * not parse, or an answer the validator cannot use. The same provider is never
- * retried: on a free tier a second attempt is the request most likely to be
- * rate limited, and the organizer is waiting.
+ * not parse, or an answer the validator cannot use. The same provider is not
+ * retried — a second 429 is the likeliest answer to a first — with ONE
+ * exception: a fast 503 "high demand" (`OVERLOAD_RETRY`). Google sheds free-tier
+ * load in short bursts; production logged exactly that, three times in four
+ * minutes, each answered in 1–3 s. One retry a second later is cheap, and is
+ * only made while there is time left for the fallback after it.
  *
  * THE CLOCK. Each provider has its own deadline (config.TIMEOUTS) and the
  * whole thing has one more: a fallback is not started once the request is
@@ -28,6 +31,12 @@ const logger = require('../../utils/logger');
 
 /** No fallback starts after this much of the request has gone. */
 const LAST_START_MS = 15_000;
+
+/** A 503 that came back this early is retried once, this long after. */
+const OVERLOAD_RETRY = Object.freeze({ before: 5_000, wait: 1_000, minTimeout: 3_000 });
+
+const sleep = (ms) => new Promise((resolve) => { setTimeout(resolve, ms); });
+const overloaded = (err) => err?.code === 'AI_UPSTREAM' && err.status === 503;
 
 /** Longer than any real poster; past this the "transcript" is not one. */
 const MAX_POSTER_TEXT = 4000;
@@ -70,18 +79,37 @@ async function generateEventDraft({
     ? buildPosterRequest({ notes: text, listingType, country, currency, timezone, categories, now })
     : buildRequest({ text, listingType, country, currency, timezone, categories, now });
   const order = poster ? cfg.visionOrder : cfg.order;
-  const clock = poster ? cfg.visionTimeouts : { ...cfg.timeouts, lastStart: LAST_START_MS };
+  const clock = poster ? cfg.visionTimeouts : { total: 20_000, ...cfg.timeouts, lastStart: LAST_START_MS };
   const started = Date.now();
   const tried = [];
   let last = null;
 
+  const elapsed = () => Date.now() - started;
+  /**
+   * The primary gets its own deadline. A fallback gets AT LEAST its own, and
+   * more when the primary failed fast: a 503 in 2 s should not leave the
+   * fallback the same 8 s it would have had after a full timeout. Bounded by
+   * the clock's total, so the browser's 30 s is never at risk (I-021).
+   */
+  const deadline = (i) => (i === 0 ? clock.primary : Math.max(clock.fallback, clock.total - elapsed()));
+
   for (const [i, name] of order.entries()) {
-    if (i > 0 && Date.now() - started > clock.lastStart) break;
+    if (i > 0 && elapsed() > clock.lastStart) break;
     const call = callers[name];
     if (!call) continue;
     const at = Date.now();
     try {
-      const answer = await call({ ...request, image, timeoutMs: i === 0 ? clock.primary : clock.fallback });
+      let answer;
+      try {
+        answer = await call({ ...request, image, timeoutMs: deadline(i) });
+      } catch (err) {
+        if (!overloaded(err) || elapsed() > OVERLOAD_RETRY.before) throw err;
+        tried.push({ provider: name, ok: false, code: 'AI_OVERLOADED', ms: Date.now() - at });
+        await sleep(OVERLOAD_RETRY.wait);
+        // Leave the next provider its start: finish before `lastStart`.
+        const room = clock.lastStart - elapsed() - OVERLOAD_RETRY.wait;
+        answer = await call({ ...request, image, timeoutMs: Math.max(OVERLOAD_RETRY.minTimeout, Math.min(deadline(i), room)) });
+      }
       const read = poster ? readPoster(answer.json, text) : null;
       const evidence = read ? read.evidence : text;
       const { draft, dropped } = validateDraft(answer.json, {

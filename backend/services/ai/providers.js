@@ -39,13 +39,18 @@ function httpFailure(provider, res) {
   if (res.status === 429) return aiError('AI_RATE_LIMITED', 'The provider is rate limiting us.', { retryAfter: res.retryAfter });
   if (res.status === 401 || res.status === 403) return aiError('AI_AUTH', 'The provider rejected our key.');
   if (res.status >= 400 && res.status < 500) return aiError('AI_REQUEST_REJECTED', 'The provider rejected the request.');
-  return aiError('AI_UPSTREAM', 'The provider failed.');
+  // The status rides along: a 503 "high demand" is worth one quick retry of
+  // the same provider (`eventDraftService`), a 500 is not.
+  return aiError('AI_UPSTREAM', 'The provider failed.', { status: res.status });
 }
 
 function parseJson(text) {
   if (typeof text !== 'string' || !text.trim()) throw aiError('AI_EMPTY', 'The provider returned nothing.');
-  // Some models wrap JSON in a code fence even in JSON mode. Unwrap, then parse.
-  const body = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+  // Some models wrap JSON in a code fence even in JSON mode, and a reasoning
+  // model can lead with a <think> block. Drop both, then parse.
+  const body = text.trim()
+    .replace(/^<think>[\s\S]*?<\/think>\s*/i, '')
+    .replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
   try {
     return JSON.parse(body);
   } catch {
@@ -140,6 +145,12 @@ async function groq({ system, user, jsonSchema, timeoutMs, image = null }) {
       response_format: { type: 'json_object' },
       temperature: 0.2,
       max_completion_tokens: 6144,
+      // Copying a poster's words into a form needs no reasoning, and thinking
+      // first is seconds the fallback does not have. Qwen 3.8 accepts "none";
+      // `hidden` keeps any reasoning out of the content (JSON mode refuses
+      // `raw` with a 400). gpt-oss rejects `reasoning_format`, so this is
+      // scoped to the Qwen 3.8 family only.
+      ...(/^qwen\/qwen3\.8/.test(model) ? { reasoning_effort: 'none', reasoning_format: 'hidden' } : {}),
     } : {
       model,
       messages: [{ role: 'system', content: system }, { role: 'user', content: user }],

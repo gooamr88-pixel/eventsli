@@ -211,7 +211,7 @@ AI_PROVIDER_ORDER=gemini,groq
 # vision model = AI_GEMINI_MODEL. `off` keeps a provider for text only.
 AI_POSTER_ENABLED=true
 AI_GEMINI_VISION_MODEL=
-AI_GROQ_VISION_MODEL=meta-llama/llama-4-scout-17b-16e-instruct
+AI_GROQ_VISION_MODEL=qwen/qwen3.8-27b
 # Optional: most successful drafts per 24 h across all organizers. Blank = none.
 AI_GLOBAL_DAILY_CAP=
 
