@@ -6320,18 +6320,6 @@ input.es-lp-filter__control::-webkit-search-cancel-button { display: none; }
 .es-lp-seatmap__legend i.is-open   { background: var(--es-seat-available); }
 .es-lp-seatmap__legend i.is-picked { background: var(--es-seat-selected); }
 .es-lp-seatmap__legend i.is-sold   { background: var(--es-seat-sold); }
-.es-lp-scanmini {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin-top: 20px;
-  padding: 12px 14px;
-  border-radius: 12px;
-  background: var(--es-accent-wash);
-  font-size: var(--es-text-sm);
-  font-weight: 600;
-  color: var(--es-accent);
-}
 .es-lp-steps__cta { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.75rem; margin-top: 2rem; }
 @media (width >= theme(--breakpoint-lg)) { .es-lp-steps { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.25rem; } }
 
@@ -9905,3 +9893,144 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
 .es-asst__fine { padding: 0 0.875rem max(0.625rem, var(--fx-safe-b, 0px)); background: var(--es-surface); font-size: 0.6875rem; line-height: 1.45; color: var(--es-text-subtle); }
 .es-asst__fine a { color: var(--es-text-muted); text-decoration: underline; }
 }   /* end @layer components — the Eventsli assistant */
+
+/* ── Door showcase (components/landing/DoorShowcase.jsx) ───────────────────
+   The real ticket beside the door app. The QR stays dark on white in both
+   themes: a code is never inverted. */
+@layer components {
+.es-door-mini { display: flex; align-items: center; gap: 0.75rem; margin-top: 20px; padding: 10px 12px; border: 1px solid var(--es-border); border-radius: 14px; background: var(--es-bg-sunken); }
+.es-door-mini__qr { flex: none; width: 56px; height: 56px; border-radius: 8px; background: #fff; }
+.es-door-mini__title { display: flex; align-items: center; gap: 0.375rem; font-weight: 600; color: var(--es-success); }
+.es-door-mini__dot { width: 0.5rem; height: 0.5rem; border-radius: 999px; background: var(--es-success); }
+.es-door-mini__meta { font-size: var(--es-text-xs); color: var(--es-text-muted); }
+
+.es-door { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2rem; margin-top: 2rem; padding: 1.5rem; border: 1px solid var(--es-border); border-radius: 24px; background: var(--es-surface); }
+@media (width >= 64rem) {
+  .es-door { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "copy device" "ticket ticket"; align-items: center; column-gap: 3rem; padding: 2.5rem; }
+  .es-door__copy { grid-area: copy; }
+  .es-door__device { grid-area: device; }
+  .es-door__ticket { grid-area: ticket; }
+}
+.es-door__device { display: flex; flex-direction: column; align-items: center; gap: 0.625rem; }
+.es-door__label { font-size: var(--es-text-xs); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--es-text-subtle); }
+.es-door__ticket .es-door__label { margin-bottom: 0.625rem; }
+.es-door__title { margin: 0.5rem 0; font-size: var(--es-text-2xl); font-weight: 600; letter-spacing: -0.02em; line-height: 1.15; }
+.es-door__lede { color: var(--es-text-muted); line-height: 1.6; }
+.es-door__features { display: grid; gap: 0.875rem; margin-top: 1.25rem; }
+.es-door__features li { display: flex; gap: 0.75rem; align-items: flex-start; }
+.es-door__fi { display: grid; place-items: center; flex: none; width: 2.25rem; height: 2.25rem; border-radius: 10px; background: var(--es-accent-wash); color: var(--es-accent); }
+.es-door__ft { display: block; font-weight: 600; }
+.es-door__fd { display: block; font-size: var(--es-text-sm); color: var(--es-text-muted); }
+
+.es-door__phone { position: relative; z-index: 1; width: min(17rem, 100%); padding: 0.625rem; border-radius: 2.5rem; background: #0e1416; box-shadow: var(--es-shadow-xl); }
+.es-door__screen { display: flex; flex-direction: column; gap: 0.625rem; overflow: hidden; padding: 0.5rem 0.75rem 0.875rem; border-radius: 2rem; background: var(--es-surface); color: var(--es-text); font-size: 0.75rem; }
+.es-door__statusbar { display: flex; align-items: center; justify-content: space-between; font-size: 0.6875rem; font-weight: 600; }
+.es-door__notch { width: 4.5rem; height: 1.1rem; border-radius: 999px; background: #0e1416; }
+.es-door__head { display: flex; align-items: center; gap: 0.375rem; }
+.es-door__brand { display: inline-flex; align-items: center; gap: 0.25rem; font-weight: 700; color: var(--es-accent); }
+.es-door__brand svg { width: 1rem; height: 1rem; fill: currentColor; }
+.es-door__badge { padding: 0.0625rem 0.375rem; border-radius: 999px; background: var(--es-accent); color: var(--es-text-on-accent); font-size: 0.625rem; font-weight: 700; }
+.es-door__live { display: inline-flex; align-items: center; gap: 0.25rem; margin-left: auto; font-weight: 600; color: var(--es-success); }
+.es-door__live i { width: 0.4375rem; height: 0.4375rem; border-radius: 999px; background: var(--es-success); }
+.es-door__event { color: var(--es-text-muted); }
+.es-door__count p { color: var(--es-text-muted); }
+.es-door__count b { font-size: 1rem; color: var(--es-text); }
+.es-door__bar { display: block; height: 0.3125rem; margin-top: 0.25rem; overflow: hidden; border-radius: 999px; background: var(--es-bg-sunken); }
+.es-door__bar span { display: block; height: 100%; border-radius: 999px; background: var(--es-accent); }
+.es-door__lens { position: relative; display: grid; place-items: center; aspect-ratio: 1; border-radius: 1rem; background: radial-gradient(circle at 50% 40%, #2b3436, #0b0f10); overflow: hidden; }
+.es-door__lens-qr { width: 58%; border-radius: 6px; transform: rotate(-4deg); box-shadow: 0 10px 30px rgb(0 0 0 / 0.5); }
+.es-door__corner { position: absolute; width: 1.5rem; height: 1.5rem; border: 3px solid #fff; }
+.es-door__corner--tl { top: 12%; left: 12%; border-right: 0; border-bottom: 0; border-top-left-radius: 8px; }
+.es-door__corner--tr { top: 12%; right: 12%; border-left: 0; border-bottom: 0; border-top-right-radius: 8px; }
+.es-door__corner--bl { bottom: 12%; left: 12%; border-right: 0; border-top: 0; border-bottom-left-radius: 8px; }
+.es-door__corner--br { bottom: 12%; right: 12%; border-left: 0; border-top: 0; border-bottom-right-radius: 8px; }
+.es-door__beam { position: absolute; left: 14%; right: 14%; top: 20%; height: 2px; background: #6ee7d8; box-shadow: 0 0 12px #6ee7d8; animation: es-door-scan 2.4s ease-in-out infinite alternate; }
+@keyframes es-door-scan { to { top: 78%; } }
+@media (prefers-reduced-motion: reduce) { .es-door__beam { animation: none; top: 50%; } }
+.es-door__result { padding: 0.625rem; border: 1px solid color-mix(in srgb, var(--es-success) 40%, transparent); border-radius: 0.875rem; background: color-mix(in srgb, var(--es-success) 12%, var(--es-surface)); }
+.es-door__result-top { display: flex; align-items: center; gap: 0.5rem; }
+.es-door__ok { display: grid; place-items: center; flex: none; width: 1.75rem; height: 1.75rem; border-radius: 999px; background: var(--es-success); color: #fff; }
+.es-door__result-title { font-size: 1rem; font-weight: 700; color: var(--es-success); }
+.es-door__result-note { color: var(--es-text-muted); }
+.es-door__time { margin-left: auto; font-weight: 600; }
+.es-door__result-seat { margin-top: 0.375rem; font-weight: 600; }
+.es-door__result-who { color: var(--es-text-muted); }
+.es-door__undo { display: inline-block; margin-top: 0.375rem; color: var(--es-accent); font-weight: 600; text-decoration: underline; }
+.es-door__log li { display: flex; align-items: center; gap: 0.375rem; padding-block: 0.25rem; border-top: 1px solid var(--es-border); color: var(--es-text-muted); }
+.es-door__log li span:nth-child(2) { flex: 1; min-width: 0; }
+.es-door__log i { width: 0.4375rem; height: 0.4375rem; border-radius: 999px; }
+.es-door__log i.is-ok { background: var(--es-success); }
+.es-door__log i.is-warn { background: var(--es-warning); }
+.es-door__foot { display: flex; align-items: center; gap: 0.25rem; color: var(--es-text-subtle); font-size: 0.6875rem; }
+}   /* end @layer components — door showcase */
+
+/* ── Door showcase (components/landing/DoorShowcase.jsx) ───────────────────
+   The real ticket beside the door app. The QR stays dark on white in both
+   themes: a code is never inverted. The phone's bezel and the camera view are
+   drawn dark on purpose — they are a device and a camera, not page chrome. */
+@layer components {
+.es-door-mini { display: flex; align-items: center; gap: 0.75rem; margin-top: 20px; padding: 10px 12px; border: 1px solid var(--es-border); border-radius: 14px; background: var(--es-bg-sunken); }
+.es-door-mini__qr { flex: none; width: 56px; height: 56px; border-radius: 8px; background: #fff; }
+.es-door-mini__title { display: flex; align-items: center; gap: 0.375rem; font-weight: 600; color: var(--es-success); }
+.es-door-mini__dot { width: 0.5rem; height: 0.5rem; border-radius: 999px; background: var(--es-success); }
+.es-door-mini__meta { font-size: var(--es-text-xs); color: var(--es-text-muted); }
+
+.es-door { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2rem; margin-top: 2rem; padding: 1.5rem; border: 1px solid var(--es-border); border-radius: 24px; background: var(--es-surface); }
+@media (width >= 64rem) {
+  .es-door { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "copy device" "ticket ticket"; align-items: center; column-gap: 3rem; padding: 2.5rem; }
+  .es-door__copy { grid-area: copy; }
+  .es-door__device { grid-area: device; }
+  .es-door__ticket { grid-area: ticket; }
+}
+.es-door__device { display: flex; flex-direction: column; align-items: center; gap: 0.625rem; }
+.es-door__label { font-size: var(--es-text-xs); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--es-text-subtle); }
+.es-door__ticket .es-door__label { margin-bottom: 0.625rem; }
+.es-door__title { margin: 0.5rem 0; font-size: var(--es-text-2xl); font-weight: 600; letter-spacing: -0.02em; line-height: 1.15; }
+.es-door__lede { color: var(--es-text-muted); line-height: 1.6; }
+.es-door__features { display: grid; gap: 0.875rem; margin-top: 1.25rem; }
+.es-door__features li { display: flex; gap: 0.75rem; align-items: flex-start; }
+.es-door__fi { display: grid; place-items: center; flex: none; width: 2.25rem; height: 2.25rem; border-radius: 10px; background: var(--es-accent-wash); color: var(--es-accent); }
+.es-door__ft { display: block; font-weight: 600; }
+.es-door__fd { display: block; font-size: var(--es-text-sm); color: var(--es-text-muted); }
+
+.es-door__phone { position: relative; z-index: 1; width: min(17rem, 100%); padding: 0.625rem; border-radius: 2.5rem; background: #0e1416; box-shadow: var(--es-shadow-xl); }
+.es-door__screen { display: flex; flex-direction: column; gap: 0.625rem; overflow: hidden; padding: 0.5rem 0.75rem 0.875rem; border-radius: 2rem; background: var(--es-surface); color: var(--es-text); font-size: 0.75rem; }
+.es-door__statusbar { display: flex; align-items: center; justify-content: space-between; font-size: 0.6875rem; font-weight: 600; }
+.es-door__notch { width: 4.5rem; height: 1.1rem; border-radius: 999px; background: #0e1416; }
+.es-door__head { display: flex; align-items: center; gap: 0.375rem; }
+.es-door__brand { display: inline-flex; align-items: center; gap: 0.25rem; font-weight: 700; color: var(--es-accent); }
+.es-door__brand svg { width: 1rem; height: 1rem; fill: currentColor; }
+.es-door__badge { padding: 0.0625rem 0.375rem; border-radius: 999px; background: var(--es-accent); color: var(--es-text-on-accent); font-size: 0.625rem; font-weight: 700; }
+.es-door__live { display: inline-flex; align-items: center; gap: 0.25rem; margin-left: auto; font-weight: 600; color: var(--es-success); }
+.es-door__live i { width: 0.4375rem; height: 0.4375rem; border-radius: 999px; background: var(--es-success); }
+.es-door__event { color: var(--es-text-muted); }
+.es-door__count p { color: var(--es-text-muted); }
+.es-door__count b { font-size: 1rem; color: var(--es-text); }
+.es-door__bar { display: block; height: 0.3125rem; margin-top: 0.25rem; overflow: hidden; border-radius: 999px; background: var(--es-bg-sunken); }
+.es-door__bar span { display: block; height: 100%; border-radius: 999px; background: var(--es-accent); }
+.es-door__lens { position: relative; display: grid; place-items: center; aspect-ratio: 1; overflow: hidden; border-radius: 1rem; background: radial-gradient(circle at 50% 40%, #2b3436, #0b0f10); }
+.es-door__lens-qr { width: 58%; border-radius: 6px; transform: rotate(-4deg); box-shadow: 0 10px 30px rgb(0 0 0 / 0.5); }
+.es-door__corner { position: absolute; width: 1.5rem; height: 1.5rem; border: 3px solid #fff; }
+.es-door__corner--tl { top: 12%; left: 12%; border-right: 0; border-bottom: 0; border-top-left-radius: 8px; }
+.es-door__corner--tr { top: 12%; right: 12%; border-left: 0; border-bottom: 0; border-top-right-radius: 8px; }
+.es-door__corner--bl { bottom: 12%; left: 12%; border-right: 0; border-top: 0; border-bottom-left-radius: 8px; }
+.es-door__corner--br { bottom: 12%; right: 12%; border-left: 0; border-top: 0; border-bottom-right-radius: 8px; }
+.es-door__beam { position: absolute; left: 14%; right: 14%; top: 20%; height: 2px; background: #6ee7d8; box-shadow: 0 0 12px #6ee7d8; animation: es-door-scan 2.4s ease-in-out infinite alternate; }
+@keyframes es-door-scan { to { top: 78%; } }
+@media (prefers-reduced-motion: reduce) { .es-door__beam { animation: none; top: 50%; } }
+.es-door__result { padding: 0.625rem; border: 1px solid color-mix(in srgb, var(--es-success) 40%, transparent); border-radius: 0.875rem; background: color-mix(in srgb, var(--es-success) 12%, var(--es-surface)); }
+.es-door__result-top { display: flex; align-items: center; gap: 0.5rem; }
+.es-door__ok { display: grid; place-items: center; flex: none; width: 1.75rem; height: 1.75rem; border-radius: 999px; background: var(--es-success); color: var(--es-text-on-accent); }
+.es-door__result-title { font-size: 1rem; font-weight: 700; color: var(--es-success); }
+.es-door__result-note { color: var(--es-text-muted); }
+.es-door__time { margin-left: auto; font-weight: 600; }
+.es-door__result-seat { margin-top: 0.375rem; font-weight: 600; }
+.es-door__result-who { color: var(--es-text-muted); }
+.es-door__undo { display: inline-block; margin-top: 0.375rem; color: var(--es-accent); font-weight: 600; text-decoration: underline; }
+.es-door__log li { display: flex; align-items: center; gap: 0.375rem; padding-block: 0.25rem; border-top: 1px solid var(--es-border); color: var(--es-text-muted); }
+.es-door__log li span:nth-child(2) { flex: 1; min-width: 0; }
+.es-door__log i { flex: none; width: 0.4375rem; height: 0.4375rem; border-radius: 999px; }
+.es-door__log i.is-ok { background: var(--es-success); }
+.es-door__log i.is-warn { background: var(--es-warning); }
+.es-door__foot { display: flex; align-items: center; gap: 0.25rem; color: var(--es-text-subtle); font-size: 0.6875rem; }
+}   /* end @layer components — door showcase */

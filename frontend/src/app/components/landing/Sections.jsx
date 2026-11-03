@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import NavIcon from '../shell/NavIcon';
+import DoorShowcase, { ScanMini } from './DoorShowcase';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -205,9 +206,11 @@ export function Steps() {
             <span className="es-lp-step__n">3</span>
             <h3>Sell and scan at the door</h3>
             <p>Watch sales live, then check guests in with any phone — it keeps working offline.</p>
-            <div aria-hidden className="es-lp-scanmini"><NavIcon name="scan" size={24} />Row C, Seat 12 — admitted</div>
+            <ScanMini />
           </li>
         </ol>
+
+        <DoorShowcase />
 
         <div className="es-lp-steps__cta">
           <Link href="/register/organizer" className="es-lp-btn es-lp-btn--solid">Start selling</Link>
