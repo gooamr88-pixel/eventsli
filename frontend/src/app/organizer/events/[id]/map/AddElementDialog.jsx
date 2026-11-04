@@ -33,9 +33,11 @@ import ZonePreview from './ZonePreview';
 const MAX_BATCH = 50;
 const GRID_MAX = 12;
 
-export default function AddElementDialog({ origin, roomForTables, onAdd, onClose }) {
-  const [kind, setKind] = useState({ family: 'table', key: 'round' });
-  const [seatCount, setSeatCount] = useState(10);
+// `initial` presets the kind (and seat count) — the side panel's "Row",
+// "Table", "Stage"… open the dialog already on that choice.
+export default function AddElementDialog({ origin, roomForTables, onAdd, onClose, initial = null }) {
+  const [kind, setKind] = useState(() => (initial ? { family: initial.family, key: initial.key } : { family: 'table', key: 'round' }));
+  const [seatCount, setSeatCount] = useState(initial?.seatCount ?? 10);
   const [label, setLabel] = useState('');
   const [multiple, setMultiple] = useState(false);
   const [arrangement, setArrangement] = useState('row');

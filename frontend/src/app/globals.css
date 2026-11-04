@@ -11870,3 +11870,58 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
 .es-tiersteps__body:hover b { color: var(--es-accent); }
 
 }   /* end @layer components — event at a glance and ticket types, 2026-11 */
+
+/* ── Seating map, 2026-11 ───────────────────────────────────────────────────
+   The toolbar on the canvas card, full screen, and the build panel. */
+@layer components {
+
+.es-mapexport { gap: 0.5rem; }
+.es-page-head--section .es-page-head__actions .es-btn[aria-disabled="true"] { opacity: 0.55; cursor: not-allowed; }
+
+.es-mapcard { gap: 0.75rem; padding: 0.75rem; }
+.es-maptoolbar { padding: 0.25rem 0.25rem 0.5rem; border-bottom: 1px solid var(--es-border); }
+.es-mapcard .es-mapcanvas { border-radius: 0.75rem; }
+
+/* Full screen enlarges the card, toolbar and all; the canvas takes the rest. */
+.es-mapcard:fullscreen { display: flex; flex-direction: column; padding: 1rem; border-radius: 0; background: var(--es-surface); }
+.es-mapcard:fullscreen .es-mapcanvas { flex: 1; max-height: none; aspect-ratio: auto; }
+
+.es-mapbuild { gap: 1rem; }
+.es-mapbuild__list { display: flex; flex-direction: column; gap: 0.5rem; }
+.es-mapbuild__item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  min-height: 3.5rem;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid var(--es-border);
+  border-radius: 0.75rem;
+  background: var(--es-surface);
+  font: inherit;
+  text-align: start;
+  color: var(--es-text-muted);
+  cursor: pointer;
+}
+.es-mapbuild__item:hover { border-color: var(--es-accent-edge); background: color-mix(in srgb, var(--es-accent-wash) 45%, var(--es-surface)); color: var(--es-accent); }
+.es-mapbuild__item:first-child { border-color: var(--es-accent-edge); background: color-mix(in srgb, var(--es-accent-wash) 45%, var(--es-surface)); }
+.es-mapbuild__icon { display: inline-flex; color: var(--es-accent); }
+.es-mapbuild__item b { display: block; font-size: var(--es-text-sm); font-weight: 700; color: var(--es-text); }
+.es-mapbuild__item small { display: block; font-size: var(--es-text-xs); color: var(--es-text-muted); }
+.es-mapbuild__assign { display: flex; flex-direction: column; gap: 0.5rem; padding-top: 1rem; border-top: 1px solid var(--es-border); }
+.es-mapbuild__h { margin: 0; font-size: var(--es-text-md); font-weight: 700; color: var(--es-text); }
+.es-mapbuild__hint {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  padding: 0.5rem 0.875rem;
+  border: 1px solid var(--es-border);
+  border-radius: 0.625rem;
+  font-size: var(--es-text-sm);
+  color: var(--es-text);
+}
+.es-mapbuild__hint svg { color: var(--es-text-muted); }
+
+}   /* end @layer components — seating map, 2026-11 */

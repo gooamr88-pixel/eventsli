@@ -22,16 +22,32 @@
  * here would be asking twice about something that has not happened yet.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-export default function SelectionPanel({ tableCount, zoneCount, onRotate, onDuplicate, onRemove, onClear }) {
+/**
+ * `tiers` + `onAssign`: one ticket type for every selected table at once — the
+ * fastest way to price a whole section. Zones have no seats, so they are left
+ * out of it.
+ */
+export default function SelectionPanel({ tableCount, zoneCount, onRotate, onDuplicate, onRemove, onClear, tiers = [], onAssign = null }) {
   const total = tableCount + zoneCount;
 
   return (
-    <aside className="fx-stack fx-stack--sm es-card p-5">
+    <aside className="fx-stack fx-stack--sm es-dcard">
       <h3 className="text-lg">{total} selected</h3>
 
       <p className="text-sm text-muted">
         {describe(tableCount, zoneCount)} Drag any one of them to move the whole group.
       </p>
+
+      {onAssign && tableCount > 0 && (
+        <label className="fx-stack fx-stack--sm gap-1">
+          <span className="text-sm font-semibold text-ink">Ticket type for {tableCount === 1 ? 'this table' : `these ${tableCount} tables`}</span>
+          <select className="es-input" defaultValue="" onChange={(e) => { if (e.target.value) onAssign(e.target.value === 'none' ? null : e.target.value); e.target.value = ''; }}>
+            <option value="" disabled>Assign to ticket type…</option>
+            {tiers.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+            <option value="none">No ticket type</option>
+          </select>
+        </label>
+      )}
 
       <div className="fx-row flex-wrap gap-2">
         <button type="button" onClick={() => onRotate(90)} className="es-btn es-btn--secondary es-btn--sm">

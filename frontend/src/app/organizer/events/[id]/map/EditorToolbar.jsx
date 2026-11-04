@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import NavIcon from '../../../../components/shell/NavIcon';
 import { SHAPES } from '../../../../components/seating/seatingGeometry';
 import { ZONES, ZONE_KINDS } from '../../../../components/seating/venueZones';
 import { SHAPE_NAMES } from './shapeNames';
@@ -26,10 +27,10 @@ import { keyOf } from './useMapDraft';
  */
 export default function EditorToolbar({
   tables, zones, selection, tool, onToolChange, snapToGrid, onSnapChange,
-  canUndo, canRedo, onUndo, onRedo, onAdd, zoom, onDesign = null,
+  canUndo, canRedo, onUndo, onRedo, onAdd, zoom, onDesign = null, onFullscreen = null,
 }) {
   return (
-    <div className="fx-row fx-row--between flex-wrap gap-2 rounded-(--es-radius-lg) border border-border-base bg-surface px-3 py-2">
+    <div className="es-maptoolbar fx-row fx-row--between flex-wrap gap-2">
       <div className="fx-row flex-wrap gap-2">
         <button type="button" onClick={onAdd} className="es-btn es-btn--primary es-btn--sm">
           Add element
@@ -80,6 +81,7 @@ export default function EditorToolbar({
           <span className="min-w-12 text-center text-xs tabular-nums text-muted">{Math.round(zoom.scale * 100)}%</span>
           <ToolbarButton onClick={zoom.in} label="Zoom in">+</ToolbarButton>
           <ToolbarButton onClick={zoom.fit} label="Frame the whole room">Fit</ToolbarButton>
+          {onFullscreen && <ToolbarButton onClick={onFullscreen} label="Full screen" title="Full screen (Esc to leave)"><NavIcon name="scan" size={16} /></ToolbarButton>}
         </div>
       </div>
     </div>

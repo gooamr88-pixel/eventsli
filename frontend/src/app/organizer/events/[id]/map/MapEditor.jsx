@@ -15,6 +15,8 @@ import AddElementDialog from './AddElementDialog';
 import TablePanel from './TablePanel';
 import ZonePanel from './ZonePanel';
 import SelectionPanel from './SelectionPanel';
+import BuildPanel from './BuildPanel';
+import { MapHeader, MapBanner, countUnpriced } from './MapChrome';
 import SeatingPackModal from './print/SeatingPackModal';
 import SeatingDesigner, { DesignBanner } from './SeatingDesigner';
 import { useAiQuota } from '../../../../hooks/useAiQuota';
@@ -24,7 +26,6 @@ import { useCanvasInteraction } from './useCanvasInteraction';
 import { useEditorKeys } from './useEditorKeys';
 import { useUnsavedGuard } from './useUnsavedGuard';
 import { useStepSave } from '../BuildStep';
-import { MAX_ZONES } from '../../../../components/seating/venueZones';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -103,6 +104,15 @@ export default function MapEditor({ eventId }) {
 
   useUnsavedGuard(dirty);
 
+  // Which kind the side panel asked "Add to the map" to open on (null: the
+  // toolbar's plain Add element), and the card Full screen enlarges.
+  const [addInitial, setAddInitial] = useState(null);
+  const canvasCard = useRef(null);
+  const toggleFullscreen = () => {
+    if (document.fullscreenElement) document.exitFullscreen?.();
+    else canvasCard.current?.requestFullscreen?.();
+  };
+
   /**
    * ───────────────────────────────────────────────────────────────────────────
    * "SAVE AND CONTINUE" SAVES THE MAP.
@@ -152,6 +162,11 @@ export default function MapEditor({ eventId }) {
   const removeSelected = () => {
     draft.removeSelection(selection.selection);
     selection.clear();
+  };
+
+  /** One ticket type for every selected table — the side panel's assignment. */
+  const assignTier = (tierId) => {
+    for (const key of selection.selection.tables) draft.updateTable(key, { tierId });
   };
 
   const rotateSelected = (degrees) => {
@@ -286,49 +301,19 @@ export default function MapEditor({ eventId }) {
 
   return (
     <div className="fx-stack">
-      <div className="fx-row fx-row--between flex-wrap gap-3">
-        <div className="fx-stack fx-stack--sm fx-min0 gap-2">
-          {/* The page's <h1>: the event layout's head is the breadcrumb (see layout.jsx). */}
-          <h1 className="es-section-title">Seating map</h1>
-          {/* What the room holds, as figures an organizer plans by — seats,
-              not just tables. The limits appear only when they are close. */}
-          <ul className="es-mapsum" aria-label="This room">
-            <li>
-              <b className="es-nums">{tables.length}</b>
-              {tables.length === 1 ? ' table' : ' tables'}
-              {tables.length >= MAX_TABLES * 0.8 && <span className="text-subtle"> of {MAX_TABLES}</span>}
-            </li>
-            <li><b className="es-nums">{seatTotal}</b>{seatTotal === 1 ? ' seat' : ' seats'}</li>
-            {zones.length > 0 && (
-              <li>
-                <b className="es-nums">{zones.length}</b>
-                {zones.length === 1 ? ' zone' : ' zones'}
-                {zones.length >= MAX_ZONES * 0.8 && <span className="text-subtle"> of {MAX_ZONES}</span>}
-              </li>
-            )}
-            {soldTotal > 0 && <li><b className="es-nums">{soldTotal}</b> sold or held</li>}
-            {dirty && <li className="es-mapsum__dirty">Unsaved changes</li>}
-          </ul>
-        </div>
+      <MapHeader
+        tables={tables}
+        zones={zones}
+        seatTotal={seatTotal}
+        soldTotal={soldTotal}
+        dirty={dirty}
+        saving={saving}
+        canSave={!saving && dirty && problems.length === 0}
+        onSave={save}
+        onExport={() => setShowPack(true)}
+      />
 
-        <div className="fx-row flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => setShowPack(true)}
-            disabled={tables.length === 0 && zones.length === 0}
-            className="es-btn es-btn--secondary"
-          >
-            Print / export
-          </button>
-          <button
-            type="button" onClick={save}
-            disabled={saving || !dirty || problems.length > 0}
-            className="es-btn es-btn--primary"
-          >
-            {saving ? 'Saving…' : 'Save map'}
-          </button>
-        </div>
-      </div>
+      <MapBanner tables={tables} />
 
       {/* Refused BEFORE the round trip. The API's messages for these are
           accurate but arrive after a save that looked like it was working. */}
@@ -346,34 +331,6 @@ export default function MapEditor({ eventId }) {
         <DesignBanner empty={tables.length === 0 && zones.length === 0} onOpen={() => setShowDesigner(true)} />
       )}
 
-      {/* Phones: a sentence and a switch, the toolbar folded — PhoneTools.jsx. */}
-      <PhoneTools open={toolsOpen} onToggle={() => setToolsOpen((open) => !open)} controls="map-tools" />
-      <div id="map-tools" className="es-maptools" data-open={toolsOpen ? 'true' : 'false'}>
-      <EditorToolbar
-        tables={tables}
-        zones={zones}
-        selection={selection}
-        tool={tool}
-        onToolChange={setToolBoth}
-        snapToGrid={snapToGrid}
-        onSnapChange={setSnapToGrid}
-        canUndo={draft.canUndo}
-        canRedo={draft.canRedo}
-        onUndo={draft.undo}
-        onRedo={draft.redo}
-        onAdd={() => setShowAdd(true)}
-        // Shown whenever AI is set up — and when it cannot run here, the dialog
-        // says why, rather than the button silently not being there.
-        onDesign={aiQuota?.enabled || aiQuota?.reason === 'ADMIN_ACCOUNT' ? () => setShowDesigner(true) : null}
-        zoom={{
-          scale: WORLD.width / Math.max(panzoom.view.width, 1),
-          in: panzoom.zoomIn,
-          out: panzoom.zoomOut,
-          fit: fitRoom,
-        }}
-      />
-      </div>
-
       {/* THE PROPERTIES SIT BESIDE THE MAP once there is room (2026-10-16,
           owner's review). This was a two-column grid whose columns had to be
           640px each, so below about 1,500px of screen the panel wrapped UNDER
@@ -382,30 +339,64 @@ export default function MapEditor({ eventId }) {
           right whenever the editor itself is 52rem wide. */}
       <div className="es-mapeditor">
       <div className="es-mapeditor__body">
-        <EditorCanvas
-          className="es-mapcanvas"
-          tables={tables}
-          zones={zones}
-          categories={categories}
-          soldByTable={soldByTable}
-          selection={selection}
-          panzoom={panzoom}
-          interaction={interaction}
-          tool={tool}
-          spacePan={spacePan}
-          snapToGrid={snapToGrid}
-          onAddAt={(position) => {
-            const [key] = draft.addTables([{ position }]);
-            if (key) selection.selectOnly('table', key);
-          }}
-          onNudge={onElementKeyDown}
-        />
+        {/* The toolbar sits ON the canvas card, as one surface — and that card
+            is what Full screen enlarges, toolbar and all. */}
+        <div ref={canvasCard} className="es-dcard es-mapcard">
+          {/* Phones: a sentence and a switch, the toolbar folded — PhoneTools.jsx. */}
+          <PhoneTools open={toolsOpen} onToggle={() => setToolsOpen((open) => !open)} controls="map-tools" />
+          <div id="map-tools" className="es-maptools" data-open={toolsOpen ? 'true' : 'false'}>
+            <EditorToolbar
+              tables={tables}
+              zones={zones}
+              selection={selection}
+              tool={tool}
+              onToolChange={setToolBoth}
+              snapToGrid={snapToGrid}
+              onSnapChange={setSnapToGrid}
+              canUndo={draft.canUndo}
+              canRedo={draft.canRedo}
+              onUndo={draft.undo}
+              onRedo={draft.redo}
+              onAdd={() => { setAddInitial(null); setShowAdd(true); }}
+              onFullscreen={toggleFullscreen}
+              // Shown whenever AI is set up — and when it cannot run here, the dialog
+              // says why, rather than the button silently not being there.
+              onDesign={aiQuota?.enabled || aiQuota?.reason === 'ADMIN_ACCOUNT' ? () => setShowDesigner(true) : null}
+              zoom={{
+                scale: WORLD.width / Math.max(panzoom.view.width, 1),
+                in: panzoom.zoomIn,
+                out: panzoom.zoomOut,
+                fit: fitRoom,
+              }}
+            />
+          </div>
+          <EditorCanvas
+            className="es-mapcanvas"
+            tables={tables}
+            zones={zones}
+            categories={categories}
+            soldByTable={soldByTable}
+            selection={selection}
+            panzoom={panzoom}
+            interaction={interaction}
+            tool={tool}
+            spacePan={spacePan}
+            snapToGrid={snapToGrid}
+            onAddAt={(position) => {
+              const [key] = draft.addTables([{ position }]);
+              if (key) selection.selectOnly('table', key);
+            }}
+            onNudge={onElementKeyDown}
+          />
+        </div>
 
         <div className="es-mapeditor__panel">
         {selection.count > 1 ? (
           <SelectionPanel
             tableCount={selection.selection.tables.size}
             zoneCount={selection.selection.zones.size}
+            tiers={tiers}
+            onAssign={assignTier}
             onRotate={rotateSelected}
             onDuplicate={duplicateSelected}
             onRemove={removeSelected}
@@ -420,9 +411,15 @@ export default function MapEditor({ eventId }) {
             onDuplicate={duplicateSelected}
             onRemove={(id) => { draft.removeZone(id); selection.clear(); }}
           />
+        ) : sole?.kind !== 'table' ? (
+          <BuildPanel
+            tableCount={tables.length}
+            unpricedCount={countUnpriced(tables)}
+            onAdd={(initial) => { setAddInitial(initial); setShowAdd(true); }}
+          />
         ) : (
           <TablePanel
-            table={sole?.kind === 'table' ? sole.table : null}
+            table={sole.table}
             tiers={tiers}
             categories={categories}
             // Consecutive edits to the same field of the same table are one undo
@@ -441,6 +438,7 @@ export default function MapEditor({ eventId }) {
 
       {showAdd && (
         <AddElementDialog
+          initial={addInitial}
           origin={addOrigin}
           roomForTables={Math.max(0, MAX_TABLES - tables.length)}
           onClose={() => setShowAdd(false)}
