@@ -26,15 +26,19 @@ export function PageHeader({ eyebrow, title, lede, actions }) {
 }
 
 /**
- * A section inside a page that already has its <h1> — every page under one
- * event, where the event's title is the h1 in the event layout. Same shape as
- * PageHeader, one heading level down.
+ * The title of one section of an event — Ticket types, Orders, Door list.
+ *
+ * IT IS THE PAGE'S <h1> NOW. It used to be an <h2> under the event's title,
+ * which the event layout printed as the h1 above every section. Since 2026-11
+ * the layout's head on a section is the breadcrumb and the event's status
+ * (the event is named in the breadcrumb), so the section's own name is the
+ * page's heading — which is also what the sidebar has lit up.
  */
 export function SectionHeader({ title, lede, actions }) {
   return (
-    <div className="es-page-head">
+    <div className="es-page-head es-page-head--section">
       <div className="fx-stack fx-stack--sm gap-1 fx-min0">
-        <h2 className="es-section-title fx-break">{title}</h2>
+        <h1 className="es-section-title fx-break">{title}</h1>
         {lede && <p className="es-page-head__lede">{lede}</p>}
       </div>
       {actions && <div className="es-page-head__actions">{actions}</div>}
@@ -64,15 +68,21 @@ export function StatCard({ label, value, note, icon, href }) {
   return <div className="es-stat">{body}</div>;
 }
 
-/** A titled card section. `description` is one supporting line under the title. */
-export function Panel({ title, description, action, children, className = '' }) {
+/**
+ * A titled card section. `description` is one supporting line under the title;
+ * `icon` puts the section's glyph beside both, as the redesigned screens do.
+ */
+export function Panel({ title, description, action, icon, children, className = '' }) {
   return (
     <section className={`es-card es-panel ${className}`}>
       {(title || action) && (
         <div className="es-panel-head">
-          <div className="fx-min0">
-            {title && <h2 className="es-panel-head__title">{title}</h2>}
-            {description && <p className="es-panel-head__desc">{description}</p>}
+          <div className={`fx-min0${icon ? ' es-panel-head__main' : ''}`}>
+            {icon && <span className="es-panel-head__icon" aria-hidden="true"><NavIcon name={icon} size={22} /></span>}
+            <div className="fx-min0">
+              {title && <h2 className="es-panel-head__title">{title}</h2>}
+              {description && <p className="es-panel-head__desc">{description}</p>}
+            </div>
           </div>
           {action && <div className="es-panel-head__action">{action}</div>}
         </div>

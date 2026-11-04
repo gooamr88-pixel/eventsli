@@ -143,7 +143,7 @@ export default function ContentEditor({ eventId }) {
           <div className="es-dcard es-pb__bar">
             <span className="es-dform__saved es-pb__note">
               <NavIcon name="check" size={16} />
-              Cover, logo, highlights and the pin save as you change them.
+              Cover, logo, highlights and the pin save instantly.
             </span>
             {publicUrl ? (
               <a href={publicUrl} target="_blank" rel="noreferrer" className="es-btn es-btn--secondary">

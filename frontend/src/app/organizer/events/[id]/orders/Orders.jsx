@@ -4,7 +4,8 @@ import { useState } from 'react';
 import { useApi } from '../../../../hooks/useApi';
 import { formatMoney } from '../../../../utils/money';
 import { formatEventTime } from '../../../../lib/eventTime';
-import { SectionHeader, StatCard } from '../../../../components/ui/Page';
+import { SectionHeader } from '../../../../components/ui/Page';
+import { Kpi, KpiRow } from '../../../../components/ui/Kpi';
 import { Segmented, SearchBox, Pagination } from '../../../../components/ui/Filters';
 import DataTable from '../../../../components/ui/DataTable';
 import { Loading, Empty, ErrorNotice } from '../../../../components/Feedback';
@@ -56,15 +57,15 @@ export default function Orders({ eventId }) {
       <SectionHeader title="Orders" lede="Every sale on this event, online and at the door." />
 
       {totals.length > 0 && totals.map(([currency, t]) => (
-        <div key={currency} className="es-statgrid">
-          <StatCard label={`Sales · ${currency}`} value={formatMoney(t.grossCents, currency)} note="What buyers paid" icon="money" />
-          <StatCard label="To you" value={formatMoney(t.netCents, currency)} note="After Eventsli's commission, door sales included" icon="bank" />
-          <StatCard label="Orders" value={t.orders} note={`${data.meta.byChannel?.stripe ?? 0} card · ${data.meta.byChannel?.manual ?? 0} door`} icon="receipt" />
-          <StatCard label="Tickets" value={t.tickets} note="In the orders shown" icon="ticket" />
-        </div>
+        <KpiRow key={currency} label={`Sales in ${currency}`}>
+          <Kpi icon="coins" label={`Sales · ${currency}`} value={formatMoney(t.grossCents, currency)} note="What buyers paid" />
+          <Kpi icon="bank" label="To you" value={formatMoney(t.netCents, currency)} note="After commission, door sales included" tone="success" />
+          <Kpi icon="receipt" label="Orders" value={t.orders} note={`${data.meta.byChannel?.stripe ?? 0} card · ${data.meta.byChannel?.manual ?? 0} door`} />
+          <Kpi icon="ticket" label="Tickets" value={t.tickets} note="In the orders shown" />
+        </KpiRow>
       ))}
 
-      <div className="fx-stack fx-stack--sm">
+      <div className="es-toolbar es-toolbar--stack">
         <div className="fx-row">
           <Segmented label="Channel" showLabel value={channel} onChange={filter(setChannel)} options={CHANNELS} />
           <Segmented label="Status" showLabel value={status} onChange={filter(setStatus)} options={STATUSES} />

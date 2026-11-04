@@ -3,6 +3,8 @@
 import { useApi } from '../../../../hooks/useApi';
 import { formatPrice } from '../../../../utils/money';
 import { Loading, ErrorNotice, Notice } from '../../../../components/Feedback';
+import { SectionHeader } from '../../../../components/ui/Page';
+import NavIcon from '../../../../components/shell/NavIcon';
 import QrCard from './QrCard';
 import LaunchKit from './LaunchKit';
 
@@ -29,13 +31,10 @@ export default function SharePanel({ eventId }) {
 
   return (
     <div className="fx-stack">
-      <div className="fx-stack fx-stack--sm">
-        <h2 className="text-xl text-ink">Share &amp; QR</h2>
-        <p className="max-w-[62ch] text-muted">
-          Links and QR codes for posters, social posts and the table at the door. The download is
-          large enough to print.
-        </p>
-      </div>
+      <SectionHeader
+        title="Share & QR"
+        lede="Links and QR codes for posters, social posts and the table at the door. The download is large enough to print."
+      />
 
       {/* An unpublished event answers with the same 404 as one that never
           existed, deliberately — so a code printed now would scan to "not
@@ -61,13 +60,16 @@ export default function SharePanel({ eventId }) {
       <LaunchKit eventId={eventId} shareEvent={event} />
 
       {tiers.length > 0 && (
-        <section className="fx-stack fx-stack--sm">
-          <div className="fx-stack fx-stack--sm gap-1">
-            <h3 className="text-lg text-ink">Ticket types</h3>
-            <p className="text-sm text-muted">
-              Each link opens the event page with that ticket type picked out — useful for a VIP
-              invitation or an early-bird post.
-            </p>
+        <section className="es-dcard" aria-labelledby="share-tiers">
+          <div className="es-ovcard__head">
+            <span className="es-ovcard__glyph" aria-hidden="true"><NavIcon name="ticket" size={22} /></span>
+            <div className="fx-min0">
+              <h2 id="share-tiers" className="es-dcard__title">Ticket type links</h2>
+              <p className="es-ovcard__desc">
+                Each opens the event page with that ticket type picked out — useful for a VIP
+                invitation or an early-bird post.
+              </p>
+            </div>
           </div>
           <div className="fx-grid fx-grid--3">
             {tiers.map((tier) => (

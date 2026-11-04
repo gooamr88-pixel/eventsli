@@ -8,6 +8,7 @@ import { formatEventTime } from '../../../../lib/eventTime';
 import { useToast } from '../../../../components/ui/Toast';
 import { useConfirm } from '../../../../components/ui/Confirm';
 import { SectionHeader, Panel } from '../../../../components/ui/Page';
+import { Kpi, KpiRow } from '../../../../components/ui/Kpi';
 import Field from '../../../../components/forms/Field';
 import FormError from '../../../../components/forms/FormError';
 import SubmitButton from '../../../../components/forms/SubmitButton';
@@ -96,6 +97,13 @@ export default function Devices({ eventId }) {
         <Link href={`/organizer/events/${eventId}/staff`} className="text-accent underline">door team</Link>.
       </p>
 
+      {devices.length > 0 && (
+        <KpiRow label="Devices at a glance">
+          <Kpi icon="scan" label="Devices" value={devices.length} note={`${devices.filter((d) => d.isActive).length} can scan`} />
+          <Kpi icon="clock" label="Seen at the door" value={devices.filter((d) => d.lastSeenAt).length} note="Signed in at least once" />
+        </KpiRow>
+      )}
+
       <GateBanner gate={gate} eventId={eventId} />
 
       {created && (
@@ -163,7 +171,7 @@ function GateBanner({ gate, eventId }) {
     );
   }
   return (
-    <Panel title={state?.override ? 'Scanning temporarily allowed' : 'Scanning works'} action={stat} />
+    <Panel icon="scan" title={state?.override ? 'Scanning temporarily allowed' : 'Scanning works'} action={stat} />
   );
 }
 
@@ -252,7 +260,7 @@ function NewDevice({ eventId, onCreated, onCancel }) {
   }
 
   return (
-    <Panel title="Register a device">
+    <Panel icon="plus" title="Register a device" description="A shared tablet or phone that scans with a PIN.">
       <form onSubmit={submit} className="fx-stack fx-stack--sm">
         <div className="fx-grid fx-grid--2">
           <Field

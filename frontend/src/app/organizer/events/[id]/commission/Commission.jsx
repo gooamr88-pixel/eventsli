@@ -6,7 +6,8 @@ import { formatMoney } from '../../../../utils/money';
 import { formatEventTime } from '../../../../lib/eventTime';
 import { useApi } from '../../../../hooks/useApi';
 import { useToast } from '../../../../components/ui/Toast';
-import { SectionHeader, StatCard, Panel } from '../../../../components/ui/Page';
+import { SectionHeader, Panel } from '../../../../components/ui/Page';
+import { Kpi, KpiRow } from '../../../../components/ui/Kpi';
 import Field from '../../../../components/forms/Field';
 import FormError from '../../../../components/forms/FormError';
 import SubmitButton from '../../../../components/forms/SubmitButton';
@@ -49,20 +50,23 @@ export default function Commission({ eventId }) {
         lede="Sales you took yourself never passed through Eventsli, so our commission on them is invoiced to you. Card sales are already settled and do not appear here."
       />
 
-      <div className="fx-grid fx-grid--2">
-        <StatCard
+      <KpiRow label="Commission at a glance">
+        <Kpi
+          icon="percent"
           label="Outstanding"
           value={formatMoney(data.owedCents, data.currency)}
           note={overdue ? `${overdue} overdue` : 'Nothing overdue'}
-          icon="percent"
+          tone={overdue ? 'danger' : undefined}
         />
-        <StatCard
+        <Kpi icon="receipt" label="Invoices" value={data.invoices.length} note={`${data.invoices.filter((i) => ['paid', 'waived'].includes(i.status)).length} settled`} />
+        <Kpi
+          icon="scan"
           label="Scanning"
           value={gate?.override ? 'Allowed for now' : gate?.locked ? 'Switched off' : 'Working'}
-          note={gate?.locked ? 'It reopens by itself once the invoice is settled' : gate?.override ? 'A temporary override from Eventsli' : 'No invoice is overdue'}
-          icon="scan"
+          note={gate?.locked ? 'Reopens once the invoice is settled' : gate?.override ? 'A temporary override from Eventsli' : 'No invoice is overdue'}
+          tone={gate?.locked && !gate?.override ? 'danger' : 'success'}
         />
-      </div>
+      </KpiRow>
 
       {gate?.locked && !gate?.override && (
         <Notice tone="danger" title="Nobody can be admitted until this is settled.">

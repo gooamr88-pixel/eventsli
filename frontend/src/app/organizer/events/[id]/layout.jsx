@@ -4,12 +4,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, usePathname } from 'next/navigation';
 import { get } from '../../../utils/apiClient';
-import { formatEventTime } from '../../../lib/eventTime';
 import StatusPill from '../../StatusPill';
 import NavIcon from '../../../components/shell/NavIcon';
 import { ErrorNotice } from '../../../components/Feedback';
 import { EventProvider } from './EventContext';
 import BuildNav, { BuildProgress } from './BuildNav';
+import { organizerNavGroups } from '../../nav/organizerNav';
 import { BuildStepProvider } from './BuildStep';
 
 /**
@@ -117,11 +117,10 @@ function EventHeader({ event, eventId }) {
     );
   }
 
-  const when = formatEventTime(event.startsAt, event.timezone);
   // THE OVERVIEW AND EVENT DETAILS HAVE THEIR OWN HEAD: the way back and the
   // page's name. The title, the facts and the actions are in the cover card
   // right under it (EventHero), so repeating them here would say everything
-  // twice. Every other section keeps the compact event header below.
+  // twice. Every other section gets the breadcrumb head below.
   const section = pathname.slice(`/organizer/events/${eventId}`.length).replace(/^\//, '');
   const head = PAGE_HEADS[section];
   if (head) {
@@ -169,100 +168,67 @@ function EventHeader({ event, eventId }) {
     );
   }
 
+  /**
+   * ─────────────────────────────────────────────────────────────────────────
+   * EVERY OTHER SECTION: the breadcrumb, where the event stands, and its two
+   * links. The section's own name is the page's <h1>, in its SectionHeader
+   * right under this — so the event is named once, in the breadcrumb, and the
+   * page is named once, in its title.
+   *
+   * It replaced a header that repeated the event's title, date, venue and
+   * currency above all eleven sections. On a 320×568 phone that put the
+   * Orders heading 487px down; this is one line, and the facts stay on the
+   * overview where they are read.
+   * ─────────────────────────────────────────────────────────────────────────
+   */
+  const base = `/organizer/events/${eventId}`;
+  const here = sectionLabel(eventId, pathname);
   return (
-    /**
-     * ─────────────────────────────────────────────────────────────────────────
-     * COMPACT ON A SECTION, BELOW `md` — `.es-event-head--sub`.
-     *
-     * This header is the overview's, and it rendered in full above every one
-     * of the eleven sections: breadcrumb, a title of three or four lines, the
-     * date, venue and type, and Public page / Share. On a 320×568 phone that
-     * put the Orders heading 487px down, under the fold — every section opened
-     * on a screen of navigation. The app bar names the event and the section
-     * now, so on a phone a section keeps the way back, the title on one line
-     * and the status, and the facts stay on the overview where they are read.
-     * Tablets and desktops are unchanged.
-     * ─────────────────────────────────────────────────────────────────────────
-     */
-    <header className="es-event-head es-event-head--sub">
-      <nav aria-label="Breadcrumb" className="es-breadcrumb">
-        {/* `fx-touch`: this is the way back up, and it was a 76×21 target. */}
-        <Link href="/organizer/events" className="es-breadcrumb__up fx-touch">
-          <span aria-hidden className="es-breadcrumb__back"><NavIcon name="arrow" size={16} /></span>
-          Your events
-        </Link>
-        <span aria-hidden="true" className="es-breadcrumb__sep">/</span>
-        <span aria-current="page" className="es-breadcrumb__here fx-truncate">{event.title}</span>
-      </nav>
-
-      <div className="es-event-head__main">
-        <div className="fx-stack fx-stack--sm fx-min0 gap-2">
-          <h1 className="es-page-head__title fx-break">{event.title}</h1>
-          <p className="es-meta">
-            {/* THE STATUS IS A FACT, SO IT SITS WITH THE OTHER FACTS.
-                It used to be the first thing in the actions row, which put
-                "Archived" — a read-only badge — in a line of buttons, where it
-                read as one and was tapped like one. Beside the date, the venue
-                and the currency it reads as what it is: something true about
-                this event. */}
-            <StatusPill status={event.status} />
-            <span className="es-meta__item"><NavIcon name="calendar" size={16} />{when}</span>
-            {event.venue?.name && (
-              <span className="es-meta__item"><NavIcon name="pin" size={16} />{event.venue.name}</span>
-            )}
-            {event.listingType === 'display_only' ? (
-              <span className="es-meta__item"><NavIcon name="eye" size={16} />Display only</span>
-            ) : (
-              <span className="es-meta__item"><NavIcon name="ticket" size={16} />Ticketed · {event.currency}</span>
-            )}
-          </p>
-        </div>
-        <div className="es-event-head__actions" role="group" aria-label="Event actions">
-          {/* The event's own actions live on its overview, under the cover —
-              see EventActions. On Ticket types or Orders they were four more
-              buttons between the title and the work. */}
-          <HeaderLinks event={event} />
+    <header className="es-ovhead es-ovhead--section">
+      <div className="es-ovhead__top">
+        <nav aria-label="Breadcrumb" className="es-ovhead__crumbs">
+          <Link href="/organizer/events" className="es-ovhead__back fx-touch">
+            <span aria-hidden="true" className="es-ovhead__arrow"><NavIcon name="arrow" size={18} /></span>
+            Your events
+          </Link>
+          <span aria-hidden="true"><NavIcon name="chevronDown" size={14} className="-rotate-90" /></span>
+          <Link href={base} className="es-ovhead__back es-ovhead__mid fx-truncate">{event.title}</Link>
+          {here && (
+            <>
+              <span aria-hidden="true"><NavIcon name="chevronDown" size={14} className="-rotate-90" /></span>
+              <span aria-current="page" className="es-ovhead__here es-ovhead__here--accent">{here}</span>
+            </>
+          )}
+        </nav>
+        <div className="es-ovhead__aside" role="group" aria-label="Event actions">
+          <StatusPill status={event.status} />
+          <HeaderLinks event={event} onShare={pathname.startsWith(`${base}/share`)} />
         </div>
       </div>
-
       {/* "Setup · step 3 of 6" on a build screen before launch. Renders nothing
           anywhere else. */}
       <BuildProgress />
-
-      {/**
-        * ─────────────────────────────────────────────────────────────────────
-        * THE SECTION TABS ARE GONE, and they were the third row of navigation.
-        *
-        * A scrolling strip of every event section used to sit here, built from
-        * the same nav model the sidebar renders. It existed because below `lg`
-        * the sidebar is a drawer, so it was a shortcut past the menu.
-        *
-        * What it actually produced on a phone was: the app bar, then the
-        * "Working on" bar, then this strip — three bands of chrome, each a
-        * different shape, before a single word of the page. And because it was
-        * horizontally scrollable, the sections past "Seating" were behind a
-        * sideways swipe nothing indicated: the tab list said there were four
-        * sections when there are eleven.
-        *
-        * Every section is a page of its own, reached from one place. The
-        * sidebar names all of them, vertically, with icons, and lights the one
-        * you are on — which is the thing this strip was a worse copy of. On a
-        * phone the bottom bar carries the three opened most and "More" opens
-        * the same list.
-        * ─────────────────────────────────────────────────────────────────────
-        */}
     </header>
   );
 }
 
+/** The sidebar's name for the section this URL is in, from the same nav model. */
+function sectionLabel(eventId, pathname) {
+  const items = organizerNavGroups({ eventId }).flatMap((g) => g.items)
+    .filter((i) => i.href && i.href !== `/organizer/events/${eventId}` && pathname.startsWith(i.href));
+  return items.sort((a, b) => b.href.length - a.href.length)[0]?.label || null;
+}
+
 /** Public page (once it is on sale) and Share — the two links every section's header offers. */
-function HeaderLinks({ event }) {
+function HeaderLinks({ event, onShare = false }) {
   return (
     <>
-      <Link href={`/organizer/events/${event.id}/share`} className="es-btn es-btn--secondary es-btn--sm">
-        <NavIcon name="qr" size={16} />
-        Share
-      </Link>
+      {!onShare && (
+        <Link href={`/organizer/events/${event.id}/share`} className="es-btn es-btn--secondary es-btn--sm">
+          <NavIcon name="share" size={16} />
+          Share
+        </Link>
+      )}
       {event.status === 'published' && (
         <a href={`/e/${event.slug}`} target="_blank" rel="noreferrer" className="es-btn es-btn--secondary es-btn--sm">
           <NavIcon name="external" size={16} />

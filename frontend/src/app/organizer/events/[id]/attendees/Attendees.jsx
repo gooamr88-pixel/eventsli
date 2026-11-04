@@ -3,10 +3,10 @@
 import { useState } from 'react';
 import { useApi } from '../../../../hooks/useApi';
 import { formatEventTime } from '../../../../lib/eventTime';
-import { SectionHeader, Panel } from '../../../../components/ui/Page';
+import { SectionHeader } from '../../../../components/ui/Page';
+import { Kpi, KpiRow } from '../../../../components/ui/Kpi';
 import { Segmented, SearchBox, Pagination } from '../../../../components/ui/Filters';
 import DataTable from '../../../../components/ui/DataTable';
-import Ring from '../../../../components/charts/Ring';
 import { percent } from '../../../../components/charts/chartMath';
 import { Loading, Empty, ErrorNotice } from '../../../../components/Feedback';
 import { useEventContext } from '../EventContext';
@@ -48,17 +48,18 @@ export default function Attendees({ eventId }) {
     <div className="fx-stack">
       <SectionHeader title="Door list" lede="Everyone holding a ticket, and whether they have walked in yet." />
 
+      {/* The door at a glance: everyone holding a ticket, how many are in,
+          and how many are still to come — the three numbers a door manager
+          reads off this page during the night. */}
       {meta && (
-        <Panel>
-          <Ring
-            fraction={meta.valid + meta.admitted ? meta.admitted / (meta.valid + meta.admitted) : 0}
-            value={share === null ? '—' : `${share}%`}
-            caption={`${meta.admitted} in · ${meta.valid} still to arrive`}
-          />
-        </Panel>
+        <KpiRow label="The door at a glance">
+          <Kpi icon="ticket" label="Tickets" value={(meta.valid + meta.admitted).toLocaleString()} note="Holding a valid ticket" />
+          <Kpi icon="check" label="Checked in" value={meta.admitted.toLocaleString()} note={share === null ? 'Nobody yet' : `${share}% of tickets`} tone="success" />
+          <Kpi icon="clock" label="Still to arrive" value={meta.valid.toLocaleString()} />
+        </KpiRow>
       )}
 
-      <div className="fx-stack fx-stack--sm">
+      <div className="es-toolbar">
         <Segmented label="Filter" value={checkedIn} onChange={(v) => { setCheckedIn(v); setPage(1); }} options={CHECKED} />
         <SearchBox label="Search the door list" placeholder="Name or email" value={search} onSearch={(v) => { setSearch(v); setPage(1); }} />
       </div>

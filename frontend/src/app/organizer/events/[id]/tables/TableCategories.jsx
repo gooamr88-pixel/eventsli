@@ -7,6 +7,7 @@ import { useApi } from '../../../../hooks/useApi';
 import { useToast } from '../../../../components/ui/Toast';
 import { useConfirm } from '../../../../components/ui/Confirm';
 import { SectionHeader, Panel } from '../../../../components/ui/Page';
+import { Kpi, KpiRow } from '../../../../components/ui/Kpi';
 import DataTable from '../../../../components/ui/DataTable';
 import Field from '../../../../components/forms/Field';
 import FormError from '../../../../components/forms/FormError';
@@ -51,6 +52,7 @@ export default function TableCategories({ eventId }) {
   }
 
   const categories = Array.isArray(data) ? data : [];
+  const grouped = categories.reduce((n, c) => n + Number(c.tableCount || 0), 0);
 
   return (
     <div className="fx-stack">
@@ -63,6 +65,13 @@ export default function TableCategories({ eventId }) {
           </button>
         )}
       />
+
+      {categories.length > 0 && (
+        <KpiRow label="Categories at a glance">
+          <Kpi icon="layers" label="Categories" value={categories.length} />
+          <Kpi icon="map" label="Tables in a category" value={grouped.toLocaleString()} href={`/organizer/events/${eventId}/map`} note="Open the seating map" />
+        </KpiRow>
+      )}
 
       {editing && (
         <CategoryForm

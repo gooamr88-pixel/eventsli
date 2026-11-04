@@ -4,6 +4,7 @@ import { useRef, useState } from 'react';
 import Image from 'next/image';
 import { safeExternalUrl } from '../../../../utils/safeUrl';
 import ContentCard from './ContentCard';
+import NavIcon from '../../../../components/shell/NavIcon';
 import { Loading, Empty } from '../../../../components/Feedback';
 import FormError from '../../../../components/forms/FormError';
 import { useConfirm } from '../../../../components/ui/Confirm';
@@ -124,12 +125,12 @@ export default function GalleryEditor({ eventId, section }) {
           hint="A few pictures of the venue or a past event do more for ticket sales than another paragraph."
         />
       ) : (
-        <ul className="fx-grid" style={{ '--fx-col': '220px', '--fx-gap': '12px' }}>
+        <ul className="es-pbgallery">
           {items.map((item, index) => (
-            <li key={item.id} className="fx-stack fx-stack--sm rounded-(--es-radius-md) border border-border-base p-3">
+            <li key={item.id} className="es-pbtile">
               {item.kind === 'video' ? (
                 <div className="fx-stack fx-stack--sm">
-                  <div className="grid aspect-video place-items-center rounded-(--es-radius-sm) bg-bg-sunken text-sm text-subtle">
+                  <div className="grid aspect-[4/3] place-items-center rounded-(--es-radius-sm) bg-bg-sunken text-sm text-subtle">
                     Video
                   </div>
                   {/* The organizer sees the address they typed either way.
@@ -148,8 +149,8 @@ export default function GalleryEditor({ eventId, section }) {
                   )}
                 </div>
               ) : (
-                <div className="relative aspect-video overflow-hidden rounded-(--es-radius-sm) bg-bg-sunken">
-                  <Image src={item.url} alt={item.caption || ''} fill sizes="220px" className="object-cover" />
+                <div className="relative aspect-[4/3] overflow-hidden rounded-(--es-radius-sm) bg-bg-sunken">
+                  <Image src={item.url} alt={item.caption || ''} fill sizes="160px" className="object-cover" />
                 </div>
               )}
 
@@ -176,6 +177,12 @@ export default function GalleryEditor({ eventId, section }) {
               />
             </li>
           ))}
+          <li>
+            <label htmlFor={`gallery-${eventId}`} aria-disabled={uploading || busy || undefined} className="es-pbdrop es-pbtile__add">
+              <NavIcon name="plus" size={22} />
+              <b>{uploading ? 'Uploading…' : 'Add media'}</b>
+            </label>
+          </li>
         </ul>
       )}
 
@@ -199,13 +206,17 @@ export default function GalleryEditor({ eventId, section }) {
           disabled={uploading || busy}
           onChange={(e) => addImages(Array.from(e.target.files || []))}
         />
-        <label
-          htmlFor={`gallery-${eventId}`}
-          aria-disabled={uploading || busy || undefined}
-          className="es-btn es-btn--secondary self-start"
-        >
-          {uploading ? 'Uploading…' : 'Add photos'}
-        </label>
+        {/* With photos, the "Add media" tile in the grid is the way to add
+            more; with none, this button is. */}
+        {items && items.length === 0 && (
+          <label
+            htmlFor={`gallery-${eventId}`}
+            aria-disabled={uploading || busy || undefined}
+            className="es-btn es-btn--secondary self-start"
+          >
+            {uploading ? 'Uploading…' : 'Add photos'}
+          </label>
+        )}
 
         <form onSubmit={addVideo} className="fx-row flex-wrap items-end gap-2">
           <label className="fx-stack fx-stack--sm fx-min0 flex-1 gap-1">

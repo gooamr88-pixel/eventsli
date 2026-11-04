@@ -3,11 +3,12 @@
 import { useState } from 'react';
 import { post, patch, del } from '../../../../utils/apiClient';
 import { describeError, messageFor } from '../../../../utils/errors';
-import { formatMoney } from '../../../../utils/money';
+import { formatMoney, formatMoneyCompact } from '../../../../utils/money';
 import { useApi } from '../../../../hooks/useApi';
 import { useToast } from '../../../../components/ui/Toast';
 import { useConfirm } from '../../../../components/ui/Confirm';
 import { SectionHeader, Panel } from '../../../../components/ui/Page';
+import { Kpi, KpiRow } from '../../../../components/ui/Kpi';
 import DataTable from '../../../../components/ui/DataTable';
 import Field from '../../../../components/forms/Field';
 import FormError from '../../../../components/forms/FormError';
@@ -62,6 +63,14 @@ export default function Tiers({ eventId }) {
   }
 
   const tiers = Array.isArray(data) ? data : [];
+  // The strip: what the table says, added up. A NULL quantity is bounded by
+  // the seat map, so it has no capacity of its own to add.
+  const sold = tiers.reduce((n, t) => n + Number(t.soldCount || 0), 0);
+  const fixed = tiers.filter((t) => t.quantity !== null && t.quantity !== undefined);
+  const capacity = fixed.reduce((n, t) => n + Number(t.quantity), 0);
+  const prices = tiers.map((t) => Number(t.priceCents)).filter(Number.isFinite);
+  const low = prices.length ? Math.min(...prices) : null;
+  const high = prices.length ? Math.max(...prices) : null;
 
   return (
     <div className="fx-stack">
@@ -74,6 +83,25 @@ export default function Tiers({ eventId }) {
           </button>
         )}
       />
+
+      {tiers.length > 0 && (
+        <KpiRow label="Ticket types at a glance">
+          <Kpi icon="ticket" label="Ticket types" value={tiers.length} note={`${tiers.filter((t) => t.isHidden).length || 'None'} hidden`} />
+          <Kpi icon="users" label="Tickets sold" value={sold.toLocaleString()} href={`/organizer/events/${eventId}/orders`} />
+          <Kpi
+            icon="layers"
+            label="Capacity"
+            value={fixed.length ? capacity.toLocaleString() : 'Seat map'}
+            note={fixed.length && fixed.length < tiers.length ? 'Plus seats on the map' : fixed.length ? `${Math.max(capacity - sold, 0).toLocaleString()} left` : 'Set by the seats on your map'}
+          />
+          <Kpi
+            icon="tag"
+            label="Prices"
+            value={low === null ? '—' : low === high ? formatMoneyCompact(low, currency) : `${formatMoneyCompact(low, currency)} – ${formatMoneyCompact(high, currency)}`}
+            note="Lowest to highest"
+          />
+        </KpiRow>
+      )}
 
       {editing && (
         <TierForm

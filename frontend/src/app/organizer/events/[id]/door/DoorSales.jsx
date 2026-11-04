@@ -11,6 +11,7 @@ import SeatMapCanvas from '../../../../components/seating/SeatMapCanvas';
 import { SectionHeader, Panel } from '../../../../components/ui/Page';
 import { Pagination } from '../../../../components/ui/Filters';
 import DataTable from '../../../../components/ui/DataTable';
+import NavIcon from '../../../../components/shell/NavIcon';
 import Field from '../../../../components/forms/Field';
 import FormError from '../../../../components/forms/FormError';
 import SubmitButton from '../../../../components/forms/SubmitButton';
@@ -166,6 +167,7 @@ export default function DoorSales({ eventId }) {
 
       {hasSelection && (
         <Panel
+          icon="ticket"
           title={selectedTable ? `Table ${selectedTable.label}` : `${selectedSeats.length} ${selectedSeats.length === 1 ? 'seat' : 'seats'} chosen`}
           action={<button type="button" className="es-btn es-btn--ghost es-btn--sm" onClick={clearSelection}>Clear</button>}
         >
@@ -213,8 +215,19 @@ export default function DoorSales({ eventId }) {
         </Panel>
       )}
 
-      <section className="fx-stack fx-stack--sm">
-        <h3 className="text-lg text-ink">Recorded so far</h3>
+      <section className="es-dcard" aria-labelledby="door-recorded">
+        <div className="es-dcard__head">
+          <div className="es-ovcard__head">
+            <span className="es-ovcard__glyph" aria-hidden="true"><NavIcon name="receipt" size={22} /></span>
+            <div className="fx-min0">
+              <h2 id="door-recorded" className="es-dcard__title">Recorded so far</h2>
+              <p className="es-ovcard__desc">Every sale you took yourself, with the commission it adds.</p>
+            </div>
+          </div>
+          {sales.data?.pagination?.total > 0 && (
+            <span className="es-pbfold__count">{sales.data.pagination.total} {sales.data.pagination.total === 1 ? 'sale' : 'sales'}</span>
+          )}
+        </div>
         {sales.error ? (
           <ErrorNotice error={sales.error} onRetry={sales.reload} />
         ) : sales.loading && !sales.data ? (

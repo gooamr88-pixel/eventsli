@@ -7,6 +7,7 @@ import { formatMoney } from '../../../../utils/money';
 import { useApi } from '../../../../hooks/useApi';
 import { useToast } from '../../../../components/ui/Toast';
 import { SectionHeader, Panel } from '../../../../components/ui/Page';
+import { Kpi, KpiRow } from '../../../../components/ui/Kpi';
 import DataTable from '../../../../components/ui/DataTable';
 import Field from '../../../../components/forms/Field';
 import FormError from '../../../../components/forms/FormError';
@@ -47,6 +48,8 @@ export default function Promos({ eventId }) {
   }
 
   const promos = Array.isArray(data) ? data : [];
+  const live = promos.filter((p) => p.isActive).length;
+  const used = promos.reduce((n, p) => n + Number(p.usedCount || 0), 0);
 
   return (
     <div className="fx-stack">
@@ -59,6 +62,14 @@ export default function Promos({ eventId }) {
           </button>
         )}
       />
+
+      {promos.length > 0 && (
+        <KpiRow label="Discount codes at a glance">
+          <Kpi icon="tag" label="Codes" value={promos.length} />
+          <Kpi icon="check" label="Live" value={live} note={promos.length - live ? `${promos.length - live} switched off` : 'All switched on'} tone="success" />
+          <Kpi icon="receipt" label="Times used" value={used.toLocaleString()} note="Across every code" />
+        </KpiRow>
+      )}
 
       {creating && (
         <PromoForm

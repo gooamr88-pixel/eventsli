@@ -8,7 +8,8 @@ import { formatEventTime } from '../../../../lib/eventTime';
 import { useApi } from '../../../../hooks/useApi';
 import { useToast } from '../../../../components/ui/Toast';
 import { useConfirm } from '../../../../components/ui/Confirm';
-import { Panel } from '../../../../components/ui/Page';
+import { Panel, SectionHeader } from '../../../../components/ui/Page';
+import { Kpi, KpiRow } from '../../../../components/ui/Kpi';
 import DataTable from '../../../../components/ui/DataTable';
 import Field from '../../../../components/forms/Field';
 import FormError from '../../../../components/forms/FormError';
@@ -81,20 +82,29 @@ export default function DoorTeam({ eventId }) {
 
   return (
     <div className="fx-stack">
-      <div className="fx-stack fx-stack--sm">
-        <h2 className="text-xl text-ink">Door team</h2>
-        <p className="max-w-[62ch] text-muted">
-          People who scan tickets with their own account. They can only scan this event — no orders,
-          no money, no dashboard.{' '}
-          <Link href={`/organizer/events/${eventId}/devices`} className="text-accent">
-            Shared tablets with a PIN
-          </Link>{' '}
-          still work alongside them.
-        </p>
-      </div>
+      <SectionHeader
+        title="Door team"
+        lede={(
+          <>
+            People who scan tickets with their own account. They can only scan this event — no orders,
+            no money, no dashboard.{' '}
+            <Link href={`/organizer/events/${eventId}/devices`} className="text-accent">
+              Shared tablets with a PIN
+            </Link>{' '}
+            still work alongside them.
+          </>
+        )}
+      />
+
+      {members.length > 0 && (
+        <KpiRow label="The door team at a glance">
+          <Kpi icon="users" label="On the team" value={members.filter((m) => m.active).length} note={`${members.filter((m) => !m.active).length || 'None'} removed`} />
+          <Kpi icon="clock" label="Signed in" value={members.filter((m) => m.lastSignInAt).length} note="At least once" />
+        </KpiRow>
+      )}
 
       <div className="grid gap-[var(--fx-gap)] lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-        <Panel title="Add someone">
+        <Panel icon="user" title="Add someone" description="They sign in with their own Eventsli account.">
           <form onSubmit={add} className="fx-stack fx-stack--sm">
             <Field
               label="Their Eventsli account email"
@@ -112,7 +122,7 @@ export default function DoorTeam({ eventId }) {
           </form>
         </Panel>
 
-        <Panel title="How they sign in">
+        <Panel icon="info" title="How they sign in">
           <ol className="fx-stack fx-stack--sm list-decimal pl-5 text-sm text-muted">
             {/* THE PATH IS A LINK NOW, not monospace text in a sentence.
                 Step one of three was a URL to be read out loud to somebody

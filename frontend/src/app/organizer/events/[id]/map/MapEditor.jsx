@@ -288,7 +288,8 @@ export default function MapEditor({ eventId }) {
     <div className="fx-stack">
       <div className="fx-row fx-row--between flex-wrap gap-3">
         <div className="fx-stack fx-stack--sm fx-min0 gap-2">
-          <h2 className="text-xl">Seating map</h2>
+          {/* The page's <h1>: the event layout's head is the breadcrumb (see layout.jsx). */}
+          <h1 className="es-section-title">Seating map</h1>
           {/* What the room holds, as figures an organizer plans by — seats,
               not just tables. The limits appear only when they are close. */}
           <ul className="es-mapsum" aria-label="This room">
