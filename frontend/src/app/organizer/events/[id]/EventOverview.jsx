@@ -5,11 +5,14 @@ import NavIcon from '../../../components/shell/NavIcon';
 import { useSearchParams } from 'next/navigation';
 import { useEventContext } from './EventContext';
 import ReviewActions from './ReviewActions';
-import EventStats from './EventStats';
+import EventActions from './EventActions';
 import LaunchChecklist, { useLaunchSteps, NextStep } from './LaunchChecklist';
-import SearchAppearance from './SearchAppearance';
+import { useSeo, SearchPreview, SetupProgress } from './SearchAppearance';
+import { EventHero, OverviewStats, EventSummary, EventTimeline } from './OverviewParts';
 import { Panel } from '../../../components/ui/Page';
 import { Loading, Notice } from '../../../components/Feedback';
+import { useApi } from '../../../hooks/useApi';
+import { useNowMinute } from '../../../hooks/useNowMinute';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -42,25 +45,56 @@ import { Loading, Notice } from '../../../components/Feedback';
  *
  * The overview keeps only what answers "where does this stand" — which is what
  * an overview is, and what this one had stopped being.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * THE 2026-11 LAYOUT: the cover with the title, the event's actions under it,
+ * four figures, then search appearance, the summary and the timeline beside
+ * Setup progress. The daily sales chart, the check-in ring and the per-tier
+ * bars that `EventStats` drew are not on it any more — Orders, Attendees and
+ * Door sales each show their own numbers in full.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 const PRE_LAUNCH = ['draft', 'rejected', 'pending_review'];
 
 export default function EventOverview() {
   const ctx = useEventContext();
-  const params = useSearchParams();
   const event = ctx?.event;
-
   if (!event) return <Loading variant="card" />;
+  // Keyed on the id, so hooks below always see a loaded event.
+  return <Overview key={event.id} event={event} refresh={ctx.refresh} />;
+}
+
+function Overview({ event, refresh }) {
+  const params = useSearchParams();
+  const now = useNowMinute();
+  const seo = useSeo(event);
+  const ticketed = event.listingType !== 'display_only';
+  const { data: stats } = useApi(ticketed ? `/events/${event.id}/stats?days=30` : null);
 
   const preLaunch = PRE_LAUNCH.includes(event.status);
   const finished = ['cancelled', 'completed', 'archived'].includes(event.status);
-  const ticketed = event.listingType !== 'display_only';
   const justCreated = params.get('created') === '1' && event.status === 'draft';
   const request = event.cancellationRequest;
 
   return (
     <div className="fx-stack">
+      <EventHero event={event} />
+
+      {/* The event's own actions, in one row under its cover. Edit details is
+          the primary — it is the screen an organizer opens from here most. */}
+      <div className="es-ovactions" role="group" aria-label="Event actions">
+        <EventActions event={event} onChanged={refresh} primary>
+          <Link href={`/organizer/events/${event.id}/share`} className="es-btn es-btn--secondary">
+            <NavIcon name="share" size={18} />Share
+          </Link>
+          {event.status === 'published' && (
+            <a href={`/e/${event.slug}`} target="_blank" rel="noreferrer" className="es-btn es-btn--secondary">
+              <NavIcon name="external" size={18} />Public page<span className="sr-only"> (opens in a new tab)</span>
+            </a>
+          )}
+        </EventActions>
+      </div>
+
       {justCreated && (
         <p className="fx-row flex-nowrap items-start gap-2 text-sm text-muted" role="status">
           <span className="shrink-0 text-accent"><NavIcon name="check" size={18} /></span>
@@ -129,13 +163,20 @@ export default function EventOverview() {
         </Notice>
       )}
 
-      {!preLaunch && ticketed && <EventStats eventId={event.id} currency={event.currency} />}
+      {ticketed && !preLaunch && <OverviewStats stats={stats} currency={event.currency} />}
 
-      {preLaunch && <PreLaunch event={event} onChanged={ctx.refresh} />}
+      {preLaunch && <PreLaunch event={event} onChanged={refresh} />}
 
-      {/* How the public page reads to a search engine, built by the same
-          functions that page uses, while there is still time to improve it. */}
-      {!finished && <SearchAppearance event={event} />}
+      <div className="es-ovgrid">
+        <div className="es-ovgrid__main">
+          {/* How the public page reads to a search engine, built by the same
+              functions that page uses, while there is still time to improve it. */}
+          {!finished && <SearchPreview event={event} seo={seo} />}
+          <EventSummary event={event} stats={stats} />
+          <EventTimeline event={event} stats={stats} now={now} />
+        </div>
+        {!finished && <div className="es-ovgrid__side"><SetupProgress event={event} seo={seo} /></div>}
+      </div>
 
       {/* ─────────────────────────────────────────────────────────────────
           A FINISHED EVENT HAS NO STEPS LEFT, so this is the one thing it

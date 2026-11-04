@@ -49,7 +49,11 @@ const ARCHIVABLE = ['draft', 'pending_review', 'rejected', 'published', 'complet
 // "request cancellation" button there only invites a pointless review.
 const CANCELLABLE = ['pending_review', 'published', 'suspended'];
 
-export default function EventActions({ event, onChanged, children }) {
+/**
+ * `primary`: the overview's row under the cover — Edit details filled, and
+ * every button at the full size. Elsewhere they stay the small secondary row.
+ */
+export default function EventActions({ event, onChanged, primary = false, children }) {
   const confirm = useConfirm();
   const toast = useToast();
   const [busy, setBusy] = useState(null);
@@ -182,13 +186,13 @@ export default function EventActions({ event, onChanged, children }) {
           than "Manage event" — it goes to one screen now, and the vaguer word
           suggested it opened all of them. */}
       {!archived && !finished && (
-        <Link href={`${base}/details`} className="es-btn es-btn--secondary es-btn--sm">
+        <Link href={`${base}/details`} className={primary ? 'es-btn es-btn--primary' : 'es-btn es-btn--secondary es-btn--sm'}>
           <NavIcon name="pencil" size={16} /> Edit details
         </Link>
       )}
 
       {archived && (
-        <button type="button" className="es-btn es-btn--secondary es-btn--sm" onClick={restore} disabled={Boolean(busy)}>
+        <button type="button" className={primary ? 'es-btn es-btn--primary' : 'es-btn es-btn--secondary es-btn--sm'} onClick={restore} disabled={Boolean(busy)}>
           <NavIcon name="undo" size={16} /> {busy === 'restore' ? 'Restoring…' : 'Restore'}
         </button>
       )}
@@ -196,7 +200,12 @@ export default function EventActions({ event, onChanged, children }) {
       {children}
 
       {anyMore && (
-        <MoreActions label={working || 'More'} srLabel="More actions for this event">
+        <MoreActions
+          label={working || 'More'}
+          srLabel="More actions for this event"
+          triggerClassName={primary ? 'es-btn es-btn--secondary' : undefined}
+          trigger={primary ? <>{working || 'More'}<span aria-hidden className="es-more__chev"><NavIcon name="chevronDown" size={16} /></span></> : undefined}
+        >
           {showMap && <MoreItem href={`${base}/map`} icon="map">Seating map</MoreItem>}
           {showArchive && (
             <>

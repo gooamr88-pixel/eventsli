@@ -64,14 +64,19 @@ async function organizerEventFigures(req, res, next) {
 async function eventStats(req, res, next) {
   try {
     const days = windowDays(req.query.days);
-    const { data, error } = await supabase.rpc('event_sales_summary', {
-      p_event_id: req.params.eventId, p_days: days,
-    });
+    const args = { p_event_id: req.params.eventId, p_days: days };
+    // The overview's trend badges and sparklines ride along (migration
+    // 20261104090000); without it the cards keep their totals and lose the line.
+    const [{ data, error }, trend] = await Promise.all([
+      supabase.rpc('event_sales_summary', args),
+      supabase.rpc('event_overview_trends', args),
+    ]);
     if (error) throw new Error(error.message);
     if (!data) {
       return sendFail(res, { status: 404, error: 'EVENT_NOT_FOUND', message: 'That event does not exist.' });
     }
-    return sendOk(res, { ...data, days });
+    if (trend.error) logger.warn({ err: trend.error.message }, 'event trends unavailable — apply the latest supabase migration');
+    return sendOk(res, { ...data, trends: trend.error ? null : trend.data, days });
   } catch (err) { return next(err); }
 }
 

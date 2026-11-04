@@ -9,7 +9,6 @@ import StatusPill from '../../StatusPill';
 import NavIcon from '../../../components/shell/NavIcon';
 import { ErrorNotice } from '../../../components/Feedback';
 import { EventProvider } from './EventContext';
-import EventActions from './EventActions';
 import BuildNav, { BuildProgress } from './BuildNav';
 import { BuildStepProvider } from './BuildStep';
 
@@ -81,7 +80,7 @@ export default function EventLayout({ children }) {
           save from the first to the second. See BuildStep.jsx. */}
       <BuildStepProvider>
         <div className="fx-stack">
-          <EventHeader event={state.event} eventId={id} onChanged={refresh} />
+          <EventHeader event={state.event} eventId={id} />
           {children}
           {/* Once, here, rather than in each of the nine build pages — every one
               of them would have to remember, and the one that forgot would be
@@ -94,7 +93,7 @@ export default function EventLayout({ children }) {
   );
 }
 
-function EventHeader({ event, eventId, onChanged }) {
+function EventHeader({ event, eventId }) {
   const pathname = usePathname() || '';
 
   if (!event) {
@@ -109,6 +108,26 @@ function EventHeader({ event, eventId, onChanged }) {
 
   const when = formatEventTime(event.startsAt, event.timezone);
   const onOverview = pathname === `/organizer/events/${eventId}`;
+
+  // THE OVERVIEW HAS ITS OWN HEAD: the way back and the page's name. The
+  // title, the facts and the actions are in the cover card right under it
+  // (EventOverview), so repeating them here would say everything twice.
+  if (onOverview) {
+    return (
+      <header className="es-ovhead">
+        <nav aria-label="Breadcrumb" className="es-ovhead__crumbs">
+          <Link href="/organizer/events" className="es-ovhead__back fx-touch">
+            <span aria-hidden="true" className="es-ovhead__arrow"><NavIcon name="arrow" size={18} /></span>
+            Your events
+          </Link>
+          <span aria-hidden="true"><NavIcon name="chevronDown" size={14} className="-rotate-90" /></span>
+          <span aria-current="page" className="es-ovhead__here fx-truncate">{event.title}</span>
+        </nav>
+        <h1 className="es-ovhead__title">Overview</h1>
+        <p className="es-ovhead__lede">A quick summary of your event, its performance, and setup progress.</p>
+      </header>
+    );
+  }
 
   return (
     /**
@@ -125,7 +144,7 @@ function EventHeader({ event, eventId, onChanged }) {
      * Tablets and desktops are unchanged.
      * ─────────────────────────────────────────────────────────────────────────
      */
-    <header className={`es-event-head ${onOverview ? '' : 'es-event-head--sub'}`}>
+    <header className="es-event-head es-event-head--sub">
       <nav aria-label="Breadcrumb" className="es-breadcrumb">
         {/* `fx-touch`: this is the way back up, and it was a 76×21 target. */}
         <Link href="/organizer/events" className="es-breadcrumb__up fx-touch">
@@ -159,22 +178,16 @@ function EventHeader({ event, eventId, onChanged }) {
           </p>
         </div>
         <div className="es-event-head__actions" role="group" aria-label="Event actions">
-          {/* The event's own actions live on its overview, in this one row with
-              Public page and Share — see EventActions. On Ticket types or Orders
-              they were four more buttons between the title and the work. */}
-          {onOverview ? (
-            <EventActions event={event} onChanged={onChanged}>
-              <HeaderLinks event={event} />
-            </EventActions>
-          ) : (
-            <HeaderLinks event={event} />
-          )}
+          {/* The event's own actions live on its overview, under the cover —
+              see EventActions. On Ticket types or Orders they were four more
+              buttons between the title and the work. */}
+          <HeaderLinks event={event} />
         </div>
       </div>
 
       {/* "Setup · step 3 of 6" on a build screen before launch. Renders nothing
           anywhere else. */}
-      {!onOverview && <BuildProgress />}
+      <BuildProgress />
 
       {/**
         * ─────────────────────────────────────────────────────────────────────
