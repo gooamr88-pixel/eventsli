@@ -103,4 +103,18 @@ function renderPng(url, size = 'sm') {
   });
 }
 
-module.exports = { shareInfo, resolveTarget, renderPng, SIZES };
+/**
+ * The same code as a vector, for banners and anything printed larger than a
+ * poster — a PNG scaled to a roll-up stand goes soft. Same error correction
+ * and colours as the PNG, so the two scan identically.
+ */
+function renderSvg(url) {
+  return QRCode.toString(url, {
+    type: 'svg',
+    errorCorrectionLevel: 'M',
+    margin: 2,
+    color: { dark: '#0E1613', light: '#FFFFFF' },
+  });
+}
+
+module.exports = { shareInfo, resolveTarget, renderPng, renderSvg, SIZES };

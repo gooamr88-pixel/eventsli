@@ -10,7 +10,9 @@ import Field, { TextareaField } from '../../components/forms/Field';
 import FormError from '../../components/forms/FormError';
 import SubmitButton from '../../components/forms/SubmitButton';
 import CreateProfile from '../CreateProfile';
-import { PageHeader, Panel } from '../../components/ui/Page';
+import { PageHeader } from '../../components/ui/Page';
+import NavIcon from '../../components/shell/NavIcon';
+import { StoreArt } from '../../components/ui/Illustrations';
 import { Loading } from '../../components/Feedback';
 
 /**
@@ -69,12 +71,23 @@ export default function OrganizerProfile() {
   if (loading) return <Loading variant="card" />;
   if (!organizer || !organizer.setupComplete) return <CreateProfile organizer={organizer} onCreated={refresh} />;
 
+  const hasPayments = (organizer.payments?.choices?.length ?? 0) > 0;
+
   return (
     <div className="fx-stack">
-      <PageHeader eyebrow="Your account" title="Organization" lede="Who buyers see they are buying from, and the details that are fixed." />
+      <PageHeader
+        eyebrow="Your account"
+        title="Organization"
+        lede="The details buyers see about you across your event pages and tickets."
+        art={<StoreArt />}
+      />
 
-      <div className="grid gap-[var(--fx-gap)] lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-        <Panel title="Organization details">
+      <div className="grid gap-[var(--fx-gap)] lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
+        <section className="es-dcard" aria-labelledby="org-details">
+          <div className="es-tilehead">
+            <span className="es-paytile" aria-hidden="true"><NavIcon name="building" size={24} /></span>
+            <h2 id="org-details" className="es-paycard__title">Organization details</h2>
+          </div>
           <form onSubmit={submit} className="fx-stack fx-stack--sm">
             <Field
               label="Organization name" name="legalName" required minLength={2} maxLength={160}
@@ -103,40 +116,51 @@ export default function OrganizerProfile() {
               )}
             </div>
           </form>
-        </Panel>
+        </section>
 
-        <Panel title="Account">
-          <dl className="fx-stack fx-stack--sm text-sm">
-            <Row term="Signed in as" value={user?.email || '—'} />
-            <Row term="Country" value={organizer.country} note="Fixed — it sets your payout account and your events' currency. Contact support to move." />
+        <section className="es-dcard" aria-labelledby="org-account">
+          <div className="es-tilehead">
+            <span className="es-paytile" aria-hidden="true"><NavIcon name="user" size={24} /></span>
+            <h2 id="org-account" className="es-paycard__title">Account</h2>
+          </div>
+          <dl className="es-acctrows">
+            <Row icon="mail" term="Signed in as" value={user?.email || '—'} />
+            <Row icon="globe" term="Country" value={organizer.country} note="Fixed — it sets your payout account and your events' currency. Contact support to move." />
             <Row
+              icon="card"
               term="Payment methods"
-              value={(organizer.payments?.choices?.length ?? 0) > 0 ? 'Ready' : 'None yet'}
-              link={{ href: '/organizer/payments', label: (organizer.payments?.choices?.length ?? 0) > 0 ? 'Manage' : 'Set up' }}
+              value={hasPayments ? 'Ready' : 'None yet'}
+              link={{ href: '/organizer/payments', label: hasPayments ? 'Manage' : 'Set up' }}
             />
             <Row
+              icon="fileText"
               term="Organizer agreement"
               value={organizer.policiesAcceptedAt ? `Accepted ${new Date(organizer.policiesAcceptedAt).toLocaleDateString()}` : '—'}
               link={{ href: '/terms/organizer', label: 'Read' }}
             />
           </dl>
-          <Link href="/account/security" className="text-sm text-accent">Password and signed-in devices</Link>
-        </Panel>
+          <Link href="/account/security" className="es-acctrows__go">
+            <NavIcon name="shield" size={20} />
+            <span className="flex-1">Password and signed-in devices</span>
+            <NavIcon name="chevronRight" size={18} />
+          </Link>
+        </section>
       </div>
     </div>
   );
 }
 
-function Row({ term, value, note, link }) {
+function Row({ icon, term, value, note, link }) {
   return (
-    <div className="fx-row fx-row--between border-t border-border-base pt-3 first:border-0 first:pt-0">
-      <dt className="fx-min0 flex-1">
-        <span className="block text-ink">{term}</span>
-        {note && <span className="block text-xs text-subtle">{note}</span>}
+    <div className="es-acctrows__row">
+      <NavIcon name={icon} size={20} />
+      <dt className="fx-min0">
+        <span className="block font-semibold text-ink">{term}</span>
+        {note && <span className="block text-xs text-muted">{note}</span>}
       </dt>
-      <dd className="fx-break text-right text-ink">
+      <dd className="fx-break text-right text-muted">
         {value}
-        {link && <> · <Link href={link.href} className="text-accent">{link.label}</Link></>}
+        {link && <> · <Link href={link.href} className="font-semibold text-accent">{link.label}</Link></>}
       </dd>
     </div>
   );

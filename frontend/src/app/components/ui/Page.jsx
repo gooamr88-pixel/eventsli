@@ -12,7 +12,7 @@ import NavIcon from '../shell/NavIcon';
  * belongs to, and a panel's heading is always `.es-panel-head`.
  */
 
-export function PageHeader({ eyebrow, title, lede, actions }) {
+export function PageHeader({ eyebrow, title, lede, actions, art }) {
   return (
     <header className="es-page-head">
       <div className="fx-stack fx-stack--sm fx-min0 gap-2">
@@ -21,6 +21,8 @@ export function PageHeader({ eyebrow, title, lede, actions }) {
         {lede && <p className="es-page-head__lede">{lede}</p>}
       </div>
       {actions && <div className="es-page-head__actions">{actions}</div>}
+      {/* `art`: a decorative picture on the right (components/ui/Illustrations). */}
+      {art && <div className="es-page-head__art" aria-hidden="true">{art}</div>}
     </header>
   );
 }

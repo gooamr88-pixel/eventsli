@@ -43,4 +43,30 @@ async function qr(req, res, next) {
   } catch (err) { return next(err); }
 }
 
-module.exports = { info, qr };
+// GET /events/:eventId/share/qr.svg[?tier=<id>][&download=1]
+// The vector twin of qr.png: same target resolution, so the URL inside is the
+// server's, never the browser's.
+async function qrSvg(req, res, next) {
+  try {
+    const target = await share.resolveTarget(req.params.eventId, req.query.tier || null);
+    if (!target) {
+      return sendFail(res, {
+        status: 404, error: 'NOT_FOUND', message: 'That ticket type is not part of this event.',
+      });
+    }
+    const svg = await share.renderSvg(target.url);
+    res.set({
+      'Content-Type': 'image/svg+xml; charset=utf-8',
+      'Cache-Control': 'private, max-age=300',
+      'X-Content-Type-Options': 'nosniff',
+      // An SVG is a document: no script, no fetch, nothing but itself.
+      'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'",
+      ...(req.query.download === '1'
+        ? { 'Content-Disposition': `attachment; filename="${target.filename.replace(/\.png$/, '.svg')}"` }
+        : {}),
+    });
+    return res.end(svg);
+  } catch (err) { return next(err); }
+}
+
+module.exports = { info, qr, qrSvg };

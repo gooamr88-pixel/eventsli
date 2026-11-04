@@ -13,8 +13,9 @@ import { useConfirm } from '../../components/ui/Confirm';
 import Field, { SelectField, TextareaField } from '../../components/forms/Field';
 import FormError from '../../components/forms/FormError';
 import SubmitButton from '../../components/forms/SubmitButton';
+import { CardsArt, BankArt } from '../../components/ui/Illustrations';
 import NavIcon from '../../components/shell/NavIcon';
-import { PageHeader, Panel } from '../../components/ui/Page';
+import { PageHeader } from '../../components/ui/Page';
 import { Loading, ErrorNotice, Notice } from '../../components/Feedback';
 import CreateProfile from '../CreateProfile';
 import { OnboardingProgress } from '../OnboardingProgress';
@@ -88,30 +89,33 @@ function PaymentsPage({ organizer, onboarding, onChanged }) {
         </>
       ) : (
         <PageHeader
-          eyebrow="Your account"
           title="Payment methods"
-          lede="Card payments through Stripe, and manual methods like e-Transfer or cash. Each event chooses which of these it takes."
+          lede="Accept payments online with cards, or manually — bank transfer, e-Transfer or cash. Each event chooses which it takes."
         />
       )}
 
-      <Notice
-        tone={nothing ? 'warning' : 'info'}
-        title={nothing
-          ? 'No payment method yet'
-          : organizer.payments.stripeReady && organizer.payments.manualMethods > 0
-            ? 'Card and manual payments are ready'
-            : organizer.payments.stripeReady ? 'Card payments are ready' : 'Manual payments are ready'}
-      >
-        <p>
-          {nothing
-            ? 'Ticketed events cannot go on sale until you add one. Display-only events do not need any.'
+      {/* Where the account stands, as the page's banner. The same three
+          answers the notice gave — none yet, cards, manual, or both. */}
+      <section className="es-payintro" data-tone={nothing ? 'warning' : 'info'} aria-labelledby="pay-intro">
+        <span className="es-payintro__icon" aria-hidden="true"><NavIcon name={nothing ? 'alert' : 'info'} size={24} /></span>
+        <div className="fx-min0">
+          <h2 id="pay-intro" className="es-payintro__title">{nothing
+            ? 'No payment method yet'
             : organizer.payments.stripeReady && organizer.payments.manualMethods > 0
-              ? 'Each ticketed event can take cards, manual payments, or both — you choose when you create it.'
-              : organizer.payments.stripeReady
-                ? 'Your events take cards through Stripe. Add a manual method below to also offer e-Transfer, bank transfer or cash.'
-                : 'Your events take manual payments. Connect Stripe below to also take cards online.'}
-        </p>
-      </Notice>
+              ? 'Card and manual payments are ready'
+              : organizer.payments.stripeReady ? 'Card payments are ready' : 'Manual payments are ready'}</h2>
+          <p className="es-payintro__text">
+            {nothing
+              ? 'Ticketed events cannot go on sale until you add one. Display-only events do not need any.'
+              : organizer.payments.stripeReady && organizer.payments.manualMethods > 0
+                ? 'Each ticketed event can take cards, manual payments, or both — you choose when you create it.'
+                : organizer.payments.stripeReady
+                  ? 'Your events take cards through Stripe. Add a manual method below to also offer e-Transfer, bank transfer or cash.'
+                  : 'Your events take manual payments. Connect Stripe below to also take cards online.'}
+          </p>
+        </div>
+        <CardsArt className="es-payintro__art" />
+      </section>
 
       <StripeSection organizer={organizer} onChanged={onChanged} />
       <ManualSection onChanged={onChanged} />
@@ -180,66 +184,81 @@ function StripeSection({ organizer, onChanged }) {
   const label = !status ? 'Checking…' : ready ? 'Connected' : status.connected ? 'Needs details' : 'Not connected';
 
   return (
-    <Panel
-      title="Card payments — Stripe"
-      description="Buyers pay by card at checkout. The money goes to your Stripe account; Eventsli never holds it."
-      action={<span className="es-status" data-tone={ready ? 'success' : status?.connected ? 'warning' : 'neutral'}>{label}</span>}
-    >
-      {!status && !error && <Loading variant="card" label="Checking with Stripe" />}
-      {error && !status && <ErrorNotice error={error} />}
-
-      {linkExpired && status && !ready && (
-        <Notice tone="warning" title="Your Stripe link expired before you finished.">
-          <p>Nothing you entered is lost. Continue where you left off.</p>
-        </Notice>
-      )}
-      {returned && status && (
-        <Notice tone="info" title={ready ? 'Stripe is connected.' : 'Back from Stripe.'}>
-          <p>{ready ? 'Your events can take card payments.' : 'Stripe is still checking your details. Anything it still needs is listed below.'}</p>
-        </Notice>
-      )}
-
-      {status?.paymentsDisabled && (
-        <Notice tone="warning" title="Card payments are not switched on for Eventsli yet.">
-          <p>You can still add manual payment methods below and build your events.</p>
-        </Notice>
-      )}
-
-      {status && !status.paymentsDisabled && !ready && (
-        <div className="fx-stack fx-stack--sm">
-          <p className="text-sm text-muted">
-            {status.connected
-              ? 'Your Stripe account exists but is not ready to receive money yet.'
-              : 'You will be taken to Stripe to enter your business and bank details. It takes about five minutes.'}
-          </p>
-          {status.requirements?.length > 0 && (
-            <div className="fx-stack fx-stack--sm gap-1">
-              <p className="text-sm text-ink">Stripe still needs:</p>
-              <ul className="list-disc pl-5 text-sm text-muted">
-                {status.requirements.map((r) => <li key={r}>{humanise(r)}</li>)}
-              </ul>
-            </div>
-          )}
-          {status.pendingVerification?.length > 0 && (
-            <p className="text-sm text-muted">Stripe is checking {status.pendingVerification.length} item(s). Nothing to do — this can take a day.</p>
-          )}
-          <FormError error={error} />
-          <div>
-            <button type="button" onClick={connect} disabled={busy} className="es-btn es-btn--primary">
-              <NavIcon name="card" size={18} />
-              {busy ? 'Opening Stripe…' : status.connected ? 'Continue with Stripe' : 'Connect Stripe'}
-            </button>
-          </div>
+    <section className="es-dcard es-paycard" aria-labelledby="pay-stripe">
+      <div className="es-paycard__main">
+        <div className="es-paycard__head">
+          <span className="es-paytile es-paytile--stripe" aria-hidden="true">S</span>
+          <h2 id="pay-stripe" className="es-paycard__title">Stripe</h2>
+          <span className="es-status" data-tone={ready ? 'success' : status?.connected ? 'warning' : 'neutral'}>{label}</span>
         </div>
-      )}
-
-      {ready && (
-        <p className="fx-row flex-nowrap items-start text-sm text-muted">
-          <span className="shrink-0 text-accent"><NavIcon name="check" size={18} /></span>
-          <span className="fx-min0">Ready to take card payments. If Stripe ever needs more from you, it shows up here.</span>
+        <p className="es-paycard__desc">
+          Accept card payments at checkout. Funds go directly to your Stripe account, and Eventsli never holds your money.
         </p>
-      )}
-    </Panel>
+        <ul className="es-paycard__checks">
+          <li><NavIcon name="tick" size={16} />Credit and debit cards at checkout</li>
+          <li><NavIcon name="tick" size={16} />Card details are taken by Stripe, never stored by Eventsli</li>
+          <li><NavIcon name="tick" size={16} />Orders confirm themselves the moment a payment succeeds</li>
+        </ul>
+        {!status && !error && <Loading variant="card" label="Checking with Stripe" />}
+        {error && !status && <ErrorNotice error={error} />}
+
+        {linkExpired && status && !ready && (
+          <Notice tone="warning" title="Your Stripe link expired before you finished.">
+            <p>Nothing you entered is lost. Continue where you left off.</p>
+          </Notice>
+        )}
+        {returned && status && (
+          <Notice tone="info" title={ready ? 'Stripe is connected.' : 'Back from Stripe.'}>
+            <p>{ready ? 'Your events can take card payments.' : 'Stripe is still checking your details. Anything it still needs is listed below.'}</p>
+          </Notice>
+        )}
+
+        {status?.paymentsDisabled && (
+          <Notice tone="warning" title="Card payments are not switched on for Eventsli yet.">
+            <p>You can still add manual payment methods below and build your events.</p>
+          </Notice>
+        )}
+
+        {status && !status.paymentsDisabled && !ready && (
+          <div className="fx-stack fx-stack--sm">
+            <p className="text-sm text-muted">
+              {status.connected
+                ? 'Your Stripe account exists but is not ready to receive money yet.'
+                : 'You will be taken to Stripe to enter your business and bank details. It takes about five minutes.'}
+            </p>
+            {status.requirements?.length > 0 && (
+              <div className="fx-stack fx-stack--sm gap-1">
+                <p className="text-sm text-ink">Stripe still needs:</p>
+                <ul className="list-disc pl-5 text-sm text-muted">
+                  {status.requirements.map((r) => <li key={r}>{humanise(r)}</li>)}
+                </ul>
+              </div>
+            )}
+            {status.pendingVerification?.length > 0 && (
+              <p className="text-sm text-muted">Stripe is checking {status.pendingVerification.length} item(s). Nothing to do — this can take a day.</p>
+            )}
+            <FormError error={error} />
+            <div className="fx-row gap-2">
+              <button type="button" onClick={connect} disabled={busy} className="es-btn es-btn--primary">
+                <NavIcon name="link" size={18} />
+                {busy ? 'Opening Stripe…' : status.connected ? 'Continue with Stripe' : 'Connect Stripe'}
+              </button>
+              <a href="https://stripe.com/connect" target="_blank" rel="noopener noreferrer" className="es-btn es-btn--secondary">
+                <NavIcon name="external" size={18} />Learn more<span className="sr-only"> about Stripe (opens in a new tab)</span>
+              </a>
+            </div>
+          </div>
+        )}
+
+        {ready && (
+          <p className="fx-row flex-nowrap items-start text-sm text-muted">
+            <span className="shrink-0 text-accent"><NavIcon name="check" size={18} /></span>
+            <span className="fx-min0">Ready to take card payments. If Stripe ever needs more from you, it shows up here.</span>
+          </p>
+        )}
+      </div>
+      <CardsArt label="Stripe" className="es-paycard__art" />
+    </section>
   );
 }
 
@@ -287,66 +306,69 @@ function ManualSection({ onChanged }) {
   }
 
   return (
-    <Panel
-      title="Manual payments"
-      description="Ways buyers pay you directly — e-Transfer, bank transfer, cash. Buyers see your instructions."
-      action={methods && methods.length > 0 && editing !== 'new' ? (
-        <button type="button" className="es-btn es-btn--secondary es-btn--sm" onClick={() => setEditing('new')}>
-          <NavIcon name="plus" size={16} /> Add
-        </button>
-      ) : null}
-    >
-      {error && <ErrorNotice error={error} />}
-      {!methods && !error && <Loading variant="list" rows={2} label="Loading manual methods" />}
-
-      {methods && methods.length === 0 && editing !== 'new' && (
-        <div className="fx-stack fx-stack--sm items-start">
-          <p className="text-sm text-muted">No manual methods yet.</p>
-          <button type="button" className="es-btn es-btn--primary" onClick={() => setEditing('new')}>
-            <NavIcon name="plus" size={18} /> Add a manual payment method
-          </button>
+    <section className="es-dcard es-paycard" aria-labelledby="pay-manual">
+      <div className="es-paycard__main">
+        <div className="es-paycard__head">
+          <span className="es-paytile" aria-hidden="true"><NavIcon name="bank" size={24} /></span>
+          <h2 id="pay-manual" className="es-paycard__title">Manual payments</h2>
+          <span className="es-paycard__chip">Optional</span>
         </div>
-      )}
-
-      {methods && methods.length > 0 && (
-        <ul className="fx-stack fx-stack--sm">
-          {methods.map((m) => (
-            <li key={m.id}>
-              {editing === m.id ? (
-                <MethodForm method={m} onCancel={() => setEditing(null)} onSaved={() => changed('Saved.')} />
-              ) : (
-                <div className="es-method" data-active={m.isActive}>
-                  <span className="es-method__icon"><NavIcon name={m.kind === 'cash' ? 'cash' : 'bank'} size={20} /></span>
-                  <div className="es-method__body">
-                    <p className="fx-row gap-2 text-ink">
-                      <span className="font-medium">{m.label}</span>
-                      {KIND_LABEL[m.kind] !== m.label && <span className="text-xs text-subtle">{KIND_LABEL[m.kind]}</span>}
-                      {!m.isActive && <span className="es-optional">Off</span>}
-                    </p>
-                    <p className="fx-break whitespace-pre-line text-sm text-muted">{m.instructions}</p>
-                  </div>
-                  <div className="es-method__actions">
-                    <button type="button" className="es-btn es-btn--ghost es-btn--sm" onClick={() => setEditing(m.id)}>
-                      <NavIcon name="pencil" size={16} /> Edit<span className="sr-only"> {m.label}</span>
-                    </button>
-                    <button type="button" className="es-btn es-btn--ghost es-btn--sm" onClick={() => toggle(m)}>
-                      {m.isActive ? 'Turn off' : 'Turn on'}
-                    </button>
-                    <button type="button" className="es-btn es-btn--ghost es-btn--sm text-danger" onClick={() => remove(m)}>
-                      <NavIcon name="trash" size={16} /> Remove<span className="sr-only"> {m.label}</span>
-                    </button>
-                  </div>
-                </div>
-              )}
-            </li>
-          ))}
+        <p className="es-paycard__desc">Payments buyers make to you directly, outside Eventsli — bank transfer, e-Transfer or cash.</p>
+        <ul className="es-paycard__checks">
+          <li><NavIcon name="tick" size={16} />Your own instructions, shown to buyers at checkout</li>
+          <li><NavIcon name="tick" size={16} />You confirm each payment yourself before the tickets are issued</li>
         </ul>
-      )}
+        {error && <ErrorNotice error={error} />}
+        {!methods && !error && <Loading variant="list" rows={2} label="Loading manual methods" />}
 
-      {editing === 'new' && (
-        <MethodForm onCancel={() => setEditing(null)} onSaved={() => changed('Manual payment method added.')} />
-      )}
-    </Panel>
+
+        {methods && methods.length > 0 && (
+          <ul className="fx-stack fx-stack--sm">
+            {methods.map((m) => (
+              <li key={m.id}>
+                {editing === m.id ? (
+                  <MethodForm method={m} onCancel={() => setEditing(null)} onSaved={() => changed('Saved.')} />
+                ) : (
+                  <div className="es-method" data-active={m.isActive}>
+                    <span className="es-method__icon"><NavIcon name={m.kind === 'cash' ? 'cash' : 'bank'} size={20} /></span>
+                    <div className="es-method__body">
+                      <p className="fx-row gap-2 text-ink">
+                        <span className="font-medium">{m.label}</span>
+                        {KIND_LABEL[m.kind] !== m.label && <span className="text-xs text-subtle">{KIND_LABEL[m.kind]}</span>}
+                        {!m.isActive && <span className="es-optional">Off</span>}
+                      </p>
+                      <p className="fx-break whitespace-pre-line text-sm text-muted">{m.instructions}</p>
+                    </div>
+                    <div className="es-method__actions">
+                      <button type="button" className="es-btn es-btn--ghost es-btn--sm" onClick={() => setEditing(m.id)}>
+                        <NavIcon name="pencil" size={16} /> Edit<span className="sr-only"> {m.label}</span>
+                      </button>
+                      <button type="button" className="es-btn es-btn--ghost es-btn--sm" onClick={() => toggle(m)}>
+                        {m.isActive ? 'Turn off' : 'Turn on'}
+                      </button>
+                      <button type="button" className="es-btn es-btn--ghost es-btn--sm text-danger" onClick={() => remove(m)}>
+                        <NavIcon name="trash" size={16} /> Remove<span className="sr-only"> {m.label}</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {editing === 'new' ? (
+          <MethodForm onCancel={() => setEditing(null)} onSaved={() => changed('Manual payment method added.')} />
+        ) : methods && (
+          <div>
+            <button type="button" className="es-btn es-btn--secondary" onClick={() => setEditing('new')}>
+              <NavIcon name="plus" size={18} /> Add manual payment method
+            </button>
+          </div>
+        )}
+      </div>
+      <BankArt className="es-paycard__art" />
+    </section>
   );
 }
 

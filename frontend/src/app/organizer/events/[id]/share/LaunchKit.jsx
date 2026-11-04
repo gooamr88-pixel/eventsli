@@ -67,12 +67,15 @@ export default function LaunchKit({ eventId, shareEvent }) {
   };
 
   return (
-    <section className="fx-stack" aria-labelledby="launch-kit">
-      <div className="fx-stack fx-stack--sm gap-1">
-        <h3 id="launch-kit" className="text-lg text-ink">Launch kit</h3>
-        <p className="max-w-[62ch] text-sm text-muted">
-          Images sized for posts and stories, and — with AI — posts written for each channel with a tracked link.
-        </p>
+    <section className="es-dcard" aria-labelledby="launch-kit">
+      <div className="es-ovcard__head">
+        <span className="es-ovcard__glyph" aria-hidden="true"><NavIcon name="layers" size={24} /></span>
+        <div className="fx-min0">
+          <h2 id="launch-kit" className="es-dcard__title">Launch kit</h2>
+          <p className="es-ovcard__desc">
+            Ready-to-use visuals for your promotions{quota?.enabled ? ', with AI-written copy for each channel' : ''}.
+          </p>
+        </div>
       </div>
 
       <ShareImages coverUrl={event.cover?.url || null} info={info} slug={event.slug} />
@@ -129,11 +132,12 @@ function ShareImages({ coverUrl, info, slug }) {
               ? <img src={images[format]} alt={`${f.label} image for this event`} />
               : <span className="es-skeleton es-kit-image__ghost" aria-hidden="true" />}
           </div>
-          <figcaption className="fx-stack fx-stack--sm gap-1">
-            <span className="text-sm font-medium text-ink">{f.label}</span>
-            <span className="text-xs text-subtle">{f.hint} · {f.width}×{f.height}</span>
+          <figcaption className="es-kit-image__info">
+            <span className="text-md font-semibold text-ink">{f.label}</span>
+            <span className="text-xs text-muted">{f.hint}</span>
+            <span className="es-ovchip self-start">{f.width} × {f.height}</span>
             <a
-              className={`es-btn es-btn--secondary es-btn--sm self-start${images[format] ? '' : ' pointer-events-none opacity-50'}`}
+              className={`es-btn es-btn--primary es-btn--sm mt-auto self-start${images[format] ? '' : ' pointer-events-none opacity-50'}`}
               href={images[format] || undefined} download={`${slug}-${format}.jpg`} aria-disabled={!images[format] || undefined}
             >
               <NavIcon name="download" size={16} /> Download

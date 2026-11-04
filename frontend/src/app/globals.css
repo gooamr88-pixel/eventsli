@@ -11556,3 +11556,221 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
 .es-toolbar--stack > :last-child { flex: none; }
 
 }   /* end @layer components — event sections, 2026-11 */
+
+/* ── Share & QR, Payment methods, Organization — 2026-11 ────────────────────
+   Plus the inline illustrations (components/ui/Illustrations.jsx), drawn in
+   the brand's tokens. */
+@layer components {
+
+/* Illustrations */
+.es-art { display: block; width: 100%; height: auto; }
+.es-art__blob { fill: var(--es-accent-wash); }
+.es-art__card { fill: var(--es-teal-300); }
+.es-art__card--back { fill: var(--es-teal-200); }
+.es-art__chip { fill: var(--es-surface); opacity: 0.85; }
+.es-art__line, .es-art__wave { fill: none; stroke: var(--es-surface); stroke-width: 5; stroke-linecap: round; opacity: 0.9; }
+.es-art__pill { fill: var(--es-surface); filter: drop-shadow(0 4px 10px rgb(6 24 26 / 0.12)); }
+.es-art__pilltext { font: 700 22px var(--es-font-sans); fill: var(--es-text); letter-spacing: -0.02em; }
+.es-art__coin { fill: #d9a43a; }
+.es-art__coin--top { fill: #f1c15c; }
+.es-art__awning { fill: var(--es-teal-400); }
+.es-art__stripe { fill: var(--es-teal-700); }
+.es-art__ticket { fill: var(--es-surface); stroke: var(--es-teal-500); stroke-width: 3; }
+.es-art__ticket + .es-art__line { stroke: var(--es-teal-300); }
+.es-art__burst path { fill: none; stroke: var(--es-teal-600); stroke-width: 4; stroke-linecap: round; }
+
+.es-page-head__art { display: none; width: min(18rem, 34vw); margin-inline-start: auto; }
+@media (width >= theme(--breakpoint-md)) {
+  .es-page-head__art { display: block; }
+}
+
+/* Shared: an icon tile and a heading beside it */
+.es-paytile {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 0.75rem;
+  background: var(--es-accent);
+  color: var(--es-text-on-accent);
+  font-size: 1.5rem;
+  font-weight: 800;
+}
+/* Stripe's own purple for its initial: a label for whose service this is. */
+.es-paytile--stripe { background: #635bff; color: #fff; }
+.es-tilehead { display: flex; align-items: center; gap: 0.875rem; }
+.es-paycard__title { margin: 0; font-size: var(--es-text-xl); font-weight: 700; letter-spacing: -0.02em; color: var(--es-text); }
+
+/* ── Share & QR ── */
+.es-sharegrid { display: grid; gap: var(--fx-gap); align-items: start; }
+@media (width >= theme(--breakpoint-xl)) {
+  .es-sharegrid { grid-template-columns: minmax(0, 1.65fr) minmax(19rem, 1fr); }
+}
+.es-qrhero { gap: 0; padding: 0; overflow: hidden; }
+.es-qrhero__band {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.875rem 1.5rem;
+  background: var(--es-teal-800);
+  font-size: var(--es-text-md);
+  font-weight: 700;
+  color: #fff;
+}
+.es-qrhero__body { display: grid; gap: 1.25rem; padding: 1.25rem 1.5rem 1.5rem; }
+@media (width >= theme(--breakpoint-md)) {
+  .es-qrhero__body { grid-template-columns: auto minmax(0, 1fr); align-items: start; }
+}
+.es-qrhero__code, .es-qrtile__code {
+  justify-self: start;
+  padding: 0.75rem;
+  border: 1px solid var(--es-border);
+  border-radius: 0.875rem;
+  background: var(--es-surface);
+  box-shadow: var(--es-shadow-sm);
+}
+.es-qrhero__title { margin: 0; font-size: var(--es-text-lg); font-weight: 700; letter-spacing: -0.01em; color: var(--es-text); }
+.es-qrhero__meta { color: var(--es-text-muted); }
+.es-qrhero__meta svg { color: var(--es-text-muted); }
+.es-qrhero__actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.es-qrhero__actions .es-btn { gap: 0.375rem; }
+.es-qrhero__note { display: flex; align-items: center; gap: 0.5rem; font-size: var(--es-text-xs); color: var(--es-text-muted); }
+
+.es-qrlink {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  padding: 0.25rem 0.25rem 0.25rem 0.75rem;
+  border: 1px solid var(--es-border);
+  border-radius: 0.625rem;
+  background: var(--es-surface);
+  color: var(--es-text-muted);
+}
+.es-qrlink:focus-within { border-color: var(--es-accent); }
+.es-qrlink input { flex: 1; min-width: 0; height: 2.25rem; border: 0; background: transparent; font: inherit; font-size: var(--es-text-sm); color: var(--es-accent); outline: none; text-overflow: ellipsis; }
+.es-qrlink__copy {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 0.375rem;
+  min-height: 2.25rem;
+  padding: 0.25rem 0.75rem;
+  border: 1px solid var(--es-border);
+  border-radius: 0.5rem;
+  background: var(--es-surface);
+  font: inherit;
+  font-size: var(--es-text-sm);
+  font-weight: 600;
+  color: var(--es-text);
+  cursor: pointer;
+}
+.es-qrlink__copy:hover { border-color: var(--es-accent); color: var(--es-accent); }
+
+.es-qrtiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr)); gap: 0.875rem; }
+.es-qrtile { gap: 0.75rem; padding: 1rem; box-shadow: none; }
+.es-qrtile__top { display: flex; align-items: center; gap: 0.875rem; }
+.es-qrtile__code { padding: 0.375rem; box-shadow: none; }
+.es-qrhero__code .es-qr { display: block; width: 11rem; height: 11rem; }
+.es-qrtile__code .es-qr { display: block; width: 5.5rem; height: 5.5rem; }
+
+.es-shareon { display: grid; grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr)); gap: 0.5rem; }
+.es-shareon__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--es-border);
+  border-radius: 0.625rem;
+  background: var(--es-surface);
+  font-size: var(--es-text-sm);
+  font-weight: 600;
+  color: var(--es-text);
+  text-decoration: none;
+}
+.es-shareon__btn:hover { border-color: var(--es-border-strong); box-shadow: var(--es-shadow-xs); }
+.es-shareon__btn[data-net="whatsapp"] svg { color: #1f9d55; }
+.es-shareon__btn[data-net="facebook"] svg { color: #1877f2; }
+.es-shareon__btn[data-net="email"] svg { color: var(--es-text); }
+
+.es-tips { display: flex; flex-direction: column; }
+.es-tips li { display: flex; align-items: flex-start; gap: 0.875rem; padding-block: 0.75rem; border-top: 1px solid var(--es-border); }
+.es-tips li:first-child { border-top: 0; padding-top: 0.25rem; }
+.es-tips__icon { display: grid; flex: none; place-items: center; width: 2.5rem; height: 2.5rem; border-radius: 0.625rem; background: var(--es-accent-wash); color: var(--es-accent); }
+.es-tips b { display: block; font-size: var(--es-text-sm); font-weight: 700; color: var(--es-text); }
+.es-tips small { display: block; font-size: var(--es-text-xs); color: var(--es-text-muted); }
+.es-tips__note { display: flex; align-items: flex-start; gap: 0.625rem; padding: 0.75rem 0.875rem; border-radius: 0.75rem; background: var(--es-accent-wash); font-size: var(--es-text-xs); color: var(--es-text); }
+.es-tips__note svg { flex: none; color: var(--es-accent); }
+
+/* Launch kit tiles: picture beside its facts */
+.es-kit-image { padding: 0.875rem; border: 1px solid var(--es-border); border-radius: 0.875rem; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: stretch; }
+.es-kit-image__info { display: flex; flex-direction: column; gap: 0.375rem; }
+
+/* ── Payment methods ── */
+.es-payintro {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 1rem;
+  padding: 1.125rem 1.5rem;
+  overflow: hidden;
+  border: 1px solid var(--es-accent-edge);
+  border-radius: 1rem;
+  background: linear-gradient(100deg, var(--es-accent-wash), color-mix(in srgb, var(--es-accent-wash) 40%, var(--es-surface)));
+}
+.es-payintro[data-tone="warning"] { border-color: color-mix(in srgb, var(--es-amber-700) 35%, var(--es-surface)); background: color-mix(in srgb, var(--es-amber-700) 9%, var(--es-surface)); }
+.es-payintro__icon { display: inline-flex; color: var(--es-accent); }
+.es-payintro[data-tone="warning"] .es-payintro__icon { color: var(--es-warning); }
+.es-payintro__title { margin: 0; font-size: var(--es-text-md); font-weight: 700; color: var(--es-text); }
+.es-payintro__text { font-size: var(--es-text-sm); color: var(--es-text-muted); }
+.es-payintro__art { display: none; }
+@media (width >= theme(--breakpoint-md)) {
+  .es-payintro { grid-template-columns: auto minmax(0, 1fr) 9rem; }
+  .es-payintro__art { display: block; margin-block: -1.5rem; }
+}
+
+.es-paycard { display: grid; gap: 1.5rem; padding: 1.5rem; }
+@media (width >= theme(--breakpoint-lg)) {
+  .es-paycard { grid-template-columns: minmax(0, 1.4fr) minmax(14rem, 1fr); align-items: center; }
+}
+.es-paycard__main { display: flex; flex-direction: column; gap: 0.875rem; min-width: 0; }
+.es-paycard__head { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem 1rem; }
+.es-paycard__desc { max-width: 60ch; font-size: var(--es-text-sm); color: var(--es-text-muted); }
+.es-paycard__checks { display: flex; flex-direction: column; gap: 0.5rem; }
+.es-paycard__checks li { display: flex; align-items: center; gap: 0.625rem; font-size: var(--es-text-sm); color: var(--es-text); }
+.es-paycard__checks svg { display: block; flex: none; width: 1.375rem; height: 1.375rem; padding: 0.1875rem; border-radius: 999px; background: var(--es-accent-wash); color: var(--es-accent); }
+.es-paycard__chip { padding: 0.1875rem 0.625rem; border-radius: 999px; background: var(--es-accent-wash); font-size: var(--es-text-xs); font-weight: 600; color: var(--es-accent); }
+.es-paycard__art { display: none; max-width: 20rem; justify-self: end; }
+@media (width >= theme(--breakpoint-lg)) {
+  .es-paycard__art { display: block; }
+}
+
+/* ── Organization ── */
+.es-acctrows { display: flex; flex-direction: column; }
+.es-acctrows__row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.875rem;
+  padding-block: 0.875rem;
+  border-bottom: 1px solid var(--es-border);
+  font-size: var(--es-text-sm);
+}
+.es-acctrows__row > svg { color: var(--es-text); }
+.es-acctrows__go {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  min-height: 3rem;
+  padding-block: 0.5rem;
+  font-size: var(--es-text-sm);
+  font-weight: 600;
+  color: var(--es-text);
+  text-decoration: none;
+}
+.es-acctrows__go:hover { color: var(--es-accent); }
+
+}   /* end @layer components — share, payments, organization, 2026-11 */

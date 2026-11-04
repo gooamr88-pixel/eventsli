@@ -360,6 +360,14 @@ router.get(
   validate,
   share.qr,
 );
+router.get(
+  '/:eventId/share/qr.svg',
+  verifyEventOwner,
+  query('tier').optional().isUUID(),
+  query('download').optional().isIn(['1']),
+  validate,
+  share.qrSvg,
+);
 
 // ─── Manual sales and the commission they create (BRD §03, §18, §20) ────────
 const manual = require('../controllers/manualPaymentController');

@@ -18,7 +18,7 @@ import NavIcon from '../../../../components/shell/NavIcon';
  * sized for a screen, and a poster printed from it would be soft.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-export default function QrCard({ title, subtitle, url, qrPath, filename, featured = false }) {
+export default function QrCard({ title, subtitle, url, qrPath, filename, featured = false, meta = null }) {
   const toast = useToast();
   const inputId = useId();
   const inputRef = useRef(null);
@@ -56,15 +56,20 @@ export default function QrCard({ title, subtitle, url, qrPath, filename, feature
     }
   }
 
-  async function download() {
-    setDownloading(true);
+  // `kind` is 'png' (the 1200px rendering) or 'svg' (the vector, from
+  // qr.svg — the same server-built URL inside, for banners and large prints).
+  async function download(kind = 'png') {
+    setDownloading(kind);
     try {
       const joiner = qrPath.includes('?') ? '&' : '?';
-      const blob = await get(`${qrPath}${joiner}size=lg&download=1`, { cache: 'no-store' });
+      const path = kind === 'svg'
+        ? `${qrPath.replace('/qr.png', '/qr.svg')}${joiner}download=1`
+        : `${qrPath}${joiner}size=lg&download=1`;
+      const blob = await get(path, { cache: 'no-store' });
       const href = URL.createObjectURL(blob);
       const anchor = document.createElement('a');
       anchor.href = href;
-      anchor.download = filename;
+      anchor.download = kind === 'svg' ? filename.replace(/\.png$/, '.svg') : filename;
       document.body.appendChild(anchor);
       anchor.click();
       anchor.remove();
@@ -76,54 +81,102 @@ export default function QrCard({ title, subtitle, url, qrPath, filename, feature
     }
   }
 
-  return (
-    <article className={`es-card p-5 ${featured ? 'grid gap-5 md:grid-cols-[auto_minmax(0,1fr)] md:items-center' : 'fx-stack fx-stack--sm'}`}>
-      <div className="fx-stack fx-stack--sm">
-        {image.src ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={image.src} alt={`QR code for ${title}`} className="es-qr" width="176" height="176" />
-        ) : (
-          <div className="es-qr grid place-items-center text-center text-xs text-subtle" role="img" aria-label={image.failed ? 'QR code unavailable' : 'Loading QR code'}>
-            {image.failed ? 'Could not load' : <span className="es-skeleton size-full" />}
-          </div>
-        )}
-      </div>
+  /**
+   * PRINT opens the large rendering alone in a new window and prints it. The
+   * window is written from here, with no script of its own — the page's CSP
+   * would refuse one — and the print call waits for the image to load.
+   */
+  async function print() {
+    const win = window.open('', '_blank', 'width=720,height=860');
+    if (!win) { toast.error('Allow pop-ups for Eventsli to print the QR code.'); return; }
+    try {
+      const joiner = qrPath.includes('?') ? '&' : '?';
+      const blob = await get(`${qrPath}${joiner}size=lg`, { cache: 'no-store' });
+      const href = URL.createObjectURL(blob);
+      win.document.title = `QR code — ${title}`;
+      win.document.body.style.cssText = 'margin:0;display:grid;place-items:center;min-height:100vh;font:16px system-ui,sans-serif';
+      const img = win.document.createElement('img');
+      img.alt = `QR code for ${title}`;
+      img.style.cssText = 'width:min(90vw,14cm);height:auto';
+      const caption = win.document.createElement('p');
+      caption.textContent = title;
+      img.onload = () => { win.focus(); win.print(); };
+      img.src = href;
+      win.document.body.append(img, caption);
+    } catch {
+      win.close();
+      toast.error('The QR code could not be prepared for printing.');
+    }
+  }
 
-      <div className="fx-stack fx-stack--sm fx-min0">
-        <div>
-          <h3 className="fx-break text-md text-ink">{title}</h3>
+  const qr = image.src ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={image.src} alt={`QR code for ${title}`} className="es-qr" width="176" height="176" />
+  ) : (
+    <div className="es-qr grid place-items-center text-center text-xs text-subtle" role="img" aria-label={image.failed ? 'QR code unavailable' : 'Loading QR code'}>
+      {image.failed ? 'Could not load' : <span className="es-skeleton size-full" />}
+    </div>
+  );
+
+  const linkBox = (
+    <div className="es-qrlink">
+      <NavIcon name="link" size={16} />
+      <label htmlFor={inputId} className="sr-only">{`Link for ${title}`}</label>
+      <input ref={inputRef} id={inputId} readOnly value={url} onFocus={(e) => e.target.select()} />
+      <button type="button" className="es-qrlink__copy" onClick={copy}>
+        <NavIcon name="copy" size={16} />Copy
+      </button>
+    </div>
+  );
+
+  // THE EVENT PAGE'S CODE: the card with the green band, the facts, and every
+  // way to get the code out — PNG for print, SVG for anything larger, Print.
+  if (featured) {
+    return (
+      <article className="es-dcard es-qrhero" aria-labelledby={`${inputId}-title`}>
+        <p className="es-qrhero__band"><NavIcon name="qr" size={22} />Event page QR code</p>
+        <div className="es-qrhero__body">
+          <div className="es-qrhero__code">{qr}</div>
+          <div className="fx-stack fx-stack--sm fx-min0">
+            <h2 id={`${inputId}-title`} className="es-qrhero__title fx-break">{title}</h2>
+            {meta && <p className="es-ovhero__meta es-qrhero__meta">{meta}</p>}
+            {linkBox}
+            <div className="es-qrhero__actions">
+              <button type="button" className="es-btn es-btn--primary es-btn--sm" onClick={() => download('png')} disabled={Boolean(downloading)}>
+                <NavIcon name="download" size={16} />{downloading === 'png' ? 'Preparing…' : 'Download PNG'}
+              </button>
+              <button type="button" className="es-btn es-btn--secondary es-btn--sm" onClick={() => download('svg')} disabled={Boolean(downloading)}>
+                <NavIcon name="download" size={16} />{downloading === 'svg' ? 'Preparing…' : 'Download SVG'}
+              </button>
+              <button type="button" className="es-btn es-btn--secondary es-btn--sm" onClick={print}>
+                <NavIcon name="printer" size={16} />Print QR
+              </button>
+            </div>
+            <p className="es-qrhero__note"><NavIcon name="info" size={16} />{subtitle}</p>
+          </div>
+        </div>
+      </article>
+    );
+  }
+
+  return (
+    <article className="es-dcard es-qrtile">
+      <div className="es-qrtile__top">
+        <div className="es-qrtile__code">{qr}</div>
+        <div className="fx-min0">
+          <h3 className="fx-break font-semibold text-ink">{title}</h3>
           {subtitle && <p className="text-sm text-muted">{subtitle}</p>}
         </div>
-
-        <label htmlFor={inputId} className="sr-only">{`Link for ${title}`}</label>
-        <input
-          ref={inputRef}
-          id={inputId}
-          readOnly
-          value={url}
-          onFocus={(e) => e.target.select()}
-          className="es-input font-mono text-sm"
-        />
-
-        <div className="fx-row">
-          <button type="button" className="es-btn es-btn--secondary es-btn--sm" onClick={copy}>
-            <NavIcon name="copy" size={16} />
-            Copy link
-          </button>
-          <button
-            type="button"
-            className="es-btn es-btn--secondary es-btn--sm"
-            onClick={download}
-            disabled={downloading}
-            aria-busy={downloading || undefined}
-          >
-            <NavIcon name="download" size={16} />
-            {downloading ? 'Preparing…' : 'Download PNG'}
-          </button>
-          <a href={url} target="_blank" rel="noreferrer" className="es-btn es-btn--ghost es-btn--sm">
-            Open
-          </a>
-        </div>
+      </div>
+      {linkBox}
+      <div className="fx-row gap-2">
+        <button type="button" className="es-btn es-btn--secondary es-btn--sm" onClick={() => download('png')} disabled={Boolean(downloading)} aria-busy={Boolean(downloading) || undefined}>
+          <NavIcon name="download" size={16} />{downloading ? 'Preparing…' : 'PNG'}
+        </button>
+        <button type="button" className="es-btn es-btn--secondary es-btn--sm" onClick={() => download('svg')} disabled={Boolean(downloading)}>
+          <NavIcon name="download" size={16} />SVG
+        </button>
+        <a href={url} target="_blank" rel="noreferrer" className="es-btn es-btn--ghost es-btn--sm">Open</a>
       </div>
     </article>
   );
