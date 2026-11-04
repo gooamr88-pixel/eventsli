@@ -11774,3 +11774,99 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
 .es-acctrows__go:hover { color: var(--es-accent); }
 
 }   /* end @layer components — share, payments, organization, 2026-11 */
+
+/* ── The event at a glance (section heads) and Ticket types, 2026-11 ────── */
+@layer components {
+
+.es-evident { display: flex; align-items: center; gap: 1rem; min-width: 0; padding-top: 0.5rem; }
+.es-evident__thumb {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 4.5rem;
+  height: 3.75rem;
+  overflow: hidden;
+  border-radius: 0.625rem;
+  background: var(--es-bg-sunken);
+  color: var(--es-text-subtle);
+  box-shadow: var(--es-shadow-sm);
+}
+.es-evident__thumb img { width: 100%; height: 100%; object-fit: cover; }
+.es-evident__title { font-size: var(--es-text-xl); font-weight: 700; letter-spacing: -0.02em; line-height: 1.2; color: var(--es-text); }
+.es-evident__meta { display: flex; flex-wrap: wrap; align-items: center; gap: 0.375rem 1.25rem; margin-top: 0.375rem; font-size: var(--es-text-sm); color: var(--es-text-muted); }
+.es-evident__fact { display: none; align-items: center; gap: 0.375rem; }
+@media (width >= theme(--breakpoint-sm)) {
+  .es-evident__fact { display: inline-flex; }
+  .es-evident__fact + .es-evident__fact { padding-inline-start: 1.25rem; border-inline-start: 1px solid var(--es-border); }
+}
+@media (width < theme(--breakpoint-sm)) {
+  .es-evident__thumb { width: 3rem; height: 2.5rem; }
+  .es-evident__title { font-size: var(--es-text-md); }
+}
+
+/* Ticket types */
+.es-tiergrid { display: grid; gap: var(--fx-gap); align-items: start; }
+@media (width >= theme(--breakpoint-xl)) {
+  .es-tiergrid { grid-template-columns: minmax(0, 1.75fr) minmax(18rem, 1fr); }
+}
+.es-tierempty { align-items: center; padding: 2rem 1.5rem 2.25rem; text-align: center; }
+.es-tierempty__art { width: min(17rem, 80%); margin-block: -0.5rem -0.75rem; }
+.es-tierempty__title { margin: 0; font-size: var(--es-text-xl); font-weight: 700; letter-spacing: -0.02em; color: var(--es-text); }
+.es-tierempty__text { max-width: 36rem; font-size: var(--es-text-sm); color: var(--es-text-muted); }
+.es-art__outline { stroke: var(--es-teal-600); stroke-width: 3; }
+.es-art__star { fill: var(--es-teal-500); }
+
+.es-tierex__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.es-tierex__title { display: inline-flex; align-items: center; gap: 0.5rem; margin: 0; font-size: var(--es-text-md); font-weight: 700; color: var(--es-text); }
+.es-tierex__title svg { color: var(--es-accent); }
+.es-tierex__head .es-ovchip { display: inline-flex; align-items: center; gap: 0.25rem; }
+.es-tierex {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.75rem 1rem;
+  padding: 1rem 1.25rem;
+  font-size: var(--es-text-sm);
+}
+@media (width >= theme(--breakpoint-md)) {
+  .es-tierex { grid-template-columns: auto minmax(9rem, 1fr) auto auto auto auto; }
+  .es-tierex__fact + .es-tierex__fact,
+  .es-tierex > .es-status { padding-inline-start: 1rem; border-inline-start: 1px solid var(--es-border); }
+}
+.es-tierex__tile { width: 2.75rem; height: 2.75rem; background: var(--es-accent-wash); color: var(--es-accent); }
+.es-tierex__fact { display: inline-flex; align-items: center; gap: 0.375rem; font-weight: 600; color: var(--es-text); white-space: nowrap; }
+
+/* Three steps with a line between their marks */
+.es-tiersteps { display: flex; flex-direction: column; }
+.es-tiersteps li { position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0.875rem; padding: 0.75rem; border-radius: 0.75rem; }
+.es-tiersteps li + li::before {
+  content: "";
+  position: absolute;
+  inset-block: -0.75rem 2.25rem;
+  inset-inline-start: calc(0.75rem + 0.875rem - 1px);
+  width: 2px;
+  background: var(--es-border);
+}
+.es-tiersteps li[data-state="current"] { background: var(--es-accent-wash); }
+.es-tiersteps__mark {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: 2px solid var(--es-border-strong);
+  border-radius: 999px;
+  background: var(--es-surface);
+  font-size: var(--es-text-xs);
+  font-weight: 700;
+  color: var(--es-text);
+}
+.es-tiersteps li[data-state="current"] .es-tiersteps__mark,
+.es-tiersteps li[data-state="done"] .es-tiersteps__mark { border-color: var(--es-accent); background: var(--es-accent); color: var(--es-text-on-accent); }
+.es-tiersteps__body { display: flex; flex-direction: column; gap: 0.125rem; min-width: 0; color: inherit; text-decoration: none; }
+.es-tiersteps__body b { font-size: var(--es-text-sm); font-weight: 700; color: var(--es-text); }
+.es-tiersteps__body small { font-size: var(--es-text-xs); color: var(--es-text-muted); }
+.es-tiersteps__body:hover b { color: var(--es-accent); }
+
+}   /* end @layer components — event at a glance and ticket types, 2026-11 */

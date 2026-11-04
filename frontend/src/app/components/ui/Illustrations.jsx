@@ -83,3 +83,18 @@ export function StoreArt({ className = '' }) {
     </svg>
   );
 }
+
+/** Two tickets, the front one starred — "your first ticket type". */
+export function TicketsArt({ className = '' }) {
+  const ticket = 'M0 0h132a8 8 0 0 1 8 8v14a14 14 0 0 0 0 28v14a8 8 0 0 1-8 8H0a8 8 0 0 1-8-8V50a14 14 0 0 0 0-28V8a8 8 0 0 1 8-8z';
+  return (
+    <svg {...svg} viewBox="0 0 320 200" className={`es-art ${className}`}>
+      <path className="es-art__blob" d="M60 112c0-50 46-86 108-84s116 30 116 82-54 78-116 76S60 162 60 112z" />
+      <path className="es-art__card es-art__card--back es-art__outline" d={ticket} transform="translate(98 52) rotate(-10)" />
+      <path className="es-art__ticket" d={ticket} transform="translate(122 84)" />
+      <path className="es-art__star" d="M192 102l6.4 13 14.4 2.1-10.4 10.1 2.5 14.3-12.9-6.8-12.9 6.8 2.5-14.3-10.4-10.1 14.4-2.1z" />
+      <Burst x={246} y={14} />
+    </svg>
+  );
+}
+

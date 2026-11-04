@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, usePathname } from 'next/navigation';
 import { get } from '../../../utils/apiClient';
+import { formatEventTime } from '../../../lib/eventTime';
 import StatusPill from '../../StatusPill';
 import NavIcon from '../../../components/shell/NavIcon';
 import { ErrorNotice } from '../../../components/Feedback';
@@ -170,39 +171,53 @@ function EventHeader({ event, eventId }) {
 
   /**
    * ─────────────────────────────────────────────────────────────────────────
-   * EVERY OTHER SECTION: the breadcrumb, where the event stands, and its two
-   * links. The section's own name is the page's <h1>, in its SectionHeader
-   * right under this — so the event is named once, in the breadcrumb, and the
-   * page is named once, in its title.
+   * EVERY OTHER SECTION: the breadcrumb, then the event at a glance — cover,
+   * name, status, date and venue. The section's own name is the page's <h1>,
+   * in its SectionHeader right under this.
    *
-   * It replaced a header that repeated the event's title, date, venue and
-   * currency above all eleven sections. On a 320×568 phone that put the
-   * Orders heading 487px down; this is one line, and the facts stay on the
-   * overview where they are read.
+   * KEPT SHORT ON A PHONE: the old header here stacked the title, date, venue
+   * and currency and put the Orders heading 487px down a 320×568 screen. The
+   * row below is one line of thumbnail, name and status there — the date and
+   * venue appear from `sm` (see `.es-evident__fact`).
    * ─────────────────────────────────────────────────────────────────────────
    */
   const base = `/organizer/events/${eventId}`;
   const here = sectionLabel(eventId, pathname);
   return (
     <header className="es-ovhead es-ovhead--section">
-      <div className="es-ovhead__top">
-        <nav aria-label="Breadcrumb" className="es-ovhead__crumbs">
-          <Link href="/organizer/events" className="es-ovhead__back fx-touch">
-            <span aria-hidden="true" className="es-ovhead__arrow"><NavIcon name="arrow" size={18} /></span>
-            Your events
-          </Link>
-          <span aria-hidden="true"><NavIcon name="chevronDown" size={14} className="-rotate-90" /></span>
-          <Link href={base} className="es-ovhead__back es-ovhead__mid fx-truncate">{event.title}</Link>
-          {here && (
-            <>
-              <span aria-hidden="true"><NavIcon name="chevronDown" size={14} className="-rotate-90" /></span>
-              <span aria-current="page" className="es-ovhead__here es-ovhead__here--accent">{here}</span>
-            </>
-          )}
-        </nav>
-        <div className="es-ovhead__aside" role="group" aria-label="Event actions">
-          <StatusPill status={event.status} />
-          <HeaderLinks event={event} onShare={pathname.startsWith(`${base}/share`)} />
+      <nav aria-label="Breadcrumb" className="es-ovhead__crumbs">
+        <Link href="/organizer/events" className="es-ovhead__back fx-touch">
+          <span aria-hidden="true" className="es-ovhead__arrow"><NavIcon name="arrow" size={18} /></span>
+          Your events
+        </Link>
+        <span aria-hidden="true"><NavIcon name="chevronDown" size={14} className="-rotate-90" /></span>
+        <Link href={base} className="es-ovhead__back es-ovhead__mid fx-truncate">{event.title}</Link>
+        {here && (
+          <>
+            <span aria-hidden="true"><NavIcon name="chevronDown" size={14} className="-rotate-90" /></span>
+            <span aria-current="page" className="es-ovhead__here es-ovhead__here--accent">{here}</span>
+          </>
+        )}
+      </nav>
+      {/* WHICH EVENT, AT A GLANCE: its cover, its name, where it stands, when
+          and where. Not a heading — the section's own title is the page's
+          <h1>, right under this. The links to the public page and Share live
+          on the overview and in the sidebar. */}
+      <div className="es-evident">
+        <Link href={base} className="es-evident__thumb" tabIndex={-1} aria-hidden="true">
+          {event.cover?.url
+            // The organizer's own cover, from our storage.
+            // eslint-disable-next-line @next/next/no-img-element
+            ? <img src={event.cover.url} alt="" />
+            : <NavIcon name="image" size={22} />}
+        </Link>
+        <div className="fx-min0">
+          <p className="es-evident__title fx-truncate">{event.title}</p>
+          <p className="es-evident__meta">
+            <StatusPill status={event.status} />
+            <span className="es-evident__fact"><NavIcon name="calendar" size={16} />{formatEventTime(event.startsAt, event.timezone)}</span>
+            {event.venue?.name && <span className="es-evident__fact"><NavIcon name="pin" size={16} />{event.venue.name}</span>}
+          </p>
         </div>
       </div>
       {/* "Setup · step 3 of 6" on a build screen before launch. Renders nothing
@@ -217,24 +232,4 @@ function sectionLabel(eventId, pathname) {
   const items = organizerNavGroups({ eventId }).flatMap((g) => g.items)
     .filter((i) => i.href && i.href !== `/organizer/events/${eventId}` && pathname.startsWith(i.href));
   return items.sort((a, b) => b.href.length - a.href.length)[0]?.label || null;
-}
-
-/** Public page (once it is on sale) and Share — the two links every section's header offers. */
-function HeaderLinks({ event, onShare = false }) {
-  return (
-    <>
-      {!onShare && (
-        <Link href={`/organizer/events/${event.id}/share`} className="es-btn es-btn--secondary es-btn--sm">
-          <NavIcon name="share" size={16} />
-          Share
-        </Link>
-      )}
-      {event.status === 'published' && (
-        <a href={`/e/${event.slug}`} target="_blank" rel="noreferrer" className="es-btn es-btn--secondary es-btn--sm">
-          <NavIcon name="external" size={16} />
-          Public page<span className="sr-only"> (opens in a new tab)</span>
-        </a>
-      )}
-    </>
-  );
 }

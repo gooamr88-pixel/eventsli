@@ -13,8 +13,10 @@ import DataTable from '../../../../components/ui/DataTable';
 import Field from '../../../../components/forms/Field';
 import FormError from '../../../../components/forms/FormError';
 import SubmitButton from '../../../../components/forms/SubmitButton';
-import { Loading, Empty, ErrorNotice, Notice } from '../../../../components/Feedback';
+import { Loading, ErrorNotice } from '../../../../components/Feedback';
 import { useEventContext } from '../EventContext';
+import NavIcon from '../../../../components/shell/NavIcon';
+import { EmptyTickets, ExampleTier, TicketSetup } from './TierParts';
 
 /**
  * Ticket types — the named price bands.
@@ -34,7 +36,8 @@ import { useEventContext } from '../EventContext';
  * Prices are entered in the event's currency and sent in CENTS.
  */
 export default function Tiers({ eventId }) {
-  const currency = useEventContext()?.event?.currency || 'USD';
+  const event = useEventContext()?.event;
+  const currency = event?.currency || 'USD';
   const toast = useToast();
   const confirm = useConfirm();
   const { data, error, loading, reload } = useApi(`/events/${eventId}/tiers`);
@@ -76,10 +79,10 @@ export default function Tiers({ eventId }) {
     <div className="fx-stack">
       <SectionHeader
         title="Ticket types"
-        lede="The prices seats are sold at. A price locks once a ticket of that type has sold."
+        lede="Create and manage the ticket types for your event — General Admission, VIP, a table. A price locks once a ticket of that type has sold."
         actions={!editing && (
-          <button type="button" className="es-btn es-btn--primary" onClick={() => setEditing('new')}>
-            Add a ticket type
+          <button type="button" className="es-btn es-btn--primary es-btn--lg" onClick={() => setEditing('new')}>
+            <NavIcon name="plus" size={20} />Add ticket type
           </button>
         )}
       />
@@ -103,78 +106,100 @@ export default function Tiers({ eventId }) {
         </KpiRow>
       )}
 
-      {editing && (
-        <TierForm
-          key={editing === 'new' ? 'new' : editing.id}
-          eventId={eventId}
-          currency={currency}
-          tier={editing === 'new' ? null : editing}
-          onDone={(message) => { setEditing(null); toast.success(message); reload(); }}
-          onCancel={() => setEditing(null)}
-        />
+      {/* Said before anything else while it is true: a seat with no price is
+          the one dangerous state this page exists to prevent. */}
+      {!error && data && tiers.length === 0 && (
+        <section className="es-payintro" data-tone="info" aria-labelledby="tiers-price">
+          <span className="es-payintro__icon" aria-hidden="true"><NavIcon name="info" size={26} /></span>
+          <div className="fx-min0">
+            <h2 id="tiers-price" className="es-payintro__title">Every seat needs a price.</h2>
+            <p className="es-payintro__text">A seat with no ticket type and no override sells for nothing, so an event with a seat map needs at least one ticket type.</p>
+          </div>
+        </section>
       )}
 
-      {error ? (
-        <ErrorNotice error={error} onRetry={reload} />
-      ) : loading && !data ? (
-        <Loading variant="list" rows={3} label="Loading ticket types" />
-      ) : tiers.length === 0 ? (
-        <>
-          <Notice tone="warning" title="Every seat needs a price.">
-            <p>A seat with no ticket type and no override sells for nothing, so an event with a seat map needs at least one.</p>
-          </Notice>
-          {!editing && <Empty title="No ticket types yet." hint="Add General Admission, VIP, Early bird — whatever this event sells." />}
-        </>
-      ) : (
-        <DataTable
-          caption="Ticket types"
-          rows={tiers}
-          columns={[
-            {
-              key: 'name',
-              label: 'Ticket type',
-              primary: true,
-              render: (t) => (
-                <span className="fx-stack fx-stack--sm gap-0.5">
-                  <span className="fx-break font-medium text-ink">{t.name}</span>
-                  {t.description && <span className="text-sm text-muted">{t.description}</span>}
-                </span>
-              ),
-            },
-            { key: 'price', label: 'Price', align: 'end', render: (t) => <span className="es-nums">{formatMoney(t.priceCents, currency)}</span> },
-            {
-              key: 'sold',
-              label: 'Sold',
-              render: (t) => (
-                t.quantity === null ? (
-                  // null is not "none left" — it is "bounded by the seat map".
-                  <span className="text-muted">{t.soldCount} sold · limited by the seat map</span>
-                ) : (
-                  <span className="fx-stack fx-stack--sm gap-1">
-                    <span className="es-nums text-sm">{t.soldCount} of {t.quantity}</span>
-                    <progress className="es-progress" max={Math.max(t.quantity, 1)} value={Math.min(t.soldCount, t.quantity)} aria-label={`${t.soldCount} of ${t.quantity} sold`} />
-                  </span>
-                )
-              ),
-            },
-            {
-              key: 'actions',
-              label: 'Actions',
-              hideLabel: true,
-              align: 'end',
-              render: (t) => (
-                <span className="fx-row justify-end">
-                  <button type="button" onClick={() => setEditing(t)} className="es-btn es-btn--ghost es-btn--sm">Edit</button>
-                  {/* Danger text, so it is not read as a twin of Edit beside it. */}
-                  <button type="button" onClick={() => remove(t)} className="es-btn es-btn--ghost es-btn--sm es-btn--danger-text">
-                    Delete<span className="sr-only"> {t.name}</span>
-                  </button>
-                </span>
-              ),
-            },
-          ]}
-        />
-      )}
+      <div className="es-tiergrid">
+        <div className="fx-stack fx-min0">
+          {editing && (
+            <TierForm
+              key={editing === 'new' ? 'new' : editing.id}
+              eventId={eventId}
+              currency={currency}
+              tier={editing === 'new' ? null : editing}
+              onDone={(message) => { setEditing(null); toast.success(message); reload(); }}
+              onCancel={() => setEditing(null)}
+            />
+          )}
+
+          {error ? (
+            <ErrorNotice error={error} onRetry={reload} />
+          ) : loading && !data ? (
+            <Loading variant="list" rows={3} label="Loading ticket types" />
+          ) : tiers.length === 0 ? (
+            !editing && (
+              <>
+                <EmptyTickets onAdd={() => setEditing('new')} />
+                <ExampleTier currency={currency} onAdd={() => setEditing('new')} />
+              </>
+            )
+          ) : (
+            <DataTable
+              caption="Ticket types"
+              rows={tiers}
+              columns={[
+                {
+                  key: 'name',
+                  label: 'Ticket type',
+                  primary: true,
+                  render: (t) => (
+                    <span className="fx-stack fx-stack--sm gap-0.5">
+                      <span className="fx-break font-medium text-ink">{t.name}</span>
+                      {t.description && <span className="text-sm text-muted">{t.description}</span>}
+                    </span>
+                  ),
+                },
+                { key: 'price', label: 'Price', align: 'end', render: (t) => <span className="es-nums">{formatMoney(t.priceCents, currency)}</span> },
+                {
+                  key: 'sold',
+                  label: 'Sold',
+                  render: (t) => (
+                    t.quantity === null ? (
+                      // null is not "none left" — it is "bounded by the seat map".
+                      <span className="text-muted">{t.soldCount} sold · limited by the seat map</span>
+                    ) : (
+                      <span className="fx-stack fx-stack--sm gap-1">
+                        <span className="es-nums text-sm">{t.soldCount} of {t.quantity}</span>
+                        <progress className="es-progress" max={Math.max(t.quantity, 1)} value={Math.min(t.soldCount, t.quantity)} aria-label={`${t.soldCount} of ${t.quantity} sold`} />
+                      </span>
+                    )
+                  ),
+                },
+                {
+                  key: 'actions',
+                  label: 'Actions',
+                  hideLabel: true,
+                  align: 'end',
+                  render: (t) => (
+                    <span className="fx-row justify-end">
+                      <button type="button" onClick={() => setEditing(t)} className="es-btn es-btn--ghost es-btn--sm">Edit</button>
+                      {/* Danger text, so it is not read as a twin of Edit beside it. */}
+                      <button type="button" onClick={() => remove(t)} className="es-btn es-btn--ghost es-btn--sm es-btn--danger-text">
+                        Delete<span className="sr-only"> {t.name}</span>
+                      </button>
+                    </span>
+                  ),
+                },
+              ]}
+            />
+          )}
+        </div>
+
+        {event && (
+          <aside className="fx-stack fx-min0">
+            <TicketSetup event={event} tiers={tiers} />
+          </aside>
+        )}
+      </div>
     </div>
   );
 }
