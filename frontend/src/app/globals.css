@@ -11166,3 +11166,99 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
 .es-ovline__at { font-size: var(--es-text-xs); color: var(--es-text-muted); }
 
 }   /* end @layer components — event overview, 2026-11 */
+
+/* ── Event details, 2026-11 ─────────────────────────────────────────────────
+   One form as three tabbed cards, the charges and quick settings beside it,
+   and the save bar under both. */
+@layer components {
+
+.es-ovhead__mid { flex: 0 1 auto; min-width: 0; max-width: 22rem; color: var(--es-text); }
+.es-ovhead__here--accent { flex: none; color: var(--es-accent); }
+
+.es-dform { display: flex; flex-direction: column; gap: var(--fx-gap); }
+/* Two fields to a row inside a form card. Not `.fx-grid--2`: its 560px
+   track wants a 1,120px card, so in this column it was always one. */
+.es-dgrid { display: grid; gap: 1rem; }
+@media (width >= theme(--breakpoint-md)) {
+  .es-dgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+.es-dform__grid { display: grid; gap: var(--fx-gap); align-items: start; }
+@media (width >= theme(--breakpoint-xl)) {
+  .es-dform__grid { grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr); }
+}
+
+.es-dtabs { display: flex; gap: 0.5rem; overflow-x: auto; scrollbar-width: none; }
+.es-dtabs__tab {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  padding: 0.5rem 1.25rem;
+  border: 1px solid var(--es-border);
+  border-radius: 0.75rem;
+  background: var(--es-surface);
+  font: inherit;
+  font-size: var(--es-text-sm);
+  font-weight: 600;
+  color: var(--es-text);
+  cursor: pointer;
+  box-shadow: var(--es-shadow-xs);
+}
+.es-dtabs__tab:hover { border-color: var(--es-border-strong); }
+.es-dtabs__tab[aria-selected="true"] { border-color: var(--es-accent); background: var(--es-accent); color: var(--es-text-on-accent); }
+.es-dtabs__dot { width: 0.5rem; height: 0.5rem; border-radius: 999px; background: var(--es-danger); }
+.es-dtabs__tab[aria-selected="true"] .es-dtabs__dot { box-shadow: 0 0 0 2px var(--es-surface); }
+
+/* What you are charged */
+.es-charges { display: flex; flex-direction: column; }
+.es-charges__row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.875rem;
+  padding-block: 0.875rem;
+  border-top: 1px solid var(--es-border);
+  font-size: var(--es-text-sm);
+}
+.es-charges__icon { display: inline-flex; color: var(--es-accent); }
+.es-charges__value {
+  padding: 0.25rem 0.625rem;
+  white-space: nowrap;
+  border-radius: 0.5rem;
+  background: var(--es-accent-wash);
+  font-size: var(--es-text-xs);
+  font-weight: 700;
+  color: var(--es-accent);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Quick settings */
+.es-qset { display: flex; flex-direction: column; }
+.es-qset__row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.875rem;
+  padding-block: 0.75rem;
+  border-top: 1px solid var(--es-border);
+}
+.es-qset__row:first-child { border-top: 0; padding-top: 0.25rem; }
+.es-qset__row > svg { color: var(--es-accent); }
+.es-qset__row[aria-disabled="true"] { opacity: 0.6; }
+.es-qset__text { display: flex; flex-direction: column; min-width: 0; }
+.es-qset__text b { font-size: var(--es-text-sm); font-weight: 600; color: var(--es-text); }
+.es-qset__text small { font-size: var(--es-text-xs); color: var(--es-text-muted); }
+.es-qset > p, .es-qset > a { margin-top: 0.25rem; }
+
+/* The save bar */
+.es-dform__bar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; }
+.es-dform__bar .es-btn { min-width: 8rem; justify-content: center; gap: 0.5rem; }
+.es-dform__saved { display: inline-flex; align-items: center; gap: 0.5rem; margin-inline-start: auto; font-size: var(--es-text-sm); color: var(--es-text-muted); }
+@media (width < theme(--breakpoint-sm)) {
+  .es-dform__saved { margin-inline-start: 0; width: 100%; }
+}
+
+}   /* end @layer components — event details, 2026-11 */

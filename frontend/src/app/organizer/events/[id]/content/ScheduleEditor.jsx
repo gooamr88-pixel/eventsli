@@ -1,13 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { Panel } from '../../../../components/ui/Page';
+import ContentCard from './ContentCard';
 import { Loading, Empty } from '../../../../components/Feedback';
 import FormError from '../../../../components/forms/FormError';
 import { useConfirm } from '../../../../components/ui/Confirm';
 import { useToast } from '../../../../components/ui/Toast';
 import { toIso, toLocalInput } from '../../../../lib/eventTime';
-import { useContentSection, useSectionDraft } from './useContentSection';
+import { useSectionDraft } from './useContentSection';
 import SaveBar from './SaveBar';
 import RowControls from './RowControls';
 
@@ -47,8 +47,10 @@ function normaliseRow(patch, timezone) {
  * browser thinks local time is.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-export default function ScheduleEditor({ eventId, timezone }) {
-  const { items, error, busy, add, edit, remove, move, setError } = useContentSection(eventId, 'schedule');
+// `section` is `useContentSection(eventId, 'schedule')`, loaded by the page —
+// see GalleryEditor.
+export default function ScheduleEditor({ timezone, section }) {
+  const { items, error, busy, add, edit, remove, move, setError } = section;
   const confirm = useConfirm();
   const toast = useToast();
   const [draft, setDraft] = useState({ title: '', startsAt: '', location: '', description: '' });
@@ -105,9 +107,12 @@ export default function ScheduleEditor({ eventId, timezone }) {
   }
 
   return (
-    <Panel
+    <ContentCard
+      collapsible
+      icon="calendar"
       title="Schedule & lineup"
-      description={`Times are in ${timezone || 'the event’s time zone'}. Leave a time empty if you only know the order.`}
+      description={`The agenda or lineup. Times are in ${timezone || 'the event’s time zone'}; leave one empty if you only know the order.`}
+      count={items?.length ? `${items.length} ${items.length === 1 ? 'item' : 'items'}` : 'Add items'}
     >
       <FormError error={error} />
 
@@ -227,7 +232,7 @@ export default function ScheduleEditor({ eventId, timezone }) {
           Add to schedule
         </button>
       </form>
-    </Panel>
+    </ContentCard>
   );
 }
 

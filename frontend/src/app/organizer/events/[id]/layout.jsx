@@ -93,6 +93,17 @@ export default function EventLayout({ children }) {
   );
 }
 
+/** The sections that open on the cover card, and what their head says. */
+const PAGE_HEADS = {
+  '': { title: 'Overview', lede: 'A quick summary of your event, its performance, and setup progress.' },
+  details: { title: 'Event details', lede: 'Manage your event’s core information, description, and settings.' },
+  content: {
+    title: 'Page & branding',
+    lede: 'Customize how your event looks and feels on the public page.',
+    aside: true,
+  },
+};
+
 function EventHeader({ event, eventId }) {
   const pathname = usePathname() || '';
 
@@ -107,12 +118,14 @@ function EventHeader({ event, eventId }) {
   }
 
   const when = formatEventTime(event.startsAt, event.timezone);
-  const onOverview = pathname === `/organizer/events/${eventId}`;
-
-  // THE OVERVIEW HAS ITS OWN HEAD: the way back and the page's name. The
-  // title, the facts and the actions are in the cover card right under it
-  // (EventOverview), so repeating them here would say everything twice.
-  if (onOverview) {
+  // THE OVERVIEW AND EVENT DETAILS HAVE THEIR OWN HEAD: the way back and the
+  // page's name. The title, the facts and the actions are in the cover card
+  // right under it (EventHero), so repeating them here would say everything
+  // twice. Every other section keeps the compact event header below.
+  const section = pathname.slice(`/organizer/events/${eventId}`.length).replace(/^\//, '');
+  const head = PAGE_HEADS[section];
+  if (head) {
+    const base = `/organizer/events/${eventId}`;
     return (
       <header className="es-ovhead">
         <nav aria-label="Breadcrumb" className="es-ovhead__crumbs">
@@ -121,10 +134,37 @@ function EventHeader({ event, eventId }) {
             Your events
           </Link>
           <span aria-hidden="true"><NavIcon name="chevronDown" size={14} className="-rotate-90" /></span>
-          <span aria-current="page" className="es-ovhead__here fx-truncate">{event.title}</span>
+          {section ? (
+            <>
+              <Link href={base} className="es-ovhead__back es-ovhead__mid fx-truncate">{event.title}</Link>
+              <span aria-hidden="true"><NavIcon name="chevronDown" size={14} className="-rotate-90" /></span>
+              <span aria-current="page" className="es-ovhead__here es-ovhead__here--accent">{head.title}</span>
+            </>
+          ) : (
+            <span aria-current="page" className="es-ovhead__here fx-truncate">{event.title}</span>
+          )}
         </nav>
-        <h1 className="es-ovhead__title">Overview</h1>
-        <p className="es-ovhead__lede">A quick summary of your event, its performance, and setup progress.</p>
+        <div className="es-ovhead__row">
+          <div className="fx-min0">
+            <h1 className="es-ovhead__title">{head.title}</h1>
+            <p className="es-ovhead__lede">{head.lede}</p>
+          </div>
+          {/* Where it stands and the way to see it, for the screen that builds
+              the public page. The link only once there IS a public page. */}
+          {head.aside && (
+            <div className="es-ovhead__aside">
+              <StatusPill status={event.status} />
+              <span className="es-ovhead__event fx-truncate">{event.title}</span>
+              {event.status === 'published' && (
+                <a href={`/e/${event.slug}`} target="_blank" rel="noreferrer" className="es-btn es-btn--secondary">
+                  <NavIcon name="external" size={18} />Preview page<span className="sr-only"> (opens in a new tab)</span>
+                </a>
+              )}
+            </div>
+          )}
+        </div>
+        {/* "Setup · step 2 of 6" on a build screen before launch; nothing on the overview. */}
+        {section && <BuildProgress />}
       </header>
     );
   }

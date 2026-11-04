@@ -3,12 +3,12 @@
 import { useRef, useState } from 'react';
 import Image from 'next/image';
 import { safeExternalUrl } from '../../../../utils/safeUrl';
-import { Panel } from '../../../../components/ui/Page';
+import ContentCard from './ContentCard';
 import { Loading, Empty } from '../../../../components/Feedback';
 import FormError from '../../../../components/forms/FormError';
 import { useConfirm } from '../../../../components/ui/Confirm';
 import { useToast } from '../../../../components/ui/Toast';
-import { useContentSection, useSectionDraft, uploadImage, IMAGE_ACCEPT } from './useContentSection';
+import { useSectionDraft, uploadImage, IMAGE_ACCEPT } from './useContentSection';
 import SaveBar from './SaveBar';
 import RowControls from './RowControls';
 
@@ -36,8 +36,10 @@ export function addedMessage(added, chosen) {
   return added === 1 ? 'Photo added.' : `${added} photos added.`;
 }
 
-export default function GalleryEditor({ eventId }) {
-  const { items, error, busy, add, edit, remove, move, setError } = useContentSection(eventId, 'media');
+// `section` is `useContentSection(eventId, 'media')`, loaded by the page so the
+// live preview beside this editor reads the same list.
+export default function GalleryEditor({ eventId, section }) {
+  const { items, error, busy, add, edit, remove, move, setError } = section;
   const input = useRef(null);
   const confirm = useConfirm();
   const toast = useToast();
@@ -106,9 +108,11 @@ export default function GalleryEditor({ eventId }) {
   }
 
   return (
-    <Panel
+    <ContentCard
+      icon="image"
       title="Gallery"
-      description="Photos and video shown under your event description. Drag the arrows to set the order people see them in."
+      description="Photos and video shown under your description. Use the arrows to set the order."
+      count={items ? `${items.length} ${items.length === 1 ? 'item' : 'items'}` : null}
     >
       <FormError error={error} />
 
@@ -223,6 +227,6 @@ export default function GalleryEditor({ eventId }) {
           YouTube and Vimeo links work best — they play on every device without slowing your page down.
         </p>
       </div>
-    </Panel>
+    </ContentCard>
   );
 }

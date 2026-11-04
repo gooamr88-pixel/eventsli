@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Panel } from '../../../../components/ui/Page';
+import ContentCard from './ContentCard';
 import { Loading, Empty, Notice } from '../../../../components/Feedback';
 import FormError from '../../../../components/forms/FormError';
 import { useConfirm } from '../../../../components/ui/Confirm';
@@ -112,9 +112,12 @@ export default function PoliciesEditor({ eventId, listing = false }) {
   }
 
   return (
-    <Panel
-      title="Event policies"
+    <ContentCard
+      collapsible
+      icon="shield"
+      title="Policies"
       description={copy.description}
+      count={items?.length ? `${items.length} ${items.length === 1 ? 'policy' : 'policies'}` : 'Add policies'}
     >
       <Notice tone="neutral" title="These are your policies, not Eventsli's.">
         <p>{copy.notice}</p>
@@ -249,6 +252,6 @@ export default function PoliciesEditor({ eventId, listing = false }) {
           Add policy
         </button>
       </form>
-    </Panel>
+    </ContentCard>
   );
 }

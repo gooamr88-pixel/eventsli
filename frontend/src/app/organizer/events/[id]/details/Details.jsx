@@ -2,8 +2,7 @@
 
 import { useEventContext } from '../EventContext';
 import EventDetailsEditor from '../EventDetailsEditor';
-import FeeSummary from '../FeeSummary';
-import { Panel } from '../../../../components/ui/Page';
+import { EventHero } from '../OverviewParts';
 import { Loading, Notice } from '../../../../components/Feedback';
 
 /**
@@ -61,19 +60,12 @@ export default function Details() {
     );
   }
 
+  // The cover card, as on the overview, then the form — whose side column now
+  // carries the charges (see EventDetailsEditor) beside the fee choice.
   return (
-    <div className="es-split">
-      <div className="fx-stack fx-min0">
-        <EventDetailsEditor event={event} onSaved={ctx.refresh} />
-      </div>
-      <div className="fx-stack fx-min0">
-        <Panel
-          title="What you are charged"
-          description="Set by Eventsli, and agreed when the terms were accepted."
-        >
-          <FeeSummary event={event} />
-        </Panel>
-      </div>
+    <div className="fx-stack">
+      <EventHero event={event} />
+      <EventDetailsEditor event={event} onSaved={ctx.refresh} />
     </div>
   );
 }

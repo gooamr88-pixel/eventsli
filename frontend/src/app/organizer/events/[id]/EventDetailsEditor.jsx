@@ -2,27 +2,24 @@
 
 import { useState } from 'react';
 import { patch } from '../../../utils/apiClient';
-import { categoryLabel } from '../../../lib/categories';
 import { useCategories } from '../../../hooks/useCategories';
 import { zonesFor } from '../../../lib/timezones';
 // All three from one module now. `toIso` used to be exported out of the
 // create-event wizard, so editing a date meant importing half its logic from a
 // component; it lives beside its inverse `toLocalInput`, which is what this
 // file uses it with.
-import { toLocalInput, toIso, formatEventTime } from '../../../lib/eventTime';
+import { toLocalInput, toIso } from '../../../lib/eventTime';
 import { useToast } from '../../../components/ui/Toast';
 import { useOrganizer } from '../../../hooks/useOrganizer';
-import Link from 'next/link';
-import { Panel } from '../../../components/ui/Page';
-import Field, { SelectField, TextareaField } from '../../../components/forms/Field';
-import PlaceAutocomplete from '../../../components/forms/PlaceAutocomplete';
-import VenuePin, { pinProblem } from '../../../components/forms/VenuePin';
+import NavIcon from '../../../components/shell/NavIcon';
+import { pinProblem } from '../../../components/forms/VenuePin';
 import FormError from '../../../components/forms/FormError';
 import SubmitButton from '../../../components/forms/SubmitButton';
 import { useStepSave } from './BuildStep';
 import { Notice } from '../../../components/Feedback';
-import DateOnlyFields from '../new/DateOnlyFields';
-import { isDateOnly, formatDateOnly } from '../../../lib/dateOnly';
+import { useNowMinute } from '../../../hooks/useNowMinute';
+import FeeSummary from './FeeSummary';
+import { BasicSection, DescriptionSection, FormatSection, QuickSettings } from './DetailsSections';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -44,6 +41,14 @@ import { isDateOnly, formatDateOnly } from '../../../lib/dateOnly';
  *
  * Only CHANGED fields are sent, so a refusal names the field the organizer
  * actually touched.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * ONE FORM, THREE CARDS (2026-11). Basic details, Description and Tickets &
+ * format are tabs over the same state, so moving between them loses nothing
+ * and Save sends every change at once. A tab holding a refusal is marked, so
+ * an error is never only in a card nobody is looking at. The cards themselves
+ * are in DetailsSections.jsx; everything that decides what is allowed stays
+ * here, in one place.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
@@ -104,6 +109,7 @@ export default function EventDetailsEditor({ event, onSaved }) {
   // before anybody has touched them.
   const [touched, setTouched] = useState(false);
   const [error, setError] = useState(null);
+  const now = useNowMinute();
 
   // Re-seeded when the event itself changes (after a save, or another action
   // on the page), during render rather than in an effect.
@@ -300,316 +306,104 @@ export default function EventDetailsEditor({ event, onSaved }) {
     commit();
   }
 
+  // Which card is open, and which ones hold a problem — so a refusal in a
+  // tab nobody is looking at is marked on its tab rather than invisible.
+  const [tab, setTab] = useState('basic');
+  const problems = {
+    basic: titleInvalid || endsBeforeStart || pinInvalid || (touched && !venueOptional && venueMissing),
+    format: perOrderInvalid,
+  };
+  const ticketed = form.listingType === 'ticketed';
+  const tabs = [
+    { key: 'basic', label: 'Basic details', icon: 'info' },
+    { key: 'description', label: 'Description', icon: 'fileText' },
+    ...(ticketed ? [{ key: 'format', label: 'Tickets & format', icon: 'ticket' }] : []),
+  ];
+  const shown = tabs.some((t) => t.key === tab) ? tab : 'basic';
+  const f = {
+    event, form, set, setForm, live, listing, venueOptional, venueNote, setVenueName, applyPlace,
+    categories, zoneOptions, organizer, titleInvalid, endsBeforeStart, perOrderInvalid,
+  };
+
   return (
-    <Panel title="Event details">
+    <form onSubmit={save} className="es-dform">
       {event.status === 'pending_review' && (
         <Notice tone="info" title="This event is waiting for review.">
           <p>Saving a change takes it out of the queue and back to draft, so Eventsli reviews what you actually changed. Submit it again afterwards.</p>
         </Notice>
       )}
-      {live && (
-        <p className="text-sm text-muted">
-          It is on sale, so the details Eventsli approved are fixed. You can still change the
-          description, the order limit, transfers and how buyers pay.{' '}
-          <Link href="/contact" className="text-accent underline">Need to change something else?</Link>
-        </p>
-      )}
 
-      {/* ON SALE: what the reviewer approved is shown as facts, not as a wall of
-          greyed-out inputs that look editable and are not. */}
-      {live && (
-        <dl className="es-facts rounded-(--es-radius-md) bg-bg-sunken p-4">
-          <Fact term="Title" value={event.title} />
-          <Fact term="Category" value={categories.label(event.category)} />
-          {isDateOnly(event) ? (
-            <Fact term="Date" value={formatDateOnly(event)} />
-          ) : (
-            <>
-              <Fact term="Starts" value={formatEventTime(event.startsAt, event.timezone)} />
-              <Fact term="Ends" value={formatEventTime(event.endsAt, event.timezone)} />
-            </>
-          )}
-          <Fact term="Venue" value={event.venue?.name || '—'} />
-          <Fact term="Address" value={event.venue?.address || '—'} />
-          {event.listingType === 'ticketed' && (
-            <>
-              <Fact term="How buyers choose" value={{ seat_only: 'Individual seats', table_only: 'Whole tables', seat_and_table: 'Seats or whole tables' }[event.purchaseMode]} />
-              <Fact term="Booking fees" value={event.fees?.feeBearer === 'organizer' ? 'Paid by you' : 'Paid by buyers'} />
-            </>
-          )}
-        </dl>
-      )}
+      <div className="es-dtabs" role="tablist" aria-label="Event details sections">
+        {tabs.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            role="tab"
+            id={`dtab-${t.key}`}
+            aria-selected={shown === t.key}
+            aria-controls="dtab-panel"
+            className="es-dtabs__tab"
+            onClick={() => setTab(t.key)}
+          >
+            <NavIcon name={t.icon} size={18} />
+            {t.label}
+            {problems[t.key] && <span className="es-dtabs__dot"><span className="sr-only"> — needs attention</span></span>}
+          </button>
+        ))}
+      </div>
 
-      <form onSubmit={save} className="fx-stack fx-stack--sm">
-        {!live && (
-          <>
-            <Field label="Title" name="title" required minLength={3} maxLength={200}
-              error={titleInvalid ? 'At least 3 characters.' : null}
-              value={form.title} onChange={set('title')} />
-
-            <SelectField label="Category" required value={form.category} onChange={set('category')}
-              options={categories.list.length
-                ? categories.list.map((c) => [c.slug, c.label])
-                : [[form.category, categoryLabel(form.category)]]} />
-          </>
-        )}
-
-        <TextareaField label="Description" optional rows={5} maxLength={5000}
-          hint="What people read on the event page."
-          value={form.description} onChange={set('description')} />
-
-        {!live && (
-          <>
-            <div className="fx-grid fx-grid--2">
-              {/* VENUE SEARCH, as in the creation wizard — which had it and
-                  this form did not, so editing a venue after creation was the
-                  one path that could only ever produce an unpinned event.
-                  Typing a venue Google has never heard of still works: it is a
-                  text input first and a combobox second. */}
-              <PlaceAutocomplete label={listing ? 'Venue name (optional)' : 'Venue name'} name="venueName" maxLength={200}
-                country={event.country} required={!venueOptional && !listing}
-                {...(listing ? {} : venueNote(form.venueName, 'Add the venue name.'))}
-                value={form.venueName} onChange={setVenueName} onPlace={applyPlace} />
-              <Field label={listing ? 'Street address (optional)' : 'Street address'} name="venueAddress"
-                required={!venueOptional && !listing} maxLength={300}
-                {...(listing ? {} : venueNote(form.venueAddress, 'Add the street address.'))}
-                value={form.venueAddress} onChange={set('venueAddress')} />
-              {/* The field that makes an event findable. "Events near me"
-                  matches `events.city` against a local coordinate table, and
-                  no organizer form had ever asked for one — so every venue
-                  typed by hand was invisible to it. */}
-              <Field label="City" name="city" required={!venueOptional} maxLength={120}
-                autoComplete="address-level2"
-                hint="Buyers filter by city, and this is what puts your event in “near me”."
-                {...venueNote(form.city, 'Add the city.')}
-                value={form.city} onChange={set('city')} />
-            </div>
-
-            {/* The pin, shown and editable. Filled by the venue search above
-                when a suggestion is picked, and typed by hand when search is
-                unavailable or the venue is somewhere Google has never heard
-                of — which, until the Places key is unrestricted, is every
-                venue on this deployment. */}
-            <VenuePin
-              lat={form.venueLat}
-              lng={form.venueLng}
-              fromSearch={Boolean(form.venuePlaceId)}
-              onChange={(key, value) => setForm((f) => ({ ...f, [key]: value }))}
-            />
-
-            {listing ? (
-              /* A listing has a date, not a time (lib/dateOnly.js): the
-                 whole day(s) at the venue, written through the same two
-                 fields so this form's save and checks are unchanged. */
-              <DateOnlyFields
-                firstDay={form.startsAt.slice(0, 10)} lastDay={form.endsAt.slice(0, 10)} timezone={form.timezone}
-                errorLast={endsBeforeStart ? 'The last day has to be on or after the first.' : null}
-                onChange={({ firstDay, lastDay }) => setForm((f) => {
-                  const first = firstDay ?? f.startsAt.slice(0, 10);
-                  const last = lastDay === undefined ? f.endsAt.slice(0, 10) : (lastDay || first);
-                  return { ...f, startsAt: first ? `${first}T00:00` : '', endsAt: first ? `${last < first ? first : last}T23:59` : '' };
-                })}
-              />
-            ) : (
-              <div className="fx-grid fx-grid--2">
-                <Field label="Starts" type="datetime-local" name="startsAt" required
-                  value={form.startsAt} onChange={set('startsAt')} />
-                <Field label="Ends" type="datetime-local" name="endsAt" required
-                  min={form.startsAt || undefined}
-                  error={endsBeforeStart ? 'The event has to end after it starts.' : null}
-                  value={form.endsAt} onChange={set('endsAt')} />
-              </div>
-            )}
-            <SelectField label="Time zone" required value={form.timezone} onChange={set('timezone')}
-              options={zoneOptions} hint={listing ? 'The dates are the venue\u2019s, in this zone.' : 'Both times are local to the venue in this zone.'} />
-          </>
-        )}
-
-        {form.listingType === 'ticketed' && (
-          <>
-            {/**
-              * ─────────────────────────────────────────────────────────────────
-              * RESERVED SEATING OR GENERAL ADMISSION — the choice that decides
-              * how much of this product the organizer ever sees.
-              *
-              * Reserved means a venue map, table categories, seat-by-seat
-              * pricing and a seat picker at the checkout. General admission
-              * means a number on a ticket type, and none of the above: no map
-              * to draw, no map screens in the sidebar, no seat to choose.
-              *
-              * Presented as two described choices rather than a dropdown,
-              * because a dropdown labelled "Admission type" tells somebody
-              * nothing about what they are agreeing to build — and this is the
-              * one setting here they cannot change after a ticket sells.
-              * ─────────────────────────────────────────────────────────────────
-              */}
-            {!live && (
-              <fieldset className="fx-stack fx-stack--sm gap-2">
-                <legend className="es-label mb-1.5">
-                  <span>How tickets work<span className="es-req" aria-hidden="true">*</span></span>
-                </legend>
-                <AdmissionChoice
-                  value="reserved"
-                  current={form.admissionType}
-                  onChange={set('admissionType')}
-                  title="Reserved seating"
-                  detail="You draw the room, buyers choose their seat or table. For theatres, galas and anything with a floor plan."
-                />
-                <AdmissionChoice
-                  value="general"
-                  current={form.admissionType}
-                  onChange={set('admissionType')}
-                  title="General admission"
-                  detail="No seat map. You set how many tickets of each type exist, and buyers choose how many they want."
-                />
-                <p className="text-xs text-subtle">
-                  This is fixed once a ticket sells — a sold ticket points at either a seat or a
-                  ticket type, and it cannot become the other.
-                </p>
-              </fieldset>
-            )}
-
-            {!live && (
-              <div className="fx-grid fx-grid--2">
-                {/* Only reserved seating has anything to choose BETWEEN. On a
-                    general-admission event there are no seats and no tables, so
-                    this question has no answer rather than a default one. */}
-                {form.admissionType === 'reserved' && (
-                  <SelectField label="How buyers choose" required value={form.purchaseMode} onChange={set('purchaseMode')}
-                    options={[['seat_only', 'Individual seats'], ['table_only', 'Whole tables'], ['seat_and_table', 'Seats or whole tables']]} />
-                )}
-                <SelectField label="Who pays the booking fees" required value={form.feeBearer} onChange={set('feeBearer')}
-                  options={[['buyer', 'Buyers — added at checkout'], ['organizer', 'You — taken from your payout']]} />
-              </div>
-            )}
-            <Field label="Most tickets in one order" type="number" name="maxTicketsPerOrder" min={1} max={100} required
-              inputMode="numeric"
-              error={perOrderInvalid ? 'Between 1 and 100.' : null}
-              value={form.maxTicketsPerOrder} onChange={set('maxTicketsPerOrder')} />
-            <label className="es-check">
-              <input type="checkbox" className="es-check__box" checked={form.allowTicketTransfer}
-                onChange={(e) => setForm((f) => ({ ...f, allowTicketTransfer: e.target.checked }))} />
-              <span className="text-sm">
-                <span className="block text-ink">Let buyers pass a ticket on</span>
-                <span className="block text-muted">Once per ticket. The old QR code stops working.</span>
-              </span>
-            </label>
-
-            {/**
-              * NO PAYMENT SECTION ON A FREE EVENT.
-              *
-              * `event.needs.payment` is false when every ticket type is free —
-              * derived from the prices by the API, never from a flag here, so
-              * this section and the submit endpoint cannot disagree about
-              * whether a payment method is required.
-              *
-              * A note replaces it rather than nothing at all: an organizer who
-              * expected to set up payment should be told why there is nothing
-              * to set up, and what would bring it back.
-              */}
-            {event.needs && !event.needs.payment ? (
-              <div className="fx-stack fx-stack--sm rounded-(--es-radius-md) bg-bg-sunken px-4 py-3">
-                <p className="text-sm text-ink">Every ticket on this event is free.</p>
-                <p className="text-sm text-muted">
-                  There is nothing to set up — no card details, no Stripe account, no payouts.
-                  Price any ticket type above zero and the payment options appear here.
-                </p>
-              </div>
-            ) : (
-            <fieldset className="fx-stack fx-stack--sm gap-2">
-              <legend className="es-label mb-1.5">
-                <span>How buyers pay<span className="es-req" aria-hidden="true">*</span></span>
-              </legend>
-              <PaymentToggle
-                label="Card payments (Stripe)"
-                detail={organizer?.payments?.stripeReady ? 'Buyers pay by card at checkout.' : 'Connect Stripe first.'}
-                checked={form.acceptsStripe}
-                // Turning one OFF is always allowed; turning one ON needs it set up.
-                available={Boolean(organizer?.payments?.stripeReady) || form.acceptsStripe}
-                onChange={(v) => setForm((f) => ({ ...f, acceptsStripe: v }))}
-              />
-              <PaymentToggle
-                label="Manual payments"
-                detail={organizer?.payments?.manualMethods > 0 ? 'e-Transfer, bank transfer or cash, as you set them up.' : 'Add a manual payment method first.'}
-                checked={form.acceptsManual}
-                available={organizer?.payments?.manualMethods > 0 || form.acceptsManual}
-                onChange={(v) => setForm((f) => ({ ...f, acceptsManual: v }))}
-              />
-              {!form.acceptsStripe && !form.acceptsManual && (
-                <p className="text-xs text-danger">Choose at least one before submitting this event.</p>
-              )}
-              <p className="text-xs text-subtle">
-                <Link href="/organizer/payments" className="text-accent underline">Manage payment methods</Link>
-              </p>
-            </fieldset>
-            )}
-          </>
-        )}
-
-        <FormError error={error} />
-
-        <div className="fx-row">
-          <SubmitButton busy={busy} busyLabel="Saving…" disabled={blocked || changedKeys.length === 0}>
-            Save changes
-          </SubmitButton>
-          {changedKeys.length > 0 && (
-            <button type="button" className="es-btn es-btn--ghost" onClick={() => { setForm(original); setError(null); }}>
-              Discard
-            </button>
-          )}
+      <div className="es-dform__grid">
+        <div id="dtab-panel" role="tabpanel" aria-labelledby={`dtab-${shown}`} className="fx-stack fx-min0">
+          {shown === 'basic' && <BasicSection f={f} />}
+          {shown === 'description' && <DescriptionSection f={f} />}
+          {shown === 'format' && <FormatSection f={f} />}
+          <FormError error={error} />
         </div>
-      </form>
-    </Panel>
+        <div className="fx-stack fx-min0">
+          {/* THE CHARGES COME WITH THE FORM: `feeBearer` — who absorbs the
+              platform fee — is edited here, and this is what that choice
+              costs. Read-only: every rate is the admin's (BRD §05/§06). */}
+          {ticketed && (
+            <section className="es-dcard" aria-label="What you are charged">
+              <div className="es-ovcard__head">
+                <span className="es-ovcard__glyph" aria-hidden="true"><NavIcon name="receipt" size={24} /></span>
+                <div className="fx-min0">
+                  <h2 className="es-dcard__title">What you are charged</h2>
+                  <p className="es-ovcard__desc">Set by Eventsli, and agreed when the terms were accepted.</p>
+                </div>
+              </div>
+              <FeeSummary event={event} rich />
+            </section>
+          )}
+          <QuickSettings f={f} />
+        </div>
+      </div>
+
+      <div className="es-dform__bar">
+        <SubmitButton busy={busy} busyLabel="Saving…" disabled={blocked || changedKeys.length === 0}>
+          <NavIcon name="tick" size={18} /> Save changes
+        </SubmitButton>
+        <button type="button" className="es-btn es-btn--secondary" disabled={changedKeys.length === 0}
+          onClick={() => { setForm(original); setError(null); }}>
+          Discard
+        </button>
+        <span className="es-dform__saved">
+          <NavIcon name="clock" size={16} />
+          {changedKeys.length > 0 ? 'Unsaved changes' : `Last saved ${ago(event.updatedAt, now)}`}
+        </span>
+      </div>
+    </form>
   );
 }
 
-function Fact({ term, value }) {
-  return (
-    <div className="fx-min0">
-      <dt className="es-facts__term">{term}</dt>
-      <dd className="es-facts__value">{value}</dd>
-    </div>
-  );
-}
-
-/**
- * One of the two admission choices, as a described radio.
- *
- * A radio rather than a styled button, so the pair is one group to a screen
- * reader and to the keyboard: arrow keys move between them and the legend above
- * is read as the question. The whole block is the label, so the detail text is
- * part of what is announced rather than decoration beside it.
- */
-function AdmissionChoice({ value, current, onChange, title, detail }) {
-  return (
-    <label className="es-check">
-      <input
-        type="radio"
-        name="admissionType"
-        className="es-check__box"
-        value={value}
-        checked={current === value}
-        onChange={() => onChange({ target: { value } })}
-      />
-      <span className="text-sm">
-        <span className="block text-ink">{title}</span>
-        <span className="block text-muted">{detail}</span>
-      </span>
-    </label>
-  );
-}
-
-function PaymentToggle({ label, detail, checked, available, onChange }) {
-  return (
-    <label className={`es-check${available ? '' : ' cursor-not-allowed opacity-60'}`} aria-disabled={!available || undefined}>
-      <input
-        type="checkbox" className="es-check__box" checked={checked} disabled={!available}
-        onChange={(e) => onChange(e.target.checked)}
-      />
-      <span className="text-sm">
-        <span className="block text-ink">{label}</span>
-        <span className="block text-muted">{detail}</span>
-      </span>
-    </label>
-  );
+/** "2 minutes ago", from the event's own `updatedAt`. */
+function ago(iso, now) {
+  const then = Date.parse(iso);
+  if (!Number.isFinite(then) || now === null) return '';
+  const mins = Math.max(0, Math.round((now - then) / 60000));
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins} minute${mins === 1 ? '' : 's'} ago`;
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+  return `on ${new Date(then).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
 }

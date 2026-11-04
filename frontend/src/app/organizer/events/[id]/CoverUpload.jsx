@@ -6,7 +6,8 @@ import { del } from '../../../utils/apiClient';
 import { uploadEventCover } from '../../../utils/uploadEventImage';
 import { useConfirm } from '../../../components/ui/Confirm';
 import { useToast } from '../../../components/ui/Toast';
-import { Panel } from '../../../components/ui/Page';
+import ContentCard from './content/ContentCard';
+import NavIcon from '../../../components/shell/NavIcon';
 import FormError from '../../../components/forms/FormError';
 
 /**
@@ -83,54 +84,58 @@ export default function CoverUpload({ event, onChanged }) {
     }
   }
 
+  // The file input sits outside the picture so its label can be the
+  // "Replace" chip on the image and the drop zone when there is none.
+  const picker = editable && (
+    <input
+      ref={input}
+      type="file"
+      accept={ACCEPT}
+      onChange={(e) => upload(e.target.files?.[0])}
+      className="sr-only"
+      id={`cover-${event.id}`}
+      disabled={busy}
+    />
+  );
+
   return (
-    <Panel
+    <ContentCard
+      icon="image"
       title="Cover image"
-      description="Shown on your event page, in listings, and on every shared link. JPEG, PNG or WebP."
-      action={event.cover && editable && (
-        <button type="button" onClick={remove} disabled={busy} className="es-btn es-btn--ghost es-btn--sm">
-          Remove
-        </button>
-      )}
+      description="Shown at the top of your event page, in listings and on every shared link. JPEG, PNG or WebP, about 1920×800."
     >
+      {picker}
       {event.cover ? (
-        <div className="relative aspect-[16/9] w-full overflow-hidden rounded-(--es-radius-md) bg-bg-sunken">
+        <div className="es-pbcover">
           <Image
             src={event.cover.url}
             alt=""
             fill
-            sizes="(max-width: 1280px) 100vw, 480px"
+            sizes="(max-width: 1280px) 100vw, 640px"
             className="object-cover"
           />
+          {editable && (
+            <div className="es-pbcover__tools">
+              <label htmlFor={`cover-${event.id}`} aria-disabled={busy || undefined} className="es-pbcover__chip">
+                <NavIcon name="image" size={16} />{busy ? 'Uploading…' : 'Replace'}
+              </label>
+              <button type="button" onClick={remove} disabled={busy} className="es-pbcover__chip es-pbcover__chip--icon">
+                <NavIcon name="trash" size={16} /><span className="sr-only">Remove the cover image</span>
+              </button>
+            </div>
+          )}
         </div>
+      ) : editable ? (
+        <label htmlFor={`cover-${event.id}`} aria-disabled={busy || undefined} className="es-pbdrop es-pbdrop--wide">
+          <NavIcon name="image" size={28} />
+          <b>{busy ? 'Uploading…' : 'Upload a cover'}</b>
+          <small>Events with a cover are easier to share.</small>
+        </label>
       ) : (
-        <div className="grid aspect-[16/9] w-full place-items-center rounded-(--es-radius-md) border border-dashed border-border-strong bg-bg-sunken">
-          <p className="text-sm text-subtle">No image yet — events with a cover are easier to share.</p>
-        </div>
+        <div className="es-pbdrop es-pbdrop--wide"><small>No cover image.</small></div>
       )}
 
       <FormError error={error} />
-
-      {editable && (
-        <>
-          <input
-            ref={input}
-            type="file"
-            accept={ACCEPT}
-            onChange={(e) => upload(e.target.files?.[0])}
-            className="sr-only"
-            id={`cover-${event.id}`}
-            disabled={busy}
-          />
-          <label
-            htmlFor={`cover-${event.id}`}
-            aria-disabled={busy || undefined}
-            className="es-btn es-btn--secondary self-start"
-          >
-            {busy ? 'Uploading…' : event.cover ? 'Replace image' : 'Choose an image'}
-          </label>
-        </>
-      )}
-    </Panel>
+    </ContentCard>
   );
 }

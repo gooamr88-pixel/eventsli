@@ -2,12 +2,12 @@
 
 import { useRef, useState } from 'react';
 import Image from 'next/image';
-import { Panel } from '../../../../components/ui/Page';
+import ContentCard from './ContentCard';
 import { Loading, Empty } from '../../../../components/Feedback';
 import FormError from '../../../../components/forms/FormError';
 import { useConfirm } from '../../../../components/ui/Confirm';
 import { useToast } from '../../../../components/ui/Toast';
-import { useContentSection, useSectionDraft, uploadImage, IMAGE_ACCEPT } from './useContentSection';
+import { useSectionDraft, uploadImage, IMAGE_ACCEPT } from './useContentSection';
 import SaveBar from './SaveBar';
 import RowControls from './RowControls';
 
@@ -43,8 +43,10 @@ const LEVELS = [
   ['partner', 'Partner'],
 ];
 
-export default function SponsorsEditor({ eventId }) {
-  const { items, error, busy, add, edit, remove, move, setError } = useContentSection(eventId, 'sponsors');
+// `section` is `useContentSection(eventId, 'sponsors')`, loaded by the page —
+// see GalleryEditor.
+export default function SponsorsEditor({ eventId, section }) {
+  const { items, error, busy, add, edit, remove, move, setError } = section;
   const confirm = useConfirm();
   const toast = useToast();
   const [draft, setDraft] = useState({ name: '', linkUrl: '', level: 'partner' });
@@ -138,9 +140,12 @@ export default function SponsorsEditor({ eventId }) {
   }
 
   return (
-    <Panel
+    <ContentCard
+      collapsible
+      icon="users"
       title="Sponsors & partners"
-      description="Shown near the bottom of your event page, headline level first. The arrows order sponsors within their level. Optional — add them only if you have them."
+      description="Shown near the bottom of your page, headline level first. The arrows order sponsors within their level."
+      count={items?.length ? `${items.length} ${items.length === 1 ? 'sponsor' : 'sponsors'}` : 'Add sponsors'}
     >
       <FormError error={error} />
 
@@ -293,6 +298,6 @@ export default function SponsorsEditor({ eventId }) {
           {saving ? 'Adding…' : 'Add sponsor'}
         </button>
       </form>
-    </Panel>
+    </ContentCard>
   );
 }
