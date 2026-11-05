@@ -96,7 +96,7 @@ export function Panel({ title, description, action, icon, iconTile = false, chil
         <div className="es-panel-head">
           <div className={`fx-min0${icon ? ' es-panel-head__main' : ''}`}>
             {/* `iconTile`: the glyph on a soft square, as on Door team. */}
-            {icon && <span className={`es-panel-head__icon${iconTile ? ' es-icontile' : ''}`} aria-hidden="true"><NavIcon name={icon} size={iconTile ? 24 : 22} /></span>}}
+            {icon && <span className={`es-panel-head__icon${iconTile ? ' es-icontile' : ''}`} aria-hidden="true"><NavIcon name={icon} size={iconTile ? 24 : 22} /></span>}
             <div className="fx-min0">
               {title && <h2 className="es-panel-head__title">{title}</h2>}
               {description && <p className="es-panel-head__desc">{description}</p>}
