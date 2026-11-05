@@ -99,16 +99,33 @@ export default function EventCard({ event, priority = false, headingLevel = 3, a
     <Link href={`/e/${event.slug}`} className={`es-evcard ${adaptive ? 'es-evcard--adaptive' : ''}`}>
       <div className="es-evcard__media">
         {event.coverUrl ? (
-          <Image
-            src={event.coverUrl}
-            alt=""
-            fill
-            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 380px"
-            // Only the first row above the fold. Marking every card priority
-            // means none of them is.
-            priority={priority}
-            className="object-cover"
-          />
+          /* THE WHOLE POSTER, never a crop of it. Organizers upload flyers —
+             portrait or square, with the names and date printed on them — and
+             `object-cover` in a 16:10 box sliced those words in half. The art
+             is now contained, and a blurred, dimmed copy of the same image
+             fills the bars either side so the card still reads as full-bleed.
+             Same URL and `sizes`, so the browser fetches it once. */
+          <>
+            <Image
+              src={event.coverUrl}
+              alt=""
+              aria-hidden
+              fill
+              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 380px"
+              priority={priority}
+              className="es-evcard__backdrop"
+            />
+            <Image
+              src={event.coverUrl}
+              alt=""
+              fill
+              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 380px"
+              // Only the first row above the fold. Marking every card priority
+              // means none of them is.
+              priority={priority}
+              className="es-evcard__art"
+            />
+          </>
         ) : (
           /* No cover is a normal state: an event may publish without artwork.
              The title on the brand tint reads as a deliberate cover rather
