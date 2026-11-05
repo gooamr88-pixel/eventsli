@@ -8,11 +8,14 @@ import { formatEventTime } from '../../../../lib/eventTime';
 import { useToast } from '../../../../components/ui/Toast';
 import { useConfirm } from '../../../../components/ui/Confirm';
 import { SectionHeader, Panel } from '../../../../components/ui/Page';
-import { Kpi, KpiRow } from '../../../../components/ui/Kpi';
+import NavIcon from '../../../../components/shell/NavIcon';
+import { StackedEmpty } from '../../../../components/ui/SplitEmpty';
+import { PhoneScanArt, TabletArt } from '../../../../components/ui/Illustrations';
+import DeviceStats from './DeviceStats';
 import Field from '../../../../components/forms/Field';
 import FormError from '../../../../components/forms/FormError';
 import SubmitButton from '../../../../components/forms/SubmitButton';
-import { Loading, Empty, ErrorNotice, Notice } from '../../../../components/Feedback';
+import { Loading, ErrorNotice, Notice } from '../../../../components/Feedback';
 import { useEventContext } from '../EventContext';
 
 /**
@@ -69,8 +72,10 @@ export default function Devices({ eventId }) {
   return (
     <div className="fx-stack">
       <SectionHeader
+        icon="scan"
         title="Scanning devices"
         lede="Each shared tablet or phone that scans at the door. Staff sign it in with the device ID and its PIN, so a shift change needs nothing."
+        art={<PhoneScanArt />}
         actions={!adding && (
           <div className="fx-row">
             {/* THE WAY INTO THE SCANNER, beside the screen that registers the
@@ -84,9 +89,11 @@ export default function Devices({ eventId }) {
               rel="noopener noreferrer"
               className="es-btn es-btn--secondary"
             >
+              <NavIcon name="scan" size={20} />
               Open the scanner
             </a>
             <button type="button" className="es-btn es-btn--primary" onClick={() => setAdding(true)}>
+              <NavIcon name="plus" size={18} />
               Register a device
             </button>
           </div>
@@ -97,12 +104,7 @@ export default function Devices({ eventId }) {
         <Link href={`/organizer/events/${eventId}/staff`} className="text-accent underline">door team</Link>.
       </p>
 
-      {devices.length > 0 && (
-        <KpiRow label="Devices at a glance">
-          <Kpi icon="scan" label="Devices" value={devices.length} note={`${devices.filter((d) => d.isActive).length} can scan`} />
-          <Kpi icon="clock" label="Seen at the door" value={devices.filter((d) => d.lastSeenAt).length} note="Signed in at least once" />
-        </KpiRow>
-      )}
+      <DeviceStats gate={gate} devices={devices} />
 
       <GateBanner gate={gate} eventId={eventId} />
 
@@ -132,7 +134,20 @@ export default function Devices({ eventId }) {
       )}
 
       {devices.length === 0 ? (
-        <Empty title="No devices yet." hint="Register the tablets that will scan tickets at the door." />
+        !adding && (
+          <StackedEmpty
+            art={<TabletArt />}
+            title="No devices yet."
+            action={(
+              <button type="button" className="es-btn es-btn--primary" onClick={() => setAdding(true)}>
+                <NavIcon name="plus" size={18} />
+                Register a device
+              </button>
+            )}
+          >
+            Register the tablets that will scan tickets at the door.
+          </StackedEmpty>
+        )
       ) : (
         <ul className="fx-stack fx-stack--sm">
           {devices.map((d) => (
@@ -151,27 +166,17 @@ export default function Devices({ eventId }) {
  */
 function GateBanner({ gate, eventId }) {
   const state = gate?.gate;
-  const stats = gate?.stats;
-  const stat = stats && (
-    <p className="es-nums text-sm text-muted">
-      <span className="text-ink">{stats.admitted}</span> in · {stats.pending} to come
-    </p>
-  );
-
-  if (state?.locked && !state?.override) {
-    return (
-      <Notice tone="danger" title="Scanning is switched off">
-        <p>
-          An unpaid commission invoice locked it.{' '}
-          <Link href={`/organizer/events/${eventId}/commission`} className="text-accent underline">Settle it</Link>
-          {' '}and it reopens on its own — there is no separate unlock.
-        </p>
-        {stat}
-      </Notice>
-    );
-  }
+  // Open (or overridden) needs no banner: the first figure card says so, with
+  // the in / to-come counts beside it (DeviceStats.jsx).
+  if (!state?.locked || state?.override) return null;
   return (
-    <Panel icon="scan" title={state?.override ? 'Scanning temporarily allowed' : 'Scanning works'} action={stat} />
+    <Notice tone="danger" icon="alert" title="Scanning is switched off">
+      <p>
+        An unpaid commission invoice locked it.{' '}
+        <Link href={`/organizer/events/${eventId}/commission`} className="text-accent underline">Settle it</Link>
+        {' '}and it reopens on its own — there is no separate unlock.
+      </p>
+    </Notice>
   );
 }
 

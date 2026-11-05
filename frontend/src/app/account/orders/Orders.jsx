@@ -4,9 +4,24 @@ import Link from 'next/link';
 import { useMemo } from 'react';
 import { formatMoney } from '../../utils/money';
 import { formatEventTime } from '../../lib/eventTime';
-import { Loading, Empty, ErrorNotice } from '../../components/Feedback';
+import { Loading, ErrorNotice } from '../../components/Feedback';
 import { PageHeader } from '../../components/ui/Page';
+import NavIcon from '../../components/shell/NavIcon';
+import { StackedEmpty } from '../../components/ui/SplitEmpty';
+import { TipsCard, EmptyWithTips } from '../../components/ui/TipsCard';
+import { ReceiptArt } from '../../components/ui/Illustrations';
 import { useAccountOrders } from '../nav/AccountOrders';
+
+/**
+ * Beside the empty list: what will be here. "Every ticket" — not "and
+ * add-on": tickets are all an order holds, and a tip promising more would be
+ * the first thing on the page that is not true.
+ */
+const ORDER_TIPS = [
+  { key: 'all', icon: 'cart', title: 'All your purchases', text: 'Every ticket you bought with this email.' },
+  { key: 'totals', icon: 'coins', title: 'Totals and details', text: 'See the amount you paid, the date, and what you got.' },
+  { key: 'guest', icon: 'ticket', title: 'Guest purchases too', text: 'If you bought a ticket as a guest (with this email), it also appears here.' },
+];
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -72,10 +87,22 @@ export default function Orders() {
       />
 
       {rows.length === 0 ? (
-        <Empty
-          title="No orders yet."
-          hint="Anything you buy — signed in or as a guest with this email address — is listed here with its total."
-          action={{ href: '/events', label: 'Find something to go to' }}
+        <EmptyWithTips
+          empty={(
+            <StackedEmpty
+              art={<ReceiptArt />}
+              title="No orders yet."
+              action={(
+                <Link href="/events" className="es-btn es-btn--primary es-btn--lg">
+                  <NavIcon name="search" size={18} />
+                  Find something to go to
+                </Link>
+              )}
+            >
+              Anything you buy — signed in or as a guest with this email address — is listed here with its total.
+            </StackedEmpty>
+          )}
+          tips={<TipsCard title="What’s included here?" tips={ORDER_TIPS} />}
         />
       ) : (
         <ul className="es-deflist">

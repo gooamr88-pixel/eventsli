@@ -1,6 +1,7 @@
 'use client';
 
 import { useId, useState } from 'react';
+import NavIcon from '../shell/NavIcon';
 
 /**
  * A labelled input.
@@ -25,7 +26,7 @@ import { useId, useState } from 'react';
  * long form should never have to submit it to find out which boxes mattered.
  */
 export default function Field({
-  label, hint, error, type = 'text', optional = false, describedBy, ...props
+  label, hint, error, type = 'text', optional = false, describedBy, icon, ...props
 }) {
   const id = useId();
   const hintId = `${id}-hint`;
@@ -80,6 +81,12 @@ export default function Field({
             <EyeIcon off={revealed} />
           </button>
         </div>
+      ) : icon ? (
+        /* `icon`: a decorative glyph inside the box, before the text. */
+        <span className="es-fieldicon">
+          <NavIcon name={icon} size={20} />
+          {input}
+        </span>
       ) : input}
 
       {hint && !error && <p id={hintId} className="text-xs text-subtle">{hint}</p>}

@@ -8,6 +8,7 @@ import { summariseOrders } from '../../lib/buyerOrders';
 import { Loading, ErrorNotice, Notice } from '../../components/Feedback';
 import { PageHeader, StatCard, Panel } from '../../components/ui/Page';
 import NavIcon from '../../components/shell/NavIcon';
+import { TicketsArt } from '../../components/ui/Illustrations';
 import { useAuth } from '../../hooks/useAuth';
 import { useAccountOrders } from '../nav/AccountOrders';
 
@@ -160,21 +161,34 @@ export default function BuyerDashboard() {
  * steps are NOT given `data-state="current"`: these are three things worth
  * knowing, not a sequence somebody is partway through, and the stepper's
  * progress line would claim a position this page cannot know.
+ *
+ * `.es-steps--guide` (2026-11) is a look on the same stepper, not a second
+ * one: filled numbers, an icon tile per step, and the steps in their own card.
+ * Every marker is the same, so it still claims no position.
  */
 function FirstVisit({ firstName }) {
   const steps = [
     {
       key: 'find',
+      icon: 'search',
       title: 'Find an event',
       detail: 'Browse what is on, or search by city and date.',
     },
     {
       key: 'tickets',
+      icon: 'ticket',
       title: 'Your tickets arrive here',
-      detail: 'Every ticket bought with this email address shows up under My tickets — including anything you bought as a guest before signing up.',
+      detail: (
+        <>
+          Every ticket bought with this email address shows up under{' '}
+          <Link href="/account/tickets" className="font-semibold text-accent hover:text-accent-hover">My tickets</Link>
+          {' '}— including anything you bought as a guest before signing up.
+        </>
+      ),
     },
     {
       key: 'elsewhere',
+      icon: 'mail',
       title: 'Bought with another address?',
       detail: 'The link in that confirmation email opens those tickets directly, without an account.',
     },
@@ -184,7 +198,10 @@ function FirstVisit({ firstName }) {
     <div className="fx-stack">
       <section className="es-onboard es-band--field" aria-labelledby="buyer-onboard-title">
         <div className="fx-stack fx-stack--sm gap-4">
-          <p className="es-eyebrow">{firstName ? `Welcome, ${firstName}` : 'Welcome'}</p>
+          <p className="es-eyebrow">
+            {firstName ? `Welcome, ${firstName}` : 'Welcome'}
+            <span aria-hidden="true" className="ms-2">👋</span>
+          </p>
           <h1 id="buyer-onboard-title" className="max-w-[20ch] text-ink">
             Your tickets will live here.
           </h1>
@@ -192,28 +209,39 @@ function FirstVisit({ firstName }) {
             Nothing yet. Find something to go to, and every ticket you buy with this address
             collects on this page.
           </p>
-          <div className="fx-row gap-2">
+          <div className="fx-row gap-3">
             <Link href="/events" className="es-btn es-btn--primary es-btn--lg">
               <NavIcon name="search" size={18} />
               Discover events
             </Link>
-            <Link href="/tickets/find" className="es-btn es-btn--ghost">
+            <Link href="/tickets/find" className="es-btn es-btn--secondary es-btn--lg">
+              <NavIcon name="ticket" size={18} />
               Find an existing ticket
             </Link>
           </div>
+          <TicketsArt className="es-onboard__art" />
         </div>
 
-        <ol className="es-steps rounded-(--es-radius-lg) bg-bg-sunken p-5" aria-label="How tickets work here">
-          {steps.map((step, i) => (
-            <li key={step.key} className="es-steps__item" data-state="upcoming">
-              <span className="es-steps__marker" aria-hidden="true">{i + 1}</span>
-              <div className="es-steps__body">
-                <p className="es-steps__title">{step.title}</p>
-                <p className="text-sm text-muted">{step.detail}</p>
-              </div>
-            </li>
-          ))}
-        </ol>
+        <section className="es-onboard__guide" aria-labelledby="buyer-guide-title">
+          <h2 id="buyer-guide-title" className="es-onboard__guidetitle">
+            <NavIcon name="info" size={26} />
+            How it works
+          </h2>
+          <ol className="es-steps es-steps--guide">
+            {steps.map((step, i) => (
+              <li key={step.key} className="es-steps__item" data-state="upcoming">
+                <span className="es-steps__marker" aria-hidden="true">{i + 1}</span>
+                <div className="es-steps__body es-steps__body--tile">
+                  <span className="es-icontile" aria-hidden="true"><NavIcon name={step.icon} size={24} /></span>
+                  <div className="fx-min0 fx-stack fx-stack--sm gap-1">
+                    <p className="es-steps__title">{step.title}</p>
+                    <p className="text-sm text-muted">{step.detail}</p>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </section>
       </section>
     </div>
   );

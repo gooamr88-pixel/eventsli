@@ -14,7 +14,10 @@ import DataTable from '../../../../components/ui/DataTable';
 import Field from '../../../../components/forms/Field';
 import FormError from '../../../../components/forms/FormError';
 import SubmitButton from '../../../../components/forms/SubmitButton';
-import { Loading, Empty, ErrorNotice } from '../../../../components/Feedback';
+import { Loading, ErrorNotice } from '../../../../components/Feedback';
+import NavIcon from '../../../../components/shell/NavIcon';
+import { StackedEmpty } from '../../../../components/ui/SplitEmpty';
+import { PeopleArt } from '../../../../components/ui/Illustrations';
 import { useEventContext } from '../EventContext';
 
 /**
@@ -83,6 +86,8 @@ export default function DoorTeam({ eventId }) {
   return (
     <div className="fx-stack">
       <SectionHeader
+        icon="users"
+        iconTile
         title="Door team"
         lede={(
           <>
@@ -104,11 +109,12 @@ export default function DoorTeam({ eventId }) {
       )}
 
       <div className="grid gap-[var(--fx-gap)] lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-        <Panel icon="user" title="Add someone" description="They sign in with their own Eventsli account.">
+        <Panel icon="user" iconTile title="Add someone" description="They sign in with their own Eventsli account.">
           <form onSubmit={add} className="fx-stack fx-stack--sm">
             <Field
               label="Their Eventsli account email"
               type="email"
+              icon="mail"
               required
               autoComplete="off"
               value={email}
@@ -122,8 +128,10 @@ export default function DoorTeam({ eventId }) {
           </form>
         </Panel>
 
-        <Panel icon="info" title="How they sign in">
-          <ol className="fx-stack fx-stack--sm list-decimal pl-5 text-sm text-muted">
+        <Panel icon="info" iconTile title="How they sign in">
+          {/* Numbered discs rather than "1." — this list is read aloud to
+              someone at the door, and "step two" has to be findable. */}
+          <ol className="es-numlist">
             {/* THE PATH IS A LINK NOW, not monospace text in a sentence.
                 Step one of three was a URL to be read out loud to somebody
                 standing at a door, and it was the only reference to the
@@ -134,12 +142,12 @@ export default function DoorTeam({ eventId }) {
                 href="/gate/login"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="font-mono text-accent underline"
+                className="text-accent underline"
               >
                 eventsli.com/gate/login
               </a>.
             </li>
-            <li>They choose <span className="text-ink">Sign in with my account</span> and pick this event.</li>
+            <li>They choose <b className="text-ink">Sign in with my account</b> and pick this event.</li>
             <li>They stay signed in for one shift — sixteen hours — and then sign in again.</li>
           </ol>
 
@@ -153,6 +161,7 @@ export default function DoorTeam({ eventId }) {
             rel="noopener noreferrer"
             className="es-btn es-btn--secondary mt-3 self-start"
           >
+            <NavIcon name="scan" size={20} />
             Open the scanner on this device
           </a>
         </Panel>
@@ -163,7 +172,9 @@ export default function DoorTeam({ eventId }) {
       ) : loading && !data ? (
         <Loading variant="list" rows={2} label="Loading the door team" />
       ) : members.length === 0 ? (
-        <Empty title="Nobody on the door team yet." hint="Add someone above, or use a shared tablet with a PIN." />
+        <StackedEmpty art={<PeopleArt className="es-art--people" />} title="Nobody on the door team yet.">
+          Add someone above, or use a shared tablet with a PIN.
+        </StackedEmpty>
       ) : (
         <DataTable
           caption="Door team"

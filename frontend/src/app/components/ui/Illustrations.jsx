@@ -159,6 +159,166 @@ export function InvoiceArt({ className = '' }) {
   );
 }
 
+/** A QR ticket under a handheld scanner — "the door list". */
+export function ScannerArt({ className = '' }) {
+  const ticket = 'M8 0H142A8 8 0 0 1 150 8V28A12 12 0 0 0 150 52V72A8 8 0 0 1 142 80H8A8 8 0 0 1 0 72V52A12 12 0 0 0 0 28V8A8 8 0 0 1 8 0Z';
+  const finder = (x, y) => (
+    <g transform={`translate(${x} ${y})`}>
+      <rect className="es-art__qrdark" width="22" height="22" rx="4" />
+      <rect className="es-art__qrdot" x="7" y="7" width="8" height="8" rx="1.5" />
+    </g>
+  );
+  return (
+    <svg {...svg} viewBox="0 0 320 220" className={`es-art ${className}`}>
+      <path className="es-art__blob" d="M24 130c0-56 52-100 124-96s140 34 140 92-56 94-128 90S24 186 24 130z" />
+      <g transform="translate(56 82) rotate(-18)">
+        <path className="es-art__scanticket" d={ticket} />
+        {finder(46, 14)}
+        {finder(76, 14)}
+        {finder(46, 44)}
+        <path className="es-art__qrdot" d="M76 44h8v8h-8zM90 50h8v8h-8zM78 58h6v8h-6z" />
+      </g>
+      <g transform="translate(192 66) rotate(12)">
+        <path className="es-art__gungrip" d="M56 38H84L98 112Q100 124 88 126L74 128Q63 129 61 118Z" />
+        <rect className="es-art__gun" width="112" height="48" rx="18" />
+        <rect className="es-art__gunnose" x="-8" y="6" width="22" height="36" rx="8" />
+        <path className="es-art__gunshine" d="M34 15H74" />
+      </g>
+      <Burst x={244} y={4} />
+    </svg>
+  );
+}
+
+/** Three guests, the middle one in front — "nobody on the list". */
+export function PeopleArt({ className = '' }) {
+  return (
+    <svg {...svg} viewBox="0 0 200 120" className={`es-art ${className}`}>
+      <circle className="es-art__person" cx="62" cy="58" r="11" />
+      <path className="es-art__person" d="M40 108a22 22 0 0 1 44 0Z" />
+      <circle className="es-art__person" cx="138" cy="58" r="11" />
+      <path className="es-art__person" d="M116 108a22 22 0 0 1 44 0Z" />
+      <circle className="es-art__person es-art__person--front" cx="100" cy="42" r="14" />
+      <path className="es-art__person es-art__person--front" d="M70 108a30 30 0 0 1 60 0Z" />
+      <Burst x={150} y={0} />
+    </svg>
+  );
+}
+
+/** Scan corners framing a small QR, drawn at the origin; shared by the two below. */
+function ScanFrame({ x, y, size }) {
+  const c = size * 0.28;
+  const s = size;
+  return (
+    <g transform={`translate(${x} ${y})`} className="es-art__frame">
+      <path d={`M0 ${c}V4a4 4 0 0 1 4-4h${c - 4}M${s - c} 0h${c - 4}a4 4 0 0 1 4 4v${c - 4}M${s} ${s - c}v${c - 4}a4 4 0 0 1-4 4h-${c - 4}M${c} ${s}H4a4 4 0 0 1-4-4v-${c - 4}`} />
+    </g>
+  );
+}
+
+/** A phone scanning a QR, on two blobs — "scanning devices". */
+export function PhoneScanArt({ className = '' }) {
+  return (
+    <svg {...svg} viewBox="0 0 320 200" className={`es-art ${className}`}>
+      <path className="es-art__blob" d="M40 120c0-48 50-84 116-82s128 26 128 74-52 80-118 78S40 168 40 120z" />
+      <ellipse className="es-art__blob es-art__blob--deep" cx="212" cy="140" rx="64" ry="34" />
+      <g transform="translate(150 12) rotate(10)">
+        <rect className="es-art__device" width="92" height="164" rx="16" />
+        <rect className="es-art__devicenotch" x="34" y="9" width="24" height="5" rx="2.5" />
+        <ScanFrame x={20} y={44} size={52} />
+        <path className="es-art__qrdot" d="M31 55h12v12H31zM49 55h12v12H49zM31 73h12v12H31zM49 73h12v12H49z" />
+        <path className="es-art__devicebar" d="M34 148h24" />
+      </g>
+    </svg>
+  );
+}
+
+/** A tablet tilted on two leaves of colour, with scan corners — "no devices yet". */
+export function TabletArt({ className = '' }) {
+  return (
+    <svg {...svg} viewBox="0 0 280 160" className={`es-art ${className}`}>
+      <ellipse className="es-art__blob" cx="80" cy="110" rx="62" ry="38" />
+      <ellipse className="es-art__blob es-art__blob--deep" cx="208" cy="100" rx="54" ry="34" />
+      <g transform="translate(70 40) rotate(-8)">
+        <rect className="es-art__device" width="146" height="100" rx="14" />
+        <ScanFrame x={50} y={27} size={46} />
+      </g>
+      <Burst x={224} y={0} />
+    </svg>
+  );
+}
+
+const TICKET_WIDE = 'M10 0H160A10 10 0 0 1 170 10V33A12 12 0 0 0 170 57V80A10 10 0 0 1 160 90H10A10 10 0 0 1 0 80V57A12 12 0 0 0 0 33V10A10 10 0 0 1 10 0Z';
+const STAR = 'M0-14 3.5-4.9 13.3-4.3 5.7 1.9 8.2 11.3 0 6-8.2 11.3-5.7 1.9-13.3-4.3-3.5-4.9Z';
+
+/** Soft clouds under a picture; shared by the account empty states. */
+function Clouds() {
+  return (
+    <>
+      <ellipse className="es-art__blob" cx="110" cy="152" rx="82" ry="38" />
+      <ellipse className="es-art__blob" cx="214" cy="146" rx="88" ry="44" />
+      <circle className="es-art__blob es-art__blob--deep" cx="165" cy="108" r="54" />
+    </>
+  );
+}
+
+/** A starred ticket with a QR code, another behind it — "no tickets yet". */
+export function TicketQrArt({ className = '' }) {
+  return (
+    <svg {...svg} viewBox="0 0 320 200" className={`es-art ${className}`}>
+      <Clouds />
+      <path className="es-art__ticketback" d={TICKET_WIDE} transform="translate(120 66) rotate(-14)" />
+      <g transform="translate(80 72) rotate(-14)">
+        <path className="es-art__ticketfront" d={TICKET_WIDE} />
+        <circle className="es-art__ticketspot" cx="50" cy="45" r="24" />
+        <path className="es-art__ticketstar" d={STAR} transform="translate(50 46)" />
+        <path className="es-art__ticketperf" d="M88 12V78" />
+        <circle className="es-art__ticketspot" cx="126" cy="45" r="26" />
+        <g className="es-art__ticketqr">
+          <rect x="113" y="32" width="10" height="10" rx="2" />
+          <rect x="129" y="32" width="10" height="10" rx="2" />
+          <rect x="113" y="48" width="10" height="10" rx="2" />
+          <path d="M130 49h4v4h-4zM135 54h4v4h-4z" />
+        </g>
+      </g>
+      <Burst x={252} y={0} />
+    </svg>
+  );
+}
+
+/** A receipt with a cart on it and a torn edge — "no orders yet". */
+export function ReceiptArt({ className = '' }) {
+  const hem = 'q-7.75 10-15.5 0'.repeat(8);
+  return (
+    <svg {...svg} viewBox="0 0 320 200" className={`es-art ${className}`}>
+      <Clouds />
+      <g transform="translate(110 30) rotate(6)">
+        <path className="es-art__receipt" d={`M12 0H124V140${hem}V12A12 12 0 0 1 12 0Z`} />
+        <path className="es-art__receiptcurl" d="M112 0h14a14 14 0 0 1 0 28h-14z" />
+        <path className="es-art__receiptcart" d="M3 4h2.5l2.2 11h10.6l2-8H6.6M9.5 20.5a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM17 20.5a1 1 0 1 0 0-2 1 1 0 0 0 0 2z" transform="translate(46 16) scale(1.5)" />
+        <rect className="es-art__bar" x="22" y="62" width="56" height="6" rx="3" />
+        <rect className="es-art__bar es-art__bar--soft" x="88" y="62" width="14" height="6" rx="3" />
+        <rect className="es-art__bar" x="22" y="80" width="46" height="6" rx="3" />
+        <rect className="es-art__bar es-art__bar--soft" x="88" y="80" width="14" height="6" rx="3" />
+        <rect className="es-art__bar" x="22" y="98" width="40" height="6" rx="3" />
+      </g>
+      <Burst x={246} y={2} />
+    </svg>
+  );
+}
+
+/** A shield with a tick, on clouds — "keep your account secure". */
+export function ShieldArt({ className = '' }) {
+  return (
+    <svg {...svg} viewBox="0 0 260 170" className={`es-art ${className}`}>
+      <ellipse className="es-art__blob" cx="92" cy="122" rx="62" ry="30" />
+      <ellipse className="es-art__blob" cx="172" cy="118" rx="66" ry="34" />
+      <path className="es-art__shield" d="M130 16 180 34V76c0 36-22 58-50 72-28-14-50-36-50-72V34Z" />
+      <path className="es-art__shieldtick" d="M108 80l15 15 29-31" />
+      <Burst x={190} y={4} />
+    </svg>
+  );
+}
+
 /** Two tickets, the front one starred — "your first ticket type". */
 export function TicketsArt({ className = '' }) {
   const ticket = 'M0 0h132a8 8 0 0 1 8 8v14a14 14 0 0 0 0 28v14a8 8 0 0 1-8 8H0a8 8 0 0 1-8-8V50a14 14 0 0 0 0-28V8a8 8 0 0 1 8-8z';

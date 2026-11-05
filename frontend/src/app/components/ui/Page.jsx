@@ -12,12 +12,16 @@ import NavIcon from '../shell/NavIcon';
  * belongs to, and a panel's heading is always `.es-panel-head`.
  */
 
-export function PageHeader({ eyebrow, title, lede, actions, art }) {
+export function PageHeader({ eyebrow, title, lede, actions, art, icon }) {
   return (
     <header className="es-page-head">
       <div className="fx-stack fx-stack--sm fx-min0 gap-2">
         {eyebrow && <p className="es-eyebrow">{eyebrow}</p>}
-        <h1 className="es-page-head__title fx-break">{title}</h1>
+        <h1 className="es-page-head__title fx-break">
+          {/* `icon`: a glyph before the title, as on Sign-in & security. */}
+          {icon && <span className="es-section-title__icon" aria-hidden="true"><NavIcon name={icon} size={36} /></span>}
+          {title}
+        </h1>
         {lede && <p className="es-page-head__lede">{lede}</p>}
       </div>
       {actions && <div className="es-page-head__actions">{actions}</div>}
@@ -36,13 +40,18 @@ export function PageHeader({ eyebrow, title, lede, actions, art }) {
  * (the event is named in the breadcrumb), so the section's own name is the
  * page's heading — which is also what the sidebar has lit up.
  */
-export function SectionHeader({ title, lede, actions, icon, art }) {
+export function SectionHeader({ title, lede, actions, icon, iconTile = false, art }) {
   return (
     <div className="es-page-head es-page-head--section">
       <div className="fx-stack fx-stack--sm gap-1 fx-min0">
         <h1 className="es-section-title fx-break">
-          {/* `icon`: a glyph before the name, as on Door sales. Decorative. */}
-          {icon && <span className="es-section-title__icon" aria-hidden="true"><NavIcon name={icon} size={36} /></span>}
+          {/* `icon`: a glyph before the name, as on Door sales. Decorative.
+              `iconTile` sets it on a soft square, as on Door team. */}
+          {icon && (
+            <span className={`es-section-title__icon${iconTile ? ' es-icontile es-icontile--lg' : ''}`} aria-hidden="true">
+              <NavIcon name={icon} size={iconTile ? 30 : 36} />
+            </span>
+          )}
           {title}
         </h1>
         {lede && <p className="es-page-head__lede">{lede}</p>}
@@ -80,13 +89,14 @@ export function StatCard({ label, value, note, icon, href }) {
  * A titled card section. `description` is one supporting line under the title;
  * `icon` puts the section's glyph beside both, as the redesigned screens do.
  */
-export function Panel({ title, description, action, icon, children, className = '' }) {
+export function Panel({ title, description, action, icon, iconTile = false, children, className = '' }) {
   return (
     <section className={`es-card es-panel ${className}`}>
       {(title || action) && (
         <div className="es-panel-head">
           <div className={`fx-min0${icon ? ' es-panel-head__main' : ''}`}>
-            {icon && <span className="es-panel-head__icon" aria-hidden="true"><NavIcon name={icon} size={22} /></span>}
+            {/* `iconTile`: the glyph on a soft square, as on Door team. */}
+            {icon && <span className={`es-panel-head__icon${iconTile ? ' es-icontile' : ''}`} aria-hidden="true"><NavIcon name={icon} size={iconTile ? 24 : 22} /></span>}}
             <div className="fx-min0">
               {title && <h2 className="es-panel-head__title">{title}</h2>}
               {description && <p className="es-panel-head__desc">{description}</p>}

@@ -10,6 +10,8 @@ import FormError from '../../components/forms/FormError';
 import SubmitButton from '../../components/forms/SubmitButton';
 import { Loading, ErrorNotice } from '../../components/Feedback';
 import { PageHeader } from '../../components/ui/Page';
+import NavIcon from '../../components/shell/NavIcon';
+import { ShieldArt } from '../../components/ui/Illustrations';
 import { MIN_PASSWORD, isWeakPassword } from '../../lib/passwordRules';
 import NewPasswordFields from '../../components/forms/NewPassword';
 import { roleLabel } from '../../lib/roleLadder';
@@ -54,16 +56,25 @@ export default function Security() {
           neither said which page it was. */}
       <PageHeader
         eyebrow="Your account"
+        icon="lock"
         title="Sign-in & security"
         lede="Who you are here, where you are signed in, and your password."
       />
 
+      <div className="es-sec-top">
       {user && (
-        <section className="fx-stack fx-stack--sm es-card p-5">
-          <h2 className="text-lg">Account</h2>
-          <dl className="fx-stack fx-stack--sm text-sm">
-            <Row term="Name">{user.fullName}</Row>
-            <Row term="Email">{user.email}</Row>
+        <section className="es-card es-sec-card" aria-labelledby="sec-account">
+          {/* No "Edit profile" button: there is no profile page to send it to,
+              and a button that goes nowhere is worse than none. */}
+          <SecHead
+            mark={<span className="es-sec-avatar" aria-hidden="true">{(user.fullName || user.email || '?').trim().charAt(0).toUpperCase()}</span>}
+            id="sec-account"
+            title="Account"
+            desc="Your basic account information."
+          />
+          <dl className="es-sec-facts">
+            <Row icon="user" term="Name">{user.fullName}</Row>
+            <Row icon="mail" term="Email">{user.email}</Row>
             {/**
               * TWO ROWS, WHERE THERE WAS ONE THAT SAID "attendee".
               *
@@ -83,11 +94,22 @@ export default function Security() {
               * to the person reading it, while "Admin" is something they need to
               * know is switched on.
               */}
-            <Row term="What this is for">{describeTypes(user)}</Row>
-            {user.isAdmin && <Row term="Permissions">{roleLabel(user.role)}</Row>}
+            <Row icon="target" term="What this is for">{describeTypes(user)}</Row>
+            {user.isAdmin && (
+              <Row icon="crown" term="Permissions">
+                <span className="es-pill es-pill--accent"><NavIcon name="crown" size={14} />{roleLabel(user.role)}</span>
+              </Row>
+            )}
           </dl>
         </section>
       )}
+
+        <section className="es-sec-hero" aria-labelledby="sec-hero">
+          <ShieldArt className="es-sec-hero__art" />
+          <h2 id="sec-hero" className="es-sec-hero__title">Keep your account secure</h2>
+          <p className="es-sec-hero__text">Use a strong password, and sign out from devices you no longer use.</p>
+        </section>
+      </div>
 
       <SessionList sessions={sessions} error={error} onChanged={refresh} />
       <ChangePassword />
@@ -176,9 +198,9 @@ function SessionList({ sessions, error, onChanged }) {
   }
 
   return (
-    <section className="fx-stack fx-stack--sm es-card p-5">
-      <div className="fx-row fx-row--between">
-        <h2 className="text-lg">Where you are signed in</h2>
+    <section className="es-card es-sec-card" aria-labelledby="sec-sessions">
+      <div className="fx-row fx-row--between items-start">
+        <SecHead icon="monitor" id="sec-sessions" title="Where you are signed in" desc="Devices that are currently signed in to your account." />
         {/* Both controls in this panel end sessions, and both were ~20px lines
             of text. `.es-btn--ghost` gives them the 44px floor and the press
             feedback every other button in the product has, while staying quiet
@@ -214,11 +236,9 @@ function SessionList({ sessions, error, onChanged }) {
       ) : (
         <ul className="fx-stack fx-stack--sm">
           {sessions.map((s) => (
-            <li
-              key={s.id}
-              className="fx-row fx-row--between border-t border-border-base pt-3 first:border-0 first:pt-0"
-            >
-              <div className="fx-min0">
+            <li key={s.id} className="es-sec-session">
+              <span className="es-icontile" aria-hidden="true"><NavIcon name="laptop" size={24} /></span>
+              <div className="fx-min0 flex-1">
                 {/* "This device" FIRST AND ON ITS OWN. It was the tail of a
                     one-line truncated user agent, so on a phone the ellipsis
                     ate it — and it is the one fact on the row that decides
@@ -231,17 +251,21 @@ function SessionList({ sessions, error, onChanged }) {
                       the part that tells two phones apart is still on screen. */}
                   {s.device || 'Unknown device'}
                 </p>
-                <p className="text-xs text-subtle">
-                  Signed in {when(s.issuedAt)}
-                  {s.lastSeenAt && ` · last used ${when(s.lastSeenAt)}`}
+                <p className="es-sec-session__when">
+                  <NavIcon name="calendar" size={14} />
+                  <span>
+                    Signed in {when(s.issuedAt)}
+                    {s.lastSeenAt && ` · last used ${when(s.lastSeenAt)}`}
+                  </span>
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => end(s)}
                 disabled={busy === s.id}
-                className="es-btn es-btn--ghost es-btn--sm whitespace-nowrap"
+                className="es-btn es-btn--secondary es-btn--sm whitespace-nowrap"
               >
+                <NavIcon name="exit" size={16} />
                 {busy === s.id ? 'Ending…' : s.current ? 'Sign out' : 'End'}
               </button>
             </li>
@@ -251,9 +275,9 @@ function SessionList({ sessions, error, onChanged }) {
 
       <FormError error={actionError} />
 
-      <p className="text-xs text-subtle">
-        Ending a session stops that device working immediately — not when it next
-        signs out.
+      <p className="es-sec-note">
+        <NavIcon name="info" size={16} />
+        <span>Ending a session stops that device working immediately — not when it next signs out.</span>
       </p>
 
       {/* The shared dialog, with this action's own words. `onConfirm` replaces
@@ -317,8 +341,8 @@ function ChangePassword() {
   }
 
   return (
-    <section className="fx-stack fx-stack--sm es-card p-5">
-      <h2 className="text-lg">Change your password</h2>
+    <section className="es-card es-sec-card" aria-labelledby="sec-password">
+      <SecHead icon="key" id="sec-password" title="Change your password" desc="Use a strong password that you do not use elsewhere." />
 
       {done ? (
         <div className="fx-stack fx-stack--sm">
@@ -335,6 +359,10 @@ function ChangePassword() {
         </div>
       ) : (
         <form onSubmit={submit} className="fx-stack fx-stack--sm">
+          {/* Three across from lg — current, new (with its checklist), confirm.
+              NewPasswordFields keeps its own markup; `.es-pwgrid` lays its
+              children out (see globals.css). */}
+          <div className="es-pwgrid">
           <Field
             label="Current password" type="password" name="currentPassword"
             autoComplete="current-password" required
@@ -351,31 +379,49 @@ function ChangePassword() {
             confirm={form.confirmPassword}
             onConfirmChange={(e) => setForm((f) => ({ ...f, confirmPassword: e.target.value }))}
           />
-          {/* Kept from the old hint, as its own line. It is a CONSEQUENCE of
-              the change rather than a rule about the password, so it does not
-              belong in the requirement checklist beside "at least 12
-              characters" — and it is the sentence somebody most needs before
-              they press the button. */}
-          <p className="text-xs text-subtle">
-            Changing this signs out every other device.
-          </p>
+          </div>
           <FormError error={error} />
-          <SubmitButton busy={busy} busyLabel="Saving…" disabled={blocked}>
-            Change password
-          </SubmitButton>
+          <div className="fx-row fx-row--between items-center">
+            {/* Kept from the old hint, as its own line. It is a CONSEQUENCE of
+                the change rather than a rule about the password, so it does not
+                belong in the requirement checklist beside "at least 12
+                characters" — and it is the sentence somebody most needs before
+                they press the button. */}
+            <p className="text-xs text-subtle">
+              Changing this signs out every other device.
+            </p>
+            <SubmitButton busy={busy} busyLabel="Saving…" disabled={blocked}>
+              <NavIcon name="lock" size={18} />
+              Change password
+            </SubmitButton>
+          </div>
         </form>
       )}
     </section>
   );
 }
 
-function Row({ term, children }) {
+function Row({ icon, term, children }) {
   return (
-    <div className="fx-row items-start">
-      <dt className="w-20 flex-none font-mono text-[11px] uppercase tracking-[0.09em] text-subtle">
+    <div className="es-sec-fact">
+      <dt>
+        <NavIcon name={icon} size={20} />
         {term}
       </dt>
-      <dd className="fx-min0 fx-break text-ink">{children}</dd>
+      <dd className="fx-min0 fx-break">{children}</dd>
+    </div>
+  );
+}
+
+/** A card's heading: a mark (an icon, or the avatar), the title, one line. */
+function SecHead({ icon, mark, id, title, desc }) {
+  return (
+    <div className="es-sec-head">
+      {mark || <span className="es-sec-head__icon" aria-hidden="true"><NavIcon name={icon} size={28} /></span>}
+      <div className="fx-min0">
+        <h2 id={id} className="es-sec-head__title">{title}</h2>
+        {desc && <p className="es-sec-head__desc">{desc}</p>}
+      </div>
     </div>
   );
 }

@@ -11900,6 +11900,284 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
 }
 .es-kpirow--tiles .es-kpi--featured .es-kpi__icon { background: var(--es-surface); }
 
+/* .es-iconbtn — a square button that is only an icon. Always given an
+   aria-label at the call site; `title` is the sighted user's tooltip. */
+.es-iconbtn {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: var(--fx-touch, 2.75rem);
+  height: var(--fx-touch, 2.75rem);
+  border: 1px solid var(--es-border);
+  border-radius: 0.75rem;
+  background: var(--es-surface);
+  color: var(--es-text);
+  box-shadow: var(--es-shadow-xs);
+  cursor: pointer;
+}
+.es-iconbtn:hover:not(:disabled) { border-color: var(--es-border-strong); box-shadow: var(--es-shadow-sm); }
+.es-iconbtn:focus-visible { outline: 2px solid var(--es-accent); outline-offset: 2px; }
+.es-iconbtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Door list: the filter bar, then refresh and download beside it */
+.es-doorbar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; }
+.es-doorbar__filters { flex: 1 1 32rem; align-items: center; min-width: 0; }
+
+/* ScannerArt, PeopleArt (ui/Illustrations.jsx) */
+.es-art__scanticket { fill: var(--es-surface); stroke: var(--es-teal-500); stroke-width: 4; stroke-linejoin: round; }
+.es-art__qrdark { fill: none; stroke: var(--es-teal-600); stroke-width: 3.5; }
+.es-art__qrdot { fill: var(--es-teal-600); }
+.es-art__gun { fill: var(--es-teal-500); }
+.es-art__gunnose, .es-art__gungrip { fill: var(--es-teal-900); }
+.es-art__gunshine { fill: none; stroke: var(--es-surface); stroke-width: 4; stroke-linecap: round; opacity: 0.6; }
+.es-art__person { fill: var(--es-teal-100); stroke: var(--es-teal-600); stroke-width: 4; stroke-linejoin: round; }
+.es-art__person--front { fill: var(--es-surface); }
+.es-stack-empty__art .es-art--people { max-width: 9rem; }
+
+/* .es-icontile — a glyph on a soft square (Panel / SectionHeader `iconTile`).
+   After .es-panel-head__icon and .es-section-title__icon, so it wins on
+   source order at the same specificity. */
+.es-icontile {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+  border-radius: 0.75rem;
+  background: var(--es-accent-wash);
+  color: var(--es-accent);
+}
+.es-icontile--lg { width: 3.5rem; height: 3.5rem; margin-inline-end: 1rem; border-radius: 0.875rem; vertical-align: middle; }
+
+/* A form field with a glyph inside the box (Field `icon`) */
+.es-fieldicon { position: relative; display: flex; }
+.es-fieldicon > svg {
+  position: absolute;
+  inset-inline-start: 0.875rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--es-text-subtle);
+  pointer-events: none;
+}
+.es-fieldicon .es-input { padding-inline-start: 2.75rem; }
+
+/* A section head with art AND actions (Scanning devices): from md the words
+   take the left column, the picture sits top-right and the buttons under it.
+   With art alone (Door sales, Door list) the picture simply takes the right. */
+@media (width >= theme(--breakpoint-md)) {
+  .es-page-head--section:has(> .es-page-head__art) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+  }
+  .es-page-head--section:has(> .es-page-head__art) > :first-child { grid-column: 1; grid-row: 1 / span 2; align-self: end; }
+  .es-page-head--section:has(> .es-page-head__art) > .es-page-head__art { grid-column: 2; grid-row: 1; justify-self: end; }
+  .es-page-head--section:has(> .es-page-head__art) > .es-page-head__actions { grid-column: 2; grid-row: 2; justify-self: end; }
+}
+
+/* .es-statline — icon, words, then the figure on the right (DeviceStats.jsx) */
+.es-statline-row { display: grid; gap: var(--fx-gap); grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); }
+.es-statline {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-width: 0;
+  padding: 1.125rem 1.5rem;
+  border: 1px solid var(--es-border);
+  border-radius: 1rem;
+  background: var(--es-surface);
+  box-shadow: var(--es-shadow-xs);
+}
+.es-statline--featured {
+  border-color: color-mix(in srgb, var(--es-accent) 40%, var(--es-border));
+  background: linear-gradient(135deg, var(--es-accent-wash), var(--es-surface) 75%);
+}
+.es-statline__icon { display: grid; flex: none; place-items: center; width: 2.75rem; height: 2.75rem; border-radius: 0.75rem; background: var(--es-accent-wash); color: var(--es-accent); }
+.es-statline--featured .es-statline__icon { background: var(--es-surface); }
+.es-statline[data-tone="danger"] .es-statline__icon { background: color-mix(in srgb, var(--es-danger) 10%, var(--es-surface)); color: var(--es-danger); }
+.es-statline__text { display: flex; flex: 1; flex-direction: column; gap: 0.125rem; min-width: 0; }
+.es-statline__label { font-size: var(--es-text-base); font-weight: 700; color: var(--es-text); }
+.es-statline__note { font-size: var(--es-text-sm); color: var(--es-text-muted); }
+.es-statline__value { flex: none; font-size: var(--es-text-2xl); font-weight: 700; color: var(--es-text); }
+.es-statline--featured .es-statline__value { color: var(--es-accent); }
+
+/* PhoneScanArt, TabletArt (ui/Illustrations.jsx) */
+.es-art__blob--deep { fill: var(--es-teal-100); }
+.es-art__device { fill: var(--es-surface); stroke: var(--es-teal-800); stroke-width: 5; stroke-linejoin: round; }
+.es-art__devicenotch { fill: var(--es-teal-800); }
+.es-art__devicebar { fill: none; stroke: var(--es-teal-800); stroke-width: 4; stroke-linecap: round; }
+.es-art__frame path { fill: none; stroke: var(--es-teal-700); stroke-width: 4.5; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ── A buyer's first visit (account/dashboard/BuyerDashboard.jsx) ───────
+   The steps in their own soft card beside the welcome, a picture under the
+   buttons. `.es-steps--guide` restyles the shared stepper — filled numbers,
+   a tinted rail, an icon tile per step — without forking it. */
+.es-onboard__art { width: min(100%, 24rem); margin: 0.5rem auto 0; }
+@media (width < 40rem) {
+  .es-onboard__art { display: none; }
+}
+.es-onboard__guide {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: clamp(1.25rem, 1rem + 1.5vw, 2rem);
+  border: 1px solid color-mix(in srgb, var(--es-accent) 12%, var(--es-border));
+  border-radius: var(--es-radius-xl);
+  background: color-mix(in srgb, var(--es-accent-wash) 55%, var(--es-surface));
+}
+.es-onboard .es-onboard__guidetitle { display: flex; align-items: center; gap: 0.625rem; margin: 0; font-size: var(--es-text-xl); font-weight: 700; color: var(--es-text); }
+.es-onboard__guidetitle svg { flex: none; color: var(--es-accent); }
+
+.es-steps--guide .es-steps__item { grid-template-columns: 2.5rem minmax(0, 1fr); gap: 1.25rem; padding-bottom: 2rem; }
+.es-steps--guide .es-steps__item:last-child { padding-bottom: 0; }
+.es-steps--guide .es-steps__item:not(:last-child)::before {
+  inset-inline-start: calc(1.25rem - 1px);
+  top: 3rem;
+  background: color-mix(in srgb, var(--es-accent) 25%, var(--es-border));
+}
+.es-steps--guide .es-steps__marker {
+  width: 2.5rem;
+  height: 2.5rem;
+  margin-top: 0.375rem;
+  border: 0;
+  background: var(--es-accent);
+  color: var(--es-text-on-accent);
+  font-family: inherit;
+  font-size: var(--es-text-base);
+  font-weight: 700;
+}
+.es-steps--guide .es-steps__item[data-state="upcoming"] .es-steps__title { font-size: var(--es-text-lg); font-weight: 700; color: var(--es-text); }
+.es-steps__body--tile { flex-direction: row; align-items: flex-start; gap: 1rem; padding-top: 0; }
+.es-steps__body--tile > .es-icontile { width: 3.25rem; height: 3.25rem; background: var(--es-surface); }
+
+/* .es-numlist — a numbered list with the numbers in discs (Door team) */
+.es-numlist { display: flex; flex-direction: column; gap: 1rem; counter-reset: es-numlist; font-size: var(--es-text-sm); color: var(--es-text-muted); }
+.es-numlist > li { display: flex; align-items: center; gap: 0.875rem; counter-increment: es-numlist; }
+.es-numlist > li::before {
+  content: counter(es-numlist);
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: var(--es-radius-full);
+  background: var(--es-accent-wash);
+  font-size: var(--es-text-base);
+  font-weight: 700;
+  color: var(--es-accent);
+}
+
+/* ── An empty account list with tips beside it (ui/TipsCard.jsx) ─────── */
+.es-empty-tips { display: grid; gap: var(--fx-gap); align-items: stretch; }
+@media (width >= theme(--breakpoint-lg)) {
+  .es-empty-tips { grid-template-columns: minmax(0, 1.6fr) minmax(18rem, 1fr); }
+}
+.es-empty-tips .es-stack-empty__art .es-art { max-width: 21rem; }
+.es-empty-tips .es-stack-empty__title { font-size: var(--es-text-2xl); }
+.es-tipscard {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: clamp(1.25rem, 1rem + 1.2vw, 1.75rem);
+  border: 1px solid color-mix(in srgb, var(--es-accent) 12%, var(--es-border));
+  border-radius: var(--es-radius-xl);
+  background: color-mix(in srgb, var(--es-accent-wash) 55%, var(--es-surface));
+}
+.es-tipscard__title { display: flex; align-items: center; gap: 0.75rem; margin: 0; font-size: var(--es-text-xl); font-weight: 700; color: var(--es-text); }
+.es-tipscard .es-icontile { background: var(--es-surface); }
+.es-tipscard__list { display: flex; flex-direction: column; gap: 1.25rem; }
+.es-tipscard__list li { display: flex; align-items: flex-start; gap: 1rem; }
+.es-tipscard__list .es-icontile { width: 3.25rem; height: 3.25rem; }
+.es-tipscard__list b { display: block; font-size: var(--es-text-base); font-weight: 700; color: var(--es-text); }
+.es-tipscard__text { display: block; margin-top: 0.125rem; font-size: var(--es-text-sm); color: var(--es-text-muted); }
+
+/* TicketQrArt, ReceiptArt, ShieldArt (ui/Illustrations.jsx) */
+.es-art__ticketback { fill: var(--es-teal-200); stroke: var(--es-teal-600); stroke-width: 4; stroke-linejoin: round; }
+.es-art__ticketfront { fill: var(--es-surface); stroke: var(--es-teal-700); stroke-width: 4.5; stroke-linejoin: round; }
+.es-art__ticketspot { fill: var(--es-teal-100); }
+.es-art__ticketstar { fill: none; stroke: var(--es-teal-700); stroke-width: 3; stroke-linejoin: round; }
+.es-art__ticketperf { fill: none; stroke: var(--es-teal-400); stroke-width: 3; stroke-dasharray: 6 6; stroke-linecap: round; }
+.es-art__ticketqr rect { fill: none; stroke: var(--es-teal-700); stroke-width: 2.5; }
+.es-art__ticketqr path { fill: var(--es-teal-700); }
+.es-art__receipt { fill: var(--es-surface); stroke: var(--es-teal-700); stroke-width: 4.5; stroke-linejoin: round; }
+.es-art__receiptcurl { fill: var(--es-teal-200); stroke: var(--es-teal-700); stroke-width: 4; stroke-linejoin: round; }
+.es-art__receiptcart { fill: none; stroke: var(--es-teal-700); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.es-art__shield { fill: var(--es-surface); stroke: var(--es-teal-700); stroke-width: 8; stroke-linejoin: round; }
+.es-art__shieldtick { fill: none; stroke: var(--es-teal-600); stroke-width: 9; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ── Sign-in & security (account/security/Security.jsx) ─────────────────
+   The account card and the reassurance card side by side from lg; every
+   card opens with an icon (or the avatar), a title and one line. */
+.es-sec-top { display: grid; gap: var(--fx-gap); }
+@media (width >= theme(--breakpoint-lg)) {
+  .es-sec-top { grid-template-columns: minmax(0, 1.6fr) minmax(18rem, 1fr); }
+}
+.es-sec-card { display: flex; flex-direction: column; gap: 1rem; padding: 1.25rem 1.5rem; }
+.es-sec-head { display: flex; align-items: center; gap: 1rem; min-width: 0; }
+.es-sec-head__icon { display: inline-flex; flex: none; color: var(--es-accent); }
+.es-sec-head__title { margin: 0; font-size: var(--es-text-xl); font-weight: 700; color: var(--es-text); }
+.es-sec-head__desc { font-size: var(--es-text-sm); color: var(--es-text-muted); }
+.es-sec-avatar {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 0.875rem;
+  background: var(--es-accent);
+  font-size: var(--es-text-xl);
+  font-weight: 700;
+  color: var(--es-text-on-accent);
+}
+.es-sec-facts { display: flex; flex-direction: column; gap: 0.875rem; padding-top: 1rem; border-top: 1px solid var(--es-border); font-size: var(--es-text-sm); }
+.es-sec-fact { display: grid; grid-template-columns: minmax(9rem, 12rem) minmax(0, 1fr); gap: 0.25rem 1rem; align-items: center; }
+@media (width < 40rem) {
+  .es-sec-fact { grid-template-columns: minmax(0, 1fr); }
+}
+.es-sec-fact dt { display: flex; align-items: center; gap: 0.625rem; color: var(--es-text-muted); }
+.es-sec-fact dt svg { flex: none; color: var(--es-accent); }
+.es-sec-fact dd { color: var(--es-text); }
+.es-sec-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1.5rem;
+  border: 1px solid color-mix(in srgb, var(--es-accent) 12%, var(--es-border));
+  border-radius: var(--es-radius-xl);
+  background: color-mix(in srgb, var(--es-accent-wash) 60%, var(--es-surface));
+  text-align: center;
+}
+.es-sec-hero__art { max-width: 13rem; }
+.es-sec-hero__title { margin: 0; font-size: var(--es-text-xl); font-weight: 800; color: var(--es-text); }
+.es-sec-hero__text { max-width: 24rem; font-size: var(--es-text-sm); color: var(--es-text-muted); }
+.es-sec-session { display: flex; align-items: center; gap: 1rem; padding: 0.875rem 1rem; border: 1px solid var(--es-border); border-radius: 0.875rem; }
+@media (width < 40rem) {
+  .es-sec-session { flex-wrap: wrap; }
+}
+.es-sec-session__when { display: flex; align-items: center; gap: 0.375rem; margin-top: 0.25rem; font-size: var(--es-text-xs); color: var(--es-text-subtle); }
+.es-sec-session__when svg { flex: none; }
+.es-sec-note { display: flex; align-items: center; gap: 0.5rem; padding: 0.625rem 0.875rem; border-radius: 0.75rem; background: color-mix(in srgb, var(--es-accent-wash) 60%, var(--es-surface)); font-size: var(--es-text-xs); color: var(--es-text-muted); }
+.es-sec-note svg { flex: none; color: var(--es-accent); }
+
+/* The password form three across from lg. NewPasswordFields keeps its own
+   markup (new, strength meter, checklist, confirm); its wrapper becomes
+   `display: contents` so those land in the grid — new and its checklist
+   down the middle column, confirm on the right. Below lg it is the plain
+   stack it always was. */
+.es-pwgrid { display: grid; gap: 1rem; }
+@media (width >= theme(--breakpoint-lg)) {
+  .es-pwgrid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem 1.5rem; align-items: start; }
+  .es-pwgrid > :first-child { grid-column: 1; grid-row: 1; }
+  .es-pwgrid > :nth-child(2) { display: contents; }
+  .es-pwgrid > :nth-child(2) > :first-child { grid-column: 2; grid-row: 1; }
+  .es-pwgrid > :nth-child(2) > .es-pw { grid-column: 2; grid-row: 2; }
+  .es-pwgrid > :nth-child(2) > .es-pw__rules { grid-column: 2; grid-row: 3; }
+  .es-pwgrid > :nth-child(2) > :last-child:not(.es-pw__rules) { grid-column: 3; grid-row: 1; }
+}
+
 /* DoorPrinterArt (ui/Illustrations.jsx) */
 .es-art__printer { fill: var(--es-teal-700); }
 .es-art__printertop { fill: var(--es-teal-200); }

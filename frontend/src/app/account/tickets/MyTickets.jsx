@@ -11,6 +11,10 @@ import TransferDialog from './TransferDialog';
 import TicketActions, { TicketPrintStyles } from './TicketActions';
 import { Loading, Empty, ErrorNotice, Notice } from '../../components/Feedback';
 import { PageHeader } from '../../components/ui/Page';
+import NavIcon from '../../components/shell/NavIcon';
+import { StackedEmpty } from '../../components/ui/SplitEmpty';
+import { TipsCard, EmptyWithTips } from '../../components/ui/TipsCard';
+import { TicketQrArt } from '../../components/ui/Illustrations';
 import { useAccountOrders } from '../nav/AccountOrders';
 
 /**
@@ -26,6 +30,13 @@ import { useAccountOrders } from '../nav/AccountOrders';
  * the unknown-zone fallback that each copy re-implemented.
  */
 const eventTime = (event) => formatEventTime(event.startsAt, event.timezone);
+
+/** Beside the empty list: the three questions a first-time buyer has here. */
+const TICKET_TIPS = [
+  { key: 'where', icon: 'ticket', title: 'Where are my tickets?', text: 'Right here. Every ticket bought with this email shows up on this page.' },
+  { key: 'door', icon: 'qr', title: 'How do I get in?', text: 'Show the QR code on your phone at the door (or a printed copy).' },
+  { key: 'other', icon: 'link', title: 'Bought with another email?', text: 'Use the link in that confirmation email to open those tickets directly, without an account.' },
+];
 
 /**
  * Every ticket this account has, grouped by the order that bought it.
@@ -89,10 +100,22 @@ export default function MyTickets() {
     return (
       <div className="fx-stack">
         {head}
-        <Empty
-          title="No tickets yet."
-          hint="Tickets you buy with this email address — signed in or as a guest — appear here."
-          action={<Link href="/events" className="es-btn es-btn--primary es-btn--sm">Find something to go to</Link>}
+        <EmptyWithTips
+          empty={(
+            <StackedEmpty
+              art={<TicketQrArt />}
+              title="No tickets yet."
+              action={(
+                <Link href="/events" className="es-btn es-btn--primary es-btn--lg">
+                  <NavIcon name="search" size={18} />
+                  Find something to go to
+                </Link>
+              )}
+            >
+              Tickets you buy with this email address — signed in or as a guest — appear here.
+            </StackedEmpty>
+          )}
+          tips={<TipsCard icon="bulb" title="Quick tips" tips={TICKET_TIPS} />}
         />
       </div>
     );
