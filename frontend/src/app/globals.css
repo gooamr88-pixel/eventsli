@@ -6066,22 +6066,19 @@ input.es-lp-filter__control::-webkit-search-cancel-button { display: none; }
 .es-evcard__media {
   position: relative;
   overflow: hidden;
-  aspect-ratio: 16 / 10;
+  aspect-ratio: 1 / 1;
   border-radius: 12px;
   background: var(--es-bg-sunken);
 }
-/* Contained poster over a blurred copy of itself (see EventCard). The copy is
-   scaled past the box so the blur's soft, transparent edge is clipped away. */
-.es-evcard__backdrop {
-  object-fit: cover;
-  filter: blur(22px) saturate(1.3) brightness(0.65);
-  transform: scale(1.25);
-}
+/* Covers are organizers' flyers — square or portrait, with the names and the
+   date printed on them. A square box fills with a square flyer exactly and
+   trims only a sliver off a portrait one; the old 16:10 box cut them in half. */
 .es-evcard__art {
-  object-fit: contain;
+  object-fit: cover;
+  object-position: center;
   transition: transform 600ms var(--es-ease-default);
 }
-.es-evcard:hover .es-evcard__art { transform: scale(1.03); }
+.es-evcard:hover .es-evcard__art { transform: scale(1.04); }
 .es-evcard__placeholder {
   display: flex;
   align-items: flex-end;
