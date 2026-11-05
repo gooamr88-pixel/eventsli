@@ -11,7 +11,9 @@ import { Kpi, KpiRow } from '../../../../components/ui/Kpi';
 import Field from '../../../../components/forms/Field';
 import FormError from '../../../../components/forms/FormError';
 import SubmitButton from '../../../../components/forms/SubmitButton';
-import { Loading, Empty, ErrorNotice, Notice } from '../../../../components/Feedback';
+import { Loading, ErrorNotice, Notice } from '../../../../components/Feedback';
+import { StackedEmpty } from '../../../../components/ui/SplitEmpty';
+import { InvoiceArt } from '../../../../components/ui/Illustrations';
 import InvoiceStatus from '../../../../components/ui/InvoiceStatus';
 import { useEventContext } from '../EventContext';
 
@@ -50,13 +52,16 @@ export default function Commission({ eventId }) {
         lede="Sales you took yourself never passed through Eventsli, so our commission on them is invoiced to you. Card sales are already settled and do not appear here."
       />
 
-      <KpiRow label="Commission at a glance">
+      <KpiRow label="Commission at a glance" tiles>
+        {/* The figure this page is about, so it is the featured one — but not
+            in the calm green while something is overdue. */}
         <Kpi
           icon="percent"
           label="Outstanding"
           value={formatMoney(data.owedCents, data.currency)}
           note={overdue ? `${overdue} overdue` : 'Nothing overdue'}
           tone={overdue ? 'danger' : undefined}
+          featured={!overdue}
         />
         <Kpi icon="receipt" label="Invoices" value={data.invoices.length} note={`${data.invoices.filter((i) => ['paid', 'waived'].includes(i.status)).length} settled`} />
         <Kpi
@@ -75,7 +80,9 @@ export default function Commission({ eventId }) {
       )}
 
       {data.invoices.length === 0 ? (
-        <Empty title="No invoices." hint="One is raised once you have recorded sales at the door." />
+        <StackedEmpty art={<InvoiceArt />} title="No invoices.">
+          One is raised once you have recorded sales at the door.
+        </StackedEmpty>
       ) : (
         <ul className="fx-stack fx-stack--sm">
           {data.invoices.map((invoice) => (

@@ -36,14 +36,20 @@ export function PageHeader({ eyebrow, title, lede, actions, art }) {
  * (the event is named in the breadcrumb), so the section's own name is the
  * page's heading — which is also what the sidebar has lit up.
  */
-export function SectionHeader({ title, lede, actions }) {
+export function SectionHeader({ title, lede, actions, icon, art }) {
   return (
     <div className="es-page-head es-page-head--section">
       <div className="fx-stack fx-stack--sm gap-1 fx-min0">
-        <h1 className="es-section-title fx-break">{title}</h1>
+        <h1 className="es-section-title fx-break">
+          {/* `icon`: a glyph before the name, as on Door sales. Decorative. */}
+          {icon && <span className="es-section-title__icon" aria-hidden="true"><NavIcon name={icon} size={36} /></span>}
+          {title}
+        </h1>
         {lede && <p className="es-page-head__lede">{lede}</p>}
       </div>
       {actions && <div className="es-page-head__actions">{actions}</div>}
+      {/* `art`: a decorative picture on the right, hidden below md. */}
+      {art && <div className="es-page-head__art" aria-hidden="true">{art}</div>}
     </div>
   );
 }

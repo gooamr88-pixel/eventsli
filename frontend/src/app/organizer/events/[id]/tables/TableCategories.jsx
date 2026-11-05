@@ -12,7 +12,9 @@ import DataTable from '../../../../components/ui/DataTable';
 import Field from '../../../../components/forms/Field';
 import FormError from '../../../../components/forms/FormError';
 import SubmitButton from '../../../../components/forms/SubmitButton';
-import { Loading, Empty, ErrorNotice } from '../../../../components/Feedback';
+import { Loading, ErrorNotice } from '../../../../components/Feedback';
+import NavIcon from '../../../../components/shell/NavIcon';
+import TableCategoriesEmpty from './TableCategoriesEmpty';
 
 /**
  * Table categories. BRD §24 — presentation, not pricing.
@@ -61,6 +63,7 @@ export default function TableCategories({ eventId }) {
         lede="Labels and colours for the seat map — “Front row”, “Balcony”. Optional, and each table keeps its own price."
         actions={!editing && (
           <button type="button" className="es-btn es-btn--primary" onClick={() => setEditing('new')}>
+            <NavIcon name="plus" size={18} />
             Add a category
           </button>
         )}
@@ -88,7 +91,7 @@ export default function TableCategories({ eventId }) {
       ) : loading && !data ? (
         <Loading variant="list" rows={2} label="Loading categories" />
       ) : categories.length === 0 ? (
-        !editing && <Empty title="No categories yet." hint="They are optional — use them to group tables on a large map." />
+        !editing && <TableCategoriesEmpty onAdd={() => setEditing('new')} />
       ) : (
         <DataTable
           caption="Table categories"

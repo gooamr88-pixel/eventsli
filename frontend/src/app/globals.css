@@ -11712,6 +11712,212 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
 .es-tips__note { display: flex; align-items: flex-start; gap: 0.625rem; padding: 0.75rem 0.875rem; border-radius: 0.75rem; background: var(--es-accent-wash); font-size: var(--es-text-xs); color: var(--es-text); }
 .es-tips__note svg { flex: none; color: var(--es-accent); }
 
+/* ── Discount codes, before the first one (PromoEmpty.jsx) ──────────────
+   The start card and the ideas side by side from xl, the same split as
+   Share & QR; stacked below that, start card first. */
+.es-promo-empty { display: grid; gap: var(--fx-gap); }
+@media (width >= theme(--breakpoint-xl)) {
+  .es-promo-empty { grid-template-columns: minmax(0, 1.55fr) minmax(19rem, 1fr); }
+}
+.es-promo-start {
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding-block: 2rem;
+  text-align: center;
+}
+.es-promo-start .es-btn { margin-top: 0.5rem; }
+.es-promo-start__title {
+  margin: 0;
+  font-size: var(--es-text-2xl);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  color: var(--es-text);
+}
+.es-promo-start__text { max-width: 34rem; font-size: var(--es-text-base); color: var(--es-text-muted); }
+
+.es-promo-art { width: min(100%, 20rem); height: auto; margin-bottom: 0.25rem; }
+.es-promo-art__ground { fill: var(--es-accent-wash); }
+.es-promo-art__back { fill: var(--es-accent-wash); stroke: var(--es-accent); stroke-width: 3; stroke-linejoin: round; }
+.es-promo-art__front { fill: var(--es-surface); stroke: var(--es-accent); stroke-width: 3.5; stroke-linejoin: round; }
+.es-promo-art__perf { fill: none; stroke: var(--es-accent); stroke-width: 3; stroke-dasharray: 6 7; stroke-linecap: round; }
+.es-promo-art__mark { fill: none; stroke: var(--es-accent); stroke-width: 7; stroke-linecap: round; }
+.es-promo-art__spark { fill: none; stroke: var(--es-accent); stroke-width: 3.5; stroke-linecap: round; }
+
+.es-promo-ideas { display: flex; flex-direction: column; gap: 0.75rem; }
+.es-promo-ideas li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.875rem;
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--es-border);
+  border-radius: 0.75rem;
+}
+.es-promo-ideas b { display: block; font-size: var(--es-text-sm); font-weight: 700; color: var(--es-text); }
+.es-promo-ideas small { display: block; margin-top: 0.125rem; font-size: var(--es-text-sm); color: var(--es-text-muted); }
+
+.es-promo-tip {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--es-border);
+  border-radius: 0.75rem;
+  background: var(--es-bg-sunken);
+  font-size: var(--es-text-sm);
+  color: var(--es-text-muted);
+}
+.es-promo-tip svg { flex: none; color: var(--es-accent); }
+.es-promo-tip b { color: var(--es-text); }
+
+/* ── .es-split-empty — art, a rule, then the words (ui/SplitEmpty.jsx) ──
+   Picture and words side by side from md, a rule between them; stacked and
+   centred on a phone. */
+.es-split-empty {
+  display: grid;
+  gap: 1.5rem;
+  align-items: center;
+  justify-items: center;
+  padding: 2rem 1.5rem;
+  text-align: center;
+}
+.es-split-empty__text { display: flex; flex-direction: column; align-items: center; gap: 0.75rem; min-width: 0; }
+.es-split-empty__text .es-btn { margin-top: 0.5rem; }
+@media (width >= theme(--breakpoint-md)) {
+  .es-split-empty { grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 0; padding: 1.75rem 2.5rem; text-align: start; }
+  .es-split-empty__text { align-items: flex-start; justify-self: stretch; padding: 1rem 0 1rem 2.5rem; border-left: 1px solid var(--es-border); }
+}
+.es-split-empty__title {
+  margin: 0;
+  font-size: var(--es-text-2xl);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  color: var(--es-text);
+}
+.es-split-empty__lede { max-width: 38rem; font-size: var(--es-text-base); color: var(--es-text-muted); }
+.es-split-empty__art { display: flex; justify-content: center; width: 100%; }
+.es-split-empty__art .es-art { max-width: 18rem; }
+
+/* The ticket stub in OrderTicketArt (ui/Illustrations.jsx) */
+.es-art__floor { opacity: 0.8; }
+.es-art__stub { fill: var(--es-surface); stroke: var(--es-accent); stroke-width: 4; stroke-linejoin: round; }
+.es-art__stubmark { fill: none; stroke: var(--es-accent); stroke-width: 3.5; stroke-linejoin: round; }
+.es-art__stubdot { fill: var(--es-teal-400); }
+.es-art__stubline { fill: none; stroke: var(--es-teal-300); stroke-width: 6; stroke-linecap: round; }
+
+/* A search field with its magnifier inside (ui/Filters.jsx SearchBox) */
+.es-searchfield { position: relative; display: flex; }
+.es-searchfield > svg {
+  position: absolute;
+  inset-inline-start: 0.875rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--es-text-subtle);
+  pointer-events: none;
+}
+.es-searchfield .es-input { padding-inline-start: 2.75rem; }
+
+/* Filter groups in a toolbar, a rule between them once they fit on one line */
+@media (width >= theme(--breakpoint-xl)) {
+  .es-filtergroups { column-gap: 2rem; }
+  .es-filtergroups > :not(:first-child) { padding-inline-start: 2rem; border-inline-start: 1px solid var(--es-border); }
+}
+
+/* A glyph before a section's name (SectionHeader `icon`) */
+.es-section-title__icon { display: inline-flex; margin-inline-end: 0.625rem; vertical-align: -0.15em; color: var(--es-accent); }
+
+/* A notice with its icon in a column (Feedback.jsx Notice `icon`). The icon
+   is the first child, so the title rule is re-stated on the body. */
+.es-notice--icon { flex-direction: row; align-items: flex-start; gap: 0.875rem; padding: 1rem 1.25rem; }
+.es-notice--icon > .es-notice__icon { display: inline-flex; flex: none; color: var(--es-text-muted); }
+.es-notice--warning > .es-notice__icon { color: var(--es-warning); }
+.es-notice--info > .es-notice__icon { color: var(--es-accent); }
+.es-notice__body { display: flex; flex-direction: column; gap: 0.25rem; min-width: 0; }
+.es-notice__body > :first-child { font-size: var(--es-text-base); font-weight: 700; color: var(--es-text); }
+
+/* ── Door sales (door/DoorSales.jsx, door/DoorParts.jsx) ────────────────
+   Two notices share a row when both fit; the summary puts its numbers and
+   its two actions side by side from xl, a rule between them. */
+.es-door-notices { display: grid; gap: var(--fx-gap-sm); grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr)); }
+
+.es-door-summary { display: grid; gap: 1.5rem; }
+@media (width >= theme(--breakpoint-xl)) {
+  .es-door-summary { grid-template-columns: minmax(0, 1.7fr) minmax(16rem, 1fr); gap: 0; }
+  .es-door-summary__actions { margin-inline-start: 2rem; padding-inline-start: 2rem; border-inline-start: 1px solid var(--es-border); }
+}
+.es-door-summary__main { display: flex; flex-direction: column; gap: 1rem; min-width: 0; }
+.es-door-stats { display: grid; gap: 0.75rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 10.5rem), 1fr)); }
+.es-door-stat { display: flex; align-items: center; gap: 0.75rem; padding: 0.875rem 1rem; border-radius: 0.75rem; background: var(--es-bg-sunken); }
+.es-door-stat__icon { display: inline-flex; flex: none; color: var(--es-accent); }
+.es-door-stat__value { display: block; font-size: var(--es-text-lg); font-weight: 700; color: var(--es-text); }
+.es-door-stat__label { display: block; font-size: var(--es-text-sm); color: var(--es-text-muted); }
+.es-door-summary__actions { display: flex; flex-direction: column; justify-content: center; gap: 1rem; min-width: 0; }
+.es-door-actions { display: grid; gap: 0.75rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr)); }
+.es-door-owe { align-self: flex-start; font-size: var(--es-text-sm); font-weight: 600; color: var(--es-accent); }
+.es-door-owe:hover { color: var(--es-accent-hover); }
+
+/* .es-stack-empty — picture over words, centred (ui/SplitEmpty.jsx StackedEmpty) */
+.es-stack-empty { align-items: center; gap: 0.75rem; padding-block: 2rem; text-align: center; }
+.es-stack-empty__art { display: flex; justify-content: center; width: 100%; }
+.es-stack-empty__art .es-art { max-width: 15rem; }
+.es-stack-empty__title { margin: 0; font-size: var(--es-text-xl); font-weight: 800; letter-spacing: -0.02em; color: var(--es-text); }
+.es-stack-empty__text { max-width: 36rem; color: var(--es-text-muted); }
+.es-stack-empty > .es-btn { margin-top: 0.5rem; }
+
+/* InvoiceArt (ui/Illustrations.jsx) */
+.es-art__leaf { fill: var(--es-teal-200); }
+.es-art__leaf--light { fill: var(--es-teal-100); }
+.es-art__paper { fill: var(--es-surface); stroke: var(--es-teal-800); stroke-width: 3.5; }
+.es-art__papertitle { font: 800 12px var(--es-font-sans); letter-spacing: 0.06em; fill: var(--es-teal-700); }
+.es-art__bar { fill: var(--es-teal-200); }
+.es-art__bar--soft { fill: var(--es-teal-100); }
+.es-art__badge { fill: var(--es-teal-500); stroke: var(--es-surface); stroke-width: 4; }
+.es-art__badgetick { fill: none; stroke: var(--es-surface); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+
+/* .es-kpirow--tiles — the larger figure card (ui/Kpi.jsx `tiles`, `featured`) */
+.es-kpirow--tiles .es-kpi { gap: 1rem; padding: 1.25rem 1.5rem; border-radius: 1rem; }
+.es-kpirow--tiles .es-kpi__icon {
+  display: grid;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  padding: 0;
+  border-radius: 0.75rem;
+  background: var(--es-accent-wash);
+}
+.es-kpirow--tiles .es-kpi__icon[data-tone="success"] { color: var(--es-accent); }
+.es-kpirow--tiles .es-kpi__icon[data-tone="danger"] { background: color-mix(in srgb, var(--es-danger) 10%, var(--es-surface)); }
+.es-kpirow--tiles .es-kpi__label { font-size: var(--es-text-base); font-weight: 700; }
+.es-kpirow--tiles .es-kpi__note { font-size: var(--es-text-sm); }
+.es-kpirow--tiles .es-kpi__value[data-tone="success"] { color: var(--es-accent); }
+.es-kpirow--tiles .es-kpi__value[data-tone="danger"] { color: var(--es-danger); }
+.es-kpi--featured {
+  border-color: color-mix(in srgb, var(--es-accent) 40%, var(--es-border));
+  background: linear-gradient(135deg, var(--es-accent-wash), var(--es-surface) 75%);
+  box-shadow: var(--es-shadow-sm);
+}
+.es-kpirow--tiles .es-kpi--featured .es-kpi__icon { background: var(--es-surface); }
+
+/* DoorPrinterArt (ui/Illustrations.jsx) */
+.es-art__printer { fill: var(--es-teal-700); }
+.es-art__printertop { fill: var(--es-teal-200); }
+.es-art__printerslot { fill: var(--es-teal-900); }
+.es-art__qrcard { fill: var(--es-teal-500); }
+.es-art__qr { fill: var(--es-surface); }
+.es-art__qrline { fill: none; stroke: var(--es-surface); stroke-width: 3.5; stroke-linecap: round; }
+
+.es-tcat-art { width: min(100%, 25rem); height: auto; }
+.es-tcat-art__ground { fill: var(--es-accent-wash); }
+.es-tcat-art__line { fill: none; stroke: var(--es-accent); stroke-width: 3.5; stroke-linecap: round; }
+.es-tcat-art__chip { font-family: inherit; font-size: 15px; font-weight: 700; fill: #10312b; }
+.es-tcat-art__chair { fill: #e6d3aa; stroke: var(--es-accent); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.es-tcat-art__cloth { fill: var(--es-surface); stroke: var(--es-accent); stroke-width: 3; stroke-linejoin: round; }
+.es-tcat-art__fold { fill: none; stroke: var(--es-accent); stroke-width: 1.5; stroke-linecap: round; opacity: 0.35; }
+.es-tcat-art__vase { fill: var(--es-accent-wash); stroke: var(--es-accent); stroke-width: 3; stroke-linejoin: round; }
+.es-tcat-art__bloom { fill: var(--es-surface); stroke: var(--es-accent); stroke-width: 3; }
+
 /* Launch kit tiles: picture beside its facts */
 .es-kit-image { padding: 0.875rem; border: 1px solid var(--es-border); border-radius: 0.875rem; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: stretch; }
 .es-kit-image__info { display: flex; flex-direction: column; gap: 0.375rem; }

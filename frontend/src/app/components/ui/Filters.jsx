@@ -1,6 +1,7 @@
 'use client';
 
 import { useId, useState } from 'react';
+import NavIcon from '../shell/NavIcon';
 
 /**
  * The controls above a list: one-of-several filters, a search box, and paging.
@@ -77,15 +78,18 @@ export function SearchBox({ label, placeholder, value = '', onSearch }) {
       onSubmit={(e) => { e.preventDefault(); onSearch(text.trim()); }}
     >
       <label htmlFor={id} className="sr-only">{label}</label>
-      <input
-        id={id}
-        type="search"
-        className="es-input fx-min0 flex-1"
-        placeholder={placeholder}
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-      />
-      <button type="submit" className="es-btn es-btn--secondary">Search</button>
+      <span className="es-searchfield fx-min0 flex-1">
+        <NavIcon name="search" size={20} />
+        <input
+          id={id}
+          type="search"
+          className="es-input"
+          placeholder={placeholder}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+        />
+      </span>
+      <button type="submit" className="es-btn es-btn--primary">Search</button>
     </form>
   );
 }

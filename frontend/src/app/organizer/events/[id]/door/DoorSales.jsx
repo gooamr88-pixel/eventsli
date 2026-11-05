@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { get, post } from '../../../../utils/apiClient';
 import { formatMoney } from '../../../../utils/money';
@@ -16,8 +16,10 @@ import Field from '../../../../components/forms/Field';
 import FormError from '../../../../components/forms/FormError';
 import SubmitButton from '../../../../components/forms/SubmitButton';
 import { Loading, ErrorNotice, Notice } from '../../../../components/Feedback';
+import { DoorPrinterArt } from '../../../../components/ui/Illustrations';
 import { useEventContext } from '../EventContext';
 import { toSaleMap } from './doorMap';
+import { DoorSummary, DoorEmpty } from './DoorParts';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -46,6 +48,9 @@ export default function DoorSales({ eventId }) {
   const [mapVersion, setMapVersion] = useState(0);
   const [page, setPage] = useState(1);
   const sales = useApi(`/events/${eventId}/manual-sales?limit=25&page=${page}`, { raw: true });
+  // Totals for EVERY door sale, summed in the database (see DoorParts.jsx).
+  const summary = useApi(`/events/${eventId}/orders?status=paid&channel=manual&limit=1`, { raw: true });
+  const mapRef = useRef(null);
 
   const [selectedSeats, setSelectedSeats] = useState([]);
   const [selectedTable, setSelectedTable] = useState(null);
@@ -112,6 +117,7 @@ export default function DoorSales({ eventId }) {
       setMapVersion((n) => n + 1);
       setPage(1);
       sales.reload();
+      summary.reload();
     } catch (err) {
       setError(err);
     } finally {
@@ -123,23 +129,47 @@ export default function DoorSales({ eventId }) {
   if (!event || !saleMap) return <Loading variant="card" label="Loading the door" />;
 
   const recorded = sales.data?.data || [];
+  const canRecord = onSale && saleMap.hasMap;
+  // "Record a sale" means "pick seats": take the organizer to the map.
+  const goToMap = () => {
+    mapRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    mapRef.current?.focus({ preventScroll: true });
+  };
 
   return (
     <div className="fx-stack">
       <SectionHeader
+        icon="ticket"
         title="Sales at the door"
         lede="Record a ticket you sold yourself. The seat comes out of the same stock as an online sale, so it cannot be sold twice."
-        actions={<Link href={`/organizer/events/${eventId}/commission`} className="es-btn es-btn--secondary es-btn--sm">What I owe</Link>}
+        art={<DoorPrinterArt />}
       />
 
-      {!onSale && (
-        <Notice tone="warning" title="This event is not on sale.">
-          <p>Door sales can only be recorded once the event is published. You can look at the map in the meantime.</p>
-        </Notice>
+      {(!onSale || !saleMap.hasMap) && (
+        <div className="es-door-notices">
+          {!onSale && (
+            <Notice tone="warning" icon="alert" title="This event is not on sale.">
+              <p>Door sales can only be recorded once the event is published.</p>
+            </Notice>
+          )}
+          {!saleMap.hasMap && (
+            <Notice tone="info" icon="pin" title="No seat map yet.">
+              <p>Door sales pick seats from the map. <Link href={`/organizer/events/${eventId}/map`} className="text-accent underline">Build the map first</Link>.</p>
+            </Notice>
+          )}
+        </div>
       )}
 
-      {saleMap.hasMap ? (
-        <div className="es-plate bg-surface p-3">
+      <DoorSummary
+        eventId={eventId}
+        totals={summary.data?.meta?.totals?.[event.currency] ?? Object.values(summary.data?.meta?.totals || {})[0]}
+        currency={event.currency}
+        canRecord={canRecord}
+        onRecord={goToMap}
+      />
+
+      {saleMap.hasMap && (
+        <div ref={mapRef} tabIndex={-1} aria-label="Seat map for door sales" className="es-plate bg-surface p-3">
           <SeatMapCanvas
             className="h-[48vh] min-h-[320px]"
             tables={saleMap.tables}
@@ -159,10 +189,6 @@ export default function DoorSales({ eventId }) {
             }}
           />
         </div>
-      ) : (
-        <Notice title="No seat map yet.">
-          <p>Door sales pick seats from the map. <Link href={`/organizer/events/${eventId}/map`} className="text-accent">Build the map</Link> first.</p>
-        </Notice>
       )}
 
       {hasSelection && (
@@ -215,27 +241,26 @@ export default function DoorSales({ eventId }) {
         </Panel>
       )}
 
+      {sales.error ? (
+        <ErrorNotice error={sales.error} onRetry={sales.reload} />
+      ) : sales.loading && !sales.data ? (
+        <Loading variant="list" rows={3} label="Loading door sales" />
+      ) : !recorded.length ? (
+        <DoorEmpty canRecord={canRecord} onRecord={goToMap} />
+      ) : (
       <section className="es-dcard" aria-labelledby="door-recorded">
         <div className="es-dcard__head">
           <div className="es-ovcard__head">
             <span className="es-ovcard__glyph" aria-hidden="true"><NavIcon name="receipt" size={22} /></span>
             <div className="fx-min0">
-              <h2 id="door-recorded" className="es-dcard__title">Recorded so far</h2>
-              <p className="es-ovcard__desc">Every sale you took yourself, with the commission it adds.</p>
+              <h2 id="door-recorded" className="es-dcard__title">Sales recorded</h2>
+              <p className="es-ovcard__desc">Newest first, with the commission each one adds.</p>
             </div>
           </div>
           {sales.data?.pagination?.total > 0 && (
             <span className="es-pbfold__count">{sales.data.pagination.total} {sales.data.pagination.total === 1 ? 'sale' : 'sales'}</span>
           )}
         </div>
-        {sales.error ? (
-          <ErrorNotice error={sales.error} onRetry={sales.reload} />
-        ) : sales.loading && !sales.data ? (
-          <Loading variant="list" rows={3} label="Loading door sales" />
-        ) : !recorded.length ? (
-          <p className="text-sm text-muted">Nothing recorded at the door yet.</p>
-        ) : (
-          <>
             <DataTable
               caption="Door sales"
               rows={recorded}
@@ -254,9 +279,8 @@ export default function DoorSales({ eventId }) {
               ]}
             />
             <Pagination pagination={sales.data.pagination} onPage={setPage} />
-          </>
-        )}
       </section>
+      )}
     </div>
   );
 }

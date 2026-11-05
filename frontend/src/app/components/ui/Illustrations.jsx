@@ -84,6 +84,81 @@ export function StoreArt({ className = '' }) {
   );
 }
 
+/** A tilted ticket stub with a ticket mark and two printed lines, on a blob —
+ *  "no orders yet". */
+export function OrderTicketArt({ className = '' }) {
+  const stub = 'M10 0H100A10 10 0 0 1 110 10V64A11 11 0 0 0 110 86V140A10 10 0 0 1 100 150H10A10 10 0 0 1 0 140V86A11 11 0 0 0 0 64V10A10 10 0 0 1 10 0Z';
+  return (
+    <svg {...svg} viewBox="0 0 300 200" className={`es-art ${className}`}>
+      <ellipse className="es-art__blob" cx="150" cy="112" rx="112" ry="72" />
+      <ellipse className="es-art__blob es-art__floor" cx="160" cy="188" rx="96" ry="10" />
+      <g transform="translate(96 30) rotate(-10)">
+        <path className="es-art__stub" d={stub} />
+        <g transform="translate(55 50) rotate(-40)">
+          <path className="es-art__stubmark" d="M-22-12h44v7a5 5 0 0 0 0 10v7h-44v-7a5 5 0 0 0 0-10z" />
+          <circle className="es-art__stubdot" r="4.5" />
+        </g>
+        <path className="es-art__stubline" d="M22 104H88M22 120H70" />
+      </g>
+      <Burst x={214} y={10} />
+    </svg>
+  );
+}
+
+/** A ticket with a QR code rising out of a printer — "sales at the door". */
+export function DoorPrinterArt({ className = '' }) {
+  const finder = (x, y) => (
+    <g transform={`translate(${x} ${y})`}>
+      <rect className="es-art__qrline" width="22" height="22" rx="3" />
+      <rect className="es-art__qr" x="7" y="7" width="8" height="8" rx="1" />
+    </g>
+  );
+  return (
+    <svg {...svg} viewBox="0 0 320 220" className={`es-art ${className}`}>
+      <path className="es-art__blob" d="M30 132c0-58 54-104 128-100s132 40 132 98-58 92-132 88S30 190 30 132z" />
+      {/* Printer body, then the slot, then the ticket, then the lip over its foot */}
+      <rect className="es-art__printer" x="70" y="132" width="196" height="76" rx="16" />
+      <path className="es-art__printertop" d="M92 140H244L256 168H80Z" />
+      <rect className="es-art__printerslot" x="116" y="126" width="104" height="14" rx="5" />
+      <g transform="translate(124 8) rotate(7)">
+        <rect className="es-art__qrcard" width="96" height="124" rx="8" />
+        <path className="es-art__qrline" d="M14 12H82" />
+        {finder(16, 26)}
+        {finder(58, 26)}
+        {finder(16, 68)}
+        <path className="es-art__qr" d="M58 68h8v8h-8zM70 72h12v6H70zM62 82h6v8h-6zM74 84h8v8h-8zM44 30h6v12h-6zM44 74h6v6h-6zM30 54h12v6H30zM52 54h6v6h-6zM66 54h16v6H66z" />
+      </g>
+      <rect className="es-art__printer" x="108" y="134" width="120" height="10" rx="4" />
+      <Burst x={258} y={2} />
+    </svg>
+  );
+}
+
+/** An invoice with a tick badge between two pairs of leaves — "no invoices". */
+export function InvoiceArt({ className = '' }) {
+  return (
+    <svg {...svg} viewBox="0 0 300 190" className={`es-art ${className}`}>
+      <ellipse className="es-art__blob" cx="150" cy="178" rx="92" ry="8" />
+      <path className="es-art__leaf es-art__leaf--light" d="M115 162C80 167 55 147 50 127C80 127 105 142 115 162Z" />
+      <path className="es-art__leaf es-art__leaf--light" d="M185 162C220 167 245 147 250 127C220 127 195 142 185 162Z" />
+      <path className="es-art__leaf" d="M120 152C72 142 60 102 80 80C100 100 120 122 120 152Z" />
+      <path className="es-art__leaf" d="M180 152C228 142 240 102 220 80C200 100 180 122 180 152Z" />
+      <g transform="translate(100 22) rotate(4)">
+        <rect className="es-art__paper" width="100" height="138" rx="10" />
+        <text className="es-art__papertitle" x="50" y="27" textAnchor="middle">INVOICE</text>
+        <rect className="es-art__bar" x="14" y="42" width="48" height="6" rx="3" />
+        <rect className="es-art__bar es-art__bar--soft" x="70" y="42" width="16" height="6" rx="3" />
+        <rect className="es-art__bar" x="14" y="58" width="48" height="6" rx="3" />
+        <rect className="es-art__bar es-art__bar--soft" x="70" y="58" width="16" height="6" rx="3" />
+        <rect className="es-art__bar" x="14" y="74" width="40" height="6" rx="3" />
+      </g>
+      <circle className="es-art__badge" cx="194" cy="142" r="18" />
+      <path className="es-art__badgetick" d="M185 142l6 6 11-12" />
+      <Burst x={212} y={6} />
+    </svg>
+  );
+}
+
 /** Two tickets, the front one starred — "your first ticket type". */
 export function TicketsArt({ className = '' }) {
   const ticket = 'M0 0h132a8 8 0 0 1 8 8v14a14 14 0 0 0 0 28v14a8 8 0 0 1-8 8H0a8 8 0 0 1-8-8V50a14 14 0 0 0 0-28V8a8 8 0 0 1 8-8z';

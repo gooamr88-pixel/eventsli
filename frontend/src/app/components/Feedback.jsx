@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { describeError } from '../utils/errors';
+import NavIcon from './shell/NavIcon';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -150,16 +151,10 @@ const TONES = {
   danger: 'es-notice--danger',
 };
 
-export function Notice({ tone = 'neutral', title, children, action, onRetry, retryLabel = 'Try again' }) {
-  return (
-    <div
-      className={`es-notice ${TONES[tone] || ''}`}
-      /* `alert` interrupts and is right for a failure; `status` waits its turn
-         and is right for everything else. A warning banner that always sat on
-         the page announcing itself as an alert on every render is noise that
-         teaches people to ignore alerts. */
-      role={tone === 'danger' ? 'alert' : 'status'}
-    >
+export function Notice({ tone = 'neutral', title, children, action, onRetry, retryLabel = 'Try again', icon }) {
+  const role = tone === 'danger' ? 'alert' : 'status';
+  const body = (
+    <>
       {title && <p>{title}</p>}
       {children}
       {(onRetry || action) && (
@@ -176,6 +171,21 @@ export function Notice({ tone = 'neutral', title, children, action, onRetry, ret
           )}
         </div>
       )}
+    </>
+  );
+
+  /* `alert` interrupts and is right for a failure; `status` waits its turn
+     and is right for everything else. A warning banner that always sat on
+     the page announcing itself as an alert on every render is noise that
+     teaches people to ignore alerts. */
+  if (!icon) return <div className={`es-notice ${TONES[tone] || ''}`} role={role}>{body}</div>;
+
+  /* With `icon`: the glyph in its own column and the words in a body, so the
+     "first child is the claim" rule still lands on the title, not the icon. */
+  return (
+    <div className={`es-notice es-notice--icon ${TONES[tone] || ''}`} role={role}>
+      <span className="es-notice__icon" aria-hidden="true"><NavIcon name={icon} size={30} /></span>
+      <div className="es-notice__body">{body}</div>
     </div>
   );
 }

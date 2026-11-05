@@ -15,21 +15,28 @@ import NavIcon from '../shell/NavIcon';
  * stretched across a row the way a fixed four-column grid strands a fifth.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-export function KpiRow({ children, label }) {
-  return <div className="es-kpirow" role="group" aria-label={label}>{children}</div>;
+/**
+ * `tiles`: the larger card — the icon on a soft square and a toned value
+ * ("Working" in the accent). Opt-in per page, so the strips already shipped
+ * elsewhere do not change under them.
+ */
+export function KpiRow({ children, label, tiles = false }) {
+  return <div className={`es-kpirow ${tiles ? 'es-kpirow--tiles' : ''}`} role="group" aria-label={label}>{children}</div>;
 }
 
-export function Kpi({ icon, label, value, note, tone, href }) {
+/** `featured`: the one figure the page is about, tinted and lifted. One per row. */
+export function Kpi({ icon, label, value, note, tone, href, featured = false }) {
   const body = (
     <>
       <span className="es-kpi__icon" data-tone={tone}><NavIcon name={icon} size={26} /></span>
       <span className="es-kpi__body">
         <span className="es-kpi__label">{label}</span>
-        <span className="es-kpi__value">{value}</span>
+        <span className="es-kpi__value" data-tone={tone}>{value}</span>
         {note && <span className="es-kpi__note">{note}</span>}
       </span>
     </>
   );
-  if (href) return <Link href={href} className="es-kpi es-kpi--link">{body}</Link>;
-  return <div className="es-kpi">{body}</div>;
+  const cls = `es-kpi ${featured ? 'es-kpi--featured' : ''}`;
+  if (href) return <Link href={href} className={`${cls} es-kpi--link`}>{body}</Link>;
+  return <div className={cls}>{body}</div>;
 }

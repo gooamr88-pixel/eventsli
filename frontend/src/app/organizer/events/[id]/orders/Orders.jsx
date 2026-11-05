@@ -8,7 +8,9 @@ import { SectionHeader } from '../../../../components/ui/Page';
 import { Kpi, KpiRow } from '../../../../components/ui/Kpi';
 import { Segmented, SearchBox, Pagination } from '../../../../components/ui/Filters';
 import DataTable from '../../../../components/ui/DataTable';
-import { Loading, Empty, ErrorNotice } from '../../../../components/Feedback';
+import { Loading, ErrorNotice } from '../../../../components/Feedback';
+import SplitEmpty from '../../../../components/ui/SplitEmpty';
+import { OrderTicketArt } from '../../../../components/ui/Illustrations';
 import { useEventContext } from '../EventContext';
 
 /**
@@ -66,7 +68,7 @@ export default function Orders({ eventId }) {
       ))}
 
       <div className="es-toolbar es-toolbar--stack">
-        <div className="fx-row">
+        <div className="fx-row es-filtergroups">
           <Segmented label="Channel" showLabel value={channel} onChange={filter(setChannel)} options={CHANNELS} />
           <Segmented label="Status" showLabel value={status} onChange={filter(setStatus)} options={STATUSES} />
         </div>
@@ -78,12 +80,17 @@ export default function Orders({ eventId }) {
       ) : loading && !data ? (
         <Loading variant="list" rows={4} label="Loading orders" />
       ) : rows.length === 0 ? (
-        <Empty
-          title="No orders match."
-          hint={status === 'paid' && !search && !channel
-            ? 'Paid orders appear here the moment a ticket sells.'
-            : 'Try another filter, or clear the search.'}
-        />
+        /* "Yet" only on the default view. Under a filter or a search the
+           orders may well exist — saying "none yet" there would be wrong. */
+        status === 'paid' && !search && !channel ? (
+          <SplitEmpty art={<OrderTicketArt />} title="No orders yet">
+            Paid orders will appear here as soon as someone buys a ticket.
+          </SplitEmpty>
+        ) : (
+          <SplitEmpty art={<OrderTicketArt />} title="No orders match">
+            Try another filter, or clear the search.
+          </SplitEmpty>
+        )
       ) : (
         <>
           <DataTable

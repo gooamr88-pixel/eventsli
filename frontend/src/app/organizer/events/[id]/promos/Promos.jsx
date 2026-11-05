@@ -12,8 +12,10 @@ import DataTable from '../../../../components/ui/DataTable';
 import Field from '../../../../components/forms/Field';
 import FormError from '../../../../components/forms/FormError';
 import SubmitButton from '../../../../components/forms/SubmitButton';
-import { Loading, Empty, ErrorNotice } from '../../../../components/Feedback';
+import { Loading, ErrorNotice } from '../../../../components/Feedback';
+import NavIcon from '../../../../components/shell/NavIcon';
 import { useEventContext } from '../EventContext';
+import PromoEmpty from './PromoEmpty';
 
 /**
  * Discount codes.
@@ -55,9 +57,10 @@ export default function Promos({ eventId }) {
     <div className="fx-stack">
       <SectionHeader
         title="Discount codes"
-        lede="Typed by the buyer at checkout. A limited code is reserved when seats are held, so its last use cannot be spent twice."
+        lede="Buyers enter a code at checkout to get a discount. Limited-use codes are reserved when seats are held, so the same code can’t be used twice."
         actions={!creating && (
           <button type="button" className="es-btn es-btn--primary" onClick={() => setCreating(true)}>
+            <NavIcon name="plus" size={18} />
             Add a code
           </button>
         )}
@@ -85,7 +88,7 @@ export default function Promos({ eventId }) {
       ) : loading && !data ? (
         <Loading variant="list" rows={2} label="Loading discount codes" />
       ) : promos.length === 0 ? (
-        !creating && <Empty title="No codes yet." hint="Create one for early birds, a partner, or the band's mailing list." />
+        !creating && <PromoEmpty onAdd={() => setCreating(true)} />
       ) : (
         <DataTable
           caption="Discount codes"
