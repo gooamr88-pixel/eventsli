@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { describeError, isOrganizerPayoutProblem } from '../utils/errors';
+import NavIcon from '../components/shell/NavIcon';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -126,12 +127,15 @@ export function PayError({ error }) {
 export function Fatal({ error, slug }) {
   const { title, recovery } = describeError(error);
   return (
-    <div className="fx-stack">
-      <h1 className="text-xl">{title}</h1>
-      <p className="text-muted">{recovery}</p>
+    // The empty-state card (icon tile, heading, sentence, the one button), as
+    // on every other "this did not work out" screen since the 2026-11 pass.
+    <div className="es-empty">
+      <span className="es-empty__mark" aria-hidden="true"><NavIcon name="clock" size={26} /></span>
+      <h1 className="es-empty__title">{title}</h1>
+      <p className="es-empty__hint">{recovery}</p>
       <Link
         href={slug ? `/e/${slug}/seats` : '/events'}
-        className="es-btn es-btn--primary self-start"
+        className="es-btn es-btn--primary"
       >
         {slug ? 'Start again' : 'Browse events'}
       </Link>

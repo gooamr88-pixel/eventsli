@@ -108,11 +108,19 @@ export function Loading({ variant = 'list', rows = 3, label = 'Loading' }) {
  * object becomes the link it describes.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-export function Empty({ title, hint, action }) {
+/*
+ * REDRAWN 2026-11 to match the illustrated empty states: a card with an icon
+ * tile, a bold title and the hint under it, instead of grey text in a dashed
+ * box. `icon` picks the glyph (default: a search for "nothing matches", a
+ * sparkle otherwise); a screen with a drawing of its own uses StackedEmpty.
+ */
+export function Empty({ title, hint, action, icon }) {
+  const glyph = icon || (/match/i.test(String(title)) ? 'search' : 'sparkle');
   return (
     <div className="es-empty">
-      <p className="text-lg text-muted">{title}</p>
-      {hint && <p className="text-sm text-subtle">{hint}</p>}
+      <span className="es-empty__mark" aria-hidden="true"><NavIcon name={glyph} size={26} /></span>
+      <p className="es-empty__title">{title}</p>
+      {hint && <p className="es-empty__hint">{hint}</p>}
       {isElement(action) ? action : action?.href ? (
         <Link href={action.href} className="es-btn es-btn--secondary es-btn--sm">
           {action.label}

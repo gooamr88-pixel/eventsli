@@ -9,6 +9,8 @@ import { useApi } from '../../hooks/useApi';
 import { useNowMinute } from '../../hooks/useNowMinute';
 import { Loading, Empty, ErrorNotice } from '../../components/Feedback';
 import NavIcon from '../../components/shell/NavIcon';
+import { StackedEmpty } from '../../components/ui/SplitEmpty';
+import { TicketsArt } from '../../components/ui/Illustrations';
 import MoreActions, { MoreItem } from '../../components/ui/MoreActions';
 import CreateProfile from '../CreateProfile';
 import OrganizerNotices from '../OrganizerNotices';
@@ -192,14 +194,23 @@ export default function EventsBrowser() {
       ) : loading && !data ? (
         <Loading variant="list" rows={4} label="Loading your events" />
       ) : events.length === 0 ? (
-        <Empty
+        /* The first screen a new organizer sees here: a picture and the one
+           thing to do, not a sentence in a box. */
+        <StackedEmpty
+          art={<TicketsArt />}
           title="No events yet."
-          hint="Create one — it stays private until you submit it and Eventsli approves it."
-          action={{ href: '/organizer/events/new', label: 'Create your first event' }}
-        />
+          action={(
+            <Link href="/organizer/events/new" className="es-btn es-btn--primary es-btn--lg">
+              <NavIcon name="plus" size={18} />
+              Create your first event
+            </Link>
+          )}
+        >
+          Create one — it stays private until you submit it and Eventsli approves it.
+        </StackedEmpty>
       ) : rows.length === 0 ? (
         status === 'archived' && !needle
-          ? <Empty title="No archived events." hint="Archive an event from its page to stop its sales and file it here." />
+          ? <Empty icon="archive" title="No archived events." hint="Archive an event from its page to stop its sales and file it here." />
           : <Empty title="Nothing matches." hint="Try another tab or filter, or clear the search." />
       ) : view === 'grid' ? (
         <ul className="es-evgrid" aria-label="Your events">

@@ -77,6 +77,7 @@ export default function OrganizerProfile() {
     <div className="fx-stack">
       <PageHeader
         eyebrow="Your account"
+        icon="building"
         title="Organization"
         lede="The details buyers see about you across your event pages and tickets."
         art={<StoreArt />}

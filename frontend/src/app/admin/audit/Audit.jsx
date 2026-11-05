@@ -36,7 +36,7 @@ export default function Audit() {
 
   return (
     <div className="fx-stack">
-      <PageHeader eyebrow="Governance" title="Audit log" lede="Who did what, why, and what it changed. Nothing here can be edited or removed." />
+      <PageHeader eyebrow="Governance" icon="pulse" title="Audit log" lede="Who did what, why, and what it changed. Nothing here can be edited or removed." />
 
       <div className="fx-stack fx-stack--sm gap-1.5 max-w-sm">
         <label htmlFor="audit-action" className="text-sm text-ink">Kind of action</label>
@@ -55,7 +55,7 @@ export default function Audit() {
       ) : loading && !data ? (
         <Loading variant="list" rows={6} label="Loading the audit log" />
       ) : rows.length === 0 ? (
-        <Empty title="Nothing recorded." hint={action ? 'Nothing of this kind yet — try Everything.' : 'Administrative actions appear here as they happen.'} />
+        <Empty icon="pulse" title="Nothing recorded." hint={action ? 'Nothing of this kind yet — try Everything.' : 'Administrative actions appear here as they happen.'} />
       ) : (
         <>
           <DataTable

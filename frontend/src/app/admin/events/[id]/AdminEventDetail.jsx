@@ -90,7 +90,7 @@ export default function AdminEventDetail({ eventId }) {
       <div className="grid gap-[var(--fx-gap)] lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <EventControls event={event} gate={gate} overrideUntil={data.scannerOverrideUntil} onChanged={reload} />
 
-        <Panel title="Organizer">
+        <Panel icon="users" title="Organizer">
           {organizer ? (
             <dl className="fx-stack fx-stack--sm text-sm">
               <Fact term="Name" value={organizer.name} />
@@ -153,7 +153,7 @@ export default function AdminEventDetail({ eventId }) {
 function Preview({ event, tiers, seating }) {
   const ticketed = event.listingType !== 'display_only';
   return (
-    <Panel title="What goes on sale">
+    <Panel icon="ticket" title="What goes on sale">
       <div className="grid gap-[var(--fx-gap)] lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <div className="fx-stack fx-stack--sm">
           <dl className="fx-stack fx-stack--sm text-sm">

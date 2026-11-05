@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import Link from 'next/link';
 import { describeBoundaryError } from './utils/errors';
+import NavIcon from './components/shell/NavIcon';
 
 /**
  * The last line of defence. Anything a page throws and does not handle lands
@@ -28,7 +29,8 @@ export default function GlobalError({ error, reset }) {
 
   return (
     <main className="fx-section">
-      <div className="fx-container fx-container--sm fx-stack">
+      <div className="fx-container fx-container--sm fx-stack es-errorcard">
+        <span className="es-empty__mark es-errorcard__mark" aria-hidden="true"><NavIcon name="alert" size={26} /></span>
         <p className="es-eyebrow text-danger">
           {tone === 'fatal' ? 'Stopped here' : 'Something broke'}
         </p>

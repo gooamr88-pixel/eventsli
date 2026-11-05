@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import Link from 'next/link';
 import { describeBoundaryError } from '../utils/errors';
+import NavIcon from './shell/NavIcon';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -70,7 +71,8 @@ export default function SegmentError({
     // in — the surrounding shell does not move, so there is no other signal
     // that anything changed.
     <section role="alert" className="fx-section fx-section--sm">
-      <div className="fx-container fx-container--sm fx-stack">
+      <div className="fx-container fx-container--sm fx-stack es-errorcard">
+        <span className="es-empty__mark es-errorcard__mark" aria-hidden="true"><NavIcon name="alert" size={26} /></span>
         <p className="es-eyebrow text-danger">
           {tone === 'fatal' ? 'Stopped here' : 'Something broke'}
         </p>

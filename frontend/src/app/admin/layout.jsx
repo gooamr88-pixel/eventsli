@@ -43,7 +43,7 @@ export default function AdminLayout({ children }) {
     return (
       <main className="fx-section fx-section--sm">
         <div className="fx-container fx-container--md fx-gutter">
-          <Empty
+          <Empty icon="refresh"
             title="We could not confirm your access just now."
             hint="This is usually a brief connection problem, not a change to your account. We will keep trying."
             action={(
@@ -71,7 +71,7 @@ export default function AdminLayout({ children }) {
     return (
       <main className="fx-section fx-section--sm">
         <div className="fx-container fx-container--md fx-gutter">
-          <Empty
+          <Empty icon="lock"
             title="Your session has ended."
             hint="Sign in again to get back to the console."
             action={{ href: `/login?reason=expired&next=${next}`, label: 'Sign in' }}
@@ -99,7 +99,7 @@ export default function AdminLayout({ children }) {
     return (
       <main className="fx-section fx-section--sm">
         <div className="fx-container fx-container--md fx-gutter">
-          <Empty
+          <Empty icon="shield"
             title="This area is for platform staff."
             hint="Your account does not have admin permissions. Nothing is wrong with it — this is simply a different part of the product."
             action={{ href: WORKSPACE_HOME[home], label: `Go to ${WORKSPACE_LABEL[home]}` }}

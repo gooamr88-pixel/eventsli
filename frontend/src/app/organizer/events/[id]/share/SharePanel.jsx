@@ -43,6 +43,7 @@ export default function SharePanel({ eventId }) {
   return (
     <div className="fx-stack">
       <SectionHeader
+        icon="share"
         title="Share & QR"
         lede="Share your event, create promotional assets, and make check-in easy."
       />

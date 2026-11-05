@@ -89,6 +89,7 @@ function PaymentsPage({ organizer, onboarding, onChanged }) {
         </>
       ) : (
         <PageHeader
+          icon="card"
           title="Payment methods"
           lede="Accept payments online with cards, or manually — bank transfer, e-Transfer or cash. Each event chooses which it takes."
         />

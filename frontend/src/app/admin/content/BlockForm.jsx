@@ -1,7 +1,6 @@
 'use client';
 
 import { Panel } from '../../components/ui/Page';
-import FormError from '../../components/forms/FormError';
 import NavIcon from '../../components/shell/NavIcon';
 import ImageField from './ImageField';
 import HeroPreview from './HeroPreview';
@@ -79,7 +78,17 @@ export default function BlockForm({ block, draft, dirty, error, onField, onImage
         </span>
       )}
     >
-      {error && <FormError message={error} />}
+      {/* The API's own sentences (meta.errors, joined in Content.jsx). This
+          was `<FormError message={error} />` — but FormError takes `error`, an
+          error OBJECT, so every refused save rendered nothing at all: the
+          block stayed "Unsaved" with no reason given. Found 2026-11-05 by
+          saving a block the validator refuses. */}
+      {error && (
+        <div role="alert" className="es-notice es-notice--danger">
+          <p>This section was not saved.</p>
+          <p>{error}</p>
+        </div>
+      )}
 
       {block.key === 'hero' ? (
         <div className="es-blocksplit">

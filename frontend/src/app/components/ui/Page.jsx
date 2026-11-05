@@ -1,5 +1,5 @@
-import Link from 'next/link';
 import NavIcon from '../shell/NavIcon';
+import { Kpi } from './Kpi';
 
 /**
  * The top of every dashboard and console page, the number cards under it, and
@@ -66,23 +66,13 @@ export function SectionHeader({ title, lede, actions, icon, iconTile = false, ar
 /**
  * One number. `value` arrives formatted — only the caller knows the currency.
  * With `href` the whole card is the link to where that number comes from.
+ *
+ * The same tile as `Kpi` since the 2026-11 redesign: a dashboard's figures
+ * and a section's figures were two different cards for one idea. Kept as its
+ * own export so the call sites read as they did.
  */
 export function StatCard({ label, value, note, icon, href }) {
-  const body = (
-    <>
-      <span className="es-stat__head">
-        <span className="es-stat__label">{label}</span>
-        {icon && <span className="es-stat__icon"><NavIcon name={icon} size={16} /></span>}
-      </span>
-      <span className="es-stat__value">{value}</span>
-      {note && <span className="es-stat__note">{note}</span>}
-    </>
-  );
-
-  if (href) {
-    return <Link href={href} className="es-stat es-stat--link">{body}</Link>;
-  }
-  return <div className="es-stat">{body}</div>;
+  return <Kpi icon={icon} label={label} value={value} note={note} href={href} />;
 }
 
 /**

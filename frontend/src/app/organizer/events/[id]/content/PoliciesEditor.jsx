@@ -128,7 +128,7 @@ export default function PoliciesEditor({ eventId, listing = false }) {
       {items === null ? (
         <Loading variant="list" rows={2} label="Loading policies" />
       ) : items.length === 0 ? (
-        <Empty
+        <Empty icon="shield"
           title="No policies yet"
           hint={copy.empty}
         />

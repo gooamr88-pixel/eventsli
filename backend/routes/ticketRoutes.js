@@ -5,6 +5,7 @@ const { requireAuth } = require('../middleware/auth');
 const { sendOk, sendFail, ERROR_STATUS } = require('../utils/responseEnvelope');
 const c = require('../controllers/ticketController');
 const tickets = require('../services/ticketService');
+const access = require('../services/accessTokens');
 const email = require('../services/emailService');
 const { supabase } = require('../config/supabase');
 const logger = require('../utils/logger');
@@ -21,27 +22,34 @@ router.get('/', c.mine);
 /**
  * BRD §10 — a ticket may be passed on ONCE.
  *
- * The ownership check is inside the service and fails CLOSED: an account owner
- * must match `orders.user_id`, or a guest must present the address the tickets
- * were sent to. Neither is inferred from holding the ticket id.
+ * The ownership check is inside the service and fails CLOSED (see
+ * utils/ticketTransfer.js): the account that bought it, or — for a guest
+ * purchase — a verified account on the buyer's address, or the signed order
+ * token from the confirmation email. Never a typed address: `proofEmail` was
+ * accepted here until 2026-11-05, which let anyone who knew the buyer's email
+ * (the organizer sees it on the door list) move their ticket. It is refused
+ * now rather than ignored, so an old client fails loudly instead of quietly.
  */
 router.post(
   '/:ticketId/transfer',
   param('ticketId').isUUID(),
   body('toEmail').isEmail().normalizeEmail()
     .withMessage('Enter the email of the person you are giving it to.'),
-  body('proofEmail').optional().isEmail().normalizeEmail(),
+  body('proofEmail').not().exists()
+    .withMessage('Prove the ticket with your account or the link in your confirmation email.'),
+  body('orderToken').optional().isString().isLength({ min: 20, max: 2000 }),
   validate,
   async (req, res, next) => {
     try {
       const result = await tickets.transfer({
         ticketId: req.params.ticketId,
         ownerUserId: req.user.id,
+        // From the session, never the body: login refuses an unverified
+        // account, so this address is proven to be theirs.
+        ownerEmail: req.user.email,
+        // A forged, expired or foreign token reads as null and proves nothing.
+        tokenOrderId: req.body.orderToken ? access.readOrderToken(req.body.orderToken) : null,
         toEmail: req.body.toEmail,
-        // Only used when the order was a guest purchase and so has no user_id
-        // to match against. Defaults to the signed-in address, which is the
-        // common case for someone who later created an account.
-        proofEmail: req.body.proofEmail || req.user.email,
       });
 
       // BRD §10 — both parties are told. Best-effort: the transfer has already

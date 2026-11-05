@@ -115,7 +115,7 @@ export default function FeeEditor({ event, onSaved }) {
   const currency = preview?.currency || event.currency;
 
   return (
-    <Panel title="Fees, tax and commission">
+    <Panel icon="percent" title="Fees, tax and commission">
       <form onSubmit={save} className="fx-stack fx-stack--sm">
         {PERCENT_FIELDS.map(([key, label, hint]) => (
           <NumberField key={key} id={`fee-${key}`} label={`${label} (%)`} hint={hint} value={form[key]} onChange={set(key)} max={100} step="0.01" />

@@ -11,6 +11,7 @@ import { useReservation } from '../../hooks/useReservation';
 import { useAuth } from '../../hooks/useAuth';
 import { SuccessMark } from '../Outcomes';
 import TicketStub from '../../components/TicketStub';
+import NavIcon from '../../components/shell/NavIcon';
 
 /**
  * The page Stripe returns to.
@@ -79,11 +80,15 @@ export default function SuccessClient() {
 
   if (error || missingSession) {
     const { title, recovery } = describeError(error || { code: 'NOT_FOUND' });
+    /* The three states before "paid" share the empty-state card (icon tile,
+       bold heading, the sentence under it) — they were bare text, the one
+       part of the funnel that looked unfinished. Each keeps its <h1>. */
     return (
-      <div className="fx-stack">
-        <h1 className="text-xl">{title}</h1>
-        <p className="text-muted">{recovery}</p>
-        <p className="text-sm text-subtle">
+      <div className="es-empty">
+        <span className="es-empty__mark" aria-hidden="true"><NavIcon name="alert" size={26} /></span>
+        <h1 className="es-empty__title">{title}</h1>
+        <p className="es-empty__hint">{recovery}</p>
+        <p className="es-empty__hint">
           If you were charged, your tickets are in your email. You can also{' '}
           <Link href="/tickets/find" className="text-accent">have them sent again</Link>.
         </p>
@@ -93,21 +98,23 @@ export default function SuccessClient() {
 
   if (!result) {
     return (
-      <div className="fx-stack">
-        <h1 className="text-xl">Confirming your payment…</h1>
-        <p className="text-muted">This takes a moment. Do not close this page.</p>
+      <div className="es-empty" aria-busy="true">
+        <span className="es-empty__mark" aria-hidden="true"><NavIcon name="clock" size={26} /></span>
+        <h1 className="es-empty__title">Confirming your payment…</h1>
+        <p className="es-empty__hint">This takes a moment. Do not close this page.</p>
       </div>
     );
   }
 
   if (result.status !== 'paid') {
     return (
-      <div className="fx-stack">
-        <h1 className="text-xl">Payment not completed</h1>
-        <p className="text-muted">Nothing was charged.</p>
+      <div className="es-empty">
+        <span className="es-empty__mark" aria-hidden="true"><NavIcon name="card" size={26} /></span>
+        <h1 className="es-empty__title">Payment not completed</h1>
+        <p className="es-empty__hint">Nothing was charged.</p>
         <Link
           href={reservation?.slug ? `/e/${reservation.slug}/seats` : '/events'}
-          className="es-btn es-btn--primary self-start"
+          className="es-btn es-btn--primary"
         >
           Try again
         </Link>

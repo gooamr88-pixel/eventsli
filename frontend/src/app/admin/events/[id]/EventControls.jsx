@@ -179,7 +179,7 @@ export default function EventControls({ event, gate, overrideUntil, onChanged })
   const finished = ['cancelled', 'completed'].includes(event.status);
 
   return (
-    <Panel title="Status">
+    <Panel icon="flag" title="Status">
       {available.length === 0 ? (
         <p className="text-sm text-muted">
           {event.status === 'cancelled' ? 'Cancelled events are final.' : 'This event is finished. Nothing more to do.'}

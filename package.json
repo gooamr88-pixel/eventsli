@@ -24,6 +24,6 @@
     "preflight": "npm run secrets && npm run check:frontend && npm run lint:frontend && npm run test:backend && npm run test:frontend && npm run build:frontend"
   },
   "engines": {
-    "node": ">=22.0.0"
+    "node": ">=22.0.0 <25"
   }
 }

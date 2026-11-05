@@ -449,11 +449,50 @@ test('a stranger cannot transfer a guest ticket away from its buyer', async () =
     () => ticketSvc.transfer({
       ticketId: t.id, ownerUserId: null,
       toEmail: 'thief@eventsli-test.invalid',
-      proofEmail: 'someone-else@eventsli-test.invalid',
+      ownerEmail: 'someone-else@eventsli-test.invalid',
     }),
     (e) => e.code === 'FORBIDDEN',
     'the wrong address must be refused',
   );
+});
+
+test('a guest proves the ticket with the emailed link, and only for that order', async () => {
+  // The fix of 2026-11-05: knowing the buyer's address is no longer proof —
+  // the organizer sees it on the door list. Holding the signed order token
+  // from the confirmation email is.
+  const access = require('../../services/accessTokens');
+  const { data: order } = await supabase.from('orders')
+    .select('id').eq('event_id', ids.event).limit(1).single();
+  const [t] = await ticketSvc.forOrder(order.id);
+
+  await assert.rejects(
+    () => ticketSvc.transfer({
+      ticketId: t.id, ownerUserId: null, ownerEmail: 'organizer@eventsli-test.invalid',
+      tokenOrderId: access.readOrderToken(access.issueOrderToken('00000000-0000-4000-8000-000000000000')),
+      toEmail: 'thief@eventsli-test.invalid',
+    }),
+    (e) => e.code === 'FORBIDDEN',
+    "a real token for ANOTHER order proves nothing about this one",
+  );
+  await assert.rejects(
+    () => ticketSvc.transfer({
+      ticketId: t.id, ownerUserId: null, ownerEmail: 'organizer@eventsli-test.invalid',
+      tokenOrderId: access.readOrderToken('not-a-token'), toEmail: 'thief@eventsli-test.invalid',
+    }),
+    (e) => e.code === 'FORBIDDEN',
+    'a forged token proves nothing',
+  );
+});
+
+test('the transfer route refuses a typed proofEmail outright', async () => {
+  // Sent by no client of ours; refused, not ignored, so an old caller learns.
+  const res = await fetch(`${baseUrl}/tickets/00000000-0000-4000-8000-000000000000/transfer`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ toEmail: 'thief@eventsli-test.invalid', proofEmail: 'buyer@eventsli-test.invalid' }),
+  });
+  // Signed out → 401 before validation; the point is it never transfers.
+  assert.ok(res.status === 401 || res.status === 400, String(res.status));
 });
 
 test('the buyer transfers with the address they bought with, once', async () => {
@@ -464,7 +503,7 @@ test('the buyer transfers with the address they bought with, once', async () => 
   const first = await ticketSvc.transfer({
     ticketId: t.id,
     ownerUserId: null,
-    proofEmail: 'buyer@eventsli-test.invalid',   // the address on the order
+    ownerEmail: 'buyer@eventsli-test.invalid',   // a verified account on the order's address
     toEmail: 'friend@eventsli-test.invalid',
   });
   assert.equal(first.to, 'friend@eventsli-test.invalid');
@@ -472,7 +511,7 @@ test('the buyer transfers with the address they bought with, once', async () => 
   await assert.rejects(
     () => ticketSvc.transfer({
       ticketId: t.id, ownerUserId: null,
-      proofEmail: 'buyer@eventsli-test.invalid',
+      ownerEmail: 'buyer@eventsli-test.invalid',
       toEmail: 'third@eventsli-test.invalid',
     }),
     (e) => e.code === 'ALREADY_TRANSFERRED',
@@ -491,7 +530,7 @@ test('transfers can be switched off per event', async () => {
     await assert.rejects(
       () => ticketSvc.transfer({
         ticketId: fresh.id, ownerUserId: null,
-        proofEmail: 'buyer@eventsli-test.invalid',
+        ownerEmail: 'buyer@eventsli-test.invalid',
         toEmail: 'x@eventsli-test.invalid',
       }),
       // Checked BEFORE ownership: the organizer's switch applies to everyone,

@@ -101,6 +101,15 @@ pm2 reload eventsli-backend --update-env
 reaches the database through. Node 20 also left support in April 2026, so it
 receives no security patches — not a runtime for something that moves money.
 
+**One version everywhere: Node 22.** The server, CI (`.github/workflows/ci.yml`)
+and every developer machine run the same major, pinned in `.nvmrc` (`nvm use`
+reads it). `engines` in `package.json` is `>=22.0.0 <25`, so npm warns on
+anything newer. Do not upgrade the server past 24 without a test run first:
+Node 25 added a built-in `localStorage` that shadows jsdom's in the frontend
+tests. `frontend/vitest.config.mjs` now switches that off when it finds
+Node 25+, measured on Node 26 (747/747), but the production build and the API
+have only ever been run on 22.
+
 Install with `nvm` so the system node stays 20 for `fancy` and `roya`:
 
 ```bash

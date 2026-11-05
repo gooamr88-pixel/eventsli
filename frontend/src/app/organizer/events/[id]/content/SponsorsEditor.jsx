@@ -152,7 +152,7 @@ export default function SponsorsEditor({ eventId, section }) {
       {items === null ? (
         <Loading variant="list" rows={2} label="Loading sponsors" />
       ) : items.length === 0 ? (
-        <Empty title="No sponsors yet" hint="Add the ones you have. The section is hidden on your event page until then." />
+        <Empty icon="star" title="No sponsors yet" hint="Add the ones you have. The section is hidden on your event page until then." />
       ) : (
         grouped(items).map((group) => (
           <section key={group.value} className="fx-stack fx-stack--sm">

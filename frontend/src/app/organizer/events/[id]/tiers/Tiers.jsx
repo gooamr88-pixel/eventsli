@@ -78,6 +78,7 @@ export default function Tiers({ eventId }) {
   return (
     <div className="fx-stack">
       <SectionHeader
+        icon="ticket"
         title="Ticket types"
         lede="Create and manage the ticket types for your event — General Admission, VIP, a table. A price locks once a ticket of that type has sold."
         actions={!editing && (

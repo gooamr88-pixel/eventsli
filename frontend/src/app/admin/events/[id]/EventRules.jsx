@@ -72,7 +72,7 @@ export default function EventRules({ event, onSaved }) {
   }
 
   return (
-    <Panel title="Purchase rules">
+    <Panel icon="list" title="Purchase rules">
       {finished ? (
         <p className="text-sm text-muted">A {event.status} event cannot be edited.</p>
       ) : (

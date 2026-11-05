@@ -4,8 +4,9 @@ const tickets = require('../services/ticketService');
 const { parsePagination, applyPagination, buildMeta } = require('../middleware/pagination');
 const { sendOk, sendFail, ERROR_STATUS } = require('../utils/responseEnvelope');
 const logger = require('../utils/logger');
-const { isInvoiceOverdue } = require('../utils/invoices');
+const { isInvoiceOverdue, sumInvoiceTotals, invoiceSearchFilter } = require('../utils/invoices');
 const { safeSearch } = require('../utils/search');
+const { fetchAll } = require('../utils/fetchAll');
 
 const statusFor = (code) => ERROR_STATUS[code] || 400;
 const asFailure = (res, err) => sendFail(res, {
@@ -154,8 +155,7 @@ async function adminList(req, res, next) {
       const { data: hits, error: hitError } = await supabase
         .from('events').select('id').ilike('title', `%${q}%`).limit(200);
       if (hitError) throw new Error(hitError.message);
-      const ids = (hits || []).map((e) => e.id);
-      query = query.or([`number.ilike.%${q}%`, ...(ids.length ? [`event_id.in.(${ids.join(',')})`] : [])].join(','));
+      query = query.or(invoiceSearchFilter(q, (hits || []).map((e) => e.id)));
     }
 
     // Oldest due first by default — a queue sorted newest-first starves the
@@ -188,30 +188,21 @@ async function adminList(req, res, next) {
 
 /**
  * The four figures over the admin's invoice list — for EVERY invoice, not the
- * filtered page, so they do not jump about as the filters change. Per
- * currency: CAD and USD are never added together.
+ * filtered page, so they do not jump about as the filters change. The sums
+ * are `sumInvoiceTotals` (utils/invoices.js, unit-tested).
  *
- *   count       invoices of any status
- *   totalCents  everything raised, waived ones excluded (nobody owes those)
- *   unpaidCents open, receipt sent, or overdue — the money still to come
- *   settledCents paid
- *
- * One narrow read rather than an RPC: an invoice is raised per event with door
- * sales, so this table stays small next to orders or tickets.
+ * Through `fetchAll`, not one select: the Data API stops at `max_rows` (1,000)
+ * without saying so, and a plain read would quietly under-count past that.
+ * One narrow column set; an invoice is raised per event with door sales, so
+ * the table stays small next to orders or tickets.
  */
 async function invoiceTotals() {
-  const { data, error } = await supabase.from('invoices').select('currency, amount_cents, status');
-  if (error) throw new Error(error.message);
-  const out = { count: 0, byCurrency: {} };
-  for (const row of data || []) {
-    out.count += 1;
-    const t = out.byCurrency[row.currency] || (out.byCurrency[row.currency] = { totalCents: 0, unpaidCents: 0, settledCents: 0 });
-    const cents = Number(row.amount_cents) || 0;
-    if (row.status !== 'waived') t.totalCents += cents;
-    if (row.status === 'paid') t.settledCents += cents;
-    else if (row.status !== 'waived') t.unpaidCents += cents;
-  }
-  return out;
+  const rows = await fetchAll((range, first) => supabase
+    .from('invoices')
+    .select('id, currency, amount_cents, status', first ? { count: 'exact' } : undefined)
+    .order('id', { ascending: true })
+    .range(range.from, range.to), { what: 'invoices' });
+  return sumInvoiceTotals(rows);
 }
 
 // The audit trail for invoice actions — checked, see services/auditService.js.

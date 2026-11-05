@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const { supabase } = require('../config/supabase');
 const { fetchAll } = require('../utils/fetchAll');
+const { transferProof } = require('../utils/ticketTransfer');
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -154,10 +155,10 @@ function shape(t) {
  * simultaneous transfers would both pass a read-then-check and both succeed,
  * leaving one ticket claimed by two people.
  */
-async function transfer({ ticketId, ownerUserId, toEmail, proofEmail }) {
+async function transfer({ ticketId, ownerUserId, ownerEmail, tokenOrderId = null, toEmail }) {
   const { data: ticket } = await supabase
     .from('tickets')
-    .select('id, order_id, transfer_count, status, attendee_email, orders ( user_id, guest_email ), events ( allow_ticket_transfer )')
+    .select('id, order_id, transfer_count, status, attendee_email, orders ( id, user_id, guest_email ), events ( allow_ticket_transfer )')
     .eq('id', ticketId)
     .maybeSingle();
 
@@ -173,31 +174,18 @@ async function transfer({ ticketId, ownerUserId, toEmail, proofEmail }) {
   }
 
   /**
-   * OWNERSHIP, PROVEN — not assumed.
+   * OWNERSHIP, PROVEN — not assumed. The decision is `transferProof`
+   * (utils/ticketTransfer.js), which fails CLOSED and says why.
    *
-   * The previous check read:
-   *
-   *   if (ownerUserId && ticket.orders?.user_id && ticket.orders.user_id !== ownerUserId)
-   *
-   * which skipped entirely when EITHER side was null — and `orders.user_id` is
-   * null for every guest purchase, which is the primary path in this product.
-   * So the guard looked like a guard and, in the common case, let anyone
-   * holding a ticket id transfer it away from the person who paid. A transfer
-   * is one-way and one-time, so the real buyer lost the ticket permanently.
-   *
-   * Now it fails CLOSED: one of these must positively hold, or the transfer is
-   * refused.
+   * Twice wrong before. First the guard skipped whenever `orders.user_id` was
+   * null — every guest purchase — so holding a ticket id was enough. Then the
+   * guest proof was a `proofEmail` the caller typed, so knowing the buyer's
+   * address was enough, and the organizer sees it on the door list. Now a
+   * guest proves the INBOX: a verified account on that address, or the signed
+   * order token the confirmation email carries.
    */
-  const buyerUserId = ticket.orders?.user_id || null;
-  const buyerEmail = (ticket.orders?.guest_email || '').toLowerCase() || null;
-  const claimed = String(proofEmail || '').trim().toLowerCase() || null;
-
-  const isAccountOwner = !!(ownerUserId && buyerUserId && buyerUserId === ownerUserId);
-  // A guest proves ownership with the address the tickets were sent to — the
-  // same address the emailed link went to, and the only thing they have.
-  const isGuestOwner = !!(claimed && buyerEmail && claimed === buyerEmail);
-
-  if (!isAccountOwner && !isGuestOwner) {
+  const order = ticket.orders ? { id: ticket.orders.id || ticket.order_id, ...ticket.orders } : null;
+  if (!transferProof(order, { userId: ownerUserId, email: ownerEmail, tokenOrderId })) {
     throw fail('FORBIDDEN',
       'We could not confirm this is your ticket. Sign in with the account that bought it, '
       + 'or use the link in your confirmation email.');

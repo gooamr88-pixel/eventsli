@@ -119,7 +119,7 @@ export default function ScheduleEditor({ timezone, section }) {
       {items === null ? (
         <Loading variant="list" rows={2} label="Loading the schedule" />
       ) : items.length === 0 ? (
-        <Empty
+        <Empty icon="clock"
           title="No schedule yet"
           hint="Even three lines — doors, main act, close — answers the question people email you about."
         />

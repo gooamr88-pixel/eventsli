@@ -15,7 +15,21 @@ import { describeError, messageFor } from '../../utils/errors';
  * failed sign-in is silent: focus stays in the password field and nothing says
  * why nothing happened.
  */
-export default function FormError({ error }) {
+/**
+ * `message`: a sentence already in hand (an upload's or a list editor's own
+ * error text). Three call sites passed `message=` while this read only
+ * `error`, so their failures rendered NOTHING — found 2026-11-05 when a
+ * refused homepage save showed no reason. Accepted now rather than fixed
+ * at each site, so the next caller who writes `message=` is not the fourth.
+ */
+export default function FormError({ error, message: plain }) {
+  if (!error && plain) {
+    return (
+      <div role="alert" className="es-notice es-notice--danger">
+        <p className="text-sm text-muted">{plain}</p>
+      </div>
+    );
+  }
   if (!error) return null;
   const { title, code } = describeError(error);
   const message = messageFor(error);

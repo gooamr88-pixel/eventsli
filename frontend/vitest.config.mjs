@@ -51,5 +51,23 @@ export default defineConfig({
      * stop reading.
      */
     testTimeout: 20_000,
+
+    /**
+     * NODE 25+ SHIPS ITS OWN `localStorage`, and it wins over jsdom's: the
+     * worker sees Node's global (unusable without `--localstorage-file`), so
+     * `window.localStorage` reads as undefined and 21 tests fail in
+     * nearbyEvents and aiTools — on the machine, not in the code. Measured
+     * 2026-11-05 on Node 26: 747/747 with the flag, 726/747 without.
+     *
+     * Switched off only where it exists. Node 22 (the version this project
+     * pins — .nvmrc, docs/DEPLOY.md) does not know the flag in every patch
+     * release, so it is not passed there.
+     */
+    ...(Number(process.versions.node.split('.')[0]) >= 25 && {
+      poolOptions: {
+        forks: { execArgv: ['--no-experimental-webstorage'] },
+        threads: { execArgv: ['--no-experimental-webstorage'] },
+      },
+    }),
   },
 });

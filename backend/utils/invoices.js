@@ -22,4 +22,50 @@ function isInvoiceOverdue(invoice, now = new Date()) {
   return Boolean(due) && new Date(due) < now;
 }
 
-module.exports = { isInvoiceOverdue };
+/**
+ * The four figures over the admin's invoice list, per currency — CAD and USD
+ * are never added together.
+ *
+ *   count        invoices of any status
+ *   totalCents   everything raised, waived ones excluded (nobody owes those)
+ *   unpaidCents  open, receipt sent, or overdue — the money still to come
+ *   settledCents paid
+ *
+ * Pure, over `{ currency, amount_cents, status }` rows, so it is tested
+ * without a database (test/invoices.test.js).
+ */
+function sumInvoiceTotals(rows) {
+  const out = { count: 0, byCurrency: {} };
+  for (const row of rows || []) {
+    out.count += 1;
+    if (!row?.currency) continue;
+    const t = out.byCurrency[row.currency]
+      || (out.byCurrency[row.currency] = { totalCents: 0, unpaidCents: 0, settledCents: 0 });
+    const cents = Number(row.amount_cents) || 0;
+    if (row.status === 'waived') continue;
+    t.totalCents += cents;
+    if (row.status === 'paid') t.settledCents += cents;
+    else if (UNPAID.has(row.status)) t.unpaidCents += cents;
+  }
+  return out;
+}
+
+/**
+ * The PostgREST `or` for the admin invoice search: the invoice NUMBER, or one
+ * of the events whose title matched (looked up first — PostgREST cannot OR a
+ * column with a column of an embedded table). `q` must already have been
+ * through `safeSearch`, which strips the commas and parentheses that are
+ * filter syntax inside `or(...)`. Event ids are kept only if they are UUIDs,
+ * so nothing but an id can reach the `in.(...)` list.
+ *
+ * Returns null for an empty search — no filter at all.
+ */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function invoiceSearchFilter(q, eventIds = []) {
+  if (!q) return null;
+  const ids = (eventIds || []).filter((id) => UUID.test(String(id)));
+  return [`number.ilike.%${q}%`, ...(ids.length ? [`event_id.in.(${ids.join(',')})`] : [])].join(',');
+}
+
+module.exports = { isInvoiceOverdue, sumInvoiceTotals, invoiceSearchFilter };

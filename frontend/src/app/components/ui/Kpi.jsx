@@ -34,7 +34,7 @@ export function KpiRow({ children, label, tiles = false }) {
 export function Kpi({ icon, label, sub, value, note, tone, iconTone, href, featured = false }) {
   const body = (
     <>
-      <span className="es-kpi__icon" data-tone={iconTone || tone}><NavIcon name={icon} size={26} /></span>
+      {icon && <span className="es-kpi__icon" data-tone={iconTone || tone}><NavIcon name={icon} size={26} /></span>}
       <span className="es-kpi__body">
         <span className="es-kpi__label">{label}</span>
         {sub && <span className="es-kpi__sub">{sub}</span>}

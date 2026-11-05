@@ -120,7 +120,7 @@ export default function GalleryEditor({ eventId, section }) {
       {items === null ? (
         <Loading variant="list" rows={2} label="Loading the gallery" />
       ) : items.length === 0 ? (
-        <Empty
+        <Empty icon="image"
           title="No photos yet"
           hint="A few pictures of the venue or a past event do more for ticket sales than another paragraph."
         />

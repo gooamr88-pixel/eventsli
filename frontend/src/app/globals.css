@@ -11876,9 +11876,12 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
 .es-art__badge { fill: var(--es-teal-500); stroke: var(--es-surface); stroke-width: 4; }
 .es-art__badgetick { fill: none; stroke: var(--es-surface); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
 
-/* .es-kpirow--tiles — the larger figure card (ui/Kpi.jsx `tiles`, `featured`) */
-.es-kpirow--tiles .es-kpi { gap: 1rem; padding: 1.25rem 1.5rem; border-radius: 1rem; }
-.es-kpirow--tiles .es-kpi__icon {
+/* The figure card as a TILE — icon on a soft square, bold label, toned value.
+   Opt-in through KpiRow `tiles` at first; the default everywhere since the
+   2026-11 redesign pass, so every page's figures read the same. `featured`
+   is still opt-in, one per row. */
+.es-kpi { gap: 1rem; padding: 1.25rem 1.5rem; border-radius: 1rem; }
+.es-kpi__icon {
   display: grid;
   place-items: center;
   width: 3rem;
@@ -11887,18 +11890,27 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
   border-radius: 0.75rem;
   background: var(--es-accent-wash);
 }
-.es-kpirow--tiles .es-kpi__icon[data-tone="success"] { color: var(--es-accent); }
-.es-kpirow--tiles .es-kpi__icon[data-tone="danger"] { background: color-mix(in srgb, var(--es-danger) 10%, var(--es-surface)); }
-.es-kpirow--tiles .es-kpi__label { font-size: var(--es-text-base); font-weight: 700; }
-.es-kpirow--tiles .es-kpi__note { font-size: var(--es-text-sm); }
-.es-kpirow--tiles .es-kpi__value[data-tone="success"] { color: var(--es-accent); }
-.es-kpirow--tiles .es-kpi__value[data-tone="danger"] { color: var(--es-danger); }
+.es-kpi__icon[data-tone="success"] { color: var(--es-accent); }
+.es-kpi__icon[data-tone="danger"] { background: color-mix(in srgb, var(--es-danger) 10%, var(--es-surface)); }
+.es-kpi__label { font-size: var(--es-text-base); font-weight: 700; }
+.es-kpi__note { font-size: var(--es-text-sm); }
+.es-kpi__value[data-tone="success"] { color: var(--es-accent); }
+.es-kpi__value[data-tone="danger"] { color: var(--es-danger); }
 .es-kpi--featured {
   border-color: color-mix(in srgb, var(--es-accent) 40%, var(--es-border));
   background: linear-gradient(135deg, var(--es-accent-wash), var(--es-surface) 75%);
   box-shadow: var(--es-shadow-sm);
 }
-.es-kpirow--tiles .es-kpi--featured .es-kpi__icon { background: var(--es-surface); }
+.es-kpi--featured .es-kpi__icon { background: var(--es-surface); }
+/* On a phone the row is two tiles of ~170px. Icon BESIDE the words left about
+   55px for the figure, and "CA$0.00" and "Working" were cut off (measured on
+   Commission at 375px). Below sm the icon sits above, smaller, and the tile
+   gives back its padding. */
+@media (width < theme(--breakpoint-sm)) {
+  .es-kpi { flex-direction: column; gap: 0.625rem; padding: 1rem; }
+  .es-kpi__icon { width: 2.5rem; height: 2.5rem; border-radius: 0.625rem; }
+  .es-kpi__label { font-size: var(--es-text-sm); }
+}
 
 /* .es-iconbtn — a square button that is only an icon. Always given an
    aria-label at the call site; `title` is the sighted user's tooltip. */
@@ -11966,13 +11978,14 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
    PageHeader pages (Payment methods, Organizer profile): from md the words
    take the left column, the picture the right, and any buttons go under it.
 
-   THE PICTURE IS SIZED BY HEIGHT, NOT WIDTH, and the words sit at the TOP.
-   It was `width: min(18rem, 34vw)` — about 200px tall — with the words pinned
-   to the bottom, so every pixel the picture stood taller than the title and
-   lede became an empty band ABOVE the page's heading, between it and the
-   event header. 7.5rem is roughly the title plus a two-line lede, so the
-   picture adds no height of its own; and if it ever does (buttons under it),
-   the spare space lands below the words, never above the heading. */
+   THE PICTURE TAKES THE HEIGHT OF THE WORDS — it never sets it.
+   First it was `width: min(18rem, 34vw)` (about 200px tall) with the words
+   pinned to the bottom: an empty band ABOVE the heading. Then a fixed 7.5rem:
+   still taller than a title and a one-line lede (measured on Door list at
+   1440px: 77px of words, a 132px head, 55px of empty space under the lede).
+   Now `contain: size` takes the picture out of the height calculation
+   entirely; it stretches to the rows the words made, and the SVG fills that.
+   With buttons under it (Scanning devices) it shares the column with them. */
 @media (width >= theme(--breakpoint-md)) {
   .es-page-head:has(> .es-page-head__art) {
     display: grid;
@@ -11982,8 +11995,24 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
     align-items: start;
   }
   .es-page-head:has(> .es-page-head__art) > :first-child { grid-column: 1; grid-row: 1 / span 2; align-self: start; }
-  .es-page-head > .es-page-head__art { grid-column: 2; grid-row: 1; justify-self: end; width: auto; height: 7.5rem; margin: 0; }
-  .es-page-head > .es-page-head__art .es-art { width: auto; height: 100%; }
+  .es-page-head > .es-page-head__art {
+    contain: size;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    grid-column: 2;
+    grid-row: 1;
+    align-self: stretch;
+    width: 11rem;
+    height: auto;
+    margin: 0;
+  }
+  .es-page-head:not(:has(> .es-page-head__actions)) > .es-page-head__art { grid-row: 1 / span 2; }
+  /* Sharing the column with buttons, the words alone would leave it ~22px
+     tall (measured on Scanning devices) — a smudge, not a picture. A floor,
+     as that design has it: the picture top-right, the buttons under it. */
+  .es-page-head:has(> .es-page-head__actions) > .es-page-head__art { min-height: 6.5rem; }
+  .es-page-head > .es-page-head__art .es-art { width: auto; max-width: 100%; height: 100%; }
   .es-page-head:has(> .es-page-head__art) > .es-page-head__actions { grid-column: 2; grid-row: 2; justify-self: end; }
 }
 
@@ -12358,6 +12387,55 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
 .es-savebar--page { padding: 0.75rem 1rem; border-color: color-mix(in srgb, var(--es-accent) 30%, var(--es-border)); background: color-mix(in srgb, var(--es-accent-wash) 45%, var(--es-surface)); }
 .es-savebar--page .es-savebar__status { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.5rem; }
 .es-savebar__dot { width: 0.625rem; height: 0.625rem; border-radius: var(--es-radius-full); background: var(--es-accent); }
+
+/* ── 2026-11 redesign pass: shared pieces ──────────────────────────────
+   `Empty` as a card with an icon tile (components/Feedback.jsx), and tables
+   with the tinted header row the redesigned screens use. Later in the layer
+   than the originals, so these win by source order. */
+.es-empty {
+  gap: 0.625rem;
+  padding: clamp(2rem, 5vw, 3rem) 1.5rem;
+  border: 1px solid var(--es-border);
+  border-radius: var(--es-radius-xl);
+  background: var(--es-surface);
+  box-shadow: var(--es-shadow-xs);
+}
+.es-empty > .es-empty__mark { width: 3.5rem; height: 3.5rem; margin-bottom: 0.25rem; border: 0; border-radius: 1rem; background: var(--es-accent-wash); }
+.es-empty__title { margin: 0; font-size: var(--es-text-xl); font-weight: 800; letter-spacing: -0.02em; color: var(--es-text); }
+.es-empty__hint { max-width: 36rem; font-size: var(--es-text-sm); color: var(--es-text-muted); }
+.es-empty > .es-btn { margin-top: 0.375rem; }
+
+.es-table-wrap { border-radius: var(--es-radius-xl); box-shadow: var(--es-shadow-xs); }
+.es-table th {
+  padding-block: 0.875rem;
+  background: var(--es-bg-sunken);
+  font-family: var(--es-font-sans);
+  font-weight: 600;
+  color: var(--es-text-muted);
+}
+.es-table td { padding-block: 0.875rem; }
+.es-table tbody tr { transition: background-color var(--es-transition-fast); }
+.es-table tbody tr:hover td { background: color-mix(in srgb, var(--es-accent-wash) 35%, var(--es-surface)); }
+
+/* The error pages (error.jsx, components/SegmentError.jsx) as a card with an
+   alert tile, like the empty states — they were bare text on the page. */
+.es-errorcard {
+  padding: clamp(1.5rem, 4vw, 2.5rem);
+  border: 1px solid var(--es-border);
+  border-radius: var(--es-radius-xl);
+  background: var(--es-surface);
+  box-shadow: var(--es-shadow-sm);
+}
+.es-errorcard > .es-errorcard__mark {
+  display: grid;
+  place-items: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  border: 0;
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--es-danger) 10%, var(--es-surface));
+  color: var(--es-danger);
+}
 
 /* DoorPrinterArt (ui/Illustrations.jsx) */
 .es-art__printer { fill: var(--es-teal-700); }
