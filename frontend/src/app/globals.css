@@ -11962,18 +11962,29 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
 }
 .es-fieldicon .es-input { padding-inline-start: 2.75rem; }
 
-/* A section head with art AND actions (Scanning devices): from md the words
-   take the left column, the picture sits top-right and the buttons under it.
-   With art alone (Door sales, Door list) the picture simply takes the right. */
+/* A page head with art — Door sales, Door list, Scanning devices, and the
+   PageHeader pages (Payment methods, Organizer profile): from md the words
+   take the left column, the picture the right, and any buttons go under it.
+
+   THE PICTURE IS SIZED BY HEIGHT, NOT WIDTH, and the words sit at the TOP.
+   It was `width: min(18rem, 34vw)` — about 200px tall — with the words pinned
+   to the bottom, so every pixel the picture stood taller than the title and
+   lede became an empty band ABOVE the page's heading, between it and the
+   event header. 7.5rem is roughly the title plus a two-line lede, so the
+   picture adds no height of its own; and if it ever does (buttons under it),
+   the spare space lands below the words, never above the heading. */
 @media (width >= theme(--breakpoint-md)) {
-  .es-page-head--section:has(> .es-page-head__art) {
+  .es-page-head:has(> .es-page-head__art) {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
-    align-items: end;
+    column-gap: var(--fx-gap);
+    row-gap: 0.75rem;
+    align-items: start;
   }
-  .es-page-head--section:has(> .es-page-head__art) > :first-child { grid-column: 1; grid-row: 1 / span 2; align-self: end; }
-  .es-page-head--section:has(> .es-page-head__art) > .es-page-head__art { grid-column: 2; grid-row: 1; justify-self: end; }
-  .es-page-head--section:has(> .es-page-head__art) > .es-page-head__actions { grid-column: 2; grid-row: 2; justify-self: end; }
+  .es-page-head:has(> .es-page-head__art) > :first-child { grid-column: 1; grid-row: 1 / span 2; align-self: start; }
+  .es-page-head > .es-page-head__art { grid-column: 2; grid-row: 1; justify-self: end; width: auto; height: 7.5rem; margin: 0; }
+  .es-page-head > .es-page-head__art .es-art { width: auto; height: 100%; }
+  .es-page-head:has(> .es-page-head__art) > .es-page-head__actions { grid-column: 2; grid-row: 2; justify-self: end; }
 }
 
 /* .es-statline — icon, words, then the figure on the right (DeviceStats.jsx) */
