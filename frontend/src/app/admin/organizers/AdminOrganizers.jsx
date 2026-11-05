@@ -75,12 +75,13 @@ export default function AdminOrganizers() {
     <div className="fx-stack">
       <PageHeader
         eyebrow="People"
+        icon="users"
         title="Organizers"
         lede="Who sells on Eventsli, whether they can be paid, and whether they are allowed to."
       />
 
       <div className="fx-stack fx-stack--sm">
-        <div className="fx-row">
+        <div className="fx-row es-filtergroups">
           <Segmented label="Standing" showLabel value={banned} onChange={(v) => set('banned', v)} options={STANDING} />
           <Segmented label="Payouts" showLabel value={payouts} onChange={(v) => set('payouts', v)} options={PAYOUTS} />
         </div>

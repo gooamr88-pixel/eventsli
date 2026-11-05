@@ -11,7 +11,10 @@ import { useToast } from '../../components/ui/Toast';
 import { useConfirm } from '../../components/ui/Confirm';
 import { PageHeader } from '../../components/ui/Page';
 import { Segmented } from '../../components/ui/Filters';
-import { Loading, Empty, ErrorNotice, Notice } from '../../components/Feedback';
+import { Loading, ErrorNotice, Notice } from '../../components/Feedback';
+import { StackedEmpty } from '../../components/ui/SplitEmpty';
+import { CalendarXArt } from '../../components/ui/Illustrations';
+import NavIcon from '../../components/shell/NavIcon';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -106,10 +109,15 @@ export default function Cancellations() {
       ) : loading && !data ? (
         <Loading variant="list" rows={3} label="Loading requests" />
       ) : requests.length === 0 ? (
-        <Empty
+        <StackedEmpty
+          art={<CalendarXArt />}
           title={status === 'pending' ? 'No requests waiting.' : 'Nothing here.'}
-          hint={status === 'pending' ? 'When an organizer asks to cancel an event, it appears here.' : null}
-        />
+          action={status === 'pending' && (
+            <p className="es-caughtup"><NavIcon name="check" size={20} />You&rsquo;re all caught up</p>
+          )}
+        >
+          {status === 'pending' ? 'When an organizer asks to cancel an event, it appears here.' : 'No requests in this state.'}
+        </StackedEmpty>
       ) : (
         <ul className="fx-stack fx-stack--sm">
           {requests.map((r) => (

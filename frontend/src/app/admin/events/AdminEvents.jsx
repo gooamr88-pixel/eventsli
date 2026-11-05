@@ -71,27 +71,37 @@ export default function AdminEvents() {
         lede="Every event, in every state. Open one to review it, change its settings, suspend or cancel it."
       />
 
+      {/* Status on its own line, its label beside the chips; the narrower
+          filters — date, category, the title search — together in one card.
+          `.es-inlinefilter` only re-flows the shared Segmented / field
+          markup, so the controls themselves are unchanged. */}
       <div className="fx-stack fx-stack--sm">
-        <Segmented label="Status" showLabel value={status} onChange={(v) => set('status', v)} options={STATUSES} />
-        <div className="fx-row">
-          <Segmented label="Date" showLabel value={when} onChange={(v) => set('when', v)} options={WHEN} />
-          <SearchBox label="Search events" placeholder="Event title" value={q} onSearch={(v) => set('q', v)} />
+        <div className="es-inlinefilter">
+          <Segmented label="Status" showLabel value={status} onChange={(v) => set('status', v)} options={STATUSES} />
         </div>
-        <div className="fx-stack fx-stack--sm gap-1.5 max-w-sm">
-          <label htmlFor="admin-events-category" className="text-sm text-ink">Category</label>
-          <select
-            id="admin-events-category"
-            className="es-input"
-            value={category}
-            onChange={(e) => set('category', e.target.value)}
-          >
-            <option value="">Every category</option>
-            {categories.list.map((c) => <option key={c.slug} value={c.slug}>{c.label}</option>)}
-            {/* A link to a category since switched off still says what it filters on. */}
-            {category && !categories.list.some((c) => c.slug === category) && (
-              <option value={category}>{categories.label(category)}</option>
-            )}
-          </select>
+        <div className="es-toolbar es-filterpanel">
+          <div className="es-filterpanel__left es-inlinefilter">
+            <Segmented label="Date" showLabel value={when} onChange={(v) => set('when', v)} options={WHEN} />
+            <div className="es-inlinefield">
+              <label htmlFor="admin-events-category">Category</label>
+              <select
+                id="admin-events-category"
+                className="es-input"
+                value={category}
+                onChange={(e) => set('category', e.target.value)}
+              >
+                <option value="">Every category</option>
+                {categories.list.map((c) => <option key={c.slug} value={c.slug}>{c.label}</option>)}
+                {/* A link to a category since switched off still says what it filters on. */}
+                {category && !categories.list.some((c) => c.slug === category) && (
+                  <option value={category}>{categories.label(category)}</option>
+                )}
+              </select>
+            </div>
+          </div>
+          <div className="es-filterpanel__right">
+            <SearchBox label="Search events" placeholder="Event title" value={q} onSearch={(v) => set('q', v)} />
+          </div>
         </div>
         {organizerId && (
           <p className="fx-row text-sm text-muted">

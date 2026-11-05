@@ -3,14 +3,17 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useApi } from '../../hooks/useApi';
-import { formatMoney } from '../../utils/money';
+import { formatMoney, formatMoneyCompact } from '../../utils/money';
 import { formatDay } from '../../lib/eventTime';
 import { PERIODS } from '../../lib/periods';
 import { Loading, ErrorNotice } from '../../components/Feedback';
-import { PageHeader, StatCard, Panel } from '../../components/ui/Page';
+import { PageHeader, Panel } from '../../components/ui/Page';
+import { Kpi, KpiRow } from '../../components/ui/Kpi';
 import { Segmented } from '../../components/ui/Filters';
 import DataTable from '../../components/ui/DataTable';
-import BarChart from '../../components/charts/BarChart';
+import AreaChart from '../../components/charts/AreaChart';
+import NavIcon from '../../components/shell/NavIcon';
+import RecentActivity from './RecentActivity';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -58,27 +61,30 @@ export default function Overview() {
         />
       )}
 
-      <div className="es-statgrid">
-        <StatCard
-          label={`Ticket sales, last ${days} days`}
+      <KpiRow label="The platform at a glance" tiles>
+        <Kpi
+          icon="ticket"
+          label="Ticket sales"
+          sub={`Last ${days} days`}
           value={formatMoney(recent.grossCents, currency)}
           note={`${recent.orders} orders · ${formatMoney(sales.grossCents, currency)} all time`}
-          icon="money"
         />
-        <StatCard
-          label={`Commission, last ${days} days`}
+        <Kpi
+          icon="percent"
+          label="Commission"
+          sub={`Last ${days} days`}
           value={formatMoney(recent.commissionCents, currency)}
           note={`${formatMoney(recent.platformNetCents, currency)} kept after card costs, door sales included`}
-          icon="percent"
         />
-        <StatCard
+        <Kpi
+          icon="clock"
           label="Waiting for review"
           value={events.pendingReview ?? 0}
           note={events.pendingReview ? 'Nothing sells until approved' : 'The queue is empty'}
-          icon="check"
           href="/admin"
         />
-        <StatCard
+        <Kpi
+          icon="coins"
           label="Owed by organizers"
           value={formatMoney(owed.openCents, currency)}
           note={owed.overdueCount
@@ -86,16 +92,20 @@ export default function Overview() {
             : owed.uninvoicedCents
               ? `${formatMoney(owed.uninvoicedCents, currency)} more on door sales, not invoiced yet`
               : 'Nothing overdue'}
-          icon="receipt"
+          tone={owed.overdueCount ? 'danger' : undefined}
           href="/admin/invoices"
         />
-      </div>
+      </KpiRow>
 
       <div className="grid gap-[var(--fx-gap)] lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-        <Panel title={`Sales per day, last ${days} days (UTC)`}>
-          <BarChart
-            ariaLabel={`Ticket sales per day in ${currency}`}
-            format={(v) => formatMoney(v, currency)}
+        <Panel
+          icon="trend"
+          title={`Sales per day, last ${days} days (UTC)`}
+          action={<span className="es-pill es-pill--accent es-nums">{formatMoney(recent.grossCents, currency)} total</span>}
+        >
+          <AreaChart
+            ariaLabel={`Ticket sales per day in ${currency}, last ${days} days: ${formatMoney(recent.grossCents, currency)} in all`}
+            formatAxis={(cents) => formatMoneyCompact(cents, currency)}
             data={(data.timeline || []).map((d) => {
               const day = d.byCurrency?.[currency];
               return {
@@ -107,17 +117,29 @@ export default function Overview() {
           />
         </Panel>
 
-        <Panel title="The platform">
-          <dl className="fx-stack fx-stack--sm text-sm">
-            <Fact term="Events on sale" value={events.published ?? 0} href="/admin/events?status=published" />
-            <Fact term="Suspended" value={events.suspended ?? 0} href="/admin/events?status=suspended" />
-            <Fact term="Organizers" value={`${organizers.payoutReady ?? 0} of ${organizers.total ?? 0} can be paid`} href="/admin/organizers" />
-            <Fact term="Banned organizers" value={organizers.banned ?? 0} href="/admin/organizers?banned=true" />
-            <Fact term="Accounts" value={`${people.total ?? 0} · ${people.newInWindow ?? 0} new`} href="/admin/users" />
-            <Fact term="Blocked accounts" value={people.blocked ?? 0} href="/admin/users?blocked=true" />
+        <Panel icon="layers" title="The platform">
+          <dl className="es-factlist">
+            <Fact icon="card" term="Events on sale" value={events.published ?? 0} href="/admin/events?status=published" />
+            <Fact icon="pause" term="Suspended" value={events.suspended ?? 0} href="/admin/events?status=suspended" />
+            <Fact icon="users" term="Organizers" value={`${organizers.payoutReady ?? 0} of ${organizers.total ?? 0} can be paid`} href="/admin/organizers" />
+            <Fact icon="ban" term="Banned organizers" value={organizers.banned ?? 0} href="/admin/organizers?banned=true" />
+            <Fact
+              icon="user"
+              term="Accounts"
+              value={(
+                <>
+                  {people.total ?? 0}
+                  {people.newInWindow ? <span className="es-pill es-pill--accent ms-2">{people.newInWindow} new</span> : null}
+                </>
+              )}
+              href="/admin/users"
+            />
+            <Fact icon="lock" term="Blocked accounts" value={people.blocked ?? 0} href="/admin/users?blocked=true" />
           </dl>
         </Panel>
       </div>
+
+      <RecentActivity />
 
       <section className="fx-stack fx-stack--sm">
         <h2 className="text-lg text-ink">Top events, last {days} days</h2>
@@ -155,10 +177,13 @@ export default function Overview() {
   );
 }
 
-function Fact({ term, value, href }) {
+function Fact({ icon, term, value, href }) {
   return (
-    <div className="fx-row fx-row--between border-t border-border-base pt-2 first:border-0 first:pt-0">
-      <dt className="text-muted">{term}</dt>
+    <div className="es-factlist__row">
+      <dt>
+        <NavIcon name={icon} size={20} />
+        {term}
+      </dt>
       {/* A 44px target at the least. The figure was the whole link, so "1"
           and "2" were links 4 and 8 pixels wide. */}
       <dd className="es-nums text-ink">

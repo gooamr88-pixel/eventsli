@@ -24,13 +24,20 @@ export function KpiRow({ children, label, tiles = false }) {
   return <div className={`es-kpirow ${tiles ? 'es-kpirow--tiles' : ''}`} role="group" aria-label={label}>{children}</div>;
 }
 
-/** `featured`: the one figure the page is about, tinted and lifted. One per row. */
-export function Kpi({ icon, label, value, note, tone, href, featured = false }) {
+/**
+ * `featured`: the one figure the page is about, tinted and lifted. One per row.
+ * `sub`: a small line under the label — the window a figure covers ("Last
+ * 30 days"), so the label itself can stay a plain noun.
+ * `iconTone`: colours the icon only — a red cross beside "Rejected" without
+ * printing the count itself in alarm red. Falls back to `tone`.
+ */
+export function Kpi({ icon, label, sub, value, note, tone, iconTone, href, featured = false }) {
   const body = (
     <>
-      <span className="es-kpi__icon" data-tone={tone}><NavIcon name={icon} size={26} /></span>
+      <span className="es-kpi__icon" data-tone={iconTone || tone}><NavIcon name={icon} size={26} /></span>
       <span className="es-kpi__body">
         <span className="es-kpi__label">{label}</span>
+        {sub && <span className="es-kpi__sub">{sub}</span>}
         <span className="es-kpi__value" data-tone={tone}>{value}</span>
         {note && <span className="es-kpi__note">{note}</span>}
       </span>

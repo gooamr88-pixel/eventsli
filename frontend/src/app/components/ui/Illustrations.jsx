@@ -135,7 +135,7 @@ export function DoorPrinterArt({ className = '' }) {
 }
 
 /** An invoice with a tick badge between two pairs of leaves — "no invoices". */
-export function InvoiceArt({ className = '' }) {
+export function InvoiceArt({ className = '', badge = 'tick' }) {
   return (
     <svg {...svg} viewBox="0 0 300 190" className={`es-art ${className}`}>
       <ellipse className="es-art__blob" cx="150" cy="178" rx="92" ry="8" />
@@ -152,8 +152,21 @@ export function InvoiceArt({ className = '' }) {
         <rect className="es-art__bar es-art__bar--soft" x="70" y="58" width="16" height="6" rx="3" />
         <rect className="es-art__bar" x="14" y="74" width="40" height="6" rx="3" />
       </g>
-      <circle className="es-art__badge" cx="194" cy="142" r="18" />
-      <path className="es-art__badgetick" d="M185 142l6 6 11-12" />
+      {/* `badge="percent"`: the admin's commission invoices, a % in a ring
+          rather than the organizer's settled tick. */}
+      {badge === 'percent' ? (
+        <>
+          <circle className="es-art__badgex" cx="194" cy="142" r="22" />
+          <path className="es-art__xmark" d="M204 130 184 154" />
+          <circle className="es-art__badgedot" cx="186" cy="134" r="4" />
+          <circle className="es-art__badgedot" cx="202" cy="150" r="4" />
+        </>
+      ) : (
+        <>
+          <circle className="es-art__badge" cx="194" cy="142" r="18" />
+          <path className="es-art__badgetick" d="M185 142l6 6 11-12" />
+        </>
+      )}
       <Burst x={212} y={6} />
     </svg>
   );
@@ -315,6 +328,51 @@ export function ShieldArt({ className = '' }) {
       <path className="es-art__shield" d="M130 16 180 34V76c0 36-22 58-50 72-28-14-50-36-50-72V34Z" />
       <path className="es-art__shieldtick" d="M108 80l15 15 29-31" />
       <Burst x={190} y={4} />
+    </svg>
+  );
+}
+
+/** A ticked clipboard under a magnifying glass — "nothing waiting for review". */
+export function ClipboardArt({ className = '' }) {
+  const row = (y) => (
+    <g key={y}>
+      <rect className="es-art__checkbox" x="16" y={y} width="18" height="18" rx="4" />
+      <path className="es-art__checktick" d={`M20 ${y + 9}l4 4 7-8`} />
+      <rect className="es-art__bar" x="44" y={y + 2} width="50" height="5" rx="2.5" />
+      <rect className="es-art__bar es-art__bar--soft" x="44" y={y + 11} width="34" height="5" rx="2.5" />
+    </g>
+  );
+  return (
+    <svg {...svg} viewBox="0 0 320 200" className={`es-art ${className}`}>
+      <Clouds />
+      <g transform="translate(116 26) rotate(-6)">
+        <rect className="es-art__paper" width="110" height="150" rx="12" />
+        <rect className="es-art__clip" x="35" y="-10" width="40" height="18" rx="6" />
+        <circle className="es-art__paper" cx="55" cy="-6" r="3.5" />
+        {[32, 66, 100].map(row)}
+      </g>
+      <circle className="es-art__lens" cx="224" cy="130" r="26" />
+      <path className="es-art__lenshandle" d="M243 149l18 18" />
+      <Burst x={236} y={0} />
+    </svg>
+  );
+}
+
+/** A calendar with a cross badge — "no cancellation requests". */
+export function CalendarXArt({ className = '' }) {
+  return (
+    <svg {...svg} viewBox="0 0 320 200" className={`es-art ${className}`}>
+      <Clouds />
+      <rect className="es-art__paper" x="104" y="40" width="122" height="112" rx="14" />
+      <path className="es-art__calline" d="M104 70H226" />
+      <rect className="es-art__ring" x="128" y="28" width="10" height="24" rx="5" />
+      <rect className="es-art__ring" x="192" y="28" width="10" height="24" rx="5" />
+      {[122, 152, 182].map((x) => [84, 112].map((y) => (
+        <rect key={`${x}-${y}`} className="es-art__cell" x={x} y={y} width="20" height="18" rx="4" />
+      )))}
+      <circle className="es-art__badgex" cx="224" cy="142" r="28" />
+      <path className="es-art__xmark" d="M212 130l24 24M236 130l-24 24" />
+      <Burst x={238} y={4} />
     </svg>
   );
 }

@@ -232,6 +232,8 @@ async function auditLog(req, res, next) {
         { count: 'exact' });
 
     if (req.query.action) query = query.eq('action', req.query.action);
+    // Validated as ISO 8601 by the route.
+    if (req.query.since) query = query.gte('created_at', req.query.since);
 
     const { data, error, count } = await applyPagination(query, p);
     if (error) throw new Error(error.message);

@@ -1,13 +1,10 @@
 'use client';
 
-import { useState } from 'react';
-import { put } from '../../utils/apiClient';
-import { messageFor } from '../../utils/errors';
-import { useToast } from '../../components/ui/Toast';
 import { Panel } from '../../components/ui/Page';
 import FormError from '../../components/forms/FormError';
 import NavIcon from '../../components/shell/NavIcon';
 import ImageField from './ImageField';
+import HeroPreview from './HeroPreview';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -28,105 +25,110 @@ import ImageField from './ImageField';
  * `internal` fields (the storage object keys that travel with an image) are
  * filtered out server-side and never reach this list — they are set by
  * `ImageField` as a pair, because the API refuses one without the other.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * CONTROLLED SINCE 2026-11. The draft lives in Content.jsx, so ONE bar at the
+ * foot of the page saves every block that changed — the page used to carry a
+ * Save under each of six forms, folded shut, and an edit to two of them was
+ * two saves somebody had to remember. Folding went with it: every block is
+ * open, labels sit beside their inputs, and a block's `enabled` switch is in
+ * its heading, where it reads as "is this on the homepage at all".
  * ─────────────────────────────────────────────────────────────────────────────
  */
-export default function BlockForm({ block, values, onSaved }) {
-  const toast = useToast();
-  const [draft, setDraft] = useState(() => ({ ...values }));
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState(null);
+export default function BlockForm({ block, draft, dirty, error, onField, onImage }) {
+  const toggle = block.fields.find((f) => f.name === 'enabled' && f.type === 'bool');
+  const fields = block.fields.filter((f) => f !== toggle);
+  const scope = SCOPE[block.key] || 'sections';
 
-  /** Dirty is computed, not tracked. A flag set by every onChange is a flag
-   *  that survives a save and a reset unless every path remembers to clear it. */
-  const dirty = block.fields.some((f) => (draft[f.name] ?? '') !== (values[f.name] ?? ''))
-    || IMAGE_PAIRS.some(([url, path]) => (draft[path] ?? '') !== (values[path] ?? ''));
-
-  const set = (name, value) => setDraft((d) => ({ ...d, [name]: value }));
-
-  /** An image is two values and they must move together — the API refuses a
-   *  URL with no object key and the reverse. */
-  const setImage = (name, result) => {
-    const pathField = PATH_FIELD[name];
-    setDraft((d) => ({
-      ...d,
-      [name]: result?.url || '',
-      ...(pathField ? { [pathField]: result?.path || '' } : {}),
-    }));
-  };
-
-  async function save(event) {
-    event.preventDefault();
-    setSaving(true);
-    setError(null);
-    try {
-      const saved = await put(`/admin/storefront/content/${block.key}`, draft);
-      toast.show(`${block.label} saved. The homepage is already showing it.`);
-      onSaved?.(block.key, saved.value);
-      setDraft({ ...saved.value });
-    } catch (err) {
-      // The API returns every complaint at once in `meta.errors`, so the
-      // operator fixes one form rather than discovering a second problem after
-      // fixing the first. Below that, `messageFor` rather than the raw
-      // message: it still prefers the server's sentence, and falls back to the
-      // code's recovery line instead of showing "Failed to fetch" when the
-      // request never arrived.
-      setError(err?.meta?.errors?.join(' ') || messageFor(err));
-    } finally {
-      setSaving(false);
-    }
-  }
+  const form = (
+    <div className="es-hform">
+      {fields.map((field) => (
+        <Field
+          key={field.name}
+          field={field}
+          value={draft[field.name]}
+          pathValue={PATH_FIELD[field.name] ? draft[PATH_FIELD[field.name]] : undefined}
+          scope={scope}
+          onChange={(v) => onField(field.name, v)}
+          onImage={(r) => onImage(field.name, r)}
+        />
+      ))}
+    </div>
+  );
 
   return (
     <Panel
+      icon={ICONS[block.key] || 'layers'}
       title={block.label}
       description={DESCRIPTIONS[block.key]}
-      action={dirty ? <span className="es-pill es-pill--warning">Unsaved</span> : null}
+      action={(
+        <span className="fx-row items-center gap-3">
+          {dirty && <span className="es-pill es-pill--warning">Unsaved</span>}
+          {toggle && (
+            <button
+              type="button"
+              role="switch"
+              aria-checked={draft.enabled !== false}
+              onClick={() => onField('enabled', draft.enabled === false)}
+              className="es-switch"
+            >
+              <span className="es-switch__label">{toggle.label}</span>
+              <span aria-hidden className="es-switch__track"><span className="es-switch__thumb" /></span>
+            </button>
+          )}
+        </span>
+      )}
     >
-      {/* FOLDED, one block at a time. Six blocks of fields, all open, made this
-          page nine and a half screens on a phone, and the block somebody came
-          to change was somewhere in the middle of it. The heading and its
-          description stay, so the page still reads as a list of what can be
-          changed; "Unsaved" above shows on a closed block too. `<details>`,
-          so the form keeps its typed values while folded. */}
-      <details className="es-fold">
-        <summary className="es-fold__summary">
-          Edit {block.label.toLowerCase()}
-          <span aria-hidden className="es-fold__chev"><NavIcon name="chevronDown" size={16} /></span>
-        </summary>
-      <form onSubmit={save} className="fx-stack es-fold__body">
-        {error && <FormError message={error} />}
+      {error && <FormError message={error} />}
 
-        <div className="fx-grid fx-grid--2">
-          {block.fields.map((field) => (
-            <Field
-              key={field.name}
-              field={field}
-              value={draft[field.name]}
-              pathValue={PATH_FIELD[field.name] ? draft[PATH_FIELD[field.name]] : undefined}
-              scope={SCOPE[block.key] || 'sections'}
-              onChange={(v) => set(field.name, v)}
-              onImage={(r) => setImage(field.name, r)}
-            />
-          ))}
+      {block.key === 'hero' ? (
+        <div className="es-blocksplit">
+          {form}
+          <HeroPreview draft={draft} />
         </div>
-
-        <div className="fx-row fx-row--gap">
-          <button type="submit" className="es-btn es-btn--primary" disabled={saving || !dirty}>
-            {saving ? 'Saving…' : 'Save'}
-          </button>
-          <button
-            type="button"
-            className="es-btn es-btn--ghost"
-            disabled={saving || !dirty}
-            onClick={() => { setDraft({ ...values }); setError(null); }}
-          >
-            Discard changes
-          </button>
+      ) : block.key === 'video' ? (
+        <div className="es-blocksplit">
+          {form}
+          <VideoPreview draft={draft} />
         </div>
-      </form>
-      </details>
+      ) : form}
     </Panel>
   );
+}
+
+/** What the video section will show. Not an embedded player: the console's
+ *  CSP does not admit YouTube or Vimeo frames, and a player that cannot load
+ *  is worse than a sentence saying what will appear. */
+function VideoPreview({ draft }) {
+  // The same reading as the switch above it: anything but an explicit false is on.
+  const on = draft.enabled !== false;
+  return (
+    <div className="es-videoprev">
+      {on && draft.posterUrl ? (
+        /* eslint-disable-next-line @next/next/no-img-element -- see ImageField */
+        <img src={draft.posterUrl} alt="" className="es-videoprev__poster" />
+      ) : null}
+      <span className="es-videoprev__text">
+        <NavIcon name="play" size={28} />
+        <b>Video preview</b>
+        <span>
+          {!on
+            ? 'Switch the section on and add a video URL to see it on the homepage.'
+            : !draft.url
+              ? 'Add a video URL — the section stays hidden without one.'
+              : 'Shown on the homepage with this poster and title.'}
+        </span>
+      </span>
+    </div>
+  );
+}
+
+/** Is this draft different from what is saved? Computed, not tracked — a flag
+ *  set by every onChange is one that survives a save and a reset unless every
+ *  path remembers to clear it. */
+export function isDirty(block, draft, values) {
+  return block.fields.some((f) => (draft[f.name] ?? '') !== (values[f.name] ?? ''))
+    || IMAGE_PAIRS.some(([, path]) => (draft[path] ?? '') !== (values[path] ?? ''));
 }
 
 function Field({ field, value, pathValue, scope, onChange, onImage }) {
@@ -134,22 +136,28 @@ function Field({ field, value, pathValue, scope, onChange, onImage }) {
 
   if (field.type === 'bool') {
     return (
-      <label htmlFor={id} className="fx-row items-center gap-3">
-        <input
+      <div className="es-hform__row">
+        <span className="es-hform__label">{field.label}</span>
+        <button
           id={id}
-          type="checkbox"
-          checked={value !== false}
-          onChange={(e) => onChange(e.target.checked)}
-        />
-        <span className="text-sm text-ink">{field.label}</span>
-      </label>
+          type="button"
+          role="switch"
+          aria-checked={value !== false}
+          aria-label={field.label}
+          onClick={() => onChange(value === false)}
+          className="es-switch"
+        >
+          <span aria-hidden className="es-switch__track"><span className="es-switch__thumb" /></span>
+          <span className="es-switch__label">{value !== false ? 'Shown' : 'Hidden'}</span>
+        </button>
+      </div>
     );
   }
 
   if (field.type === 'image') {
     return (
-      <div className="fx-stack fx-stack--sm">
-        <span className="text-sm font-medium text-ink">{field.label}</span>
+      <div className="es-hform__row">
+        <span className="es-hform__label">{field.label}</span>
         <ImageField url={value} path={pathValue} scope={scope} onChange={onImage} />
       </div>
     );
@@ -158,44 +166,46 @@ function Field({ field, value, pathValue, scope, onChange, onImage }) {
   const isLong = field.type === 'longtext';
 
   return (
-    <div className="fx-stack fx-stack--sm">
-      <label htmlFor={id} className="text-sm font-medium text-ink">
+    <div className="es-hform__row">
+      <label htmlFor={id} className="es-hform__label">
         {field.label}
-        {field.optional && <span className="ms-1 text-subtle">(optional)</span>}
+        {field.optional && <span className="ms-1 font-normal text-subtle">(optional)</span>}
       </label>
 
-      {isLong ? (
-        <textarea
-          id={id}
-          rows={3}
-          maxLength={field.max || undefined}
-          value={value ?? ''}
-          onChange={(e) => onChange(e.target.value)}
-          className="es-input"
-        />
-      ) : (
-        <input
-          id={id}
-          type="text"
-          maxLength={field.max || undefined}
-          value={value ?? ''}
-          onChange={(e) => onChange(e.target.value)}
-          className="es-input"
-          // The API refuses anything that is not an internal path, and saying
-          // so before the save is cheaper than saying so after it.
-          placeholder={field.type === 'href' ? '/events' : undefined}
-        />
-      )}
+      <div className="fx-stack fx-stack--sm gap-1 fx-min0">
+        {isLong ? (
+          <textarea
+            id={id}
+            rows={3}
+            maxLength={field.max || undefined}
+            value={value ?? ''}
+            onChange={(e) => onChange(e.target.value)}
+            className="es-input"
+          />
+        ) : (
+          <input
+            id={id}
+            type="text"
+            maxLength={field.max || undefined}
+            value={value ?? ''}
+            onChange={(e) => onChange(e.target.value)}
+            className="es-input"
+            // The API refuses anything that is not an internal path, and saying
+            // so before the save is cheaper than saying so after it.
+            placeholder={field.type === 'href' ? '/events' : field.type === 'video' ? 'https://www.youtube.com/watch?v=…' : undefined}
+          />
+        )}
 
-      {field.type === 'href' && (
-        <p className="text-xs text-subtle">A link inside Eventsli, like /events.</p>
-      )}
-      {field.type === 'video' && (
-        <p className="text-xs text-subtle">A YouTube or Vimeo link, or an .mp4 or .webm file.</p>
-      )}
-      {field.max && !isLong && (
-        <p className="text-xs text-subtle">{`${(value || '').length} / ${field.max}`}</p>
-      )}
+        {field.type === 'href' && (
+          <p className="text-xs text-subtle">A link inside Eventsli, like /events.</p>
+        )}
+        {field.type === 'video' && (
+          <p className="text-xs text-subtle">A YouTube or Vimeo link, or an .mp4 or .webm file.</p>
+        )}
+        {field.max && !isLong && (
+          <p className="text-xs text-subtle">{`${(value || '').length} / ${field.max}`}</p>
+        )}
+      </div>
     </div>
   );
 }
@@ -215,7 +225,16 @@ const IMAGE_PAIRS = [
   ['mobileImageUrl', 'mobileImagePath'],
   ['posterUrl', 'posterPath'],
 ];
-const PATH_FIELD = Object.fromEntries(IMAGE_PAIRS);
+export const PATH_FIELD = Object.fromEntries(IMAGE_PAIRS);
+
+const ICONS = {
+  hero: 'image',
+  video: 'play',
+  stats: 'chart',
+  organizer_block: 'briefcase',
+  guest_block: 'ticket',
+  sections: 'list',
+};
 
 const DESCRIPTIONS = {
   hero: 'The first screen. The background is two images — a wide one for desktops and a tall one for phones — because a panorama cropped to a phone is a picture of somebody’s shoulder.',

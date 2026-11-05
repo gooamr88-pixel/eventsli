@@ -109,7 +109,14 @@ router.post(
 // ─── Commission invoices (BRD §18, §20) ────────────────────────────────────
 const manual = require('../../controllers/manualPaymentController');
 
-router.get('/invoices', manual.adminList);
+router.get(
+  '/invoices',
+  query('organizerId').optional().isUUID().withMessage('organizerId must be a UUID.'),
+  query('issuedSince').optional().isISO8601().withMessage('issuedSince must be an ISO 8601 date.'),
+  query('q').optional().isString().isLength({ max: 200 }),
+  validate,
+  manual.adminList,
+);
 
 router.post(
   '/events/:eventId/invoices',
@@ -169,6 +176,13 @@ router.patch(
   settings.updateSettings,
 );
 
-router.get('/audit', settings.auditLog);
+// `?since=` (an ISO date-time) counts a recent window — the review queue's
+// "approved / rejected in the last 30 days" figures read `pagination.total`.
+router.get(
+  '/audit',
+  query('since').optional().isISO8601().withMessage('since must be an ISO 8601 date.'),
+  validate,
+  settings.auditLog,
+);
 
 module.exports = router;

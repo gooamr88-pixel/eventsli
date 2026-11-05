@@ -115,7 +115,9 @@ export default function Users() {
       <PageHeader eyebrow="People" title="Accounts" lede="Everyone with an account, their role, and whether they can sign in or sell." />
 
       <div className="fx-stack fx-stack--sm">
-        <div className="fx-row">
+        {/* The two filters in one card, a rule between them where they fit on
+            one line; the search under it, full width. */}
+        <div className="es-toolbar fx-row es-filtergroups">
           <Segmented label="Role" showLabel value={role} onChange={(v) => set('role', v)} options={[{ value: '', label: 'Everyone' }, ...ROLES]} />
           <Segmented label="Status" showLabel value={blocked} onChange={(v) => set('blocked', v)} options={STANDING} />
         </div>

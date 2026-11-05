@@ -11,10 +11,30 @@ import { useApi } from '../../hooks/useApi';
 import { useToast } from '../../components/ui/Toast';
 import { useConfirm } from '../../components/ui/Confirm';
 import { PageHeader } from '../../components/ui/Page';
-import { Segmented, Pagination } from '../../components/ui/Filters';
+import { Segmented, SearchBox, Pagination } from '../../components/ui/Filters';
 import DataTable from '../../components/ui/DataTable';
 import InvoiceStatus from '../../components/ui/InvoiceStatus';
-import { Loading, Empty, ErrorNotice } from '../../components/Feedback';
+import { Kpi, KpiRow } from '../../components/ui/Kpi';
+import { StackedEmpty } from '../../components/ui/SplitEmpty';
+import { InvoiceArt } from '../../components/ui/Illustrations';
+import { Loading, ErrorNotice } from '../../components/Feedback';
+import NavIcon from '../../components/shell/NavIcon';
+
+/** "Issued in the last N days". The cut-off is worked out in the change
+ *  handler, not during render — `Date.now()` in render is refused here. */
+const ISSUED = [
+  { value: '', label: 'Any date' },
+  { value: '30', label: 'Issued in the last 30 days' },
+  { value: '90', label: 'Issued in the last 90 days' },
+  { value: '365', label: 'Issued in the last year' },
+];
+
+/** One figure per currency, side by side — CAD and USD are never summed. */
+function perCurrency(byCurrency, key) {
+  const entries = Object.entries(byCurrency || {});
+  if (!entries.length) return formatMoney(0, 'CAD');
+  return entries.map(([currency, t]) => formatMoney(t[key], currency)).join(' · ');
+}
 
 /**
  * Commission invoices, across every event.
@@ -45,11 +65,27 @@ export default function Invoices() {
   const [status, setStatus] = useState('');
   const [page, setPage] = useState(1);
   const [busyId, setBusyId] = useState(null);
+  const [issued, setIssued] = useState({ days: '', since: '' });
+  const [organizerId, setOrganizerId] = useState('');
+  const [search, setSearch] = useState('');
 
   const query = new URLSearchParams({ limit: '25', page: String(page) });
   if (status) query.set('status', status);
+  if (issued.since) query.set('issuedSince', issued.since);
+  if (organizerId) query.set('organizerId', organizerId);
+  if (search) query.set('q', search);
   const { data, error, loading, reload } = useApi(`/admin/invoices?${query}`, { raw: true });
+  // For the organizer picker: everyone who sells, by name. 200 is the API's
+  // page ceiling; past that the search box is the better tool anyway.
+  const organizers = useApi('/admin/organizers?limit=200&sort=display_name&order=asc', { raw: true });
   const rows = data?.data || [];
+  const totals = data?.meta?.totals;
+  const filtered = Boolean(status || issued.since || organizerId || search);
+
+  function pickIssued(days) {
+    setIssued({ days, since: days ? new Date(Date.now() - Number(days) * 24 * 60 * 60 * 1000).toISOString() : '' });
+    setPage(1);
+  }
 
   async function settle(invoice) {
     const answer = await confirm({
@@ -88,21 +124,53 @@ export default function Invoices() {
     <div className="fx-stack">
       <PageHeader
         eyebrow="Money"
+        icon="receipt"
         title="Commission invoices"
         lede="Raised against door sales only. Card sales settle themselves — the money passed through us and the fee was already taken."
       />
 
+      {/* Every invoice, whatever the filters below — see invoiceTotals() in
+          the API. Hidden until the API that sends them is deployed. */}
+      {totals && (
+        <KpiRow label="Invoices at a glance" tiles>
+          <Kpi icon="receipt" label="Total invoices" value={totals.count.toLocaleString()} />
+          <Kpi icon="coins" label="Total amount" value={perCurrency(totals.byCurrency, 'totalCents')} note="Waived invoices left out" />
+          <Kpi icon="card" label="Unpaid" value={perCurrency(totals.byCurrency, 'unpaidCents')} note="Open, receipt sent or overdue" />
+          <Kpi icon="check" label="Settled" value={perCurrency(totals.byCurrency, 'settledCents')} iconTone="success" />
+        </KpiRow>
+      )}
+
       <Segmented label="Status" value={status} onChange={(v) => { setStatus(v); setPage(1); }} options={STATUSES} />
+
+      <div className="es-invfilters">
+        <label className="es-selectfield">
+          <span className="sr-only">Issued</span>
+          <NavIcon name="calendar" size={20} />
+          <select className="es-input" value={issued.days} onChange={(e) => pickIssued(e.target.value)}>
+            {ISSUED.map((o) => <option key={o.value || 'any'} value={o.value}>{o.label}</option>)}
+          </select>
+        </label>
+        <label className="es-selectfield">
+          <span className="sr-only">Organizer</span>
+          <NavIcon name="users" size={20} />
+          <select className="es-input" value={organizerId} onChange={(e) => { setOrganizerId(e.target.value); setPage(1); }}>
+            <option value="">All organizers</option>
+            {(organizers.data?.data || []).map((o) => <option key={o.id} value={o.id}>{o.displayName}</option>)}
+          </select>
+        </label>
+        <SearchBox label="Search invoices" placeholder="Event title or invoice number" value={search} onSearch={(v) => { setSearch(v); setPage(1); }} />
+      </div>
 
       {error ? (
         <ErrorNotice error={error} onRetry={reload} />
       ) : loading && !data ? (
         <Loading variant="list" rows={4} label="Loading invoices" />
       ) : rows.length === 0 ? (
-        <Empty
-          title="No invoices in this state."
-          hint={status === 'overdue' ? 'No gate is shut by an unpaid invoice right now.' : 'Try another filter — an invoice only appears once an event has door sales.'}
-        />
+        <StackedEmpty art={<InvoiceArt badge="percent" />} title={filtered ? 'No invoices in this state.' : 'No invoices yet.'}>
+          {status === 'overdue'
+            ? 'No gate is shut by an unpaid invoice right now.'
+            : 'Try another filter — an invoice only appears once an event has door sales.'}
+        </StackedEmpty>
       ) : (
         <>
           <DataTable

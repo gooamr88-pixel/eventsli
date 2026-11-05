@@ -5,6 +5,7 @@ const { parsePagination, applyPagination, buildMeta } = require('../middleware/p
 const { sendOk, sendFail, ERROR_STATUS } = require('../utils/responseEnvelope');
 const logger = require('../utils/logger');
 const { isInvoiceOverdue } = require('../utils/invoices');
+const { safeSearch } = require('../utils/search');
 
 const statusFor = (code) => ERROR_STATUS[code] || 400;
 const asFailure = (res, err) => sendFail(res, {
@@ -140,12 +141,30 @@ async function adminList(req, res, next) {
       .select('id, number, currency, amount_cents, status, issued_at, due_at, proof_url, proof_submitted_at, confirmed_at, order_count, events ( id, title, slug, starts_at ), organizers ( id, display_name )', { count: 'exact' });
 
     if (req.query.status) query = query.eq('status', req.query.status);
+    // Validated as a UUID / ISO date by the route.
+    if (req.query.organizerId) query = query.eq('organizer_id', req.query.organizerId);
+    if (req.query.issuedSince) query = query.gte('issued_at', req.query.issuedSince);
+
+    // `q` matches the invoice NUMBER or the EVENT's title. PostgREST cannot
+    // OR a column with a column of an embedded table, so the titles are looked
+    // up first and their ids folded into one `or`. Capped: a search that
+    // matches more than 200 events is a search worth narrowing.
+    const q = safeSearch(req.query.q);
+    if (q) {
+      const { data: hits, error: hitError } = await supabase
+        .from('events').select('id').ilike('title', `%${q}%`).limit(200);
+      if (hitError) throw new Error(hitError.message);
+      const ids = (hits || []).map((e) => e.id);
+      query = query.or([`number.ilike.%${q}%`, ...(ids.length ? [`event_id.in.(${ids.join(',')})`] : [])].join(','));
+    }
+
     // Oldest due first by default — a queue sorted newest-first starves the
     // invoices that have been waiting longest, which are the ones with a gate
     // shut behind them.
-    const { data, error, count } = await applyPagination(
-      query, { ...p, order: req.query.order === 'desc' ? 'desc' : 'asc' },
-    );
+    const [{ data, error, count }, totals] = await Promise.all([
+      applyPagination(query, { ...p, order: req.query.order === 'desc' ? 'desc' : 'asc' }),
+      invoiceTotals(),
+    ]);
     if (error) throw new Error(error.message);
 
     return sendOk(res, (data || []).map((i) => ({
@@ -163,8 +182,36 @@ async function adminList(req, res, next) {
       confirmedAt: i.confirmed_at,
       event: i.events && { id: i.events.id, title: i.events.title, startsAt: i.events.starts_at },
       organizer: i.organizers && { id: i.organizers.id, name: i.organizers.display_name },
-    })), { pagination: buildMeta(p, count) });
+    })), { pagination: buildMeta(p, count), meta: { totals } });
   } catch (err) { return next(err); }
+}
+
+/**
+ * The four figures over the admin's invoice list — for EVERY invoice, not the
+ * filtered page, so they do not jump about as the filters change. Per
+ * currency: CAD and USD are never added together.
+ *
+ *   count       invoices of any status
+ *   totalCents  everything raised, waived ones excluded (nobody owes those)
+ *   unpaidCents open, receipt sent, or overdue — the money still to come
+ *   settledCents paid
+ *
+ * One narrow read rather than an RPC: an invoice is raised per event with door
+ * sales, so this table stays small next to orders or tickets.
+ */
+async function invoiceTotals() {
+  const { data, error } = await supabase.from('invoices').select('currency, amount_cents, status');
+  if (error) throw new Error(error.message);
+  const out = { count: 0, byCurrency: {} };
+  for (const row of data || []) {
+    out.count += 1;
+    const t = out.byCurrency[row.currency] || (out.byCurrency[row.currency] = { totalCents: 0, unpaidCents: 0, settledCents: 0 });
+    const cents = Number(row.amount_cents) || 0;
+    if (row.status !== 'waived') t.totalCents += cents;
+    if (row.status === 'paid') t.settledCents += cents;
+    else if (row.status !== 'waived') t.unpaidCents += cents;
+  }
+  return out;
 }
 
 // The audit trail for invoice actions — checked, see services/auditService.js.

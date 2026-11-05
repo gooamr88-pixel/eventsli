@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { post } from '../utils/apiClient';
+import { get, post } from '../utils/apiClient';
 import { describeError, messageFor } from '../utils/errors';
 import { formatEventTime } from '../lib/eventTime';
 import { useApi } from '../hooks/useApi';
@@ -11,7 +11,11 @@ import { useConfirm } from '../components/ui/Confirm';
 import { PageHeader } from '../components/ui/Page';
 import { Pagination } from '../components/ui/Filters';
 import DataTable from '../components/ui/DataTable';
-import { Loading, Empty, ErrorNotice } from '../components/Feedback';
+import { Loading, ErrorNotice } from '../components/Feedback';
+import { Kpi, KpiRow } from '../components/ui/Kpi';
+import { StackedEmpty } from '../components/ui/SplitEmpty';
+import { ClipboardArt } from '../components/ui/Illustrations';
+import NavIcon from '../components/shell/NavIcon';
 
 /**
  * The review queue. BRD §16 — an organizer submits, only an admin publishes.
@@ -27,12 +31,47 @@ import { Loading, Empty, ErrorNotice } from '../components/Feedback';
  */
 const REASON = { label: 'What needs changing?', minLength: 10, maxLength: 2000, hint: 'Shown to the organizer and kept in the audit log.' };
 
+/**
+ * Approved and sent back in the last 30 days, counted from the AUDIT LOG —
+ * every decision here writes `event.approved` / `event.rejected` there, so it
+ * is the record, not a second count. `limit=1` and `pagination.total`: only
+ * the number crosses the wire.
+ *
+ * The cut-off is worked out inside the effect: `Date.now()` during render is
+ * an impure call the React rules here refuse. `null` while loading; `failed`
+ * shows a dash rather than a confident zero.
+ */
+function useDecisionCounts(version) {
+  const [counts, setCounts] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      const total = (action) => get(
+        `/admin/audit?action=${action}&since=${encodeURIComponent(since)}&limit=1`,
+        { cache: 'no-store', raw: true, noRedirect: true },
+      ).then((body) => Number(body?.pagination?.total ?? 0));
+      try {
+        const [approved, rejected] = await Promise.all([total('event.approved'), total('event.rejected')]);
+        if (!cancelled) setCounts({ approved, rejected });
+      } catch {
+        if (!cancelled) setCounts({ failed: true });
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [version]);
+  return counts;
+}
+
 export default function Approvals() {
   const toast = useToast();
   const confirm = useConfirm();
   const [page, setPage] = useState(1);
   const { data, error, loading, reload } = useApi(`/admin/approvals?limit=25&page=${page}`, { raw: true });
   const [busyId, setBusyId] = useState(null);
+  // Bumped after every decision, so the two counts move with the queue.
+  const [decided, setDecided] = useState(0);
+  const counts = useDecisionCounts(decided);
 
   async function act(event, what, body) {
     setBusyId(event.id);
@@ -42,6 +81,7 @@ export default function Approvals() {
         ? `“${event.title}” is published.`
         : `“${event.title}” went back to the organizer.`);
       reload();
+      setDecided((n) => n + 1);
     } catch (err) {
       // The API's own sentence — "This organizer is banned from selling", "no
       // recorded terms acceptance" — not a generic recovery line.
@@ -77,21 +117,42 @@ export default function Approvals() {
   }
 
   const events = data?.data || [];
+  const shown = (n) => (counts === null ? '…' : counts.failed ? '—' : n.toLocaleString());
 
   return (
     <div className="fx-stack">
       <PageHeader
         eyebrow="Events"
+        icon="layers"
         title="Waiting for review"
         lede="Nothing goes on sale until it is approved here. Open an event to see exactly what will be sold."
       />
+
+      <KpiRow label="The review queue at a glance" tiles>
+        <Kpi icon="clock" label="Waiting for review" value={data ? (data.pagination?.total ?? events.length).toLocaleString() : '…'} featured />
+        <Kpi icon="tick" label="Approved" sub="Last 30 days" value={shown(counts?.approved)} iconTone="success" />
+        <Kpi icon="close" label="Rejected" sub="Last 30 days" value={shown(counts?.rejected)} iconTone="danger" />
+      </KpiRow>
 
       {error ? (
         <ErrorNotice error={error} onRetry={reload} />
       ) : loading && !data ? (
         <Loading variant="list" rows={3} label="Loading the queue" />
       ) : events.length === 0 ? (
-        <Empty title="Nothing waiting." hint="Submitted events land here. An organizer cannot sell until one is approved." />
+        /* No "review guide" button: there is no such guide. The way on from
+           an empty queue is the list of every event. */
+        <StackedEmpty
+          art={<ClipboardArt />}
+          title="Nothing waiting."
+          action={(
+            <Link href="/admin/events" className="es-btn es-btn--primary">
+              <NavIcon name="calendar" size={18} />
+              See all events
+            </Link>
+          )}
+        >
+          Submitted events land here. An organizer cannot sell until one is approved.
+        </StackedEmpty>
       ) : (
         <>
           <DataTable
