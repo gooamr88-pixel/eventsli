@@ -104,13 +104,19 @@ async function recordAfterSale(event) {
     const accountId = typeof obj.account === 'string' ? obj.account : obj.account?.id;
     const chargeId = typeof obj.charge === 'string' ? obj.charge : obj.charge?.id;
     const charge = await stripeSvc.retrieveCharge(chargeId, accountId);
-    const { data, error } = await supabase.rpc('record_application_fee_refund', {
-      p_payment_intent_id: piId(charge.payment_intent),
-      p_account_id: accountId,
-      p_fee_refunded_cents: obj.amount_refunded,
+    const pi = piId(charge.payment_intent);
+    // Out of order like any other event (T-075): the order may not exist yet.
+    // A platform event carries no `event.account`, so the fee's own account
+    // stands in for it — the same account fulfilment then checks.
+    return withOrder({ type: event.type, account: accountId }, pi, async () => {
+      const { data, error } = await supabase.rpc('record_application_fee_refund', {
+        p_payment_intent_id: pi,
+        p_account_id: accountId,
+        p_fee_refunded_cents: obj.amount_refunded,
+      });
+      if (error) throw new Error(`record_application_fee_refund: ${error.message}`);
+      return data;
     });
-    if (error) throw new Error(`record_application_fee_refund: ${error.message}`);
-    return data;
   }
   return null;
 }

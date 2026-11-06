@@ -85,7 +85,11 @@ DECLARE
   v_currency CHAR(3); v_seat_ids UUID[]; v_table_ids UUID[];
   v_tickets INT := 0; v_general INT := 0; v_key TEXT;
   v_promo_id UUID; v_promo_code TEXT;
-  v_direct BOOLEAN := (p_breakdown->>'chargeModel') = 'direct';
+  -- COALESCE, never a bare comparison: a breakdown with no chargeModel — every
+  -- call from the release running before this one — compares to NULL, and
+  -- `IF NOT NULL` is not true, so the legacy payment_fee and transfer rows were
+  -- silently skipped (caught by the T-076 rehearsal test, 2026-11-06).
+  v_direct BOOLEAN := COALESCE((p_breakdown->>'chargeModel') = 'direct', false);
   v_account TEXT := NULLIF(p_stripe->>'account_id', '');
   v_org_account TEXT;
 BEGIN

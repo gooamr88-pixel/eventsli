@@ -61,6 +61,11 @@ const FUNCTIONS = [
   'event_order_totals', 'admin_event_sales', 'admin_organizer_sales', 'record_device_pin_failure',
   // Eventsli AI: two drafts a day, counted under a row lock (20261018090000).
   'ai_reserve_generation', 'ai_finish_generation', 'ai_generation_status',
+  // Organizer dashboards (20261103120000, 20261103130000, 20261103140000, 20261104090000).
+  'organizer_dashboard_trends', 'organizer_dashboard_insights', 'organizer_event_figures',
+  'event_overview_trends',
+  // Direct charges: what happens after the sale (20261106090000).
+  'record_stripe_refund', 'record_application_fee_refund', 'record_stripe_dispute',
 ];
 
 // Rules the database enforces as CHECKs (20260915140000).
@@ -70,6 +75,30 @@ const CONSTRAINTS = [
   'events_currency_follows_country',  // CAD in Canada, USD in the US
   'terms_versions_audience_version_key',
   'ai_generations_request',           // a retried request is never charged twice
+  // Direct charges (20261106090000).
+  'orders_charge_model_known', 'orders_direct_has_account', 'orders_refund_within_total',
+  'orders_fee_refund_within_fee', 'orders_disputed_non_negative',
+];
+
+/**
+ * DEFINITIONS, not names (TECH-AUDIT-LOG DB-04). Three of the November
+ * migrations change something that already exists — a CHECK's expression, a
+ * function's body — so a name check passes whether or not they ran. Each entry
+ * is [label, SQL returning one boolean `ok`, what it proves].
+ */
+const DEFINITIONS = [
+  ['24 browse categories (20261015090000, I-003)',
+    `SELECT count(*) >= 24 AS ok FROM event_categories`],
+  ['media URL check accepts any http(s) URL (20261016090000, I-004)',
+    `SELECT pg_get_constraintdef(oid) LIKE '%[:space:]%' AS ok FROM pg_constraint WHERE conname = 'media_url_is_http'`],
+  ['sponsor link check accepts any http(s) URL (20261016090000, I-004)',
+    `SELECT pg_get_constraintdef(oid) LIKE '%[:space:]%' AS ok FROM pg_constraint WHERE conname = 'event_sponsor_link_is_http'`],
+  ['AI feature list includes the launch kit (20261103090000)',
+    `SELECT pg_get_constraintdef(oid) LIKE '%launch_kit%' AS ok FROM pg_constraint WHERE conname = 'ai_generations_feature'`],
+  ['fulfill_checkout is the direct-charge version (20261106090000)',
+    `SELECT prosrc LIKE '%chargeModel%' AND prosrc LIKE '%v_org_account%' AS ok FROM pg_proc WHERE proname = 'fulfill_checkout'`],
+  ['success-page session lookup index (20261106090000)',
+    `SELECT to_regclass('public.reservations_stripe_session_idx') IS NOT NULL AS ok`],
 ];
 
 const INDEXES = [
@@ -104,6 +133,14 @@ const COLUMNS = [
   // Door PINs lock after repeated failures (20260915140000).
   ['scan_devices', 'failed_pin_count'],
   ['scan_devices', 'pin_locked_until'],
+  // Direct charges: whose charge, and what happened after (20261106090000).
+  ['orders', 'charge_model'],
+  ['orders', 'stripe_account_id'],
+  ['orders', 'stripe_charge_id'],
+  ['orders', 'refunded_cents'],
+  ['orders', 'application_fee_refunded_cents'],
+  ['orders', 'dispute_status'],
+  ['orders', 'disputed_cents'],
 ];
 
 (async () => {
@@ -149,6 +186,13 @@ const COLUMNS = [
     );
     const cons = new Set(kRows.map((r) => r.conname));
     for (const k of CONSTRAINTS) report(cons.has(k), k);
+
+    console.log('\n── definitions (a name check cannot see these) ──');
+    for (const [label, sql] of DEFINITIONS) {
+      // eslint-disable-next-line no-await-in-loop
+      const { rows } = await client.query(sql).catch((e) => ({ rows: [], err: e }));
+      report(rows[0]?.ok === true, label);
+    }
 
     console.log('\n── indexes on the hot paths ──');
     const { rows: iRows } = await client.query(

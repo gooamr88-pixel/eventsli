@@ -1,5 +1,6 @@
 const { supabase } = require('../config/supabase');
 const pricing = require('../services/pricingService');
+const { CHARGE_MODEL } = require('../utils/money');
 const stripeSvc = require('../services/stripeService');
 const checkoutSessions = require('../services/checkoutSessions');
 const tickets = require('../services/ticketService');
@@ -408,7 +409,18 @@ async function fulfillFromSession(session, { account = null } = {}) {
   let breakdown = null;
   if (reservation?.state === 'active') {
     try {
-      const q = await pricing.quoteReservation(reservationId);
+      /**
+       * ── THE DEPLOY WINDOW (TECH-AUDIT-LOG T-076) ──
+       * A session with NO recorded organizer account was opened by the previous
+       * release: a DESTINATION charge on the platform account, paid in the ~30
+       * minutes either side of the deploy. Quoted as direct, fulfill_checkout
+       * would refuse it for having no organizer account — a charged buyer with
+       * no tickets. It is priced and recorded as what it actually is.
+       */
+      const legacy = !recordedAccount;
+      const q = await pricing.quoteReservation(reservationId,
+        legacy ? { chargeModel: CHARGE_MODEL.DESTINATION } : undefined);
+      if (legacy) logger.warn({ reservationId, sessionId: session.id }, 'fulfilling a legacy destination-charge session');
       breakdown = checkoutSessions.breakdownForFulfilment({
         session,
         snapshot: reservation.attendee_data?.quote,

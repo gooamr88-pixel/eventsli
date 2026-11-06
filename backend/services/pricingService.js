@@ -26,7 +26,7 @@ async function stripeCostModel() {
 /**
  * @returns {{ breakdown, event, reservation, items }} — or throws with a code.
  */
-async function quoteReservation(reservationId) {
+async function quoteReservation(reservationId, { chargeModel = CHARGE_MODEL.DIRECT } = {}) {
   const { data: res } = await supabase
     .from('reservations')
     .select('id, event_id, user_id, state, expires_at')
@@ -126,8 +126,10 @@ async function quoteReservation(reservationId) {
     stripe,
     // A card sale is a DIRECT charge on the organizer's own account
     // (TECH-AUDIT-LOG T-074): our fee is the commission and its tax; Stripe's
-    // fee is the organizer's.
-    chargeModel: CHARGE_MODEL.DIRECT,
+    // fee is the organizer's. DESTINATION only for a legacy session opened by
+    // the previous release on the platform account and paid after this one
+    // went live (checkoutController.fulfillFromSession).
+    chargeModel,
   });
 
   return {

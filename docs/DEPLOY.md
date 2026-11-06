@@ -77,7 +77,7 @@ Create both endpoints at the same URL, `https://eventsli.com/api/v1/payments/web
 | Endpoint | "Events from" | Events | Secret → env var |
 |---|---|---|---|
 | Connect | **Connected accounts** | `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.expired`, `charge.refunded`, `charge.dispute.created`, `charge.dispute.updated`, `charge.dispute.closed`, `charge.dispute.funds_withdrawn`, `charge.dispute.funds_reinstated` | `STRIPE_CONNECT_WEBHOOK_SECRET` |
-| Platform | **Your account** | `application_fee.refunded` | `STRIPE_WEBHOOK_SECRET` |
+| Platform | **Your account** | `application_fee.refunded`, plus `checkout.session.completed` and `checkout.session.expired` (checkouts opened by a pre-T-074 release live on the platform account; T-076) | `STRIPE_WEBHOOK_SECRET` |
 
 The API verifies a delivery against either secret, and refuses to boot with card
 payments on unless both are set. A `whsec_` from `stripe listen` is a CLI-local

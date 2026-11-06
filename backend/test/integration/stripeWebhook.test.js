@@ -436,6 +436,64 @@ test('REGRESSION: a dispute that arrives BEFORE its payment\'s checkout event is
   }
 });
 
+test('REGRESSION T-076: a checkout opened by the PREVIOUS release, paid after the deploy, still issues tickets', async () => {
+  // The old release recorded the session id but no organizer account and no
+  // price snapshot — a destination charge on the platform. Quoted as a direct
+  // charge it would be refused for having no account: charged, no tickets.
+  const reservationId = await hold([seatIds[15]]);
+  const cs = session(reservationId);
+  const { error } = await supabase.from('reservations')
+    .update({ attendee_data: { buyer: { email: 'buyer@eventsli-test.invalid' }, stripeSessionId: cs.id } })
+    .eq('id', reservationId);
+  assert.equal(error, null);
+
+  // From the PLATFORM endpoint: no `event.account`, as for every old session.
+  const res = await deliver(stripeEvent('checkout.session.completed', cs));
+  assert.equal(res.status, 200, JSON.stringify(res.body));
+  assert.ok(res.body.orderId, JSON.stringify(res.body));
+
+  const { data: order } = await supabase.from('orders')
+    .select('id, status, charge_model, stripe_account_id').eq('id', res.body.orderId).single();
+  assert.equal(order.status, 'paid');
+  assert.equal(order.charge_model, 'destination', 'recorded as what it actually was');
+  assert.equal(order.stripe_account_id, null);
+  const types = (await ledgerOf(order.id)).map((l) => l.entry_type);
+  assert.ok(types.includes('transfer'), `the legacy ledger shape is kept: ${types}`);
+});
+
+test('an EARLY fee refund (before its payment\'s checkout event) is not lost either', async () => {
+  const stripeSvc = require('../../services/stripeService');
+  const saved = { s: stripeSvc.sessionForPaymentIntent, c: stripeSvc.retrieveCharge };
+  // The table seeded for this suite is full by now; a fresh one for this case.
+  const { data: t } = await supabase.from('tables').insert({
+    venue_map_id: ids.map, label: 'Early', seat_count: 1, price_cents: 5000,
+  }).select('id').single();
+  const { data: [seat] } = await supabase.from('seats').insert([{
+    venue_map_id: ids.map, table_id: t.id, tier_id: (await supabase.from('ticket_tiers').select('id').eq('event_id', ids.event).limit(1).single()).data.id,
+    section_key: 'Early', row_label: 'A', seat_number: '1',
+  }]).select('id');
+  const reservationId = await hold([seat.id]);
+  const cs = await bind(reservationId, session(reservationId));
+  stripeSvc.sessionForPaymentIntent = async (pi, account) => (pi === cs.payment_intent && account === ORG_ACCOUNT ? cs : null);
+  stripeSvc.retrieveCharge = async () => ({ id: `ch_test_fee_${stamp}`, payment_intent: cs.payment_intent });
+  try {
+    const fee = {
+      id: `fee_test_early_${stamp}`, object: 'application_fee', account: ORG_ACCOUNT,
+      charge: `ch_test_fee_${stamp}`, amount: 100, amount_refunded: 20,
+    };
+    const res = await deliver(stripeEvent('application_fee.refunded', fee));   // platform event: no event.account
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.equal(res.body.outcome, 'recorded');
+    const { data: order } = await supabase.from('orders')
+      .select('status, application_fee_refunded_cents').eq('reservation_id', reservationId).single();
+    assert.equal(order.status, 'paid', 'fulfilled first');
+    assert.equal(Number(order.application_fee_refunded_cents), 20);
+  } finally {
+    stripeSvc.sessionForPaymentIntent = saved.s;
+    stripeSvc.retrieveCharge = saved.c;
+  }
+});
+
 test('an early dispute for a charge Eventsli never created is still ignored', async () => {
   const stripeSvc = require('../../services/stripeService');
   const original = stripeSvc.sessionForPaymentIntent;

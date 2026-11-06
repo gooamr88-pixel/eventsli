@@ -79,6 +79,8 @@ migration and therefore a local Supabase stack to verify.
 | T-073 | **High** | The platform (test mode) cannot create organizer Connect accounts: Stripe refuses `accounts.create({ type: "express" })` while the platform has not confirmed it is the losses collector. The app's error translator sent operators to the wrong setting for this refusal | Superseded by T-074 (do NOT accept platform loss liability); translator fix kept |
 | T-074 | **Critical** | Payment architecture contradicted the business model: destination charges made Eventsli the settlement merchant, payer of Stripe fees and disputes, and liable for organizer losses; the webhook trusted metadata alone (exploitable under direct charges) | Implemented; test mode FULLY verified for CA and US organizers with real webhook delivery and test payouts, no waiver; production steps pending |
 | T-075 | High | Stripe delivers events out of order: a dispute arriving before its payment's checkout event was answered ORDER_NOT_FOUND and lost | Fixed (verified: integration + live redelivery) |
+| T-076 | **Critical** | Deploy window: a pre-release checkout paid after the deploy was re-quoted as direct and refused (charged, no tickets) | Fixed (verified: integration; uncommitted) |
+| T-077 | **Critical** | Migration NULL bug dropped legacy ledger rows; verify-schema could not confirm the rollout; apply-migration lacked lock timeouts, re-run guards and RLS on schema_migrations | Fixed (verified: rehearsal + tests; uncommitted) |
 
 ### Phase 2 — Reliability, operability, broken flows
 
@@ -873,3 +875,83 @@ debited. This matches the required model.
    (`needsReconnect`).
 7. I-002: rotate the exposed live keys.
 8. Commit the work (nothing is committed).
+
+---
+
+## Production-safety review of the rollout (2026-11-06)
+
+Scope: the nine pending migrations, `apply-migration.js`, `verify-schema.js`,
+the runbook, backward compatibility, and Stripe coverage. **Nothing touched
+production.**
+
+The rehearsal ran on a local database rebuilt to production's expected state
+(43 migrations; the nine held back). It was populated by the **current
+production code** (`main` @ `48f8eef`, run from a worktree): 14 orders, 58
+ledger rows. Then the nine were applied with the real `apply-migration.js`,
+through a local stand-in for `scripts/db.js`.
+
+### Found and fixed
+
+| ID | Sev | Finding | Fix | Evidence |
+|---|---|---|---|---|
+| T-076 | **Critical** | **Deploy window.** A checkout opened by the previous release (destination charge on the platform; session id recorded, no account, no snapshot) and paid after the deploy was re-quoted as DIRECT, so `fulfill_checkout` refused it for having no account. The buyer would be charged with no tickets. | `fulfillFromSession`: a session with no recorded account is quoted and recorded as DESTINATION (`quoteReservation(id, { chargeModel })`). Runbook: the platform endpoint also receives `checkout.session.completed` and `checkout.session.expired`. | Integration "a checkout opened by the PREVIOUS release, paid after the deploy, still issues tickets" (charge_model `destination`, transfer row present). |
+| T-077a | **Critical** | **NULL in the migration.** `v_direct BOOLEAN := (breakdown->>'chargeModel') = 'direct'` is NULL when the key is absent, which is every call from the current production code. `IF NOT v_direct` then skipped the `payment_fee` and `transfer` ledger rows: migration-before-code would have silently dropped legacy ledger rows. | `COALESCE(…, false)` (migration not yet applied anywhere but local). | The T-076 test failed on exactly this, then passed. In the rehearsal, all 22 current-code card orders have their transfer row. |
+| T-077b | High | `verify-schema.js` checked names only and none of the nine's objects, so it could not confirm the rollout (DB-04). | It now checks the new functions, columns and constraints, plus a **definitions** section: 24 categories, the media and sponsor URL CHECK expressions (I-004), the launch_kit feature list, the direct-charge `fulfill_checkout` body, and the session index. | Rehearsal: `Schema verified.` |
+| T-077c | Medium | `apply-migration.js` could queue an `ALTER TABLE` behind a long transaction (a site-wide stall), had no protection against files that break its transaction, and nothing stopped re-running the two old migrations that change live data on a re-run. | `SET LOCAL lock_timeout '5s'`, `statement_timeout '120s'`. Refuses own BEGIN/COMMIT, `INDEX CONCURRENTLY` and VACUUM, with comments ignored. **Refuses** `20260915090000_email_verification` (it would verify every unverified account) and `20260829120000_payment_fee_mode` (it would reset admin settings) unless `--first-time`. | `test/applyMigrationGuards.test.js` (4). The guard passes all 52 real migrations. |
+| T-077d | Low | `schema_migrations`, created by `apply-migration.js`, had no RLS and no revoke, so it was readable with the anon key. `verify-schema.js` flagged it. | The script enables RLS and revokes access from PUBLIC, anon and authenticated on every run, which also fixes an existing table. | Rehearsal: the leak gone, `Schema verified.` |
+| T-077e | Low | `application_fee.refunded` arriving before its payment's checkout event was dropped (same class as T-075). | Wrapped in the fulfil-first path, using the fee's account. | Integration "an EARLY fee refund … is not lost either". |
+
+### Corrections to earlier advice
+
+The re-run warnings given earlier for `20260917091000_organizer_experience`
+("turns off payments on every event") and `20260919120000_account_types`
+("overwrites every account's type") were **overstated**. Read in full:
+
+- The first only affects display-only listings.
+- The second only adds the organizer type to profiles that own an organizer.
+
+Both are convergent on a re-run. The two genuinely unsafe ones are in T-077c.
+
+### Rehearsal results
+
+| Step | Result |
+|---|---|
+| Nine applied in order by `apply-migration.js` onto data written by the current code | 9/9 `applied` |
+| Re-run, recorded | 9/9 `already recorded` |
+| Re-run as raw SQL, unrecorded (SQL-editor case), one transaction each, ON_ERROR_STOP | 9/9 no error; data unchanged (24 categories, 14 orders, 58 ledger rows, constraints present once) |
+| `verify-schema.js` | `Schema verified.` |
+| **Current production code's** integration suite, before → after the nine | 285/311 → **304/311**. The 7 remaining failures are exactly the known stale tests (T-071). **New failures: 0.** |
+| New code: backend unit / integration / frontend / build / audit / secret scan | **449/449 / 322/322 / 755/755 / pass / 0 vulns / clean** |
+
+### Stripe coverage
+
+| Requirement | Covered by |
+|---|---|
+| Direct charge on the organizer's account; no transfer; Managed Payments off | `stripeService.createCheckoutSession`; unit `stripeSessionParams`; live CA+US |
+| Organizer pays Stripe fees; Eventsli takes commission (+ its tax) | `describeDirectOrder`; unit `directCharges`; live balance transactions |
+| Liability: Stripe as losses collector; legacy accounts refused | `connectModel.checkAccount` on every checkout; `connect-audit.js`; live |
+| Webhooks: Connect and platform secrets; binding to our session and account; idempotent; out-of-order safe | `paymentController`; integration `stripeWebhook` (22 cases); live delivery |
+| Ledger: sale, fee, refund, fee refund, dispute adjustments; legacy shape preserved | migration RPCs; integration `fulfillment`, `stripeWebhook`; rehearsal |
+| Refunds and partial refunds; fee refunds; disputes withdrawn, reinstated, won and lost | integration + live CA and US |
+| Payouts | live: CA 40.64 CAD and US 20.78 USD reached `paid` (organizer's own balance) |
+| Deploy window (legacy sessions) | T-076 fix and test; runbook platform endpoint events |
+
+### Verdict
+
+**Migrations, scripts and code: technically ready.** Every check above
+passed.
+
+**Production rollout overall: NOT READY.** These blockers remain:
+
+1. **I-002:** the live secrets in the plaintext file are still unrotated,
+   including the DB password the migration script uses.
+2. **The T-076/T-077 fixes are uncommitted**, by instruction. Without them the
+   migration drops legacy ledger rows and the deploy window charges buyers
+   without tickets. They must be committed, pass CI, and be merged before
+   step 3.
+3. **Owner configuration:** live Stripe webhooks (both endpoints) and secrets,
+   the Managed Payments default, the platform-profile choice.
+4. **Owner decisions:** counsel review; the refund-fee policy.
+5. **Unknown production state:** run step 2 of PRODUCTION-ROLLOUT.md
+   (read-only) first. Stop if any older migration is missing or a `bad_*`
+   count is non-zero.
