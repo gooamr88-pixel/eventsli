@@ -21,6 +21,17 @@
  *   platform_settings   Admin-set defaults — currencies, commission, fees.
  *   schema_migrations   The migration ledger.
  *   job_leases          Scheduler leases. Machinery, not data.
+ *   event_categories    The browse categories (24, seeded by migrations).
+ *                       `events.category` references them; without them no
+ *                       event can be categorised.
+ *   site_content,       The homepage an admin edits (storefront CMS). Owner's
+ *   sponsors,           decision, 2026-11-06: a reset empties the platform's
+ *   testimonials        history, not its shop window.
+ *
+ * Uploaded files (posters, event media) live in Supabase STORAGE, not in these
+ * tables, and are not touched. Organizers' Stripe accounts live in Stripe and
+ * are not touched either: a wiped organizer who signs up again gets a NEW
+ * connected account.
  *
  * CASCADE REACHES KEPT TABLES TOO. It follows foreign-key definitions, not
  * data: `platform_settings.updated_by` references `profiles`, so wiping people
@@ -53,15 +64,20 @@ const WIPE = [
   'reservation_items', 'reservations',
   // the room
   'seats', 'tables', 'table_categories', 'ticket_tiers', 'venue_maps',
-  // the events themselves
-  'terms_acceptances', 'events',
+  // the events themselves, and what an organizer wrote about them
+  'event_media', 'event_sponsors', 'event_policies', 'event_schedule',
+  'event_cancellation_requests', 'terms_acceptances', 'events',
   // people
+  'ai_generations', 'organizer_payment_methods',
   'organizers', 'sessions', 'password_resets', 'email_verifications', 'profiles',
   // logs
-  'admin_audit', 'webhook_events',
+  'admin_audit', 'webhook_events', 'site_visits', 'site_visit_marks',
 ];
 
-const KEEP = ['terms_versions', 'platform_settings', 'schema_migrations', 'job_leases'];
+const KEEP = [
+  'terms_versions', 'platform_settings', 'schema_migrations', 'job_leases',
+  'event_categories', 'site_content', 'sponsors', 'testimonials',
+];
 
 const q = (name) => `"${String(name).replace(/"/g, '""')}"`;
 
