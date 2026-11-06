@@ -1,5 +1,6 @@
 const promo = require('../services/promoService');
 const pricing = require('../services/pricingService');
+const checkoutSessions = require('../services/checkoutSessions');
 const { supabase } = require('../config/supabase');
 const { sendOk, sendFail, ERROR_STATUS } = require('../utils/responseEnvelope');
 
@@ -49,6 +50,11 @@ async function apply(req, res, next) {
       });
     }
 
+    // A Checkout Session already open on this hold charges the OLD total. It is
+    // made unpayable first, or the buyer could pay one amount while the order
+    // records another (TECH-AUDIT-LOG T-012). Refuses if it was already paid.
+    await checkoutSessions.closeOpenSession(req.params.reservationId);
+
     // Priced BEFORE the claim, so a percentage discount is taken against the
     // real subtotal rather than one the client suggested.
     const before = await pricing.quoteReservation(req.params.reservationId);
@@ -91,6 +97,10 @@ async function remove(req, res, next) {
         message: 'That hold has ended, so its code can no longer be removed.',
       });
     }
+
+    // Removing a code from a hold whose discounted session is still payable
+    // freed a single-use code while this buyer paid the discounted price.
+    await checkoutSessions.closeOpenSession(req.params.reservationId);
 
     await promo.release(req.params.reservationId);
     const q = await pricing.quoteReservation(req.params.reservationId);

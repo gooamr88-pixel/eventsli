@@ -2,6 +2,7 @@ const { supabase } = require('../config/supabase');
 const scanSvc = require('../services/scanService');
 const { sendOk, sendFail } = require('../utils/responseEnvelope');
 const logger = require('../utils/logger');
+const { hashIp } = require('../utils/crypto');
 
 // ═══ ORGANIZER — managing the gate ══════════════════════════════════════════
 
@@ -60,7 +61,9 @@ async function deviceLogin(req, res, next) {
       deviceId: req.body.deviceId, pin: req.body.pin,
     });
     if (!result) {
-      logger.warn({ deviceId: req.body.deviceId, ip: req.ip }, 'device login failed');
+      // Hashed like every stored address (utils/crypto.hashIp): still enough to
+      // correlate repeated failures, no longer a raw IP in the log.
+      logger.warn({ deviceId: req.body.deviceId, ipHash: hashIp(req.ip) }, 'device login failed');
       return sendFail(res, {
         status: 401, error: 'UNAUTHENTICATED',
         // The same sentence for a wrong PIN, a revoked device and a locked one.

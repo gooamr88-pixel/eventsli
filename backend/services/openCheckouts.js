@@ -45,7 +45,8 @@ async function closeOpenCheckouts(eventId) {
     if (sessionId && canExpire) {
       try {
         // eslint-disable-next-line no-await-in-loop
-        await stripeSvc.expireSession(sessionId);
+        // On the organizer's account for a direct charge (T-074).
+        await stripeSvc.expireSession(sessionId, hold.attendee_data?.stripeAccountId);
         summary.expired += 1;
       } catch (err) {
         summary.failed += 1;

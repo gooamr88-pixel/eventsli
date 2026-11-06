@@ -315,12 +315,18 @@ async function verificationStatus(req, res, next) {
 
     const { data: user, error } = await supabase
       .from('profiles')
-      .select('id, email, full_name, role, account_types, is_blocked, email_verified_at, signup_intent')
+      .select('id, email, full_name, role, account_types, is_blocked, email_verified_at, signup_intent, password_hash')
       .eq('id', userId)
       .maybeSingle();
     if (error) throw new Error(error.message);
 
     if (!user || !user.email_verified_at) return sendOk(res, { verified: false });
+    // Confirmed by Google rather than by the code or link this tab is waiting
+    // on: Google sign-in strips an unproven password (googleAuthService), so
+    // the browser holding this watch token proved nothing about the inbox.
+    // Signing it in here was the 30-minute shortcut of the pre-account
+    // takeover (TECH-AUDIT-LOG T-013).
+    if (!user.password_hash) return sendOk(res, { verified: true, signedIn: false });
     // Confirmed but suspended since: the address is fine, the account is not,
     // and a session must not be minted for it. Reported as verified so the
     // waiting page stops waiting and sends them to sign in, where the block is

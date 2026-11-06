@@ -33,6 +33,23 @@ test('the Accounts v1 refusal becomes an instruction', () => {
   assert.match(err.message, /Enable "Accounts v1 support"/);
 });
 
+test('REGRESSION T-073: the losses-collector refusal points at the platform profile, not the v1 toggle', () => {
+  // Verbatim from Stripe test mode, 2026-11-06. It contains "Accounts v1", so
+  // it used to receive the v1-toggle instruction, which does not fix it.
+  const raw = new Error(
+    'You tried to create an Accounts v1 connected account using the legacy `type` field with '
+    + 'your platform as the losses collector. Use Accounts v2, remove `type`, and set '
+    + '`losses_collector` to `stripe`, then retry your request.',
+  );
+  const err = translateConnectError(raw);
+
+  assert.equal(err.code, 'STRIPE_NOT_CONFIGURED');
+  assert.equal(err.operatorAction, true);
+  assert.match(err.message, /settings\/connect\/platform-profile/);
+  assert.doesNotMatch(err.message, /Accounts v1 support/);
+  assert.equal(err.cause, raw, 'the original stays attached for the logs');
+});
+
 test('a Connect-not-enabled refusal points at the Connect settings', () => {
   const raw = new Error('Connect is not enabled for this account.');
   const err = translateConnectError(raw);

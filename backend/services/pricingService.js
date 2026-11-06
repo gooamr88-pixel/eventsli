@@ -1,5 +1,7 @@
 const { supabase } = require('../config/supabase');
-const { describeOrder, FEE_BEARER, PAYMENT_FEE_MODE } = require('../utils/money');
+const {
+  describeOrder, FEE_BEARER, PAYMENT_FEE_MODE, CHARGE_MODEL,
+} = require('../utils/money');
 const promo = require('./promoService');
 
 /**
@@ -122,6 +124,10 @@ async function quoteReservation(reservationId) {
     feeBearer: event.fee_bearer === 'organizer' ? FEE_BEARER.ORGANIZER : FEE_BEARER.BUYER,
     discountCents: claimed?.discountCents || 0,
     stripe,
+    // A card sale is a DIRECT charge on the organizer's own account
+    // (TECH-AUDIT-LOG T-074): our fee is the commission and its tax; Stripe's
+    // fee is the organizer's.
+    chargeModel: CHARGE_MODEL.DIRECT,
   });
 
   return {

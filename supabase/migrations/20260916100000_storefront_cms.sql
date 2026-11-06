@@ -361,9 +361,11 @@ REVOKE ALL ON FUNCTION touch_updated_at() FROM PUBLIC, anon, authenticated;
 --
 -- Guarded on the schema existing, because CI runs `supabase start` with storage
 -- disabled and an unguarded INSERT fails the migration check there.
+-- On the TABLE, not the schema (2026-11-05, TECH-AUDIT-LOG T-069): newer images
+-- create an empty `storage` schema with storage disabled.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM information_schema.schemata WHERE schema_name = 'storage') THEN
+  IF to_regclass('storage.buckets') IS NOT NULL THEN
     INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
     VALUES (
       'site-media',

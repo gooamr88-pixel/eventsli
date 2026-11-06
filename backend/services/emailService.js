@@ -22,13 +22,31 @@ const API = 'https://api.brevo.com/v3/smtp/email';
 const configured = () => !!process.env.BREVO_API_KEY;
 
 /**
+ * What a log line may say about a message.
+ *
+ * The verification email's SUBJECT begins with its six-digit code, and these
+ * lines used to log `{ to, subject }` whenever Brevo was unset or refused a
+ * send — so anyone reading the logs held an address and a working code for it
+ * (TECH-AUDIT-LOG T-021). The address is masked and every run of digits in the
+ * subject is blanked; enough is left to tell which message failed.
+ */
+function loggable({ to, subject }) {
+  const addr = String(to || '');
+  const at = addr.indexOf('@');
+  return {
+    to: at > 0 ? `${addr.slice(0, Math.min(2, at))}•••${addr.slice(at)}` : (addr ? '•••' : null),
+    subject: String(subject || '').replace(/[0-9]{3,}/g, '•••'),
+  };
+}
+
+/**
  * @returns {Promise<{sent: boolean, reason?: string}>} — never rejects.
  */
 async function send({ to, subject, html, replyTo }) {
   if (!configured()) {
     // Loud in development, where the usual reason is an unset key and the usual
     // symptom is silence.
-    logger.warn({ to, subject }, 'email not sent: BREVO_API_KEY is not set');
+    logger.warn(loggable({ to, subject }), 'email not sent: BREVO_API_KEY is not set');
     return { sent: false, reason: 'not_configured' };
   }
   if (!to) return { sent: false, reason: 'no_recipient' };
@@ -59,13 +77,13 @@ async function send({ to, subject, html, replyTo }) {
 
     if (!res.ok) {
       const body = await res.text().catch(() => '');
-      logger.error({ to, subject, status: res.status, body: body.slice(0, 300) },
+      logger.error({ ...loggable({ to, subject }), status: res.status, body: body.slice(0, 300) },
         'email rejected by Brevo');
       return { sent: false, reason: `http_${res.status}` };
     }
     return { sent: true };
   } catch (err) {
-    logger.error({ err: err.message, to, subject }, 'email failed');
+    logger.error({ err: err.message, ...loggable({ to, subject }) }, 'email failed');
     return { sent: false, reason: 'network' };
   }
 }
@@ -469,6 +487,7 @@ async function sendDoorTeamAdded({ to, name, eventTitle, organizerName, startsAt
 }
 
 module.exports = {
+  loggable,
   configured,
   send,
   escapeHtml,

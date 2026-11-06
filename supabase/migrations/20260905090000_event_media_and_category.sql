@@ -87,9 +87,14 @@ CREATE INDEX IF NOT EXISTS events_published_browse
 -- `[storage] enabled = false` (config.toml — it saves minutes of container
 -- pulls per run), so an unguarded INSERT here would fail every migration check
 -- on a stack that is deliberately not running storage.
+--
+-- Guarded on the TABLE, not the schema (edited 2026-11-05, TECH-AUDIT-LOG
+-- T-069). Newer Supabase Postgres images create an empty `storage` schema even
+-- with storage disabled, so the schema check passed and the INSERT failed on
+-- every fresh stack. Where the table exists the statement is unchanged.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM information_schema.schemata WHERE schema_name = 'storage') THEN
+  IF to_regclass('storage.buckets') IS NOT NULL THEN
     INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
     VALUES (
       'event-media',

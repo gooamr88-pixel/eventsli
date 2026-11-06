@@ -182,7 +182,11 @@ test('a generation every provider failed costs nothing', async () => {
   const rows = await supabase.from('ai_generations').select('status, attempts, failure_code').eq('organizer_id', o.organizerId);
   assert.equal(rows.data.length, 1);
   assert.equal(rows.data[0].status, 'released');
-  assert.equal(rows.data[0].attempts, 2, 'Gemini, then Groq');
+  // Four, not two: a fast 503 is retried once per provider (I-024,
+  // services/ai/providerLoop.js OVERLOAD_RETRY), and this fake answers 503 for
+  // both — Gemini, Gemini again, Groq, Groq again. Still one released row and
+  // no quota spent, which is what this test is about (TECH-AUDIT-LOG T-071).
+  assert.equal(rows.data[0].attempts, 4, 'Gemini ×2, then Groq ×2 — one overload retry each');
   assert.equal(rows.data[0].failure_code, 'AI_UPSTREAM');
 });
 

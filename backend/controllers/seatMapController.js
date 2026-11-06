@@ -314,13 +314,26 @@ async function release(req, res, next) {
       });
     }
 
+    // A Stripe page still open on this hold would take payment for seats about
+    // to go back on sale. Made unpayable first; refused if already paid, since
+    // that payment's fulfilment needs the hold (TECH-AUDIT-LOG T-010).
+    try {
+      await require('../services/checkoutSessions').closeOpenSession(req.params.reservationId);
+    } catch (err) {
+      if (err.code) {
+        return sendFail(res, { status: statusFor(err.code), error: err.code, message: err.message });
+      }
+      throw err;
+    }
+
     // Released FIRST. A limited code otherwise leaks one use per abandoned
     // checkout, and the leak is invisible until the code runs out early.
     await require('../services/promoService').release(req.params.reservationId);
 
-    const { data: result } = await supabase.rpc('release_reservation', {
+    const { data: result, error: releaseError } = await supabase.rpc('release_reservation', {
       p_reservation_id: req.params.reservationId,
     });
+    if (releaseError) throw new Error(`release_reservation failed: ${releaseError.message}`);
     if (!result?.ok) {
       return sendFail(res, {
         status: statusFor(result?.error), error: result?.error || 'CONFLICT',
@@ -343,9 +356,15 @@ async function privateTablesFor(seatIds) {
   return [...new Set((data || []).map((s) => s.table_id))];
 }
 
+/**
+ * Throws on a lookup error, like `privateTablesFor`. This used to read `data`
+ * only, so a failed lookup answered "not private" and a private table became
+ * holdable without its password (TECH-AUDIT-LOG T-015). A gate fails closed.
+ */
 async function tableIsPrivate(tableId) {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('tables').select('is_private').eq('id', tableId).maybeSingle();
+  if (error) throw new Error(`private table lookup failed: ${error.message}`);
   return !!data?.is_private;
 }
 

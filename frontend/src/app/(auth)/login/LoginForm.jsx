@@ -155,11 +155,24 @@ function Divider() {
 /**
  * Same-origin paths only.
  *
- * The two checks are not redundant: `startsWith('/')` alone lets through
- * `//evil.test`, which a browser resolves as a protocol-relative absolute URL.
+ * `startsWith('/')` alone lets through `//evil.test`, which a browser resolves
+ * as a protocol-relative absolute URL. Refusing `//` was not enough either: the
+ * URL parser reads `\` as `/` and silently drops tab, CR and LF, so
+ * `/\evil.test` and `/<TAB>/evil.test` both became `https://evil.test/`
+ * after a real sign-in (TECH-AUDIT-LOG T-014). A string check is a guess about
+ * what the parser will do; the parser is asked instead, against a placeholder
+ * origin, and anything that leaves it is refused.
  */
+const SAME_ORIGIN = 'https://same-origin.invalid';
+
 export function safeNext(value) {
   if (typeof value !== 'string') return '/';
   if (!value.startsWith('/') || value.startsWith('//')) return '/';
+  if (/[\\\u0000-\u001f\u007f]/.test(value)) return '/';
+  try {
+    if (new URL(value, SAME_ORIGIN).origin !== SAME_ORIGIN) return '/';
+  } catch {
+    return '/';
+  }
   return value;
 }

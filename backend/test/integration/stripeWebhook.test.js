@@ -30,6 +30,9 @@ const stamp = Date.now();
 const ids = {};
 let seatIds = [];
 let n = 0;
+// The organizer's own (test-only) connected account, and a stranger's.
+const ORG_ACCOUNT = `acct_test_whk_org_${stamp}`;
+const OTHER_ACCOUNT = `acct_test_whk_other_${stamp}`;
 const eventId = () => `evt_local_${stamp}_${(n += 1)}`;
 
 async function seed() {
@@ -39,6 +42,7 @@ async function seed() {
   ids.profile = profile.id;
   const { data: org } = await supabase.from('organizers').insert({
     owner_user_id: profile.id, display_name: 'Webhook Co', country: 'CA',
+    stripe_account_id: ORG_ACCOUNT,
   }).select('id').single();
   ids.organizer = org.id;
   const { data: terms } = await supabase.from('terms_versions')
@@ -61,9 +65,9 @@ async function seed() {
   const { data: tier } = await supabase.from('ticket_tiers')
     .insert({ event_id: ev.id, name: 'Standard', price_cents: 5000 }).select('id').single();
   const { data: t } = await supabase.from('tables').insert({
-    venue_map_id: map.id, label: 'Main', seat_count: 6, price_cents: 30000,
+    venue_map_id: map.id, label: 'Main', seat_count: 16, price_cents: 30000,
   }).select('id').single();
-  const { data: s } = await supabase.from('seats').insert(Array.from({ length: 6 }, (_, i) => ({
+  const { data: s } = await supabase.from('seats').insert(Array.from({ length: 16 }, (_, i) => ({
     venue_map_id: map.id, table_id: t.id, tier_id: tier.id,
     section_key: 'Main', row_label: 'A', seat_number: String(i + 1),
   }))).select('id');
@@ -132,6 +136,20 @@ async function deliver(evt, { secret = process.env.STRIPE_WEBHOOK_SECRET, sign =
 const claimRow = async (id) => (await supabase.from('webhook_events')
   .select('processed_at, error').eq('stripe_event_id', id).maybeSingle()).data;
 
+/**
+ * DIRECT CHARGES (T-074). Checkout records, on the hold, the session it made
+ * and the organizer account it lives on; Stripe stamps `event.account` on every
+ * event from that account. A paid session counts only when all three agree.
+ */
+async function bind(reservationId, cs, account = ORG_ACCOUNT) {
+  const { error } = await supabase.from('reservations')
+    .update({ attendee_data: { buyer: { email: 'buyer@eventsli-test.invalid' }, stripeSessionId: cs.id, stripeAccountId: account } })
+    .eq('id', reservationId);
+  assert.equal(error, null);
+  return cs;
+}
+const fromAccount = (evt, account = ORG_ACCOUNT) => ({ ...evt, account });
+
 // ── Nothing unsigned gets in ────────────────────────────────────────────────
 
 test('an unsigned post is refused, and records nothing', async () => {
@@ -163,15 +181,25 @@ test('a body changed after signing is refused — a forged "paid" cannot mint ti
 
 test('a paid checkout issues the order and its tickets, once, however often it is delivered', async () => {
   const reservationId = await hold([seatIds[1], seatIds[2]]);
-  const cs = session(reservationId);
-  const evt = stripeEvent('checkout.session.completed', cs);
+  const cs = await bind(reservationId, session(reservationId));
+  const evt = fromAccount(stripeEvent('checkout.session.completed', cs));
 
   const first = await deliver(evt);
   assert.equal(first.status, 200, JSON.stringify(first.body));
   assert.ok(first.body.orderId);
 
-  const { data: order } = await supabase.from('orders').select('id, status').eq('id', first.body.orderId).single();
+  const { data: order } = await supabase.from('orders')
+    .select('id, status, charge_model, stripe_account_id').eq('id', first.body.orderId).single();
   assert.equal(order.status, 'paid');
+  assert.equal(order.charge_model, 'direct');
+  assert.equal(order.stripe_account_id, ORG_ACCOUNT);
+  // The money was always the organizer's: no transfer row, no platform-kept
+  // payment fee. Only the sale and Eventsli's fee are written.
+  const { data: kinds } = await supabase.from('ledger_entries').select('entry_type').eq('order_id', order.id);
+  const types = kinds.map((k) => k.entry_type).sort();
+  assert.ok(types.includes('sale'));
+  assert.ok(!types.includes('transfer'), `no transfer under direct charges: ${types}`);
+  assert.ok(!types.includes('payment_fee'), `no platform payment fee under direct charges: ${types}`);
   const { count: tickets } = await supabase.from('tickets').select('id', { count: 'exact', head: true })
     .eq('order_id', order.id);
   assert.equal(tickets, 2);
@@ -188,7 +216,7 @@ test('a paid checkout issues the order and its tickets, once, however often it i
 
   // A DIFFERENT event for the same session (async_payment_succeeded follows
   // completed for some payment methods): the same order comes back.
-  const sibling = await deliver(stripeEvent('checkout.session.async_payment_succeeded', cs));
+  const sibling = await deliver(fromAccount(stripeEvent('checkout.session.async_payment_succeeded', cs)));
   assert.equal(sibling.status, 200);
   assert.equal(sibling.body.orderId, order.id);
 
@@ -212,7 +240,8 @@ test('a completed session that is not paid issues nothing', async () => {
 
 test('an expired session puts the seats back at once', async () => {
   const reservationId = await hold([seatIds[4]]);
-  const res = await deliver(stripeEvent('checkout.session.expired', session(reservationId, { payment_status: 'unpaid' })));
+  const cs = await bind(reservationId, session(reservationId, { payment_status: 'unpaid' }));
+  const res = await deliver(fromAccount(stripeEvent('checkout.session.expired', cs)));
   assert.equal(res.status, 200);
   const { data: r } = await supabase.from('reservations').select('state').eq('id', reservationId).single();
   assert.notEqual(r.state, 'active');
@@ -222,8 +251,9 @@ test('an expired session puts the seats back at once', async () => {
 
 test('a payment that lands after its hold was released issues no tickets, and is not retried forever', async () => {
   const reservationId = await hold([seatIds[5]]);
+  const cs = await bind(reservationId, session(reservationId));
   await supabase.rpc('release_reservation', { p_reservation_id: reservationId });
-  const evt = stripeEvent('checkout.session.completed', session(reservationId));
+  const evt = fromAccount(stripeEvent('checkout.session.completed', cs));
   const res = await deliver(evt);
   // 200 — retrying can never change the answer; the row holds it for review.
   assert.equal(res.status, 200);
@@ -235,19 +265,191 @@ test('a payment that lands after its hold was released issues no tickets, and is
 
 // ── Refunds ─────────────────────────────────────────────────────────────────
 
-test('a refund is recorded for review and does NOT reverse the order (refunds are not automated)', async () => {
-  const { data: order } = await supabase.from('orders').select('id, status, stripe_payment_intent_id')
-    .eq('event_id', ids.event).eq('status', 'paid').limit(1).single();
-  const evt = stripeEvent('charge.refunded', {
-    id: `ch_test_local_${stamp}`, object: 'charge', refunded: true, amount_refunded: 1000,
-    payment_intent: order.stripe_payment_intent_id,
+// ── Organizer isolation (T-074) ─────────────────────────────────────────────
+
+test('REGRESSION: a signed, paid session we never created for that hold issues nothing', async () => {
+  // Any organizer can create a Checkout Session on their OWN account with any
+  // metadata. Pointing it at someone else's hold must not mint tickets.
+  const reservationId = await hold([seatIds[6]]);
+  await bind(reservationId, session(reservationId));                // ours
+  const forged = session(reservationId);                            // not ours
+  const evt = fromAccount(stripeEvent('checkout.session.completed', forged));
+  const res = await deliver(evt);
+  assert.equal(res.status, 200, 'permanent: retrying cannot change it');
+  assert.equal(res.body.error, 'FORBIDDEN');
+  const { count } = await supabase.from('orders').select('id', { count: 'exact', head: true })
+    .eq('reservation_id', reservationId);
+  assert.equal(count, 0);
+  await supabase.rpc('release_reservation', { p_reservation_id: reservationId });
+});
+
+test('REGRESSION: our session, but reported from another organizer\'s account, issues nothing', async () => {
+  const reservationId = await hold([seatIds[7]]);
+  const cs = await bind(reservationId, session(reservationId));
+  const res = await deliver(fromAccount(stripeEvent('checkout.session.completed', cs), OTHER_ACCOUNT));
+  assert.equal(res.body.error, 'FORBIDDEN');
+  const { count } = await supabase.from('orders').select('id', { count: 'exact', head: true })
+    .eq('reservation_id', reservationId);
+  assert.equal(count, 0);
+  await supabase.rpc('release_reservation', { p_reservation_id: reservationId });
+});
+
+test('REGRESSION: the database refuses a direct charge on an account that is not the organizer\'s', async () => {
+  // Defence in depth below the controller: fulfill_checkout re-checks.
+  const reservationId = await hold([seatIds[8]]);
+  const pricing = require('../../services/pricingService');
+  const q = await pricing.quoteReservation(reservationId);
+  const { data } = await supabase.rpc('fulfill_checkout', {
+    p_reservation_id: reservationId, p_channel: 'stripe', p_breakdown: q.breakdown,
+    p_buyer: { name: 'X', email: 'buyer@eventsli-test.invalid' },
+    p_stripe: { session_id: `cs_test_db_${stamp}`, account_id: OTHER_ACCOUNT },
   });
+  assert.equal(data.ok, false);
+  assert.equal(data.error, 'FORBIDDEN');
+  await supabase.rpc('release_reservation', { p_reservation_id: reservationId });
+});
+
+test('REGRESSION: an expired session that is not the hold\'s own leaves the seats held', async () => {
+  const reservationId = await hold([seatIds[9]]);
+  await bind(reservationId, session(reservationId));
+  const stranger = session(reservationId, { payment_status: 'unpaid' });
+  await deliver(fromAccount(stripeEvent('checkout.session.expired', stranger), OTHER_ACCOUNT));
+  const { data: r } = await supabase.from('reservations').select('state').eq('id', reservationId).single();
+  assert.equal(r.state, 'active', 'a stranger cannot put someone else\'s seats back on sale');
+  await supabase.rpc('release_reservation', { p_reservation_id: reservationId });
+});
+
+// ── After the sale: refunds and disputes on the organizer's account ─────────
+
+async function paidOrder(seat) {
+  const reservationId = await hold([seat]);
+  const cs = await bind(reservationId, session(reservationId));
+  const res = await deliver(fromAccount(stripeEvent('checkout.session.completed', cs)));
+  assert.equal(res.status, 200, JSON.stringify(res.body));
+  const { data } = await supabase.from('orders')
+    .select('id, buyer_total_cents, stripe_payment_intent_id, refunded_cents, dispute_status')
+    .eq('id', res.body.orderId).single();
+  return data;
+}
+const ledgerOf = async (orderId) => (await supabase.from('ledger_entries')
+  .select('entry_type, direction, amount_cents').eq('order_id', orderId)).data;
+const ticketsOf = async (orderId) => (await supabase.from('tickets').select('status').eq('order_id', orderId)).data;
+const charge = (order, over = {}) => ({
+  id: `ch_test_local_${stamp}_${(n += 1)}`, object: 'charge', payment_intent: order.stripe_payment_intent_id, ...over,
+});
+
+test('a partial refund on the organizer\'s account is recorded once; tickets stand', async () => {
+  const order = await paidOrder(seatIds[10]);
+  const evt = fromAccount(stripeEvent('charge.refunded', charge(order, { refunded: false, amount_refunded: 1000 })));
   const res = await deliver(evt);
   assert.equal(res.status, 200);
-  assert.equal(res.body.review, true);
-  const { data: after } = await supabase.from('orders').select('status').eq('id', order.id).single();
-  assert.equal(after.status, 'paid', 'the order and its tickets stand until a person acts');
-  assert.ok((await claimRow(evt.id)).processed_at);
+  assert.equal(res.body.outcome, 'recorded');
+  const again = await deliver(fromAccount(stripeEvent('charge.refunded', charge(order, { amount_refunded: 1000 }))));
+  assert.equal(again.status, 200, 'a second event at the same cumulative amount writes nothing');
+
+  const { data: after } = await supabase.from('orders').select('status, refunded_cents').eq('id', order.id).single();
+  assert.equal(after.refunded_cents, 1000);
+  assert.equal(after.status, 'paid');
+  const refunds = (await ledgerOf(order.id)).filter((l) => l.entry_type === 'refund');
+  assert.deepEqual(refunds.map((r) => [r.direction, Number(r.amount_cents)]), [['debit', 1000]]);
+  assert.ok((await ticketsOf(order.id)).every((t) => t.status === 'valid'));
+});
+
+test('a full refund voids the tickets; the ledger reconciles to the cumulative refund', async () => {
+  const order = await paidOrder(seatIds[11]);
+  await deliver(fromAccount(stripeEvent('charge.refunded', charge(order, { amount_refunded: 500 }))));
+  await deliver(fromAccount(stripeEvent('charge.refunded', charge(order, { refunded: true, amount_refunded: order.buyer_total_cents }))));
+  const refunds = (await ledgerOf(order.id)).filter((l) => l.entry_type === 'refund');
+  const total = refunds.reduce((s, r) => s + Number(r.amount_cents), 0);
+  assert.equal(total, order.buyer_total_cents, 'the refund rows add up to what Stripe refunded');
+  assert.ok((await ticketsOf(order.id)).every((t) => t.status === 'void'), 'a fully refunded ticket does not admit');
+});
+
+test('a refund event from another organizer\'s account changes nothing', async () => {
+  const order = await paidOrder(seatIds[12]);
+  const res = await deliver(fromAccount(stripeEvent('charge.refunded', charge(order, { amount_refunded: order.buyer_total_cents })), OTHER_ACCOUNT));
+  assert.equal(res.status, 200);
+  assert.equal(res.body.outcome, 'FORBIDDEN');
+  const { data: after } = await supabase.from('orders').select('refunded_cents').eq('id', order.id).single();
+  assert.equal(after.refunded_cents, 0);
+});
+
+test('a dispute: funds withdrawn and reinstated are each recorded once; a lost dispute voids tickets', async () => {
+  const order = await paidOrder(seatIds[13]);
+  const dispute = (status, over = {}) => ({
+    id: `dp_test_local_${stamp}_${order.id.slice(0, 6)}`, object: 'dispute', status,
+    amount: order.buyer_total_cents, charge: `ch_test_local_${stamp}_dp`, payment_intent: order.stripe_payment_intent_id, ...over,
+  });
+  await deliver(fromAccount(stripeEvent('charge.dispute.created', dispute('needs_response'))));
+  await deliver(fromAccount(stripeEvent('charge.dispute.funds_withdrawn', dispute('needs_response'))));
+  await deliver(fromAccount(stripeEvent('charge.dispute.funds_withdrawn', dispute('needs_response')))); // redelivery, new event id
+  let { data: o } = await supabase.from('orders').select('dispute_status, disputed_cents').eq('id', order.id).single();
+  assert.equal(o.dispute_status, 'needs_response');
+  let adj = (await ledgerOf(order.id)).filter((l) => l.entry_type === 'adjustment');
+  assert.deepEqual(adj.map((a) => a.direction), ['debit'], 'withdrawn once, however often it is reported');
+
+  await deliver(fromAccount(stripeEvent('charge.dispute.closed', dispute('lost'))));
+  ({ data: o } = await supabase.from('orders').select('dispute_status').eq('id', order.id).single());
+  assert.equal(o.dispute_status, 'lost');
+  assert.ok((await ticketsOf(order.id)).every((t) => t.status === 'void'), 'a charged-back ticket does not admit');
+  adj = (await ledgerOf(order.id)).filter((l) => l.entry_type === 'adjustment');
+  assert.equal(adj.length, 1);
+});
+
+// ── Stripe does not order events ────────────────────────────────────────────
+
+test('REGRESSION: a dispute that arrives BEFORE its payment\'s checkout event is not lost', async () => {
+  // Seen with real delivery (2026-11-06): charge.dispute.created and
+  // funds_withdrawn landed one second ahead of checkout.session.completed, were
+  // answered "no such order" and acknowledged — a chargeback the ledger never
+  // saw. The webhook now fulfils the payment first, through the same checks.
+  const stripeSvc = require('../../services/stripeService');
+  const original = stripeSvc.sessionForPaymentIntent;
+  const reservationId = await hold([seatIds[14]]);
+  const cs = await bind(reservationId, session(reservationId));
+  // Stripe's answer to "which session made this PaymentIntent?" — the one we bound.
+  stripeSvc.sessionForPaymentIntent = async (pi, account) => (pi === cs.payment_intent && account === ORG_ACCOUNT ? cs : null);
+  try {
+    const dispute = {
+      id: `dp_test_early_${stamp}`, object: 'dispute', status: 'needs_response', amount: 5000,
+      charge: `ch_test_early_${stamp}`, payment_intent: cs.payment_intent,
+    };
+    const res = await deliver(fromAccount(stripeEvent('charge.dispute.funds_withdrawn', dispute)));
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.equal(res.body.outcome, 'recorded');
+
+    const { data: order } = await supabase.from('orders')
+      .select('id, status, dispute_status, charge_model').eq('reservation_id', reservationId).single();
+    assert.equal(order.status, 'paid', 'the payment was fulfilled first');
+    assert.equal(order.charge_model, 'direct');
+    assert.equal(order.dispute_status, 'needs_response');
+    const adj = (await ledgerOf(order.id)).filter((l) => l.entry_type === 'adjustment');
+    assert.deepEqual(adj.map((a) => a.direction), ['debit'], 'the withdrawal is recorded once');
+
+    // The payment's own event arriving afterwards changes nothing.
+    const late = await deliver(fromAccount(stripeEvent('checkout.session.completed', cs)));
+    assert.equal(late.status, 200);
+    const { count } = await supabase.from('orders').select('id', { count: 'exact', head: true }).eq('reservation_id', reservationId);
+    assert.equal(count, 1);
+  } finally {
+    stripeSvc.sessionForPaymentIntent = original;
+  }
+});
+
+test('an early dispute for a charge Eventsli never created is still ignored', async () => {
+  const stripeSvc = require('../../services/stripeService');
+  const original = stripeSvc.sessionForPaymentIntent;
+  stripeSvc.sessionForPaymentIntent = async () => null;   // no session of ours
+  try {
+    const res = await deliver(fromAccount(stripeEvent('charge.dispute.created', {
+      id: `dp_test_foreign_${stamp}`, object: 'dispute', status: 'needs_response', amount: 1000,
+      charge: `ch_test_foreign_${stamp}`, payment_intent: `pi_test_foreign_${stamp}`,
+    })));
+    assert.equal(res.status, 200);
+    assert.equal(res.body.outcome, 'ORDER_NOT_FOUND');
+  } finally {
+    stripeSvc.sessionForPaymentIntent = original;
+  }
 });
 
 test('an event type the platform does not use is acknowledged so Stripe stops sending it', async () => {

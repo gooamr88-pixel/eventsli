@@ -21,7 +21,12 @@ const REQUIRED_ENV = [
 // operator's INTENT (the flag), so enabling payments without keys fails loudly
 // instead of silently staying disabled.
 const stripeIntended = /^(1|true|yes|on)$/i.test(String(process.env.PAYMENTS_STRIPE_ENABLED || '').trim());
-if (stripeIntended) REQUIRED_ENV.push('STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET');
+// Two webhook secrets: card sales are DIRECT charges on organizers' own
+// accounts (TECH-AUDIT-LOG T-074), so checkout, refund and dispute events come
+// from the Connect endpoint; only the platform's own events (application fees)
+// come from the account endpoint. Without the Connect secret no card payment
+// would ever be fulfilled by its webhook.
+if (stripeIntended) REQUIRED_ENV.push('STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'STRIPE_CONNECT_WEBHOOK_SECRET');
 
 // Every QR image in a ticket email is an absolute link back to this API. Unset,
 // the src is relative, no mail client can resolve it, and every buyer gets a
@@ -37,9 +42,15 @@ if (missing.length > 0) {
 
 // A reservation shorter than the Stripe Checkout session lets a buyer pay for a
 // seat that was already released and resold — two people, one chair. Refuse to
-// boot rather than ship that.
+// boot rather than ship that. (Pressing "Pay" also lengthens the hold to cover
+// its session — services/checkoutSessions.js — so this is the floor, not the
+// whole guarantee.)
+//
+// `Number.isFinite`, because parseInt('35m') is 35 but parseInt('thirty') is
+// NaN, and `NaN < 31` is false: a typo used to pass this check and then fail
+// every hold on the NOT NULL `expires_at` (TECH-AUDIT-LOG T-032).
 const RESERVATION_TTL = parseInt(process.env.RESERVATION_TTL_MINUTES || '35', 10);
-if (RESERVATION_TTL < 31) {
+if (!Number.isFinite(RESERVATION_TTL) || RESERVATION_TTL < 31) {
   logger.error(
     `FATAL: RESERVATION_TTL_MINUTES is ${RESERVATION_TTL}. A Stripe Checkout session lasts at ` +
     'least 30 minutes, so the seat hold must outlast it. Set 35 or more.',
@@ -223,6 +234,22 @@ app.use((req, res) => sendFail(res, {
 app.use((err, req, res, _next) => {
   if (err && err.message === 'Not allowed by CORS') {
     return sendFail(res, { status: 403, error: 'FORBIDDEN', message: 'Origin not allowed.' });
+  }
+  // The body parser's own refusals are the CLIENT's fault and say so in
+  // `err.type`. They used to fall through to a 500, so a malformed JSON body or
+  // an oversized poster upload read as an outage (TECH-AUDIT-LOG T-031).
+  if (err && err.type === 'entity.too.large') {
+    return sendFail(res, {
+      status: 413, error: 'VALIDATION_ERROR',
+      message: 'That is too large to send. Try a smaller file.',
+    });
+  }
+  if (err && (err.type === 'entity.parse.failed' || err.type === 'encoding.unsupported'
+    || err.type === 'charset.unsupported' || err.type === 'request.aborted')) {
+    return sendFail(res, {
+      status: 400, error: 'VALIDATION_ERROR',
+      message: 'That request could not be read. Please try again.',
+    });
   }
   logger.error({ err, path: req.path, method: req.method }, 'Unhandled error');
   // Never leak an internal message to a client: stack traces and driver errors

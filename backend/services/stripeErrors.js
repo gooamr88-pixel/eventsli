@@ -27,6 +27,26 @@ function translateConnectError(err) {
   const msg = String(err?.message || '');
   if (!msg) return err;
 
+  // Checked FIRST, because it also says "Accounts v1" and would otherwise get
+  // the v1-toggle instruction below, which does not fix it (TECH-AUDIT-LOG
+  // T-073, seen in test mode 2026-11-06): "You tried to create an Accounts v1
+  // connected account using the legacy `type` field with your platform as the
+  // losses collector…". Eventsli uses DESTINATION charges on Express accounts,
+  // which Stripe pairs with the platform carrying losses — Stripe-managed risk
+  // needs direct charges. So the fix is the platform's own acknowledgement of
+  // that responsibility in its Connect platform profile, not a code change.
+  if (/losses[ _]collector/i.test(msg)) {
+    return Object.assign(
+      new Error(
+        'Stripe Connect will not create organizer accounts until the platform profile is complete. '
+        + 'Eventsli uses destination charges, so the platform is responsible for connected-account '
+        + 'losses: confirm that at https://dashboard.stripe.com/settings/connect/platform-profile '
+        + '(in the same mode — test or live — as these keys) and try again.',
+      ),
+      { code: 'STRIPE_NOT_CONFIGURED', operatorAction: true, cause: err },
+    );
+  }
+
   // Stripe steers new integrations to Accounts v2 and refuses accounts.create.
   // v2 is still a preview API, so the supported answer for now is the v1
   // compatibility toggle — and the operator needs the exact page.

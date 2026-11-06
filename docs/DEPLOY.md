@@ -68,16 +68,33 @@ Confirm before step 6:
 dig +short eventsli.com        # must print 187.77.1.72
 ```
 
-### 2. The Stripe live webhook
+### 2. The Stripe live webhooks — TWO endpoints (TECH-AUDIT-LOG T-074)
 
-Dashboard → Developers → **Webhooks** → endpoint at
-`https://eventsli.com/api/v1/payments/webhook`, events:
-`checkout.session.completed`, `checkout.session.expired`,
-`payment_intent.payment_failed`, `charge.refunded`, `account.updated`.
+Card sales are **direct charges on each organizer's own Stripe account**, so the
+events that matter happen on the organizers' accounts, not the platform's.
+Create both endpoints at the same URL, `https://eventsli.com/api/v1/payments/webhook`:
 
-Its **Signing secret** is `STRIPE_WEBHOOK_SECRET`. A `whsec_` from
-`stripe listen` is a CLI-local secret that rejects every production event — the
-symptom is buyers charged with no ticket.
+| Endpoint | "Events from" | Events | Secret → env var |
+|---|---|---|---|
+| Connect | **Connected accounts** | `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.expired`, `charge.refunded`, `charge.dispute.created`, `charge.dispute.updated`, `charge.dispute.closed`, `charge.dispute.funds_withdrawn`, `charge.dispute.funds_reinstated` | `STRIPE_CONNECT_WEBHOOK_SECRET` |
+| Platform | **Your account** | `application_fee.refunded` | `STRIPE_WEBHOOK_SECRET` |
+
+The API verifies a delivery against either secret, and refuses to boot with card
+payments on unless both are set. A `whsec_` from `stripe listen` is a CLI-local
+secret that rejects every production event — the symptom is buyers charged with
+no ticket. Locally: `stripe listen --forward-to localhost:5000/api/v1/payments/webhook
+--forward-connect-to localhost:5000/api/v1/payments/webhook`.
+
+Stripe settings this model needs, in **each** mode (test and live):
+
+- **Connect → Accounts:** organizers are created with **Accounts v2** (the API
+  refuses v1 creation on this platform). Nothing to toggle.
+- **Managed Payments:** must not apply. Every session sends
+  `managed_payments[enabled]=false`; turning the default off in Settings →
+  Managed payments as well is the safest.
+- **Do not** accept platform responsibility for connected-account losses in the
+  Connect platform profile. Organizer accounts are created with Stripe as the
+  losses collector; the API refuses to charge on any account configured otherwise.
 
 ### 3. Rotate the keys that have been sitting in plain text
 
@@ -176,6 +193,7 @@ SUPABASE_SERVICE_ROLE_KEY=
 PAYMENTS_STRIPE_ENABLED=true
 STRIPE_SECRET_KEY=
 STRIPE_WEBHOOK_SECRET=
+STRIPE_CONNECT_WEBHOOK_SECRET=
 STRIPE_CONNECT_CLIENT_ID=
 STRIPE_FEE_PCT=2.9
 STRIPE_FEE_FIXED_CENTS=30
@@ -237,6 +255,9 @@ AI_GLOBAL_DAILY_CAP=
 
 # openssl rand -hex 32 — the SAME value goes in frontend/.env
 REVALIDATE_SECRET=
+# Next over loopback. Required: the public hostname sends /api/* to this API,
+# so without it cached pages never update on save (TECH-AUDIT-LOG T-030).
+REVALIDATE_URL=http://127.0.0.1:3100/api/internal/revalidate
 
 LOG_LEVEL=info
 SCHEDULER_ENABLED=true
@@ -601,8 +622,8 @@ echo '/swapfile none swap sw 0 0' >> /etc/fstab
 | `next build` fails on `NEXT_PUBLIC_SUPABASE_URL` | Working as designed — `frontend/.env` missing or unreadable |
 | Every request refused with CORS | `FRONTEND_URL` is missing a hostname; it needs both apex and `www` |
 | Covers blocked, page otherwise fine | Built with the wrong `NEXT_PUBLIC_SUPABASE_URL`. Fix and **rebuild** |
-| Paid orders never fulfilled | `STRIPE_WEBHOOK_SECRET` is the CLI's, not the live endpoint's |
-| A new event 404s for a minute | `REVALIDATE_SECRET` differs between the two `.env` files |
+| Paid orders never fulfilled | `STRIPE_CONNECT_WEBHOOK_SECRET` missing, or from `stripe listen` instead of the live **Connect** endpoint (card sales are direct charges on organizer accounts) |
+| A new event 404s for a minute | `REVALIDATE_URL` unset (the API logs `REVALIDATE_URL is not set in production` once), or `REVALIDATE_SECRET` differs between the two `.env` files |
 | Rate limits trip immediately | `X-Forwarded-For` missing from the nginx block |
 | `EADDRINUSE` on start | Something else took 3100/5100 — `ss -tlnp \| grep -E ':(3100\|5100)'` |
 | pm2 starts on the wrong Node | `/usr/local/bin/node22` is missing, so `ecosystem.config.js` fell back to pm2's interpreter. Recreate the symlink, `pm2 delete eventsli-backend eventsli-frontend`, start again |

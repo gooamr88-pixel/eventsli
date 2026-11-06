@@ -4,6 +4,10 @@ const http = require('node:http');
 
 // Sets DISABLE_RATE_LIMIT before the app builds its limiters. Must come first.
 require('../helpers/testEnv');
+
+// A test-only connected-account id for this suite's organizer: fulfil refuses
+// a direct charge whose account is not the event organizer's (T-074).
+const TEST_ACCOUNT = `acct_test_fulfillment_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 const { supabase } = require('../../config/supabase');
 const app = require('../../app');
 const pricing = require('../../services/pricingService');
@@ -31,6 +35,8 @@ async function seed() {
   ids.profile = profile.id;
 
   const { data: org } = await supabase.from('organizers').insert({
+    // Card sales are direct charges on the organizer's own account (T-074).
+    stripe_account_id: TEST_ACCOUNT,
     owner_user_id: profile.id, display_name: 'Ful Co', country: 'CA',
   }).select('id').single();
   ids.organizer = org.id;
@@ -117,7 +123,7 @@ const fulfill = (reservationId, breakdown) => supabase.rpc('fulfill_checkout', {
   p_channel: 'stripe',
   p_breakdown: breakdown,
   p_buyer: { user_id: null, name: 'Test Buyer', email: 'buyer@eventsli-test.invalid', phone: null },
-  p_stripe: { session_id: `cs_test_${Math.random().toString(36).slice(2)}`, payment_intent_id: null },
+  p_stripe: { account_id: TEST_ACCOUNT, session_id: `cs_test_${Math.random().toString(36).slice(2)}`, payment_intent_id: null },
 });
 
 // ── The quote ───────────────────────────────────────────────────────────────
@@ -243,24 +249,44 @@ test('concurrent deliveries of the same payment produce one order', async () => 
   assert.equal(count, 1, 'and one ticket, not five');
 });
 
-test('the ledger balances to zero on the card path', async () => {
-  // BRD §08 — Stripe moves the organizer's share at the charge, so the transfer
-  // is recorded immediately and nothing is left owed.
+test('the card-path ledger reconciles to where the money actually is (direct charges, T-074)', async () => {
+  // DIRECT charges: the buyer pays the ORGANIZER's own Stripe account. Nothing
+  // is transferred, so nothing is "owed" to them — the ledger's remaining
+  // balance is exactly what stayed in their account, and Eventsli's takings are
+  // exactly its application fees. Checked against the orders table, not
+  // against the ledger itself.
+  const { data: orders } = await supabase.from('orders')
+    .select('buyer_total_cents, commission_cents, commission_tax_cents, charge_model')
+    .eq('event_id', ids.event).eq('channel', 'stripe');
+  assert.ok(orders.length > 0);
+  assert.ok(orders.every((o) => o.charge_model === 'direct'), 'every card sale is a direct charge');
+  const kept = orders.reduce((s, o) => s + Number(o.buyer_total_cents) - Number(o.commission_cents) - Number(o.commission_tax_cents), 0);
+  const fees = orders.reduce((s, o) => s + Number(o.commission_cents) + Number(o.commission_tax_cents), 0);
+
   const { data: balance } = await supabase.rpc('ledger_balance_cents', {
     p_event_id: ids.event, p_currency: 'CAD', p_channel: 'stripe',
   });
-  assert.equal(Number(balance), 0, 'a card sale leaves no outstanding balance');
+  assert.equal(Number(balance), kept, 'the balance is the organizer\'s own retained revenue');
+
+  const { data: entries } = await supabase.from('ledger_entries')
+    .select('entry_type, direction, amount_cents').eq('event_id', ids.event).eq('channel', 'stripe');
+  const platform = entries.filter((e) => ['commission', 'commission_tax'].includes(e.entry_type) && e.direction === 'debit')
+    .reduce((s, e) => s + Number(e.amount_cents), 0);
+  assert.equal(platform, fees, 'Eventsli\'s ledger takings equal its application fees, cent for cent');
 });
 
-test('every order wrote its four ledger lines', async () => {
+test('every direct-charge order wrote its sale and fee lines — and no transfer or platform payment fee', async () => {
   const { data: entries } = await supabase
     .from('ledger_entries').select('entry_type, direction, amount_cents')
     .eq('event_id', ids.event);
 
   const types = new Set(entries.map((e) => e.entry_type));
-  for (const t of ['sale', 'commission', 'commission_tax', 'payment_fee', 'transfer']) {
+  for (const t of ['sale', 'commission', 'commission_tax']) {
     assert.ok(types.has(t), `missing ${t} entries`);
   }
+  // The money never passed through Eventsli, so neither row can exist.
+  assert.ok(!types.has('transfer'), 'no transfer under direct charges');
+  assert.ok(!types.has('payment_fee'), 'a buyer-paid service fee stays with the organizer');
   // The sale is the only credit; everything else reduces it.
   assert.ok(entries.filter((e) => e.direction === 'credit').every((e) => e.entry_type === 'sale'));
 });

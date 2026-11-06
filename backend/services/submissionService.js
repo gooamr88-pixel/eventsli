@@ -1,5 +1,7 @@
 const { supabase } = require('../config/supabase');
-const { describeOrder, FEE_BEARER, PAYMENT_FEE_MODE } = require('../utils/money');
+const {
+  describeOrder, FEE_BEARER, PAYMENT_FEE_MODE, CHARGE_MODEL,
+} = require('../utils/money');
 const { stripeCostModel } = require('./pricingService');
 const { canReceivePayouts } = require('../utils/payouts');
 const rules = require('./eventRules');
@@ -316,6 +318,9 @@ function priceLine({ label, kind, priceCents, detail, fees, stripe }) {
     paymentFeeFixedCents: fees.paymentFeeFixedCents,
     feeBearer: fees.feeBearer,
     stripe,
+    // Priced exactly as a card sale is charged: a direct charge on the
+    // organizer's own account (TECH-AUDIT-LOG T-074).
+    chargeModel: CHARGE_MODEL.DIRECT,
   });
 
   return {
@@ -327,9 +332,10 @@ function priceLine({ label, kind, priceCents, detail, fees, stripe }) {
     commissionCents: b.commissionCents,
     commissionTaxCents: b.commissionTaxCents,
     paymentFeeCents: b.paymentFeeCents,
-    // What Stripe bills US on this order. Shown to the organizer because "the
-    // platform takes X" is only half an answer if part of X is a card cost that
-    // never reaches Eventsli either.
+    // Stripe's processing fee on this order — billed to the ORGANIZER's own
+    // Stripe account under direct charges, and already subtracted from
+    // `organizerNetCents` below. An estimate from the platform's rate setting;
+    // the organizer's real Stripe pricing is on their Stripe account.
     stripeCostCents: b.stripeCostCents,
     // The two numbers the whole dialog exists for.
     buyerTotalCents: b.buyerTotalCents,

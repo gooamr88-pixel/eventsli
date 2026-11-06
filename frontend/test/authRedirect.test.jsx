@@ -28,6 +28,25 @@ describe('the ?next= redirect', () => {
     expect(safeNext('//evil.test/path')).toBe('/');
   });
 
+  test('REGRESSION T-014: a backslash or a control character cannot smuggle in another origin', () => {
+    // Each of these passed the old startsWith checks, and the WHATWG parser
+    // resolves every one to https://evil.test/ — checked against `new URL`.
+    const bs = String.fromCharCode(92);
+    for (const bad of [
+      `/${bs}evil.test`,
+      `/${bs}${bs}evil.test`,
+      `/${bs}/evil.test`,
+      '/\t/evil.test',
+      '/\n/evil.test',
+      '/\r/evil.test',
+    ]) {
+      expect(new URL(bad, 'https://eventsli.com').origin, 'premise').not.toBe('https://eventsli.com');
+      expect(safeNext(bad), JSON.stringify(bad)).toBe('/');
+    }
+    // Encoded forms stay paths on our origin, so they are allowed through.
+    expect(safeNext('/%5Cevil.test')).toBe('/%5Cevil.test');
+  });
+
   test('anything that is not a string is refused', () => {
     for (const bad of [null, undefined, 42, {}, []]) {
       expect(safeNext(bad)).toBe('/');

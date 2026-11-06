@@ -1,5 +1,5 @@
 const express = require('express');
-const { makeLimiter } = require('../middleware/rateLimit');
+const { makeLimiter, accountKey } = require('../middleware/rateLimit');
 const { body, param } = require('express-validator');
 const validate = require('../middleware/validate');
 const { requireAuth } = require('../middleware/auth');
@@ -21,7 +21,11 @@ const router = express.Router();
 const credentialLimiter = makeLimiter({
   windowMs: 15 * 60 * 1000,
   max: 20,
-  keyGenerator: (req) => `${req.ip}|${String(req.body?.email || '').toLowerCase()}`,
+  name: 'credentials',
+  // Keyed on the address as the ACCOUNT sees it. Keyed on the raw string,
+  // `v.ictim@gmail.com` and `victim+1@gmail.com` each got a fresh budget
+  // against the same account (TECH-AUDIT-LOG T-019).
+  keyGenerator: (req) => `${req.ip}|${accountKey(req.body?.email)}`,
   message: 'Too many attempts. Please wait a few minutes and try again.',
 });
 
@@ -240,6 +244,7 @@ router.post(
 const resetLimiter = makeLimiter({
   windowMs: 60 * 60 * 1000,
   max: 8,
+  name: 'password-reset',
   message: 'Too many reset requests. Please wait an hour and try again.',
 });
 

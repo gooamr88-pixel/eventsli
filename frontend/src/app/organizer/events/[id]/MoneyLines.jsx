@@ -82,17 +82,20 @@ export default function MoneyLines({ lines, fees, currency, isFree, listingOnly 
                 <Row term={`Tax on commission (${fees.commissionTaxPct}%)`} cents={-line.commissionTaxCents} currency={currency}
                   note="Collected with the commission. Eventsli remits it." />
               )}
-              {!buyerPaysFee && line.paymentFeeCents > 0 && (
-                <Row term="Payment processing fee" cents={-line.paymentFeeCents} currency={currency}
-                  note="Taken from your proceeds, because you chose to absorb it." />
+              {line.stripeCostCents > 0 && (
+                <Row term="Stripe processing fee (estimate)" cents={-line.stripeCostCents} currency={currency}
+                  note={buyerPaysFee
+                    ? 'Charged by Stripe to your own Stripe account. The service fee above covers it.'
+                    : 'Charged by Stripe to your own Stripe account, because you chose to absorb it.'} />
               )}
               <Row
                 term="You receive"
                 cents={line.organizerNetCents}
                 currency={currency}
                 strong
-                note={`Of the ${formatMoney(line.platformTakeCents, currency)} deducted, `
-                  + `${formatMoney(line.stripeCostCents, currency)} is what the card network and Stripe charge.`}
+                note={`Paid straight into your own Stripe account — you are the seller. Eventsli takes only `
+                  + `${formatMoney(line.platformTakeCents, currency)} (commission and its tax). The Stripe fee `
+                  + 'is an estimate at standard rates; your Stripe account shows the exact figure.'}
               />
             </dl>
           )}

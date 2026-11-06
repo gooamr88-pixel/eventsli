@@ -120,11 +120,16 @@ test('url and path are constrained to move together', () => {
   );
 });
 
-test('the storage bucket is provisioned behind a schema guard', () => {
+test('the storage bucket is provisioned behind a guard on the TABLE', () => {
   // CI runs `supabase start` with storage disabled on purpose. An unguarded
   // INSERT into storage.buckets fails every migration check on a stack that is
   // deliberately not running storage.
-  assert.match(migrationSql, /information_schema\.schemata WHERE schema_name = 'storage'/);
+  //
+  // On the table, not the schema (TECH-AUDIT-LOG T-069): current Supabase
+  // images create an empty `storage` schema even with storage disabled, so the
+  // old schema guard passed and the INSERT failed on every fresh stack.
+  assert.match(migrationSql, /IF to_regclass\('storage\.buckets'\) IS NOT NULL THEN/);
+  assert.doesNotMatch(migrationSql, /IF EXISTS \(SELECT 1 FROM information_schema\.schemata WHERE schema_name = 'storage'\)/);
   assert.match(migrationSql, /INSERT INTO storage\.buckets/);
 });
 

@@ -29,6 +29,26 @@ const DECODE_CONFIG = { fps: 10, qrbox: { width: 260, height: 260 } };
 
 export const READER_ID = 'gate-reader';
 
+/**
+ * Stops and clears an engine in whatever state it is in. Never throws.
+ *
+ * html5-qrcode 2.3.8's `stop()` THROWS SYNCHRONOUSLY when the scanner is not
+ * running ("Cannot stop, scanner is not running or paused.") — it does not
+ * return a rejected promise. So `instance.stop().then(…).catch(…)` never
+ * attached its catch: refuse the camera permission, press "Stop the camera",
+ * and the throw escaped the effect cleanup and replaced the whole gate with
+ * its error page (TECH-AUDIT-LOG T-033).
+ */
+export async function shutdown(instance) {
+  if (!instance) return;
+  try {
+    await instance.stop();
+  } catch { /* not running — nothing to stop */ }
+  try {
+    instance.clear();
+  } catch { /* already cleared */ }
+}
+
 export function useScanner({ active, onDecode, cooldownMs = 3000 }) {
   const [status, setStatus] = useState('idle');   // idle | starting | running | error
   const [error, setError] = useState(null);
@@ -80,7 +100,7 @@ export function useScanner({ active, onDecode, cooldownMs = 3000 }) {
           // directly on the first attempt.
           await instance.start({ facingMode: 'environment' }, DECODE_CONFIG, handle, () => {});
         } catch {
-          if (cancelled) return;
+          if (cancelled) return;   // nothing started, and cleanup has run
           // No environment-facing camera — a laptop with one webcam, which is
           // what a developer testing this has.
           const cameras = await Html5Qrcode.getCameras();
@@ -88,7 +108,15 @@ export function useScanner({ active, onDecode, cooldownMs = 3000 }) {
           await instance.start(cameras[cameras.length - 1].id, DECODE_CONFIG, handle, () => {});
         }
 
-        if (cancelled) return;
+        // Cancelled while start() was pending — the permission prompt was open
+        // when the operator pressed Stop, or the page moved on. Cleanup ran
+        // before the stream existed, so it found nothing to stop; the stream
+        // that has just started belongs to nobody and would keep decoding, and
+        // the next start would mount a second engine on the same element.
+        if (cancelled) {
+          await shutdown(instance);
+          return;
+        }
         setStatus('running');
 
         // Best-effort, and genuinely useful: a lot of doors are dark and a lot
@@ -114,9 +142,8 @@ export function useScanner({ active, onDecode, cooldownMs = 3000 }) {
     return () => {
       cancelled = true;
       instanceRef.current = null;
-      // stop() rejects if start() never resolved. Swallowed: there is nothing
-      // to tell anyone about a camera that is already not running.
-      if (instance) instance.stop().then(() => instance.clear()).catch(() => {});
+      // Never throws, whatever state the engine is in — see `shutdown`.
+      shutdown(instance);
     };
   }, [active, cooldownMs]);
 

@@ -7,7 +7,129 @@ const logger = require('../utils/logger');
 // taken and no tickets were issued: retrying will never change that, and a
 // person has to decide what happens next.
 const STOPPED_EVENT = new Set(['EVENT_CANCELLED', 'EVENT_SUSPENDED', 'EVENT_NOT_PUBLISHED']);
-const PERMANENT = new Set(['RESERVATION_EXPIRED', 'RESERVATION_NOT_FOUND', ...STOPPED_EVENT]);
+// FORBIDDEN: the session was not created by us for that hold, or was paid on an
+// account that is not the event organizer's (T-074). Never fulfilled; a person
+// looks at it. Retrying will not change the answer.
+const PERMANENT = new Set(['RESERVATION_EXPIRED', 'RESERVATION_NOT_FOUND', 'FORBIDDEN', ...STOPPED_EVENT]);
+
+/** The PaymentIntent id on a charge or session, whether expanded or not. */
+const piId = (pi) => (typeof pi === 'string' ? pi : pi?.id || null);
+
+/**
+ * What a charge.dispute.* event means for the ledger.
+ *   funds_withdrawn  → Stripe took the disputed amount from the organizer
+ *   funds_reinstated → Stripe gave it back (dispute won)
+ */
+const DISPUTE_MOVEMENT = {
+  'charge.dispute.funds_withdrawn': 'withdrawn',
+  'charge.dispute.funds_reinstated': 'reinstated',
+};
+
+/**
+ * After the sale, for a DIRECT charge on the organizer's account (T-074).
+ * The organizer refunds and answers disputes in their own Stripe Dashboard;
+ * these record what happened so the order, its tickets and the ledger agree
+ * with Stripe. Each RPC is idempotent and checks `event.account` against the
+ * order's own account, so one organizer's events cannot touch another's orders.
+ */
+/**
+ * ── STRIPE DOES NOT ORDER EVENTS ──
+ *
+ * A refund or dispute can arrive before the payment's own
+ * `checkout.session.completed` (seen with real delivery, 2026-11-06: a dispute
+ * one second ahead of its payment). Answered with "no such order", it was
+ * acknowledged and lost for good — a chargeback the ledger never saw.
+ *
+ * So when the order is missing, fulfil the payment FIRST, through the same
+ * path and the same checks as the checkout webhook (our recorded session, on
+ * this account), then record the event. A charge we did not create — an
+ * organizer's own sale outside Eventsli — finds no session of ours and is
+ * still ignored. If fulfilment cannot happen yet, throw: a 500 makes Stripe
+ * redeliver, by which time it can.
+ */
+async function withOrder(event, paymentIntentId, record) {
+  const first = await record();
+  if (!(first && first.ok === false && first.error === 'ORDER_NOT_FOUND')) return first;
+  if (!event.account || !paymentIntentId) return first;
+
+  const session = await stripeSvc.sessionForPaymentIntent(paymentIntentId, event.account);
+  if (!session || session.payment_status !== 'paid') return first;   // not one of ours
+
+  const fulfilled = await fulfillFromSession(session, { account: event.account });
+  if (!fulfilled.ok) {
+    if (PERMANENT.has(fulfilled.error)) return { ok: false, error: fulfilled.error };
+    throw new Error(`could not fulfil ahead of ${event.type}: ${fulfilled.error}`);
+  }
+  logger.info({ type: event.type, orderId: fulfilled.order_id }, 'fulfilled a payment ahead of its own checkout event');
+  return record();
+}
+
+async function recordAfterSale(event) {
+  const obj = event.data.object;
+
+  if (event.type === 'charge.refunded') {
+    const pi = piId(obj.payment_intent);
+    return withOrder(event, pi, async () => {
+      const { data, error } = await supabase.rpc('record_stripe_refund', {
+        p_payment_intent_id: pi,
+        p_account_id: event.account || null,
+        p_charge_id: obj.id,
+        p_amount_refunded_cents: obj.amount_refunded,
+      });
+      if (error) throw new Error(`record_stripe_refund: ${error.message}`);
+      return data;
+    });
+  }
+
+  if (event.type.startsWith('charge.dispute.')) {
+    const pi = piId(obj.payment_intent);
+    return withOrder(event, pi, async () => {
+      const { data, error } = await supabase.rpc('record_stripe_dispute', {
+        p_payment_intent_id: pi,
+        p_account_id: event.account || null,
+        p_charge_id: typeof obj.charge === 'string' ? obj.charge : obj.charge?.id || null,
+        p_dispute_id: obj.id,
+        p_status: obj.status,
+        p_amount_cents: obj.amount,
+        p_movement: DISPUTE_MOVEMENT[event.type] || null,
+      });
+      if (error) throw new Error(`record_stripe_dispute: ${error.message}`);
+      return data;
+    });
+  }
+
+  if (event.type === 'application_fee.refunded') {
+    // A PLATFORM event: our fee on a direct charge, given back. The fee names
+    // the organizer account and the charge; the charge names the order.
+    const accountId = typeof obj.account === 'string' ? obj.account : obj.account?.id;
+    const chargeId = typeof obj.charge === 'string' ? obj.charge : obj.charge?.id;
+    const charge = await stripeSvc.retrieveCharge(chargeId, accountId);
+    const { data, error } = await supabase.rpc('record_application_fee_refund', {
+      p_payment_intent_id: piId(charge.payment_intent),
+      p_account_id: accountId,
+      p_fee_refunded_cents: obj.amount_refunded,
+    });
+    if (error) throw new Error(`record_application_fee_refund: ${error.message}`);
+    return data;
+  }
+  return null;
+}
+
+/**
+ * The one way an EXPIRED session may release a hold: it is the session we
+ * recorded for that hold, on the account we recorded. Otherwise any organizer
+ * could expire a session of their own carrying a stranger's reservation id and
+ * put that buyer's seats back on sale mid-checkout.
+ */
+async function sessionIsOurs(session, account) {
+  const reservationId = session.metadata?.reservation_id;
+  if (!reservationId) return null;
+  const { data } = await supabase.from('reservations')
+    .select('attendee_data').eq('id', reservationId).maybeSingle();
+  const rec = data?.attendee_data || {};
+  return rec.stripeSessionId === session.id && (rec.stripeAccountId || null) === (account || null)
+    ? reservationId : null;
+}
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -133,7 +255,9 @@ async function webhook(req, res) {
           await mark(event.id, null);
           return res.status(200).json({ received: true, skipped: 'not paid' });
         }
-        const result = await fulfillFromSession(session);
+        // `event.account` is set by Stripe on every event from a connected
+        // account — the organizer's account the direct charge was made on.
+        const result = await fulfillFromSession(session, { account: event.account || null });
         if (!result.ok) {
           // Recorded on the row, not only in the log — this is the queue an
           // operator works from when a payment did not turn into tickets.
@@ -157,22 +281,41 @@ async function webhook(req, res) {
       case 'checkout.session.expired': {
         // The buyer walked away. Put the seats back rather than waiting for the
         // sweeper — the difference is minutes of stock on a selling-out event.
-        const reservationId = event.data.object.metadata?.reservation_id;
+        const reservationId = await sessionIsOurs(event.data.object, event.account);
         if (reservationId) {
-          await supabase.rpc('release_reservation', { p_reservation_id: reservationId });
+          const { error: relErr } = await supabase.rpc('release_reservation', { p_reservation_id: reservationId });
+          if (relErr) throw new Error(`release_reservation: ${relErr.message}`);
+        } else if (event.data.object.metadata?.reservation_id) {
+          logger.warn({ id: event.id, sessionId: event.data.object.id, account: event.account || null },
+            'expired session is not the one recorded for its reservation — hold left alone');
         }
         await mark(event.id, null);
         return res.status(200).json({ received: true });
       }
 
       case 'charge.refunded':
-      case 'charge.dispute.created': {
-        // Not automated. BRD §09 makes refunds an arrangement between organizer
-        // and buyer, so this is recorded for an operator to act on rather than
-        // silently reversing an order the platform did not decide to reverse.
-        logger.warn({ type: event.type, id: event.id }, 'refund or dispute — needs review');
-        await mark(event.id, null);
-        return res.status(200).json({ received: true, review: true });
+      case 'charge.dispute.created':
+      case 'charge.dispute.updated':
+      case 'charge.dispute.closed':
+      case 'charge.dispute.funds_withdrawn':
+      case 'charge.dispute.funds_reinstated':
+      case 'application_fee.refunded': {
+        // BRD §09: refunds and disputes are between organizer and buyer — the
+        // organizer acts in their own Stripe Dashboard, on their own balance.
+        // This records the outcome; it never initiates or reverses anything.
+        const outcome = await recordAfterSale(event);
+        if (outcome && outcome.ok === false) {
+          // ORDER_NOT_FOUND: a charge we did not create (e.g. the organizer's
+          // own non-Eventsli sale). FORBIDDEN: an account that is not the
+          // order's. Neither is retryable; both are worth a line in the log.
+          logger.warn({ type: event.type, id: event.id, account: event.account || null, error: outcome.error },
+            'after-sale event not applied to any order');
+        } else if (outcome?.tickets_voided) {
+          logger.info({ type: event.type, orderId: outcome.order_id, voided: outcome.tickets_voided },
+            'tickets voided after refund or lost dispute');
+        }
+        await mark(event.id, outcome && outcome.ok === false ? outcome.error : null);
+        return res.status(200).json({ received: true, outcome: outcome?.ok === false ? outcome.error : 'recorded' });
       }
 
       default:

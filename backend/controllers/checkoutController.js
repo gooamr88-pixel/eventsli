@@ -1,6 +1,7 @@
 const { supabase } = require('../config/supabase');
 const pricing = require('../services/pricingService');
 const stripeSvc = require('../services/stripeService');
+const checkoutSessions = require('../services/checkoutSessions');
 const tickets = require('../services/ticketService');
 const { sendOk, sendFail, ERROR_STATUS } = require('../utils/responseEnvelope');
 const logger = require('../utils/logger');
@@ -167,22 +168,18 @@ async function createSession(req, res, next) {
       req,
     });
 
+    // Reuses a matching open session, lengthens the hold so the session cannot
+    // outlive it, and records the buyer, the session id and what it charges —
+    // the webhook attributes the order from that record rather than from
+    // anything the browser sends back. See services/checkoutSessions.js.
     const origin = safeOrigin(req);
-    const session = await stripeSvc.createCheckoutSession({
+    const session = await checkoutSessions.openSession({
       reservationId: req.params.reservationId,
       quote: q,
       buyer,
       origin,
       accountId: payable.accountId,
     });
-
-    // Stashed so the webhook can attribute the order without trusting anything
-    // the browser sends back — and with the session id, so an admin who cancels
-    // or suspends the event can expire this checkout before it is paid
-    // (services/openCheckouts.js).
-    await supabase.from('reservations')
-      .update({ attendee_data: { buyer, stripeSessionId: session.id } })
-      .eq('id', req.params.reservationId);
 
     return sendOk(res, { checkoutUrl: session.url, sessionId: session.id });
   } catch (err) {
@@ -220,13 +217,21 @@ function safeOrigin(req) {
  */
 async function checkoutResult(req, res, next) {
   try {
-    const session = await stripeSvc.retrieveSession(req.params.sessionId);
+    // WHERE the session lives comes from OUR record of it, never from the URL:
+    // a direct-charge session is on the organizer's account (T-074), and the
+    // only trustworthy link from a session id to an account is the one we
+    // wrote when we created it. A session id we never issued finds nothing.
+    const located = await locateSession(req.params.sessionId);
+    if (!located) {
+      return sendFail(res, { status: 404, error: 'RESERVATION_NOT_FOUND', message: 'We could not find that checkout.' });
+    }
+    const session = await stripeSvc.retrieveSession(req.params.sessionId, located.accountId);
 
     if (session.payment_status !== 'paid') {
       return sendOk(res, { status: session.payment_status, order: null });
     }
 
-    const reservationId = session.metadata?.reservation_id;
+    const reservationId = located.reservationId;
     const { data: existing } = await supabase
       .from('orders')
       .select('id, currency, buyer_total_cents, quantity')
@@ -235,7 +240,7 @@ async function checkoutResult(req, res, next) {
 
     let orderId = existing?.id;
     if (!orderId) {
-      const result = await fulfillFromSession(session);
+      const result = await fulfillFromSession(session, { account: located.accountId });
       if (!result.ok) {
         return sendFail(res, {
           status: statusFor(result.error), error: result.error, message: result.message,
@@ -329,6 +334,22 @@ async function checkoutResult(req, res, next) {
   } catch (err) { return next(err); }
 }
 
+/**
+ * Our own record of a session we created: which reservation it is for, and
+ * which organizer account it lives on. Null for a session id we never issued.
+ */
+async function locateSession(sessionId) {
+  if (!/^cs_[A-Za-z0-9_]+$/.test(String(sessionId || ''))) return null;
+  const { data: order } = await supabase.from('orders')
+    .select('reservation_id, stripe_account_id').eq('stripe_session_id', sessionId).maybeSingle();
+  if (order) return { reservationId: order.reservation_id, accountId: order.stripe_account_id || null };
+  const { data: hold, error } = await supabase.from('reservations')
+    .select('id, attendee_data').eq('attendee_data->>stripeSessionId', sessionId).maybeSingle();
+  if (error) throw new Error(`session lookup failed: ${error.message}`);
+  if (!hold) return null;
+  return { reservationId: hold.id, accountId: hold.attendee_data?.stripeAccountId || null };
+}
+
 /** `someone@example.com` → `so•••••@example.com` */
 function maskEmail(addr) {
   if (!addr || !addr.includes('@')) return null;
@@ -340,18 +361,47 @@ function maskEmail(addr) {
 /**
  * Shared by the webhook and the success page.
  *
- * The breakdown is RECOMPUTED here rather than read from the session: what we
- * store must be what our own arithmetic says, and re-deriving it means a
- * tampered or stale session cannot write false numbers into the ledger.
+ * The breakdown is never read from the Stripe session. It is the snapshot our
+ * own arithmetic produced when the session was made (stored server-side on the
+ * reservation), provided Stripe charged exactly that; otherwise a fresh quote.
+ * Re-quoting alone recorded a different total from the one charged whenever
+ * the quote moved after checkout opened (TECH-AUDIT-LOG T-012).
  */
-async function fulfillFromSession(session) {
+async function fulfillFromSession(session, { account = null } = {}) {
   const reservationId = session.metadata?.reservation_id;
   if (!reservationId) {
     return { ok: false, error: 'VALIDATION_ERROR', message: 'That payment carries no reservation.' };
   }
 
-  const { data: reservation } = await supabase
+  const { data: reservation, error: readError } = await supabase
     .from('reservations').select('attendee_data, state').eq('id', reservationId).maybeSingle();
+  if (readError) throw new Error(`reservation lookup failed: ${readError.message}`);
+  if (!reservation) {
+    return { ok: false, error: 'RESERVATION_NOT_FOUND', message: 'That reservation no longer exists.' };
+  }
+
+  /**
+   * ── THIS SESSION, ON THIS ACCOUNT, FOR THIS HOLD (TECH-AUDIT-LOG T-074) ──
+   *
+   * `metadata.reservation_id` is only a claim. Under direct charges every
+   * organizer has a Stripe account of their own, so any of them can create a
+   * Checkout Session with any metadata at all — and the signed webhook would
+   * faithfully deliver it here. Trusting the metadata would let one organizer's
+   * cheap charge issue tickets for another organizer's held seats.
+   *
+   * So a paid session counts only if it is the very session WE created for this
+   * reservation, and it was paid on the account we created it on.
+   * fulfill_checkout re-checks the account against the event's organizer.
+   */
+  const recordedSession = reservation.attendee_data?.stripeSessionId || null;
+  const recordedAccount = reservation.attendee_data?.stripeAccountId || null;
+  if (recordedSession !== session.id || (account || null) !== recordedAccount) {
+    logger.error({
+      reservationId, sessionId: session.id, account, recordedAccount,
+      sessionMatches: recordedSession === session.id,
+    }, 'PAID SESSION DOES NOT BELONG TO THIS RESERVATION OR ACCOUNT — not fulfilled, needs review');
+    return { ok: false, error: 'FORBIDDEN', message: 'That payment was not made for this reservation.' };
+  }
 
   // A hold already converted is the normal retry case, and quoteReservation
   // would refuse it. Let the RPC answer instead — it returns the original order.
@@ -359,7 +409,11 @@ async function fulfillFromSession(session) {
   if (reservation?.state === 'active') {
     try {
       const q = await pricing.quoteReservation(reservationId);
-      breakdown = q.breakdown;
+      breakdown = checkoutSessions.breakdownForFulfilment({
+        session,
+        snapshot: reservation.attendee_data?.quote,
+        requoted: q.breakdown,
+      });
     } catch (err) {
       // The quote refuses an event that is no longer on sale, and a hold that
       // has lapsed. Those used to THROW out of the webhook, so a payment for a
@@ -386,12 +440,20 @@ async function fulfillFromSession(session) {
       session_id: session.id,
       payment_intent_id: typeof session.payment_intent === 'string'
         ? session.payment_intent : session.payment_intent?.id || null,
+      // The organizer account the charge was made on (null for a legacy
+      // destination charge). fulfill_checkout refuses a direct charge whose
+      // account is not the event organizer's own.
+      account_id: recordedAccount,
     },
   });
 
   if (error) {
     logger.error({ err: error.message, reservationId }, 'fulfilment failed');
     return { ok: false, error: 'CONFLICT', message: 'We could not complete that order.' };
+  }
+  if (result && result.ok === false && result.error === 'FORBIDDEN') {
+    logger.error({ reservationId, sessionId: session.id, account: recordedAccount },
+      'fulfil_checkout refused: the charge account is not this event organizer\'s — needs review');
   }
 
   // Deliver the tickets. Deliberately AFTER fulfilment and never awaited into

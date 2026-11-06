@@ -4,6 +4,10 @@ const http = require('node:http');
 
 // Sets DISABLE_RATE_LIMIT before the app builds its limiters. Must come first.
 require('../helpers/testEnv');
+
+// A test-only connected-account id for this suite's organizer: fulfil refuses
+// a direct charge whose account is not the event organizer's (T-074).
+const TEST_ACCOUNT = `acct_test_salesAndDiscovery_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 const { supabase } = require('../../config/supabase');
 const app = require('../../app');
 const pricing = require('../../services/pricingService');
@@ -67,6 +71,8 @@ before(async () => {
   cookie = login.headers.get('set-cookie').split(';')[0];
 
   const { data: org } = await supabase.from('organizers').insert({
+    // Card sales are direct charges on the organizer's own account (T-074).
+    stripe_account_id: TEST_ACCOUNT,
     owner_user_id: ids.profile, display_name: 'Sales Co', country: 'CA',
   }).select('id').single();
   ids.organizer = org.id;
@@ -135,7 +141,7 @@ before(async () => {
     p_reservation_id: held.reservation_id, p_channel: 'stripe',
     p_breakdown: q.breakdown,
     p_buyer: { user_id: null, name: 'Online Buyer', email: BUYER },
-    p_stripe: { session_id: `cs_sales_${stamp}` },
+    p_stripe: { account_id: TEST_ACCOUNT, session_id: `cs_sales_${stamp}` },
   });
   ids.stripeOrder = filled.order_id;
 

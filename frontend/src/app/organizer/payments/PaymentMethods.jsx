@@ -135,7 +135,7 @@ function PaymentsPage({ organizer, onboarding, onChanged }) {
 }
 
 // ─── Stripe ────────────────────────────────────────────────────────────────
-function StripeSection({ organizer, onChanged }) {
+export function StripeSection({ organizer, onChanged }) {
   const params = useSearchParams();
   const [status, setStatus] = useState(null);
   const [error, setError] = useState(null);
@@ -182,7 +182,12 @@ function StripeSection({ organizer, onChanged }) {
   }
 
   const ready = Boolean(status?.canReceivePayouts);
-  const label = !status ? 'Checking…' : ready ? 'Connected' : status.connected ? 'Needs details' : 'Not connected';
+  // An account from the old payment setup, on which Eventsli — not Stripe —
+  // would carry the organizer's losses. Checkout refuses it; connecting again
+  // creates the organizer's own Stripe account (TECH-AUDIT-LOG T-074).
+  const reconnect = Boolean(status?.needsReconnect);
+  const label = !status ? 'Checking…' : ready ? 'Connected'
+    : reconnect ? 'Reconnect needed' : status.connected ? 'Needs details' : 'Not connected';
 
   return (
     <section className="es-dcard es-paycard" aria-labelledby="pay-stripe">
@@ -220,12 +225,25 @@ function StripeSection({ organizer, onChanged }) {
           </Notice>
         )}
 
+        {reconnect && (
+          <Notice tone="warning" title="Reconnect Stripe to keep taking card payments.">
+            <p>
+              Eventsli now sets you up with your own Stripe account: you are the seller, payments go
+              straight to you, and you handle refunds and disputes in your Stripe Dashboard. Your
+              current connection uses the old setup, so card checkout is paused until you reconnect.
+              It takes about five minutes; your events and past orders are not affected.
+            </p>
+          </Notice>
+        )}
+
         {status && !status.paymentsDisabled && !ready && (
           <div className="fx-stack fx-stack--sm">
             <p className="text-sm text-muted">
-              {status.connected
-                ? 'Your Stripe account exists but is not ready to receive money yet.'
-                : 'You will be taken to Stripe to enter your business and bank details. It takes about five minutes.'}
+              {reconnect
+                ? 'You will be taken to Stripe to set up your own account.'
+                : status.connected
+                  ? 'Your Stripe account exists but is not ready to receive money yet.'
+                  : 'You will be taken to Stripe to enter your business and bank details. It takes about five minutes.'}
             </p>
             {status.requirements?.length > 0 && (
               <div className="fx-stack fx-stack--sm gap-1">
@@ -242,7 +260,7 @@ function StripeSection({ organizer, onChanged }) {
             <div className="fx-row gap-2">
               <button type="button" onClick={connect} disabled={busy} className="es-btn es-btn--primary">
                 <NavIcon name="link" size={18} />
-                {busy ? 'Opening Stripe…' : status.connected ? 'Continue with Stripe' : 'Connect Stripe'}
+                {busy ? 'Opening Stripe…' : reconnect ? 'Reconnect Stripe' : status.connected ? 'Continue with Stripe' : 'Connect Stripe'}
               </button>
               <a href="https://stripe.com/connect" target="_blank" rel="noopener noreferrer" className="es-btn es-btn--secondary">
                 <NavIcon name="external" size={18} />Learn more<span className="sr-only"> about Stripe (opens in a new tab)</span>

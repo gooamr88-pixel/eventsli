@@ -34,6 +34,28 @@ if (process.env.REDIS_URL && process.env.DISABLE_RATE_LIMIT !== 'true') {
   }
 }
 
+const NAMES = new Set();
+
+/**
+ * An email address as the ACCOUNT sees it, for keying a limiter.
+ *
+ * Registration and login normalise addresses (express-validator's
+ * normalizeEmail: lower case; Gmail drops dots and `+tags`), so `V.ictim+1@
+ * Gmail.com` and `victim@gmail.com` are one account. A limiter keyed on the raw
+ * string gave each spelling its own budget. Erring towards merging is safe
+ * here: the worst case is two people sharing an attempt budget.
+ */
+function accountKey(email) {
+  const raw = String(email || '').trim().toLowerCase();
+  const at = raw.lastIndexOf('@');
+  if (at < 1) return raw;
+  let local = raw.slice(0, at).split('+')[0];
+  let domain = raw.slice(at + 1);
+  if (domain === 'googlemail.com') domain = 'gmail.com';
+  if (domain === 'gmail.com') local = local.split('.').join('');
+  return `${local}@${domain}`;
+}
+
 /** A namespaced store, so two limiters do not share one counter. */
 function storeFor(prefix) {
   if (!redisClient || !RedisStore) return undefined;
@@ -57,6 +79,16 @@ function storeFor(prefix) {
  * thing everywhere and the failure shape is identical.
  */
 function makeLimiter({ windowMs, max, keyGenerator, message, skip, name }) {
+  // REQUIRED. An unnamed limiter used to fall back to one shared `default`
+  // Redis keyspace, so with REDIS_URL set the seat-hold, promo and
+  // password-reset limiters all incremented the same `rl:default:<ip>` counter
+  // (TECH-AUDIT-LOG T-020). Refused at boot rather than shared at runtime.
+  if (!name || typeof name !== 'string') {
+    throw new Error('makeLimiter needs a unique `name` — it namespaces the shared store');
+  }
+  if (NAMES.has(name)) throw new Error(`makeLimiter: the name "${name}" is already in use`);
+  NAMES.add(name);
+
   const disabled = process.env.DISABLE_RATE_LIMIT === 'true';
 
   return rateLimit({
@@ -66,7 +98,7 @@ function makeLimiter({ windowMs, max, keyGenerator, message, skip, name }) {
     legacyHeaders: false,
     // Namespaced per limiter, or the login budget and the promo budget would
     // share one counter and exhaust each other.
-    store: storeFor(name || 'default'),
+    store: storeFor(name),
     ...(keyGenerator ? { keyGenerator } : {}),
     skip: (req, res) => {
       // Never in production, whatever the flag says: a limiter that can be
@@ -83,4 +115,4 @@ function makeLimiter({ windowMs, max, keyGenerator, message, skip, name }) {
   });
 }
 
-module.exports = { makeLimiter };
+module.exports = { makeLimiter, accountKey };

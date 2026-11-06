@@ -4,6 +4,10 @@ const assert = require('node:assert/strict');
 // Sets DISABLE_RATE_LIMIT before the app builds its limiters. Must come first.
 require('../helpers/testEnv');
 
+// A test-only connected-account id for this suite's organizer: fulfil refuses
+// a direct charge whose account is not the event organizer's (T-074).
+const TEST_ACCOUNT = `acct_test_promoCodes_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
 const { supabase } = require('../../config/supabase');
 const promo = require('../../services/promoService');
 const pricing = require('../../services/pricingService');
@@ -28,6 +32,8 @@ before(async () => {
   ids.profile = profile.id;
 
   const { data: org } = await supabase.from('organizers').insert({
+    // Card sales are direct charges on the organizer's own account (T-074).
+    stripe_account_id: TEST_ACCOUNT,
     owner_user_id: profile.id, display_name: 'Promo Co', country: 'CA',
   }).select('id').single();
   ids.organizer = org.id;
@@ -397,7 +403,7 @@ test('a code paid with is recorded on the order and cannot be freed again', asyn
   const paid = await supabase.rpc('fulfill_checkout', {
     p_reservation_id: h.reservation_id, p_channel: 'stripe', p_breakdown: q.breakdown,
     p_buyer: { user_id: null, name: 'Code Buyer', email: 'code-buyer@eventsli-test.invalid' },
-    p_stripe: { session_id: `cs_promo_${stamp}` },
+    p_stripe: { account_id: TEST_ACCOUNT, session_id: `cs_promo_${stamp}` },
   });
   assert.equal(paid.data?.ok, true, JSON.stringify(paid.data || paid.error));
 

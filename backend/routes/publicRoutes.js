@@ -21,6 +21,7 @@ const router = express.Router();
 const unlockLimiter = makeLimiter({
   windowMs: 10 * 60 * 1000,
   max: 10,
+  name: 'table-unlock',
   keyGenerator: (req) => `${req.ip}|${req.params.tableId}`,
   message: 'Too many attempts for this table. Please wait a few minutes.',
 });
@@ -33,6 +34,7 @@ const unlockLimiter = makeLimiter({
 const holdLimiter = makeLimiter({
   windowMs: 5 * 60 * 1000,
   max: 15,
+  name: 'seat-hold',
   message: 'Too many attempts. Please wait a moment before selecting again.',
 });
 
@@ -389,6 +391,7 @@ const promo = require('../controllers/promoController');
 const promoLimiter = makeLimiter({
   windowMs: 10 * 60 * 1000,
   max: 12,
+  name: 'promo-code',
   message: 'Too many code attempts. Please wait a few minutes.',
 });
 

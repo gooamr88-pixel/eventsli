@@ -13,6 +13,7 @@ const router = express.Router();
 const loginLimiter = makeLimiter({
   windowMs: 15 * 60 * 1000,
   max: 12,
+  name: 'gate-login',
   keyGenerator: (req) => `${req.ip}|${req.body?.deviceId || ''}`,
   message: 'Too many attempts. Wait a few minutes and try again.',
 });

@@ -147,6 +147,101 @@ const FEE_BEARER = Object.freeze({ BUYER: 'buyer', ORGANIZER: 'organizer' });
 const PAYMENT_FEE_MODE = Object.freeze({ AUTO: 'auto', MANUAL: 'manual' });
 
 /**
+ * CHARGE_MODEL — whose charge it is (TECH-AUDIT-LOG T-074).
+ *
+ *   DIRECT       the card checkout. The charge is created ON the organizer's
+ *                connected account: they are the merchant of record, Stripe
+ *                bills its processing fee to THEM, and refunds and disputes are
+ *                debited from THEIR balance. Eventsli's application fee is its
+ *                commission and the tax on that commission — nothing else, since
+ *                there is no Stripe cost of ours to recover.
+ *   DESTINATION  the old card model, kept for the orders it produced and for the
+ *                callers that still quote with it (manual sales, the fee screen):
+ *                the charge on the platform, the platform paying Stripe, and the
+ *                payment fee folded into the application fee to recover that.
+ */
+const CHARGE_MODEL = Object.freeze({ DIRECT: 'direct', DESTINATION: 'destination' });
+
+/**
+ * The order, priced as a DIRECT charge on the organizer's own account.
+ *
+ *   buyerTotal        subtotal + event tax (+ the service fee, only when the
+ *                     organizer chose to pass it to the buyer)
+ *   applicationFee    commission + commission tax          → Eventsli
+ *   stripeCost        Stripe's processing fee              → paid by the ORGANIZER
+ *   organizerNet      buyerTotal − applicationFee − stripeCost
+ *   platformNet       the commission (its tax is owed onward, not kept)
+ *
+ * The service fee, when the buyer bears it, is solved exactly as before — so
+ * that it covers Stripe's percentage of the whole total — but it now stays in
+ * the organizer's balance, where Stripe's fee is charged. When the organizer
+ * bears it there is no separate fee at all: Stripe simply takes its cut from
+ * the organizer's charge. Eventsli cannot under-recover a cost it never pays,
+ * so `belowCost` and `lossMaking` are always false here.
+ */
+function describeDirectOrder({
+  faceCents, quantity, eventTaxPct, commissionPct, commissionTaxPct,
+  paymentFeeMode, paymentFeePct, paymentFeeFixedCents, feeBearer, stripe, discountCents,
+}) {
+  assertCents(faceCents, 'faceCents');
+  assertCents(paymentFeeFixedCents, 'paymentFeeFixedCents');
+  assertCents(discountCents, 'discountCents');
+  if (!Number.isInteger(quantity) || quantity < 1) {
+    throw new RangeError(`quantity must be a positive integer, got ${quantity}`);
+  }
+  if (feeBearer !== FEE_BEARER.BUYER && feeBearer !== FEE_BEARER.ORGANIZER) {
+    throw new TypeError(`feeBearer must be "buyer" or "organizer", got "${feeBearer}"`);
+  }
+
+  const grossCents = faceCents * quantity;
+  const discount = Math.min(Math.max(discountCents, 0), grossCents);
+  const subtotalCents = grossCents - discount;
+  const eventTaxCents = pctOf(subtotalCents, eventTaxPct);
+  const commissionCents = pctOf(subtotalCents, commissionPct);
+  const commissionTaxCents = pctOf(commissionCents, commissionTaxPct);
+  const isFree = subtotalCents === 0;
+
+  let paymentFeeCents = 0;
+  if (!isFree && feeBearer === FEE_BEARER.BUYER) {
+    paymentFeeCents = paymentFeeMode === PAYMENT_FEE_MODE.AUTO
+      ? solvePaymentFeeCents({ subtotalCents, eventTaxCents, stripe })
+      : pctOf(subtotalCents, paymentFeePct) + paymentFeeFixedCents;
+  }
+
+  const buyerTotalCents = subtotalCents + eventTaxCents + paymentFeeCents;
+  const applicationFeeCents = isFree ? 0 : commissionCents + commissionTaxCents;
+  const stripeCost = isFree ? 0 : stripeCostCents(buyerTotalCents, stripe);
+  // Never below zero: orders.organizer_net_cents is constrained >= 0, and a
+  // tiny ticket whose Stripe fee exceeds its price is still a sale.
+  const organizerNetCents = Math.max(0, buyerTotalCents - applicationFeeCents - stripeCost);
+  const platformNetCents = applicationFeeCents - commissionTaxCents;
+
+  return {
+    chargeModel: CHARGE_MODEL.DIRECT,
+    quantity,
+    faceCents,
+    grossCents,
+    discountCents: discount,
+    subtotalCents,
+    eventTaxCents,
+    commissionCents,
+    commissionTaxCents,
+    paymentFeeCents,
+    paymentFeeMode,
+    feeBearer,
+    buyerTotalCents,
+    applicationFeeCents,
+    organizerNetCents,
+    stripeCostCents: stripeCost,
+    stripeCostBorneBy: 'organizer',
+    platformNetCents,
+    intendedMarginCents: commissionCents,
+    belowCost: false,
+    lossMaking: false,
+  };
+}
+
+/**
  * The fee that recovers Stripe's cost exactly, for a given bearer.
  *
  * The two modes are genuinely different problems, not one with a flag:
@@ -195,7 +290,14 @@ function describeOrder({
   feeBearer = FEE_BEARER.BUYER,
   stripe = { pct: 0, fixedCents: 0 },
   discountCents = 0,
+  chargeModel = CHARGE_MODEL.DESTINATION,
 }) {
+  if (chargeModel === CHARGE_MODEL.DIRECT) {
+    return describeDirectOrder({
+      faceCents, quantity, eventTaxPct, commissionPct, commissionTaxPct,
+      paymentFeeMode, paymentFeePct, paymentFeeFixedCents, feeBearer, stripe, discountCents,
+    });
+  }
   assertCents(faceCents, 'faceCents');
   assertCents(paymentFeeFixedCents, 'paymentFeeFixedCents');
   assertCents(discountCents, 'discountCents');
@@ -410,4 +512,5 @@ module.exports = {
   describeFeeConfig,
   FEE_BEARER,
   PAYMENT_FEE_MODE,
+  CHARGE_MODEL,
 };

@@ -17,17 +17,26 @@ on:
 # stay the ones a developer types; Node resolves up into the root node_modules.
 
 jobs:
-  backend:
-    name: Unit tests
+  audit:
+    name: Dependency audit
     runs-on: ubuntu-latest
+    # Its OWN job, still blocking. It used to be the first step of the unit-test
+    # job, so a dev-only advisory (vitest, 2026-11) stopped that job before
+    # `npm test` ran — every backend unit regression merged unseen behind one
+    # red step everyone had learned to expect (docs/TECH-AUDIT-LOG.md T-004).
+    # Separate, the tests always report and the audit still fails the run.
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22        # keep in sync with deployment/README.md
+          node-version: 22        # keep in sync with docs/DEPLOY.md
           cache: npm
           cache-dependency-path: package-lock.json
       - run: npm ci
+
+      # What ships to the servers. Must be clean, always.
+      - name: Runtime dependencies
+        run: npm audit --omit=dev --audit-level=moderate
 
       # Blocking, and set at `moderate` rather than `high` because the tree is
       # currently clean at that level and staying there is cheap. Never waved
@@ -35,7 +44,24 @@ jobs:
       # anything. When a transitive advisory has no upstream fix, pin it with an
       # `overrides` entry in the root package.json and record why in
       # docs/SECURITY-ADVISORIES.md — do not lower this threshold.
-      - run: npm audit --audit-level=moderate
+      - name: All dependencies
+        run: npm audit --audit-level=moderate
+
+      # Tracked files only — the same scan `npm run preflight` runs locally.
+      - name: Secret scan
+        run: node scripts/secretScan.js
+
+  backend:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22        # keep in sync with docs/DEPLOY.md
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
 
       - run: npm test
         working-directory: backend
@@ -119,7 +145,11 @@ jobs:
 
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          # PINNED. `latest` became v3, which removes the [inbucket] config
+          # section supabase/config.toml still uses, and may rename the
+          # `status -o env` keys read below. 2.122.1 is the version every local
+          # integration run (320/320, 2026-11-06) used. Upgrade on purpose.
+          version: 2.122.1
 
       # Boots Postgres and PostgREST and applies every migration in order to a
       # database that has never existed before. Which also makes this the

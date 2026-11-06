@@ -58,6 +58,9 @@ async function register(call, label) {
 }
 
 before(async () => {
+  // "Published through the normal review loop" needs review-first mode, off by
+  // default since 015a35a — see test/helpers/reviewMode.js.
+  await require('../helpers/reviewMode').requireReview();
   server = http.createServer(app);
   await new Promise((r) => server.listen(0, '127.0.0.1', r));
   baseUrl = `http://127.0.0.1:${server.address().port}/api/v1`;

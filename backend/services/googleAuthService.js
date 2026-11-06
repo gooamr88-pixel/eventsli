@@ -36,10 +36,28 @@ async function findOrCreate({ email, name }) {
     // Google has just proved this person holds the address (verifyIdToken
     // refuses an unverified one), so a password sign-up that never typed its
     // code is confirmed by this sign-in rather than left stuck.
+    //
+    // ── PRE-ACCOUNT TAKEOVER (TECH-AUDIT-LOG T-013) ──
+    // An unconfirmed account's password was set by whoever typed the address,
+    // and nothing ever proved that was the inbox's owner. Confirming the
+    // address here used to KEEP that password: register victim@company.com
+    // with your own password, wait for the victim to "Sign in with Google",
+    // then sign in as them. So the unproven password is removed, any
+    // outstanding codes and links are spent, and any session is ended. The
+    // real owner can set a password through "Forgot password" if they want one.
     if (!existing.email_verified_at) {
-      await supabase.from('profiles')
-        .update({ email_verified_at: new Date().toISOString() })
+      const { error } = await supabase.from('profiles')
+        .update({ email_verified_at: new Date().toISOString(), password_hash: null })
         .eq('id', existing.id);
+      if (error) throw new Error(`could not confirm the account: ${error.message}`);
+
+      const { error: codesError } = await supabase.from('email_verifications')
+        .update({ consumed_at: new Date().toISOString() })
+        .eq('user_id', existing.id)
+        .is('consumed_at', null);
+      if (codesError) throw new Error(`could not spend outstanding codes: ${codesError.message}`);
+
+      await require('./sessionService').revokeAllForUser(existing.id, 'google_claimed_unverified');
     }
     return { user: existing, created: false };
   }
