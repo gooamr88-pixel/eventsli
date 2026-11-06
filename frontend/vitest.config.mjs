@@ -62,12 +62,14 @@ export default defineConfig({
      * Switched off only where it exists. Node 22 (the version this project
      * pins — .nvmrc, docs/DEPLOY.md) does not know the flag in every patch
      * release, so it is not passed there.
+     *
+     * `test.execArgv`, not `poolOptions.{forks,threads}.execArgv`: vitest 4
+     * removed `poolOptions` (the upgrade from 3.2.7 that cleared the tinypool
+     * RCE advisories), and the old key was then silently ignored — the same 21
+     * tests failed again on Node 26 (2026-11-06).
      */
     ...(Number(process.versions.node.split('.')[0]) >= 25 && {
-      poolOptions: {
-        forks: { execArgv: ['--no-experimental-webstorage'] },
-        threads: { execArgv: ['--no-experimental-webstorage'] },
-      },
+      execArgv: ['--no-experimental-webstorage'],
     }),
   },
 });

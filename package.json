@@ -8,7 +8,8 @@
     "frontend"
   ],
   "overrides": {
-    "qs": "^6.16.0"
+    "qs": "^6.16.0",
+    "minimatch@^10.0.0": "^11.0.1"
   },
   "scripts": {
     "dev:backend": "npm run dev --workspace=backend",

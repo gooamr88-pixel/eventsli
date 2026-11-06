@@ -53,7 +53,7 @@ migration and therefore a local Supabase stack to verify.
 |---|---|---|---|
 | T-001 | **Critical** | `next@16.3.8` carries an unauthenticated RCE advisory in the Image Optimization API (SVG) plus others; fixed in 16.4.5 | Fixed (verified) |
 | T-002 | High | Runtime transitive advisories: `body-parser`/`qs` (via express), `undici`, `zod` — non-breaking fixes available | Fixed (verified) |
-| T-003 | Medium | Dev-only advisories (vitest/tinypool critical, vite, eslint-config-next chain) need semver-major upgrades; documented in SECURITY-ADVISORIES.md | Open — needs vitest 5 (major); dev-only |
+| T-003 | Medium | Dev-only advisories (vitest/tinypool critical, vite, eslint-config-next chain) need semver-major upgrades; documented in SECURITY-ADVISORIES.md | Fixed (vitest 4.1.12 + minimatch override; npm audit 0, T-078) |
 | T-004 | High | CI: `npm audit` runs before backend tests in the same job, so a dev-only advisory hides every unit regression [QA-02] | Fixed (unverified — needs a CI run) |
 
 ### Phase 1 — Money, inventory and account security
@@ -81,6 +81,7 @@ migration and therefore a local Supabase stack to verify.
 | T-075 | High | Stripe delivers events out of order: a dispute arriving before its payment's checkout event was answered ORDER_NOT_FOUND and lost | Fixed (verified: integration + live redelivery) |
 | T-076 | **Critical** | Deploy window: a pre-release checkout paid after the deploy was re-quoted as direct and refused (charged, no tickets) | Fixed (verified: integration; uncommitted) |
 | T-077 | **Critical** | Migration NULL bug dropped legacy ledger rows; verify-schema could not confirm the rollout; apply-migration lacked lock timeouts, re-run guards and RLS on schema_migrations | Fixed (verified: rehearsal + tests; uncommitted) |
+| T-078 | High | CI run #73 red: seed check used `supabase db psql` (absent in pinned CLI 2.122.1); full audit failed on 11 dev-only advisories (vitest/tinypool critical, minimatch) | Fixed (verified: full CI replayed locally, all steps pass; uncommitted) |
 
 ### Phase 2 — Reliability, operability, broken flows
 
@@ -955,3 +956,51 @@ passed.
 5. **Unknown production state:** run step 2 of PRODUCTION-ROLLOUT.md
    (read-only) first. Stop if any older migration is missing or a `bad_*`
    count is non-zero.
+
+---
+
+## T-078 — CI run #73 (`e8bbc96`) failures: root causes and fixes (2026-11-06)
+
+Job results from the GitHub API: Frontend, Unit tests and Migrations passed.
+**Dependency audit** failed at "All dependencies"; the runtime-only audit
+passed. **Integration tests** failed at "Check the seed landed", so no test
+ran. The raw logs need GitHub auth (403); the causes below were reproduced
+locally.
+
+### Integration — caused by this branch's own CLI pin
+
+`supabase db psql` does not exist in the pinned CLI 2.122.1
+(`Unknown subcommand "psql" for "supabase db"`). The pin was added in
+`8d49430` to avoid v3's `[inbucket]` removal; that removal is real, but the
+seed check used a command the pinned version never had.
+
+**Fix:** `supabase db query "…"`. It was verified locally both ways: exit 0
+with the seed present, exit 1 when the statement raises. The assertion is
+unchanged.
+
+### Dependency audit — 11 advisories (2 critical, 9 moderate), all dev-only
+
+| Chain | Advisories | Fix |
+|---|---|---|
+| `frontend → vitest@3.2.7 → tinypool`, `@vitest/mocker` | **critical** GHSA-5gmw-xhrv-c9v3, GHSA-85c8-ppgw-ccpr (tinypool RCE gadgets); moderate GHSA-82fw-gwwq-j7x9, GHSA-qxg6-89mg-rqv8 | `vitest@4.1.12` (published 2026-10-15, no tinypool, patched mocker). vitest 4 removed `poolOptions`, so the Node 25+ webstorage flag moved to `test.execArgv`; without that, 21 tests failed locally on Node 26. |
+| `eslint-config-next@16.4.5 → typescript-eslint → @typescript-eslint/typescript-estree@8.72.1 → minimatch@10.2.6` | moderate GHSA-g3hv-75wg-m249 (fixed in 11.0.1) | No upstream fix: typescript-estree 8.72.1, the newest, still requires `^10.2.2`. npm's "fix" was a **downgrade** of eslint-config-next to 15.5.29, refused. Root override `"minimatch@^10.0.0": "^11.0.1"`, resolved with `npm update minimatch` to 11.0.5. Documented in SECURITY-ADVISORIES.md. |
+
+**Pitfall recorded.** npm 11.20's nested override form
+(`"@typescript-eslint/typescript-estree": { "minimatch": … }`), and removing
+lock entries by hand, both left typescript-estree with **no** minimatch at
+all, while `npm audit` reported **0** (a false clean). The final tree was
+checked by resolving what typescript-estree actually loads (minimatch
+11.0.5), not by the audit count alone.
+
+### Full CI replayed locally: every step PASS
+
+| Job | Steps | Result |
+|---|---|---|
+| Dependency audit | `npm ci` (lockfile matches) · `npm audit --omit=dev --audit-level=moderate` · `npm audit --audit-level=moderate` · secret scan | PASS · **0 vulns** · **0 vulns** · clean |
+| Unit tests | `npm test` (backend) | **449/449** |
+| Frontend | check · eslint · test · next build | PASS · PASS · **755/755** · PASS |
+| Integration | fresh `supabase db reset` (52 migrations, CLI 2.122.1) · seed check via `db query` · `npm run test:integration` with CI's env | PASS · PASS · **322/322** |
+| Migrations | bare `postgres:17` + CI's stand-in roles · all 52 files, one transaction each, ON_ERROR_STOP | PASS · PASS |
+
+The audit threshold, the test set and the migrations job are unchanged.
+Nothing is skipped and no `|| true` was added.

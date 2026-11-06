@@ -172,9 +172,12 @@ jobs:
       # The suite seeds organizers who must accept the current terms, so a
       # missing seed row surfaces here as one clear failure rather than a dozen
       # confusing ones.
+      # `db query`, not `db psql`: the pinned CLI (2.122.1) has no `db psql`
+      # subcommand, and this step failed run #73 before any test ran. `db query`
+      # exits 1 when the statement raises (checked locally both ways).
       - name: Check the seed landed
         run: |
-          supabase db psql -c \
+          supabase db query \
             "DO \$\$ BEGIN
                IF NOT EXISTS (SELECT 1 FROM terms_versions WHERE is_current) THEN
                  RAISE EXCEPTION 'no current terms version — the seed migration did not run';

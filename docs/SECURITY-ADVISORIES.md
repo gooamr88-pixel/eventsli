@@ -14,6 +14,7 @@ miss because npm reports no error for it.
 
 | Package | Pinned to | Advisory | Why an override |
 |---|---|---|---|
+| `minimatch@^10.0.0` | `^11.0.1` | [GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249) — DoS via globparts amplification (moderate), affected `>=7.0.0 <11.0.1` | Dev only: `eslint-config-next@16.4.5 → typescript-eslint → @typescript-eslint/typescript-estree@8.72.1 → minimatch ^10.2.2`. 8.72.1 is the newest typescript-eslint and still asks for 10.x, so there is nothing to upgrade to; npm's own "fix" was a **downgrade** to `eslint-config-next@15.5.29`, refused. Keyed on the 10.x range so eslint's own nested `minimatch@3.1.5` copies are untouched. The nested-object form (`"@typescript-eslint/typescript-estree": { "minimatch": … }`) made npm 11.20 drop the dependency entirely instead of replacing it — installed nothing and reported 0 advisories; the version-keyed form plus `npm update minimatch` resolves `minimatch@11.0.5`. Verified: `eslint .` clean, `npm audit --audit-level=moderate` 0 (2026-11-06, CI run #73 fix). Remove when typescript-eslint moves to minimatch ≥ 11.0.1. |
 | `qs` | `^6.16.0` | [GHSA-x5fp-wj9c-mxmx](https://github.com/advisories/GHSA-x5fp-wj9c-mxmx) — array-limit bypass via bracket-key comma parsing; [GHSA-4mjr-xmp4-gh2g](https://github.com/advisories/GHSA-4mjr-xmp4-gh2g) — DoS via attacker-controlled `isBuffer` | Reached through `express → body-parser → qs`. Express 4.22.2 is the last 4.x release and still depends on an affected range, so there is no version of Express to upgrade to. 6.16.0 is a patch-level move from 6.15.3 with no API change. |
 
 Both advisories are in the query-string parser that sits in front of every
@@ -75,6 +76,26 @@ CI's `npm audit --audit-level=moderate` therefore still fails on these eight.
 Two ways to make it green, both the owner's call: upgrade vitest to 4.1.11+
 (and wait for `braces`), or gate CI on `npm audit --omit=dev` — what ships —
 with the dev-only list kept here.
+
+### 2026-11-06 — both chains closed; full audit clean, threshold unchanged
+
+CI run #73 (commit `e8bbc96`) failed its **All dependencies** audit on 11
+advisories, 2 critical, all dev-only (the runtime audit was already clean).
+
+- **vitest 3.2.7 → 4.1.12** (published 2026-10-15): drops `tinypool` entirely
+  and ships `@vitest/mocker@4.1.12`, the patched version — clears both
+  critical tinypool RCE gadgets (GHSA-5gmw-xhrv-c9v3, GHSA-85c8-ppgw-ccpr) and
+  both mocker advisories (GHSA-82fw-gwwq-j7x9, GHSA-qxg6-89mg-rqv8). Chosen
+  over npm's suggested 5.1.0 (four days old, a further major). Only config
+  change: vitest 4 removed `poolOptions`, so the Node 25+ webstorage flag moved
+  to `test.execArgv` (frontend/vitest.config.mjs). 755/755 tests pass.
+- **minimatch** via typescript-eslint: the `minimatch@^10.0.0` override above.
+- The `braces` advisory listed in the table above no longer appears in
+  `npm audit` on the current tree.
+
+Result: `npm audit --audit-level=moderate` → **0 vulnerabilities**, at the
+unchanged `moderate` threshold, with no `|| true` and no `--omit=dev` in the
+blocking step.
 
 ## Adding one
 

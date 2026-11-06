@@ -27,7 +27,7 @@
     "eslint-config-next": "16.4.5",
     "jsdom": "^29.1.1",
     "tailwindcss": "^4",
-    "vitest": "^3.2.7"
+    "vitest": "^4.1.12"
   },
   "engines": {
     "node": ">=22.0.0 <25"
