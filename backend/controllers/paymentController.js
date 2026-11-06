@@ -16,6 +16,21 @@ const PERMANENT = new Set(['RESERVATION_EXPIRED', 'RESERVATION_NOT_FOUND', 'FORB
 const piId = (pi) => (typeof pi === 'string' ? pi : pi?.id || null);
 
 /**
+ * ── NOT EVERY CHECKOUT ON AN ORGANIZER'S ACCOUNT IS OURS (TECH-AUDIT-LOG T-079) ──
+ *
+ * Organizers have full Stripe accounts, and the Connect endpoint receives every
+ * event on them: Payment Links, their own website, another tool's checkouts.
+ * Those sessions carry no reservation id of ours, so fulfilment could only ever
+ * refuse them. Answered as a transient failure, each one was a 500 that Stripe
+ * retried for days. A session counts as possibly ours only if it names a
+ * reservation in the form we create (a UUID). This is a SHAPE check alone:
+ * whether it really is ours is still decided by fulfillFromSession (recorded
+ * session, recorded account) and fulfill_checkout (T-074).
+ */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const couldBeOurs = (session) => UUID.test(String(session?.metadata?.reservation_id || ''));
+
+/**
  * What a charge.dispute.* event means for the ledger.
  *   funds_withdrawn  → Stripe took the disputed amount from the organizer
  *   funds_reinstated → Stripe gave it back (dispute won)
@@ -43,9 +58,10 @@ const DISPUTE_MOVEMENT = {
  * So when the order is missing, fulfil the payment FIRST, through the same
  * path and the same checks as the checkout webhook (our recorded session, on
  * this account), then record the event. A charge we did not create — an
- * organizer's own sale outside Eventsli — finds no session of ours and is
- * still ignored. If fulfilment cannot happen yet, throw: a 500 makes Stripe
- * redeliver, by which time it can.
+ * organizer's own sale outside Eventsli — is still ignored: it has either no
+ * Checkout Session at all, or the organizer's own session, which carries no
+ * reservation of ours (T-079). If fulfilment cannot happen yet, throw: a 500
+ * makes Stripe redeliver, by which time it can.
  */
 async function withOrder(event, paymentIntentId, record) {
   const first = await record();
@@ -53,7 +69,8 @@ async function withOrder(event, paymentIntentId, record) {
   if (!event.account || !paymentIntentId) return first;
 
   const session = await stripeSvc.sessionForPaymentIntent(paymentIntentId, event.account);
-  if (!session || session.payment_status !== 'paid') return first;   // not one of ours
+  // No session, an unpaid one, or the organizer's own (T-079): not one of ours.
+  if (!session || session.payment_status !== 'paid' || !couldBeOurs(session)) return first;
 
   const fulfilled = await fulfillFromSession(session, { account: event.account });
   if (!fulfilled.ok) {
@@ -260,6 +277,15 @@ async function webhook(req, res) {
         if (session.payment_status !== 'paid') {
           await mark(event.id, null);
           return res.status(200).json({ received: true, skipped: 'not paid' });
+        }
+        // An organizer's own sale outside Eventsli (T-079). Nothing to fulfil,
+        // and retrying cannot change that: acknowledged, and kept off the
+        // operator's error queue.
+        if (!couldBeOurs(session)) {
+          await mark(event.id, null);
+          logger.debug({ id: event.id, sessionId: session.id, account: event.account || null },
+            'checkout session is not an Eventsli checkout — ignored');
+          return res.status(200).json({ received: true, ignored: 'not an Eventsli checkout' });
         }
         // `event.account` is set by Stripe on every event from a connected
         // account — the organizer's account the direct charge was made on.

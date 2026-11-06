@@ -82,6 +82,7 @@ migration and therefore a local Supabase stack to verify.
 | T-076 | **Critical** | Deploy window: a pre-release checkout paid after the deploy was re-quoted as direct and refused (charged, no tickets) | Fixed (verified: integration; uncommitted) |
 | T-077 | **Critical** | Migration NULL bug dropped legacy ledger rows; verify-schema could not confirm the rollout; apply-migration lacked lock timeouts, re-run guards and RLS on schema_migrations | Fixed (verified: rehearsal + tests; uncommitted) |
 | T-078 | High | CI run #73 red: seed check used `supabase db psql` (absent in pinned CLI 2.122.1); full audit failed on 11 dev-only advisories (vitest/tinypool critical, minimatch) | Fixed (verified: full CI replayed locally, all steps pass; uncommitted) |
+| T-079 | High | The Connect webhook answered 500, and Stripe retried for days, for every organizer sale made OUTSIDE Eventsli on their full Stripe account (their own Checkout, Payment Links), and for refunds and disputes on those sales | Fixed (verified: integration, the new tests fail without the fix; uncommitted) |
 
 ### Phase 2 — Reliability, operability, broken flows
 
@@ -1004,3 +1005,45 @@ checked by resolving what typescript-estree actually loads (minimatch
 
 The audit threshold, the test set and the migrations job are unchanged.
 Nothing is skipped and no `|| true` was added.
+
+## T-079 — the webhook retried organizers' own non-Eventsli sales forever (High, Fixed, 2026-11-06)
+
+**Cause.** Organizers have full Stripe accounts (`dashboard: full`, T-074),
+and the Connect endpoint receives every event on them, including sales they
+make outside Eventsli. Two paths treated those as transient failures:
+
+| Event | What happened | Where |
+|---|---|---|
+| `checkout.session.completed` / `async_payment_succeeded`, organizer's own session | No `metadata.reservation_id`, so `fulfillFromSession` returned `VALIDATION_ERROR`. That is not in `PERMANENT`, so the answer was 500 with an error on the row. The duplicate branch re-runs errored rows, so every Stripe retry failed again. | `paymentController.js` checkout case |
+| `charge.refunded`, `charge.dispute.*` on such a sale | `ORDER_NOT_FOUND`, then the T-075 path called `sessionForPaymentIntent`. It returns the organizer's **own** paid session, not null, so fulfilment ran, refused, and threw a 500. One extra Stripe API call per retry. | `withOrder` |
+| Either, with a non-UUID `reservation_id` in the organizer's metadata | The `reservations.id` (UUID) lookup raised a Postgres error and threw, giving a 500. | `fulfillFromSession` read |
+
+Impact: real ticket sales were unaffected. The cost was days of retries per
+external sale, rows in the operator's error queue unrelated to Eventsli, and
+a Connect endpoint that is always partly failing (Stripe warns about these
+and can disable them). The existing test "an early dispute for a charge
+Eventsli never created" mocked `sessionForPaymentIntent` to return null,
+which real Stripe does not do for a Checkout sale, so the bug was hidden.
+
+**Fix (`backend/controllers/paymentController.js` only).** A shape check,
+`couldBeOurs(session)`: `metadata.reservation_id` must be a UUID.
+- Checkout events failing it are acknowledged (200,
+  `ignored: 'not an Eventsli checkout'`), marked processed with **no** error.
+- `withOrder` does not fulfil from a session failing it, so external refunds
+  and disputes return `ORDER_NOT_FOUND` (200), as already documented for
+  charges we did not create.
+
+**What is preserved.** Ownership (T-074): the guard only turns away sessions
+that could never be fulfilled. Any UUID-bearing session still goes through
+the recorded-session and recorded-account check and `fulfill_checkout`'s
+re-check. A forged session naming a real hold is still `FORBIDDEN`. Early
+events (T-075) and legacy sessions (T-076) carry our reservation id and are
+unaffected. Idempotency and retries: the claim row, the duplicate re-read
+and `mark` are unchanged, and genuine transient failures still answer 500.
+
+**Evidence.** Three integration tests in `stripeWebhook.test.js`: an
+external paid Checkout, one with a non-UUID `reservation_id`, and an external
+refund plus dispute where `sessionForPaymentIntent` returns the organizer's
+own session. Each test fails on the previous controller (20/23) and passes
+with the fix (23/23). Full backend suite: **774/774** (local Supabase stack,
+Node 26; CI uses Node 22).

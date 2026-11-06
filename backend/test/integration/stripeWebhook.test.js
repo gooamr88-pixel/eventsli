@@ -510,6 +510,75 @@ test('an early dispute for a charge Eventsli never created is still ignored', as
   }
 });
 
+// ── The organizer's own sales outside Eventsli (T-079) ──────────────────────
+// Organizers have full Stripe accounts, and the Connect endpoint receives every
+// event on them. Their own Checkout sessions carry no reservation of ours; each
+// used to answer 500 and be retried by Stripe for days.
+
+const foreignSession = (over = {}) => ({
+  id: `cs_test_foreign_${stamp}_${(n += 1)}`, object: 'checkout.session',
+  payment_status: 'paid', payment_intent: `pi_test_foreign_${stamp}_${n}`,
+  metadata: {}, customer_details: { email: 'someone@eventsli-test.invalid' },
+  ...over,
+});
+const ordersFor = async (pi) => (await supabase.from('orders')
+  .select('id', { count: 'exact', head: true }).eq('stripe_payment_intent_id', pi)).count;
+
+test('REGRESSION T-079: an organizer\'s own paid Checkout (no reservation of ours) is acknowledged, not retried', async () => {
+  const cs = foreignSession();
+  const evt = fromAccount(stripeEvent('checkout.session.completed', cs));
+  const res = await deliver(evt);
+  assert.equal(res.status, 200, JSON.stringify(res.body));
+  assert.equal(res.body.ignored, 'not an Eventsli checkout');
+  const row = await claimRow(evt.id);
+  assert.ok(row.processed_at);
+  assert.equal(row.error, null, 'kept off the operator\'s error queue');
+  assert.equal(await ordersFor(cs.payment_intent), 0);
+
+  const again = await deliver(evt);
+  assert.equal(again.body.duplicate, true, 'a redelivery is a plain duplicate');
+});
+
+test('REGRESSION T-079: an organizer\'s own Checkout whose metadata has a non-UUID reservation_id is acknowledged', async () => {
+  const cs = foreignSession({ metadata: { reservation_id: 'BOOKING-1042' } });
+  const evt = fromAccount(stripeEvent('checkout.session.async_payment_succeeded', cs));
+  const res = await deliver(evt);
+  assert.equal(res.status, 200, JSON.stringify(res.body));
+  assert.equal(res.body.ignored, 'not an Eventsli checkout');
+  assert.equal((await claimRow(evt.id)).error, null);
+});
+
+test('REGRESSION T-079: refunds and disputes on an organizer\'s own Checkout sale are ignored, not retried', async () => {
+  const stripeSvc = require('../../services/stripeService');
+  const original = stripeSvc.sessionForPaymentIntent;
+  const cs = foreignSession();
+  // What real Stripe answers: the organizer's OWN session for that PaymentIntent.
+  let lookups = 0;
+  stripeSvc.sessionForPaymentIntent = async (pi, account) => {
+    lookups += 1;
+    return pi === cs.payment_intent && account === ORG_ACCOUNT ? cs : null;
+  };
+  try {
+    const refund = fromAccount(stripeEvent('charge.refunded', {
+      id: `ch_test_foreign_${stamp}_r`, object: 'charge', payment_intent: cs.payment_intent,
+      refunded: true, amount_refunded: 2500,
+    }));
+    const dispute = fromAccount(stripeEvent('charge.dispute.funds_withdrawn', {
+      id: `dp_test_foreign_${stamp}_own`, object: 'dispute', status: 'needs_response', amount: 2500,
+      charge: `ch_test_foreign_${stamp}_r`, payment_intent: cs.payment_intent,
+    }));
+    for (const evt of [refund, dispute]) {
+      const res = await deliver(evt);
+      assert.equal(res.status, 200, `${evt.type}: ${JSON.stringify(res.body)}`);
+      assert.equal(res.body.outcome, 'ORDER_NOT_FOUND');
+    }
+    assert.equal(lookups, 2, 'the T-075 early-event path still looked the session up');
+    assert.equal(await ordersFor(cs.payment_intent), 0, 'nothing fulfilled from a session that is not ours');
+  } finally {
+    stripeSvc.sessionForPaymentIntent = original;
+  }
+});
+
 test('an event type the platform does not use is acknowledged so Stripe stops sending it', async () => {
   const res = await deliver(stripeEvent('customer.created', { id: 'cus_test_local', object: 'customer' }));
   assert.equal(res.status, 200);

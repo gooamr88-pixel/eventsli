@@ -26,12 +26,47 @@ development machine has no SSH key for the VPS and no production credentials.
 | 0.1 | **Rotate the exposed live secrets (I-002)**: live Stripe secret key, existing webhook secret, Supabase `service_role` JWT, **DB password**. New values only in `/var/www/eventsli/backend/.env`. Then delete the plaintext Desktop file. | The leaked file gives full control of payments and the database. `apply-migration.js` uses `SUPABASE_DB_PASSWORD`, so rotate it first and migrate with the new one. |
 | 0.2 | **Counsel**: Stripe agreements (connected-account loss allocation), and terms, privacy and receipt wording naming the **organizer** as seller. | Liability rests on the contract, not the code. |
 | 0.3 | **Refund policy**: Stripe keeps Eventsli's fee on refunds organizers make in their own Dashboard, unless told otherwise. Keep it? | Product decision. The code records Stripe's outcome either way. |
-| 0.4 | **Release the fixes from the safety review** (T-076, T-077). They are uncommitted on `payments/merchant-of-record`; commit, push, merge to `main` after a green CI run. | Without them the migration drops legacy ledger rows, and in-flight checkouts at deploy time can be charged without tickets. |
+| 0.4 | ~~Release the safety-review fixes~~ **DONE**: on `main` as `def1750`, CI green (T-076, T-077, T-078). | — |
 
 ## 1. Back up (Owner)
 
 Supabase → **Database → Backups** → take a manual backup, or confirm today's
 scheduled one. **Check:** a backup with today's date is listed.
+
+## 1b. Get the release's scripts and migrations onto the server WITHOUT deploying it (Owner, VPS)
+
+The live checkout `/var/www/eventsli` is on the previous commit, so its
+`verify-schema.js` and `apply-migration.js` are the OLD versions (no
+definition checks, no re-run guards, no lock timeout) and it has no
+`20261106090000` file. **Do not `git pull` there yet.** That is the deploy.
+Check the release out **beside** it, read-only to the running app:
+
+```bash
+cd /var/www/eventsli && git fetch origin
+```
+
+```bash
+git worktree add /var/www/eventsli-release def1750
+```
+
+```bash
+ln -s /var/www/eventsli/node_modules /var/www/eventsli-release/node_modules
+ln -s /var/www/eventsli/backend/node_modules /var/www/eventsli-release/backend/node_modules
+ln -s /var/www/eventsli/backend/.env /var/www/eventsli-release/backend/.env
+```
+
+```bash
+cd /var/www/eventsli-release/backend && git log -1 --oneline && node -e "require('pg'); console.log('pg available')"
+```
+
+**Check:** `def1750` and `pg available`. If `pg` is missing (an install
+without dev dependencies), stop and tell me. The running API is untouched by
+all of this: no files under `/var/www/eventsli` change, and nothing is
+reloaded.
+
+**Steps 2–4 run from `/var/www/eventsli-release/backend`, not the live
+checkout.** Remove the worktree after step 6 (`git worktree remove
+/var/www/eventsli-release`, after deleting the three symlinks).
 
 ## 2. Read production's state — read-only (Owner)
 
@@ -61,10 +96,10 @@ SELECT (SELECT count(*) FROM event_media
 If either `bad_*` count is above 0, stop and send me the count. Those rows
 need fixing before `20261016090000` can apply.
 
-**2b. On the VPS:**
+**2b. On the VPS, from the release worktree (step 1b):**
 
 ```bash
-cd /var/www/eventsli/backend
+cd /var/www/eventsli-release/backend
 ```
 
 ```bash
@@ -85,6 +120,9 @@ node scripts/connect-audit.js
   checkout pauses until they reconnect on the Payments page.
 
 ## 3. Apply the nine migrations, one at a time, in this order (Owner, VPS)
+
+From `/var/www/eventsli-release/backend` (step 1b), so the guarded
+`apply-migration.js` and the new migration file are the ones used.
 
 Run each command and read its last line before the next:
 
@@ -156,7 +194,7 @@ everything older than these nine.
 ## 4. Check the migrations landed (Owner, VPS)
 
 ```bash
-node scripts/verify-schema.js
+cd /var/www/eventsli-release/backend && node scripts/verify-schema.js
 ```
 
 **Expected last line: `Schema verified.`** It now checks *definitions*, not
