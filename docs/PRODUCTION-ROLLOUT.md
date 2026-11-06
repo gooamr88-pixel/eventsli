@@ -26,7 +26,7 @@ development machine has no SSH key for the VPS and no production credentials.
 | 0.1 | **Rotate the exposed live secrets (I-002)**: live Stripe secret key, existing webhook secret, Supabase `service_role` JWT, **DB password**. New values only in `/var/www/eventsli/backend/.env`. Then delete the plaintext Desktop file. | The leaked file gives full control of payments and the database. `apply-migration.js` uses `SUPABASE_DB_PASSWORD`, so rotate it first and migrate with the new one. |
 | 0.2 | **Counsel**: Stripe agreements (connected-account loss allocation), and terms, privacy and receipt wording naming the **organizer** as seller. | Liability rests on the contract, not the code. |
 | 0.3 | **Refund policy**: Stripe keeps Eventsli's fee on refunds organizers make in their own Dashboard, unless told otherwise. Keep it? | Product decision. The code records Stripe's outcome either way. |
-| 0.4 | ~~Release the safety-review fixes~~ **DONE**: on `main` as `def1750`, CI green (T-076, T-077, T-078). | — |
+| 0.4 | ~~Release the safety-review fixes~~ **DONE**: on `main` as `def1750`, CI green (T-076, T-077, T-078); the T-079 webhook fix followed as `55a408f`, CI green. **The release is `55a408f`.** | — |
 
 ## 1. Back up (Owner)
 
@@ -46,7 +46,7 @@ cd /var/www/eventsli && git fetch origin
 ```
 
 ```bash
-git worktree add /var/www/eventsli-release def1750
+git worktree add /var/www/eventsli-release 55a408f
 ```
 
 ```bash
@@ -59,7 +59,7 @@ ln -s /var/www/eventsli/backend/.env /var/www/eventsli-release/backend/.env
 cd /var/www/eventsli-release/backend && git log -1 --oneline && node -e "require('pg'); console.log('pg available')"
 ```
 
-**Check:** `def1750` and `pg available`. If `pg` is missing (an install
+**Check:** `55a408f` and `pg available`. If `pg` is missing (an install
 without dev dependencies), stop and tell me. The running API is untouched by
 all of this: no files under `/var/www/eventsli` change, and nothing is
 reloaded.
