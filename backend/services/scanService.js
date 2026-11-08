@@ -126,7 +126,8 @@ async function getActiveDevice(deviceId, { staffUserId = null } = {}) {
   const { data, error } = await supabase
     .from('scan_devices')
     .select(`id, event_id, label, is_active, staff_id,
-             event_staff ( user_id, revoked_at, profiles!event_staff_user_id_fkey ( is_blocked ) )`)
+             event_staff ( user_id, revoked_at, profiles!event_staff_user_id_fkey ( is_blocked ) ),
+             events ( organizers ( owner_user_id ) )`)
     .eq('id', deviceId)
     .maybeSingle();
 
@@ -145,7 +146,20 @@ async function getActiveDevice(deviceId, { staffUserId = null } = {}) {
     if (!staff || staff.revoked_at || staff.user_id !== staffUserId || person?.is_blocked) return null;
   }
 
-  return { id: data.id, eventId: data.event_id, label: data.label, staffUserId: staffUserId || null };
+  /**
+   * What this principal may SEE, decided here and never by the client:
+   *   owner — the event's organizer, scanning their own door: everything.
+   *   staff — a door-team member: the gate, plus whatever the organizer shares.
+   *   pin   — a shared tablet: the same as staff.
+   */
+  const event = Array.isArray(data.events) ? data.events[0] : data.events;
+  const organizer = Array.isArray(event?.organizers) ? event.organizers[0] : event?.organizers;
+  let role = 'pin';
+  if (staffUserId) role = organizer?.owner_user_id === staffUserId ? 'owner' : 'staff';
+
+  return {
+    id: data.id, eventId: data.event_id, label: data.label, staffUserId: staffUserId || null, role,
+  };
 }
 
 /** Either gate credential — see scanTokens.js. */

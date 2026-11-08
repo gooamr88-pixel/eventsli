@@ -73,9 +73,14 @@ async function requireDevice(req, res, next) {
   // token. They agree in every normal case; when they do not, the database is
   // the one that is current.
   // `staffUserId` is set when a named door-team member is scanning, and null
-  // for a shared tablet. Either way the permissions are the same and narrow:
-  // scan, undo and gate status, for this one event.
-  req.device = { deviceId: device.id, eventId: device.eventId, staffUserId: device.staffUserId };
+  // for a shared tablet. Scanning, undo and gate status are the same for all
+  // of them, for this one event. `role` (owner | staff | pin) decides the rest
+  // — the guest list and names — together with the organizer's door settings
+  // (services/doorService.js).
+  req.device = {
+    deviceId: device.id, eventId: device.eventId, staffUserId: device.staffUserId,
+    role: device.role, label: device.label,
+  };
   return next();
 }
 

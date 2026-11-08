@@ -308,6 +308,30 @@ router.patch(
   scan.updateDevice,
 );
 
+router.get(
+  '/:eventId/scan-devices/:deviceId/pairing.png',
+  verifyEventOwner,
+  param('deviceId').isUUID(),
+  validate,
+  scan.pairingQr,
+);
+
+// What the door may see and do in the check-in app: the guest list for the
+// door team, offline admission, names on devices. See services/doorService.js.
+const doorSettings = require('../controllers/doorController');
+router.get('/:eventId/gate-settings', verifyEventOwner, doorSettings.getSettings);
+router.patch(
+  '/:eventId/gate-settings',
+  verifyEventOwner,
+  body('doorTeamCanViewGuests').optional().isBoolean().toBoolean(),
+  body('offlineAdmission').optional().isBoolean().toBoolean(),
+  body('offlineShowNames').optional().isBoolean().toBoolean(),
+  body('legacyQrOffline').optional().isIn(['allow', 'hold'])
+    .withMessage('Choose whether older codes are admitted offline.'),
+  validate,
+  doorSettings.updateSettings,
+);
+
 // ─── The door team — people with their own accounts, beside the devices ────
 // Scan-only and scoped to this event; see services/staffService.js.
 const staff = require('../controllers/staffController');

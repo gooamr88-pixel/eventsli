@@ -31,3 +31,20 @@ test('look-alike paths are not exempt', () => {
   assert.equal(isGateScanRequest(req('')), false);
   assert.equal(isGateScanRequest(undefined), false);
 });
+
+test('the check-in app reads its own door under the device budget, not the IP ceiling', () => {
+  for (const path of ['me', 'recent', 'attendees', 'manual-check-in', 'analytics']) {
+    assert.equal(isGateScanRequest(req(`/api/v1/scan/${path}`)), true, path);
+  }
+  assert.equal(
+    isGateScanRequest(req('/api/v1/scan/tickets/3f2a1c9e-8b7d-4e6f-a5b4-c3d2e1f0a9b8')), true,
+  );
+});
+
+test('a ticket path is exactly one id, nothing more', () => {
+  assert.equal(isGateScanRequest(req('/api/v1/scan/tickets/not-an-id')), false);
+  assert.equal(isGateScanRequest(req('/api/v1/scan/tickets')), false);
+  assert.equal(
+    isGateScanRequest(req('/api/v1/scan/tickets/3f2a1c9e-8b7d-4e6f-a5b4-c3d2e1f0a9b8/extra')), false,
+  );
+});

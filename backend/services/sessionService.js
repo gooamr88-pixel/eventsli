@@ -16,6 +16,10 @@ const logger = require('../utils/logger');
  */
 
 const SESSION_TTL_HOURS = 24;
+// The check-in app: a door shift is long, a festival is a weekend, and asking
+// staff to type a password at the door costs a queue. Fourteen days, revocable
+// from the web account at any time, and every request re-checks the row.
+const APP_SESSION_TTL_HOURS = 14 * 24;
 const COOKIE_NAME = 'eventsli_session';
 
 /**
@@ -45,7 +49,12 @@ function cookieOptions(maxAgeMs = SESSION_TTL_HOURS * 3600 * 1000) {
  * something the server already rejects, and the user sees a random logout
  * instead of a clean one.
  */
-async function issue(res, { userId, email, role, req, ttlHours = SESSION_TTL_HOURS }) {
+async function issue(res, {
+  userId, email, role, req, ttlHours = SESSION_TTL_HOURS,
+  // The native check-in app has no cookie jar: it gets the token in the body
+  // and sends it as a Bearer header. Same row, same revocation, no cookie.
+  cookie = true, client = 'web', deviceName = null,
+}) {
   const jti = crypto.randomUUID();
   const expiresAt = new Date(Date.now() + ttlHours * 3600 * 1000);
 
@@ -56,6 +65,8 @@ async function issue(res, { userId, email, role, req, ttlHours = SESSION_TTL_HOU
     ip_hash: req ? hashIp(req.ip) : null,
     user_agent: req?.headers?.['user-agent']?.slice(0, 400) || null,
     last_seen_at: new Date().toISOString(),
+    client,
+    device_name: deviceName ? String(deviceName).trim().slice(0, 80) || null : null,
   });
   // Fail closed: if the session row cannot be written, the token would be
   // unrevocable, so no token is issued at all.
@@ -67,7 +78,7 @@ async function issue(res, { userId, email, role, req, ttlHours = SESSION_TTL_HOU
     { algorithm: 'HS256', expiresIn: `${ttlHours}h` },
   );
 
-  res.cookie(COOKIE_NAME, token, cookieOptions(ttlHours * 3600 * 1000));
+  if (cookie) res.cookie(COOKIE_NAME, token, cookieOptions(ttlHours * 3600 * 1000));
   return { jti, token, expiresAt };
 }
 
@@ -145,7 +156,7 @@ async function revokeAllForUser(userId, reason = 'revoke_all') {
 async function listForUser(userId) {
   const { data } = await supabase
     .from('sessions')
-    .select('jti, issued_at, expires_at, last_seen_at, user_agent, revoked_at')
+    .select('jti, issued_at, expires_at, last_seen_at, user_agent, revoked_at, client, device_name')
     .eq('user_id', userId)
     .is('revoked_at', null)
     .gt('expires_at', new Date().toISOString())
@@ -184,4 +195,5 @@ module.exports = {
   cookieOptions,
   COOKIE_NAME,
   SESSION_TTL_HOURS,
+  APP_SESSION_TTL_HOURS,
 };

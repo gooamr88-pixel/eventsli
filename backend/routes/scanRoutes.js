@@ -80,6 +80,77 @@ router.post(
 
 router.get('/status', requireDevice, gateLimiter, c.status);
 
+// ─── The check-in app's door reads ─────────────────────────────────────────
+// Device-authenticated like the scan routes, under the same per-device budget.
+// What each may return is decided in services/doorService.js from the device's
+// role and the organizer's door settings, never from the request.
+const door = require('../controllers/doorController');
+const { query, param } = require('express-validator');
+
+// The guest list is the one read worth scraping, so it gets its own, tighter
+// budget on top of the device's: a search per second is far above any door.
+const searchLimiter = makeLimiter({
+  windowMs: 60 * 1000,
+  max: 60,
+  name: 'gate-search',
+  keyGenerator: (req) => `device:${req.device.deviceId}`,
+  message: 'Searching faster than a door needs to. Wait a moment and try again.',
+});
+
+router.get('/me', requireDevice, gateLimiter, door.me);
+
+router.get(
+  '/recent',
+  requireDevice,
+  gateLimiter,
+  query('limit').optional().isInt({ min: 1, max: 100 }),
+  query('before').optional().isISO8601(),
+  query('kind').optional().isIn(['admitted', 'all']),
+  validate,
+  door.recent,
+);
+
+router.get(
+  '/attendees',
+  requireDevice,
+  gateLimiter,
+  searchLimiter,
+  query('q').optional().isString().isLength({ max: 100 }),
+  query('status').optional().isIn(['all', 'in', 'out']),
+  query('limit').optional().isInt({ min: 1, max: 100 }),
+  query('offset').optional().isInt({ min: 0, max: 100000 }),
+  validate,
+  door.attendees,
+);
+
+router.get(
+  '/tickets/:ticketId',
+  requireDevice,
+  gateLimiter,
+  param('ticketId').isUUID(),
+  validate,
+  door.ticket,
+);
+
+router.post(
+  '/manual-check-in',
+  requireDevice,
+  gateLimiter,
+  body('ticketId').isUUID(),
+  body('clientScanId').optional().isString().isLength({ max: 100 }),
+  validate,
+  door.manualCheckIn,
+);
+
+router.get(
+  '/analytics',
+  requireDevice,
+  gateLimiter,
+  query('bucket').optional().isInt({ min: 5, max: 120 }),
+  validate,
+  door.analytics,
+);
+
 // ─── The door team: a person, with their own account ───────────────────────
 // Alongside PIN devices, not instead of them. A session cookie proves who they
 // are; membership of the event's door team decides whether they may scan it,
@@ -94,7 +165,13 @@ const staffLoginLimiter = makeLimiter({
   message: 'Too many attempts. Wait a few minutes and try again.',
 });
 
-router.get('/assignments', requireAuth, staff.assignments);
+router.get(
+  '/assignments',
+  requireAuth,
+  query('scope').optional().isIn(['all', 'scannable']),
+  validate,
+  staff.assignments,
+);
 
 router.post(
   '/staff-login',

@@ -201,6 +201,63 @@ router.post(
   c.login,
 );
 
+// ─── The native check-in app ────────────────────────────────────────────────
+// The same password check, budget and refusals as /login (the SAME limiter
+// instance, so the app is not a second budget against one account). The token
+// comes back in the body: the app has no cookie jar.
+const deviceNameRule = body('deviceName').optional({ values: 'falsy' })
+  .isString().isLength({ max: 80 }).withMessage('That device name is too long.');
+
+router.post(
+  '/app/login',
+  credentialLimiter,
+  body('email').isEmail().normalizeEmail().withMessage('Enter a valid email address.'),
+  body('password').isString().notEmpty().withMessage('Enter your password.'),
+  deviceNameRule,
+  validate,
+  c.appLogin,
+);
+
+// "Sign in with Eventsli" — authorization code + PKCE (services/appAuthService.js).
+const PKCE_CHALLENGE = /^[A-Za-z0-9_-]{43,128}$/;
+const PKCE_VERIFIER = /^[A-Za-z0-9._~-]{43,128}$/;
+
+const appAuthorizeLimiter = makeLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  name: 'app-authorize',
+  keyGenerator: (req) => `user:${req.user?.id || req.ip}`,
+  message: 'Too many sign-in attempts from the app. Wait a few minutes and try again.',
+});
+
+const appTokenLimiter = makeLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  name: 'app-token',
+  message: 'Too many sign-in attempts. Wait a few minutes and try again.',
+});
+
+router.post(
+  '/app/authorize',
+  requireAuth,
+  appAuthorizeLimiter,
+  body('codeChallenge').isString().matches(PKCE_CHALLENGE).withMessage('The app sent an invalid sign-in request.'),
+  body('redirectUri').isString().isLength({ min: 3, max: 200 }).withMessage('The app sent an invalid sign-in request.'),
+  validate,
+  c.appAuthorize,
+);
+
+router.post(
+  '/app/token',
+  appTokenLimiter,
+  body('code').isString().isLength({ min: 20, max: 200 }).withMessage('That sign-in has expired. Start again from the app.'),
+  body('codeVerifier').isString().matches(PKCE_VERIFIER).withMessage('That sign-in has expired. Start again from the app.'),
+  body('redirectUri').isString().isLength({ min: 3, max: 200 }),
+  deviceNameRule,
+  validate,
+  c.appToken,
+);
+
 router.post('/logout', requireAuth, c.logout);
 router.post('/logout-all', requireAuth, c.logoutAll);
 router.get('/me', requireAuth, c.me);

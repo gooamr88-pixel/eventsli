@@ -5,6 +5,7 @@ const rbac = require('../services/rbacService');
 const { sendOk, sendFail, ERROR_STATUS } = require('../utils/responseEnvelope');
 const verification = require('../services/emailVerificationService');
 const accessTokens = require('../services/accessTokens');
+const appAuth = require('../services/appAuthService');
 const logger = require('../utils/logger');
 
 /**
@@ -350,8 +351,15 @@ async function verificationStatus(req, res, next) {
   }
 }
 
-// ─── POST /auth/login ───────────────────────────────────────────────────────
-async function login(req, res, next) {
+// ─── POST /auth/login · POST /auth/app/login ────────────────────────────────
+/**
+ * One password check for both ways in. The site gets a cookie; the native
+ * check-in app (`app: true`) gets the same kind of session row with the token
+ * in the body, because it has no cookie jar. Every refusal — lockout, ban,
+ * unconfirmed address — is identical for both, so the app is not a side door
+ * around any of them.
+ */
+async function passwordSignIn(req, res, next, { app = false } = {}) {
   try {
     const email = String(req.body.email).trim().toLowerCase();
     const { password } = req.body;
@@ -439,11 +447,94 @@ async function login(req, res, next) {
     }
     await supabase.from('profiles').update(patch).eq('id', user.id);
 
+    if (app) return sendOk(res, await issueAppSession(res, user, req));
+
     await sessions.issue(res, {
       userId: user.id, email: user.email, role: user.role, req,
     });
 
     return sendOk(res, shapeIdentity(user));
+  } catch (err) {
+    return next(err);
+  }
+}
+
+const login = (req, res, next) => passwordSignIn(req, res, next);
+const appLogin = (req, res, next) => passwordSignIn(req, res, next, { app: true });
+
+/** A check-in app session: no cookie, the token in the body, labelled by device. */
+async function issueAppSession(res, user, req) {
+  const s = await sessions.issue(res, {
+    userId: user.id, email: user.email, role: user.role, req,
+    cookie: false, client: 'checkin_app',
+    deviceName: req.body?.deviceName || null,
+    ttlHours: sessions.APP_SESSION_TTL_HOURS,
+  });
+  return { token: s.token, expiresAt: s.expiresAt.toISOString(), user: shapeIdentity(user) };
+}
+
+// ─── POST /auth/app/authorize ───────────────────────────────────────────────
+/**
+ * "Sign in with Eventsli", step 2 — called by the /app-auth page on the
+ * website, by somebody already signed in there who pressed Allow. Returns the
+ * one-time code the page hands back to the app. See services/appAuthService.js.
+ */
+async function appAuthorize(req, res, next) {
+  try {
+    if (!appAuth.isAllowedRedirect(req.body.redirectUri)) {
+      return sendFail(res, {
+        status: 400, error: 'VALIDATION_ERROR',
+        message: 'That app is not allowed to sign in with Eventsli.',
+      });
+    }
+    const { code, expiresIn } = await appAuth.createCode({
+      userId: req.user.id,
+      codeChallenge: req.body.codeChallenge,
+      redirectUri: req.body.redirectUri,
+    });
+    logger.info({ userId: req.user.id }, 'check-in app sign-in approved on the web');
+    return sendOk(res, { code, expiresIn, redirectUri: req.body.redirectUri });
+  } catch (err) {
+    return next(err);
+  }
+}
+
+// ─── POST /auth/app/token ───────────────────────────────────────────────────
+/**
+ * Step 3: the app trades the code and its verifier for a session. One answer
+ * for every failure — unknown, used, expired, wrong verifier — so the endpoint
+ * says nothing about which codes exist.
+ */
+async function appToken(req, res, next) {
+  try {
+    const userId = await appAuth.redeemCode({
+      code: req.body.code,
+      codeVerifier: req.body.codeVerifier,
+      redirectUri: req.body.redirectUri,
+    });
+    const refuse = () => sendFail(res, {
+      status: 400, error: 'INVALID_CODE',
+      message: 'That sign-in has expired. Start again from the app.',
+    });
+    if (!userId) return refuse();
+
+    const { data: user, error } = await supabase
+      .from('profiles')
+      .select('id, email, full_name, role, account_types, is_blocked, email_verified_at')
+      .eq('id', userId)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    // Checked again here, not only on the website: an account blocked in the
+    // two minutes between Allow and the exchange does not get a session.
+    if (!user || !user.email_verified_at) return refuse();
+    if (user.is_blocked) {
+      return sendFail(res, {
+        status: 403, error: 'ACCOUNT_BANNED',
+        message: 'This account has been suspended. Contact support if you think that is a mistake.',
+      });
+    }
+
+    return sendOk(res, await issueAppSession(res, user, req));
   } catch (err) {
     return next(err);
   }
@@ -507,6 +598,10 @@ async function listSessions(req, res, next) {
       expiresAt: s.expires_at,
       lastSeenAt: s.last_seen_at,
       device: s.user_agent,
+      // "Eventsli Check-in · Sara's iPhone", so a lost phone is findable here
+      // and can be signed out from the web.
+      client: s.client || 'web',
+      deviceName: s.device_name || null,
     })));
   } catch (err) {
     return next(err);
@@ -673,7 +768,7 @@ async function googleSignIn(req, res, next) {
 
 module.exports = {
   register, verifyEmail, activate, resendVerification, verificationStatus,
-  login, logout, logoutAll, me,
+  login, appLogin, appAuthorize, appToken, logout, logoutAll, me,
   listSessions, endSession, changePassword,
   forgotPassword, resetPassword, googleSignIn,
   MAX_FAILED_LOGINS, LOCKOUT_MINUTES,

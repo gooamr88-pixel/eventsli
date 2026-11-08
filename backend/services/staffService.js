@@ -4,6 +4,7 @@ const { hashPassword } = require('../utils/crypto');
 const tokens = require('./scanTokens');
 const links = require('./shareLinks');
 const email = require('./emailService');
+const door = require('./doorService');
 const logger = require('../utils/logger');
 
 /**
@@ -151,16 +152,35 @@ async function revoke({ eventId, staffId }) {
   return true;
 }
 
-/** The events this person may scan for right now: their door-team events, plus their own. */
-async function assignmentsFor({ userId, organizerId }) {
-  const EVENT_COLUMNS = 'id, title, slug, status, starts_at, ends_at, timezone, venue_name';
+// The check-in app's Past tab: ended events, read-only, for this long.
+const PAST_DAYS = 30;
+// Doors close late; the last scans of the night must not be refused because
+// the listed end time passed.
+const GRACE_MS = 12 * 3600e3;
+
+/**
+ * The events this person may scan for right now: their door-team events, plus
+ * their own.
+ *
+ * `scope: 'all'` is the check-in app's event picker — the same events, plus
+ * the last 30 days of finished ones, grouped Upcoming / Ongoing / Past, with
+ * the cover, city and door counts each card shows. Without it the answer is
+ * the list the web gate has always read.
+ */
+async function assignmentsFor({ userId, organizerId, scope = 'scannable' }) {
+  const all = scope === 'all';
+  const EVENT_COLUMNS = all
+    ? 'id, title, slug, status, starts_at, ends_at, timezone, venue_name, city, cover_url'
+    : 'id, title, slug, status, starts_at, ends_at, timezone, venue_name';
+  const ownedStatuses = all ? [...SCANNABLE, 'completed'] : [...SCANNABLE];
   const [staffRows, owned] = await Promise.all([
     supabase.from('event_staff').select(`events ( ${EVENT_COLUMNS} )`)
       .eq('user_id', userId).is('revoked_at', null),
     organizerId
-      ? supabase.from('events').select(EVENT_COLUMNS).eq('organizer_id', organizerId).in('status', [...SCANNABLE])
+      ? supabase.from('events').select(EVENT_COLUMNS).eq('organizer_id', organizerId).in('status', ownedStatuses)
       : Promise.resolve({ data: [] }),
   ]);
+  if (all) return groupForApp(staffRows, owned);
   if (staffRows.error) throw new Error(staffRows.error.message);
   if (owned.error) throw new Error(owned.error.message);
 
@@ -171,9 +191,7 @@ async function assignmentsFor({ userId, organizerId }) {
   }
   for (const event of owned.data || []) byId.set(event.id, { ...event, as: 'organizer' });
 
-  // Twelve hours of grace after the end: doors close late and the last scans
-  // of the night should not be refused because the listed end time passed.
-  const cutoff = Date.now() - 12 * 3600e3;
+  const cutoff = Date.now() - GRACE_MS;
   return [...byId.values()]
     .filter((e) => SCANNABLE.has(e.status) && new Date(e.ends_at).getTime() > cutoff)
     .sort((a, b) => new Date(a.starts_at) - new Date(b.starts_at))
@@ -181,6 +199,52 @@ async function assignmentsFor({ userId, organizerId }) {
       id: e.id, title: e.title, slug: e.slug, startsAt: e.starts_at, endsAt: e.ends_at,
       timezone: e.timezone, venue: e.venue_name, as: e.as,
     }));
+}
+
+/** `assignmentsFor({ scope: 'all' })` — see there. */
+async function groupForApp(staffRows, owned) {
+  if (staffRows.error) throw new Error(staffRows.error.message);
+  if (owned.error) throw new Error(owned.error.message);
+
+  const byId = new Map();
+  for (const row of staffRows.data || []) {
+    const event = one(row.events);
+    if (event) byId.set(event.id, { ...event, as: 'staff' });
+  }
+  for (const event of owned.data || []) byId.set(event.id, { ...event, as: 'organizer' });
+
+  const now = Date.now();
+  const oldest = now - PAST_DAYS * 86400e3;
+  // Shown at all: on sale or archived, or finished (and so read-only) — never a
+  // draft, a rejected or a cancelled event.
+  const SHOWN = new Set([...SCANNABLE, 'completed']);
+  const events = [...byId.values()].filter((e) => SHOWN.has(e.status)
+    && new Date(e.ends_at).getTime() > oldest);
+
+  // One query for every card's counts, not one per event.
+  const counts = await door.summaries(events.map((e) => e.id));
+
+  const groups = { upcoming: [], ongoing: [], past: [] };
+  for (const e of events) {
+    const startsAt = new Date(e.starts_at).getTime();
+    const closesAt = new Date(e.ends_at).getTime() + GRACE_MS;
+    const scannable = SCANNABLE.has(e.status) && closesAt > now;
+    const card = {
+      id: e.id, title: e.title, slug: e.slug, status: e.status,
+      startsAt: e.starts_at, endsAt: e.ends_at, timezone: e.timezone,
+      venue: e.venue_name, city: e.city || null, coverUrl: e.cover_url || null,
+      as: e.as, scannable,
+      stats: counts[e.id] || { issued: 0, admitted: 0 },
+    };
+    if (!scannable) groups.past.push(card);
+    else if (startsAt > now) groups.upcoming.push(card);
+    else groups.ongoing.push(card);
+  }
+  const byStart = (a, b) => new Date(a.startsAt) - new Date(b.startsAt);
+  groups.upcoming.sort(byStart);
+  groups.ongoing.sort(byStart);
+  groups.past.sort((a, b) => byStart(b, a));   // most recent first
+  return groups;
 }
 
 async function staffDeviceFor({ staffId, eventId, label }) {

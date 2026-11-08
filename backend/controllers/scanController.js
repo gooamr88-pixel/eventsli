@@ -1,3 +1,4 @@
+const QRCode = require('qrcode');
 const { supabase } = require('../config/supabase');
 const scanSvc = require('../services/scanService');
 const { sendOk, sendFail } = require('../utils/responseEnvelope');
@@ -49,6 +50,35 @@ async function updateDevice(req, res, next) {
 async function gateStatus(req, res, next) {
   try {
     return sendOk(res, await scanSvc.gateStatus(req.params.eventId));
+  } catch (err) { return next(err); }
+}
+
+// GET /events/:eventId/scan-devices/:deviceId/pairing.png
+/**
+ * A QR the check-in app scans to fill in a shared device's id — 36 characters
+ * nobody should have to type on a phone at a door.
+ *
+ * It carries the device id and NOTHING ELSE. The id is not secret (it is
+ * listed on this page with a copy button); the PIN is, and it is never in the
+ * code. A photo of this QR is still useless without the PIN.
+ */
+async function pairingQr(req, res, next) {
+  try {
+    const { data: owned } = await supabase
+      .from('scan_devices').select('id')
+      .eq('id', req.params.deviceId).eq('event_id', req.params.eventId)
+      .is('staff_id', null)
+      .maybeSingle();
+    if (!owned) {
+      return sendFail(res, { status: 404, error: 'NOT_FOUND', message: 'No such device.' });
+    }
+    const link = `eventsli-checkin://pair?device=${encodeURIComponent(owned.id)}`;
+    const png = await QRCode.toBuffer(link, {
+      type: 'png', errorCorrectionLevel: 'M', margin: 1, width: 320,
+    });
+    res.set('Content-Type', 'image/png');
+    res.set('Cache-Control', 'private, no-store');
+    return res.send(png);
   } catch (err) { return next(err); }
 }
 
@@ -256,6 +286,6 @@ async function endOverride(req, res, next) {
 }
 
 module.exports = {
-  createDevice, listDevices, updateDevice, gateStatus,
+  createDevice, listDevices, updateDevice, gateStatus, pairingQr,
   deviceLogin, verify, sync, undo, status, override, endOverride,
 };

@@ -220,6 +220,8 @@ app.use('/api/v1/public', require('./routes/publicRoutes'));
 app.use('/api/v1/tickets', require('./routes/ticketRoutes'));
 app.use('/api/v1/payments', require('./routes/paymentRoutes'));
 app.use('/api/v1/scan', require('./routes/scanRoutes'));
+// The native check-in app's public configuration (minimum version, store links).
+app.use('/api/v1/app', require('./routes/appRoutes'));
 // One guard for all three admin routers — see routes/admin/index.js.
 app.use('/api/v1/admin', require('./routes/admin'));
 
