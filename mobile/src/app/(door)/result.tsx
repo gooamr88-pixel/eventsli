@@ -81,6 +81,9 @@ export default function Result() {
   }
 
   const canUndo = admits(result) && Boolean(record?.ticketId) && !undoExpired;
+  // The server's duplicate message carries a time in the EVENT's zone; this
+  // screen shows every time on the phone's clock, so it uses its own words.
+  const detail = (result === 'duplicate' ? null : record?.message) || outcome.note;
   const name = a?.attendee || null;
   const seat = [a?.seat, a?.table].filter(Boolean).join(' · ');
 
@@ -90,7 +93,7 @@ export default function Result() {
         <Header title="" onBack={() => router.back()} />
       </View>
       <ScrollView contentContainerStyle={[styles.pad, styles.body]} onTouchStart={stop}>
-        <View style={styles.hero} accessible accessibilityRole="alert" accessibilityLabel={`${outcome.title}. ${record?.message || outcome.note}`}>
+        <View style={styles.hero} accessible accessibilityRole="alert" accessibilityLabel={`${outcome.title}. ${detail}`}>
           <View style={[styles.halo, { backgroundColor: tone.soft }]}>
             <View style={[styles.disc, { backgroundColor: tone.strong }]}>
               <Icon name={ICONS[outcome.tone]} size={46} color={colors.white} strokeWidth={3} />
@@ -132,7 +135,7 @@ export default function Result() {
             </>
           ) : (
             <>
-              <Text variant="label" color={tone.fg} align="center">{record?.message || outcome.note}</Text>
+              <Text variant="label" color={tone.fg} align="center">{detail}</Text>
               {result === 'duplicate' && a?.first_scan && (a.first_scan.device || a.first_scan.staff) && (
                 <Text variant="small" color={colors.muted} align="center">
                   First scanned by {[a.first_scan.staff, a.first_scan.device].filter(Boolean).join(' at ')}

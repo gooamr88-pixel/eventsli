@@ -84,6 +84,8 @@ type State = {
 };
 
 const SHOWN = 200;
+/** A live /scan/verify gives up after 4 s; a `sending` row older than this was stranded. */
+const STALE_SENDING_MS = 30_000;
 
 export const useScanLog = create<State>((set, get) => {
   /** Keep the in-memory list in step with what was written. */
@@ -200,16 +202,24 @@ export const useScanLog = create<State>((set, get) => {
 
     async sync(doorToken) {
       const eventId = get().eventId;
+      // Taken BEFORE the first await. The 20 s timer, "signal is back" and "app
+      // is in front again" fire together on reconnect; checked after an await,
+      // all three passed the guard and uploaded the same queue at once.
       if (!eventId || get().syncing) return null;
-      const d = await db();
-      const pending = (await d.getAllAsync<Row>(
-        "SELECT * FROM scans WHERE event_id = ? AND state <> 'done' AND qr NOT LIKE 'manual:%'", [eventId],
-      )).map(fromRow);
-      const batch = nextBatch(pending.map((r) => ({ ...r, state: 'queued' as const })));
-      if (batch.length === 0) return { uploaded: 0, conflicts: 0 };
-
       set({ syncing: true });
       try {
+        const d = await db();
+        const now = Date.now();
+        const pending = (await d.getAllAsync<Row>(
+          "SELECT * FROM scans WHERE event_id = ? AND state <> 'done' AND qr NOT LIKE 'manual:%'", [eventId],
+        )).map(fromRow)
+          // A `sending` row is a live check still waiting on /scan/verify — not
+          // ours to send again. Only one left behind (a crash, a killed app)
+          // is picked up, once it is clearly stale.
+          .filter((r) => r.state === 'queued' || now - Date.parse(r.occurredAt) > STALE_SENDING_MS);
+        const batch = nextBatch(pending.map((r) => ({ ...r, state: 'queued' as const })));
+        if (batch.length === 0) return { uploaded: 0, conflicts: 0 };
+
         const res = await endpoints.sync(doorToken, batch.map((r) => ({ ...toWire(r), method: 'offline' as const })));
         const changed = applyResults(batch, res.results);
         for (const rec of changed) {
@@ -241,7 +251,7 @@ export const useScanLog = create<State>((set, get) => {
     },
 
     clear() {
-      set({ eventId: null, records: [], lastSync: null });
+      set({ eventId: null, records: [], lastSync: null, syncing: false });
     },
   };
 });

@@ -291,7 +291,7 @@ async function staffDeviceFor({ staffId, eventId, label }) {
  * The event's organizer may always scan their own event, and is added to its
  * door team on first use so their scans carry a name like anyone else's.
  */
-async function openStaffSession({ userId, organizerId, displayName, eventId }) {
+async function openStaffSession({ userId, organizerId, displayName, eventId, sessionId = null }) {
   const { data: event, error } = await supabase
     .from('events').select('id, organizer_id, status, title').eq('id', eventId).maybeSingle();
   if (error) throw new Error(error.message);
@@ -321,7 +321,9 @@ async function openStaffSession({ userId, organizerId, displayName, eventId }) {
   });
 
   return {
-    token: tokens.signStaffToken({ deviceId: device.id, eventId, userId }),
+    // Tied to the account session that opened it: ending that session (sign
+    // out, or "End" on the account page for a lost phone) closes this door.
+    token: tokens.signStaffToken({ deviceId: device.id, eventId, userId, sessionId }),
     device: { id: device.id, label: device.label, eventId, staff: true },
     event: { id: event.id, title: event.title },
   };

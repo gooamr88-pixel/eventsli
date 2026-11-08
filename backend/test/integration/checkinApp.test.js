@@ -461,3 +461,17 @@ test('door settings only take the values they understand', async () => {
   assert.equal(read.status, 200);
   assert.equal(read.body.data.legacyQrOffline, 'allow');
 });
+
+test('ending the account session closes a door it opened — the lost-phone case', async () => {
+  const account = (await appLogin(staffEmail)).body.data.token;
+  const door = (await api('POST', '/scan/staff-login', { token: account, body: { eventId: ids.event } })).body.data.token;
+  assert.equal((await api('GET', '/scan/me', { token: door })).status, 200);
+
+  // Ended from anywhere — here the phone's own sign-out; the web account page does the same.
+  assert.equal((await api('POST', '/auth/logout', { token: account })).status, 200);
+  const after = await api('GET', '/scan/me', { token: door });
+  assert.equal(after.status, 401);
+  assert.equal(after.body.error, 'SESSION_REVOKED');
+  const scan = await api('POST', '/scan/verify', { token: door, body: { qr: tickets[3].qr } });
+  assert.equal(scan.status, 401, 'and it scans nobody in');
+});

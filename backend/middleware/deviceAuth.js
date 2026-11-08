@@ -1,4 +1,5 @@
 const scanSvc = require('../services/scanService');
+const sessions = require('../services/sessionService');
 const { sendFail } = require('../utils/responseEnvelope');
 
 /**
@@ -54,7 +55,28 @@ async function requireDevice(req, res, next) {
    * 500, and the failure mode of a scanner that cannot reach the database must
    * be a closed door rather than an open one.
    */
-  const device = await scanSvc.getActiveDevice(claims.deviceId, { staffUserId: claims.staffUserId });
+  // A person's door is tied to the account session that opened it, checked in
+  // parallel with the device row. Signing out — or ending the session from the
+  // account page because the phone was lost — closes the door now, not when
+  // the 16-hour token runs out.
+  const [device, session] = await Promise.all([
+    scanSvc.getActiveDevice(claims.deviceId, { staffUserId: claims.staffUserId }),
+    claims.sessionId ? sessions.check({ jti: claims.sessionId }) : Promise.resolve('live'),
+  ]);
+  if (session === 'unknown') {
+    // Not an answer about this person: the lookup failed. Refused, but as a
+    // retryable 503 — the app holds the scan instead of leaving the door.
+    return sendFail(res, {
+      status: 503, error: 'SESSION_CHECK_FAILED',
+      message: 'This scanner could not confirm its sign-in. Scans are held; try again in a moment.',
+    });
+  }
+  if (session !== 'live') {
+    return sendFail(res, {
+      status: 401, error: 'SESSION_REVOKED',
+      message: 'This account was signed out, so this door was closed. Sign in again to keep scanning.',
+    });
+  }
   if (!device) {
     return sendFail(res, {
       status: 401, error: 'SESSION_REVOKED',

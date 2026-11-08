@@ -6,6 +6,7 @@ import { API_URL } from '../api/client';
 import { exchangeCode, REDIRECT_URI } from '../api/endpoints';
 import type { AccountSession } from '../api/types';
 import { base64ToBase64Url, bytesToBase64Url } from '../lib/base64';
+import { buildQuery, parseQuery } from '../lib/query';
 
 /**
  * "Sign in with Eventsli": authorization code + PKCE (S256) through the system
@@ -41,23 +42,32 @@ export class SignInCancelled extends Error {}
 
 export async function signInWithEventsli(): Promise<AccountSession> {
   const { verifier, challenge, state } = await makePkce();
-  const url = `${siteUrl()}/app-auth?${new URLSearchParams({
+  const url = `${siteUrl()}/app-auth?${buildQuery({
     code_challenge: challenge,
     code_challenge_method: 'S256',
     redirect_uri: REDIRECT_URI,
     state,
-  }).toString()}`;
+  })}`;
 
   const result = await WebBrowser.openAuthSessionAsync(url, REDIRECT_URI);
   if (result.type !== 'success') throw new SignInCancelled('Sign-in was cancelled.');
 
-  const back = new URL(result.url);
-  if (back.searchParams.get('state') !== state) {
+  return finishSignIn(result.url, state, verifier);
+}
+
+/**
+ * The callback, read and checked. Split out so the rules are testable: the
+ * state must be the one this app sent, a cancel is a cancel, and only then is
+ * the code traded — once, with the verifier that never left the phone.
+ */
+export async function finishSignIn(callbackUrl: string, state: string, verifier: string): Promise<AccountSession> {
+  const back = parseQuery(callbackUrl);
+  if (back.state !== state) {
     // Not the answer to the request this app made. Never exchanged.
     throw new Error('That sign-in did not come from this app. Try again.');
   }
-  if (back.searchParams.get('error')) throw new SignInCancelled('Sign-in was cancelled.');
-  const code = back.searchParams.get('code');
+  if (back.error) throw new SignInCancelled('Sign-in was cancelled.');
+  const { code } = back;
   if (!code) throw new Error('The website did not return a sign-in code. Try again.');
 
   return exchangeCode(code, verifier, deviceLabel());

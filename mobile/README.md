@@ -36,6 +36,14 @@ npm test            # includes the backend contract test
 npx expo-doctor
 ```
 
+### Test it on a real phone against the local stack
+
+[docs/CHECKIN-DEVICE-TEST.md](../docs/CHECKIN-DEVICE-TEST.md) covers this in
+full: an isolated demo event with QR test tickets
+(`backend/scripts/demo-checkin.js`), the three local servers on Wi-Fi,
+installing the Android development build, and a checklist that ends with an
+exactly-once check of the database.
+
 ### Run it on your phone
 
 The camera scanner is a native module, so the app needs a **development

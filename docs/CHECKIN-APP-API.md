@@ -29,6 +29,13 @@ There are two kinds of token. The app keeps both in secure storage
 Send both as `Authorization: Bearer <token>`. The app never receives a
 cookie.
 
+A person's door token is tied to the account session that opened it. If that
+session ends, the door closes on its next request with a 401
+`SESSION_REVOKED`. A session can end by signing out, by signing out
+everywhere, or by pressing **End** on the account's Security page (for a lost
+phone). If the session check itself fails, the door gets a 503
+`SESSION_CHECK_FAILED`; the app should hold the scan, not leave the door.
+
 ### Password
 `POST /auth/app/login`
 

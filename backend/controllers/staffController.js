@@ -74,6 +74,7 @@ async function staffLogin(req, res, next) {
       organizerId: req.user.access.organizerId,
       displayName: req.user.access.fullName || req.user.email,
       eventId: req.body.eventId,
+      sessionId: req.user.jti,
     });
     if (!session) {
       return sendFail(res, {
