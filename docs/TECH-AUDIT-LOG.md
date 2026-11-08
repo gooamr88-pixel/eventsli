@@ -66,14 +66,14 @@ migration and therefore a local Supabase stack to verify.
 | T-013 | High | Pre-account takeover: Google sign-in verifies an unverified account but keeps the squatter's password [SEC-03] | Fixed (verified) |
 | T-014 | High | Open redirect after login/register/verify: `safeNext` accepts `/\evil.test` and `/<TAB>/evil.test` [FE-01, SEC-06] | Fixed (verified) |
 | T-015 | High | `tableIsPrivate` ignores the lookup error and fails OPEN → private table holdable without its password [BE-08] | Fixed (verified by review) |
-| T-016 | High | Ticket transfer does not move the credential: old QR still admits the seller, recipient gets nothing **[mig]** [SEC-01, BE-04] | Open |
+| T-016 | High | Ticket transfer does not move the credential: old QR still admits the seller, recipient gets nothing **[mig]** [SEC-01, BE-04] | Fixed (verified locally) — see "Check-in v2" below; production needs migration `20261108090000` |
 | T-017 | High | Growing a held table lets a new seat be sold twice; `fulfill_checkout` issues by table membership **[mig]** [DB-01] | Open |
 | T-018 | High | Cutting a tier's allocation ignores live holds → paid checkout rolls back, no tickets **[mig]** [DB-02] | Open |
 | T-019 | Medium | Login lockout counter is read-modify-write (bypassed by parallel attempts) **[mig]**; credential limiter keyed on un-normalised email [SEC-05] | In progress — limiter key fixed; atomic counter needs [mig] |
 | T-020 | Medium | Unnamed rate limiters share one Redis counter when `REDIS_URL` is set [SEC-07, BE-05] | Fixed (verified) |
 | T-021 | Medium | Verification code + email written to logs when mail fails (subject carries the code); raw IP logged at the gate [SEC-08] | Fixed (verified) |
 | T-022 | Medium | Seat hoarding: 15 holds/5 min/IP × 35 min TTL [SEC-04] | Needs owner (policy) |
-| T-023 | Medium | Refunded / charged-back tickets still scan in [BE-19, extends I-007] | In progress — refunds and lost disputes now void tickets (T-074); refund initiation stays with the organizer |
+| T-023 | Medium | Refunded / charged-back tickets still scan in [BE-19, extends I-007] | In progress — refunds and lost disputes now void tickets (T-074); refund initiation stays with the organizer. The door now also refuses any ticket whose order is no longer `paid` (Check-in v2) |
 | T-024 | Low | `GET /public/reservations/:id/quote` needs no reservation token [SEC-09] | Open |
 | T-070 | **High** | The Stripe account has **Managed Payments on by default**; it refuses any Checkout Session whose line item has no product `tax_code`. `createCheckoutSession` sends none, so on this account every card checkout would be refused | Fixed (owner-approved 2026-11-06; verified in units + test-mode API; full Connect pay pending T-073) |
 | T-073 | **High** | The platform (test mode) cannot create organizer Connect accounts: Stripe refuses `accounts.create({ type: "express" })` while the platform has not confirmed it is the losses collector. The app's error translator sent operators to the wrong setting for this refusal | Superseded by T-074 (do NOT accept platform loss liability); translator fix kept |
@@ -104,7 +104,7 @@ migration and therefore a local Supabase stack to verify.
 | T-043 | Medium | pm2 `kill_timeout` (1.6 s) < app drain (10 s); DEPLOY.md claims zero-downtime reload in fork mode [QA-07] | Open |
 | T-044 | Medium | No DB request timeout on the Supabase client [BE-16] | Open |
 | T-045 | Medium | Ticket emails fire-and-forget, no outbox [BE-09] | Deferred (Phase 3, needs table) |
-| T-046 | Medium | Search box drops `to`/`country`; gate undo leaves "Admitted"; map edits during save lost; Back loses map work; countdown announced every second [FE-05, FE-06, FE-09, FE-10, FE-11] | Open |
+| T-046 | Medium | Search box drops `to`/`country`; gate undo leaves "Admitted"; map edits during save lost; Back loses map work; countdown announced every second [FE-05, FE-06, FE-09, FE-10, FE-11] | Open — the gate-undo part is Fixed (unverified: no browser run), see "Check-in v2" |
 
 ### Phase 3 — Data integrity & performance (all **[mig]**)
 
@@ -114,7 +114,7 @@ migration and therefore a local Supabase stack to verify.
 | T-051 | Medium | Missing indexes: `orders(guest_email)`, `reservations(event_id,state)`, SET NULL FKs on tickets/order_items, `site_visits(path,day)` [DB-06] | Open |
 | T-052 | Medium | PII retained forever (`webhook_events.payload`, abandoned `attendee_data`, resets, verifications) [DB-07] | Needs owner (retention periods) |
 | T-053 | Low | Door sale lock order can deadlock with `hold_table` [DB-08] | Open |
-| T-054 | Low | `invoices.due_at` nullable [DB-09]; check-in RPCs not event-scoped [DB-10]; promo code case-insensitive uniqueness [DB-11]; FKs blocking profile erasure [DB-12]; `search_path` without `pg_temp` [DB-13] | Open |
+| T-054 | Low | `invoices.due_at` nullable [DB-09]; check-in RPCs not event-scoped [DB-10]; promo code case-insensitive uniqueness [DB-11]; FKs blocking profile erasure [DB-12]; `search_path` without `pg_temp` [DB-13] | Open — the DB-10 part (check-in RPCs) is Fixed (verified locally), see "Check-in v2" |
 | T-055 | High | `verify-schema.js` checks names only — cannot confirm I-003/I-004 or most later migrations [DB-04] | Open |
 | T-069 | High | Two migrations guarded `INSERT INTO storage.buckets` on the storage SCHEMA existing; current Supabase images create an empty `storage` schema with storage disabled, so every fresh stack failed at `20260905090000` | Fixed (verified) |
 
@@ -1047,3 +1047,64 @@ refund plus dispute where `sessionForPaymentIntent` returns the organizer's
 own session. Each test fails on the previous controller (20/23) and passes
 with the fix (23/23). Full backend suite: **774/774** (local Supabase stack,
 Node 26; CI uses Node 22).
+
+## Check-in v2 — Phase 0 of the native check-in app (2026-11-08)
+
+The owner approved a native iOS/Android check-in app built on the existing
+`/scan/*` API. The `/gate` PWA stays, as the fallback that needs no install.
+Phase 0 hardens the gate that both clients share. Migration
+`20261108090000_checkin_v2.sql` adds `check_in_ticket_v2` and
+`undo_check_in_v2`. The v1 functions are kept so that a code-only rollback
+still works.
+
+**Fixed:**
+- **T-016.** A transfer now bumps `tickets.qr_version`, and the QR carries `v`.
+  A code older than its ticket is refused as `transferred`.
+  - The buyer's order views (My tickets, `/t/<token>`, resent emails) return a
+    transferred ticket with `qr: null` and `transferredAway: true`. Before
+    this, a freshly minted code there would have let the seller back in.
+  - `GET /tickets` now also lists tickets *received* by the signed-in address
+    (`ticketService.receivedBy`). Before this, "it is in your account" was
+    false.
+  - Tickets transferred before this change keep v0, so their current holders'
+    emailed codes still work. Those few tickets are still exposed.
+- **T-023 (door part).** The door refuses a ticket whose order is not `paid`.
+- **T-054 / DB-10.** Both v2 functions match on (ticket, event).
+- **T-046 (gate undo).** `GateScanner` updates the result card after an undo.
+- **Other changes:**
+  - Events that are not `published`/`archived` are refused as
+    `event_not_open`. This is the same set staff sign-in allows; before, a PIN
+    device could admit people to a suspended event.
+  - The replay check runs again under the row lock, and a unique violation is
+    answered as the replay. Before, simultaneous uploads of the same scan
+    could return `error`.
+  - The door is shown the buyer's name when the ticket has none, flagged with
+    `holder_is_buyer`. After a transfer, no name is shown.
+  - The duplicate message now gives the time in the event's time zone, not UTC.
+  - `occurred_at` is clamped to [now − 48 h, now].
+  - Refusals about a ticket are logged in `scans`.
+  - New columns `scans.method` (`scan`/`manual`/`offline`) and
+    `scans.conflict`. An offline admission that comes back as a duplicate is
+    flagged, and `/scan/sync`'s summary gains `conflicts`.
+  - New column `tickets.updated_at`, maintained by a trigger, for the app's
+    offline manifest deltas.
+
+**Evidence (local Supabase stack, Node 26; CI uses Node 22):**
+- `checkin.test.js`: **22/22**. There are 6 new tests:
+  - a transfer moves the code
+  - a same-instant replay is never `error`
+  - a closed event and an unpaid order are refused and logged
+  - an offline conflict is flagged
+  - the RPCs are event-scoped
+  - name, tier and time zone are shown on admit and duplicate
+- Full backend unit suite: **449/449**. Full integration suite: **330/330**.
+- Frontend: vitest 752/755. The 3 failures are in `aiCreator.test.jsx` and
+  fail identically with these changes stashed, so they pre-date this work and
+  are unrelated.
+- Frontend: lint clean, `npm run check` passes, `next build` passes.
+- `gateOutcomes.test.js` now reads every migration that defines a check-in
+  function, and fails if `transferred` or `event_not_open` has no screen.
+
+**Production:** apply `20261108090000_checkin_v2.sql` (via
+`backend/scripts/apply-migration.js`) BEFORE deploying the API that calls
+`check_in_ticket_v2`.

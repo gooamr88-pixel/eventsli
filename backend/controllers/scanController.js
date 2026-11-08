@@ -83,6 +83,7 @@ async function verify(req, res, next) {
       eventId: req.device.eventId,
       clientScanId: req.body.clientScanId,
       occurredAt: req.body.occurredAt,
+      method: 'scan',
     });
 
     // 200 for every DECIDED outcome, including a refusal.
@@ -116,10 +117,13 @@ async function sync(req, res, next) {
     // know whether the queue landed, so `admitted` has to mean NEW admissions.
     const replayed = results.filter((r) => r.replay).length;
     const admitted = results.filter((r) => r.result === 'admitted' && !r.replay).length;
-    logger.info({ deviceId: req.device.deviceId, count: results.length, admitted, replayed },
+    // People this device let in offline whose ticket another door had already
+    // admitted. Nothing to do at the door any more; the organizer is told.
+    const conflicts = results.filter((r) => r.conflict && !r.replay).length;
+    logger.info({ deviceId: req.device.deviceId, count: results.length, admitted, replayed, conflicts },
       'offline queue uploaded');
 
-    return sendOk(res, { results, summary: { total: results.length, admitted, replayed } });
+    return sendOk(res, { results, summary: { total: results.length, admitted, replayed, conflicts } });
   } catch (err) { return next(err); }
 }
 
@@ -127,39 +131,29 @@ async function sync(req, res, next) {
 async function undo(req, res, next) {
   try {
     /**
-     * The same rule `scan` enforces, which this route was missing.
+     * The same rule `scan` enforces: a device may only touch its own event.
      *
-     * `verify` refuses a ticket whose token names another event — "a valid
-     * ticket for ANOTHER event must not open this door". Undo took a bare
-     * ticket id and passed it straight to the RPC, which does not look at the
-     * event either. So a device authenticated for one event could reverse the
-     * admission of a guest at a different one, given the id.
+     * The ticket id is not secret — it is inside every QR token, readable by
+     * anyone holding any ticket — so a device for one event must not be able to
+     * reverse an admission at another, given the id. This used to be a separate
+     * lookup here, because the v1 RPC had no event in its signature; v2 matches
+     * on (ticket, event) itself (T-054).
      *
-     * That id is not secret in the way it would need to be for that to be
-     * acceptable: it is inside every QR token, so it is readable by anyone
-     * holding any ticket to any event on the platform.
-     *
-     * Checked here rather than in the RPC because the RPC's signature has no
-     * event in it and adding one would change a function two other paths call.
      * A 404, not a 403 — a device has no business learning that a ticket it may
      * not touch exists.
      */
-    const { data: ticket } = await supabase
-      .from('tickets').select('id')
-      .eq('id', req.body.ticketId)
-      .eq('event_id', req.device.eventId)
-      .maybeSingle();
+    const data = await scanSvc.undo({
+      ticketId: req.body.ticketId,
+      deviceId: req.device.deviceId,
+      eventId: req.device.eventId,
+    });
 
-    if (!ticket) {
+    if (data?.result === 'not_found') {
       return sendFail(res, {
         status: 404, error: 'TICKET_NOT_FOUND',
         message: 'That ticket is not for this event.',
       });
     }
-
-    const { data } = await supabase.rpc('undo_check_in', {
-      p_ticket_id: req.body.ticketId, p_device_id: req.device.deviceId,
-    });
     if (!data?.ok) {
       return sendFail(res, {
         status: 409, error: 'CONFLICT', message: data?.message || 'That could not be undone.',

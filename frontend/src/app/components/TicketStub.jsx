@@ -103,7 +103,11 @@ export default function TicketStub({ ticket, qrSrc, timeZone = null, prominent =
           )}
 
           {ticket.transferred && (
-            <p className="text-xs text-subtle">Transferred — this ticket cannot be passed on again.</p>
+            <p className="text-xs text-subtle">
+              {ticket.transferredAway
+                ? 'You gave this ticket to someone else. It no longer admits you.'
+                : 'Transferred — this ticket cannot be passed on again.'}
+            </p>
           )}
         </div>
 
@@ -122,7 +126,13 @@ export default function TicketStub({ ticket, qrSrc, timeZone = null, prominent =
                 hypothetical: it is what /t/[token] showed for every ticket it ever
                 served, because it was reading `qr` off an object that does not
                 carry one. */}
-            {!qrSrc ? (
+            {/* A ticket given away has no code on purpose — the recipient holds
+                the one that works — and must not read as a fault to fix. */}
+            {!qrSrc && ticket.transferredAway ? (
+              <div className="es-tkt__missing">
+                Given away — the new holder has the code.
+              </div>
+            ) : !qrSrc ? (
               <div className="es-tkt__missing">
                 Code unavailable — reload, or ask the organizer to resend your ticket.
               </div>

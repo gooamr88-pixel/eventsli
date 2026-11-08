@@ -62,10 +62,15 @@ const hhmm = (iso) => new Date(iso).toISOString().slice(11, 16);
   try {
     // ── Find a ticket to work with ──────────────────────────────────────────
     const { rows: candidates } = await db.query(`
-      SELECT t.id, t.event_id, t.status, t.scanned_at, e.title
+      SELECT t.id, t.event_id, t.status, t.scanned_at, t.qr_version, e.title
         FROM tickets t
         JOIN events e ON e.id = t.event_id
+        JOIN orders o ON o.id = t.order_id
        WHERE t.status = 'valid'
+         -- What check_in_ticket_v2 would admit at all: an open event and a
+         -- paid order. Anything else is refused by design, not by a bug.
+         AND e.status IN ('published', 'archived')
+         AND o.status = 'paid'
        ORDER BY t.created_at DESC
        LIMIT 1`);
 
@@ -91,7 +96,8 @@ const hhmm = (iso) => new Date(iso).toISOString().slice(11, 16);
       process.exit(1);
     }
 
-    const qr = issueQrToken({ ticketId: ticket.id, eventId: ticket.event_id });
+    // The ticket's current version: a code from before a transfer is refused.
+    const qr = issueQrToken({ ticketId: ticket.id, eventId: ticket.event_id, version: ticket.qr_version });
 
     // ── A device, registered the way an organizer registers one ─────────────
     const device = await scanSvc.registerDevice({

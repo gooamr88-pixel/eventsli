@@ -15,16 +15,33 @@ import { OUTCOME_KEYS, describeScan, admits, doorTime } from '../src/app/gate/sc
  * So the values are read out of the SQL and the service that emit them.
  */
 const ROOT = path.join(process.cwd(), '..');
-const CHECKIN_SQL = path.join(ROOT, 'supabase', 'migrations', '20260830000000_checkin.sql');
+const MIGRATIONS = path.join(ROOT, 'supabase', 'migrations');
 const SCAN_SERVICE = path.join(ROOT, 'backend', 'services', 'scanService.js');
 
-/** `'result', 'admitted'` in the SQL, `result: 'invalid'` in the service. */
+/**
+ * Every migration that defines a check-in function — not one named file. v1
+ * lived in 20260830000000_checkin.sql; v2 (transfers, closed events) arrived in
+ * a later one, and a test pinned to the first file would never see it.
+ */
+function checkinSql() {
+  return fs.readdirSync(MIGRATIONS)
+    .filter((f) => f.endsWith('.sql'))
+    .map((f) => fs.readFileSync(path.join(MIGRATIONS, f), 'utf8'))
+    .filter((sql) => /FUNCTION\s+(check_in_ticket|undo_check_in)/.test(sql))
+    .join('\n');
+}
+
+/**
+ * `'result', 'admitted'` in the SQL, `result: 'invalid'` in the service, and
+ * `v_refusal := 'transferred'` — v2 picks a refusal first and returns it once.
+ */
 function backendResults() {
-  const sql = fs.readFileSync(CHECKIN_SQL, 'utf8');
+  const sql = checkinSql();
   const js = fs.readFileSync(SCAN_SERVICE, 'utf8');
 
   const found = new Set();
   for (const m of sql.matchAll(/'result',\s*'([a-z_]+)'/g)) found.add(m[1]);
+  for (const m of sql.matchAll(/v_refusal\s*:=\s*'([a-z_]+)'/g)) found.add(m[1]);
   for (const m of js.matchAll(/result:\s*'([a-z_]+)'/g)) found.add(m[1]);
   return [...found].sort();
 }
@@ -39,6 +56,9 @@ describe('scan outcomes', () => {
     expect(results).toContain('admitted');
     expect(results).toContain('duplicate');
     expect(results).toContain('scanner_locked');
+    // And v2's refusals, which only the `v_refusal` pattern finds.
+    expect(results).toContain('transferred');
+    expect(results).toContain('event_not_open');
   });
 
   test('every result the API can return has a screen for it', () => {

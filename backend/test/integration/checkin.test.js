@@ -71,9 +71,10 @@ async function seed() {
   ).select('id');
 
   // A real purchase, so the tickets under test are the ones fulfilment issues.
+  // Nine: 0–5 for the original suite, 6 transfer, 7 replay race, 8 refusals.
   const held = await supabase.rpc('hold_seats', {
     p_event_id: ev.id, p_user_id: null,
-    p_seat_ids: seats.slice(0, 6).map((s) => s.id), p_ttl_minutes: 35,
+    p_seat_ids: seats.slice(0, 9).map((s) => s.id), p_ttl_minutes: 35,
   });
   const q = await pricing.quoteReservation(held.data.reservation_id);
   const filled = await supabase.rpc('fulfill_checkout', {
@@ -138,6 +139,14 @@ test('a valid ticket is admitted once', async () => {
   assert.equal(res.status, 200, JSON.stringify(res.body));
   assert.equal(res.body.data.result, 'admitted');
   assert.ok(res.body.data.seat, 'the door needs to see the seat');
+  // Fulfilment stores no name on the ticket; the door falls back to the buyer,
+  // and says that is what it is.
+  assert.equal(res.body.data.attendee, 'Gate Buyer');
+  assert.equal(res.body.data.holder_is_buyer, true);
+  assert.equal(res.body.data.tier, 'GA');
+  assert.equal(res.body.data.ticket_id, tickets[0].id);
+  assert.equal(res.body.data.event_title, 'Gate Test');
+  assert.equal(res.body.data.method, 'scan');
 });
 
 test('the second scan is refused, and says WHEN the first was', async () => {
@@ -149,6 +158,16 @@ test('the second scan is refused, and says WHEN the first was', async () => {
   assert.ok(res.body.data.scanned_at);
   // "Already used" starts an argument at the door; "already used at 19:04" ends one.
   assert.match(res.body.data.message, /\d{2}:\d{2}/);
+
+  // …in the EVENT's time, not the database's UTC.
+  const local = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'America/Toronto', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  }).format(new Date(res.body.data.scanned_at));
+  assert.ok(res.body.data.message.endsWith(local),
+    `"${res.body.data.message}" should end with the Toronto time ${local}`);
+  // …and where.
+  assert.equal(res.body.data.first_scan.device, 'Main door');
+  assert.equal(res.body.data.conflict, false);
 });
 
 test('two doors scanning the same code at once admit exactly one', async () => {
@@ -355,9 +374,115 @@ test('undoing a ticket that was never scanned is refused', async () => {
   assert.ok([200, 409].includes(second.status));
 });
 
+// ── Check-in v2 ─────────────────────────────────────────────────────────────
+
+test('a transferred ticket moves its code: the old one is refused, the new one admits (T-016)', async () => {
+  const t = tickets[6];
+  await ticketSvc.transfer({
+    ticketId: t.id, tokenOrderId: ids.order, toEmail: `friend-${stamp}@eventsli-test.invalid`,
+  });
+
+  const old = await gate('/verify', { qr: t.qr });
+  assert.equal(old.status, 200);
+  assert.equal(old.body.data.result, 'transferred', JSON.stringify(old.body));
+
+  // The seller's copy of the order no longer carries a code at all — a fresh
+  // one minted there would carry the new version and let them back in.
+  const sellerCopy = (await ticketSvc.forOrder(ids.order)).find((x) => x.id === t.id);
+  assert.equal(sellerCopy.qr, null);
+  assert.equal(sellerCopy.transferredAway, true);
+
+  // The recipient has it, with a code that works.
+  const received = await ticketSvc.receivedBy(`FRIEND-${stamp}@eventsli-test.invalid`);
+  assert.equal(received.length, 1);
+  const theirs = received[0].tickets.find((x) => x.id === t.id);
+  assert.ok(theirs?.qr, 'the recipient must get a code');
+  assert.notEqual(theirs.qr, t.qr);
+
+  const now = await gate('/verify', { qr: theirs.qr });
+  assert.equal(now.body.data.result, 'admitted');
+  // After a transfer the buyer is exactly who should NOT be named at the door.
+  assert.equal(now.body.data.attendee, null);
+});
+
+test('one scan uploaded twice at the same instant is a replay, never an error', async () => {
+  const t = tickets[7];
+  const clientScanId = `race-${stamp}`;
+  const results = await Promise.all(
+    Array.from({ length: 8 }, () => gate('/verify', { qr: t.qr, clientScanId })),
+  );
+  for (const r of results) {
+    assert.equal(r.status, 200);
+    assert.notEqual(r.body.data.result, 'error', JSON.stringify(r.body));
+    assert.equal(r.body.data.result, 'admitted');
+  }
+  assert.equal(results.filter((r) => !r.body.data.replay).length, 1,
+    'exactly one of them is the admission; the rest are its replay');
+});
+
+test('a closed event and an unpaid order are refused, and the refusal is logged', async () => {
+  const t = tickets[8];
+
+  await supabase.from('events').update({ status: 'suspended' }).eq('id', ids.event);
+  const closed = await gate('/verify', { qr: t.qr });
+  await supabase.from('events').update({ status: 'published' }).eq('id', ids.event);
+  assert.equal(closed.body.data.result, 'event_not_open', JSON.stringify(closed.body));
+
+  await supabase.from('orders').update({ status: 'cancelled' }).eq('id', ids.order);
+  const unpaid = await gate('/verify', { qr: t.qr });
+  await supabase.from('orders').update({ status: 'paid' }).eq('id', ids.order);
+  assert.equal(unpaid.body.data.result, 'void');
+  assert.match(unpaid.body.data.message, /cancelled or refunded/);
+
+  const { data: log } = await supabase
+    .from('scans').select('result').eq('ticket_id', t.id);
+  assert.deepEqual(log.map((s) => s.result).sort(), ['event_not_open', 'void']);
+
+  // Open again, it admits — and a device clock a day fast is not believed.
+  const ok = await gate('/verify', {
+    qr: t.qr, occurredAt: new Date(Date.now() + 86400e3).toISOString(),
+  });
+  assert.equal(ok.body.data.result, 'admitted');
+  assert.ok(new Date(ok.body.data.scanned_at).getTime() <= Date.now() + 60e3,
+    'a scan cannot have happened tomorrow');
+});
+
+test('an offline admission of a ticket another door already admitted is flagged', async () => {
+  const res = await gate('/sync', {
+    // Ticket 7 was admitted by the race above. (Not 0: the undo test reverses it.)
+    scans: [{
+      qr: tickets[7].qr, clientScanId: `conflict-${stamp}`,
+      occurredAt: new Date(Date.now() - 60e3).toISOString(),
+      method: 'offline', offlineVerdict: 'admitted',
+    }],
+  });
+  assert.equal(res.status, 200, JSON.stringify(res.body));
+  assert.equal(res.body.data.results[0].result, 'duplicate');
+  assert.equal(res.body.data.results[0].conflict, true);
+  assert.equal(res.body.data.summary.conflicts, 1);
+
+  const { data: row } = await supabase
+    .from('scans').select('method, conflict').eq('client_scan_id', `conflict-${stamp}`).single();
+  assert.deepEqual(row, { method: 'offline', conflict: true });
+});
+
+test('the check-in functions are scoped to their event (T-054)', async () => {
+  const other = '00000000-0000-0000-0000-000000000000';
+  const { data: undo } = await supabase.rpc('undo_check_in_v2', {
+    p_event_id: other, p_ticket_id: tickets[0].id, p_device_id: deviceId,
+  });
+  assert.equal(undo.result, 'not_found');
+
+  const { data: admit } = await supabase.rpc('check_in_ticket_v2', {
+    p_event_id: other, p_ticket_id: tickets[3].id, p_qr_version: 0,
+    p_device_id: deviceId, p_client_scan_id: null,
+  });
+  assert.equal(admit.result, 'not_found');
+});
+
 test('the gate reports live counts', async () => {
   const status = await scanSvc.gateStatus(ids.event);
-  assert.equal(status.stats.issued, 6);
+  assert.equal(status.stats.issued, tickets.length);
   assert.ok(status.stats.admitted >= 1);
   assert.equal(status.stats.issued, status.stats.admitted + status.stats.pending + status.stats.void);
 });
