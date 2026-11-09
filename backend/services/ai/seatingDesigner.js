@@ -28,7 +28,8 @@ const { aiError } = require('./aiHttp');
 const SHAPES = Object.freeze(['round', 'oval', 'rect', 'square', 'row']);
 const ZONE_KINDS = Object.freeze([
   'stage', 'dance_floor', 'bar', 'dj_booth', 'entrance', 'restroom', 'coat_check', 'gift_table',
-  'cake_table', 'photo_booth', 'welcome_desk', 'buffet', 'lounge', 'custom',
+  'cake_table', 'photo_booth', 'welcome_desk', 'buffet', 'lounge',
+  'screen', 'standing', 'aisle', 'accessible', 'barrier', 'custom',
 ]);
 const AREAS = Object.freeze(['front', 'middle', 'back', 'left', 'right', 'anywhere']);
 const POSITIONS = Object.freeze([

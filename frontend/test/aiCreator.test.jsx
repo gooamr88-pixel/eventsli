@@ -10,7 +10,7 @@ import { get, post, patch } from '../src/app/utils/apiClient';
 import AiCreator from '../src/app/organizer/events/new/ai/AiCreator';
 import { TypeChooser } from '../src/app/organizer/events/new/WizardParts';
 import { resetCategoriesForTests } from '../src/app/hooks/useCategories';
-import { RESULT } from './aiDraftFixture';
+import { RESULT, DRAFT_END_LOCAL } from './aiDraftFixture';
 
 /**
  * The Smart Event Creator, end to end in the browser, against a mocked API.
@@ -145,7 +145,7 @@ describe('review and save', () => {
 
     await user.click(screen.getByRole('button', { name: /Edit When and where/ }));
     const when = screen.getByRole('dialog', { name: 'When and where' });
-    fireEvent.change(within(when).getByLabelText(/Ends/), { target: { value: '2026-11-07T23:30' } });
+    fireEvent.change(within(when).getByLabelText(/Ends/), { target: { value: DRAFT_END_LOCAL } });
     expect(within(when).getByText(/You wrote: .Saturday November 7 from 6:30pm./)).toBeInTheDocument();
     await user.click(within(when).getByRole('button', { name: 'Done' }));
 
@@ -177,7 +177,7 @@ describe('review and save', () => {
     const user = userEvent.setup();
     await toReview(user);
     await user.click(screen.getByRole('button', { name: /Edit When and where/ }));
-    fireEvent.change(within(screen.getByRole('dialog')).getByLabelText(/Ends/), { target: { value: '2026-11-07T23:30' } });
+    fireEvent.change(within(screen.getByRole('dialog')).getByLabelText(/Ends/), { target: { value: DRAFT_END_LOCAL } });
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Done' }));
     await user.click(screen.getByRole('button', { name: /Edit Tickets/ }));
     await user.click(within(screen.getByRole('dialog')).getAllByLabelText(/This ticket is free/)[1]);

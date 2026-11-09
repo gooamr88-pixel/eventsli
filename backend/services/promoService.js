@@ -37,11 +37,14 @@ async function release(reservationId) {
 
 /** What a hold currently has applied, for the quote to subtract. */
 async function forReservation(reservationId) {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('promo_redemptions')
     .select('promo_id, amount_cents, promo_codes ( code, discount_type, discount_value )')
     .eq('reservation_id', reservationId)
     .maybeSingle();
+  // Fails CLOSED (TECH-AUDIT-LOG S-17). Read as "no code", a failed lookup
+  // quoted — and could charge — the full price to a buyer shown a discount.
+  if (error) throw new Error(`promo lookup failed: ${error.message}`);
 
   if (!data) return null;
   return {

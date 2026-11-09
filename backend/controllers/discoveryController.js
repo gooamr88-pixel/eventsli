@@ -228,18 +228,18 @@ async function lowestTierPrices(eventIds) {
   const lowest = new Map();
   if (eventIds.length === 0) return lowest;
 
-  const { data, error } = await supabase
-    .from('ticket_tiers')
-    .select('event_id, price_cents')
-    .eq('is_hidden', false)
-    .in('event_id', eventIds);
+  // The cheapest thing a buyer can actually take — see `event_from_prices`
+  // (TECH-AUDIT-LOG S-11). It was the cheapest visible ticket type, used by a
+  // seat or not, on sale or not, sold out or not: the listing that advertised
+  // "From $100" over seats priced at nothing read exactly this.
+  const { data, error } = await supabase.rpc('event_from_prices', { p_event_ids: eventIds });
+  // A listing without a price beats a listing that fails; the card says
+  // "price on the event page".
   if (error) return lowest;
 
-  for (const tier of data || []) {
-    const price = Number(tier.price_cents);
-    if (!Number.isFinite(price)) continue;
-    const current = lowest.get(tier.event_id);
-    if (current === undefined || price < current) lowest.set(tier.event_id, price);
+  for (const row of data || []) {
+    const price = Number(row.from_cents);
+    if (Number.isFinite(price)) lowest.set(row.event_id, price);
   }
   return lowest;
 }

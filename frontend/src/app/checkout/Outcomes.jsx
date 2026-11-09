@@ -114,6 +114,27 @@ export function PayError({ error }) {
 }
 
 /**
+ * A checkout this tab cannot act on: it was opened in another tab or browser,
+ * or this tab has since made a newer hold (which released this one). Paying,
+ * claiming and releasing all need the token the original tab received.
+ */
+export function NotThisTab({ slug }) {
+  return (
+    <div className="es-empty">
+      <span className="es-empty__mark" aria-hidden="true"><NavIcon name="alert" size={26} /></span>
+      <h1 className="es-empty__title">This checkout is not open in this tab</h1>
+      <p className="es-empty__hint">
+        It was started in another tab or browser, or you have chosen again since. Finish it
+        where you started it, or choose your tickets again here. Nothing has been charged.
+      </p>
+      <Link href={slug ? `/e/${slug}` : '/events'} className="es-btn es-btn--primary">
+        {slug ? 'Back to the event' : 'Browse events'}
+      </Link>
+    </div>
+  );
+}
+
+/**
  * The quote itself could not be loaded, so there is no order to show.
  *
  * This is the screen an EXPIRED HOLD lands on, which makes it the most-seen

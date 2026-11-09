@@ -30,7 +30,7 @@ export const MAP_FRAME = 'es-plate bg-surface p-3 sm:p-4';
  * more room on a laptop than on a phone, with a floor so it never collapses on
  * a short landscape screen.
  */
-export const MAP_BOX = 'h-[58vh] min-h-[380px]';
+export const MAP_BOX = 'h-[52vh] min-h-[360px] lg:h-[64vh] lg:min-h-[420px]';
 
 /**
  * The waiting state.

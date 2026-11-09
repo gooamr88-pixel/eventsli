@@ -8,6 +8,7 @@ import { toCents } from '../tiers/Tiers';
 import Field from '../../../../components/forms/Field';
 import { Notice } from '../../../../components/Feedback';
 import { useEventContext } from '../EventContext';
+import NewTierInline, { NEW_TIER } from './NewTierInline';
 
 /**
  * Everything about one table.
@@ -24,8 +25,11 @@ import { useEventContext } from '../EventContext';
  * unreachable, which is worth saying out loud.
  */
 export default function TablePanel({
-  table, tiers, categories, onChange, onRotate, onDuplicate, onRemove,
+  table, tiers, categories, onChange, onRotate, onDuplicate, onRemove, onTierCreated,
 }) {
+  // "New ticket type…" open under the picker (NewTierInline). Before the early
+  // return: hooks run on every render.
+  const [creatingTier, setCreatingTier] = useState(false);
   if (!table) {
     return (
       <aside className="fx-stack fx-stack--sm es-card p-5">
@@ -98,13 +102,32 @@ export default function TablePanel({
       />
 
       <Select
-        label="Seat price band" value={table.tierId || ''}
-        onChange={(v) => set({ tierId: v || null })}
-        options={[['', 'None'], ...(tiers || []).map((t) => [t.id, t.name])]}
-        // The trap this prevents: seat price resolves seat override → table →
-        // tier and ends in COALESCE(…, 0). A seat with neither sells for
-        // nothing.
-        hint="What each seat costs. Without one, these seats need their own price or they sell for nothing."
+        label="Ticket type" value={table.tierId || ''}
+        onChange={(v) => {
+          if (v === NEW_TIER) { setCreatingTier(true); return; }
+          set({ tierId: v || null });
+        }}
+        options={[['', 'None'], ...(tiers || []).map((t) => [t.id, t.name]), [NEW_TIER, '+ New ticket type…']]}
+        // A seat's price is its seat price, else its ticket type's — the
+        // whole-table price above is NOT part of it (TECH-AUDIT-LOG S-04). A
+        // seat with neither cannot be sold; a live event refuses to save one.
+        hint="What each seat sells as, and for. Seats with no ticket type and no seat price are not on sale."
+      />
+      {creatingTier && (
+        <NewTierInline
+          onCreated={(tier) => { onTierCreated?.(tier); set({ tierId: tier.id }); setCreatingTier(false); }}
+          onCancel={() => setCreatingTier(false)}
+        />
+      )}
+
+      {/* The per-seat override the API always took and nothing could set
+          (S-04). Optional: empty means the ticket type's price. */}
+      <PriceField
+        tableKey={`${key}:seat`}
+        priceCents={table.seatPriceCents}
+        onCommit={(cents) => set({ seatPriceCents: cents })}
+        label="Seat price (optional)"
+        hint={(currency) => `In ${currency || 'the event currency'}. Overrides the ticket type's price for every seat at this table. Empty uses the ticket type.`}
       />
 
       <label className="fx-row items-start gap-2 text-sm">
@@ -195,7 +218,9 @@ export default function TablePanel({
  * is not. The draft is re-seeded only when a DIFFERENT value arrives — another
  * table selected, or an undo — never by its own commits.
  */
-function PriceField({ tableKey, priceCents, onCommit }) {
+const WHOLE_TABLE_HINT = (currency) => `In ${currency || 'the event currency'}. Only what booking the WHOLE table costs — it does not price single seats. Leave empty to sell this table only seat by seat.`;
+
+function PriceField({ tableKey, priceCents, onCommit, label = 'Whole-table price', hint = WHOLE_TABLE_HINT }) {
   const currency = useEventContext()?.event?.currency;
   const external = priceCents === null || priceCents === undefined ? '' : (priceCents / 100).toString();
   const signature = `${tableKey}:${priceCents ?? ''}`;
@@ -215,10 +240,10 @@ function PriceField({ tableKey, priceCents, onCommit }) {
 
   return (
     <Field
-      label="Whole-table price"
+      label={label}
       value={draft}
       inputMode="decimal"
-      hint={`In ${currency || 'the event currency'}. Leave empty to sell this table only seat by seat.`}
+      hint={hint(currency)}
       error={invalid ? 'Enter an amount like 25 or 25.50.' : null}
       onChange={(e) => {
         const text = e.target.value;

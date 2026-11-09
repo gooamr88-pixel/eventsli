@@ -2,7 +2,7 @@ import { describe, test, expect } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import {
-  WORLD, SHAPES, SEAT_RADIUS, SEAT_PITCH,
+  WORLD, MAX_WORLD, SHAPES, SEAT_RADIUS, SEAT_PITCH,
   tableBody, seatPositions, toWorld, toPercent,
   contentBounds, clampView, normaliseShape,
 } from '../src/app/components/seating/seatingGeometry';
@@ -41,6 +41,38 @@ describe('seatingGeometry — the contract', () => {
       'These files define their own shape catalogue or seat size. Import from '
       + 'components/seating/seatingGeometry.js instead — that is the whole point of it.',
     ).toEqual([]);
+  });
+
+  test('nothing else in src resolves a position against the default world', () => {
+    // Worlds are per map (layout.world). A file that imports WORLD and
+    // multiplies by it draws every enlarged venue squeezed into a ballroom —
+    // and draws every old map perfectly, which is why nobody would notice.
+    // The default is reached through worldOf(), on purpose and by name.
+    const root = path.join(process.cwd(), 'src');
+    const offenders = [];
+    const walk = (dir) => {
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory()) { walk(full); continue; }
+        if (!/\.(js|jsx|ts|tsx)$/.test(entry.name) || entry.name === 'seatingGeometry.js') continue;
+        const src = fs.readFileSync(full, 'utf8');
+        if (/import\s*\{[^}]*\bWORLD\b[^}]*\}\s*from\s*'[^']*seatingGeometry'/.test(src)) {
+          offenders.push(path.relative(root, full).replace(/\\/g, '/'));
+        }
+      }
+    };
+    walk(root);
+    expect(offenders, 'Take the map’s world from worldOf(layout) and pass it on.').toEqual([]);
+  });
+
+  test('the API clamps a venue size to the same bounds as the editor', () => {
+    const src = fs.readFileSync(path.join(process.cwd(), '..', 'backend', 'services', 'venueStudio.js'), 'utf8');
+    const read = (name) => {
+      const m = src.match(new RegExp(`const ${name} = Object\\.freeze\\(\\{ width: (\\d+), height: (\\d+) \\}\\)`));
+      return m && { width: Number(m[1]), height: Number(m[2]) };
+    };
+    expect(read('DEFAULT_WORLD')).toEqual({ ...WORLD });
+    expect(read('MAX_WORLD')).toEqual({ ...MAX_WORLD });
   });
 
   test('the shapes are the ones the renderer can actually draw', () => {

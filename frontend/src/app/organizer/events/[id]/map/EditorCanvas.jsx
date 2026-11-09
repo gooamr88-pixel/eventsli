@@ -2,11 +2,12 @@
 
 import { useMemo } from 'react';
 import {
-  WORLD, SEAT_PITCH, SEAT_RADIUS, tableBody, toWorld, toPercent,
+  SEAT_PITCH, SEAT_RADIUS, tableBody, toWorld, toPercent, worldOf, screenScale,
 } from '../../../../components/seating/seatingGeometry';
 import { zoneBox } from '../../../../components/seating/venueZones';
 import ZoneShape from '../../../../components/seating/ZoneShape';
 import EditableTable from './EditableTable';
+import { tierPalette } from '../../../../components/venue/venueModel';
 import SelectionHandles from './SelectionHandles';
 import { SNAP_WORLD } from './useCanvasInteraction';
 import { keyOf } from './useMapDraft';
@@ -39,7 +40,11 @@ import { keyOf } from './useMapDraft';
  * a canvas that owned them would have to publish them back upward through a ref.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-export const EDITOR_BOUNDS = Object.freeze({ x: 0, y: 0, width: WORLD.width, height: WORLD.height });
+/** The sheet the editor opens on before a map has loaded: the whole world. */
+export function editorBounds(world) {
+  return { x: 0, y: 0, width: world.width, height: world.height };
+}
+export const EDITOR_BOUNDS = Object.freeze(editorBounds(worldOf(null)));
 
 /** How far outside the viewport an element is still drawn. Generous on purpose:
  *  the cost of a few extra tables is nothing, and the cost of getting it wrong
@@ -48,18 +53,26 @@ const CULL_MARGIN = 120;
 
 export default function EditorCanvas({
   tables, zones, categories, soldByTable,
+  // Ticket types, so seats show the colour buyers will see them in.
+  tiers = null,
   selection, panzoom, interaction,
   tool, spacePan, snapToGrid,
   onAddAt, onNudge,
+  // The venue's size (draft.world): every percentage below resolves against it.
+  world = worldOf(null),
   className = '',
 }) {
   const { svgRef, view, handlers } = panzoom;
-  const scale = WORLD.width / Math.max(view.width, 1);
+  const scale = screenScale(view);
 
   const colourOf = useMemo(() => {
     const map = new Map((categories || []).map((c) => [c.id, c.color]));
     return (categoryId) => map.get(categoryId) || null;
   }, [categories]);
+  const seatColourOf = useMemo(() => {
+    const palette = tierPalette(tiers || [], []);
+    return (tierId) => palette.get(tierId) || null;
+  }, [tiers]);
 
   /**
    * Only what is on screen, plus a margin.
@@ -77,17 +90,17 @@ export default function EditorCanvas({
 
     return {
       tables: tables.filter((t) => {
-        const { x, y } = toWorld(t.position);
+        const { x, y } = toWorld(t.position, world);
         const body = tableBody(t.shape, t.seatCount);
         const reach = Math.max(body.width, body.height) / 2 + SEAT_PITCH + SEAT_RADIUS;
         return x + reach >= left && x - reach <= right && y + reach >= top && y - reach <= bottom;
       }),
       zones: zones.filter((z) => {
-        const b = zoneBox(z, WORLD);
+        const b = zoneBox(z, world);
         return b.right >= left && b.x <= right && b.bottom >= top && b.y <= bottom;
       }),
     };
-  }, [tables, zones, view]);
+  }, [tables, zones, view, world]);
 
   const soleZone = selection.selection.zones.size === 1 && selection.selection.tables.size === 0
     ? [...selection.selection.zones][0] : null;
@@ -123,6 +136,7 @@ export default function EditorCanvas({
           onAddAt(toPercent(
             view.x + ((e.clientX - rect.left) / rect.width) * view.width,
             view.y + ((e.clientY - rect.top) / rect.height) * view.height,
+            world,
           ));
         }}
       >
@@ -156,7 +170,7 @@ export default function EditorCanvas({
           fill="url(#es-map-surface)" style={{ pointerEvents: 'none' }}
         />
         <rect
-          x={0} y={0} width={WORLD.width} height={WORLD.height}
+          x={0} y={0} width={world.width} height={world.height}
           rx={6}
           fill="var(--es-surface)"
           stroke="var(--es-border-strong)"
@@ -168,7 +182,7 @@ export default function EditorCanvas({
 
         {snapToGrid && (
           <rect
-            x={0} y={0} width={WORLD.width} height={WORLD.height}
+            x={0} y={0} width={world.width} height={world.height}
             fill="url(#es-map-grid)" style={{ pointerEvents: 'none' }}
           />
         )}
@@ -179,6 +193,7 @@ export default function EditorCanvas({
           <ZoneShape
             key={zone.id}
             zone={zone}
+            world={world}
             selected={selection.has('zone', zone.id)}
             interactive
             scale={scale}
@@ -187,8 +202,8 @@ export default function EditorCanvas({
           >
             {soleZone === zone.id && (
               <SelectionHandles
-                width={zoneBox(zone, WORLD).w}
-                height={zoneBox(zone, WORLD).h}
+                width={zoneBox(zone, world).w}
+                height={zoneBox(zone, world).h}
                 scale={scale}
                 resizable
                 onRotateStart={(e) => interaction.onRotateStart(e, 'zone', zone.id)}
@@ -203,6 +218,7 @@ export default function EditorCanvas({
             key={keyOf(table)}
             table={table}
             colour={colourOf(table.categoryId)}
+            seatColour={seatColourOf(table.tierId)}
             selected={selection.has('table', keyOf(table))}
             // Handles only when ONE thing is selected. A "select all" that
             // sprouted a rotate grip on every table would bury the map under
@@ -210,6 +226,7 @@ export default function EditorCanvas({
             showHandles={soleTable === keyOf(table)}
             scale={scale}
             sold={soldByTable?.get(keyOf(table)) || 0}
+            world={world}
             onPointerDown={(e) => interaction.onElementPointerDown(e, 'table', keyOf(table))}
             onKeyDown={(e) => onNudge(e, 'table', keyOf(table))}
             onRotateStart={(e) => interaction.onRotateStart(e, 'table', keyOf(table))}

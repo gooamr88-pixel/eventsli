@@ -1,5 +1,8 @@
 'use client';
 
+import { useState } from 'react';
+import NewTierInline, { NEW_TIER } from './NewTierInline';
+
 /**
  * ─────────────────────────────────────────────────────────────────────────────
  * The inspector when SEVERAL things are selected.
@@ -27,8 +30,9 @@
  * fastest way to price a whole section. Zones have no seats, so they are left
  * out of it.
  */
-export default function SelectionPanel({ tableCount, zoneCount, onRotate, onDuplicate, onRemove, onClear, tiers = [], onAssign = null }) {
+export default function SelectionPanel({ tableCount, zoneCount, onRotate, onDuplicate, onRemove, onClear, tiers = [], onAssign = null, onTierCreated = null }) {
   const total = tableCount + zoneCount;
+  const [creatingTier, setCreatingTier] = useState(false);
 
   return (
     <aside className="fx-stack fx-stack--sm es-dcard">
@@ -41,12 +45,27 @@ export default function SelectionPanel({ tableCount, zoneCount, onRotate, onDupl
       {onAssign && tableCount > 0 && (
         <label className="fx-stack fx-stack--sm gap-1">
           <span className="text-sm font-semibold text-ink">Ticket type for {tableCount === 1 ? 'this table' : `these ${tableCount} tables`}</span>
-          <select className="es-input" defaultValue="" onChange={(e) => { if (e.target.value) onAssign(e.target.value === 'none' ? null : e.target.value); e.target.value = ''; }}>
+          <select
+            className="es-input" defaultValue=""
+            onChange={(e) => {
+              const v = e.target.value;
+              e.target.value = '';
+              if (v === NEW_TIER) setCreatingTier(true);
+              else if (v) onAssign(v === 'none' ? null : v);
+            }}
+          >
             <option value="" disabled>Assign to ticket type…</option>
             {tiers.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
             <option value="none">No ticket type</option>
+            <option value={NEW_TIER}>+ New ticket type…</option>
           </select>
         </label>
+      )}
+      {onAssign && tableCount > 0 && creatingTier && (
+        <NewTierInline
+          onCreated={(tier) => { onTierCreated?.(tier); onAssign(tier.id); setCreatingTier(false); }}
+          onCancel={() => setCreatingTier(false)}
+        />
       )}
 
       <div className="fx-row flex-wrap gap-2">

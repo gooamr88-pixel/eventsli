@@ -27,11 +27,17 @@ async function stripeCostModel() {
  * @returns {{ breakdown, event, reservation, items }} — or throws with a code.
  */
 async function quoteReservation(reservationId, { chargeModel = CHARGE_MODEL.DIRECT } = {}) {
-  const { data: res } = await supabase
+  // Every read below checks its error (TECH-AUDIT-LOG S-17). A failed read is
+  // not an absent row: the promo read in particular, ignored, priced a hold
+  // WITHOUT the buyer's code — a full-price charge they had been shown less for.
+  const { data: res, error: resError } = await supabase
     .from('reservations')
-    .select('id, event_id, user_id, state, expires_at')
+    // created_at feeds `heldForMs`; without it the hold screen told every
+    // buyer "Finish within 1 minutes" on a 35-minute hold.
+    .select('id, event_id, user_id, state, expires_at, created_at')
     .eq('id', reservationId)
     .maybeSingle();
+  if (resError) throw new Error(`quote: reservation lookup failed: ${resError.message}`);
 
   if (!res) throw fail('RESERVATION_NOT_FOUND', 'That hold no longer exists.');
 
@@ -45,13 +51,14 @@ async function quoteReservation(reservationId, { chargeModel = CHARGE_MODEL.DIRE
     throw fail('RESERVATION_EXPIRED', 'Your hold has expired. Please choose your seats again.');
   }
 
-  const { data: event } = await supabase
+  const { data: event, error: eventError } = await supabase
     .from('events')
     .select(`id, slug, title, status, currency, organizer_id, venue_name, starts_at, timezone,
              commission_pct, commission_tax_pct, event_tax_pct,
              payment_fee_mode, payment_fee_pct, payment_fee_fixed_cents, fee_bearer`)
     .eq('id', res.event_id)
     .single();
+  if (eventError) throw new Error(`quote: event lookup failed: ${eventError.message}`);
 
   if (event.status !== 'published') {
     throw fail('EVENT_NOT_PUBLISHED', 'This event is no longer on sale.');
@@ -72,10 +79,11 @@ async function quoteReservation(reservationId, { chargeModel = CHARGE_MODEL.DIRE
    * `unit_price_cents * quantity`); only the quote disagreed.
    * ───────────────────────────────────────────────────────────────────────────
    */
-  const { data: items } = await supabase
+  const { data: items, error: itemsError } = await supabase
     .from('reservation_items')
     .select('id, seat_id, table_id, tier_id, unit_price_cents, quantity')
     .eq('reservation_id', reservationId);
+  if (itemsError) throw new Error(`quote: item lookup failed: ${itemsError.message}`);
 
   if (!items || items.length === 0) {
     throw fail('RESERVATION_NOT_FOUND', 'That hold has nothing in it.');
@@ -96,8 +104,12 @@ async function quoteReservation(reservationId, { chargeModel = CHARGE_MODEL.DIRE
     .filter((i) => i.seat_id || (!i.table_id && i.tier_id))
     .reduce((n, i) => n + (i.seat_id ? 1 : qtyOf(i)), 0);
   if (tableIds.length > 0) {
-    const { count } = await supabase
-      .from('seats').select('id', { count: 'exact', head: true }).in('table_id', tableIds);
+    // The seats THIS hold has, which are the seats the order will issue
+    // (fulfill_checkout issues a table's seats by `held_by_reservation`, T-017).
+    const { count, error: countError } = await supabase
+      .from('seats').select('id', { count: 'exact', head: true })
+      .in('table_id', tableIds).eq('held_by_reservation', reservationId);
+    if (countError) throw new Error(`quote: seat count failed: ${countError.message}`);
     admits += count || 0;
   }
 

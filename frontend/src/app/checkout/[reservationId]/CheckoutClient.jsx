@@ -9,10 +9,11 @@ import { formatMoney } from '../../utils/money';
 import { formatEventTime } from '../../lib/eventTime';
 import { useReservation, heldNoun } from '../../hooks/useReservation';
 import { useCountdown } from '../../hooks/useCountdown';
+import { useAuth } from '../../hooks/useAuth';
 import HoldBar from './HoldBar';
 import HoldConfirm from './HoldConfirm';
 import Field from '../../components/forms/Field';
-import { Claimed, Fatal, PayError } from '../Outcomes';
+import { Claimed, Fatal, NotThisTab, PayError } from '../Outcomes';
 import { Loading } from '../../components/Feedback';
 
 /**
@@ -25,7 +26,14 @@ import { Loading } from '../../components/Feedback';
  */
 export default function CheckoutClient({ reservationId }) {
   const router = useRouter();
-  const { reservation, release, forget } = useReservation();
+  const { reservation: stored, release, forget } = useReservation();
+  /**
+   * THE HOLD THIS PAGE IS ABOUT, or null. The tab remembers one hold, and it
+   * is not necessarily this one: a checkout reopened from history, or a link
+   * pasted into another tab, used to send whatever token the tab held — and
+   * Pay was refused as "not yours" only after the buyer had filled the form.
+   */
+  const reservation = stored?.reservationId === reservationId ? stored : null;
   // "seats", "table" or "tickets" — a general-admission event has no seats, and
   // this screen named them anyway. See `heldNoun`.
   const noun = heldNoun(reservation);
@@ -36,6 +44,20 @@ export default function CheckoutClient({ reservationId }) {
   const [promoError, setPromoError] = useState(null);
   const [busy, setBusy] = useState(null);
   const [buyer, setBuyer] = useState({ name: '', email: '', acceptTerms: false });
+
+  /**
+   * A SIGNED-IN BUYER'S EMAIL IS FILLED IN (TECH-AUDIT-LOG S-20). The form
+   * said "Signed in? We will use your account email" over a required, empty
+   * email field. Filled once per account, never over anything typed, and still
+   * editable — tickets for a gift go to someone else's address. Set during
+   * render, the React 19 way to follow a value that arrives after mount.
+   */
+  const { user } = useAuth();
+  const [prefilledFor, setPrefilledFor] = useState(null);
+  if (user?.email && prefilledFor !== user.id) {
+    setPrefilledFor(user.id);
+    setBuyer((b) => ({ ...b, email: b.email || user.email, name: b.name || user.fullName || '' }));
+  }
   // Set once a free claim has issued the tickets. There is no payment step and
   // nothing to wait for, so this page shows the outcome itself.
   const [claimed, setClaimed] = useState(null);
@@ -82,8 +104,8 @@ export default function CheckoutClient({ reservationId }) {
     onExpire: () => {
       // Nothing is released here — the server let it go on its own schedule,
       // and asking would 410. Only the local record is dropped so no other page
-      // offers a hold that no longer exists.
-      forget();
+      // offers a hold that no longer exists. Only THIS hold's record.
+      if (reservation) forget();
       setError({ code: 'RESERVATION_EXPIRED' });
     },
   });
@@ -190,9 +212,13 @@ export default function CheckoutClient({ reservationId }) {
     router.push(reservation?.slug ? `/e/${reservation.slug}` : '/events');
   }
 
-  if (error && !quote) return <Fatal error={error} slug={reservation?.slug} />;
+  if (error && !quote) return <Fatal error={error} slug={reservation?.slug || stored?.slug} />;
   if (claimed) return <Claimed claimed={claimed} slug={reservation?.slug} />;
   if (!quote) return <Loading variant="card" />;
+
+  // Said BEFORE the form, not after Pay: without this tab's token every
+  // action below is refused, and the buyer would find out last.
+  if (!reservation) return <NotThisTab slug={quote.event?.slug} />;
 
   // What was held, for how long, and what it costs — before a single field
   // asks for anything. `HoldConfirm` argues the trade-off this step makes.
@@ -320,7 +346,7 @@ export default function CheckoutClient({ reservationId }) {
             email rather than requiring an account, and asking someone to
             register before they can pay is where conversion goes to die. */}
         <p className="text-sm text-subtle">
-          You do not need an account. Signed in? We will use your account email.
+          You do not need an account. Signed in? Your account email is filled in — change it to send the tickets elsewhere.
         </p>
         {/* `Field`, not a bare input with a placeholder. Both of these carried
             their label in `placeholder` + `aria-label`, which is the one

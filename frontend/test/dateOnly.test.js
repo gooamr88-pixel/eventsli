@@ -5,7 +5,7 @@ import {
 import { problemsFor, initialForm } from '../src/app/organizer/events/new/wizardModel';
 import { eventJsonLd, whenPhrase, quickAnswers } from '../src/app/lib/eventSeo';
 import { savePlan, formFromDraft } from '../src/app/organizer/events/new/ai/aiDraftModel';
-import { RESULT } from './aiDraftFixture';
+import { RESULT, DRAFT_DAY } from './aiDraftFixture';
 
 /**
  * Display-only listings have a date, not a time. Stored as the whole day(s) at
@@ -82,7 +82,7 @@ describe('what the organizer must give', () => {
   });
 
   test('an AI-drafted listing saves as whole days', () => {
-    const form = { ...formFromDraft(RESULT, {}), listingType: 'display_only', firstDay: '2026-11-07', lastDay: '' };
+    const form = { ...formFromDraft(RESULT, {}), listingType: 'display_only', firstDay: DRAFT_DAY, lastDay: '' };
     const plan = savePlan(form, []);
     expect(isDateOnly({ displayOnly: true, timezone: form.timezone, ...plan.event })).toBe(true);
     expect(NOW).toBeTruthy();

@@ -88,7 +88,8 @@ async function forOrder(orderId) {
     .from('tickets')
     .select(`id, event_id, status, attendee_name, transfer_count, qr_version, scanned_at,
              seats ( section_key, row_label, seat_number ),
-             tables ( label ),
+             issued_table_label, issued_section, issued_row, issued_seat_number,
+             tables ( label, section_name ),
              ticket_tiers ( name )`)
     .eq('order_id', orderId)
     .order('created_at')
@@ -124,7 +125,8 @@ async function forOrders(orderIds) {
     .from('tickets')
     .select(`id, order_id, event_id, status, attendee_name, transfer_count, qr_version, scanned_at,
              seats ( section_key, row_label, seat_number ),
-             tables ( label ),
+             issued_table_label, issued_section, issued_row, issued_seat_number,
+             tables ( label, section_name ),
              ticket_tiers ( name )`, first ? { count: 'exact' } : undefined)
     .in('order_id', ids)
     .order('created_at')
@@ -147,7 +149,8 @@ async function forToken(token) {
     .from('tickets')
     .select(`id, event_id, status, attendee_name, transfer_count, qr_version, scanned_at,
              seats ( section_key, row_label, seat_number ),
-             tables ( label ),
+             issued_table_label, issued_section, issued_row, issued_seat_number,
+             tables ( label, section_name ),
              ticket_tiers ( name ),
              events ( title, slug, starts_at, ends_at, timezone, venue_name, status )`)
     .eq('id', decoded.ticketId)
@@ -179,7 +182,8 @@ async function receivedBy(email) {
     .from('tickets')
     .select(`id, order_id, event_id, status, attendee_name, transfer_count, qr_version, scanned_at, transferred_at,
              seats ( section_key, row_label, seat_number ),
-             tables ( label ),
+             issued_table_label, issued_section, issued_row, issued_seat_number,
+             tables ( label, section_name ),
              ticket_tiers ( name ),
              orders!inner ( status ),
              events ( id, title, slug, starts_at, ends_at, timezone, venue_name, status )`)
@@ -214,16 +218,41 @@ async function receivedBy(email) {
  * a resent email) it comes back without one, because a fresh code minted there
  * would carry the new version and walk the seller straight back in.
  */
+/**
+ * WHERE THE TICKET SAYS TO SIT — as it was when the ticket was issued
+ * (TECH-AUDIT-LOG S-16). A trigger takes the snapshot when the ticket is
+ * created and nothing may change it, so renaming a table after the sale no
+ * longer renames tickets already in buyers' inboxes. A ticket with no
+ * snapshot (none should remain after the backfill) falls back to live names.
+ *
+ * A seat in a seating section (S-19) is a place, not a table booking: it has
+ * no table name and reads Section · Row · Seat.
+ */
+function placeOf(t) {
+  const snapped = t.issued_section != null || t.issued_table_label != null;
+  if (snapped) {
+    return {
+      seat: t.issued_section != null
+        ? { section: t.issued_section, row: t.issued_row, number: t.issued_seat_number }
+        : null,
+      table: t.issued_table_label || null,
+    };
+  }
+  return {
+    seat: t.seats
+      ? { section: t.seats.section_key, row: t.seats.row_label, number: t.seats.seat_number }
+      : null,
+    table: t.tables && !t.tables.section_name ? t.tables.label : null,
+  };
+}
+
 function shape(t, { holder = false } = {}) {
   const transferred = (t.transfer_count || 0) > 0;
   return {
     id: t.id,
     status: t.status,
     attendeeName: t.attendee_name,
-    seat: t.seats
-      ? { section: t.seats.section_key, row: t.seats.row_label, number: t.seats.seat_number }
-      : null,
-    table: t.tables?.label || null,
+    ...placeOf(t),
     // The ticket type the printed ticket names ("General Admission", "VIP").
     // Null when the tier was deleted after the sale (tier_id is ON DELETE SET
     // NULL); the ticket then simply leaves the line out.

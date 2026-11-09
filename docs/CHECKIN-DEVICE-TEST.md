@@ -122,103 +122,114 @@ you were on, even if the screen looked right.
 ### A. Launch
 | # | Do | Expect |
 |---|---|---|
-| A1 | Open the app | Teal splash with the white star, then the **Event Check-in** screen with the logo, tagline and skyline |
+| A1 | Open the app | White splash with the teal mark, then the **Eventsli Scanner** opening screen ("Event Check-in Made Simple", the city at the bottom), then sign-in |
 | A2 | Look for "Update required" | Not shown |
 
 ### B. Sign in
 | # | Do | Expect |
 |---|---|---|
 | B1 | Organizer, wrong password | "That email or password is not right." Still on sign-in |
-| B2 | Organizer, right password | **Select Event**, **Ongoing** tab open, *Annual Gala 2026 (Demo)* with the cover, date and Toronto |
-| B3 | Settings → Sign out → sign in as the door-team member | Only the gala is listed |
-| B4 | Sign out → sign in as the account with no events | "No ongoing events", with an explanation. No crash |
-| B5 | Sign out → **Sign in with Eventsli** | The browser opens the website's sign-in page at 192.168.1.6:3000 |
-| B6 | Sign in there as the organizer → **Allow and return to the app** | Back in the app and signed in, on Select Event |
+| B2 | Organizer, right password | **My Events**, **Assigned to me**, *Annual Gala 2026 (Demo)* with its photo, date and Toronto. The tab bar shows Events, Scan, Logs, Profile |
+| B3 | Profile tab → **Sign Out** → confirm → sign in as the door-team member | Only the gala is listed |
+| B4 | Sign out → sign in as the account with no events | "No events yet", with an explanation. No crash |
+| B5 | Sign out → **Sign in with Eventsli** (small link at the bottom) | The browser opens the website's sign-in page at 192.168.1.6:3000 |
+| B6 | Sign in there as the organizer → **Allow and return to the app** | Back in the app and signed in, on My Events |
 | B7 | Repeat B5, press **Cancel** on the website | Back on the app's sign-in screen, with no error shown |
-| B8 | On this computer, open `http://192.168.1.6:3000/account/security` signed in as the organizer | A session row "Eventsli Check-in · *your phone*". Press **End** on it. The app returns to sign-in on its next request (B10) |
-| B9 | Sign-in screen → *Using a shared door device?* → **Scan pairing code**, then scan the sheet's pairing code, then enter PIN `482193` | The device ID fills in by itself; then the gala dashboard opens, labelled North Door |
+| B8 | On this computer, open `http://192.168.1.6:3000/account/security` signed in as the organizer | A session row "Eventsli Check-in · *your phone*". Press **End** on it. The app returns to sign-in on its next request |
+| B9 | Sign-in screen → **Shared door device** (bottom) → **Scan pairing code**, scan the sheet's pairing code, then enter PIN `482193` | The device ID fills in by itself; then the gala dashboard opens, labelled North Door |
 | B10 | Wrong PIN on B9 | "That device ID or PIN is not right…" |
+| B11 | **Forgot password?** | The website's reset page opens in the browser |
 
-### C. Select event
+### C. My Events
 | # | Do | Expect |
 |---|---|---|
-| C1 | Upcoming tab, choose *Tech Meetup* → Continue | "Doors are not open yet" with Cancel and Open anyway |
-| C2 | Past tab, choose *Product Launch* | "3 of 4 checked in". The button reads *Finished — view only* and is disabled |
-| C3 | Search (magnifier) "gala" | Only the gala |
-| C4 | Ongoing → gala → Continue | The dashboard |
+| C1 | Tap *Tech Meetup* | A sheet rises: cover, a blue "In … days" chip, date and time, venue, "You organize this event", a Checked in bar, the amber note "Doors are not open yet…", and **Open Anyway**. Tap outside the sheet: it closes |
+| C2 | **All Events** → tap *Product Launch* | The sheet with a grey **Finished** chip, "3 of 4 · 75%", "This event has finished. It can no longer be scanned." and **Close** |
+| C3 | Search "gala" | Only the gala. The × in the search clears it |
+| C4 | Tap the gala → **Start Check-in** in the sheet | Its dashboard |
+| C5 | Look at the list | Each row has a status chip (Live now / Starts in … / In … / Finished); the tabs show counts, "Assigned to me (2)"; "Hi *first name*, pick an event…" under the title; your initials top right open Settings |
 
-### D. Dashboard
+### D. Event dashboard
 | # | Do | Expect |
 |---|---|---|
-| D1 | Look at it (just after `rearm`) | A green **Live Check-in** pill and the ring at **1** (Lucas, scanned earlier at the North Door). Checked In 1 · Remaining 17 · Total 18 (each `late-sale` adds one). Then Scan / Attendees / Analytics, and Lucas Tremblay under Recent Check-ins. The refunded ticket and the cancelled order are not counted |
-| D2 | On this computer: `cd backend; node scripts/demo-checkin.js door-scan "Emily"` | Within about 10 s the ring shows **2** and Emily Chen appears first under Recent Check-ins (or pull down to refresh) |
-| D3 | As the door-team member, tap Attendees | "Guest list not shared" |
+| D1 | Look at it (just after `rearm`) | The cover photo with a green "Live Check-in" chip, the title, date and Toronto; a card with **Total 18 · Checked In 1 · Remaining 17** and a bar "6% of guests checked in"; **Start Check-in**; tiles Find Guest · Analytics · Logs · Details; **Recent Check-ins** with Lucas Tremblay and **View All**; Event Details, Download Guest List, Offline Mode (on) |
+| D2 | On this computer: `cd backend; node scripts/demo-checkin.js door-scan "Emily"` | Within about 10 s Checked In shows **2** and Emily Chen tops Recent Check-ins (or pull down to refresh) |
+| D3 | **Event Details** | The cover with a round back button; status chip; date and times in Toronto time; the venue with **Open in Maps** (opens the maps app); a ring with the % checked in and a legend; By ticket type; Door settings; This device |
+| D4 | **•••** (top right) | A sheet titled with the event: Event Details, Find a Guest, Analytics, Check-in Logs, Data & Sync, and **Leave This Event** in red. As the door-team member: no Find a Guest (the list is not shared) |
+| D5b | Turn Offline Mode off, then tap **Download Guest List** | A dialog "Offline Mode is off" with **Turn on Offline Mode**. Press it: the switch turns on and the list downloads |
+| D5 | **Logs** tab | All / Success / Failed cards, Lucas Tremblay in the list. Search "lucas" finds him; the filter button shows this phone only |
 
 ### E. Scanning and answers
-Each answer must show the right colour, title and sound. After an admission
-the screen returns to the camera by itself after 2 seconds.
+Start Check-in. Each answer must show the right colour, title and sound. After
+an admission the screen returns to the camera by itself after 2 seconds.
 
 | # | Scan (sheet) | Expect |
 |---|---|---|
-| E1 | John Smith · ticket 1 | **Green**, "Check-in Successful", John Smith, General Admission, the gala, date and time, "Admitted — Checked in at *time*", rising tone |
-| E2 | John Smith · ticket 1 again | **Amber**, "Already checked in", "at *time*" on the phone's clock, "First scanned by …", two beeps |
-| E3 | Sara Ahmed · VIP | Green, tier **VIP** |
-| E4 | Mia's friend · NEW code | Green, **no name** (a transferred ticket shows no buyer name) |
-| E5 | Mia Johnson · OLD code | **Red**, "Ticket was given away" |
-| E6 | Noah Wilson · refunded | Red, "Cancelled ticket" |
-| E7 | Ava Thompson · order cancelled | Red, "Cancelled ticket" (order cancelled or refunded) |
-| E8 | Grace Lee · Tech Meetup | Red, "Wrong event" |
-| E9 | Forged code | Red, "Not an Eventsli ticket" |
-| E10 | Lucas Tremblay · already scanned | Amber, "Already checked in", first scanned at **North Door (demo)** |
-| E11 | Hold one code steady in front of the camera for 10 s | One result only, not a stream |
-| E12 | The torch button | The light turns on and off |
-| E13 | Dim the room and scan at different distances and angles | Reads within about a second at 20–40 cm |
+| E1 | John Smith · ticket 1 | Green tick, **Check-in Successful**, a card with John Smith, the ticket code (TKT-…), the seat and the time, **Scan Next**, rising tone |
+| E2 | John Smith · ticket 1 again | Amber, **Already Checked In**, a card with "Checked in at *time*" and who and where; **View Details** and **Scan Another**; two beeps |
+| E3 | Sara Ahmed · VIP | Green, her name and seat |
+| E4 | Mia's friend · NEW code | Green, shown as "Guest" (a transferred ticket shows no buyer name) |
+| E5 | Mia Johnson · OLD code | Red, **Ticket Transferred** |
+| E6 | Noah Wilson · refunded | Red, **Cancelled Ticket** |
+| E7 | Ava Thompson · order cancelled | Red, **Cancelled Ticket** |
+| E8 | Grace Lee · Tech Meetup | Red, **Wrong Event** |
+| E9 | Forged code | Red, **Invalid Ticket**, "This QR code is not valid for this event." |
+| E10 | Lucas Tremblay · already scanned | Amber, Already Checked In, first scanned at **North Door (demo)** |
+| E11 | Hold one code steady for 10 s | One answer only, not a stream |
+| E12 | The lightning button | The torch turns on and off |
+| E13 | The camera button | Switches to the front camera and back |
+| E14 | Dim the room; scan at different distances and angles | Reads within about a second at 20–40 cm |
 
 ### F. After the answer
 | # | Do | Expect |
 |---|---|---|
-| F1 | After E3, tap **View Details** (before 2 s pass) | Ticket screen, "Checked in · *time*", with the door history |
-| F2 | Scan a fresh ticket (Ahmed Ali 1), then within 60 s tap *Scanned by mistake? Undo* | "Check-in reversed". Scanning again admits |
-| F3 | Settings → turn off *Back to the camera after a check-in* | The result stays until you tap Scan Next |
+| F1 | On E2's answer, **View Details** | The ticket screen with its door history |
+| F2 | Scan a fresh ticket (Ahmed Ali 1), then within 60 s tap *Scanned by mistake? Undo* | **Check-in Reversed**. Scanning again admits |
+| F3 | Profile → **App Settings** → turn off *Back to the camera* | An admission stays until you tap Scan Next |
 
 ### G. Sounds and vibration
 | # | Do | Expect |
 |---|---|---|
 | G1 | Admit, refuse, duplicate | Three different tones. Media volume must be up |
 | G2 | Turn the ringer to silent and scan | The tones still play (Android uses media volume) |
-| G3 | Settings → Sound off | Silent. Vibration still works if it is on |
+| G3 | Profile → App Settings → Sound off | Silent. Vibration still works if it is on |
 
 ### H. Guest list and manual check-in
-| # | Do | Expect |
-|---|---|---|
-| H1 | Organizer: Attendees → search "priya" | Priya Patel, VIP, "Not yet" |
-| H2 | Tap her → **Check in by hand** → confirm | Green success; history says *Checked in by hand* |
-| H3 | On the website (`http://192.168.1.6:3000/organizer` → the gala → Scanning devices), tick **Door team can search the guest list**; then as the door-team member, pull to refresh and open Attendees | The list opens with full names |
-| H4 | Try a screenshot on Attendees | Blocked or black |
-| H5 | After E1–E3 (John and Sara are in): Attendees, still on **Not yet**, search "john" | Both John Smith tickets, each showing its check-in time. The Not yet / Checked in / Everyone row hides while you type, and the line reads "2 guests match “john”" |
-| H6 | Search "smith john", then "smith, john" | The same two tickets: word order and commas do not matter |
-| H7 | Search "chloe" | Chloé Roy: accents do not have to be typed |
-| H8 | Search "zzz" | "Nobody on the guest list matches “zzz”", with a hint to try an email or ticket number |
-| H9 | Clear the search | The filter row comes back on **Not yet**, and the list shows only guests still to come |
+Open it from the dashboard's **•••** → Find a guest, or from the camera's
+"No code? Find the guest by name".
 
-### I. Offline, persistence and exactly-once
 | # | Do | Expect |
 |---|---|---|
-| I1 | **Airplane mode on.** Scan Michael Brown 1, 2, 3 | **Grey** "Held for upload" each time. The camera shows "No signal — scans are held" and "3 waiting to upload". **Never green** |
-| I2 | Swipe the app away to close it, then reopen it (still airplane mode) | The dashboard shows "3 scans waiting to upload". The scans survived on the phone's encrypted database |
-| I3 | Airplane mode **off** | Within about 20 s the banner goes; the ring rises by 3 |
-| I4 | On this computer: `cd backend; node scripts/demo-checkin.js status` | Michael Brown 1–3 show **IN**, and **EXACTLY-ONCE: OK** |
-| I5 | Close and reopen the app; tap *Upload now* if shown | Nothing uploads twice. Run `status` again: same counts, still OK |
-| I6 | **Wi-Fi off mid-queue:** airplane on → scan Daniel Garcia 2 → airplane off and immediately on again → off | It ends uploaded once. `status` is OK |
-| I7 | **API down:** Ctrl+C in Terminal A, scan Chloé Roy | Grey "Held for upload", **not** an error |
-| I8 | Restart Terminal A | Uploads within about 20 s. Chloé Roy is IN. `status` is OK |
-| I9 | **Another door got there first:** airplane on → scan Lucas Tremblay 2 (held) → on this computer `node scripts/demo-checkin.js door-scan "Lucas Tremblay · ticket 2"` → airplane off | The held scan settles as **Already checked in**, never as a second admission: Recent Check-ins → *All activity* shows it, and the ring rose by 1, not 2. `status` is OK |
+| H1 | Organizer: search "priya" | Priya Patel, VIP, "Not yet" |
+| H2 | Tap her → **Check in by hand** → confirm | Green success; history says *Checked in by hand* |
+| H3 | On the website (`http://192.168.1.6:3000/organizer` → the gala → Scanning devices), tick **Door team can search the guest list**; then as the door-team member, pull to refresh and open Find a guest | The list opens with full names |
+| H4 | Try a screenshot on the guest list | Blocked or black |
+| H5 | After E1–E3: search "john" (filter still on **Not yet**) | Both John Smith tickets, each with its check-in time. The filter row hides while you type; "2 guests match “john”" |
+| H6 | Search "smith john", then "smith, john" | The same two tickets |
+| H7 | Search "chloe" | Chloé Roy |
+| H8 | Search "zzz" | "Nobody on the guest list matches “zzz”" |
+| H9 | Clear the search | The filter row comes back on **Not yet** |
+
+### I. Offline with Offline Mode off (check-ins saved to sync)
+Turn **Offline Mode** off on the dashboard first; turn it back on at the end.
+
+| # | Do | Expect |
+|---|---|---|
+| I1 | Start Check-in, then **airplane mode on** | **You're Offline** appears, "Pending Check-ins 0". Tap **Continue Scanning** |
+| I2 | Scan Michael Brown 1, 2, 3 | Grey **Saved to Sync** each time. The camera shows "Offline — check-ins are saved" and "3 waiting to sync". **Never green** |
+| I3 | Swipe the app away, reopen it (still airplane mode) | The dashboard says "3 check-ins waiting to sync". They survived in the encrypted database |
+| I4 | Airplane mode **off** | Within about 15 s the banner goes; Checked In rises by 3. `node scripts/demo-checkin.js status`: Michael 1–3 **IN**, **EXACTLY-ONCE: OK** |
+| I5 | Close and reopen the app | Nothing uploads twice. `status` again: same counts, still OK |
+| I6 | **Wi-Fi flaps:** airplane on → scan Daniel Garcia 2 → airplane off and immediately on again → off | It ends uploaded once. `status` is OK |
+| I7 | **API down:** Ctrl+C in Terminal A, scan Chloé Roy | Grey "Saved to Sync", **not** an error |
+| I8 | Restart Terminal A | It syncs within about 15 s. Chloé Roy is IN. `status` is OK |
+| I9 | **Another door got there first:** airplane on → scan Lucas Tremblay 2 → on this computer `node scripts/demo-checkin.js door-scan "Lucas Tremblay · ticket 2"` → airplane off | It settles as **Already Checked In**, never a second admission: Logs shows it, Checked In rose by 1, not 2. `status` is OK |
 
 ### J. Losing the door
 | # | Do | Expect |
 |---|---|---|
-| J1 | Signed in as the **North Door** device: airplane on, scan Olivia Martin (held), airplane off. Immediately on the website (Scanning devices) press **Revoke** on North Door (demo) | On its next request the phone shows "Signed out of this door … scans not yet uploaded are kept" and goes to sign-in |
-| J2 | Press *Switch back on* on the website, then pair and sign in again with the PIN | The held scan uploads. `status` is OK |
+| J1 | As the **North Door** device: airplane on, scan Olivia Martin, airplane off. Immediately on the website (Scanning devices) press **Revoke** on North Door (demo) | On its next request the phone shows "Signed out of this door … scans not yet uploaded are kept" and goes to sign-in |
+| J2 | Press *Switch back on* on the website, then pair and sign in again with the PIN | The saved scan syncs. `status` is OK |
 
 ### K. Optional: forced update
 | # | Do | Expect |
@@ -230,39 +241,72 @@ Each row must end on the right screen with nothing in Terminal C.
 
 | # | Do | Expect |
 |---|---|---|
-| L1 | Signed in as the organizer: Select Event → the gala → Continue | The dashboard. No "The action 'ROUTE_NAMES_CHANGED' … was not handled" (the warning this round fixed) |
-| L2 | Dashboard → Settings (gear) → **Switch event** | Settings closes and Select Event opens |
-| L3 | Select Event → your name (top right) → **Sign out** → confirm | The sign-in screen |
-| L4 | Sign in again → the gala → Continue → Settings → **Sign out** → confirm | The sign-in screen |
-| L5 | Pair the North Door tablet with its PIN (B9), then Settings → **Sign out** → confirm | The dashboard after the PIN, then the sign-in screen |
-| L6 | Dashboard → Attendees → a guest → back, back. Then Scan → scan any ticket → Scan Next → back | Each back goes one screen back; no warnings |
+| L1 | My Events → the gala → Start Check-in (sheet) | The dashboard. No "The action 'ROUTE_NAMES_CHANGED' … was not handled" |
+| L2 | The dashboard's back arrow → **Leave event** in the dialog | My Events. (**Cancel** stays on the dashboard) |
+| L3 | My Events → **Profile** tab → **Sign Out** → confirm | The sign-in screen |
+| L4 | Sign in → the gala → **Profile** tab → **Sign Out** → confirm | The sign-in screen |
+| L5 | Pair the North Door tablet with its PIN (B9), then Profile → **Sign Out** | The dashboard after the PIN, then the sign-in screen |
+| L6 | At the gala: **Logs** → **Profile** → **Events** | Back on the dashboard. Then Start Check-in → scan → Scan Next → back: each back goes one screen back |
+| L7 | My Events → **Scan** tab | The dialog "Choose an event first" with **Got it** |
+| L8 | At the gala: Profile → **Switch Event** → confirm | My Events |
 
 ### M. Offline admission (Phase 3)
 Phase 3 needs the demo seeded **after** the QR signing key went into
-`backend\.env`, so the sheet's codes are QR v2. The seed in this round did
-that. Start with `cd backend; node scripts/demo-checkin.js rearm`, signed in
-as the **organizer**, on the gala dashboard, with signal.
-
-"Checked on this phone" is the line under the answer that says the phone
-decided with no signal.
+`backend\.env`, so the sheet's codes are QR v2. Start with
+`cd backend; node scripts/demo-checkin.js rearm`, signed in as the
+**organizer**, on the gala dashboard, with signal and **Offline Mode on**.
 
 | # | Do | Expect |
 |---|---|---|
-| M1 | Wait up to 15 s on the dashboard | Under the ring: **Offline check-in ready · 20 tickets** (the 18 counted on the dashboard, plus the refunded and the cancelled ones, which the list needs in order to refuse them). Tap it: the Offline check-in screen says **Ready**, with names included |
-| M2 | **Airplane mode on.** Scan → Michael Brown 1 | **Green** "Check-in Successful" at once (no 4-second wait), with "Checked on this phone with no signal". The camera reads **No signal — checking tickets on this phone** |
-| M3 | Michael Brown 1 again | **Amber** "Already checked in", at the time of M2. It does not count as a second upload |
-| M4 | Noah Wilson · Mia Johnson OLD code · Forged code · Grace Lee | Red: Cancelled ticket · Ticket was given away · Not an Eventsli ticket · Wrong event, each "Checked on this phone" |
-| M5 | Lucas Tremblay · already scanned | Amber "Already checked in" (the list knows the North Door let him in) |
-| M6 | On this computer: `node scripts/demo-checkin.js late-sale`, reload the sheet, scan **Late Buyer** | **Amber "Can’t confirm offline"**: bought after the phone's list. Held |
-| M7 | Scan Michael Brown 2, then tap **Undo** within 60 s | "Check-in reversed". It is never uploaded (M10) |
+| M1 | Wait up to 15 s | **Download Guest List** shows "20 · *time*": the 18 counted, plus the refunded and cancelled tickets the phone needs to refuse. Tap it: "Guest list downloaded — 20 tickets". Profile → **Data & Sync** says **Ready** |
+| M2 | Start Check-in, **airplane mode on** → **Continue Scanning** → scan Michael Brown 1 | Green **Check-in Successful** at once, with "Saved on this phone with no signal. It syncs automatically." The camera reads "Offline — checking on this phone" |
+| M3 | Michael Brown 1 again | Amber **Already Checked In**, at the time of M2. Not a second upload |
+| M4 | Noah Wilson · Mia Johnson OLD code · Forged code · Grace Lee | Red: Cancelled Ticket · Ticket Transferred · Invalid Ticket · Wrong Event, each "Checked on this phone with no signal" |
+| M5 | Lucas Tremblay · already scanned | Amber Already Checked In (the list knows the North Door let him in) |
+| M6 | On this computer: `node scripts/demo-checkin.js late-sale`, reload the sheet, scan **Late Buyer** | Amber **Can’t Confirm Offline**: bought after the phone's list. Saved to sync |
+| M7 | Scan Michael Brown 2, then tap **Undo** within 60 s | **Check-in Reversed**. It is never uploaded (M10) |
 | M8 | Zoë Martin · older code | Green: older codes are let in from the list by default |
-| M9 | Swipe the app away, reopen it (still airplane mode) | The dashboard shows the scans waiting to upload. Offline check-in still says **Ready**: the list survived in the encrypted database. Scan Michael Brown 3 → green, checked on this phone |
-| M10 | **Airplane mode off** | Within about 15 s: nothing waiting, the ring at **5** (Lucas, Michael 1 and 3, Zoë, and Late Buyer, admitted on upload). On this computer `node scripts/demo-checkin.js status`: Michael 2 still **valid**, and **EXACTLY-ONCE: OK** |
-| M11 | **Two doors, no signal.** Airplane on → scan Daniel Garcia 2 (green) → on this computer `node scripts/demo-checkin.js door-scan "Daniel Garcia · ticket 2"` → airplane off | Within 15 s the dashboard says **1 guest let in at two doors offline**, and the Offline check-in screen lists Daniel. On the website: the gala → Attendees → **Let in twice** shows Daniel marked "Let in at two doors". `status`: conflicts 1, EXACTLY-ONCE OK |
-| M12 | Website → Scanning devices → Door settings → switch **offline check-in** off. Wait 15 s | The dashboard says **Offline check-in switched off by the organizer**. Airplane on → scan Chloé Roy → **grey "Held for upload"** (the Phase 2 behaviour). Turn the setting back on |
-| M13 | Sign out, sign in as the **door-team member**, open the gala, wait 15 s. Airplane on, scan Ahmed Ali 2 | Green, with the ticket type and seat but **no name**: names are off by default. Turn on **Include names in that offline copy**, airplane off, wait 15 s, airplane on, `rearm`, scan again: the name shows |
-| M14 | Door settings → older codes: **wait for a connection**. Wait 15 s with signal, `rearm`, airplane on, scan Zoë Martin | Grey "Held for upload": "An older ticket code. The organizer asked for these to wait…" |
-| M15 | Settings → **Switch event**, then open the gala again | The Offline check-in screen shows the list being fetched again, then Ready: leaving the door deleted it |
+| M9 | Swipe the app away, reopen it (still airplane mode) | The dashboard shows check-ins waiting to sync; Data & Sync still says **Ready**. Scan Michael Brown 3 → green |
+| M10 | **Airplane mode off**, then open the dashboard banner "… waiting to sync" | **Syncing Data…** with a progress bar ("3 of 5 (60%)"), then **All Synced**. Checked In reaches **5** (Lucas, Michael 1 and 3, Zoë, Late Buyer). `status`: Michael 2 still **valid**, **EXACTLY-ONCE: OK** |
+| M11 | **Two doors, no signal.** Airplane on → scan Daniel Garcia 2 (green) → `node scripts/demo-checkin.js door-scan "Daniel Garcia · ticket 2"` → airplane off | Within 15 s the dashboard says **1 guest let in at two doors offline**; Data & Sync lists Daniel. Website: the gala → Attendees → **Let in twice** shows him. `status`: conflicts 1, OK |
+| M12 | Website → Scanning devices → Door settings → switch **offline check-in** off. Wait 15 s | Offline Mode is greyed with "Switched off by the organizer"; Download Guest List says "Off for this event". Airplane on → scan Chloé Roy → grey **Saved to Sync**. Turn the setting back on |
+| M13 | As the **door-team member**, open the gala, wait 15 s, airplane on, scan Ahmed Ali 2 | Green, shown as "Guest" with the ticket and seat: names are off by default. Turn on **Include names in that offline copy**, airplane off, wait 15 s, airplane on, `rearm`, scan again: the name shows |
+| M14 | Door settings → older codes: **wait for a connection**. Wait 15 s with signal, `rearm`, airplane on, scan Zoë Martin | Grey **Saved to Sync**: "An older ticket code. The organizer asked for these to wait…" |
+| M15 | The dashboard's back arrow, then open the gala again | Download Guest List shows "Downloading…" then the count: leaving the event deleted the list |
+
+### N. Matches the design
+Hold each screen next to its frame in the mockup.
+
+| # | Screen | Check |
+|---|---|---|
+| N1 | Opening screen (A1) | Mark, "Eventsli", "Scanner", "Event Check-in Made Simple", the city at dusk at the bottom |
+| N2 | Sign in | Lockup at the top, "Sign in to Eventsli Scanner", email with a mail icon, password with a lock and an eye, Sign In, Forgot password? |
+| N3 | My Events | Big title, the two-way switch, search, rows with photo, date, place and a chevron, the tab bar |
+| N4 | Dashboard | Photo with title, date and place, the three counts in one card, Start Check-in, the three rows |
+| N5 | Camera | Dark, "Check-in" centred, round torch and camera buttons, mint corners, the moving line, "Scan guest QR code to check in" |
+| N6–N8 | Answers | Green tick with confetti; amber clock-arrow; red circled X; each with its card and buttons |
+| N9 | You're Offline | "Offline Mode" pill at the top right, the wifi icon, "Pending Check-ins", Continue Scanning |
+| N10 | Syncing Data… | The cloud icon, the progress bar, "x of y (z%)", Cancel |
+| N11 | Check-in Logs | Search and filter, All / Success / Failed cards, rows with ticket code and time and a green tick |
+| N12 | Settings | Profile card, My Profile, App Settings, Data & Sync, Language (English), Help & Support, Sign Out in red |
+
+### O. Pages and pop-ups
+No grey system boxes anywhere: every question and message is the app's own
+card (a coloured round icon, a title, a sentence, buttons) or a sheet rising
+from the bottom. Tapping outside, or the phone's back button, cancels.
+
+| # | Do | Expect |
+|---|---|---|
+| O1 | Profile → **Sign Out** | A card with a red exit icon, "Sign out?", a red **Sign out** button and **Cancel**. Cancel: nothing changes |
+| O2 | Offline Mode off, airplane mode on, scan one ticket (it is held). Then Profile → **Sign Out** | An amber card "Check-ins still waiting" with **Open Data & Sync**. Nobody is signed out. Airplane off afterwards |
+| O3 | Profile → **Language** | A sheet with English ticked and "More languages are on the way." |
+| O4 | Profile → **My Profile** | Big initials avatar, the role chip, Account (email, account type, signed in until), This door (event, device, role) and **What you can do here** with ticks and crosses. As the door-team member: Find guests by name is a cross |
+| O5 | Profile → **App Settings** → **Try the check-in sound** | The admit tone and vibration. The About card shows version, build, server, Privacy Policy and Terms of Service (open the website) |
+| O6 | Profile → **Help & Support** | "How can we help?", seven questions, the first open; tapping another opens it and closes the first. **Contact support** opens the website's contact page |
+| O7 | **Logs** → tap any row | A sheet: the coloured result header with date and time, the guest with initials, Ticket, How, Door, Staff, and **View Ticket** (opens the ticket) |
+| O8 | Open a ticket (from Logs or Find a Guest) | A card with initials, name, TKT code and tier, a status chip; Details (ticket type, seat, table, Order Paid in green, ticket code); **At the door** as a timeline with coloured dots |
+| O9 | Find a Guest | Rows with initials (a small green tick on the avatar when in), TKT code and tier, and a chip with the check-in time or "Not in". The × clears the search |
+| O10 | Organizer: a ticket not yet in → **Check in by hand** | A card "Check this guest in?" naming them and reminding to check ID; **Check in** shows the green answer |
 
 ## 4. Checking from this computer
 

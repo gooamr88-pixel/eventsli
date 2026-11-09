@@ -215,6 +215,12 @@ Positions are **percentages of a logical world**, which is what
 out on a 27-inch monitor, the buyer opens on a 375px phone, the door staff print
 on A4 — a pixel coordinate is correct in exactly one of the three.
 
+**The world is per map** (`layout.world`, ballroom to stadium). Read it with
+`worldOf(layout)` and pass it to `toWorld`, `toPercent`, `contentBounds` and
+`zoneBox`; never import `WORLD` outside `seatingGeometry.js` (the contract test
+fails if you do). A map with no world is the default one and draws as it always
+has. `docs/VENUE-STUDIO.md` has the details.
+
 ## Money
 
 `utils/money.js` **formats only**. It has no add, no multiply and no percentage,

@@ -26,10 +26,10 @@ import { keyOf } from './useMapDraft';
  * ─────────────────────────────────────────────────────────────────────────────
  */
 const EditableTable = React.memo(function EditableTable({
-  table, colour, selected, showHandles, scale, sold,
+  table, colour, seatColour, selected, showHandles, scale, sold, world,
   onPointerDown, onKeyDown, onRotateStart,
 }) {
-  const pos = toWorld(table.position);
+  const pos = toWorld(table.position, world);
   const shape = normaliseShape(table.shape);
   const body = tableBody(shape, table.seatCount);
   const layout = seatPositions(shape, table.seatCount);
@@ -85,7 +85,7 @@ const EditableTable = React.memo(function EditableTable({
           // why a table refuses to be deleted. Finding that out from a red
           // save error, after rearranging the room around it, is the version
           // of this that wastes an afternoon.
-          fill={index < sold ? 'var(--es-seat-sold)' : 'var(--es-seat-available)'}
+          fill={index < sold ? 'var(--es-seat-sold)' : seatColour || 'var(--es-seat-available)'}
           opacity={0.9}
         />
       ))}
@@ -129,7 +129,7 @@ const EditableTable = React.memo(function EditableTable({
   // shallow comparison, stated, minus the handler identities that change on
   // every parent render and would defeat the memo entirely.
   a.table === b.table && a.colour === b.colour && a.selected === b.selected
-  && a.showHandles === b.showHandles && a.scale === b.scale && a.sold === b.sold
+  && a.showHandles === b.showHandles && a.scale === b.scale && a.sold === b.sold && a.world === b.world
 ));
 
 export default EditableTable;

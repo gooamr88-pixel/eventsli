@@ -110,7 +110,7 @@ export default function HoldConfirm({
       ) : (
         <>
           <p className="rounded-(--es-radius-md) bg-bg-sunken px-4 py-3 text-sm text-muted">
-            Finish within {Math.max(1, Math.round((totalMs || 0) / 60000))} minutes to keep
+            Finish within {minutesLeft(totalMs, remaining)} to keep
             {noun.they === 'it' ? ' it' : ' them'}. After that {noun.they} go{noun.they === 'it' ? 'es' : ''} back on sale.
           </p>
           <button
@@ -124,6 +124,14 @@ export default function HoldConfirm({
       )}
     </div>
   );
+}
+
+/** "35 minutes" / "1 minute": the window, or what is left of it when the
+ *  window is unknown. Never a guessed figure. */
+function minutesLeft(totalMs, remaining) {
+  const ms = totalMs || remaining || 0;
+  const n = Math.max(1, Math.round(ms / 60000));
+  return `${n} ${n === 1 ? 'minute' : 'minutes'}`;
 }
 
 /**

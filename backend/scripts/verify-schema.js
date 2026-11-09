@@ -33,7 +33,13 @@ const TABLES = [
 // Business rules that live in the database. If one of these is absent, the rule
 // it encodes is not being enforced — regardless of what the application does.
 const TRIGGERS = [
-  'trg_lock_tier_price',      // BRD §13 — price frozen after first sale
+  // trg_lock_tier_price was dropped by 20261112090000 (owner decision S-18): a
+  // type's price may change after a sale. What protects buyers is these:
+  'trg_order_prices_final',      // a sold order's amounts never change (S-18)
+  'trg_order_item_prices_final', // nor a sold line's price
+  'trg_snapshot_ticket_place',   // a ticket keeps the table and seat it was issued with (S-16)
+  'trg_log_tier_price',          // every price change is in the audit log (S-10)
+  'trg_log_table_price',
   'trg_lock_event_currency',  // BRD §07 — currency frozen after first payment
   'trg_sync_table_status',    // BRD §25 — table/seat availability stay in step
   'trg_set_invoice_due_at',   // BRD §18 — due date fixed at issue, with a floor
@@ -66,6 +72,9 @@ const FUNCTIONS = [
   'event_overview_trends',
   // Direct charges: what happens after the sale (20261106090000).
   'record_stripe_refund', 'record_application_fee_refund', 'record_stripe_dispute',
+  // Seating and pricing integrity (20261112090000, TECH-AUDIT-LOG S-11).
+  'event_from_prices',
+  'set_tier_price', 'log_price_change', 'sale_prices_are_final', 'snapshot_ticket_place',
 ];
 
 // Rules the database enforces as CHECKs (20260915140000).
@@ -99,6 +108,27 @@ const DEFINITIONS = [
     `SELECT prosrc LIKE '%chargeModel%' AND prosrc LIKE '%v_org_account%' AS ok FROM pg_proc WHERE proname = 'fulfill_checkout'`],
   ['success-page session lookup index (20261106090000)',
     `SELECT to_regclass('public.reservations_stripe_session_idx') IS NOT NULL AS ok`],
+  ['save_venue_map refuses growing a whole-booked table and writes seat tiers (20261111090000, T-017/T-086)',
+    `SELECT prosrc LIKE '%booked as a whole table%' AND prosrc LIKE '%SET tier_id%' AS ok FROM pg_proc WHERE proname = 'save_venue_map'`],
+  ['fulfill_checkout issues only the seats its hold holds (20261111090000, T-017)',
+    `SELECT prosrc LIKE '%held_by_reservation = p_reservation_id%' AND prosrc LIKE '%v_org_account%' AS ok FROM pg_proc WHERE proname = 'fulfill_checkout'`],
+  ['save_venue_map checks the version and lets blocked seats go (20261112090000, S-03/S-08)',
+    `SELECT prosrc LIKE '%MAP_STALE%' AND prosrc LIKE '%step aside%' AS ok FROM pg_proc WHERE proname = 'save_venue_map' AND pronargs = 6`],
+  ['save_venue_map saves seat blocks and section rows with the map (20261112090000, S-19)',
+    `SELECT prosrc LIKE '%p_availability%' AND prosrc LIKE '%two rows would share the same seats%' AS ok
+       FROM pg_proc WHERE proname = 'save_venue_map' AND pronargs = 6`],
+  ['the type price lock is gone, and sale prices are final instead (20261112090000, S-18)',
+    `SELECT NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'trg_lock_tier_price')
+        AND EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'trg_order_prices_final') AS ok`],
+  ['the door reads each ticket as issued (20261112090000, S-16)',
+    `SELECT count(*) = 4 AS ok FROM pg_proc
+      WHERE proname IN ('check_in_ticket_v2', 'event_door_list', 'ticket_door_detail', 'event_door_manifest')
+        AND prosrc LIKE '%issued_section%'`],
+  ['hold_table checks the sale window; hold_seats the per-type limit (20261112090000, S-05/S-06)',
+    `SELECT (SELECT prosrc LIKE '%tier_sale_window_closed%' FROM pg_proc WHERE proname = 'hold_table')
+        AND (SELECT prosrc LIKE '%max_per_order%' FROM pg_proc WHERE proname = 'hold_seats') AS ok`],
+  ['a door table sale is one receipt line (20261112090000, S-12)',
+    `SELECT prosrc LIKE '%CHANGED (S-12)%' AS ok FROM pg_proc WHERE proname = 'record_manual_sale'`],
 ];
 
 const INDEXES = [
@@ -113,6 +143,16 @@ const COLUMNS = [
   ['orders', 'stripe_cost_cents'],
   ['orders', 'platform_net_cents'],
   ['tables', 'password_hash'],
+  // A table's own ticket type and seat price (20261112090000, S-02).
+  ['tables', 'tier_id'],
+  ['tables', 'seat_price_cents'],
+  // A theatre row's section and row (S-19), and the ticket's issued snapshot (S-16).
+  ['tables', 'section_name'],
+  ['tables', 'row_name'],
+  ['tickets', 'issued_table_label'],
+  ['tickets', 'issued_section'],
+  ['tickets', 'issued_row'],
+  ['tickets', 'issued_seat_number'],
   ['tickets', 'transfer_count'],
   // Sprint 02 — identity is ours, not Supabase Auth's.
   ['profiles', 'password_hash'],

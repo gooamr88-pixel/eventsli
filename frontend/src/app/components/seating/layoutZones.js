@@ -8,7 +8,7 @@
  * ours to define and nothing reads it yet". This defines it.
  *
  *   layout = {
- *     world: { width, height },        // already written by the editor
+ *     world: { width, height },        // the map's size: seatingGeometry.worldOf
  *     zones: [ { id, kind, label, x, y, w, h, rotation, color } ],
  *     ...anything a later version adds
  *   }
@@ -27,7 +27,7 @@
  * ─────────────────────────────────────────────────────────────────────────────
  */
 import { MAX_ZONES, MIN_ZONE_SIZE, ZONES, zoneMeta } from './venueZones';
-import { WORLD } from './seatingGeometry';
+import { worldOf } from './seatingGeometry';
 
 /** Matches `NUMERIC(6,3)` on the table positions, so zones and tables round
  *  identically and a saved layout reads back byte-for-byte. */
@@ -45,6 +45,8 @@ const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
  */
 export function readZones(layout) {
   const raw = Array.isArray(layout?.zones) ? layout.zones : [];
+  // A zone may be as large as the map's own world (a stadium's pitch is).
+  const world = worldOf(layout);
   const out = [];
   const seen = new Set();
 
@@ -65,8 +67,8 @@ export function readZones(layout) {
       label: typeof z.label === 'string' ? z.label.slice(0, 40) : '',
       x: clamp(num(z.x, 50), 0, 100),
       y: clamp(num(z.y, 50), 0, 100),
-      w: clamp(num(z.w, meta.w), MIN_ZONE_SIZE, WORLD.width),
-      h: clamp(num(z.h, meta.h), MIN_ZONE_SIZE, WORLD.height),
+      w: clamp(num(z.w, meta.w), MIN_ZONE_SIZE, world.width),
+      h: clamp(num(z.h, meta.h), MIN_ZONE_SIZE, world.height),
       rotation: ((num(z.rotation, 0) % 360) + 360) % 360,
       color: typeof z.color === 'string' && /^#[0-9a-f]{3}([0-9a-f]{3})?$/i.test(z.color) ? z.color : null,
     });
@@ -86,6 +88,7 @@ export function readZones(layout) {
  * every map ever saved.
  */
 export function writeZones(layout, zones) {
+  const world = worldOf(layout);
   return {
     ...(layout && typeof layout === 'object' ? layout : {}),
     zones: (zones || []).slice(0, MAX_ZONES).map((z) => ({
@@ -94,8 +97,8 @@ export function writeZones(layout, zones) {
       ...(String(z.label || '').trim() ? { label: String(z.label).trim().slice(0, 40) } : {}),
       x: round3(clamp(num(z.x, 50), 0, 100)),
       y: round3(clamp(num(z.y, 50), 0, 100)),
-      w: round3(clamp(num(z.w, zoneMeta(z.kind).w), MIN_ZONE_SIZE, WORLD.width)),
-      h: round3(clamp(num(z.h, zoneMeta(z.kind).h), MIN_ZONE_SIZE, WORLD.height)),
+      w: round3(clamp(num(z.w, zoneMeta(z.kind).w), MIN_ZONE_SIZE, world.width)),
+      h: round3(clamp(num(z.h, zoneMeta(z.kind).h), MIN_ZONE_SIZE, world.height)),
       rotation: round3(((num(z.rotation, 0) % 360) + 360) % 360),
       ...(z.color ? { color: z.color } : {}),
     })),

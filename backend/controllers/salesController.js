@@ -127,8 +127,9 @@ async function attendees(req, res, next) {
       .select(`
         id, attendee_name, attendee_email, status, scanned_at, created_at,
         transfer_count, transferred_from,
+        issued_table_label, issued_section, issued_row, issued_seat_number,
         seats ( section_key, row_label, seat_number ),
-        tables ( label ),
+        tables ( label, section_name ),
         ticket_tiers ( name ),
         orders!inner ( id, channel, status, guest_name, guest_email )
       `, { count: 'exact' })
@@ -246,8 +247,18 @@ function shapeAttendee(t) {
     // and carry no separate attendee name, and a door list of blanks is useless.
     name: t.attendee_name || order?.guest_name || null,
     email: t.attendee_email || order?.guest_email || null,
-    seat: seat ? `${seat.section_key} ${seat.row_label}${seat.seat_number}` : null,
-    table: table?.label || null,
+    // As ISSUED (TECH-AUDIT-LOG S-16): the door list matches the ticket the
+    // guest holds even after a table is renamed. Live names only for a ticket
+    // with no snapshot.
+    ...(t.issued_section != null || t.issued_table_label != null
+      ? {
+        seat: t.issued_section != null ? `${t.issued_section} ${t.issued_row}${t.issued_seat_number}` : null,
+        table: t.issued_table_label || null,
+      }
+      : {
+        seat: seat ? `${seat.section_key} ${seat.row_label}${seat.seat_number}` : null,
+        table: table && !table.section_name ? table.label : null,
+      }),
     tier: tier?.name || null,
     status: t.status,
     checkedIn: !!t.scanned_at,

@@ -2,11 +2,29 @@
 
 import { useEffect, useMemo, useRef } from 'react';
 import {
-  WORLD, SEAT_RADIUS, tableBody, seatPositions, toWorld, contentBounds, normaliseShape,
+  worldOf, worldScale, SEAT_RADIUS, tableBody, seatPositions, toWorld, contentBounds, normaliseShape,
 } from './seatingGeometry';
 import { usePanZoom } from './usePanZoom';
 import ZoneShape from './ZoneShape';
+import { SectionPlates, SectionBadges } from './MapOverlays';
 import { zoneLabel } from './venueZones';
+import { formatMoney } from '../../utils/money';
+
+/**
+ * Enter and Space press a focused SVG "button" (TECH-AUDIT-LOG T-035).
+ *
+ * The seats and table bodies carry role="button" and tabIndex, so a keyboard
+ * reached them and a screen reader announced them as buttons — and then
+ * nothing happened, because an SVG element fires no click for a key. A buyer
+ * who cannot use a mouse could not choose a single seat.
+ */
+function pressOnKey(handler) {
+  return (e) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    e.preventDefault();
+    handler(e);
+  };
+}
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -61,12 +79,34 @@ export default function SeatMapCanvas({
   // A tier to pick out: its seats stay bright, the rest are dimmed. Never a
   // restriction — dimmed seats are still selectable.
   highlightTierId = null,
+  // Several tiers to pick out at once; wins over `highlightTierId`.
+  highlightTierIds = null,
+  // Taken seats drawn almost invisible, so the open ones stand out.
+  hideTaken = false,
+  // Section shapes drawn behind the seats: [{ key, d, color }] (world units).
+  plates = NO_ZONES,
+  // The buyer's zone look (ZoneShape); the editor and print keep outlines.
+  showcase = false,
   onSelectSeat,
   onSelectTable,
   purchaseMode = 'seat_only',
+  // For the price on each seat's label. Optional: the door-sales map passes
+  // none, and a seat without a known price simply does not state one.
+  currency = null,
+  // Venue Studio additions, all optional: `seatFill(seat)` colours a seat,
+  // `badges` name sections, `pickAny` lets a taken seat be pressed (holds).
+  seatFill = null,
+  badges = NO_ZONES,
+  pickAny = false,
+  // The map's world (seatingGeometry.worldOf of the layout). Absent: the default.
+  world = worldOf(null),
   className = '',
 }) {
-  const bounds = useMemo(() => contentBounds(tables, zones), [tables, zones]);
+  const bounds = useMemo(() => contentBounds(tables, zones, world), [tables, zones, world]);
+  const focusTiers = useMemo(
+    () => (highlightTierIds?.size ? highlightTierIds : highlightTierId ? new Set([highlightTierId]) : null),
+    [highlightTierIds, highlightTierId],
+  );
   const {
     svgRef, view, fit, zoomIn, zoomOut, zoomAt, wasDragged, handlers,
   } = usePanZoom(bounds);
@@ -165,7 +205,8 @@ export default function SeatMapCanvas({
       >
         {/* ZONES FIRST. SVG has no z-index — paint order is the only thing
             keeping a dance floor from covering the seats around it. */}
-        {zones.map((zone) => <ZoneShape key={zone.id} zone={zone} />)}
+        <SectionPlates plates={plates} />
+        {zones.map((zone) => <ZoneShape key={zone.id} zone={zone} showcase={showcase} world={world} />)}
 
         {tables.map((table) => (
           <Table
@@ -174,14 +215,21 @@ export default function SeatMapCanvas({
             seats={seatsByTable.get(table.id) || []}
             selectedSeatIds={selectedSeatIds}
             isTableSelected={selectedTableIds.has(table.id)}
-            highlightTierId={highlightTierId}
+            focusTiers={focusTiers}
+            hideTaken={hideTaken}
             canPickSeats={canPickSeats}
             canPickTables={canPickTables}
             onSelectSeat={onSelectSeat}
             onSelectTable={onSelectTable}
             wasDragged={wasDragged}
+            currency={currency}
+            seatFill={seatFill}
+            pickAny={pickAny}
+            world={world}
           />
         ))}
+
+        <SectionBadges badges={badges} scale={worldScale(world)} />
       </svg>
 
       {/* TOP corner, not bottom. On the buyer's page the selection bar is
@@ -220,10 +268,10 @@ function MapButton({ onClick, label, children }) {
 }
 
 function Table({
-  table, seats, selectedSeatIds, isTableSelected, highlightTierId,
-  canPickSeats, canPickTables, onSelectSeat, onSelectTable, wasDragged,
+  table, seats, selectedSeatIds, isTableSelected, focusTiers, hideTaken,
+  canPickSeats, canPickTables, onSelectSeat, onSelectTable, wasDragged, currency, seatFill, pickAny, world,
 }) {
-  const pos = toWorld(table.position);
+  const pos = toWorld(table.position, world);
   const shape = normaliseShape(table.shape);
   const body = tableBody(shape, table.seatCount);
   const layout = seatPositions(shape, table.seatCount);
@@ -233,10 +281,17 @@ function Table({
   // says so with `canBookWhole` rather than leaving it to be inferred.
   const wholeTableAvailable = canPickTables && table.canBookWhole;
 
-  const handleTable = (e) => {
+  // A key press is never a drag, so it skips that guard. The flag is left set
+  // by the last pointer gesture, and sharing the click path made Enter on a
+  // seat do nothing after any pan of the map.
+  const pressTable = (e) => {
     e.stopPropagation();
-    if (wasDragged() || !wholeTableAvailable) return;
+    if (!wholeTableAvailable) return;
     onSelectTable?.(table);
+  };
+  const handleTable = (e) => {
+    if (wasDragged()) { e.stopPropagation(); return; }
+    pressTable(e);
   };
 
   return (
@@ -247,7 +302,10 @@ function Table({
           selected={isTableSelected}
           clickable={wholeTableAvailable}
           onClick={handleTable}
+          onPress={pressTable}
           label={table.label}
+          price={currency && table.priceCents !== null && table.priceCents !== undefined
+            ? formatMoney(table.priceCents, currency) : null}
         />
       )}
 
@@ -258,6 +316,7 @@ function Table({
         // shape honest rather than showing a gap-toothed ring.
         const available = seat ? seat.available : false;
         const selected = seat ? selectedSeatIds.has(seat.id) : false;
+        const pressable = seat && (available || pickAny) && !isTableSelected;
 
         return (
           <Seat
@@ -265,15 +324,24 @@ function Table({
             point={point}
             number={seat?.number ?? String(index + 1)}
             tableLabel={table.label}
+            price={seatPrice(seat, currency)}
             available={available}
+            reason={seat?.reason || null}
+            fill={seat && seatFill ? seatFill(seat) : null}
             selected={selected}
             dimmed={isTableSelected}
-            outsideFocus={Boolean(highlightTierId && seat && seat.tierId !== highlightTierId)}
-            inFocus={Boolean(highlightTierId && seat && seat.tierId === highlightTierId)}
-            clickable={canPickSeats && available && seat && !isTableSelected}
+            outsideFocus={Boolean(focusTiers && seat && !focusTiers.has(seat.tierId))}
+            inFocus={Boolean(focusTiers && seat && focusTiers.has(seat.tierId))}
+            faint={hideTaken && !available}
+            clickable={Boolean(canPickSeats && pressable)}
             onClick={(e) => {
               e.stopPropagation();
-              if (wasDragged() || !seat || !available || isTableSelected) return;
+              if (wasDragged() || !pressable) return;
+              onSelectSeat?.(seat, table);
+            }}
+            onPress={(e) => {
+              e.stopPropagation();
+              if (!pressable) return;
               onSelectSeat?.(seat, table);
             }}
           />
@@ -296,7 +364,20 @@ function Table({
   );
 }
 
-function TableBody({ body, selected, clickable, onClick, label }) {
+/**
+ * Why a seat cannot be chosen, in a buyer's words (TECH-AUDIT-LOG S-07). The
+ * public map now marks a seat unavailable for more than being held or sold —
+ * its ticket type off sale or sold out — and "taken" would be untrue for those.
+ */
+export const UNAVAILABLE = { taken: 'taken', not_on_sale: 'not on sale', sold_out: 'sold out' };
+
+/** The seat's price as text, or null when it is not known to this map. */
+function seatPrice(seat, currency) {
+  if (!seat || !currency || seat.priceCents === null || seat.priceCents === undefined) return null;
+  return seat.priceCents === 0 ? 'Free' : formatMoney(seat.priceCents, currency);
+}
+
+function TableBody({ body, selected, clickable, onClick, onPress, label, price }) {
   const fill = selected ? 'var(--es-seat-selected)' : 'var(--es-surface)';
   const stroke = selected ? 'var(--es-accent)' : 'var(--es-border-strong)';
 
@@ -307,12 +388,19 @@ function TableBody({ body, selected, clickable, onClick, label }) {
     style: { cursor: clickable ? 'pointer' : 'default' },
     onClick,
     ...(clickable
-      ? { role: 'button', tabIndex: 0, 'aria-label': `Book table ${label} whole` }
+      ? {
+        role: 'button',
+        tabIndex: 0,
+        'aria-label': `Book table ${label} whole${price ? `, ${price}` : ''}`,
+        'aria-pressed': selected,
+        onKeyDown: pressOnKey(onPress),
+      }
       : { 'aria-hidden': true }),
   };
+  const tip = clickable ? <title>{`Table ${label} — book the whole table${price ? ` · ${price}` : ''}`}</title> : null;
 
   if (body.kind === 'ellipse') {
-    return <ellipse rx={body.width / 2} ry={body.height / 2} {...common} />;
+    return <ellipse rx={body.width / 2} ry={body.height / 2} {...common}>{tip}</ellipse>;
   }
   return (
     <rect
@@ -322,18 +410,22 @@ function TableBody({ body, selected, clickable, onClick, label }) {
       height={body.height}
       rx={body.rx}
       {...common}
-    />
+    >
+      {tip}
+    </rect>
   );
 }
 
 function Seat({
-  point, number, tableLabel, available, selected, dimmed, outsideFocus, inFocus, clickable, onClick,
+  point, number, tableLabel, price, available, reason = null, fill: paint, selected, dimmed, outsideFocus, inFocus, faint, clickable, onClick, onPress,
 }) {
+  // `paint` (seatFill) colours an available seat; an organizer's availability
+  // view also paints unavailable ones, so it wins there too when given.
   const fill = selected
     ? 'var(--es-seat-selected)'
-    : available
+    : paint || (available
       ? 'var(--es-seat-available)'
-      : 'var(--es-seat-sold)';
+      : 'var(--es-seat-sold)');
 
   return (
     <g transform={`translate(${point.x} ${point.y})`}>
@@ -364,11 +456,18 @@ function Seat({
           ? {
             role: 'button',
             tabIndex: 0,
-            'aria-label': `Seat ${number}, table ${tableLabel}${selected ? ', selected' : ''}`,
+            'aria-label': `Seat ${number}, table ${tableLabel}${price ? `, ${price}` : ''}${selected ? ', selected' : ''}`,
             'aria-pressed': selected,
+            onKeyDown: pressOnKey(onPress),
           }
           : { 'aria-hidden': true })}
-      />
+      >
+        {/* The price on hover. Seats of every ticket type look alike, so
+            without this a buyer had to select a seat to learn what it cost. */}
+        <title>
+          {`Table ${tableLabel} · seat ${number}${available || selected ? (price ? ` · ${price}` : '') : ` · ${UNAVAILABLE[reason] || 'taken'}`}`}
+        </title>
+      </circle>
       {/* THE SELECTED SEAT'S HALO, drawn behind the seat rather than on it.
           A thick stroke on the dot itself reads as a fatter dot; a soft ring
           standing off it reads as "this one is yours" at a glance, and it is
@@ -394,7 +493,7 @@ function Seat({
         // Sold and held seats are collapsed to one look on purpose: the API
         // reports only `available`, because whether a seat is held or sold is
         // our business and to a buyer both mean "not yours".
-        opacity={dimmed || (outsideFocus && !selected) ? 0.3 : available || selected ? 1 : 0.45}
+        opacity={faint ? 0.14 : dimmed || (outsideFocus && !selected) ? 0.3 : available || selected ? 1 : 0.45}
         style={{ pointerEvents: 'none', transition: 'fill 150ms var(--es-ease-default)' }}
       />
     </g>

@@ -1,6 +1,7 @@
 const express = require('express');
 const { body, param, query } = require('express-validator');
 const validate = require('../middleware/validate');
+const { requireEditableEvent } = require('../middleware/eventEditable');
 const {
   requireAuth, requireRole, requireActiveOrganizer, verifyEventOwner,
 } = require('../middleware/auth');
@@ -278,11 +279,52 @@ const mapSaveLimiter = makeLimiter({
 router.get('/:eventId/venue-map', verifyEventOwner, seatMap.getMap);
 router.put(
   '/:eventId/venue-map',
-  verifyEventOwner,
+  verifyEventOwner, requireEditableEvent,
   mapSaveLimiter,
   body('tables').isArray({ max: 400 }).withMessage('Send the tables for this map.'),
   validate,
   seatMap.putMap,
+);
+
+// ─── Venue Studio ──────────────────────────────────────────────────────────
+// Images for the venue (its photo, 360° panoramas): sign, PUT, confirm — the
+// cover's three steps, under the same bucket and prefix. Nothing is written
+// until the map is saved, and that save keeps paths only (venueStudio.js).
+router.post(
+  '/:eventId/venue-map/upload',
+  verifyEventOwner, requireEditableEvent,
+  body('contentType').isIn(Object.keys(EXTENSION_FOR))
+    .withMessage('Upload a JPEG, PNG or WebP image.'),
+  body('kind').isIn(['venue', 'panorama']).withMessage('Unknown image type.'),
+  validate,
+  seatMap.signAssetUpload,
+);
+router.post(
+  '/:eventId/venue-map/assets',
+  verifyEventOwner, requireEditableEvent,
+  body('path').isString().trim().isLength({ min: 1, max: 300 })
+    .withMessage('Send back the path from the upload step.'),
+  validate,
+  seatMap.confirmAsset,
+);
+// Block or release seats — the organizer's own holds. Its own limiter: a big
+// block goes in several calls of 150, which would starve the map save's.
+const availabilityLimiter = makeLimiter({
+  windowMs: 10 * 60 * 1000,
+  max: 300,
+  name: 'venue-map-availability',
+  keyGenerator: (req) => `user:${req.user.id}`,
+  message: 'Seats have been blocked and released many times in a few minutes. Wait a moment and try again.',
+});
+router.put(
+  '/:eventId/venue-map/availability',
+  verifyEventOwner, requireEditableEvent,
+  availabilityLimiter,
+  body('seatIds').isArray({ min: 1, max: 150 }).withMessage('Choose between 1 and 150 seats.'),
+  body('seatIds.*').isUUID().withMessage('That is not a seat on this map.'),
+  body('blocked').isBoolean({ strict: true }).withMessage('Say whether to block or release the seats.'),
+  validate,
+  seatMap.setAvailability,
 );
 
 // BRD 18 - the gate. Devices belong to an event, not to a person.
@@ -510,7 +552,7 @@ router.get('/:eventId/tiers', verifyEventOwner, tiers.list);
 
 router.post(
   '/:eventId/tiers',
-  verifyEventOwner,
+  verifyEventOwner, requireEditableEvent,
   body('name').isString().trim().isLength({ min: 1, max: 80 })
     .withMessage('Give the tier a name, e.g. General Admission.'),
   body('description').optional({ values: 'falsy' }).isString().trim().isLength({ max: 500 }),
@@ -527,7 +569,7 @@ router.post(
 
 router.patch(
   '/:eventId/tiers/:tierId',
-  verifyEventOwner,
+  verifyEventOwner, requireEditableEvent,
   param('tierId').isUUID(),
   body('name').optional().isString().trim().isLength({ min: 1, max: 80 }),
   body('description').optional({ values: 'null' }).isString().trim().isLength({ max: 500 }),
@@ -539,7 +581,7 @@ router.patch(
   tiers.update,
 );
 
-router.delete('/:eventId/tiers/:tierId', verifyEventOwner, param('tierId').isUUID(),
+router.delete('/:eventId/tiers/:tierId', verifyEventOwner, requireEditableEvent, param('tierId').isUUID(),
   validate, tiers.remove);
 
 // ─── Table categories (BRD §24) ────────────────────────────────────────────
@@ -550,7 +592,7 @@ router.get('/:eventId/table-categories', verifyEventOwner, categories.list);
 
 router.post(
   '/:eventId/table-categories',
-  verifyEventOwner,
+  verifyEventOwner, requireEditableEvent,
   body('name').isString().trim().isLength({ min: 1, max: 80 })
     .withMessage('Give the category a name, e.g. Front row.'),
   body('color').optional({ values: 'falsy' }).isString().trim().isLength({ max: 7 }),
@@ -561,7 +603,7 @@ router.post(
 
 router.patch(
   '/:eventId/table-categories/:categoryId',
-  verifyEventOwner,
+  verifyEventOwner, requireEditableEvent,
   param('categoryId').isUUID(),
   body('name').optional().isString().trim().isLength({ min: 1, max: 80 }),
   body('color').optional({ values: 'null' }).isString().trim().isLength({ max: 7 }),
@@ -570,7 +612,7 @@ router.patch(
   categories.update,
 );
 
-router.delete('/:eventId/table-categories/:categoryId', verifyEventOwner,
+router.delete('/:eventId/table-categories/:categoryId', verifyEventOwner, requireEditableEvent,
   param('categoryId').isUUID(), validate, categories.remove);
 
 // ─── Sales and the door list ───────────────────────────────────────────────

@@ -205,31 +205,59 @@ test('an unused tier deletes cleanly', async () => {
   assert.equal(res.body.data.deleted, true);
 });
 
-test('the price freezes once a ticket has sold at it', async () => {
-  // BRD §13. Enforced by lock_tier_price_after_sale, and this asserts the
-  // controller reports it as a 409 an organizer can act on rather than a 500.
+test('S-18: the price can change after a sale; what was sold keeps its price, and the change is logged', async () => {
+  // Owner decision 2026-11-10 (TECH-AUDIT-LOG S-18), replacing BRD §13's
+  // price lock. This test used to assert the 409 the lock produced.
+  const { data: before } = await supabase.from('ticket_tiers').select('price_cents').eq('id', ids.tier).single();
   const { data: order } = await supabase.from('orders').insert({
     event_id: ids.event, organizer_id: ids.organizer, channel: 'manual', status: 'paid',
-    currency: 'CAD', quantity: 1, subtotal_cents: 4000, buyer_total_cents: 4000,
-    organizer_net_cents: 4000, fee_bearer: 'organizer', guest_name: 'A Buyer',
+    currency: 'CAD', quantity: 1, subtotal_cents: before.price_cents, buyer_total_cents: before.price_cents,
+    organizer_net_cents: before.price_cents, fee_bearer: 'organizer', guest_name: 'A Buyer',
     guest_email: `frozen-${stamp}@eventsli-test.invalid`,
+  }).select('id').single();
+  const { data: line } = await supabase.from('order_items').insert({
+    order_id: order.id, tier_id: ids.tier, label: 'Standing', unit_price_cents: before.price_cents,
   }).select('id').single();
   const { data: ticket } = await supabase.from('tickets').insert({
     order_id: order.id, event_id: ids.event, tier_id: ids.tier,
   }).select('id').single();
 
   const res = await call('PATCH', `/events/${ids.event}/tiers/${ids.tier}`, { priceCents: 9900 });
-  assert.equal(res.status, 409, res.text);
-  assert.equal(res.body.error, 'PRICE_LOCKED_AFTER_SALE');
-  assert.match(res.body.message, /new tier/i, 'and it must say what to do instead');
+  assert.equal(res.status, 200, res.text);
+  assert.equal(res.body.data.priceCents, 9900, 'new sales are at the new price');
 
-  // Everything else about the tier is still editable — only the price froze.
+  // What was sold is untouched: the order's amounts and its line.
+  const { data: orderAfter } = await supabase.from('orders')
+    .select('subtotal_cents, buyer_total_cents').eq('id', order.id).single();
+  assert.equal(Number(orderAfter.subtotal_cents), Number(before.price_cents));
+  assert.equal(Number(orderAfter.buyer_total_cents), Number(before.price_cents));
+  const { data: lineAfter } = await supabase.from('order_items').select('unit_price_cents').eq('id', line.id).single();
+  assert.equal(Number(lineAfter.unit_price_cents), Number(before.price_cents));
+
+  // And it cannot be changed even on purpose (sale_prices_are_final).
+  const { error: rewrite } = await supabase.from('order_items').update({ unit_price_cents: 9900 }).eq('id', line.id);
+  assert.match(rewrite?.message || '', /SALE_PRICE_IMMUTABLE/);
+  const { error: rewriteOrder } = await supabase.from('orders').update({ buyer_total_cents: 1 }).eq('id', order.id);
+  assert.match(rewriteOrder?.message || '', /SALE_PRICE_IMMUTABLE/);
+
+  // S-10: the change is in the audit log, with who made it and both prices.
+  const { data: audit } = await supabase.from('admin_audit')
+    .select('actor_id, payload').eq('action', 'price.change').eq('target_id', ids.tier)
+    .order('created_at', { ascending: false }).limit(1).single();
+  assert.equal(audit.actor_id, ids.profile, 'the organizer who changed it');
+  assert.equal(Number(audit.payload.oldCents), Number(before.price_cents));
+  assert.equal(Number(audit.payload.newCents), 9900);
+  assert.equal(Number(audit.payload.soldBefore), 1);
+
+  // Everything else about the tier is still editable on its own.
   const rename = await call('PATCH', `/events/${ids.event}/tiers/${ids.tier}`,
     { description: 'Standing, general area' });
   assert.equal(rename.status, 200);
 
   await supabase.from('tickets').delete().eq('id', ticket.id);
+  await supabase.from('order_items').delete().eq('id', line.id);
   await supabase.from('orders').delete().eq('id', order.id);
+  await supabase.from('admin_audit').delete().eq('action', 'price.change').eq('target_id', ids.tier);
 });
 
 // ── Table categories ────────────────────────────────────────────────────────

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  WORLD, SEAT_PITCH, SEAT_RADIUS, tableBody, toWorld,
+  SEAT_PITCH, SEAT_RADIUS, tableBody, toWorld,
 } from '../../../../components/seating/seatingGeometry';
 import { zoneBox } from '../../../../components/seating/venueZones';
 import { keyOf } from './useMapDraft';
@@ -235,18 +235,19 @@ export function useCanvasInteraction({
 
     const from = toWorldPoint(g.startX, g.startY);
     const to = toWorldPoint(clientX, clientY);
-    let dx = ((to.x - from.x) / WORLD.width) * 100;
-    let dy = ((to.y - from.y) / WORLD.height) * 100;
+    const W = d.world;
+    let dx = ((to.x - from.x) / W.width) * 100;
+    let dy = ((to.y - from.y) / W.height) * 100;
 
     if (snap) {
       // The PRIMARY element lands on the grid and the rest follow by the same
       // delta. Snapping each element independently would pull a group apart
       // the first time two of them rounded to the same cell.
       const lead = g.origins[0];
-      const worldX = ((lead.x + dx) / 100) * WORLD.width;
-      const worldY = ((lead.y + dy) / 100) * WORLD.height;
-      dx += ((Math.round(worldX / SNAP_WORLD) * SNAP_WORLD - worldX) / WORLD.width) * 100;
-      dy += ((Math.round(worldY / SNAP_WORLD) * SNAP_WORLD - worldY) / WORLD.height) * 100;
+      const worldX = ((lead.x + dx) / 100) * W.width;
+      const worldY = ((lead.y + dy) / 100) * W.height;
+      dx += ((Math.round(worldX / SNAP_WORLD) * SNAP_WORLD - worldX) / W.width) * 100;
+      dy += ((Math.round(worldY / SNAP_WORLD) * SNAP_WORLD - worldY) / W.height) * 100;
     }
 
     dx = clamp(dx, g.limits.minDx, g.limits.maxDx);
@@ -303,7 +304,7 @@ export function useCanvasInteraction({
         const zone = d.zones.find((z) => z.id === g.id);
         if (!zone) return;
         const p = toWorldPoint(e.clientX, e.clientY);
-        const box = zoneBox(zone, WORLD);
+        const box = zoneBox(zone, d.world);
         // Resizes ABOUT THE CENTRE — both edges move, the middle stays put.
         // A corner-anchored resize would drag the zone's stored position with
         // it, so a stage nudged wider would also walk across the room, and the
@@ -413,7 +414,7 @@ function hitTest(rect, view, svg, draft) {
 
   const tables = [];
   for (const t of draft.tables) {
-    const { x, y } = toWorld(t.position);
+    const { x, y } = toWorld(t.position, draft.world);
     const body = tableBody(t.shape, t.seatCount);
     // The seats sit outside the body, and a marquee drawn around the seats of a
     // table has obviously selected that table.
@@ -425,7 +426,7 @@ function hitTest(rect, view, svg, draft) {
 
   const zones = [];
   for (const z of draft.zones) {
-    const b = zoneBox(z, WORLD);
+    const b = zoneBox(z, draft.world);
     if (b.right >= left && b.x <= right && b.bottom >= top && b.y <= bottom) zones.push(z.id);
   }
 
@@ -445,12 +446,12 @@ function centreOf(draft, kind, id) {
   if (kind === 'zone') {
     const zone = draft.zones.find((z) => z.id === id);
     if (!zone) return null;
-    const b = zoneBox(zone, WORLD);
+    const b = zoneBox(zone, draft.world);
     return { x: b.cx, y: b.cy };
   }
   const table = draft.tables.find((t) => keyOf(t) === id);
   if (!table) return null;
-  const { x, y } = toWorld(table.position);
+  const { x, y } = toWorld(table.position, draft.world);
   return { x, y };
 }
 

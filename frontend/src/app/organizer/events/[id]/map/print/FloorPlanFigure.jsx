@@ -1,7 +1,7 @@
 'use client';
 
 import {
-  WORLD, SEAT_RADIUS, tableBody, seatPositions, toWorld, normaliseShape,
+  SEAT_RADIUS, tableBody, seatPositions, toWorld, normaliseShape, worldOf,
 } from '../../../../../components/seating/seatingGeometry';
 import { zoneBox, zoneLabel } from '../../../../../components/seating/venueZones';
 import { keyOf } from '../useMapDraft';
@@ -33,10 +33,12 @@ const INK = '#101215';
 
 export default function FloorPlanFigure({
   tables, zones, widthMm, heightMm, showSeats = true, showSold = true,
+  // The venue's size: the plan prints the whole floor, whatever it is.
+  world = worldOf(null),
 }) {
   return (
     <svg
-      viewBox={`0 0 ${WORLD.width} ${WORLD.height}`}
+      viewBox={`0 0 ${world.width} ${world.height}`}
       preserveAspectRatio="xMidYMid meet"
       width={`${widthMm}mm`}
       height={`${heightMm}mm`}
@@ -47,17 +49,18 @@ export default function FloorPlanFigure({
       {/* The room's edge. The only rule on the page that is not an object in
           it, so it is the lightest thing drawn. */}
       <rect
-        x={0.5} y={0.5} width={WORLD.width - 1} height={WORLD.height - 1}
+        x={0.5} y={0.5} width={world.width - 1} height={world.height - 1}
         fill="none" stroke={INK} strokeWidth={1} opacity={0.35}
       />
 
-      {zones.map((zone) => <PlanZone key={zone.id} zone={zone} />)}
+      {zones.map((zone) => <PlanZone key={zone.id} zone={zone} world={world} />)}
       {tables.map((table) => (
         <PlanTable
           key={keyOf(table)}
           table={table}
           showSeats={showSeats}
           showSold={showSold}
+          world={world}
         />
       ))}
     </svg>
@@ -71,8 +74,8 @@ export default function FloorPlanFigure({
  * and it is the same dash the screen uses — so the printed plan reads as the
  * same drawing rather than as a different document about the same room.
  */
-function PlanZone({ zone }) {
-  const box = zoneBox(zone, WORLD);
+function PlanZone({ zone, world }) {
+  const box = zoneBox(zone, world);
   const label = zoneLabel(zone).toUpperCase();
   const fontSize = clamp(Math.min(box.w, box.h) / 3.4, 9, 17);
 
@@ -110,8 +113,8 @@ function PlanZone({ zone }) {
  * distinction that survives a fax, a photocopy and a low-toner laser, which is
  * what this page is going to meet.
  */
-function PlanTable({ table, showSeats, showSold }) {
-  const pos = toWorld(table.position);
+function PlanTable({ table, showSeats, showSold, world }) {
+  const pos = toWorld(table.position, world);
   const shape = normaliseShape(table.shape);
   const body = tableBody(shape, table.seatCount);
   const layout = seatPositions(shape, table.seatCount);

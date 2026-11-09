@@ -11,7 +11,8 @@
  * `venueZones`, never from copies of them. A footprint is the table body plus
  * a ring of chairs plus an aisle, so a "fit" here is a room a waiter can walk.
  *
- * THE ROOM IS THE WORLD (I-013): 1000 × 700 units, front (the stage side) at
+ * THE ROOM IS THE WORLD (I-013): the map's own world (1000 × 700 units unless
+ * the venue was made bigger: seatingGeometry.worldOf), front (the stage side) at
  * the top. A plan bigger than the world is laid out as far as it goes and the
  * rest is REPORTED — "placed 38 of 42" — never silently dropped.
  *
@@ -19,7 +20,9 @@
  * `useMapDraft.replaceLayout` as one undo step.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-import { WORLD, SEAT_RADIUS, tableBody, toPercent } from '../../../../components/seating/seatingGeometry';
+import { SEAT_RADIUS, tableBody, toPercent, worldOf } from '../../../../components/seating/seatingGeometry';
+
+const DEFAULT_WORLD = worldOf(null);
 import { zoneMeta } from '../../../../components/seating/venueZones';
 
 export const MARGIN = 24;
@@ -44,8 +47,8 @@ const overlaps = (a, b) => a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a
 const box = (cx, cy, w, h) => ({ x0: cx - w / 2, x1: cx + w / 2, y0: cy - h / 2, y1: cy + h / 2 });
 
 // ─── Zones ─────────────────────────────────────────────────────────────────
-function anchor(position, w, h) {
-  const { width: W, height: H } = WORLD;
+function anchor(position, w, h, world) {
+  const { width: W, height: H } = world;
   const left = MARGIN + w / 2;
   const right = W - MARGIN - w / 2;
   const top = MARGIN + h / 2;
@@ -61,7 +64,7 @@ function anchor(position, w, h) {
  * three bars "at the back" stand side by side, not on top of each other. A
  * zone that would still collide is left out and reported.
  */
-export function placeZones(planZones = []) {
+export function placeZones(planZones = [], world = DEFAULT_WORLD) {
   const groups = new Map();
   planZones.forEach((z) => groups.set(z.position, [...(groups.get(z.position) || []), z]));
 
@@ -76,17 +79,17 @@ export function placeZones(planZones = []) {
     let cursor = -span / 2;
     list.forEach((z, i) => {
       const { w, h } = sizes[i];
-      const [ax, ay] = anchor(position, w, h);
+      const [ax, ay] = anchor(position, w, h, world);
       const offset = cursor + (vertical ? h : w) / 2;
       cursor += (vertical ? h : w) + 20;
       const cx = vertical ? ax : ax + offset;
       const cy = vertical ? ay + offset : ay;
       const b = box(cx, cy, w + 16, h + 16);
-      const inside = cx - w / 2 >= 0 && cx + w / 2 <= WORLD.width && cy - h / 2 >= 0 && cy + h / 2 <= WORLD.height;
+      const inside = cx - w / 2 >= 0 && cx + w / 2 <= world.width && cy - h / 2 >= 0 && cy + h / 2 <= world.height;
       if (!inside || boxes.some((o) => overlaps(o, b))) { skipped.push(z.kind); return; }
       boxes.push(b);
       if (position.startsWith('front')) fronts.push(b);
-      const pct = toPercent(cx, cy);
+      const pct = toPercent(cx, cy, world);
       placed.push({
         kind: z.kind,
         label: z.label || '',
@@ -102,24 +105,24 @@ export function placeZones(planZones = []) {
 /** Front first, then the open floor, the back last (packed from the back wall forwards). */
 const ORDER = { front: 0, left: 1, right: 1, middle: 2, anywhere: 2, back: 3 };
 
-function xRange(area) {
-  const { width: W } = WORLD;
+function xRange(area, world) {
+  const { width: W } = world;
   if (area === 'left') return [MARGIN, W / 2 - AISLE / 2];
   if (area === 'right') return [W / 2 + AISLE / 2, W - MARGIN];
   return [MARGIN, W - MARGIN];
 }
 
 /** Row by row from the front (or the back), centred, skipping anything in the way. */
-function packSection(section, obstacles) {
+function packSection(section, obstacles, world) {
   const { w, h } = footprint(section.shape, section.seatsPerTable);
-  const [x0, x1] = xRange(section.area);
+  const [x0, x1] = xRange(section.area, world);
   const perRow = Math.max(0, Math.floor((x1 - x0 + 0.001) / w));
   const out = [];
   if (perRow === 0) return out;
 
   const fromBack = section.area === 'back';
-  const first = fromBack ? WORLD.height - MARGIN - h / 2 : MARGIN + h / 2;
-  const last = fromBack ? MARGIN + h / 2 : WORLD.height - MARGIN - h / 2;
+  const first = fromBack ? world.height - MARGIN - h / 2 : MARGIN + h / 2;
+  const last = fromBack ? MARGIN + h / 2 : world.height - MARGIN - h / 2;
   const step = fromBack ? -1 : 1;
   // Centre seats first: a section smaller than a row sits in the middle,
   // facing the stage, and the next section takes the ends.
@@ -161,27 +164,27 @@ const byName = (list, name) => (name ? (list || []).find((x) => String(x.name).t
 
 /**
  * @param {object} plan        `{ sections, zones }` from the API (`validatePlan`)
- * @param {object} [links]     `{ tiers: [{id,name}], categories: [{id,name}] }` of THIS event
+ * @param {object} [links]     `{ tiers: [{id,name}], categories: [{id,name}], world }` of THIS event
  * @returns {{ tables: object[], zones: object[], report: object }}
  */
-export function layoutPlan(plan, { tiers = [], categories = [] } = {}) {
+export function layoutPlan(plan, { tiers = [], categories = [], world = DEFAULT_WORLD } = {}) {
   const sections = (plan?.sections || []).map((s, i) => ({ ...s, index: i }))
     .sort((a, b) => (ORDER[a.area] ?? 2) - (ORDER[b.area] ?? 2) || a.index - b.index);
-  const { zones, boxes, fronts, skipped } = placeZones(plan?.zones || []);
+  const { zones, boxes, fronts, skipped } = placeZones(plan?.zones || [], world);
   // Nothing sits BESIDE the stage: the band level with a front zone is kept
   // clear across the room. Those corners face the side of the stage, and a
   // table there would be "nearer the front" than the VIP rows behind it.
-  const obstacles = [...boxes, ...fronts.map((b) => ({ x0: 0, x1: WORLD.width, y0: 0, y1: b.y1 }))];
+  const obstacles = [...boxes, ...fronts.map((b) => ({ x0: 0, x1: world.width, y0: 0, y1: b.y1 }))];
   const label = labeller(sections);
 
   const tables = [];
   const perSection = [];
   for (const section of sections) {
-    const spots = packSection(section, obstacles);
+    const spots = packSection(section, obstacles, world);
     const tierId = byName(tiers, section.ticketType)?.id ?? null;
     const categoryId = byName(categories, section.tableCategory)?.id ?? null;
     for (const spot of spots) {
-      const pct = toPercent(spot.x, spot.y);
+      const pct = toPercent(spot.x, spot.y, world);
       tables.push({
         label: label(section),
         seatCount: section.seatsPerTable,

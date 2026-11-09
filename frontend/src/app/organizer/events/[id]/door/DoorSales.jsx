@@ -174,6 +174,7 @@ export default function DoorSales({ eventId }) {
             className="h-[48vh] min-h-[320px]"
             tables={saleMap.tables}
             seats={saleMap.seats}
+            world={saleMap.world}
             purchaseMode={event.purchaseMode}
             selectedSeatIds={new Set(selectedSeats.map((s) => s.id))}
             selectedTableIds={new Set(selectedTable ? [selectedTable.id] : [])}

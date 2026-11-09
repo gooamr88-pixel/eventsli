@@ -1,7 +1,7 @@
 'use client';
 
 import { MIN_ZONE_SIZE, zoneColor, zoneLabel, zoneMeta } from '../../../../components/seating/venueZones';
-import { WORLD } from '../../../../components/seating/seatingGeometry';
+import { worldOf } from '../../../../components/seating/seatingGeometry';
 import ZonePreview from './ZonePreview';
 
 /**
@@ -21,7 +21,9 @@ import ZonePreview from './ZonePreview';
  * warnings next door read as boilerplate.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-export default function ZonePanel({ zone, onChange, onRotate, onResetSize, onDuplicate, onRemove }) {
+export default function ZonePanel({
+  zone, onChange, onRotate, onResetSize, onDuplicate, onRemove, world = worldOf(null),
+}) {
   const meta = zoneMeta(zone.kind);
   const colour = zoneColor(zone);
   const set = (patch, options) => onChange(zone.id, patch, options);
@@ -59,16 +61,16 @@ export default function ZonePanel({ zone, onChange, onRotate, onResetSize, onDup
 
       <div className="fx-grid" style={{ '--fx-col': '120px', '--fx-gap': '10px' }}>
         <SizeField
-          id="es-zone-w" label="Width" value={zone.w} max={WORLD.width}
+          id="es-zone-w" label="Width" value={zone.w} max={world.width}
           onChange={(w) => set({ w }, { mergeKey: `${zone.id}:w` })}
         />
         <SizeField
-          id="es-zone-h" label="Height" value={zone.h} max={WORLD.height}
+          id="es-zone-h" label="Height" value={zone.h} max={world.height}
           onChange={(h) => set({ h }, { mergeKey: `${zone.id}:h` })}
         />
       </div>
       <p className="text-xs text-subtle">
-        In map units — the room is {WORLD.width} by {WORLD.height}. Dragging the corner handle does the same thing.
+        In map units — the venue is {world.width} by {world.height}. Dragging the corner handle does the same thing.
       </p>
 
       <div className="fx-stack fx-stack--sm gap-1.5">

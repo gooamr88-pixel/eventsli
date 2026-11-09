@@ -36,7 +36,9 @@ const EXAMPLES = [
   'Conference talk: 12 rows of 20 chairs facing the stage, welcome desk at the entrance.',
 ];
 
-export default function SeatingDesigner({ eventId, tiers, categories, replacing, blocked = null, onApply, onClose }) {
+export default function SeatingDesigner({
+  eventId, tiers, categories, replacing, blocked = null, onApply, onClose, world,
+}) {
   const ref = useRef(null);
   const { quota, setQuota } = useAiQuota();
   const [kept] = useState(() => readKept(keepKey('seating-plan', eventId), { maxAgeDays: 14 }));
@@ -50,7 +52,8 @@ export default function SeatingDesigner({ eventId, tiers, categories, replacing,
   // `stopEscape`: the editor underneath clears its selection on Escape too.
   useModal(ref, () => { if (!busy) onClose(); }, { stopEscape: true });
 
-  const layout = useMemo(() => (plan ? layoutPlan(plan, { tiers, categories }) : null), [plan, tiers, categories]);
+  // Laid out across the venue's own floor, however big it was made.
+  const layout = useMemo(() => (plan ? layoutPlan(plan, { tiers, categories, world }) : null), [plan, tiers, categories, world]);
   const exhausted = quota && quota.remaining < 1;
   const tooShort = description.trim().length < 20;
 

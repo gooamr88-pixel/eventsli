@@ -36,7 +36,7 @@
  */
 
 /**
- * Sizes are in WORLD UNITS — the same 1000×700 surface `seatingGeometry.WORLD`
+ * Sizes are in WORLD UNITS — the map's own world (`seatingGeometry.worldOf`, 1000×700 by default)
  * defines and tables are drawn on. Not pixels, and deliberately not a second
  * coordinate system: a zone and a table have to be comparable at a glance or
  * the map lies about the room. For scale, a 10-seat round table comes out
@@ -64,6 +64,14 @@ export const ZONES = Object.freeze({
   welcome_desk: { label: 'Welcome desk', w: 68,  h: 34,  icon: 'clipboard',  color: '#4f6b54' },
   buffet:       { label: 'Buffet',       w: 88,  h: 36,  icon: 'buffet',     color: '#86603a' },
   lounge:       { label: 'Lounge',       w: 88,  h: 64,  icon: 'sofa',       color: '#6a5f85' },
+  // Arena and theatre furniture, added with the Venue Studio (2026-11-09).
+  // Still scenery: a standing area here sells nothing — it says where the
+  // crowd stands, beside seats that are the stock.
+  screen:       { label: 'Video screen', w: 96,  h: 26,  icon: 'screen',     color: '#2f4a6b' },
+  standing:     { label: 'Standing area', w: 160, h: 110, icon: 'crowd',     color: '#4d6b5f' },
+  aisle:        { label: 'Walkway',      w: 140, h: 26,  icon: 'walk',       color: '#5f6670' },
+  accessible:   { label: 'Accessible seating', w: 56, h: 40, icon: 'wheelchair', color: '#2f5fa8' },
+  barrier:      { label: 'Barrier',      w: 160, h: 24,  icon: 'barrier',    color: '#55595f' },
   custom:       { label: 'Custom area',  w: 76,  h: 52,  icon: 'area',       color: '#0d5b5e' },
 });
 

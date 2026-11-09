@@ -85,8 +85,6 @@ export const ERRORS = Object.freeze(Object.fromEntries([
     'If you already have tickets, the organizer will be in touch about a refund.', 'fatal'),
   E('EVENT_SUSPENDED', 'This event is unavailable',
     'It has been temporarily removed from sale.', 'fatal'),
-  E('PRICE_LOCKED_AFTER_SALE', 'Prices are locked',
-    'Tickets have already sold at the current price, so it cannot change. Add a new tier instead.'),
   // Both audiences meet this one — an organizer submitting an event and a buyer
   // at checkout (BRD §21) — so it names neither.
   E('TERMS_NOT_ACCEPTED', 'Accept the terms first',
@@ -101,7 +99,7 @@ export const ERRORS = Object.freeze(Object.fromEntries([
   E('TABLE_UNAVAILABLE', 'That table is taken',
     'Choose another table, or pick individual seats.', 'retry'),
   E('TABLE_PARTIALLY_SOLD', 'That table is no longer available whole',
-    'Some of its seats have sold. You can still book the seats that are left.', 'retry'),
+    'Some of its seats are already taken. You can still book the seats that are left.', 'retry'),
   E('TABLE_PASSWORD_REQUIRED', 'This table is private',
     'Enter the password the organizer gave you.'),
   E('TABLE_PASSWORD_INVALID', 'That did not work',
@@ -115,7 +113,7 @@ export const ERRORS = Object.freeze(Object.fromEntries([
   E('SEAT_NOT_PRICED', 'Not on sale yet',
     'These seats have not been put on sale. Try again shortly, or contact the organizer.'),
   E('PURCHASE_LIMIT_EXCEEDED', 'Too many tickets',
-    'This event limits how many one order can hold. Reduce your selection.'),
+    'This event or ticket type limits how many one order can hold. Reduce your selection.'),
   E('RESERVATION_EXPIRED', 'Your hold expired',
     'Seats are held for 35 minutes. Yours went back on sale — choose again.', 'fatal'),
   E('RESERVATION_NOT_FOUND', 'We lost track of that hold',
@@ -181,6 +179,10 @@ export const ERRORS = Object.freeze(Object.fromEntries([
     'Restore it first to make changes.'),
   E('CANCELLATION_PENDING', 'A cancellation request is already open',
     'Eventsli is reviewing it. You will get an email with the decision.', 'waiting'),
+  // The seat map was saved from another tab or device after this copy was
+  // opened (TECH-AUDIT-LOG S-03). Saving over it would delete that work.
+  E('MAP_STALE', 'This map was changed somewhere else',
+    'Someone saved it from another tab or device after you opened it. Reload the map, then make your change again.'),
 
   // ── Media ─────────────────────────────────────────────────────────────────
   E('UNSUPPORTED_MEDIA_TYPE', 'That file type will not work',
