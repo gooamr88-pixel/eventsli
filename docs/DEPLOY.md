@@ -266,6 +266,12 @@ SCHEDULER_ENABLED=true
 `JWT_SECRET` and `QR_JWT_SECRET` must **differ**: a leaked ticket-signing key
 must not also mint logins.
 
+**QR v2 (offline check-in).** On this server, with `cwd` = `backend/`, run
+`node scripts/qr-signing-key.js` and add the two lines it prints
+(`QR_SIGNING_KID`, `QR_SIGNING_KEY`) to `.env`. Generate the key here; never
+copy a key from a laptop. Apply migration `20261110090000_offline_manifest.sql`
+first. See [CHECKIN-APP-API.md §7](CHECKIN-APP-API.md) for rotation.
+
 **Turning AI on.** Apply `supabase/migrations/20261018090000_ai_generations.sql`
 first (see Database below), then, on this server, with `cwd` = `backend/`:
 

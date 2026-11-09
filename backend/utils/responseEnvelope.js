@@ -44,6 +44,10 @@ const ERROR_STATUS = {
   // The session lookup itself failed. NOT a 401: the session may be perfectly
   // live, and a 401 is what makes a client sign somebody out (middleware/auth.js).
   SESSION_CHECK_FAILED: 503,
+  // The scan could not be decided because the database did not answer. A
+  // retryable 503, never a 200 "error": both door clients then hold the scan
+  // (or decide it offline) instead of showing it as settled.
+  SCAN_UNAVAILABLE: 503,
   FORBIDDEN: 403,
   ACCOUNT_BANNED: 403,
   ORGANIZER_BANNED: 403,

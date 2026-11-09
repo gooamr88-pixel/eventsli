@@ -3,10 +3,11 @@ import * as SecureStore from 'expo-secure-store';
 import * as SQLite from 'expo-sqlite';
 
 import { bytesToHex } from './base64';
+import { migrate } from './dbSchema';
 
 /**
- * The phone's own database: this door's scan log (and, from Phase 3, the
- * event's ticket list for offline decisions).
+ * The phone's own database: this door's scan log and the event's ticket list
+ * for offline decisions. The tables are in dbSchema.ts.
  *
  * ENCRYPTED AT REST with SQLCipher (`useSQLCipher` in app.json). The key is 32
  * random bytes made on first launch and kept in the Keychain / Keystore — never
@@ -21,25 +22,6 @@ import { bytesToHex } from './base64';
 const NAME = 'door.db';
 const KEY = 'eventsli.db.key';
 const SECURE = { keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY };
-
-const SCHEMA = `
-  PRAGMA journal_mode = WAL;
-  CREATE TABLE IF NOT EXISTS scans (
-    client_scan_id TEXT PRIMARY KEY NOT NULL,
-    event_id       TEXT NOT NULL,
-    qr             TEXT NOT NULL,
-    ticket_id      TEXT,
-    occurred_at    TEXT NOT NULL,
-    method         TEXT NOT NULL DEFAULT 'scan',
-    state          TEXT NOT NULL,
-    result         TEXT,
-    message        TEXT,
-    answer_json    TEXT,
-    synced_at      TEXT
-  );
-  CREATE INDEX IF NOT EXISTS scans_event_time ON scans (event_id, occurred_at DESC);
-  CREATE INDEX IF NOT EXISTS scans_pending ON scans (state) WHERE state <> 'done';
-`;
 
 async function key(): Promise<string> {
   const existing = await SecureStore.getItemAsync(KEY, SECURE);
@@ -56,7 +38,8 @@ async function openKeyed(hexKey: string) {
   await db.execAsync(`PRAGMA key = "x'${hexKey}'";`);
   // Touching the schema proves the key is right; a wrong key fails here.
   await db.getFirstAsync('SELECT count(*) AS n FROM sqlite_master;');
-  await db.execAsync(SCHEMA);
+  await db.execAsync('PRAGMA journal_mode = WAL;');
+  await migrate(db);
   return db;
 }
 

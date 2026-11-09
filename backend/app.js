@@ -40,6 +40,18 @@ if (missing.length > 0) {
   process.exit(1);
 }
 
+// The QR v2 signing key is optional (without it codes stay legacy), but a key
+// that is set and unreadable would print tickets no door could verify offline.
+try {
+  require('./services/qrSigning').assertConfig();
+} catch (err) {
+  logger.error(`FATAL: ${err.message}`);
+  process.exit(1);
+}
+if (process.env.NODE_ENV === 'production' && !process.env.QR_SIGNING_KEY) {
+  logger.warn('QR_SIGNING_KEY is not set: new tickets get legacy codes, which a check-in app with no signal can only match against its event list.');
+}
+
 // A reservation shorter than the Stripe Checkout session lets a buyer pay for a
 // seat that was already released and resold — two people, one chair. Refuse to
 // boot rather than ship that. (Pressing "Pay" also lengthens the hold to cover

@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const { supabase } = require('../config/supabase');
+const qrSigning = require('./qrSigning');
 const { fetchAll } = require('../utils/fetchAll');
 const { transferProof } = require('../utils/ticketTransfer');
 
@@ -35,7 +36,11 @@ const TOKEN_TYPE = 'ticket';
 function issueQrToken({ ticketId, eventId, version = 0 }) {
   const claims = { typ: TOKEN_TYPE, tid: ticketId, eid: eventId };
   if (Number.isInteger(version) && version > 0) claims.v = version;
-  return jwt.sign(claims, process.env.QR_JWT_SECRET, { algorithm: 'HS256' });
+
+  // QR v2 when a signing key is configured: a door with no signal can verify
+  // it (services/qrSigning.js). Otherwise the legacy HS256 code.
+  return qrSigning.sign(claims)
+    || jwt.sign(claims, process.env.QR_JWT_SECRET, { algorithm: 'HS256' });
 }
 
 /**
@@ -43,16 +48,35 @@ function issueQrToken({ ticketId, eventId, version = 0 }) {
  *
  * Split from the status check so the scanner can reject a forgery instantly and
  * offline, and only spend a round trip on codes that are genuinely ours.
+ *
+ * Both formats are read for as long as legacy codes are in people's inboxes.
+ * Each is verified ONLY with its own algorithm and key: an HS256 code is never
+ * checked against a public key (which would let anyone who has the public key
+ * forge one), and an ES256 code needs a kid this server knows.
  */
 function decodeQrToken(token) {
   try {
-    const claims = jwt.verify(String(token), process.env.QR_JWT_SECRET, { algorithms: ['HS256'] });
+    const raw = String(token);
+    const header = jwt.decode(raw, { complete: true })?.header;
+    let claims;
+    let format;
+    if (header?.alg === 'ES256') {
+      const key = qrSigning.publicKey(header.kid);
+      if (!key) return null;
+      claims = jwt.verify(raw, key, { algorithms: ['ES256'] });
+      format = 'v2';
+    } else if (header?.alg === 'HS256') {
+      claims = jwt.verify(raw, process.env.QR_JWT_SECRET, { algorithms: ['HS256'] });
+      format = 'legacy';
+    } else {
+      return null;
+    }
     if (claims.typ !== TOKEN_TYPE) return null;
     if (!claims.tid || !claims.eid) return null;
     // Absent on every code issued before a transfer: version 0.
     const version = claims.v === undefined ? 0 : claims.v;
     if (!Number.isInteger(version) || version < 0) return null;
-    return { ticketId: claims.tid, eventId: claims.eid, version };
+    return { ticketId: claims.tid, eventId: claims.eid, version, format };
   } catch {
     return null;
   }

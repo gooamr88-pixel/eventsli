@@ -69,7 +69,34 @@ const OUTCOMES: Record<string, Outcome> = {
     note: 'No signal. Recorded with this phone’s time and checked the moment a connection returns.',
   },
   sending: { tone: 'hold', title: 'Checking…', note: '' },
+  // ── The phone's own decisions with no signal (offline admission) ──────────
+  offline_admitted: {
+    tone: 'admit',
+    title: 'Check-in Successful',
+    note: 'Checked on this phone with no signal. It uploads the moment a connection returns.',
+  },
+  offline_unconfirmed: {
+    tone: 'warn',
+    title: 'Can’t confirm offline',
+    note: 'This ticket is not on this phone’s list yet. It may have been bought in the last few minutes. Held: it is checked when the signal returns.',
+  },
 };
+
+/** Device-only keys: never a server `result`, so the contract test leaves them out. */
+export const DEVICE_OUTCOMES = ['queued', 'sending', 'offline_admitted', 'offline_unconfirmed'];
+
+/**
+ * Which answer a record shows. Settled: its result. Waiting to upload: what
+ * the phone decided (an offline admission, a ticket it could not confirm), or
+ * simply held.
+ */
+export function screenResult(rec: { state: string; result: string | null; offlineVerdict?: string | null } | undefined): string {
+  if (!rec) return 'sending';
+  if (rec.state === 'done') return rec.result ?? 'error';
+  if (rec.offlineVerdict === 'admitted') return 'offline_admitted';
+  if (rec.offlineVerdict === 'unconfirmed') return 'offline_unconfirmed';
+  return rec.state;
+}
 
 export const OUTCOME_KEYS = Object.keys(OUTCOMES);
 
@@ -84,7 +111,10 @@ export function describeScan(result: string) {
   return hit ? { ...hit, known: true } : { ...UNKNOWN, known: false };
 }
 
-/** Only `admitted` opens the door. Anything this app does not understand must not. */
+/**
+ * Only an admission opens the door: the server's, or the phone's own with no
+ * signal. Anything this app does not understand must not.
+ */
 export function admits(result: string | null | undefined): boolean {
-  return result === 'admitted';
+  return result === 'admitted' || result === 'offline_admitted';
 }

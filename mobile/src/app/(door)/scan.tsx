@@ -2,14 +2,16 @@ import { useNetInfo } from '@react-native-community/netinfo';
 import { router, useIsFocused } from 'expo-router';
 import { useKeepAwake } from 'expo-keep-awake';
 import { useRef, useState } from 'react';
-import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useSession } from '@/auth/session';
 import { CodeCamera } from '@/gate/CodeCamera';
 import { signal } from '@/gate/feedback';
-import { describeScan } from '@/gate/outcomes';
+import { describeScan, screenResult } from '@/gate/outcomes';
+import { useOfflineList } from '@/gate/offlineList';
 import { pendingCount, useScanLog } from '@/gate/scanLog';
+import { measureScan } from '@/lib/monitoring';
 import { useDoorExit, useMe } from '@/gate/useDoor';
 import { Icon } from '@/ui/Icon';
 import { Header, IconButton } from '@/ui/layout';
@@ -34,14 +36,19 @@ export default function Scan() {
   const busy = useRef(false);
   const held = pendingCount(records);
   const offline = net.isConnected === false;
+  // The event's ticket list is on the phone: with no signal it decides itself.
+  const listReady = useOfflineList((s) => s.complete && !s.off);
 
   async function onCode(data: string) {
     if (!door || busy.current) return;
     busy.current = true;
     try {
-      const rec = await useScanLog.getState().submit(data, door.token);
+      const rec = await measureScan(
+        () => useScanLog.getState().submit(data, door.token, { offline }),
+        (r) => (r ? `${r.method}:${screenResult(r)}` : 'ignored'),
+      );
       if (!rec) return;
-      const shown = rec.state === 'done' ? (rec.result as string) : 'queued';
+      const shown = screenResult(rec);
       signal(describeScan(shown).tone);
       router.push({ pathname: '/result', params: { id: rec.clientScanId } });
     } catch (err) {
@@ -76,7 +83,7 @@ export default function Scan() {
           {offline && (
             <View style={[styles.badge, { backgroundColor: 'rgba(86,106,109,0.9)' }]}>
               <Icon name="offline" size={16} color={colors.white} />
-              <Text variant="small" color={colors.white}>No signal — scans are held</Text>
+              <Text variant="small" color={colors.white}>{listReady ? 'No signal — checking tickets on this phone' : 'No signal — scans are held'}</Text>
             </View>
           )}
           {held > 0 && (
@@ -88,6 +95,7 @@ export default function Scan() {
       </SafeAreaView>
 
       <SafeAreaView style={styles.bottom} edges={['bottom']} pointerEvents="box-none">
+        {TEST_ENTRY && <TestCodeEntry onCode={onCode} />}
         <View style={styles.hint}>
           <Icon name="qr" size={20} color={colors.white} />
           <Text color={colors.white}>Align the QR code within the frame</Text>
@@ -107,7 +115,39 @@ export default function Scan() {
   );
 }
 
+/**
+ * Automated tests cannot hold a ticket up to a camera, so development builds
+ * (and any build made with EXPO_PUBLIC_E2E=1) get a field to type a code
+ * into. It takes the same path as a code the camera read; the Maestro flows in
+ * mobile/maestro use it. Never in a preview or store build: __DEV__ is false
+ * there and EXPO_PUBLIC_E2E is not set.
+ */
+const TEST_ENTRY = __DEV__ || process.env.EXPO_PUBLIC_E2E === '1';
+
+function TestCodeEntry({ onCode }: { onCode: (data: string) => void }) {
+  const [code, setCode] = useState('');
+  return (
+    <TextInput
+      testID="e2e-code"
+      accessibilityLabel="Test code (test builds only)"
+      placeholder="Test builds: type or paste a code"
+      placeholderTextColor={colors.teal200}
+      value={code}
+      onChangeText={setCode}
+      autoCapitalize="none"
+      autoCorrect={false}
+      returnKeyType="go"
+      onSubmitEditing={() => { const c = code.trim(); setCode(''); if (c) onCode(c); }}
+      style={styles.testEntry}
+    />
+  );
+}
+
 const styles = StyleSheet.create({
+  testEntry: {
+    minHeight: 44, paddingHorizontal: space.md, borderRadius: radius.md, color: colors.white,
+    backgroundColor: 'rgba(255,255,255,0.12)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)',
+  },
   screen: { flex: 1, backgroundColor: colors.camera },
   top: { position: 'absolute', top: 0, left: 0, right: 0, backgroundColor: 'rgba(0,0,0,0.35)' },
   pad: { paddingHorizontal: space.lg },

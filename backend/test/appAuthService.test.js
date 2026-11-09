@@ -14,7 +14,11 @@ test('PKCE S256: the verifier matches its own challenge and nothing else', () =>
   const challenge = crypto.createHash('sha256').update(verifier).digest('base64url');
   assert.equal(appAuth.challengeMatches(verifier, challenge), true);
   assert.equal(appAuth.challengeMatches(`${verifier}x`, challenge), false);
-  assert.equal(appAuth.challengeMatches(verifier, `${challenge.slice(0, -1)}A`), false);
+  // Change the last character to one it is not. (Always writing "A" was no
+  // change at all in 1 run in 16: the last character of a SHA-256 in
+  // base64url carries 4 bits, and "A" is one of its 16 values.)
+  const last = challenge.at(-1);
+  assert.equal(appAuth.challengeMatches(verifier, `${challenge.slice(0, -1)}${last === 'A' ? 'E' : 'A'}`), false);
   assert.equal(appAuth.challengeMatches(verifier, ''), false);
   // "plain" PKCE — the verifier sent as its own challenge — is not accepted.
   assert.equal(appAuth.challengeMatches(verifier, verifier), false);

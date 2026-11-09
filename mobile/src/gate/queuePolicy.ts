@@ -5,12 +5,24 @@ import type { ScanAnswer } from '../api/types';
  * (frontend/src/app/gate/queuePolicy.js) so both doors queue the same way.
  *
  * A record is one scan on this phone. `state`:
- *   queued  — taken with no answer yet (no signal); waiting to upload
+ *   queued  — waiting to upload: taken with no answer, or admitted by the
+ *             phone itself with no signal (`offlineVerdict: 'admitted'`)
  *   sending — on its way
- *   done    — the server answered; `result` is its word
+ *   done    — decided: by the server, or by the phone when it refused
+ *             someone offline (a refusal is never uploaded)
  */
 
 export type ScanState = 'queued' | 'sending' | 'done';
+
+/**
+ * What the phone itself decided, with no signal (gate/offlineDecision.ts):
+ *   admitted     it let the person in — uploaded as such, so the server flags
+ *                a clash with another door as a conflict
+ *   unconfirmed  the ticket was not on its list — held, like any held scan
+ *   held         it could not check the code (older code, unknown key)
+ *   null         it did not decide: the server did, or will
+ */
+export type OfflineVerdict = 'admitted' | 'unconfirmed' | 'held' | null;
 
 export type ScanRecord = {
   clientScanId: string;
@@ -24,9 +36,20 @@ export type ScanRecord = {
   message: string | null;
   answer: ScanAnswer | null;
   syncedAt: string | null;
+  offlineVerdict: OfflineVerdict;
+  /** Uploads answered 'error' so far: the server could not decide (see MAX_ATTEMPTS). */
+  attempts: number;
 };
 
 export const BATCH_SIZE = 100;
+
+/**
+ * An upload answered 'error' means the server could not decide (its database
+ * did not answer), not that it refused. The scan stays queued and goes again —
+ * an admission made offline must not be lost to a busy minute — but only this
+ * many times, so one row that can never be decided cannot hold the queue.
+ */
+export const MAX_ATTEMPTS = 5;
 
 export const isPending = (r: Pick<ScanRecord, 'state'>) => r.state === 'queued' || r.state === 'sending';
 
@@ -38,8 +61,15 @@ export function nextBatch(records: ScanRecord[], limit = BATCH_SIZE): ScanRecord
     .slice(0, limit);
 }
 
+/** Only an admission the phone made itself is reported as one. */
 export function toWire(r: ScanRecord) {
-  return { qr: r.qr, clientScanId: r.clientScanId, occurredAt: r.occurredAt, method: r.method };
+  return {
+    qr: r.qr,
+    clientScanId: r.clientScanId,
+    occurredAt: r.occurredAt,
+    method: r.method,
+    ...(r.offlineVerdict === 'admitted' ? { offlineVerdict: 'admitted' as const } : {}),
+  };
 }
 
 /** Fold a sync answer into the log. Unanswered `sending` rows go back to `queued`. */
@@ -55,6 +85,10 @@ export function applyResults(
     const answer = byId.get(r.clientScanId);
     if (!answer) {
       if (r.state === 'sending') changed.push({ ...r, state: 'queued' });
+      continue;
+    }
+    if (answer.result === 'error' && r.attempts + 1 < MAX_ATTEMPTS) {
+      changed.push({ ...r, state: 'queued', attempts: r.attempts + 1, message: answer.message || null });
       continue;
     }
     changed.push({

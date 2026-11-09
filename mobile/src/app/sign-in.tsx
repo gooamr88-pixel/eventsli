@@ -41,8 +41,8 @@ export default function SignIn() {
     setError(null);
     try {
       const session = await passwordLogin(email.trim(), password, deviceLabel());
+      // The session moves the phone to its events (see src/app/_layout.tsx).
       await setAccount(session);
-      router.replace('/events');
     } catch (err) {
       setError(err instanceof ApiError && err.code === 'EMAIL_NOT_VERIFIED'
         ? 'Confirm your email first — we sent you a code. Then sign in here.'
@@ -58,7 +58,6 @@ export default function SignIn() {
     try {
       const session = await signInWithEventsli();
       await setAccount(session);
-      router.replace('/events');
     } catch (err) {
       if (!(err instanceof SignInCancelled)) setError(err instanceof Error ? err.message : messageFor(err));
     } finally {

@@ -1,6 +1,7 @@
 # Eventsli Check-in — Android device test (local, isolated)
 
-This tests the Phase 2 app on a real Android phone against **this computer's
+This tests the app on a real Android phone (Phase 2, and Phase 3's offline
+admission in section M) against **this computer's
 local stack**: a local Supabase database in Docker, the local API and the
 local website. Production is not involved. The demo data is created by
 `backend/scripts/demo-checkin.js`, which refuses to run against anything that
@@ -94,11 +95,22 @@ not in Expo Go. EAS is already linked to this project: `owner` and
 You only rebuild after changing `app.json`, plugins or native packages. Code
 changes reload through Metro. Press `r` in Terminal C to reload.
 
+**Phase 4 needs a new build.** It added two native packages (crash reports
+and over-the-air updates) and changed `app.json`. Android now asks for the
+camera only: the microphone, storage and media-service permissions the
+libraries had added are gone, and backups are off. Rebuild with step 1 and
+install the new APK over the old one. The app keeps its sign-in and its
+database, which upgrades itself.
+
 ## 3. The checklist
 
 Tick each row. "Sheet" means the ticket on `.demo\checkin-demo.html`, shown on
 this computer's screen with the brightness up and scanned from 20–40 cm.
 Reset between runs with `cd backend; node scripts/demo-checkin.js rearm`.
+
+Keep Terminal C (Metro) in view the whole time. Any red or yellow message
+there, or a LogBox banner at the bottom of the phone's screen, fails the row
+you were on, even if the screen looked right.
 
 | Account | Email | Password |
 |---|---|---|
@@ -138,7 +150,7 @@ Reset between runs with `cd backend; node scripts/demo-checkin.js rearm`.
 ### D. Dashboard
 | # | Do | Expect |
 |---|---|---|
-| D1 | Look at it (just after `rearm`) | A green **Live Check-in** pill and the ring at **1** (Lucas, scanned earlier at the North Door). Checked In 1 · Remaining 16 · Total 17. Then Scan / Attendees / Analytics, and Lucas Tremblay under Recent Check-ins. The refunded ticket and the cancelled order are not counted |
+| D1 | Look at it (just after `rearm`) | A green **Live Check-in** pill and the ring at **1** (Lucas, scanned earlier at the North Door). Checked In 1 · Remaining 17 · Total 18 (each `late-sale` adds one). Then Scan / Attendees / Analytics, and Lucas Tremblay under Recent Check-ins. The refunded ticket and the cancelled order are not counted |
 | D2 | On this computer: `cd backend; node scripts/demo-checkin.js door-scan "Emily"` | Within about 10 s the ring shows **2** and Emily Chen appears first under Recent Check-ins (or pull down to refresh) |
 | D3 | As the door-team member, tap Attendees | "Guest list not shared" |
 
@@ -183,6 +195,11 @@ the screen returns to the camera by itself after 2 seconds.
 | H2 | Tap her → **Check in by hand** → confirm | Green success; history says *Checked in by hand* |
 | H3 | On the website (`http://192.168.1.6:3000/organizer` → the gala → Scanning devices), tick **Door team can search the guest list**; then as the door-team member, pull to refresh and open Attendees | The list opens with full names |
 | H4 | Try a screenshot on Attendees | Blocked or black |
+| H5 | After E1–E3 (John and Sara are in): Attendees, still on **Not yet**, search "john" | Both John Smith tickets, each showing its check-in time. The Not yet / Checked in / Everyone row hides while you type, and the line reads "2 guests match “john”" |
+| H6 | Search "smith john", then "smith, john" | The same two tickets: word order and commas do not matter |
+| H7 | Search "chloe" | Chloé Roy: accents do not have to be typed |
+| H8 | Search "zzz" | "Nobody on the guest list matches “zzz”", with a hint to try an email or ticket number |
+| H9 | Clear the search | The filter row comes back on **Not yet**, and the list shows only guests still to come |
 
 ### I. Offline, persistence and exactly-once
 | # | Do | Expect |
@@ -208,13 +225,55 @@ the screen returns to the camera by itself after 2 seconds.
 |---|---|---|
 | K1 | Stop Terminal A, run `$env:CHECKIN_APP_MIN_VERSION_ANDROID="9.0.0"`, start `node server.js` again, then force-close and reopen the app | "Update required". Clear the variable afterwards |
 
+### L. Moving between screens
+Each row must end on the right screen with nothing in Terminal C.
+
+| # | Do | Expect |
+|---|---|---|
+| L1 | Signed in as the organizer: Select Event → the gala → Continue | The dashboard. No "The action 'ROUTE_NAMES_CHANGED' … was not handled" (the warning this round fixed) |
+| L2 | Dashboard → Settings (gear) → **Switch event** | Settings closes and Select Event opens |
+| L3 | Select Event → your name (top right) → **Sign out** → confirm | The sign-in screen |
+| L4 | Sign in again → the gala → Continue → Settings → **Sign out** → confirm | The sign-in screen |
+| L5 | Pair the North Door tablet with its PIN (B9), then Settings → **Sign out** → confirm | The dashboard after the PIN, then the sign-in screen |
+| L6 | Dashboard → Attendees → a guest → back, back. Then Scan → scan any ticket → Scan Next → back | Each back goes one screen back; no warnings |
+
+### M. Offline admission (Phase 3)
+Phase 3 needs the demo seeded **after** the QR signing key went into
+`backend\.env`, so the sheet's codes are QR v2. The seed in this round did
+that. Start with `cd backend; node scripts/demo-checkin.js rearm`, signed in
+as the **organizer**, on the gala dashboard, with signal.
+
+"Checked on this phone" is the line under the answer that says the phone
+decided with no signal.
+
+| # | Do | Expect |
+|---|---|---|
+| M1 | Wait up to 15 s on the dashboard | Under the ring: **Offline check-in ready · 20 tickets** (the 18 counted on the dashboard, plus the refunded and the cancelled ones, which the list needs in order to refuse them). Tap it: the Offline check-in screen says **Ready**, with names included |
+| M2 | **Airplane mode on.** Scan → Michael Brown 1 | **Green** "Check-in Successful" at once (no 4-second wait), with "Checked on this phone with no signal". The camera reads **No signal — checking tickets on this phone** |
+| M3 | Michael Brown 1 again | **Amber** "Already checked in", at the time of M2. It does not count as a second upload |
+| M4 | Noah Wilson · Mia Johnson OLD code · Forged code · Grace Lee | Red: Cancelled ticket · Ticket was given away · Not an Eventsli ticket · Wrong event, each "Checked on this phone" |
+| M5 | Lucas Tremblay · already scanned | Amber "Already checked in" (the list knows the North Door let him in) |
+| M6 | On this computer: `node scripts/demo-checkin.js late-sale`, reload the sheet, scan **Late Buyer** | **Amber "Can’t confirm offline"**: bought after the phone's list. Held |
+| M7 | Scan Michael Brown 2, then tap **Undo** within 60 s | "Check-in reversed". It is never uploaded (M10) |
+| M8 | Zoë Martin · older code | Green: older codes are let in from the list by default |
+| M9 | Swipe the app away, reopen it (still airplane mode) | The dashboard shows the scans waiting to upload. Offline check-in still says **Ready**: the list survived in the encrypted database. Scan Michael Brown 3 → green, checked on this phone |
+| M10 | **Airplane mode off** | Within about 15 s: nothing waiting, the ring at **5** (Lucas, Michael 1 and 3, Zoë, and Late Buyer, admitted on upload). On this computer `node scripts/demo-checkin.js status`: Michael 2 still **valid**, and **EXACTLY-ONCE: OK** |
+| M11 | **Two doors, no signal.** Airplane on → scan Daniel Garcia 2 (green) → on this computer `node scripts/demo-checkin.js door-scan "Daniel Garcia · ticket 2"` → airplane off | Within 15 s the dashboard says **1 guest let in at two doors offline**, and the Offline check-in screen lists Daniel. On the website: the gala → Attendees → **Let in twice** shows Daniel marked "Let in at two doors". `status`: conflicts 1, EXACTLY-ONCE OK |
+| M12 | Website → Scanning devices → Door settings → switch **offline check-in** off. Wait 15 s | The dashboard says **Offline check-in switched off by the organizer**. Airplane on → scan Chloé Roy → **grey "Held for upload"** (the Phase 2 behaviour). Turn the setting back on |
+| M13 | Sign out, sign in as the **door-team member**, open the gala, wait 15 s. Airplane on, scan Ahmed Ali 2 | Green, with the ticket type and seat but **no name**: names are off by default. Turn on **Include names in that offline copy**, airplane off, wait 15 s, airplane on, `rearm`, scan again: the name shows |
+| M14 | Door settings → older codes: **wait for a connection**. Wait 15 s with signal, `rearm`, airplane on, scan Zoë Martin | Grey "Held for upload": "An older ticket code. The organizer asked for these to wait…" |
+| M15 | Settings → **Switch event**, then open the gala again | The Offline check-in screen shows the list being fetched again, then Ready: leaving the door deleted it |
+
 ## 4. Checking from this computer
 
 ```powershell
 cd backend
 node scripts/demo-checkin.js status        # every ticket's state + EXACTLY-ONCE: OK / VIOLATION
 node scripts/demo-checkin.js rearm         # reset the tickets to test again
-node scripts/demo-checkin.js smoke --api http://192.168.1.6:5000/api/v1   # 31 API checks over Wi-Fi, then re-arms
+node scripts/demo-checkin.js smoke --api http://192.168.1.6:5000/api/v1   # re-arms, 35 API checks over Wi-Fi, re-arms again (clears the door log)
+node scripts/demo-checkin.js late-sale     # sells one more gala ticket now (for M6), and adds it to the sheet
+node scripts/load-gate.js run --rate 50 --seconds 60   # a doors-open rush on the local API, then exactly-once from the database
+node scripts/pilot-report.js --event <eventId>         # door metrics for one event (read-only)
 node scripts/demo-checkin.js door-scan "Emily"   # a second door scans a ticket
 node scripts/demo-checkin.js reset         # remove all demo data
 ```

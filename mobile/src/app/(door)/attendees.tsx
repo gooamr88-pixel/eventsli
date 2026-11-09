@@ -8,6 +8,7 @@ import { messageFor } from '@/api/client';
 import { attendees } from '@/api/endpoints';
 import type { Attendee } from '@/api/types';
 import { useSession } from '@/auth/session';
+import { guestCountLine, guestEmpty, guestQuery, type GuestFilter } from '@/gate/guestSearch';
 import { useDoorExit } from '@/gate/useDoor';
 import { doorTime } from '@/lib/format';
 import { Icon } from '@/ui/Icon';
@@ -16,13 +17,12 @@ import { Segmented } from '@/ui/Segmented';
 import { Text } from '@/ui/Text';
 import { colors, fonts, radius, space } from '@/ui/theme';
 
-type Filter = 'all' | 'out' | 'in';
-
 /**
  * The guest list — for the organizer, and for the door team only when the
- * organizer shares it. Search by name, email or the start of a ticket number;
- * tap a guest to see their ticket and check them in by hand. Screenshots are
- * blocked here: this is the one screen that is a list of people.
+ * organizer shares it. Search by name (any order, accents optional), email or
+ * the start of a ticket number; tap a guest to see their ticket and check them
+ * in by hand. A search covers every guest, whatever the filter (guestSearch.ts).
+ * Screenshots are blocked here: this is the one screen that is a list of people.
  */
 export default function Attendees() {
   usePreventScreenCapture();
@@ -30,16 +30,19 @@ export default function Attendees() {
   const exit = useDoorExit();
   const [q, setQ] = useState('');
   const [debounced, setDebounced] = useState('');
-  const [filter, setFilter] = useState<Filter>('out');
+  const [filter, setFilter] = useState<GuestFilter>('out');
 
   useEffect(() => {
-    const t = setTimeout(() => setDebounced(q.trim()), 300);
+    const t = setTimeout(() => setDebounced(q), 300);
     return () => clearTimeout(t);
   }, [q]);
 
+  const search = guestQuery(debounced, filter);
+  const typing = guestQuery(q, filter).searching;
+
   const list = useInfiniteQuery({
-    queryKey: ['attendees', door?.token, debounced, filter],
-    queryFn: ({ pageParam }) => attendees(door!.token, { q: debounced, status: filter, offset: pageParam }),
+    queryKey: ['attendees', door?.token, search.q, search.status],
+    queryFn: ({ pageParam }) => attendees(door!.token, { q: search.q, status: search.status, offset: pageParam }),
     initialPageParam: 0,
     getNextPageParam: (last) => (last.page?.hasMore ? last.page.offset + last.rows.length : undefined),
     enabled: Boolean(door),
@@ -51,6 +54,7 @@ export default function Attendees() {
 
   const rows = list.data?.pages.flatMap((p) => p.rows) ?? [];
   const total = list.data?.pages[0]?.page?.total ?? 0;
+  const empty = guestEmpty(search);
 
   return (
     <Screen>
@@ -69,16 +73,18 @@ export default function Attendees() {
           returnKeyType="search"
         />
       </View>
-      <Segmented
-        options={[
-          { value: 'out', label: 'Not yet' },
-          { value: 'in', label: 'Checked in' },
-          { value: 'all', label: 'Everyone' },
-        ]}
-        value={filter}
-        onChange={setFilter}
-      />
-      <Text variant="small" color={colors.muted}>{list.isLoading ? 'Searching…' : `${total.toLocaleString()} guest${total === 1 ? '' : 's'}`}</Text>
+      {!typing && (
+        <Segmented
+          options={[
+            { value: 'out', label: 'Not yet' },
+            { value: 'in', label: 'Checked in' },
+            { value: 'all', label: 'Everyone' },
+          ]}
+          value={filter}
+          onChange={setFilter}
+        />
+      )}
+      <Text variant="small" color={colors.muted}>{list.isLoading ? 'Searching…' : guestCountLine(total, search)}</Text>
       <FlatList
         data={rows}
         keyExtractor={(r) => r.ticketId}
@@ -88,8 +94,8 @@ export default function Attendees() {
         ListEmptyComponent={list.isLoading ? undefined : (
           <Empty
             icon="users"
-            title={list.error ? 'Could not load the guest list' : 'Nobody matches'}
-            body={list.error ? messageFor(list.error) : 'Try part of a name, or switch to Everyone.'}
+            title={list.error ? 'Could not load the guest list' : empty.title}
+            body={list.error ? messageFor(list.error) : empty.body}
           />
         )}
         renderItem={({ item }) => <Row a={item} />}

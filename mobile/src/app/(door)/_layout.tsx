@@ -5,16 +5,19 @@ import { AppState } from 'react-native';
 
 import { useSession } from '@/auth/session';
 import { primeFeedback } from '@/gate/feedback';
+import { useOfflineList } from '@/gate/offlineList';
 import { useScanLog } from '@/gate/scanLog';
 import { useDoorExit, useGateStatus, useMe } from '@/gate/useDoor';
 import { colors } from '@/ui/theme';
 
-const SYNC_EVERY_MS = 20_000;
+const SYNC_EVERY_MS = 15_000;
 
 /**
- * Everything while working a door. Loads this event's scan log, keeps the
- * held scans uploading (every 20 s, and the moment the signal returns or the
- * app comes back to the front), and leaves the door if the server stops
+ * Everything while working a door. Loads this event's scan log and ticket
+ * list, and keeps both current: every 15 s, the moment the signal returns, and
+ * when the app comes back to the front, it UPLOADS first (held scans and
+ * offline admissions) and then pulls what changed in the list, so the list
+ * already counts this phone's own uploads. Leaves the door if the server stops
  * accepting it.
  */
 export default function DoorLayout() {
@@ -28,21 +31,32 @@ export default function DoorLayout() {
   }, []);
 
   useEffect(() => {
-    if (door) useScanLog.getState().load(door.eventId).catch(() => undefined);
-  }, [door?.eventId]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
     for (const err of [me.error, status.error]) if (err) exit(err);
   }, [me.error, status.error, exit]);
 
   useEffect(() => {
     if (!door) return undefined;
-    const run = () => useScanLog.getState().sync(door.token).catch(exit);
-    const timer = setInterval(run, SYNC_EVERY_MS);
-    const net = NetInfo.addEventListener((s) => { if (s.isConnected) run(); });
-    const app = AppState.addEventListener('change', (s) => { if (s === 'active') run(); });
-    run();
+    let alive = true;
+    const run = async () => {
+      try {
+        await useScanLog.getState().sync(door.token);
+        if (alive) await useOfflineList.getState().pull(door.token);
+      } catch (err) {
+        exit(err);
+      }
+    };
+    // The log and the list are read from disk before the first round.
+    const ready = Promise.all([
+      useScanLog.getState().load(door.eventId).catch(() => undefined),
+      useOfflineList.getState().load(door.eventId).catch(() => undefined),
+    ]);
+    const go = () => { ready.then(() => (alive ? run() : undefined)); };
+    const timer = setInterval(go, SYNC_EVERY_MS);
+    const net = NetInfo.addEventListener((s) => { if (s.isConnected) go(); });
+    const app = AppState.addEventListener('change', (s) => { if (s === 'active') go(); });
+    go();
     return () => {
+      alive = false;
       clearInterval(timer);
       net();
       app.remove();
@@ -58,6 +72,8 @@ export default function DoorLayout() {
       <Stack.Screen name="ticket/[ticketId]" />
       <Stack.Screen name="analytics" />
       <Stack.Screen name="recent" />
+      <Stack.Screen name="offline" />
+      <Stack.Screen name="settings" options={{ presentation: 'modal' }} />
     </Stack>
   );
 }

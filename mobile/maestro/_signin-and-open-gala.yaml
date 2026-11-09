@@ -1,0 +1,16 @@
+appId: com.eventsli.checkin
+---
+- runFlow: _open.yaml
+- tapOn: "Email"
+- inputText: ${ORGANIZER_EMAIL}
+- tapOn: "Password"
+- inputText: ${PASSWORD}
+- tapOn: "Sign In"
+- extendedWaitUntil:
+    visible: "Annual Gala 2026 (Demo)"
+    timeout: 20000
+- tapOn: "Annual Gala 2026 (Demo)"
+- tapOn: "Continue"
+- extendedWaitUntil:
+    visible: "Live Check-in"
+    timeout: 20000

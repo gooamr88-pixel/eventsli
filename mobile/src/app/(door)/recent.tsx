@@ -32,6 +32,9 @@ export default function Recent() {
           return (
             <Pressable
               onPress={() => item.ticketId && router.push({ pathname: '/ticket/[ticketId]', params: { ticketId: item.ticketId } })}
+              disabled={!item.ticketId}
+              accessibilityRole="button"
+              accessibilityHint="Opens the ticket"
               style={styles.row}
             >
               <View style={[styles.dot, { backgroundColor: tones[o.tone].strong }]} />

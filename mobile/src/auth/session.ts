@@ -3,6 +3,7 @@ import { create } from 'zustand';
 
 import { logout as logoutCall } from '../api/endpoints';
 import type { DoorToken, User } from '../api/types';
+import { useOfflineList } from '../gate/offlineList';
 
 /**
  * Who this phone is signed in as, and which door it is working.
@@ -91,6 +92,7 @@ export const useSession = create<State>((set, get) => ({
 
   async leaveDoor() {
     await write(DOOR_KEY, null);
+    await forgetGuestList();
     set({ door: null });
   },
 
@@ -100,6 +102,23 @@ export const useSession = create<State>((set, get) => ({
     // session then simply expires on the server, or is ended from the web.
     if (account) logoutCall(account.token).catch(() => undefined);
     await Promise.all([write(ACCOUNT_KEY, null), write(DOOR_KEY, null)]);
+    await forgetGuestList();
     set({ account: null, door: null });
   },
 }));
+
+/**
+ * The event's ticket list (offline admission) is guest data: it leaves with
+ * the door, whatever the reason — switching event, signing out, or the server
+ * closing the door (a 401 goes through leaveDoor). Held scans are NOT touched:
+ * they are admissions waiting to upload, and they upload after the next sign-in.
+ * A failed delete is not a reason to keep someone signed in; the list is also
+ * never used for another event, and is deleted 24 h after its own.
+ */
+async function forgetGuestList() {
+  try {
+    await useOfflineList.getState().wipeAll();
+  } catch {
+    // See above.
+  }
+}

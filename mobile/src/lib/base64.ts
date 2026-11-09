@@ -42,6 +42,22 @@ export function decodeBase64Url(segment: string): string | null {
   return out;
 }
 
+/** base64url → bytes, or null if malformed. */
+export function base64UrlToBytes(segment: string): Uint8Array | null {
+  const binary = decodeBase64Url(segment);
+  if (binary === null) return null;
+  const out = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) out[i] = binary.charCodeAt(i);
+  return out;
+}
+
+/** The bytes of an ASCII string (a JWT's signing input is always ASCII). */
+export function asciiBytes(text: string): Uint8Array {
+  const out = new Uint8Array(text.length);
+  for (let i = 0; i < text.length; i += 1) out[i] = text.charCodeAt(i) & 0x7f;
+  return out;
+}
+
 export function bytesToHex(bytes: Uint8Array): string {
   let out = '';
   for (const b of bytes) out += b.toString(16).padStart(2, '0');

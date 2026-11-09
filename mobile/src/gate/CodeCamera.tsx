@@ -1,6 +1,6 @@
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'expo-camera';
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Linking, StyleSheet, View } from 'react-native';
+import { AccessibilityInfo, Animated, Easing, Linking, StyleSheet, View } from 'react-native';
 
 import { Button } from '@/ui/Button';
 import { Text } from '@/ui/Text';
@@ -17,6 +17,21 @@ type Props = {
   frameSize?: number;
 };
 
+/** Whether the person has asked their phone for less motion, kept current. */
+function useReduceMotion(): boolean {
+  const [reduce, setReduce] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    AccessibilityInfo.isReduceMotionEnabled().then((v) => { if (alive) setReduce(v); }).catch(() => undefined);
+    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduce);
+    return () => {
+      alive = false;
+      sub.remove();
+    };
+  }, []);
+  return reduce;
+}
+
 /**
  * The camera with the mockup's frame: four teal corners and a moving scan line.
  * Native decoding (ML Kit on Android, AVFoundation on iOS) through expo-camera,
@@ -27,7 +42,14 @@ export function CodeCamera({ onCode, paused = false, torch = false, frameSize = 
   const last = useRef<{ token: string; at: number } | null>(null);
   const [line] = useState(() => new Animated.Value(0));
 
+  // The moving line says "scanning". With Reduce Motion on it rests in the
+  // middle of the frame and says the same thing without moving.
+  const reduceMotion = useReduceMotion();
   useEffect(() => {
+    if (reduceMotion) {
+      line.setValue(0.5);
+      return undefined;
+    }
     const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(line, { toValue: 1, duration: 1600, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
@@ -36,7 +58,7 @@ export function CodeCamera({ onCode, paused = false, torch = false, frameSize = 
     );
     loop.start();
     return () => loop.stop();
-  }, [line]);
+  }, [line, reduceMotion]);
 
   if (!permission) return <View style={styles.fill} />;
 

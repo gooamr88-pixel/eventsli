@@ -25,6 +25,9 @@ const GATE_PATHS = new Set([
   '/api/v1/scan/attendees',
   '/api/v1/scan/manual-check-in',
   '/api/v1/scan/analytics',
+  // Offline admission: the event's ticket list and the code-signing keys.
+  '/api/v1/scan/manifest',
+  '/api/v1/scan/keys',
 ]);
 
 // `/scan/tickets/<uuid>` — exactly one UUID segment, nothing after it.

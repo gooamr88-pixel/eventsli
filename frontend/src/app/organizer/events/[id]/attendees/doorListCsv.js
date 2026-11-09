@@ -35,7 +35,7 @@ export function doorListCsv(rows, timezone) {
     a.table || '',
     a.seat || '',
     a.tier || (a.channel === 'manual' ? 'Door sale' : ''),
-    a.checkedIn ? 'In' : a.status === 'void' ? 'Void' : 'Not yet',
+    a.checkedIn ? (a.conflict ? 'In (let in at two doors offline)' : 'In') : a.status === 'void' ? 'Void' : 'Not yet',
     a.checkedInAt ? formatEventTime(a.checkedInAt, timezone) : '',
   ]);
   return [head, ...lines].map((cells) => cells.map(cell).join(',')).join('\r\n');

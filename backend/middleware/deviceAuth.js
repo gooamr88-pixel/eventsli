@@ -49,11 +49,11 @@ async function requireDevice(req, res, next) {
    * session row — for the same reason, and a gate at full tilt is a few scans a
    * second, not a few thousand.
    *
-   * `getActiveDevice` returns null on a database error as well as on a revoked
-   * device, and that direction is deliberate: this runs on Express 4, where a
-   * rejected promise from middleware is an unhandled rejection rather than a
-   * 500, and the failure mode of a scanner that cannot reach the database must
-   * be a closed door rather than an open one.
+   * `getActiveDevice` never throws: this runs on Express 4, where a rejected
+   * promise from middleware is an unhandled rejection rather than a 500. A
+   * database error comes back as DEVICE_LOOKUP_FAILED and is refused — the
+   * failure mode of a scanner that cannot reach the database must be a closed
+   * door rather than an open one — but as a 503, not as "revoked".
    */
   // A person's door is tied to the account session that opened it, checked in
   // parallel with the device row. Signing out — or ending the session from the
@@ -63,9 +63,11 @@ async function requireDevice(req, res, next) {
     scanSvc.getActiveDevice(claims.deviceId, { staffUserId: claims.staffUserId }),
     claims.sessionId ? sessions.check({ jti: claims.sessionId }) : Promise.resolve('live'),
   ]);
-  if (session === 'unknown') {
-    // Not an answer about this person: the lookup failed. Refused, but as a
-    // retryable 503 — the app holds the scan instead of leaving the door.
+  if (session === 'unknown' || device === scanSvc.DEVICE_LOOKUP_FAILED) {
+    // Not an answer about this person or device: a lookup failed (a database
+    // saturated by a door-opening rush, say). Refused — closed, not open — but
+    // as a retryable 503: the app holds the scan, or decides it from its
+    // offline list, instead of leaving the door.
     return sendFail(res, {
       status: 503, error: 'SESSION_CHECK_FAILED',
       message: 'This scanner could not confirm its sign-in. Scans are held; try again in a moment.',

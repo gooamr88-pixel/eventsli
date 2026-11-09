@@ -1,4 +1,4 @@
-import { applyResults, counts, isRepeatRead, nextBatch, prunable, type ScanRecord } from '../src/gate/queuePolicy';
+import { applyResults, counts, isRepeatRead, MAX_ATTEMPTS, nextBatch, prunable, type ScanRecord } from '../src/gate/queuePolicy';
 
 const rec = (over: Partial<ScanRecord>): ScanRecord => ({
   clientScanId: Math.random().toString(36).slice(2),
@@ -12,6 +12,8 @@ const rec = (over: Partial<ScanRecord>): ScanRecord => ({
   message: null,
   answer: null,
   syncedAt: null,
+  offlineVerdict: null,
+  attempts: 0,
   ...over,
 });
 
@@ -48,5 +50,26 @@ describe('the scan log', () => {
     expect(isRepeatRead({ token: 'x', at: 1000 }, 'x', 2500)).toBe(true);
     expect(isRepeatRead({ token: 'x', at: 1000 }, 'x', 4500)).toBe(false);
     expect(isRepeatRead({ token: 'x', at: 1000 }, 'y', 1100)).toBe(false);
+  });
+});
+
+describe('an upload the server could not decide', () => {
+  test('stays queued and goes again — an offline admission is not lost to a busy minute', () => {
+    const r = rec({ state: 'sending', result: 'admitted', offlineVerdict: 'admitted' });
+    const [next] = applyResults([r], [{ clientScanId: r.clientScanId, ok: false, result: 'error', message: 'fetch failed' }], 'now');
+    expect(next).toMatchObject({ state: 'queued', attempts: 1, result: 'admitted', offlineVerdict: 'admitted' });
+    expect(nextBatch([next]).map((x) => x.clientScanId)).toEqual([r.clientScanId]);
+  });
+
+  test('settles as an error after MAX_ATTEMPTS, so it cannot hold the queue', () => {
+    const r = rec({ state: 'sending', attempts: MAX_ATTEMPTS - 1 });
+    const [next] = applyResults([r], [{ clientScanId: r.clientScanId, ok: false, result: 'error' }], 'now');
+    expect(next).toMatchObject({ state: 'done', result: 'error' });
+  });
+
+  test('a decided answer after a retry settles as usual', () => {
+    const r = rec({ state: 'sending', attempts: 2 });
+    const [next] = applyResults([r], [{ clientScanId: r.clientScanId, ok: true, result: 'admitted' }], 'now');
+    expect(next).toMatchObject({ state: 'done', result: 'admitted' });
   });
 });

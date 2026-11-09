@@ -135,8 +135,16 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: mobile/package-lock.json
+          cache-dependency-path: |
+            mobile/package-lock.json
+            package-lock.json
       - run: npm ci
+      # The offline-admission tests sign codes with the backend's own
+      # services/qrSigning.js, so the app's verifier and the API cannot drift
+      # apart. That module needs the backend's packages (jsonwebtoken).
+      - name: Backend packages, for the app/API cross-check tests
+        working-directory: .
+        run: npm ci --ignore-scripts
       - name: Typecheck
         run: npm run typecheck
       - name: Lint

@@ -15,6 +15,15 @@ failure → { success: false, error: CODE, message, meta? }
    `check_in_ticket_v2`.
 2. `20261108100000_checkin_app_api.sql`. Sessions, sign-in codes, door
    settings and the read functions.
+3. `20261109090000_door_list_search.sql`. Guest search by name in any word
+   order, ignoring case and accents. It replaces `event_door_list` and adds
+   `door_fold`, and needs no extension.
+4. `20261110090000_offline_manifest.sql`. The offline ticket list
+   (`event_door_manifest`), plus a trigger so that a cancelled or refunded
+   order counts as a change to its tickets.
+
+Then set `QR_SIGNING_KEY` and `QR_SIGNING_KID` on the server (section 7)
+before restarting the API.
 
 ## 1. Signing in
 
@@ -33,8 +42,10 @@ A person's door token is tied to the account session that opened it. If that
 session ends, the door closes on its next request with a 401
 `SESSION_REVOKED`. A session can end by signing out, by signing out
 everywhere, or by pressing **End** on the account's Security page (for a lost
-phone). If the session check itself fails, the door gets a 503
-`SESSION_CHECK_FAILED`; the app should hold the scan, not leave the door.
+phone). If the session check or the device lookup itself fails (a database
+saturated by a rush, say), the door gets a 503 `SESSION_CHECK_FAILED`. The
+app should hold the scan, or decide it offline, and not leave the door. Only
+a 401 means the door is closed.
 
 ### Password
 `POST /auth/app/login`
@@ -115,7 +126,7 @@ response is `{ token, device, event }`, and `token` is the door token.
 | `POST /scan/undo { ticketId }` | `{ ok, result: 'undone', ticket_id }`. Returns 404 if the ticket is not for this event, 409 if it was never scanned |
 | `GET /scan/status` | `{ gate: { locked, reason?, override? }, stats: { issued, admitted, pending, void } }`. Poll every 10 s while the dashboard is visible |
 | `GET /scan/recent?limit=20&before=ISO&kind=admitted\|all` | `[{ id, result, method, conflict, at, ticketId, holder, tier, device, staff }]`, newest first |
-| `GET /scan/attendees?q=&status=all\|in\|out&limit=50&offset=0` | Rows `{ ticketId, status, scannedAt, holder, holderIsBuyer, tier, seat, table }` plus `pagination { total, limit, offset, hasMore }`. Requires `permissions.viewGuests`, otherwise 403 `FORBIDDEN` |
+| `GET /scan/attendees?q=&status=all\|in\|out&limit=50&offset=0` | Rows `{ ticketId, status, scannedAt, holder, holderIsBuyer, tier, seat, table }` plus `pagination { total, limit, offset, hasMore }`. `q` matches when every word in it appears in the guest's name or email, in any order, ignoring case and accents ("smith, john" and "chloe" both work), or when it is the start of the ticket ID. The email is matched but never returned. `status` filters as given; the app sends `all` whenever something is typed, so a guest already inside can still be found. Requires `permissions.viewGuests`, otherwise 403 `FORBIDDEN` |
 | `POST /scan/manual-check-in { ticketId, clientScanId? }` | A scan answer with `method: 'manual'`. Requires `permissions.manualCheckIn` |
 | `GET /scan/tickets/:ticketId` | `{ ticketId, status, orderPaid, scannedAt, qrVersion, transferred, holder, holderIsBuyer, tier, seat, table, history: [{ result, method, conflict, at, device, staff, detail }] }` |
 | `GET /scan/analytics?bucket=15` | `{ bucketMinutes, stats, timeline: [{ at, admitted }], byTier, byDevice, byMethod, refusals, conflicts, lastFiveMinutes, peak, firstAt, lastAt }` |
@@ -138,8 +149,14 @@ For `staff` and `pin` devices:
 `permissions = { viewGuests, manualCheckIn, fullNames, analytics, offlineAdmission, offlineNames }`.
 
 ### Scan answers
-A refusal is a **200**. Read `result`, never the HTTP status. The only
-exception is a locked gate, which returns **403 `SCANNER_LOCKED`**.
+A refusal is a **200**. Read `result`, never the HTTP status. There are two
+exceptions:
+- A locked gate returns **403 `SCANNER_LOCKED`**.
+- When the database did not answer, `/scan/verify` and `/scan/manual-check-in`
+  return **503 `SCAN_UNAVAILABLE`**. That is not a decision: hold the scan, or
+  decide it offline. In a `/scan/sync` upload, the same case is a row with
+  `result: 'error'`; send that scan again later with the same `clientScanId`.
+  The app stops after 5 tries.
 
 | `result` | Tone | Meaning |
 |---|---|---|
@@ -193,8 +210,96 @@ not scan.
 | `CHECKIN_APP_REDIRECT_URIS` | Allowed redirects for Sign in with Eventsli. Blank means `eventsli-checkin://auth/callback` |
 | `CHECKIN_APP_MIN_VERSION_IOS`, `CHECKIN_APP_MIN_VERSION_ANDROID` | The minimum app versions |
 | `CHECKIN_APP_IOS_URL`, `CHECKIN_APP_ANDROID_URL`, `CHECKIN_APP_SUPPORT_URL` | Store and support links |
+| `QR_SIGNING_KEY`, `QR_SIGNING_KID` | The QR v2 signing key (section 7). Optional; a key that is set but unreadable stops the API at boot |
+| `QR_SIGNING_RETIRED_KEYS` | Optional JSON `{"kid": "public PEM"}`: older keys whose codes are still valid |
 
-## 7. Coming in Phase 3 (offline)
+## 7. Offline admission
 
-- `GET /scan/manifest?cursor=`: the event's tickets for offline decisions.
-- `GET /scan/keys`: public keys for verifying signed QR v2 on the device.
+With no signal, the app decides from its own copy of the event's tickets
+instead of holding every scan. The organizer can switch this off per event
+(section 5, `offlineAdmission`).
+
+### Ticket codes: QR v2
+- **New codes** are ES256 JWTs (ECDSA P-256, SHA-256), signed with
+  `QR_SIGNING_KEY`. The header is `{ "alg": "ES256", "kid": "<QR_SIGNING_KID>" }`
+  and the claims are `{ typ: 'ticket', tid, eid, v? }`, with no `iat`. The
+  signature is the JOSE raw `r || s` (64 bytes).
+- **Legacy codes** (HS256 with `QR_JWT_SECRET`, already in buyers' inboxes)
+  keep working online. A phone cannot check their signature, so offline the
+  organizer's `legacyQrOffline` decides: `allow` admits them on a list match,
+  `hold` holds them.
+- A buyer's ticket page shows a v2 code as soon as the key is configured,
+  because codes are minted when a ticket is read.
+- Without `QR_SIGNING_KEY`, codes stay legacy.
+
+To make the key, run `node backend/scripts/qr-signing-key.js` and put its two
+lines in the server's `.env`. To rotate: make a new key, move the old public
+key into `QR_SIGNING_RETIRED_KEYS`, and drop it once the last event it signed
+for is over.
+
+### `GET /scan/keys` (door token)
+```json
+{ "keys": [{ "kid": "2026-11", "kty": "EC", "crv": "P-256", "alg": "ES256", "use": "sig", "x": "…", "y": "…" }] }
+```
+These are public keys only. The app fetches them with the list and refetches
+when it meets a `kid` it does not have.
+
+### `GET /scan/manifest?cursor=&limit=` (door token)
+Call with no cursor the first time. Then keep calling with the returned
+`cursor` until `done: true`, and store that final cursor for the next refresh.
+
+```json
+{
+  "rows": [{ "ticketId", "v", "status": "valid|scanned|void", "scannedAt", "tier", "seat", "table", "holder" }],
+  "cursor": "…", "done": true, "reset": false, "names": false,
+  "event": { "status", "startsAt", "endsAt" }, "gateLocked": false,
+  "legacyQrOffline": "allow|hold", "serverTime": "…"
+}
+```
+- **No cursor:** every ticket, with `reset: true`. The phone replaces its list.
+- **With a cursor:** only tickets that changed since the last complete run.
+  That run's start counts from the database clock, less a 30-second overlap,
+  so a row may come twice; rows are idempotent.
+- **What counts as a change:** a scan, an undo, a transfer (`v` goes up), a
+  void, and any status change on the ticket's order. A ticket on an order
+  that is no longer paid is listed as `void`.
+- **Names:** `holder` is only filled when `names` is true. That is always the
+  case for the organizer, and for the door team only if **Include names in that
+  offline copy** is on. When that setting changes, the next call answers with
+  `reset: true`.
+- **Off switch:** if the organizer switches offline check-in off, the call
+  returns 403 `FORBIDDEN` with `meta.reason: 'offline_admission_off'`. The
+  app deletes its list.
+- **Paging:** pages hold up to 1,000 rows by default; `limit` accepts 1–2000.
+  A cursor this server did not write is treated as a fresh start.
+
+### Deciding on the phone
+The app checks in the same order as `check_in_ticket_v2`:
+1. Signature: v2 is verified with the key, a legacy code follows `legacyQrOffline`.
+2. Event: the code must be for this event.
+3. Gate and event: not locked, not cancelled, open.
+4. On the list.
+5. Not void.
+6. `v` is current.
+7. Not already scanned. This includes the phone's own offline admissions that
+   have not uploaded yet.
+8. Admit.
+
+| Result on the phone | What happens next |
+|---|---|
+| An offline **admission** | Queued and uploaded through `/scan/sync` with `method: 'offline'` and `offlineVerdict: 'admitted'`. If another door admitted the ticket first, the server flags the upload as a `conflict` |
+| A **refusal** | Final, and never uploaded: the server must not later admit someone the door turned away |
+| A ticket **not on the list** (bought after the last refresh), or a `kid` the phone does not have | Held, and uploaded for the server to decide |
+
+### Keeping the list current, and removing it
+- The app uploads, then refreshes the list, every 15 seconds, on reconnect,
+  and when it returns to the foreground.
+- The list is deleted when the phone leaves the door (switching event, signing
+  out, or any 401), when the organizer switches offline check-in off, and 24
+  hours after the event ends.
+- Held scans are kept until they upload.
+
+### Conflicts
+`GET /events/:eventId/attendees` (organizer) marks each row with `conflict`.
+`?checkedIn=conflict` lists only those tickets: two doors let the same ticket
+in while offline, so both people may be inside.

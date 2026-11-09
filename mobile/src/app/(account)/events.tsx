@@ -58,8 +58,8 @@ export default function Events() {
     setOpening(true);
     try {
       const door = await openDoor(account.token, event.id);
+      // The session moves the phone to the dashboard (see src/app/_layout.tsx).
       await setDoor({ ...door, event: { id: event.id, title: event.title } }, 'staff');
-      router.replace('/dashboard');
     } catch (err) {
       if (isAuthError(err)) {
         await signOut();
@@ -143,7 +143,7 @@ export default function Events() {
           <EventRow event={item} selected={item.id === selected} onPress={() => setSelected(item.id)} />
         )}
       />
-      <Pressable onPress={() => router.push('/settings')} accessibilityRole="button" style={styles.account}>
+      <Pressable onPress={() => router.push('/account')} accessibilityRole="button" style={styles.account}>
         <Icon name="user" size={16} color={colors.muted} />
         <Text variant="small" color={colors.muted} numberOfLines={1}>{account?.user.email}</Text>
       </Pressable>

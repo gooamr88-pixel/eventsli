@@ -376,6 +376,43 @@ test('the organizer searches the guest list and checks someone in by hand', asyn
   assert.equal(twice.body.data.result, 'duplicate');
 });
 
+// Seen on a phone at the door: a name search found nobody for guests who were
+// already inside (the app searched under "Not yet"), for "Smith John", and for
+// names typed without their accents. The app now searches Everyone; the list
+// matches every word, in any order, ignoring case and accents.
+test('guest search finds people the way the door asks for them', async () => {
+  const find = async (q, status = 'all') => {
+    const r = await api('GET', `/scan/attendees?q=${encodeURIComponent(q)}&status=${status}`, { token: ownerDevice });
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    return r.body;
+  };
+
+  // tickets[0] was checked in by hand in the test above.
+  const everyone = await find('sara');
+  assert.equal(everyone.pagination.total, 4, 'Everyone includes the guest already inside');
+  assert.ok(everyone.data.some((r) => r.ticketId === tickets[0].id && r.status === 'scanned'));
+  assert.equal((await find('sara', 'out')).pagination.total, 3, 'the filter still means what it says');
+
+  for (const q of ['Ahmed Sara', 'ahmed, sara', '  SARA   ahmed  ', 'sara eventsli-test']) {
+    assert.equal((await find(q)).pagination.total, 4, `"${q}" finds Sara Ahmed`);
+  }
+  assert.equal((await find('sara chloe')).pagination.total, 0, 'every word has to match the same guest');
+  assert.equal((await find(tickets[0].id.slice(0, 8))).pagination.total, 1, 'the start of a ticket number');
+
+  await supabase.from('tickets').update({ attendee_name: 'Chloé Roy' }).eq('id', tickets[3].id);
+  await supabase.from('tickets').update({ attendee_name: 'Jürgen Strauß' }).eq('id', tickets[2].id);
+  try {
+    for (const q of ['chloe', 'CHLOÉ', 'roy chloe', 'Chloé Roy']) {
+      const r = await find(q);
+      assert.equal(r.pagination.total, 1, `"${q}" finds Chloé Roy`);
+      assert.equal(r.data[0].holder, 'Chloé Roy', 'the name comes back as written');
+    }
+    assert.equal((await find('jurgen strauss')).pagination.total, 1, 'ü and ß, typed plainly');
+  } finally {
+    await supabase.from('tickets').update({ attendee_name: null }).in('id', [tickets[2].id, tickets[3].id]);
+  }
+});
+
 test('recent arrivals: full names for the organizer, shortened for the door team', async () => {
   await api('POST', '/scan/verify', { token: staffDevice, body: { qr: tickets[1].qr } });
 

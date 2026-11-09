@@ -11,7 +11,17 @@ import { Card, Header, Screen } from '@/ui/layout';
 import { Text } from '@/ui/Text';
 import { colors, space } from '@/ui/theme';
 
-/** The door's preferences, who is signed in, and the ways out. */
+/**
+ * The door's preferences, who is signed in, and the ways out.
+ *
+ * Mounted twice: as `(door)/settings` from the dashboard and as `(account)/account` from
+ * the events screen, so it always belongs to the group it was opened from.
+ * Switching event or signing out only changes the session. The guard then
+ * removes this screen together with its group and the phone lands where it
+ * now belongs, in one move. A Settings outside the groups was left alone at
+ * the bottom of the stack when its group went (Expo Router warned it was a
+ * modal with nothing under it), and had to navigate on its own afterwards.
+ */
 export default function Settings() {
   const account = useSession((s) => s.account);
   const door = useSession((s) => s.door);
@@ -50,7 +60,7 @@ export default function Settings() {
       </Card>
 
       {door && account && (
-        <Button label="Switch event" variant="secondary" icon="calendar" onPress={() => guard(() => { leaveDoor(); router.replace('/events'); })} />
+        <Button label="Switch event" variant="secondary" icon="calendar" onPress={() => guard(() => { void leaveDoor(); })} />
       )}
       {(account || door) && (
         <Button
@@ -59,7 +69,7 @@ export default function Settings() {
           icon="exit"
           onPress={() => guard(() => Alert.alert('Sign out?', 'This phone stops scanning until someone signs in again.', [
             { text: 'Cancel', style: 'cancel' },
-            { text: 'Sign out', style: 'destructive', onPress: () => { signOut(); router.replace('/sign-in'); } },
+            { text: 'Sign out', style: 'destructive', onPress: () => { void signOut(); } },
           ]))}
         />
       )}
@@ -81,7 +91,15 @@ function Toggle({ label, hint, value, onChange }: { label: string; hint: string;
         <Text variant="label" weight="medium">{label}</Text>
         <Text variant="small" color={colors.muted}>{hint}</Text>
       </View>
-      <Switch value={value} onValueChange={onChange} trackColor={{ true: colors.teal400, false: colors.border }} thumbColor={colors.white} />
+      {/* The whole row is the switch for a screen reader; this is its picture. */}
+      <Switch
+        value={value}
+        onValueChange={onChange}
+        trackColor={{ true: colors.teal400, false: colors.border }}
+        thumbColor={colors.white}
+        accessible={false}
+        importantForAccessibility="no-hide-descendants"
+      />
     </Pressable>
   );
 }

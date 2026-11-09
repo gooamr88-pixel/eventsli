@@ -24,7 +24,13 @@ Expo pins its own React version. Run every command from `mobile/`.
 | `(door)/ticket/[ticketId]` | Ticket details, door history and manual check-in |
 | `(door)/analytics` | Arrivals over time, current pace, by tier, by door, refusals |
 | `(door)/recent` | All recent check-ins or all activity |
-| `settings` | Sound, vibration, auto-continue, switch event, sign out |
+| `(door)/offline` | Offline check-in: whether the list is ready, what is waiting to upload, guests let in at two doors |
+| `(door)/settings`, `(account)/account` | Sound, vibration, auto-continue, switch event, sign out. One screen (`src/screens/Settings.tsx`) mounted inside each group, so leaving a door or signing out takes it away with its group |
+
+Each state of the phone is a group guarded in `src/app/_layout.tsx`: signed
+out (`sign-in`, `device-pin`), `(account)` and `(door)`. A screen changes the
+session and nothing else; the guard and `index` move the phone.
+`test/navigation.test.tsx` enforces that rule.
 
 ## Develop
 
@@ -69,7 +75,33 @@ EXPO_PUBLIC_SITE_URL=http://<your-LAN-IP>:3000 \
 npx expo start --dev-client
 ```
 
+### End-to-end flows (Maestro)
+
+`maestro/` holds three flows: admit then duplicate, the refusals, and the
+offline admission (airplane mode). They run on the development build over USB
+and type codes into the test-builds field on the camera screen, which never
+appears in a store build. They need the Maestro CLI and `adb`, with the local
+API, Metro and the demo running:
+
+```bash
+cd backend && node scripts/demo-checkin.js rearm && cd ../mobile
+node scripts/e2e.js                 # all flows
+node scripts/e2e.js 03-offline.yaml # one flow
+```
+
+### Environment
+
+| Variable | Purpose |
+|---|---|
+| `EXPO_PUBLIC_API_URL`, `EXPO_PUBLIC_SITE_URL` | The API and the website, production unless set |
+| `EXPO_PUBLIC_SENTRY_DSN` | Turns crash reports on (`src/lib/monitoring.ts`, scrubbed of guest data). Off when unset |
+| `EXPO_PUBLIC_SENTRY_ENVIRONMENT` | `production` unless set |
+| `EXPO_PUBLIC_E2E` | `1` adds the test-code field to a non-development build. Never set it for the stores |
+
 ## Build and release
+
+The full release order, store copy and privacy answers are in
+[RELEASE.md](RELEASE.md) and [store/](store/).
 
 `eas.json` has three profiles:
 
@@ -78,6 +110,10 @@ npx expo start --dev-client
 | `development` | The dev client above |
 | `preview` | Internal test builds: an APK, and ad-hoc builds for iOS |
 | `production` | Store builds. Build numbers increment automatically |
+
+Each profile has its own EAS Update channel, so JavaScript-only fixes can ship
+without a store review. A change to native code or `app.json` needs a new
+build.
 
 ```bash
 npx eas-cli@latest build --profile production --platform all
@@ -106,5 +142,18 @@ App identity:
 - **Revoked access** (device switched off, person removed from the door
   team): the phone leaves the door and says why. Queued scans are kept until
   someone signs back in.
-- **Phase 3 (offline admission):** the device decides offline from an
-  encrypted ticket list and signed QR v2.
+- **Offline admission:** while it has signal, the phone keeps the event's
+  ticket list in its encrypted database. It refreshes every 15 seconds, right
+  after uploading, and gets the public keys for QR v2 codes at the same time.
+  With no signal, or when the server takes more than 2.5 seconds, the phone
+  decides itself (`src/gate/offlineDecision.ts`), in the server's order:
+  - An admission is green, "checked on this phone", and uploads with
+    `offlineVerdict: 'admitted'`. A clash with another door comes back as a
+    conflict.
+  - A refusal is final and never uploaded.
+  - A ticket the list does not know is held ("Can't confirm offline").
+  - Undo before upload cancels on the phone.
+
+  The list is deleted when the door is left, when the organizer switches
+  offline check-in off, and 24 hours after the event. The contract is
+  [docs/CHECKIN-APP-API.md §7](../docs/CHECKIN-APP-API.md).

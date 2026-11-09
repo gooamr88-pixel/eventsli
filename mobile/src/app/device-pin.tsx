@@ -1,4 +1,4 @@
-import { router, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native';
 
@@ -43,8 +43,8 @@ export default function DevicePin() {
     setError(null);
     try {
       const door = await pinLogin(id, pin);
+      // The session moves the tablet to the dashboard (see src/app/_layout.tsx).
       await setDoor(door, 'pin');
-      router.replace('/dashboard');
     } catch (err) {
       setError(err instanceof ApiError && err.status === 401
         ? 'That device ID or PIN is not right. After 10 wrong PINs the device waits 15 minutes.'

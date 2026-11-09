@@ -33,7 +33,7 @@ test('look-alike paths are not exempt', () => {
 });
 
 test('the check-in app reads its own door under the device budget, not the IP ceiling', () => {
-  for (const path of ['me', 'recent', 'attendees', 'manual-check-in', 'analytics']) {
+  for (const path of ['me', 'recent', 'attendees', 'manual-check-in', 'analytics', 'manifest', 'keys']) {
     assert.equal(isGateScanRequest(req(`/api/v1/scan/${path}`)), true, path);
   }
   assert.equal(

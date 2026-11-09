@@ -4,6 +4,7 @@ import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, View } from '
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useSession } from '@/auth/session';
+import { useOfflineList } from '@/gate/offlineList';
 import { pendingCount, useScanLog } from '@/gate/scanLog';
 import { useDoorExit, useGateStatus, useMe, useRecent } from '@/gate/useDoor';
 import { ago, count, doorTime, eventDate } from '@/lib/format';
@@ -31,6 +32,8 @@ export default function Dashboard() {
   const records = useScanLog((s) => s.records);
   const syncing = useScanLog((s) => s.syncing);
   const held = pendingCount(records);
+  const list = useOfflineList();
+  const conflicts = records.filter((r) => r.answer?.conflict).length;
 
   const event = me.data?.event;
   const stats = status.data?.stats ?? me.data?.stats ?? null;
@@ -126,6 +129,20 @@ export default function Dashboard() {
           </Pressable>
         )}
 
+        <Pressable onPress={() => router.push('/offline')} style={styles.held} accessibilityRole="button">
+          <Icon name={conflicts > 0 ? 'alert' : 'shield'} size={20} color={conflicts > 0 ? colors.warning : colors.muted} />
+          <Text variant="small" style={{ flex: 1 }}>
+            {conflicts > 0
+              ? `${conflicts} guest${conflicts === 1 ? '' : 's'} let in at two doors offline`
+              : list.off
+                ? 'Offline check-in switched off by the organizer'
+                : list.complete
+                  ? `Offline check-in ready · ${count(list.count)} tickets`
+                  : 'Offline check-in: getting the ticket list…'}
+          </Text>
+          <Icon name="chevronRight" size={18} color={colors.muted} />
+        </Pressable>
+
         <View style={styles.actions}>
           <Action icon="scan" label="Scan" onPress={() => router.push('/scan')} />
           <Action
@@ -156,6 +173,9 @@ export default function Dashboard() {
               <Pressable
                 key={r.id}
                 onPress={() => r.ticketId && router.push({ pathname: '/ticket/[ticketId]', params: { ticketId: r.ticketId } })}
+                disabled={!r.ticketId}
+                accessibilityRole="button"
+                accessibilityHint="Opens the ticket"
                 style={[styles.recentRow, i > 0 && styles.recentBorder]}
               >
                 <View style={styles.tick}><Icon name="tick" size={14} color={colors.white} strokeWidth={3} /></View>

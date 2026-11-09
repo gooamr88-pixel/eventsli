@@ -151,6 +151,30 @@ router.get(
   door.analytics,
 );
 
+// ─── Offline admission ─────────────────────────────────────────────────────
+// The list is the whole event, so it has its own budget too: a phone pulls it
+// every 15 s (a few pages on first open), far below this.
+const manifestLimiter = makeLimiter({
+  windowMs: 60 * 1000,
+  max: 60,
+  name: 'gate-manifest',
+  keyGenerator: (req) => `device:${req.device.deviceId}`,
+  message: 'Refreshing the ticket list faster than a door needs to. Wait a moment.',
+});
+
+router.get(
+  '/manifest',
+  requireDevice,
+  gateLimiter,
+  manifestLimiter,
+  query('cursor').optional().isString().isLength({ max: 600 }),
+  query('limit').optional().isInt({ min: 1, max: 2000 }),
+  validate,
+  door.manifest,
+);
+
+router.get('/keys', requireDevice, gateLimiter, door.keys);
+
 // ─── The door team: a person, with their own account ───────────────────────
 // Alongside PIN devices, not instead of them. A session cookie proves who they
 // are; membership of the event's door team decides whether they may scan it,

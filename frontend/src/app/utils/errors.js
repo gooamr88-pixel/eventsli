@@ -39,6 +39,10 @@ export const ERRORS = Object.freeze(Object.fromEntries([
   // A 503, not a 401: you are still signed in, we just could not check it.
   E('SESSION_CHECK_FAILED', 'We could not check your session',
     'You are still signed in. Wait a moment and try again.', 'retry'),
+  // The gate's database did not answer. Not a refusal: the scan is held and
+  // checked again, so nobody is turned away by a busy server.
+  E('SCAN_UNAVAILABLE', 'The check-in server is busy',
+    'The scan is kept and checked again in a moment.', 'retry'),
   E('FORBIDDEN', 'Not allowed',
     'Your account does not have access to this.', 'fatal'),
   E('ACCOUNT_BANNED', 'This account is suspended',

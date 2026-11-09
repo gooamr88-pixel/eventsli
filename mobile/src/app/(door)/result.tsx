@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { messageFor } from '@/api/client';
 import { useSession } from '@/auth/session';
 import { signal } from '@/gate/feedback';
-import { admits, describeScan } from '@/gate/outcomes';
+import { admits, describeScan, screenResult } from '@/gate/outcomes';
 import { useScanLog } from '@/gate/scanLog';
 import { useDoorExit } from '@/gate/useDoor';
 import { doorTime, eventWhen } from '@/lib/format';
@@ -38,7 +38,7 @@ export default function Result() {
   const [undoing, setUndoing] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const result = !record ? 'sending' : record.state === 'done' ? (record.result as string) : record.state;
+  const result = screenResult(record);
   const outcome = describeScan(result);
   const tone = tones[outcome.tone];
   const a = record?.answer;
@@ -86,6 +86,10 @@ export default function Result() {
   const detail = (result === 'duplicate' ? null : record?.message) || outcome.note;
   const name = a?.attendee || null;
   const seat = [a?.seat, a?.table].filter(Boolean).join(' · ');
+  // Refused by this phone with no signal (never uploaded, so never synced). The
+  // server's own duplicate answer has first_scan; the phone's only a time.
+  const refusedByPhone = record?.method === 'offline' && record.state === 'done' && !record.syncedAt;
+  const firstAt = a?.first_scan?.at ?? (result === 'duplicate' ? a?.scanned_at : undefined);
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top', 'bottom']}>
@@ -100,8 +104,8 @@ export default function Result() {
             </View>
           </View>
           <Text variant="heading" align="center">{outcome.title}</Text>
-          {result === 'duplicate' && a?.first_scan?.at && (
-            <Text variant="title" align="center" color={tone.fg}>at {doorTime(a.first_scan.at)}</Text>
+          {result === 'duplicate' && firstAt && (
+            <Text variant="title" align="center" color={tone.fg}>at {doorTime(firstAt)}</Text>
           )}
         </View>
 
@@ -132,6 +136,9 @@ export default function Result() {
                 <Text variant="title" color={tone.fg}>Admitted</Text>
               </View>
               <Text color={colors.text}>Checked in at {doorTime(a?.scanned_at || record?.occurredAt)}</Text>
+              {result === 'offline_admitted' && (
+                <Text variant="small" color={colors.muted} align="center">Checked on this phone with no signal. It uploads when the signal returns.</Text>
+              )}
             </>
           ) : (
             <>
@@ -140,6 +147,9 @@ export default function Result() {
                 <Text variant="small" color={colors.muted} align="center">
                   First scanned by {[a.first_scan.staff, a.first_scan.device].filter(Boolean).join(' at ')}
                 </Text>
+              )}
+              {refusedByPhone && (
+                <Text variant="small" color={colors.muted} align="center">Checked on this phone with no signal, from its ticket list.</Text>
               )}
               {a?.conflict && (
                 <Text variant="small" color={colors.muted} align="center">

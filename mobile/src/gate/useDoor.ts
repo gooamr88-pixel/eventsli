@@ -5,7 +5,7 @@ import { Alert } from 'react-native';
 import { isAuthError } from '../api/client';
 import * as endpoints from '../api/endpoints';
 import { useSession } from '../auth/session';
-import { DoorAuthError } from './scanLog';
+import { DoorAuthError } from './errors';
 
 /**
  * The door's shared reads. One `me` (who this device is, the event, what it

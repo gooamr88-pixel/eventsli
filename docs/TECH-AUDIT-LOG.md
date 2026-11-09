@@ -1108,3 +1108,56 @@ still works.
 **Production:** apply `20261108090000_checkin_v2.sql` (via
 `backend/scripts/apply-migration.js`) BEFORE deploying the API that calls
 `check_in_ticket_v2`.
+
+---
+
+## Check-in app: device test round 1, offline admission and launch hardening (2026-11-09)
+
+Done on `feature/checkin-app`. Not committed, pushed or deployed. The API
+contract is docs/CHECKIN-APP-API.md; the release runbook is mobile/RELEASE.md.
+
+**Found on a real Android phone (round 1), now fixed:**
+- **Unhandled `ROUTE_NAMES_CHANGED` warning.** Screens navigated after changing
+  the session, which built the door's screens twice. Now only the session
+  moves the phone, and Settings lives inside each group of screens.
+- **Guest search found nobody who was already inside.** It searched within
+  the "Not yet" filter. A search now covers every guest, and the door list
+  matches each word, in any order, ignoring accents (migration
+  `20261109090000`).
+
+**Offline admission (migration `20261110090000`):**
+- QR v2 codes are ES256 with a public key the device checks
+  (`services/qrSigning.js`).
+- `GET /scan/keys` and `GET /scan/manifest`, with paging and changes-only
+  refreshes.
+- A trigger makes any order-status change count as a change to its tickets.
+- Offline conflicts appear on the website's door list.
+
+**Found by the load test (`scripts/load-gate.js`) at 3× the target rate, now fixed:**
+- **A failed device lookup was answered 401.** The app reads 401 as "this door
+  was closed" and leaves it, so a database saturated by a rush would have
+  signed every phone out. It is now a retryable 503; only a real revocation is
+  a 401.
+- **A scan the database did not answer came back as a 200 `error`.** Both
+  clients showed it as settled, and an offline admission uploaded during
+  overload was marked done and never retried, so the server would never have
+  heard of it. Now `/scan/verify` and `/scan/manual-check-in` answer 503
+  `SCAN_UNAVAILABLE`, and the app retries `error` rows in an upload up to 5
+  times.
+- Exactly-once held in every run, including under overload.
+
+**Store readiness:**
+- `expo-audio` and `expo-camera` defaults had added the microphone, a
+  foreground media service, background audio and a Face ID text. All are gone,
+  checked in the generated manifests.
+- Android backup is off.
+- Sentry is scrubbed of guest data, and off without a DSN.
+- EAS Update is configured, with a fingerprint runtime.
+- Contrast and screen-reader roles are now enforced by tests.
+
+**Evidence (local stack, Node 26):**
+- 50 scans/s sustained for 60 s over 20 doors: scan p95 68 ms, no errors,
+  exactly-once OK.
+- 100/s: p95 591 ms, no errors.
+- 150/s: the laptop saturates. Rejected requests are retryable 503s, with no
+  401 and no lost admission.

@@ -36,6 +36,9 @@ const CHECKED = [
   { value: '', label: 'Everyone' },
   { value: 'true', label: 'In' },
   { value: 'false', label: 'Not yet' },
+  // Offline conflicts: two check-in phones with no signal both let the same
+  // ticket in. Both people are inside; this is the list to follow up from.
+  { value: 'conflict', label: 'Let in twice' },
 ];
 
 export default function Attendees({ eventId }) {
@@ -147,8 +150,15 @@ export default function Attendees({ eventId }) {
                 label: 'At the door',
                 align: 'end',
                 render: (a) => (a.checkedIn ? (
-                  <span className="es-pill es-pill--accent">
-                    In{a.checkedInAt ? ` · ${formatEventTime(a.checkedInAt, timezone, { date: false })}` : ''}
+                  <span className="inline-flex flex-wrap justify-end gap-1">
+                    <span className="es-pill es-pill--accent">
+                      In{a.checkedInAt ? ` · ${formatEventTime(a.checkedInAt, timezone, { date: false })}` : ''}
+                    </span>
+                    {a.conflict && (
+                      <span className="es-pill es-pill--warning" title="Two check-in phones with no signal both let this ticket in. Both people may be inside.">
+                        Let in at two doors
+                      </span>
+                    )}
                   </span>
                 ) : a.status === 'void' ? (
                   <span className="es-pill es-pill--danger">Void</span>

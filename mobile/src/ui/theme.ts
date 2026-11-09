@@ -29,7 +29,10 @@ export const colors = {
   text: '#0b1617',
   muted: '#45585b',
   subtle: '#566a6d',
-  placeholder: '#93a3a6',
+  // A hint like "Name, email or ticket number" is information, so it meets the
+  // text contrast too (4.6:1 on the sunken field; test/contrast.test.ts). The
+  // old #93a3a6 was 2.4:1.
+  placeholder: '#617275',
 
   success: '#166534',
   successSoft: '#e7f6ec',

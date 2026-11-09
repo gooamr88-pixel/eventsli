@@ -1,8 +1,8 @@
 /**
  * The phone's half of "no admission is ever lost, none is counted twice".
  *
- * The real scan log (src/gate/scanLog.ts) runs against an in-memory stand-in
- * for its SQLite table and a scripted API, so every path a door can take is
+ * The real scan log (src/gate/scanLog.ts) runs against a real SQLite in memory
+ * (the app's own schema) and a scripted API, so every path a door can take is
  * replayed: online, no signal, a dropped upload, a partial answer, a crash in
  * the middle of a send, a revoked door, the same queue uploaded twice.
  */
@@ -10,6 +10,7 @@ import { ApiError, NetworkError } from '../src/api/client';
 import * as endpoints from '../src/api/endpoints';
 import { bytesToBase64Url } from '../src/lib/base64';
 import { DoorAuthError, pendingCount, useScanLog } from '../src/gate/scanLog';
+import { openTestDb, type TestDb } from './helpers/sqlite';
 
 // A jest.mock factory is hoisted above imports, so it can only `require`.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -20,39 +21,13 @@ jest.mock('../src/api/endpoints', () => ({
   sync: jest.fn(),
   manualCheckIn: jest.fn(),
   undo: jest.fn(),
+  manifest: jest.fn(),
+  keys: jest.fn(),
 }));
 
-// ── An in-memory scans table that answers the scan log's five statements ──────
-type Row = Record<string, any>;
-const table = new Map<string, Row>();
-const COLS = ['client_scan_id', 'event_id', 'qr', 'ticket_id', 'occurred_at', 'method', 'state', 'result', 'message', 'answer_json', 'synced_at'];
-const fakeDb = {
-  async runAsync(sql: string, params: any[]) {
-    if (/^\s*INSERT OR REPLACE INTO scans/.test(sql)) {
-      const row: Row = {};
-      COLS.forEach((c, i) => { row[c] = params[i] ?? null; });
-      table.set(row.client_scan_id, row);
-      return;
-    }
-    if (/DELETE FROM scans WHERE client_scan_id = \?/.test(sql)) {
-      table.delete(params[0]);
-      return;
-    }
-    throw new Error(`unexpected statement: ${sql}`);
-  },
-  async getAllAsync(sql: string, params: any[]) {
-    const rows = [...table.values()].filter((r) => r.event_id === params[0]);
-    if (/state <> 'done' AND qr NOT LIKE 'manual:%'/.test(sql)) {
-      return rows.filter((r) => r.state !== 'done' && !String(r.qr).startsWith('manual:'));
-    }
-    if (/ORDER BY occurred_at DESC LIMIT \?/.test(sql)) {
-      return rows.sort((a, b) => b.occurred_at.localeCompare(a.occurred_at)).slice(0, params[1]);
-    }
-    if (/^SELECT \* FROM scans WHERE event_id = \?$/.test(sql.trim())) return rows;
-    throw new Error(`unexpected query: ${sql}`);
-  },
-};
-jest.mock('../src/lib/db', () => ({ db: async () => fakeDb }));
+// ── The phone's database: real SQLite in memory, the app's own schema ────────
+let mockDb: TestDb;
+jest.mock('../src/lib/db', () => ({ db: async () => mockDb.db }));
 
 const api = endpoints as jest.Mocked<typeof endpoints>;
 const EVENT = '11111111-1111-4111-8111-111111111111';
@@ -64,10 +39,12 @@ function ticketQr(tid: string, eid = EVENT) {
 }
 const admitted = (extra = {}) => ({ ok: true, result: 'admitted', ...extra });
 const state = () => useScanLog.getState();
-const rowsIn = (s: string) => [...table.values()].filter((r) => r.state === s);
+const rowsIn = (s: string) => mockDb.all('SELECT * FROM scans WHERE state = ?', s);
+const row = (id: string) => mockDb.one('SELECT * FROM scans WHERE client_scan_id = ?', id);
 
 beforeEach(async () => {
-  table.clear();
+  mockDb = openTestDb();
+  await mockDb.ready();
   jest.resetAllMocks();
   state().clear();
   await state().load(EVENT);
@@ -78,7 +55,7 @@ describe('online', () => {
     api.verify.mockResolvedValue(admitted({ ticket_id: 't1', attendee: 'John Smith' }));
     const rec = await state().submit(ticketQr('t1'), DOOR);
     expect(rec).toMatchObject({ state: 'done', result: 'admitted', ticketId: 't1' });
-    expect(table.get(rec!.clientScanId)?.state).toBe('done');
+    expect(row(rec!.clientScanId)?.state).toBe('done');
   });
 
   test('a code that is certainly not ours is refused without the network', async () => {
@@ -143,8 +120,8 @@ describe('no signal, then signal', () => {
       summary: { total: 1, admitted: 1, replayed: 0, conflicts: 0 },
     });
     await state().sync(DOOR);
-    expect(table.get(a!.clientScanId)?.state).toBe('done');
-    expect(table.get(b!.clientScanId)?.state).toBe('queued');
+    expect(row(a!.clientScanId)?.state).toBe('done');
+    expect(row(b!.clientScanId)?.state).toBe('queued');
 
     api.sync.mockResolvedValueOnce({
       results: [{ ...admitted(), clientScanId: b!.clientScanId }],
@@ -155,11 +132,10 @@ describe('no signal, then signal', () => {
   });
 
   test('a scan caught mid-send by a crash is uploaded after the restart', async () => {
-    table.set('crashed', {
-      client_scan_id: 'crashed', event_id: EVENT, qr: ticketQr('t9'), ticket_id: 't9',
-      occurred_at: new Date(Date.now() - 2 * 60e3).toISOString(), method: 'scan', state: 'sending',
-      result: null, message: null, answer_json: null, synced_at: null,
-    });
+    mockDb.run(
+      "INSERT INTO scans (client_scan_id, event_id, qr, ticket_id, occurred_at, method, state) VALUES ('crashed', ?, ?, 't9', ?, 'scan', 'sending')",
+      EVENT, ticketQr('t9'), new Date(Date.now() - 2 * 60e3).toISOString(),
+    );
     state().clear();
     await state().load(EVENT);   // the app opening again
     api.sync.mockImplementation(async (_d, scans) => ({
@@ -168,7 +144,7 @@ describe('no signal, then signal', () => {
     }));
     await state().sync(DOOR);
     expect(api.sync.mock.calls[0][1].map((s) => s.clientScanId)).toEqual(['crashed']);
-    expect(table.get('crashed')?.state).toBe('done');
+    expect(row('crashed')?.state).toBe('done');
   });
 
   test('a door revoked during upload stops the phone, and keeps every held scan', async () => {
@@ -184,7 +160,7 @@ describe('no signal, then signal', () => {
     await expect(state().submit(ticketQr('t1'), DOOR)).rejects.toBeInstanceOf(DoorAuthError);
     expect(rowsIn('sending')).toHaveLength(1);
     // Signing back in takes longer than the 30 s that marks a send as stranded.
-    rowsIn('sending')[0].occurred_at = new Date(Date.now() - 2 * 60e3).toISOString();
+    mockDb.run("UPDATE scans SET occurred_at = ? WHERE state = 'sending'", new Date(Date.now() - 2 * 60e3).toISOString());
 
     api.sync.mockImplementation(async (_d, scans) => ({
       results: scans.map((s) => ({ ...admitted(), clientScanId: s.clientScanId })),
@@ -240,7 +216,7 @@ describe('by hand', () => {
   test('a manual check-in with no signal is an error to retry — never queued, never synced', async () => {
     api.manualCheckIn.mockRejectedValue(new NetworkError());
     const rec = await state().manual('t5', DOOR);
-    const stored = table.get(rec.clientScanId);
+    const stored = row(rec.clientScanId);
     expect(stored?.state).toBe('done');
     expect(stored?.result).toBe('error');
     api.sync.mockResolvedValue({ results: [], summary: { total: 0, admitted: 0, replayed: 0, conflicts: 0 } });

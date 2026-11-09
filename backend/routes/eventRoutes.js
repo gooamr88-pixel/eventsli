@@ -591,7 +591,7 @@ router.get(
   '/:eventId/attendees',
   verifyEventOwner,
   query('status').optional().isIn(['valid', 'scanned', 'void']),
-  query('checkedIn').optional().isIn(['true', 'false']),
+  query('checkedIn').optional().isIn(['true', 'false', 'conflict']),
   validate,
   sales.attendees,
 );

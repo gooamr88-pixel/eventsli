@@ -1,7 +1,7 @@
 import { api, request } from './client';
 import type {
-  AccountSession, Analytics, AppConfig, Assignments, Attendee, DoorToken, Me, Page,
-  RecentScan, ScanAnswer, TicketDetail,
+  AccountSession, Analytics, AppConfig, Assignments, Attendee, DoorToken, ManifestPage, Me, Page,
+  PublicJwk, RecentScan, ScanAnswer, TicketDetail,
 } from './types';
 
 /**
@@ -85,3 +85,11 @@ export const ticket = (door: string, ticketId: string) =>
 
 export const analytics = (door: string, bucket = 15) =>
   api<Analytics>('/scan/analytics', { token: door, query: { bucket } });
+
+// ── Offline admission ───────────────────────────────────────────────────────
+/** One page of the event's ticket list; call with the cursor it returns until `done`. */
+export const manifest = (door: string, cursor: string | null) =>
+  api<ManifestPage>('/scan/manifest', { token: door, query: { cursor }, timeoutMs: 20000 });
+
+/** The public keys that verify QR v2 codes on this phone. */
+export const keys = (door: string) => api<{ keys: PublicJwk[] }>('/scan/keys', { token: door });

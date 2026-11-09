@@ -174,3 +174,30 @@ export type AppConfig = {
   signInUrl: string;
   supportUrl: string | null;
 };
+
+/** One ticket in the event's list for deciding offline (GET /scan/manifest). */
+export type ManifestRow = {
+  ticketId: string;
+  v: number;
+  status: 'valid' | 'scanned' | 'void';
+  scannedAt: string | null;
+  tier: string | null;
+  seat: string | null;
+  table: string | null;
+  holder: string | null;
+};
+
+export type ManifestPage = {
+  rows: ManifestRow[];
+  cursor: string;
+  done: boolean;
+  reset: boolean;
+  names: boolean;
+  event: { status: string; startsAt: string; endsAt: string } | null;
+  gateLocked: boolean;
+  legacyQrOffline: 'allow' | 'hold';
+  serverTime: string;
+};
+
+/** A public key that verifies QR v2 codes (GET /scan/keys). */
+export type PublicJwk = { kid: string; kty: string; crv: string; alg?: string; use?: string; x: string; y: string };

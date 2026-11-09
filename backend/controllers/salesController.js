@@ -140,6 +140,15 @@ async function attendees(req, res, next) {
     if (req.query.checkedIn === 'true') query = query.not('scanned_at', 'is', null);
     if (req.query.checkedIn === 'false') query = query.is('scanned_at', null);
 
+    // Offline conflicts: tickets two doors let in while out of signal (the
+    // second admission is flagged when its phone uploads, 20261108090000).
+    // Both guests are inside; the organizer follows up. Few per event, so the
+    // ids are read first and the list filtered to them.
+    const conflictIds = await conflictedTickets(req.params.eventId);
+    if (req.query.checkedIn === 'conflict') {
+      query = query.in('id', conflictIds.size ? [...conflictIds] : ['00000000-0000-0000-0000-000000000000']);
+    }
+
     if (p.q) {
       const safe = safeSearch(p.q);
       if (safe) query = query.or(`attendee_name.ilike.%${safe}%,attendee_email.ilike.%${safe}%`);
@@ -155,7 +164,7 @@ async function attendees(req, res, next) {
         .eq('event_id', req.params.eventId).eq('status', 'valid'),
     ]);
 
-    return sendOk(res, (data || []).map(shapeAttendee), {
+    return sendOk(res, (data || []).map((t) => ({ ...shapeAttendee(t), conflict: conflictIds.has(t.id) })), {
       pagination: buildMeta(p, count),
       meta: { admitted: Number(admitted) || 0, valid: Number(issued) || 0 },
     });
@@ -210,6 +219,17 @@ function shapeOrder(o) {
     createdAt: o.created_at,
     paidAt: o.paid_at,
   };
+}
+
+/** Tickets at this event with an admission flagged as an offline conflict. */
+async function conflictedTickets(eventId) {
+  const { data, error } = await supabase
+    .from('scans').select('ticket_id')
+    .eq('event_id', eventId).eq('conflict', true)
+    .not('ticket_id', 'is', null)
+    .limit(5000);
+  if (error) throw new Error(`could not read door conflicts: ${error.message}`);
+  return new Set((data || []).map((r) => r.ticket_id));
 }
 
 function shapeAttendee(t) {

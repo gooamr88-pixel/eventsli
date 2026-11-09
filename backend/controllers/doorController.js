@@ -1,4 +1,5 @@
 const door = require('../services/doorService');
+const qrSigning = require('../services/qrSigning');
 const { sendOk, sendFail } = require('../utils/responseEnvelope');
 const logger = require('../utils/logger');
 
@@ -72,6 +73,15 @@ async function manualCheckIn(req, res, next) {
       ticketId: req.body.ticketId, clientScanId: req.body.clientScanId,
     });
     if (result.forbidden) return sendFail(res, GUESTS_OFF);
+    if (result.unavailable) {
+      // The database did not answer. A 503, never a 200 'error': the door holds
+      // the scan (or decides it from its offline list) and nobody is turned away
+      // or let in on a non-answer.
+      return sendFail(res, {
+        status: 503, error: 'SCAN_UNAVAILABLE',
+        message: 'The check-in server is busy. The scan is kept and checked again in a moment.',
+      });
+    }
     // Same contract as /scan/verify: every decided outcome is a 200, and only a
     // locked gate — which the door cannot resolve — is an error.
     if (result.result === 'scanner_locked') {
@@ -113,7 +123,33 @@ async function updateSettings(req, res, next) {
   } catch (err) { return next(err); }
 }
 
+// GET /scan/manifest — the event's tickets, for deciding with no signal.
+async function manifest(req, res, next) {
+  try {
+    const data = await door.manifest(req.device, {
+      cursor: req.query.cursor || null,
+      limit: req.query.limit ? Number(req.query.limit) : undefined,
+    });
+    if (data.off) {
+      // The phone deletes its copy on this answer: the organizer took it back.
+      return sendFail(res, {
+        status: 403, error: 'FORBIDDEN',
+        message: 'The organizer has switched off offline check-in for this event.',
+        meta: { reason: 'offline_admission_off' },
+      });
+    }
+    return sendOk(res, data);
+  } catch (err) { return next(err); }
+}
+
+// GET /scan/keys — the public keys that verify QR v2 codes on the device.
+async function keys(req, res, next) {
+  try {
+    return sendOk(res, { keys: qrSigning.jwks() });
+  } catch (err) { return next(err); }
+}
+
 module.exports = {
-  me, recent, attendees, ticket, manualCheckIn, analytics,
+  me, recent, attendees, ticket, manualCheckIn, analytics, manifest, keys,
   getSettings, updateSettings,
 };

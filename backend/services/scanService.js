@@ -121,6 +121,15 @@ async function authenticateDevice({ deviceId, pin }) {
  * request; and the safe answer for a door that cannot check its own credentials
  * is "no".
  */
+/**
+ * Returned when the device could not be LOOKED UP (the database did not
+ * answer), as opposed to looked up and found switched off. Both refuse the
+ * request; only the second is an answer about the device. Under a door-opening
+ * rush that saturated the database, treating the first as "revoked" sent every
+ * phone a 401, which the app reads as "this door was closed" and leaves.
+ */
+const DEVICE_LOOKUP_FAILED = Object.freeze({ lookupFailed: true });
+
 async function getActiveDevice(deviceId, { staffUserId = null } = {}) {
   if (!deviceId) return null;
   const { data, error } = await supabase
@@ -131,7 +140,8 @@ async function getActiveDevice(deviceId, { staffUserId = null } = {}) {
     .eq('id', deviceId)
     .maybeSingle();
 
-  if (error || !data || !data.is_active) return null;
+  if (error) return DEVICE_LOOKUP_FAILED;
+  if (!data || !data.is_active) return null;
 
   // The token and the row must agree about what kind of principal this is: a
   // PIN token cannot ride a person's device, and a person's token cannot ride
@@ -210,7 +220,10 @@ async function scan({
     p_offline_admitted: offlineAdmitted === true,
   });
 
-  if (error) return { ok: false, result: 'error', message: error.message };
+  // The database did not answer: not a decision. `unavailable` lets the live
+  // routes answer 503 (the door holds the scan); in an upload the row says
+  // 'error' and the phone sends it again.
+  if (error) return { ok: false, result: 'error', message: error.message, unavailable: true };
   return data;
 }
 
@@ -282,6 +295,6 @@ async function gateStatus(eventId) {
 
 module.exports = {
   registerDevice, listDevices, setDeviceActive,
-  authenticateDevice, verifyDeviceToken, getActiveDevice,
+  authenticateDevice, verifyDeviceToken, getActiveDevice, DEVICE_LOOKUP_FAILED,
   scan, undo, syncBatch, gateStatus,
 };

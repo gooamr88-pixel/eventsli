@@ -43,6 +43,7 @@ require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 }
 
 const QRCode = require('qrcode');
+const jwt = require('jsonwebtoken');
 const { supabase } = require('../config/supabase');
 const { hashPassword } = require('../utils/crypto');
 const pricing = require('../services/pricingService');
@@ -122,7 +123,15 @@ async function reset({ quiet = false } = {}) {
     await supabase.from('sessions').delete().eq('user_id', p.id);
     await supabase.from('terms_acceptances').delete().eq('user_id', p.id);
     await supabase.from('event_staff').delete().eq('user_id', p.id);
-    await supabase.from('profiles').delete().eq('id', p.id);
+    const del = await supabase.from('profiles').delete().eq('id', p.id);
+    if (del.error) {
+      // Still the owner of a parked organizer (whose events the append-only
+      // ledger keeps). Retire the account instead, freeing the demo address
+      // for the next seed; a password-less retired address cannot sign in.
+      await supabase.from('profiles').update({
+        email: `retired-${p.id}@retired.demo.invalid`, password_hash: null,
+      }).eq('id', p.id);
+    }
   }
   if (!quiet) console.log(`Removed ${eventIds.length} demo event(s), ${orgIds.length} organizer(s), ${(people || []).length} account(s).`);
 }
@@ -228,6 +237,7 @@ async function seed() {
   const noah = await buy(ctx, gala, 'Noah Wilson', { ga: 1 });
   const ava = await buy(ctx, gala, 'Ava Thompson', { ga: 1 });
   const mia = await buy(ctx, gala, 'Mia Johnson', { ga: 1 });
+  const zoe = await buy(ctx, gala, 'Zoë Martin', { ga: 1 });
 
   const ok = 'Check-in Successful';
   add('normal', 'John Smith · ticket 1 of 2', ok, john.tickets[0], 'John Smith');
@@ -241,7 +251,10 @@ async function seed() {
   add('spare', 'Daniel Garcia · ticket 2 of 2', ok, daniel.tickets[1], 'Daniel Garcia');
   add('spare', 'Lucas Tremblay · ticket 2 of 2', ok, lucas.tickets[1], 'Lucas Tremblay');
   add('spare', 'Chloé Roy', ok, chloe.tickets[0], 'Chloé Roy');
-  michael.tickets.forEach((t, i) => add('offline', `Michael Brown · ticket ${i + 1} of 3`, 'Held for upload → admitted on reconnect', t, 'Michael Brown'));
+  michael.tickets.forEach((t, i) => add('offline', `Michael Brown · ticket ${i + 1} of 3`, 'Airplane mode: Check-in Successful, checked on this phone; uploads when the signal returns', t, 'Michael Brown'));
+  // An older code: what a buyer emailed before QR v2 still holds (HS256, no kid).
+  const legacyQr = jwt.sign({ typ: 'ticket', tid: zoe.tickets[0].id, eid: gala.id }, process.env.QR_JWT_SECRET, { algorithm: 'HS256' });
+  add('legacy', 'Zoë Martin · older code (from before QR v2)', 'Check-in Successful. Airplane mode: admitted from the list, or held if the organizer holds older codes', { ...zoe.tickets[0], qr: legacyQr }, 'Zoë Martin');
   add('manual', 'Priya Patel · VIP (find by name, no QR)', 'Check in by hand → Check-in Successful', priya.tickets[0], 'Priya Patel', { qr: null });
 
   // Refunded: the void path a full refund takes.
@@ -324,6 +337,8 @@ async function writeSheet(m) {
     ['refuse', 'Should be refused', 'Each must be refused with the answer shown. None may admit.'],
     ['offline', 'Offline test', 'Turn on airplane mode, scan these three, then turn it off.'],
     ['spare', 'Spares', 'For undo, concurrency and re-testing.'],
+    ['legacy', 'Older code', 'A code from before QR v2. Online it always scans; offline it follows the organizer’s “older codes” setting.'],
+    ['late', 'Sold after the phone got its list', 'Made by: node scripts/demo-checkin.js late-sale. Scan with airplane mode on.'],
     ['manual', 'Manual check-in', 'No code: search the guest list by name.'],
   ];
   const cards = async (group) => (await Promise.all(m.tickets.filter((t) => t.group === group).map(async (t) => `
@@ -435,7 +450,7 @@ async function rearm() {
   // Keep only the seeded "already scanned" row; the rest of the log goes.
   must(await supabase.from('scans').delete().eq('event_id', gala).neq('client_scan_id', m.prescanId), 'clear log');
   must(await supabase.from('scans').delete().eq('event_id', gala).is('client_scan_id', null), 'clear log');
-  const fresh = m.tickets.filter((t) => ['normal', 'offline', 'spare', 'manual'].includes(t.group) && t.ticketId).map((t) => t.ticketId);
+  const fresh = m.tickets.filter((t) => ['normal', 'offline', 'spare', 'manual', 'legacy', 'late'].includes(t.group) && t.ticketId).map((t) => t.ticketId);
   must(await supabase.from('tickets').update({ status: 'valid', scanned_at: null }).in('id', fresh), 'reset tickets');
   await supabase.from('event_gate_settings').delete().eq('event_id', gala);
   console.log(`Re-armed: ${new Set(fresh).size} tickets valid again, door log cleared, door settings back to defaults.`);
@@ -461,6 +476,9 @@ async function smoke() {
   const T = (label) => m.tickets.find((t) => t.label.startsWith(label));
 
   console.log(`Smoke test against ${api}`);
+  // The checks expect the seeded state; a device test since the last re-arm
+  // has admitted most of the guests. Start from the seed, like the end does.
+  await rearm();
   const health = await call('GET', '/health');
   check('API reachable', health.status === 200, JSON.stringify(health.body));
   const cfg = await call('GET', '/app/config');
@@ -481,6 +499,34 @@ async function smoke() {
   check('door opens for the gala', open.status === 200 && door, JSON.stringify(open.body));
   const me = await call('GET', '/scan/me', { token: door });
   check('organizer phone is role owner with the guest list', me.body?.data?.role === 'owner' && me.body?.data?.permissions?.viewGuests);
+
+  // Offline admission: the public key, and the event's list in pages.
+  const keyRes = await call('GET', '/scan/keys', { token: door });
+  const kids = (keyRes.body?.data?.keys || []).map((k) => k.kid);
+  const header = (() => {
+    try { return JSON.parse(Buffer.from(T('John Smith · ticket 1').qr.split('.')[0], 'base64url').toString()); } catch { return {}; }
+  })();
+  check('QR v2: tickets are ES256 and the door is given their key', header.alg === 'ES256' && kids.includes(header.kid),
+    `code ${JSON.stringify(header)}, keys ${JSON.stringify(kids)} (is QR_SIGNING_KEY in backend/.env, and the demo seeded after it?)`);
+  const pullList = async (token) => {
+    const rows = [];
+    let cursor = null; let first = null;
+    for (let i = 0; i < 20; i += 1) {
+      const r = await call('GET', `/scan/manifest${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`, { token });
+      if (r.status !== 200) return { status: r.status, rows, first };
+      first = first || r.body.data;
+      rows.push(...r.body.data.rows);
+      cursor = r.body.data.cursor;
+      if (r.body.data.done) break;
+    }
+    return { status: 200, rows, first, byId: new Map(rows.map((r) => [r.ticketId, r])) };
+  };
+  const ownerList = await pullList(door);
+  check('offline list: every gala ticket, with names on the organizer\'s phone',
+    ownerList.status === 200 && ownerList.first?.reset && ownerList.rows.length >= 18
+      && ownerList.byId.get(T('Sara Ahmed').ticketId)?.holder === 'Sara Ahmed', `status ${ownerList.status}, ${ownerList.rows.length} rows`);
+  check('offline list: refunded and cancelled tickets are void in it',
+    ownerList.byId?.get(T('Noah Wilson').ticketId)?.status === 'void' && ownerList.byId?.get(T('Ava Thompson').ticketId)?.status === 'void');
 
   const expectResult = async (label, want, extra = () => true) => {
     const t = T(label);
@@ -534,6 +580,9 @@ async function smoke() {
   check('door team cannot search guests by default', (await call('GET', '/scan/attendees', { token: staffDoor })).status === 403);
   const sRecent = await call('GET', '/scan/recent', { token: staffDoor });
   check('door team sees shortened names', (sRecent.body?.data || []).some((r) => r.holder === 'John S.'), JSON.stringify(sRecent.body?.data?.map((r) => r.holder)));
+  const staffList = await pullList(staffDoor);
+  check('offline list on a door-team phone: every ticket, no names (the default)',
+    staffList.status === 200 && staffList.rows.length === ownerList.rows.length && staffList.rows.every((r) => r.holder === null));
 
   const pin = await call('POST', '/scan/login', { body: { deviceId: m.device.id, pin: m.device.pin } });
   const pMe = await call('GET', '/scan/me', { token: pin.body?.data?.token });
@@ -598,10 +647,50 @@ async function doorScan() {
   console.log(`North Door scanned "${t.label}": ${d.result || res.error}${d.message ? ` — ${d.message}` : ''}`);
 }
 
-const commands = { seed, status, rearm, reset: () => reset(), smoke, 'door-scan': doorScan };
+// ═══ late-sale: a ticket the phone's offline list has not heard of ══════════
+/**
+ * Sells one more gala ticket NOW and adds it to the sheet. Run it while the
+ * phone is in airplane mode: its list was fetched before this sale, so the
+ * phone answers "Can't confirm offline" and holds the scan, which is then
+ * checked (and admitted) when the signal returns.
+ *
+ * Checkout only sells for an event that has not started, so the gala's dates
+ * move into the future for the purchase and straight back.
+ */
+async function lateSale() {
+  const m = loadManifest();
+  const galaId = m.events.gala;
+  const ev = must(await supabase.from('events').select('starts_at, ends_at').eq('id', galaId).single(), 'gala');
+  const map = must(await supabase.from('venue_maps').select('id').eq('event_id', galaId).single(), 'map');
+  const tier = must(await supabase.from('ticket_tiers').select('id').eq('event_id', galaId).eq('name', 'General Admission').single(), 'tier');
+  const seats = must(await supabase.from('seats').select('id').eq('venue_map_id', map.id).eq('tier_id', tier.id), 'seats');
+  const taken = new Set(must(await supabase.from('tickets').select('seat_id').eq('event_id', galaId), 'tickets').map((t) => t.seat_id));
+  const free = seats.map((s) => s.id).filter((id) => !taken.has(id));
+  if (!free.length) throw new Error('No free General Admission seats left at the gala. Run seed again.');
+
+  const n = m.tickets.filter((t) => t.group === 'late').length + 1;
+  must(await supabase.from('events').update({ starts_at: iso(48 * H), ends_at: iso(54 * H) }).eq('id', galaId), 'move gala');
+  let bought;
+  try {
+    bought = await buy({}, { id: galaId, free: { ga: [free[0]], vip: [] } }, `Late Buyer ${n}`, { ga: 1 });
+  } finally {
+    must(await supabase.from('events').update({ starts_at: ev.starts_at, ends_at: ev.ends_at }).eq('id', galaId), 'restore gala');
+  }
+  const t = bought.tickets[0];
+  m.tickets.push({
+    group: 'late', label: `Late Buyer ${n} · bought after the phone got its list`,
+    expected: 'Airplane mode: Can’t confirm offline (held). Signal back: uploads and is admitted',
+    name: `Late Buyer ${n}`, tier: t.tierName, seat: seatLabel(t), ticketId: t.id, qr: t.qr,
+  });
+  fs.writeFileSync(MANIFEST, JSON.stringify(m, null, 2));
+  await writeSheet(m);
+  console.log(`Sold "Late Buyer ${n}" (${seatLabel(t)}). Reload the ticket sheet: it is under "Sold after the phone got its list".`);
+}
+
+const commands = { seed, status, rearm, reset: () => reset(), smoke, 'door-scan': doorScan, 'late-sale': lateSale };
 const cmd = process.argv[2];
 if (!commands[cmd]) {
-  console.log('Usage: node scripts/demo-checkin.js seed [--site URL] | status | rearm | smoke [--api URL] [--keep] | door-scan "<label>" [--api URL] | reset');
+  console.log('Usage: node scripts/demo-checkin.js seed [--site URL] | status | rearm | smoke [--api URL] [--keep] | door-scan "<label>" [--api URL] | late-sale | reset');
   process.exit(1);
 }
 commands[cmd]().catch((err) => {

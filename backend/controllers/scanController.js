@@ -122,6 +122,15 @@ async function verify(req, res, next) {
     // needs to render it (with the time of the first scan) rather than show a
     // network failure and invite the operator to retry. Only a locked gate gets
     // a 403, because that is a state the door staff cannot resolve.
+    if (result.unavailable) {
+      // The database did not answer. A 503, never a 200 'error': the door holds
+      // the scan (or decides it from its offline list) and nobody is turned away
+      // or let in on a non-answer.
+      return sendFail(res, {
+        status: 503, error: 'SCAN_UNAVAILABLE',
+        message: 'The check-in server is busy. The scan is kept and checked again in a moment.',
+      });
+    }
     if (result.result === 'scanner_locked') {
       return sendFail(res, {
         status: 403, error: 'SCANNER_LOCKED',
