@@ -71,6 +71,9 @@ export const PRIVATE_PREFIXES = [
   '/organizer',
   '/admin',
   '/gate',
+  // The check-in app's "Sign in with Eventsli" consent step: signed-in only,
+  // and meaningless without the app's request in the URL.
+  '/app-auth',
   '/checkout',
   '/t',
   '/login',

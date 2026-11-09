@@ -229,7 +229,13 @@ async function checkoutResult(req, res, next) {
     const session = await stripeSvc.retrieveSession(req.params.sessionId, located.accountId);
 
     if (session.payment_status !== 'paid') {
-      return sendOk(res, { status: session.payment_status, order: null });
+      // `sessionStatus` is what separates "still processing" (complete but
+      // unpaid: a delayed payment method, or a webhook not yet arrived) from
+      // "never paid" (open or expired). The page told both "Nothing was
+      // charged" and offered to buy again (TECH-AUDIT-LOG T-036).
+      return sendOk(res, {
+        status: session.payment_status, sessionStatus: session.status || null, order: null,
+      });
     }
 
     const reservationId = located.reservationId;
@@ -515,7 +521,13 @@ async function claimFree(req, res, next) {
   try {
     if (!ownsReservation(req)) return sendFail(res, NOT_YOURS);
 
-    const q = await pricing.quoteReservation(req.params.reservationId);
+    // Quoted as DESTINATION, the model every non-Stripe order is recorded
+    // under (the column default). The default DIRECT quote made
+    // fulfill_checkout demand an organizer Stripe account, so every free
+    // claim was refused with "That payment was not collected on this event
+    // organizer's account" (found 2026-11-09). No money moves on a claim.
+    const q = await pricing.quoteReservation(req.params.reservationId,
+      { chargeModel: CHARGE_MODEL.DESTINATION });
 
     /**
      * THE CHECK THIS ENDPOINT EXISTS AROUND.

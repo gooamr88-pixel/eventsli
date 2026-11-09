@@ -40,6 +40,28 @@ const asFailure = (res, err) => sendFail(res, {
  * Without that, a guest who later creates an account sees an empty list and
  * assumes their purchase vanished.
  */
+/** The event as My tickets reads it. */
+function eventCard(ev) {
+  if (!ev) return null;
+  return {
+    id: ev.id,
+    title: ev.title,
+    slug: ev.slug,
+    startsAt: ev.starts_at,
+    // My tickets splits Upcoming from Past on the END of the event, because a
+    // show that started an hour ago has not happened yet to somebody standing
+    // outside it — and that is exactly when they need the QR code. Without
+    // this the split silently fell back to the start time and filed the
+    // ticket under Past while the doors were open.
+    endsAt: ev.ends_at,
+    // Without it, My tickets printed a Toronto show in the reader's own zone.
+    timezone: ev.timezone,
+    venue: ev.venue_name,
+    // BRD §17 — a cancelled event keeps its tickets and says so.
+    cancelled: ev.status === 'cancelled',
+  };
+}
+
 async function mine(req, res, next) {
   try {
     /**
@@ -78,36 +100,44 @@ async function mine(req, res, next) {
      * already been shown the totals for. The limit above bounds the set, which
      * is exactly what makes a single batched read the right shape.
      */
-    const ticketsByOrder = await tickets.forOrders((orders || []).map((o) => o.id));
+    const [ticketsByOrder, received] = await Promise.all([
+      tickets.forOrders((orders || []).map((o) => o.id)),
+      // Tickets somebody GAVE this person (T-016). The transfer email says
+      // "it is in your account"; before this, it was not.
+      tickets.receivedBy(req.user.email),
+    ]);
 
     const out = [];
+    const shown = new Set();
     for (const order of orders || []) {
+      const list = ticketsByOrder.get(order.id) ?? [];
+      list.forEach((t) => shown.add(t.id));
       out.push({
         orderId: order.id,
-        event: order.events && {
-          id: order.events.id,
-          title: order.events.title,
-          slug: order.events.slug,
-          startsAt: order.events.starts_at,
-          // Also selected above and also never returned. My tickets splits
-          // Upcoming from Past on the END of the event, because a show that
-          // started an hour ago has not happened yet to somebody standing
-          // outside it — and that is exactly when they need the QR code.
-          // Without this the split silently fell back to the start time and
-          // filed the ticket under Past while the doors were open.
-          endsAt: order.events.ends_at,
-          // Selected above but never returned, so My tickets printed a Toronto
-          // show in the reader's own zone.
-          timezone: order.events.timezone,
-          venue: order.events.venue_name,
-          // BRD §17 — a cancelled event keeps its tickets and says so.
-          cancelled: order.events.status === 'cancelled',
-        },
+        event: eventCard(order.events),
         currency: order.currency,
         totalCents: order.buyer_total_cents,
         purchasedAt: order.paid_at || order.created_at,
         // Absent rather than empty is a real state — see `forOrders`.
-        tickets: ticketsByOrder.get(order.id) ?? [],
+        tickets: list,
+      });
+    }
+
+    for (const gift of received) {
+      // A ticket somebody sent to their own address is already listed, with its
+      // code, under the order they bought.
+      const list = gift.tickets.filter((t) => !shown.has(t.id));
+      if (list.length === 0) continue;
+      out.push({
+        orderId: gift.orderId,
+        // Theirs to use, not theirs to have paid for: no total, and the page
+        // labels it as received.
+        received: true,
+        event: eventCard(gift.event),
+        currency: null,
+        totalCents: null,
+        purchasedAt: gift.receivedAt,
+        tickets: list,
       });
     }
     return sendOk(res, out);

@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const { supabase } = require('../config/supabase');
+const qrSigning = require('./qrSigning');
 const { fetchAll } = require('../utils/fetchAll');
 const { transferProof } = require('../utils/ticketTransfer');
 
@@ -26,12 +27,20 @@ const { transferProof } = require('../utils/ticketTransfer');
 
 const TOKEN_TYPE = 'ticket';
 
-function issueQrToken({ ticketId, eventId }) {
-  return jwt.sign(
-    { typ: TOKEN_TYPE, tid: ticketId, eid: eventId },
-    process.env.QR_JWT_SECRET,
-    { algorithm: 'HS256' },
-  );
+/**
+ * `version` is tickets.qr_version. A transfer bumps it, so the code the seller
+ * still has on their phone is older than the ticket and the door refuses it as
+ * `transferred` (T-016). Left out of the token while it is 0, so every ticket
+ * that was never transferred keeps the exact code already in its email.
+ */
+function issueQrToken({ ticketId, eventId, version = 0 }) {
+  const claims = { typ: TOKEN_TYPE, tid: ticketId, eid: eventId };
+  if (Number.isInteger(version) && version > 0) claims.v = version;
+
+  // QR v2 when a signing key is configured: a door with no signal can verify
+  // it (services/qrSigning.js). Otherwise the legacy HS256 code.
+  return qrSigning.sign(claims)
+    || jwt.sign(claims, process.env.QR_JWT_SECRET, { algorithm: 'HS256' });
 }
 
 /**
@@ -39,13 +48,35 @@ function issueQrToken({ ticketId, eventId }) {
  *
  * Split from the status check so the scanner can reject a forgery instantly and
  * offline, and only spend a round trip on codes that are genuinely ours.
+ *
+ * Both formats are read for as long as legacy codes are in people's inboxes.
+ * Each is verified ONLY with its own algorithm and key: an HS256 code is never
+ * checked against a public key (which would let anyone who has the public key
+ * forge one), and an ES256 code needs a kid this server knows.
  */
 function decodeQrToken(token) {
   try {
-    const claims = jwt.verify(String(token), process.env.QR_JWT_SECRET, { algorithms: ['HS256'] });
+    const raw = String(token);
+    const header = jwt.decode(raw, { complete: true })?.header;
+    let claims;
+    let format;
+    if (header?.alg === 'ES256') {
+      const key = qrSigning.publicKey(header.kid);
+      if (!key) return null;
+      claims = jwt.verify(raw, key, { algorithms: ['ES256'] });
+      format = 'v2';
+    } else if (header?.alg === 'HS256') {
+      claims = jwt.verify(raw, process.env.QR_JWT_SECRET, { algorithms: ['HS256'] });
+      format = 'legacy';
+    } else {
+      return null;
+    }
     if (claims.typ !== TOKEN_TYPE) return null;
     if (!claims.tid || !claims.eid) return null;
-    return { ticketId: claims.tid, eventId: claims.eid };
+    // Absent on every code issued before a transfer: version 0.
+    const version = claims.v === undefined ? 0 : claims.v;
+    if (!Number.isInteger(version) || version < 0) return null;
+    return { ticketId: claims.tid, eventId: claims.eid, version, format };
   } catch {
     return null;
   }
@@ -55,9 +86,10 @@ function decodeQrToken(token) {
 async function forOrder(orderId) {
   const { data, error } = await supabase
     .from('tickets')
-    .select(`id, event_id, status, attendee_name, transfer_count, scanned_at,
+    .select(`id, event_id, status, attendee_name, transfer_count, qr_version, scanned_at,
              seats ( section_key, row_label, seat_number ),
-             tables ( label ),
+             issued_table_label, issued_section, issued_row, issued_seat_number,
+             tables ( label, section_name ),
              ticket_tiers ( name )`)
     .eq('order_id', orderId)
     .order('created_at')
@@ -91,9 +123,10 @@ async function forOrders(orderIds) {
   // in the same sequence `forOrder` gives them.
   const data = await fetchAll(({ from, to }, first) => supabase
     .from('tickets')
-    .select(`id, order_id, event_id, status, attendee_name, transfer_count, scanned_at,
+    .select(`id, order_id, event_id, status, attendee_name, transfer_count, qr_version, scanned_at,
              seats ( section_key, row_label, seat_number ),
-             tables ( label ),
+             issued_table_label, issued_section, issued_row, issued_seat_number,
+             tables ( label, section_name ),
              ticket_tiers ( name )`, first ? { count: 'exact' } : undefined)
     .in('order_id', ids)
     .order('created_at')
@@ -114,9 +147,10 @@ async function forToken(token) {
 
   const { data } = await supabase
     .from('tickets')
-    .select(`id, event_id, status, attendee_name, transfer_count, scanned_at,
+    .select(`id, event_id, status, attendee_name, transfer_count, qr_version, scanned_at,
              seats ( section_key, row_label, seat_number ),
-             tables ( label ),
+             issued_table_label, issued_section, issued_row, issued_seat_number,
+             tables ( label, section_name ),
              ticket_tiers ( name ),
              events ( title, slug, starts_at, ends_at, timezone, venue_name, status )`)
     .eq('id', decoded.ticketId)
@@ -126,25 +160,110 @@ async function forToken(token) {
   // claims. Without the second check, a valid token for event A would look
   // valid when presented at event B.
   if (!data || data.event_id !== decoded.eventId) return null;
-  return { ...shape(data), event: data.events };
+  // A code from before a transfer is the seller's, and must not be traded in
+  // for the recipient's current one.
+  if (decoded.version < (data.qr_version || 0)) return null;
+  return { ...shape(data, { holder: true }), event: data.events };
 }
 
-function shape(t) {
+/**
+ * Tickets someone was GIVEN — the other half of a transfer (T-016).
+ *
+ * `GET /tickets` matched orders by buyer only, so the email telling a
+ * recipient "it is in your account" pointed at a page without it. Matched on
+ * the ticket's own address, which a transfer sets, and only on paid orders.
+ * Grouped by the order they came from so the page renders them like any other.
+ */
+async function receivedBy(email) {
+  const address = String(email || '').trim().toLowerCase();
+  if (!address) return [];
+
+  const { data, error } = await supabase
+    .from('tickets')
+    .select(`id, order_id, event_id, status, attendee_name, transfer_count, qr_version, scanned_at, transferred_at,
+             seats ( section_key, row_label, seat_number ),
+             issued_table_label, issued_section, issued_row, issued_seat_number,
+             tables ( label, section_name ),
+             ticket_tiers ( name ),
+             orders!inner ( status ),
+             events ( id, title, slug, starts_at, ends_at, timezone, venue_name, status )`)
+    .eq('attendee_email', address)
+    .gt('transfer_count', 0)
+    .eq('orders.status', 'paid')
+    .order('transferred_at', { ascending: false })
+    .order('id')
+    .limit(200);
+  if (error) throw new Error(`could not read received tickets: ${error.message}`);
+
+  const byOrder = new Map();
+  for (const row of data || []) {
+    if (!byOrder.has(row.order_id)) {
+      byOrder.set(row.order_id, {
+        orderId: row.order_id,
+        event: row.events,
+        receivedAt: row.transferred_at,
+        tickets: [],
+      });
+    }
+    byOrder.get(row.order_id).tickets.push(shape(row, { holder: true }));
+  }
+  return [...byOrder.values()];
+}
+
+/**
+ * One ticket as a page shows it.
+ *
+ * `holder` is whose copy this is. A transferred ticket's code belongs to the
+ * person it was given to: on the BUYER's order (My tickets, the emailed link,
+ * a resent email) it comes back without one, because a fresh code minted there
+ * would carry the new version and walk the seller straight back in.
+ */
+/**
+ * WHERE THE TICKET SAYS TO SIT — as it was when the ticket was issued
+ * (TECH-AUDIT-LOG S-16). A trigger takes the snapshot when the ticket is
+ * created and nothing may change it, so renaming a table after the sale no
+ * longer renames tickets already in buyers' inboxes. A ticket with no
+ * snapshot (none should remain after the backfill) falls back to live names.
+ *
+ * A seat in a seating section (S-19) is a place, not a table booking: it has
+ * no table name and reads Section · Row · Seat.
+ */
+function placeOf(t) {
+  const snapped = t.issued_section != null || t.issued_table_label != null;
+  if (snapped) {
+    return {
+      seat: t.issued_section != null
+        ? { section: t.issued_section, row: t.issued_row, number: t.issued_seat_number }
+        : null,
+      table: t.issued_table_label || null,
+    };
+  }
+  return {
+    seat: t.seats
+      ? { section: t.seats.section_key, row: t.seats.row_label, number: t.seats.seat_number }
+      : null,
+    table: t.tables && !t.tables.section_name ? t.tables.label : null,
+  };
+}
+
+function shape(t, { holder = false } = {}) {
+  const transferred = (t.transfer_count || 0) > 0;
   return {
     id: t.id,
     status: t.status,
     attendeeName: t.attendee_name,
-    seat: t.seats
-      ? { section: t.seats.section_key, row: t.seats.row_label, number: t.seats.seat_number }
-      : null,
-    table: t.tables?.label || null,
+    ...placeOf(t),
     // The ticket type the printed ticket names ("General Admission", "VIP").
     // Null when the tier was deleted after the sale (tier_id is ON DELETE SET
     // NULL); the ticket then simply leaves the line out.
     tierName: t.ticket_tiers?.name || null,
-    transferred: (t.transfer_count || 0) > 0,
+    transferred,
+    // The buyer's copy of a ticket they gave away: no code, and the page says why.
+    transferredAway: transferred && !holder,
     scannedAt: t.scanned_at,
-    qr: issueQrToken({ ticketId: t.id, eventId: t.event_id }),
+    qr: transferred && !holder
+      ? null
+      : issueQrToken({ ticketId: t.id, eventId: t.event_id, version: t.qr_version || 0 }),
   };
 }
 
@@ -158,7 +277,7 @@ function shape(t) {
 async function transfer({ ticketId, ownerUserId, ownerEmail, tokenOrderId = null, toEmail }) {
   const { data: ticket } = await supabase
     .from('tickets')
-    .select('id, order_id, transfer_count, status, attendee_email, orders ( id, user_id, guest_email ), events ( allow_ticket_transfer )')
+    .select('id, order_id, transfer_count, qr_version, status, attendee_email, orders ( id, user_id, guest_email ), events ( allow_ticket_transfer )')
     .eq('id', ticketId)
     .maybeSingle();
 
@@ -200,6 +319,9 @@ async function transfer({ ticketId, ownerUserId, ownerEmail, tokenOrderId = null
       transfer_count: 1,
       transferred_at: new Date().toISOString(),
       transferred_from: from,
+      // The credential moves with the ticket (T-016): every code issued before
+      // this line is now older than the ticket, and the door refuses it.
+      qr_version: (ticket.qr_version || 0) + 1,
     })
     .eq('id', ticketId)
     .eq('transfer_count', 0)   // the guard, applied atomically
@@ -218,4 +340,4 @@ function fail(code, message) {
   return Object.assign(new Error(message), { code });
 }
 
-module.exports = { issueQrToken, decodeQrToken, forOrder, forOrders, forToken, transfer };
+module.exports = { issueQrToken, decodeQrToken, forOrder, forOrders, forToken, receivedBy, transfer };

@@ -1,0 +1,16 @@
+# Every refusal is red and says why.
+appId: com.eventsli.checkin
+---
+- runFlow: _signin-and-open-gala.yaml
+- tapOn: "Scan Tickets"
+- runFlow: { file: _scan.yaml, env: { CODE: "${QR_NOAH}" } }
+- assertVisible: "Cancelled ticket"
+- tapOn: "Scan Next"
+- runFlow: { file: _scan.yaml, env: { CODE: "${QR_MIA_OLD}" } }
+- assertVisible: "Ticket was given away"
+- tapOn: "Scan Next"
+- runFlow: { file: _scan.yaml, env: { CODE: "${QR_FORGED}" } }
+- assertVisible: "Not an Eventsli ticket"
+- tapOn: "Scan Next"
+- runFlow: { file: _scan.yaml, env: { CODE: "${QR_GRACE}" } }
+- assertVisible: "Wrong event"

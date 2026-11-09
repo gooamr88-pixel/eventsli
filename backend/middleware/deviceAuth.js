@@ -1,4 +1,5 @@
 const scanSvc = require('../services/scanService');
+const sessions = require('../services/sessionService');
 const { sendFail } = require('../utils/responseEnvelope');
 
 /**
@@ -48,13 +49,36 @@ async function requireDevice(req, res, next) {
    * session row — for the same reason, and a gate at full tilt is a few scans a
    * second, not a few thousand.
    *
-   * `getActiveDevice` returns null on a database error as well as on a revoked
-   * device, and that direction is deliberate: this runs on Express 4, where a
-   * rejected promise from middleware is an unhandled rejection rather than a
-   * 500, and the failure mode of a scanner that cannot reach the database must
-   * be a closed door rather than an open one.
+   * `getActiveDevice` never throws: this runs on Express 4, where a rejected
+   * promise from middleware is an unhandled rejection rather than a 500. A
+   * database error comes back as DEVICE_LOOKUP_FAILED and is refused — the
+   * failure mode of a scanner that cannot reach the database must be a closed
+   * door rather than an open one — but as a 503, not as "revoked".
    */
-  const device = await scanSvc.getActiveDevice(claims.deviceId, { staffUserId: claims.staffUserId });
+  // A person's door is tied to the account session that opened it, checked in
+  // parallel with the device row. Signing out — or ending the session from the
+  // account page because the phone was lost — closes the door now, not when
+  // the 16-hour token runs out.
+  const [device, session] = await Promise.all([
+    scanSvc.getActiveDevice(claims.deviceId, { staffUserId: claims.staffUserId }),
+    claims.sessionId ? sessions.check({ jti: claims.sessionId }) : Promise.resolve('live'),
+  ]);
+  if (session === 'unknown' || device === scanSvc.DEVICE_LOOKUP_FAILED) {
+    // Not an answer about this person or device: a lookup failed (a database
+    // saturated by a door-opening rush, say). Refused — closed, not open — but
+    // as a retryable 503: the app holds the scan, or decides it from its
+    // offline list, instead of leaving the door.
+    return sendFail(res, {
+      status: 503, error: 'SESSION_CHECK_FAILED',
+      message: 'This scanner could not confirm its sign-in. Scans are held; try again in a moment.',
+    });
+  }
+  if (session !== 'live') {
+    return sendFail(res, {
+      status: 401, error: 'SESSION_REVOKED',
+      message: 'This account was signed out, so this door was closed. Sign in again to keep scanning.',
+    });
+  }
   if (!device) {
     return sendFail(res, {
       status: 401, error: 'SESSION_REVOKED',
@@ -73,9 +97,14 @@ async function requireDevice(req, res, next) {
   // token. They agree in every normal case; when they do not, the database is
   // the one that is current.
   // `staffUserId` is set when a named door-team member is scanning, and null
-  // for a shared tablet. Either way the permissions are the same and narrow:
-  // scan, undo and gate status, for this one event.
-  req.device = { deviceId: device.id, eventId: device.eventId, staffUserId: device.staffUserId };
+  // for a shared tablet. Scanning, undo and gate status are the same for all
+  // of them, for this one event. `role` (owner | staff | pin) decides the rest
+  // — the guest list and names — together with the organizer's door settings
+  // (services/doorService.js).
+  req.device = {
+    deviceId: device.id, eventId: device.eventId, staffUserId: device.staffUserId,
+    role: device.role, label: device.label,
+  };
   return next();
 }
 

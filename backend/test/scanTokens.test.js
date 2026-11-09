@@ -12,12 +12,17 @@ const SECRET = 'a-test-secret-long-enough-to-mean-something-0123456789';
 
 test('a device token reads back as a device, with no person on it', () => {
   const token = t.signDeviceToken({ deviceId: 'd1', eventId: 'e1' }, SECRET);
-  assert.deepEqual(t.verifyScanToken(token, SECRET), { deviceId: 'd1', eventId: 'e1', staffUserId: null });
+  assert.deepEqual(t.verifyScanToken(token, SECRET), { deviceId: 'd1', eventId: 'e1', staffUserId: null, sessionId: null });
 });
 
 test('a staff token carries the person as well as the event', () => {
   const token = t.signStaffToken({ deviceId: 'd2', eventId: 'e2', userId: 'u2' }, SECRET);
-  assert.deepEqual(t.verifyScanToken(token, SECRET), { deviceId: 'd2', eventId: 'e2', staffUserId: 'u2' });
+  assert.deepEqual(t.verifyScanToken(token, SECRET), { deviceId: 'd2', eventId: 'e2', staffUserId: 'u2', sessionId: null });
+});
+
+test('a staff token carries the account session that opened the door', () => {
+  const token = t.signStaffToken({ deviceId: 'd3', eventId: 'e3', userId: 'u3', sessionId: 's3' }, SECRET);
+  assert.equal(t.verifyScanToken(token, SECRET).sessionId, 's3');
 });
 
 test('a session-shaped token is not a gate credential', () => {

@@ -1,0 +1,23 @@
+# Airplane mode: admitted on the phone, a second scan is a duplicate, and the
+# admission uploads once when the signal returns.
+appId: com.eventsli.checkin
+---
+- runFlow: _signin-and-open-gala.yaml
+- extendedWaitUntil:
+    visible: "Offline check-in ready.*"
+    timeout: 30000
+- setAirplaneMode: enabled
+- tapOn: "Scan Tickets"
+- runFlow: { file: _scan.yaml, env: { CODE: "${QR_MICHAEL_1}" } }
+- assertVisible: "Check-in Successful"
+- assertVisible: "Checked on this phone.*"
+- tapOn: "Scan Next"
+- runFlow: { file: _scan.yaml, env: { CODE: "${QR_MICHAEL_1}" } }
+- assertVisible: "Already checked in"
+- tapOn: "Scan Next"
+- back
+- assertVisible: "1 scan waiting to upload"
+- setAirplaneMode: disabled
+- extendedWaitUntil:
+    notVisible: "1 scan waiting to upload"
+    timeout: 45000

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { WORLD } from '../../../../components/seating/seatingGeometry';
+import { unitsToPercent, worldOf } from '../../../../components/seating/seatingGeometry';
 import { SNAP_WORLD } from './useCanvasInteraction';
 import { keyOf } from './useMapDraft';
 
@@ -39,6 +39,7 @@ import { keyOf } from './useMapDraft';
 /** Nudge distance in percentage points of the world, and its Shift version. */
 const NUDGE = 1;
 const NUDGE_FAST = 5;
+const DEFAULT_WORLD = worldOf(null);
 
 /** Arrow-pan distance in screen pixels, and its Shift version. */
 const PAN_STEP = 70;
@@ -91,8 +92,13 @@ export function useEditorKeys({
     // With Snap on, an arrow steps one grid cell — so the keyboard lands on the
     // same lattice the drag does, instead of walking off it one percent at a
     // time and looking misaligned next to everything that was snapped.
-    const stepX = snap ? (SNAP_WORLD / WORLD.width) * 100 : (fast ? NUDGE_FAST : NUDGE);
-    const stepY = snap ? (SNAP_WORLD / WORLD.height) * 100 : (fast ? NUDGE_FAST : NUDGE);
+    // The plain steps are percentages of the DEFAULT world, turned into units
+    // first so an arrow press moves the same distance in a stadium as in a ballroom.
+    const base = fast ? NUDGE_FAST : NUDGE;
+    const unit = unitsToPercent(SNAP_WORLD, SNAP_WORLD, d.world);
+    const plain = unitsToPercent(base * DEFAULT_WORLD.width / 100, base * DEFAULT_WORLD.height / 100, d.world);
+    const stepX = snap ? unit.x : (d.world === DEFAULT_WORLD ? base : plain.x);
+    const stepY = snap ? unit.y : (d.world === DEFAULT_WORLD ? base : plain.y);
     const dx = dxUnits * stepX;
     const dy = dyUnits * stepY;
 

@@ -1,3 +1,5 @@
+import { worldOf } from '../../../../components/seating/seatingGeometry';
+
 /**
  * The organizer's own map, in the shape the buyer's SeatMapCanvas draws.
  *
@@ -43,5 +45,6 @@ export function toSaleMap(map, tiers, purchaseMode) {
     ...(map?.looseSeats || []).map((s) => seatFor(s, null)),
   ];
 
-  return { tables, seats, hasMap: tables.length > 0 || seats.length > 0 };
+  // The venue's size: table positions are percentages of it.
+  return { tables, seats, world: worldOf(map?.layout), hasMap: tables.length > 0 || seats.length > 0 };
 }

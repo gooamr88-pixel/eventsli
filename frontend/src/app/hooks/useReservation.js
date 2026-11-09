@@ -28,6 +28,10 @@ import { post } from '../utils/apiClient';
 
 const KEY = 'eventsli.reservation';
 
+/** The header a private table's unlock key travels in — read by the public
+ *  seat map AND by the hold (seatMapController.js). One name, one place. */
+export const TABLE_ACCESS_HEADER = 'x-table-access';
+
 /**
  * A module-level cache, because useSyncExternalStore demands a STABLE snapshot:
  * parsing the JSON on every call returns a new object each time, React sees the
@@ -109,7 +113,17 @@ export function useReservation() {
    */
   const hold = useCallback(async (slug, { seatIds, tableId, tableToken, lines }) => {
     const body = lines ? { lines } : tableId ? { tableId } : { seatIds };
-    const headers = tableToken ? { 'x-access-token': tableToken } : undefined;
+    /**
+     * THE TABLE KEYS GO IN `x-table-access` — the header the seat map is read
+     * with, and the one the hold reads (TECH-AUDIT-LOG S-01).
+     *
+     * They went in `x-access-token`, which is the RESERVATION token's header.
+     * The API never looked there for a table key, so every hold of a private
+     * table — whole, or a seat at it — was refused as "needs its password"
+     * right after the buyer had unlocked it. Sent for seats as well as tables:
+     * a seat at a private table needs the key just the same.
+     */
+    const headers = tableToken ? { [TABLE_ACCESS_HEADER]: tableToken } : undefined;
     // WHAT IS BEING HELD, so the checkout can name it. See `heldNoun` below.
     const kind = lines ? 'general' : tableId ? 'table' : 'seats';
 
@@ -119,6 +133,25 @@ export function useReservation() {
     // behind it would hard-navigate the buyer to /login and lose the selection
     // instead of showing them an error they can act on.
     const data = await post(`/public/events/${slug}/hold`, body, { headers, noRedirect: true });
+
+    /**
+     * ONE HOLD PER TAB (TECH-AUDIT-LOG T-034).
+     *
+     * A buyer who went Back from the checkout and chose again used to keep
+     * BOTH holds: the first one's token was overwritten, so its seats stayed
+     * off sale for 35 minutes and nobody could release them — and the old
+     * checkout, reopened, sent the new token and was refused as "not yours".
+     * The previous hold is released once the new one exists, never before:
+     * a refused new hold leaves the buyer with what they already had.
+     */
+    const previous = snapshot();
+    if (previous?.reservationId && previous.reservationId !== data.reservationId) {
+      post(
+        `/public/reservations/${previous.reservationId}/release`,
+        undefined,
+        { headers: { 'x-access-token': previous.reservationToken }, noRedirect: true },
+      ).catch(() => { /* the sweeper collects it */ });
+    }
 
     const next = {
       reservationId: data.reservationId,
@@ -179,7 +212,9 @@ export function useReservation() {
       // Refused, or never reached. Either way the seats come back on their own.
       return false;
     } finally {
-      commit(null);
+      // Only if the tab still remembers THIS hold. Releasing an older one must
+      // not wipe the record of the newer hold the buyer is paying for.
+      if (snapshot()?.reservationId === target.reservationId) commit(null);
     }
   }, []);
 

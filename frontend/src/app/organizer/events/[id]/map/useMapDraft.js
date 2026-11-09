@@ -3,9 +3,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { makeZone, newZoneId } from '../../../../components/seating/layoutZones';
 import { MIN_ZONE_SIZE, zoneLabel, zoneMeta } from '../../../../components/seating/venueZones';
-import { WORLD } from '../../../../components/seating/seatingGeometry';
+import { moveToWorld, worldOf } from '../../../../components/seating/seatingGeometry';
 import {
-  MAX_SEATS_PER_TABLE, MAX_TABLES, mapProblems, nextLabel, numberedLabel,
+  MAX_SEATS_PER_TABLE, MAX_TABLES, mapProblems, numberedLabel, buildTables,
 } from './draftRules';
 
 export { MAX_TABLES, MAX_SEATS_PER_TABLE };
@@ -43,17 +43,24 @@ export { MAX_TABLES, MAX_SEATS_PER_TABLE };
  *
  * `mergeKey` folds a run of edits to the same thing into one undo step. Typing
  * a table name was one history entry per keystroke.
+ *
+ * THE WORLD IS IN THE SNAPSHOT TOO (`present.world`, the venue's size). Every
+ * position is a percentage of it, so a resize moves every table and zone in the
+ * same step (`resizeWorld`), and an undo that restored the positions without
+ * the size would scatter the room. Every operation below spreads `...p` so the
+ * world rides along untouched.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
 const MAX_HISTORY = 40;
-const EMPTY = Object.freeze({ tables: Object.freeze([]), zones: Object.freeze([]) });
+const DEFAULT_WORLD = worldOf(null);
+const EMPTY = Object.freeze({ tables: Object.freeze([]), zones: Object.freeze([]), world: DEFAULT_WORLD });
 
 export function useMapDraft() {
   const [history, setHistory] = useState({ past: [], present: EMPTY, future: [], mergeKey: null });
   const [saved, setSaved] = useState(EMPTY);
 
-  const { tables, zones } = history.present;
+  const { tables, zones, world } = history.present;
   const dirty = history.present !== saved;
 
   /**
@@ -100,12 +107,48 @@ export function useMapDraft() {
 
   /** Replaces everything without touching history — for the initial load and
    *  for the re-read after a save. What it loads is, by definition, saved. */
-  const reset = useCallback((nextTables, nextZones) => {
-    const snapshot = { tables: nextTables || [], zones: nextZones || [] };
+  const reset = useCallback((nextTables, nextZones, nextWorld) => {
+    const snapshot = { tables: nextTables || [], zones: nextZones || [], world: nextWorld || DEFAULT_WORLD };
     presentRef.current = snapshot;
     setHistory({ past: [], present: snapshot, future: [], mergeKey: null });
     setSaved(snapshot);
   }, []);
+
+  /** What is on screen now — taken when a save starts, to compare after it. */
+  const current = useCallback(() => presentRef.current, []);
+
+  /**
+   * The re-read after a save, WITHOUT losing what was drawn meanwhile
+   * (TECH-AUDIT-LOG T-046).
+   *
+   * A save is a request and a re-read, and the editor stays live through both.
+   * The re-read used to `reset` unconditionally, so a table moved or added in
+   * that second was silently thrown away. Now: if nothing changed since the
+   * save started, the server's copy simply becomes the draft. If something
+   * did, the draft is kept, and the tables this save CREATED get their new ids
+   * (matched by label, which the API keeps unique) — without that, the next
+   * save would create them a second time. The draft stays dirty, because the
+   * later edits are not saved yet.
+   */
+  const rebase = useCallback((nextTables, nextZones, sent, nextWorld) => {
+    if (presentRef.current === sent) {
+      reset(nextTables, nextZones, nextWorld);
+      return;
+    }
+    const savedSnapshot = { tables: nextTables || [], zones: nextZones || [], world: nextWorld || DEFAULT_WORLD };
+    const idByLabel = new Map(savedSnapshot.tables.map((t) => [String(t.label).toLowerCase(), t]));
+    setHistory((h) => {
+      const tables = h.present.tables.map((t) => {
+        if (t.id) return t;
+        const server = idByLabel.get(String(t.label).toLowerCase());
+        return server ? { ...t, id: server.id, status: server.status } : t;
+      });
+      const present = { ...h.present, tables };
+      presentRef.current = present;
+      return { ...h, present };
+    });
+    setSaved(savedSnapshot);
+  }, [reset]);
 
   const undo = useCallback(() => {
     setHistory((h) => {
@@ -173,7 +216,7 @@ export function useMapDraft() {
       if (spec.label) zone.label = String(spec.label);
       return zone;
     });
-    apply({ tables: tablesNext, zones: zonesNext });
+    apply((p) => ({ ...p, tables: tablesNext, zones: zonesNext }));
     return { tableKeys: tablesNext.map((t) => t.localKey), zoneIds: zonesNext.map((z) => z.id) };
   }, [apply]);
 
@@ -257,6 +300,7 @@ export function useMapDraft() {
     }
 
     apply((p) => ({
+      ...p,
       tables: p.tables.map((t) => {
         const e = forTables.get(keyOf(t));
         return e ? { ...t, position: { ...t.position, x: clamp(e.x, 0, 100), y: clamp(e.y, 0, 100) } } : t;
@@ -279,6 +323,7 @@ export function useMapDraft() {
   const rotateSelection = useCallback((selection, degrees) => {
     const turn = (deg) => ((((Number(deg) || 0) + degrees) % 360) + 360) % 360;
     apply((p) => ({
+      ...p,
       tables: p.tables.map((t) => (selection.tables.has(keyOf(t))
         ? { ...t, position: { ...t.position, rotation: turn(t.position?.rotation) } }
         : t)),
@@ -288,6 +333,7 @@ export function useMapDraft() {
 
   const removeSelection = useCallback((selection) => {
     apply((p) => ({
+      ...p,
       tables: p.tables.filter((t) => !selection.tables.has(keyOf(t))),
       zones: p.zones.filter((z) => !selection.zones.has(z.id)),
     }));
@@ -314,6 +360,10 @@ export function useMapDraft() {
     const takenTables = new Set(current.tables.map((t) => String(t.label).trim().toLowerCase()));
     const takenZones = new Set(current.zones.map((z) => zoneLabel(z).toLowerCase()));
     const stamp = Date.now();
+    // `offset` is a percentage of the DEFAULT world (4 % is 40 × 28 units), so
+    // a copy lands the same short step away in a ballroom and in a stadium.
+    const ox = offset * (DEFAULT_WORLD.width / current.world.width);
+    const oy = offset * (DEFAULT_WORLD.height / current.world.height);
 
     const tableCopies = [];
     const room = Math.max(0, MAX_TABLES - current.tables.length);
@@ -332,8 +382,8 @@ export function useMapDraft() {
         hasPassword: false,
         position: {
           ...t.position,
-          x: clamp((t.position?.x || 0) + offset, 0, 100),
-          y: clamp((t.position?.y || 0) + offset, 0, 100),
+          x: clamp((t.position?.x || 0) + ox, 0, 100),
+          y: clamp((t.position?.y || 0) + oy, 0, 100),
         },
       });
     }
@@ -347,14 +397,15 @@ export function useMapDraft() {
         ...z,
         id: newZoneId(),
         label,
-        x: clamp(z.x + offset, 0, 100),
-        y: clamp(z.y + offset, 0, 100),
+        x: clamp(z.x + ox, 0, 100),
+        y: clamp(z.y + oy, 0, 100),
       });
     }
 
     if (tableCopies.length === 0 && zoneCopies.length === 0) return null;
 
     apply((p) => ({
+      ...p,
       tables: [...p.tables, ...tableCopies],
       zones: [...p.zones, ...zoneCopies],
     }));
@@ -378,10 +429,27 @@ export function useMapDraft() {
       ...p,
       zones: p.zones.map((z) => (z.id === id ? {
         ...z,
-        w: clamp(w, MIN_ZONE_SIZE, WORLD.width),
-        h: clamp(h, MIN_ZONE_SIZE, WORLD.height),
+        w: clamp(w, MIN_ZONE_SIZE, p.world.width),
+        h: clamp(h, MIN_ZONE_SIZE, p.world.height),
       } : z)),
     }), options);
+  }, [apply]);
+
+  /**
+   * Changes the venue's size, moving everything with it in ONE undo step so
+   * the room keeps its spacing (`seatingGeometry.moveToWorld`). Returns false,
+   * changing nothing, when what is drawn would not fit the new size.
+   */
+  const resizeWorld = useCallback((next) => {
+    const current = presentRef.current;
+    if (!next || next === current.world) return true;
+    const moved = moveToWorld(current, current.world, next);
+    if (!moved) return false;
+    apply((p) => {
+      const m = p === current ? moved : moveToWorld(p, p.world, next);
+      return m ? { ...p, ...m, world: next } : p;
+    });
+    return true;
   }, [apply]);
 
   /** Restores a zone to its catalogue size — the way back from a resize that
@@ -399,6 +467,7 @@ export function useMapDraft() {
   return {
     tables,
     zones,
+    world,
     dirty,
     problems,
     // Derived from STATE, so the buttons actually enable and disable.
@@ -406,6 +475,8 @@ export function useMapDraft() {
     canRedo: history.future.length > 0,
     apply,
     reset,
+    current,
+    rebase,
     undo,
     redo,
     addTable,
@@ -422,37 +493,8 @@ export function useMapDraft() {
     duplicateSelection,
     resizeZone,
     resetZoneSize,
+    resizeWorld,
   };
-}
-
-/**
- * New table rows from specs, naming any that arrive unnamed against `taken`
- * (which grows as it goes, so a batch cannot collide with itself).
- */
-function buildTables(specs, taken) {
-  const stamp = Date.now();
-  return specs.map((spec, i) => {
-    const label = String(spec?.label || '').trim() || nextLabel(taken);
-    taken.add(label.toLowerCase());
-    return {
-      // No `id`: the API reads its absence as "create". A client-generated
-      // one would be sent as an existing row to update and match nothing.
-      localKey: `new-${stamp}-${i}-${Math.random().toString(36).slice(2, 8)}`,
-      label,
-      seatCount: clampSeats(spec?.seatCount ?? 8),
-      priceCents: spec?.priceCents ?? null,
-      isPrivate: false,
-      shape: spec?.shape || 'round',
-      categoryId: spec?.categoryId ?? null,
-      tierId: spec?.tierId ?? null,
-      seatPriceCents: null,
-      position: {
-        x: clamp(Number(spec?.position?.x) || 0, 0, 100),
-        y: clamp(Number(spec?.position?.y) || 0, 0, 100),
-        rotation: Number(spec?.position?.rotation) || 0,
-      },
-    };
-  });
 }
 
 /** A saved table has an `id`; a new one only has a local key. Both need a
@@ -461,12 +503,7 @@ export function keyOf(table) {
   return table.id || table.localKey;
 }
 
-/** Matches the database: `seat_count INT CHECK (seat_count BETWEEN 1 AND 60)`. */
-function clampSeats(n) {
-  const v = Math.round(Number(n) || 0);
-  return Math.min(MAX_SEATS_PER_TABLE, Math.max(1, v));
-}
-
+/** Positions are percentages of the world, held inside it. */
 function clamp(v, lo, hi) {
   return Math.min(hi, Math.max(lo, v));
 }

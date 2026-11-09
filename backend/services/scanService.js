@@ -121,16 +121,27 @@ async function authenticateDevice({ deviceId, pin }) {
  * request; and the safe answer for a door that cannot check its own credentials
  * is "no".
  */
+/**
+ * Returned when the device could not be LOOKED UP (the database did not
+ * answer), as opposed to looked up and found switched off. Both refuse the
+ * request; only the second is an answer about the device. Under a door-opening
+ * rush that saturated the database, treating the first as "revoked" sent every
+ * phone a 401, which the app reads as "this door was closed" and leaves.
+ */
+const DEVICE_LOOKUP_FAILED = Object.freeze({ lookupFailed: true });
+
 async function getActiveDevice(deviceId, { staffUserId = null } = {}) {
   if (!deviceId) return null;
   const { data, error } = await supabase
     .from('scan_devices')
     .select(`id, event_id, label, is_active, staff_id,
-             event_staff ( user_id, revoked_at, profiles!event_staff_user_id_fkey ( is_blocked ) )`)
+             event_staff ( user_id, revoked_at, profiles!event_staff_user_id_fkey ( is_blocked ) ),
+             events ( organizers ( owner_user_id ) )`)
     .eq('id', deviceId)
     .maybeSingle();
 
-  if (error || !data || !data.is_active) return null;
+  if (error) return DEVICE_LOOKUP_FAILED;
+  if (!data || !data.is_active) return null;
 
   // The token and the row must agree about what kind of principal this is: a
   // PIN token cannot ride a person's device, and a person's token cannot ride
@@ -145,7 +156,20 @@ async function getActiveDevice(deviceId, { staffUserId = null } = {}) {
     if (!staff || staff.revoked_at || staff.user_id !== staffUserId || person?.is_blocked) return null;
   }
 
-  return { id: data.id, eventId: data.event_id, label: data.label, staffUserId: staffUserId || null };
+  /**
+   * What this principal may SEE, decided here and never by the client:
+   *   owner — the event's organizer, scanning their own door: everything.
+   *   staff — a door-team member: the gate, plus whatever the organizer shares.
+   *   pin   — a shared tablet: the same as staff.
+   */
+  const event = Array.isArray(data.events) ? data.events[0] : data.events;
+  const organizer = Array.isArray(event?.organizers) ? event.organizers[0] : event?.organizers;
+  let role = 'pin';
+  if (staffUserId) role = organizer?.owner_user_id === staffUserId ? 'owner' : 'staff';
+
+  return {
+    id: data.id, eventId: data.event_id, label: data.label, staffUserId: staffUserId || null, role,
+  };
 }
 
 /** Either gate credential — see scanTokens.js. */
@@ -160,7 +184,18 @@ function verifyDeviceToken(token) {
  * without a round trip, which matters at a gate on a saturated network — and it
  * means a flood of junk codes cannot become a flood of queries.
  */
-async function scan({ qr, deviceId, eventId, clientScanId, occurredAt }) {
+/**
+ * How a check-in was taken, as the log records it. `scan` is a code read live,
+ * `offline` one read with no signal and uploaded later, `manual` a ticket
+ * picked from the door list. Anything else is the caller's default — never a
+ * reason to refuse somebody at a door.
+ */
+const METHODS = new Set(['scan', 'manual', 'offline']);
+
+async function scan({
+  qr, deviceId, eventId, clientScanId, occurredAt,
+  method = 'scan', offlineAdmitted = false,
+}) {
   const decoded = decodeQrToken(qr);
   if (!decoded) {
     return { ok: false, result: 'invalid', message: 'That code was not issued by us.' };
@@ -172,13 +207,34 @@ async function scan({ qr, deviceId, eventId, clientScanId, occurredAt }) {
     return { ok: false, result: 'wrong_event', message: 'That ticket is for a different event.' };
   }
 
-  const { data, error } = await supabase.rpc('check_in_ticket', {
+  // v2 also checks the event in the database (T-054), the code's version
+  // against the ticket's (T-016), and the order still being paid (T-023).
+  const { data, error } = await supabase.rpc('check_in_ticket_v2', {
+    p_event_id: eventId,
     p_ticket_id: decoded.ticketId,
+    p_qr_version: decoded.version,
     p_device_id: deviceId,
     p_client_scan_id: clientScanId || null,
     p_occurred_at: occurredAt || null,
+    p_method: METHODS.has(method) ? method : 'scan',
+    p_offline_admitted: offlineAdmitted === true,
   });
 
+  // The database did not answer: not a decision. `unavailable` lets the live
+  // routes answer 503 (the door holds the scan); in an upload the row says
+  // 'error' and the phone sends it again.
+  if (error) return { ok: false, result: 'error', message: error.message, unavailable: true };
+  return data;
+}
+
+/**
+ * Reverses an admission at this device's own event. A ticket at another event
+ * comes back as `not_found` — a device has no business learning it exists.
+ */
+async function undo({ ticketId, deviceId, eventId }) {
+  const { data, error } = await supabase.rpc('undo_check_in_v2', {
+    p_event_id: eventId, p_ticket_id: ticketId, p_device_id: deviceId,
+  });
   if (error) return { ok: false, result: 'error', message: error.message };
   return data;
 }
@@ -217,6 +273,11 @@ async function syncBatch({ deviceId, eventId, scans }) {
       const r = await scan({
         qr: s.qr, deviceId, eventId,
         clientScanId: s.clientScanId, occurredAt: s.occurredAt,
+        // A queue is, by definition, scans taken without a connection. The
+        // native app also says whether it already let the person in, which is
+        // what turns a late duplicate into a flagged conflict.
+        method: METHODS.has(s.method) ? s.method : 'offline',
+        offlineAdmitted: s.offlineVerdict === 'admitted',
       });
       results[index] = { clientScanId: s.clientScanId, ...r };
     }
@@ -234,6 +295,6 @@ async function gateStatus(eventId) {
 
 module.exports = {
   registerDevice, listDevices, setDeviceActive,
-  authenticateDevice, verifyDeviceToken, getActiveDevice,
-  scan, syncBatch, gateStatus,
+  authenticateDevice, verifyDeviceToken, getActiveDevice, DEVICE_LOOKUP_FAILED,
+  scan, undo, syncBatch, gateStatus,
 };

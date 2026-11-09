@@ -127,8 +127,9 @@ async function attendees(req, res, next) {
       .select(`
         id, attendee_name, attendee_email, status, scanned_at, created_at,
         transfer_count, transferred_from,
+        issued_table_label, issued_section, issued_row, issued_seat_number,
         seats ( section_key, row_label, seat_number ),
-        tables ( label ),
+        tables ( label, section_name ),
         ticket_tiers ( name ),
         orders!inner ( id, channel, status, guest_name, guest_email )
       `, { count: 'exact' })
@@ -139,6 +140,15 @@ async function attendees(req, res, next) {
     // `?checkedIn=true|false` — the two questions actually asked at a door.
     if (req.query.checkedIn === 'true') query = query.not('scanned_at', 'is', null);
     if (req.query.checkedIn === 'false') query = query.is('scanned_at', null);
+
+    // Offline conflicts: tickets two doors let in while out of signal (the
+    // second admission is flagged when its phone uploads, 20261108090000).
+    // Both guests are inside; the organizer follows up. Few per event, so the
+    // ids are read first and the list filtered to them.
+    const conflictIds = await conflictedTickets(req.params.eventId);
+    if (req.query.checkedIn === 'conflict') {
+      query = query.in('id', conflictIds.size ? [...conflictIds] : ['00000000-0000-0000-0000-000000000000']);
+    }
 
     if (p.q) {
       const safe = safeSearch(p.q);
@@ -155,7 +165,7 @@ async function attendees(req, res, next) {
         .eq('event_id', req.params.eventId).eq('status', 'valid'),
     ]);
 
-    return sendOk(res, (data || []).map(shapeAttendee), {
+    return sendOk(res, (data || []).map((t) => ({ ...shapeAttendee(t), conflict: conflictIds.has(t.id) })), {
       pagination: buildMeta(p, count),
       meta: { admitted: Number(admitted) || 0, valid: Number(issued) || 0 },
     });
@@ -212,6 +222,17 @@ function shapeOrder(o) {
   };
 }
 
+/** Tickets at this event with an admission flagged as an offline conflict. */
+async function conflictedTickets(eventId) {
+  const { data, error } = await supabase
+    .from('scans').select('ticket_id')
+    .eq('event_id', eventId).eq('conflict', true)
+    .not('ticket_id', 'is', null)
+    .limit(5000);
+  if (error) throw new Error(`could not read door conflicts: ${error.message}`);
+  return new Set((data || []).map((r) => r.ticket_id));
+}
+
 function shapeAttendee(t) {
   const seat = Array.isArray(t.seats) ? t.seats[0] : t.seats;
   const table = Array.isArray(t.tables) ? t.tables[0] : t.tables;
@@ -226,8 +247,18 @@ function shapeAttendee(t) {
     // and carry no separate attendee name, and a door list of blanks is useless.
     name: t.attendee_name || order?.guest_name || null,
     email: t.attendee_email || order?.guest_email || null,
-    seat: seat ? `${seat.section_key} ${seat.row_label}${seat.seat_number}` : null,
-    table: table?.label || null,
+    // As ISSUED (TECH-AUDIT-LOG S-16): the door list matches the ticket the
+    // guest holds even after a table is renamed. Live names only for a ticket
+    // with no snapshot.
+    ...(t.issued_section != null || t.issued_table_label != null
+      ? {
+        seat: t.issued_section != null ? `${t.issued_section} ${t.issued_row}${t.issued_seat_number}` : null,
+        table: t.issued_table_label || null,
+      }
+      : {
+        seat: seat ? `${seat.section_key} ${seat.row_label}${seat.seat_number}` : null,
+        table: table && !table.section_name ? table.label : null,
+      }),
     tier: tier?.name || null,
     status: t.status,
     checkedIn: !!t.scanned_at,

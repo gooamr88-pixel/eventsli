@@ -1,0 +1,9 @@
+# Start clean and load the app's JavaScript from Metro (the development build).
+appId: com.eventsli.checkin
+---
+- launchApp:
+    clearState: true
+- openLink: ${METRO_LINK}
+- extendedWaitUntil:
+    visible: "Sign In"
+    timeout: 60000

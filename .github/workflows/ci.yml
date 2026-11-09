@@ -121,6 +121,45 @@ jobs:
           # that refusal is wired up.
           NEXT_PUBLIC_SUPABASE_URL: https://qvoyxwszojwyyelsjskm.supabase.co
 
+  # The native check-in app (Expo). Its own package and lockfile, outside the
+  # npm workspaces: Expo pins a React version the website does not use.
+  mobile:
+    name: Check-in app
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            mobile/package-lock.json
+            package-lock.json
+      - run: npm ci
+      # The offline-admission tests sign codes with the backend's own
+      # services/qrSigning.js, so the app's verifier and the API cannot drift
+      # apart. That module needs the backend's packages (jsonwebtoken).
+      - name: Backend packages, for the app/API cross-check tests
+        working-directory: .
+        run: npm ci --ignore-scripts
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Lint
+        run: npx eslint .
+      # Includes the contract test that reads the backend's SQL and fails if a
+      # scan `result` has no screen in the app.
+      - name: Unit tests
+        run: npm test -- --ci
+      - name: Expo doctor
+        run: npx expo-doctor
+      # Metro bundles every route for both platforms. Catches a broken import
+      # or route without a native build.
+      - name: Bundle
+        run: npx expo export --platform android --platform ios --output-dir /tmp/expo-export
+
   integration:
     name: Integration tests
     runs-on: ubuntu-latest

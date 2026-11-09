@@ -66,14 +66,14 @@ migration and therefore a local Supabase stack to verify.
 | T-013 | High | Pre-account takeover: Google sign-in verifies an unverified account but keeps the squatter's password [SEC-03] | Fixed (verified) |
 | T-014 | High | Open redirect after login/register/verify: `safeNext` accepts `/\evil.test` and `/<TAB>/evil.test` [FE-01, SEC-06] | Fixed (verified) |
 | T-015 | High | `tableIsPrivate` ignores the lookup error and fails OPEN → private table holdable without its password [BE-08] | Fixed (verified by review) |
-| T-016 | High | Ticket transfer does not move the credential: old QR still admits the seller, recipient gets nothing **[mig]** [SEC-01, BE-04] | Open |
-| T-017 | High | Growing a held table lets a new seat be sold twice; `fulfill_checkout` issues by table membership **[mig]** [DB-01] | Open |
-| T-018 | High | Cutting a tier's allocation ignores live holds → paid checkout rolls back, no tickets **[mig]** [DB-02] | Open |
+| T-016 | High | Ticket transfer does not move the credential: old QR still admits the seller, recipient gets nothing **[mig]** [SEC-01, BE-04] | Fixed (verified locally) — see "Check-in v2" below; production needs migration `20261108090000` |
+| T-017 | High | Growing a held table lets a new seat be sold twice; `fulfill_checkout` issues by table membership **[mig]** [DB-01] | Fixed (verified locally, 2026-11-09): migration `20261111090000`, not yet applied to production — see "Tickets, seat map and buying" below |
+| T-018 | High | Cutting a tier's allocation ignores live holds → paid checkout rolls back, no tickets **[mig]** [DB-02] | Fixed in the API (verified locally, 2026-11-09): a cut below sold + held is refused. A hold landing in the same millisecond can still pass; closing that needs the lock **[mig]** |
 | T-019 | Medium | Login lockout counter is read-modify-write (bypassed by parallel attempts) **[mig]**; credential limiter keyed on un-normalised email [SEC-05] | In progress — limiter key fixed; atomic counter needs [mig] |
 | T-020 | Medium | Unnamed rate limiters share one Redis counter when `REDIS_URL` is set [SEC-07, BE-05] | Fixed (verified) |
 | T-021 | Medium | Verification code + email written to logs when mail fails (subject carries the code); raw IP logged at the gate [SEC-08] | Fixed (verified) |
 | T-022 | Medium | Seat hoarding: 15 holds/5 min/IP × 35 min TTL [SEC-04] | Needs owner (policy) |
-| T-023 | Medium | Refunded / charged-back tickets still scan in [BE-19, extends I-007] | In progress — refunds and lost disputes now void tickets (T-074); refund initiation stays with the organizer |
+| T-023 | Medium | Refunded / charged-back tickets still scan in [BE-19, extends I-007] | In progress — refunds and lost disputes now void tickets (T-074); refund initiation stays with the organizer. The door now also refuses any ticket whose order is no longer `paid` (Check-in v2) |
 | T-024 | Low | `GET /public/reservations/:id/quote` needs no reservation token [SEC-09] | Open |
 | T-070 | **High** | The Stripe account has **Managed Payments on by default**; it refuses any Checkout Session whose line item has no product `tax_code`. `createCheckoutSession` sends none, so on this account every card checkout would be refused | Fixed (owner-approved 2026-11-06; verified in units + test-mode API; full Connect pay pending T-073) |
 | T-073 | **High** | The platform (test mode) cannot create organizer Connect accounts: Stripe refuses `accounts.create({ type: "express" })` while the platform has not confirmed it is the losses collector. The app's error translator sent operators to the wrong setting for this refusal | Superseded by T-074 (do NOT accept platform loss liability); translator fix kept |
@@ -92,19 +92,19 @@ migration and therefore a local Supabase stack to verify.
 | T-031 | Medium | Error handler turns body-parser 400/413 into 500 [BE-11] | Fixed (verified) |
 | T-032 | Medium | Non-numeric `RESERVATION_TTL_MINUTES` → NaN passes the boot check; `FRONTEND_URL` not required in prod [BE-15, QA-10] | Fixed (verified) |
 | T-033 | High | Gate crashes when "Stop the camera" is pressed after the camera failed; a cancelled start leaves the stream running [FE-03] | Fixed (verified in units; not run on a camera) |
-| T-034 | High | A second hold silently strands the first; checkout uses whichever token is stored [FE-04] | Open |
-| T-035 | High | Buyer seat map not operable by keyboard (Enter/Space do nothing) — blocks purchase [FE-02] | Open |
-| T-036 | Medium | Success page says "Nothing was charged" for a payment still `unpaid`/pending [FE-07] | Open |
+| T-034 | High | A second hold silently strands the first; checkout uses whichever token is stored [FE-04] | Fixed (verified in the browser, 2026-11-09) |
+| T-035 | High | Buyer seat map not operable by keyboard (Enter/Space do nothing) — blocks purchase [FE-02] | Fixed (verified in the browser, 2026-11-09) |
+| T-036 | Medium | Success page says "Nothing was charged" for a payment still `unpaid`/pending [FE-07] | Fixed (units; not run against a delayed Stripe payment) |
 | T-037 | Medium | `apiClient`: a caller signal removes the 30 s timeout; body read is untimed [FE-08] | Open |
 | T-038 | Medium | Webhook subscription list in DEPLOY.md misses `async_payment_succeeded`, `charge.dispute.created` [QA-05] | Open |
-| T-039 | Medium | Ignored Supabase `error` on hold/checkout/Connect/release paths [BE-08 rest] | Open |
+| T-039 | Medium | Ignored Supabase `error` on hold/checkout/Connect/release paths [BE-08 rest] | In progress: the three hold RPCs now check their error (2026-11-09); checkout, Connect and release paths remain |
 | T-040 | Medium | Raw DB error messages returned to clients [BE-10] | Open |
 | T-041 | Medium | Invoice issued/settled emails never sent (dead functions) [BE-06] | Open |
 | T-042 | Medium | `?maxPrice=` scans every tier, truncates at 1000, can build a 75 KB URL [BE-07] | Open |
 | T-043 | Medium | pm2 `kill_timeout` (1.6 s) < app drain (10 s); DEPLOY.md claims zero-downtime reload in fork mode [QA-07] | Open |
 | T-044 | Medium | No DB request timeout on the Supabase client [BE-16] | Open |
 | T-045 | Medium | Ticket emails fire-and-forget, no outbox [BE-09] | Deferred (Phase 3, needs table) |
-| T-046 | Medium | Search box drops `to`/`country`; gate undo leaves "Admitted"; map edits during save lost; Back loses map work; countdown announced every second [FE-05, FE-06, FE-09, FE-10, FE-11] | Open |
+| T-046 | Medium | Search box drops `to`/`country`; gate undo leaves "Admitted"; map edits during save lost; Back loses map work; countdown announced every second [FE-05, FE-06, FE-09, FE-10, FE-11] | Open — the gate-undo part is Fixed (unverified: no browser run), see "Check-in v2" |
 
 ### Phase 3 — Data integrity & performance (all **[mig]**)
 
@@ -114,7 +114,7 @@ migration and therefore a local Supabase stack to verify.
 | T-051 | Medium | Missing indexes: `orders(guest_email)`, `reservations(event_id,state)`, SET NULL FKs on tickets/order_items, `site_visits(path,day)` [DB-06] | Open |
 | T-052 | Medium | PII retained forever (`webhook_events.payload`, abandoned `attendee_data`, resets, verifications) [DB-07] | Needs owner (retention periods) |
 | T-053 | Low | Door sale lock order can deadlock with `hold_table` [DB-08] | Open |
-| T-054 | Low | `invoices.due_at` nullable [DB-09]; check-in RPCs not event-scoped [DB-10]; promo code case-insensitive uniqueness [DB-11]; FKs blocking profile erasure [DB-12]; `search_path` without `pg_temp` [DB-13] | Open |
+| T-054 | Low | `invoices.due_at` nullable [DB-09]; check-in RPCs not event-scoped [DB-10]; promo code case-insensitive uniqueness [DB-11]; FKs blocking profile erasure [DB-12]; `search_path` without `pg_temp` [DB-13] | Open — the DB-10 part (check-in RPCs) is Fixed (verified locally), see "Check-in v2" |
 | T-055 | High | `verify-schema.js` checks names only — cannot confirm I-003/I-004 or most later migrations [DB-04] | Open |
 | T-069 | High | Two migrations guarded `INSERT INTO storage.buckets` on the storage SCHEMA existing; current Supabase images create an empty `storage` schema with storage disabled, so every fresh stack failed at `20260905090000` | Fixed (verified) |
 
@@ -1047,3 +1047,299 @@ refund plus dispute where `sessionForPaymentIntent` returns the organizer's
 own session. Each test fails on the previous controller (20/23) and passes
 with the fix (23/23). Full backend suite: **774/774** (local Supabase stack,
 Node 26; CI uses Node 22).
+
+## Check-in v2 — Phase 0 of the native check-in app (2026-11-08)
+
+The owner approved a native iOS/Android check-in app built on the existing
+`/scan/*` API. The `/gate` PWA stays, as the fallback that needs no install.
+Phase 0 hardens the gate that both clients share. Migration
+`20261108090000_checkin_v2.sql` adds `check_in_ticket_v2` and
+`undo_check_in_v2`. The v1 functions are kept so that a code-only rollback
+still works.
+
+**Fixed:**
+- **T-016.** A transfer now bumps `tickets.qr_version`, and the QR carries `v`.
+  A code older than its ticket is refused as `transferred`.
+  - The buyer's order views (My tickets, `/t/<token>`, resent emails) return a
+    transferred ticket with `qr: null` and `transferredAway: true`. Before
+    this, a freshly minted code there would have let the seller back in.
+  - `GET /tickets` now also lists tickets *received* by the signed-in address
+    (`ticketService.receivedBy`). Before this, "it is in your account" was
+    false.
+  - Tickets transferred before this change keep v0, so their current holders'
+    emailed codes still work. Those few tickets are still exposed.
+- **T-023 (door part).** The door refuses a ticket whose order is not `paid`.
+- **T-054 / DB-10.** Both v2 functions match on (ticket, event).
+- **T-046 (gate undo).** `GateScanner` updates the result card after an undo.
+- **Other changes:**
+  - Events that are not `published`/`archived` are refused as
+    `event_not_open`. This is the same set staff sign-in allows; before, a PIN
+    device could admit people to a suspended event.
+  - The replay check runs again under the row lock, and a unique violation is
+    answered as the replay. Before, simultaneous uploads of the same scan
+    could return `error`.
+  - The door is shown the buyer's name when the ticket has none, flagged with
+    `holder_is_buyer`. After a transfer, no name is shown.
+  - The duplicate message now gives the time in the event's time zone, not UTC.
+  - `occurred_at` is clamped to [now − 48 h, now].
+  - Refusals about a ticket are logged in `scans`.
+  - New columns `scans.method` (`scan`/`manual`/`offline`) and
+    `scans.conflict`. An offline admission that comes back as a duplicate is
+    flagged, and `/scan/sync`'s summary gains `conflicts`.
+  - New column `tickets.updated_at`, maintained by a trigger, for the app's
+    offline manifest deltas.
+
+**Evidence (local Supabase stack, Node 26; CI uses Node 22):**
+- `checkin.test.js`: **22/22**. There are 6 new tests:
+  - a transfer moves the code
+  - a same-instant replay is never `error`
+  - a closed event and an unpaid order are refused and logged
+  - an offline conflict is flagged
+  - the RPCs are event-scoped
+  - name, tier and time zone are shown on admit and duplicate
+- Full backend unit suite: **449/449**. Full integration suite: **330/330**.
+- Frontend: vitest 752/755. The 3 failures are in `aiCreator.test.jsx` and
+  fail identically with these changes stashed, so they pre-date this work and
+  are unrelated.
+- Frontend: lint clean, `npm run check` passes, `next build` passes.
+- `gateOutcomes.test.js` now reads every migration that defines a check-in
+  function, and fails if `transferred` or `event_not_open` has no screen.
+
+**Production:** apply `20261108090000_checkin_v2.sql` (via
+`backend/scripts/apply-migration.js`) BEFORE deploying the API that calls
+`check_in_ticket_v2`.
+
+---
+
+## Check-in app: device test round 1, offline admission and launch hardening (2026-11-09)
+
+Done on `feature/checkin-app`. Not committed, pushed or deployed. The API
+contract is docs/CHECKIN-APP-API.md; the release runbook is mobile/RELEASE.md.
+
+**Found on a real Android phone (round 1), now fixed:**
+- **Unhandled `ROUTE_NAMES_CHANGED` warning.** Screens navigated after changing
+  the session, which built the door's screens twice. Now only the session
+  moves the phone, and Settings lives inside each group of screens.
+- **Guest search found nobody who was already inside.** It searched within
+  the "Not yet" filter. A search now covers every guest, and the door list
+  matches each word, in any order, ignoring accents (migration
+  `20261109090000`).
+
+**Offline admission (migration `20261110090000`):**
+- QR v2 codes are ES256 with a public key the device checks
+  (`services/qrSigning.js`).
+- `GET /scan/keys` and `GET /scan/manifest`, with paging and changes-only
+  refreshes.
+- A trigger makes any order-status change count as a change to its tickets.
+- Offline conflicts appear on the website's door list.
+
+**Found by the load test (`scripts/load-gate.js`) at 3× the target rate, now fixed:**
+- **A failed device lookup was answered 401.** The app reads 401 as "this door
+  was closed" and leaves it, so a database saturated by a rush would have
+  signed every phone out. It is now a retryable 503; only a real revocation is
+  a 401.
+- **A scan the database did not answer came back as a 200 `error`.** Both
+  clients showed it as settled, and an offline admission uploaded during
+  overload was marked done and never retried, so the server would never have
+  heard of it. Now `/scan/verify` and `/scan/manual-check-in` answer 503
+  `SCAN_UNAVAILABLE`, and the app retries `error` rows in an upload up to 5
+  times.
+- Exactly-once held in every run, including under overload.
+
+**Store readiness:**
+- `expo-audio` and `expo-camera` defaults had added the microphone, a
+  foreground media service, background audio and a Face ID text. All are gone,
+  checked in the generated manifests.
+- Android backup is off.
+- Sentry is scrubbed of guest data, and off without a DSN.
+- EAS Update is configured, with a fingerprint runtime.
+- Contrast and screen-reader roles are now enforced by tests.
+
+**Evidence (local stack, Node 26):**
+- 50 scans/s sustained for 60 s over 20 doors: scan p95 68 ms, no errors,
+  exactly-once OK.
+- 100/s: p95 591 ms, no errors.
+- 150/s: the laptop saturates. Rejected requests are retryable 503s, with no
+  401 and no lost admission.
+
+## Tickets, seat map and buying: walkthrough fixes (2026-11-09)
+
+The owner reported problems in tickets, the seat map and buying. A guest
+purchase was walked end to end on the local stack (event "Flow Test Dinner":
+six tables, VIP / Standard / free tiers, one private table). Findings:
+
+| ID | Severity | Finding | Status |
+|---|---|---|---|
+| T-080 | **Critical** | **Free tickets could not be claimed.** Since T-074 every quote is `chargeModel: 'direct'`, and `fulfill_checkout` refuses a direct order with no organizer Stripe account, so every free claim (and every order a 100%-off code brings to zero) answered 403 "That payment was not collected on this event organizer's account". Live in production since `def1750`. No integration test covered `/claim`. | Fixed in `claimFree`: quoted as DESTINATION, the model every non-Stripe order is recorded under (column default). No migration. Verified: claim 201, ticket issued |
+| T-081 | High | The hold screen told every buyer "Finish within 1 minutes" on a 35-minute hold, and its ring never drew: `quoteReservation` did not select `created_at`, so `heldForMs` was always null | Fixed (verified: quote 2100000 ms, screen reads "35 minutes") |
+| T-082 | Medium | Seats of every ticket type were drawn alike, with no price on the map; a buyer had to select a seat to learn its price | Fixed: a price legend per ticket type that highlights its seats, and the price in each seat's tooltip and accessible name (verified in the browser) |
+| T-083 | Medium | An event whose tables are ALL private showed "This event has no seat map yet", and the invitation's unlock dialog was never reached | Fixed in `SeatPicker` (by review; no all-private event run) |
+| T-084 | Low | Public seat map listed tables in id order, so keyboard and screen-reader order was random (T2, T5, T1…) | Fixed: label order (verified) |
+| T-085 | Medium | Map editor: edits made while a save was in flight were wiped by the post-save re-read (the map part of T-046) | Fixed: the re-read keeps later edits and adopts the new tables' ids by label (by review and lint; not driven in the browser) |
+| T-086 | **High** | **Changing a table's ticket type after its first save did nothing.** `save_venue_map` wrote `tier_id` and `price_override_cents` only for NEW tables, so an organizer who drew the room, saved, then assigned ticket types got a 200 and unchanged seats. Unpriced seats are refused at the hold ("These seats are not on sale yet"). | Fixed in migration `20261111090000`: available seats take the type and price; held and sold seats keep what was bought |
+
+**T-017 and T-086, migration `20261111090000_venue_map_seat_integrity`.**
+Both functions are the live definitions with only the marked changes:
+`save_venue_map` refuses to add seats to a table with an active or converted
+whole-table reservation and writes the ticket type and seat price to an
+existing table's available seats; `fulfill_checkout` issues a whole-table
+order's seats only where `held_by_reservation` is that reservation.
+
+Evidence (local stack): on the OLD functions, a table held whole was grown to
+9 seats (200) and seat 9 was then held separately (201), and assigning VIP to
+an existing table left 0 of 8 seats VIP. On the new ones the growth is refused
+(409 "booked as a whole table"), VIP reaches 8 of 8, and a free whole-table
+claim still issues 8 tickets for 8 seats. Two new tests in
+`test/integration/venueMap.test.js` fail on the old functions and pass on the
+new; venueMap, fulfillment, seatConcurrency, privateTables and largeVenueMap
+pass 68/68. `verify-schema.js` checks both bodies.
+
+**Production:** apply `20261111090000` with `apply-migration.js`, then run
+`verify-schema.js`. Deploy order: any; the API does not change shape.
+
+Still open from this area: the rest of T-039, T-024, T-050, T-060 (now including a
+`/claim` integration test, which would have caught T-080).
+
+**Local test data, not product changes:** the demo organizer's organization
+details were filled in, the check-in demo's LAN-only cover URLs
+(`192.168.1.6`) were cleared because `next/image` refuses that host, and
+"Flow Test Dinner" was created and published directly in the local DB.
+
+---
+
+## Seating, pricing and checkout audit (2026-11-09)
+
+A code-traced audit of the seat map, ticket types, pricing, holds, checkout and
+door sales, followed the same day by its remediation. Findings are numbered
+S-01..S-21 (separate from T-numbers, which they reference where they overlap).
+Everything below is verified on the local stack unless marked otherwise.
+
+| ID | Sev | Finding | Status |
+|---|---|---|---|
+| S-01 | **Critical** | Private tables could never be bought: the hold sent the table key in `x-access-token`, the API reads `x-table-access`; a seat at a private table sent no key at all. Backend tests sent the right header by hand, so CI passed | Fixed (`useReservation`, `SeatPicker`); `test/holdHeaders.test.jsx` pins the request and the header name against the backend source. Not driven in a browser |
+| S-02 | **High** | The editor read a table's ticket type and seat price from `seats[0]`, in id order; after a partial sale an unrelated save could put the old type back on every available seat | Fixed: `tables.tier_id` / `tables.seat_price_cents` are the source of truth (backfilled), returned by the API and read by the editor |
+| S-03 | **High** | Map save was a full replace with no version check: a stale tab silently deleted another tab's new tables | Fixed: `save_venue_map(…, p_expected_version)` refuses with `MAP_STALE` (409); the editor sends its version and offers "Reload the map" |
+| S-04 | **High** | Two pricing rules: the editor counted a whole-table price as pricing the seats, the database never did (`override → type → 0`). Editor said "Every table has a price", submission then refused; a live map could gain unsellable seats | Fixed: editor counts exactly as the server does, by purchase mode; a live (non-table-only) map cannot be saved with unpriced seats; the per-table seat price is now settable; comments corrected |
+| S-05 | Medium | `hold_table` skipped the ticket types' sale window and the general-admission refusal | Fixed in the migration |
+| S-06 | Medium | A ticket type's `max_per_order` was offered on reserved events and never enforced | Fixed in `hold_seats`, and checked in the seat picker before the hold |
+| S-07 | Medium | The buyer map showed unpriced, off-sale and sold-out seats as available; ticket-type refusals reloaded the same map (loop) | Fixed: `seatSellability.js`; `available` now means "can be chosen now", with a `reason`; tiers carry `onSale`/`soldOut`/`maxPerOrder`; `canBookWhole` requires every seat sellable |
+| S-08 | Medium | Blocked seats counted as booked: a fully blocked table could not be removed or shrunk ("booked"), blocked seats kept old prices, and they disabled the AI designer | Fixed: deletion and shrink checks read held/sold seats only; blocked seats follow the table's type; editor counts them separately |
+| S-09 | Medium | Every save locked every table and rewrote every seat and table, so buyers' holds queued behind it | Fixed: only changed and deleted tables are locked and written. Verified: a no-op save of a 300-seat map rewrote 0 seats and 0 tables (rolled-back transaction) |
+| S-10 | Medium | Map, ticket-type, category and blocking writes were not limited by event status | Fixed: `middleware/eventEditable.js` on all ten routes (cancelled/completed refused, archived unless admin); `save_venue_map` refuses cancelled/completed, general-admission and listing-only events. Owner decision 2026-11-10: no review; every price change is logged by trigger to `admin_audit` with its actor. Done — see "Owner decisions and the remaining seating work" |
+| S-11 | Medium | "From $X" was the cheapest visible ticket type, used or not, on sale or not | Fixed: `event_from_prices` (sellable stock only), used by listings, landing and the assistant |
+| S-12 | Medium | A whole table sold at the door wrote a line per seat at ticket-type prices; lines did not add up to the order | Fixed: one table line at the table price |
+| S-13 | Medium (UX) | A general-admission event hid the seat map with no explanation | Fixed: the row stays, disabled, with the reason and where to change it; Back/Next walks past it |
+| S-14 | Low | Swapping two table names hit the seat uniqueness rule and showed a raw Postgres error | Fixed: renamed tables' seats step aside first |
+| S-15 | Low | "Sold individually … for good" for seats merely held or blocked | Fixed in `hold_table` and `errors.js` |
+| S-16 | Low | Renaming a table renames sold seats' section; sent tickets show the old name | Owner decision 2026-11-10: snapshot. Done — immutable issued snapshot on `tickets`, read by tickets, emails, the door list and the check-in app |
+| S-17 | Low | Ignored read errors: quote (items, event), the applied promo (charged full price on a failed read), the map save's event lookup, the editor's ticket-type and category lists | Fixed; the promo read fails closed |
+| S-18 | Low | The ticket-type price lock is stricter than needed (each hold freezes its own price) and bypassable via seat prices | Owner decision 2026-11-10: prices may change after a sale. Done — lock dropped; sold orders and lines are immutable by trigger |
+| S-19 | Low | Theatre rows are tables with `row_label` 'A'; section/row names live only in the layout blob | Fixed 2026-11-10: `tables.section_name` / `row_name`; seats addressed Section · Row · Seat |
+| S-20 | Low | Signed-in buyers had to retype their email | Fixed: prefilled, still editable. `HoldConfirm` step kept (deliberate, T-081) |
+| S-21 | Low | No test across the browser↔API contract | Fixed 2026-11-10: `holdHeaders.test.jsx` and `apiContracts.test.js` read the backend source and pin the seating and checkout requests to it. No browser end-to-end run exists (see blockers) |
+
+**Migration `20261112090000_seating_pricing_integrity`.** Adds
+`tables.tier_id` and `tables.seat_price_cents` (backfilled deterministically
+from each table's available seats), replaces `save_venue_map` with a
+four-argument version (old signature dropped, grants restated), re-issues
+`hold_seats`, `hold_table` and `record_manual_sale` with only the marked
+changes, and adds `event_from_prices`. Re-runnable. `verify-schema.js` checks
+the new columns, function and bodies.
+
+**DEPLOY ORDER: migration FIRST, then the API.** The old API's three-argument
+call still matches the new `save_venue_map` (the version defaults to NULL, no
+check); the new API's four-argument call does not exist before the migration.
+After the deploy, any live map that already holds unpriced seats will refuse
+its next save until a ticket type is chosen for the named tables; that is the
+intent.
+
+**Evidence (local stack).** Before the fix the 12 new integration tests all
+failed, for the reasons in the table (e.g. `duplicate key … seats_venue_map_id_section_key…`
+for S-14, "these tables have been booked … Gone" for S-08). After: backend
+858/858 + 12 new + 5 unit (`seatSellability.test.js`); frontend 774/777. The
+3 frontend failures are `aiCreator.test.jsx`, whose fixture event is dated
+2026-11-07 and has gone stale (an extra "starts in the past" problem), not a
+regression; it needs a relative date.
+
+**Not done here:** inline ticket-type creation from the map, a single save
+model for the Studio, splitting the three files now just over the 500-line
+cap (`MapEditor.jsx`, `SeatMapCanvas.jsx`, `SeatPicker.jsx`), and the owner
+decisions above (S-10 live review, S-16, S-18).
+
+---
+
+## Owner decisions and the remaining seating work (2026-11-10)
+
+The owner approved three product decisions on 2026-11-10 and asked for the
+remaining seating items. All of it is in migration `20261112090000` (amended;
+it has never left this machine) and the working tree, **uncommitted**, and
+**not applied to production**.
+
+### Owner decisions
+
+| Decision | What was built | Evidence |
+|---|---|---|
+| **S-10** Unsold prices change on a live event without review; sold prices preserved; every change logged | No review step on tier or map price changes (there was none; now explicit). `log_price_change` triggers on `ticket_tiers.price_cents` and on `tables.price_cents` / `seat_price_cents` / `tier_id` write `price.change` rows to `admin_audit` (old, new, event status, sold count). The actor comes from `set_tier_price(…, p_actor)` and `save_venue_map(…, p_actor)`. Admin audit screen: filterable "Changed a price" with readable detail lines | `S-10: every price change on a live event is logged…` (3 rows, actor, no review, a no-price save logs nothing) |
+| **S-16** Issued tickets keep the original table name; new tickets take the new one | `tickets.issued_table_label / issued_section / issued_row / issued_seat_number`, filled by `snapshot_ticket_place` on INSERT (every issuing path) and immutable on UPDATE (`TICKET_PLACE_IMMUTABLE`). Backfilled from current names. Read first by `ticketService`, the attendee list, and the door's four functions (`check_in_ticket_v2`, `event_door_list`, `ticket_door_detail`, `event_door_manifest`, re-issued with only the label expressions changed) | `S-16: an issued ticket keeps the table name…` (old ticket "Rose", new "Lily", door detail "Rose", rewrite refused) |
+| **S-18** Ticket-type prices may change after a sale; every order and ticket keeps its purchase price | `trg_lock_tier_price` dropped. `sale_prices_are_final` triggers refuse any UPDATE to an order's amounts or an order line's price/quantity (refund/dispute columns untouched). `PRICE_LOCKED_AFTER_SALE` removed from both error maps. Ticket types form: price editable after a sale, with the sold count kept at their price | `S-18: the price can change after a sale…` (catalogue; replaces the test that asserted the lock) and `S-18: a price change mid-hold and after a sale…` |
+
+**Historical prices are independent of the current ticket-type price —
+verified by reading every path.** A hold copies each line's price
+(`reservation_items.unit_price_cents`); the quote and `fulfill_checkout` read
+that copy; the order stores its whole breakdown and `order_items` each line's
+price; refunds, disputes and every dashboard sum read orders. The only reads
+of the live `ticket_tiers.price_cents` for an existing event are labels (the
+sales summary's per-type price, the admin review preview) and NEW sales. A
+ticket has no price column of its own; its price is its order line's.
+
+**Not built: "sensitive changes may require Super Admin approval based on
+platform policy".** No such policy is defined. Every change is in the audit
+log for review; an approval gate needs the policy (what counts as sensitive)
+before it can be built.
+
+### The four follow-ups
+
+| Item | Done |
+|---|---|
+| Create a ticket type from the map editor | `NewTierInline` (name + price, created at once) from the table panel, the multi-select panel and the section dialog; the new type joins the editor's list and is assigned. Inline, because the section dialog is already a dialog |
+| One save model for the Venue Studio | Preview seat blocks/releases are draft state (`useStudioDraft.holds`), mark the map unsaved, and travel in the map save (`p_availability`) — applied in the same transaction, held/sold seats skipped and counted, a refused save changes none. The instant `PUT …/availability` endpoint is kept for older clients and its tests, but the editor no longer calls it |
+| Theatre row labels (S-19) | `tables.section_name / row_name` (backfilled from the layout's sections, collision-safe, two-step), written from the Studio's sections on every save; seats addressed (section, row, number); duplicate addresses refused by name; ticket shows Section · Row · Seat with no table; seat picker names seats from their own fields, layout as fallback |
+| Files over 500 lines | `MapEditor.jsx` 612 → split into `useMapPersistence.js`, `EditorSidePanel.jsx`, `MapNotices` (MapChrome); `useMapDraft.js` 511 → 476 (table builders to `draftRules.js`). `SeatMapCanvas.jsx` and `SeatPicker.jsx` were brought under by the Venue Studio session. Only `NewEventForm.jsx` (554, not in scope) remains over |
+
+**Also fixed while doing it:** `hold_table` now locks a table's seats before
+counting them (a seat blocked in the same instant could be sold with the
+table), and the map save locks the tables of seats it blocks in its first,
+id-ordered lock pass — taking them later could deadlock with a whole-table
+booking (the pattern T-053 records for door sales).
+
+**Date-dependent frontend tests:** `aiDraftFixture.js` now dates the draft
+the next 15 January at least 45 days away (always standard time in Toronto,
+so the UTC values stay exact); the four AI test files use its constants.
+
+### Verification (local stack, 2026-11-10)
+
+- Backend: **868/868** (unit + integration), including `seatingIntegrity.test.js` (17) and the rewritten catalogue S-18 test.
+- Frontend: **781/781**, 80 files, including `apiContracts.test.js` and `holdHeaders.test.jsx`; ESLint clean; `npm run check` passes.
+- Migration chain rehearsal: all **58** migrations applied in order to an empty database (auth stub only), then `20261111…` and `20261112…` re-applied cleanly; the rehearsal database was dropped.
+- `verify-schema.js` checks (new columns, functions, triggers, the price lock's absence, the door functions' snapshot) all true on the local database; `api_roles_leak_check.sql` returns **0 rows**.
+- No browser was driven: the editor, Studio preview and seat picker changes are verified by unit, contract and integration tests, not by a run in Chrome.
+
+### Remaining blockers before production
+
+1. **Commit packaging.** `feature/checkin-app` carries uncommitted work from several sessions (check-in app, Venue Studio, this audit). It needs reviewing and committing as a whole; this work depends on the Venue Studio files.
+2. **Two migrations, in order:** `20261111090000` then `20261112090000`. Neither is in production.
+3. **No end-to-end browser run** of the map editor, Studio preview, seat picker and checkout against the new API.
+4. **Organizer payments** (from the earlier audit): the only live organizer was still completing Stripe onboarding (charges disabled), so card sales are not yet exercised in production.
+5. Not blocking, still open: T-050 (no database guarantee of one live ticket per seat), T-053 (door sale vs whole-table lock order), T-060 (checkout/claim/success-page tests), T-039/T-040/T-044, the S-10 approval policy.
+
+### Production deployment checklist
+
+1. Review and commit the branch; CI green (backend unit + integration, frontend, `npm run check`).
+2. Back up the production database (or confirm a fresh point-in-time restore point).
+3. `node scripts/apply-migration.js ../supabase/migrations/20261111090000_venue_map_seat_integrity.sql`
+4. `node scripts/apply-migration.js ../supabase/migrations/20261112090000_seating_pricing_integrity.sql`
+5. `node scripts/verify-schema.js` → "Schema verified."; run `supabase/checks/api_roles_leak_check.sql` → 0 rows.
+6. Deploy the API (Node 22, `npm ci`), then the frontend; confirm `/health`.
+7. Smoke test on a test event: draw a map with a section, assign a ticket type made in the editor, block two seats in Preview, Save map; buy a private table with its password; change a ticket type's price after a sale and see it in Admin → Audit as "Changed a price"; rename a table and confirm an existing ticket keeps the old name; scan at the door.
+8. Watch logs for `MAP_STALE`, `SALE_PRICE_IMMUTABLE`, `TICKET_PLACE_IMMUTABLE` and `SEAT_NOT_PRICED` in the first day; any `SALE_PRICE_IMMUTABLE` is a code path trying to rewrite a sale and must be investigated.
+9. Rollback: the API can roll back on its own (the old API works against the new schema). The migration is additive except the dropped price-lock trigger; restoring that trigger is the only schema rollback needed to return to the old price rule.

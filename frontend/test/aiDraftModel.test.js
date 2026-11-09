@@ -2,7 +2,7 @@ import { describe, test, expect } from 'vitest';
 import {
   priceToCents, centsToPrice, formFromDraft, problemsFor, savePlan, laterNeeds, newTier,
 } from '../src/app/organizer/events/new/ai/aiDraftModel';
-import { RESULT } from './aiDraftFixture';
+import { RESULT, DRAFT_START_LOCAL, DRAFT_START_AT, DRAFT_END_LOCAL, DRAFT_END_AT } from './aiDraftFixture';
 
 /**
  * The Smart Event Creator's draft, without a screen: what the API's answer
@@ -29,7 +29,7 @@ describe('money as text', () => {
 describe('the draft as a form', () => {
   test('times are shown on the venue’s clock, and the AI never sets a map pin', () => {
     const form = formFromDraft(RESULT, ORGANIZER);
-    expect(form.startsAt).toBe('2026-11-07T18:30');
+    expect(form.startsAt).toBe(DRAFT_START_LOCAL);
     expect(form.endsAt).toBe('');
     expect(form.startEvidence).toBe('Saturday November 7 from 6:30pm');
     expect([form.venueLat, form.venueLng, form.venuePlaceId]).toEqual(['', '', '']);
@@ -46,7 +46,7 @@ describe('the draft as a form', () => {
   });
 
   test('D-018: an unpriced ticket is resolved by a price, by "free", or by removing it — nothing else', () => {
-    const base = { ...formFromDraft(RESULT, ORGANIZER), endsAt: '2026-11-07T23:30' };
+    const base = { ...formFromDraft(RESULT, ORGANIZER), endsAt: DRAFT_END_LOCAL };
     const child = base.tiers[1];
     expect(problemsFor(base, NOW)).toHaveLength(1);
     expect(problemsFor({ ...base, tiers: [base.tiers[0], { ...child, price: '45' }] }, NOW)).toEqual([]);
@@ -56,18 +56,18 @@ describe('the draft as a form', () => {
   });
 
   test('a missing venue never blocks a draft; it is needed only to submit', () => {
-    const form = { ...formFromDraft(RESULT, ORGANIZER), endsAt: '2026-11-07T23:30', venueName: '', venueAddress: '', city: '', tiers: [] };
+    const form = { ...formFromDraft(RESULT, ORGANIZER), endsAt: DRAFT_END_LOCAL, venueName: '', venueAddress: '', city: '', tiers: [] };
     expect(problemsFor(form, NOW)).toEqual([]);
     expect(laterNeeds(form)).toEqual(['the venue name', 'the street address', 'the city']);
   });
 
   test('a display-only listing has no ticket problems, whatever the tiers say', () => {
-    const form = { ...formFromDraft(RESULT, ORGANIZER), listingType: 'display_only', endsAt: '2026-11-07T23:30' };
+    const form = { ...formFromDraft(RESULT, ORGANIZER), listingType: 'display_only', endsAt: DRAFT_END_LOCAL };
     expect(problemsFor(form, NOW)).toEqual([]);
   });
 
   test('two ticket types with one name are refused before the API refuses them', () => {
-    const form = { ...formFromDraft(RESULT, ORGANIZER), endsAt: '2026-11-07T23:30' };
+    const form = { ...formFromDraft(RESULT, ORGANIZER), endsAt: DRAFT_END_LOCAL };
     form.tiers = [form.tiers[0], { ...newTier(), name: 'general', price: '10' }];
     expect(problemsFor(form, NOW)[0].message).toMatch(/two ticket types/);
   });
@@ -76,13 +76,13 @@ describe('the draft as a form', () => {
 describe('saving', () => {
   const ready = () => {
     const form = formFromDraft(RESULT, ORGANIZER);
-    return { ...form, endsAt: '2026-11-07T23:30', tiers: [form.tiers[0], { ...form.tiers[1], free: true }] };
+    return { ...form, endsAt: DRAFT_END_LOCAL, tiers: [form.tiers[0], { ...form.tiers[1], free: true }] };
   };
 
   test('the event is a private draft with no money settings beyond the organizer’s own', () => {
     const { event } = savePlan(ready(), ['manual']);
     expect(event).toMatchObject({
-      title: 'Diwali Gala Dinner 2026', startsAt: '2026-11-07T23:30:00.000Z', endsAt: '2026-11-08T04:30:00.000Z',
+      title: 'Diwali Gala Dinner 2026', startsAt: DRAFT_START_AT, endsAt: DRAFT_END_AT,
       admissionType: 'reserved', purchaseMode: 'seat_and_table', feeBearer: 'buyer', paymentOption: 'manual',
       aiGenerationId: 'gen-1', venueName: 'Palais Royale', city: 'Toronto',
     });
@@ -110,7 +110,7 @@ describe('saving', () => {
 
   test('schedule times go as instants in the event’s zone; highlights go as a list', () => {
     const plan = savePlan(ready(), []);
-    expect(plan.schedule[0].body).toEqual({ title: 'Doors open', startsAt: '2026-11-07T23:30:00.000Z' });
+    expect(plan.schedule[0].body).toEqual({ title: 'Doors open', startsAt: DRAFT_START_AT });
     expect(plan.highlights).toEqual(['Three-course dinner', 'Live Bollywood band']);
   });
 

@@ -1,0 +1,17 @@
+# Sign in, open the gala, admit John Smith, scan him again.
+appId: com.eventsli.checkin
+---
+- runFlow: _signin-and-open-gala.yaml
+- tapOn: "Scan Tickets"
+- runFlow:
+    file: _scan.yaml
+    env:
+      CODE: ${QR_JOHN_1}
+- assertVisible: "Check-in Successful"
+- assertVisible: "John Smith"
+- tapOn: "Scan Next"
+- runFlow:
+    file: _scan.yaml
+    env:
+      CODE: ${QR_JOHN_1}
+- assertVisible: "Already checked in"

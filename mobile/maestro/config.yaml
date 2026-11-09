@@ -1,0 +1,3 @@
+# Only the numbered flows are tests; files starting with _ are steps they reuse.
+flows:
+  - "0*.yaml"

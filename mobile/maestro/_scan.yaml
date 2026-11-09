@@ -1,0 +1,7 @@
+# Type a code into the test-builds field on the camera screen, as if scanned.
+appId: com.eventsli.checkin
+---
+- tapOn:
+    id: "e2e-code"
+- inputText: ${CODE}
+- pressKey: Enter

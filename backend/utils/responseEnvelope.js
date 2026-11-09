@@ -44,6 +44,10 @@ const ERROR_STATUS = {
   // The session lookup itself failed. NOT a 401: the session may be perfectly
   // live, and a 401 is what makes a client sign somebody out (middleware/auth.js).
   SESSION_CHECK_FAILED: 503,
+  // The scan could not be decided because the database did not answer. A
+  // retryable 503, never a 200 "error": both door clients then hold the scan
+  // (or decide it offline) instead of showing it as settled.
+  SCAN_UNAVAILABLE: 503,
   FORBIDDEN: 403,
   ACCOUNT_BANNED: 403,
   ORGANIZER_BANNED: 403,
@@ -56,7 +60,6 @@ const ERROR_STATUS = {
   EVENT_NOT_PUBLISHED: 403,
   EVENT_CANCELLED: 410,
   EVENT_SUSPENDED: 403,
-  PRICE_LOCKED_AFTER_SALE: 409,   // BRD §13
   TERMS_NOT_ACCEPTED: 403,        // BRD §21
 
   // inventory
@@ -125,6 +128,9 @@ const ERROR_STATUS = {
   PAYMENT_METHOD_UNAVAILABLE: 400, // choosing a channel the account has not set up
   EVENT_ARCHIVED: 409,             // restore it before changing it
   CANCELLATION_PENDING: 409,       // one open request per event
+  // The seat map was saved from another tab or device after this copy was
+  // opened (save_venue_map's version check). Reload, then make the change again.
+  MAP_STALE: 409,
 
   // Eventsli AI (routes/aiRoutes.js). None of these spends an organizer's
   // daily allowance: a draft only counts once one is actually returned.

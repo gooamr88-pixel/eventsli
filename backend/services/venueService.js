@@ -1,6 +1,7 @@
 const { supabase } = require('../config/supabase');
 const { hashTablePassword } = require('./tableAccessService');
 const { fetchAll } = require('../utils/fetchAll');
+const { sanitizeLayout } = require('./venueStudio');
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -43,7 +44,7 @@ async function getMapForOrganizer(eventId) {
 
   const tables = await fetchAll(({ from, to }, first) => supabase
     .from('tables')
-    .select('id, label, seat_count, price_cents, is_private, password_hash, status, position_x, position_y, rotation, shape, category_id',
+    .select('id, label, seat_count, price_cents, is_private, password_hash, status, position_x, position_y, rotation, shape, category_id, tier_id, seat_price_cents, section_name, row_name',
       first ? { count: 'exact' } : undefined)
     .eq('venue_map_id', map.id)
     .order('label')
@@ -58,6 +59,15 @@ async function getMapForOrganizer(eventId) {
     .eq('venue_map_id', map.id)
     .order('id')
     .range(from, to), { what: 'seats' });
+
+  // Grouped once. A `seats.filter` per table was tables × seats comparisons —
+  // nine million on a 400-row, 24,000-seat room, on every load and every save.
+  const seatsByTable = new Map();
+  for (const s of seats) {
+    const key = s.table_id || null;
+    if (!seatsByTable.has(key)) seatsByTable.set(key, []);
+    seatsByTable.get(key).push(s);
+  }
 
   return {
     id: map.id,
@@ -78,12 +88,19 @@ async function getMapForOrganizer(eventId) {
       position: { x: Number(t.position_x), y: Number(t.position_y), rotation: Number(t.rotation) },
       shape: t.shape,
       categoryId: t.category_id,
-      seats: seats
-        .filter((s) => s.table_id === t.id)
-        .map(shapeSeat),
+      // The TABLE's ticket type and seat price (TECH-AUDIT-LOG S-02). The editor
+      // used to infer them from the first seat, in id order — after a partial
+      // sale that could be a sold seat of the old type, and the next save put
+      // the old type back on every available seat.
+      tierId: t.tier_id,
+      seatPriceCents: t.seat_price_cents === null ? null : Number(t.seat_price_cents),
+      // S-19: the section and row this table's seats are addressed by, if any.
+      section: t.section_name,
+      row: t.row_name,
+      seats: (seatsByTable.get(t.id) || []).map(shapeSeat),
     })),
     // Seats not attached to a table — general rows.
-    looseSeats: seats.filter((s) => !s.table_id).map(shapeSeat),
+    looseSeats: (seatsByTable.get(null) || []).map(shapeSeat),
   };
 }
 
@@ -113,19 +130,26 @@ function shapeSeat(s) {
  */
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-async function saveMap(eventId, payload) {
+async function saveMap(eventId, payload, { actorId = null } = {}) {
   const incoming = Array.isArray(payload.tables) ? payload.tables : [];
 
   if (incoming.length > MAX_TABLES) {
     throw fail('VALIDATION_ERROR', `A map can hold at most ${MAX_TABLES} tables.`);
   }
 
-  // BRD §12 — a listing-only event sells nothing, so it has no stock to draw.
-  const { data: event } = await supabase
-    .from('events').select('listing_type').eq('id', eventId).maybeSingle();
-  if (event?.listing_type === 'display_only') {
-    throw fail('VALIDATION_ERROR', 'This event is listed for information only. Make it a ticketed event before drawing a seat map.');
+  // Which events may have a map at all — listing-only (BRD §12), general
+  // admission, cancelled or completed — is decided by `save_venue_map`, inside
+  // the transaction. It was a lookup here whose error was ignored, so a failed
+  // read let a listing-only event's map through (TECH-AUDIT-LOG S-17).
+
+  // The version the editor loaded (S-03). Absent from an older client, which
+  // is then saved without the check rather than refused.
+  const expectedVersion = payload.expectedVersion === undefined || payload.expectedVersion === null
+    ? null : Number(payload.expectedVersion);
+  if (expectedVersion !== null && (!Number.isInteger(expectedVersion) || expectedVersion < 0)) {
+    throw fail('VALIDATION_ERROR', 'The map version sent with this save is not valid. Reload the editor.');
   }
+
   const labels = new Set();
   for (const t of incoming) {
     const label = String(t.label || '').trim();
@@ -151,6 +175,14 @@ async function saveMap(eventId, payload) {
     for (const key of ['id', 'tierId', 'categoryId']) {
       if (t[key] && !UUID.test(String(t[key]))) {
         throw fail('VALIDATION_ERROR', `"${label}" carries an invalid ${key}.`);
+      }
+    }
+    // Money is whole cents or nothing. `Number('abc')` is NaN, which JSON sends
+    // as null — so a garbled price silently became "no price".
+    for (const key of ['priceCents', 'seatPriceCents']) {
+      const v = t[key];
+      if (v !== null && v !== undefined && v !== '' && !(Number.isInteger(Number(v)) && Number(v) >= 0)) {
+        throw fail('VALIDATION_ERROR', `"${label}" has a price that is not a whole number of cents.`);
       }
     }
   }
@@ -190,9 +222,16 @@ async function saveMap(eventId, payload) {
       shape: t.shape || 'round',
       categoryId: t.categoryId || null,
       tierId: t.tierId || null,
-      seatPriceCents: t.seatPriceCents ?? null,
+      seatPriceCents: t.seatPriceCents === null || t.seatPriceCents === undefined || t.seatPriceCents === ''
+        ? null : Number(t.seatPriceCents),
+      // S-19: a row of a seating section is addressed (section, row), not
+      // (label, 'A'). Both come from the Studio's sections in the same save.
+      section: cleanName(t.section, MAX_SECTION_NAME),
+      row: t.section ? cleanName(t.row, MAX_ROW_NAME) : null,
     });
   }
+
+  const availability = cleanAvailability(payload.availability);
 
   /**
    * ONE transaction.
@@ -205,8 +244,14 @@ async function saveMap(eventId, payload) {
    */
   const { data: result, error } = await supabase.rpc('save_venue_map', {
     p_event_id: eventId,
-    p_layout: payload.layout || {},
+    // The studio's images arrive as paths and leave as server-computed URLs;
+    // see venueStudio.js for why a client-written URL never reaches the blob.
+    p_layout: sanitizeLayout(eventId, payload.layout),
     p_tables: prepared,
+    p_expected_version: expectedVersion,
+    // Seats blocked or released in the Studio preview, saved with the map.
+    p_availability: availability,
+    p_actor: actorId,
   });
 
   if (error) {
@@ -218,6 +263,8 @@ async function saveMap(eventId, payload) {
      * done: the layout, the deletions, the tables the loop had reached. The
      * map save was refused and half applied at the same time.
      */
+    const s = /MAP_STALE:\s*(.*)/.exec(error.message);
+    if (s) throw fail('MAP_STALE', `${s[1].trim()}. Reload the map, then make your change again.`);
     const m = /MAP_CONFLICT:\s*(.*)/.exec(error.message);
     if (m) throw fail('CONFLICT', `${m[1].trim()}.`);
     // A ticket type or category from another event.
@@ -226,15 +273,104 @@ async function saveMap(eventId, payload) {
     throw fail('VALIDATION_ERROR', error.message);
   }
 
-  return { mapId: result.map_id, tables: result.tables, version: result.version };
+  return {
+    mapId: result.map_id,
+    tables: result.tables,
+    version: result.version,
+    // How many of the requested blocks and releases landed. Fewer than asked
+    // means a buyer held or bought some of those seats meanwhile.
+    availability: result.availability
+      ? { blocked: result.availability.blocked, released: result.availability.released,
+        requested: availability ? availability.block.length + availability.release.length : 0 }
+      : null,
+  };
 }
 
 // upsertTable, resizeTable, generateSeats and seatRow used to live here.
 // They are now the body of `save_venue_map`, because doing that work from
 // Node meant one transaction per table and a half-written map on any failure.
 
+// The database's own limits on a section row's names (table_section_row_sane).
+const MAX_SECTION_NAME = 40;
+const MAX_ROW_NAME = 8;
+// Seats one save may block or release. A whole stadium section is far less.
+const MAX_AVAILABILITY_PER_SAVE = 5000;
+
+/** A trimmed name, or null; refused rather than cut when it is too long. */
+function cleanName(value, max) {
+  if (value === null || value === undefined) return null;
+  const text = String(value).trim();
+  if (!text) return null;
+  if (text.length > max) throw fail('VALIDATION_ERROR', `"${text.slice(0, 20)}…" is longer than ${max} characters.`);
+  return text;
+}
+
+/**
+ * `{ block: [seat ids], release: [seat ids] }` from the editor, or null when
+ * the save changes no seat's availability. Ids must be UUIDs; whether each
+ * seat is on THIS map, and still free to move, is the database's call.
+ */
+function cleanAvailability(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const ids = (list) => [...new Set(Array.isArray(list) ? list : [])];
+  const block = ids(raw.block);
+  const release = ids(raw.release);
+  if (block.length === 0 && release.length === 0) return null;
+  if (block.length + release.length > MAX_AVAILABILITY_PER_SAVE) {
+    throw fail('VALIDATION_ERROR', `Block or release at most ${MAX_AVAILABILITY_PER_SAVE} seats in one save.`);
+  }
+  if ([...block, ...release].some((id) => !UUID.test(String(id)))) {
+    throw fail('VALIDATION_ERROR', 'That is not a seat on this map.');
+  }
+  return { block, release };
+}
+
 function fail(code, message) {
   return Object.assign(new Error(message), { code });
 }
 
-module.exports = { getMapForOrganizer, saveMap, MAX_TABLES, MAX_SEATS_PER_TABLE };
+/**
+ * Blocks or releases seats: the organizer's own holds, for production kills,
+ * sightline losses, a sponsor's seats or a camera position.
+ *
+ * `blocked` is a seat status the schema has always had and every hold path
+ * already refuses (they take `available` seats only), so a blocked seat simply
+ * cannot be bought, by any channel, until it is released. The table's status
+ * follows by the existing trigger.
+ *
+ * ONLY TRANSITIONS BETWEEN `available` AND `blocked`. A held or sold seat is a
+ * buyer's, and this endpoint must never be a way to take it back or to put it
+ * on sale twice, so those rows are skipped and reported as unchanged, not
+ * refused: one sold seat in a block of forty should not stop the other 39.
+ */
+async function setSeatAvailability(eventId, seatIds, blocked) {
+  const { data: map, error: mapError } = await supabase
+    .from('venue_maps').select('id').eq('event_id', eventId).maybeSingle();
+  if (mapError) throw new Error(`could not read the venue map: ${mapError.message}`);
+  if (!map) throw fail('VALIDATION_ERROR', 'This event has no seat map yet.');
+
+  const ids = [...new Set(seatIds)];
+  // The ids travel in the request URL to PostgREST, so a call is capped (the
+  // route allows MAX_AVAILABILITY_BATCH) and the studio sends larger blocks in
+  // several calls.
+  if (ids.length > MAX_AVAILABILITY_BATCH) {
+    throw fail('VALIDATION_ERROR', `Change at most ${MAX_AVAILABILITY_BATCH} seats at a time.`);
+  }
+  const { data, error } = await supabase
+    .from('seats')
+    .update({ status: blocked ? 'blocked' : 'available' })
+    .eq('venue_map_id', map.id)
+    .eq('status', blocked ? 'available' : 'blocked')
+    .in('id', ids)
+    .select('id');
+  if (error) throw new Error(`could not change seat availability: ${error.message}`);
+
+  const changed = (data || []).map((s) => s.id);
+  return { changed, unchanged: ids.length - changed.length };
+}
+
+const MAX_AVAILABILITY_BATCH = 150;
+
+module.exports = {
+  getMapForOrganizer, saveMap, setSeatAvailability, MAX_TABLES, MAX_SEATS_PER_TABLE, MAX_AVAILABILITY_BATCH,
+};

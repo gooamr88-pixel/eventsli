@@ -14,6 +14,9 @@ import { formatMoney } from '../../../utils/money';
  */
 export default function SelectionBar({
   count, subtotal, currency, label, seats = [], busy, onContinue, onRemoveSeat, onClear,
+  // The Venue Studio names a seat by its section and row when it has one
+  // ("Section Gold · Row B · Seat 15"); null falls back to the table's name.
+  nameFor = null,
 }) {
   return (
     /* Sticky to the bottom: on a phone the map fills the screen, so an action
@@ -61,14 +64,14 @@ export default function SelectionBar({
           <ul className="es-seatbar__list fx-stack fx-stack--sm">
             {seats.map((seat) => (
               <li key={seat.id} className="es-seatbar__row">
-                <span className="fx-min0 text-sm text-ink">{seatName(seat)}</span>
+                <span className="fx-min0 text-sm text-ink">{nameFor?.(seat) || seatName(seat)}</span>
                 <span className="fx-row shrink-0 items-center gap-2">
                   <span className="es-nums text-sm text-muted">
                     {/* An em dash beside a × read as a broken row. A seat whose
                         price comes from the tier says so. */}
                     {seat.priceCents === null || seat.priceCents === undefined
                       ? <span className="text-xs text-subtle">at checkout</span>
-                      : formatMoney(seat.priceCents, currency)}
+                      : seat.priceCents === 0 ? 'Free' : formatMoney(seat.priceCents, currency)}
                   </span>
                   <button
                     type="button"
@@ -101,14 +104,16 @@ export default function SelectionBar({
                   because the number is what a person checks before pressing
                   Continue. */}
               <p className="es-nums text-lg font-medium text-ink">
+                {/* "Free", as the price legend says, not "CA$0.00 · before tax
+                    and fees" — a free seat has neither. */}
                 {subtotal === null
                   ? 'Price at checkout'
-                  : formatMoney(subtotal, currency)}
+                  : subtotal === 0 ? 'Free' : formatMoney(subtotal, currency)}
               </p>
               <p className="text-sm text-muted">
                 {label || `${count} ${count === 1 ? 'seat' : 'seats'}`}
                 {label && ` · ${count} seats`}
-                {subtotal !== null && ' · before tax and fees'}
+                {subtotal !== null && subtotal > 0 && ' · before tax and fees'}
               </p>
             </>
           ) : (

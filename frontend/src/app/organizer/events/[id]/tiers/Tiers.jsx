@@ -21,10 +21,11 @@ import { EmptyTickets, ExampleTier, TicketSetup } from './TierParts';
 /**
  * Ticket types — the named price bands.
  *
- * These are load-bearing in a way the name hides. `seat_price_cents` resolves
- * seat override → table → TIER, and ends in `COALESCE(…, …, 0)`. Until tiers
- * existed, a seat with no override and no tier sold for NOTHING. So an event
- * with a seat map and no tier is not "unconfigured", it is dangerous.
+ * These are load-bearing in a way the name hides. A seat's price is its own
+ * seat price, else its ticket type's — the table's whole-table price is not in
+ * that chain (TECH-AUDIT-LOG S-04). A seat with neither cannot be sold: the
+ * hold refuses it, and a live map cannot be saved with one. So an event with a
+ * seat map and no ticket type is not "unconfigured", it is unsellable.
  *
  * EDITABLE, not only add-and-delete. The API always allowed a PATCH; the page
  * never offered one, so a typo or a wrong price on a type that seats already use
@@ -49,8 +50,8 @@ export default function Tiers({ eventId }) {
       tone: 'danger',
       body: (
         <p>
-          If any seats are priced by it, this is refused — they would otherwise fall back to costing
-          nothing. A type that has sold tickets cannot be deleted either.
+          If any seats or tables use it, this is refused — those seats would be left with no price.
+          A type that has sold tickets cannot be deleted either.
         </p>
       ),
       confirmLabel: 'Delete ticket type',
@@ -80,7 +81,7 @@ export default function Tiers({ eventId }) {
       <SectionHeader
         icon="ticket"
         title="Ticket types"
-        lede="Create and manage the ticket types for your event — General Admission, VIP, a table. A price locks once a ticket of that type has sold."
+        lede="Create and manage the ticket types for your event — General Admission, VIP, a table. Prices can change at any time; tickets already sold keep the price they were bought at."
         actions={!editing && (
           <button type="button" className="es-btn es-btn--primary es-btn--lg" onClick={() => setEditing('new')}>
             <NavIcon name="plus" size={20} />Add ticket type
@@ -114,7 +115,7 @@ export default function Tiers({ eventId }) {
           <span className="es-payintro__icon" aria-hidden="true"><NavIcon name="info" size={26} /></span>
           <div className="fx-min0">
             <h2 id="tiers-price" className="es-payintro__title">Every seat needs a price.</h2>
-            <p className="es-payintro__text">A seat with no ticket type and no override sells for nothing, so an event with a seat map needs at least one ticket type.</p>
+            <p className="es-payintro__text">A seat with no ticket type and no seat price of its own cannot be sold, so an event with a seat map needs at least one ticket type.</p>
           </div>
         </section>
       )}
@@ -326,10 +327,12 @@ function TierForm({ eventId, currency, tier, onDone, onCancel }) {
           />
           <Field
             label={`Price (${currency})`} name="price" inputMode="decimal" required
+            // The price may change after a sale (owner decision 2026-11-10,
+            // TECH-AUDIT-LOG S-18): it applies to tickets not yet sold or held;
+            // every sold ticket keeps what was paid. Each change is logged.
             hint={tier && tier.soldCount > 0
-              ? 'Tickets have sold at this price, so it can no longer change.'
+              ? `${tier.soldCount} sold keep the price they were bought at. A new price applies to the rest.`
               : '0 is allowed — that makes it free.'}
-            disabled={Boolean(tier && tier.soldCount > 0)}
             error={priceInvalid ? 'Enter an amount like 25 or 25.50.' : null}
             value={form.price}
             onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))}

@@ -12,6 +12,10 @@ import { formatEventTime } from '../../lib/eventTime';
  * The verbs are the ones the backend writes (grep `action: '` and `audit(req, '`).
  */
 export const VERBS = {
+  // Written by a database trigger on every price change, including a live
+  // event's (TECH-AUDIT-LOG S-10): ticket types, whole-table prices, seat
+  // prices and a table's ticket type. The actor is the organizer who saved it.
+  'price.change': ['Changed a price', ''],
   'event.approved': ['Approved an event', 'es-pill--accent'],
   'event.rejected': ['Sent an event back', 'es-pill--warning'],
   'event.suspended': ['Suspended an event', 'es-pill--danger'],
@@ -67,6 +71,22 @@ function detailLines(action, p) {
         .filter(Boolean).join(' · ')].filter(Boolean);
     case 'invoice.settled':
       return p.alreadySettled ? ['It was already settled'] : [];
+    case 'price.change': {
+      // Amounts are cents in the event's own currency, which the payload does
+      // not carry — so they are shown as plain amounts, never with a symbol
+      // that might be the wrong one.
+      const amount = (c) => (c === null || c === undefined ? 'none' : (Number(c) / 100).toFixed(2));
+      const what = p.name ? `Ticket type "${p.name}"` : `Table "${show(p.label)}"`;
+      const field = { price: p.name ? 'price' : 'whole-table price', seatPrice: 'seat price', ticketType: 'ticket type' }[p.field] || p.field;
+      const change = p.field === 'ticketType'
+        ? 'moved to another ticket type'
+        : `${amount(p.oldCents)} → ${amount(p.newCents)}`;
+      return [
+        `${what}, ${field}: ${change}`,
+        p.eventStatus === 'published' ? 'The event was on sale' : `The event was ${show(p.eventStatus)}`,
+        ...(p.soldBefore ? [`${p.soldBefore} already sold keep their price`] : []),
+      ];
+    }
     default:
       return [];
   }

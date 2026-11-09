@@ -41,12 +41,13 @@ const MAX_BYTES = 5 * 1024 * 1024;
 
 /**
  * The images an event can hold, and the only values that may reach a storage
- * key. All four share this module's bucket, prefix and ownership check rather
- * than growing a second upload path each — the prefix check in `attach` is the
- * thing that stops one organizer confirming another's object, and it is worth
- * having exactly one of.
+ * key. All of them share this module's bucket, prefix and ownership check
+ * rather than growing a second upload path each — the prefix check in `attach`
+ * is the thing that stops one organizer confirming another's object, and it is
+ * worth having exactly one of. `venue` (the venue's photo) and `panorama` (a
+ * 360° view) belong to the Venue Studio; see services/venueStudio.js.
  */
-const KINDS = Object.freeze(['cover', 'logo', 'gallery', 'sponsor']);
+const KINDS = Object.freeze(['cover', 'logo', 'gallery', 'sponsor', 'venue', 'panorama']);
 
 /** The signed URL's lifetime. Long enough for a slow phone on hotel wifi. */
 const UPLOAD_TTL_SECONDS = 600;
@@ -206,8 +207,19 @@ async function remove(path) {
   return !error;
 }
 
+/**
+ * The public URL of an object in this bucket, computed here rather than
+ * accepted from a client. The Venue Studio stores asset PATHS in the map's
+ * layout blob, and the URL a buyer's page loads is always derived from one, so
+ * a hand-edited blob cannot make a public page load a link of its choosing.
+ */
+function publicUrl(path) {
+  return supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
+}
+
 module.exports = {
   BUCKET,
+  publicUrl,
   MAX_BYTES,
   EXTENSION_FOR,
   KINDS,

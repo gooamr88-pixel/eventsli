@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { get, post, patch } from '../../../../utils/apiClient';
+import { get, post, patch, PUBLIC_API_URL } from '../../../../utils/apiClient';
 import { messageFor } from '../../../../utils/errors';
 import { formatEventTime } from '../../../../lib/eventTime';
 import { useToast } from '../../../../components/ui/Toast';
@@ -12,6 +12,7 @@ import NavIcon from '../../../../components/shell/NavIcon';
 import { StackedEmpty } from '../../../../components/ui/SplitEmpty';
 import { PhoneScanArt, TabletArt } from '../../../../components/ui/Illustrations';
 import DeviceStats from './DeviceStats';
+import DoorSettings from './DoorSettings';
 import Field from '../../../../components/forms/Field';
 import FormError from '../../../../components/forms/FormError';
 import SubmitButton from '../../../../components/forms/SubmitButton';
@@ -108,6 +109,8 @@ export default function Devices({ eventId }) {
 
       <GateBanner gate={gate} eventId={eventId} />
 
+      <DoorSettings eventId={eventId} />
+
       {created && (
         <Notice tone="info" title={`“${created.label}” is registered`}>
           <dl className="fx-stack fx-stack--sm text-sm">
@@ -184,6 +187,7 @@ function DeviceRow({ eventId, device, timezone, onChanged }) {
   const toast = useToast();
   const confirm = useConfirm();
   const [busy, setBusy] = useState(false);
+  const [pairing, setPairing] = useState(false);
 
   async function copyId() {
     try {
@@ -241,7 +245,37 @@ function DeviceRow({ eventId, device, timezone, onChanged }) {
         <span className="text-xs text-muted">Device ID</span>
         <code className="fx-break font-mono text-xs text-ink">{device.id}</code>
         <button type="button" onClick={copyId} className="es-btn es-btn--ghost es-btn--sm">Copy</button>
+        {device.isActive && (
+          <button
+            type="button"
+            onClick={() => setPairing((p) => !p)}
+            aria-expanded={pairing}
+            className="es-btn es-btn--ghost es-btn--sm"
+          >
+            <NavIcon name="qr" size={16} />
+            {pairing ? 'Hide pairing code' : 'Pair a phone'}
+          </button>
+        )}
       </div>
+      {/* Scanned with the Eventsli Check-in app instead of typing 36
+          characters at a door. It holds the device ID only — the PIN is never
+          in it, so a photo of this screen still cannot sign anything in. */}
+      {pairing && device.isActive && (
+        <div className="fx-row items-center gap-4 rounded-(--es-radius-md) bg-bg-sunken p-3">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={`${PUBLIC_API_URL}/events/${eventId}/scan-devices/${device.id}/pairing.png`}
+            alt={`Pairing code for ${device.label}`}
+            width={160}
+            height={160}
+            className="rounded-(--es-radius-sm) bg-white p-1"
+          />
+          <p className="fx-min0 text-sm text-muted">
+            In the Eventsli Check-in app, choose <strong>Using a shared door device?</strong> and scan
+            this code, then type the PIN.
+          </p>
+        </div>
+      )}
     </li>
   );
 }

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useModal } from '../../../../hooks/useModal';
-import { WORLD, SHAPES, tableBody } from '../../../../components/seating/seatingGeometry';
+import { SHAPES, tableBody, unitsToPercent, worldOf } from '../../../../components/seating/seatingGeometry';
 import { ZONES, ZONE_KINDS, zoneMeta } from '../../../../components/seating/venueZones';
 import { SHAPE_NAMES, SHAPE_HINTS } from './shapeNames';
 import { MAX_SEATS_PER_TABLE } from './draftRules';
@@ -35,7 +35,9 @@ const GRID_MAX = 12;
 
 // `initial` presets the kind (and seat count) — the side panel's "Row",
 // "Table", "Stage"… open the dialog already on that choice.
-export default function AddElementDialog({ origin, roomForTables, onAdd, onClose, initial = null }) {
+export default function AddElementDialog({
+  origin, roomForTables, onAdd, onClose, initial = null, world = worldOf(null),
+}) {
   const [kind, setKind] = useState(() => (initial ? { family: initial.family, key: initial.key } : { family: 'table', key: 'round' }));
   const [seatCount, setSeatCount] = useState(initial?.seatCount ?? 10);
   const [label, setLabel] = useState('');
@@ -103,8 +105,7 @@ export default function AddElementDialog({ origin, roomForTables, onAdd, onClose
     const size = isTable
       ? tableBody(kind.key, seatCount)
       : { width: zoneMeta(kind.key).w, height: zoneMeta(kind.key).h };
-    const stepX = ((size.width + Number(gap || 0)) / WORLD.width) * 100;
-    const stepY = ((size.height + Number(gap || 0)) / WORLD.height) * 100;
+    const { x: stepX, y: stepY } = unitsToPercent(size.width + Number(gap || 0), size.height + Number(gap || 0), world);
 
     const specs = [];
     for (let i = 0; i < willAdd; i += 1) {

@@ -791,6 +791,16 @@ the door shares the API, the error table and the deploy. `SiteHeader` already
 returned null under `/gate` and `proxy.ts` already exempted it; the subtree adds
 its own manifest, its own service worker and nothing else.
 
+> **Revised 2026-11-08.** The owner chose a native app as well, for the App
+> Store and Google Play: `mobile/`, Expo. It is not a second copy of the rules.
+> Both doors call the same `/api/v1/scan/*` API, whose contract is
+> docs/CHECKIN-APP-API.md, and every rule at the door still lives in the
+> database (`check_in_ticket_v2`). Two contract tests keep both clients
+> honest: `gateOutcomes.test.js` here, and `outcomes.contract.test.ts` in the
+> app. The phone's offline decision mirrors the server's order, and its
+> signature check is tested against the backend's own signing code.
+> `/gate` stays as the version that needs no install.
+
 **The queue is the product.** `queuePolicy.js` holds the rules on plain arrays —
 oldest first, a record leaves the queue only when the *server* has answered it, a
 mid-flight upload that comes back with nothing puts every entry back — and

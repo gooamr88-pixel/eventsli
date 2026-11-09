@@ -43,7 +43,7 @@ import { PAPERS, PAPER_KEYS, PAGE_MARGIN_MM, paperBox } from './packGeometry';
  * thing distinguishing floor from furniture once the plan is in grey.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-export default function SeatingPackModal({ eventTitle, tables, zones, categories, dirty, onClose }) {
+export default function SeatingPackModal({ eventTitle, tables, zones, categories, dirty, onClose, world }) {
   const [paper, setPaper] = useState('a4');
   const [orientation, setOrientation] = useState('landscape');
   const [zoom, setZoom] = useState(0.55);
@@ -198,6 +198,7 @@ export default function SeatingPackModal({ eventTitle, tables, zones, categories
                 <FloorPlanFigure
                   tables={tables}
                   zones={zones}
+                  world={world}
                   widthMm={box.inner.width}
                   // The letterhead takes its share off the top; the plan gets
                   // the rest of the page, which is the whole point of giving it

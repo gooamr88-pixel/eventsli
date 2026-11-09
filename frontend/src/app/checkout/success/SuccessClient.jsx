@@ -106,6 +106,25 @@ export default function SuccessClient() {
     );
   }
 
+  if (result.status !== 'paid' && result.sessionStatus === 'complete') {
+    // Stripe accepted the payment but has not settled it yet. Telling this
+    // buyer "Nothing was charged" with a "Try again" button is how they end
+    // up paying twice.
+    return (
+      <div className="es-empty" role="status">
+        <span className="es-empty__mark" aria-hidden="true"><NavIcon name="clock" size={26} /></span>
+        <h1 className="es-empty__title">Your payment is processing</h1>
+        <p className="es-empty__hint">
+          Stripe has your payment and is still confirming it. We will email your tickets as
+          soon as it completes, so please do not pay again.
+        </p>
+        <Link href="/tickets/find" className="es-btn es-btn--primary">
+          Find my tickets
+        </Link>
+      </div>
+    );
+  }
+
   if (result.status !== 'paid') {
     return (
       <div className="es-empty">

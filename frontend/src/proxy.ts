@@ -36,8 +36,14 @@ import { buildCsp } from '../config/csp.mjs';
 
 const SESSION_COOKIE = 'eventsli_session';
 
-/** Signed-in only. Prefix match, so /organizer/events/123/map is covered. */
-const PROTECTED = ['/account', '/organizer', '/admin'];
+/**
+ * Signed-in only. Prefix match, so /organizer/events/123/map is covered.
+ *
+ * `/app-auth` is the check-in app's "Sign in with Eventsli" consent page: a
+ * signed-out visitor goes through /login — password, Google, anything the
+ * site offers — and the `next` brings them back with the app's request intact.
+ */
+const PROTECTED = ['/account', '/organizer', '/admin', '/app-auth'];
 
 /** Signed-IN visitors are sent away from these. */
 const AUTH_ONLY = ['/login', '/register', '/verify-email'];

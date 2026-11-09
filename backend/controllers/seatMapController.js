@@ -1,10 +1,12 @@
 const { supabase } = require('../config/supabase');
 const venue = require('../services/venueService');
+const media = require('../services/mediaService');
 const access = require('../services/tableAccessService');
 const { sendOk, sendFail } = require('../utils/responseEnvelope');
 const accessTokens = require('../services/accessTokens');
 const logger = require('../utils/logger');
 const { fetchAll } = require('../utils/fetchAll');
+const { sellableSeats } = require('../services/seatSellability');
 
 const TTL_MINUTES = () => parseInt(process.env.RESERVATION_TTL_MINUTES || '35', 10);
 
@@ -21,16 +23,72 @@ async function getMap(req, res, next) {
 // PUT /events/:eventId/venue-map
 async function putMap(req, res, next) {
   try {
-    const result = await venue.saveMap(req.params.eventId, req.body);
+    // The actor is recorded with every price change the save makes (S-10).
+    const result = await venue.saveMap(req.params.eventId, req.body, { actorId: req.user?.id || null });
     return sendOk(res, result);
   } catch (err) {
-    if (err.code === 'VALIDATION_ERROR' || err.code === 'CONFLICT') {
+    if (['VALIDATION_ERROR', 'CONFLICT', 'MAP_STALE'].includes(err.code)) {
       return sendFail(res, {
-        status: err.code === 'CONFLICT' ? 409 : 400, error: err.code, message: err.message,
+        status: err.code === 'VALIDATION_ERROR' ? 400 : 409, error: err.code, message: err.message,
       });
     }
     return next(err);
   }
+}
+
+// ═══ VENUE STUDIO ═══════════════════════════════════════════════════════════
+
+/** A MediaError or a coded service refusal is an answer; anything else is a fault. */
+function studioFail(res, err, next) {
+  const { ERROR_STATUS: status } = require('../utils/responseEnvelope');
+  if (!err?.code || !(err.code in status)) return next(err);
+  return sendFail(res, { status: status[err.code], error: err.code, message: err.message });
+}
+
+/**
+ * POST /events/:eventId/venue-map/upload — sign an upload for the venue photo
+ * or a 360° panorama. The same two steps as the cover (mediaService): the
+ * server picks the key, the browser PUTs the bytes, then confirms below.
+ */
+async function signAssetUpload(req, res, next) {
+  try {
+    const signed = await media.signUpload({
+      eventId: req.params.eventId,
+      contentType: String(req.body.contentType || '').toLowerCase(),
+      kind: req.body.kind,
+    });
+    return sendOk(res, signed);
+  } catch (err) { return studioFail(res, err, next); }
+}
+
+/**
+ * POST /events/:eventId/venue-map/assets — confirm an uploaded studio image.
+ *
+ * Writes nothing. It proves the object landed under this event and returns
+ * its path and URL for the editor's draft; the layout save is what keeps it,
+ * and that save re-derives the URL from the path (venueStudio.js).
+ */
+async function confirmAsset(req, res, next) {
+  try {
+    const { ownPath } = require('../services/venueStudio');
+    if (!ownPath(req.params.eventId, req.body.path, ['venue', 'panorama'])) {
+      return sendFail(res, {
+        status: 400, error: 'VALIDATION_ERROR', message: 'That image does not belong to this venue.',
+      });
+    }
+    const asset = await media.attach({ eventId: req.params.eventId, path: req.body.path });
+    return sendOk(res, asset);
+  } catch (err) { return studioFail(res, err, next); }
+}
+
+/** PUT /events/:eventId/venue-map/availability — block or release seats. */
+async function setAvailability(req, res, next) {
+  try {
+    const result = await venue.setSeatAvailability(
+      req.params.eventId, req.body.seatIds, req.body.blocked === true,
+    );
+    return sendOk(res, result);
+  } catch (err) { return studioFail(res, err, next); }
 }
 
 // ═══ PUBLIC ═════════════════════════════════════════════════════════════════
@@ -92,7 +150,12 @@ async function publicMap(req, res, next) {
       .order('id')
       .range(from, to), { what: 'tables' });
 
-    const visible = tables.filter((t) => !t.is_private || unlocked.has(t.id));
+    // In LABEL order (T1, T2 … T10), not id order. The map draws by position
+    // either way, but keyboard and screen-reader users move through tables in
+    // array order, and id order is random: T2, T5, T1, T3…
+    const visible = tables
+      .filter((t) => !t.is_private || unlocked.has(t.id))
+      .sort((a, b) => String(a.label).localeCompare(String(b.label), 'en', { numeric: true }));
     const visibleIds = new Set(visible.map((t) => t.id));
 
     // ALL the seats, in pages. One request returned at most 1,000 of them, and a
@@ -110,14 +173,31 @@ async function publicMap(req, res, next) {
     const visibleSeats = seats.filter((s) => !s.table_id || visibleIds.has(s.table_id));
 
     const { data: tiers, error: tierError } = await supabase
-      .from('ticket_tiers').select('id, name, price_cents').eq('event_id', event.id);
+      .from('ticket_tiers')
+      .select('id, name, price_cents, quantity, sold_count, sales_start_at, sales_end_at, max_per_order')
+      .eq('event_id', event.id);
     if (tierError) throw new Error(`seat map: tier lookup failed: ${tierError.message}`);
-    const tierPrice = Object.fromEntries((tiers || []).map((t) => [t.id, t.price_cents]));
+
+    const sellability = sellableSeats(seats, tiers || []);
+    const seatReason = new Map(visibleSeats.map((s) => [s.id, sellability.reasonFor(s)]));
+    const tableClear = new Map();
+    for (const s of visibleSeats) {
+      if (!s.table_id) continue;
+      tableClear.set(s.table_id, (tableClear.get(s.table_id) ?? true) && seatReason.get(s.id) === null);
+    }
 
     return sendOk(res, {
       event: publicEvent(event),
       map: { id: map.id, layout: map.layout_json, version: map.version },
-      tiers: (tiers || []).map((t) => ({ id: t.id, name: t.name, priceCents: t.price_cents })),
+      tiers: (tiers || []).map((t) => ({
+        id: t.id,
+        name: t.name,
+        priceCents: t.price_cents,
+        // What the legend and the selection need to say before the hold does.
+        onSale: sellability.tier.get(t.id).onSale,
+        soldOut: sellability.tier.get(t.id).soldOut,
+        maxPerOrder: t.max_per_order === null ? null : Number(t.max_per_order),
+      })),
       tables: visible.map((t) => ({
         id: t.id,
         label: t.label,
@@ -127,24 +207,34 @@ async function publicMap(req, res, next) {
         // `partial` is meaningful to a buyer: the table can no longer be booked
         // whole, but individual seats on it may still be free (BRD §25).
         status: t.status,
+        // Every seat that comes with the table has to be sellable too: its
+        // ticket type on sale and not sold out (S-07).
         canBookWhole: t.status === 'available' && t.price_cents !== null
-          && event.purchase_mode !== 'seat_only',
+          && event.purchase_mode !== 'seat_only' && tableClear.get(t.id) === true,
         position: { x: Number(t.position_x), y: Number(t.position_y), rotation: Number(t.rotation) },
         shape: t.shape,
         categoryId: t.category_id,
       })),
-      seats: visibleSeats.map((s) => ({
-        id: s.id,
-        tableId: s.table_id,
-        tierId: s.tier_id,
-        section: s.section_key,
-        row: s.row_label,
-        number: s.seat_number,
-        priceCents: s.price_override_cents ?? tierPrice[s.tier_id] ?? null,
-        // Collapsed to a boolean. Whether a seat is held or sold is our
-        // business; to a buyer both mean "not yours".
-        available: s.status === 'available',
-      })),
+      seats: visibleSeats.map((s) => {
+        const reason = seatReason.get(s.id);
+        return {
+          id: s.id,
+          tableId: s.table_id,
+          tierId: s.tier_id,
+          section: s.section_key,
+          row: s.row_label,
+          number: s.seat_number,
+          priceCents: sellability.priceOf(s),
+          // `available` means "can be chosen now" (S-07). It used to mean only
+          // "nobody holds it", so seats with no price, or of a type off sale or
+          // sold out, looked free and were refused at the hold — and the refusal
+          // reloaded a map that showed the same seats free again.
+          available: reason === null,
+          // Why not, in buyer terms. Held and sold collapse to `taken`: which
+          // one is our business; to a buyer both mean "not yours".
+          ...(reason ? { reason } : {}),
+        };
+      }),
       // Private tables the buyer has not unlocked are counted, not listed, so
       // the map can say "3 reserved tables" without naming them.
       hiddenTableCount: tables.length - visible.length,
@@ -220,6 +310,7 @@ async function hold(req, res, next) {
     const { seatIds, tableId, lines } = req.body;
 
     let result;
+    let rpcError = null;
     if (Array.isArray(lines)) {
       /**
        * GENERAL ADMISSION — a quantity of a ticket type, with no seat behind it.
@@ -231,7 +322,7 @@ async function hold(req, res, next) {
        * lock on the tiers, because three separate paths take stock and a rule
        * checked out here is a rule the other two do not have.
        */
-      ({ data: result } = await supabase.rpc('hold_general', {
+      ({ data: result, error: rpcError } = await supabase.rpc('hold_general', {
         p_event_id: event.id, p_user_id: userId, p_lines: lines, p_ttl_minutes: TTL_MINUTES(),
       }));
     } else if (tableId) {
@@ -250,7 +341,7 @@ async function hold(req, res, next) {
           });
         }
       }
-      ({ data: result } = await supabase.rpc('hold_table', {
+      ({ data: result, error: rpcError } = await supabase.rpc('hold_table', {
         p_event_id: event.id, p_user_id: userId, p_table_id: tableId, p_ttl_minutes: TTL_MINUTES(),
       }));
     } else {
@@ -270,10 +361,14 @@ async function hold(req, res, next) {
           });
         }
       }
-      ({ data: result } = await supabase.rpc('hold_seats', {
+      ({ data: result, error: rpcError } = await supabase.rpc('hold_seats', {
         p_event_id: event.id, p_user_id: userId, p_seat_ids: seatIds, p_ttl_minutes: TTL_MINUTES(),
       }));
     }
+
+    // A failed call is not a taken seat. It used to fall through to the
+    // refusal below and tell the buyer the seats had gone (T-039).
+    if (rpcError) throw new Error(`hold failed: ${rpcError.message}`);
 
     if (!result?.ok) {
       return sendFail(res, {
@@ -371,4 +466,6 @@ async function tableIsPrivate(tableId) {
 const { ERROR_STATUS } = require('../utils/responseEnvelope');
 const statusFor = (code) => ERROR_STATUS[code] || 409;
 
-module.exports = { getMap, putMap, publicMap, unlockTable, hold, release };
+module.exports = {
+  getMap, putMap, publicMap, unlockTable, hold, release, signAssetUpload, confirmAsset, setAvailability,
+};

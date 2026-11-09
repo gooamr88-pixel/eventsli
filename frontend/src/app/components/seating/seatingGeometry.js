@@ -26,14 +26,33 @@
  * percentage is correct in all of them, and the same numbers still mean the
  * same thing after a redesign changes every dimension in this file.
  *
- * WORLD is the aspect ratio those percentages are resolved against — the SVG
- * viewBox, and the units every function below returns. Changing it rescales
- * every drawing consistently and changes nothing in the database.
+ * THE WORLD IS PER MAP (2026-11-09). The percentages are resolved against the
+ * map's own world — `layout.world`, read by `worldOf` — which is the SVG
+ * viewBox and the units every function below returns. Seats keep their size in
+ * world units, so a bigger world is a bigger ROOM, not bigger seats: 1000 × 700
+ * holds a ballroom (about 23 m × 16 m), 8000 × 6000 a stadium bowl. A map with
+ * no `layout.world` — and every map the editor saved with the old fixed
+ * 1000 × 700 — resolves to `WORLD` and draws exactly as it always did.
+ *
+ * So every function that turns a percentage into units takes the world as its
+ * last argument, defaulting to `WORLD`, and nothing else in `src` imports
+ * `WORLD` (seatingGeometry.test.js enforces it). A renderer that resolved
+ * against the default would squeeze a stadium into a ballroom, and only on the
+ * maps that are not the default — the kind of bug this file exists to prevent.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
-/** The logical drawing surface. 10:7 — a room is wider than it is deep. */
+/** The default world, and the size of every map that does not set its own.
+ *  10:7 — a room is wider than it is deep. */
 export const WORLD = Object.freeze({ width: 1000, height: 700 });
+
+/**
+ * The largest world a map may have: about 229 m × 229 m at 0.55 m a seat — a
+ * stadium bowl with its concourse. `NUMERIC(6,3)` stores 0.001 %, so a
+ * position still lands to a tenth of a unit. The API clamps to the same
+ * numbers (`backend/services/venueStudio.js`); a test holds the two equal.
+ */
+export const MAX_WORLD = Object.freeze({ width: 10000, height: 10000 });
 
 /** One seat's drawn radius, in world units. */
 export const SEAT_RADIUS = 9;
@@ -46,6 +65,81 @@ export const SEAT_RADIUS = 9;
  * glance, which is the entire job of a seat map.
  */
 export const SEAT_PITCH = SEAT_RADIUS * 2 + 6;
+
+/** Real size: one seat pitch is 0.55 m. That turns a world into a venue in
+ *  metres — the 3D model's scale and the venue size the organizer types. */
+export const METRES_PER_UNIT = 0.55 / SEAT_PITCH;
+
+/* ── the world ──────────────────────────────────────────────────────────── */
+
+const worlds = new Map([[`${WORLD.width}x${WORLD.height}`, WORLD]]);
+
+/**
+ * A world of this size, normalised: whole units, clamped between `WORLD` and
+ * `MAX_WORLD`, and the SAME frozen object for the same size — so a world can
+ * sit in a React dependency list without re-framing the map on every render.
+ * Anything unreadable is the default world.
+ */
+export function makeWorld(width, height) {
+  const w = Number(width);
+  const h = Number(height);
+  if (!Number.isFinite(w) || !Number.isFinite(h)) return WORLD;
+  const nw = Math.round(clamp(w, WORLD.width, MAX_WORLD.width));
+  const nh = Math.round(clamp(h, WORLD.height, MAX_WORLD.height));
+  const key = `${nw}x${nh}`;
+  if (!worlds.has(key)) worlds.set(key, Object.freeze({ width: nw, height: nh }));
+  return worlds.get(key);
+}
+
+/**
+ * The world a saved layout is drawn in. The one place `layout.world` is read.
+ *
+ * Defensive like `readZones`: a missing, partial or unreadable world is the
+ * default one, the size every map had before worlds were per map, so an old
+ * map, or a blob written oddly, still draws as it always did.
+ */
+export function worldOf(layout) {
+  const raw = layout && typeof layout === 'object' ? layout.world : null;
+  if (!raw || typeof raw !== 'object') return WORLD;
+  return makeWorld(raw.width, raw.height);
+}
+
+/** A world's size in metres, to a tenth — what the organizer reads. */
+export function worldMetres(world = WORLD) {
+  const m = (u) => Math.round(u * METRES_PER_UNIT * 10) / 10;
+  return { width: m(world.width), depth: m(world.height) };
+}
+
+/** Metres → a world: the inverse of `worldMetres`, through `makeWorld`. */
+export function worldFromMetres(width, depth) {
+  return makeWorld(Number(width) / METRES_PER_UNIT, Number(depth) / METRES_PER_UNIT);
+}
+
+/**
+ * How much a screen-constant mark (a border, a handle, a label) is divided by
+ * at this viewport. Measured against the DEFAULT world's width, not the map's,
+ * so a handle is the same size on screen in a ballroom and in a stadium: what
+ * it answers is "how many units is a pixel", which does not depend on the room.
+ */
+export function screenScale(view) {
+  return WORLD.width / Math.max(Number(view?.width) || 0, 1);
+}
+
+/** How many default rooms wide this world is: 1 for every map that predates
+ *  per-map worlds. Map-wide labels (section names) grow by it, so they can
+ *  still be read when a stadium is fitted to a phone. */
+export function worldScale(world = WORLD) {
+  return Math.max(1, world.width / WORLD.width);
+}
+
+/**
+ * A distance in world units, as a step in percentages of this world. The
+ * editor's nudges, copy offsets and snapping are defined in units so that they
+ * are the same physical distance in every room.
+ */
+export function unitsToPercent(dx, dy, world = WORLD) {
+  return { x: (dx / world.width) * 100, y: (dy / world.height) * 100 };
+}
 
 /**
  * The shapes a table may be. `tables.shape` is TEXT with DEFAULT 'round', so
@@ -203,26 +297,55 @@ function rectangularSeats(kind, n, body) {
 }
 
 /**
- * A stored percentage → world units.
+ * A stored percentage → units of this map's world.
  *
  * The one place the percentage contract is applied. Every renderer calls this
- * rather than multiplying by WORLD itself, so the day the world changes shape
- * there is a single line to edit instead of four files that each looked right.
+ * rather than multiplying by a world itself, so the rule lives in a single
+ * line instead of in four files that each looked right.
  */
-export function toWorld(position) {
+export function toWorld(position, world = WORLD) {
   return {
-    x: (Number(position?.x) || 0) / 100 * WORLD.width,
-    y: (Number(position?.y) || 0) / 100 * WORLD.height,
+    x: (Number(position?.x) || 0) / 100 * world.width,
+    y: (Number(position?.y) || 0) / 100 * world.height,
     rotation: Number(position?.rotation) || 0,
   };
 }
 
 /** World units → a stored percentage. The exact inverse of toWorld, and the
  *  editor's only way to write a position. */
-export function toPercent(x, y) {
+export function toPercent(x, y, world = WORLD) {
   return {
-    x: round3(clamp((x / WORLD.width) * 100, 0, 100)),
-    y: round3(clamp((y / WORLD.height) * 100, 0, 100)),
+    x: round3(clamp((x / world.width) * 100, 0, 100)),
+    y: round3(clamp((y / world.height) * 100, 0, 100)),
+  };
+}
+
+/**
+ * Tables and zones moved into a world of another size, KEEPING THEIR SIZE AND
+ * SPACING in units — which is what "make the venue bigger" means. Positions are
+ * percentages, so a bare resize would spread every row apart (a bigger world)
+ * or crush them together (a smaller one).
+ *
+ * The old room is centred in the new one, then shifted only as far as it takes
+ * to keep everything inside. Returns null when the content cannot fit the new
+ * world at all: the caller refuses the resize rather than clipping seats.
+ */
+export function moveToWorld({ tables = [], zones = [] }, from, to) {
+  const box = extent(tables, zones, from);
+  let dx = (to.width - from.width) / 2;
+  let dy = (to.height - from.height) / 2;
+  if (box) {
+    if (box.maxX - box.minX > to.width || box.maxY - box.minY > to.height) return null;
+    dx = clamp(dx, -box.minX, to.width - box.maxX);
+    dy = clamp(dy, -box.minY, to.height - box.maxY);
+  }
+  const move = (px, py) => {
+    const p = toWorld({ x: px, y: py }, from);
+    return toPercent(p.x + dx, p.y + dy, to);
+  };
+  return {
+    tables: tables.map((t) => ({ ...t, position: { ...t.position, ...move(t.position?.x, t.position?.y) } })),
+    zones: zones.map((z) => ({ ...z, ...move(z.x, z.y) })),
   };
 }
 
@@ -239,18 +362,31 @@ export function toPercent(x, y) {
  * Optional, because the two callers that predate zones pass tables alone and a
  * required second argument would have framed their maps to `undefined`.
  */
-export function contentBounds(tables, zones) {
+export function contentBounds(tables, zones, world = WORLD) {
+  const box = extent(tables, zones, world);
+  if (!box) return { x: 0, y: 0, width: world.width, height: world.height };
+
+  const pad = 30;
+  return {
+    x: box.minX - pad,
+    y: box.minY - pad,
+    width: Math.max(120, box.maxX - box.minX + pad * 2),
+    height: Math.max(120, box.maxY - box.minY + pad * 2),
+  };
+}
+
+/** The tight box around everything drawn, in units of `world`, or null for an
+ *  empty map. Shared by the opening frame and by `moveToWorld`. */
+function extent(tables, zones, world) {
   const hasTables = Array.isArray(tables) && tables.length > 0;
   const hasZones = Array.isArray(zones) && zones.length > 0;
-  if (!hasTables && !hasZones) {
-    return { x: 0, y: 0, width: WORLD.width, height: WORLD.height };
-  }
+  if (!hasTables && !hasZones) return null;
 
   let minX = Infinity; let minY = Infinity;
   let maxX = -Infinity; let maxY = -Infinity;
 
   for (const t of (hasTables ? tables : [])) {
-    const { x, y } = toWorld(t.position);
+    const { x, y } = toWorld(t.position, world);
     const body = tableBody(t.shape, t.seatCount);
     // The seats sit outside the body, so the extent is the body plus a seat
     // and its pitch — measured, not guessed, or labels clip on the edges.
@@ -267,8 +403,8 @@ export function contentBounds(tables, zones) {
     // trig calls per zone per frame to save a few units of padding.
     const w = Math.max(0, Number(z.w) || 0);
     const h = Math.max(0, Number(z.h) || 0);
-    const cx = (Number(z.x) || 0) / 100 * WORLD.width;
-    const cy = (Number(z.y) || 0) / 100 * WORLD.height;
+    const cx = (Number(z.x) || 0) / 100 * world.width;
+    const cy = (Number(z.y) || 0) / 100 * world.height;
     const reach = (Number(z.rotation) ? Math.hypot(w, h) : Math.max(w, h)) / 2;
     minX = Math.min(minX, cx - reach);
     minY = Math.min(minY, cy - reach);
@@ -276,13 +412,7 @@ export function contentBounds(tables, zones) {
     maxY = Math.max(maxY, cy + reach);
   }
 
-  const pad = 30;
-  return {
-    x: minX - pad,
-    y: minY - pad,
-    width: Math.max(120, maxX - minX + pad * 2),
-    height: Math.max(120, maxY - minY + pad * 2),
-  };
+  return { minX, minY, maxX, maxY };
 }
 
 /**
@@ -297,7 +427,10 @@ export function contentBounds(tables, zones) {
  * allowed, so a table near the boundary can still be centred to work on.
  */
 export function clampView(view, bounds) {
-  const width = clamp(view.width, bounds.width / 24, bounds.width * 1.6);
+  // The deepest zoom is a 24th of the content, or ten seats across when that
+  // is closer: a 24th of a stadium bowl is still too far out to tap a seat on a
+  // phone. Every room up to the default world's size zooms exactly as before.
+  const width = clamp(view.width, Math.min(bounds.width / 24, SEAT_PITCH * 10), bounds.width * 1.6);
   const height = width * (view.height / view.width || 1);
 
   const slackX = width / 2;

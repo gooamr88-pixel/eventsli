@@ -19,9 +19,10 @@ const { escapeLike } = require('../utils/search');
  *
  * TWO RULES THE DATABASE OWNS, and this file only reports:
  *
- *   • BRD §13 — once a ticket has sold at a price, that price is frozen.
- *     `lock_tier_price_after_sale` raises; changing a sold tier's price would
- *     rewrite what a buyer already agreed to pay.
+ *   • What a buyer paid never changes. The type's price CAN change after a
+ *     sale (owner decision 2026-11-10, S-18; it replaced BRD §13's price lock):
+ *     each sale keeps its own price, and `sale_prices_are_final` refuses any
+ *     change to an order's amounts. Every price change is in the audit log.
  *
  *   • `sold_within_quantity` — the allocation cannot be cut below what has
  *     already gone out of the door.
@@ -164,6 +165,29 @@ async function update(req, res, next) {
                  + `sold on this tier, so the allocation cannot go below ${tier.sold_count}.`,
         });
       }
+
+      /**
+       * LIVE HOLDS COUNT TOO (TECH-AUDIT-LOG T-018).
+       *
+       * A buyer holding seats of this tier is mid-checkout. Cutting the
+       * allocation under sold + held let the cut through, and their payment
+       * then failed the allocation check at fulfilment: charged, no tickets.
+       * Checked here rather than under a lock, so a hold landing in the same
+       * instant can still slip past — the window is milliseconds, not the
+       * 35 minutes of every open checkout.
+       */
+      if (patch.quantity !== null) {
+        const held = await heldCount(tier.id);
+        if (patch.quantity < tier.sold_count + held) {
+          const floor = tier.sold_count + held;
+          return sendFail(res, {
+            status: 409, error: 'BELOW_SOLD',
+            message: `${held} ticket${held === 1 ? ' is' : 's are'} on hold in checkouts right now`
+                   + `${tier.sold_count ? ` and ${tier.sold_count} sold` : ''}, so the allocation cannot `
+                   + `go below ${floor} yet. Try again once those checkouts finish.`,
+          });
+        }
+      }
     }
 
     if (Object.keys(patch).length === 0) {
@@ -184,18 +208,36 @@ async function update(req, res, next) {
       }
     }
 
-    const { data, error } = await supabase
-      .from('ticket_tiers').update(patch).eq('id', tier.id).select(SELECT).single();
+    /**
+     * THE PRICE MAY CHANGE AFTER A SALE (TECH-AUDIT-LOG S-18, owner decision
+     * 2026-11-10), on a live event too, without review (S-10).
+     *
+     * A sold ticket keeps what it was sold for: every hold freezes its line's
+     * price, every order keeps its amounts, and the database refuses any change
+     * to either (`sale_prices_are_final`). So a new price reaches only seats and
+     * tickets not yet sold or held. It goes through `set_tier_price`, which
+     * records WHO changed it in the audit log the trigger writes.
+     */
+    const priceCents = patch.price_cents;
+    delete patch.price_cents;
+    if (priceCents !== undefined && priceCents !== Number(tier.price_cents)) {
+      const { error: priceError } = await supabase.rpc('set_tier_price', {
+        p_tier_id: tier.id, p_event_id: req.params.eventId, p_price_cents: priceCents, p_actor: req.user?.id || null,
+      });
+      if (priceError) throw new Error(`tier price change failed: ${priceError.message}`);
+    }
 
-    if (error) {
-      if (/PRICE_LOCKED_AFTER_SALE/.test(error.message)) {
-        return sendFail(res, {
-          status: 409, error: 'PRICE_LOCKED_AFTER_SALE',
-          message: 'Tickets have already sold at this price, so it can no longer change. '
-                 + 'Create a new tier for the new price.',
-        });
-      }
-      throw new Error(error.message);
+    let data;
+    if (Object.keys(patch).length > 0) {
+      const { data: updated, error } = await supabase
+        .from('ticket_tiers').update(patch).eq('id', tier.id).select(SELECT).single();
+      if (error) throw new Error(error.message);
+      data = updated;
+    } else {
+      const { data: reread, error } = await supabase
+        .from('ticket_tiers').select(SELECT).eq('id', tier.id).single();
+      if (error) throw new Error(error.message);
+      data = reread;
     }
 
     return sendOk(res, shape(data));
@@ -225,8 +267,20 @@ async function remove(req, res, next) {
       });
     }
 
-    const { count: seatCount } = await supabase
-      .from('seats').select('id', { count: 'exact', head: true }).eq('tier_id', tier.id);
+    // Seats AND tables: a table carries its ticket type too (TECH-AUDIT-LOG
+    // S-02), and deleting the type would clear it there without a word.
+    const [{ count: seatCount, error: seatError }, { count: tableCount, error: tableError }] = await Promise.all([
+      supabase.from('seats').select('id', { count: 'exact', head: true }).eq('tier_id', tier.id),
+      supabase.from('tables').select('id', { count: 'exact', head: true }).eq('tier_id', tier.id),
+    ]);
+    if (seatError || tableError) throw new Error(`tier usage check failed: ${(seatError || tableError).message}`);
+    if (tableCount && !seatCount) {
+      return sendFail(res, {
+        status: 409, error: 'TIER_IN_USE',
+        message: `${tableCount} table${tableCount === 1 ? ' uses' : 's use'} this ticket type on the seating map. `
+               + 'Choose another type for them first.',
+      });
+    }
     if (seatCount) {
       return sendFail(res, {
         status: 409, error: 'TIER_IN_USE',
@@ -251,6 +305,18 @@ async function remove(req, res, next) {
  * edit any tier on the platform by pairing their own event id with someone
  * else's tier id.
  */
+/** Seats of this tier on hold, plus general-admission quantities on hold. */
+async function heldCount(tierId) {
+  const [{ count: seats, error: seatError }, { data: general, error: gaError }] = await Promise.all([
+    supabase.from('seats').select('id', { count: 'exact', head: true })
+      .eq('tier_id', tierId).eq('status', 'held'),
+    supabase.rpc('general_held_count', { p_tier_id: tierId }),
+  ]);
+  if (seatError) throw new Error(`held seat count failed: ${seatError.message}`);
+  if (gaError) throw new Error(`held ticket count failed: ${gaError.message}`);
+  return Number(seats || 0) + Number(general || 0);
+}
+
 async function owned(req) {
   const { data } = await supabase
     .from('ticket_tiers')

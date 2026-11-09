@@ -375,3 +375,76 @@ test('a malformed id is refused before the database is asked', async () => {
     (err) => err.code === 'VALIDATION_ERROR' && /invalid id/i.test(err.message),
   );
 });
+
+// ── Seat integrity (20261111090000) ─────────────────────────────────────────
+
+test('a table booked WHOLE cannot grow, so a new chair is never sold twice (T-017)', async () => {
+  await venue.saveMap(ids.event, {
+    layout: {},
+    tables: [table({ id: ids.tableA, label: 'A', seatCount: 7 }), table({ label: 'W', seatCount: 2 })],
+  });
+  const w = (await venue.getMapForOrganizer(ids.event)).tables.find((t) => t.label === 'W');
+  const keepA = table({ id: ids.tableA, label: 'A', seatCount: 7 });
+
+  const { data: held } = await supabase.rpc('hold_table', {
+    p_event_id: ids.event, p_user_id: null, p_table_id: w.id, p_ttl_minutes: 30,
+  });
+  assert.ok(held.reservation_id, `hold on W: ${JSON.stringify(held)}`);
+
+  // Before the fix this save succeeded: seat 3 was `available`, sellable on
+  // its own, and the whole-table order was issued by table membership.
+  await assert.rejects(
+    () => venue.saveMap(ids.event, {
+      layout: {}, tables: [keepA, table({ id: w.id, label: 'W', seatCount: 3 })],
+    }),
+    (err) => err.code === 'CONFLICT' && /whole table/i.test(err.message),
+  );
+  const during = (await venue.getMapForOrganizer(ids.event)).tables.find((t) => t.label === 'W');
+  assert.equal(during.seats.length, 2, 'no seat was added');
+
+  // Released, it grows like any other table.
+  await supabase.rpc('release_reservation', { p_reservation_id: held.reservation_id });
+  await venue.saveMap(ids.event, {
+    layout: {}, tables: [keepA, table({ id: w.id, label: 'W', seatCount: 3 })],
+  });
+  const after_ = (await venue.getMapForOrganizer(ids.event)).tables.find((t) => t.label === 'W');
+  assert.equal(after_.seats.length, 3);
+
+  await venue.saveMap(ids.event, { layout: {}, tables: [keepA] });
+});
+
+test('a ticket type assigned AFTER the first save reaches the seats (T-086)', async () => {
+  const { data: tier, error } = await supabase.from('ticket_tiers').insert({
+    event_id: ids.event, name: `Later ${stamp}`, price_cents: 7000,
+  }).select('id').single();
+  if (error) throw new Error(`seed tier: ${error.message}`);
+
+  try {
+    const start = await venue.getMapForOrganizer(ids.event);
+    const seat1 = start.tables[0].seats.find((s) => s.number === '1');
+    const { data: held } = await supabase.rpc('hold_seats', {
+      p_event_id: ids.event, p_user_id: null, p_seat_ids: [seat1.id], p_ttl_minutes: 30,
+    });
+    assert.ok(held.reservation_id, `hold: ${JSON.stringify(held)}`);
+
+    // Before the fix this returned normally and changed nothing.
+    await venue.saveMap(ids.event, {
+      layout: {},
+      tables: [table({ id: ids.tableA, label: 'A', seatCount: 7, tierId: tier.id, seatPriceCents: 6500 })],
+    });
+
+    const seats = (await venue.getMapForOrganizer(ids.event)).tables[0].seats;
+    const free = seats.filter((s) => s.id !== seat1.id);
+    assert.ok(free.every((s) => s.tierId === tier.id), 'every available seat took the ticket type');
+    assert.ok(free.every((s) => s.priceOverrideCents === 6500), 'and the seat price');
+    const kept = seats.find((s) => s.id === seat1.id);
+    assert.notEqual(kept.tierId, tier.id, 'a held seat keeps the type it is being bought as');
+
+    await supabase.rpc('release_reservation', { p_reservation_id: held.reservation_id });
+  } finally {
+    await venue.saveMap(ids.event, {
+      layout: {}, tables: [table({ id: ids.tableA, label: 'A', seatCount: 7 })],
+    });
+    await supabase.from('ticket_tiers').delete().eq('id', tier.id);
+  }
+});

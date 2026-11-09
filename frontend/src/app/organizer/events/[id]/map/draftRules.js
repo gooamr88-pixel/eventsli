@@ -107,3 +107,43 @@ export function numberedLabel(base, taken) {
   }
   return `${stem} ${Date.now()}`;
 }
+
+/**
+ * New table rows from specs, naming any that arrive unnamed against `taken`
+ * (which grows as it goes, so a batch cannot collide with itself).
+ */
+export function buildTables(specs, taken) {
+  const stamp = Date.now();
+  return specs.map((spec, i) => {
+    const label = String(spec?.label || '').trim() || nextLabel(taken);
+    taken.add(label.toLowerCase());
+    return {
+      // No `id`: the API reads its absence as "create". A client-generated
+      // one would be sent as an existing row to update and match nothing.
+      localKey: `new-${stamp}-${i}-${Math.random().toString(36).slice(2, 8)}`,
+      label,
+      seatCount: clampSeats(spec?.seatCount ?? 8),
+      priceCents: spec?.priceCents ?? null,
+      isPrivate: false,
+      shape: spec?.shape || 'round',
+      categoryId: spec?.categoryId ?? null,
+      tierId: spec?.tierId ?? null,
+      seatPriceCents: null,
+      position: {
+        x: clamp(Number(spec?.position?.x) || 0, 0, 100),
+        y: clamp(Number(spec?.position?.y) || 0, 0, 100),
+        rotation: Number(spec?.position?.rotation) || 0,
+      },
+    };
+  });
+}
+
+/** Matches the database: `seat_count INT CHECK (seat_count BETWEEN 1 AND 60)`. */
+function clampSeats(n) {
+  const v = Math.round(Number(n) || 0);
+  return Math.min(MAX_SEATS_PER_TABLE, Math.max(1, v));
+}
+
+function clamp(v, lo, hi) {
+  return Math.min(hi, Math.max(lo, v));
+}

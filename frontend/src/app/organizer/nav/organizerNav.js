@@ -65,12 +65,11 @@ const DISPLAY_ONLY_KEYS = new Set(['overview', 'details', 'content', 'share']);
  * seating plan before they could sell anything, and the two screens that
  * demanded it sat in the sidebar as permanent unfinished work.
  *
- * Hidden rather than disabled. A disabled item with a reason is right when the
- * thing exists and is not reachable YET (that is what "choose an event first"
- * is for); these do not exist for this event at all, and never will while it is
- * general admission.
+ * Table categories are hidden: they mean nothing without a map. The seat map
+ * itself is DISABLED WITH ITS REASON rather than hidden (TECH-AUDIT-LOG S-13):
+ * hiding it read as a missing feature, and "where is the seating map?" had no
+ * answer anywhere on screen. See the end of `organizerNavGroups`.
  */
-const RESERVED_ONLY_KEYS = new Set(['map', 'tables']);
 
 /**
  * `admissionType` gates the seat map; `listingType` gates everything that
@@ -273,9 +272,30 @@ export function organizerNavGroups({
   // asking about admission afterwards would be asking about a map that is
   // already gone.
   if (displayOnly) return prune(groups, (item) => DISPLAY_ONLY_KEYS.has(item.key));
-  if (generalAdmission) return prune(groups, (item) => !RESERVED_ONLY_KEYS.has(item.key));
+  if (generalAdmission) {
+    /**
+     * THE SEAT MAP IS EXPLAINED, NOT REMOVED (TECH-AUDIT-LOG S-13).
+     *
+     * It used to vanish along with table categories, so an organizer who had
+     * picked general admission at creation — or had it picked for them by an
+     * AI draft — found no seating map anywhere and no reason why. One disabled
+     * row with the reason and where to change it; table categories, which
+     * mean nothing until there is a map, still go. A disabled item has no
+     * href, so Back/Next (`BuildNav`) walks straight past it.
+     */
+    return prune(groups, (item) => item.key !== 'tables')
+      .map((group) => ({
+        ...group,
+        items: group.items.map((item) => (item.key === 'map'
+          ? { ...item, href: null, disabled: true, hint: GA_MAP_HINT }
+          : item)),
+      }));
+  }
   return groups;
 }
+
+const GA_MAP_HINT = 'This event is general admission, so it has no seat map. '
+  + 'To sell seats or tables, switch to Reserved seating in Event details — possible until the first ticket sells.';
 
 /** Filters the event-scoped groups and drops any left empty. The account and
  *  home groups are never touched — they are about the organizer, not the event. */

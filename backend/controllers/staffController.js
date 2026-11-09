@@ -55,6 +55,8 @@ async function assignments(req, res, next) {
   try {
     return sendOk(res, await staff.assignmentsFor({
       userId: req.user.id, organizerId: req.user.access.organizerId,
+      // The check-in app's event picker; the web gate omits it.
+      scope: req.query.scope === 'all' ? 'all' : 'scannable',
     }));
   } catch (err) { return next(err); }
 }
@@ -72,6 +74,7 @@ async function staffLogin(req, res, next) {
       organizerId: req.user.access.organizerId,
       displayName: req.user.access.fullName || req.user.email,
       eventId: req.body.eventId,
+      sessionId: req.user.jti,
     });
     if (!session) {
       return sendFail(res, {

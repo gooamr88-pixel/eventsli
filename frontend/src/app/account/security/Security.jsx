@@ -237,13 +237,22 @@ function SessionList({ sessions, error, onChanged }) {
         <ul className="fx-stack fx-stack--sm">
           {sessions.map((s) => (
             <li key={s.id} className="es-sec-session">
-              <span className="es-icontile" aria-hidden="true"><NavIcon name="laptop" size={24} /></span>
+              <span className="es-icontile" aria-hidden="true">
+                <NavIcon name={s.client === 'checkin_app' ? 'scan' : 'laptop'} size={24} />
+              </span>
               <div className="fx-min0 flex-1">
                 {/* "This device" FIRST AND ON ITS OWN. It was the tail of a
                     one-line truncated user agent, so on a phone the ellipsis
                     ate it — and it is the one fact on the row that decides
                     which session somebody may safely end. */}
                 {s.current && <span className="es-pill es-pill--accent mb-1">This device</span>}
+                {/* The check-in app names itself and the phone it is on, so a
+                    lost door phone is the row somebody can find and end. */}
+                {s.client === 'checkin_app' && (
+                  <p className="text-sm font-medium text-ink">
+                    Eventsli Check-in{s.deviceName ? ` · ${s.deviceName}` : ''}
+                  </p>
+                )}
                 <p className="line-clamp-2 break-all text-sm text-ink">
                   {/* The user agent, plainly. It is what the API records, and
                       dressing it up as "Chrome on macOS" invents a confidence

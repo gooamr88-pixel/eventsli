@@ -3,16 +3,18 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import SeatMapCanvas from '../../../components/seating/SeatMapCanvas';
+import VenueExperience from '../../../components/venue/VenueExperience';
+import { readStudio, sectionIndex, tierPalette } from '../../../components/venue/venueModel';
 import { readZones } from '../../../components/seating/layoutZones';
 import UnlockTableDialog from './UnlockTableDialog';
 import { get } from '../../../utils/apiClient';
 import { describeError, isSelectionLost } from '../../../utils/errors';
-import { formatMoney } from '../../../utils/money';
-import { useReservation } from '../../../hooks/useReservation';
+import { useReservation, TABLE_ACCESS_HEADER } from '../../../hooks/useReservation';
 import { useTableAccess } from './useTableAccess';
 import SeatMapSkeleton, { MAP_FRAME, MAP_BOX } from './SeatMapSkeleton';
-import SelectionBar, { Legend } from './SelectionBar';
+import SelectionBar from './SelectionBar';
+import { TicketCategories, Basket, CategoryChips } from './SeatSidePanels';
+import VenueInfoCard from '../../../components/venue/VenueInfoCard';
 
 /**
  * The buyer's half of the seat map: selection, the private-table gate, and the
@@ -52,7 +54,7 @@ export default function SeatPicker({ slug, currency, purchaseMode, maxPerOrder }
         // Never cached, at any layer. Availability is the whole payload.
         cache: 'no-store',
         noRedirect: true,
-        headers: accessHeader ? { 'x-table-access': accessHeader } : undefined,
+        headers: accessHeader ? { [TABLE_ACCESS_HEADER]: accessHeader } : undefined,
       });
       setMap(data);
       setLoadError(null);
@@ -80,7 +82,7 @@ export default function SeatPicker({ slug, currency, purchaseMode, maxPerOrder }
         const data = await get(`/public/events/${encodeURIComponent(slug)}/seat-map`, {
           cache: 'no-store',
           noRedirect: true,
-          headers: accessHeader ? { 'x-table-access': accessHeader } : undefined,
+          headers: accessHeader ? { [TABLE_ACCESS_HEADER]: accessHeader } : undefined,
         });
         if (!cancelled) { setMap(data); setLoadError(null); }
       } catch (err) {
@@ -113,6 +115,25 @@ export default function SeatPicker({ slug, currency, purchaseMode, maxPerOrder }
    */
   const zones = useMemo(() => readZones(map?.map?.layout), [map]);
 
+  // Section names and ticket-type colours: the same ones every view draws.
+  const sections = useMemo(() => sectionIndex(readStudio(map?.map?.layout).sections), [map]);
+  const palette = useMemo(() => tierPalette(map?.tiers, map?.seats), [map]);
+  const tableLabels = useMemo(() => new Map((map?.tables || []).map((t) => [t.id, t.label])), [map]);
+  /**
+   * A seat of a section row is ADDRESSED by its section and row (S-19): its
+   * own `section` differs from its table's label. An older map, saved before
+   * that, still says (label, 'A'), so the Studio's sections are the fallback,
+   * looked up by the TABLE's label.
+   */
+  const nameFor = useCallback((seat) => {
+    const label = tableLabels.get(seat.tableId);
+    if (seat.section && label && seat.section !== label) {
+      return `Section ${seat.section} · Row ${seat.row} · Seat ${seat.number}`;
+    }
+    const where = sections.get(label) || sections.get(seat.section);
+    return where ? `Section ${where.section} · Row ${where.row} · Seat ${seat.number}` : null;
+  }, [sections, tableLabels]);
+
   /**
    * `?tier=` — the buyer followed a ticket-type link from the organizer's
    * Share & QR. Only a tier that is in THIS map's payload counts; anything else
@@ -120,7 +141,47 @@ export default function SeatPicker({ slug, currency, purchaseMode, maxPerOrder }
    * nothing is made unselectable: the link is a pointer, not a restriction.
    */
   const focusTier = tierParam ? (map?.tiers || []).find((t) => t.id === tierParam) || null : null;
-  const highlightTierId = focusTier && !showAllTiers ? focusTier.id : null;
+
+  /**
+   * WHAT EACH KIND OF SEAT COSTS, said on the page.
+   *
+   * Every seat is drawn in the same colour whatever its ticket type, so a room
+   * of $120 VIP seats and $50 standard ones looked uniform, and the only way to
+   * learn a price was to select a seat and read the bar. The legend lists the
+   * types that have seats on THIS map, with their price, and pressing one
+   * picks its seats out with the same dimming a `?tier=` link uses.
+   */
+  // Categories the buyer ticked to pick out (none ticked shows every seat),
+  // and whether taken seats are drawn at all.
+  const [pickedTiers, setPickedTiers] = useState(() => new Set());
+  const [showTaken, setShowTaken] = useState(true);
+  const togglePickedTier = (id) => setPickedTiers((prev) => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+  const priceGuide = useMemo(() => {
+    const byTier = new Map();
+    for (const seat of map?.seats || []) {
+      if (!seat.tierId) continue;
+      const entry = byTier.get(seat.tierId) || { min: Infinity, max: -Infinity, free: 0 };
+      if (seat.priceCents !== null && seat.priceCents !== undefined) {
+        entry.min = Math.min(entry.min, seat.priceCents);
+        entry.max = Math.max(entry.max, seat.priceCents);
+      }
+      if (seat.available) entry.free += 1;
+      byTier.set(seat.tierId, entry);
+    }
+    return (map?.tiers || [])
+      .filter((t) => byTier.has(t.id))
+      .map((t) => ({ ...t, ...byTier.get(t.id) }))
+      .sort((a, b) => b.max - a.max);
+  }, [map]);
+
+  const highlightTierIds = useMemo(() => {
+    if (pickedTiers.size) return pickedTiers;
+    return focusTier && !showAllTiers ? new Set([focusTier.id]) : null;
+  }, [pickedTiers, focusTier, showAllTiers]);
 
   const selectedIds = useMemo(() => new Set(selectedSeats.map((s) => s.id)), [selectedSeats]);
   const selectedTableIds = useMemo(
@@ -147,9 +208,15 @@ export default function SeatPicker({ slug, currency, purchaseMode, maxPerOrder }
       setActionError({ code: 'PURCHASE_LIMIT_EXCEEDED' });
       return;
     }
+    // A ticket type's own limit, which the hold now enforces too (S-06).
+    const cap = (map?.tiers || []).find((t) => t.id === seat.tierId)?.maxPerOrder;
+    if (cap && selectedSeats.filter((s) => s.tierId === seat.tierId).length >= cap) {
+      setActionError({ code: 'PURCHASE_LIMIT_EXCEEDED' });
+      return;
+    }
 
     setSelectedSeats([...selectedSeats, seat]);
-  }, [selectedSeats, maxPerOrder]);
+  }, [selectedSeats, maxPerOrder, map]);
 
   const chooseTable = useCallback((table) => {
     setActionError(null);
@@ -173,12 +240,13 @@ export default function SeatPicker({ slug, currency, purchaseMode, maxPerOrder }
     setBusy(true);
     setActionError(null);
     try {
+      // The keys gate the PURCHASE as well as the map — a whole private table
+      // and a seat at one alike, so they go with both (TECH-AUDIT-LOG S-01).
+      // Sending the whole header covers two invitations in one session; the
+      // API works out which one applies.
       const reservation = await hold(slug, selectedTable
-        // The key gates the PURCHASE as well as the map. Sending the whole
-        // header covers the case of two invitations in one session — the API
-        // works out which one applies.
         ? { tableId: selectedTable.id, tableToken: accessHeader }
-        : { seatIds: selectedSeats.map((s) => s.id) });
+        : { seatIds: selectedSeats.map((s) => s.id), tableToken: accessHeader });
 
       router.push(`/checkout/${reservation.reservationId}`);
     } catch (err) {
@@ -221,7 +289,15 @@ export default function SeatPicker({ slug, currency, purchaseMode, maxPerOrder }
     );
   }
 
-  if (!map.map || map.tables.length === 0) {
+  /**
+   * No map at all, or a map with nothing on it a buyer can see.
+   *
+   * "Nothing visible" is NOT "no map" when every table is private: a gala of
+   * invitation-only tables returned zero visible tables, so the buyer holding
+   * a perfectly good invitation link was told the event had no seat map, and
+   * the unlock dialog — rendered further down — was never reached.
+   */
+  if (!map.map || (map.tables.length === 0 && !(map.hiddenTableCount > 0))) {
     /**
      * A WAY OUT, not just a statement.
      *
@@ -249,58 +325,81 @@ export default function SeatPicker({ slug, currency, purchaseMode, maxPerOrder }
     );
   }
 
+  const studio = readStudio(map.map?.layout);
+  const tierOf = (seat) => {
+    const tier = (map.tiers || []).find((t) => t.id === seat.tierId);
+    return tier ? { name: tier.name, color: palette.get(tier.id) } : null;
+  };
+  const clear = () => { setSelectedSeats([]); setSelectedTable(null); setActionError(null); };
+
+  /**
+   * THREE COLUMNS ON A WIDE SCREEN (2026-11-09): categories and the venue on
+   * the left, the room in the middle, the basket on the right — every fact a
+   * buyer weighs while choosing, in view while they choose. Below `xl` it is
+   * one column: category chips above the map and the sticky SelectionBar.
+   */
   return (
-    <div className="fx-stack">
-      {focusTier && (
-        <div className="es-notice es-notice--info fx-row fx-row--between" role="status">
-          <span className="fx-min0">
-            {showAllTiers
-              ? <>Showing every seat. You came here for <strong>{focusTier.name}</strong>.</>
-              : <>Showing <strong>{focusTier.name}</strong> seats. Other seats are dimmed but you can still choose them.</>}
-          </span>
-          <button
-            type="button"
-            className="es-btn es-btn--ghost es-btn--sm"
-            onClick={() => setShowAllTiers((v) => !v)}
-            aria-pressed={!showAllTiers}
-          >
-            {showAllTiers ? `Highlight ${focusTier.name}` : 'Show every seat'}
-          </button>
-        </div>
-      )}
+    <div className="es-seatpage">
+      <aside className="es-seatpage__side" aria-label="Ticket categories and venue">
+        {priceGuide.length > 0 && (
+          <TicketCategories
+            tiers={priceGuide} palette={palette} currency={currency}
+            picked={pickedTiers} onToggle={togglePickedTier}
+            showTaken={showTaken} onShowTaken={setShowTaken}
+          />
+        )}
+        <VenueInfoCard venue={studio.venue} tables={map.tables} zones={zones} />
+      </aside>
 
-      {/* The map is PRESENTED, not placed.
+      <div className="es-seatpage__main fx-stack">
+        {focusTier && (
+          <div className="es-notice es-notice--info fx-row fx-row--between" role="status">
+            <span className="fx-min0">
+              {showAllTiers
+                ? <>Showing every seat. You came here for <strong>{focusTier.name}</strong>.</>
+                : <>Showing <strong>{focusTier.name}</strong> seats. Other seats are dimmed but you can still choose them.</>}
+            </span>
+            <button
+              type="button"
+              className="es-btn es-btn--ghost es-btn--sm"
+              onClick={() => setShowAllTiers((v) => !v)}
+              aria-pressed={!showAllTiers}
+            >
+              {showAllTiers ? `Highlight ${focusTier.name}` : 'Show every seat'}
+            </button>
+          </div>
+        )}
 
-          This is the one screen that is only this product — the whole pitch on
-          the homepage is that you pick the chair — and it was a bare canvas
-          sitting directly on the page tone, the same treatment a loading
-          skeleton got. On a plate, against the sunken band, the room reads as
-          an object you are looking into rather than a diagram someone dropped
-          in.
+        {/* Phones and tablets: the categories as chips, the same toggles. */}
+        {priceGuide.length > 1 && (
+          <CategoryChips tiers={priceGuide} palette={palette} currency={currency} picked={pickedTiers} onToggle={togglePickedTier} />
+        )}
 
-          `bg-surface` on the plate rather than the page ground: the floor of
-          the room should be the lightest thing on the screen, because every
-          seat colour was chosen to sit on it. */}
-      <div className={MAP_FRAME}>
-        <SeatMapCanvas
-          className={MAP_BOX}
+        {/* 2D, 3D and 360° over ONE selection: a seat chosen in any view is in
+            the same basket, under the same per-order limit (VenueExperience.jsx). */}
+        <VenueExperience
+          frameClassName={MAP_FRAME}
+          boxClassName={MAP_BOX}
           tables={map.tables}
           seats={map.seats}
           zones={zones}
+          layout={map.map?.layout}
+          tiers={map.tiers || []}
+          eventTitle={map.event?.title || ''}
           selectedSeatIds={selectedIds}
           selectedTableIds={selectedTableIds}
-          highlightTierId={highlightTierId}
+          highlightTierIds={highlightTierIds}
+          hideTaken={!showTaken}
+          showVenueInfo={false}
           purchaseMode={purchaseMode}
+          currency={currency}
           onSelectSeat={toggleSeat}
           // Anything reaching this callback is already visible, and a private
           // table is only visible once its key is held — so there is nothing left
           // to unlock at click time.
           onSelectTable={chooseTable}
         />
-      </div>
 
-      <div className="fx-row fx-row--between">
-        <Legend />
         {map.hiddenTableCount > 0 && (
           /* Counted, never named — listing them would make the map a directory
              of which tables are worth guessing a password for. There is
@@ -312,25 +411,47 @@ export default function SeatPicker({ slug, currency, purchaseMode, maxPerOrder }
             {' '}not shown · open your invitation link to see yours
           </p>
         )}
+
+        <div className="es-seatpage__narrow">
+          {actionError && <ErrorNote error={actionError} />}
+        </div>
       </div>
 
-      {actionError && <ErrorNote error={actionError} />}
+      <aside className="es-seatpage__basket" aria-label="Your selection">
+        <Basket
+          seats={selectedTable ? [] : selectedSeats}
+          tableLabel={selectedTable?.label || null}
+          nameFor={(seat) => nameFor(seat) || `${seat.section} · seat ${seat.number}`}
+          tierOf={tierOf}
+          currency={currency}
+          subtotal={subtotal}
+          count={count}
+          busy={busy}
+          onRemove={toggleSeat}
+          onClear={clear}
+          onContinue={onContinue}
+          error={actionError ? <ErrorNote error={actionError} /> : null}
+        />
+      </aside>
 
-      <SelectionBar
-        count={count}
-        subtotal={subtotal}
-        currency={currency}
-        label={selectedTable ? `Table ${selectedTable.label}` : null}
-        // The seats themselves, so each can be listed with its price and taken
-        // back out. A whole-table booking passes none: it is one indivisible
-        // thing, and offering to remove a seat from it would be offering
-        // something the API refuses.
-        seats={selectedTable ? [] : selectedSeats}
-        busy={busy}
-        onContinue={onContinue}
-        onRemoveSeat={toggleSeat}
-        onClear={() => { setSelectedSeats([]); setSelectedTable(null); setActionError(null); }}
-      />
+      <div className="es-seatpage__bar">
+        <SelectionBar
+          count={count}
+          subtotal={subtotal}
+          currency={currency}
+          label={selectedTable ? `Table ${selectedTable.label}` : null}
+          // The seats themselves, so each can be listed with its price and taken
+          // back out. A whole-table booking passes none: it is one indivisible
+          // thing, and offering to remove a seat from it would be offering
+          // something the API refuses.
+          seats={selectedTable ? [] : selectedSeats}
+          busy={busy}
+          onContinue={onContinue}
+          onRemoveSeat={toggleSeat}
+          nameFor={nameFor}
+          onClear={clear}
+        />
+      </div>
 
       {showUnlock && (
         <UnlockTableDialog

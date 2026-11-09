@@ -18,11 +18,14 @@ import NavIcon from '../../../../components/shell/NavIcon';
  * ─────────────────────────────────────────────────────────────────────────────
  */
 export const BUILD_ITEMS = [
+  // The Venue Studio's builder: many rows at once, named as a section, fanned
+  // toward the stage if asked (studio/SectionDialog.jsx).
+  { key: 'section', icon: 'grid', title: 'Seating section', text: 'Rows × seats in one go — straight, or fanned toward the stage.', initial: { family: 'section' } },
   { key: 'seat', icon: 'user', title: 'Seat', text: 'A single seat — an accessible spot, a judge’s chair.', initial: { family: 'table', key: 'row', seatCount: 1 } },
   { key: 'row', icon: 'list', title: 'Row', text: 'A straight row of seats, theatre style.', initial: { family: 'table', key: 'row', seatCount: 10 } },
   { key: 'table', icon: 'layers', title: 'Table', text: 'A table with seats around it — round, oval or long.', initial: { family: 'table', key: 'round', seatCount: 10 } },
   { key: 'stage', icon: 'flag', title: 'Stage', text: 'Where everyone looks. Not for sale.', initial: { family: 'zone', key: 'stage' } },
-  { key: 'area', icon: 'grid', title: 'Area / Section', text: 'A labelled space — bar, lounge, dance floor.', initial: { family: 'zone', key: 'custom' } },
+  { key: 'area', icon: 'map', title: 'Area', text: 'A labelled space — standing area, bar, walkway, screen.', initial: { family: 'zone', key: 'custom' } },
 ];
 
 export default function BuildPanel({ onAdd, tableCount, unpricedCount }) {
@@ -57,7 +60,7 @@ export default function BuildPanel({ onAdd, tableCount, unpricedCount }) {
           {tableCount === 0
             ? 'Nothing to assign yet.'
             : unpricedCount > 0
-              ? `${unpricedCount} of ${tableCount} still without a ticket type or price.`
+              ? `${unpricedCount} of ${tableCount} not priced yet.`
               : `All ${tableCount} have a ticket type or price.`}
         </p>
       </div>

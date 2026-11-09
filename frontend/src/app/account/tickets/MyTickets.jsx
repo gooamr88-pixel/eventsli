@@ -198,7 +198,9 @@ export default function MyTickets() {
 
       {shown.map((order) => (
         <section
-          key={order.orderId}
+          // A received ticket is listed under the order it came from, which is
+          // not this person's order — keyed apart so the two never collide.
+          key={`${order.received ? 'received-' : ''}${order.orderId}`}
           className="es-ticket-order fx-stack fx-stack--sm"
           {...(printing === order.orderId ? { 'data-printing-this': '' } : {})}
         >
@@ -217,8 +219,9 @@ export default function MyTickets() {
               </p>
             </div>
             <div className="fx-row shrink-0 items-center gap-3">
+              {/* A ticket somebody gave you has no price you paid. */}
               <p className="es-nums whitespace-nowrap text-sm text-muted">
-                {formatMoney(order.totalCents, order.currency)}
+                {order.received ? 'Received' : formatMoney(order.totalCents, order.currency)}
               </p>
               {/* Print-hidden: a PDF of a ticket with a "Save as PDF" button on
                   it is a button somebody will try to press on paper. */}
@@ -247,7 +250,9 @@ export default function MyTickets() {
                   ticket={ticket}
                   event={order.event}
                   timeZone={order.event?.timezone}
-                  qrSrc={`${PUBLIC_API_URL}/public/qr/${encodeURIComponent(ticket.qr)}`}
+                  // No code on a ticket you gave away: it belongs to the person
+                  // you gave it to, and the stub says so (T-016).
+                  qrSrc={ticket.qr ? `${PUBLIC_API_URL}/public/qr/${encodeURIComponent(ticket.qr)}` : null}
                 />
                 {/* BRD §10 — once only, and the organizer can switch it off.
                     Offered only where it can actually work: an already

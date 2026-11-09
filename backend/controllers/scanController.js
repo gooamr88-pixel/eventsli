@@ -1,3 +1,4 @@
+const QRCode = require('qrcode');
 const { supabase } = require('../config/supabase');
 const scanSvc = require('../services/scanService');
 const { sendOk, sendFail } = require('../utils/responseEnvelope');
@@ -52,6 +53,35 @@ async function gateStatus(req, res, next) {
   } catch (err) { return next(err); }
 }
 
+// GET /events/:eventId/scan-devices/:deviceId/pairing.png
+/**
+ * A QR the check-in app scans to fill in a shared device's id — 36 characters
+ * nobody should have to type on a phone at a door.
+ *
+ * It carries the device id and NOTHING ELSE. The id is not secret (it is
+ * listed on this page with a copy button); the PIN is, and it is never in the
+ * code. A photo of this QR is still useless without the PIN.
+ */
+async function pairingQr(req, res, next) {
+  try {
+    const { data: owned } = await supabase
+      .from('scan_devices').select('id')
+      .eq('id', req.params.deviceId).eq('event_id', req.params.eventId)
+      .is('staff_id', null)
+      .maybeSingle();
+    if (!owned) {
+      return sendFail(res, { status: 404, error: 'NOT_FOUND', message: 'No such device.' });
+    }
+    const link = `eventsli-checkin://pair?device=${encodeURIComponent(owned.id)}`;
+    const png = await QRCode.toBuffer(link, {
+      type: 'png', errorCorrectionLevel: 'M', margin: 1, width: 320,
+    });
+    res.set('Content-Type', 'image/png');
+    res.set('Cache-Control', 'private, no-store');
+    return res.send(png);
+  } catch (err) { return next(err); }
+}
+
 // ═══ DEVICE — at the door ═══════════════════════════════════════════════════
 
 // POST /scan/login
@@ -83,6 +113,7 @@ async function verify(req, res, next) {
       eventId: req.device.eventId,
       clientScanId: req.body.clientScanId,
       occurredAt: req.body.occurredAt,
+      method: 'scan',
     });
 
     // 200 for every DECIDED outcome, including a refusal.
@@ -91,6 +122,15 @@ async function verify(req, res, next) {
     // needs to render it (with the time of the first scan) rather than show a
     // network failure and invite the operator to retry. Only a locked gate gets
     // a 403, because that is a state the door staff cannot resolve.
+    if (result.unavailable) {
+      // The database did not answer. A 503, never a 200 'error': the door holds
+      // the scan (or decides it from its offline list) and nobody is turned away
+      // or let in on a non-answer.
+      return sendFail(res, {
+        status: 503, error: 'SCAN_UNAVAILABLE',
+        message: 'The check-in server is busy. The scan is kept and checked again in a moment.',
+      });
+    }
     if (result.result === 'scanner_locked') {
       return sendFail(res, {
         status: 403, error: 'SCANNER_LOCKED',
@@ -116,10 +156,13 @@ async function sync(req, res, next) {
     // know whether the queue landed, so `admitted` has to mean NEW admissions.
     const replayed = results.filter((r) => r.replay).length;
     const admitted = results.filter((r) => r.result === 'admitted' && !r.replay).length;
-    logger.info({ deviceId: req.device.deviceId, count: results.length, admitted, replayed },
+    // People this device let in offline whose ticket another door had already
+    // admitted. Nothing to do at the door any more; the organizer is told.
+    const conflicts = results.filter((r) => r.conflict && !r.replay).length;
+    logger.info({ deviceId: req.device.deviceId, count: results.length, admitted, replayed, conflicts },
       'offline queue uploaded');
 
-    return sendOk(res, { results, summary: { total: results.length, admitted, replayed } });
+    return sendOk(res, { results, summary: { total: results.length, admitted, replayed, conflicts } });
   } catch (err) { return next(err); }
 }
 
@@ -127,39 +170,29 @@ async function sync(req, res, next) {
 async function undo(req, res, next) {
   try {
     /**
-     * The same rule `scan` enforces, which this route was missing.
+     * The same rule `scan` enforces: a device may only touch its own event.
      *
-     * `verify` refuses a ticket whose token names another event — "a valid
-     * ticket for ANOTHER event must not open this door". Undo took a bare
-     * ticket id and passed it straight to the RPC, which does not look at the
-     * event either. So a device authenticated for one event could reverse the
-     * admission of a guest at a different one, given the id.
+     * The ticket id is not secret — it is inside every QR token, readable by
+     * anyone holding any ticket — so a device for one event must not be able to
+     * reverse an admission at another, given the id. This used to be a separate
+     * lookup here, because the v1 RPC had no event in its signature; v2 matches
+     * on (ticket, event) itself (T-054).
      *
-     * That id is not secret in the way it would need to be for that to be
-     * acceptable: it is inside every QR token, so it is readable by anyone
-     * holding any ticket to any event on the platform.
-     *
-     * Checked here rather than in the RPC because the RPC's signature has no
-     * event in it and adding one would change a function two other paths call.
      * A 404, not a 403 — a device has no business learning that a ticket it may
      * not touch exists.
      */
-    const { data: ticket } = await supabase
-      .from('tickets').select('id')
-      .eq('id', req.body.ticketId)
-      .eq('event_id', req.device.eventId)
-      .maybeSingle();
+    const data = await scanSvc.undo({
+      ticketId: req.body.ticketId,
+      deviceId: req.device.deviceId,
+      eventId: req.device.eventId,
+    });
 
-    if (!ticket) {
+    if (data?.result === 'not_found') {
       return sendFail(res, {
         status: 404, error: 'TICKET_NOT_FOUND',
         message: 'That ticket is not for this event.',
       });
     }
-
-    const { data } = await supabase.rpc('undo_check_in', {
-      p_ticket_id: req.body.ticketId, p_device_id: req.device.deviceId,
-    });
     if (!data?.ok) {
       return sendFail(res, {
         status: 409, error: 'CONFLICT', message: data?.message || 'That could not be undone.',
@@ -262,6 +295,6 @@ async function endOverride(req, res, next) {
 }
 
 module.exports = {
-  createDevice, listDevices, updateDevice, gateStatus,
+  createDevice, listDevices, updateDevice, gateStatus, pairingQr,
   deviceLogin, verify, sync, undo, status, override, endOverride,
 };

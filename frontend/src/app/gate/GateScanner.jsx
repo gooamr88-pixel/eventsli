@@ -81,6 +81,24 @@ export default function GateScanner() {
 
   const scanner = useScanner({ active: scanning, onDecode: handleCode });
 
+  /**
+   * Undo, and say so on the card that is showing (T-046).
+   *
+   * The queue updated its own log, but the result card kept the copy it was
+   * handed at scan time — so after a successful undo the door still read
+   * "Welcome in", with the undo button offering to do it again.
+   */
+  const undoEntry = useCallback(async (record) => {
+    const result = await queue.undo(record);
+    if (result) {
+      setEntry((current) => (current?.record?.clientScanId === record.clientScanId
+        ? { ...current, record: { ...current.record, result: 'undone', message: null } }
+        : current));
+      signalFor(describeScan('undone').tone);
+    }
+    return result;
+  }, [queue]);
+
   async function signOut() {
     if (queue.queued === 0) {
       // Nothing is owed to the server, so the shift log can go with the shift.
@@ -185,7 +203,7 @@ export default function GateScanner() {
 
         <ScanResult
           entry={entry}
-          onUndo={queue.undo}
+          onUndo={undoEntry}
           onDismiss={() => setEntry(null)}
         />
 

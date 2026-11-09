@@ -1,26 +1,30 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { get, put } from '../../../../utils/apiClient';
-import { describeError, messageFor } from '../../../../utils/errors';
-import { WORLD, contentBounds } from '../../../../components/seating/seatingGeometry';
+import { describeError } from '../../../../utils/errors';
 import { usePanZoom } from '../../../../components/seating/usePanZoom';
-import { readZones, writeZones } from '../../../../components/seating/layoutZones';
 import { Loading } from '../../../../components/Feedback';
-import EditorCanvas, { EDITOR_BOUNDS } from './EditorCanvas';
+import EditorCanvas, { editorBounds } from './EditorCanvas';
 import EditorToolbar from './EditorToolbar';
 import PhoneTools from './PhoneTools';
 import AddElementDialog from './AddElementDialog';
-import TablePanel from './TablePanel';
-import ZonePanel from './ZonePanel';
-import SelectionPanel from './SelectionPanel';
-import BuildPanel from './BuildPanel';
-import { MapHeader, MapBanner, countUnpriced } from './MapChrome';
+import EditorSidePanel from './EditorSidePanel';
+import { MapHeader, MapBanner, MapNotices, countUnpriced } from './MapChrome';
+import { useEventContext } from '../EventContext';
+import { frameFor, sameBox, clamp } from './mapApi';
+import { liveSections } from '../../../../components/venue/venueModel';
+import StudioTabs from './studio/StudioTabs';
+import SectionDialog from './studio/SectionDialog';
+import StudioWorkspace from './studio/StudioWorkspace';
+import StudioStatsBar from './studio/StudioStatsBar';
+import Preview3DCard from './studio/Preview3DCard';
+import { useStudioDraft } from './studio/useStudioDraft';
 import SeatingPackModal from './print/SeatingPackModal';
 import SeatingDesigner, { DesignBanner } from './SeatingDesigner';
 import { useAiQuota } from '../../../../hooks/useAiQuota';
 import { useMapDraft, keyOf, MAX_TABLES } from './useMapDraft';
+import { useMapPersistence } from './useMapPersistence';
 import { useSelection, soleSelected } from './useSelection';
 import { useCanvasInteraction } from './useCanvasInteraction';
 import { useEditorKeys } from './useEditorKeys';
@@ -34,45 +38,76 @@ import { useStepSave } from '../BuildStep';
  * Saving is a FULL REPLACE — `PUT /events/:id/venue-map` takes the whole table
  * list and reconciles it in ONE transaction. Anything still listed is created
  * or updated, anything dropped is deleted, and every deletion is checked
- * against live stock first. A refusal rolls the whole thing back.
- *
- * That last part is why this screen can be confident: the save either lands
- * completely or changes nothing. The alternative, which this API used to be, was
- * a loop of separate statements — a network blip halfway left the map half
- * saved, with no way to tell which half and no way back. For someone laying out
- * a two-hundred-table room, that is their afternoon.
+ * against live stock first. A refusal rolls the whole thing back. Everything
+ * on this screen rides that one save — tables, zones, the Venue Studio, and
+ * the seats blocked in its Preview (useMapPersistence.js).
  *
  * WHICH IS ALSO WHY LEAVING ASKS FIRST (useUnsavedGuard), why a table can be
  * added with a button as well as a double-click (which touch screens do not
  * reliably send), and why Ctrl+Z inside a text field undoes the typing rather
  * than the map.
  *
- *
- * TABLES AND ZONES TAKE DIFFERENT ROADS TO THE SAME SAVE.
- *
- * Tables are stock — rows in `tables`, each generating the seats that holds and
- * tickets point at. Zones are furniture, and live in `layout_json`, the blob
- * this endpoint round-trips verbatim. One `PUT` carries both, inside the one
- * transaction, so a map can never be saved with its tables moved and its stage
- * left where it was. `layoutZones.js` argues the storage choice at length.
+ * TABLES AND ZONES TAKE DIFFERENT ROADS TO THE SAME SAVE. Tables are stock —
+ * rows in `tables`, each generating the seats that holds and tickets point at.
+ * Zones are furniture, and live in `layout_json`. One `PUT` carries both, so a
+ * map can never be saved with its tables moved and its stage left where it
+ * was. `layoutZones.js` argues the storage choice at length.
  *
  * THIS COMPONENT OWNS THE VIEWPORT AND THE GESTURES rather than the canvas,
  * because they are needed outside it: the toolbar drives the zoom, the keyboard
- * pans, and the print pack needs the same zone list the canvas is drawing.
+ * pans, and the print pack needs the same zone list the canvas is drawing. The
+ * round trips are useMapPersistence; the side panel is EditorSidePanel.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 export default function MapEditor({ eventId }) {
   const draft = useMapDraft();
-  const { tables, zones, dirty, problems, reset } = draft;
+  const { tables, zones, world, problems } = draft;
 
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState(null);
-  const [saveError, setSaveError] = useState(null);
-  const [saving, setSaving] = useState(false);
-  const [tiers, setTiers] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [layout, setLayout] = useState({});
-  const [eventTitle, setEventTitle] = useState('');
+  // The Venue Studio's draft (venue, 3D, 360°, sections, seat blocks).
+  const studioDraft = useStudioDraft();
+  const { studio } = studioDraft;
+  const [workspace, setWorkspace] = useState('layout');
+  const [showSection, setShowSection] = useState(false);
+  const dirty = draft.dirty || studioDraft.studioDirty;
+
+  const selection = useSelection();
+  /**
+   * WHAT THE EDITOR FRAMES: the room, plus anything drawn outside it, with a
+   * margin (2026-10-16, owner's review). Set once the map has loaded, and
+   * again by Fit; never on an edit, which would yank the view mid-drag —
+   * except a change of venue size (a resize, or its undo), which changes the
+   * sheet itself.
+   */
+  const [frame, setFrame] = useState(() => editorBounds(world));
+  const [framedWorld, setFramedWorld] = useState(world);
+  if (framedWorld !== world) {
+    setFramedWorld(world);
+    setFrame(frameFor(tables, zones, world));
+  }
+  const panzoom = usePanZoom(frame, { wheelMode: 'pan' });
+  const fitRoom = () => {
+    const next = frameFor(tables, zones, world);
+    // The same frame again does not re-trigger the hook, so ask it directly.
+    if (sameBox(next, frame)) panzoom.fit(); else setFrame(next);
+  };
+
+  const io = useMapPersistence({ eventId, draft, studioDraft, selection, onFrame: setFrame });
+  const { tiers, categories, layout, eventTitle, eventInfo } = io;
+  const purchaseMode = eventInfo.purchaseMode;
+
+  /**
+   * S-04: on a live event every seat needs a price, and the server refuses a
+   * save that leaves one without. Said here, with Save disabled, rather than
+   * after a round trip — the same bargain as the rest of `problems`. Exactly
+   * the server's rule: selling whole tables only, seats need no price.
+   */
+  const eventStatus = useEventContext()?.event?.status || null;
+  const liveUnpriced = eventStatus === 'published' && purchaseMode !== 'table_only'
+    ? countUnpriced(tables, purchaseMode) : 0;
+  const saveProblems = liveUnpriced > 0
+    ? [...problems, `This event is on sale, so every seat needs a price. ${liveUnpriced} ${liveUnpriced === 1 ? 'table has' : 'tables have'} none — choose a ticket type for ${liveUnpriced === 1 ? 'it' : 'them'}.`]
+    : problems;
+
   const [showAdd, setShowAdd] = useState(false);
   const [showPack, setShowPack] = useState(false);
   const [showDesigner, setShowDesigner] = useState(false);
@@ -83,24 +118,6 @@ export default function MapEditor({ eventId }) {
   const [snapToGrid, setSnapToGrid] = useState(false);
   const toolRef = useRef('select');
   const setToolBoth = useCallback((next) => { toolRef.current = next; setTool(next); }, []);
-
-  const selection = useSelection();
-  /**
-   * WHAT THE EDITOR FRAMES: the room, plus anything drawn outside it, with a
-   * margin (2026-10-16, owner's review). It framed the fixed room box alone —
-   * edge to edge, with nothing around it to say "this is the sheet" — and
-   * anything placed outside the room (an older map, an import) was not just
-   * off screen but out of reach, because panning is held inside the frame.
-   * Set once the map has loaded, and again by Fit; never on an edit, which
-   * would yank the view while a table is being dragged.
-   */
-  const [frame, setFrame] = useState(EDITOR_BOUNDS);
-  const panzoom = usePanZoom(frame, { wheelMode: 'pan' });
-  const fitRoom = () => {
-    const next = frameFor(tables, zones);
-    // The same frame again does not re-trigger the hook, so ask it directly.
-    if (sameBox(next, frame)) panzoom.fit(); else setFrame(next);
-  };
 
   useUnsavedGuard(dirty);
 
@@ -114,48 +131,25 @@ export default function MapEditor({ eventId }) {
   };
 
   /**
-   * ───────────────────────────────────────────────────────────────────────────
-   * "SAVE AND CONTINUE" SAVES THE MAP.
-   *
-   * `useUnsavedGuard` above already stops a drawn-but-unsaved plan leaving by
-   * the browser's back button or a closed tab — but it can only ASK, and the
-   * answer it offers is "leave and lose it". The step bar is the one way out
-   * of this screen that can do better than ask, because it knows where the
-   * reader is going and can commit first.
-   *
-   * THE PROBLEM LIST IS A REFUSAL, not a warning. It is the same condition the
-   * Save button is disabled on — overlapping tables, seats outside the world
-   * box — and the server rejects those plans. Returning false keeps the reader
-   * on the canvas with the problems listed beside it, which is the only place
-   * they can be fixed.
-   * ───────────────────────────────────────────────────────────────────────────
+   * "SAVE AND CONTINUE" SAVES THE MAP. The step bar is the one way out of
+   * this screen that can do better than ask, because it knows where the reader
+   * is going and can commit first. The problem list is a refusal: returning
+   * false keeps the reader on the canvas, the only place it can be fixed.
    */
   useStepSave(async () => {
     if (!dirty) return true;
-    if (problems.length > 0) return false;
-    return save();
+    if (saveProblems.length > 0) return false;
+    return io.save();
   });
 
   /* ── the selection's operations, shared by the panels and the keyboard ──── */
 
-  /**
-   * The three operations that act on "whatever is selected".
-   *
-   * They read `selection.selection` — the STATE — rather than the ref beside
-   * it, and they are deliberately not wrapped in `useCallback`. Both follow
-   * from the same thing: React's compiler memoizes this component, and a manual
-   * `useCallback` whose body reaches into a ref is memoization it cannot verify,
-   * so it gives up and optimizes nothing in the whole component.
-   *
-   * Reading state is also simply correct here. Every caller is an event handler
-   * or a button, so it runs against the committed render; the ref exists for
-   * the gesture handlers that are bound once and cannot see re-renders at all,
-   * which is not this.
-   */
+  // State, not the ref beside it, and no useCallback: React's compiler cannot
+  // verify a useCallback that reaches into a ref, and every caller here is an
+  // event handler running against the committed render.
   const duplicateSelected = () => {
     const next = draft.duplicateSelection(selection.selection);
-    // Selecting the COPIES is what makes a repeated Ctrl+D lay out a row —
-    // `useMapDraft.duplicateSelection` explains why at the other end.
+    // Selecting the COPIES is what makes a repeated Ctrl+D lay out a row.
     if (next) selection.replace(next.tables, next.zones);
   };
 
@@ -194,77 +188,15 @@ export default function MapEditor({ eventId }) {
     spacePanRef,
   });
 
-  /* ── load ───────────────────────────────────────────────────────────────── */
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const [map, tierList, categoryList, event] = await Promise.all([
-          get(`/events/${eventId}/venue-map`, { cache: 'no-store' }),
-          get(`/events/${eventId}/tiers`, { cache: 'no-store' }).catch(() => []),
-          get(`/events/${eventId}/table-categories`, { cache: 'no-store' }).catch(() => []),
-          // Only the printed pack's letterhead needs this, so a failure here
-          // must not gate the editor — the pack simply prints without a title.
-          get(`/events/${eventId}`, { cache: 'no-store' }).catch(() => null),
-        ]);
-        if (cancelled) return;
-
-        const loadedTables = (map?.tables || []).map(fromApi);
-        const loadedZones = readZones(map?.layout);
-        reset(loadedTables, loadedZones);
-        setFrame(frameFor(loadedTables, loadedZones));
-        setLayout(map?.layout || {});
-        setTiers(Array.isArray(tierList) ? tierList : []);
-        setCategories(Array.isArray(categoryList) ? categoryList : []);
-        setEventTitle(event?.title || event?.event?.title || '');
-        setLoadError(null);
-      } catch (err) {
-        if (!cancelled) setLoadError(err);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [eventId, reset]);
-
-  /* ── save ───────────────────────────────────────────────────────────────── */
-
-  async function save() {
-    setSaving(true);
-    setSaveError(null);
-    try {
-      await put(`/events/${eventId}/venue-map`, {
-        // The rest of the blob is round-tripped untouched: `writeZones` replaces
-        // one key and preserves every other, so an editor that predates a future
-        // `layout.floorPlanImage` cannot destroy it on a full-replace save.
-        layout: writeZones({ ...layout, world: { width: WORLD.width, height: WORLD.height } }, zones),
-        tables: tables.map(toApi),
-      }, { noRedirect: true });
-
-      // Re-read rather than trusting local state: the save assigns ids to new
-      // tables and generates their seat rows, and neither exists here. What
-      // `reset` loads counts as saved, so "unsaved changes" clears.
-      const map = await get(`/events/${eventId}/venue-map`, { cache: 'no-store' });
-      reset((map?.tables || []).map(fromApi), readZones(map?.layout));
-      setLayout(map?.layout || {});
-      selection.clear();
-      return true;
-    } catch (err) {
-      setSaveError(err);
-      return false;
-    } finally {
-      setSaving(false);
-    }
-  }
-
   /* ── derived ────────────────────────────────────────────────────────────── */
+
+  const sections = liveSections(studio.sections, tables);
+  const preview3d = <Preview3DCard tables={tables} zones={zones} world={world} scene={studio.scene} tiers={tiers} onOpen={() => setWorkspace('3d')} />;
 
   const sole = soleSelected(selection.selection, tables, zones);
 
   /** Sold and held seats per table, so the canvas can draw which stock is
-   *  already spoken for — and the organizer can see why a table will refuse to
-   *  be deleted before the save tells them. */
+   *  already spoken for before a save refuses to delete it. */
   const soldByTable = useMemo(() => {
     const map = new Map();
     for (const t of tables) {
@@ -275,19 +207,20 @@ export default function MapEditor({ eventId }) {
 
   const seatTotal = tables.reduce((sum, t) => sum + (Number(t.seatCount) || 0), 0);
   const soldTotal = tables.reduce((sum, t) => sum + (Number(t.soldSeats) || 0), 0);
+  const blockedTotal = tables.reduce((sum, t) => sum + (Number(t.blockedSeats) || 0), 0);
 
   /** Where a newly added element lands: the top-left of what is on screen,
    *  inset a little, so a section built after panning appears where the
    *  organizer is looking rather than in the middle of the world. */
   const addOrigin = useMemo(() => ({
-    x: clamp(((panzoom.view.x + panzoom.view.width * 0.12) / WORLD.width) * 100, 0, 96),
-    y: clamp(((panzoom.view.y + panzoom.view.height * 0.14) / WORLD.height) * 100, 0, 94),
-  }), [panzoom.view]);
+    x: clamp(((panzoom.view.x + panzoom.view.width * 0.12) / world.width) * 100, 0, 96),
+    y: clamp(((panzoom.view.y + panzoom.view.height * 0.14) / world.height) * 100, 0, 94),
+  }), [panzoom.view, world]);
 
-  if (loading) return <Loading variant="card" />;
+  if (io.loading) return <Loading variant="card" />;
 
-  if (loadError) {
-    const { title, recovery } = describeError(loadError);
+  if (io.loadError) {
+    const { title, recovery } = describeError(io.loadError);
     return (
       <div className="fx-stack fx-stack--sm">
         <p className="font-medium text-ink">{title}</p>
@@ -306,24 +239,37 @@ export default function MapEditor({ eventId }) {
         zones={zones}
         seatTotal={seatTotal}
         soldTotal={soldTotal}
+        blockedTotal={blockedTotal}
         dirty={dirty}
-        saving={saving}
-        canSave={!saving && dirty && problems.length === 0}
-        onSave={save}
+        saving={io.saving}
+        canSave={!io.saving && dirty && saveProblems.length === 0}
+        onSave={io.save}
         onExport={() => setShowPack(true)}
       />
 
-      <MapBanner tables={tables} />
+      <StudioTabs
+        value={workspace}
+        onChange={setWorkspace}
+        badges={{
+          layout: tables.length ? `${seatTotal.toLocaleString('en')} seats` : null,
+          '360': studio.views.length ? `${studio.views.length} photo${studio.views.length === 1 ? '' : 's'}` : null,
+        }}
+      />
 
-      {/* Refused BEFORE the round trip. The API's messages for these are
-          accurate but arrive after a save that looked like it was working. */}
-      {problems.length > 0 && (
-        <ul className="fx-stack fx-stack--sm rounded-(--es-radius-md) bg-warning/10 px-4 py-3 text-sm text-muted">
-          {problems.map((p) => <li key={p}>{p}</li>)}
-        </ul>
-      )}
+      {workspace === 'layout' && <MapBanner tables={tables} purchaseMode={purchaseMode} />}
 
-      {saveError && <SaveError error={saveError} />}
+      <MapNotices
+        problems={saveProblems} saveError={io.saveError} saveNote={io.saveNote}
+        lookupFailed={io.lookupFailed} dirty={dirty} onReload={io.reload}
+      />
+
+      <div id="studio-panel" role="tabpanel" aria-labelledby={`studio-tab-${workspace}`} className="fx-stack">
+      <StudioWorkspace
+        workspace={workspace} eventId={eventId} tables={tables} zones={zones} layout={layout}
+        world={world} onResizeWorld={draft.resizeWorld}
+        sections={sections} tiers={tiers} eventTitle={eventTitle} eventInfo={eventInfo} draft={studioDraft}
+      />
+      {workspace === 'layout' && (<>
 
       {/* Outside the folded tools, so it is seen on a phone too (2026-11-03:
           "no AI button" — it was inside the toolbar a phone hides). */}
@@ -331,12 +277,9 @@ export default function MapEditor({ eventId }) {
         <DesignBanner empty={tables.length === 0 && zones.length === 0} onOpen={() => setShowDesigner(true)} />
       )}
 
-      {/* THE PROPERTIES SIT BESIDE THE MAP once there is room (2026-10-16,
-          owner's review). This was a two-column grid whose columns had to be
-          640px each, so below about 1,500px of screen the panel wrapped UNDER
-          the canvas: select a table on a laptop and its settings appeared
-          below the fold. Now a container query puts a fixed 19rem panel to the
-          right whenever the editor itself is 52rem wide. */}
+      {/* The properties sit beside the map once there is room (2026-10-16):
+          a container query puts a fixed 19rem panel to the right whenever the
+          editor itself is 52rem wide. */}
       <div className="es-mapeditor">
       <div className="es-mapeditor__body">
         {/* The toolbar sits ON the canvas card, as one surface — and that card
@@ -363,7 +306,8 @@ export default function MapEditor({ eventId }) {
               // says why, rather than the button silently not being there.
               onDesign={aiQuota?.enabled || aiQuota?.reason === 'ADMIN_ACCOUNT' ? () => setShowDesigner(true) : null}
               zoom={{
-                scale: WORLD.width / Math.max(panzoom.view.width, 1),
+                // 100 % is the whole venue in view, whatever its size.
+                scale: world.width / Math.max(panzoom.view.width, 1),
                 in: panzoom.zoomIn,
                 out: panzoom.zoomOut,
                 fit: fitRoom,
@@ -375,7 +319,9 @@ export default function MapEditor({ eventId }) {
             tables={tables}
             zones={zones}
             categories={categories}
+            tiers={tiers}
             soldByTable={soldByTable}
+            world={world}
             selection={selection}
             panzoom={panzoom}
             interaction={interaction}
@@ -391,55 +337,50 @@ export default function MapEditor({ eventId }) {
         </div>
 
         <div className="es-mapeditor__panel">
-        {selection.count > 1 ? (
-          <SelectionPanel
-            tableCount={selection.selection.tables.size}
-            zoneCount={selection.selection.zones.size}
-            tiers={tiers}
-            onAssign={assignTier}
-            onRotate={rotateSelected}
-            onDuplicate={duplicateSelected}
-            onRemove={removeSelected}
-            onClear={selection.clear}
-          />
-        ) : sole?.kind === 'zone' ? (
-          <ZonePanel
-            zone={sole.zone}
-            onChange={draft.updateZone}
-            onRotate={rotateSelected}
-            onResetSize={draft.resetZoneSize}
-            onDuplicate={duplicateSelected}
-            onRemove={(id) => { draft.removeZone(id); selection.clear(); }}
-          />
-        ) : sole?.kind !== 'table' ? (
-          <BuildPanel
-            tableCount={tables.length}
-            unpricedCount={countUnpriced(tables)}
-            onAdd={(initial) => { setAddInitial(initial); setShowAdd(true); }}
-          />
-        ) : (
-          <TablePanel
-            table={sole.table}
-            tiers={tiers}
-            categories={categories}
-            // Consecutive edits to the same field of the same table are one undo
-            // step: typing a name used to be one step per keystroke.
-            onChange={(key, patch) => draft.updateTable(key, patch, {
-              mergeKey: `${key}:${Object.keys(patch).sort().join(',')}`,
-            })}
-            onRotate={rotateSelected}
-            onDuplicate={duplicateSelected}
-            onRemove={(key) => { draft.removeTable(key); selection.clear(); }}
-          />
-        )}
+        {/* On top while nothing is selected (the panel's resting state), below the
+            properties once something is — the properties are what the click was for. */}
+        {selection.count === 0 && preview3d}
+        <EditorSidePanel
+          sole={sole} selection={selection} draft={draft} tables={tables} tiers={tiers} world={world}
+          categories={categories} purchaseMode={purchaseMode} onTierCreated={io.addTier}
+          onAssignTier={assignTier} onRotate={rotateSelected} onDuplicate={duplicateSelected}
+          onRemoveSelected={removeSelected}
+          onAdd={(initial) => {
+            if (initial.family === 'section') { setShowSection(true); return; }
+            setAddInitial(initial); setShowAdd(true);
+          }}
+        />
+        {selection.count > 0 && preview3d}
         </div>
       </div>
       </div>
+      <StudioStatsBar tables={tables} sections={sections} tiers={tiers} standing={studio.venue.standingCapacity} />
+      </>)}
+      </div>
+
+      {showSection && (
+        <SectionDialog
+          origin={addOrigin}
+          world={world}
+          zones={zones}
+          tables={tables}
+          tiers={tiers}
+          onTierCreated={io.addTier}
+          roomForTables={Math.max(0, MAX_TABLES - tables.length)}
+          onClose={() => setShowSection(false)}
+          onAdd={({ tables: rows, sections: added }) => {
+            const keys = draft.addTables(rows);
+            selection.replace(keys, []);
+            studioDraft.edit('sections', [...studio.sections, ...added]);
+          }}
+        />
+      )}
 
       {showAdd && (
         <AddElementDialog
           initial={addInitial}
           origin={addOrigin}
+          world={world}
           roomForTables={Math.max(0, MAX_TABLES - tables.length)}
           onClose={() => setShowAdd(false)}
           onAdd={({ tables: newTables, zones: newZones }) => {
@@ -455,14 +396,15 @@ export default function MapEditor({ eventId }) {
           tiers={tiers}
           categories={categories}
           replacing={tables.length > 0 || zones.length > 0}
+          world={world}
           blocked={aiQuota?.reason === 'ADMIN_ACCOUNT'
-            ? 'The Seating Designer is used from the organizer\u2019s own account, so it never spends their daily AI drafts on their behalf. Sign in as the organizer to use it.'
+            ? 'The Seating Designer is used from the organizer’s own account, so it never spends their daily AI drafts on their behalf. Sign in as the organizer to use it.'
             : soldTotal > 0
-              ? `${soldTotal} seat${soldTotal === 1 ? ' is' : 's are'} already held or sold on this map, so the layout can\u2019t be replaced. Edit the map by hand instead.`
+              ? `${soldTotal} seat${soldTotal === 1 ? ' is' : 's are'} already held or sold on this map, so the layout can’t be replaced. Edit the map by hand instead.`
               : null}
           onClose={() => setShowDesigner(false)}
-          onApply={(layout) => {
-            const { tableKeys, zoneIds } = draft.replaceLayout(layout.tables, layout.zones);
+          onApply={(plan) => {
+            const { tableKeys, zoneIds } = draft.replaceLayout(plan.tables, plan.zones);
             selection.replace(tableKeys, zoneIds);
           }}
         />
@@ -475,104 +417,10 @@ export default function MapEditor({ eventId }) {
           zones={zones}
           categories={categories}
           dirty={dirty}
+          world={world}
           onClose={() => setShowPack(false)}
         />
       )}
     </div>
   );
-}
-
-/**
- * A save refusal is usually about STOCK, not about the map: a table with sold
- * seats cannot be deleted, and a table cannot be shrunk past its booked seats.
- * The API names which ones, and that message is the useful part — so it is
- * shown rather than replaced with a generic sentence.
- */
-function SaveError({ error }) {
-  const { title } = describeError(error);
-  return (
-    <div role="alert" className="rounded-(--es-radius-md) bg-danger/10 px-4 py-3">
-      <p className="text-sm font-medium text-ink">{title}</p>
-      {/* `messageFor` keeps exactly the preference argued above — the server's
-          sentence wins, because "table 12 has 3 seats sold" is the useful
-          part. It only differs where `error.message` was never worth showing:
-          a dropped connection put "Failed to fetch" here, under a heading
-          about the map, next to a line promising nothing was saved. */}
-      <p className="text-sm text-muted">{messageFor(error)}</p>
-      <p className="mt-1 text-xs text-subtle">
-        Nothing was saved — the whole change was rolled back, so the map is exactly as it
-        was.
-      </p>
-    </div>
-  );
-}
-
-/** The API's table → the editor's. `password` is never returned, only
- *  `hasPassword`, so the field starts empty and an untouched one means keep. */
-function fromApi(t) {
-  return {
-    id: t.id,
-    label: t.label,
-    seatCount: t.seatCount,
-    priceCents: t.priceCents,
-    isPrivate: t.isPrivate,
-    hasPassword: t.hasPassword,
-    status: t.status,
-    shape: t.shape,
-    categoryId: t.categoryId,
-    // Seats carry the tier, and every seat on a table shares it — so the first
-    // one is the table's band. A table with no seats yet has none.
-    tierId: t.seats?.[0]?.tierId || null,
-    seatPriceCents: t.seats?.[0]?.priceOverrideCents ?? null,
-    // How much of this table is already spoken for. Drawn on the canvas, and
-    // the reason a delete will be refused — worth seeing before rearranging the
-    // room around a table that cannot move.
-    soldSeats: (t.seats || []).filter((s) => s.status && s.status !== 'available').length,
-    position: t.position,
-  };
-}
-
-/** The editor's table → the API's. */
-function toApi(t) {
-  return {
-    // Absent on a new table, which is how the API tells create from update.
-    ...(t.id ? { id: t.id } : {}),
-    label: String(t.label).trim(),
-    seatCount: Number(t.seatCount),
-    priceCents: t.priceCents ?? null,
-    isPrivate: !!t.isPrivate,
-    // Sent only when actually typed. Sending the editor's state back without a
-    // password must not silently unprotect a table — the API keeps the existing
-    // hash unless a new one arrives, and clears it only on `isPrivate: false`.
-    ...(t.password ? { password: t.password } : {}),
-    shape: t.shape,
-    categoryId: t.categoryId || null,
-    tierId: t.tierId || null,
-    seatPriceCents: t.seatPriceCents ?? null,
-    position: {
-      x: t.position?.x ?? 0,
-      y: t.position?.y ?? 0,
-      rotation: t.position?.rotation ?? 0,
-    },
-  };
-}
-
-function clamp(v, lo, hi) {
-  return Math.min(hi, Math.max(lo, v));
-}
-
-/** The room box united with everything drawn, plus a 5% margin all round, so
- *  the sheet sits ON the canvas instead of being cut by its edges. */
-function frameFor(tables, zones) {
-  const c = (tables.length || zones.length) ? contentBounds(tables, zones) : { x: 0, y: 0, width: 0, height: 0 };
-  const x0 = Math.min(0, c.x);
-  const y0 = Math.min(0, c.y);
-  const x1 = Math.max(WORLD.width, c.x + c.width);
-  const y1 = Math.max(WORLD.height, c.y + c.height);
-  const pad = Math.max(x1 - x0, y1 - y0) * 0.05;
-  return { x: x0 - pad, y: y0 - pad, width: x1 - x0 + pad * 2, height: y1 - y0 + pad * 2 };
-}
-
-function sameBox(a, b) {
-  return a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height;
 }

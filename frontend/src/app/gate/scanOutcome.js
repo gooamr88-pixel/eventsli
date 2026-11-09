@@ -59,6 +59,16 @@ const OUTCOMES = {
     title: 'Scanning is switched off',
     note: 'The organizer has to settle their commission invoice before the gate reopens.',
   },
+  transferred: {
+    tone: 'refuse',
+    title: 'Ticket was given away',
+    note: 'This code is from before the ticket was transferred. The person it was given to has the code that works now.',
+  },
+  event_not_open: {
+    tone: 'refuse',
+    title: 'Event not open',
+    note: 'This event is not open for entry right now. Ask the organizer before letting anyone in.',
+  },
 
   // ── From scanService, before the database is touched ───────────────────────
   invalid: {

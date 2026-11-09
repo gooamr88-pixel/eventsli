@@ -32,9 +32,15 @@ function signDeviceToken({ deviceId, eventId }, secret = process.env.JWT_SECRET)
   );
 }
 
-function signStaffToken({ deviceId, eventId, userId }, secret = process.env.JWT_SECRET) {
+/**
+ * `sessionId` is the jti of the account session that opened this door. The
+ * door then lives only as long as that session: signing out, "sign out
+ * everywhere", or ending the session from the account page (a lost phone)
+ * stops the door at its next request — not 16 hours later.
+ */
+function signStaffToken({ deviceId, eventId, userId, sessionId = null }, secret = process.env.JWT_SECRET) {
   return jwt.sign(
-    { typ: STAFF_TOKEN_TYPE, did: deviceId, eid: eventId, uid: userId },
+    { typ: STAFF_TOKEN_TYPE, did: deviceId, eid: eventId, uid: userId, ...(sessionId ? { sid: sessionId } : {}) },
     secret,
     { algorithm: 'HS256', expiresIn: `${STAFF_TOKEN_HOURS}h` },
   );
@@ -53,10 +59,12 @@ function verifyScanToken(token, secret = process.env.JWT_SECRET) {
     // Algorithm pinned: an `alg: none` token must not verify.
     const c = jwt.verify(String(token), secret, { algorithms: ['HS256'] });
     if (c.typ === DEVICE_TOKEN_TYPE && c.did && c.eid) {
-      return { deviceId: c.did, eventId: c.eid, staffUserId: null };
+      return { deviceId: c.did, eventId: c.eid, staffUserId: null, sessionId: null };
     }
     if (c.typ === STAFF_TOKEN_TYPE && c.did && c.eid && c.uid) {
-      return { deviceId: c.did, eventId: c.eid, staffUserId: c.uid };
+      // `sid` is absent on tokens issued before it existed; those keep their
+      // 16-hour life and simply are not tied to a session.
+      return { deviceId: c.did, eventId: c.eid, staffUserId: c.uid, sessionId: c.sid || null };
     }
     return null;
   } catch {
