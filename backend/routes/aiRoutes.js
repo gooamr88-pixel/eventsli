@@ -8,6 +8,7 @@ const { makeLimiter } = require('../middleware/rateLimit');
 const ai = require('../controllers/aiController');
 const { TYPES, MAX_BASE64 } = require('../services/ai/posterImage');
 const { TONES } = require('../services/ai/launchKit');
+const { isUnlimited } = require('../services/ai/config');
 
 /**
  * Eventsli AI. Organizer accounts only, and an organizer that is banned is
@@ -37,6 +38,8 @@ const draftLimiter = makeLimiter({
   max: 10,
   name: 'ai-event-draft',
   keyGenerator: (req) => `user:${req.user.id}`,
+  // Super admins have no AI limits (services/ai/config.js `isUnlimited`).
+  skip: (req) => isUnlimited(req.user?.access),
   message: 'That is a lot of drafts in a few minutes. Wait a moment and try again.',
 });
 

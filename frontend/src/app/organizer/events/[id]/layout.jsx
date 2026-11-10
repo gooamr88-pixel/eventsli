@@ -183,6 +183,9 @@ function EventHeader({ event, eventId }) {
    */
   const base = `/organizer/events/${eventId}`;
   const here = sectionLabel(eventId, pathname);
+  // The seating editor follows the owner's Venue Builder mockup (2026-11-10),
+  // which has no event card above it: the breadcrumb names the event.
+  const workspace = pathname.startsWith(`${base}/map`);
   return (
     <header className="es-ovhead es-ovhead--section">
       <nav aria-label="Breadcrumb" className="es-ovhead__crumbs">
@@ -203,7 +206,7 @@ function EventHeader({ event, eventId }) {
           and where. Not a heading — the section's own title is the page's
           <h1>, right under this. The links to the public page and Share live
           on the overview and in the sidebar. */}
-      <div className="es-evident">
+      {!workspace && <div className="es-evident">
         <Link href={base} className="es-evident__thumb" tabIndex={-1} aria-hidden="true">
           {event.cover?.url
             // The organizer's own cover, from our storage.
@@ -219,7 +222,7 @@ function EventHeader({ event, eventId }) {
             {event.venue?.name && <span className="es-evident__fact"><NavIcon name="pin" size={16} />{event.venue.name}</span>}
           </p>
         </div>
-      </div>
+      </div>}
       {/* "Setup · step 3 of 6" on a build screen before launch. Renders nothing
           anywhere else. */}
       <BuildProgress />

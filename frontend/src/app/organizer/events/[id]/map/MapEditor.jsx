@@ -10,6 +10,8 @@ import EditorToolbar from './EditorToolbar';
 import PhoneTools from './PhoneTools';
 import AddElementDialog from './AddElementDialog';
 import EditorSidePanel from './EditorSidePanel';
+import { BuildPalette } from './BuildPanel';
+import LayersCard from './LayersCard';
 import { MapHeader, MapBanner, MapNotices, countUnpriced } from './MapChrome';
 import { useEventContext } from '../EventContext';
 import { frameFor, sameBox, clamp } from './mapApi';
@@ -113,6 +115,9 @@ export default function MapEditor({ eventId }) {
   const [showDesigner, setShowDesigner] = useState(false);
   const { quota: aiQuota } = useAiQuota();
   const [toolsOpen, setToolsOpen] = useState(false);   // phones only — PhoneTools.jsx
+  // What the canvas draws (LayersCard.jsx). The map itself is unchanged.
+  const [layers, setLayers] = useState({ zones: true, labels: true });
+  const toggleLayer = useCallback((key) => setLayers((l) => ({ ...l, [key]: !l[key] })), []);
 
   const [tool, setTool] = useState('select');
   const [snapToGrid, setSnapToGrid] = useState(false);
@@ -282,6 +287,17 @@ export default function MapEditor({ eventId }) {
           editor itself is 52rem wide. */}
       <div className="es-mapeditor">
       <div className="es-mapeditor__body">
+        {/* THE LEFT COLUMN of the owner's Venue Builder mockup (2026-11-10):
+            Add to layout, then Layers. Drawn only where the editor is wide
+            enough for three columns; narrower, the add tools stay in the
+            panel on the right (EditorSidePanel → BuildPanel). */}
+        <div className="es-mapeditor__tools">
+          <BuildPalette onAdd={(initial) => {
+            if (initial.family === 'section') { setShowSection(true); return; }
+            setAddInitial(initial); setShowAdd(true);
+          }} />
+          <LayersCard layers={layers} onToggle={toggleLayer} />
+        </div>
         {/* The toolbar sits ON the canvas card, as one surface — and that card
             is what Full screen enlarges, toolbar and all. */}
         <div ref={canvasCard} className="es-dcard es-mapcard">
@@ -333,6 +349,7 @@ export default function MapEditor({ eventId }) {
               if (key) selection.selectOnly('table', key);
             }}
             onNudge={onElementKeyDown}
+            layers={layers}
           />
         </div>
 

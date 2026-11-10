@@ -19,7 +19,7 @@ export function SectionPlates({ plates }) {
  *  larger in a stadium, so a section name can still be read when it is fitted. */
 export function SectionBadges({ badges, scale = 1 }) {
   return badges.map((b) => (
-    <g key={b.key} transform={`translate(${b.x} ${b.y})${scale > 1 ? ` scale(${scale})` : ''}`} style={{ pointerEvents: 'none' }} aria-hidden="true">
+    <g key={b.key} transform={`translate(${b.x} ${b.y})${scale !== 1 ? ` scale(${scale})` : ''}`} style={{ pointerEvents: 'none' }} aria-hidden="true">
       <rect x={-b.text.length * 7.6 - 14} y={-17} width={b.text.length * 15.2 + 28} height={34} rx={17} className="es-mapbadge" />
       <text y={7} textAnchor="middle" className="es-mapbadge__text">{b.text}</text>
     </g>

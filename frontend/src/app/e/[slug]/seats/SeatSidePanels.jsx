@@ -125,10 +125,26 @@ export function Basket({
         {busy ? 'Holding your seats…' : 'Proceed to checkout'}<NavIcon name="arrow" size={18} />
       </button>
 
-      <ul className="es-trust">
-        <li><NavIcon name="clock" size={18} />Your seats are held for you while you pay</li>
-        <li><NavIcon name="qr" size={18} />Instant e-ticket with a QR code</li>
-        <li><NavIcon name="shield" size={18} />Secure card payment</li>
+      {/* As in the owner's mockup: the payment reassurance under the button.
+          Cards only, because that is what checkout takes (Stripe). */}
+      <div className="es-paysafe">
+        <p><NavIcon name="shield" size={18} />Secure &amp; encrypted payment</p>
+        <ul aria-label="Cards accepted">
+          <li>Visa</li><li>Mastercard</li><li>Amex</li>
+        </ul>
+      </div>
+    </section>
+  );
+}
+
+/** What happens after paying, in its own card under the basket (owner's mockup). */
+export function TrustCard() {
+  return (
+    <section className="es-sidecard es-trustcard" aria-label="What you get">
+      <ul className="es-trustcard__list">
+        <li><NavIcon name="qr" size={20} />Instant e-ticket with a QR code</li>
+        <li><NavIcon name="clock" size={20} />Your seats are held while you pay</li>
+        <li><NavIcon name="shield" size={20} />Secure card payment</li>
       </ul>
     </section>
   );

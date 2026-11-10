@@ -153,7 +153,7 @@ export default function DraftReview({
         <NavIcon name="undo" size={15} /> Change it and regenerate
       </button>
       <p className="es-ai-regen__note">
-        {quota && quota.remaining > 0
+        {quota?.unlimited ? 'Replaces this one.' : quota && quota.remaining > 0
           ? `Uses 1 of your ${quota.remaining} AI draft${quota.remaining === 1 ? '' : 's'} left today and replaces this one.`
           : 'No AI drafts left today. Edit this one instead.'}
       </p>

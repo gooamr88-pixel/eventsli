@@ -1,6 +1,6 @@
 const { supabase } = require('../config/supabase');
 const { sendOk } = require('../utils/responseEnvelope');
-const { aiConfig } = require('../services/ai/config');
+const { aiConfig, isUnlimited } = require('../services/ai/config');
 const { redact } = require('../services/ai/redact');
 const { generateAssistantReply, basicReply } = require('../services/ai/assistant');
 const { SELECT, shape, lowestTierPrices } = require('./discoveryController');
@@ -32,14 +32,14 @@ function underCap(cap) {
 }
 
 /** Is the AI side of the assistant on? Off is a normal answer, not an error. */
-function aiAvailable(cfg = aiConfig()) {
-  return Boolean(cfg.enabled && cfg.assistant.enabled && underCap(cfg.assistant.cap));
+function aiAvailable(cfg = aiConfig(), { unlimited = false } = {}) {
+  return Boolean(cfg.enabled && cfg.assistant.enabled && (unlimited || underCap(cfg.assistant.cap)));
 }
 
 // ─── GET /public/assistant ──────────────────────────────────────────────────
 /** Lets the homepage decide between the AI chat and the plain contact link. */
 function status(req, res) {
-  return sendOk(res, { ai: aiAvailable() });
+  return sendOk(res, { ai: aiAvailable(aiConfig(), { unlimited: isUnlimited(req.user?.access) }) });
 }
 
 // ─── Grounding ─────────────────────────────────────────────────────────────
@@ -118,8 +118,10 @@ async function reply(req, res, next) {
 
     let answer;
     let mode = 'basic';
-    if (aiAvailable(cfg)) {
-      usage.count += 1;   // counted on the attempt: a failing provider must not make the cap free
+    // A super admin has no AI limits: the daily cap neither stops nor counts them.
+    const unlimited = isUnlimited(req.user?.access);
+    if (aiAvailable(cfg, { unlimited })) {
+      if (!unlimited) usage.count += 1;   // counted on the attempt: a failing provider must not make the cap free
       try {
         answer = await generateAssistantReply({ messages, events, today, cfg });
         mode = 'ai';

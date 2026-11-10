@@ -60,6 +60,8 @@ export default function EditorCanvas({
   onAddAt, onNudge,
   // The venue's size (draft.world): every percentage below resolves against it.
   world = worldOf(null),
+  // The Layers card (LayersCard.jsx): what is drawn, never what exists.
+  layers = { zones: true, labels: true },
   className = '',
 }) {
   const { svgRef, view, handlers } = panzoom;
@@ -110,7 +112,11 @@ export default function EditorCanvas({
   const cursor = tool === 'hand' || spacePan ? 'grab' : 'crosshair';
 
   return (
-    <div className={`relative ${className}`}>
+    <div
+      className={`relative ${className}`}
+      data-hide-zones={layers.zones ? undefined : 'true'}
+      data-hide-labels={layers.labels ? undefined : 'true'}
+    >
       <svg
         ref={svgRef}
         viewBox={`${view.x} ${view.y} ${view.width} ${view.height}`}
@@ -189,6 +195,7 @@ export default function EditorCanvas({
 
         {/* ZONES FIRST — SVG has no z-index, so paint order is the only thing
             that keeps a dance floor from covering the seats around it. */}
+        <g className="es-layer-zones">
         {visible.zones.map((zone) => (
           <ZoneShape
             key={zone.id}
@@ -212,6 +219,7 @@ export default function EditorCanvas({
             )}
           </ZoneShape>
         ))}
+        </g>
 
         {visible.tables.map((table) => (
           <EditableTable

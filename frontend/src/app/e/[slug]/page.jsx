@@ -14,6 +14,7 @@ import {
   seoTitle, seoDescription, seoKeywords, eventJsonLd, breadcrumbJsonLd, eventUrl,
 } from '../../lib/eventSeo';
 import { EventBreadcrumbs, EventQuickAnswers, RelatedEvents } from './EventDiscovery';
+import EventsliPartners from './EventsliPartners';
 import { isDateOnly, formatDateOnly } from '../../lib/dateOnly';
 import VisitBeacon from '../../components/landing/VisitBeacon';
 
@@ -339,6 +340,10 @@ export default async function EventPage({ params, searchParams }) {
 
           {/* ── 6. Somewhere else to go ──────────────────────────────────── */}
           <RelatedEvents event={event} />
+
+          {/* ── 7. Eventsli's partners — the platform's, labelled as such ── */}
+          <EventsliPartners />
+
         </div>
       </div>
 

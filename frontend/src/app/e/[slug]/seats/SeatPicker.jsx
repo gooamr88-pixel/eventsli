@@ -13,7 +13,7 @@ import { useReservation, TABLE_ACCESS_HEADER } from '../../../hooks/useReservati
 import { useTableAccess } from './useTableAccess';
 import SeatMapSkeleton, { MAP_FRAME, MAP_BOX } from './SeatMapSkeleton';
 import SelectionBar from './SelectionBar';
-import { TicketCategories, Basket, CategoryChips } from './SeatSidePanels';
+import { TicketCategories, Basket, CategoryChips, TrustCard } from './SeatSidePanels';
 import VenueInfoCard from '../../../components/venue/VenueInfoCard';
 
 /**
@@ -432,8 +432,12 @@ export default function SeatPicker({ slug, currency, purchaseMode, maxPerOrder }
           onContinue={onContinue}
           error={actionError ? <ErrorNote error={actionError} /> : null}
         />
+        <TrustCard />
       </aside>
 
+      {/* Pinned to the bottom of a phone. The stickiness lives on THIS grid
+          item (globals.css): on the bar inside it, its parent was exactly its
+          own height, so it never moved and sat ~1,400px down the page. */}
       <div className="es-seatpage__bar">
         <SelectionBar
           count={count}

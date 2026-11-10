@@ -141,6 +141,30 @@ function aiConfig() {
   };
 }
 
+/**
+ * The largest value `ai_reserve_generation`'s INT `p_limit` takes: "no daily
+ * allowance" without a migration. The rolling window, the in-flight
+ * reservation and the duplicate-request rules still apply, because they are
+ * correctness rules, not limits.
+ */
+const UNLIMITED = 2147483647;
+
+/**
+ * Super admin accounts (owner, 2026-11-10) have no limits on any AI feature:
+ * no daily allowance, no platform-wide daily cap, no press limiter, and the
+ * homepage assistant's daily cap does not apply to them. Regular admins are
+ * unchanged. `unlimited: true` tells the quota shape and the UI to say so
+ * rather than show a count.
+ */
+function isUnlimited(access) {
+  return Boolean(access?.isSuperAdmin);
+}
+
+function configFor(cfg, access) {
+  if (!isUnlimited(access)) return { ...cfg, unlimited: false };
+  return { ...cfg, unlimited: true, limit: UNLIMITED, globalCap: null };
+}
+
 module.exports = {
-  aiConfig, PROVIDERS, DAILY_LIMIT, WINDOW, STALE, TIMEOUTS, VISION_TIMEOUTS,
+  aiConfig, configFor, isUnlimited, UNLIMITED, PROVIDERS, DAILY_LIMIT, WINDOW, STALE, TIMEOUTS, VISION_TIMEOUTS,
 };

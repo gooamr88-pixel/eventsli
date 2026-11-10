@@ -1,5 +1,5 @@
 const { sendOk, sendFail } = require('../utils/responseEnvelope');
-const { aiConfig } = require('../services/ai/config');
+const { aiConfig: baseConfig, configFor } = require('../services/ai/config');
 const quota = require('../services/ai/quotaService');
 const { generateEventDraft } = require('../services/ai/eventDraftService');
 const { redact } = require('../services/ai/redact');
@@ -29,9 +29,20 @@ const logger = require('../utils/logger');
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
-/** Admins pass every organizer guard; here that would spend somebody else's allowance (D-014). */
+/**
+ * The AI settings for THIS caller: a super admin's have no daily allowance and
+ * no platform cap (services/ai/config.js `configFor`).
+ */
+const aiConfig = (req) => configFor(baseConfig(), req.user.access);
+
+/**
+ * Admins pass every organizer guard; here that would spend somebody else's
+ * allowance (D-014). Super admins are the exception (owner, 2026-11-10): they
+ * use AI without limits, always recorded against their OWN organization, so
+ * even on another organizer's event they never spend that organizer's drafts.
+ */
 function adminRefusal(req, res) {
-  if (!req.user.access.isAdmin) return null;
+  if (!req.user.access.isAdmin || req.user.access.isSuperAdmin) return null;
   return sendFail(res, {
     status: 403, error: 'AI_ORGANIZER_ONLY',
     message: 'AI drafts are used from an organizer account, so they never spend an organizer’s daily allowance on their behalf.',
@@ -39,11 +50,25 @@ function adminRefusal(req, res) {
 }
 
 function quotaShape(row, cfg) {
+  if (cfg.unlimited) {
+    // No count to show: `remaining` stays a number so a screen that has not
+    // learnt `unlimited` still reads it as "not used up".
+    return {
+      enabled: cfg.enabled,
+      poster: Boolean(cfg.enabled && cfg.poster),
+      unlimited: true,
+      limit: null,
+      used: row ? Number(row.used) : 0,
+      remaining: cfg.limit,
+      nextAvailableAt: null,
+    };
+  }
   return {
     enabled: cfg.enabled,
     // Whether "Start from a poster" is offered. Same allowance as a typed
     // description: a poster is one draft, whichever provider reads it.
     poster: Boolean(cfg.enabled && cfg.poster),
+    unlimited: false,
     limit: cfg.limit,
     used: row ? Number(row.used) : 0,
     remaining: row ? Number(row.remaining) : 0,
@@ -66,11 +91,11 @@ function quotaShape(row, cfg) {
  */
 async function getQuota(req, res, next) {
   try {
-    const cfg = aiConfig();
+    const cfg = aiConfig(req);
     const organizerId = req.user.access.organizerId;
     const off = (reason) => sendOk(res, { ...quotaShape(null, cfg), enabled: false, reason });
     if (!cfg.enabled) return off('NOT_CONFIGURED');
-    if (req.user.access.isAdmin) return off('ADMIN_ACCOUNT');
+    if (req.user.access.isAdmin && !req.user.access.isSuperAdmin) return off('ADMIN_ACCOUNT');
     if (!organizerId) return off('NO_ORGANIZER');
 
     let row;
@@ -111,6 +136,15 @@ const UNAVAILABLE = {
 };
 
 async function spend(req, res, { cfg, organizerId, feature, answers = {} }, work) {
+  // Every generation is recorded against an organization. A super admin can
+  // reach any event, but without an organization of their own there is
+  // nowhere to record it (and it must never land on the event's organizer).
+  if (!organizerId) {
+    return sendFail(res, {
+      status: 403, error: 'ORGANIZER_SETUP_REQUIRED',
+      message: 'Set up your organization before using AI.',
+    });
+  }
   let reservation;
   try {
     reservation = await quota.reserve({
@@ -183,7 +217,7 @@ function refuseEarly(req, res, cfg) {
  * so a file that is not an image, or not a readable one, never costs a draft.
  */
 async function runDraft(req, res, next, { fromImage }) {
-  const cfg = aiConfig();
+  const cfg = aiConfig(req);
   try {
     const refused = refuseEarly(req, res, cfg);
     if (refused) return refused;
@@ -267,7 +301,7 @@ const conflict = (res, message) => sendFail(res, { status: 409, error: 'CONFLICT
  * save would refuse it anyway, but only after the draft was spent.
  */
 async function createSeatingPlan(req, res, next) {
-  const cfg = aiConfig();
+  const cfg = aiConfig(req);
   try {
     const refused = refuseEarly(req, res, cfg);
     if (refused) return refused;
@@ -339,7 +373,7 @@ function priceText(tiers, currency) {
  * more rather than where to buy.
  */
 async function createLaunchKit(req, res, next) {
-  const cfg = aiConfig();
+  const cfg = aiConfig(req);
   try {
     const refused = refuseEarly(req, res, cfg);
     if (refused) return refused;

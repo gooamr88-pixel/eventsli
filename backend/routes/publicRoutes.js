@@ -97,6 +97,39 @@ router.get('/event-categories', async (req, res, next) => {
   } catch (err) { return next(err); }
 });
 
+/**
+ * Eventsli's own partners — the admin-published sponsors the homepage shows —
+ * on their own, for every event page's partners band. The same list and the
+ * same public shape as `/landing` (logo-less sponsors are left out), without
+ * the rest of the landing payload.
+ */
+router.get('/sponsors', async (req, res, next) => {
+  try {
+    const storefront = require('../services/storefrontService');
+    return sendOk(res, { sponsors: await storefront.listSponsors({ publicOnly: true }) });
+  } catch (err) { return next(err); }
+});
+
+/**
+ * The countries organizers can choose today: the markets a super admin has
+ * open in platform settings. Every country picker offers only these, so a
+ * closed market is not offered and then refused on submit.
+ */
+router.get('/markets', async (req, res, next) => {
+  try {
+    const { supabase } = require('../config/supabase');
+    const { SUPPORTED_MARKETS, openCountries } = require('../utils/markets');
+    const { data, error } = await supabase
+      .from('platform_settings').select('value').eq('key', 'currencies').maybeSingle();
+    if (error) throw error;
+    const countries = openCountries(data ? (data.value?.by_country ?? {}) : undefined);
+    return sendOk(res, {
+      countries,
+      markets: countries.map((country) => ({ country, currency: SUPPORTED_MARKETS[country] })),
+    });
+  } catch (err) { return next(err); }
+});
+
 // ─── The landing page ───────────────────────────────────────────────────────
 const landing = require('../controllers/landingController');
 
@@ -194,12 +227,18 @@ router.get(
 // Public and anonymous, so bounded per visitor here, per message by these
 // validators, and per day in the controller (AI_ASSISTANT_DAILY_CAP).
 const assistant = require('../controllers/assistantController');
+const { isUnlimited } = require('../services/ai/config');
 
-router.get('/assistant', assistant.status);
+// optionalAuth so a signed-in super admin is recognised: they have no AI
+// limits, here or anywhere (services/ai/config.js `isUnlimited`). Everyone
+// else is the anonymous visitor this was built for.
+router.get('/assistant', optionalAuth, assistant.status);
 router.post(
   '/assistant/messages',
+  optionalAuth,
   makeLimiter({
     windowMs: 10 * 60 * 1000, max: 20, name: 'assistant',
+    skip: (req) => isUnlimited(req.user?.access),
     message: 'That is a lot of questions in a few minutes. Wait a moment, or browse events in the meantime.',
   }),
   body('messages').isArray({ min: 1, max: 12 }).withMessage('Send the conversation as a list of messages.'),

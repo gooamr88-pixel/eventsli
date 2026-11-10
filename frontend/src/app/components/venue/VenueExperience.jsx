@@ -81,6 +81,8 @@ export default function VenueExperience({
   }, [seats]);
 
   const in3d = view !== '2d';
+  // "Use the 2D map" when a 3D or 360° view cannot draw on this device.
+  const toMap = () => { setView('2d'); setHover(null); setCardOpen(false); };
   const model = useMemo(
     () => (in3d ? buildSceneModel({ tables, seatsByTable, zones, scene: studio.scene, world }) : null),
     [in3d, tables, seatsByTable, zones, studio.scene, world],
@@ -201,7 +203,9 @@ export default function VenueExperience({
     <div ref={frameRef} className={`es-venuex ${frameClassName}`}>
       <div className="fx-row fx-row--between gap-2">
         <ViewSwitch value={view} onChange={(v) => { setView(v); setHover(null); if (v !== '3d') setCardOpen(false); }} />
-        <p className="text-xs text-subtle">
+        {/* From `sm`: on a phone the pinned bar below already says "Tap a
+            seat to choose it", and this row is worth its height in map. */}
+        <p className="hidden text-xs text-subtle sm:block">
           {view === '2d' && (pickAny ? 'Tap a seat to block or release it' : 'Tap a seat to choose it')}
           {view === '3d' && 'Drag to turn · scroll to zoom · tap a seat'}
           {view === '360' && (shotPhoto ? 'A photo from this part of the venue · drag to look around' : 'Drag to look around · arrows move along the row')}
@@ -246,13 +250,14 @@ export default function VenueExperience({
             ariaLabel={view === '360' ? `The view from ${activeInfo?.name || 'a seat'}` : 'The venue in 3D. Use the 2D map to choose seats by keyboard.'}
             onPick={(entry) => { setFocusId(entry.id); setCardOpen(true); setShot('auto'); }}
             onHover={(entry, at) => setHover(entry ? { entry, ...at } : null)}
+            onFallback={toMap}
           />
 
           {view === '360' && shotPhoto && (
             // A wrapper places it: the viewer's own root is `relative`, which
             // would beat an `absolute` passed in and drop it below the box.
             <div className="es-venuex__photo">
-              <PanoramaViewer key={shotPhoto.id} className="h-full w-full" url={shotPhoto.url} heading={shotPhoto.heading} label={shotPhoto.name} />
+              <PanoramaViewer key={shotPhoto.id} className="h-full w-full" url={shotPhoto.url} heading={shotPhoto.heading} label={shotPhoto.name} onFallback={toMap} />
             </div>
           )}
 

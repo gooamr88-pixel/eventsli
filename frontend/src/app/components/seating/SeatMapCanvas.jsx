@@ -5,6 +5,7 @@ import {
   worldOf, worldScale, SEAT_RADIUS, tableBody, seatPositions, toWorld, contentBounds, normaliseShape,
 } from './seatingGeometry';
 import { usePanZoom } from './usePanZoom';
+import { useBadgeScale } from './useBadgeScale';
 import ZoneShape from './ZoneShape';
 import { SectionPlates, SectionBadges } from './MapOverlays';
 import { zoneLabel } from './venueZones';
@@ -110,6 +111,8 @@ export default function SeatMapCanvas({
   const {
     svgRef, view, fit, zoomIn, zoomOut, zoomAt, wasDragged, handlers,
   } = usePanZoom(bounds);
+  // Section names capped at a readable size on screen (useBadgeScale.js).
+  const badgeScale = useBadgeScale(svgRef, view, world);
 
   /**
    * Zoom in once per room on a screen where the fitted view is too small to tap
@@ -229,16 +232,22 @@ export default function SeatMapCanvas({
           />
         ))}
 
-        <SectionBadges badges={badges} scale={worldScale(world)} />
+        <SectionBadges badges={badges} scale={badgeScale} />
       </svg>
 
       {/* TOP corner, not bottom. On the buyer's page the selection bar is
           sticky at the bottom of the screen and covered zoom-out and fit —
           the two controls somebody needs after zooming in to choose. */}
-      <div className="absolute right-3 top-3 flex flex-col gap-1">
-        <MapButton onClick={zoomIn} label="Zoom in">+</MapButton>
-        <MapButton onClick={zoomOut} label="Zoom out">−</MapButton>
-        <MapButton onClick={fit} label="Fit the whole map">⤢</MapButton>
+      {/* As in the owner's mockup (2026-11-10): one "− 100% +" pill and the
+          fit button beside it, rather than a column of three squares. The
+          percentage is the whole room = 100%, the same scale the editor uses. */}
+      <div className="es-mapzoom">
+        <div className="es-mapzoom__pill">
+          <MapButton onClick={zoomOut} label="Zoom out">−</MapButton>
+          <span className="es-mapzoom__pct es-nums" aria-live="polite">{Math.round((bounds.width / Math.max(view.width, 1)) * 100)}%</span>
+          <MapButton onClick={zoomIn} label="Zoom in">+</MapButton>
+        </div>
+        <MapButton onClick={fit} label="Fit the whole map" boxed>⤢</MapButton>
       </div>
     </div>
 
@@ -246,21 +255,25 @@ export default function SeatMapCanvas({
           zoomed, and a phone opened it too small to choose from. */}
       <p className="text-xs text-subtle">
         Pinch or use + and − to zoom, and drag to move around.
-        {zoneSummary && ` Also on this map: ${zoneSummary}.`}
+        {/* For screen readers only (2026-11-10): drawn, the zones are on the
+            map for everyone else, and as visible text they were a run-on
+            sentence of twenty names under every map. */}
+        {zoneSummary && <span className="sr-only"> Also on this map: {zoneSummary}.</span>}
       </p>
     </div>
   );
 }
 
-function MapButton({ onClick, label, children }) {
+function MapButton({ onClick, label, boxed = false, children }) {
   return (
     <button
       type="button"
       onClick={onClick}
       aria-label={label}
       // 40px is not arbitrary: it is the smallest square a thumb hits reliably,
-      // and these sit in the corner a right hand covers while panning.
-      className="grid h-10 w-10 place-items-center rounded-(--es-radius-md) border border-border-strong bg-surface text-lg text-ink shadow-sm transition-colors hover:bg-bg-sunken"
+      // and these sit in the corner a right hand covers while panning. Inside
+      // the pill they lose their own border; `boxed` is the lone fit button.
+      className={`grid h-10 w-10 place-items-center rounded-(--es-radius-md) text-lg text-ink transition-colors hover:bg-bg-sunken ${boxed ? 'border border-border-strong bg-surface shadow-sm' : 'bg-transparent'}`}
     >
       {children}
     </button>

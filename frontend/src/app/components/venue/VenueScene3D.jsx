@@ -2,6 +2,20 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { buildRoom, disposeTree, MOOD_STYLE } from './roomBuilder';
+import ViewerProblem from './ViewerProblem';
+
+/** Past this with nothing drawn, the 3D code is not coming: say so. */
+const LOAD_TIMEOUT_MS = 25_000;
+
+/**
+ * Touch devices get the light renderer: no glow pass, a lower pixel ratio, no
+ * idle animation, and a frame drawn only when something changed. Phones are
+ * where iOS drops a page's GPU work when memory runs low, which is what left
+ * buyers looking at a black box.
+ */
+function lightRenderer() {
+  try { return Boolean(window.matchMedia?.('(pointer: coarse)').matches); } catch { return false; }
+}
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -20,16 +34,25 @@ import { buildRoom, disposeTree, MOOD_STYLE } from './roomBuilder';
  * The room is rebuilt when `buildKey` changes (the layout, the scene settings)
  * and only RECOLOURED when `colorKey` changes (selection, availability, a tier
  * highlight). A buyer choosing seats never pays for a rebuild.
+ *
+ * IT NEVER FAILS SILENTLY. The 3D code not arriving, WebGL being off, and the
+ * device dropping the GPU context mid-view each show a message
+ * (ViewerProblem) with "Try again" and, where the caller passes `onFallback`,
+ * "Use the 2D map" — instead of the dark background on its own.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 export default function VenueScene3D({
   model, scene, labels = [], title = '', buildKey, colorKey, colorFor,
-  mode = 'orbit', eye = null, onPick, onHover, controlsRef, className = '', ariaLabel = 'Venue in 3D',
+  mode = 'orbit', eye = null, onPick, onHover, onFallback, controlsRef, className = '', ariaLabel = 'Venue in 3D',
 }) {
   const hostRef = useRef(null);
   const stateRef = useRef(null);
-  const [failed, setFailed] = useState(false);
+  // null, or why the view cannot draw: 'nogl' | 'load' | 'lost'.
+  const [problem, setProblem] = useState(null);
   const [ready, setReady] = useState(false);
+  // Bumped by "Try again": the renderer effect runs from scratch.
+  const [attempt, setAttempt] = useState(0);
+  const retry = () => { setProblem(null); setReady(false); setAttempt((a) => a + 1); };
 
   // Latest callbacks, read by handlers bound once. Written in an effect, never
   // during render.
@@ -39,28 +62,50 @@ export default function VenueScene3D({
   // ── renderer, camera, controls: once ─────────────────────────────────────
   useEffect(() => {
     let disposed = false;
+    // Set when the load took too long and the message is already up; a late
+    // arrival must not then draw into a box that is no longer on the page.
+    let abandoned = false;
     const host = hostRef.current;
     let cleanup = () => {};
+    const slow = setTimeout(() => {
+      if (disposed || stateRef.current) return;
+      abandoned = true;
+      setProblem('load');
+    }, LOAD_TIMEOUT_MS);
     (async () => {
-      const THREE = await import('three');
-      const [{ OrbitControls }, { RoomEnvironment }, { EffectComposer }, { RenderPass }, { UnrealBloomPass }, { OutputPass }] = await Promise.all([
-        import('three/examples/jsm/controls/OrbitControls.js'),
-        import('three/examples/jsm/environments/RoomEnvironment.js'),
-        import('three/examples/jsm/postprocessing/EffectComposer.js'),
-        import('three/examples/jsm/postprocessing/RenderPass.js'),
-        import('three/examples/jsm/postprocessing/UnrealBloomPass.js'),
-        import('three/examples/jsm/postprocessing/OutputPass.js'),
-      ]);
-      if (disposed || !host) return;
-
-      let renderer;
+      let THREE;
+      let mods;
       try {
-        renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+        THREE = await import('three');
+        mods = await Promise.all([
+          import('three/examples/jsm/controls/OrbitControls.js'),
+          import('three/examples/jsm/environments/RoomEnvironment.js'),
+          import('three/examples/jsm/postprocessing/EffectComposer.js'),
+          import('three/examples/jsm/postprocessing/RenderPass.js'),
+          import('three/examples/jsm/postprocessing/UnrealBloomPass.js'),
+          import('three/examples/jsm/postprocessing/OutputPass.js'),
+        ]);
       } catch {
-        setFailed(true);
+        // A chunk that did not arrive: a weak connection, or a deploy that
+        // replaced the files under an open page. Both are worth a retry.
+        clearTimeout(slow);
+        if (!disposed && !abandoned) setProblem('load');
         return;
       }
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      const [{ OrbitControls }, { RoomEnvironment }, { EffectComposer }, { RenderPass }, { UnrealBloomPass }, { OutputPass }] = mods;
+      if (disposed || abandoned || !host) return;
+
+      const light = lightRenderer();
+      let renderer;
+      try {
+        renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: light ? 'default' : 'high-performance' });
+      } catch {
+        clearTimeout(slow);
+        setProblem('nogl');
+        return;
+      }
+      clearTimeout(slow);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, light ? 1.5 : 2));
       renderer.outputColorSpace = THREE.SRGBColorSpace;
       renderer.toneMapping = THREE.ACESFilmicToneMapping;
       renderer.toneMappingExposure = 1.2;
@@ -80,12 +125,17 @@ export default function VenueScene3D({
 
       // GLOW on the screens, the truss lamps, the step lights and the rim.
       // Rendered at half resolution: bloom is a blur, so the detail is not
-      // missed, and it halves the cost on a phone.
-      const composer = new EffectComposer(renderer);
-      composer.addPass(new RenderPass(scene3, camera));
-      const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.6, 0.5, 0.9);
-      composer.addPass(bloom);
-      composer.addPass(new OutputPass());
+      // missed. Desktop only: on a phone it is the most expensive thing on the
+      // page, and the renderer then applies tone mapping and colour itself.
+      let composer = null;
+      let bloom = null;
+      if (!light) {
+        composer = new EffectComposer(renderer);
+        composer.addPass(new RenderPass(scene3, camera));
+        bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.6, 0.5, 0.9);
+        composer.addPass(bloom);
+        composer.addPass(new OutputPass());
+      }
       const controls = new OrbitControls(camera, renderer.domElement);
       controls.enableDamping = true;
       controls.dampingFactor = 0.08;
@@ -93,22 +143,29 @@ export default function VenueScene3D({
       controls.screenSpacePanning = false;
 
       const st = {
-        THREE, renderer, composer, bloom, scene: scene3, camera, controls, room: null, model: null,
+        THREE, renderer, composer, bloom, light, scene: scene3, camera, controls, room: null, model: null,
         raycaster: new THREE.Raycaster(), pointer: new THREE.Vector2(),
         flight: null, look: { yaw: 0, pitch: 0 }, home: null, hovered: -1,
+        // A frame is drawn only when something changed (`invalidate`), while
+        // a camera flight or the controls' damping is moving, or — desktop
+        // only — while the room has animated props.
+        dirty: true,
+        invalidate: () => { st.dirty = true; },
       };
       stateRef.current = st;
+      controls.addEventListener('change', st.invalidate);
 
       const resize = () => {
         const w = host.clientWidth || 1;
         const h = host.clientHeight || 1;
         renderer.setSize(w, h, false);
-        composer.setSize(w, h);
-        bloom.resolution.set(w / 2, h / 2);
+        composer?.setSize(w, h);
+        bloom?.resolution.set(w / 2, h / 2);
         renderer.domElement.style.width = '100%';
         renderer.domElement.style.height = '100%';
         camera.aspect = w / h;
         camera.updateProjectionMatrix();
+        st.invalidate();
       };
       resize();
       const ro = new ResizeObserver(resize);
@@ -132,6 +189,7 @@ export default function VenueScene3D({
           // photo sphere does.
           st.look.yaw = down.yaw + (e.clientX - down.x) * 0.005;
           st.look.pitch = Math.max(-1.2, Math.min(1.2, down.pitch + (e.clientY - down.y) * 0.005));
+          st.invalidate();
           return;
         }
         if (e.buttons || live.current.mode === 'eye') return;
@@ -160,8 +218,17 @@ export default function VenueScene3D({
         e.preventDefault();
         camera.fov = Math.max(28, Math.min(80, camera.fov + e.deltaY * 0.03));
         camera.updateProjectionMatrix();
+        st.invalidate();
       };
       const el = renderer.domElement;
+      // iOS drops a page's GPU context when memory runs low, and the canvas
+      // simply goes dark. Stop drawing and say so; "Try again" rebuilds it.
+      el.addEventListener('webglcontextlost', (e) => {
+        e.preventDefault();
+        if (disposed) return;   // our own cleanup forces a loss too
+        renderer.setAnimationLoop(null);
+        setProblem('lost');
+      });
       el.addEventListener('pointerdown', onDown);
       el.addEventListener('pointermove', onMove);
       el.addEventListener('pointerup', onUp);
@@ -170,8 +237,10 @@ export default function VenueScene3D({
 
       // ── frame loop ──
       const clock = new THREE.Clock();
+      const draw = composer ? () => composer.render() : () => renderer.render(scene3, camera);
       renderer.setAnimationLoop(() => {
         const t = clock.getElapsedTime();
+        const flying = Boolean(st.flight);
         if (st.flight) {
           const f = st.flight;
           const k = Math.min(1, (performance.now() - f.start) / f.ms);
@@ -191,14 +260,19 @@ export default function VenueScene3D({
           );
           camera.lookAt(camera.position.clone().add(dir));
         } else {
-          controls.update();
+          controls.update();   // fires 'change' (→ invalidate) while damping moves
         }
+        const animate = !light && (st.room?.animated?.length || 0) > 0;
+        if (!flying && !st.dirty && !animate) return;
+        st.dirty = false;
         const seated = live.current.mode === 'eye' || st.flight?.then === 'eye';
         for (const b of st.room?.badges || []) b.visible = !seated;
-        for (const p of st.room?.animated || []) {
-          p.rotation.set(0.5 + Math.sin(t * 0.7 + p.userData.phase) * 0.18, p.userData.facing, Math.sin(t * 0.9 + p.userData.phase) * 0.3, 'YXZ');
+        if (animate) {
+          for (const p of st.room.animated) {
+            p.rotation.set(0.5 + Math.sin(t * 0.7 + p.userData.phase) * 0.18, p.userData.facing, Math.sin(t * 0.9 + p.userData.phase) * 0.3, 'YXZ');
+          }
         }
-        composer.render();
+        draw();
       });
 
       if (controlsRef) {
@@ -207,10 +281,12 @@ export default function VenueScene3D({
             if (live.current.mode === 'eye') {
               camera.fov = Math.max(28, Math.min(80, camera.fov / factor));
               camera.updateProjectionMatrix();
+              st.invalidate();
               return;
             }
             const offset = camera.position.clone().sub(controls.target).multiplyScalar(1 / factor);
             camera.position.copy(controls.target).add(offset);
+            st.invalidate();
           },
           reset: () => { if (st.home) flyTo(st, st.home.position, st.home.target, 'orbit'); },
         };
@@ -220,9 +296,10 @@ export default function VenueScene3D({
       cleanup = () => {
         renderer.setAnimationLoop(null);
         ro.disconnect();
+        controls.removeEventListener('change', st.invalidate);
         controls.dispose();
         if (st.room) disposeTree(st.room.group);
-        composer.dispose?.();
+        composer?.dispose?.();
         envMap.dispose();
         pmrem.dispose();
         renderer.dispose();
@@ -231,10 +308,11 @@ export default function VenueScene3D({
         stateRef.current = null;
       };
     })();
-    return () => { disposed = true; cleanup(); };
-    // Bound once; everything that changes is read through refs or the effects below.
+    return () => { disposed = true; clearTimeout(slow); cleanup(); };
+    // Bound once per attempt; everything that changes is read through refs or
+    // the effects below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [attempt]);
 
   // ── the room: rebuilt when the layout or scene changes ───────────────────
   useEffect(() => {
@@ -247,9 +325,10 @@ export default function VenueScene3D({
     st.scene.fog = new THREE.Fog(style.fog, model.radius * 2.2, model.radius * 5);
     st.room = buildRoom(THREE, model, scene, { title, labels });
     st.scene.environmentIntensity = style.env ?? 0.6;
-    st.bloom.strength = style.bloom ?? 0.5;
+    if (st.bloom) st.bloom.strength = style.bloom ?? 0.5;
     st.model = model;
     st.scene.add(st.room.group);
+    st.invalidate();
 
     // Home: behind the room, opposite the stage, high enough to read rows.
     const len = Math.hypot(model.focus.x, model.focus.z) || 1;
@@ -306,13 +385,15 @@ export default function VenueScene3D({
     }
   }, [ready, mode, eyeKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (failed) {
+  if (problem) {
     return (
-      <div className={`grid place-items-center rounded-(--es-radius-lg) border border-border-base bg-bg-sunken p-6 text-center ${className}`}>
-        <p className="max-w-sm text-sm text-muted">
-          The 3D view needs WebGL, which is turned off in this browser. The 2D map shows every seat.
-        </p>
-      </div>
+      <ViewerProblem
+        kind={problem}
+        what={mode === 'eye' ? '360° view' : '3D view'}
+        onRetry={retry}
+        onFallback={onFallback}
+        className={className}
+      />
     );
   }
 
@@ -351,4 +432,5 @@ function recolor(st, colorFor) {
   });
   if (room.seatMesh.instanceColor) room.seatMesh.instanceColor.needsUpdate = true;
   if (room.backMesh.instanceColor) room.backMesh.instanceColor.needsUpdate = true;
+  st.invalidate?.();
 }

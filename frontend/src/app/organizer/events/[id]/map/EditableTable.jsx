@@ -92,7 +92,7 @@ const EditableTable = React.memo(function EditableTable({
 
       {body.kind !== 'none' && (
         <text
-          y={4} textAnchor="middle" className="fill-ink"
+          y={4} textAnchor="middle" className="fill-ink es-layer-label"
           style={{ fontSize: 14, fontWeight: 500, pointerEvents: 'none' }}
         >
           {table.label}

@@ -28,6 +28,29 @@ export const BUILD_ITEMS = [
   { key: 'area', icon: 'map', title: 'Area', text: 'A labelled space — standing area, bar, walkway, screen.', initial: { family: 'zone', key: 'custom' } },
 ];
 
+/**
+ * "Add to layout", as the owner's Venue Builder mockup draws it (2026-11-10):
+ * the editor's LEFT column on a wide screen, always in view — one line per
+ * item, icon and name, the description as its tooltip.
+ */
+export function BuildPalette({ onAdd }) {
+  return (
+    <section className="es-dcard es-mappalette" aria-labelledby="map-palette">
+      <h2 id="map-palette" className="es-dcard__title">Add to layout</h2>
+      <ul className="es-mappalette__list">
+        {BUILD_ITEMS.map((it) => (
+          <li key={it.key}>
+            <button type="button" className="es-mappalette__item" onClick={() => onAdd(it.initial)} title={it.text}>
+              <NavIcon name={it.icon} size={20} />
+              <span>{it.title}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 export default function BuildPanel({ onAdd, tableCount, unpricedCount }) {
   return (
     <aside className="es-dcard es-mapbuild" aria-labelledby="map-build">

@@ -5,7 +5,8 @@ import Link from 'next/link';
 import NavIcon from '../../../../components/shell/NavIcon';
 import { SelectField } from '../../../../components/forms/Field';
 import FormError from '../../../../components/forms/FormError';
-import { COUNTRY_OPTIONS } from '../../../../lib/markets';
+import { COUNTRY_NAMES } from '../../../../lib/markets';
+import { useOpenCountries } from '../../../../hooks/useOpenCountries';
 import { defaultTimeZone, zonesFor } from '../../../../lib/timezones';
 import { browserZone } from '../../../../lib/eventTime';
 import { AiStepper, QuotaDots, ActionBar, nextDraftTime } from './AiParts';
@@ -49,6 +50,7 @@ export default function DescribeStep({
   const hintId = useId();
   const notesId = useId();
   const [where, setWhere] = useState(false);
+  const { options: countryOptions } = useOpenCountries();
   const [tried, setTried] = useState(false);
 
   const posterOffered = Boolean(quota?.poster);
@@ -127,7 +129,7 @@ export default function DescribeStep({
           {where ? (
             <div className="fx-grid fx-grid--2">
               <SelectField
-                label="Country" required value={request.country} options={COUNTRY_OPTIONS}
+                label="Country" required value={request.country} options={countryOptions}
                 onChange={(e) => setRequest((r) => ({ ...r, country: e.target.value, timezone: defaultTimeZone(e.target.value, browserZone()) }))}
               />
               <SelectField
@@ -137,7 +139,7 @@ export default function DescribeStep({
             </div>
           ) : (
             <div className="es-ai-where">
-              <span><NavIcon name="pin" size={16} /> {COUNTRY_OPTIONS.find(([c]) => c === request.country)?.[1] || request.country} · {zone ? zone[1].split(' — ')[0] : request.timezone} time</span>
+              <span><NavIcon name="pin" size={16} /> {COUNTRY_NAMES[request.country] || request.country} · {zone ? zone[1].split(' — ')[0] : request.timezone} time</span>
               <button type="button" className="es-ai-link" onClick={() => setWhere(true)} aria-label="Change country and time zone">
                 Change
               </button>

@@ -27,7 +27,7 @@ import CreateProfile from '../../CreateProfile';
 import AiCreator from './ai/AiCreator';
 import DateOnlyFields from './DateOnlyFields';
 import { dateOnlyRange } from '../../../lib/dateOnly';
-import { COUNTRY_OPTIONS } from '../../../lib/markets';
+import { useOpenCountries, openCountryFor } from '../../../hooks/useOpenCountries';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -107,6 +107,13 @@ function EventWizard({ type, organizer }) {
   const [attempt, setAttempt] = useState(0);
   // The admin's categories, with the admin's labels (hooks/useCategories).
   const categories = useCategories();
+  // Only the markets an admin has open are offered; a closed country (the
+  // organizer's own, or a saved draft's) moves to the first open one.
+  const { options: countryOptions, ready: countriesReady } = useOpenCountries();
+  const openCountry = countriesReady ? openCountryFor(form.country, countryOptions) : null;
+  if (openCountry && openCountry !== form.country) {
+    setForm((f) => ({ ...f, country: openCountry, timezone: defaultTimeZone(openCountry, browserZone()) }));
+  }
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const moved = useRef(false);
@@ -344,7 +351,7 @@ function EventWizard({ type, organizer }) {
               <div className="fx-grid fx-grid--2">
                 <SelectField
                   label="Country" required value={form.country} onChange={setCountry}
-                  options={COUNTRY_OPTIONS}
+                  options={countryOptions}
                   hint={ticketed ? 'Sets the currency — CAD or USD.' : null}
                 />
                 <SelectField

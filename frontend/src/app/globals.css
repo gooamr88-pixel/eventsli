@@ -13374,3 +13374,417 @@ label.es-chip:has(:focus-visible) { outline: 2px solid var(--es-accent); outline
 .es-previewbar legend { float: left; margin: 0.5rem 0.75rem 0 0; }
 .es-preview3d__view { height: 13rem; overflow: hidden; border-radius: var(--es-radius-md); background: #081315; }
 }   /* end @layer components — Venue Studio stats */
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   THE SEAT PAGE, MATCHED TO THE OWNER'S MOCKUP (2026-11-10).
+   Share and save beside the event, arrows between the steps, the payment
+   reassurance under the button, the benefits in their own card, and the
+   venue card as icon lines with its photo at the foot. Plus three phone
+   fixes: Continue really pinned, chips in one row, the steps within width.
+   ═══════════════════════════════════════════════════════════════════════════ */
+@layer components {
+
+/* ── header: event · share and save · countdown ────────────────────────── */
+/* A phone: event, then share and save on their own row, then the countdown
+   — beside the event they squeezed the title into a one-word column. */
+.es-seathead { grid-template-columns: minmax(0, 1fr); }
+.es-seathead__actions { display: flex; justify-content: flex-end; margin-block-start: -0.5rem; }
+@media (width >= theme(--breakpoint-md)) {
+  .es-seathead { grid-template-columns: minmax(0, 1fr) auto auto; }
+  .es-seathead__event { grid-column: 1; }
+  .es-seathead__actions { grid-column: 2; grid-row: 1; align-self: center; margin: 0; }
+  .es-seathead .es-countdown { grid-column: 3; grid-row: 1; }
+}
+
+/* ── steps: arrows between them, as in the mockup ─────────────────────── */
+@media (width >= theme(--breakpoint-sm)) {
+  .es-seatsteps__list { gap: 0.25rem; }
+  .es-seatsteps__list li:not(:last-child)::after {
+    content: '';
+    width: 0.5rem;
+    height: 0.5rem;
+    margin-inline: 1.25rem 0.25rem;
+    border-top: 2px solid var(--es-border-strong);
+    border-right: 2px solid var(--es-border-strong);
+    rotate: 45deg;
+  }
+}
+@media (width < theme(--breakpoint-sm)) {
+  .es-seatsteps { gap: 0.5rem; }
+  .es-seatsteps__list li span { width: 1.5rem; height: 1.5rem; }
+}
+
+/* ── the basket column: basket, then the benefits card ─────────────────── */
+@media (width >= theme(--breakpoint-lg)) {
+  .es-seatpage__basket { display: flex; flex-direction: column; gap: 1rem; }
+}
+.es-paysafe {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border-radius: var(--es-radius-md);
+  background: var(--es-accent-wash);
+}
+.es-paysafe p { display: flex; align-items: center; gap: 0.5rem; margin: 0; font-size: var(--es-text-sm); color: var(--es-text); }
+.es-paysafe p svg { color: var(--es-accent); }
+.es-paysafe ul { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.375rem; margin: 0; padding: 0; list-style: none; }
+.es-paysafe li {
+  padding: 0.125rem 0.5rem;
+  border: 1px solid var(--es-border);
+  border-radius: var(--es-radius-sm);
+  background: var(--es-surface);
+  font-size: var(--es-text-xs);
+  font-weight: 700;
+  color: var(--es-text);
+}
+.es-trustcard__list { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
+.es-trustcard__list li {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.625rem 0;
+  font-size: var(--es-text-sm);
+  color: var(--es-text);
+}
+.es-trustcard__list li + li { border-top: 1px solid var(--es-border); }
+.es-trustcard__list svg { flex: none; color: var(--es-accent); }
+
+/* ── venue card: icon lines, photo at the foot ─────────────────────────── */
+.es-venueinfo,
+.es-venueinfo:has(.es-venueinfo__photo) {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1.125rem;
+  box-shadow: var(--es-shadow-sm);
+}
+.es-venueinfo__heading { margin: 0; padding-bottom: 0.625rem; border-bottom: 1px solid var(--es-border); font-size: var(--es-text-md); font-weight: 800; color: var(--es-text); }
+.es-venueinfo__name { display: flex; align-items: center; gap: 0.5rem; margin: 0; font-size: var(--es-text-md); font-weight: 700; color: var(--es-text); }
+.es-venueinfo__name svg { flex: none; color: var(--es-accent); }
+.es-venueinfo__facts { display: flex; flex-direction: column; gap: 0.5rem; margin: 0; padding: 0; list-style: none; }
+.es-venueinfo__facts li { display: flex; align-items: center; gap: 0.625rem; font-size: var(--es-text-sm); color: var(--es-text); }
+.es-venueinfo__facts svg { flex: none; color: var(--es-text-muted); }
+.es-venueinfo__photo { aspect-ratio: 16 / 9; }
+
+/* ── phone fixes ───────────────────────────────────────────────────────── */
+/* Continue pinned: sticky on the GRID ITEM, last in order, so it holds to
+   the bottom of the screen for the whole page. */
+.es-seatpage__bar { position: sticky; bottom: 0; z-index: var(--es-z-sticky); order: 3; min-width: 0; }
+/* The chips: one row that scrolls sideways rather than wrapping. */
+.es-seatpage__chips { flex-wrap: nowrap; overflow-x: auto; margin: 0; padding: 0.125rem 0; list-style: none; scrollbar-width: none; overscroll-behavior-x: contain; }
+.es-seatpage__chips::-webkit-scrollbar { display: none; }
+.es-seatpage__chips > li { flex: none; }
+
+/* ── map zoom: one pill and the fit button (SeatMapCanvas, 3D tools) ──── */
+.es-mapzoom { position: absolute; top: 0.75rem; right: 0.75rem; display: flex; align-items: center; gap: 0.5rem; }
+.es-mapzoom__pill {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--es-border-strong);
+  border-radius: var(--es-radius-md);
+  background: var(--es-surface);
+  box-shadow: var(--es-shadow-sm);
+}
+.es-mapzoom__pct { min-width: 3.25rem; padding-inline: 0.25rem; border-inline: 1px solid var(--es-border); font-size: var(--es-text-sm); font-weight: 600; text-align: center; color: var(--es-text); }
+.es-venuex__tools { flex-direction: row; }
+
+}   /* end @layer components — the seat page, matched to the mockup */
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   THE SEATING EDITOR, MATCHED TO THE OWNER'S VENUE BUILDER MOCKUP (2026-11-10).
+   Three columns where the editor is wide enough: Add to layout and Layers on
+   the left, the canvas, and the settings of what is selected with the 3D
+   preview on the right. Narrower, it is the two columns it was, with the add
+   tools in the right-hand panel; a phone is unchanged.
+   ═══════════════════════════════════════════════════════════════════════════ */
+@layer components {
+
+/* The head: title and description on the left, the actions on the right of
+   the same row, as in the mockup — not wrapped under a long description. */
+@media (width >= theme(--breakpoint-lg)) {
+  .es-maphead { flex-wrap: nowrap; align-items: flex-start; }
+  .es-maphead > .fx-stack { flex: 1 1 auto; }
+  .es-maphead .es-page-head__actions { flex: none; }
+}
+
+/* The canvas: as tall as the screen allows, as in the mockup, rather than a
+   fixed shape that came out short in the narrower middle column. */
+@media (width >= 48rem) {
+  .es-mapcanvas { aspect-ratio: auto; height: clamp(26rem, calc(100dvh - 16rem), 56rem); max-height: none; }
+  .es-mapcard:fullscreen .es-mapcanvas { height: auto; }
+}
+
+.es-mapeditor__tools { display: none; }
+@container (min-width: 70rem) {
+  .es-mapeditor__body { grid-template-columns: 13.5rem minmax(0, 1fr) 18rem; }
+  .es-mapeditor__tools {
+    display: flex;
+    flex-direction: column;
+    gap: var(--fx-gap);
+    position: sticky;
+    top: 1rem;
+    min-width: 0;
+  }
+  /* The add tools now live on the left; the right is for what is selected. */
+  .es-mapeditor__panel .es-mapbuild { display: none; }
+}
+
+/* ── Add to layout: one line per item ──────────────────────────────────── */
+.es-mappalette { gap: 0.5rem; }
+.es-mappalette__list { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
+.es-mappalette__item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  min-height: 2.5rem;
+  padding: 0.375rem 0.625rem;
+  border: 0;
+  border-radius: var(--es-radius-md);
+  background: transparent;
+  color: var(--es-text);
+  font: inherit;
+  font-size: var(--es-text-sm);
+  text-align: start;
+  cursor: pointer;
+}
+.es-mappalette__item:hover { background: var(--es-accent-wash); }
+.es-mappalette__item svg { flex: none; color: var(--es-text-muted); }
+.es-mappalette__list li + li { border-top: 1px solid var(--es-border); }
+.es-mappalette__list li:first-child .es-mappalette__item { background: var(--es-accent-wash); font-weight: 600; }
+
+/* ── Layers ────────────────────────────────────────────────────────────── */
+.es-maplayers { gap: 0.5rem; }
+.es-maplayers__list { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
+.es-maplayers__row { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; padding: 0.5rem 0.25rem; }
+.es-maplayers__row + .es-maplayers__row { border-top: 1px solid var(--es-border); }
+.es-maplayers__row b { display: block; font-size: var(--es-text-sm); font-weight: 600; color: var(--es-text); }
+.es-maplayers__row small { display: block; font-size: var(--es-text-xs); color: var(--es-text-muted); }
+.es-maplayers__eye {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 0;
+  border-radius: var(--es-radius-md);
+  background: transparent;
+  color: var(--es-accent);
+  cursor: pointer;
+}
+.es-maplayers__eye[aria-pressed="false"] { color: var(--es-text-muted); }
+.es-maplayers__eye:hover { background: var(--es-bg-sunken); }
+.es-maplayers__lock { display: grid; place-items: center; width: 2.25rem; color: var(--es-text-muted); }
+
+/* What a layer switch hides: drawn only, never removed. */
+[data-hide-zones="true"] .es-layer-zones { display: none; }
+[data-hide-labels="true"] .es-layer-label { display: none; }
+
+/* ── the five workspaces as the mockup's steps: arrows between them ────── */
+.es-studiotabs__tab { position: relative; }
+@media (width >= theme(--breakpoint-lg)) {
+  .es-studiotabs__list { gap: 1.5rem; }
+  .es-studiotabs__tab:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    right: -1rem;
+    top: 50%;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-top: 2px solid var(--es-border-strong);
+    border-right: 2px solid var(--es-border-strong);
+    translate: 0 -50%;
+    rotate: 45deg;
+    pointer-events: none;
+  }
+}
+
+}   /* end @layer components — the seating editor, matched to the mockup */
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   EVENTSLI'S PARTNERS ON EVERY EVENT PAGE (2026-11-10). e/[slug]/EventsliPartners.
+   A card in the page's own column, in the homepage partners band's voice: a
+   spaced eyebrow, a heading, one quiet line, the logos as gliding tiles.
+   ═══════════════════════════════════════════════════════════════════════════ */
+@layer components {
+.es-ev-partners {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: clamp(1.25rem, 3vw, 2rem);
+  border: 1px solid var(--es-border);
+  border-radius: var(--es-radius-xl);
+  background:
+    radial-gradient(ellipse at 100% 0%, var(--es-accent-wash), transparent 55%),
+    var(--es-surface);
+  box-shadow: var(--es-shadow-sm);
+}
+.es-ev-partners__head { display: flex; flex-direction: column; align-items: center; gap: 0.375rem; text-align: center; }
+.es-ev-partners__eyebrow {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--es-accent);
+}
+.es-ev-partners__title { margin: 0; font-size: clamp(1.375rem, 1.1rem + 1.2vw, 1.875rem); font-weight: 700; line-height: 1.15; letter-spacing: -0.02em; color: var(--es-text); }
+.es-ev-partners__lede { margin: 0; max-width: 48ch; font-size: var(--es-text-sm); color: var(--es-text-muted); }
+}   /* end @layer components — Eventsli's partners on the event page */
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   YOU MIGHT ALSO LIKE — the owner's design (2026-11-10, image 2).
+   e/[slug]/RelatedCarousel.jsx. A band wider than the event column, an
+   accent heading with a sparkle, a pill link, and a carousel of wide cards
+   with peeking neighbours, side arrows and dots.
+   ═══════════════════════════════════════════════════════════════════════════ */
+@layer components {
+.es-related {
+  --peek: 1rem;
+  --gap: 1rem;
+  position: relative;
+  width: min(calc(100vw - 2 * var(--fx-pad-x)), 76rem);
+  margin-left: 50%;
+  translate: -50% 0;
+  padding-block: 1.5rem 1rem;
+  overflow: clip;
+}
+.es-related__wave { position: absolute; z-index: 0; pointer-events: none; border-radius: 50%; background: var(--es-accent-wash); opacity: 0.8; }
+.es-related__wave--top { top: -9rem; right: -6rem; width: 26rem; height: 12rem; rotate: -12deg; }
+.es-related__wave--bottom { bottom: -8rem; left: -8rem; width: 28rem; height: 11rem; rotate: 8deg; }
+.es-related > :not(.es-related__wave) { position: relative; z-index: 1; }
+
+/* ── head ─────────────────────────────────────────────────────────────── */
+.es-related__head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 1rem 2rem; padding-inline: var(--peek); }
+.es-related__title { margin: 0; font-size: clamp(1.75rem, 1.15rem + 2.4vw, 3rem); font-weight: 800; line-height: 1.1; letter-spacing: -0.03em; color: var(--es-text); }
+.es-related__accent { color: var(--es-accent); }
+.es-related__spark { display: inline-block; width: 0.7em; height: 0.7em; margin-left: 0.15em; vertical-align: super; color: var(--es-accent); }
+.es-related__lede { margin: 0.5rem 0 0; font-size: clamp(1rem, 0.9rem + 0.4vw, 1.25rem); color: var(--es-text-muted); }
+.es-related__more {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 3.25rem;
+  padding: 0.625rem 1.375rem;
+  border: 1.5px solid var(--es-accent);
+  border-radius: var(--es-radius-full);
+  background: var(--es-surface);
+  font-size: var(--es-text-md);
+  font-weight: 600;
+  color: var(--es-text);
+  transition: background-color var(--es-dur-fast) var(--es-ease);
+}
+.es-related__more svg { flex: none; color: var(--es-accent); }
+.es-related__more:hover { background: var(--es-accent-wash); }
+
+/* ── the carousel ─────────────────────────────────────────────────────── */
+.es-related__frame { position: relative; margin-top: 1rem; }
+.es-related__track {
+  display: flex;
+  gap: var(--gap);
+  margin: 0;
+  padding: 1rem var(--peek) 1.75rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: var(--peek);
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+  list-style: none;
+  /* The neighbours peek in, faded, as in the design. */
+  mask-image: linear-gradient(90deg, transparent 0, #000 var(--peek), #000 calc(100% - var(--peek)), transparent 100%);
+}
+.es-related__track::-webkit-scrollbar { display: none; }
+.es-related__item { flex: 0 0 88%; scroll-snap-align: start; min-width: 0; }
+.es-related__nav { display: none; }
+.es-related__dots { display: flex; justify-content: center; gap: 0.625rem; }
+.es-related__dot { width: 0.625rem; height: 0.625rem; padding: 0; border: 0; border-radius: var(--es-radius-full); background: var(--es-border-strong); cursor: pointer; transition: background-color var(--es-dur-fast) var(--es-ease); }
+.es-related__dot[aria-current="true"] { background: var(--es-accent); }
+
+@media (width >= theme(--breakpoint-md)) {
+  .es-related { --peek: 3.5rem; --gap: 1.75rem; padding-block: 2.5rem 1.5rem; }
+  .es-related__head { padding-inline: calc(var(--peek) - 1rem); }
+  .es-related__item { flex-basis: calc((100% - var(--gap)) / 2); }
+  .es-related__nav {
+    position: absolute;
+    top: 45%;
+    z-index: 2;
+    display: grid;
+    place-items: center;
+    width: 3.5rem;
+    height: 3.5rem;
+    border: 1px solid var(--es-border);
+    border-radius: var(--es-radius-full);
+    background: var(--es-surface);
+    color: var(--es-text);
+    box-shadow: var(--es-shadow-lg);
+    translate: 0 -50%;
+    cursor: pointer;
+    transition: opacity var(--es-dur-fast) var(--es-ease);
+  }
+  .es-related__nav--prev { left: calc(var(--peek) - 1.75rem); }
+  .es-related__nav--next { right: calc(var(--peek) - 1.75rem); border-color: transparent; background: var(--es-accent); color: var(--es-text-on-accent); }
+  .es-related__nav:disabled { opacity: 0.35; cursor: default; }
+}
+
+/* ── the card ─────────────────────────────────────────────────────────── */
+.es-rcard-wrap { position: relative; height: 100%; }
+.es-rcard {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  border: 1px solid var(--es-border);
+  border-radius: 1.5rem;
+  background: var(--es-surface);
+  box-shadow: var(--es-shadow-md);
+  color: inherit;
+  transition: translate var(--es-dur-fast) var(--es-ease), box-shadow var(--es-dur-fast) var(--es-ease);
+}
+.es-rcard:hover { translate: 0 -3px; box-shadow: var(--es-shadow-lg); }
+.es-rcard__media { position: relative; aspect-ratio: 16 / 8.5; background: #0d3b3e; }
+.es-rcard__art { object-fit: cover; }
+.es-rcard__placeholder { position: absolute; inset: 0; display: grid; place-items: center; padding: 1.5rem; background: radial-gradient(ellipse at 50% 120%, #2fa9a5 0%, #0d3b3e 60%, #081315 100%); font-size: 1.375rem; font-weight: 800; text-align: center; color: #ffffff; }
+.es-rcard__date {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 4rem;
+  padding: 0.5rem 0.625rem 0.625rem;
+  border-radius: 0.875rem;
+  background: #ffffff;
+  box-shadow: var(--es-shadow-md);
+  line-height: 1;
+}
+.es-rcard__date b { font-size: 1.75rem; font-weight: 800; color: var(--es-ink-on-light); }
+.es-rcard__date small { margin-top: 0.375rem; padding: 0.2rem 0.5rem; border-radius: 0.375rem; background: var(--es-accent); font-size: 0.75rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: #ffffff; }
+.es-rcard__wave { position: absolute; left: 0; right: 0; bottom: -1px; width: 100%; height: 2.25rem; }
+.es-rcard__wave-tint { fill: var(--es-accent); opacity: 0.55; }
+.es-rcard__wave-fill { fill: var(--es-surface); }
+.es-rcard__save { position: absolute; top: 1rem; right: 1rem; z-index: 2; }
+
+.es-rcard__body { display: flex; flex: 1; flex-direction: column; padding: 0.25rem 1.25rem 1.25rem; }
+.es-rcard__title { margin: 0 0 0.625rem; overflow: hidden; font-size: clamp(1.25rem, 1.05rem + 0.7vw, 1.625rem); font-weight: 800; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; color: var(--es-text); }
+.es-rcard__meta { display: flex; align-items: center; gap: 0.875rem; min-width: 0; margin: 0; overflow: hidden; font-size: var(--es-text-sm); white-space: nowrap; color: var(--es-text-muted); }
+.es-rcard__meta > span { display: inline-flex; align-items: center; gap: 0.5rem; min-width: 0; }
+.es-rcard__meta svg { flex: none; color: var(--es-accent); }
+.es-rcard__meta > i { flex: none; width: 1px; height: 1.25rem; background: var(--es-border-strong); }
+.es-rcard__foot { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--es-border); }
+.es-rcard__tag { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.45rem 0.875rem; border-radius: var(--es-radius-full); background: var(--es-accent-wash); font-size: var(--es-text-sm); font-weight: 600; color: var(--es-accent); white-space: nowrap; }
+.es-rcard__go { display: flex; align-items: center; gap: 0.75rem; }
+.es-rcard__price { display: flex; flex-direction: column; align-items: flex-end; font-size: var(--es-text-xs); line-height: 1.2; color: var(--es-text-muted); }
+.es-rcard__price b { font-size: var(--es-text-lg); font-weight: 800; color: var(--es-accent); }
+.es-rcard__arrow { display: grid; flex: none; place-items: center; width: 2.75rem; height: 2.75rem; border-radius: var(--es-radius-full); background: var(--es-accent); color: var(--es-text-on-accent); transition: translate var(--es-dur-fast) var(--es-ease); }
+.es-rcard:hover .es-rcard__arrow { translate: 3px 0; }
+@media (width >= theme(--breakpoint-md)) {
+  .es-rcard__body { padding: 0.25rem 1.75rem 1.5rem; }
+  .es-rcard__meta { font-size: var(--es-text-md); }
+  .es-rcard__date { top: 1.25rem; left: 1.25rem; }
+  .es-rcard__save { top: 1.25rem; right: 1.25rem; }
+}
+}   /* end @layer components — you might also like */

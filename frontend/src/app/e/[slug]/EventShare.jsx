@@ -26,7 +26,7 @@ import { useSavedEvent } from '../../hooks/useSavedEvents';
  * storage choice and the SSR problem it has to dodge.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-export default function EventShare({ title, slug }) {
+export default function EventShare({ title, slug, tone = 'photo' }) {
   const [copied, setCopied] = useState(false);
   // The same store the event cards read, so saving here fills the heart on the
   // listing the reader came from without either page asking the other.
@@ -52,12 +52,12 @@ export default function EventShare({ title, slug }) {
   return (
     <div className="fx-row shrink-0 items-center gap-2">
       {copied && (
-        <span role="status" className="rounded-full bg-black/45 px-3 py-1 text-xs text-white backdrop-blur-sm">
+        <span role="status" className={tone === 'card' ? 'rounded-full bg-accent/10 px-3 py-1 text-xs text-ink' : 'rounded-full bg-black/45 px-3 py-1 text-xs text-white backdrop-blur-sm'}>
           Link copied
         </span>
       )}
 
-      <RoundButton onClick={share} label={`Share ${title}`}>
+      <RoundButton onClick={share} label={`Share ${title}`} tone={tone}>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" />
           <path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4" />
@@ -66,6 +66,7 @@ export default function EventShare({ title, slug }) {
 
       <RoundButton
         onClick={toggleSave}
+        tone={tone}
         pressed={saved}
         label={saved ? `Remove ${title} from saved` : `Save ${title}`}
         title="Saved on this device"
@@ -78,7 +79,7 @@ export default function EventShare({ title, slug }) {
   );
 }
 
-function RoundButton({ onClick, label, title, pressed, children }) {
+function RoundButton({ onClick, label, title, pressed, tone = 'photo', children }) {
   return (
     <button
       type="button"
@@ -89,7 +90,11 @@ function RoundButton({ onClick, label, title, pressed, children }) {
       // These sit on the cover photograph, so the fill is a translucent black
       // rather than a surface colour: a surface fill is invisible on a light
       // image and wrong on a dark one, and the page cannot know which it has.
-      className="grid h-10 w-10 place-items-center rounded-full bg-black/35 text-white backdrop-blur-sm transition-colors hover:bg-black/55"
+      // `tone="card"` is the seat page header (2026-11-10): a white card, so a
+      // bordered surface button, as in the owner's mockup.
+      className={tone === 'card'
+        ? 'grid h-11 w-11 place-items-center rounded-(--es-radius-md) border border-border-base bg-surface text-ink shadow-sm transition-colors hover:border-accent hover:text-accent'
+        : 'grid h-10 w-10 place-items-center rounded-full bg-black/35 text-white backdrop-blur-sm transition-colors hover:bg-black/55'}
     >
       {children}
     </button>

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import NavIcon from '../../../components/shell/NavIcon';
 import { useCountdown } from '../../../hooks/useCountdown';
 import { formatEventTime } from '../../../lib/eventTime';
+import EventShare from '../EventShare';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -39,6 +40,10 @@ export default function SeatsHeader({ event }) {
             {event.categoryLabel && <span className="es-seathead__tag">{event.categoryLabel}</span>}
           </div>
         </div>
+        {/* Share and save beside the event, as in the owner's mockup. */}
+        <div className="es-seathead__actions">
+          <EventShare title={event.title} slug={event.slug} tone="card" />
+        </div>
         <Countdown startsAt={event.startsAt} />
       </div>
 
@@ -48,7 +53,7 @@ export default function SeatsHeader({ event }) {
         </Link>
         <ol className="es-seatsteps__list" aria-label="Buying steps">
           <li aria-current="step"><span className="es-nums">1</span><em>Select seats</em></li>
-          <li><span className="es-nums">2</span><em>Your details</em></li>
+          <li><span className="es-nums">2</span><em>Ticket details</em></li>
           <li><span className="es-nums">3</span><em>Payment</em></li>
         </ol>
       </div>

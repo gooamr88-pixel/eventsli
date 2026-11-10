@@ -10,7 +10,8 @@ import SubmitButton from '../components/forms/SubmitButton';
 import NavIcon from '../components/shell/NavIcon';
 import { useShellFocus } from '../components/shell/shellFocus';
 import { OnboardingProgress } from './OnboardingProgress';
-import { COUNTRY_OPTIONS, DEFAULT_COUNTRY } from '../lib/markets';
+import { DEFAULT_COUNTRY } from '../lib/markets';
+import { useOpenCountries, openCountryFor } from '../hooks/useOpenCountries';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -42,6 +43,11 @@ export default function CreateProfile({ organizer = null, onCreated }) {
     acceptPolicies: Boolean(organizer?.policiesAcceptedAt),
   }));
   const [brandTouched, setBrandTouched] = useState(Boolean(organizer?.displayName));
+  // Only the markets an admin has open are offered; a closed default moves to
+  // the first open one (during render, so the closed one never paints).
+  const { options: countryOptions, ready: countriesReady } = useOpenCountries();
+  const openCountry = countriesReady && !organizer ? openCountryFor(form.country, countryOptions) : null;
+  if (openCountry && openCountry !== form.country) setForm((f) => ({ ...f, country: openCountry }));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
@@ -139,7 +145,7 @@ export default function CreateProfile({ organizer = null, onCreated }) {
 
         {!organizer && (
           <SelectField
-            label="Country" required value={form.country} onChange={set('country')} options={COUNTRY_OPTIONS}
+            label="Country" required value={form.country} onChange={set('country')} options={countryOptions}
             // Not editable afterwards, and the API refuses to change it: it
             // decides which Stripe entity you are onboarded under and the
             // currency your events are priced in.

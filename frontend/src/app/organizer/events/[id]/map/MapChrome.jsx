@@ -20,7 +20,7 @@ export function MapHeader({ tables, zones, seatTotal, soldTotal, blockedTotal = 
   const event = useEventContext()?.event;
   const live = event?.status === 'published' && event?.slug;
   return (
-    <div className="es-page-head es-page-head--section">
+    <div className="es-page-head es-page-head--section es-maphead">
       <div className="fx-stack fx-stack--sm fx-min0 gap-1">
         {/* The page's <h1>: the event layout's head is the breadcrumb (see layout.jsx). */}
         <h1 className="es-section-title">Seating map</h1>
@@ -91,6 +91,9 @@ export function countUnpriced(tables, purchaseMode = 'seat_only') {
 /** The one piece of advice that is true right now, counted from the draft. */
 export function MapBanner({ tables, purchaseMode = 'seat_only' }) {
   const unpriced = countUnpriced(tables, purchaseMode);
+  // Nothing to fix, nothing to say: the owner's mockup has no card here, and
+  // "Every seat has a price" was one on every visit to a finished map.
+  if (tables.length > 0 && unpriced === 0) return null;
   const them = unpriced === 1 ? 'it' : 'them';
   const [title, text, tone] = tables.length === 0
     ? ['Start with the room', 'Add rows of seats, tables and areas from the panel on the right, or double-click the floor to drop a table.', 'info']

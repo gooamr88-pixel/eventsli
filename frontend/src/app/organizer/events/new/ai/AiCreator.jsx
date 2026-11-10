@@ -8,6 +8,7 @@ import { useCategories } from '../../../../hooks/useCategories';
 import { defaultTimeZone } from '../../../../lib/timezones';
 import { browserZone } from '../../../../lib/eventTime';
 import { DEFAULT_COUNTRY } from '../../../../lib/markets';
+import { useOpenCountries, openCountryFor } from '../../../../hooks/useOpenCountries';
 import { draftKey } from '../wizardModel';
 import { STORAGE_KEY, formFromDraft, problemsFor, savePlan } from './aiDraftModel';
 import { saveAiDraft } from './saveAiDraft';
@@ -59,6 +60,13 @@ export default function AiCreator({ organizer }) {
   const categories = useCategories();
   const [saved] = useState(loadSaved);
   const [request, setRequest] = useState(() => saved?.request || initialRequest(organizer));
+  // Only the markets an admin has open are offered (DescribeStep's picker); a
+  // closed country moves to the first open one, here where the state lives.
+  const { options: countryOptions, ready: countriesReady } = useOpenCountries();
+  const openCountry = countriesReady ? openCountryFor(request.country, countryOptions) : null;
+  if (openCountry && openCountry !== request.country) {
+    setRequest((r) => ({ ...r, country: openCountry, timezone: defaultTimeZone(openCountry, browserZone()) }));
+  }
   const [form, setForm] = useState(() => saved?.form || null);
   const [stage, setStage] = useState(() => (saved?.form && ['review', 'save'].includes(saved.stage) ? saved.stage : 'describe'));
   const [error, setError] = useState(null);

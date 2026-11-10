@@ -52,7 +52,7 @@ export function eventDateParts(event) {
  * nothing honest to say. The listing endpoint sends `fromPriceCents`; the
  * single-event payload sends `tiers` instead, so both are read.
  */
-function priceBlock(event) {
+export function priceBlock(event) {
   if (event.displayOnly) return { label: 'Listing', value: 'Details' };
   if (event.availability?.soldOut) return { label: 'Tickets', value: 'Sold out' };
 

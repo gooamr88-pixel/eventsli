@@ -32,6 +32,12 @@ export function AiStepper({ index }) {
 /** "●● 2 of 2 left today". The dots are decoration; the words are the answer. */
 export function QuotaDots({ quota, tone = 'default' }) {
   if (!quota) return null;
+  // Super admin accounts have no allowance to count.
+  if (quota.unlimited) {
+    return (
+      <span className={`es-ai-quota${tone === 'light' ? ' es-ai-quota--light' : ''}`}>Unlimited AI drafts</span>
+    );
+  }
   const { limit = 2, remaining = 0 } = quota;
   return (
     <span className={`es-ai-quota${tone === 'light' ? ' es-ai-quota--light' : ''}`}>

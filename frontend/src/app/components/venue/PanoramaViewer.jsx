@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import ViewerProblem from './ViewerProblem';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -15,16 +16,25 @@ import { useEffect, useRef, useState } from 'react';
  * seat's photo at the stage rather than at whatever the camera faced.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-export default function PanoramaViewer({ url, heading = 0, className = '', label = '360° view' }) {
+export default function PanoramaViewer({ url, heading = 0, className = '', label = '360° view', onFallback }) {
   const hostRef = useRef(null);
+  // 'loading' | 'ready', or a ViewerProblem kind: 'nogl' | 'load' | 'lost' | 'photo'.
   const [state, setState] = useState('loading');
+  const [attempt, setAttempt] = useState(0);
+  const retry = () => { setState('loading'); setAttempt((a) => a + 1); };
 
   useEffect(() => {
     let disposed = false;
     let cleanup = () => {};
     const host = hostRef.current;
     (async () => {
-      const THREE = await import('three');
+      let THREE;
+      try {
+        THREE = await import('three');
+      } catch {
+        if (!disposed) setState('load');   // the 3D code did not arrive
+        return;
+      }
       if (disposed || !host) return;
       let renderer;
       try {
@@ -33,12 +43,21 @@ export default function PanoramaViewer({ url, heading = 0, className = '', label
         setState('nogl');
         return;
       }
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      const coarse = Boolean(window.matchMedia?.('(pointer: coarse)').matches);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, coarse ? 1.5 : 2));
       renderer.outputColorSpace = THREE.SRGBColorSpace;
       const el = renderer.domElement;
       el.style.cssText = 'display:block;width:100%;height:100%;touch-action:none;cursor:grab';
       el.setAttribute('aria-hidden', 'true');
       host.appendChild(el);
+      // A large photo on a phone can make iOS drop the GPU context; the
+      // canvas would just go dark. Say so instead.
+      el.addEventListener('webglcontextlost', (e) => {
+        e.preventDefault();
+        if (disposed) return;   // our own cleanup forces a loss too
+        renderer.setAnimationLoop(null);
+        setState('lost');
+      });
 
       const scene = new THREE.Scene();
       const camera = new THREE.PerspectiveCamera(70, 1, 0.1, 200);
@@ -56,7 +75,7 @@ export default function PanoramaViewer({ url, heading = 0, className = '', label
         material.color.set(0xffffff);
         material.needsUpdate = true;
         setState('ready');
-      }, undefined, () => { if (!disposed) setState('error'); });
+      }, undefined, () => { if (!disposed) setState('photo'); });
 
       const look = { yaw: (heading * Math.PI) / 180, pitch: 0, auto: true };
       let down = null;
@@ -120,16 +139,15 @@ export default function PanoramaViewer({ url, heading = 0, className = '', label
       };
     })();
     return () => { disposed = true; cleanup(); };
-  }, [url, heading]);
+  }, [url, heading, attempt]);
+
+  if (state !== 'loading' && state !== 'ready') {
+    return <ViewerProblem kind={state} what="360° view" onRetry={retry} onFallback={onFallback} className={className} />;
+  }
 
   return (
     <div ref={hostRef} role="img" aria-label={label} className={`es-venue3d relative overflow-hidden rounded-(--es-radius-lg) ${className}`}>
       {state === 'loading' && <div className="es-venue3d__loading" aria-hidden="true"><span /></div>}
-      {(state === 'error' || state === 'nogl') && (
-        <p className="es-venue3d__msg absolute inset-0 grid place-items-center p-6 text-center text-sm">
-          {state === 'nogl' ? 'This browser has WebGL turned off, so the 360° view cannot be shown.' : 'This 360° photo could not be loaded.'}
-        </p>
-      )}
     </div>
   );
 }

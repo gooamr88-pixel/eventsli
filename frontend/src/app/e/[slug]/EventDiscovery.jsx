@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import EventCard from '../../components/EventCard';
+import RelatedCarousel from './RelatedCarousel';
 import { serverFetch } from '../../utils/apiClient';
 import { breadcrumbs, quickAnswers } from '../../lib/eventSeo';
 
@@ -91,17 +91,6 @@ export async function RelatedEvents({ event }) {
   const title = cityOnly ? `More events in ${event.city}` : 'You might also like';
   const more = event.city ? `/events?city=${encodeURIComponent(event.city)}` : '/events';
 
-  return (
-    <section className="fx-stack" aria-labelledby="event-related">
-      <div className="fx-row fx-row--between items-baseline">
-        <h2 id="event-related" className="text-lg">{title}</h2>
-        <Link href={more} className="text-sm font-medium text-accent">
-          {event.city ? `All events in ${event.city}` : 'All events'}
-        </Link>
-      </div>
-      <ul className="fx-grid fx-grid--fill es-ev-related">
-        {list.map((e) => <li key={e.id}><EventCard event={e} headingLevel={3} /></li>)}
-      </ul>
-    </section>
-  );
+  // The owner's design (2026-11-10): a carousel of wide cards, RelatedCarousel.jsx.
+  return <RelatedCarousel events={list} title={title} city={event.city} moreHref={more} />;
 }
