@@ -66,6 +66,12 @@ const { queryClient } = require('@/lib/queryClient') as typeof import('@/lib/que
 queryClient.setDefaultOptions({ queries: { ...queryClient.getDefaultOptions().queries, gcTime: Infinity } });
 
 const APP = join(__dirname, '..', 'src', 'app');
+// WHY package.json's jest config keeps nextTick, queueMicrotask and
+// setImmediate REAL (2026-11-10): renderRouter() turns fake timers on. A module
+// first loaded during that render kept the FAKE scheduling function, which
+// stops ticking when boot() switches back to real timers — so in every test
+// after the first, a session change after mount never re-rendered and the phone
+// stayed on '/'. Only on Node 22 (CI), never on 26; all 36 pass with them real.
 const SETTLE_MS = 300;
 const MAX_SETTLE_MS = 5_000;
 jest.setTimeout(60_000);

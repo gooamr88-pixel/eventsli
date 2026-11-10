@@ -66,6 +66,13 @@
   "private": true,
   "jest": {
     "preset": "jest-expo",
+    "fakeTimers": {
+      "doNotFake": [
+        "nextTick",
+        "queueMicrotask",
+        "setImmediate"
+      ]
+    },
     "testMatch": [
       "<rootDir>/test/**/*.test.ts",
       "<rootDir>/test/**/*.test.tsx"
