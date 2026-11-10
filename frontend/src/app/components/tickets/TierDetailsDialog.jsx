@@ -36,9 +36,10 @@ export default function TierDetailsDialog({
   footnote = null, preview = false, showQuantity = true,
 }) {
   const dialogRef = useRef(null);
-  const closeRef = useRef(null);
   const [qty, setQty] = useState(() => Math.max(1, Math.min(initialQuantity, Math.max(max, 1))));
-  useEffect(() => { closeRef.current?.focus(); }, []);
+  // The panel takes focus, not the close button: a ring on "×" the moment the
+  // card opens read as a selected control. Tab reaches it first all the same.
+  useEffect(() => { dialogRef.current?.focus(); }, []);
   useModal(dialogRef, onClose);
 
   const d = tier.details || {};
@@ -57,10 +58,11 @@ export default function TierDetailsDialog({
 
   // Portalled to <body>: it opens from inside a form panel and the seat map's
   // column, and a transformed ancestor would trap a `position: fixed` scrim.
-  // It only ever renders after a click, so `document` exists.
+  // It only ever opens after a click; the guard is for a server render.
+  if (typeof document === 'undefined') return null;
   return createPortal(
     <div className="es-backdrop" role="presentation" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={titleId} className="es-tdx">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={titleId} className="es-tdx" tabIndex={-1}>
         <header className={`es-tdx__hero ${d.image?.url ? 'has-photo' : ''}`}>
           {d.image?.url && (
             // A plain <img>: the URL is the organizer's storage object, already
@@ -68,14 +70,15 @@ export default function TierDetailsDialog({
             // eslint-disable-next-line @next/next/no-img-element
             <img src={d.image.url} alt="" className="es-tdx__photo" />
           )}
-          <button ref={closeRef} type="button" className="es-tdx__close" onClick={onClose} aria-label="Close">
+          <button type="button" className="es-tdx__close" onClick={onClose} aria-label="Close">
             <NavIcon name="close" size={20} />
           </button>
           <div className="es-tdx__heading">
-            <span className="es-tdx__badge" aria-hidden={!badge}>
-              <NavIcon name={badge ? badge[0] : 'ticket'} size={20} />
-              {badge && <span className="sr-only">{badge[1]}</span>}
-            </span>
+            {badge && (
+              <span className="es-tdx__badge">
+                <NavIcon name={badge[0]} size={16} />{badge[1]}
+              </span>
+            )}
             <h2 id={titleId} className="es-tdx__title">{tier.name}</h2>
             {(d.tagline || (!included.length && tier.description)) && (
               <p className="es-tdx__tagline">{d.tagline || tier.description}</p>
@@ -129,7 +132,9 @@ export default function TierDetailsDialog({
           </div>
         </div>
 
-        <footer className="es-tdx__buy">
+        {/* The same two columns as the body, so the stepper sits under the
+            list and the button under the price card. */}
+        <footer className={`es-tdx__buy ${canBuy && showQuantity ? '' : 'is-solo'}`}>
           {canBuy && showQuantity && (
             <div className="es-tdx__qty">
               <span className="es-tdx__qty-label" id={`${titleId}-qty`}>Number of tickets</span>
@@ -155,8 +160,9 @@ export default function TierDetailsDialog({
             title={preview ? 'Preview — this is what a buyer sees' : undefined}
           >
             <NavIcon name="cart" size={22} />
-            <span>{canBuy ? (total && showQuantity ? `${addLabel} — ${total}` : addLabel) : 'Not available'}</span>
-            <NavIcon name="chevronRight" size={20} />
+            <span className="es-tdx__add-label">{canBuy ? addLabel : 'Not available'}</span>
+            {canBuy && total && showQuantity && <span className="es-tdx__add-total es-nums">{total}</span>}
+            <NavIcon name="chevronRight" size={20} className="es-tdx__add-arrow" />
           </button>
           {footnote && <p className="es-tdx__foot">{footnote}</p>}
         </footer>
