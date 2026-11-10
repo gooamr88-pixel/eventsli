@@ -17,6 +17,8 @@ import { Loading, ErrorNotice } from '../../../../components/Feedback';
 import { useEventContext } from '../EventContext';
 import NavIcon from '../../../../components/shell/NavIcon';
 import { EmptyTickets, ExampleTier, TicketSetup } from './TierParts';
+import TierDetailsEditor from './TierDetailsEditor';
+import TierDetailsDialog, { hasDetails } from '../../../../components/tickets/TierDetailsDialog';
 
 /**
  * Ticket types — the named price bands.
@@ -157,6 +159,13 @@ export default function Tiers({ eventId }) {
                     <span className="fx-stack fx-stack--sm gap-0.5">
                       <span className="fx-break font-medium text-ink">{t.name}</span>
                       {t.description && <span className="text-sm text-muted">{t.description}</span>}
+                      {hasDetails(t) && (
+                        <span className="text-xs text-subtle fx-row gap-1">
+                          <NavIcon name="eye" size={14} />Details card
+                          {t.details.included?.length ? ` · ${t.details.included.length} included` : ''}
+                          {t.details.showBeforeBuying ? ' · shown before buying' : ''}
+                        </span>
+                      )}
                     </span>
                   ),
                 },
@@ -247,7 +256,9 @@ function TierForm({ eventId, currency, tier, onDone, onCancel }) {
     salesEndAt: toLocalInput(tier?.salesEndAt),
     maxPerOrder: tier?.maxPerOrder === null || tier?.maxPerOrder === undefined ? '' : String(tier.maxPerOrder),
     isHidden: Boolean(tier?.isHidden),
+    details: tier?.details || {},
   }));
+  const [previewing, setPreviewing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
@@ -290,6 +301,7 @@ function TierForm({ eventId, currency, tier, onDone, onCancel }) {
         if (toIso(form.salesEndAt) !== (tier.salesEndAt || null)) body.salesEndAt = toIso(form.salesEndAt);
         if (maxPerOrder !== (tier.maxPerOrder ?? null)) body.maxPerOrder = maxPerOrder;
         if (form.isHidden !== Boolean(tier.isHidden)) body.isHidden = form.isHidden;
+        if (detailsKey(form.details) !== detailsKey(tier.details)) body.details = detailsBody(form.details);
         if (Object.keys(body).length === 0) { onCancel(); return; }
         await patch(`/events/${eventId}/tiers/${tier.id}`, body, { noRedirect: true });
         onDone(`“${form.name.trim()}” was updated.`);
@@ -306,6 +318,7 @@ function TierForm({ eventId, currency, tier, onDone, onCancel }) {
           ...(toIso(form.salesEndAt) ? { salesEndAt: toIso(form.salesEndAt) } : {}),
           ...(maxPerOrder !== null ? { maxPerOrder } : {}),
           ...(form.isHidden ? { isHidden: true } : {}),
+          ...(detailsKey(form.details) !== detailsKey({}) ? { details: detailsBody(form.details) } : {}),
         }, { noRedirect: true });
         onDone(`“${form.name.trim()}” was added.`);
       }
@@ -431,6 +444,33 @@ function TierForm({ eventId, currency, tier, onDone, onCancel }) {
           </span>
         </label>
 
+        <TierDetailsEditor
+          eventId={eventId}
+          value={form.details}
+          onChange={(details) => setForm((f) => ({ ...f, details }))}
+          onPreview={() => setPreviewing(true)}
+        />
+
+        {previewing && (
+          // Exactly the buyer's card, with the form's unsaved values. Its
+          // buying bar is shown but does nothing.
+          <TierDetailsDialog
+            tier={{
+              id: tier?.id || 'preview',
+              name: form.name.trim() || 'Ticket type',
+              description: form.description.trim() || null,
+              kind: form.kind,
+              priceCents: cents ?? 0,
+              details: detailsBody(form.details),
+            }}
+            currency={currency}
+            max={maxPerOrder || 10}
+            preview
+            footnote="Preview — this is what a buyer sees. Save to publish changes."
+            onClose={() => setPreviewing(false)}
+          />
+        )}
+
         <FormError error={error} />
 
         <div className="fx-row">
@@ -468,6 +508,33 @@ function toLocalInput(iso) {
   if (Number.isNaN(when.getTime())) return '';
   const offset = when.getTimezoneOffset() * 60000;
   return new Date(when.getTime() - offset).toISOString().slice(0, 16);
+}
+
+/**
+ * The details card as the API takes it: trimmed, empty rows dropped, the
+ * photo as its path (the server derives the URL). The server cleans it again;
+ * this is so "did it change" compares what would actually be saved.
+ */
+function detailsBody(d = {}) {
+  const out = {};
+  if (d.tagline?.trim()) out.tagline = d.tagline.trim();
+  if (d.image?.path) out.image = { path: d.image.path, url: d.image.url };
+  const included = (d.included || [])
+    .map((r) => ({ icon: r.icon || 'check', title: (r.title || '').trim(), text: (r.text || '').trim() }))
+    .filter((r) => r.title);
+  if (included.length) out.included = included;
+  const notes = (d.notes || []).map((r) => ({ icon: r.icon || 'info', text: (r.text || '').trim() })).filter((r) => r.text);
+  if (notes.length) out.notes = notes;
+  if (d.priceUnit && d.priceUnit !== 'ticket') out.priceUnit = d.priceUnit;
+  if (d.showBeforeBuying) out.showBeforeBuying = true;
+  return out;
+}
+
+function detailsKey(d) {
+  const b = detailsBody(d || {});
+  if (b.image) b.image = { path: b.image.path };
+  if (b.included) b.included = b.included.map((r) => (r.text ? r : { icon: r.icon, title: r.title }));
+  return JSON.stringify(b);
 }
 
 /** The inverse. Null for empty, which is how a sale window is re-opened. */

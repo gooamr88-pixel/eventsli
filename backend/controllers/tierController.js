@@ -2,6 +2,8 @@ const { supabase } = require('../config/supabase');
 const { sendOk, sendFail } = require('../utils/responseEnvelope');
 const logger = require('../utils/logger');
 const { escapeLike } = require('../utils/search');
+const media = require('../services/mediaService');
+const ticketDetails = require('../services/ticketDetails');
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -33,7 +35,7 @@ const { escapeLike } = require('../utils/search');
  */
 
 const SELECT = 'id, name, description, price_cents, quantity, sold_count, sort_order, created_at, '
-  + 'kind, sales_start_at, sales_end_at, max_per_order, is_hidden';
+  + 'kind, sales_start_at, sales_end_at, max_per_order, is_hidden, event_id, details';
 
 /**
  * The rule fields, and the one place they are translated.
@@ -126,6 +128,8 @@ async function create(req, res, next) {
           ? null : Math.round(Number(req.body.quantity)),
         sort_order: req.body.sortOrder === undefined ? 0 : Math.round(Number(req.body.sortOrder)),
         ...ruleColumns(req.body),
+        ...(req.body.details !== undefined
+          ? { details: ticketDetails.clean(req.params.eventId, req.body.details) } : {}),
       })
       .select(SELECT)
       .single();
@@ -154,6 +158,11 @@ async function update(req, res, next) {
     if (req.body.priceCents !== undefined) patch.price_cents = Math.round(Number(req.body.priceCents));
     if (req.body.sortOrder !== undefined) patch.sort_order = Math.round(Number(req.body.sortOrder));
     Object.assign(patch, ruleColumns(req.body, { partial: true }));
+    // Replaced whole, never merged: the editor always sends the full card, and
+    // a merge is how a removed "what's included" row comes back.
+    if (req.body.details !== undefined) {
+      patch.details = ticketDetails.clean(req.params.eventId, req.body.details || {});
+    }
     if (req.body.quantity !== undefined) {
       patch.quantity = req.body.quantity === null ? null : Math.round(Number(req.body.quantity));
       // Caught here as well as by the CHECK, so the organizer is told the
@@ -344,6 +353,8 @@ function shape(t) {
     salesEndAt: t.sales_end_at,
     maxPerOrder: t.max_per_order === null ? null : Number(t.max_per_order),
     isHidden: Boolean(t.is_hidden),
+    // The buyer's details card, with the photo URL derived from its path.
+    details: ticketDetails.present(t.event_id, t.details, { forEditor: true }),
     /**
      * Whether this tier can be bought RIGHT NOW, worked out once here rather
      * than by each of the four clients that ask.
@@ -373,4 +384,43 @@ function saleWindowOpen(t, now = new Date()) {
   return true;
 }
 
-module.exports = { list, create, update, remove, saleWindowOpen, RULE_FIELDS };
+// ─── The details photo ──────────────────────────────────────────────────────
+/**
+ * POST /events/:eventId/tiers/image-upload — sign an upload for a ticket
+ * type's details photo; POST /events/:eventId/tiers/image — confirm it landed.
+ *
+ * The cover's two steps (mediaService): the server picks the key, the browser
+ * PUTs the bytes. Confirming writes nothing; the tier's own save keeps the
+ * path, and `ticketDetails.clean` keeps only a path of this shape for this
+ * event, so an unconfirmed or foreign path never reaches the page.
+ */
+async function signImageUpload(req, res, next) {
+  try {
+    return sendOk(res, await media.signUpload({
+      eventId: req.params.eventId,
+      contentType: String(req.body.contentType || '').toLowerCase(),
+      kind: 'tier',
+    }));
+  } catch (err) { return mediaFail(res, err, next); }
+}
+
+async function confirmImage(req, res, next) {
+  try {
+    if (!ticketDetails.ownTierImage(req.params.eventId, req.body.path)) {
+      return sendFail(res, {
+        status: 400, error: 'VALIDATION_ERROR', message: 'That image does not belong to this event.',
+      });
+    }
+    return sendOk(res, await media.attach({ eventId: req.params.eventId, path: req.body.path }));
+  } catch (err) { return mediaFail(res, err, next); }
+}
+
+function mediaFail(res, err, next) {
+  const { ERROR_STATUS: status } = require('../utils/responseEnvelope');
+  if (!err?.code || !(err.code in status)) return next(err);
+  return sendFail(res, { status: status[err.code], error: err.code, message: err.message });
+}
+
+module.exports = {
+  list, create, update, remove, signImageUpload, confirmImage, saleWindowOpen, RULE_FIELDS,
+};

@@ -47,7 +47,7 @@ export async function aspectOf(file) {
   return ratio;
 }
 
-async function downscale(file, { width, height, quality }) {
+export async function downscale(file, { width, height, quality }) {
   if (typeof createImageBitmap !== 'function') return file;
   const bitmap = await createImageBitmap(file);
   const scale = Math.min(1, width / bitmap.width, height / bitmap.height);

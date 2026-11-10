@@ -5,6 +5,7 @@ const { sendOk, sendFail } = require('../utils/responseEnvelope');
 const { safeSearch, textFilter } = require('../utils/search');
 const logger = require('../utils/logger');
 const categoryService = require('../services/categoryService');
+const ticketDetails = require('../services/ticketDetails');
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -278,7 +279,7 @@ async function eventBySlug(req, res, next) {
       supabase
         .from('ticket_tiers')
         .select('id, name, description, price_cents, quantity, sold_count, kind, '
-              + 'sales_start_at, sales_end_at, max_per_order, is_hidden')
+              + 'sales_start_at, sales_end_at, max_per_order, is_hidden, details')
         .eq('event_id', event.id)
         .order('sort_order'),
       eventContent.publicBundle(event.id),
@@ -305,7 +306,7 @@ async function eventBySlug(req, res, next) {
       ...shape(event),
       description: event.description,
       venueAddress: event.venue_address,
-      tiers: visibleTiers.map(publicTier),
+      tiers: visibleTiers.map((t) => ({ ...publicTier(t), details: ticketDetails.present(event.id, t.details) })),
       availability: await availability(event, tiers || []),
       ...content,
     });

@@ -7,6 +7,8 @@ import { formatMoney } from '../../../utils/money';
 import { useApi } from '../../../hooks/useApi';
 import { useReservation } from '../../../hooks/useReservation';
 import { Loading, Empty, ErrorNotice, Notice } from '../../../components/Feedback';
+import NavIcon from '../../../components/shell/NavIcon';
+import TierDetailsDialog, { hasDetails } from '../../../components/tickets/TierDetailsDialog';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -42,6 +44,10 @@ export default function TicketPicker({ slug, focusTierId }) {
   const [counts, setCounts] = useState({});
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState(null);
+  // The ticket type whose details card is open, and the ones already seen this
+  // visit (a "show before buying" card opens on the first "+" only).
+  const [detailsId, setDetailsId] = useState(null);
+  const [seen, setSeen] = useState(() => new Set());
 
   const tiers = useMemo(() => event?.tiers || [], [event]);
   const maxPerOrder = event?.maxTicketsPerOrder || 10;
@@ -74,6 +80,34 @@ export default function TicketPicker({ slug, focusTierId }) {
     }
     if (chosen >= maxPerOrder) return `Up to ${maxPerOrder} tickets in one order.`;
     return null;
+  }
+
+  /** How many more of this type one order can still take. */
+  function roomFor(tier) {
+    const current = counts[tier.id] || 0;
+    const limits = [maxPerOrder - chosen];
+    if (tier.remaining !== null && tier.remaining !== undefined) limits.push(tier.remaining - current);
+    if (tier.maxPerOrder !== null && tier.maxPerOrder !== undefined) limits.push(tier.maxPerOrder - current);
+    return Math.max(0, Math.min(...limits));
+  }
+
+  function closeDetails() {
+    setSeen((prev) => new Set(prev).add(detailsId));
+    setDetailsId(null);
+  }
+
+  function addFromDetails(tier, quantity) {
+    const n = Math.min(quantity, roomFor(tier));
+    if (n > 0) change(tier, n);
+    closeDetails();
+  }
+
+  function plus(tier) {
+    if (tier.details?.showBeforeBuying && hasDetails(tier) && !seen.has(tier.id) && !(counts[tier.id] > 0)) {
+      setDetailsId(tier.id);
+      return;
+    }
+    change(tier, 1);
   }
 
   function change(tier, delta) {
@@ -142,7 +176,14 @@ export default function TicketPicker({ slug, focusTierId }) {
                   {tier.kind === 'vip' && <span className="es-pill es-pill--accent ml-2">VIP</span>}
                   {tier.kind === 'early_bird' && <span className="es-pill ml-2">Early bird</span>}
                 </p>
-                {tier.description && <p className="text-sm text-subtle">{tier.description}</p>}
+                {(tier.details?.tagline || tier.description) && (
+                  <p className="text-sm text-subtle">{tier.details?.tagline || tier.description}</p>
+                )}
+                {hasDetails(tier) && (
+                  <button type="button" className="es-tdx-open mt-2" onClick={() => setDetailsId(tier.id)}>
+                    <NavIcon name="info" size={14} />What’s included<span className="sr-only"> in {tier.name}</span>
+                  </button>
+                )}
                 <p className="es-nums mt-1 text-md font-medium text-ink">
                   {tier.priceCents === 0 ? 'Free' : formatMoney(tier.priceCents, event.currency)}
                 </p>
@@ -164,7 +205,7 @@ export default function TicketPicker({ slug, focusTierId }) {
                     {count}
                   </span>
                   <StepButton
-                    onClick={() => change(tier, 1)}
+                    onClick={() => plus(tier)}
                     disabled={Boolean(blocked) || busy}
                     label={`One more ${tier.name}`}
                     title={blocked || undefined}
@@ -177,6 +218,29 @@ export default function TicketPicker({ slug, focusTierId }) {
           );
         })}
       </ul>
+
+      {(() => {
+        const tier = detailsId ? tiers.find((t) => t.id === detailsId) : null;
+        if (!tier) return null;
+        const room = roomFor(tier);
+        const unavailable = tier.soldOut ? 'Sold out.'
+          : tier.notYetOnSale && tier.salesStartAt
+            ? `On sale from ${new Date(tier.salesStartAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}.`
+            : !tier.onSale ? 'No longer on sale.'
+              : room === 0 ? blockedReason(tier) : null;
+        return (
+          <TierDetailsDialog
+            key={tier.id}
+            tier={tier}
+            currency={event.currency}
+            max={room}
+            unavailable={unavailable}
+            onAdd={(q) => addFromDetails(tier, q)}
+            onClose={closeDetails}
+            footnote={`Up to ${maxPerOrder} tickets per order · fees and tax are shown at checkout`}
+          />
+        );
+      })()}
 
       {actionError && (
         <Notice tone="danger" title={describeError(actionError).title}>

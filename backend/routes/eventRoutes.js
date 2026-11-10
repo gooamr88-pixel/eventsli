@@ -546,7 +546,30 @@ const tierRuleRules = [
   body('maxPerOrder').optional({ values: 'null' }).isInt({ min: 1, max: 100 })
     .withMessage('Tickets per order must be between 1 and 100.'),
   body('isHidden').optional().isBoolean(),
+  // The buyer's details card. Only its shape is checked here; every field is
+  // cleaned and capped by services/ticketDetails.js.
+  body('details').optional({ values: 'null' }).isObject()
+    .withMessage('Ticket details must be an object.'),
 ];
+
+// The details photo: sign, PUT, confirm (tierController). Registered before
+// the `:tierId` routes so "image-upload" is never read as a tier id.
+router.post(
+  '/:eventId/tiers/image-upload',
+  verifyEventOwner,
+  body('contentType').isIn(Object.keys(EXTENSION_FOR))
+    .withMessage('Upload a JPEG, PNG or WebP image.'),
+  validate,
+  tiers.signImageUpload,
+);
+router.post(
+  '/:eventId/tiers/image',
+  verifyEventOwner,
+  body('path').isString().trim().isLength({ min: 1, max: 300 })
+    .withMessage('Send back the path from the upload step.'),
+  validate,
+  tiers.confirmImage,
+);
 
 router.get('/:eventId/tiers', verifyEventOwner, tiers.list);
 

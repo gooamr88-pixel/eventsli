@@ -7,6 +7,7 @@ const accessTokens = require('../services/accessTokens');
 const logger = require('../utils/logger');
 const { fetchAll } = require('../utils/fetchAll');
 const { sellableSeats } = require('../services/seatSellability');
+const ticketDetails = require('../services/ticketDetails');
 
 const TTL_MINUTES = () => parseInt(process.env.RESERVATION_TTL_MINUTES || '35', 10);
 
@@ -174,7 +175,7 @@ async function publicMap(req, res, next) {
 
     const { data: tiers, error: tierError } = await supabase
       .from('ticket_tiers')
-      .select('id, name, price_cents, quantity, sold_count, sales_start_at, sales_end_at, max_per_order')
+      .select('id, name, description, kind, price_cents, quantity, sold_count, sales_start_at, sales_end_at, max_per_order, details')
       .eq('event_id', event.id);
     if (tierError) throw new Error(`seat map: tier lookup failed: ${tierError.message}`);
 
@@ -197,6 +198,10 @@ async function publicMap(req, res, next) {
         onSale: sellability.tier.get(t.id).onSale,
         soldOut: sellability.tier.get(t.id).soldOut,
         maxPerOrder: t.max_per_order === null ? null : Number(t.max_per_order),
+        // The organizer's details card, shown before buying (ticketDetails.js).
+        description: t.description || null,
+        kind: t.kind || 'standard',
+        details: ticketDetails.present(event.id, t.details),
       })),
       tables: visible.map((t) => ({
         id: t.id,

@@ -3,6 +3,7 @@
 import NavIcon from '../../../components/shell/NavIcon';
 import PaymentBadges from '../../../components/PaymentBadges';
 import { formatMoney } from '../../../utils/money';
+import { hasDetails } from '../../../components/tickets/TierDetailsDialog';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -28,7 +29,7 @@ export function priceLabel(tier, currency) {
   return `${formatMoney(tier.min, currency)}–${formatMoney(tier.max, currency)}`;
 }
 
-export function TicketCategories({ tiers, palette, currency, picked, onToggle, showTaken, onShowTaken }) {
+export function TicketCategories({ tiers, palette, currency, picked, onToggle, showTaken, onShowTaken, onDetails }) {
   return (
     <section className="es-sidecard es-catcard" aria-labelledby="cat-title">
       <h2 id="cat-title" className="es-sidecard__title">Ticket categories</h2>
@@ -46,6 +47,13 @@ export function TicketCategories({ tiers, palette, currency, picked, onToggle, s
                 </span>
                 <span className="es-nums es-catlist__price">{priceLabel(t, currency)}</span>
               </label>
+              {/* The organizer's details card (TierDetailsDialog): what is
+                  included, the notes, and buying N straight from it. */}
+              {onDetails && hasDetails(t) && (
+                <button type="button" className="es-tdx-open es-catlist__more" onClick={() => onDetails(t.id)}>
+                  <NavIcon name="info" size={14} />What’s included<span className="sr-only"> in {t.name}</span>
+                </button>
+              )}
             </li>
           );
         })}
@@ -156,7 +164,7 @@ export function TrustCard({ payments }) {
 }
 
 /** Phones and tablets: the categories as chips, the same toggles as the card. */
-export function CategoryChips({ tiers, palette, currency, picked, onToggle }) {
+export function CategoryChips({ tiers, palette, currency, picked, onToggle, onDetails }) {
   return (
     <ul className="es-seatpage__chips fx-row fx-row--gap" aria-label="Seat prices">
       {tiers.map((tier) => {
@@ -174,6 +182,11 @@ export function CategoryChips({ tiers, palette, currency, picked, onToggle }) {
               <span className="es-nums">{priceLabel(tier, currency)}</span>
               {tier.free === 0 && <span className="text-subtle">· sold out</span>}
             </button>
+            {onDetails && hasDetails(tier) && (
+              <button type="button" className="es-tdx-open ml-1" onClick={() => onDetails(tier.id)} aria-label={`What’s included in ${tier.name}`}>
+                <NavIcon name="info" size={14} />Details
+              </button>
+            )}
           </li>
         );
       })}

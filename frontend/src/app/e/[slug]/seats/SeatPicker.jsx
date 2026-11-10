@@ -15,6 +15,8 @@ import SeatMapSkeleton, { MAP_FRAME, MAP_BOX } from './SeatMapSkeleton';
 import SelectionBar from './SelectionBar';
 import { TicketCategories, Basket, CategoryChips, TrustCard } from './SeatSidePanels';
 import VenueInfoCard from '../../../components/venue/VenueInfoCard';
+import TierDetailsDialog, { hasDetails } from '../../../components/tickets/TierDetailsDialog';
+import { pickSeats } from './pickSeats';
 
 /**
  * The buyer's half of the seat map: selection, the private-table gate, and the
@@ -189,6 +191,20 @@ export default function SeatPicker({ slug, currency, purchaseMode, maxPerOrder, 
     [selectedTable],
   );
 
+  /**
+   * THE TICKET TYPE'S DETAILS CARD (owner request 2026-11-10).
+   *
+   * Opened from "What's included" beside a category, or — when the organizer
+   * ticked "show before buying" — by the first tap on one of that type's seats,
+   * once per visit. Its "Add to cart" asks for N tickets; `pickSeats` turns
+   * that into N seats side by side (beside the tapped one, when there is one),
+   * which land in the same selection a tap would, to be checked or changed.
+   */
+  const [details, setDetails] = useState(null);          // { tierId, anchor }
+  const [seenDetails, setSeenDetails] = useState(() => new Set());
+  const markSeen = (tierId) => setSeenDetails((prev) => new Set(prev).add(tierId));
+  const openDetails = (tierId, anchor = null) => { setActionError(null); setDetails({ tierId, anchor }); };
+
   const toggleSeat = useCallback((seat) => {
     setActionError(null);
     setSelectedTable(null);
@@ -199,6 +215,12 @@ export default function SeatPicker({ slug, currency, purchaseMode, maxPerOrder, 
     // during a state update.
     if (selectedSeats.some((s) => s.id === seat.id)) {
       setSelectedSeats(selectedSeats.filter((s) => s.id !== seat.id));
+      return;
+    }
+
+    const seatTier = (map?.tiers || []).find((t) => t.id === seat.tierId);
+    if (seatTier?.details?.showBeforeBuying && hasDetails(seatTier) && !seenDetails.has(seatTier.id)) {
+      setDetails({ tierId: seatTier.id, anchor: seat });
       return;
     }
 
@@ -216,7 +238,7 @@ export default function SeatPicker({ slug, currency, purchaseMode, maxPerOrder, 
     }
 
     setSelectedSeats([...selectedSeats, seat]);
-  }, [selectedSeats, maxPerOrder, map]);
+  }, [selectedSeats, maxPerOrder, map, seenDetails]);
 
   const chooseTable = useCallback((table) => {
     setActionError(null);
@@ -332,6 +354,35 @@ export default function SeatPicker({ slug, currency, purchaseMode, maxPerOrder, 
   };
   const clear = () => { setSelectedSeats([]); setSelectedTable(null); setActionError(null); };
 
+  // The open details card, and the most it may add: seats of its type still
+  // free, its own per-order cap, and the event's cap — net of what is chosen.
+  const detailTier = details ? priceGuide.find((t) => t.id === details.tierId)
+    || (map.tiers || []).find((t) => t.id === details.tierId) : null;
+  let detailMax = 0;
+  let detailUnavailable = null;
+  if (detailTier) {
+    const base = selectedTable ? [] : selectedSeats;
+    const mine = base.filter((s) => s.tierId === detailTier.id).length;
+    const free = Math.max(0, (detailTier.free ?? 0) - mine);
+    const ownCap = detailTier.maxPerOrder ? detailTier.maxPerOrder - mine : Infinity;
+    detailMax = Math.max(0, Math.min(free, ownCap, maxPerOrder - base.length));
+    if (detailTier.soldOut || free === 0) detailUnavailable = 'Sold out — every seat of this type is taken.';
+    else if (detailTier.onSale === false) detailUnavailable = 'Not on sale right now.';
+    else if (detailMax === 0) detailUnavailable = `You already have the most allowed in one order (${maxPerOrder}).`;
+  }
+  const closeDetails = () => { if (details) markSeen(details.tierId); setDetails(null); };
+  const addFromDetails = (qty) => {
+    const base = selectedTable ? [] : selectedSeats;
+    const picked = pickSeats(map.seats, detailTier.id, qty, new Set(base.map((s) => s.id)), details.anchor);
+    setSelectedTable(null);
+    setSelectedSeats([...base, ...picked]);
+    markSeen(detailTier.id);
+    setDetails(null);
+    // Fewer than asked only when seats went between render and click: the
+    // card's maximum is the free count. Said in the words a lost seat gets.
+    setActionError(picked.length < qty ? { code: 'SEAT_UNAVAILABLE' } : null);
+  };
+
   /**
    * THREE COLUMNS ON A WIDE SCREEN (2026-11-09): categories and the venue on
    * the left, the room in the middle, the basket on the right — every fact a
@@ -346,6 +397,7 @@ export default function SeatPicker({ slug, currency, purchaseMode, maxPerOrder, 
             tiers={priceGuide} palette={palette} currency={currency}
             picked={pickedTiers} onToggle={togglePickedTier}
             showTaken={showTaken} onShowTaken={setShowTaken}
+            onDetails={(id) => openDetails(id)}
           />
         )}
         <VenueInfoCard venue={studio.venue} tables={map.tables} zones={zones} />
@@ -372,7 +424,7 @@ export default function SeatPicker({ slug, currency, purchaseMode, maxPerOrder, 
 
         {/* Phones and tablets: the categories as chips, the same toggles. */}
         {priceGuide.length > 1 && (
-          <CategoryChips tiers={priceGuide} palette={palette} currency={currency} picked={pickedTiers} onToggle={togglePickedTier} />
+          <CategoryChips tiers={priceGuide} palette={palette} currency={currency} picked={pickedTiers} onToggle={togglePickedTier} onDetails={(id) => openDetails(id)} />
         )}
 
         {/* 2D, 3D and 360° over ONE selection: a seat chosen in any view is in
@@ -457,6 +509,23 @@ export default function SeatPicker({ slug, currency, purchaseMode, maxPerOrder, 
           onClear={clear}
         />
       </div>
+
+      {detailTier && (
+        <TierDetailsDialog
+          key={detailTier.id}
+          tier={detailTier}
+          currency={currency}
+          priceRange={Number.isFinite(detailTier.min) ? { min: detailTier.min, max: detailTier.max } : null}
+          max={detailMax}
+          unavailable={detailUnavailable}
+          addLabel={details.anchor ? 'Add to selection' : 'Add to cart'}
+          footnote={details.anchor
+            ? 'Starting with the seat you tapped, then the seats beside it. You can change them on the map.'
+            : 'We pick the best seats side by side. You can change them on the map before checkout.'}
+          onAdd={addFromDetails}
+          onClose={closeDetails}
+        />
+      )}
 
       {showUnlock && (
         <UnlockTableDialog

@@ -146,6 +146,8 @@ const COLUMNS = [
   // A table's own ticket type and seat price (20261112090000, S-02).
   ['tables', 'tier_id'],
   ['tables', 'seat_price_cents'],
+  // A ticket type's details card for buyers (20261113090000).
+  ['ticket_tiers', 'details'],
   // A theatre row's section and row (S-19), and the ticket's issued snapshot (S-16).
   ['tables', 'section_name'],
   ['tables', 'row_name'],

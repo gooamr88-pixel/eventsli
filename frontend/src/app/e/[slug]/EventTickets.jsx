@@ -1,5 +1,6 @@
 import NavIcon from '../../components/shell/NavIcon';
 import { formatPrice } from '../../utils/money';
+import EventTierDetails from './EventTierDetails';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -54,10 +55,11 @@ export default function EventTickets({ event, cheapest, soldOut }) {
           <li key={tier.id} className="es-ev-tier">
             <span className="fx-min0">
               <span className="es-ev-tier__name fx-break">{tier.name}</span>
-              {tier.description && (
-                <span className="es-ev-tier__desc fx-break">{tier.description}</span>
+              {(tier.details?.tagline || tier.description) && (
+                <span className="es-ev-tier__desc fx-break">{tier.details?.tagline || tier.description}</span>
               )}
               <TierState tier={tier} />
+              <EventTierDetails event={event} tier={tier} soldOut={soldOut} />
             </span>
             <span className="es-ev-tier__price es-nums">
               {tier.soldOut

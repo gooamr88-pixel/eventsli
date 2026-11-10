@@ -45,9 +45,10 @@ const MAX_BYTES = 5 * 1024 * 1024;
  * rather than growing a second upload path each — the prefix check in `attach`
  * is the thing that stops one organizer confirming another's object, and it is
  * worth having exactly one of. `venue` (the venue's photo) and `panorama` (a
- * 360° view) belong to the Venue Studio; see services/venueStudio.js.
+ * 360° view) belong to the Venue Studio; see services/venueStudio.js. `tier`
+ * is a ticket type's details photo; see services/ticketDetails.js.
  */
-const KINDS = Object.freeze(['cover', 'logo', 'gallery', 'sponsor', 'venue', 'panorama']);
+const KINDS = Object.freeze(['cover', 'logo', 'gallery', 'sponsor', 'venue', 'panorama', 'tier']);
 
 /** The signed URL's lifetime. Long enough for a slow phone on hotel wifi. */
 const UPLOAD_TTL_SECONDS = 600;
