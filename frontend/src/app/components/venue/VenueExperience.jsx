@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useRef, useState } from 'react';
 import SeatMapCanvas from '../seating/SeatMapCanvas';
-import { toWorld, worldOf } from '../seating/seatingGeometry';
+import { worldOf } from '../seating/seatingGeometry';
 import VenueScene3D from './VenueScene3D';
 import PanoramaViewer from './PanoramaViewer';
 import ViewSwitch from './ViewSwitch';
@@ -102,15 +102,11 @@ export default function VenueExperience({
     return [...acc].map(([text, a]) => ({ text, x: a.x / a.n, z: a.z / a.n, y: a.y + 1.6 }));
   }, [model, sections]);
 
-  const badges = useMemo(() => sections.map((s) => {
-    const pts = s.rows.map((r) => tables.find((t) => t.label === r.table)).filter(Boolean).map((t) => toWorld(t.position, world));
-    return {
-      key: s.id,
-      text: s.name,
-      x: pts.reduce((n, p) => n + p.x, 0) / pts.length,
-      y: pts.reduce((n, p) => n + p.y, 0) / pts.length,
-    };
-  }), [sections, tables, world]);
+  // NO SECTION NAMES ON THE 2D MAP (owner, 2026-11-10). Written over the
+  // seats they hid them, and a buyer read the gap as "no seats here"; under
+  // them they still crowded the rows. The section is named where it is read:
+  // the seat's tooltip, the basket ("Section Orchestra C · Row A · Seat 7"),
+  // and the ticket categories beside the map.
 
   // One "is this seat picked out?" rule for every view.
   const focusTiers = useMemo(
@@ -230,7 +226,6 @@ export default function VenueExperience({
           onSelectSeat={onSelectSeat}
           onSelectTable={onSelectTable}
           seatFill={seatFill}
-          badges={badges}
           pickAny={pickAny}
         />
       ) : (

@@ -175,6 +175,13 @@ export default function SeatMapCanvas({
         <SectionPlates plates={plates} />
         {zones.map((zone) => <ZoneShape key={zone.id} zone={zone} showcase={showcase} world={world} />)}
 
+        {/* SECTION NAMES UNDER THE SEATS (owner, 2026-11-10). Drawn on top, a
+            dark pill at each section's centre hid the seats beneath it, and a
+            buyer read the gap as "no seats here". Under them, every seat stays
+            visible and tappable and the name shows through the gaps, like a
+            label painted on the floor. */}
+        <SectionBadges badges={badges} scale={badgeScale} under />
+
         {tables.map((table) => (
           <Table
             key={table.id}
@@ -195,8 +202,6 @@ export default function SeatMapCanvas({
             world={world}
           />
         ))}
-
-        <SectionBadges badges={badges} scale={badgeScale} />
       </svg>
 
       {/* TOP corner, not bottom. On the buyer's page the selection bar is

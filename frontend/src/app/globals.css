@@ -12695,6 +12695,10 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
 /* ── 2D map additions ───────────────────────────────────────────────────── */
 .es-mapbadge { fill: color-mix(in srgb, var(--es-teal-900) 82%, transparent); }
 .es-mapbadge__text { fill: #ffffff; font-size: 21px; font-weight: 700; letter-spacing: 0.02em; }
+/* Under the seats (the buyer map, 2026-11-10): a pale floor label, so the
+   seats painted over it stay the loudest thing and nothing reads as empty. */
+.es-mapbadges--under .es-mapbadge { fill: color-mix(in srgb, var(--es-surface) 70%, transparent); stroke: color-mix(in srgb, var(--es-teal-900) 35%, transparent); stroke-width: 1.5px; }
+.es-mapbadges--under .es-mapbadge__text { fill: var(--es-teal-900); paint-order: stroke; stroke: var(--es-surface); stroke-width: 4px; stroke-linejoin: round; }
 
 /* ── the 3D / 360° canvas ───────────────────────────────────────────────── */
 .es-venue3d { background: #081315; isolation: isolate; }
