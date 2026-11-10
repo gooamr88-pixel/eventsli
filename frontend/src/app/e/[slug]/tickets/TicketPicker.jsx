@@ -44,10 +44,9 @@ export default function TicketPicker({ slug, focusTierId }) {
   const [counts, setCounts] = useState({});
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState(null);
-  // The ticket type whose details card is open, and the ones already seen this
-  // visit (a "show before buying" card opens on the first "+" only).
+  // The ticket type whose details card is open. A "show before buying" card
+  // opens on "+" for as long as none of that type is chosen.
   const [detailsId, setDetailsId] = useState(null);
-  const [seen, setSeen] = useState(() => new Set());
 
   const tiers = useMemo(() => event?.tiers || [], [event]);
   const maxPerOrder = event?.maxTicketsPerOrder || 10;
@@ -92,7 +91,6 @@ export default function TicketPicker({ slug, focusTierId }) {
   }
 
   function closeDetails() {
-    setSeen((prev) => new Set(prev).add(detailsId));
     setDetailsId(null);
   }
 
@@ -103,7 +101,7 @@ export default function TicketPicker({ slug, focusTierId }) {
   }
 
   function plus(tier) {
-    if (tier.details?.showBeforeBuying && hasDetails(tier) && !seen.has(tier.id) && !(counts[tier.id] > 0)) {
+    if (tier.details?.showBeforeBuying && hasDetails(tier) && !(counts[tier.id] > 0)) {
       setDetailsId(tier.id);
       return;
     }

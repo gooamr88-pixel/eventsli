@@ -201,8 +201,6 @@ export default function SeatPicker({ slug, currency, purchaseMode, maxPerOrder, 
    * which land in the same selection a tap would, to be checked or changed.
    */
   const [details, setDetails] = useState(null);          // { tierId, anchor }
-  const [seenDetails, setSeenDetails] = useState(() => new Set());
-  const markSeen = (tierId) => setSeenDetails((prev) => new Set(prev).add(tierId));
   const openDetails = (tierId, anchor = null) => { setActionError(null); setDetails({ tierId, anchor }); };
 
   const toggleSeat = useCallback((seat) => {
@@ -219,7 +217,11 @@ export default function SeatPicker({ slug, currency, purchaseMode, maxPerOrder, 
     }
 
     const seatTier = (map?.tiers || []).find((t) => t.id === seat.tierId);
-    if (seatTier?.details?.showBeforeBuying && hasDetails(seatTier) && !seenDetails.has(seatTier.id)) {
+    // Every tap, until a seat of this type is in the selection. It used to
+    // open once per visit, so a buyer who closed it could not get it back
+    // (owner, 2026-11-10: "it open one only").
+    if (seatTier?.details?.showBeforeBuying && hasDetails(seatTier)
+      && !selectedSeats.some((s) => s.tierId === seatTier.id)) {
       setDetails({ tierId: seatTier.id, anchor: seat });
       return;
     }
@@ -238,7 +240,7 @@ export default function SeatPicker({ slug, currency, purchaseMode, maxPerOrder, 
     }
 
     setSelectedSeats([...selectedSeats, seat]);
-  }, [selectedSeats, maxPerOrder, map, seenDetails]);
+  }, [selectedSeats, maxPerOrder, map]);
 
   const chooseTable = useCallback((table) => {
     setActionError(null);
@@ -370,13 +372,12 @@ export default function SeatPicker({ slug, currency, purchaseMode, maxPerOrder, 
     else if (detailTier.onSale === false) detailUnavailable = 'Not on sale right now.';
     else if (detailMax === 0) detailUnavailable = `You already have the most allowed in one order (${maxPerOrder}).`;
   }
-  const closeDetails = () => { if (details) markSeen(details.tierId); setDetails(null); };
+  const closeDetails = () => setDetails(null);
   const addFromDetails = (qty) => {
     const base = selectedTable ? [] : selectedSeats;
     const picked = pickSeats(map.seats, detailTier.id, qty, new Set(base.map((s) => s.id)), details.anchor);
     setSelectedTable(null);
     setSelectedSeats([...base, ...picked]);
-    markSeen(detailTier.id);
     setDetails(null);
     // Fewer than asked only when seats went between render and click: the
     // card's maximum is the free count. Said in the words a lost seat gets.
@@ -423,7 +424,9 @@ export default function SeatPicker({ slug, currency, purchaseMode, maxPerOrder, 
         )}
 
         {/* Phones and tablets: the categories as chips, the same toggles. */}
-        {priceGuide.length > 1 && (
+        {/* One type with a details card still gets its chip: it is the only
+            way back to the card on a phone. */}
+        {(priceGuide.length > 1 || priceGuide.some(hasDetails)) && (
           <CategoryChips tiers={priceGuide} palette={palette} currency={currency} picked={pickedTiers} onToggle={togglePickedTier} onDetails={(id) => openDetails(id)} />
         )}
 
