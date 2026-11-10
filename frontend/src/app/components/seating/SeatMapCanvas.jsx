@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useMemo, useRef } from 'react';
+import { useMemo } from 'react';
 import {
-  worldOf, worldScale, SEAT_RADIUS, tableBody, seatPositions, toWorld, contentBounds, normaliseShape,
+  worldOf, SEAT_RADIUS, tableBody, seatPositions, toWorld, contentBounds, normaliseShape,
 } from './seatingGeometry';
 import { usePanZoom } from './usePanZoom';
 import { useBadgeScale } from './useBadgeScale';
@@ -51,17 +51,15 @@ function pressOnKey(handler) {
 const NO_ZONES = Object.freeze([]);
 
 /**
- * THE OPENING ZOOM ON A SMALL SCREEN, in screen pixels of a seat's tap target.
+ * THE MAP OPENS FITTED, AT EVERY SIZE (owner, 2026-11-10).
  *
- * The map opened fitted to the whole room at every size. On a 320px phone that
- * drew a seat's hit circle about 11px across — a target nobody hits first time,
- * beside another one. On a touch screen, below MIN the map opens closer, enough
- * to make the target COMFORTABLE, about the stage end of the room; above MIN,
- * and with a mouse at any size, it opens fitted as it always did. "Fit" still
- * shows the whole room in one press.
+ * On a touch screen it used to open zoomed in on the stage end, so a seat was
+ * big enough to tap first time — but a buyer opening the map could not see the
+ * room, and section names grew into banners. Now every screen opens on the
+ * whole venue, the way the owner wants it: see everything, then pinch or press
+ * + to enlarge the part you want. The "−  100%  +" pill starts at 100%, which
+ * is the whole room.
  */
-const MIN_TARGET_PX = 24;
-const COMFORTABLE_TARGET_PX = 30;
 
 export default function SeatMapCanvas({
   tables = [],
@@ -109,44 +107,10 @@ export default function SeatMapCanvas({
     [highlightTierIds, highlightTierId],
   );
   const {
-    svgRef, view, fit, zoomIn, zoomOut, zoomAt, wasDragged, handlers,
+    svgRef, view, fit, zoomIn, zoomOut, wasDragged, handlers,
   } = usePanZoom(bounds);
   // Section names capped at a readable size on screen (useBadgeScale.js).
   const badgeScale = useBadgeScale(svgRef, view, world);
-
-  /**
-   * Zoom in once per room on a screen where the fitted view is too small to tap
-   * — see MIN_TARGET_PX. Measured from the SVG's real box, in a ResizeObserver
-   * callback rather than the effect body, because the box has no size until
-   * layout and the effect may run before it. Once per bounds: a buyer who zooms
-   * out again is not fought, and a private table unlocking re-frames the new
-   * room the same way the first one was framed.
-   */
-  const framedFor = useRef(null);
-  const boundsKey = `${bounds.x},${bounds.y},${bounds.width},${bounds.height}`;
-  useEffect(() => {
-    const svg = svgRef.current;
-    if (!svg || typeof ResizeObserver === 'undefined') return undefined;
-    // TOUCH SCREENS ONLY. A mouse is precise enough for the fitted view, and a
-    // desktop opening part-zoomed hides some of the room for no gain — on a
-    // 1440x900 screen the map's height made a seat 23px and tipped it over.
-    if (!window.matchMedia?.('(pointer: coarse)').matches) return undefined;
-    const observer = new ResizeObserver(() => {
-      if (framedFor.current === boundsKey) return;
-      const rect = svg.getBoundingClientRect();
-      if (!rect.width || !rect.height) return;
-      framedFor.current = boundsKey;
-      // `meet` scaling: the room is drawn at the smaller of the two ratios.
-      const scale = Math.min(rect.width / bounds.width, rect.height / bounds.height);
-      const target = SEAT_RADIUS * 1.9 * 2 * scale;
-      if (target >= MIN_TARGET_PX) return;
-      // A factor under 1 narrows the viewBox, which zooms in. Anchored a third
-      // of the way down, where a stage usually is and where the eye starts.
-      zoomAt(target / COMFORTABLE_TARGET_PX, rect.left + rect.width / 2, rect.top + rect.height / 3);
-    });
-    observer.observe(svg);
-    return () => observer.disconnect();
-  }, [boundsKey, bounds, svgRef, zoomAt]);
 
   /**
    * The zones, as a sentence.

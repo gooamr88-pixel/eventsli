@@ -31,6 +31,7 @@ const SELECT = `
   country, timezone, starts_at, ends_at, currency,
   listing_type, purchase_mode, admission_type, category, cover_url, logo_url,
   highlights, venue_lat, venue_lng, max_tickets_per_order,
+  accepts_stripe, accepts_manual,
   updated_at,
   organizers ( display_name ),
   event_categories ( label )
@@ -445,6 +446,10 @@ function shape(e) {
     venueLocation: e.venue_lat === null || e.venue_lat === undefined
       ? null : { lat: Number(e.venue_lat), lng: Number(e.venue_lng) },
     maxTicketsPerOrder: e.max_tickets_per_order,
+    // How a buyer can pay, for the seat page's payment badges (2026-11-10).
+    // Card follows checkoutController: refused only when accepts_stripe is
+    // false. Manual is the organizer's own e-Transfer, bank or cash methods.
+    payments: { card: e.accepts_stripe !== false, manual: e.accepts_manual === true },
     // The name only. An organizer's email, country of registration and Stripe
     // state are theirs, and none of it belongs on a public page.
     organizer: organizer ? { name: organizer.display_name } : null,

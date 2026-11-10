@@ -25,7 +25,7 @@ import VenueInfoCard from '../../../components/venue/VenueInfoCard';
  * the quote after the hold, with tax and fees the client is in no position to
  * compute.
  */
-export default function SeatPicker({ slug, currency, purchaseMode, maxPerOrder }) {
+export default function SeatPicker({ slug, currency, purchaseMode, maxPerOrder, payments = null }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { hold } = useReservation();
@@ -431,8 +431,9 @@ export default function SeatPicker({ slug, currency, purchaseMode, maxPerOrder }
           onClear={clear}
           onContinue={onContinue}
           error={actionError ? <ErrorNote error={actionError} /> : null}
+          payments={payments}
         />
-        <TrustCard />
+        <TrustCard payments={payments} />
       </aside>
 
       {/* Pinned to the bottom of a phone. The stickiness lives on THIS grid

@@ -1,6 +1,7 @@
 'use client';
 
 import NavIcon from '../../../components/shell/NavIcon';
+import PaymentBadges from '../../../components/PaymentBadges';
 import { formatMoney } from '../../../utils/money';
 
 /**
@@ -59,7 +60,7 @@ export function TicketCategories({ tiers, palette, currency, picked, onToggle, s
 }
 
 export function Basket({
-  seats, tableLabel, nameFor, tierOf, currency, subtotal, count, busy, onRemove, onClear, onContinue, error,
+  seats, tableLabel, nameFor, tierOf, currency, subtotal, count, busy, onRemove, onClear, onContinue, error, payments,
 }) {
   const empty = count === 0;
   return (
@@ -129,22 +130,26 @@ export function Basket({
           Cards only, because that is what checkout takes (Stripe). */}
       <div className="es-paysafe">
         <p><NavIcon name="shield" size={18} />Secure &amp; encrypted payment</p>
-        <ul aria-label="Cards accepted">
-          <li>Visa</li><li>Mastercard</li><li>Amex</li>
-        </ul>
+        {/* Stripe and Manual as SVG badges, from the event's own payment
+            setting (owner, 2026-11-10; components/PaymentBadges.jsx). */}
+        <PaymentBadges payments={payments} />
       </div>
     </section>
   );
 }
 
 /** What happens after paying, in its own card under the basket (owner's mockup). */
-export function TrustCard() {
+export function TrustCard({ payments }) {
+  const card = payments ? payments.card !== false : true;
+  const manual = Boolean(payments?.manual);
   return (
     <section className="es-sidecard es-trustcard" aria-label="What you get">
       <ul className="es-trustcard__list">
         <li><NavIcon name="qr" size={20} />Instant e-ticket with a QR code</li>
         <li><NavIcon name="clock" size={20} />Your seats are held while you pay</li>
-        <li><NavIcon name="shield" size={20} />Secure card payment</li>
+        <li><NavIcon name="shield" size={20} />{card && manual
+          ? 'Pay by card with Stripe, or manually'
+          : manual ? 'Pay the organizer by e-Transfer, bank or cash' : 'Secure card payment with Stripe'}</li>
       </ul>
     </section>
   );

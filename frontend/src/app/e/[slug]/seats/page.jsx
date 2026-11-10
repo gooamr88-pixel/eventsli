@@ -100,6 +100,7 @@ export default async function SeatsPage({ params, searchParams }) {
             currency={event.currency}
             purchaseMode={event.purchaseMode}
             maxPerOrder={event.maxTicketsPerOrder}
+            payments={event.payments}
           />
         </Suspense>
       </div>
