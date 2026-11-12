@@ -13,6 +13,7 @@ import { useAuth } from '../../hooks/useAuth';
 import HoldBar from './HoldBar';
 import HoldConfirm from './HoldConfirm';
 import Field from '../../components/forms/Field';
+import SmsConsentFields, { smsPayload } from '../../components/forms/SmsConsentFields';
 import { Claimed, Fatal, NotThisTab, PayError } from '../Outcomes';
 import { Loading } from '../../components/Feedback';
 
@@ -44,6 +45,9 @@ export default function CheckoutClient({ reservationId }) {
   const [promoError, setPromoError] = useState(null);
   const [busy, setBusy] = useState(null);
   const [buyer, setBuyer] = useState({ name: '', email: '', acceptTerms: false });
+  // Optional texts: a number, and separate transactional / marketing boxes.
+  const [phone, setPhone] = useState('');
+  const [sms, setSms] = useState({});
 
   /**
    * A SIGNED-IN BUYER'S EMAIL IS FILLED IN (TECH-AUDIT-LOG S-20). The form
@@ -165,6 +169,7 @@ export default function CheckoutClient({ reservationId }) {
         email: buyer.email || undefined,
         name: buyer.name || undefined,
         acceptTerms: buyer.acceptTerms,
+        ...(smsPayload(sms, phone).sms ? { phone: phone.trim(), ...smsPayload(sms, phone) } : {}),
       };
 
       if (free) {
@@ -381,6 +386,9 @@ export default function CheckoutClient({ reservationId }) {
           value={buyer.email}
           onChange={(e) => setBuyer((b) => ({ ...b, email: e.target.value }))}
         />
+
+        <SmsConsentFields mode="checkout" value={sms} onChange={setSms} phone={phone} onPhone={setPhone} showPhone
+          organizerName={quote.event.organizerName} />
 
         {/* BRD §02 — the buyer accepts the terms before paying, and the API
             records the acceptance against the VERSION they were shown rather

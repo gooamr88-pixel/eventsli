@@ -23,6 +23,7 @@ const shape = require('./smsShape');
  */
 
 const audit = (req, action, payload) => writeAudit(req, { action: `sms.${action}`, targetType: 'sms', payload });
+const REVIEW_AFTER_MS = 365 * 86_400_000;
 const fail = (res, status, error, message) => sendFail(res, { status, error, message });
 
 async function routesFor(isos) {
@@ -46,7 +47,11 @@ async function listCountries(req, res, next) {
   try {
     const p = parsePagination(req, { sortable: ['name', 'iso2', 'status', 'updated_at'], defaultSort: 'name' });
     let q = supabase.from('sms_countries').select('*', { count: 'exact' });
-    if (req.query.status) q = q.eq('status', req.query.status);
+    // 'ready': verified and switched off — one click from sending.
+    // 'review_due': verified more than a year ago; provider rules change.
+    if (req.query.status === 'ready') q = q.eq('status', 'disabled').not('verified_at', 'is', null);
+    else if (req.query.status === 'review_due') q = q.lt('verified_at', new Date(Date.now() - REVIEW_AFTER_MS).toISOString());
+    else if (req.query.status) q = q.eq('status', req.query.status);
     if (req.query.region) q = q.eq('region', req.query.region);
     const term = safeSearch(req.query.q);
     if (term) {
@@ -142,9 +147,11 @@ async function verifyCountry(req, res, next) {
     if (!routes.some((r) => r.verified && r.active)) {
       return fail(res, 409, 'CONFLICT', 'Verify at least one provider route for this country first.');
     }
+    // Verified-but-off reads 'disabled', so 'unverified' only ever means "nobody checked".
     const { data, error } = await supabase.from('sms_countries').update({
       verified_at: new Date().toISOString(), verified_by: req.user.id,
       verification_source: req.body.source, notes: req.body.notes ?? c.notes,
+      ...(c.status === 'unverified' ? { status: 'disabled' } : {}),
     }).eq('iso2', c.iso2).select('*').single();
     if (error) throw new Error(error.message);
     config.invalidate();
@@ -172,6 +179,65 @@ async function setCountryStatus(req, res, next) {
     config.invalidate();
     await audit(req, `country.${status}`, { iso2: req.params.iso2, from: before.status, reason: req.body.reason || null });
     return sendOk(res, shape.country(data, await routesFor([data.iso2]), await config.load()));
+  } catch (err) { return next(err); }
+}
+
+/** Withdraws a verification (rules changed, a registration lapsed). The country must be off first. */
+async function unverifyCountry(req, res, next) {
+  try {
+    const { data: c } = await supabase.from('sms_countries').select('status').eq('iso2', req.params.iso2).maybeSingle();
+    if (!c) return fail(res, 404, 'NOT_FOUND', 'No such country.');
+    if (c.status === 'enabled') return fail(res, 409, 'CONFLICT', 'Turn SMS off for this country before withdrawing its verification.');
+    const { data, error } = await supabase.from('sms_countries').update({
+      verified_at: null, verified_by: null, verification_source: null,
+      status: c.status === 'blocked' ? 'blocked' : 'unverified',
+    }).eq('iso2', req.params.iso2).select('*').single();
+    if (error) throw new Error(error.message);
+    config.invalidate();
+    await audit(req, 'country.unverified', { iso2: req.params.iso2, reason: req.body.reason || null });
+    return sendOk(res, shape.country(data, await routesFor([data.iso2]), await config.load()));
+  } catch (err) { return next(err); }
+}
+
+/** Many countries at once. Each succeeds or fails on its own; nothing half-applies a country. */
+async function bulkStatus(req, res, next) {
+  try {
+    const status = req.body.status;
+    const results = [];
+    for (const raw of req.body.iso2s) {
+      const iso2 = String(raw).toUpperCase();
+      // eslint-disable-next-line no-await-in-loop
+      const { data: before } = await supabase.from('sms_countries').select('status').eq('iso2', iso2).maybeSingle();
+      if (!before) { results.push({ iso2, ok: false, reason: 'not_found' }); continue; }
+      if (before.status === status) { results.push({ iso2, ok: true, unchanged: true }); continue; }
+      const patch = { status, ...(status === 'enabled' ? { paused_until: null, paused_reason: null } : {}) };
+      // eslint-disable-next-line no-await-in-loop
+      const { error } = await supabase.from('sms_countries').update(patch).eq('iso2', iso2);
+      if (error) {
+        results.push({ iso2, ok: false, reason: /UNVERIFIED|enabled_is_verified/.test(error.message) ? 'not_verified' : 'error' });
+        continue;
+      }
+      results.push({ iso2, ok: true });
+    }
+    config.invalidate();
+    const changed = results.filter((r) => r.ok && !r.unchanged).map((r) => r.iso2);
+    if (changed.length) await audit(req, `country.bulk_${status}`, { iso2s: changed });
+    return sendOk(res, { status, results, changed: changed.length, refused: results.filter((r) => !r.ok).length });
+  } catch (err) { return next(err); }
+}
+
+/** Who changed this country's rules, routes, verification and status, newest first. */
+async function countryHistory(req, res, next) {
+  try {
+    const { data, error } = await supabase.from('admin_audit')
+      .select('id, action, payload, created_at, actor_id, profiles:actor_id ( email, full_name )')
+      .like('action', 'sms.%').eq('payload->>iso2', req.params.iso2)
+      .order('created_at', { ascending: false }).limit(50);
+    if (error) throw new Error(error.message);
+    return sendOk(res, (data || []).map((a) => ({
+      id: a.id, action: a.action, payload: a.payload, at: a.created_at,
+      actor: a.profiles ? (a.profiles.full_name || a.profiles.email) : null,
+    })));
   } catch (err) { return next(err); }
 }
 
@@ -412,6 +478,8 @@ async function updateSettings(req, res, next) {
       replyToHelp: 'reply_to_help', defaultQuietStart: 'default_quiet_start', defaultQuietEnd: 'default_quiet_end',
       countryHourlyLimit: 'country_hourly_limit', dailyMarketingCapMicros: 'daily_marketing_cap_micros',
       spendCurrency: 'spend_currency', reminderHoursBefore: 'reminder_hours_before', maxCampaignRecipients: 'max_campaign_recipients',
+      messageRetentionDays: 'message_retention_days', stopConfirmationProviders: 'stop_confirmation_providers',
+      stopConfirmationText: 'stop_confirmation_text',
     });
     if (patch.spend_currency) patch.spend_currency = String(patch.spend_currency).toUpperCase();
     // "STOP" must stay in the opt-out line: it is the word carriers act on.
@@ -430,6 +498,7 @@ async function updateSettings(req, res, next) {
 
 module.exports = {
   listCountries, countryDetail, createCountry, updateCountry, verifyCountry, setCountryStatus, resumeCountry,
+  unverifyCountry, bulkStatus, countryHistory,
   upsertRoute, deleteRoute,
   listProviders, updateProvider, resetCircuit, syncPricing,
   listSenders, createSender, updateSender, deleteSender,

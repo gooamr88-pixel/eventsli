@@ -72,6 +72,7 @@ async function overview(req, res, next) {
         dryRun: providers.dryRun(),
       },
       activity: (activity.data || []).map((a) => ({ id: a.id, action: a.action, payload: a.payload, at: a.created_at })),
+      health: await require('../../services/sms/maintenance').checkHealth().catch(() => ({})),
       campaigns: (campaigns.data || []).map((c) => ({ id: c.id, name: c.name, status: c.status, at: c.completed_at || c.started_at, recipients: c.recipients_queued })),
     });
   } catch (err) { return next(err); }
@@ -178,7 +179,9 @@ async function sendTest(req, res, next) {
       category: category.key, e164: parsed.e164, country: parsed.country,
       body: req.body.body, consentScope: category.traffic_class === 'marketing' ? 'platform' : null,
       idempotencyKey: `test:${req.user.id}:${Date.now()}`, createdBy: req.user.id,
-      metadata: { purpose: 'console_test' },
+      // Exempt from TRANSACTIONAL consent only (the admin is testing a number,
+      // usually their own); suppression still applies, marketing consent too.
+      metadata: { purpose: 'console_test', consentExempt: category.traffic_class === 'transactional' ? 'console_test' : undefined },
     });
     if (!result.queued) {
       const why = { too_long: `Too long for this category (${result.segments} segments).`, invalid_number: 'That number is not valid.' };
@@ -242,15 +245,15 @@ async function lookupConsent(req, res, next) {
     const parsed = phone.normalize(req.query.phone, { matcher: (await config.load()).matcher });
     if (!parsed) return fail(res, 400, 'VALIDATION_ERROR', 'Enter the number in international format.');
     const [current, history, suppression] = await Promise.all([
-      supabase.from('sms_consents').select('scope, status, source, updated_at').eq('phone_e164', parsed.e164),
-      supabase.from('sms_consent_log').select('scope, status, source, evidence, created_at').eq('phone_e164', parsed.e164)
+      supabase.from('sms_consents').select('scope, kind, status, source, updated_at').eq('phone_e164', parsed.e164),
+      supabase.from('sms_consent_log').select('scope, kind, status, source, evidence, created_at').eq('phone_e164', parsed.e164)
         .order('created_at', { ascending: false }).limit(50),
       supabase.from('sms_suppressions').select('scope, reason, created_at').eq('phone_e164', parsed.e164).maybeSingle(),
     ]);
     return sendOk(res, {
       phone: phone.mask(parsed.e164), country: parsed.country,
-      consents: (current.data || []).map((c) => ({ scope: c.scope, status: c.status, source: c.source, updatedAt: c.updated_at })),
-      history: (history.data || []).map((h) => ({ scope: h.scope, status: h.status, source: h.source, evidence: h.evidence, at: h.created_at })),
+      consents: (current.data || []).map((c) => ({ scope: c.scope, kind: c.kind, status: c.status, source: c.source, updatedAt: c.updated_at })),
+      history: (history.data || []).map((h) => ({ scope: h.scope, kind: h.kind, status: h.status, source: h.source, evidence: h.evidence, at: h.created_at })),
       suppression: suppression.data ? { scope: suppression.data.scope, reason: suppression.data.reason, at: suppression.data.created_at } : null,
     });
   } catch (err) { return next(err); }
@@ -258,6 +261,10 @@ async function lookupConsent(req, res, next) {
 
 async function importConsents(req, res, next) {
   try {
+    if (req.body.scope && req.body.scope !== 'platform') {
+      const { data: org } = await supabase.from('organizers').select('id').eq('id', req.body.scope).maybeSingle();
+      if (!org) return fail(res, 400, 'VALIDATION_ERROR', 'That organizer does not exist.');
+    }
     const result = await consent.importConsents({
       phones: req.body.phones, scope: req.body.scope || 'platform', defaultCountry: req.body.defaultCountry || null,
       evidenceStatement: req.body.evidence, actorId: req.user.id,

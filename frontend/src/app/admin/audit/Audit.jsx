@@ -8,7 +8,7 @@ import { PageHeader } from '../../components/ui/Page';
 import { Pagination } from '../../components/ui/Filters';
 import DataTable from '../../components/ui/DataTable';
 import { Loading, Empty, ErrorNotice } from '../../components/Feedback';
-import AuditDetail, { VERBS } from './AuditDetail';
+import AuditDetail, { VERB_GROUPS, verbOf } from './AuditDetail';
 
 /**
  * Every administrative act, with its actor, its reason and what it changed.
@@ -23,7 +23,6 @@ import AuditDetail, { VERBS } from './AuditDetail';
  * The filter lists every verb the backend writes. It used to offer six, with
  * no way to find approvals, rejections, bans, fee or settings changes.
  */
-const FILTERS = [['', 'Everything'], ...Object.entries(VERBS).map(([value, [label]]) => [value, label])];
 
 export default function Audit() {
   const [action, setAction] = useState('');
@@ -46,7 +45,12 @@ export default function Audit() {
           value={action}
           onChange={(e) => { setAction(e.target.value); setPage(1); }}
         >
-          {FILTERS.map(([value, label]) => <option key={value || 'all'} value={value}>{label}</option>)}
+          <option value="">Everything</option>
+          {VERB_GROUPS.map(([group, verbs]) => (
+            <optgroup key={group} label={group}>
+              {Object.entries(verbs).map(([value, [label]]) => <option key={value} value={value}>{label}</option>)}
+            </optgroup>
+          ))}
         </select>
       </div>
 
@@ -67,12 +71,18 @@ export default function Audit() {
                 label: 'Action',
                 primary: true,
                 render: (entry) => {
-                  const [label, tone] = VERBS[entry.action] || [entry.action, ''];
+                  const [label, tone] = verbOf(entry.action);
                   return <span className={`es-pill ${tone}`}>{label}</span>;
                 },
               },
               { key: 'detail', label: 'Details', wide: true, render: (entry) => <AuditDetail entry={entry} /> },
-              { key: 'actor', label: 'By', render: (entry) => <span className="fx-break">{entry.actor?.name || entry.actor?.email || 'Unknown actor'}</span> },
+              {
+                key: 'actor',
+                label: 'By',
+                // break-words, not .fx-break: "anywhere" let the table squeeze this
+                // column to a few letters, so a name wrapped as "goo / amr / 88".
+                render: (entry) => <span className="block min-w-32 break-words">{entry.actor?.name || entry.actor?.email || 'Unknown actor'}</span>,
+              },
               { key: 'target', label: 'On', render: (entry) => <Target target={entry.target} /> },
               {
                 key: 'at',

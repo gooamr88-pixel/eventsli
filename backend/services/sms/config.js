@@ -1,5 +1,6 @@
 const { supabase } = require('../../config/supabase');
 const { buildMatcher } = require('./phone');
+const credentials = require('./credentials');
 
 /**
  * Everything the SMS pipeline reads on every message — settings, countries,
@@ -25,6 +26,11 @@ async function fetchConfig() {
     read('sms_settings'), read('sms_countries'), read('sms_providers'),
     read('sms_routes'), read('sms_senders'), read('sms_categories'),
   ]);
+  // Stored provider credentials (ciphertext), decrypted into credentials.js.
+  // A database without migration 20261117090000 has no such table: env only.
+  const { data: credRows, error: credError } = await supabase.from('sms_provider_credentials').select('*');
+  credentials.setStoredRows(credError ? [] : credRows);
+
   const routesByCountry = new Map();
   for (const r of routes) {
     if (!routesByCountry.has(r.country)) routesByCountry.set(r.country, []);

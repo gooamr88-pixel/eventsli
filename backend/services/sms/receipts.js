@@ -133,15 +133,32 @@ async function handleInbound(providerId, parsed) {
     await supabase.from('sms_consents').update({ status: 'opted_out', source: 'keyword', evidence, updated_at: now })
       .eq('phone_e164', from).neq('status', 'opted_out');
     logger.info({ from: phone.mask(from), provider: providerId }, 'SMS opt-out by keyword');
+    // One confirmation, where the provider does not send its own (configured
+    // per provider by the owner; Twilio Advanced Opt-Out confirms by itself).
+    if ((cfg.settings?.stop_confirmation_providers || []).includes(providerId)) {
+      await require('./queue').enqueue({
+        category: 'participant', e164: from, country: normalized.country,
+        body: cfg.settings.stop_confirmation_text,
+        idempotencyKey: `stopconf:${providerId}:${evidence.inbound || parsed.providerMessageId || now}`,
+        metadata: { purpose: 'stop_confirmation', consentExempt: 'stop_confirmation' },
+      });
+    }
   } else if (keyword === 'start') {
     await supabase.from('sms_suppressions').delete()
       .eq('phone_e164', from).in('reason', ['stop_keyword', 'carrier_opt_out']);
+    // START undoes a STOP — it restores consent the STOP took away (source
+    // 'keyword') and confirms pending double opt-in. An opt-out the person
+    // gave elsewhere (their account page, an unsubscribe link) stands: one
+    // START to an Eventsli text must not re-subscribe them to an organizer
+    // they dropped.
     await supabase.from('sms_consents').update({ status: 'opted_in', source: 'keyword', evidence, updated_at: now })
-      .eq('phone_e164', from).neq('status', 'opted_in');
+      .eq('phone_e164', from).eq('status', 'pending');
+    await supabase.from('sms_consents').update({ status: 'opted_in', source: 'keyword', evidence, updated_at: now })
+      .eq('phone_e164', from).eq('status', 'opted_out').eq('source', 'keyword');
   }
 
   const reply = keyword === 'help' && cfg.settings?.reply_to_help ? cfg.settings.help_text : null;
-  return { keyword, reply };
+  return { keyword, reply, from, inboundId: inserted?.[0]?.id || null };
 }
 
 module.exports = { applyReceipt, handleInbound, canMove };

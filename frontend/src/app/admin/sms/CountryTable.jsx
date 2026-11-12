@@ -24,7 +24,8 @@ import { CountryBadge, StatusPill, Toggle } from './smsUi';
  */
 
 const STATUSES = [
-  ['', 'All statuses'], ['enabled', 'Enabled'], ['unverified', 'Unverified'], ['disabled', 'Disabled'], ['blocked', 'Blocked'],
+  ['', 'All statuses'], ['enabled', 'Enabled'], ['ready', 'Verified, ready to turn on'], ['unverified', 'Unverified'],
+  ['disabled', 'Disabled'], ['blocked', 'Blocked'], ['review_due', 'Verification over a year old'],
 ];
 
 function requirementText(c) {
@@ -44,6 +45,9 @@ export default function CountryTable({ canEdit, compact = false, limit = 25 }) {
   const [status, setStatus] = useState('');
   const [page, setPage] = useState(1);
   const [busy, setBusy] = useState(null);
+  // Bulk actions, full table only: the selection is cleared whenever the page or filter changes.
+  const [selected, setSelected] = useState([]);
+  const selectable = canEdit && !compact;
   const params = new URLSearchParams({ page: String(page), limit: String(limit) });
   if (q) params.set('q', q);
   if (status) params.set('status', status);
@@ -75,6 +79,29 @@ export default function CountryTable({ canEdit, compact = false, limit = 25 }) {
     }
   }
 
+  async function bulk(next) {
+    const label = next === 'enabled' ? 'Turn on' : next === 'blocked' ? 'Block' : 'Turn off';
+    const ok = await confirm({
+      title: `${label} SMS for ${selected.length} countr${selected.length === 1 ? 'y' : 'ies'}?`,
+      body: <p>{next === 'enabled' ? 'Only verified countries are turned on; the rest are reported back, unchanged.' : 'Queued messages for these countries will not be sent.'}</p>,
+      confirmLabel: label, tone: next === 'enabled' ? undefined : 'danger',
+    });
+    if (!ok) return;
+    setBusy('bulk');
+    try {
+      const r = await post('/admin/sms/countries/bulk-status', { iso2s: selected, status: next }, { noRedirect: true });
+      const refused = r.results.filter((x) => !x.ok).map((x) => x.iso2);
+      toast.success(`${r.changed} changed${refused.length ? `; not verified, left as they were: ${refused.join(', ')}` : ''}.`);
+      setSelected([]);
+      reload();
+    } catch (err) {
+      toast.error(messageFor(err), { title: describeError(err).title });
+    } finally {
+      setBusy(null);
+    }
+  }
+  const toggleOne = (iso2) => setSelected((list) => (list.includes(iso2) ? list.filter((x) => x !== iso2) : [...list, iso2]));
+
   const rows = data?.data || [];
   const pagination = data?.pagination;
   const from = pagination ? (pagination.page - 1) * pagination.limit + 1 : 0;
@@ -83,15 +110,24 @@ export default function CountryTable({ canEdit, compact = false, limit = 25 }) {
     <div className="fx-stack fx-stack--sm">
       <div className="fx-row fx-row--between items-end gap-3">
         <div className="es-smsfilter">
-          <SearchBox label="Search countries" placeholder="Search countries…" value={q} onSearch={(v) => { setQ(v); setPage(1); }} />
+          <SearchBox label="Search countries" placeholder="Search countries…" value={q} onSearch={(v) => { setQ(v); setPage(1); setSelected([]); }} />
         </div>
         <label className="es-smsselect">
           <span className="sr-only">Status</span>
-          <select className="es-input" value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }}>
+          <select className="es-input" value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); setSelected([]); }}>
             {STATUSES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
           </select>
         </label>
       </div>
+
+      {selectable && selected.length > 0 && (
+        <div className="fx-row items-center gap-2 rounded-(--es-radius-md) bg-bg-sunken px-3 py-2" role="region" aria-label="Bulk actions">
+          <span className="text-sm text-ink">{selected.length} selected</span>
+          <button type="button" className="es-btn es-btn--primary es-btn--sm" disabled={busy !== null} onClick={() => bulk('enabled')}>Turn on</button>
+          <button type="button" className="es-btn es-btn--secondary es-btn--sm" disabled={busy !== null} onClick={() => bulk('disabled')}>Turn off</button>
+          <button type="button" className="es-btn es-btn--ghost es-btn--sm" disabled={busy !== null} onClick={() => setSelected([])}>Clear</button>
+        </div>
+      )}
 
       {error ? <ErrorNotice error={error} onRetry={reload} /> : loading && !data ? <Loading variant="list" rows={compact ? 4 : 8} label="Loading countries" /> : (
         <div className="es-table-wrap">
@@ -99,6 +135,13 @@ export default function CountryTable({ canEdit, compact = false, limit = 25 }) {
             <caption className="sr-only">SMS availability by country</caption>
             <thead>
               <tr>
+                {selectable && (
+                  <th scope="col" className="w-8">
+                    <input type="checkbox" aria-label="Select all on this page"
+                      checked={rows.length > 0 && rows.every((r) => selected.includes(r.iso2))}
+                      onChange={(e) => setSelected(e.target.checked ? rows.map((r) => r.iso2) : [])} />
+                  </th>
+                )}
                 <th scope="col">Country</th>
                 <th scope="col">SMS status</th>
                 <th scope="col">Provider</th>
@@ -112,6 +155,11 @@ export default function CountryTable({ canEdit, compact = false, limit = 25 }) {
                 const primary = c.routes.find((r) => r.verified && r.active) || null;
                 return (
                   <tr key={c.iso2}>
+                    {selectable && (
+                      <td data-label="Select">
+                        <input type="checkbox" aria-label={`Select ${c.name}`} checked={selected.includes(c.iso2)} onChange={() => toggleOne(c.iso2)} />
+                      </td>
+                    )}
                     <td data-label="Country" data-primary="">
                       <Link href={`/admin/sms/countries/${c.iso2}`} className="hover:text-accent">
                         <CountryBadge iso2={c.iso2} name={c.name} sub={compact ? null : `+${c.dialCode} · ${c.region}`} />
@@ -120,6 +168,7 @@ export default function CountryTable({ canEdit, compact = false, limit = 25 }) {
                     <td data-label="SMS status">
                       <StatusPill status={c.status} map="country" />
                       {c.pausedUntil && <span className="es-smsnote">Paused</span>}
+                      {c.reviewDue && <span className="es-smsnote">Review due</span>}
                     </td>
                     <td data-label="Provider">{primary ? <span className="capitalize">{primary.providerId}</span> : <span className="text-subtle">—</span>}</td>
                     <td data-label="Est. cost" data-align="end">
@@ -152,7 +201,7 @@ export default function CountryTable({ canEdit, compact = false, limit = 25 }) {
                 );
               })}
               {rows.length === 0 && (
-                <tr><td colSpan={6} className="py-8 text-center text-muted">No country matches.</td></tr>
+                <tr><td colSpan={selectable ? 7 : 6} className="py-8 text-center text-muted">No country matches.</td></tr>
               )}
             </tbody>
           </table>
@@ -164,7 +213,7 @@ export default function CountryTable({ canEdit, compact = false, limit = 25 }) {
           <p className="text-sm text-muted">
             {pagination.total === 0 ? 'No countries' : `Showing ${from}–${Math.min(from + rows.length - 1, pagination.total)} of ${formatCount(pagination.total)} countries`}
           </p>
-          <Pagination pagination={pagination} onPage={setPage} />
+          <Pagination pagination={pagination} onPage={(p) => { setPage(p); setSelected([]); }} />
         </div>
       )}
     </div>

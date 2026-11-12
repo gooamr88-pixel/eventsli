@@ -1,5 +1,6 @@
 const { networkOutcome, toMicros } = require('./httpOutcome');
 const { verifyVonage } = require('../webhookAuth');
+const credentials = require('../credentials');
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -21,21 +22,19 @@ const API = 'https://rest.nexmo.com/sms/json';
 const PRICING = 'https://rest.nexmo.com/account/get-pricing/outbound/sms';
 const TIMEOUT_MS = 15_000;
 
-const env = () => ({
-  key: process.env.VONAGE_API_KEY,
-  secret: process.env.VONAGE_API_SECRET,
-  sigSecret: process.env.VONAGE_SIGNATURE_SECRET,
-  sigMethod: process.env.VONAGE_SIGNATURE_METHOD || 'md5hash',
-  currency: (process.env.VONAGE_CURRENCY || 'EUR').toUpperCase(),
-});
+/** Environment variables first, then credentials stored from the console (credentials.js). */
+const env = (override = null) => {
+  const c = override || credentials.resolve('vonage');
+  return {
+    key: c.apiKey,
+    secret: c.apiSecret,
+    sigSecret: c.signatureSecret,
+    sigMethod: c.signatureMethod || 'md5hash',
+    currency: String(c.currency || 'EUR').toUpperCase(),
+  };
+};
 
-function credentialStatus() {
-  const e = env();
-  const missing = [];
-  if (!e.key) missing.push('VONAGE_API_KEY');
-  if (!e.secret) missing.push('VONAGE_API_SECRET');
-  return { configured: missing.length === 0, missing, signedWebhooks: Boolean(e.sigSecret) };
-}
+const credentialStatus = () => credentials.status('vonage');
 const configured = () => credentialStatus().configured;
 
 // https://developer.vonage.com/messaging/sms/guides/troubleshooting-sms
@@ -141,6 +140,40 @@ function verifyWebhook({ params }) {
 }
 
 const inboundReply = () => ({ contentType: 'text/plain', body: '' });
+/** Whether Vonage webhooks carry a signature we can check (a secret is configured, env or stored). */
+const signsWebhooks = () => Boolean(env().sigSecret);
+
+/** READ-ONLY account check: the balance. Sends nothing. */
+async function testConnection(override = null) {
+  const e = env(override);
+  if (!e.key || !e.secret) return { ok: false, error: 'API key and secret are required.' };
+  try {
+    const q = new URLSearchParams({ api_key: e.key, api_secret: e.secret });
+    const res = await fetch(`https://rest.nexmo.com/account/get-balance?${q}`, { headers: { accept: 'application/json' }, signal: AbortSignal.timeout(TIMEOUT_MS) });
+    if (res.status === 401 || res.status === 403) return { ok: false, error: 'Vonage refused these credentials.' };
+    if (!res.ok) return { ok: false, error: `Vonage answered ${res.status}.` };
+    const json = await res.json().catch(() => ({}));
+    return { ok: true, balance: json.value != null ? Number(json.value) : null, currency: e.currency, autoReload: Boolean(json.autoReload) };
+  } catch (err) {
+    return { ok: false, error: `Could not reach Vonage (${err.name === 'TimeoutError' ? 'timeout' : 'network'}).` };
+  }
+}
+
+/** READ-ONLY: the account's numbers with the SMS feature, to import as senders. */
+async function listNumbers(override = null) {
+  const e = env(override);
+  const q = new URLSearchParams({ api_key: e.key, api_secret: e.secret, size: '100' });
+  const res = await fetch(`https://rest.nexmo.com/account/numbers?${q}`, { headers: { accept: 'application/json' }, signal: AbortSignal.timeout(TIMEOUT_MS) });
+  if (!res.ok) throw new Error(`Vonage answered ${res.status}`);
+  const json = await res.json();
+  return (json.numbers || []).map((n) => ({
+    value: `+${String(n.msisdn).replace(/^\+/, '')}`,
+    kind: String(n.type || '').includes('toll-free') ? 'toll_free' : 'long_code',
+    label: n.country ? `${n.country} number` : null,
+    country: n.country || null,
+    sms: (n.features || []).includes('SMS'),
+  }));
+}
 
 async function pricing(iso2) {
   const e = env();
@@ -160,7 +193,7 @@ async function pricing(iso2) {
 module.exports = {
   id: 'vonage', displayName: 'Vonage', repliesSupported: true,
   configured, credentialStatus, send, parseStatus, parseInbound, verifyWebhook, inboundReply, pricing,
-  classifyStatus,
+  testConnection, listNumbers, classifyStatus, signsWebhooks, repliesInline: false,
   lookup: async () => ({ found: null }),
   docs: () => 'https://api.support.vonage.com/hc/en-us/sections/200622473-Country-Specific-Features-and-Restrictions',
 };

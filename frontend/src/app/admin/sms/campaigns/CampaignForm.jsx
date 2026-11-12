@@ -20,7 +20,8 @@ function preview(body, settings) {
   return `${branded}\n${settings?.optOutText || 'Reply STOP to opt out'}`;
 }
 
-export default function CampaignForm({ campaign, segments, settings, categories, onSaved, onCancel }) {
+/** `endpoint`: the console's own by default; the organizer page passes /organizer/sms/campaigns. */
+export default function CampaignForm({ campaign, segments, settings, categories, onSaved, onCancel, endpoint = '/admin/sms/campaigns', submitNote = 'Submit it when it is ready for a second admin.' }) {
   const toast = useToast();
   const [f, setF] = useState(() => ({
     name: campaign?.name || '',
@@ -44,9 +45,9 @@ export default function CampaignForm({ campaign, segments, settings, categories,
         name: f.name.trim(), category: f.category, body: f.body.trim(), segmentId: f.segmentId || null,
         scheduledAt: f.scheduledAt ? new Date(f.scheduledAt).toISOString() : null,
       };
-      if (campaign?.id) await patch(`/admin/sms/campaigns/${campaign.id}`, body, { noRedirect: true });
-      else await post('/admin/sms/campaigns', body, { noRedirect: true });
-      toast.success('Draft saved. Submit it when it is ready for a second admin.');
+      if (campaign?.id) await patch(`${endpoint}/${campaign.id}`, body, { noRedirect: true });
+      else await post(endpoint, body, { noRedirect: true });
+      toast.success(`Draft saved. ${submitNote}`);
       onSaved();
     } catch (err) {
       toast.error(messageFor(err), { title: describeError(err).title });
@@ -61,9 +62,9 @@ export default function CampaignForm({ campaign, segments, settings, categories,
         <Field label="Campaign name" value={f.name} onChange={set('name')} required minLength={2} hint="Only admins see this" />
         <div className="es-smsform">
           <SelectField label="Category" value={f.category} onChange={set('category')}
-            options={categories.filter((c) => c.trafficClass === 'marketing').map((c) => [c.key, `${c.label}${c.enabled ? '' : ' (off)'}`])} />
+            options={categories.filter((c) => !c.trafficClass || c.trafficClass === 'marketing').map((c) => [c.key, `${c.label}${c.enabled ? '' : ' (off)'}`])} />
           <SelectField label="Audience" value={f.segmentId} onChange={set('segmentId')} required
-            options={[['', 'Choose a segment'], ...segments.map((s) => [s.id, s.name])]} hint="Build segments under Audiences" />
+            options={[['', 'Choose an audience'], ...segments.map((s) => [s.id, s.name])]} hint="Build audiences first" />
         </div>
         <TextareaField label="Message" rows={5} value={f.body} onChange={set('body')} required maxLength={1000}
           hint="Write the offer. The brand name and opt-out line are added for you." />

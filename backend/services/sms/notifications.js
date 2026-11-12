@@ -3,6 +3,7 @@ const logger = require('../../utils/logger');
 const { fetchAll } = require('../../utils/fetchAll');
 const config = require('./config');
 const queue = require('./queue');
+const phone = require('./phone');
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -44,18 +45,28 @@ async function paidOrders(eventId) {
 
 const phoneOf = (order) => (order.guest_phone && String(order.guest_phone).trim()) || order.profiles?.phone || null;
 
+/**
+ * One message per NUMBER for the event — a buyer with three orders gets one
+ * reminder, not three — queued in bulk so a sold-out arena is a handful of
+ * inserts, not one round trip per order. `keyFor(e164)` names the message.
+ */
 async function fanOut(event, keyFor, body, category, extra = {}) {
+  const cfg = await config.load();
   const orders = await paidOrders(event.id);
-  let queued = 0;
+  const byNumber = new Map();
   for (const order of orders) {
-    const to = phoneOf(order);
-    if (!to) continue;
+    const raw = phoneOf(order);
+    const parsed = raw && phone.normalize(raw, { defaultCountry: event.country, matcher: cfg.matcher });
+    if (parsed && !byNumber.has(parsed.e164)) byNumber.set(parsed.e164, { parsed, order });
+  }
+  const inputs = [...byNumber.values()].map(({ parsed, order }) => ({
+    category, e164: parsed.e164, country: parsed.country, body,
+    idempotencyKey: keyFor(parsed.e164), eventId: event.id, orderId: order.id, userId: order.user_id, ...extra,
+  }));
+  let queued = 0;
+  for (let i = 0; i < inputs.length; i += 1000) {
     // eslint-disable-next-line no-await-in-loop
-    const r = await queue.enqueue({
-      category, to, defaultCountry: event.country, body,
-      idempotencyKey: keyFor(order), eventId: event.id, orderId: order.id, userId: order.user_id, ...extra,
-    });
-    if (r.queued) queued += 1;
+    queued += (await queue.enqueueMany(inputs.slice(i, i + 1000))).queued;
   }
   return queued;
 }
@@ -66,14 +77,25 @@ async function loadEvent(eventId) {
   return data;
 }
 
+/** The number a buyer typed beside the SMS boxes, when the order itself has none. */
+async function checkoutPhone(order) {
+  const { data } = await supabase.from('reservations').select('attendee_data').eq('id', order.reservation_id).maybeSingle();
+  return data?.attendee_data?.smsConsent?.e164 || null;
+}
+
 async function ticketConfirmation(orderId) {
   try {
     const { data: order } = await supabase.from('orders')
-      .select(`id, status, guest_phone, user_id, profiles!orders_user_id_fkey ( phone ),
-               events ( id, title, starts_at, timezone, country )`)
+      .select(`id, status, guest_phone, user_id, reservation_id, profiles!orders_user_id_fkey ( phone ),
+               events ( id, title, starts_at, timezone, country, organizer_id )`)
       .eq('id', orderId).maybeSingle();
     if (!order || order.status !== 'paid' || !order.events) return { queued: false };
-    const to = phoneOf(order);
+    // What the buyer ticked at checkout becomes consent NOW, when the order
+    // exists — an abandoned checkout records nothing. Before the enqueue, so
+    // the confirmation below is decided against it.
+    const recorded = await require('./consent').applyCheckoutConsent(order, order.events)
+      .catch((err) => { logger.error({ err: err.message, orderId }, 'checkout SMS consent not recorded'); return []; });
+    const to = phoneOf(order) || (recorded.length ? await checkoutPhone(order) : null);
     if (!to) return { queued: false, reason: 'no_phone' };
     const { count } = await supabase.from('tickets').select('id', { count: 'exact', head: true }).eq('order_id', orderId);
     const e = order.events;
@@ -98,7 +120,7 @@ async function eventCancelled(eventId) {
     if (!event) return 0;
     const body = `${await brand()}: ${clip(event.title, 50)} on ${when(event.starts_at, event.timezone)} has been cancelled. `
       + 'Check your email for details.';
-    return await fanOut(event, (o) => `event:${eventId}:cancelled:${o.id}`, body, 'event_notification',
+    return await fanOut(event, (e164) => `event:${eventId}:cancelled:${e164}`, body, 'event_notification',
       { metadata: { purpose: 'event_cancelled', expiresAt: new Date(Date.now() + 72 * 3_600_000).toISOString() } });
   } catch (err) {
     logger.error({ err: err.message, eventId }, 'cancellation SMS not queued');
@@ -112,7 +134,7 @@ async function scheduleChanged(eventId, previousStartsAt) {
     if (!event || event.status !== 'published' || new Date(event.starts_at) <= new Date()) return 0;
     const body = `${await brand()}: ${clip(event.title, 50)} has moved to ${when(event.starts_at, event.timezone)}. `
       + 'Your tickets stay valid.';
-    return await fanOut(event, (o) => `event:${eventId}:moved:${event.starts_at}:${o.id}`, body, 'event_notification',
+    return await fanOut(event, (e164) => `event:${eventId}:moved:${event.starts_at}:${e164}`, body, 'event_notification',
       { metadata: { purpose: 'schedule_changed', previousStartsAt, expiresAt: event.starts_at } });
   } catch (err) {
     logger.error({ err: err.message, eventId }, 'schedule change SMS not queued');
@@ -138,7 +160,7 @@ async function eventReminders() {
     const where = event.venue_name ? ` at ${clip(event.venue_name, 30)}` : '';
     const body = `${b}: Reminder: ${clip(event.title, 40)} starts ${when(event.starts_at, event.timezone)}${where}. Your tickets are in your email.`;
     // eslint-disable-next-line no-await-in-loop
-    queued += await fanOut(event, (o) => `event:${event.id}:reminder:${o.id}`, body, 'event_notification',
+    queued += await fanOut(event, (e164) => `event:${event.id}:reminder:${e164}`, body, 'event_notification',
       { metadata: { purpose: 'event_reminder', expiresAt: event.starts_at } });
   }
   return queued;

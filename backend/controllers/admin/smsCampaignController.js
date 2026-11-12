@@ -32,7 +32,8 @@ const SCOPE = /^(platform|[0-9a-f-]{36})$/;
 
 async function listSegments(req, res, next) {
   try {
-    const { data, error } = await supabase.from('sms_segments').select('*').order('updated_at', { ascending: false });
+    // Eventsli's own segments. Organizers' audiences are theirs (organizer/sms).
+    const { data, error } = await supabase.from('sms_segments').select('*').is('organizer_id', null).order('updated_at', { ascending: false });
     if (error) throw new Error(error.message);
     return sendOk(res, (data || []).map((s) => shape.segment(s, describe)));
   } catch (err) { return next(err); }
@@ -44,7 +45,7 @@ async function saveSegment(req, res, next) {
     if (def.error) return fail(res, 400, 'VALIDATION_ERROR', def.error);
     const row = { name: req.body.name, description: req.body.description || null, definition: def.value, updated_at: new Date().toISOString() };
     const q = req.params.id
-      ? supabase.from('sms_segments').update(row).eq('id', req.params.id)
+      ? supabase.from('sms_segments').update(row).eq('id', req.params.id).is('organizer_id', null)
       : supabase.from('sms_segments').insert({ ...row, created_by: req.user.id });
     const { data, error } = await q.select('*').maybeSingle();
     if (error) return fail(res, 400, 'VALIDATION_ERROR', 'The segment could not be saved.');
@@ -56,7 +57,7 @@ async function saveSegment(req, res, next) {
 
 async function deleteSegment(req, res, next) {
   try {
-    const { error } = await supabase.from('sms_segments').delete().eq('id', req.params.id);
+    const { error } = await supabase.from('sms_segments').delete().eq('id', req.params.id).is('organizer_id', null);
     if (error) return fail(res, 409, 'CONFLICT', 'A campaign uses this segment. Cancel or finish it first.');
     await audit(req, 'segment.deleted', { id: req.params.id });
     return sendOk(res, { deleted: true });
@@ -68,7 +69,7 @@ async function previewSegment(req, res, next) {
   try {
     let definition = req.body.definition;
     if (req.params.id) {
-      const { data } = await supabase.from('sms_segments').select('definition').eq('id', req.params.id).maybeSingle();
+      const { data } = await supabase.from('sms_segments').select('definition').eq('id', req.params.id).is('organizer_id', null).maybeSingle();
       if (!data) return fail(res, 404, 'NOT_FOUND', 'No such segment.');
       definition = data.definition;
     }
@@ -103,7 +104,17 @@ async function listCampaigns(req, res, next) {
     const { data, error } = await q;
     if (error) throw new Error(error.message);
     const counts = await stats((data || []).filter((c) => ['sending', 'completed', 'cancelled'].includes(c.status)).map((c) => c.id));
-    return sendOk(res, (data || []).map((c) => shape.campaign(c, { delivery: counts[c.id] || null, mine: c.created_by === req.user.id })));
+    const orgIds = [...new Set((data || []).map((c) => c.organizer_id).filter(Boolean))];
+    const { data: orgs } = orgIds.length ? await supabase.from('organizers').select('id, display_name').in('id', orgIds) : { data: [] };
+    const orgName = new Map((orgs || []).map((o) => [o.id, o.display_name]));
+    const segIds = [...new Set((data || []).map((c) => c.segment_id).filter(Boolean))];
+    const { data: segs } = segIds.length ? await supabase.from('sms_segments').select('id, name').in('id', segIds) : { data: [] };
+    const segName = new Map((segs || []).map((s) => [s.id, s.name]));
+    return sendOk(res, (data || []).map((c) => shape.campaign(c, {
+      delivery: counts[c.id] || null, mine: c.created_by === req.user.id,
+      organizerName: c.organizer_id ? orgName.get(c.organizer_id) || 'Organizer' : null,
+      segmentName: c.segment_id ? segName.get(c.segment_id) || null : null,
+    })));
   } catch (err) { return next(err); }
 }
 
@@ -124,15 +135,21 @@ async function saveCampaign(req, res, next) {
     const checked = await validateBody(category, req.body.body);
     if (checked.error) return fail(res, 400, 'VALIDATION_ERROR', checked.error);
     if (!hasRole(req.user.access, checked.cat.min_role)) return fail(res, 403, 'FORBIDDEN', 'Your role cannot create campaigns in this category.');
-    const scope = req.body.consentScope || 'platform';
-    if (!SCOPE.test(scope)) return fail(res, 400, 'VALIDATION_ERROR', 'Consent scope must be "platform" or an organizer id.');
+    // Eventsli's campaigns rely on consent given TO Eventsli, always. Consent a
+    // buyer gave an organizer is that organizer's, used only by their own
+    // campaigns (organizer/sms), never by a platform one.
+    const scope = 'platform';
+    if (req.body.segmentId) {
+      const { data: seg } = await supabase.from('sms_segments').select('organizer_id').eq('id', req.body.segmentId).maybeSingle();
+      if (!seg || seg.organizer_id) return fail(res, 400, 'VALIDATION_ERROR', 'Choose one of Eventsli’s own segments.');
+    }
     const row = {
       name: req.body.name, category, body: req.body.body, segment_id: req.body.segmentId || null, consent_scope: scope,
       scheduled_at: req.body.scheduledAt || null, updated_at: new Date().toISOString(),
     };
     let q;
     if (req.params.id) {
-      q = supabase.from('sms_campaigns').update({ ...row, status: 'draft' }).eq('id', req.params.id).in('status', ['draft', 'rejected']);
+      q = supabase.from('sms_campaigns').update({ ...row, status: 'draft' }).eq('id', req.params.id).is('organizer_id', null).in('status', ['draft', 'rejected']);
     } else {
       q = supabase.from('sms_campaigns').insert({ ...row, created_by: req.user.id });
     }
@@ -167,6 +184,8 @@ async function submitCampaign(req, res, next) {
   try {
     const c = await load(req.params.id);
     if (!c) return fail(res, 404, 'NOT_FOUND', 'No such campaign.');
+    // An organizer submits their own; submitting it here could skip Eventsli's review.
+    if (c.organizer_id) return fail(res, 409, 'CONFLICT', 'Organizers submit their own campaigns.');
     if (!c.segment_id) return fail(res, 400, 'VALIDATION_ERROR', 'Choose an audience segment first.');
     const checked = await validateBody(c.category, c.body);
     if (checked.error) return fail(res, 400, 'VALIDATION_ERROR', checked.error);
@@ -187,6 +206,16 @@ async function approveCampaign(req, res, next) {
     const cat = cfg.categories.get(c.category);
     if (!cat?.enabled) return fail(res, 409, 'CONFLICT', `${cat?.label || 'This category'} is turned off. Turn it on before approving.`);
     if (!hasRole(req.user.access, cat.min_role)) return fail(res, 403, 'FORBIDDEN', 'Your role cannot approve campaigns in this category.');
+    if (c.organizer_id) {
+      const [{ data: access }, { data: org }] = await Promise.all([
+        supabase.from('sms_organizer_access').select('enabled, categories').eq('organizer_id', c.organizer_id).maybeSingle(),
+        supabase.from('organizers').select('is_banned').eq('id', c.organizer_id).maybeSingle(),
+      ]);
+      if (org?.is_banned) return fail(res, 409, 'CONFLICT', 'This organizer is banned.');
+      if (!access?.enabled || !(access.categories || []).includes(c.category)) {
+        return fail(res, 409, 'CONFLICT', 'This organizer does not have SMS access for this kind of campaign. Grant it under SMS → Organizers first.');
+      }
+    }
     return transition(req, res, ['pending_approval'], {
       status: 'approved', approved_by: req.user.id, approved_at: new Date().toISOString(), decision_note: req.body.note || null,
     }, 'approved');

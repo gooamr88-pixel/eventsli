@@ -18,10 +18,11 @@ function withBrand(body, brand) {
   return text.toLowerCase().startsWith(String(brand).toLowerCase()) ? text : `${brand}: ${text}`;
 }
 
-function compose({ baseBody, category, settings, sender = null, unsubscribeUrl = null }) {
+/** `brand`: the sender name a marketing text opens with — an organizer's name on their own campaigns. */
+function compose({ baseBody, category, settings, sender = null, unsubscribeUrl = null, brand = null }) {
   let text = String(baseBody || '').trim();
   if (category.traffic_class === 'marketing') {
-    text = withBrand(text, settings.brand_name);
+    text = withBrand(text, brand || settings.brand_name);
     if (category.append_opt_out) {
       const line = !sender || canReceiveReplies(sender) || !unsubscribeUrl
         ? settings.opt_out_text

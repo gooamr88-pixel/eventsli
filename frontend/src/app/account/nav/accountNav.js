@@ -115,6 +115,8 @@ export function accountNavGroups({ upcoming = null, canSell = false } = {}) {
       label: 'Your account',
       items: [
         { key: 'security', label: 'Sign-in & security', icon: 'shield', href: '/account/security' },
+        // Text message consent: tickets and offers as separate answers (account/messages).
+        { key: 'messages', label: 'Text messages', icon: 'chat', href: '/account/messages' },
         /**
          * ─────────────────────────────────────────────────────────────────────
          * THE WAY TO START SELLING, for a buyer who has not.

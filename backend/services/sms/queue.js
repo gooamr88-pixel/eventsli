@@ -36,7 +36,7 @@ function buildRow(cfg, input) {
     : phone.normalize(input.to, { defaultCountry: input.defaultCountry, matcher: cfg.matcher });
   if (!parsed) return { error: 'invalid_number' };
 
-  const text = compose({ baseBody: input.body, category, settings: cfg.settings });
+  const text = compose({ baseBody: input.body, category, settings: cfg.settings, brand: input.brand || null });
   if (text.segments > category.max_segments) return { error: 'too_long', segments: text.segments };
   const { est, currency } = estimate(cfg, parsed.country, text.segments);
 
@@ -51,7 +51,10 @@ function buildRow(cfg, input) {
       encoding: text.encoding,
       segments: text.segments,
       priority: input.priority ?? PRIORITY[category.traffic_class],
-      consent_scope: input.consentScope || (category.traffic_class === 'marketing' ? 'platform' : null),
+      // Which consent decides this message at dispatch: marketing consent to
+      // its sender, or the person's transactional consent (always platform-wide).
+      consent_kind: category.traffic_class,
+      consent_scope: category.traffic_class === 'marketing' ? (input.consentScope || 'platform') : 'platform',
       campaign_id: input.campaignId || null,
       event_id: input.eventId || null,
       order_id: input.orderId || null,
@@ -60,7 +63,7 @@ function buildRow(cfg, input) {
       est_cost_micros: est,
       currency,
       next_attempt_at: input.notBefore ? new Date(input.notBefore).toISOString() : new Date().toISOString(),
-      metadata: { ...(input.metadata || {}), baseBody: String(input.body).trim() },
+      metadata: { ...(input.metadata || {}), baseBody: String(input.body).trim(), ...(input.brand ? { brand: input.brand } : {}) },
     },
   };
 }

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useApi } from '../../hooks/useApi';
 import { formatEventTime } from '../../lib/eventTime';
 import NavIcon from '../../components/shell/NavIcon';
-import { VERBS } from '../audit/AuditDetail';
+import { verbOf } from '../audit/AuditDetail';
 
 /**
  * The last few things an ADMIN did — the audit log's first page, in short.
@@ -13,7 +13,7 @@ import { VERBS } from '../audit/AuditDetail';
  * of everything that happens on the platform: there is no "new organizer
  * signed up" or "payout sent" entry to show, and inventing one here would put
  * a second, unofficial history beside the real one. The labels are the
- * audit page's own (VERBS), so the two can never word an action differently.
+ * audit page's own (verbOf), so the two can never word an action differently.
  *
  * Times are absolute, on the viewer's clock — "2 hours ago" would need the
  * current time during render, which the React rules here forbid.
@@ -53,7 +53,7 @@ export default function RecentActivity() {
       ) : (
         <ul className="es-activity">
           {entries.map((entry) => {
-            const [label] = VERBS[entry.action] || [entry.action];
+            const [label] = verbOf(entry.action);
             const icon = ICONS[String(entry.action).split('.')[0]] || 'pulse';
             const who = entry.actor?.name || entry.actor?.email || 'Unknown admin';
             return (

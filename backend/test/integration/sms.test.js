@@ -7,6 +7,8 @@ const http = require('node:http');
 process.env.SMS_DRY_RUN = 'true';
 process.env.TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID || 'ACintegration';
 process.env.TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN || 'integration-token';
+// A fixed TEST key (32 bytes) so credential storage can be exercised. Never a real one.
+process.env.SMS_CREDENTIALS_KEY = process.env.SMS_CREDENTIALS_KEY || Buffer.alloc(32, 7).toString('base64');
 require('../helpers/testEnv');
 const { supabase } = require('../../config/supabase');
 const app = require('../../app');
@@ -80,7 +82,7 @@ after(async () => {
   if (ids.sender) await supabase.from('sms_senders').delete().eq('id', ids.sender);
   if (savedSettings) await supabase.from('sms_settings').update({ sending_enabled: savedSettings.sending_enabled }).eq('id', 1);
   if (savedTwilio) await supabase.from('sms_providers').update({ enabled: savedTwilio.enabled, circuit_open_until: null, consecutive_failures: 0 }).eq('id', 'twilio');
-  for (const key of ['super', 'admin', 'admin2']) {
+  for (const key of ['super', 'admin', 'admin2', 'org']) {
     if (!ids[key]) continue;
     await supabase.from('admin_audit').delete().eq('actor_id', ids[key]);
     await supabase.from('sessions').delete().eq('user_id', ids[key]);
@@ -295,4 +297,11 @@ test('analytics aggregate in the database', async () => {
   assert.equal(r.status, 200, r.text);
   const zq = r.body.data.current.byCountry.find((c) => c.country === ISO);
   assert.ok(zq && zq.delivered >= 1, 'the delivered test message is counted');
+});
+
+// ─── End to end: the four categories, consent, organizers, credentials ─────
+// Run here, after the tests above and in this same process: both change
+// platform-wide SMS state, so they must not run in parallel. See the part file.
+require('./smsFlows.part')({
+  call, cookies, ids, stamp, PASSWORD, makeUser, baseUrl: () => baseUrl,
 });

@@ -12,6 +12,7 @@ import NavIcon from '../../../components/shell/NavIcon';
 import { Loading, ErrorNotice, Notice } from '../../../components/Feedback';
 import { formatCount } from '../../../lib/smsFormat';
 import { SmsPage, Toggle } from '../smsUi';
+import ProviderCredentials from './ProviderCredentials';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -51,7 +52,7 @@ function ProviderCard({ p, canEdit, onChanged }) {
 
   return (
     <Panel icon="send" title={p.displayName}
-      description={p.credentials.configured ? 'Credentials present on the server' : `Missing on the server: ${p.credentials.missing.join(', ')}`}
+      description={p.credentials.configured ? 'Credentials set' : `Missing: ${p.credentials.missing.join(', ')}`}
       action={<Toggle label={`${p.displayName} enabled`} checked={p.enabled} disabled={!canEdit || busy}
         onChange={(on) => run(() => patch(`/admin/sms/providers/${p.id}`, { enabled: on }, { noRedirect: true }), on ? `${p.displayName} is on.` : `${p.displayName} is off.`)} />}>
       <div className="fx-stack">
@@ -86,6 +87,7 @@ function ProviderCard({ p, canEdit, onChanged }) {
             <button type="submit" className="es-btn es-btn--secondary es-btn--sm" disabled={busy}>Save</button>
           </form>
         )}
+        {canEdit && <ProviderCredentials provider={p} onChanged={onChanged} />}
         {canEdit && p.credentials.configured && (
           <div className="fx-row items-center gap-3">
             <button type="button" className="es-btn es-btn--ghost es-btn--sm" disabled={busy || sync.running}

@@ -32,6 +32,7 @@ function country(c, routes = [], cfg = null) {
     restrictions: c.restrictions, notes: c.notes, maxDailyMessages: c.max_daily_messages,
     pausedUntil: c.paused_until && new Date(c.paused_until) > new Date() ? c.paused_until : null, pausedReason: c.paused_reason,
     verifiedAt: c.verified_at, verificationSource: c.verification_source, updatedAt: c.updated_at,
+    reviewDue: Boolean(c.verified_at && Date.now() - new Date(c.verified_at).getTime() > 365 * 86_400_000),
     routes: shaped,
     estimatedCost: cheapest ? { micros: cheapest.costMicros, currency: cheapest.currency, providerId: cheapest.providerId } : null,
     readyToEnable: missing.length === 0,
@@ -46,6 +47,7 @@ function provider(p) {
     circuitOpenUntil: p.circuit_open_until && new Date(p.circuit_open_until) > new Date() ? p.circuit_open_until : null,
     lastSuccessAt: p.last_success_at, lastFailureAt: p.last_failure_at, lastError: p.last_error,
     pricingSync: p.pricing_sync || {},
+    lastTest: p.settings?.lastTest || null,
   };
 }
 
@@ -75,6 +77,9 @@ function settings(s) {
     countryHourlyLimit: s.country_hourly_limit, dailyMarketingCapMicros: s.daily_marketing_cap_micros,
     spendCurrency: s.spend_currency, reminderHoursBefore: s.reminder_hours_before,
     maxCampaignRecipients: s.max_campaign_recipients, updatedAt: s.updated_at,
+    messageRetentionDays: s.message_retention_days ?? null,
+    stopConfirmationProviders: s.stop_confirmation_providers || [],
+    stopConfirmationText: s.stop_confirmation_text || '',
   };
 }
 
@@ -101,7 +106,7 @@ function campaign(c, extra = {}) {
     submittedAt: c.submitted_at, approvedAt: c.approved_at, decisionNote: c.decision_note,
     startedAt: c.started_at, completedAt: c.completed_at, cancelledAt: c.cancelled_at,
     recipientsQueued: c.recipients_queued, recipientsSkipped: c.recipients_skipped, skippedReasons: c.skipped_reasons,
-    expansionDone: c.expansion_done, createdAt: c.created_at, ...extra,
+    expansionDone: c.expansion_done, createdAt: c.created_at, organizerId: c.organizer_id || null, ...extra,
   };
 }
 

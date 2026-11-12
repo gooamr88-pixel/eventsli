@@ -53,7 +53,8 @@ describe('organizer destinations', () => {
   test('without an event, no event tools are listed — one note says where they are', () => {
     const groups = organizerNavGroups({ eventId: null });
     const keys = groups.flatMap((g) => g.items).map((i) => i.key);
-    expect(keys).toEqual(['dashboard', 'events', 'payments', 'profile']);
+    // 'sms': the organizer's text campaigns (organizer/sms), an account-level destination.
+    expect(keys).toEqual(['dashboard', 'events', 'payments', 'sms', 'profile']);
     expect(groups.find((g) => g.id === 'event').note).toMatch(/open an event/i);
   });
 

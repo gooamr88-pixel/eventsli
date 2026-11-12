@@ -110,6 +110,21 @@ export default function SmsOverview() {
       {header}
       <SmsTabs />
 
+      {(data.health?.backlogMinutes || data.health?.stuckSending || data.health?.circuitOpen) && (
+        <Notice tone="danger" title="Sending needs attention.">
+          <p>
+            {data.health.backlogMinutes ? `Queued texts have waited ${data.health.backlogMinutes} minutes without being sent. ` : ''}
+            {data.health.stuckSending ? `${data.health.stuckSending} stuck mid-send. ` : ''}
+            {data.health.circuitOpen ? `Paused after repeated failures: ${data.health.circuitOpen.join(', ')}.` : ''}
+          </p>
+        </Notice>
+      )}
+      {data.health?.unknownLastHour > 0 && (
+        <Notice tone="warning" title={`${data.health.unknownLastHour} text(s) with an unknown outcome in the last hour.`}
+          action={<Link href="/admin/sms/messages" className="es-btn es-btn--secondary es-btn--sm">Delivery log</Link>}>
+          <p>They were not retried, to avoid duplicates. Decide each one in the delivery log.</p>
+        </Notice>
+      )}
       {!readiness.sendingEnabled && (
         <Notice tone="info" title="Sending is switched off.">
           <p>Messages queue but are not sent until a super admin turns sending on under Compliance. Countries also stay closed until verified.</p>

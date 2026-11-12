@@ -101,6 +101,8 @@ export function organizerNavGroups({
     label: 'Your account',
     items: [
       { key: 'payments', label: 'Payments', icon: 'bank', href: '/organizer/payments' },
+      // Text campaigns to buyers who opted in to THIS organizer (organizer/sms).
+      { key: 'sms', label: 'Text messages', icon: 'chat', href: '/organizer/sms' },
       { key: 'profile', label: 'Organization', icon: 'user', href: '/organizer/profile' },
     ],
   };

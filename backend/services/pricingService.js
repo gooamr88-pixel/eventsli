@@ -55,7 +55,8 @@ async function quoteReservation(reservationId, { chargeModel = CHARGE_MODEL.DIRE
     .from('events')
     .select(`id, slug, title, status, currency, organizer_id, venue_name, starts_at, timezone,
              commission_pct, commission_tax_pct, event_tax_pct,
-             payment_fee_mode, payment_fee_pct, payment_fee_fixed_cents, fee_bearer`)
+             payment_fee_mode, payment_fee_pct, payment_fee_fixed_cents, fee_bearer,
+             organizers ( display_name )`)
     .eq('id', res.event_id)
     .single();
   if (eventError) throw new Error(`quote: event lookup failed: ${eventError.message}`);
@@ -203,6 +204,8 @@ function publicBreakdown(q) {
     // whole event: this is a checkout, not a listing.
     event: {
       slug: q.event.slug,
+      // Named in the SMS marketing checkbox: "offers from <organizer>".
+      organizerName: q.event.organizers?.display_name || null,
       title: q.event.title,
       venue: q.event.venue_name || null,
       startsAt: q.event.starts_at || null,

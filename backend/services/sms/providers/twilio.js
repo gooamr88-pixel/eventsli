@@ -1,5 +1,6 @@
 const { networkOutcome, toMicros } = require('./httpOutcome');
 const { verifyTwilio } = require('../webhookAuth');
+const credentials = require('../credentials');
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -19,24 +20,17 @@ const API = 'https://api.twilio.com/2010-04-01';
 const PRICING = 'https://pricing.twilio.com/v1/Messaging/Countries';
 const TIMEOUT_MS = 15_000;
 
-const env = () => ({
-  sid: process.env.TWILIO_ACCOUNT_SID,
-  token: process.env.TWILIO_AUTH_TOKEN,
-  keySid: process.env.TWILIO_API_KEY_SID,
-  keySecret: process.env.TWILIO_API_KEY_SECRET,
-});
+/** Environment variables first, then credentials stored from the console (credentials.js). */
+const env = (override = null) => {
+  const c = override || credentials.resolve('twilio');
+  return { sid: c.accountSid, token: c.authToken, keySid: c.apiKeySid, keySecret: c.apiKeySecret };
+};
 
-function credentialStatus() {
-  const e = env();
-  const missing = [];
-  if (!e.sid) missing.push('TWILIO_ACCOUNT_SID');
-  if (!e.token) missing.push('TWILIO_AUTH_TOKEN');
-  return { configured: missing.length === 0, missing, usesApiKey: Boolean(e.keySid && e.keySecret) };
-}
+const credentialStatus = () => credentials.status('twilio');
 const configured = () => credentialStatus().configured;
 
-function authHeader() {
-  const e = env();
+function authHeader(override = null) {
+  const e = env(override);
   const [user, pass] = e.keySid && e.keySecret ? [e.keySid, e.keySecret] : [e.sid, e.token];
   return `Basic ${Buffer.from(`${user}:${pass}`).toString('base64')}`;
 }
@@ -164,6 +158,54 @@ async function lookup({ to, body, since }) {
   }
 }
 
+/**
+ * READ-ONLY account check: the account's name and status. Sends nothing.
+ * `override`: candidate credentials typed in the console, tested before saving.
+ */
+async function testConnection(override = null) {
+  const e = env(override);
+  if (!e.sid || !e.token) return { ok: false, error: 'Account SID and auth token are required.' };
+  try {
+    const res = await fetch(`${API}/Accounts/${encodeURIComponent(e.sid)}.json`, {
+      headers: { authorization: authHeader(override), accept: 'application/json' },
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (res.status === 401 || res.status === 403) return { ok: false, error: 'Twilio refused these credentials.' };
+    if (!res.ok) return { ok: false, error: `Twilio answered ${res.status}.` };
+    const active = json.status === 'active';
+    return {
+      ok: active, account: json.friendly_name || null, status: json.status, type: json.type || null,
+      error: active ? null : `The account is ${json.status}.`,
+    };
+  } catch (err) {
+    return { ok: false, error: `Could not reach Twilio (${err.name === 'TimeoutError' ? 'timeout' : 'network'}).` };
+  }
+}
+
+const TOLL_FREE = /^\+1(800|833|844|855|866|877|888)/;
+
+/** READ-ONLY: the account's SMS-capable numbers and messaging services, to import as senders. */
+async function listNumbers(override = null) {
+  const e = env(override);
+  const get = async (url) => {
+    const res = await fetch(url, { headers: { authorization: authHeader(override), accept: 'application/json' }, signal: AbortSignal.timeout(TIMEOUT_MS) });
+    if (!res.ok) throw new Error(`Twilio answered ${res.status}`);
+    return res.json();
+  };
+  const [numbers, services] = await Promise.all([
+    get(`${API}/Accounts/${encodeURIComponent(e.sid)}/IncomingPhoneNumbers.json?PageSize=200`),
+    get('https://messaging.twilio.com/v1/Services?PageSize=50').catch(() => ({ services: [] })),
+  ]);
+  return [
+    ...(services.services || []).map((s) => ({ value: s.sid, kind: 'messaging_service', label: s.friendly_name || null, sms: true })),
+    ...(numbers.incoming_phone_numbers || []).map((n) => ({
+      value: n.phone_number, kind: TOLL_FREE.test(n.phone_number) ? 'toll_free' : 'long_code',
+      label: n.friendly_name || null, sms: n.capabilities?.sms !== false,
+    })),
+  ];
+}
+
 async function pricing(iso2) {
   const res = await fetch(`${PRICING}/${encodeURIComponent(iso2)}`, {
     headers: { authorization: authHeader(), accept: 'application/json' },
@@ -186,6 +228,6 @@ async function pricing(iso2) {
 module.exports = {
   id: 'twilio', displayName: 'Twilio', repliesSupported: true,
   configured, credentialStatus, send, parseStatus, parseInbound, verifyWebhook, inboundReply, lookup, pricing,
-  classifyError,
+  testConnection, listNumbers, classifyError, signsWebhooks: () => true, repliesInline: true,
   docs: (iso2) => `https://www.twilio.com/en-us/guidelines/${String(iso2).toLowerCase()}/sms`,
 };

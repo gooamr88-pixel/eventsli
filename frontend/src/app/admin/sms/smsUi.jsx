@@ -21,6 +21,7 @@ export const SMS_SECTIONS = [
   { href: '/admin/sms/categories', label: 'Categories' },
   { href: '/admin/sms/campaigns', label: 'Campaigns' },
   { href: '/admin/sms/audiences', label: 'Audiences' },
+  { href: '/admin/sms/organizers', label: 'Organizers' },
   { href: '/admin/sms/analytics', label: 'Analytics' },
   { href: '/admin/sms/messages', label: 'Delivery log' },
   { href: '/admin/sms/compliance', label: 'Compliance' },

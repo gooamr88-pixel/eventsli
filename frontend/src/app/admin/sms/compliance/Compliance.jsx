@@ -34,6 +34,8 @@ function SettingsForm({ s, canEdit, onSaved }) {
     defaultQuietStart: String(s.defaultQuietStart), defaultQuietEnd: String(s.defaultQuietEnd),
     countryHourlyLimit: String(s.countryHourlyLimit), cap: microsToInput(s.dailyMarketingCapMicros),
     spendCurrency: s.spendCurrency, reminderHoursBefore: String(s.reminderHoursBefore), maxCampaignRecipients: String(s.maxCampaignRecipients),
+    retention: s.messageRetentionDays == null ? '' : String(s.messageRetentionDays),
+    stopProviders: s.stopConfirmationProviders || [], stopText: s.stopConfirmationText || '',
   }));
   const [busy, setBusy] = useState(false);
   const set = (k) => (e) => setF((x) => ({ ...x, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }));
@@ -71,6 +73,8 @@ function SettingsForm({ s, canEdit, onSaved }) {
       defaultQuietStart: Number(f.defaultQuietStart), defaultQuietEnd: Number(f.defaultQuietEnd),
       countryHourlyLimit: Number(f.countryHourlyLimit), dailyMarketingCapMicros: cap, spendCurrency: f.spendCurrency.trim(),
       reminderHoursBefore: Number(f.reminderHoursBefore), maxCampaignRecipients: Number(f.maxCampaignRecipients),
+      messageRetentionDays: f.retention.trim() === '' ? null : Number(f.retention),
+      stopConfirmationProviders: f.stopProviders, stopConfirmationText: f.stopText.trim(),
     }, 'Compliance settings saved.');
   }
 
@@ -100,6 +104,22 @@ function SettingsForm({ s, canEdit, onSaved }) {
           <Field label="Budget currency" value={f.spendCurrency} onChange={set('spendCurrency')} maxLength={3} />
           <Field label="Event reminder (hours before)" type="number" min={1} max={168} value={f.reminderHoursBefore} onChange={set('reminderHoursBefore')} />
           <Field label="Most recipients per campaign" type="number" min={1} value={f.maxCampaignRecipients} onChange={set('maxCampaignRecipients')} />
+          <Field label="Redact message text after (days)" type="number" min={30} max={3650} value={f.retention} onChange={set('retention')} optional
+            hint="Empty: keep. Rows, numbers and statuses stay for analytics; consent evidence is never touched." />
+          <div className="es-smsform__wide fx-stack fx-stack--sm">
+            <p className="text-sm font-medium text-ink">Send our own STOP confirmation via</p>
+            <div className="fx-row gap-4">
+              {['twilio', 'vonage'].map((p) => (
+                <label key={p} className="es-smscheck">
+                  <input type="checkbox" checked={f.stopProviders.includes(p)}
+                    onChange={(e) => setF((x) => ({ ...x, stopProviders: e.target.checked ? [...x.stopProviders, p] : x.stopProviders.filter((v) => v !== p) }))} />
+                  <span className="capitalize">{p}</span>
+                </label>
+              ))}
+            </div>
+            <p className="text-xs text-subtle">Tick a provider only if its account does NOT already confirm STOP itself (Twilio Advanced Opt-Out does), or people get two confirmations.</p>
+            <Field label="STOP confirmation text" value={f.stopText} onChange={set('stopText')} maxLength={160} />
+          </div>
         </fieldset>
         {canEdit && <div><button type="submit" className="es-btn es-btn--primary es-btn--sm" disabled={busy}>Save settings</button></div>}
       </form>

@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { rememberWatchToken } from '../../verify-email/useVerificationWatch';
 import { post } from '../../../utils/apiClient';
 import Field from '../../../components/forms/Field';
+import SmsConsentFields, { smsPayload } from '../../../components/forms/SmsConsentFields';
 import FormError from '../../../components/forms/FormError';
 import SubmitButton from '../../../components/forms/SubmitButton';
 import AccountTypeChoice from '../AccountTypeChoice';
@@ -34,6 +35,8 @@ export default function OrganizerSignupForm() {
   const asked = params.get('next');
   const termsId = useId();
   const privacyId = useId();
+  // Separate, unticked: account notices by text, and Eventsli offers.
+  const [sms, setSms] = useState({});
   const [form, setForm] = useState({
     fullName: '', organizationName: '', phone: '', email: '', password: '', confirmPassword: '',
     acceptTerms: false, acceptPrivacy: false,
@@ -65,6 +68,7 @@ export default function OrganizerSignupForm() {
         password: form.password,
         acceptTerms: form.acceptTerms,
         acceptPrivacy: form.acceptPrivacy,
+        ...smsPayload(sms, form.phone),
       }, { noRedirect: true });
 
       // Handed to the waiting screen so it can notice the activation happening
@@ -125,6 +129,7 @@ export default function OrganizerSignupForm() {
           hint="Only used by Eventsli to reach you about your events."
           value={form.phone} onChange={set('phone')}
         />
+        <SmsConsentFields mode="registration" value={sms} onChange={setSms} phone={form.phone} />
         <Field
           label="Email" type="email" name="email" autoComplete="email" required
           hint="Your activation link is sent here."

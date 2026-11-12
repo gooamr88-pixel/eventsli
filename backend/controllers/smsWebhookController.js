@@ -43,14 +43,20 @@ function adapterFor(req, res) {
   return adapter;
 }
 
+/** Credentials stored from the console are loaded with the SMS config; make sure they are before verifying. */
+const ready = () => require('../services/sms/config').load().catch(() => null);
+
 async function status(req, res) {
   const adapter = adapterFor(req, res);
   if (!adapter) return undefined;
+  await ready();
   const all = paramsOf(req);
   const mid = typeof req.query.mid === 'string' ? req.query.mid : null;
   const tokenOk = mid && auth.verify(`status:${mid}`, req.query.t);
-  const signatureOk = adapter.verifyWebhook({ url: signedUrl(req), params: signedParams(req), headers: req.headers, query: req.query })
-    && (adapter.id !== 'vonage' || Boolean(process.env.VONAGE_SIGNATURE_SECRET));
+  // A provider signature counts only where the provider actually signs (Vonage:
+  // when a signature secret is configured, in the environment or stored).
+  const signatureOk = Boolean(adapter.signsWebhooks?.())
+    && adapter.verifyWebhook({ url: signedUrl(req), params: signedParams(req), headers: req.headers, query: req.query });
   if (!tokenOk && !signatureOk) {
     logger.warn({ provider: adapter.id, ip: hashIp(req.ip) }, 'SMS status webhook refused: not authenticated');
     return sendFail(res, { status: 403, error: 'FORBIDDEN', message: 'Not authenticated.' });
@@ -70,6 +76,7 @@ async function status(req, res) {
 async function inbound(req, res) {
   const adapter = adapterFor(req, res);
   if (!adapter) return undefined;
+  await ready();
   const all = paramsOf(req);
   let ok;
   if (adapter.id === 'twilio') {
@@ -83,7 +90,19 @@ async function inbound(req, res) {
   }
   let reply = null;
   try {
-    ({ reply } = await receipts.handleInbound(adapter.id, adapter.parseInbound(all)));
+    const handled = await receipts.handleInbound(adapter.id, adapter.parseInbound(all));
+    reply = handled.reply;
+    // Providers that cannot answer in the webhook response (Vonage) get the
+    // reply as an ordinary message, keyed by the inbound so a retried webhook
+    // does not answer twice.
+    if (reply && !adapter.repliesInline && handled.from) {
+      await require('../services/sms/queue').enqueue({
+        category: 'participant', to: handled.from, body: reply,
+        idempotencyKey: `reply:${adapter.id}:${handled.inboundId || Date.now()}`,
+        metadata: { purpose: 'keyword_reply', consentExempt: 'keyword_reply' },
+      });
+      reply = null;
+    }
   } catch (err) {
     logger.error({ err: err.message, provider: adapter.id }, 'SMS inbound could not be handled');
   }
@@ -113,18 +132,18 @@ async function getPreferences(req, res, next) {
 
 async function putPreferences(req, res, next) {
   try {
-    const result = await consent.updateOwnPreference({
+    const result = await consent.updatePreferences({
       userId: req.user.id,
       rawPhone: req.body.phone,
-      optIn: req.body.marketing === true,
-      evidence: {
-        source: 'account_settings', ipHash: hashIp(req.ip),
-        statement: 'Signed-in account holder changed their own SMS marketing preference.',
-        at: new Date().toISOString(),
-      },
+      transactional: req.body.transactional,
+      marketing: req.body.marketing,
+      organizers: Array.isArray(req.body.organizers) ? req.body.organizers : [],
+      ipHash: req.ip ? hashIp(req.ip) : null,
     });
-    if (result.error) return sendFail(res, { status: 400, error: 'VALIDATION_ERROR', message: result.error });
-    return sendOk(res, { status: result.status, confirmationSent: Boolean(result.confirmationSent) });
+    if (result.error) {
+      return sendFail(res, { status: 400, error: 'VALIDATION_ERROR', message: result.error, meta: { details: [{ field: 'phone', message: result.error }] } });
+    }
+    return sendOk(res, { ...(await consent.preferencesFor(req.user.id)), confirmationSent: Boolean(result.confirmationSent) });
   } catch (err) {
     return next(err);
   }

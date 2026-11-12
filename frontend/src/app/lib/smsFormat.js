@@ -129,6 +129,7 @@ export const EXCLUSION_LABEL = {
   no_consent: 'No marketing consent',
   consent_pending: 'Consent not confirmed',
   recipient_cap: 'Over the campaign cap',
+  organizer_cap: 'Over the organizer’s monthly allowance',
   too_long: 'Message too long',
 };
 
@@ -159,7 +160,14 @@ export function describeActivity(action, payload = {}) {
     'country.enabled': `Country enabled${iso}`, 'country.disabled': `Country disabled${iso}`,
     'country.blocked': `Country blocked${iso}`, 'country.verified': `Country verified${iso}`,
     'country.updated': `Country rules updated${iso}`, 'country.created': `Country added${iso}`,
-    'country.resumed': `Country resumed${iso}`,
+    'country.resumed': `Country resumed${iso}`, 'country.unverified': `Verification withdrawn${iso}`,
+    'country.bulk_enabled': `${formatCount(payload?.iso2s?.length)} countries turned on`,
+    'country.bulk_disabled': `${formatCount(payload?.iso2s?.length)} countries turned off`,
+    'provider.credentials_saved': `${payload?.provider || 'Provider'} credentials saved`,
+    'provider.credentials_deleted': `${payload?.provider || 'Provider'} credentials removed`,
+    'provider.connection_tested': `${payload?.provider || 'Provider'} connection ${payload?.ok ? 'OK' : 'failed'}`,
+    'provider.numbers_imported': `${formatCount(payload?.count)} numbers imported from ${payload?.provider || 'a provider'}`,
+    'organizer.access': `Texts ${payload?.enabled ? 'enabled' : 'disabled'} for ${payload?.name || 'an organizer'}`,
     'route.saved': `Route saved${iso}${payload?.provider ? ` via ${payload.provider}` : ''}`,
     'route.deleted': `Route removed${iso}`,
     'provider.updated': `Provider ${payload?.provider || ''} updated`.replace('  ', ' '),

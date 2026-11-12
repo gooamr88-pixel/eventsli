@@ -84,6 +84,19 @@ async function register(req, res, next) {
     const asOrganizer = req.body.accountType === 'organizer';
     const now = new Date().toISOString();
 
+    // SMS boxes are checked BEFORE the account is created: a ticked box with a
+    // number we cannot text is a form error, not a silently dropped consent.
+    const smsConsent = require('../services/sms/consent');
+    let smsChoices = null;
+    try {
+      smsChoices = await smsConsent.parseRegistrationChoices(req.body);
+    } catch (err) {
+      if (err.code === 'VALIDATION_ERROR') {
+        return sendFail(res, { status: 400, error: 'VALIDATION_ERROR', message: err.message, meta: { details: [{ field: 'phone', message: err.message }] } });
+      }
+      throw err;
+    }
+
     const password_hash = await hashPassword(password);
 
     const { data, error } = await supabase
@@ -139,6 +152,13 @@ async function register(req, res, next) {
     // can sign up as anyone, and tickets and receipts go to whatever was typed.
     // The code is sent without holding up the response; `issue` never throws.
     verification.issue({ user: data, req });
+
+    // Recorded against the new account, best-effort: a consent store hiccup
+    // must not lose somebody their sign-up. The log line is the record.
+    if (smsChoices) {
+      await smsConsent.recordRegistrationConsent({ userId: data.id, parsedChoices: smsChoices, ipHash: req.ip ? require('../utils/crypto').hashIp(req.ip) : null })
+        .catch((err) => logger.error({ err: err.message, userId: data.id }, 'registration SMS consent not recorded'));
+    }
 
     return sendOk(res, {
       ...shapeIdentity(data),

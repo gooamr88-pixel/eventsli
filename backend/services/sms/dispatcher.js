@@ -90,14 +90,16 @@ function chooseRoute(cfg, msg, country) {
 }
 
 async function sendOne(msg, env) {
-  const { cfg, ctx, suppressions, consents } = env;
+  const { cfg, ctx, suppressions, consents, gate } = env;
+  const campaignBlock = msg.campaign_id ? gate?.get(msg.campaign_id) : null;
+  if (campaignBlock) return finish(msg, { status: 'blocked', block_reason: campaignBlock });
   const country = cfg.countryByIso.get(msg.country) || null;
   const category = cfg.categories.get(msg.category);
   const recipientKey = `${msg.to_e164}|${msg.category}`;
   const decision = policy.evaluate({
     msg, settings: cfg.settings, category, country,
     suppression: suppressions.get(msg.to_e164) || null,
-    consent: msg.consent_scope ? consents.get(`${msg.to_e164}|${msg.consent_scope}`) || null : null,
+    consent: consents.get(consentKey(msg)) || null,
     counts: {
       recipient: ctx.recipients[recipientKey] || 0,
       countryHour: ctx.countryHour[msg.country] || 0,
@@ -122,16 +124,23 @@ async function sendOne(msg, env) {
   const provider = cfg.providers.get(route.provider_id);
 
   const unsubscribeUrl = frontendBase() ? `${frontendBase()}/sms/stop/${unsubscribeToken(msg.id)}` : null;
-  const text = compose({ baseBody: msg.metadata?.baseBody || msg.body, category, settings: cfg.settings, sender, unsubscribeUrl });
+  const text = compose({ baseBody: msg.metadata?.baseBody || msg.body, category, settings: cfg.settings, sender, unsubscribeUrl, brand: msg.metadata?.brand || null });
   if (text.segments > category.max_segments) return finish(msg, { status: 'blocked', block_reason: 'too_long' });
 
   const attempt = (msg.attempts || 0) + 1;
-  await update(msg.id, {
+  // MUST land before the provider is called: crash recovery (sms_release_stale)
+  // matches the message's attempt number to its attempt row. If this write
+  // failed silently, a crash mid-call could requeue a message that went out.
+  const { error: preError } = await supabase.from('sms_messages').update({
     attempts: attempt, provider_id: route.provider_id, sender_value: sender.value,
     body: text.body, encoding: text.encoding, segments: text.segments,
     est_cost_micros: route.cost_micros != null ? route.cost_micros * text.segments : msg.est_cost_micros,
-    currency: route.currency || msg.currency,
-  });
+    currency: route.currency || msg.currency, updated_at: new Date().toISOString(),
+  }).eq('id', msg.id);
+  if (preError) {
+    logger.error({ err: preError.message, id: msg.id }, 'SMS attempt could not be recorded; not sending');
+    return requeue(msg, Date.now() + 60_000);
+  }
   const { data: attemptRow, error: attemptError } = await supabase.from('sms_attempts')
     .insert({ message_id: msg.id, attempt_no: attempt, provider_id: route.provider_id, sender_value: sender.value })
     .select('id').single();
@@ -200,19 +209,54 @@ async function sendOne(msg, env) {
   });
 }
 
+/** Which consent row decides this message: its kind (transactional or marketing) and its sender scope. */
+function consentKey(msg) {
+  const kind = msg.consent_kind || (msg.traffic_class === 'marketing' ? 'marketing' : 'transactional');
+  const scope = kind === 'transactional' ? 'platform' : (msg.consent_scope || 'platform');
+  return `${msg.to_e164}|${scope}|${kind}`;
+}
+
+/**
+ * Whether each campaign in the batch may still send: a campaign cancelled
+ * after its messages were queued, or an organizer banned or stripped of SMS
+ * access since, must not keep texting from the queue.
+ */
+async function campaignGate(batch) {
+  const ids = [...new Set(batch.map((m) => m.campaign_id).filter(Boolean))];
+  const gate = new Map();
+  if (!ids.length) return gate;
+  const { data: camps, error } = await supabase.from('sms_campaigns').select('id, status, organizer_id').in('id', ids);
+  if (error) throw new Error(`SMS campaign lookup failed: ${error.message}`);
+  const orgIds = [...new Set((camps || []).map((c) => c.organizer_id).filter(Boolean))];
+  const [orgs, access] = orgIds.length
+    ? await Promise.all([
+      supabase.from('organizers').select('id, is_banned').in('id', orgIds),
+      supabase.from('sms_organizer_access').select('organizer_id, enabled').in('organizer_id', orgIds),
+    ])
+    : [{ data: [] }, { data: [] }];
+  const banned = new Set((orgs.data || []).filter((o) => o.is_banned).map((o) => o.id));
+  const allowed = new Set((access.data || []).filter((a) => a.enabled).map((a) => a.organizer_id));
+  for (const id of ids) {
+    const c = (camps || []).find((x) => x.id === id);
+    if (!c || !['sending', 'completed'].includes(c.status)) gate.set(id, 'campaign_cancelled');
+    else if (c.organizer_id && (banned.has(c.organizer_id) || !allowed.has(c.organizer_id))) gate.set(id, 'organizer_access_revoked');
+    else gate.set(id, null);
+  }
+  return gate;
+}
+
 async function lookupMaps(batch) {
   const phones = [...new Set(batch.map((m) => m.to_e164))];
-  const marketingPhones = [...new Set(batch.filter((m) => m.consent_scope).map((m) => m.to_e164))];
-  const [sup, con] = await Promise.all([
+  const [sup, con, gate] = await Promise.all([
     supabase.from('sms_suppressions').select('phone_e164, scope').in('phone_e164', phones),
-    marketingPhones.length
-      ? supabase.from('sms_consents').select('phone_e164, scope, status').in('phone_e164', marketingPhones)
-      : Promise.resolve({ data: [] }),
+    supabase.from('sms_consents').select('phone_e164, scope, kind, status').in('phone_e164', phones),
+    campaignGate(batch),
   ]);
   if (sup.error || con.error) throw new Error(`SMS compliance lookup failed: ${(sup.error || con.error).message}`);
   return {
     suppressions: new Map((sup.data || []).map((s) => [s.phone_e164, s])),
-    consents: new Map((con.data || []).map((c) => [`${c.phone_e164}|${c.scope}`, c])),
+    consents: new Map((con.data || []).map((c) => [`${c.phone_e164}|${c.scope}|${c.kind}`, c])),
+    gate,
   };
 }
 
@@ -278,4 +322,4 @@ async function runOnce({ budgetMs = 45_000, batchSize = 50 } = {}) {
   }
 }
 
-module.exports = { runOnce, sendOne, chooseRoute, HOLDER };
+module.exports = { runOnce, sendOne, chooseRoute, consentKey, HOLDER };

@@ -131,9 +131,10 @@ export default function Campaigns() {
                     <p className="fx-break text-lg font-medium text-ink">{c.name}</p>
                     <p className="text-sm text-muted">
                       {categories?.find((k) => k.key === c.category)?.label || c.category}
-                      {' · '}{segments?.find((s) => s.id === c.segmentId)?.name || 'No segment'}
+                      {' · '}{segments?.find((s) => s.id === c.segmentId)?.name || c.segmentName || 'No segment'}
                       {c.scheduledAt && ` · ${new Date(c.scheduledAt).toLocaleString()}`}
                       {c.mine && ' · yours'}
+                      {c.organizerName && ` · by ${c.organizerName}`}
                     </p>
                   </div>
                   <StatusPill status={c.status} map="campaign" />
@@ -142,7 +143,7 @@ export default function Campaigns() {
                 {c.decisionNote && <p className="text-sm text-muted">Note: {c.decisionNote}</p>}
                 {['sending', 'completed', 'cancelled'].includes(c.status) && <Delivery c={c} />}
                 <div className="fx-row gap-2">
-                  {['draft', 'rejected'].includes(c.status) && (
+                  {!c.organizerId && ['draft', 'rejected'].includes(c.status) && (
                     <>
                       <button type="button" className="es-btn es-btn--secondary es-btn--sm" onClick={() => setEditing(c)}>Edit</button>
                       <button type="button" className="es-btn es-btn--primary es-btn--sm" disabled={busy === c.id} onClick={() => act(c, 'submit', {}, 'Submitted for approval.')}>Submit</button>

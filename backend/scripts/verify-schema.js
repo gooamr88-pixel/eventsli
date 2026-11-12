@@ -28,6 +28,10 @@ const TABLES = [
   'organizer_payment_methods', 'event_cancellation_requests',
   // Eventsli AI — the daily allowance (20261018090000).
   'ai_generations',
+  // Global SMS (20261116090000, 20261117090000).
+  'sms_settings', 'sms_providers', 'sms_countries', 'sms_routes', 'sms_senders', 'sms_categories',
+  'sms_messages', 'sms_attempts', 'sms_receipts', 'sms_inbound', 'sms_consents', 'sms_consent_log',
+  'sms_suppressions', 'sms_segments', 'sms_campaigns', 'sms_organizer_access', 'sms_provider_credentials',
 ];
 
 // Business rules that live in the database. If one of these is absent, the rule
@@ -47,6 +51,8 @@ const TRIGGERS = [
   'trg_ledger_no_delete',
   'trg_seats_same_map_as_table', // a seat's table is on the seat's own map
   'trg_sync_tier_sold_count',    // sold_count follows the paid tickets
+  'sms_country_enable_guard_trg', // no country sends until verified, with a verified route
+  'sms_consent_history_trg',      // every consent change is in the history
 ];
 
 const FUNCTIONS = [
@@ -75,6 +81,9 @@ const FUNCTIONS = [
   // Seating and pricing integrity (20261112090000, TECH-AUDIT-LOG S-11).
   'event_from_prices',
   'set_tier_price', 'log_price_change', 'sale_prices_are_final', 'snapshot_ticket_place',
+  // Global SMS: the queue, its recovery, analytics and organizer allowances.
+  'sms_claim_batch', 'sms_release_stale', 'sms_dispatch_context', 'sms_provider_result',
+  'sms_segment_audience', 'sms_analytics', 'sms_organizer_month_usage', 'sms_organizer_consent_summary',
 ];
 
 // Rules the database enforces as CHECKs (20260915140000).

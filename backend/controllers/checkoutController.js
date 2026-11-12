@@ -1,4 +1,5 @@
 const { supabase } = require('../config/supabase');
+const { hashIp } = require('../utils/crypto');
 const pricing = require('../services/pricingService');
 const { CHARGE_MODEL } = require('../utils/money');
 const stripeSvc = require('../services/stripeService');
@@ -87,6 +88,30 @@ async function quote(req, res, next) {
   }
 }
 
+/**
+ * The buyer's SMS boxes, checked and stored on the reservation. Answers the
+ * request itself and returns false when a box is ticked without a usable
+ * number; never blocks a checkout for any other reason.
+ */
+async function captureSms(req, res, q) {
+  const smsConsent = require('../services/sms/consent');
+  try {
+    const { data: ev } = await supabase.from('events').select('country').eq('id', q.event.id).maybeSingle();
+    const choices = await smsConsent.parseCheckoutChoices(req.body, { defaultCountry: ev?.country });
+    await smsConsent.captureCheckoutIntent({
+      reservationId: req.params.reservationId, choices, ipHash: req.ip ? hashIp(req.ip) : null,
+    });
+    return true;
+  } catch (err) {
+    if (err.code === 'VALIDATION_ERROR') {
+      sendFail(res, { status: 400, error: 'VALIDATION_ERROR', message: err.message });
+      return false;
+    }
+    logger.error({ err: err.message, reservationId: req.params.reservationId }, 'SMS choices not stored; checkout continues');
+    return true;
+  }
+}
+
 // ─── POST /public/reservations/:reservationId/checkout ──────────────────────
 async function createSession(req, res, next) {
   try {
@@ -168,6 +193,10 @@ async function createSession(req, res, next) {
       eventId: q.event.id,
       req,
     });
+
+    // SMS choices (transactional and marketing, separately), stored on the
+    // reservation and recorded as consent only once the order exists.
+    if (!(await captureSms(req, res, q))) return undefined;
 
     // Reuses a matching open session, lengthens the hold so the session cannot
     // outlive it, and records the buyer, the session id and what it charges —
@@ -577,6 +606,10 @@ async function claimFree(req, res, next) {
       eventId: q.event.id,
       req,
     });
+
+    // SMS choices (transactional and marketing, separately), stored on the
+    // reservation and recorded as consent only once the order exists.
+    if (!(await captureSms(req, res, q))) return undefined;
 
     const { data: result, error } = await supabase.rpc('fulfill_checkout', {
       p_reservation_id: req.params.reservationId,

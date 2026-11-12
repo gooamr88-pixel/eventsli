@@ -21,6 +21,22 @@ const { quietUntil } = require('./quietHours');
 
 const HOUR = 3_600_000;
 
+/**
+ * Transactional texts that may go without transactional consent, and why:
+ *   double_opt_in  the "reply YES" request IS the consent step, started by the person
+ *   console_test   an admin testing a number from the console (rate limited, audited)
+ *   keyword_reply  the answer to the person's own HELP text
+ * Neither bypasses suppression: a STOP still stops them.
+ */
+const CONSENT_EXEMPT = new Set(['double_opt_in', 'console_test', 'keyword_reply', 'stop_confirmation']);
+
+/**
+ * The only texts a suppressed number may still receive, both answers to the
+ * person's own message: the one confirmation that a STOP worked, and the
+ * reply to HELP (carriers expect HELP to be answered even after STOP).
+ */
+const SUPPRESSION_EXEMPT = new Set(['stop_confirmation', 'keyword_reply']);
+
 function nextUtcDay(now) {
   const d = new Date(now);
   d.setUTCHours(24, 5, 0, 0);
@@ -44,7 +60,8 @@ function evaluate({ msg, settings, category, country, suppression, consent, coun
   }
 
   const marketing = msg.traffic_class === 'marketing';
-  if (suppression && (suppression.scope === 'all' || marketing)) return { action: 'block', reason: 'suppressed' };
+  const replyExempt = !marketing && SUPPRESSION_EXEMPT.has(msg.metadata?.consentExempt);
+  if (suppression && !replyExempt && (suppression.scope === 'all' || marketing)) return { action: 'block', reason: 'suppressed' };
 
   if (marketing) {
     if (!country.marketing_allowed) return { action: 'block', reason: 'marketing_not_allowed' };
@@ -52,8 +69,10 @@ function evaluate({ msg, settings, category, country, suppression, consent, coun
     // never a configuration choice (the schema's CHECK says the same).
     if (!consent || consent.status === 'opted_out') return { action: 'block', reason: 'no_consent' };
     if (consent.status !== 'opted_in') return { action: 'block', reason: 'consent_pending' };
-  } else if (category.requires_consent && consent?.status !== 'opted_in') {
-    return { action: 'block', reason: 'no_consent' };
+  } else if (category.requires_consent && !CONSENT_EXEMPT.has(msg.metadata?.consentExempt)) {
+    // Transactional consent, checked separately from marketing: `consent` is
+    // the row for this message's own kind (the dispatcher looks it up by kind).
+    if (!consent || consent.status !== 'opted_in') return { action: 'block', reason: 'no_transactional_consent' };
   }
 
   if ((counts.recipient || 0) >= category.per_recipient_daily_limit) {
@@ -98,6 +117,7 @@ const REASON_LABELS = Object.freeze({
   suppressed: 'Number is on the suppression list',
   marketing_not_allowed: 'Marketing not allowed in this country',
   no_consent: 'No marketing consent',
+  no_transactional_consent: 'No consent to texts about orders and events',
   consent_pending: 'Consent not yet confirmed',
   recipient_rate_limited: 'Daily limit for this number reached',
   country_daily_cap: 'Country daily cap reached',
@@ -109,6 +129,8 @@ const REASON_LABELS = Object.freeze({
   no_sender: 'No registered sender for this country',
   route_sender_unusable: 'The route’s pinned sender cannot be used',
   manual_cancel: 'Cancelled by an admin',
+  campaign_cancelled: 'Campaign was cancelled',
+  organizer_access_revoked: 'Organizer no longer has SMS access',
 });
 
 module.exports = { evaluate, REASON_LABELS, nextUtcDay };

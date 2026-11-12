@@ -101,6 +101,9 @@ if (process.env.NODE_ENV !== 'production' && stripeIntended) {
   }
 }
 
+// SMS configuration that would quietly misbehave in production. Warned, never fatal.
+for (const w of require('./services/sms/bootCheck').bootWarnings()) logger.warn(`SMS: ${w}`);
+
 const app = express();
 
 // Behind nginx every request arrives from 127.0.0.1 with the real client IP in
@@ -223,6 +226,8 @@ if (RATE_LIMIT_DISABLED) {
 // ─── Routes ─────────────────────────────────────────────────────────────────
 app.use('/api/v1', require('./routes/healthRoutes'));
 app.use('/api/v1/auth', require('./routes/authRoutes'));
+// Organizer SMS campaigns: mounted before the organizer router so its paths win.
+app.use('/api/v1/organizer/sms', require('./routes/organizerSmsRoutes'));
 app.use('/api/v1/organizer', require('./routes/organizerRoutes'));
 app.use('/api/v1/events', require('./routes/eventRoutes'));
 // Venue search for the create-event wizard. Proxied rather than called from

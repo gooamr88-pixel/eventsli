@@ -101,6 +101,10 @@ router.post(
   body('acceptPrivacy')
     .if(body('accountType').equals('organizer'))
     .custom((v) => v === true).withMessage('Agree to the privacy policy to continue.'),
+  // Optional SMS consent, two separate answers (services/sms/consent.js).
+  body('sms').optional().isObject(),
+  body('sms.transactional').optional().isBoolean({ strict: true }),
+  body('sms.marketing').optional().isBoolean({ strict: true }),
   validate,
   c.register,
 );

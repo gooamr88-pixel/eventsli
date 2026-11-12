@@ -8,6 +8,7 @@ import { setAuthUser } from '../../hooks/useAuth';
 import { safeNext } from '../login/LoginForm';
 import { rememberWatchToken } from '../verify-email/useVerificationWatch';
 import Field from '../../components/forms/Field';
+import SmsConsentFields, { smsPayload } from '../../components/forms/SmsConsentFields';
 import FormError from '../../components/forms/FormError';
 import SubmitButton from '../../components/forms/SubmitButton';
 import GoogleSignIn from '../../components/forms/GoogleSignIn';
@@ -30,6 +31,8 @@ export default function RegisterForm() {
   const params = useSearchParams();
   const next = safeNext(params.get('next'));
 
+  // Separate, unticked: texts about tickets, and offers (components/forms/SmsConsentFields).
+  const [sms, setSms] = useState({});
   const [form, setForm] = useState({
     fullName: '', email: '', password: '', confirmPassword: '', phone: '',
   });
@@ -70,6 +73,7 @@ export default function RegisterForm() {
         // Sent only when given: the API rejects an empty string as a malformed
         // phone number rather than treating it as absent.
         ...(form.phone.trim() ? { phone: form.phone.trim() } : {}),
+        ...smsPayload(sms, form.phone),
       }, { noRedirect: true });
 
       if (account?.verificationRequired) {
@@ -128,6 +132,7 @@ export default function RegisterForm() {
           value={form.phone}
           onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
         />
+        <SmsConsentFields mode="registration" value={sms} onChange={setSms} phone={form.phone} />
 
         <FormError error={error} />
 

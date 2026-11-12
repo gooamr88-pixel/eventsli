@@ -29,7 +29,9 @@ async function complianceMaps(e164s, scope) {
     // eslint-disable-next-line no-await-in-loop
     const [s, c] = await Promise.all([
       supabase.from('sms_suppressions').select('phone_e164, scope').in('phone_e164', chunk),
-      supabase.from('sms_consents').select('phone_e164, status').eq('scope', scope).in('phone_e164', chunk),
+      // MARKETING consent to this sender. Transactional consent never makes
+      // anyone reachable by a campaign.
+      supabase.from('sms_consents').select('phone_e164, status').eq('scope', scope).eq('kind', 'marketing').in('phone_e164', chunk),
     ]);
     if (s.error || c.error) throw new Error((s.error || c.error).message);
     for (const r of s.data || []) sup.set(r.phone_e164, r);
@@ -83,14 +85,35 @@ async function previewSegment(def, scope = 'platform', { cap = 20000 } = {}) {
   return { audience, eligible, excluded, byCountry, truncated };
 }
 
+/** Messages this campaign already queued count toward the month's usage; do not count them twice. */
+const queuedTotalOf = (campaign) => Number(campaign.recipients_queued) || 0;
+
 async function expandOne(campaign, cfg, deadline) {
   const { data: segment } = await supabase.from('sms_segments').select('definition').eq('id', campaign.segment_id).maybeSingle();
   if (!segment) {
     await supabase.from('sms_campaigns').update({ status: 'cancelled', cancelled_at: new Date().toISOString(), decision_note: 'Segment no longer exists' }).eq('id', campaign.id);
     return;
   }
-  const cap = cfg.settings?.max_campaign_recipients || 50000;
+  let cap = cfg.settings?.max_campaign_recipients || 50000;
   const skipped = { ...(campaign.skipped_reasons || {}) };
+  // An organizer's campaign: their name opens the text, and their access and
+  // remaining monthly allowance bound how many it may queue.
+  let brand = null;
+  let capReason = 'recipient_cap';
+  if (campaign.organizer_id) {
+    const [{ data: org }, { data: access }, { data: used }] = await Promise.all([
+      supabase.from('organizers').select('display_name, is_banned').eq('id', campaign.organizer_id).maybeSingle(),
+      supabase.from('sms_organizer_access').select('enabled, monthly_message_cap').eq('organizer_id', campaign.organizer_id).maybeSingle(),
+      supabase.rpc('sms_organizer_month_usage', { p_organizer: campaign.organizer_id }),
+    ]);
+    if (!org || org.is_banned || !access?.enabled) {
+      await supabase.from('sms_campaigns').update({ status: 'cancelled', cancelled_at: new Date().toISOString(), decision_note: 'Organizer SMS access is not enabled' }).eq('id', campaign.id);
+      return;
+    }
+    brand = org.display_name;
+    const remaining = Math.max(0, access.monthly_message_cap - (Number(used) || 0) + (queuedTotalOf(campaign)));
+    if (remaining < cap) { cap = remaining; capReason = 'organizer_cap'; }
+  }
   let { recipients_queued: queuedTotal, recipients_skipped: skippedTotal } = campaign;
   let after = campaign.expansion_cursor || '';
   let done = false;
@@ -103,12 +126,12 @@ async function expandOne(campaign, cfg, deadline) {
     const inputs = [];
     for (const m of page.members) {
       if (m.reason) { skipped[m.reason] = (skipped[m.reason] || 0) + 1; skippedTotal += 1; continue; }
-      if (queuedTotal + inputs.length >= cap) { skipped.recipient_cap = (skipped.recipient_cap || 0) + 1; skippedTotal += 1; continue; }
+      if (queuedTotal + inputs.length >= cap) { skipped[capReason] = (skipped[capReason] || 0) + 1; skippedTotal += 1; continue; }
       inputs.push({
         category: campaign.category, e164: m.parsed.e164, country: m.parsed.country, body: campaign.body,
         idempotencyKey: `campaign:${campaign.id}:${m.parsed.e164}`, campaignId: campaign.id,
         consentScope: campaign.consent_scope, userId: m.row.user_id || null, createdBy: campaign.created_by,
-        notBefore: startAt, metadata: { expiresAt },
+        notBefore: startAt, brand, metadata: { expiresAt },
       });
     }
     // eslint-disable-next-line no-await-in-loop

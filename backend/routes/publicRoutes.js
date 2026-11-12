@@ -346,6 +346,12 @@ router.post(
   body('email').optional().isEmail().normalizeEmail(),
   body('name').optional().isString().trim().isLength({ max: 120 }),
   body('phone').optional().isString().trim().matches(/^[0-9+\-() ]{7,20}$/),
+  // SMS choices, each its own boolean: transactional and marketing consent
+  // are separate answers (services/sms/consent.js).
+  body('sms').optional().isObject(),
+  body('sms.transactional').optional().isBoolean({ strict: true }),
+  body('sms.marketingPlatform').optional().isBoolean({ strict: true }),
+  body('sms.marketingOrganizer').optional().isBoolean({ strict: true }),
   // BRD §21 — required, and only a real JSON `true` counts. `optional()` here
   // let a checkout without the buyer's agreement through for as long as the
   // page happened to send it.
@@ -371,6 +377,12 @@ router.post(
   body('name').optional().isString().trim().isLength({ max: 120 }),
   body('email').optional().isEmail().normalizeEmail(),
   body('phone').optional().isString().trim().isLength({ max: 30 }),
+  // SMS choices, each its own boolean: transactional and marketing consent
+  // are separate answers (services/sms/consent.js).
+  body('sms').optional().isObject(),
+  body('sms.transactional').optional().isBoolean({ strict: true }),
+  body('sms.marketingPlatform').optional().isBoolean({ strict: true }),
+  body('sms.marketingOrganizer').optional().isBoolean({ strict: true }),
   /**
    * BRD §21 — refused here as well as in the handler, so no other caller can
    * route around the checkbox.

@@ -12,7 +12,7 @@ import { Panel } from '../../../../components/ui/Page';
 import Field, { SelectField, TextareaField } from '../../../../components/forms/Field';
 import NavIcon from '../../../../components/shell/NavIcon';
 import { Loading, ErrorNotice, Notice } from '../../../../components/Feedback';
-import { SENDER_SUPPORT, MISSING_LABEL } from '../../../../lib/smsFormat';
+import { SENDER_SUPPORT, MISSING_LABEL, describeActivity, relativeTime } from '../../../../lib/smsFormat';
 import { SmsPage, StatusPill } from '../../smsUi';
 import RouteEditor from './RouteEditor';
 
@@ -132,6 +132,7 @@ export default function CountryDetail({ iso2 }) {
   const { data: c, error, loading, reload } = useApi(`/admin/sms/countries/${iso2}`);
   const { data: providers } = useApi('/admin/sms/providers');
   const { data: senders } = useApi('/admin/sms/senders');
+  const history = useApi(`/admin/sms/countries/${iso2}/history`);
   const [busy, setBusy] = useState(false);
 
   async function setStatus(status) {
@@ -148,6 +149,24 @@ export default function CountryDetail({ iso2 }) {
       toast.error(messageFor(err), { title: describeError(err).title });
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function unverify() {
+    const answer = await confirm({
+      title: `Withdraw the verification of ${c.name}?`,
+      body: <p>It goes back to unverified and cannot be turned on until someone checks it again. Use this when the provider’s rules changed or a registration lapsed.</p>,
+      reason: { label: 'Why?', minLength: 5, maxLength: 500 },
+      confirmLabel: 'Withdraw verification', tone: 'danger',
+    });
+    if (!answer) return;
+    try {
+      await post(`/admin/sms/countries/${iso2}/unverify`, { reason: answer.reason }, { noRedirect: true });
+      toast.success('Verification withdrawn.');
+      reload();
+      history.reload();
+    } catch (err) {
+      toast.error(messageFor(err), { title: describeError(err).title });
     }
   }
 
@@ -206,7 +225,23 @@ export default function CountryDetail({ iso2 }) {
               ))}
             </ul>
             {canEdit && !c.verifiedAt && c.senderIdSupport !== 'unknown' && !c.missing.includes('verified_route') && (
-              <div className="mt-4"><VerifyForm country={c} onDone={reload} /></div>
+              <div className="mt-4"><VerifyForm country={c} onDone={() => { reload(); history.reload(); }} /></div>
+            )}
+            {c.reviewDue && <p className="mt-3 text-sm text-warning">Verified over a year ago. Re-read the provider guidelines and verify again.</p>}
+            {canEdit && c.verifiedAt && c.status !== 'enabled' && (
+              <button type="button" className="es-btn es-btn--ghost es-btn--sm mt-3" onClick={unverify}>Withdraw verification</button>
+            )}
+          </Panel>
+          <Panel icon="clock" title="History" description="Rules, routes, verification and switches, newest first.">
+            {(history.data || []).length === 0 ? <p className="text-sm text-muted">No changes recorded yet.</p> : (
+              <ol className="es-smsfeed">
+                {history.data.slice(0, 12).map((h) => (
+                  <li key={h.id}>
+                    <span className="es-smsfeed__text">{describeActivity(h.action, h.payload)}{h.actor ? ` · ${h.actor}` : ''}</span>
+                    <time className="es-smsfeed__time" dateTime={h.at}>{relativeTime(h.at)}</time>
+                  </li>
+                ))}
+              </ol>
             )}
           </Panel>
           <Panel icon="external" title="Provider guidelines" description="Read these before recording anything.">

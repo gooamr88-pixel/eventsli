@@ -6,6 +6,8 @@ const { makeLimiter } = require('../../middleware/rateLimit');
 const cfg = require('../../controllers/admin/smsConfigController');
 const ops = require('../../controllers/admin/smsOpsController');
 const camp = require('../../controllers/admin/smsCampaignController');
+const prov = require('../../controllers/admin/smsProviderController');
+const orgs = require('../../controllers/admin/smsOrganizerController');
 
 /**
  * /api/v1/admin/sms — the Global SMS console.
@@ -33,10 +35,15 @@ router.get('/sms/analytics', query('days').optional().isIn(['7', '30', '90', '36
 
 // ─── Countries and routes ──────────────────────────────────────────────────
 router.get('/sms/countries',
-  query('status').optional().isIn(['unverified', 'enabled', 'disabled', 'blocked']),
+  query('status').optional().isIn(['unverified', 'enabled', 'disabled', 'blocked', 'ready', 'review_due']),
   query('region').optional().isString().isLength({ max: 40 }),
   validate, cfg.listCountries);
+router.post('/sms/countries/bulk-status', SUPER,
+  body('iso2s').isArray({ min: 1, max: 250 }), body('iso2s.*').matches(/^[A-Za-z]{2}$/),
+  body('status').isIn(['enabled', 'disabled', 'blocked']), validate, cfg.bulkStatus);
 router.get('/sms/countries/:iso2', ISO2, validate, cfg.countryDetail);
+router.get('/sms/countries/:iso2/history', ISO2, validate, cfg.countryHistory);
+router.post('/sms/countries/:iso2/unverify', SUPER, ISO2, body('reason').optional().isString().isLength({ max: 500 }), validate, cfg.unverifyCountry);
 
 const countryBody = [
   body('name').optional().isString().trim().isLength({ min: 2, max: 80 }),
@@ -82,6 +89,29 @@ router.patch('/sms/providers/:provider', SUPER, PROVIDER,
   body('trafficClasses').optional().isArray({ min: 1, max: 2 }), body('trafficClasses.*').optional().isIn(['transactional', 'marketing']),
   validate, cfg.updateProvider);
 router.post('/sms/providers/:provider/reset', SUPER, PROVIDER, validate, cfg.resetCircuit);
+// Credentials: write-only secrets, encrypted at rest; tests and number listing are read-only calls.
+const credBody = ['accountSid', 'authToken', 'apiKeySid', 'apiKeySecret', 'apiKey', 'apiSecret', 'signatureSecret', 'signatureMethod', 'currency']
+  .map((f) => body(f).optional({ values: 'falsy' }).isString().isLength({ max: 200 }));
+router.put('/sms/providers/:provider/credentials', SUPER, PROVIDER, ...credBody, validate, prov.saveCredentials);
+router.delete('/sms/providers/:provider/credentials', SUPER, PROVIDER, validate, prov.deleteCredentials);
+router.post('/sms/providers/:provider/test', SUPER, PROVIDER, ...credBody, validate, prov.testConnection);
+router.get('/sms/providers/:provider/numbers', SUPER, PROVIDER, validate, prov.listNumbers);
+router.post('/sms/providers/:provider/numbers/import', SUPER, PROVIDER,
+  body('numbers').isArray({ min: 1, max: 200 }),
+  body('numbers.*.value').isString().isLength({ min: 3, max: 64 }),
+  body('numbers.*.kind').isIn(['messaging_service', 'short_code', 'toll_free', 'long_code', 'alphanumeric']),
+  body('numbers.*.label').optional({ values: 'null' }).isString().isLength({ max: 80 }),
+  body('numbers.*.country').optional({ values: 'null' }).isString().isLength({ max: 2 }),
+  validate, prov.importNumbers);
+
+// ─── Organizer access ──────────────────────────────────────────────────────
+router.get('/sms/organizers', query('q').optional().isString().isLength({ max: 100 }), validate, orgs.listOrganizers);
+router.put('/sms/organizers/:organizerId', SUPER, param('organizerId').isUUID(),
+  body('enabled').optional().isBoolean({ strict: true }),
+  body('monthlyCap').optional().isInt({ min: 0, max: 10_000_000 }),
+  body('categories').optional().isArray({ max: 2 }), body('categories.*').optional().isIn(['marketing', 'segmentation']),
+  body('note').optional({ values: 'null' }).isString().isLength({ max: 500 }),
+  validate, orgs.setAccess);
 router.post('/sms/providers/:provider/sync-pricing', SUPER, PROVIDER,
   body('country').optional().matches(/^[A-Za-z]{2}$/), validate, cfg.syncPricing);
 
@@ -122,6 +152,10 @@ router.patch('/sms/settings', SUPER,
   body('spendCurrency').optional().matches(/^[A-Za-z]{3}$/),
   body('reminderHoursBefore').optional().isInt({ min: 1, max: 168 }),
   body('maxCampaignRecipients').optional().isInt({ min: 1, max: 5_000_000 }),
+  body('messageRetentionDays').optional({ values: 'null' }).isInt({ min: 30, max: 3650 }),
+  body('stopConfirmationProviders').optional().isArray({ max: 10 }),
+  body('stopConfirmationProviders.*').optional().isIn(['twilio', 'vonage']),
+  body('stopConfirmationText').optional().isString().trim().isLength({ min: 10, max: 160 }),
   validate, cfg.updateSettings);
 
 // ─── Messages ──────────────────────────────────────────────────────────────
@@ -170,7 +204,8 @@ const campaignBody = [
   body('category').isIn(['marketing', 'segmentation']),
   body('body').isString().trim().isLength({ min: 1, max: 1000 }),
   body('segmentId').optional({ values: 'null' }).isUUID(),
-  body('consentScope').optional().matches(/^(platform|[0-9a-f-]{36})$/),
+  // Platform campaigns use Eventsli consent only (see smsCampaignController).
+  body('consentScope').optional().equals('platform'),
   body('scheduledAt').optional({ values: 'null' }).isISO8601(),
 ];
 router.get('/sms/campaigns', query('status').optional().isString().isLength({ max: 30 }), validate, camp.listCampaigns);

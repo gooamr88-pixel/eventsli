@@ -4,6 +4,7 @@ const dispatcher = require('./dispatcher');
 const campaigns = require('./campaigns');
 const notifications = require('./notifications');
 const providers = require('./providers');
+const maintenance = require('./maintenance');
 
 /**
  * The SMS background jobs, handed to services/scheduler.js, which runs each
@@ -13,6 +14,8 @@ const providers = require('./providers');
  *   sms-campaigns  every 30s  start, expand and close campaigns
  *   sms-reminders  every 10m  queue event reminders
  *   sms-reconcile  every 5m   resolve UNKNOWN messages by positive lookup only
+ *   sms-health     every 5m   log ERROR-level alerts: backlog, stuck sends, paused providers
+ *   sms-retention  daily      redact old message bodies (when a retention period is set)
  */
 
 /**
@@ -50,6 +53,8 @@ function jobs(withLeaderLock) {
     { name: 'sms-campaigns', everyMs: 30_000, immediate: false, run: () => withLeaderLock('sms-campaigns', () => campaigns.runCampaigns(), 120) },
     { name: 'sms-reminders', everyMs: 600_000, immediate: false, run: () => withLeaderLock('sms-reminders', () => notifications.eventReminders(), 600) },
     { name: 'sms-reconcile', everyMs: 300_000, immediate: false, run: () => withLeaderLock('sms-reconcile', reconcileUnknown, 300) },
+    { name: 'sms-health', everyMs: 300_000, immediate: false, run: () => withLeaderLock('sms-health', maintenance.checkHealth, 120) },
+    { name: 'sms-retention', everyMs: 86_400_000, immediate: false, run: () => withLeaderLock('sms-retention', maintenance.applyRetention, 3600) },
   ];
 }
 
