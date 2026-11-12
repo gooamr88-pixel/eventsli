@@ -217,7 +217,10 @@ function SettingCard({ setting, canEdit, onSaved }) {
             ))}
           </fieldset>
         ) : canEdit ? (
-          <div className="fx-grid fx-grid--2">
+          // Not .fx-grid--2: its 560px track never fits this half-width card, so it
+          // was one column, and the textarea's col-span-2 then added an implicit
+          // second column that the next fields flowed into, past the card's edge.
+          <div className="es-dgrid">
             {form.fields.map((f) => {
               const id = `set-${setting.key}-${f.name}`;
               if (f.type === 'boolean') {
@@ -234,7 +237,7 @@ function SettingCard({ setting, canEdit, onSaved }) {
               }
               if (f.type === 'text') {
                 return (
-                  <div key={f.name} className="fx-stack fx-stack--sm gap-1.5 sm:col-span-2">
+                  <div key={f.name} className="fx-stack fx-stack--sm gap-1.5 md:col-span-2">
                     <label htmlFor={id} className="text-sm text-ink">{f.label}{f.optional ? ' (optional)' : ''}</label>
                     <textarea
                       id={id}
@@ -251,7 +254,8 @@ function SettingCard({ setting, canEdit, onSaved }) {
                 );
               }
               return (
-                <div key={f.name} className="fx-stack fx-stack--sm gap-1.5">
+                // justify-end: a two-line label beside a one-line one keeps the inputs level.
+                <div key={f.name} className="fx-stack fx-stack--sm justify-end gap-1.5">
                   <label htmlFor={id} className="text-sm text-ink">{f.label} ({f.unit})</label>
                   <input
                     id={id}
