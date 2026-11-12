@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { patch } from '../../../utils/apiClient';
 import { useCategories } from '../../../hooks/useCategories';
-import { zonesFor } from '../../../lib/timezones';
+import { zoneOptions as zoneGroups } from '../../../lib/timezones';
 // All three from one module now. `toIso` used to be exported out of the
 // create-event wizard, so editing a date meant importing half its logic from a
 // component; it lives beside its inverse `toLocalInput`, which is what this
@@ -165,6 +165,9 @@ export default function EventDetailsEditor({ event, onSaved }) {
       // Both or neither, always — `venue_coords_together` refuses half a pin.
       venueLat: place.lat === null || place.lat === undefined ? '' : String(place.lat),
       venueLng: place.lng === null || place.lng === undefined ? '' : String(place.lng),
+      // The venue decides the zone. Saving then re-anchors both times to it,
+      // keeping their wall clock (see `datesMoved` below).
+      ...(place.timeZone ? { timezone: place.timeZone } : {}),
     }));
   };
 
@@ -211,8 +214,8 @@ export default function EventDetailsEditor({ event, onSaved }) {
       : { error: touched ? refusal : null };
   };
 
-  const zones = zonesFor(event.country);
-  const zoneOptions = zones.some(([z]) => z === form.timezone) ? zones : [[form.timezone, form.timezone], ...zones];
+  // Worldwide, the market's own first; the current value is always offered.
+  const zoneOptions = zoneGroups(event.country, form.timezone);
 
   /* The step bar's "Save and continue" runs this form's save, so the way on
      from this screen commits it. Without this the bar would navigate and the

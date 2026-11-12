@@ -13983,3 +13983,109 @@ label.es-chip:has(:focus-visible) { outline: 2px solid var(--es-accent); outline
   .es-tdxed__icon { grid-column: 1 / -1; }
 }
 }   /* end @layer components — ticket type details card */
+
+/* ─── Global SMS console (admin/sms) ───────────────────────────────────────
+   Laid out from the owner's mockup: a header with an icon disc, figure tiles
+   with a sparkline, the country table, category cards, an activity feed and
+   the go-live card. Colours are roles only. */
+@layer components {
+.es-smshead { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem 1.25rem; }
+.es-smshead__icon { display: grid; flex: none; place-items: center; width: 3.75rem; height: 3.75rem; border-radius: var(--es-radius-full); background: var(--es-accent-wash); color: var(--es-accent); }
+.es-smshead__title { margin: 0; font-size: var(--es-text-2xl); font-weight: 700; line-height: 1.2; color: var(--es-text); }
+.es-smshead__main { flex: 1 1 18rem; min-width: 0; }
+.es-smshead__lede { margin: 0.25rem 0 0; font-size: var(--es-text-sm); color: var(--es-text-muted); }
+.es-smshead__actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+@media (width >= theme(--breakpoint-md)) { .es-smshead__title { font-size: var(--es-text-3xl); } }
+
+.es-smstabs { scrollbar-width: none; }
+.es-smstabs::-webkit-scrollbar { display: none; }
+.es-smstabs ul { display: flex; gap: 0.25rem; margin: 0; padding: 0.25rem; list-style: none; border: 1px solid var(--es-border); border-radius: var(--es-radius-full); background: var(--es-surface); width: max-content; }
+.es-smstabs a { display: block; padding: 0.4rem 0.9rem; border-radius: var(--es-radius-full); font-size: var(--es-text-sm); color: var(--es-text-muted); white-space: nowrap; }
+.es-smstabs a:hover { color: var(--es-text); background: var(--es-bg-sunken); }
+.es-smstabs a[aria-current="page"] { background: var(--es-accent-wash); color: var(--es-accent); font-weight: 600; }
+
+.es-smsstats { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr)); gap: 1rem; }
+.es-smsstat { display: flex; gap: 1rem; min-width: 0; padding: 1.25rem; border: 1px solid var(--es-border); border-radius: var(--es-radius-lg); background: var(--es-surface); box-shadow: var(--es-shadow-xs); color: var(--es-text); }
+.es-smsstat--link:hover { border-color: var(--es-accent-edge); box-shadow: var(--es-shadow-sm); }
+.es-smsstat__icon { display: grid; flex: none; place-items: center; width: 2.75rem; height: 2.75rem; border-radius: var(--es-radius-full); background: var(--es-accent-wash); color: var(--es-accent); }
+.es-smsstat__body { display: flex; flex: 1; flex-direction: column; min-width: 0; }
+.es-smsstat__value { font-size: var(--es-text-2xl); font-weight: 700; line-height: 1.15; font-variant-numeric: tabular-nums; }
+.es-smsstat__label { font-size: var(--es-text-sm); color: var(--es-text-muted); }
+.es-smsstat__foot { display: flex; align-items: flex-end; justify-content: space-between; gap: 0.5rem; margin-top: 0.75rem; }
+.es-smsspark { width: 7.5rem; max-width: 55%; height: 2.25rem; overflow: visible; }
+.es-smsspark__fill { fill: color-mix(in srgb, var(--es-accent) 12%, transparent); }
+.es-smsspark__line { fill: none; stroke: var(--es-accent); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.es-smsspark__dot { fill: var(--es-accent); }
+
+.es-smsdelta { display: inline-flex; flex: none; align-items: center; gap: 0.2rem; padding: 0.15rem 0.5rem; border-radius: var(--es-radius-full); font-size: var(--es-text-xs); font-weight: 600; white-space: nowrap; }
+.es-smsdelta[data-tone="success"] { background: color-mix(in srgb, var(--es-success) 12%, transparent); color: var(--es-success); }
+.es-smsdelta[data-tone="danger"] { background: color-mix(in srgb, var(--es-danger) 10%, transparent); color: var(--es-danger); }
+.es-smsdelta[data-tone="muted"] { background: var(--es-bg-sunken); color: var(--es-text-muted); }
+
+.es-smspill { display: inline-flex; align-items: center; gap: 0.375rem; padding: 0.2rem 0.6rem; border-radius: var(--es-radius-full); font-size: var(--es-text-xs); font-weight: 600; white-space: nowrap; background: var(--es-bg-sunken); color: var(--es-text-muted); }
+.es-smspill::before { content: ""; width: 0.375rem; height: 0.375rem; border-radius: 50%; background: currentColor; }
+.es-smspill[data-tone="success"] { background: color-mix(in srgb, var(--es-success) 12%, transparent); color: var(--es-success); }
+.es-smspill[data-tone="danger"] { background: color-mix(in srgb, var(--es-danger) 10%, transparent); color: var(--es-danger); }
+.es-smspill[data-tone="warning"] { background: color-mix(in srgb, var(--es-warning) 14%, transparent); color: var(--es-warning); }
+.es-smspill[data-tone="info"] { background: var(--es-accent-wash); color: var(--es-accent); }
+
+.es-smscountry { display: inline-flex; align-items: center; gap: 0.625rem; min-width: 0; }
+.es-smscountry__flag { display: grid; flex: none; place-items: center; width: 2rem; height: 1.375rem; border: 1px solid var(--es-border); border-radius: 4px; background: var(--es-bg-sunken); font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.04em; color: var(--es-text-muted); }
+.es-smscountry__name { display: block; font-weight: 500; color: var(--es-text); }
+.es-smscountry__sub { display: block; font-size: var(--es-text-xs); color: var(--es-text-subtle); }
+.es-smsfilter { flex: 1 1 14rem; max-width: 24rem; }
+.es-smsselect select { min-width: 10rem; }
+.es-smsnote { margin-left: 0.5rem; font-size: var(--es-text-xs); color: var(--es-warning); }
+.es-smstable td { vertical-align: middle; }
+.es-smstable th, .es-smstable td { padding-inline: 0.5rem; }
+
+.es-smsgrid { display: grid; gap: 1.25rem; }
+@media (width >= theme(--breakpoint-lg)) {
+  .es-smsgrid { grid-template-columns: minmax(0, 2.3fr) minmax(0, 1fr); align-items: start; }
+  .es-smsgrid--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: stretch; }
+  .es-smsgrid--even { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.es-smscats { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 11.5rem), 1fr)); gap: 0.75rem; margin: 0; padding: 0; list-style: none; }
+.es-smscat { display: flex; flex-direction: column; gap: 0.25rem; min-width: 0; padding: 1rem; border: 1px solid var(--es-border); border-radius: var(--es-radius-md); background: var(--es-surface); }
+.es-smscat__icon { color: var(--es-accent); }
+.es-smscat__title { margin: 0.5rem 0 0; font-weight: 600; color: var(--es-text); }
+.es-smscat__desc { margin: 0; font-size: var(--es-text-sm); color: var(--es-text-muted); }
+.es-smscat__tag { margin: 0.25rem 0 0; font-size: var(--es-text-xs); color: var(--es-text-subtle); }
+
+.es-smsfeed { position: relative; display: grid; gap: 1rem; margin: 0; padding: 0 0 0 1.25rem; list-style: none; }
+.es-smsfeed::before { content: ""; position: absolute; top: 0.4rem; bottom: 0.4rem; left: 0.3rem; width: 2px; background: var(--es-border); }
+.es-smsfeed li { position: relative; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.25rem 0.75rem; font-size: var(--es-text-sm); }
+.es-smsfeed li::before { content: ""; position: absolute; top: 0.35rem; left: -1.2rem; width: 0.6rem; height: 0.6rem; border: 2px solid var(--es-surface); border-radius: 50%; background: var(--es-accent); }
+.es-smsfeed__text { color: var(--es-text); }
+.es-smsfeed__time { font-size: var(--es-text-xs); color: var(--es-text-subtle); white-space: nowrap; }
+
+.es-smslive { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 0.75rem; overflow: hidden; padding: 1.5rem; border: 1px solid var(--es-accent-edge); border-radius: var(--es-radius-lg); background: linear-gradient(140deg, var(--es-accent-wash), var(--es-surface) 70%); }
+.es-smslive__title { margin: 0; font-size: var(--es-text-xl); font-weight: 700; color: var(--es-text); }
+.es-smslive__lede { margin: 0; font-size: var(--es-text-sm); color: var(--es-text-muted); max-width: 22rem; }
+.es-smslive__list { position: relative; z-index: 1; display: grid; gap: 0.4rem; margin: 0; padding: 0; list-style: none; font-size: var(--es-text-sm); }
+.es-smslive__list li { display: flex; align-items: flex-start; gap: 0.5rem; color: var(--es-text-muted); }
+.es-smslive__list li[data-ok] { color: var(--es-text); }
+.es-smslive__list li[data-ok] svg { color: var(--es-success); }
+.es-smslive__list a:hover { color: var(--es-accent); }
+.es-smslive__dry { margin: 0; font-size: var(--es-text-xs); font-weight: 600; color: var(--es-warning); }
+.es-smslive__art { position: absolute; right: -2.5rem; bottom: -2.5rem; color: var(--es-accent); opacity: 0.1; pointer-events: none; }
+.es-smslive > .es-btn { position: relative; z-index: 1; margin-top: auto; }
+
+.es-smsform { display: grid; gap: 1rem; }
+@media (width >= theme(--breakpoint-md)) { .es-smsform { grid-template-columns: repeat(2, minmax(0, 1fr)); } .es-smsform__wide { grid-column: 1 / -1; } }
+.es-smscheck { display: flex; align-items: flex-start; gap: 0.625rem; font-size: var(--es-text-sm); color: var(--es-text); }
+.es-smscheck input { margin-top: 0.2rem; accent-color: var(--es-accent); }
+.es-smsbar { height: 0.5rem; overflow: hidden; border-radius: var(--es-radius-full); background: var(--es-bg-sunken); }
+.es-smsbar > span { display: block; height: 100%; border-radius: inherit; background: var(--es-accent); }
+.es-smsphone { padding: 0.875rem 1rem; border-radius: 1rem 1rem 1rem 0.25rem; background: var(--es-bg-sunken); font-size: var(--es-text-sm); white-space: pre-wrap; overflow-wrap: anywhere; color: var(--es-text); }
+.es-smsmeta { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; font-size: var(--es-text-xs); color: var(--es-text-subtle); }
+.es-smsdl { display: grid; gap: 0.5rem 1.5rem; margin: 0; }
+@media (width >= theme(--breakpoint-sm)) { .es-smsdl { grid-template-columns: max-content minmax(0, 1fr); } }
+.es-smsdl dt { font-size: var(--es-text-sm); color: var(--es-text-muted); }
+.es-smsdl dd { margin: 0; font-size: var(--es-text-sm); color: var(--es-text); overflow-wrap: anywhere; }
+.es-smssteps { display: grid; gap: 0.5rem; margin: 0; padding: 0; list-style: none; }
+.es-smssteps li { display: flex; align-items: center; gap: 0.5rem; font-size: var(--es-text-sm); color: var(--es-text-muted); }
+.es-smssteps li[data-ok] { color: var(--es-text); }
+.es-smssteps li[data-ok] svg { color: var(--es-success); }
+}   /* end @layer components — Global SMS console */

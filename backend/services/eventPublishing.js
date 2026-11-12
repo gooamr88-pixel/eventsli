@@ -136,4 +136,5 @@ function inBackground(label, promise) {
 
 module.exports = {
   requiresApproval, notifyPublished, notifyOrganizer, refreshPublicPages, adminRecipients, inBackground,
+  loadForEmail,
 };

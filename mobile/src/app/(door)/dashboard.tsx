@@ -7,6 +7,7 @@ import { useSession } from '@/auth/session';
 import { useOfflineList } from '@/gate/offlineList';
 import { pendingCount, useScanLog } from '@/gate/scanLog';
 import { useDoorExit, useGateStatus, useMe, useRecent } from '@/gate/useDoor';
+import { lockedNote } from '@/gate/outcomes';
 import { ago, count, doorTime, eventDate } from '@/lib/format';
 import { Button } from '@/ui/Button';
 import { Ring } from '@/ui/charts';
@@ -109,6 +110,11 @@ export default function Dashboard() {
               <Pill tone="admit" label="Live Check-in" />
             )}
           </View>
+          {/* Why it is off — the door staff's next call differs for an unpaid
+              invoice, an Eventsli stop and a cancellation. */}
+          {gate?.locked && !gate.override && lockedNote(gate.reason) && (
+            <Text variant="small" color={colors.danger} style={styles.lockNote}>{lockedNote(gate.reason)}</Text>
+          )}
           <View style={styles.liveRow}>
             <Ring value={admitted} total={total} label={count(admitted)} sublabel="Checked In" />
             <View style={styles.legend}>
@@ -224,6 +230,7 @@ const styles = StyleSheet.create({
   meta: { flexDirection: 'row', alignItems: 'center', gap: 6, justifyContent: 'center', flexWrap: 'wrap' },
   live: { gap: space.md, backgroundColor: colors.bgSunken, borderColor: colors.bgSunken },
   pillRow: { alignItems: 'center' },
+  lockNote: { textAlign: 'center', marginTop: space.sm },
   liveRow: { flexDirection: 'row', alignItems: 'center', gap: space.lg },
   legend: { flex: 1, gap: space.md },
   legendRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm },

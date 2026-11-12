@@ -121,7 +121,15 @@ export function SelectField({ label, hint, error, options, optional = false, ...
         aria-invalid={error ? 'true' : undefined}
         {...props}
       >
-        {options.map(([value, text]) => <option key={value} value={value}>{text}</option>)}
+        {/* `[value, text]` is an option; `{ label, options }` is a group of them
+            (the time-zone picker groups the world by region). */}
+        {options.map((o) => (Array.isArray(o)
+          ? <option key={o[0]} value={o[0]}>{o[1]}</option>
+          : (
+            <optgroup key={o.label} label={o.label}>
+              {o.options.map(([value, text]) => <option key={value} value={value}>{text}</option>)}
+            </optgroup>
+          )))}
       </select>
       {hint && !error && <p id={`${id}-hint`} className="text-xs text-subtle">{hint}</p>}
       {error && <p id={`${id}-error`} className="text-xs text-danger">{error}</p>}

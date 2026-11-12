@@ -42,7 +42,7 @@ const OUTCOMES: Record<string, Outcome> = {
   scanner_locked: {
     tone: 'refuse',
     title: 'Scanning is switched off',
-    note: 'The organizer has to settle their commission invoice before the door reopens.',
+    note: 'Nobody can be admitted on this event right now. Call the organizer.',
   },
 
   // ── From the API, before the database ─────────────────────────────────────
@@ -106,10 +106,27 @@ const UNKNOWN: Outcome = {
   note: 'The server returned something this app does not know. Ask a supervisor before letting them in.',
 };
 
-export function describeScan(result: string) {
+export function describeScan(result: string, reason?: string | null) {
   const hit = OUTCOMES[result];
-  return hit ? { ...hit, known: true } : { ...UNKNOWN, known: false };
+  if (!hit) return { ...UNKNOWN, known: false };
+  // A locked gate says why when the server said: the call the door staff make
+  // next is different for an unpaid invoice, an Eventsli stop and a cancellation.
+  if (result === 'scanner_locked' && reason && LOCKED_NOTES[reason]) {
+    return { ...hit, note: LOCKED_NOTES[reason], known: true };
+  }
+  return { ...hit, known: true };
 }
+
+/** Why scanning is off, for the dashboard and the result screen. Null when unknown. */
+export function lockedNote(reason?: string | null): string | null {
+  return (reason && LOCKED_NOTES[reason]) || null;
+}
+
+const LOCKED_NOTES: Record<string, string> = {
+  commission_overdue: 'The organizer has an overdue commission invoice. Scanning comes back on once it is settled — call the organizer.',
+  admin_closed: 'Eventsli has switched scanning off for this event. Call the organizer.',
+  event_cancelled: 'This event was cancelled. Nobody is admitted on its tickets.',
+};
 
 /**
  * Only an admission opens the door: the server's, or the phone's own with no

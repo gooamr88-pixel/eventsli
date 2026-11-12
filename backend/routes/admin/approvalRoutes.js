@@ -96,6 +96,22 @@ router.post(
   require('../../controllers/scanController').override,
 );
 
+// The gate control: follow invoices (auto), keep open, or keep closed —
+// optionally until a time. Super admin, like the override it generalises
+// (BRD §18): it decides whether people get in, regardless of what is owed.
+router.post(
+  '/events/:eventId/gate',
+  requireRole('super_admin'),
+  param('eventId').isUUID(),
+  body('mode').isIn(['auto', 'open', 'closed']).withMessage('Choose follow invoices, keep open, or keep closed.'),
+  body('until').optional({ values: 'null' }).isISO8601().withMessage('The end time must be a date and time.'),
+  body('reason').isString().trim().isLength({ min: 5, max: 500 })
+    .withMessage('Record why the gate is changing.'),
+  body('notify').optional().isBoolean(),
+  validate,
+  require('../../controllers/scanController').setGateMode,
+);
+
 // Ends an override early; the gate goes back to what the invoices say.
 router.post(
   '/events/:eventId/scanner-override/end',
@@ -111,6 +127,8 @@ router.post(
 const manual = require('../../controllers/manualPaymentController');
 
 router.get('/invoices', ...invoiceListRules, validate, manual.adminList);
+// What is owed and not yet invoiced — the queue the console raises from.
+router.get('/invoices/ready', manual.adminReady);
 
 router.post(
   '/events/:eventId/invoices',
@@ -129,6 +147,65 @@ router.post(
   validate,
   manual.adminSettle,
 );
+
+/**
+ * ─── Managing one invoice ──────────────────────────────────────────────────
+ * Every action below is one database function (migration 20261115090000):
+ * atomic, recorded in the invoice's history and the audit log, and — where it
+ * moves money — in the ledger as a new row, never an edit. Those that change
+ * what the organizer owes require a reason, which the organizer is shown.
+ */
+const reason = (min = 5) => body('reason').isString().trim().isLength({ min, max: 500 })
+  .withMessage(`Give a reason (at least ${min} characters) — it is recorded${min >= 5 ? ' and shown to the organizer' : ''}.`);
+const invoiceParam = param('invoiceId').isUUID();
+
+router.get('/invoices/:invoiceId', invoiceParam, validate, manual.adminDetail);
+
+router.post(
+  '/invoices/:invoiceId/payments',
+  invoiceParam,
+  body('amountCents').isInt({ min: 1, max: 100_000_000 }).withMessage('Enter the amount that arrived, in cents.'),
+  body('method').optional({ values: 'falsy' }).isString().trim().isLength({ min: 2, max: 60 }),
+  body('reference').optional({ values: 'falsy' }).isString().trim().isLength({ max: 120 }),
+  body('receivedAt').optional({ values: 'falsy' }).isISO8601().withMessage('Enter when the money arrived.'),
+  body('note').optional({ values: 'falsy' }).isString().trim().isLength({ max: 500 }),
+  body('notify').optional().isBoolean(),
+  validate,
+  manual.adminRecordPayment,
+);
+
+router.post(
+  '/invoices/:invoiceId/payments/:paymentId/reverse',
+  invoiceParam,
+  param('paymentId').isUUID(),
+  reason(),
+  validate,
+  manual.adminReversePayment,
+);
+
+router.post('/invoices/:invoiceId/waive', invoiceParam, reason(), validate, manual.adminWaive);
+router.post('/invoices/:invoiceId/reopen', invoiceParam, reason(), validate, manual.adminReopen);
+router.post('/invoices/:invoiceId/void', invoiceParam, reason(), validate, manual.adminVoid);
+router.post('/invoices/:invoiceId/reject-receipt', invoiceParam, reason(), validate, manual.adminRejectReceipt);
+
+router.post(
+  '/invoices/:invoiceId/due-date',
+  invoiceParam,
+  body('dueAt').isISO8601().withMessage('Choose the new due date.'),
+  reason(),
+  validate,
+  manual.adminSetDue,
+);
+
+router.post(
+  '/invoices/:invoiceId/notes',
+  invoiceParam,
+  body('note').isString().trim().isLength({ min: 2, max: 1000 }).withMessage('Write the note (up to 1,000 characters).'),
+  validate,
+  manual.adminNote,
+);
+
+router.post('/invoices/:invoiceId/remind', invoiceParam, validate, manual.adminRemind);
 
 // ─── BRD §19 — the settings only an admin may set ──────────────────────────
 const settings = require('../../controllers/admin/settingsController');

@@ -110,3 +110,4 @@ export function formatPrice(cents, currency = 'USD') {
   if (Number(cents) === 0) return 'Free';
   return formatMoneyCompact(cents, currency);
 }
+

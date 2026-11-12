@@ -209,92 +209,114 @@ async function status(req, res, next) {
   } catch (err) { return next(err); }
 }
 
-// ═══ ADMIN — the override (BRD §18) ═════════════════════════════════════════
+// ═══ ADMIN — controlling the gate (BRD §18) ═════════════════════════════════
 
 const { writeAudit } = require('../services/auditService');
+const notices = require('../services/invoiceNotices');
 
-// POST /admin/events/:eventId/scanner-override
 /**
- * Reopens a locked gate for a few hours.
+ * ─────────────────────────────────────────────────────────────────────────────
+ * ONE CONTROL FOR AN EVENT'S GATE: follow the invoices, keep it open, or keep
+ * it closed — optionally until a time (`set_scanner_mode`).
  *
- * It used to answer 200 whatever happened: the upsert's result was never read
- * and the event was never loaded, so a mistyped id or a refused write still
- * reported "open until 11pm" — and wrote an audit row saying so — while the
- * door stayed shut. A cancelled or finished event is refused outright: check-in
- * refuses those anyway, so an override would promise something the gate will
- * not do.
+ * There used to be one lever: a super admin reopening a locked gate for 12 to
+ * 72 hours. No closing a gate (a dispute, a safety stop), no exempting an event
+ * for good (a charity night, a negotiated arrangement), and an override that
+ * the hourly overdue job happily ignored the moment it ran out.
+ *
+ * An admin's decision is never undone by anything automatic: the overdue job
+ * only labels invoices, settling an invoice does not touch the mode, and a
+ * timed decision ends because its own end time passed — which the admin chose.
+ *
+ * Every change is audited with the gate before and after, and the organizer
+ * is emailed when the door actually changed state.
+ * ─────────────────────────────────────────────────────────────────────────────
  */
-async function override(req, res, next) {
+async function applyGateMode(req, res, { mode, until, reason, audit }) {
+  const { data, error } = await supabase.rpc('set_scanner_mode', {
+    p_event_id: req.params.eventId,
+    p_mode: mode,
+    p_until: until || null,
+    p_reason: reason,
+    p_admin_id: req.user.id,
+  });
+  if (error) throw new Error(error.message);
+  if (!data?.ok) {
+    const status = data?.error === 'EVENT_NOT_FOUND' ? 404 : data?.error === 'CONFLICT' ? 409 : 400;
+    return sendFail(res, { status, error: data?.error || 'VALIDATION_ERROR', message: data?.message });
+  }
+
+  logger.warn({ eventId: req.params.eventId, by: req.user.id, mode, until }, 'scanner gate mode set');
+  const audited = await writeAudit(req, {
+    action: audit, targetType: 'event', targetId: req.params.eventId,
+    payload: {
+      mode, until: until || null, reason,
+      before: { locked: data.before?.locked ?? null, reason: data.before?.reason ?? null, mode: data.before?.mode ?? null },
+      after: { locked: data.gate?.locked ?? null, reason: data.gate?.reason ?? null, mode: data.gate?.mode ?? null },
+    },
+  });
+  const notice = req.body.notify === false
+    ? { sent: false }
+    : await notices.notifyGateChanged(req.params.eventId, { before: data.before, after: data.gate, reason });
+
+  return sendOk(res, {
+    gate: data.gate,
+    before: data.before,
+    // Kept for older console builds that read these.
+    overrideUntil: data.gate?.mode === 'open' ? data.gate.mode_until : null,
+    organizerNotified: Boolean(notice?.sent),
+    audited,
+  });
+}
+
+// POST /admin/events/:eventId/gate   { mode, until?, reason }
+async function setGateMode(req, res, next) {
   try {
-    const { data: event, error: eventError } = await supabase
-      .from('events').select('id, status').eq('id', req.params.eventId).maybeSingle();
-    if (eventError) throw new Error(eventError.message);
-    if (!event) {
-      return sendFail(res, { status: 404, error: 'EVENT_NOT_FOUND', message: 'That event does not exist.' });
-    }
-    if (['cancelled', 'completed'].includes(event.status)) {
-      return sendFail(res, {
-        status: 409, error: 'CONFLICT',
-        message: `This event is ${event.status}, so there is no gate to reopen.`,
-      });
-    }
-
-    const hours = Math.min(Math.max(parseInt(req.body.hours, 10) || 12, 1), 72);
-    const until = new Date(Date.now() + hours * 3600e3).toISOString();
-
-    const { error } = await supabase.from('scanner_access').upsert({
-      event_id: event.id,
-      override_by: req.user.id,
-      override_until: until,
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'event_id' });
-    if (error) throw new Error(error.message);
-
-    // Time-boxed on purpose. A permanent override is a lock that was quietly
-    // removed, and nobody would notice the invoice was never paid.
-    logger.warn({ eventId: event.id, by: req.user.id, until }, 'scanner override granted');
-
-    const audited = await writeAudit(req, {
-      action: 'scanner.override', targetType: 'event', targetId: event.id,
-      payload: { hours, until, reason: req.body.reason || null },
+    return await applyGateMode(req, res, {
+      mode: req.body.mode,
+      until: req.body.until || null,
+      reason: String(req.body.reason || '').trim(),
+      audit: 'scanner.mode',
     });
-
-    return sendOk(res, { overrideUntil: until, hours, audited });
   } catch (err) { return next(err); }
 }
 
-// POST /admin/events/:eventId/scanner-override/end
-/**
- * Ends an override early. There was no way to: once granted, a reopened gate
- * stayed open for its full window even after the reason for it had gone. The
- * gate returns to whatever the invoices say.
- */
+// POST /admin/events/:eventId/scanner-override   { hours?, reason }
+/** The old "reopen for N hours" — now "keep open until now + N hours". */
+async function override(req, res, next) {
+  try {
+    const hours = Math.min(Math.max(parseInt(req.body.hours, 10) || 12, 1), 720);
+    const until = new Date(Date.now() + hours * 3600e3).toISOString();
+    const { data: event } = await supabase.from('events').select('status').eq('id', req.params.eventId).maybeSingle();
+    if (event && ['cancelled', 'completed'].includes(event.status)) {
+      return sendFail(res, { status: 409, error: 'CONFLICT', message: `This event is ${event.status}, so there is no gate to reopen.` });
+    }
+    return await applyGateMode(req, res, {
+      mode: 'open', until, reason: String(req.body.reason || '').trim() || 'Override', audit: 'scanner.override',
+    });
+  } catch (err) { return next(err); }
+}
+
+// POST /admin/events/:eventId/scanner-override/end   { reason }
+/** Ends an admin's open (or closed) decision early: back to following the invoices. */
 async function endOverride(req, res, next) {
   try {
-    const now = new Date().toISOString();
-    const { data, error } = await supabase
-      .from('scanner_access')
-      .update({ override_until: null, override_by: req.user.id, updated_at: now })
-      .eq('event_id', req.params.eventId)
-      .gt('override_until', now)
-      .select('event_id')
-      .maybeSingle();
-    if (error) throw new Error(error.message);
-    if (!data) {
+    const { data: row } = await supabase.from('scanner_access')
+      .select('mode, mode_until, override_until').eq('event_id', req.params.eventId).maybeSingle();
+    const now = Date.now();
+    const running = row && (
+      (row.mode !== 'auto' && (!row.mode_until || Date.parse(row.mode_until) > now))
+      || (row.override_until && Date.parse(row.override_until) > now));
+    if (!running) {
       return sendFail(res, { status: 404, error: 'NOT_FOUND', message: 'This event has no override running.' });
     }
-
-    logger.warn({ eventId: req.params.eventId, by: req.user.id }, 'scanner override ended early');
-    const audited = await writeAudit(req, {
-      action: 'scanner.override_ended', targetType: 'event', targetId: req.params.eventId,
-      payload: { reason: req.body.reason || null },
+    return await applyGateMode(req, res, {
+      mode: 'auto', until: null, reason: String(req.body.reason || '').trim() || 'Override ended', audit: 'scanner.override_ended',
     });
-
-    return sendOk(res, { overrideUntil: null, audited });
   } catch (err) { return next(err); }
 }
 
 module.exports = {
   createDevice, listDevices, updateDevice, gateStatus, pairingQr,
-  deviceLogin, verify, sync, undo, status, override, endOverride,
+  deviceLogin, verify, sync, undo, status, override, endOverride, setGateMode,
 };

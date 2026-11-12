@@ -151,75 +151,263 @@ async function sendTickets({ to, buyerName, event, tickets, order, organizerEmai
   });
 }
 
-/** BRD §18 — the invoice, and what happens if it is not paid. */
-async function sendInvoiceIssued({ to, organizerName, invoice, event }) {
-  const site = T.siteUrl();
+/**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * BRD §18 — THE COMMISSION INVOICE, from issue to settlement.
+ *
+ * Every link points at the event's own Commission page
+ * (`/organizer/events/:id/commission`), where the receipt is uploaded. They
+ * used to point at `/organizer/payouts`, which became a redirect to Payment
+ * methods — a page with no invoice on it — so the button in every invoice
+ * email led nowhere useful.
+ *
+ * Dates are on the EVENT's clock with the zone named: the gate shuts at that
+ * moment at the venue. They were printed in UTC with no zone at all.
+ *
+ * `instructions` is the platform's own "how to pay us" text (the
+ * `manual_invoice.payment_instructions` setting). The invoice number is the
+ * payment reference, so a transfer can be matched to its invoice.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+function invoiceDue(invoice, event) {
+  return T.whenText(invoice.due_at, event?.timezone || null) || 'soon';
+}
+
+function howToPay(invoice, instructions) {
+  const steps = instructions
+    ? `${T.p('<strong>How to pay</strong>')}
+        ${T.note('info', escapeHtml(instructions).replace(/\r?\n/g, '<br>'))}`
+    : T.p('Pay by bank transfer using the details Eventsli gave you.');
+  return `${steps}
+        ${T.p(`Use <strong>${escapeHtml(invoice.number)}</strong> as the payment reference, then
+          upload the receipt on the event&rsquo;s Commission page.`)}`;
+}
+
+/** An invoice was raised — what is owed, by when, how to pay, and the consequence. */
+async function sendInvoiceIssued({ to, organizerName, invoice, event, url, instructions }) {
   return send({
     to,
     subject: `Commission invoice ${invoice.number} — ${event.title}`,
     html: T.layout({
       title: 'Commission due',
-      preheader: `${money(invoice.amount_cents, invoice.currency)} due ${T.whenText(invoice.due_at, null, { withZone: false }) || 'soon'}`,
+      preheader: `${money(invoice.amount_cents, invoice.currency)} due ${invoiceDue(invoice, event)}`,
       reason: 'You are receiving this because you have an organizer account on Eventsli.',
       body: `
         ${T.p(`Hi ${escapeHtml(organizerName || 'there')},`)}
-        ${T.p(`Commission on the sales you recorded for this event is now due.`)}
+        ${T.p('Commission on the sales you recorded at the door for this event is now due. Card sales are not included — their commission was taken at checkout.')}
         ${T.eventCard(event)}
         ${T.facts([
     ['Invoice', invoice.number],
-    ['Sales recorded', `${invoice.order_count} sale${invoice.order_count === 1 ? '' : 's'}`],
+    ['Door sales covered', `${invoice.order_count} sale${invoice.order_count === 1 ? '' : 's'}`],
     ['Amount', money(invoice.amount_cents, invoice.currency)],
-    ['Due', T.whenText(invoice.due_at, null, { withZone: false })],
+    ['Due', invoiceDue(invoice, event)],
   ])}
         ${T.note('warning', `
           If it is not settled by the due date, <strong>ticket scanning for this event is switched
           off</strong> until it is. Your account and your other events are not affected.`)}
-        ${T.p('Pay by bank transfer, then upload the receipt in your dashboard.')}
-        ${site ? T.button(`${site}/organizer/payouts`, 'Upload my receipt') : ''}`,
+        ${howToPay(invoice, instructions)}
+        ${url ? T.button(url, 'Open the invoice') : ''}`,
     }),
   });
 }
 
-/** Sent when the gate has actually closed — a different message from a reminder. */
-async function sendInvoiceOverdue({ to, organizerName, invoice, event }) {
-  const site = T.siteUrl();
+/** What is still to pay: the balance when part has been paid, else the amount. */
+function stillOwed(invoice) {
+  const balance = invoice.balance_cents ?? (Number(invoice.amount_cents) - Number(invoice.paid_cents || 0) - Number(invoice.written_off_cents || 0));
+  return money(Number.isFinite(balance) ? balance : invoice.amount_cents, invoice.currency);
+}
+
+/**
+ * Sent once, when an invoice falls due. What it says about the door is what
+ * the door is actually doing (`gate`, from scanner_is_locked): switched off;
+ * still on for a grace period; or unaffected, because an admin keeps this
+ * event open or enforcement is off for the platform. Saying "scanning
+ * disabled" about an open gate sends an organizer into a panic for nothing.
+ *
+ * `receiptSent`: a receipt is waiting for review — they are told that, not
+ * asked to upload it again.
+ */
+async function sendInvoiceOverdue({ to, organizerName, invoice, event, url, instructions, receiptSent = false, gate = { locked: true } }) {
+  const shut = Boolean(gate?.locked);
+  const locksAt = !shut && gate?.locks_at ? T.whenText(gate.locks_at, event?.timezone || null) : null;
+  const door = shut
+    ? T.note('danger', `
+          Invoice <strong>${escapeHtml(invoice.number)}</strong> — <strong>${escapeHtml(stillOwed(invoice))}</strong>
+          to pay — is past its due date, so ticket scanning for this event is <strong>now switched off</strong>.`)
+    : locksAt
+      ? T.note('warning', `
+          Invoice <strong>${escapeHtml(invoice.number)}</strong> — <strong>${escapeHtml(stillOwed(invoice))}</strong>
+          to pay — is past its due date. If it is not settled, ticket scanning for this event switches off
+          <strong>${escapeHtml(locksAt)}</strong>.`)
+      : T.note('warning', `
+          Invoice <strong>${escapeHtml(invoice.number)}</strong> — <strong>${escapeHtml(stillOwed(invoice))}</strong>
+          to pay — is past its due date. Scanning for this event is not affected, but the balance is still owed.`);
   return send({
     to,
-    subject: `Scanning disabled — ${event.title}`,
+    subject: shut ? `Scanning disabled — ${event.title}` : `Invoice overdue — ${invoice.number}`,
     html: T.layout({
-      title: 'Scanning is switched off',
-      preheader: `Invoice ${invoice.number} is past due. Settle it to resume scanning.`,
+      title: shut ? 'Scanning is switched off' : 'Your invoice is overdue',
+      preheader: receiptSent
+        ? `Invoice ${invoice.number} is past due. We are still checking your receipt.`
+        : `Invoice ${invoice.number} is past due.${shut ? ' Settle it to resume scanning.' : ''}`,
       reason: 'You are receiving this because you have an organizer account on Eventsli.',
       body: `
         ${T.p(`Hi ${escapeHtml(organizerName || 'there')},`)}
-        ${T.note('danger', `
-          Invoice <strong>${escapeHtml(invoice.number)}</strong> for
-          <strong>${escapeHtml(money(invoice.amount_cents, invoice.currency))}</strong> is past its
-          due date, so ticket scanning for this event is <strong>now disabled</strong>.`)}
+        ${door}
         ${T.eventCard(event)}
-        ${T.p('Settle it and upload your receipt — scanning resumes as soon as we confirm the transfer.')}
-        ${site ? T.button(`${site}/organizer/payouts`, 'Upload my receipt') : ''}`,
+        ${receiptSent
+    ? `${T.p(`We have your receipt and are checking it now${shut ? '. Scanning resumes on its own as soon as we confirm the transfer' : ''} — there is nothing more to send.`)}
+        ${url ? T.button(url, 'See the invoice') : ''}`
+    : `${howToPay(invoice, instructions)}
+        ${shut ? T.p('Scanning resumes on its own as soon as we confirm the transfer.') : ''}
+        ${url ? T.button(url, 'Upload my receipt') : ''}`}`,
     }),
   });
 }
 
-async function sendInvoiceSettled({ to, organizerName, invoice, event }) {
+/** A reminder before the due date — sent once by the hourly job, or by an admin. */
+async function sendInvoiceReminder({ to, organizerName, invoice, event, url, instructions, gateAffected = true }) {
   return send({
     to,
-    subject: `Payment confirmed — ${event.title}`,
+    subject: `Reminder: ${invoice.number} is due ${invoiceDue(invoice, event)}`,
+    html: T.layout({
+      title: 'Commission due soon',
+      preheader: `${stillOwed(invoice)} due ${invoiceDue(invoice, event)}.`,
+      reason: 'You are receiving this because you have an organizer account on Eventsli.',
+      body: `
+        ${T.p(`Hi ${escapeHtml(organizerName || 'there')},`)}
+        ${T.p(`A reminder that invoice <strong>${escapeHtml(invoice.number)}</strong> is due
+          <strong>${escapeHtml(invoiceDue(invoice, event))}</strong>.`)}
+        ${T.eventCard(event)}
+        ${T.facts([
+    ['Invoice', invoice.number],
+    ['To pay', stillOwed(invoice)],
+    ['Due', invoiceDue(invoice, event)],
+  ])}
+        ${gateAffected ? T.note('warning', 'If it is not settled by then, <strong>ticket scanning for this event switches off</strong> until it is.') : ''}
+        ${howToPay(invoice, instructions)}
+        ${url ? T.button(url, 'Open the invoice') : ''}`,
+    }),
+  });
+}
+
+/**
+ * Every other change an admin makes to an invoice that the organizer must
+ * hear about — a rejected receipt, a payment received, a new due date, a
+ * waiver, a void, a reopening. One layout; the caller supplies the words.
+ *
+ *   tone   'info' | 'warning' | 'danger' — the colour of the reason box
+ *   reason the admin's words, shown as they wrote them
+ */
+async function sendInvoiceUpdate({
+  to, organizerName, invoice, event, url, subject, title, lead, reason = null, reasonLabel = 'Reason',
+  tone = 'info', facts = [], buttonLabel = 'Open the invoice', instructions = null,
+}) {
+  return send({
+    to,
+    subject,
+    html: T.layout({
+      title,
+      preheader: `${invoice.number} — ${event.title}`,
+      reason: 'You are receiving this because you have an organizer account on Eventsli.',
+      body: `
+        ${T.p(`Hi ${escapeHtml(organizerName || 'there')},`)}
+        ${T.p(lead)}
+        ${reason ? T.note(tone, `<strong>${escapeHtml(reasonLabel)}:</strong> ${escapeHtml(reason).replace(/\r?\n/g, '<br>')}`) : ''}
+        ${T.eventCard(event)}
+        ${T.facts([['Invoice', invoice.number], ...facts])}
+        ${instructions !== null ? howToPay(invoice, instructions) : ''}
+        ${url ? T.button(url, buttonLabel) : ''}`,
+    }),
+  });
+}
+
+/**
+ * An admin changed whether scanning works for an event. Sent when the gate
+ * actually changed state: closed by Eventsli, or reopened by Eventsli.
+ */
+async function sendGateChanged({ to, organizerName, event, url, opened, reason, until = null }) {
+  const untilText = until ? T.whenText(until, event?.timezone || null) : null;
+  return send({
+    to,
+    subject: opened ? `Scanning is on — ${event.title}` : `Scanning switched off by Eventsli — ${event.title}`,
+    html: T.layout({
+      title: opened ? 'Scanning is on' : 'Scanning is switched off',
+      preheader: opened ? `Eventsli switched scanning back on for ${event.title}.` : `Eventsli switched off scanning for ${event.title}.`,
+      reason: 'You are receiving this because you have an organizer account on Eventsli.',
+      body: `
+        ${T.p(`Hi ${escapeHtml(organizerName || 'there')},`)}
+        ${opened
+    ? T.p(`Eventsli has switched ticket scanning <strong>on</strong> for this event${untilText ? ` until <strong>${escapeHtml(untilText)}</strong>` : ''}.`)
+    : T.note('danger', `Eventsli has switched ticket scanning <strong>off</strong> for this event${untilText ? ` until <strong>${escapeHtml(untilText)}</strong>` : ''}. Nobody can be checked in until it is back on.`)}
+        ${reason ? T.note('info', `<strong>Why:</strong> ${escapeHtml(reason)}`) : ''}
+        ${T.eventCard(event)}
+        ${T.p('Questions? Reply to this email.', { small: true, color: T.MUTED })}
+        ${url ? T.button(url, 'Open the event') : ''}`,
+    }),
+  });
+}
+
+/**
+ * The money was seen and the invoice is closed. What it says about the door
+ * depends on the door: `gateOpen` is the gate as it stands after settling
+ * (another overdue invoice or an admin lock can still hold it shut), and
+ * `wasOverdue` is whether scanning had actually been off.
+ */
+async function sendInvoiceSettled({ to, organizerName, invoice, event, url, gateOpen = true, wasOverdue = false }) {
+  const door = !gateOpen
+    ? T.note('warning', 'Scanning for this event is <strong>still off</strong>: something else is outstanding. The Commission page shows what.')
+    : wasOverdue
+      ? T.p('<strong>Scanning for this event is on again.</strong>')
+      : '';
+  return send({
+    to,
+    subject: `Payment confirmed — ${invoice.number}`,
     html: T.layout({
       title: 'Payment confirmed',
-      preheader: `Scanning for ${event.title} is active again.`,
+      preheader: `Invoice ${invoice.number} for ${event.title} is settled.`,
       reason: 'You are receiving this because you have an organizer account on Eventsli.',
       body: `
         ${T.p(`Hi ${escapeHtml(organizerName || 'there')},`)}
-        ${T.p(`We have confirmed your transfer. <strong>Scanning for this event is active again.</strong>`)}
+        ${T.p('We have confirmed your transfer. Thank you.')}
+        ${door}
         ${T.eventCard(event)}
         ${T.facts([
     ['Invoice', invoice.number],
     ['Amount', money(invoice.amount_cents, invoice.currency)],
     ['Status', 'Settled'],
-  ])}`,
+  ])}
+        ${url ? T.button(url, 'See your invoices') : ''}`,
+    }),
+  });
+}
+
+/**
+ * An organizer uploaded a receipt. Nothing reopens on the claim — an admin has
+ * to look at it — and nothing used to tell an admin there was anything to look
+ * at, so a receipt could wait unseen while the gate stayed shut.
+ */
+async function sendInvoiceReceiptToAdmins({ to, organizerName, invoice, event, adminUrl, proofUrl, overdue = false }) {
+  return send({
+    to,
+    subject: `${overdue ? 'Gate shut — ' : ''}Receipt to check — ${invoice.number}`,
+    html: T.layout({
+      title: 'A commission receipt is waiting',
+      preheader: `${organizerName || 'An organizer'} sent a receipt for ${money(invoice.amount_cents, invoice.currency)}.`,
+      reason: 'You are receiving this because you are an Eventsli administrator.',
+      body: `
+        ${T.p(`<strong>${escapeHtml(organizerName || 'An organizer')}</strong> says they have paid invoice
+          <strong>${escapeHtml(invoice.number)}</strong> and sent a receipt.`)}
+        ${overdue ? T.note('danger', 'This invoice is overdue, so <strong>scanning for the event is off</strong> until it is settled.') : ''}
+        ${T.eventCard({ ...event, organizerName })}
+        ${T.facts([
+    ['Invoice', invoice.number],
+    ['Amount', money(invoice.amount_cents, invoice.currency)],
+    ['Due', invoiceDue(invoice, event)],
+  ])}
+        ${proofUrl ? T.p(`Receipt: <a href="${escapeHtml(proofUrl)}">${escapeHtml(proofUrl)}</a>`, { small: true }) : ''}
+        ${T.p('Check the money has arrived before settling — the receipt is the organizer&rsquo;s word, not ours.', { small: true, color: T.MUTED })}
+        ${adminUrl ? T.button(adminUrl, 'Open commission invoices') : ''}`,
     }),
   });
 }
@@ -495,6 +683,10 @@ module.exports = {
   sendInvoiceIssued,
   sendInvoiceOverdue,
   sendInvoiceSettled,
+  sendInvoiceReceiptToAdmins,
+  sendInvoiceReminder,
+  sendInvoiceUpdate,
+  sendGateChanged,
   sendEventRejected,
   sendEventApproved,
   sendEventSuspended,

@@ -95,6 +95,7 @@ export function applyResults(records, results) {
       // believed, because offline the device believed nothing — see the
       // `queued` outcome, which is explicitly not a decision.
       result: answer.result,
+      reason: answer.reason || null,
       message: answer.message || null,
       // The FIRST scan's device time, when this is a duplicate. That is the
       // number the operator reads out loud.

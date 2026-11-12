@@ -49,7 +49,15 @@ export type Permissions = {
   offlineNames: boolean;
 };
 
-export type GateState = { locked: boolean; reason?: string; override?: boolean };
+export type GateState = {
+  locked: boolean;
+  reason?: string;
+  override?: boolean;
+  /** An admin's decision: follow invoices (auto), keep open, keep closed. */
+  mode?: 'auto' | 'open' | 'closed';
+  mode_until?: string | null;
+  mode_reason?: string | null;
+};
 export type Stats = { issued: number; admitted: number; pending: number; void: number };
 
 export type DoorEvent = {
@@ -195,6 +203,8 @@ export type ManifestPage = {
   names: boolean;
   event: { status: string; startsAt: string; endsAt: string } | null;
   gateLocked: boolean;
+  /** Why it is shut, when it is (scanner_is_locked). Older servers send none. */
+  gateReason?: string | null;
   legacyQrOffline: 'allow' | 'hold';
   serverTime: string;
 };

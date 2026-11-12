@@ -65,7 +65,7 @@ export default function AiCreator({ organizer }) {
   const { options: countryOptions, ready: countriesReady } = useOpenCountries();
   const openCountry = countriesReady ? openCountryFor(request.country, countryOptions) : null;
   if (openCountry && openCountry !== request.country) {
-    setRequest((r) => ({ ...r, country: openCountry, timezone: defaultTimeZone(openCountry, browserZone()) }));
+    setRequest((r) => ({ ...r, country: openCountry }));
   }
   const [form, setForm] = useState(() => saved?.form || null);
   const [stage, setStage] = useState(() => (saved?.form && ['review', 'save'].includes(saved.stage) ? saved.stage : 'describe'));

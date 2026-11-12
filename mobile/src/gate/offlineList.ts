@@ -38,7 +38,7 @@ type EventInfo = ManifestPage['event'];
 
 type MetaRow = {
   event_id: string; cursor: string | null; complete: number; synced_at: string | null; names: number;
-  event_json: string | null; gate_locked: number; legacy_qr_offline: string; keys_json: string | null; keys_at: string | null;
+  event_json: string | null; gate_locked: number; gate_reason?: string | null; legacy_qr_offline: string; keys_json: string | null; keys_at: string | null;
 };
 
 type ListRow = {
@@ -74,6 +74,7 @@ type State = {
   names: boolean;
   event: EventInfo;
   gateLocked: boolean;
+  gateReason: string | null;
   legacyQrOffline: 'allow' | 'hold';
   keys: PublicJwk[];
   keysAt: string | null;
@@ -92,7 +93,7 @@ type State = {
 };
 
 const EMPTY = {
-  complete: false, count: 0, syncedAt: null, names: false, event: null, gateLocked: false,
+  complete: false, count: 0, syncedAt: null, names: false, event: null, gateLocked: false, gateReason: null,
   legacyQrOffline: 'allow' as const, keys: [] as PublicJwk[], keysAt: null, keysStale: false, off: false, lastError: null,
 };
 
@@ -113,6 +114,7 @@ export const useOfflineList = create<State>((set, get) => {
       names: Boolean(meta?.names),
       event: parse<EventInfo>(meta?.event_json ?? null, null),
       gateLocked: Boolean(meta?.gate_locked),
+      gateReason: meta?.gate_reason ?? null,
       legacyQrOffline: meta?.legacy_qr_offline === 'hold' ? 'hold' : 'allow',
       keys: parse<PublicJwk[]>(meta?.keys_json ?? null, []),
       keysAt: meta?.keys_at ?? null,
@@ -148,10 +150,10 @@ export const useOfflineList = create<State>((set, get) => {
       const complete = page.done ? 1 : page.reset ? 0 : (previous?.complete ?? 0);
       await d.runAsync(
         `INSERT OR REPLACE INTO ticket_list_meta
-           (event_id, cursor, complete, synced_at, names, event_json, gate_locked, legacy_qr_offline, keys_json, keys_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           (event_id, cursor, complete, synced_at, names, event_json, gate_locked, gate_reason, legacy_qr_offline, keys_json, keys_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [eventId, page.cursor, complete, page.done ? now : (previous?.synced_at ?? null), page.names ? 1 : 0,
-          JSON.stringify(page.event), page.gateLocked ? 1 : 0, page.legacyQrOffline,
+          JSON.stringify(page.event), page.gateLocked ? 1 : 0, page.gateLocked ? (page.gateReason ?? null) : null, page.legacyQrOffline,
           previous?.keys_json ?? null, previous?.keys_at ?? null],
       );
     });
@@ -235,6 +237,7 @@ export const useOfflineList = create<State>((set, get) => {
         eventId: s.eventId,
         eventStatus: s.event?.status ?? null,
         gateLocked: s.gateLocked,
+        gateReason: s.gateReason,
         legacyQrOffline: s.legacyQrOffline,
         keys: s.keys,
       };

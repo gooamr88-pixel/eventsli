@@ -7,8 +7,7 @@ import { SelectField } from '../../../../components/forms/Field';
 import FormError from '../../../../components/forms/FormError';
 import { COUNTRY_NAMES } from '../../../../lib/markets';
 import { useOpenCountries } from '../../../../hooks/useOpenCountries';
-import { defaultTimeZone, zonesFor } from '../../../../lib/timezones';
-import { browserZone } from '../../../../lib/eventTime';
+import { zoneLabel, zoneOptions } from '../../../../lib/timezones';
 import { AiStepper, QuotaDots, ActionBar, nextDraftTime } from './AiParts';
 import { MIN_DESCRIPTION, MAX_DESCRIPTION, MAX_NOTES } from './aiDraftModel';
 import PosterDrop from './PosterDrop';
@@ -59,7 +58,6 @@ export default function DescribeStep({
   const tooShort = length < MIN_DESCRIPTION;
   const notReady = fromPoster ? !poster : tooShort;
   const exhausted = quota && quota.remaining < 1;
-  const zone = zonesFor(request.country).find(([z]) => z === request.timezone);
   const set = (k, v) => setRequest((r) => ({ ...r, [k]: v }));
 
   function submit(e) {
@@ -130,16 +128,16 @@ export default function DescribeStep({
             <div className="fx-grid fx-grid--2">
               <SelectField
                 label="Country" required value={request.country} options={countryOptions}
-                onChange={(e) => setRequest((r) => ({ ...r, country: e.target.value, timezone: defaultTimeZone(e.target.value, browserZone()) }))}
+                onChange={(e) => set('country', e.target.value)}
               />
               <SelectField
-                label="Time zone" required value={request.timezone} options={zonesFor(request.country)}
+                label="Time zone" required value={request.timezone} options={zoneOptions(request.country, request.timezone)}
                 onChange={(e) => set('timezone', e.target.value)}
               />
             </div>
           ) : (
             <div className="es-ai-where">
-              <span><NavIcon name="pin" size={16} /> {COUNTRY_NAMES[request.country] || request.country} · {zone ? zone[1].split(' — ')[0] : request.timezone} time</span>
+              <span><NavIcon name="pin" size={16} /> {COUNTRY_NAMES[request.country] || request.country} · {zoneLabel(request.timezone)}</span>
               <button type="button" className="es-ai-link" onClick={() => setWhere(true)} aria-label="Change country and time zone">
                 Change
               </button>

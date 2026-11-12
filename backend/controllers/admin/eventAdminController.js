@@ -3,7 +3,7 @@ const { parsePagination, applyPagination, buildMeta } = require('../../middlewar
 const { sendOk, sendFail } = require('../../utils/responseEnvelope');
 const eventCtrl = require('../eventController');
 const scanSvc = require('../../services/scanService');
-const { isInvoiceOverdue } = require('../../utils/invoices');
+const { isInvoiceOverdue, invoiceMoney } = require('../../utils/invoices');
 
 /**
  * BRD §19 — every event on the platform, and everything an admin controls about
@@ -100,7 +100,7 @@ async function detail(req, res, next) {
       supabase.rpc('event_sales_summary', { p_event_id: eventId, p_days: 30 }),
       scanSvc.gateStatus(eventId),
       supabase.from('invoices')
-        .select('id, number, currency, amount_cents, status, issued_at, due_at, proof_submitted_at')
+        .select('id, number, currency, amount_cents, paid_cents, written_off_cents, status, issued_at, due_at, proof_submitted_at')
         .eq('event_id', eventId).order('issued_at', { ascending: false }).limit(20),
       supabase.from('event_staff').select('id', { count: 'exact', head: true })
         .eq('event_id', eventId).is('revoked_at', null),
@@ -158,12 +158,15 @@ async function detail(req, res, next) {
       },
       stats: stats.data || null,
       gate,
-      scannerOverrideUntil: access.data?.override_until || null,
+      // The gate's mode lives in `gate` (scanner_is_locked): mode, mode_until, mode_reason.
+      scannerOverrideUntil: gate?.gate?.mode === 'open' ? gate.gate.mode_until || null : (access.data?.override_until || null),
       invoices: (invoices.data || []).map((i) => ({
         id: i.id,
         number: i.number,
         currency: i.currency,
         amountCents: Number(i.amount_cents),
+        balanceCents: invoiceMoney(i).balance,
+        paidCents: invoiceMoney(i).paid,
         status: i.status,
         issuedAt: i.issued_at,
         dueAt: i.due_at,

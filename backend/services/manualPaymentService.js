@@ -1,6 +1,6 @@
 const { supabase } = require('../config/supabase');
 const { describeOrder, FEE_BEARER, PAYMENT_FEE_MODE } = require('../utils/money');
-const { isInvoiceOverdue } = require('../utils/invoices');
+const invoices_ = require('./invoiceService');
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -138,89 +138,78 @@ async function recordSale({ eventId, seatIds, tableId, buyer, method, note, reco
   return data;
 }
 
-/** What the organizer owes on this event, and the state of any invoice. */
+/**
+ * What the organizer owes on this event, every invoice with its payments and
+ * history, and what that means for the door.
+ */
 async function debtFor(eventId) {
   const { data: event } = await supabase
     .from('events').select('id, currency, title, starts_at').eq('id', eventId).maybeSingle();
   if (!event) throw fail('EVENT_NOT_FOUND', 'That event does not exist.');
 
-  const [{ data: owed }, { data: invoices }, { data: gate }] = await Promise.all([
+  const [{ data: owed }, { data: invoices, error }, { data: gate }, { data: setting }] = await Promise.all([
     supabase.rpc('manual_commission_owed', { p_event_id: eventId, p_currency: event.currency }),
     supabase.from('invoices')
-      .select('id, number, currency, amount_cents, status, issued_at, due_at, proof_url, proof_submitted_at, confirmed_at, order_count')
+      .select(invoices_.INVOICE_COLUMNS)
       .eq('event_id', eventId).order('issued_at', { ascending: false }),
     supabase.rpc('scanner_is_locked', { p_event_id: eventId }),
+    supabase.from('platform_settings').select('value').eq('key', 'manual_invoice').maybeSingle(),
   ]);
+  if (error) throw new Error(error.message);
+
+  const owedCents = Number(owed || 0);
+  const rows = invoices || [];
+  const { payments, history } = await invoices_.organizerHistory(rows.map((i) => i.id));
+  const shaped = rows.map((i) => ({
+    ...invoices_.shapeInvoice(i),
+    payments: payments.get(i.id) || [],
+    history: history.get(i.id) || [],
+  }));
+  // Balances, not face amounts: a part-paid invoice's payments already reduced
+  // what the ledger says is owed.
+  const unpaidCents = shaped
+    .filter((i) => invoices_.UNPAID.includes(i.status))
+    .reduce((sum, i) => sum + i.balanceCents, 0);
+  const instructions = setting?.value?.payment_instructions;
 
   return {
     currency: event.currency,
-    owedCents: Number(owed || 0),
+    owedCents,
+    // Commission on door sales that no invoice asks for yet. Shown so the
+    // organizer is not surprised by the next invoice — or left wondering why
+    // "Outstanding" is more than the invoices add up to.
+    uninvoicedCents: Math.max(owedCents - unpaidCents, 0),
     // Surfaced together on purpose: the organizer needs to see the debt and the
     // consequence in one place, not discover the second at the door.
     gate,
-    invoices: (invoices || []).map(shapeInvoice),
+    // How to pay Eventsli. Null until an admin sets it (Platform settings).
+    paymentInstructions: typeof instructions === 'string' && instructions.trim() ? instructions.trim() : null,
+    invoices: shaped,
   };
 }
 
-function shapeInvoice(i) {
-  return {
-    id: i.id,
-    number: i.number,
-    currency: i.currency,
-    amountCents: i.amount_cents,
-    status: i.status,
-    issuedAt: i.issued_at,
-    dueAt: i.due_at,
-    orderCount: i.order_count,
-    proofUrl: i.proof_url,
-    proofSubmittedAt: i.proof_submitted_at,
-    confirmedAt: i.confirmed_at,
-    // Computed rather than read from `status`: the label is set by a scheduled
-    // job, and between runs a due invoice still says "open" while the gate is
-    // already shut. The organizer should see the same truth the door does.
-    isOverdue: isInvoiceOverdue(i),
-  };
-}
+// Kept as this module's API — the routes and the tests call these — and
+// delegated to services/invoiceService.js, where every invoice action lives.
 
-async function raiseInvoice(eventId) {
-  const { data, error } = await supabase.rpc('raise_commission_invoice', { p_event_id: eventId });
-  if (error) throw fail('CONFLICT', error.message);
-  if (!data?.ok) throw fail(data?.error || 'CONFLICT', data?.message, data);
-  return data;
+async function raiseInvoice(eventId, adminId = null) {
+  return invoices_.raise(eventId, adminId);
 }
 
 /**
  * The organizer says they have paid, and attaches evidence.
  *
- * This does NOT settle anything and does NOT reopen the gate — it moves the
- * invoice to `submitted` and puts it in front of an admin. Reopening on the
- * claim alone would make the proof decorative.
+ * This does NOT settle anything and does NOT reopen the gate (unless the
+ * platform's policy pauses enforcement while a receipt is reviewed) — it puts
+ * the invoice in front of an admin.
  */
-async function submitProof({ invoiceId, organizerId, proofUrl }) {
-  const { data, error } = await supabase
-    .from('invoices')
-    .update({
-      status: 'submitted',
-      proof_url: proofUrl,
-      proof_submitted_at: new Date().toISOString(),
-    })
-    .eq('id', invoiceId)
-    .eq('organizer_id', organizerId)      // scoped: not someone else's invoice
-    .in('status', ['open', 'overdue'])    // and not one already settled
-    .select('id, status, proof_submitted_at')
-    .single();
-
-  if (error || !data) throw fail('CONFLICT', 'That invoice cannot be updated.');
-  return shapeInvoice({ ...data, amount_cents: 0, due_at: new Date().toISOString() });
+async function submitProof({ invoiceId, organizerId, userId, proofUrl }) {
+  await invoices_.submitReceipt({ invoiceId, organizerId, userId, proofUrl });
+  const { data } = await supabase.from('invoices').select(invoices_.INVOICE_COLUMNS).eq('id', invoiceId).single();
+  return invoices_.shapeInvoice(data);
 }
 
 async function settle({ invoiceId, adminId, note }) {
-  const { data, error } = await supabase.rpc('settle_invoice', {
-    p_invoice_id: invoiceId, p_admin_id: adminId, p_note: note || null,
-  });
-  if (error) throw fail('CONFLICT', error.message);
-  if (!data?.ok) throw fail(data?.error || 'CONFLICT', data?.message);
-  return data;
+  return invoices_.settle({ invoiceId, adminId, note });
 }
 
 function fail(code, message, meta) {

@@ -21,6 +21,7 @@ import * as endpoints from '../src/api/endpoints';
 import type { ManifestPage, ManifestRow } from '../src/api/types';
 import { useOfflineList } from '../src/gate/offlineList';
 import { DoorAuthError, pendingCount, useScanLog } from '../src/gate/scanLog';
+import { describeScan } from '../src/gate/outcomes';
 import { migrate } from '../src/lib/dbSchema';
 import { openTestDb, type TestDb } from './helpers/sqlite';
 
@@ -52,7 +53,7 @@ const legacyCode = (tid: string) => `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64(
 const PAGE = 2;
 let server: {
   rows: Map<string, ManifestRow>; seq: number; changed: Map<string, number>;
-  event: ManifestPage['event']; gateLocked: boolean; legacy: 'allow' | 'hold'; names: boolean;
+  event: ManifestPage['event']; gateLocked: boolean; gateReason?: string | null; legacy: 'allow' | 'hold'; names: boolean;
 };
 
 function put(row: Partial<ManifestRow> & { ticketId: string }) {
@@ -80,6 +81,7 @@ function page(cursor: string | null): ManifestPage {
     names: server.names,
     event: server.event,
     gateLocked: server.gateLocked,
+    gateReason: server.gateReason ?? null,
     legacyQrOffline: server.legacy,
     serverTime: new Date().toISOString(),
   };
@@ -123,7 +125,8 @@ describe('the phone database', () => {
     old.run("INSERT INTO scans (client_scan_id, event_id, qr, occurred_at, state) VALUES ('held-1', 'e', 'q', '2026-11-08T10:00:00Z', 'queued')");
     await migrate(old.db);
     await migrate(old.db); // twice is harmless
-    expect(old.one('PRAGMA user_version')).toEqual({ user_version: 3 });
+    expect(old.one('PRAGMA user_version')).toEqual({ user_version: 4 });
+    expect(old.all('PRAGMA table_info(ticket_list_meta)').map((c) => c.name)).toContain('gate_reason');
     expect(old.all('PRAGMA table_info(scans)').map((c) => c.name)).toEqual(expect.arrayContaining(['offline_verdict', 'attempts']));
     expect(old.one("SELECT state FROM scans WHERE client_scan_id = 'held-1'")).toEqual({ state: 'queued' });
     expect(old.all("SELECT name FROM sqlite_master WHERE type = 'table'").map((t) => t.name))
@@ -379,6 +382,19 @@ describe('scanning with no signal', () => {
     put({ ticketId: T.b });
     await list().pull(DOOR);
     expect(await log().submit(code(T.b), DOOR, { offline: true })).toMatchObject({ result: 'event_cancelled' });
+  });
+
+  test('an offline refusal at a closed gate says why, as the server would', async () => {
+    server.gateLocked = true;
+    server.gateReason = 'admin_closed';
+    put({ ticketId: T.e });
+    await list().pull(DOOR);
+    const rec = await log().submit(code(T.e), DOOR, { offline: true });
+    expect(rec).toMatchObject({ result: 'scanner_locked' });
+    expect(rec?.answer?.reason).toBe('admin_closed');
+    expect(describeScan('scanner_locked', rec?.answer?.reason).note).toMatch(/Eventsli has switched scanning off/);
+    server.gateLocked = false;
+    server.gateReason = null;
   });
 });
 

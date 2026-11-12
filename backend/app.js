@@ -194,6 +194,10 @@ const skipInternal = (req) => LOOPBACK.has(req.ip);
 // Stripe retries a failed webhook with backoff and can burst on a busy event.
 // Exempt it: it is authenticated by HMAC signature, not by volume.
 const isStripeWebhook = (req) => (req.originalUrl || '').startsWith('/api/v1/payments/webhook');
+// SMS provider callbacks: authenticated per request (signature or per-message
+// token), and a busy campaign produces one receipt per message from a handful
+// of provider IPs. See routes/smsRoutes.js.
+const isSmsWebhook = (req) => (req.originalUrl || '').startsWith('/api/v1/sms/webhooks/');
 
 // The door's scans are device-authenticated and share one venue IP. They get a
 // per-device limit in routes/scanRoutes.js instead — see utils/gateRoutes.js.
@@ -207,7 +211,7 @@ if (RATE_LIMIT_DISABLED) {
     max: 1000,
     standardHeaders: true,
     legacyHeaders: false,
-    skip: (req) => skipInternal(req) || isStripeWebhook(req) || isGateScanRequest(req),
+    skip: (req) => skipInternal(req) || isStripeWebhook(req) || isSmsWebhook(req) || isGateScanRequest(req),
     store: storeFor('api'),
     handler: (req, res) => sendFail(res, {
       status: 429, error: 'RATE_LIMITED',
@@ -234,6 +238,8 @@ app.use('/api/v1/payments', require('./routes/paymentRoutes'));
 app.use('/api/v1/scan', require('./routes/scanRoutes'));
 // The native check-in app's public configuration (minimum version, store links).
 app.use('/api/v1/app', require('./routes/appRoutes'));
+// SMS: provider webhooks, the unsubscribe link, a person's own preferences.
+app.use('/api/v1/sms', require('./routes/smsRoutes'));
 // One guard for all three admin routers — see routes/admin/index.js.
 app.use('/api/v1/admin', require('./routes/admin'));
 

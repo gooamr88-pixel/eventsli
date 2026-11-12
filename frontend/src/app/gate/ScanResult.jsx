@@ -63,7 +63,7 @@ export default function ScanResult({ entry, onUndo, onDismiss }) {
     : record.state === 'sending' ? 'sending'
       : record.result;
 
-  const { tone, title, note, known } = describeScan(result);
+  const { tone, title, note, known } = describeScan(result, record.reason || null);
   const skin = TONE[tone] || TONE.warn;
   const at = doorTime(record.scannedAt || record.occurredAt);
 

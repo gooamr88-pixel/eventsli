@@ -187,7 +187,10 @@ export const useScanLog = create<State>((set, get) => {
         };
         break;
       case 'refuse':
-        next = { ...decided, state: 'done', result: decision.result, offlineVerdict: null, answer: card(decision.ticket, decision.result) };
+        next = {
+          ...decided, state: 'done', result: decision.result, offlineVerdict: null,
+          answer: card(decision.ticket, decision.result, decision.reason ? { reason: decision.reason } : {}),
+        };
         break;
       default:
         if (decision.reason === 'unknown_key') list.markKeysStale();

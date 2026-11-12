@@ -83,6 +83,8 @@ export const PRIVATE_PREFIXES = [
   '/verify-email',
   '/activate',
   '/api',
+  // The SMS unsubscribe link: one person's opt-out, meaningless to a crawler.
+  '/sms',
 ];
 
 export function isPrivatePath(path) {

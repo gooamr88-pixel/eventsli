@@ -486,3 +486,64 @@ test('the gate reports live counts', async () => {
   assert.ok(status.stats.admitted >= 1);
   assert.equal(status.stats.issued, status.stats.admitted + status.stats.pending + status.stats.void);
 });
+
+// ── An admin's gate decision, at the door (20261115090000) ──────────────────
+
+test('a gate an admin closed refuses live scans, and says why', async () => {
+  const { data: set } = await supabase.rpc('set_scanner_mode', {
+    p_event_id: ids.event, p_mode: 'closed', p_until: null,
+    p_reason: 'Safety stop while the venue is checked', p_admin_id: null,
+  });
+  assert.equal(set.ok, true, JSON.stringify(set));
+  try {
+    assert.equal(set.gate.locked, true);
+    assert.equal(set.gate.reason, 'admin_closed');
+
+    const res = await gate('/verify', { qr: tickets[1].qr });
+    assert.equal(res.status, 403);
+    assert.equal(res.body.error, 'SCANNER_LOCKED');
+    assert.equal(res.body.meta.reason, 'admin_closed');
+  } finally {
+    await supabase.rpc('set_scanner_mode', {
+      p_event_id: ids.event, p_mode: 'auto', p_until: null, p_reason: 'Test over, back to invoices', p_admin_id: null,
+    });
+  }
+});
+
+test('an admission a phone already made offline is recorded even after the gate closed', async () => {
+  // The person is inside. Refusing the upload would not un-admit them; it
+  // would only lose the record and let the same ticket in at the next door.
+  await supabase.rpc('set_scanner_mode', {
+    p_event_id: ids.event, p_mode: 'closed', p_until: null, p_reason: 'Closed after the phone lost signal', p_admin_id: null,
+  });
+  try {
+    // Any ticket nobody has scanned yet.
+    const { data: fresh } = await supabase.from('tickets').select('id')
+      .in('id', tickets.map((t) => t.id)).eq('status', 'valid').limit(1).single();
+    const ticket = tickets.find((t) => t.id === fresh.id);
+    const res = await gate('/sync', {
+      scans: [{
+        qr: ticket.qr, clientScanId: `closed-offline-${stamp}`,
+        occurredAt: new Date(Date.now() - 120e3).toISOString(),
+        method: 'offline', offlineVerdict: 'admitted',
+      }],
+    });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.equal(res.body.data.results[0].result, 'admitted');
+
+    const { data: row } = await supabase
+      .from('scans').select('result, detail').eq('client_scan_id', `closed-offline-${stamp}`).single();
+    assert.equal(row.result, 'admitted');
+    assert.match(row.detail, /while scanning was switched off \(admin_closed\)/);
+
+    // A scan the phone did NOT already admit is still refused.
+    const held = await gate('/sync', {
+      scans: [{ qr: tickets[1].qr, clientScanId: `closed-held-${stamp}`, occurredAt: new Date().toISOString(), method: 'offline' }],
+    });
+    assert.equal(held.body.data.results[0].result, 'scanner_locked');
+  } finally {
+    await supabase.rpc('set_scanner_mode', {
+      p_event_id: ids.event, p_mode: 'auto', p_until: null, p_reason: 'Test over, back to invoices', p_admin_id: null,
+    });
+  }
+});

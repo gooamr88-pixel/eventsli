@@ -39,6 +39,8 @@ export type ListContext = {
   eventId: string;
   eventStatus: string | null;
   gateLocked: boolean;
+  /** Why the gate was shut at the last sync (scanner_is_locked's reason), if it was. */
+  gateReason?: string | null;
   legacyQrOffline: 'allow' | 'hold';
   keys: SigningKey[];
 };
@@ -50,7 +52,7 @@ export type HoldReason = 'not_on_list' | 'older_code' | 'unknown_key';
 
 export type OfflineDecision =
   | { kind: 'admit'; ticket: ListTicket }
-  | { kind: 'refuse'; result: OfflineRefusal; ticket: ListTicket | null }
+  | { kind: 'refuse'; result: OfflineRefusal; ticket: ListTicket | null; reason?: string | null }
   | { kind: 'duplicate'; ticket: ListTicket; at: string | null }
   | { kind: 'hold'; reason: HoldReason };
 
@@ -77,7 +79,7 @@ export function decideOffline(
   if (signature === 'legacy' && ctx.legacyQrOffline === 'hold') return { kind: 'hold', reason: 'older_code' };
 
   if (claims.eventId !== ctx.eventId) return { kind: 'refuse', result: 'wrong_event', ticket: null };
-  if (ctx.gateLocked) return { kind: 'refuse', result: 'scanner_locked', ticket: null };
+  if (ctx.gateLocked) return { kind: 'refuse', result: 'scanner_locked', ticket: null, reason: ctx.gateReason ?? null };
   if (ctx.eventStatus === 'cancelled') return { kind: 'refuse', result: 'event_cancelled', ticket: null };
   if (ctx.eventStatus && !OPEN.has(ctx.eventStatus)) return { kind: 'refuse', result: 'event_not_open', ticket: null };
 

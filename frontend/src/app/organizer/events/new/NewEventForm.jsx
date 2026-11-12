@@ -8,8 +8,8 @@ import { useOrganizer } from '../../../hooks/useOrganizer';
 import { useFocusFirstInvalid } from '../../../hooks/useFocusFirstInvalid';
 import { categoryLabel } from '../../../lib/categories';
 import { useCategories } from '../../../hooks/useCategories';
-import { defaultTimeZone, zonesFor } from '../../../lib/timezones';
-import { toIso, browserZone } from '../../../lib/eventTime';
+import { zoneLabel as nameZone, zoneOptions } from '../../../lib/timezones';
+import { toIso } from '../../../lib/eventTime';
 import {
   TYPES, STEP_TEXT, STEP_TEXT_DISPLAY, ADMISSION_TYPES, PURCHASE_MODES, FEE_BEARERS,
   PAYMENT_OPTIONS, draftKey, initialForm, problemsFor, blockingFields, SUBMIT_ONLY_FIELDS,
@@ -48,7 +48,7 @@ import { useOpenCountries, openCountryFor } from '../../../hooks/useOpenCountrie
  * detour to set up payments loses nothing. Ticket types, the seat map and the
  * cover are still built on the saved event, where they belong.
  *
- * Kept from before: the time zone is a list by country and the API refuses one
+ * Kept from before: the time zone is a list (now worldwide, set by the venue) and the API refuses one
  * that does not exist; times are anchored to the EVENT's zone — `toIso`, which
  * now lives in `lib/eventTime.js` beside `toLocalInput`, its exact inverse.
  *
@@ -112,7 +112,10 @@ function EventWizard({ type, organizer }) {
   const { options: countryOptions, ready: countriesReady } = useOpenCountries();
   const openCountry = countriesReady ? openCountryFor(form.country, countryOptions) : null;
   if (openCountry && openCountry !== form.country) {
-    setForm((f) => ({ ...f, country: openCountry, timezone: defaultTimeZone(openCountry, browserZone()) }));
+    // The zone stays: the country is the market (the currency), not where the
+    // venue is, and a zone the organizer or the venue search set is not the
+    // market's to undo.
+    setForm((f) => ({ ...f, country: openCountry }));
   }
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -139,7 +142,10 @@ function EventWizard({ type, organizer }) {
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
   const setCountry = (e) => {
     const country = e.target.value;
-    setForm((f) => ({ ...f, country, timezone: defaultTimeZone(country, browserZone()) }));
+    // Only the currency follows the country. The zone used to be reset to the
+    // country's default here — so a Sydney venue picked first and the market
+    // changed after came back on Toronto time.
+    setForm((f) => ({ ...f, country }));
   };
 
   /**
@@ -197,6 +203,10 @@ function EventWizard({ type, organizer }) {
       // Both or neither, always — `venue_coords_together` refuses half a pin.
       venueLat: place.lat === null || place.lat === undefined ? '' : String(place.lat),
       venueLng: place.lng === null || place.lng === undefined ? '' : String(place.lng),
+      // THE VENUE DECIDES THE ZONE. The times typed above are wall-clock text
+      // and are anchored with `toIso` at submit, so switching the zone here
+      // keeps "8 pm" as 8 pm — at the venue, which is what the organizer meant.
+      ...(place.timeZone ? { timezone: place.timeZone } : {}),
     }));
   };
 
@@ -304,8 +314,7 @@ function EventWizard({ type, organizer }) {
   }
 
   const [heading, lede] = (!ticketed && STEP_TEXT_DISPLAY[step]) || STEP_TEXT[step];
-  const zone = zonesFor(form.country).find(([z]) => z === form.timezone);
-  const zoneLabel = zone ? `${zone[1].split(' — ')[0]} time` : form.timezone;
+  const zoneLabel = nameZone(form.timezone);
 
   return (
     <div className="es-wizard es-wizard--center">
@@ -356,7 +365,8 @@ function EventWizard({ type, organizer }) {
                 />
                 <SelectField
                   label="Time zone" required value={form.timezone} onChange={set('timezone')}
-                  options={zonesFor(form.country)}
+                  options={zoneOptions(form.country, form.timezone)}
+                  hint="Where the event happens. Picking the venue below sets it for you."
                 />
               </div>
               {ticketed ? (

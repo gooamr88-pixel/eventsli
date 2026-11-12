@@ -6,7 +6,7 @@ import PlaceAutocomplete from '../../../../components/forms/PlaceAutocomplete';
 import VenuePin from '../../../../components/forms/VenuePin';
 import NavIcon from '../../../../components/shell/NavIcon';
 import { categoryLabel } from '../../../../lib/categories';
-import { zonesFor } from '../../../../lib/timezones';
+import { zoneLabel as nameZone, zoneOptions } from '../../../../lib/timezones';
 import { MAX_HIGHLIGHTS } from './aiDraftModel';
 import DateOnlyFields from '../DateOnlyFields';
 
@@ -90,8 +90,7 @@ export function EditAbout({ form, set }) {
 }
 
 export function EditWhen({ form, set, errorFor }) {
-  const zone = zonesFor(form.country).find(([z]) => z === form.timezone);
-  const zoneLabel = zone ? `${zone[1].split(' — ')[0]} time` : form.timezone;
+  const zoneLabel = nameZone(form.timezone);
 
   // The wizard's rule, kept: editing a name picked from venue search drops
   // that suggestion's pin, which would otherwise mark a different building.
@@ -107,13 +106,15 @@ export function EditWhen({ form, set, errorFor }) {
       venuePlaceId: place.placeId || '',
       venueLat: place.lat === null || place.lat === undefined ? '' : String(place.lat),
       venueLng: place.lng === null || place.lng === undefined ? '' : String(place.lng),
+      // The venue decides the zone; the typed times keep their wall clock.
+      ...(place.timeZone ? { timezone: place.timeZone } : {}),
     });
   };
 
   return (
     <div className="fx-stack fx-stack--sm">
       <SelectField
-        label="Time zone" required value={form.timezone} options={zonesFor(form.country)}
+        label="Time zone" required value={form.timezone} options={zoneOptions(form.country, form.timezone)}
         onChange={(e) => set({ timezone: e.target.value })}
       />
       {form.listingType === 'display_only' ? (

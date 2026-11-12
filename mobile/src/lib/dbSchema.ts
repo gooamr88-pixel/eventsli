@@ -19,7 +19,7 @@ export type SchemaDb = {
   getAllAsync<T>(sql: string): Promise<T[]>;
 };
 
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 const BASE = `
   CREATE TABLE IF NOT EXISTS scans (
@@ -87,6 +87,16 @@ export async function migrate(db: SchemaDb): Promise<void> {
     const cols = await db.getAllAsync<{ name: string }>('PRAGMA table_info(scans)');
     if (!cols.some((c) => c.name === 'attempts')) {
       await db.execAsync('ALTER TABLE scans ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0');
+    }
+    await db.execAsync('PRAGMA user_version = 3');
+  }
+  if (version < 4) {
+    // WHY the gate was shut when the list was last synced — an overdue invoice,
+    // an Eventsli stop, a cancellation — so a scan refused with no signal says
+    // the same thing the server would have.
+    const cols = await db.getAllAsync<{ name: string }>('PRAGMA table_info(ticket_list_meta)');
+    if (!cols.some((c) => c.name === 'gate_reason')) {
+      await db.execAsync('ALTER TABLE ticket_list_meta ADD COLUMN gate_reason TEXT');
     }
     await db.execAsync(`PRAGMA user_version = ${SCHEMA_VERSION}`);
   }

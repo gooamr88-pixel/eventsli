@@ -57,7 +57,7 @@ const OUTCOMES = {
   scanner_locked: {
     tone: 'refuse',
     title: 'Scanning is switched off',
-    note: 'The organizer has to settle their commission invoice before the gate reopens.',
+    note: 'Nobody can be admitted on this event right now. Call the organizer.',
   },
   transferred: {
     tone: 'refuse',
@@ -126,10 +126,20 @@ const UNKNOWN = {
  * @param {string} result  the `result` field, from the server or from the queue
  * @returns {{ tone: string, title: string, note: string, known: boolean }}
  */
-export function describeScan(result) {
+export function describeScan(result, reason = null) {
   const hit = OUTCOMES[result];
-  return hit ? { ...hit, known: true } : { ...UNKNOWN, known: false };
+  if (!hit) return { ...UNKNOWN, known: false };
+  // A locked gate says WHY when the server said — the door staff's next call
+  // is different for an unpaid invoice, an admin's stop, and a cancellation.
+  if (result === 'scanner_locked' && LOCKED_NOTES[reason]) return { ...hit, note: LOCKED_NOTES[reason], known: true };
+  return { ...hit, known: true };
 }
+
+const LOCKED_NOTES = {
+  commission_overdue: 'The organizer has an overdue commission invoice. Scanning comes back on once it is settled — call the organizer.',
+  admin_closed: 'Eventsli has switched scanning off for this event. Call the organizer.',
+  event_cancelled: 'This event was cancelled. Nobody is admitted on its tickets.',
+};
 
 /** True when the person may walk in. Deliberately a whitelist of one: anything
  *  this app does not understand must not open a door. */

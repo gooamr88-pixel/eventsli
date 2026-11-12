@@ -315,6 +315,10 @@ async function sendTicketEmail(orderId) {
     .eq('id', order.events.organizer_id)
     .maybeSingle();
 
+  // The confirmation TEXT, beside the email. Keyed by order, so the resend
+  // button or a retried webhook never texts twice; best-effort, never throws.
+  require('../services/sms/notifications').ticketConfirmation(orderId);
+
   return email.sendTickets({
     to,
     buyerName: order.guest_name,

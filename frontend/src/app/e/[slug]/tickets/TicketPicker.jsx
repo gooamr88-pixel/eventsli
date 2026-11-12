@@ -9,6 +9,7 @@ import { useReservation } from '../../../hooks/useReservation';
 import { Loading, Empty, ErrorNotice, Notice } from '../../../components/Feedback';
 import NavIcon from '../../../components/shell/NavIcon';
 import TierDetailsDialog, { hasDetails } from '../../../components/tickets/TierDetailsDialog';
+import { formatEventTime } from '../../../lib/eventTime';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -185,7 +186,7 @@ export default function TicketPicker({ slug, focusTierId }) {
                 <p className="es-nums mt-1 text-md font-medium text-ink">
                   {tier.priceCents === 0 ? 'Free' : formatMoney(tier.priceCents, event.currency)}
                 </p>
-                <TierStatus tier={tier} />
+                <TierStatus tier={tier} timeZone={event.timezone} />
               </div>
 
               {unavailable ? (
@@ -223,7 +224,7 @@ export default function TicketPicker({ slug, focusTierId }) {
         const room = roomFor(tier);
         const unavailable = tier.soldOut ? 'Sold out.'
           : tier.notYetOnSale && tier.salesStartAt
-            ? `On sale from ${new Date(tier.salesStartAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}.`
+            ? `On sale from ${formatEventTime(tier.salesStartAt, event.timezone)}.`
             : !tier.onSale ? 'No longer on sale.'
               : room === 0 ? blockedReason(tier) : null;
         return (
@@ -306,7 +307,8 @@ export default function TicketPicker({ slug, focusTierId }) {
  * not, and collapsing them tells somebody an early-bird type is gone when it
  * has not opened.
  */
-function TierStatus({ tier }) {
+/** Sale windows are on the VENUE's clock, labelled — as every event time is. */
+function TierStatus({ tier, timeZone }) {
   // Nothing here for a sold-out type: the pill beside it already says so, and
   // saying it twice in one row reads as two different facts.
   if (tier.soldOut) return null;
@@ -314,9 +316,7 @@ function TierStatus({ tier }) {
   if (tier.notYetOnSale && tier.salesStartAt) {
     return (
       <p className="text-sm text-subtle">
-        On sale from {new Date(tier.salesStartAt).toLocaleString(undefined, {
-          dateStyle: 'medium', timeStyle: 'short',
-        })}
+        On sale from {formatEventTime(tier.salesStartAt, timeZone)}
       </p>
     );
   }
@@ -337,7 +337,7 @@ function TierStatus({ tier }) {
   if (tier.salesEndAt) {
     return (
       <p className="text-sm text-subtle">
-        Until {new Date(tier.salesEndAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}
+        Until {formatEventTime(tier.salesEndAt, timeZone)}
       </p>
     );
   }

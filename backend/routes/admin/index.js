@@ -20,5 +20,6 @@ router.use(require('./approvalRoutes'));
 router.use(require('./userRoutes'));
 router.use(require('./insightRoutes'));
 router.use(require('./storefrontRoutes'));
+router.use(require('./smsRoutes'));
 
 module.exports = router;

@@ -25,7 +25,10 @@ const SETTING_DEFAULTS = Object.freeze({
   payment_fee: { default_pct: 2.9, default_fixed_cents: 30 },
   stripe_cost: { pct: 2.9, fixed_cents: 30 },
   currencies: { allowed: ['CAD', 'USD'], by_country: { CA: 'CAD', US: 'USD' } },
-  manual_invoice: { due_days: 7, min_hours_before_event: 24 },
+  manual_invoice: {
+    due_days: 7, min_hours_before_event: 24,
+    enforce_gate: true, grace_hours: 0, pause_on_receipt: false, reminder_hours_before_due: 48,
+  },
   // 2026-11-03, owner: organizers publish immediately; admins are emailed and
   // review afterwards. Set to true to bring back review BEFORE publishing.
   event_publishing: { require_approval: false },
@@ -51,6 +54,21 @@ const SCHEMAS = {
   manual_invoice: {
     due_days: { type: 'integer', min: 1, max: 90, label: 'Days to pay' },
     min_hours_before_event: { type: 'integer', min: 0, max: 720, label: 'Hours before the event' },
+    // The floor the due-date trigger already reads (set_invoice_due_at). It was
+    // seeded into the row but refused here, so saving this card dropped it.
+    min_hours_from_issue: { type: 'integer', min: 0, max: 168, optional: true, label: 'Hours from issue' },
+    // How to pay Eventsli: bank details, e-transfer address. Shown on every
+    // invoice email and on the organizer's Commission page — without it an
+    // organizer was told to "pay by bank transfer" and never told where.
+    payment_instructions: { type: 'text', maxLength: 1000, optional: true, label: 'How organizers pay' },
+    // ── Enforcement: when an unpaid invoice closes an event's gate. Read by
+    // `scanner_is_locked` in the database, so every door applies the same rule.
+    // An admin's per-event decision (keep open / keep closed) outranks these.
+    enforce_gate: { type: 'boolean', optional: true, label: 'Overdue invoices switch scanning off' },
+    grace_hours: { type: 'integer', min: 0, max: 168, optional: true, label: 'Grace after the due date' },
+    pause_on_receipt: { type: 'boolean', optional: true, label: 'A receipt awaiting review keeps scanning on' },
+    // 0 = no reminder. Sent once, before the (current) due date.
+    reminder_hours_before_due: { type: 'integer', min: 0, max: 336, optional: true, label: 'Reminder before the due date' },
   },
   event_publishing: {
     require_approval: { type: 'boolean', label: 'Review events before they go live' },
@@ -70,6 +88,16 @@ function checkField(name, rule, value, errors) {
   if (rule.type === 'boolean') {
     if (typeof value !== 'boolean') errors.push(`${rule.label} must be on or off.`);
     return value;
+  }
+  if (rule.type === 'text') {
+    if (typeof value !== 'string') {
+      errors.push(`${rule.label} must be text.`);
+      return undefined;
+    }
+    const text = value.replace(/\r\n?/g, '\n').trim();
+    if (text.length > rule.maxLength) errors.push(`${rule.label} can be at most ${rule.maxLength} characters.`);
+    // Empty is "not set": stored as absent rather than as a blank string.
+    return text || undefined;
   }
   if (rule.type === 'enum') {
     if (!rule.values.includes(value)) errors.push(`${rule.label} must be one of: ${rule.values.join(', ')}.`);

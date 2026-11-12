@@ -88,7 +88,7 @@ export default function AdminEventDetail({ eventId }) {
       )}
 
       <div className="grid gap-[var(--fx-gap)] lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-        <EventControls event={event} gate={gate} overrideUntil={data.scannerOverrideUntil} onChanged={reload} />
+        <EventControls event={event} gate={gate} onChanged={reload} />
 
         <Panel icon="users" title="Organizer">
           {organizer ? (
@@ -124,7 +124,7 @@ export default function AdminEventDetail({ eventId }) {
             caption="Commission invoices"
             rows={invoices}
             columns={[
-              { key: 'number', label: 'Invoice', primary: true, render: (i) => <span className="font-mono">{i.number}</span> },
+              { key: 'number', label: 'Invoice', primary: true, render: (i) => <Link href={`/admin/invoices/${i.id}`} className="font-mono text-ink hover:text-accent">{i.number}</Link> },
               { key: 'status', label: 'Status', render: (i) => <InvoiceStatus invoice={i} /> },
               // On the event's clock: the gate locks at that moment at the venue.
               { key: 'due', label: 'Due', render: (i) => formatEventTime(i.dueAt, event.timezone) },
@@ -134,10 +134,16 @@ export default function AdminEventDetail({ eventId }) {
                 align: 'end',
                 render: (i) => <span className="es-nums">{formatMoney(i.amountCents, i.currency)}</span>,
               },
+              {
+                key: 'balance',
+                label: 'To pay',
+                align: 'end',
+                render: (i) => <span className="es-nums text-ink">{formatMoney(i.balanceCents ?? i.amountCents, i.currency)}</span>,
+              },
             ]}
           />
         )}
-        <Link href="/admin/invoices" className="text-sm text-accent">Settle invoices</Link>
+        <Link href={`/admin/invoices?eventId=${event.id}`} className="text-sm text-accent">All invoices for this event</Link>
       </section>
     </div>
   );

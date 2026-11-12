@@ -72,6 +72,9 @@ async function cancelEvent({ eventId, reason, actorId }) {
     .eq('event_id', event.id)
     .eq('status', 'pending');
 
+  // Ticket holders are texted (best-effort, once per order; services/sms).
+  require('./sms/notifications').eventCancelled(event.id);
+
   logger.info({ eventId: event.id, by: actorId }, 'event cancelled by admin');
   return { ok: true, event: data, from: event.status, openCheckoutsClosed: checkouts.released };
 }

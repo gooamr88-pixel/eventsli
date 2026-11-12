@@ -38,6 +38,17 @@ export function adminNavGroups() {
       ],
     },
     {
+      // Global SMS (admin/sms): the overview links every other SMS section.
+      id: 'messaging',
+      label: 'Messaging',
+      items: [
+        { key: 'sms', label: 'SMS overview', icon: 'chat', href: '/admin/sms', exact: true },
+        { key: 'sms-countries', label: 'SMS countries', icon: 'globe', href: '/admin/sms/countries' },
+        { key: 'sms-campaigns', label: 'SMS campaigns', icon: 'send', href: '/admin/sms/campaigns' },
+        { key: 'sms-log', label: 'SMS delivery log', icon: 'list', href: '/admin/sms/messages' },
+      ],
+    },
+    {
       id: 'storefront',
       label: 'Storefront',
       items: [

@@ -283,7 +283,7 @@ async function update(req, res, next) {
     const auditColumns = isAdmin ? Object.keys(allowed) : [];
     const { data: current } = await supabase
       .from('events')
-      .select([...new Set(['status', 'country', 'currency', ...auditColumns])].join(', '))
+      .select([...new Set(['status', 'country', 'currency', 'starts_at', ...auditColumns])].join(', '))
       .eq('id', req.params.eventId).single();
 
     // A cancelled event is a historical record, not a draft (BRD §17).
@@ -373,6 +373,13 @@ async function update(req, res, next) {
         status: 409, error: 'CONFLICT',
         message: 'This event changed while you were editing it. Reload and try again.',
       });
+    }
+
+    // A published event that moved: its ticket holders are texted (best-effort,
+    // once per order per new time; services/sms/notifications.js).
+    if (data.status === 'published' && allowed.starts_at && current.starts_at
+      && new Date(data.starts_at).getTime() !== new Date(current.starts_at).getTime()) {
+      require('../services/sms/notifications').scheduleChanged(req.params.eventId, current.starts_at);
     }
 
     // BRD §19 — an admin changing an organizer's event is on the record: what

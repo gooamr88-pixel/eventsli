@@ -74,10 +74,23 @@ const FORMS = {
   },
   manual_invoice: {
     title: 'Door-sale invoices',
-    hint: 'How long an organizer has to pay the commission on door sales.',
+    hint: 'How long an organizer has to pay the commission on door sales, and how they pay it.',
     fields: [
       { name: 'due_days', label: 'Days to pay', unit: 'days', step: '1', min: 1, max: 90 },
       { name: 'min_hours_before_event', label: 'Due at least this long before doors', unit: 'hours', step: '1', min: 0, max: 720 },
+      // Printed on every invoice email and the organizer's Commission page.
+      // Without it an organizer is told to pay by transfer and never told where.
+      {
+        name: 'payment_instructions', label: 'How organizers pay Eventsli', type: 'text', maxLength: 1000, optional: true,
+        placeholder: 'e.g. Bank transfer to Eventsli Inc. — account, transit and institution numbers, or an e-transfer address.',
+        hint: 'Bank or e-transfer details. The invoice number is added as the payment reference.',
+      },
+      // Enforcement — read by the database's gate check, so every door applies
+      // it. An admin's per-event Keep open / Keep closed outranks all of these.
+      { name: 'enforce_gate', label: 'An overdue invoice switches scanning off', type: 'boolean', default: true },
+      { name: 'grace_hours', label: 'Grace after the due date', unit: 'hours', step: '1', min: 0, max: 168, default: 0 },
+      { name: 'pause_on_receipt', label: 'A receipt waiting for review keeps scanning on', type: 'boolean', default: false },
+      { name: 'reminder_hours_before_due', label: 'Reminder before the due date (0 = none)', unit: 'hours', step: '1', min: 0, max: 336, default: 48 },
     ],
   },
 };
@@ -219,6 +232,24 @@ function SettingCard({ setting, canEdit, onSaved }) {
                   </label>
                 );
               }
+              if (f.type === 'text') {
+                return (
+                  <div key={f.name} className="fx-stack fx-stack--sm gap-1.5 sm:col-span-2">
+                    <label htmlFor={id} className="text-sm text-ink">{f.label}{f.optional ? ' (optional)' : ''}</label>
+                    <textarea
+                      id={id}
+                      rows={4}
+                      maxLength={f.maxLength}
+                      className="es-input py-2"
+                      placeholder={f.placeholder}
+                      aria-describedby={f.hint ? `${id}-hint` : undefined}
+                      value={draft[f.name]}
+                      onChange={(e) => setDraft((d) => ({ ...d, [f.name]: e.target.value }))}
+                    />
+                    {f.hint && <p id={`${id}-hint`} className="text-xs text-subtle">{f.hint}</p>}
+                  </div>
+                );
+              }
               return (
                 <div key={f.name} className="fx-stack fx-stack--sm gap-1.5">
                   <label htmlFor={id} className="text-sm text-ink">{f.label} ({f.unit})</label>
@@ -244,7 +275,9 @@ function SettingCard({ setting, canEdit, onSaved }) {
               <div key={f.name} className="fx-row fx-row--between border-t border-border-base pt-2 first:border-0 first:pt-0">
                 <dt className="text-muted">{f.label}</dt>
                 <dd className="es-nums text-ink">
-                  {f.type === 'boolean' ? (base[f.name] ? 'On' : 'Off') : `${String(base[f.name] ?? '—')} ${f.unit}`}
+                  {f.type === 'boolean' ? ((base[f.name] ?? f.default) ? 'On' : 'Off')
+                    : f.type === 'text' ? <span className="whitespace-pre-line">{base[f.name] || 'Not set'}</span>
+                      : `${String(base[f.name] ?? f.default ?? '—')} ${f.unit}`}
                 </dd>
               </div>
             ))}
@@ -281,7 +314,12 @@ function SettingCard({ setting, canEdit, onSaved }) {
 
 function initialDraft(key, base) {
   if (key === 'currencies') return Object.keys(base.by_country || {});
-  return Object.fromEntries(FORMS[key].fields.map((f) => [f.name, base[f.name] === undefined ? '' : String(base[f.name])]));
+  // A field added after the setting was first saved starts at its default,
+  // which is also what the server falls back to — never at a blank or "off".
+  return Object.fromEntries(FORMS[key].fields.map((f) => {
+    const v = base[f.name] === undefined ? f.default : base[f.name];
+    return [f.name, v === undefined ? '' : String(v)];
+  }));
 }
 
 /** The value to send, or null when the draft is not valid. */
@@ -294,10 +332,18 @@ function buildValue(key, base, draft) {
       by_country: Object.fromEntries(chosen.map((m) => [m.country, m.currency])),
     };
   }
-  // Optional fields the form does not show (payment_fee.default_mode) are kept.
+  // Optional fields the form does not show are kept: payment_fee.default_mode,
+  // and manual_invoice.min_hours_from_issue, which the due-date trigger reads.
   const value = key === 'payment_fee' && base.default_mode ? { default_mode: base.default_mode } : {};
+  if (key === 'manual_invoice' && base.min_hours_from_issue !== undefined) value.min_hours_from_issue = base.min_hours_from_issue;
   for (const f of FORMS[key].fields) {
     if (f.type === 'boolean') { value[f.name] = draft[f.name] === 'true'; continue; }
+    if (f.type === 'text') {
+      const text = String(draft[f.name] ?? '').trim();
+      if (text.length > f.maxLength) return null;
+      if (text) value[f.name] = text;
+      continue;
+    }
     const text = String(draft[f.name] ?? '').trim();
     const n = Number(text);
     if (!text || !Number.isFinite(n) || n < f.min || n > f.max) return null;

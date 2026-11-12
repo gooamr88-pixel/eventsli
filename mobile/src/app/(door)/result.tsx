@@ -39,7 +39,7 @@ export default function Result() {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const result = screenResult(record);
-  const outcome = describeScan(result);
+  const outcome = describeScan(result, (record?.answer as { reason?: string } | undefined)?.reason ?? null);
   const tone = tones[outcome.tone];
   const a = record?.answer;
 

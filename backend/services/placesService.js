@@ -361,6 +361,11 @@ async function details({ placeId, sessionToken }) {
         'formattedAddress',
         'addressComponents',
         'location',
+        // The venue's IANA zone. It decides what "8 pm" means for the event,
+        // and the market country cannot: an event selling in CAD can be in
+        // Sydney. Same Place Details Pro SKU `displayName` already puts this
+        // request on, so it adds nothing to the bill.
+        'timeZone',
       ].join(','),
     },
   );
@@ -378,7 +383,22 @@ async function details({ placeId, sessionToken }) {
     // contribute one coordinate.
     lat: Number.isFinite(lat) && Number.isFinite(lng) ? lat : null,
     lng: Number.isFinite(lat) && Number.isFinite(lng) ? lng : null,
+    // Only a zone this server can format in, so the form never receives a
+    // value the event routes would then refuse.
+    timeZone: validZone(data.timeZone?.id),
   };
 }
 
-module.exports = { isEnabled, autocomplete, details, cityFrom };
+/** An IANA zone name this runtime knows, or null. */
+function validZone(value) {
+  const zone = typeof value === 'string' ? value.trim() : '';
+  if (!zone || zone.length > 64) return null;
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: zone }).format(0);
+    return zone;
+  } catch {
+    return null;
+  }
+}
+
+module.exports = { isEnabled, autocomplete, details, cityFrom, validZone };

@@ -92,10 +92,12 @@ export default function GateBar({
       {locked && (
         <p role="alert" className="mx-3 rounded-(--es-radius-md) bg-danger/15 px-3 py-2 text-sm text-danger">
           Scanning is switched off for this event
-          {status.gate.reason === 'commission_overdue'
-            ? ' — the organizer has an overdue commission invoice.'
-            : '.'}
-          {' '}Nobody can be admitted until it is settled. Call the organizer.
+          {{
+            commission_overdue: ' — the organizer has an overdue commission invoice.',
+            admin_closed: ' by Eventsli.',
+            event_cancelled: ' — the event was cancelled.',
+          }[status.gate.reason] || '.'}
+          {' '}Nobody can be admitted until it is back on. Call the organizer.
         </p>
       )}
 

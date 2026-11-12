@@ -237,6 +237,8 @@ export function useGateQueue(session) {
       if (err instanceof ApiError && err.code === 'SCANNER_LOCKED') {
         const locked = {
           ...record, state: 'done', result: 'scanner_locked',
+          // Why it is shut, so the result says the right thing to the door.
+          reason: err.meta?.reason || null,
           message: err.message, syncedAt: new Date().toISOString(),
         };
         await commit(

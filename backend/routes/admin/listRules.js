@@ -18,6 +18,10 @@ const auditListRules = [
 
 // GET /admin/invoices — the filters over the commission invoice list.
 const invoiceListRules = [
+  // An unknown status reached the database as an enum cast error — a 500.
+  query('status').optional().isIn(['open', 'submitted', 'overdue', 'unpaid', 'paid', 'waived', 'void'])
+    .withMessage('status must be open, submitted, overdue, unpaid, paid, waived or void.'),
+  query('eventId').optional().isUUID().withMessage('eventId must be a UUID.'),
   query('organizerId').optional().isUUID().withMessage('organizerId must be a UUID.'),
   query('issuedSince').optional().isISO8601().withMessage('issuedSince must be an ISO 8601 date.'),
   query('q').optional().isString().isLength({ max: 200 }).withMessage('Search is at most 200 characters.'),

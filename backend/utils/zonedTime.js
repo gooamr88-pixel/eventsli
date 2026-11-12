@@ -61,4 +61,22 @@ function localParts(iso, timeZone) {
   }
 }
 
-module.exports = { zonedToUtcIso, localParts };
+/**
+ * The instant with the same wall-clock time in `toZone` that `iso` has in
+ * `fromZone` — "8 pm in Toronto" → "8 pm in Sydney".
+ *
+ * This is how an event saved in the wrong zone is repaired: the organizer
+ * typed 8 pm meaning the venue's 8 pm, the old zone list stored the Toronto
+ * 8 pm, and every page has shown "8:00 PM" since. Moving the zone and keeping
+ * the clock is what makes the stored instant the one they meant.
+ *
+ * Seconds are dropped (event times are entered to the minute). Null when
+ * either zone is unknown or the instant is not one.
+ */
+function reanchor(iso, fromZone, toZone) {
+  if (!iso) return null;
+  const parts = localParts(iso, fromZone);
+  return parts ? zonedToUtcIso(parts.local, toZone) : null;
+}
+
+module.exports = { zonedToUtcIso, localParts, reanchor };

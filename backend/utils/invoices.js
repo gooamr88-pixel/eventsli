@@ -39,15 +39,37 @@ function sumInvoiceTotals(rows) {
   for (const row of rows || []) {
     out.count += 1;
     if (!row?.currency) continue;
+    // A voided invoice was raised in error: it asked for nothing.
+    if (row.status === 'void') continue;
     const t = out.byCurrency[row.currency]
       || (out.byCurrency[row.currency] = { totalCents: 0, unpaidCents: 0, settledCents: 0 });
-    const cents = Number(row.amount_cents) || 0;
-    if (row.status === 'waived') continue;
-    t.totalCents += cents;
-    if (row.status === 'paid') t.settledCents += cents;
-    else if (UNPAID.has(row.status)) t.unpaidCents += cents;
+    const { amount, paid, writtenOff, balance } = invoiceMoney(row);
+    // Everything asked for and not forgiven; what arrived; what is still to come.
+    t.totalCents += amount - writtenOff;
+    t.settledCents += paid;
+    if (UNPAID.has(row.status)) t.unpaidCents += balance;
   }
   return out;
+}
+
+/**
+ * An invoice row's money: face amount, paid, written off, balance.
+ *
+ * Rows from before payments were itemised carry no `paid_cents` /
+ * `written_off_cents`; for those a paid invoice was paid in full and a waived
+ * one forgave whatever was left.
+ */
+function invoiceMoney(row) {
+  const amount = Number(row?.amount_cents) || 0;
+  const status = row?.status;
+  const paid = row?.paid_cents === undefined || row?.paid_cents === null
+    ? (status === 'paid' ? amount : 0)
+    : Number(row.paid_cents) || 0;
+  const writtenOff = row?.written_off_cents === undefined || row?.written_off_cents === null
+    ? (status === 'waived' ? Math.max(amount - paid, 0) : 0)
+    : Number(row.written_off_cents) || 0;
+  const balance = status === 'void' ? 0 : Math.max(amount - paid - writtenOff, 0);
+  return { amount, paid, writtenOff, balance };
 }
 
 /**
@@ -68,4 +90,4 @@ function invoiceSearchFilter(q, eventIds = []) {
   return [`number.ilike.%${q}%`, ...(ids.length ? [`event_id.in.(${ids.join(',')})`] : [])].join(',');
 }
 
-module.exports = { isInvoiceOverdue, sumInvoiceTotals, invoiceSearchFilter };
+module.exports = { isInvoiceOverdue, sumInvoiceTotals, invoiceMoney, invoiceSearchFilter };

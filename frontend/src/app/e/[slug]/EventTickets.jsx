@@ -1,6 +1,7 @@
 import NavIcon from '../../components/shell/NavIcon';
 import { formatPrice } from '../../utils/money';
 import EventTierDetails from './EventTierDetails';
+import { formatEventTime } from '../../lib/eventTime';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -58,7 +59,7 @@ export default function EventTickets({ event, cheapest, soldOut }) {
               {(tier.details?.tagline || tier.description) && (
                 <span className="es-ev-tier__desc fx-break">{tier.details?.tagline || tier.description}</span>
               )}
-              <TierState tier={tier} />
+              <TierState tier={tier} timeZone={event.timezone} />
               <EventTierDetails event={event} tier={tier} soldOut={soldOut} />
             </span>
             <span className="es-ev-tier__price es-nums">
@@ -104,7 +105,7 @@ export default function EventTickets({ event, cheapest, soldOut }) {
 }
 
 /** The one line under a tier that says where it stands. */
-function TierState({ tier }) {
+function TierState({ tier, timeZone }) {
   // Nothing for a sold-out tier: the price column already says so, and saying
   // it twice in one row reads as two different facts.
   if (tier.soldOut) return null;
@@ -112,9 +113,9 @@ function TierState({ tier }) {
   if (tier.notYetOnSale && tier.salesStartAt) {
     return (
       <span className="es-ev-tier__state">
-        On sale from {new Date(tier.salesStartAt).toLocaleDateString(undefined, {
-          month: 'short', day: 'numeric',
-        })}
+        {/* The venue's date: this renders on the server, whose clock is no
+            more the event's than the reader's is. */}
+        On sale from {formatEventTime(tier.salesStartAt, timeZone, { time: false })}
       </span>
     );
   }

@@ -316,6 +316,8 @@ async function manifest(device, { cursor = null, limit = MANIFEST_PAGE } = {}) {
       status: eventRead.data.status, startsAt: eventRead.data.starts_at, endsAt: eventRead.data.ends_at,
     },
     gateLocked: Boolean(gate?.data?.locked),
+    // Why, so a phone refusing with no signal says what the server would.
+    gateReason: gate?.data?.locked ? gate.data.reason || null : null,
     legacyQrOffline: settings.legacyQrOffline,
     serverTime: list.data.now,
   };

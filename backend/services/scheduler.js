@@ -1,5 +1,5 @@
 const { supabase } = require('../config/supabase');
-const email = require('./emailService');
+const notices = require('./invoiceNotices');
 const logger = require('../utils/logger');
 
 /**
@@ -99,33 +99,65 @@ async function expireReservations() {
  */
 async function markOverdueInvoices() {
   return withLeaderLock('overdue-invoices', async () => {
-    // Read BEFORE the update, so we know which ones just crossed the line.
-    const { data: crossing } = await supabase
-      .from('invoices')
-      .select('id, number, currency, amount_cents, due_at, events ( id, title ), organizers ( display_name, profiles!organizers_owner_user_id_fkey ( email ) )')
-      .in('status', ['open', 'submitted'])
-      .lt('due_at', new Date().toISOString());
-
-    const { data: count, error } = await supabase.rpc('mark_overdue_invoices');
+    /**
+     * ONE STATEMENT CLAIMS THEM (`claim_overdue_invoices`): it labels the open
+     * ones 'overdue' and stamps `overdue_notified_at` on every invoice that has
+     * just fallen due, returning exactly those.
+     *
+     * It used to read the crossing invoices, run the update separately, and
+     * email what it had read — and it moved 'submitted' invoices to 'overdue'
+     * too. So a receipt uploaded on an overdue invoice was knocked back out of
+     * the review queue an hour later, with another "Scanning disabled" email
+     * for every upload; and an invoice falling due between the read and the
+     * update was labelled and never announced.
+     */
+    const { data: claimed, error } = await supabase.rpc('claim_overdue_invoices');
     if (error) {
       logger.error({ err: error.message }, 'overdue sweep failed');
       return 0;
     }
 
-    for (const inv of crossing || []) {
-      const to = inv.organizers?.profiles?.email;
-      if (!to) continue;
+    for (const row of claimed || []) {
       // eslint-disable-next-line no-await-in-loop
-      await email.sendInvoiceOverdue({
-        to,
-        organizerName: inv.organizers?.display_name,
-        invoice: inv,
-        event: inv.events || { title: 'your event' },
-      });
+      const sent = await notices.notifyOverdue(row.invoice_id);
+      if (!sent?.sent) logger.warn({ invoiceId: row.invoice_id, reason: sent?.reason }, 'overdue notice not sent');
     }
 
-    if (count > 0) logger.warn({ count }, 'invoices marked overdue');
+    const count = (claimed || []).length;
+    if (count > 0) logger.warn({ count }, 'invoices fell due; organizers told scanning is off');
     return count;
+  });
+}
+
+/**
+ * A reminder before an invoice falls due — once per invoice, `reminder_hours_before_due`
+ * ahead (platform setting, default 48; 0 switches reminders off).
+ *
+ * Claimed in one statement (`claim_invoice_reminders`), so no invoice is
+ * reminded twice. An admin who moves the due date clears the stamp, so the
+ * reminder is sent again before the NEW date — the job follows the admin's
+ * decision rather than the date it first saw. Invoices with a receipt waiting
+ * are skipped: the organizer has done their part.
+ */
+async function sendInvoiceReminders() {
+  return withLeaderLock('invoice-reminders', async () => {
+    const { data: setting } = await supabase
+      .from('platform_settings').select('value').eq('key', 'manual_invoice').maybeSingle();
+    const raw = setting?.value?.reminder_hours_before_due;
+    const hours = Number.isInteger(raw) ? raw : 48;
+    if (hours <= 0) return 0;
+
+    const { data: claimed, error } = await supabase.rpc('claim_invoice_reminders', { p_hours: hours });
+    if (error) {
+      logger.error({ err: error.message }, 'reminder sweep failed');
+      return 0;
+    }
+    for (const row of claimed || []) {
+      // eslint-disable-next-line no-await-in-loop
+      const sent = await notices.notifyReminder(row.invoice_id);
+      if (!sent?.sent) logger.warn({ invoiceId: row.invoice_id, reason: sent?.reason }, 'invoice reminder not sent');
+    }
+    return (claimed || []).length;
   });
 }
 
@@ -149,7 +181,11 @@ const JOBS = [
   { name: 'expire-reservations', everyMs: 60_000, run: expireReservations, immediate: true },
   // Hourly. Due dates are days apart; the email matters more than the minute.
   { name: 'overdue-invoices', everyMs: 3_600_000, run: markOverdueInvoices, immediate: false },
+  // Hourly as well: a reminder 48 hours out does not need minute precision.
+  { name: 'invoice-reminders', everyMs: 3_600_000, run: sendInvoiceReminders, immediate: false },
   { name: 'purge-sessions', everyMs: 6 * 3_600_000, run: purgeSessions, immediate: false },
+  // SMS: dispatch, campaigns, reminders, reconciliation — services/sms/jobs.js.
+  ...require('./sms/jobs').jobs(withLeaderLock),
 ];
 
 function start() {
@@ -184,4 +220,4 @@ function stop() {
   timers.length = 0;
 }
 
-module.exports = { start, stop, expireReservations, markOverdueInvoices, purgeSessions };
+module.exports = { start, stop, expireReservations, markOverdueInvoices, sendInvoiceReminders, purgeSessions };

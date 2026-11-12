@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { get, post, patch, PUBLIC_API_URL } from '../../../../utils/apiClient';
 import { messageFor } from '../../../../utils/errors';
 import { formatEventTime } from '../../../../lib/eventTime';
+import { describeGate } from '../../../../lib/gateState';
 import { useToast } from '../../../../components/ui/Toast';
 import { useConfirm } from '../../../../components/ui/Confirm';
 import { SectionHeader, Panel } from '../../../../components/ui/Page';
@@ -171,13 +172,15 @@ function GateBanner({ gate, eventId }) {
   const state = gate?.gate;
   // Open (or overridden) needs no banner: the first figure card says so, with
   // the in / to-come counts beside it (DeviceStats.jsx).
-  if (!state?.locked || state?.override) return null;
+  if (!state?.locked) return null;
+  const info = describeGate(state, { audience: 'organizer' });
   return (
-    <Notice tone="danger" icon="alert" title="Scanning is switched off">
+    <Notice tone="danger" icon="alert" title={info.title}>
       <p>
-        An unpaid commission invoice locked it.{' '}
-        <Link href={`/organizer/events/${eventId}/commission`} className="text-accent underline">Settle it</Link>
-        {' '}and it reopens on its own — there is no separate unlock.
+        {info.detail}
+        {state.reason === 'commission_overdue' && (
+          <>{' '}<Link href={`/organizer/events/${eventId}/commission`} className="text-accent underline">See the invoice</Link></>
+        )}
       </p>
     </Notice>
   );
