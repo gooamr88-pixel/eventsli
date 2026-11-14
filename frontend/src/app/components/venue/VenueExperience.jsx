@@ -56,6 +56,16 @@ export default function VenueExperience({
   // `focusId` because in 360° a tap must not move the camera: the card's
   // "View from here" does that.
   const [pickId, setPickId] = useState(null);
+  // In 360°, choosing a seat takes you into it — but only once the choice
+  // has landed: the page may refuse it (the per-order limit) or ask first
+  // (the ticket details popup), so the jump waits for `selectedSeatIds`.
+  const [goTo, setGoTo] = useState(null);
+  if (goTo && selectedSeatIds.has(goTo.seatId)) {
+    setGoTo(null);
+    setFocusId(goTo.entryId);
+    setShot('seat');
+    setPickId(null);
+  }
   const [shot, setShot] = useState('auto');
   const [hover, setHover] = useState(null);
   const frameRef = useRef(null);
@@ -86,7 +96,7 @@ export default function VenueExperience({
 
   const in3d = view !== '2d';
   // "Use the 2D map" when a 3D or 360° view cannot draw on this device.
-  const toMap = () => { setView('2d'); setHover(null); setPickId(null); };
+  const toMap = () => { setView('2d'); setHover(null); setPickId(null); setGoTo(null); };
   const model = useMemo(
     () => (in3d ? buildSceneModel({ tables, seatsByTable, zones, scene: studio.scene, world }) : null),
     [in3d, tables, seatsByTable, zones, studio.scene, world],
@@ -176,7 +186,13 @@ export default function VenueExperience({
     }
     if (selectedSeatIds.has(s.id)) return { label: 'Remove seat', tone: 'secondary', onPress: () => onSelectSeat?.(s, table) };
     if (!s.available) return { label: 'Taken', disabled: true };
-    return { label: 'Select seat', onPress: () => onSelectSeat?.(s, table) };
+    return {
+      label: 'Select seat',
+      onPress: () => {
+        if (view === '360') setGoTo({ seatId: s.id, entryId: entry.id });
+        onSelectSeat?.(s, table);
+      },
+    };
   };
 
   const step = (dir) => {
@@ -203,7 +219,7 @@ export default function VenueExperience({
   return (
     <div ref={frameRef} className={`es-venuex ${frameClassName}`}>
       <div className="fx-row fx-row--between gap-2">
-        <ViewSwitch value={view} onChange={(v) => { setView(v); setHover(null); setPickId(null); }} />
+        <ViewSwitch value={view} onChange={(v) => { setView(v); setHover(null); setPickId(null); setGoTo(null); }} />
         {/* From `sm`: on a phone the pinned bar below already says "Tap a
             seat to choose it", and this row is worth its height in map. */}
         <p className="hidden text-xs text-subtle sm:block">
