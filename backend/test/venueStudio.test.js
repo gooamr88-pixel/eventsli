@@ -71,6 +71,21 @@ test('views are capped, de-duplicated and their fields clamped', () => {
   assert.deepEqual(out.views[0].tables, ['A', 'B']);
 });
 
+test("a view's spot (where the photo was taken) is kept, clamped, or dropped when unreadable", () => {
+  const out = sanitizeLayout(EVENT, {
+    views: [
+      { id: 'a', path: pano('a'), spot: { x: 42.12345, y: 130, h: 99 } },
+      { id: 'b', path: pano('b'), spot: { x: 'left', y: 10 } },
+      { id: 'c', path: pano('c') },
+      { id: 'd', path: pano('d'), spot: { x: 5, y: 6 } },
+    ],
+  });
+  assert.deepEqual(out.views[0].spot, { x: 42.123, y: 100, h: 6 });
+  assert.ok(!('spot' in out.views[1]), 'an unreadable spot is dropped, not guessed');
+  assert.ok(!('spot' in out.views[2]));
+  assert.deepEqual(out.views[3].spot, { x: 5, y: 6, h: 1.5 }, 'a missing height is a standing person');
+});
+
 test('unknown keys pass through untouched, and absent studio keys stay absent', () => {
   const layout = { world: { width: 1000, height: 700 }, zones: [{ id: 'z', kind: 'stage' }], future: { x: 1 } };
   assert.deepEqual(sanitizeLayout(EVENT, layout), layout);

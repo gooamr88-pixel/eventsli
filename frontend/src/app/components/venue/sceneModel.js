@@ -138,7 +138,12 @@ export function buildSceneModel({
   });
 
   const topRise = seats.reduce((m, s) => Math.max(m, s.y), 0);
-  return { seats, bodies, risers, zones: zoneShapes, focus, radius, topRise, hasStage: !!stage };
+  // `origin` turns a map point into a scene point (and back) exactly as the
+  // seats above were placed: what a 360° photo's spot needs.
+  return {
+    seats, bodies, risers, zones: zoneShapes, focus, radius, topRise, hasStage: !!stage,
+    origin: { cx, cy, k, world },
+  };
 }
 
 /** Where a person in this seat has their eyes, and what they look at. */

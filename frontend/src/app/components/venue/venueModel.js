@@ -119,9 +119,19 @@ function readViews(raw) {
       kind: hasKey(VIEW_KINDS, v.kind) ? v.kind : 'other',
       tables: Array.isArray(v.tables) ? v.tables.filter((t) => typeof t === 'string').slice(0, 400) : [],
       heading: num(v.heading, -180, 180, 0),
+      spot: readSpot(v.spot),
     });
   }
   return out;
+}
+
+/** Where a 360° photo was taken (map %, camera height in m), or null. */
+function readSpot(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const x = Number(raw.x);
+  const y = Number(raw.y);
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+  return { x: num(x, 0, 100, 50), y: num(y, 0, 100, 50), h: num(raw.h, 0.3, 6, 1.5) };
 }
 
 function readSections(raw) {

@@ -6,6 +6,7 @@ import { messageFor } from '../../../../../utils/errors';
 import VenueScene3D from '../../../../../components/venue/VenueScene3D';
 import PanoramaViewer from '../../../../../components/venue/PanoramaViewer';
 import { buildSceneModel, eyeFor } from '../../../../../components/venue/sceneModel';
+import { projectSeats, guessSpot } from '../../../../../components/venue/photoSpots';
 import { VIEW_KINDS, MAX_VIEWS, studioId, tierPalette } from '../../../../../components/venue/venueModel';
 import { keyOf } from '../useMapDraft';
 import { uploadStudioImage, aspectOf } from './uploadStudioImage';
@@ -52,6 +53,18 @@ export default function Studio360({ eventId, tables, zones, world, scene, views,
   const eye = seat ? eyeFor(seat, model, scene) : null;
 
   const update = (id, patch) => onViews(views.map((v) => (v.id === id ? { ...v, ...patch } : v)));
+  const setSpot = (patch) => update(view.id, { spot: { ...view.spot, ...patch } });
+
+  // Every chair in the room, not just the linked rows: more dots to line up
+  // against the photo. Buyers are offered only the linked rows.
+  const dots = useMemo(() => {
+    if (!view?.spot) return null;
+    return projectSeats(model, view, { onlyLinked: false }).map((p) => ({
+      id: p.entry.id, yaw: p.yaw, pitch: p.pitch, distance: p.distance,
+      color: colorFor(p.entry), disabled: true, dim: !view.tables.includes(p.entry.tableLabel),
+      label: `${p.entry.tableLabel} · Seat ${p.entry.number}`,
+    }));
+  }, [model, view, colorFor]);
   const remove = (id) => { onViews(views.filter((v) => v.id !== id)); setSelected('generated'); };
 
   async function onFile(file) {
@@ -90,7 +103,13 @@ export default function Studio360({ eventId, tables, zones, world, scene, views,
       <div className="es-dcard es-studio-stagecard">
         <div className="relative es-studio-viewport">
           {view ? (
-            <PanoramaViewer key={view.id + view.heading} className="h-full w-full" url={view.url} heading={view.heading} label={view.name} />
+            // Lined up, the view holds still while the dials move the dots;
+            // otherwise it re-opens at the new heading, which is the preview
+            // "Opens facing" needs.
+            <PanoramaViewer
+              key={view.spot ? view.id : view.id + view.heading}
+              className="h-full w-full" url={view.url} heading={view.heading} label={view.name} spots={dots}
+            />
           ) : plain.length === 0 ? (
             <div className="es-studio-empty">
               <p className="font-medium text-ink">No seats yet</p>
@@ -161,10 +180,53 @@ export default function Studio360({ eventId, tables, zones, world, scene, views,
             <TextField label="Name" value={view.name} onChange={(name) => update(view.id, { name })} maxLength={60} />
             <SelectField label="Kind" value={view.kind} onChange={(kind) => update(view.id, { kind })} options={VIEW_KINDS.map((k) => [k.key, k.label])} />
             <RangeField
-              label="Opens facing" value={view.heading} min={-180} max={180} step={5}
+              label="Opens facing" value={view.heading} min={-180} max={180} step={view.spot ? 1 : 5}
               onChange={(heading) => update(view.id, { heading })} format={(v) => `${v}°`}
-              hint="Turn it until the stage is in front when the view opens."
+              hint={view.spot
+                ? 'Turn it until the dots line up with the chairs left to right.'
+                : 'Turn it until the stage is in front when the view opens.'}
             />
+            <div className="fx-stack gap-2 rounded-(--es-radius-md) border border-border-base p-3">
+              <p className="text-sm font-medium text-ink">Seats on this photo</p>
+              {view.spot ? (
+                <>
+                  <p className="text-xs text-subtle">
+                    Buyers tap the chairs in this photo to choose them. Move these until every dot sits on its chair.
+                    Faded dots are rows this photo is not linked to; buyers only get the linked ones.
+                  </p>
+                  <RangeField
+                    label="Where it was taken: left ↔ right" value={view.spot.x} min={0} max={100} step={0.1}
+                    onChange={(x) => setSpot({ x })} format={(v) => `${Number(v).toFixed(1)}%`}
+                  />
+                  <RangeField
+                    label="Where it was taken: top ↔ bottom of the map" value={view.spot.y} min={0} max={100} step={0.1}
+                    onChange={(y) => setSpot({ y })} format={(v) => `${Number(v).toFixed(1)}%`}
+                  />
+                  <RangeField
+                    label="Camera height" value={view.spot.h} min={0.5} max={4} step={0.05}
+                    onChange={(h) => setSpot({ h })} format={(v) => `${Number(v).toFixed(2)} m`}
+                    hint="Raise it if the dots sit above the chairs; lower it if they sit below."
+                  />
+                  <button type="button" className="es-btn es-btn--ghost es-btn--sm self-start" onClick={() => update(view.id, { spot: null })}>
+                    Take the seats off this photo
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p className="text-xs text-subtle">
+                    Put a tappable dot on every chair in this photo, so buyers choose seats right in it.
+                    {!view.tables.length && ' Link it to the rows it shows first.'}
+                  </p>
+                  <button
+                    type="button" className="es-btn es-btn--secondary es-btn--sm self-start"
+                    disabled={!view.tables.length || !model.seats.length}
+                    onClick={() => update(view.id, { spot: guessSpot(model, view.tables) })}
+                  >
+                    Line up seats on this photo
+                  </button>
+                </>
+              )}
+            </div>
             <fieldset className="fx-stack gap-2">
               <legend className="mb-1 text-sm text-ink">Shown for these rows</legend>
               <div className="es-viewlinks">

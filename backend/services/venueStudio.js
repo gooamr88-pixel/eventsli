@@ -102,9 +102,28 @@ function cleanViews(eventId, raw) {
         ? [...new Set(v.tables.map((t) => text(t, 60)).filter(Boolean))].slice(0, 400)
         : [],
       heading: num(v.heading, -180, 180, 0),
+      // Where the photo was taken, so the buyer's page can put a tappable dot
+      // on every seat in it: x/y are percentages of the map (as table
+      // positions are) and h is the camera's height above the floor in
+      // metres. Absent until the organizer lines the photo up; a photo
+      // without it shows no dots, never guessed ones.
+      ...(spot(v.spot) ? { spot: spot(v.spot) } : {}),
     });
   }
   return out;
+}
+
+function spot(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const x = Number(raw.x);
+  const y = Number(raw.y);
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+  const round = (n) => Math.round(n * 1000) / 1000;
+  return {
+    x: round(Math.min(100, Math.max(0, x))),
+    y: round(Math.min(100, Math.max(0, y))),
+    h: round(num(raw.h, 0.3, 6, 1.5)),
+  };
 }
 
 function cleanSections(raw) {

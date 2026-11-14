@@ -12895,6 +12895,32 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
 .es-photoseats__seat.is-active { outline: 2px solid var(--es-teal-300); outline-offset: 2px; }
 .es-photoseats__seat:focus-visible { outline: 2px solid #ffffff; outline-offset: 2px; }
 
+/* Seats placed on a 360° photo. Positioned every frame by PanoramaViewer
+   (transform, width, height); a ring in the ticket type's colour, filled
+   white once chosen, faint and crossed when taken. */
+.es-pano__spots { position: absolute; inset: 0; pointer-events: none; }
+.es-pano__spot {
+  position: absolute;
+  top: 0;
+  left: 0;
+  padding: 0;
+  border: 3px solid var(--seat-tier, var(--es-teal-300));
+  border-radius: var(--es-radius-full);
+  background: rgba(6, 20, 22, 0.35);
+  box-shadow: 0 0 0 1.5px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(0, 0, 0, 0.35);
+  pointer-events: auto;
+  touch-action: none;
+  cursor: pointer;
+  transition: background-color var(--es-dur-fast) var(--es-ease), scale var(--es-dur-fast) var(--es-ease);
+}
+.es-pano__spot:hover:not(:disabled) { background: rgba(255, 255, 255, 0.45); scale: 1.15; }
+.es-pano__spot--chosen { border-color: #ffffff; background: #ffffff; box-shadow: 0 0 0 3px var(--es-teal-700), 0 2px 8px rgba(0, 0, 0, 0.4); }
+.es-pano__spot--taken { border-color: rgba(255, 255, 255, 0.35); background: rgba(0, 0, 0, 0.45); cursor: not-allowed; }
+.es-pano__spot--taken::after { content: ""; position: absolute; inset: 20%; border-top: 2px solid rgba(255, 255, 255, 0.55); rotate: -45deg; translate: 0 30%; }
+.es-pano__spot.is-dim { opacity: 0.4; }
+.es-pano__spot.is-active { outline: 2px solid #ffffff; outline-offset: 2px; }
+.es-pano__spot:focus-visible { outline: 3px solid #ffffff; outline-offset: 2px; }
+
 /* ── seat card ─────────────────────────────────────────────────────────── */
 .es-seatcard {
   display: flex;

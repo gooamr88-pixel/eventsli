@@ -16,9 +16,9 @@ import { useMemo, useState } from 'react';
  * ─────────────────────────────────────────────────────────────────────────────
  */
 export default function PhotoSeatPanel({
-  view, model, index, selectedSeatIds, focusTiers, activeId, actionFor, describe, onFocus,
+  view, model, index, selectedSeatIds, focusTiers, activeId, actionFor, describe, onFocus, startOpen = true,
 }) {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(startOpen);
 
   const rows = useMemo(() => {
     if (!model || !view) return [];

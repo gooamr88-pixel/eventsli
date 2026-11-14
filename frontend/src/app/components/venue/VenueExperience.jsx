@@ -6,6 +6,7 @@ import { worldOf } from '../seating/seatingGeometry';
 import VenueScene3D from './VenueScene3D';
 import PanoramaViewer from './PanoramaViewer';
 import PhotoSeatPanel from './PhotoSeatPanel';
+import { projectSeats } from './photoSpots';
 import ViewSwitch from './ViewSwitch';
 import MiniLocator from './MiniLocator';
 import SeatCard, { ViewStrip, priceText } from './SeatCard';
@@ -218,6 +219,36 @@ export default function VenueExperience({
 
   const activeInfo = active ? describe(active) : null;
 
+  // Seats placed on the photo — only on a photo the organizer has lined up
+  // (it has a `spot`). Where they fall depends on the room and the photo;
+  // how they look depends on the selection, so that part is per render.
+  const placed = useMemo(
+    () => (view === '360' && shotPhoto?.spot && model ? projectSeats(model, shotPhoto) : []),
+    [view, shotPhoto, model],
+  );
+  const choose = (entry) => {
+    setFocusId(entry.id);
+    if (shotPhoto) setShot(shotPhoto.id);
+    actionFor(entry).onPress?.();
+  };
+  const photoSpots = placed.length ? placed.map((p) => {
+    const s = p.entry.seat;
+    const chosen = Boolean(s && selectedSeatIds.has(s.id));
+    const action = actionFor(p.entry);
+    const info = describe(p.entry);
+    const taken = !chosen && (!s || !s.available);
+    return {
+      id: p.entry.id, yaw: p.yaw, pitch: p.pitch, distance: p.distance,
+      state: chosen ? 'chosen' : taken ? 'taken' : 'open',
+      color: !chosen && !taken ? info.color : null,
+      dim: !chosen && !taken && focusTiers && !focusTiers.has(s.tierId),
+      active: p.entry.id === active?.id,
+      disabled: Boolean(action.disabled || !action.onPress),
+      label: `${info.name}${info.price ? `, ${info.price}` : ''}${taken ? ', unavailable' : ''}`,
+    };
+  }) : null;
+  const entryById = (id) => placed.find((p) => p.entry.id === id)?.entry;
+
   return (
     <div ref={frameRef} className={`es-venuex ${frameClassName}`}>
       <div className="fx-row fx-row--between gap-2">
@@ -227,7 +258,7 @@ export default function VenueExperience({
         <p className="hidden text-xs text-subtle sm:block">
           {view === '2d' && (pickAny ? 'Tap a seat to block or release it' : 'Tap a seat to choose it')}
           {view === '3d' && 'Drag to turn · scroll to zoom · tap a seat'}
-          {view === '360' && (shotPhoto ? 'A photo from this part of the venue · choose from the seats it shows' : 'Drag to look around · tap a seat to choose it')}
+          {view === '360' && (shotPhoto ? photoSpots ? 'Tap a seat in the photo to choose it · drag to look around' : 'A photo from this part of the venue · choose from the seats it shows' : 'Drag to look around · tap a seat to choose it')}
         </p>
       </div>
 
@@ -279,7 +310,12 @@ export default function VenueExperience({
             // A wrapper places it: the viewer's own root is `relative`, which
             // would beat an `absolute` passed in and drop it below the box.
             <div className="es-venuex__photo">
-              <PanoramaViewer key={shotPhoto.id} className="h-full w-full" url={shotPhoto.url} heading={shotPhoto.heading} label={shotPhoto.name} onFallback={toMap} />
+              <PanoramaViewer
+                key={shotPhoto.id} className="h-full w-full" url={shotPhoto.url} heading={shotPhoto.heading}
+                label={shotPhoto.name} onFallback={toMap}
+                spots={photoSpots}
+                onSpot={(id) => { const entry = entryById(id); if (entry) choose(entry); }}
+              />
             </div>
           )}
 
@@ -287,6 +323,9 @@ export default function VenueExperience({
             <PhotoSeatPanel
               key={shotPhoto.id}
               view={shotPhoto}
+              // With the seats on the photo itself the list starts folded, so
+              // the photo is what a buyer sees first.
+              startOpen={!photoSpots}
               model={model}
               index={index}
               selectedSeatIds={selectedSeatIds}
