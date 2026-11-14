@@ -5,6 +5,7 @@ import SeatMapCanvas from '../seating/SeatMapCanvas';
 import { worldOf } from '../seating/seatingGeometry';
 import VenueScene3D from './VenueScene3D';
 import PanoramaViewer from './PanoramaViewer';
+import PhotoSeatPanel from './PhotoSeatPanel';
 import ViewSwitch from './ViewSwitch';
 import MiniLocator from './MiniLocator';
 import SeatCard, { ViewStrip, priceText } from './SeatCard';
@@ -208,7 +209,7 @@ export default function VenueExperience({
         <p className="hidden text-xs text-subtle sm:block">
           {view === '2d' && (pickAny ? 'Tap a seat to block or release it' : 'Tap a seat to choose it')}
           {view === '3d' && 'Drag to turn · scroll to zoom · tap a seat'}
-          {view === '360' && (shotPhoto ? 'A photo from this part of the venue · drag to look around' : 'Drag to look around · tap a seat to choose it')}
+          {view === '360' && (shotPhoto ? 'A photo from this part of the venue · choose from the seats it shows' : 'Drag to look around · tap a seat to choose it')}
         </p>
       </div>
 
@@ -264,6 +265,23 @@ export default function VenueExperience({
             </div>
           )}
 
+          {view === '360' && shotPhoto && (
+            <PhotoSeatPanel
+              key={shotPhoto.id}
+              view={shotPhoto}
+              model={model}
+              index={index}
+              selectedSeatIds={selectedSeatIds}
+              focusTiers={focusTiers}
+              activeId={active?.id}
+              actionFor={actionFor}
+              describe={describe}
+              // Keep this photo up: on 'auto' a seat whose row is also in
+              // another photo would swap the picture out from under the tap.
+              onFocus={(entry) => { setFocusId(entry.id); setShot(shotPhoto.id); }}
+            />
+          )}
+
           <div className="es-venuex__tools">
             <button type="button" className="es-iconbtn" onClick={() => controls.current?.zoom(1.25)} aria-label="Zoom in">+</button>
             <button type="button" className="es-iconbtn" onClick={() => controls.current?.zoom(0.8)} aria-label="Zoom out">−</button>
@@ -298,8 +316,12 @@ export default function VenueExperience({
 
           {view === '360' && active && !picked && (
             <>
-              <button type="button" className="es-venuex__nav es-venuex__nav--prev es-iconbtn" onClick={() => step(-1)} aria-label="Previous seat">‹</button>
-              <button type="button" className="es-venuex__nav es-venuex__nav--next es-iconbtn" onClick={() => step(1)} aria-label="Next seat">›</button>
+              {!shotPhoto && (
+                <>
+                  <button type="button" className="es-venuex__nav es-venuex__nav--prev es-iconbtn" onClick={() => step(-1)} aria-label="Previous seat">‹</button>
+                  <button type="button" className="es-venuex__nav es-venuex__nav--next es-iconbtn" onClick={() => step(1)} aria-label="Next seat">›</button>
+                </>
+              )}
               <div className="es-venuex__strip">
                 <ViewStrip items={shotItems} active={shotId} onPick={setShot} />
               </div>

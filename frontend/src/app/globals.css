@@ -12825,6 +12825,72 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
   .es-venuex__mini { height: 100%; min-height: 9rem; }
 }
 
+/* "Seats in this view" over a 360° photo. The same dark glass as the view
+   strip it sits above; a selected seat is white, as it is in the 3D room. */
+.es-photoseats {
+  position: absolute;
+  top: 0.75rem;
+  left: 0.75rem;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  width: min(20rem, calc(100% - 4.5rem));
+  max-height: calc(100% - 9.5rem);
+  border-radius: var(--es-radius-lg);
+  background: rgba(6, 20, 22, 0.72);
+  backdrop-filter: blur(8px);
+  color: #ffffff;
+  overflow: hidden;
+}
+.es-photoseats__head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.5rem;
+  padding: 0.5rem 0.75rem;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: var(--es-text-sm);
+  text-align: left;
+  cursor: pointer;
+}
+.es-photoseats__chev { margin-left: auto; transition: rotate var(--es-dur-fast) var(--es-ease); }
+.es-photoseats__head[aria-expanded="false"] .es-photoseats__chev { rotate: -90deg; }
+.es-photoseats__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  padding: 0 0.75rem 0.75rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.es-photoseats__rowname { margin: 0 0 0.25rem; font-size: var(--es-text-xs); opacity: 0.8; }
+.es-photoseats__seats { display: flex; flex-wrap: wrap; gap: 0.25rem; margin: 0; padding: 0; list-style: none; }
+.es-photoseats__seat {
+  min-width: 2rem;
+  height: 2rem;
+  padding-inline: 0.25rem;
+  border: 2px solid var(--seat-tier, var(--es-teal-300));
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  font: inherit;
+  font-size: var(--es-text-xs);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.es-photoseats__seat:hover:not(:disabled) { background: rgba(255, 255, 255, 0.2); }
+.es-photoseats__seat--chosen { border-color: #ffffff; background: #ffffff; color: #0b1f21; }
+.es-photoseats__seat--chosen:hover:not(:disabled) { background: #e6eeef; }
+.es-photoseats__seat--taken { border-color: rgba(255, 255, 255, 0.18); background: transparent; color: rgba(255, 255, 255, 0.45); text-decoration: line-through; }
+.es-photoseats__seat:disabled { cursor: not-allowed; }
+.es-photoseats__seat.is-dim { opacity: 0.45; }
+.es-photoseats__seat.is-active { outline: 2px solid var(--es-teal-300); outline-offset: 2px; }
+.es-photoseats__seat:focus-visible { outline: 2px solid #ffffff; outline-offset: 2px; }
+
 /* ── seat card ─────────────────────────────────────────────────────────── */
 .es-seatcard {
   display: flex;
