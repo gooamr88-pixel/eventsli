@@ -189,10 +189,11 @@ export default function VenueScene3D({
           // photo sphere does.
           st.look.yaw = down.yaw + (e.clientX - down.x) * 0.005;
           st.look.pitch = Math.max(-1.2, Math.min(1.2, down.pitch + (e.clientY - down.y) * 0.005));
+          if (st.hovered >= 0) { st.hovered = -1; live.current.onHover?.(null); }
           st.invalidate();
           return;
         }
-        if (e.buttons || live.current.mode === 'eye') return;
+        if (e.buttons) return;
         const i = seatAt(e.clientX, e.clientY);
         if (i !== st.hovered) {
           st.hovered = i;
@@ -206,7 +207,9 @@ export default function VenueScene3D({
         const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y);
         const quick = performance.now() - down.t < 600;
         down = null;
-        if (moved > 6 || !quick || live.current.mode === 'eye') return;
+        // A tap picks a seat in both modes; in 360° a drag looks around and
+        // the distance check above is what tells the two apart.
+        if (moved > 6 || !quick) return;
         const i = seatAt(e.clientX, e.clientY);
         if (i >= 0) {
           const rect = host.getBoundingClientRect();

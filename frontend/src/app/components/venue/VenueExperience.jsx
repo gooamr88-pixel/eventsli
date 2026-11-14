@@ -51,7 +51,10 @@ export default function VenueExperience({
 }) {
   const [view, setView] = useState('2d');
   const [focusId, setFocusId] = useState(null);
-  const [cardOpen, setCardOpen] = useState(false);
+  // The seat whose card is open over the 3D or 360° view. Separate from
+  // `focusId` because in 360° a tap must not move the camera: the card's
+  // "View from here" does that.
+  const [pickId, setPickId] = useState(null);
   const [shot, setShot] = useState('auto');
   const [hover, setHover] = useState(null);
   const frameRef = useRef(null);
@@ -82,7 +85,7 @@ export default function VenueExperience({
 
   const in3d = view !== '2d';
   // "Use the 2D map" when a 3D or 360° view cannot draw on this device.
-  const toMap = () => { setView('2d'); setHover(null); setCardOpen(false); };
+  const toMap = () => { setView('2d'); setHover(null); setPickId(null); };
   const model = useMemo(
     () => (in3d ? buildSceneModel({ tables, seatsByTable, zones, scene: studio.scene, world }) : null),
     [in3d, tables, seatsByTable, zones, studio.scene, world],
@@ -141,6 +144,7 @@ export default function VenueExperience({
   // ── which seat the 3D card and the 360° view are about ──
   const firstSelected = model?.seats.find((s) => s.seat && selectedSeatIds.has(s.seat.id));
   const focused = model && focusId ? model.seats.find((s) => s.id === focusId) : null;
+  const picked = model && pickId ? model.seats.find((s) => s.id === pickId) : null;
   const active = focused || firstSelected
     || (model ? bestSeat(model, (s) => Boolean(s.seat?.available) || pickAny) : null);
   const photo = active ? studio.views.find((v) => v.tables.includes(active.tableLabel)) : null;
@@ -198,13 +202,13 @@ export default function VenueExperience({
   return (
     <div ref={frameRef} className={`es-venuex ${frameClassName}`}>
       <div className="fx-row fx-row--between gap-2">
-        <ViewSwitch value={view} onChange={(v) => { setView(v); setHover(null); if (v !== '3d') setCardOpen(false); }} />
+        <ViewSwitch value={view} onChange={(v) => { setView(v); setHover(null); setPickId(null); }} />
         {/* From `sm`: on a phone the pinned bar below already says "Tap a
             seat to choose it", and this row is worth its height in map. */}
         <p className="hidden text-xs text-subtle sm:block">
           {view === '2d' && (pickAny ? 'Tap a seat to block or release it' : 'Tap a seat to choose it')}
           {view === '3d' && 'Drag to turn · scroll to zoom · tap a seat'}
-          {view === '360' && (shotPhoto ? 'A photo from this part of the venue · drag to look around' : 'Drag to look around · arrows move along the row')}
+          {view === '360' && (shotPhoto ? 'A photo from this part of the venue · drag to look around' : 'Drag to look around · tap a seat to choose it')}
         </p>
       </div>
 
@@ -243,7 +247,11 @@ export default function VenueExperience({
             eye={view === '360' ? eye : null}
             controlsRef={controls}
             ariaLabel={view === '360' ? `The view from ${activeInfo?.name || 'a seat'}` : 'The venue in 3D. Use the 2D map to choose seats by keyboard.'}
-            onPick={(entry) => { setFocusId(entry.id); setCardOpen(true); setShot('auto'); }}
+            onPick={(entry) => {
+              setPickId(entry.id);
+              setHover(null);
+              if (view === '3d') { setFocusId(entry.id); setShot('auto'); }
+            }}
             onHover={(entry, at) => setHover(entry ? { entry, ...at } : null)}
             onFallback={toMap}
           />
@@ -265,27 +273,30 @@ export default function VenueExperience({
             <button type="button" className="es-iconbtn" onClick={toggleFullscreen} aria-label="Full screen">⤢</button>
           </div>
 
-          {view === '3d' && hover && !cardOpen && (
+          {hover && !picked && (
             <div className="es-venuex__tip" style={{ left: hover.x + 14, top: hover.y + 14 }} aria-hidden="true">
               <strong>{describe(hover.entry).name}</strong>
               <span>{hover.entry.seat?.available === false ? 'Taken' : describe(hover.entry).price}</span>
             </div>
           )}
 
-          {view === '3d' && cardOpen && focused && (
+          {picked && (
             <div className="es-venuex__card">
               <SeatCard
                 compact
-                {...describe(focused)}
-                status={focused.seat && !focused.seat.available && !selectedSeatIds.has(focused.seat.id) ? 'Taken' : null}
-                action={actionFor(focused)}
-                secondary={{ label: 'View from seat', onPress: () => { setView('360'); setCardOpen(false); setShot('auto'); } }}
-                onClose={() => setCardOpen(false)}
+                {...describe(picked)}
+                status={picked.seat && !picked.seat.available && !selectedSeatIds.has(picked.seat.id) ? 'Taken' : null}
+                action={actionFor(picked)}
+                secondary={view === '360' && picked.id === active?.id ? null : {
+                  label: view === '360' ? 'View from here' : 'View from seat',
+                  onPress: () => { setFocusId(picked.id); setView('360'); setPickId(null); setShot('auto'); },
+                }}
+                onClose={() => setPickId(null)}
               />
             </div>
           )}
 
-          {view === '360' && active && (
+          {view === '360' && active && !picked && (
             <>
               <button type="button" className="es-venuex__nav es-venuex__nav--prev es-iconbtn" onClick={() => step(-1)} aria-label="Previous seat">‹</button>
               <button type="button" className="es-venuex__nav es-venuex__nav--next es-iconbtn" onClick={() => step(1)} aria-label="Next seat">›</button>
