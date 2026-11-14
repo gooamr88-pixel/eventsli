@@ -19,7 +19,7 @@ export type SchemaDb = {
   getAllAsync<T>(sql: string): Promise<T[]>;
 };
 
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 
 const BASE = `
   CREATE TABLE IF NOT EXISTS scans (
@@ -97,6 +97,17 @@ export async function migrate(db: SchemaDb): Promise<void> {
     const cols = await db.getAllAsync<{ name: string }>('PRAGMA table_info(ticket_list_meta)');
     if (!cols.some((c) => c.name === 'gate_reason')) {
       await db.execAsync('ALTER TABLE ticket_list_meta ADD COLUMN gate_reason TEXT');
+    }
+    await db.execAsync('PRAGMA user_version = 4');
+  }
+  if (version < 5) {
+    // WHICH door device took the scan. A scan held offline may be uploaded
+    // after its taker signed out and a colleague signed in; the upload names
+    // this device so the server keeps the scan under the person who made it
+    // (scanService.syncBatch). Older rows have none and stay with the uploader.
+    const cols = await db.getAllAsync<{ name: string }>('PRAGMA table_info(scans)');
+    if (!cols.some((c) => c.name === 'device_id')) {
+      await db.execAsync('ALTER TABLE scans ADD COLUMN device_id TEXT');
     }
     await db.execAsync(`PRAGMA user_version = ${SCHEMA_VERSION}`);
   }

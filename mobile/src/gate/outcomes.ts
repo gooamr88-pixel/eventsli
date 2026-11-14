@@ -23,50 +23,50 @@ const OUTCOMES: Record<string, Outcome> = {
   admitted: { tone: 'admit', title: 'Check-in Successful', note: 'Admitted. This ticket is now used.' },
   duplicate: {
     tone: 'warn',
-    title: 'Already checked in',
-    note: 'This ticket was scanned before. Check the time and the name.',
+    title: 'Already Checked In',
+    note: 'This ticket has already been checked in.',
   },
   transferred: {
     tone: 'refuse',
-    title: 'Ticket was given away',
+    title: 'Ticket Transferred',
     note: 'This code is from before the ticket was transferred. The person it was given to has the code that works.',
   },
-  void: { tone: 'refuse', title: 'Cancelled ticket', note: 'Refunded or voided. It does not admit anyone.' },
-  event_cancelled: { tone: 'refuse', title: 'Event cancelled', note: 'Nobody is admitted on tickets for this event.' },
+  void: { tone: 'refuse', title: 'Cancelled Ticket', note: 'This ticket was refunded or cancelled. It does not admit anyone.' },
+  event_cancelled: { tone: 'refuse', title: 'Event Cancelled', note: 'Nobody is admitted on tickets for this event.' },
   event_not_open: {
     tone: 'refuse',
-    title: 'Event not open',
+    title: 'Event Not Open',
     note: 'This event is not open for entry right now. Ask the organizer before letting anyone in.',
   },
-  not_found: { tone: 'refuse', title: 'Ticket not found', note: 'The code is well formed but no such ticket exists for this event.' },
+  not_found: { tone: 'refuse', title: 'Ticket Not Found', note: 'No such ticket exists for this event.' },
   scanner_locked: {
     tone: 'refuse',
-    title: 'Scanning is switched off',
+    title: 'Scanning Switched Off',
     note: 'Nobody can be admitted on this event right now. Call the organizer.',
   },
 
   // ── From the API, before the database ─────────────────────────────────────
   invalid: {
     tone: 'refuse',
-    title: 'Not an Eventsli ticket',
-    note: 'The code does not check out. A screenshot of a real ticket still works — this is not one.',
+    title: 'Invalid Ticket',
+    note: 'This QR code is not valid for this event.',
   },
   wrong_event: {
     tone: 'refuse',
-    title: 'Wrong event',
-    note: 'A real ticket, for a different event. Send them to the right door.',
+    title: 'Wrong Event',
+    note: 'This ticket is for a different event. Send them to the right door.',
   },
-  error: { tone: 'warn', title: 'Could not be checked', note: 'The server could not answer. Scan again; a real admission is never lost.' },
+  error: { tone: 'warn', title: 'Could Not Check', note: 'The server could not answer. Scan again; a real admission is never lost.' },
 
   // ── From undo ─────────────────────────────────────────────────────────────
-  undone: { tone: 'warn', title: 'Check-in reversed', note: 'The ticket is valid again and can be scanned.' },
-  not_scanned: { tone: 'warn', title: 'Nothing to undo', note: 'That ticket had not been admitted.' },
+  undone: { tone: 'warn', title: 'Check-in Reversed', note: 'The ticket is valid again and can be scanned.' },
+  not_scanned: { tone: 'warn', title: 'Nothing to Undo', note: 'That ticket had not been admitted.' },
 
   // ── The device's own states. Not server answers. ───────────────────────────
   queued: {
     tone: 'hold',
-    title: 'Held for upload',
-    note: 'No signal. Recorded with this phone’s time and checked the moment a connection returns.',
+    title: 'Saved to Sync',
+    note: 'No signal. Saved on this phone and checked the moment a connection returns.',
   },
   sending: { tone: 'hold', title: 'Checking…', note: '' },
   // ── The phone's own decisions with no signal (offline admission) ──────────
@@ -77,7 +77,7 @@ const OUTCOMES: Record<string, Outcome> = {
   },
   offline_unconfirmed: {
     tone: 'warn',
-    title: 'Can’t confirm offline',
+    title: 'Can’t Confirm Offline',
     note: 'This ticket is not on this phone’s list yet. It may have been bought in the last few minutes. Held: it is checked when the signal returns.',
   },
 };

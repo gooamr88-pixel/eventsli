@@ -5,7 +5,7 @@ import { colors, radius, space } from './theme';
 
 type Option<T extends string> = { value: T; label: string };
 
-/** The Upcoming / Ongoing / Past switch from the mockup. */
+/** The mockup's two-way switch: Assigned to me / All Events, Not yet / Checked in. */
 export function Segmented<T extends string>({
   options, value, onChange,
 }: { options: Option<T>[]; value: T; onChange: (v: T) => void }) {
@@ -32,9 +32,12 @@ export function Segmented<T extends string>({
 }
 
 const styles = StyleSheet.create({
-  wrap: { flexDirection: 'row', gap: space.sm },
+  wrap: {
+    flexDirection: 'row', gap: space.xs, padding: 4, borderRadius: radius.pill,
+    backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border,
+  },
   item: {
-    minHeight: 40, paddingHorizontal: space.lg, borderRadius: radius.pill,
+    flex: 1, minHeight: 38, paddingHorizontal: space.md, borderRadius: radius.pill,
     alignItems: 'center', justifyContent: 'center',
   },
   itemOn: { backgroundColor: colors.accent },

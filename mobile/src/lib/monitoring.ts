@@ -19,10 +19,18 @@ type Json = unknown;
 
 const JWT = /eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*/g;
 const EMAIL = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
+// Ticket, event, device and scan ids: each one leads back to a guest on the server.
+const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
+// The query string or fragment of any address inside a text ("GET https://…/attendees?q=Sara Ali").
+const URL_TAIL = /([a-z][a-z0-9+.-]*:\/\/[^\s?#"'<>]*)[?#][^\s"'<>]*/gi;
 
-/** A string with tokens and addresses replaced. */
+/** A string with tokens, addresses, ids and URL query strings replaced. */
 export function scrubText(text: string): string {
-  return text.replace(JWT, '[token]').replace(EMAIL, '[email]');
+  return text
+    .replace(URL_TAIL, '$1')
+    .replace(JWT, '[token]')
+    .replace(EMAIL, '[email]')
+    .replace(UUID, '[id]');
 }
 
 /** A URL without its query string or fragment, and with no token in its path. */
@@ -30,7 +38,9 @@ export function scrubUrl(url: string): string {
   return scrubText(String(url).split(/[?#]/)[0]);
 }
 
-const SECRET_KEYS = /^(authorization|cookie|set-cookie|x-eventsli-client|token|qr|password|pin|code|codeverifier|cursor|q|email|attendee|holder|name)$/i;
+// Keys whose values are dropped whole. `http.query` / `http.fragment` are what
+// Sentry's own fetch spans and breadcrumbs carry the guest search in.
+const SECRET_KEYS = /^(authorization|cookie|set-cookie|x-eventsli-client|token|qr|password|pin|code|codeverifier|cursor|q|query|search|email|attendee|holder|name|seat|body|params|http\.query|http\.fragment|url\.query|url\.fragment|http\.request\.body.*|http\.response\.body.*)$/i;
 
 /** Every string in a value scrubbed; keys that name secrets dropped outright. */
 export function scrubDeep(value: Json, depth = 0): Json {
@@ -49,8 +59,11 @@ export function scrubDeep(value: Json, depth = 0): Json {
 }
 
 type Breadcrumb = { category?: string; message?: string; data?: Record<string, Json> };
+type Span = { description?: string; data?: Record<string, Json> };
 type Event = {
   message?: string;
+  transaction?: string;
+  spans?: Span[];
   user?: unknown;
   request?: { url?: string; headers?: Record<string, string>; query_string?: unknown; cookies?: unknown; data?: unknown };
   exception?: { values?: { value?: string }[] };
@@ -79,6 +92,15 @@ export function scrubEvent<T extends Event>(event: T): T {
     e.request = { url: e.request.url ? scrubUrl(e.request.url) : undefined };
   }
   if (e.message) e.message = scrubText(e.message);
+  // A transaction's own name and every span in it ("GET https://…/attendees?q=…").
+  if (e.transaction) e.transaction = scrubText(e.transaction);
+  if (e.spans) {
+    e.spans = e.spans.map((s) => ({
+      ...s,
+      description: s.description ? scrubText(s.description) : s.description,
+      data: s.data ? (scrubDeep(s.data) as Record<string, Json>) : s.data,
+    }));
+  }
   if (e.exception?.values) {
     e.exception = { ...e.exception, values: e.exception.values.map((v) => ({ ...v, value: v.value ? scrubText(v.value) : v.value })) };
   }
@@ -93,7 +115,21 @@ type SpanLike = { setAttribute: (key: string, value: string) => void };
 type SentryLike = {
   init: (options: Record<string, unknown>) => void;
   startSpan: <R>(options: { name: string; op?: string }, fn: (span: SpanLike) => R) => R;
+  captureException: (error: unknown) => unknown;
 };
+
+/**
+ * A crash the app caught itself (the root error boundary), so it would never
+ * reach Sentry's own handler. Scrubbed by beforeSend like everything else; a
+ * no-op with crash reporting off.
+ */
+export function reportError(error: unknown): void {
+  try {
+    sentry?.captureException(error);
+  } catch {
+    // Reporting must never be the second crash.
+  }
+}
 
 let sentry: SentryLike | null = null;
 
@@ -109,6 +145,17 @@ export function startMonitoring(env: { dsn?: string; environment?: string } = {
   mod.init({
     dsn: env.dsn,
     environment: env.environment || 'production',
+    // JavaScript only. The native SDKs send their own crash reports and
+    // session pings straight from native code: those never pass beforeSend
+    // below, record native network breadcrumbs (whole URLs, the guest search
+    // included), and carry a per-install id as the "user"
+    // (RNSentry.mm, fetchNativeDeviceContexts). With the native layer off,
+    // every byte that leaves goes through the scrubbing in this file, and no
+    // install id or session ping is sent at all. The cost: a crash in native
+    // code (camera, database) is not reported. Revisit only with native
+    // scrubbing verified on a real build (mobile/store/PRIVACY.md).
+    enableNative: false,
+    enableAutoSessionTracking: false,
     sendDefaultPii: false,
     attachScreenshot: false,
     attachViewHierarchy: false,

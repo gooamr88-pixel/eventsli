@@ -41,7 +41,7 @@ const VERIFY_MS_WITH_LIST = 2500;
 type Row = {
   client_scan_id: string; event_id: string; qr: string; ticket_id: string | null; occurred_at: string;
   method: string; state: string; result: string | null; message: string | null; answer_json: string | null;
-  synced_at: string | null; offline_verdict: string | null; attempts: number | null;
+  synced_at: string | null; offline_verdict: string | null; attempts: number | null; device_id?: string | null;
 };
 
 const fromRow = (r: Row): ScanRecord => ({
@@ -58,17 +58,43 @@ const fromRow = (r: Row): ScanRecord => ({
   syncedAt: r.synced_at,
   offlineVerdict: (r.offline_verdict as ScanRecord['offlineVerdict']) ?? null,
   attempts: Number(r.attempts) || 0,
+  deviceId: r.device_id ?? null,
 });
+
+/**
+ * The ticket's QR code is a bearer pass: whoever holds it can try the door
+ * with it. The phone needs it only until the scan is settled (to upload it);
+ * a settled row keeps the ticket id and the answer, never the code.
+ */
+export const storedQr = (rec: Pick<ScanRecord, 'state' | 'qr'>) =>
+  rec.state === 'done' && !rec.qr.startsWith('manual:') ? '' : rec.qr;
 
 async function save(rec: ScanRecord) {
   const d = await db();
   await d.runAsync(
     `INSERT OR REPLACE INTO scans
-       (client_scan_id, event_id, qr, ticket_id, occurred_at, method, state, result, message, answer_json, synced_at, offline_verdict, attempts)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [rec.clientScanId, rec.eventId, rec.qr, rec.ticketId, rec.occurredAt, rec.method, rec.state,
-      rec.result, rec.message, rec.answer ? JSON.stringify(rec.answer) : null, rec.syncedAt, rec.offlineVerdict, rec.attempts],
+       (client_scan_id, event_id, qr, ticket_id, occurred_at, method, state, result, message, answer_json, synced_at, offline_verdict, attempts, device_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [rec.clientScanId, rec.eventId, storedQr(rec), rec.ticketId, rec.occurredAt, rec.method, rec.state,
+      rec.result, rec.message, rec.answer ? JSON.stringify(rec.answer) : null, rec.syncedAt, rec.offlineVerdict, rec.attempts, rec.deviceId ?? null],
   );
+}
+
+/**
+ * Housekeeping, across EVERY event on the phone (store/PRIVACY.md promises
+ * 48 h or 2,000 rows): settled rows past 48 h, or beyond the newest 2,000, are
+ * deleted. Never a pending one — that is an admission still to upload. Codes
+ * left on settled rows by older versions are blanked (see storedQr).
+ * Pruning only the event being opened left every other event's log, guest
+ * answers included, on the phone for good.
+ */
+export async function prune(now = Date.now()): Promise<number> {
+  const d = await db();
+  await d.runAsync("UPDATE scans SET qr = '' WHERE state = 'done' AND qr <> '' AND qr NOT LIKE 'manual:%'", []);
+  const all = await d.getAllAsync<Row>('SELECT * FROM scans', []);
+  const drop = prunable(all.map(fromRow), { now });
+  for (const id of drop) await d.runAsync('DELETE FROM scans WHERE client_scan_id = ?', [id]);
+  return drop.length;
 }
 
 /** When this phone let a ticket in offline and has not uploaded it yet. The list cannot know that. */
@@ -114,14 +140,17 @@ function settle(rec: ScanRecord, answer: ScanAnswer): ScanRecord {
 
 type State = {
   eventId: string | null;
+  /** The door device working this event on this phone: stamped on every new scan. */
+  deviceId: string | null;
   records: ScanRecord[];
   syncing: boolean;
   lastSync: string | null;
-  load: (eventId: string) => Promise<void>;
+  load: (eventId: string, deviceId?: string | null) => Promise<void>;
   /** `offline`: the phone already knows it has no signal, so it does not wait for the server. */
   submit: (raw: string, doorToken: string, opts?: { offline?: boolean }) => Promise<ScanRecord | null>;
   manual: (ticketId: string, doorToken: string) => Promise<ScanRecord>;
-  sync: (doorToken: string) => Promise<{ uploaded: number; conflicts: number } | null>;
+  /** `limit`: at most this many scans in this upload (the Syncing screen sends a few at a time to show progress). */
+  sync: (doorToken: string, opts?: { limit?: number }) => Promise<{ uploaded: number; conflicts: number } | null>;
   undo: (rec: ScanRecord, doorToken: string) => Promise<ScanRecord>;
   clear: () => void;
 };
@@ -157,7 +186,8 @@ export const useScanLog = create<State>((set, get) => {
         : { ...rec, state: 'queued' };
       await save(next);
       upsert(next);
-      if (!decided && !(err instanceof NetworkError)) {
+      // Development only: a store build's device log is readable over USB.
+      if (__DEV__ && !decided && !(err instanceof NetworkError)) {
         console.warn('scan held after a server error', err);
       }
       return next;
@@ -206,20 +236,18 @@ export const useScanLog = create<State>((set, get) => {
 
   return {
     eventId: null,
+    deviceId: null,
     records: [],
     syncing: false,
     lastSync: null,
 
-    async load(eventId) {
+    async load(eventId, deviceId = null) {
       const d = await db();
       const rows = await d.getAllAsync<Row>(
         'SELECT * FROM scans WHERE event_id = ? ORDER BY occurred_at DESC LIMIT ?', [eventId, SHOWN],
       );
-      set({ eventId, records: rows.map(fromRow) });
-      // Housekeeping: settled rows past 48 h or beyond 2,000. Never a pending one.
-      const all = await d.getAllAsync<Row>('SELECT * FROM scans WHERE event_id = ?', [eventId]);
-      const drop = prunable(all.map(fromRow));
-      for (const id of drop) await d.runAsync('DELETE FROM scans WHERE client_scan_id = ?', [id]);
+      set({ eventId, deviceId, records: rows.map(fromRow) });
+      await prune();
     },
 
     async submit(raw, doorToken, opts = {}) {
@@ -243,6 +271,7 @@ export const useScanLog = create<State>((set, get) => {
         syncedAt: null,
         offlineVerdict: null,
         attempts: 0,
+        deviceId: get().deviceId,
       };
 
       const certain = offlineVerdict(token, eventId);
@@ -280,6 +309,7 @@ export const useScanLog = create<State>((set, get) => {
         syncedAt: null,
         offlineVerdict: null,
         attempts: 0,
+        deviceId: get().deviceId,
       };
       await save(rec);
       upsert(rec);
@@ -297,7 +327,7 @@ export const useScanLog = create<State>((set, get) => {
       }
     },
 
-    async sync(doorToken) {
+    async sync(doorToken, opts = {}) {
       const eventId = get().eventId;
       // Taken BEFORE the first await. The 20 s timer, "signal is back" and "app
       // is in front again" fire together on reconnect; checked after an await,
@@ -314,7 +344,7 @@ export const useScanLog = create<State>((set, get) => {
           // ours to send again. Only one left behind (a crash, a killed app)
           // is picked up, once it is clearly stale.
           .filter((r) => r.state === 'queued' || now - Date.parse(r.occurredAt) > STALE_SENDING_MS);
-        const batch = nextBatch(pending.map((r) => ({ ...r, state: 'queued' as const })));
+        const batch = nextBatch(pending.map((r) => ({ ...r, state: 'queued' as const })), opts.limit);
         if (batch.length === 0) return { uploaded: 0, conflicts: 0 };
 
         const res = await endpoints.sync(doorToken, batch.map((r) => ({ ...toWire(r), method: 'offline' as const })));
@@ -366,7 +396,7 @@ export const useScanLog = create<State>((set, get) => {
     },
 
     clear() {
-      set({ eventId: null, records: [], lastSync: null, syncing: false });
+      set({ eventId: null, deviceId: null, records: [], lastSync: null, syncing: false });
     },
   };
 });

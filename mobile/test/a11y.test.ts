@@ -57,10 +57,9 @@ test.each(all.filter((f) => f.src.includes('<TextInput')).map((f) => [f.rel, f.s
   },
 );
 
-test.each(all.filter((f) => f.src.includes('<IconButton')).map((f) => [f.rel, f.src]))(
-  '%s: every icon-only button has a label',
-  (_rel, src) => {
-    const missing = openingTags(src, 'IconButton').filter((t) => !/\blabel=/.test(t.text));
-    expect(missing.map((t) => `line ${t.line}`)).toEqual([]);
-  },
-);
+test('every icon-only button has a label', () => {
+  const missing = all.flatMap((f) => openingTags(f.src, 'IconButton')
+    .filter((t) => !/\blabel=/.test(t.text))
+    .map((t) => `${f.rel} line ${t.line}`));
+  expect(missing).toEqual([]);
+});

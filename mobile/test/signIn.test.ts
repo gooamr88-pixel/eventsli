@@ -33,7 +33,8 @@ describe('finishing "Sign in with Eventsli"', () => {
 
   test('the code is traded with the verifier when the state matches', async () => {
     await finishSignIn('eventsli-checkin://auth/callback?code=CODE&state=S1', 'S1', 'VERIFIER');
-    expect(exchangeCode).toHaveBeenCalledWith('CODE', 'VERIFIER', "Sara's Pixel");
+    // The model only, never the phone's own (often personal) name.
+    expect(exchangeCode).toHaveBeenCalledWith('CODE', 'VERIFIER', 'Pixel 8');
   });
 
   test('a callback for a request this app did not make is never exchanged', async () => {

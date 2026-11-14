@@ -4,20 +4,24 @@ appId: com.eventsli.checkin
 ---
 - runFlow: _signin-and-open-gala.yaml
 - extendedWaitUntil:
-    visible: "Offline check-in ready.*"
+    visible: "[0-9]+ · .*"
     timeout: 30000
+- tapOn: "Start Check-in"
 - setAirplaneMode: enabled
-- tapOn: "Scan Tickets"
+- extendedWaitUntil:
+    visible: "You’re Offline"
+    timeout: 15000
+- tapOn: "Continue Scanning"
 - runFlow: { file: _scan.yaml, env: { CODE: "${QR_MICHAEL_1}" } }
 - assertVisible: "Check-in Successful"
-- assertVisible: "Checked on this phone.*"
+- assertVisible: "Saved on this phone.*"
 - tapOn: "Scan Next"
 - runFlow: { file: _scan.yaml, env: { CODE: "${QR_MICHAEL_1}" } }
-- assertVisible: "Already checked in"
-- tapOn: "Scan Next"
+- assertVisible: "Already Checked In"
+- tapOn: "Scan Another"
 - back
-- assertVisible: "1 scan waiting to upload"
+- assertVisible: "1 check-in waiting to sync"
 - setAirplaneMode: disabled
 - extendedWaitUntil:
-    notVisible: "1 scan waiting to upload"
+    notVisible: "1 check-in waiting to sync"
     timeout: 45000

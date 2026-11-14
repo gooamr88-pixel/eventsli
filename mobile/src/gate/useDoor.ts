@@ -1,10 +1,10 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
-import { Alert } from 'react-native';
 
 import { isAuthError } from '../api/client';
 import * as endpoints from '../api/endpoints';
 import { useSession } from '../auth/session';
+import { dialog } from '../ui/Dialog';
 import { DoorAuthError } from './errors';
 
 /**
@@ -56,9 +56,10 @@ export function useDoorExit() {
     if (!(err instanceof DoorAuthError) && !isAuthError(err)) return false;
     await leaveDoor();
     client.clear();
-    Alert.alert(
+    dialog.alert(
       'Signed out of this door',
-      `${err instanceof Error ? err.message : ''}\n\nScans not yet uploaded are kept on this phone and upload when you sign back in to this event.`.trim(),
+      `${err instanceof Error && err.message ? `${err.message} ` : ''}Scans not yet uploaded are kept on this phone and upload when you sign back in to this event.`,
+      { tone: 'warning', icon: 'lock' },
     );
     return true;
   }, [leaveDoor, client]);

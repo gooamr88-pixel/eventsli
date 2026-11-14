@@ -7,7 +7,7 @@ import { colors, radius, space } from './theme';
 type Props = {
   label: string;
   onPress?: () => void;
-  variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
+  variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'dangerSolid';
   icon?: IconName;
   iconRight?: IconName;
   busy?: boolean;
@@ -57,16 +57,19 @@ export function Button({
 
 const PALETTE = {
   primary: { bg: colors.accent, pressed: colors.accentPressed, fg: colors.onAccent, border: colors.accent },
-  secondary: { bg: colors.surface, pressed: colors.teal50, fg: colors.accent, border: colors.border },
+  // The mockup's outline button: View Details, Cancel.
+  secondary: { bg: colors.surface, pressed: colors.teal50, fg: colors.accent, border: colors.accent },
   ghost: { bg: 'transparent', pressed: colors.bgSunken, fg: colors.accent, border: 'transparent' },
   danger: { bg: colors.surface, pressed: colors.dangerSoft, fg: colors.danger, border: colors.border },
+  // The confirming button of a destructive dialog: Sign out, Leave.
+  dangerSolid: { bg: colors.danger, pressed: '#991b1b', fg: colors.white, border: colors.danger },
 } as const;
 
 const styles = StyleSheet.create({
   base: {
     minHeight: 52,
     borderRadius: radius.md,
-    borderWidth: 1,
+    borderWidth: 1.5,
     paddingHorizontal: space.lg,
     justifyContent: 'center',
     alignItems: 'center',

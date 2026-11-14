@@ -12,20 +12,38 @@ Expo pins its own React version. Run every command from `mobile/`.
 
 ## Screens
 
+The screens follow the owner's mockup (12 frames: opening screen, sign in, My
+Events, event dashboard, camera, the three answers, You're Offline, Syncing
+Data, Check-in Logs, Settings). Shared pieces are in `src/ui`: `layout.tsx`
+(screen, header, cards, rows, sections, avatars, the status chip, the answer
+icon), `TabBar.tsx`, `ScannerMark.tsx` (the mark and the city), `Splash.tsx`.
+
+Every question and message is the app's own pop-up, never the system's alert
+box: `src/ui/Dialog.tsx` has `dialog.alert` / `dialog.confirm` (a centred card
+with a coloured icon), `dialog.actions` (a bottom sheet of choices) and
+`<Sheet>` (a bottom sheet with any content: an event's preview, one log entry).
+`<DialogHost/>` in the root layout shows them one at a time. A handler that
+opens a dialog starts it and returns (`onPress={() => { void ask(); }}`); it
+does not hand the pending answer back to the button.
+
 | Route | Screen |
 |---|---|
-| `sign-in` | Email and password, or **Sign in with Eventsli** (PKCE in the system browser) |
+| (opening) | `src/ui/Splash.tsx` while the app starts |
+| `sign-in` | Email and password, Forgot password; Sign in with Eventsli and the shared-device PIN as links |
 | `device-pin` | A shared tablet: scan the organizer's pairing QR, then type the PIN |
-| `events` | Select event: Upcoming, Ongoing and Past, with covers and counts |
-| `(door)/dashboard` | Live check-in: ring chart, quick actions, recent check-ins |
-| `(door)/scan` | The camera, with frame, scan line, torch and keep-awake |
-| `(door)/result` | The answer, shown full screen with the outcome's colour. An admission returns to the camera after 2 s |
-| `(door)/attendees` | Guest search, available when the organizer allows it. Screenshots are blocked |
-| `(door)/ticket/[ticketId]` | Ticket details, door history and manual check-in |
+| `(account)/events` | My Events: Assigned to me / All Events with counts, search, rows with a status chip; tapping one shows its preview sheet with the way in; tab bar |
+| `(account)/account/*` | Settings while choosing an event, with My Profile, App Settings and Help & Support |
+| `(door)/dashboard` | The event: cover with the live/offline chip, counts and progress, Start Check-in, quick tiles, Recent Check-ins, Event Details, Download Guest List, Offline Mode; the ••• sheet; tab bar |
+| `(door)/event` | Event Details: cover, when and where (Open in Maps), progress ring, by ticket type, door settings, this device |
+| `(door)/scan` | Check-in: the camera with torch, camera flip, frame and keep-awake |
+| `(door)/result` | Check-in Successful / Already Checked In / Invalid Ticket (and every other answer) |
+| `(door)/offline` | You're Offline: shown when the signal drops on the dashboard or camera |
+| `(door)/sync` | Syncing Data… with progress |
+| `(door)/logs` | Check-in Logs: All / Success / Failed, search, this-phone filter; a row opens its detail sheet; tab bar |
+| `(door)/settings/*` | Settings (Profile tab): My Profile (with what this phone may do), App Settings (try the sound, About), Data & Sync, Language (sheet), Help & Support (questions and contact), Switch Event, Sign Out |
+| `(door)/attendees` | Find a Guest, when the organizer allows it. Screenshots are blocked |
+| `(door)/ticket/[ticketId]` | The ticket: guest card, details, door history as a timeline, manual check-in |
 | `(door)/analytics` | Arrivals over time, current pace, by tier, by door, refusals |
-| `(door)/recent` | All recent check-ins or all activity |
-| `(door)/offline` | Offline check-in: whether the list is ready, what is waiting to upload, guests let in at two doors |
-| `(door)/settings`, `(account)/account` | Sound, vibration, auto-continue, switch event, sign out. One screen (`src/screens/Settings.tsx`) mounted inside each group, so leaving a door or signing out takes it away with its group |
 
 Each state of the phone is a group guarded in `src/app/_layout.tsx`: signed
 out (`sign-in`, `device-pin`), `(account)` and `(door)`. A screen changes the

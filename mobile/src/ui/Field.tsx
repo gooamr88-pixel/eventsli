@@ -39,7 +39,7 @@ export const Field = forwardRef<TextInputInstance, Props>(function Field(
             hitSlop={12}
             onPress={() => setHidden((h) => !h)}
           >
-            <Icon name="eye" size={20} color={hidden ? colors.muted : colors.accent} />
+            <Icon name={hidden ? 'eye' : 'eyeOff'} size={20} color={colors.muted} />
           </Pressable>
         )}
       </View>
@@ -51,7 +51,7 @@ export const Field = forwardRef<TextInputInstance, Props>(function Field(
 const styles = StyleSheet.create({
   wrap: { gap: space.xs },
   box: {
-    minHeight: 54,
+    minHeight: 52,
     flexDirection: 'row',
     alignItems: 'center',
     gap: space.md,

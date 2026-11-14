@@ -38,6 +38,13 @@ design, so this is made by hand, on the live site, by the owner:
 
 ## Known review risks
 
+- **Export compliance.** `ITSAppUsesNonExemptEncryption` is `false` in the
+  build (see RELEASE.md for why), so App Store Connect will not ask per build.
+  The owner confirms this is right before the first submission.
+- **Account deletion (5.1.1(v)).** Not required in the app: it creates no
+  accounts (no sign-up). Settings links to the website's account page, where
+  deletion lives.
+
 - **Sign in with Apple (Guideline 4.8).** "Sign in with Eventsli" opens our
   website, whose sign-in page also offers Google. Apple can read that as a
   third-party login and ask for Sign in with Apple.
@@ -48,8 +55,14 @@ design, so this is made by hand, on the live site, by the owner:
     the website. Either is a website change; the app does not change.
 - **Minimum functionality (4.2).** A reviewer with no event sees an empty
   event list. The review account above prevents that.
-- **Google Play, personal developer accounts.** Accounts created after November
-  2023 must run a closed test with at least 12 testers for 14 days before a
-  production release. An organization account is exempt.
+- **Google Play, personal developer account (the owner's).** An account
+  created after November 2023 must run a closed test with at least 12 testers
+  opted in for 14 days in a row before it can apply for production. Budget
+  three weeks; the door-team pilot can be that test.
+- **Apple, individual account (the owner's).** The seller shown is the
+  owner's legal name. The app says "Eventsli" throughout and the review notes
+  call it "our" account system: add one line to the notes that the developer
+  operates eventsli.com, so the reviewer does not read it as a third party's
+  service (Guideline 5.2, intellectual property).
 - **Data safety and privacy policy.** The privacy policy must cover the app
   before submission (see PRIVACY.md).

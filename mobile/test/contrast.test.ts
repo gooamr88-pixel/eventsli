@@ -27,6 +27,11 @@ const TEXT: [string, string, string][] = [
   ['input placeholders on the search field', colors.placeholder, colors.bgSunken],
   ['links and the accent on white', colors.accent, colors.bg],
   ['button labels on the accent', colors.onAccent, colors.accent],
+  ['a destructive dialog button: white on red', colors.white, colors.danger],
+  ['a danger choice in a sheet on white', colors.dangerGlyph, colors.surface],
+  ['warning chip text on its halo', colors.warning, colors.warningHalo],
+  ['success chip text on its halo', colors.success, colors.successHalo],
+  ['accent text on the mint chips', colors.accent, colors.mint],
   ...Object.entries(tones).map(([name, t]) => [`${name} answer text on its own wash`, t.fg, t.soft] as [string, string, string]),
   ...Object.entries(tones).map(([name, t]) => [`${name} text on white`, t.fg, colors.bg] as [string, string, string]),
 ];
@@ -34,6 +39,10 @@ const TEXT: [string, string, string][] = [
 const GRAPHICS: [string, string, string][] = [
   ...Object.entries(tones).map(([name, t]) => [`the white mark on the ${name} disc`, colors.white, t.strong] as [string, string, string]),
   ['white camera badges on the teal', colors.white, colors.teal700],
+  ['dialog icons on their halos: info', colors.accent, colors.mint],
+  ['dialog icons on their halos: success', colors.success, colors.successHalo],
+  ['dialog icons on their halos: warning', colors.warningGlyph, colors.warningHalo],
+  ['dialog icons on their halos: danger', colors.dangerGlyph, colors.dangerHalo],
 ];
 
 test.each(TEXT)('%s: at least 4.5:1', (_label, fg, bg) => {

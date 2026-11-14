@@ -1,30 +1,29 @@
 import { router } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import { useRef, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View, useWindowDimensions, type TextInputInstance } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View, type TextInputInstance } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ApiError, messageFor } from '@/api/client';
 import { passwordLogin } from '@/api/endpoints';
-import { deviceLabel, signInWithEventsli, SignInCancelled } from '@/auth/pkce';
+import { deviceLabel, signInWithEventsli, SignInCancelled, siteUrl } from '@/auth/pkce';
 import { useSession } from '@/auth/session';
+import { Backdrop } from '@/ui/Backdrop';
 import { Button } from '@/ui/Button';
 import { Field } from '@/ui/Field';
-import { Divider } from '@/ui/layout';
-import { Logo, Mark } from '@/ui/Logo';
-import { Skyline } from '@/ui/Skyline';
+import { ScannerLockup } from '@/ui/ScannerMark';
 import { Text } from '@/ui/Text';
-import { colors, radius, space } from '@/ui/theme';
+import { colors, space } from '@/ui/theme';
 
 /**
- * Sign in — the first screen of the mockup.
+ * Sign in, as the mockup draws it: the lockup, "Sign in to Eventsli Scanner",
+ * email and password, and "Forgot password?" (the website's reset page).
  *
- * Two ways in for a PERSON: a password, or "Sign in with Eventsli", which
- * opens eventsli.com in the system browser so Google and every other way the
- * site offers works too. A shared door tablet uses neither — it is paired with
- * a device code and a PIN, below.
+ * Two ways in that the mockup does not draw are kept as quiet links under it:
+ * "Sign in with Eventsli" (the website, so Google and every other way the site
+ * offers works), and a shared door tablet's PIN.
  */
 export default function SignIn() {
-  const { width } = useWindowDimensions();
   const setAccount = useSession((s) => s.setAccount);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -66,93 +65,87 @@ export default function SignIn() {
   }
 
   return (
-    <SafeAreaView style={styles.screen} edges={['top']}>
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-          <View style={styles.brand}>
-            <Logo height={34} tagline />
-          </View>
+    <View style={styles.screen}>
+      <Backdrop />
+      <SafeAreaView style={styles.flex} edges={['top', 'bottom']}>
+        <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+            <View style={styles.brand}>
+              <ScannerLockup size={30} />
+            </View>
 
-          <View style={styles.intro}>
-            <Text variant="heading" align="center" accessibilityRole="header">Event Check-in</Text>
-            <Text color={colors.muted} align="center">
-              Scan tickets, verify attendees, and manage entry in real time.
-            </Text>
-          </View>
+            <View style={styles.intro}>
+              <Text style={styles.title} accessibilityRole="header">{'Sign in to\nEventsli Scanner'}</Text>
+              <Text color={colors.muted}>Secure access for event staff and organizers.</Text>
+            </View>
 
-          <View style={styles.form}>
-            <Field
-              label="Email"
-              icon="mail"
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              autoComplete="email"
-              keyboardType="email-address"
-              textContentType="username"
-              returnKeyType="next"
-              onSubmitEditing={() => passwordRef.current?.focus()}
-            />
-            <Field
-              ref={passwordRef}
-              label="Password"
-              icon="lock"
-              secret
-              value={password}
-              onChangeText={setPassword}
-              autoComplete="current-password"
-              textContentType="password"
-              returnKeyType="go"
-              onSubmitEditing={withPassword}
-            />
-            {error && (
-              <Text variant="small" color={colors.danger} accessibilityLiveRegion="polite">{error}</Text>
-            )}
-            <Button label="Sign In" onPress={withPassword} busy={busy === 'password'} disabled={busy === 'eventsli'} />
+            <View style={styles.form}>
+              <Field
+                label="Email"
+                icon="mail"
+                value={email}
+                onChangeText={setEmail}
+                autoCapitalize="none"
+                autoComplete="email"
+                keyboardType="email-address"
+                textContentType="username"
+                returnKeyType="next"
+                onSubmitEditing={() => passwordRef.current?.focus()}
+              />
+              <Field
+                ref={passwordRef}
+                label="Password"
+                icon="lock"
+                secret
+                value={password}
+                onChangeText={setPassword}
+                autoComplete="current-password"
+                textContentType="password"
+                returnKeyType="go"
+                onSubmitEditing={withPassword}
+              />
+              {error && (
+                <Text variant="small" color={colors.danger} accessibilityLiveRegion="polite">{error}</Text>
+              )}
+              <Button label="Sign In" onPress={withPassword} busy={busy === 'password'} disabled={busy === 'eventsli'} style={styles.submit} />
 
-            <Divider label="or" />
+              <Pressable
+                accessibilityRole="link"
+                onPress={() => WebBrowser.openBrowserAsync(`${siteUrl()}/forgot-password`).catch(() => undefined)}
+                hitSlop={8}
+                style={styles.link}
+              >
+                <Text variant="small" weight="semibold" color={colors.accent} align="center">Forgot password?</Text>
+              </Pressable>
+            </View>
+          </ScrollView>
 
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Sign in with Eventsli"
-              onPress={busy ? undefined : withEventsli}
-              style={({ pressed }) => [styles.eventsli, pressed && { backgroundColor: colors.teal50 }]}
-            >
-              <Mark size={22} />
-              <Text variant="label">{busy === 'eventsli' ? 'Opening Eventsli…' : 'Sign in with Eventsli'}</Text>
-            </Pressable>
-
-            <Pressable
-              accessibilityRole="link"
-              onPress={() => router.push('/device-pin')}
-              hitSlop={8}
-              style={styles.link}
-            >
-              <Text variant="small" color={colors.accent} weight="semibold" align="center">
-                Using a shared door device? Sign in with its PIN
+          <View style={styles.other}>
+            <Pressable accessibilityRole="button" onPress={busy ? undefined : withEventsli} hitSlop={8}>
+              <Text variant="caption" weight="semibold" color={colors.accent}>
+                {busy === 'eventsli' ? 'Opening Eventsli…' : 'Sign in with Eventsli'}
               </Text>
             </Pressable>
+            <Text variant="caption" color={colors.subtle}>·</Text>
+            <Pressable accessibilityRole="link" onPress={() => router.push('/device-pin')} hitSlop={8}>
+              <Text variant="caption" weight="semibold" color={colors.accent}>Shared door device</Text>
+            </Pressable>
           </View>
-        </ScrollView>
-        <View pointerEvents="none" style={styles.skyline}>
-          <Skyline width={width} height={140} />
-        </View>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.bg },
+  screen: { flex: 1, backgroundColor: colors.surface },
   flex: { flex: 1 },
-  scroll: { paddingHorizontal: space.xl, paddingTop: space.xxl, paddingBottom: 150, gap: space.xl },
-  brand: { alignItems: 'center', marginTop: space.lg },
-  intro: { gap: space.sm, marginTop: space.md },
+  scroll: { paddingHorizontal: space.xl, paddingTop: space.xxl, paddingBottom: space.xl, gap: space.xl },
+  brand: { alignItems: 'center', marginTop: space.lg, marginBottom: space.lg },
+  intro: { gap: space.sm },
+  title: { fontFamily: 'DMSans_700Bold', fontSize: 28, lineHeight: 34, color: colors.text },
   form: { gap: space.md },
-  eventsli: {
-    minHeight: 52, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space.sm,
-  },
-  link: { paddingVertical: space.md },
-  skyline: { position: 'absolute', left: 0, right: 0, bottom: 0 },
+  submit: { marginTop: space.sm },
+  link: { paddingVertical: space.sm },
+  other: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: space.sm, paddingBottom: space.lg },
 });

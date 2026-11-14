@@ -7,10 +7,17 @@ export type Settings = {
   haptics: boolean;
   /** After an admission, go back to the camera on its own after a moment. */
   autoContinue: boolean;
+  /**
+   * Offline check-in on this phone (the dashboard's Offline Mode): keep the
+   * event's ticket list here and decide with no signal. Off, the list is
+   * deleted and scans with no signal are held, as before Phase 3. The
+   * organizer can still switch it off for the whole event.
+   */
+  offlineMode: boolean;
 };
 
 const KEY = 'eventsli.settings';
-const DEFAULTS: Settings = { sound: true, haptics: true, autoContinue: true };
+const DEFAULTS: Settings = { sound: true, haptics: true, autoContinue: true, offlineMode: true };
 
 type State = Settings & {
   load: () => Promise<void>;
@@ -28,7 +35,7 @@ export const useSettings = create<State>((set, get) => ({
     }
   },
   async set(patch) {
-    const next = { sound: get().sound, haptics: get().haptics, autoContinue: get().autoContinue, ...patch };
+    const next = { sound: get().sound, haptics: get().haptics, autoContinue: get().autoContinue, offlineMode: get().offlineMode, ...patch };
     set(next);
     await SecureStore.setItemAsync(KEY, JSON.stringify(next)).catch(() => undefined);
   },

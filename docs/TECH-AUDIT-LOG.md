@@ -1327,7 +1327,7 @@ so the UTC values stay exact); the four AI test files use its constants.
 ### Remaining blockers before production
 
 1. **Commit packaging.** `feature/checkin-app` carries uncommitted work from several sessions (check-in app, Venue Studio, this audit). It needs reviewing and committing as a whole; this work depends on the Venue Studio files.
-2. **Two migrations, in order:** `20261111090000` then `20261112090000`. Neither is in production.
+2. **SIX migrations, in order** — every one since the 2026-11-06 release (`55a408f`): `20261108090000`, `20261108100000`, `20261109090000`, `20261110090000`, `20261111090000`, `20261112090000`. *Corrected 2026-11-10:* this said "two"; `20261112090000` re-issues functions the four check-in migrations create, and run alone it failed with `function door_fold(text) does not exist`. It now refuses up front, changing nothing, and names the missing files.
 3. **No end-to-end browser run** of the map editor, Studio preview, seat picker and checkout against the new API.
 4. **Organizer payments** (from the earlier audit): the only live organizer was still completing Stripe onboarding (charges disabled), so card sales are not yet exercised in production.
 5. Not blocking, still open: T-050 (no database guarantee of one live ticket per seat), T-053 (door sale vs whole-table lock order), T-060 (checkout/claim/success-page tests), T-039/T-040/T-044, the S-10 approval policy.
@@ -1336,8 +1336,11 @@ so the UTC values stay exact); the four AI test files use its constants.
 
 1. Review and commit the branch; CI green (backend unit + integration, frontend, `npm run check`).
 2. Back up the production database (or confirm a fresh point-in-time restore point).
-3. `node scripts/apply-migration.js ../supabase/migrations/20261111090000_venue_map_seat_integrity.sql`
-4. `node scripts/apply-migration.js ../supabase/migrations/20261112090000_seating_pricing_integrity.sql`
+3. Confirm what production already has: `SELECT name FROM schema_migrations ORDER BY name DESC LIMIT 8;`
+4. Apply, one at a time and in this order, each with `node scripts/apply-migration.js ../supabase/migrations/<file>` (it records each one and skips any already applied):
+   `20261108090000_checkin_v2.sql`, `20261108100000_checkin_app_api.sql`, `20261109090000_door_list_search.sql`, `20261110090000_offline_manifest.sql`, `20261111090000_venue_map_seat_integrity.sql`, `20261112090000_seating_pricing_integrity.sql`.
+   Rehearsed 2026-11-10 on a database built from the migrations up to the 11-06 release: all six apply in this order.
+   Use `apply-migration.js`, not the Supabase SQL editor: it adds lock and statement timeouts and records the migration.
 5. `node scripts/verify-schema.js` → "Schema verified."; run `supabase/checks/api_roles_leak_check.sql` → 0 rows.
 6. Deploy the API (Node 22, `npm ci`), then the frontend; confirm `/health`.
 7. Smoke test on a test event: draw a map with a section, assign a ticket type made in the editor, block two seats in Preview, Save map; buy a private table with its password; change a ticket type's price after a sale and see it in Admin → Audit as "Changed a price"; rename a table and confirm an existing ticket keeps the old name; scan at the door.

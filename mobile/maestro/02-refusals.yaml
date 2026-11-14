@@ -2,15 +2,15 @@
 appId: com.eventsli.checkin
 ---
 - runFlow: _signin-and-open-gala.yaml
-- tapOn: "Scan Tickets"
+- tapOn: "Start Check-in"
 - runFlow: { file: _scan.yaml, env: { CODE: "${QR_NOAH}" } }
-- assertVisible: "Cancelled ticket"
-- tapOn: "Scan Next"
+- assertVisible: "Cancelled Ticket"
+- tapOn: "Scan Another"
 - runFlow: { file: _scan.yaml, env: { CODE: "${QR_MIA_OLD}" } }
-- assertVisible: "Ticket was given away"
-- tapOn: "Scan Next"
+- assertVisible: "Ticket Transferred"
+- tapOn: "Scan Another"
 - runFlow: { file: _scan.yaml, env: { CODE: "${QR_FORGED}" } }
-- assertVisible: "Not an Eventsli ticket"
-- tapOn: "Scan Next"
+- assertVisible: "Invalid Ticket"
+- tapOn: "Scan Another"
 - runFlow: { file: _scan.yaml, env: { CODE: "${QR_GRACE}" } }
-- assertVisible: "Wrong event"
+- assertVisible: "Wrong Event"

@@ -20,10 +20,12 @@ export const colors = {
   accentPressed: '#0a4b4e',
   onAccent: '#ffffff',
 
-  bg: '#ffffff',
-  bgSunken: '#f2f4f5',
+  // The mockup's screens: near-white with a cool tint, white cards on top.
+  bg: '#f7f9f9',
+  bgSunken: '#eef2f2',
   surface: '#ffffff',
-  border: '#e2e7e8',
+  border: '#e4eaea',
+  mint: '#dff1ef',
   borderStrong: '#b3bfc2',
 
   text: '#0b1617',
@@ -32,7 +34,7 @@ export const colors = {
   // A hint like "Name, email or ticket number" is information, so it meets the
   // text contrast too (4.6:1 on the sunken field; test/contrast.test.ts). The
   // old #93a3a6 was 2.4:1.
-  placeholder: '#617275',
+  placeholder: '#5c6d70',
 
   success: '#166534',
   successSoft: '#e7f6ec',
@@ -45,6 +47,13 @@ export const colors = {
   dangerStrong: '#dc2626',
   hold: '#566a6d',
   holdSoft: '#eef1f2',
+  // The answer icons: a strong glyph on a soft halo.
+  successHalo: '#e3f5e9',
+  warningGlyph: '#c2610c',
+  warningHalo: '#fdeccf',
+  dangerGlyph: '#d42c2c',
+  dangerHalo: '#fde3e3',
+  offline: '#f59e0b',
 
   camera: '#000000',
   overlay: 'rgba(6, 30, 32, 0.72)',
@@ -69,7 +78,9 @@ export const type = {
   body: { fontFamily: fonts.regular, fontSize: 16, lineHeight: 22 },
   label: { fontFamily: fonts.semibold, fontSize: 16, lineHeight: 22 },
   title: { fontFamily: fonts.bold, fontSize: 20, lineHeight: 26 },
-  heading: { fontFamily: fonts.bold, fontSize: 26, lineHeight: 32 },
+  heading: { fontFamily: fonts.bold, fontSize: 24, lineHeight: 30 },
+  // The big left-aligned screen titles: My Events, Check-in Logs, Settings.
+  screenTitle: { fontFamily: fonts.bold, fontSize: 26, lineHeight: 32 },
   display: { fontFamily: fonts.bold, fontSize: 32, lineHeight: 38 },
 } as const;
 
@@ -86,9 +97,16 @@ export type Tone = keyof typeof tones;
 export const shadow = {
   card: {
     shadowColor: '#0b1617',
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 1,
+  },
+  raised: {
+    shadowColor: '#0b1617',
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 4,
   },
 } as const;

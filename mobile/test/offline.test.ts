@@ -125,9 +125,9 @@ describe('the phone database', () => {
     old.run("INSERT INTO scans (client_scan_id, event_id, qr, occurred_at, state) VALUES ('held-1', 'e', 'q', '2026-11-08T10:00:00Z', 'queued')");
     await migrate(old.db);
     await migrate(old.db); // twice is harmless
-    expect(old.one('PRAGMA user_version')).toEqual({ user_version: 4 });
+    expect(old.one('PRAGMA user_version')).toEqual({ user_version: 5 });
     expect(old.all('PRAGMA table_info(ticket_list_meta)').map((c) => c.name)).toContain('gate_reason');
-    expect(old.all('PRAGMA table_info(scans)').map((c) => c.name)).toEqual(expect.arrayContaining(['offline_verdict', 'attempts']));
+    expect(old.all('PRAGMA table_info(scans)').map((c) => c.name)).toEqual(expect.arrayContaining(['offline_verdict', 'attempts', 'device_id']));
     expect(old.one("SELECT state FROM scans WHERE client_scan_id = 'held-1'")).toEqual({ state: 'queued' });
     expect(old.all("SELECT name FROM sqlite_master WHERE type = 'table'").map((t) => t.name))
       .toEqual(expect.arrayContaining(['ticket_list', 'ticket_list_meta']));

@@ -6,25 +6,28 @@ import { DMSans_700Bold } from '@expo-google-fonts/dm-sans/700Bold';
 import { QueryClientProvider, useQuery } from '@tanstack/react-query';
 import * as Application from 'expo-application';
 import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
+import { Stack, type ErrorBoundaryProps } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Linking, Platform, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { appConfig } from '@/api/endpoints';
 import { useSession } from '@/auth/session';
-import { startMonitoring } from '@/lib/monitoring';
+import { reportError, startMonitoring } from '@/lib/monitoring';
 import { queryClient } from '@/lib/queryClient';
 import { useSettings } from '@/lib/settings';
 import { needsUpdate } from '@/lib/version';
 import { Button } from '@/ui/Button';
-import { Logo } from '@/ui/Logo';
+import { DialogHost } from '@/ui/Dialog';
+import { ScannerLockup } from '@/ui/ScannerMark';
+import { Splash } from '@/ui/Splash';
 import { Text } from '@/ui/Text';
 import { colors, space } from '@/ui/theme';
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
+const MIN_SPLASH_MS = process.env.NODE_ENV === 'test' ? 0 : 900;
 // Crash reports, scrubbed of guest data; off unless a DSN is built in (lib/monitoring.ts).
 startMonitoring();
 
@@ -50,7 +53,10 @@ startMonitoring();
  * beside them.
  */
 export default function RootLayout() {
-  const [fontsLoaded] = useFonts({ DMSans_400Regular, DMSans_500Medium, DMSans_600SemiBold, DMSans_700Bold });
+  // A font that fails to load falls back to the system font; it must never
+  // keep the door shut behind the splash screen.
+  const [fontsReady, fontError] = useFonts({ DMSans_400Regular, DMSans_500Medium, DMSans_600SemiBold, DMSans_700Bold });
+  const fontsLoaded = fontsReady || Boolean(fontError);
   const hydrated = useSession((s) => s.hydrated);
   const account = useSession((s) => s.account);
   const door = useSession((s) => s.door);
@@ -60,12 +66,20 @@ export default function RootLayout() {
     useSettings.getState().load();
   }, []);
 
-  const ready = fontsLoaded && hydrated;
+  // The native splash stays until the fonts are in; then the mockup's opening
+  // screen shows while the stored sign-in is read, long enough not to flash.
+  const [shownLongEnough, setShownLongEnough] = useState(MIN_SPLASH_MS === 0);
   useEffect(() => {
-    if (ready) SplashScreen.hideAsync().catch(() => undefined);
-  }, [ready]);
+    if (MIN_SPLASH_MS === 0) return undefined;
+    const t = setTimeout(() => setShownLongEnough(true), MIN_SPLASH_MS);
+    return () => clearTimeout(t);
+  }, []);
+  useEffect(() => {
+    if (fontsLoaded) SplashScreen.hideAsync().catch(() => undefined);
+  }, [fontsLoaded]);
 
-  if (!ready) return null;
+  if (!fontsLoaded) return null;
+  if (!hydrated || !shownLongEnough) return <Splash />;
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -88,8 +102,34 @@ export default function RootLayout() {
             <Stack.Screen name="auth/callback" />
           </Stack>
         </VersionGate>
+        {/* The app's own pop-ups (src/ui/Dialog.tsx), above every screen. */}
+        <DialogHost />
       </SafeAreaProvider>
     </QueryClientProvider>
+  );
+}
+
+/**
+ * The last line of defence: a screen that throws while drawing. Without this,
+ * the phone shows a blank screen at the door. Scans already taken are safe in
+ * the phone's database, so "Try again" loses nothing. The error goes to crash
+ * reporting (scrubbed), never on screen: it can carry guest data.
+ */
+export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
+  useEffect(() => {
+    reportError(error);
+  }, [error]);
+  return (
+    <View
+      style={{ flex: 1, backgroundColor: colors.bg, justifyContent: 'center', padding: space.xl, gap: space.lg }}
+      accessibilityRole="alert"
+    >
+      <Text variant="heading" align="center">Something went wrong</Text>
+      <Text color={colors.muted} align="center">
+        The app hit a problem showing this screen. Check-ins already scanned are saved on this phone.
+      </Text>
+      <Button label="Try again" onPress={() => { void retry(); }} />
+    </View>
   );
 }
 
@@ -107,7 +147,7 @@ function VersionGate({ children }: { children: ReactNode }) {
   const store = Platform.OS === 'ios' ? data?.storeUrls.ios : data?.storeUrls.android;
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg, justifyContent: 'center', padding: space.xl, gap: space.lg }}>
-      <Logo height={36} />
+      <View style={{ alignItems: 'center' }}><ScannerLockup size={34} /></View>
       <Text variant="heading" align="center">Update required</Text>
       <Text color={colors.muted} align="center">
         This version of Eventsli Check-in ({installed}) can no longer scan. Update to {minimum} or later to keep working.

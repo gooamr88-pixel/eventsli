@@ -10,9 +10,9 @@ import type { Attendee } from '@/api/types';
 import { useSession } from '@/auth/session';
 import { guestCountLine, guestEmpty, guestQuery, type GuestFilter } from '@/gate/guestSearch';
 import { useDoorExit } from '@/gate/useDoor';
-import { doorTime } from '@/lib/format';
+import { doorTime, ticketCode } from '@/lib/format';
 import { Icon } from '@/ui/Icon';
-import { Empty, Header, Screen } from '@/ui/layout';
+import { Avatar, Empty, Header, Screen } from '@/ui/layout';
 import { Segmented } from '@/ui/Segmented';
 import { Text } from '@/ui/Text';
 import { colors, fonts, radius, space } from '@/ui/theme';
@@ -58,7 +58,7 @@ export default function Attendees() {
 
   return (
     <Screen>
-      <Header title="Attendees" />
+      <Header title="Find a Guest" />
       <View style={styles.search}>
         <Icon name="search" size={18} color={colors.muted} />
         <TextInput
@@ -72,6 +72,11 @@ export default function Attendees() {
           accessibilityLabel="Search guests"
           returnKeyType="search"
         />
+        {q ? (
+          <Pressable accessibilityRole="button" accessibilityLabel="Clear the search" onPress={() => setQ('')} hitSlop={10}>
+            <Icon name="close" size={18} color={colors.muted} />
+          </Pressable>
+        ) : null}
       </View>
       {!typing && (
         <Segmented
@@ -111,19 +116,27 @@ function Row({ a }: { a: Attendee }) {
       onPress={() => router.push({ pathname: '/ticket/[ticketId]', params: { ticketId: a.ticketId } })}
       style={({ pressed }) => [styles.row, pressed && { backgroundColor: colors.bgSunken }]}
       accessibilityRole="button"
+      accessibilityLabel={`${a.holder || 'Name not given'}, ${inside ? `checked in at ${doorTime(a.scannedAt)}` : 'not checked in yet'}`}
     >
-      <View style={[styles.state, { backgroundColor: inside ? colors.successStrong : colors.teal100 }]}>
-        {inside && <Icon name="tick" size={14} color={colors.white} strokeWidth={3} />}
+      <View>
+        <Avatar name={a.holder} size={42} />
+        {inside && (
+          <View style={styles.badge}>
+            <Icon name="tick" size={10} color={colors.white} strokeWidth={3.4} />
+          </View>
+        )}
       </View>
       <View style={{ flex: 1, gap: 2 }}>
         <Text variant="label" numberOfLines={1}>{a.holder || 'Name not given'}</Text>
         <Text variant="small" color={colors.muted} numberOfLines={1}>
-          {[a.tier, a.seat, a.table].filter(Boolean).join(' · ') || `Ticket ${a.ticketId.slice(0, 8)}`}
+          {[ticketCode(a.ticketId), a.tier, a.seat, a.table && `Table ${a.table}`].filter(Boolean).join(' • ')}
         </Text>
       </View>
-      <Text variant="small" color={inside ? colors.success : colors.subtle}>
-        {inside ? doorTime(a.scannedAt) : 'Not yet'}
-      </Text>
+      <View style={[styles.when, { backgroundColor: inside ? colors.successHalo : colors.bgSunken }]}>
+        <Text variant="caption" weight="semibold" color={inside ? colors.success : colors.muted}>
+          {inside ? doorTime(a.scannedAt) : 'Not in'}
+        </Text>
+      </View>
     </Pressable>
   );
 }
@@ -138,5 +151,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: space.md, paddingVertical: space.md,
     borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border,
   },
-  state: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  badge: {
+    position: 'absolute', right: -2, bottom: -2, width: 18, height: 18, borderRadius: 9,
+    backgroundColor: colors.successStrong, borderWidth: 2, borderColor: colors.bg,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  when: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill },
 });

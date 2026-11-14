@@ -15,9 +15,13 @@ import { buildQuery, parseQuery } from '../lib/query';
  * The server half is backend/services/appAuthService.js and the /app-auth page.
  */
 
-/** "Sara's iPhone" where the platform allows it — so the web account page can name this session. */
+/**
+ * "Pixel 8" — so the web account page can name this session. The model only:
+ * the phone's own name ("Sara's Pixel") is often its owner's real name, and
+ * the session needs no more than the model to be recognisable.
+ */
 export function deviceLabel(): string | null {
-  return Device.deviceName || Device.modelName || null;
+  return Device.modelName || null;
 }
 
 export async function makePkce() {
@@ -33,9 +37,10 @@ export async function makePkce() {
  * against a local stack the site and API are on different ports, so it can be
  * set with EXPO_PUBLIC_SITE_URL.
  */
-export function siteUrl(): string {
-  const explicit = process.env.EXPO_PUBLIC_SITE_URL;
-  return (explicit || API_URL.replace(/\/api\/v1$/, '')).replace(/\/+$/, '');
+export function siteUrl(explicit = process.env.EXPO_PUBLIC_SITE_URL, dev = __DEV__): string {
+  // A store build signs in over HTTPS only, like the API (api/client.ts).
+  const usable = explicit && (dev || /^https:\/\//i.test(explicit)) ? explicit : null;
+  return (usable || API_URL.replace(/\/api\/v1$/, '')).replace(/\/+$/, '');
 }
 
 export class SignInCancelled extends Error {}

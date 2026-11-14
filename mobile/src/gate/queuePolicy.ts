@@ -39,6 +39,12 @@ export type ScanRecord = {
   offlineVerdict: OfflineVerdict;
   /** Uploads answered 'error' so far: the server could not decide (see MAX_ATTEMPTS). */
   attempts: number;
+  /**
+   * The door device that took the scan. Sent with an upload, so a scan held
+   * offline stays under the person who made it even if a colleague signed in
+   * on this phone before it went. Absent on rows from before schema v5.
+   */
+  deviceId?: string | null;
 };
 
 export const BATCH_SIZE = 100;
@@ -69,6 +75,7 @@ export function toWire(r: ScanRecord) {
     occurredAt: r.occurredAt,
     method: r.method,
     ...(r.offlineVerdict === 'admitted' ? { offlineVerdict: 'admitted' as const } : {}),
+    ...(r.deviceId ? { scannedByDeviceId: r.deviceId } : {}),
   };
 }
 

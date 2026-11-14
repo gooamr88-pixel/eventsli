@@ -53,6 +53,43 @@
 
 
 -- ───────────────────────────────────────────────────────────────────────────
+-- PRE-FLIGHT: the migrations this one builds on.
+--
+-- This file re-issues functions created by the four check-in migrations and
+-- the venue-map one before it. Run on a database without them it used to fail
+-- near its end ("function door_fold(text) does not exist", 2026-11-10) — after
+-- the reader had to work out from a line number which file was missing. It
+-- now stops HERE, before changing anything, and names every one.
+-- ───────────────────────────────────────────────────────────────────────────
+DO $$
+DECLARE
+  v_missing TEXT[] := ARRAY[]::TEXT[];
+  fn TEXT;
+BEGIN
+  FOR fn IN SELECT unnest(ARRAY['check_in_ticket_v2', 'ticket_door_detail', 'door_fold', 'event_door_manifest'])
+  LOOP
+    IF NOT EXISTS (SELECT 1 FROM pg_proc WHERE proname = fn AND pronamespace = 'public'::regnamespace) THEN
+      v_missing := v_missing || CASE fn
+        WHEN 'check_in_ticket_v2'  THEN '20261108090000_checkin_v2.sql'
+        WHEN 'ticket_door_detail'  THEN '20261108100000_checkin_app_api.sql'
+        WHEN 'door_fold'           THEN '20261109090000_door_list_search.sql'
+        WHEN 'event_door_manifest' THEN '20261110090000_offline_manifest.sql'
+      END;
+    END IF;
+  END LOOP;
+  IF NOT EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'fulfill_checkout'
+                  AND prosrc LIKE '%held_by_reservation = p_reservation_id%') THEN
+    v_missing := v_missing || '20261111090000_venue_map_seat_integrity.sql'::TEXT;
+  END IF;
+
+  IF array_length(v_missing, 1) > 0 THEN
+    RAISE EXCEPTION 'PREREQUISITES MISSING — nothing was changed. Apply these migrations first, in this order, then run this one again: %',
+      array_to_string(v_missing, ', ');
+  END IF;
+END $$;
+
+
+-- ───────────────────────────────────────────────────────────────────────────
 -- S-02: the table's ticket type and seat price, stored on the table.
 -- ───────────────────────────────────────────────────────────────────────────
 ALTER TABLE tables

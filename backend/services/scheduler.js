@@ -184,6 +184,9 @@ const JOBS = [
   // Hourly as well: a reminder 48 hours out does not need minute precision.
   { name: 'invoice-reminders', everyMs: 3_600_000, run: sendInvoiceReminders, immediate: false },
   { name: 'purge-sessions', everyMs: 6 * 3_600_000, run: purgeSessions, immediate: false },
+  // Daily. Does nothing unless SCAN_RETENTION_MODE is report or delete
+  // (services/scanRetention.js); off by default.
+  { name: 'scan-retention', everyMs: 24 * 3_600_000, run: () => require('./scanRetention').scheduled(withLeaderLock), immediate: false },
   // SMS: dispatch, campaigns, reminders, reconciliation — services/sms/jobs.js.
   ...require('./sms/jobs').jobs(withLeaderLock),
 ];

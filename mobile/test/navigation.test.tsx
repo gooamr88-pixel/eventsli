@@ -13,10 +13,10 @@
  * Every test fails on any console error or warning, including that one.
  */
 import { router } from 'expo-router';
-import { fireEvent, renderRouter, screen, type RenderRouterResult } from 'expo-router/testing-library';
+import { fireEvent, renderRouter, screen, within, type RenderRouterResult } from 'expo-router/testing-library';
 import { readdirSync, readFileSync, statSync } from 'fs';
 import { join, relative, sep } from 'path';
-import { Alert, Text } from 'react-native';
+import { Text } from 'react-native';
 
 jest.mock('expo-font', () => ({ useFonts: () => [true, null], isLoaded: () => true, loadAsync: jest.fn() }));
 // The Keychain: present, empty, and every write succeeds.
@@ -42,7 +42,7 @@ jest.mock('@/gate/offlineList', () => {
   return { useOfflineList: Object.assign((pick: (s: typeof state) => unknown) => pick(state), { getState: () => state }) };
 });
 jest.mock('@/gate/scanLog', () => {
-  const state = { records: [], load: jest.fn(async () => undefined), sync: jest.fn(async () => null) };
+  const state = { records: [], load: jest.fn(async () => undefined), sync: jest.fn(async () => null), clear: jest.fn() };
   return {
     useScanLog: Object.assign((pick: (s: typeof state) => unknown) => pick(state), { getState: () => state }),
     pendingCount: (records: unknown[]) => records.length,
@@ -58,6 +58,7 @@ jest.mock('@/gate/useDoor', () => ({
 /* eslint-disable @typescript-eslint/no-require-imports */
 const { useSession } = require('@/auth/session') as typeof import('@/auth/session');
 const { queryClient } = require('@/lib/queryClient') as typeof import('@/lib/queryClient');
+const { useDialogStore } = require('@/ui/Dialog') as typeof import('@/ui/Dialog');
 /* eslint-enable @typescript-eslint/no-require-imports */
 
 // The version check never answers here, and a cancelled fetch schedules the
@@ -103,6 +104,7 @@ afterEach(() => {
   view?.unmount();
   view = null;
   queryClient.clear();
+  useDialogStore.setState({ current: null, queue: [] });
   jest.restoreAllMocks();
 });
 
@@ -118,8 +120,18 @@ async function boot(state: { hydrated?: boolean; account?: typeof ACCOUNT | null
     'device-pin': leaf('device-pin'),
     '(account)/_layout': require('../src/app/(account)/_layout'),
     '(account)/events': leaf('events'),
-    '(account)/account': require('../src/app/(account)/account'),
-    '(door)/settings': require('../src/app/(door)/settings'),
+    '(account)/account/index': require('../src/app/(account)/account/index'),
+    '(account)/account/profile': leaf('account-profile'),
+    '(account)/account/app-settings': leaf('account-app-settings'),
+    '(account)/account/help': leaf('account-help'),
+    '(door)/settings/index': require('../src/app/(door)/settings/index'),
+    '(door)/settings/profile': leaf('profile'),
+    '(door)/settings/app-settings': leaf('app-settings'),
+    '(door)/settings/data-sync': leaf('data-sync'),
+    '(door)/settings/help': leaf('help'),
+    '(door)/event': leaf('event'),
+    '(door)/logs': leaf('logs'),
+    '(door)/sync': leaf('sync'),
     '(door)/_layout': require('../src/app/(door)/_layout'),
     '(door)/dashboard': leaf('dashboard'),
     '(door)/scan': leaf('scan'),
@@ -127,7 +139,6 @@ async function boot(state: { hydrated?: boolean; account?: typeof ACCOUNT | null
     '(door)/attendees': leaf('attendees'),
     '(door)/ticket/[ticketId]': leaf('ticket'),
     '(door)/analytics': leaf('analytics'),
-    '(door)/recent': leaf('recent'),
     '(door)/offline': leaf('offline'),
   }, { initialUrl });
   /* eslint-enable @typescript-eslint/no-require-imports */
@@ -164,11 +175,9 @@ function press(label: string): Promise<void> {
   return fireEvent.press(screen.queryByText(label) ?? screen.getByLabelText(label));
 }
 
-/** Accept the confirmation's destructive choice, as the person would. */
-function confirmDestructive() {
-  jest.spyOn(Alert, 'alert').mockImplementation((_t, _m, buttons) => {
-    buttons?.find((b) => b.style === 'destructive')?.onPress?.();
-  });
+/** Press a button inside the app's open dialog (src/ui/Dialog.tsx), as the person would. */
+function pressInDialog(label: string): Promise<void> {
+  return fireEvent.press(within(screen.getByTestId('dialog')).getByText(label));
 }
 
 const where = () => view!.getPathname();
@@ -242,21 +251,24 @@ describe('the session decides where the phone is', () => {
     expect(problems).toEqual([]);
   });
 
-  test('Settings → Switch event goes to the events, and Settings closes', async () => {
+  test('at a door, the tab bar moves between the tabs: Profile, then Events goes back to the dashboard', async () => {
     await boot({ account: ACCOUNT, door: SAVED_DOOR });
     await settle(() => router.push('/settings'));
     expect(where()).toBe('/settings');
-    await settle(() => press('Switch event'));
-    expect(useSession.getState().door).toBeNull();
-    expect(where()).toBe('/events');
+    await settle(() => press('Events'));
+    expect(where()).toBe('/dashboard');
+    expect(useSession.getState().door).not.toBeNull();
     expect(problems).toEqual([]);
   });
 
   test('Settings → Sign out goes to sign-in, from a door', async () => {
     await boot({ account: ACCOUNT, door: SAVED_DOOR });
     await settle(() => router.push('/settings'));
-    confirmDestructive();
-    await settle(() => press('Sign out'));
+    await settle(() => press('Sign Out'));
+    // Asked first, in the app's own dialog; nothing has happened yet.
+    expect(screen.getByText('Sign out?')).toBeTruthy();
+    expect(useSession.getState().account).not.toBeNull();
+    await settle(() => pressInDialog('Sign out'));
     expect(useSession.getState().account).toBeNull();
     expect(where()).toBe('/sign-in');
     expect(problems).toEqual([]);
@@ -266,16 +278,51 @@ describe('the session decides where the phone is', () => {
     await boot({ account: ACCOUNT });
     await settle(() => router.push('/account'));
     expect(where()).toBe('/account');
-    confirmDestructive();
-    await settle(() => press('Sign out'));
+    await settle(() => press('Sign Out'));
+    await settle(() => pressInDialog('Sign out'));
     expect(where()).toBe('/sign-in');
     expect(problems).toEqual([]);
   });
 
-  test('Settings from the events → Back returns to the events', async () => {
+  test('cancelling the sign-out dialog keeps the phone where it was', async () => {
+    await boot({ account: ACCOUNT, door: SAVED_DOOR });
+    await settle(() => router.push('/settings'));
+    await settle(() => press('Sign Out'));
+    await settle(() => pressInDialog('Cancel'));
+    expect(screen.queryByTestId('dialog')).toBeNull();
+    expect(useSession.getState().account).not.toBeNull();
+    expect(where()).toBe('/settings');
+    expect(problems).toEqual([]);
+  });
+
+  test('Settings → Switch Event leaves the door for the events, after asking', async () => {
+    await boot({ account: ACCOUNT, door: SAVED_DOOR });
+    await settle(() => router.push('/settings'));
+    await settle(() => press('Switch Event'));
+    await settle(() => pressInDialog('Switch event'));
+    expect(useSession.getState().door).toBeNull();
+    expect(useSession.getState().account).not.toBeNull();
+    expect(where()).toBe('/events');
+    expect(problems).toEqual([]);
+  });
+
+  test('Settings → Help & Support opens inside the same group, at a door and from the events', async () => {
+    await boot({ account: ACCOUNT, door: SAVED_DOOR });
+    await settle(() => router.push('/settings'));
+    await settle(() => press('Help & Support'));
+    expect(where()).toBe('/settings/help');
+    await settle(() => useSession.getState().leaveDoor());
+    expect(where()).toBe('/events');
+    await settle(() => router.push('/account'));
+    await settle(() => press('Help & Support'));
+    expect(where()).toBe('/account/help');
+    expect(problems).toEqual([]);
+  });
+
+  test('Settings from the events → the Events tab returns to the events', async () => {
     await boot({ account: ACCOUNT });
     await settle(() => router.push('/account'));
-    await settle(() => press('Back'));
+    await settle(() => press('Events'));
     expect(where()).toBe('/events');
     expect(problems).toEqual([]);
   });
@@ -319,7 +366,7 @@ describe('screens do not navigate across groups', () => {
     const name = path.replace(/^\//, '').split(/[?#]/)[0];
     if (name === '' || name === 'pair') return 'open';
     if (name === 'sign-in' || name === 'device-pin') return 'signed-out';
-    if (name === 'events' || name === 'account') return 'account';
+    if (name === 'events' || name === 'account' || name.startsWith('account/')) return 'account';
     return 'door';
   };
   const groupOfFile = (rel: string): string => {

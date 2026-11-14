@@ -14,7 +14,21 @@ import { Platform } from 'react-native';
  * thing from a refusal, and the scanner treats it differently.
  */
 
-export const API_URL = (process.env.EXPO_PUBLIC_API_URL || 'https://eventsli.com/api/v1').replace(/\/+$/, '');
+export const PRODUCTION_API_URL = 'https://eventsli.com/api/v1';
+
+/**
+ * The API's address. A development build may point at a laptop over plain
+ * HTTP (EXPO_PUBLIC_API_URL in mobile/.env.local). A store build never does:
+ * `eas update` bundles on the machine that runs it, where .env.local is read,
+ * so a stray local address could otherwise reach every installed phone.
+ */
+export function resolveApiUrl(configured: string | undefined, dev: boolean): string {
+  const url = (configured || PRODUCTION_API_URL).replace(/\/+$/, '');
+  if (!dev && !/^https:\/\//i.test(url)) return PRODUCTION_API_URL;
+  return url;
+}
+
+export const API_URL = resolveApiUrl(process.env.EXPO_PUBLIC_API_URL, __DEV__);
 
 const CLIENT = `checkin-${Platform.OS}/${Application.nativeApplicationVersion ?? '0.0.0'}+${Application.nativeBuildVersion ?? '0'}`;
 
@@ -63,7 +77,10 @@ export async function request<T>(path: string, opts: Options = {}): Promise<Enve
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
+  // The timer covers the whole exchange, body included: a connection that
+  // sends headers and then stalls must not hold the scanner forever.
   let res: Response;
+  let text: string;
   try {
     res = await fetch(`${API_URL}${withQuery(path, query)}`, {
       method,
@@ -76,6 +93,13 @@ export async function request<T>(path: string, opts: Options = {}): Promise<Enve
       body: body !== undefined ? JSON.stringify(body) : undefined,
       signal: controller.signal,
     });
+    text = await Promise.race([
+      res.text(),
+      new Promise<never>((_, reject) => {
+        if (controller.signal.aborted) reject(new Error('aborted'));
+        controller.signal.addEventListener('abort', () => reject(new Error('aborted')));
+      }),
+    ]);
   } catch {
     throw new NetworkError(controller.signal.aborted ? 'The server took too long to answer.' : 'No connection.');
   } finally {
@@ -84,7 +108,7 @@ export async function request<T>(path: string, opts: Options = {}): Promise<Enve
 
   let json: any = null;
   try {
-    json = await res.json();
+    json = text ? JSON.parse(text) : null;
   } catch {
     // A proxy error page, or an empty body. Not the API's envelope.
   }

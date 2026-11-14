@@ -256,8 +256,47 @@ async function undo({ ticketId, deviceId, eventId }) {
  */
 const SYNC_CONCURRENCY = 8;
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Which device took each scan, when the phone says it was not the one
+ * uploading (a colleague signed in on the same phone before the signal came
+ * back). Only devices of THIS event count: anything else is ignored and the
+ * scan stays with the uploader, as before.
+ */
+async function sameEventDevices(eventId, scans, uploaderId) {
+  const claimed = [...new Set(scans
+    .map((s) => s?.scannedByDeviceId)
+    .filter((id) => typeof id === 'string' && UUID_RE.test(id) && id !== uploaderId))];
+  if (claimed.length === 0) return new Set();
+  const { data, error } = await supabase.from('scan_devices').select('id').eq('event_id', eventId).in('id', claimed);
+  if (error) {
+    logger.warn({ err: error.message }, 'scan attribution: device lookup failed; scans stay with the uploader');
+    return new Set();
+  }
+  return new Set((data || []).map((d) => d.id));
+}
+
+/**
+ * Put a scan back under the device that took it, after the decision is made
+ * (check_in_ticket_v2 is untouched). Only the row this upload just wrote
+ * (still under the uploader, no uploader recorded yet): a replay changes
+ * nothing. A failure here never fails the upload — the admission stands, only
+ * the attribution is left as it was.
+ */
+async function attribute({ eventId, clientScanId, uploaderId, scannedBy }) {
+  const { error } = await supabase.from('scans')
+    .update({ device_id: scannedBy, uploaded_by_device_id: uploaderId })
+    .eq('event_id', eventId)
+    .eq('client_scan_id', clientScanId)
+    .eq('device_id', uploaderId)
+    .is('uploaded_by_device_id', null);
+  if (error) logger.warn({ err: error.message }, 'scan attribution: update failed; scan stays with the uploader');
+}
+
 async function syncBatch({ deviceId, eventId, scans }) {
   const queue = scans.slice(0, 500);
+  const others = await sameEventDevices(eventId, queue, deviceId);
   const byCode = new Map();
   queue.forEach((s, index) => {
     const code = String(s?.qr || '');
@@ -279,6 +318,10 @@ async function syncBatch({ deviceId, eventId, scans }) {
         method: METHODS.has(s.method) ? s.method : 'offline',
         offlineAdmitted: s.offlineVerdict === 'admitted',
       });
+      if (others.has(s.scannedByDeviceId) && typeof s.clientScanId === 'string' && s.clientScanId) {
+        // eslint-disable-next-line no-await-in-loop
+        await attribute({ eventId, clientScanId: s.clientScanId, uploaderId: deviceId, scannedBy: s.scannedByDeviceId });
+      }
       results[index] = { clientScanId: s.clientScanId, ...r };
     }
   });

@@ -2,27 +2,28 @@ import { useNetInfo } from '@react-native-community/netinfo';
 import { router, useIsFocused } from 'expo-router';
 import { useKeepAwake } from 'expo-keep-awake';
 import { useRef, useState } from 'react';
-import { Alert, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useSession } from '@/auth/session';
 import { CodeCamera } from '@/gate/CodeCamera';
 import { signal } from '@/gate/feedback';
-import { describeScan, screenResult } from '@/gate/outcomes';
 import { useOfflineList } from '@/gate/offlineList';
+import { describeScan, screenResult } from '@/gate/outcomes';
 import { pendingCount, useScanLog } from '@/gate/scanLog';
-import { measureScan } from '@/lib/monitoring';
 import { useDoorExit, useMe } from '@/gate/useDoor';
-import { Icon } from '@/ui/Icon';
-import { Header, IconButton } from '@/ui/layout';
+import { measureScan } from '@/lib/monitoring';
+import { dialog } from '@/ui/Dialog';
+import { Icon, type IconName } from '@/ui/Icon';
+import { Header } from '@/ui/layout';
 import { Text } from '@/ui/Text';
 import { colors, radius, space } from '@/ui/theme';
 
 /**
- * Scan Ticket — the mockup's camera screen. One code at a time: read, decide,
- * show the answer full-screen, come back. The screen stays awake, the torch is
- * one tap away, and a phone with no signal keeps scanning — those scans are
- * held and uploaded, never shown as admissions.
+ * Check-in — the mockup's camera screen. One code at a time: read, decide,
+ * show the answer full screen, come back. The screen stays awake; the torch
+ * and the other camera are one tap away. With no signal it keeps going: the
+ * phone checks tickets from its list, or holds them to sync.
  */
 export default function Scan() {
   useKeepAwake();
@@ -33,10 +34,10 @@ export default function Scan() {
   const net = useNetInfo();
   const records = useScanLog((s) => s.records);
   const [torch, setTorch] = useState(false);
+  const [facing, setFacing] = useState<'back' | 'front'>('back');
   const busy = useRef(false);
   const held = pendingCount(records);
   const offline = net.isConnected === false;
-  // The event's ticket list is on the phone: with no signal it decides itself.
   const listReady = useOfflineList((s) => s.complete && !s.off);
 
   async function onCode(data: string) {
@@ -48,11 +49,12 @@ export default function Scan() {
         (r) => (r ? `${r.method}:${screenResult(r)}` : 'ignored'),
       );
       if (!rec) return;
-      const shown = screenResult(rec);
-      signal(describeScan(shown).tone);
+      signal(describeScan(screenResult(rec)).tone);
       router.push({ pathname: '/result', params: { id: rec.clientScanId } });
     } catch (err) {
-      if (!(await exit(err))) Alert.alert('Could not check that code', 'Scan it again.');
+      if (!(await exit(err))) {
+        dialog.alert('Could not check that code', 'Something went wrong reading it. Scan it again.', { tone: 'warning', icon: 'qr', button: 'Scan again' });
+      }
     } finally {
       busy.current = false;
     }
@@ -61,34 +63,39 @@ export default function Scan() {
   return (
     <View style={styles.screen}>
       {/* Mounted only while this screen is in front: one camera at a time. */}
-      {focused ? <CodeCamera onCode={onCode} torch={torch} /> : <View style={styles.screen} />}
+      {focused ? <CodeCamera onCode={onCode} torch={torch} facing={facing} /> : <View style={styles.screen} />}
 
       <SafeAreaView style={styles.top} edges={['top']} pointerEvents="box-none">
         <View style={styles.pad}>
-          <Header
-            title="Scan Ticket"
-            inverse
-            right={(
-              <IconButton
-                icon="bolt"
-                label={torch ? 'Turn the light off' : 'Turn the light on'}
-                onPress={() => setTorch((t) => !t)}
-                color={torch ? colors.night : colors.white}
-                background={torch ? colors.white : 'rgba(255,255,255,0.18)'}
-              />
-            )}
-          />
-        </View>
-        <View style={styles.badges}>
-          {offline && (
-            <View style={[styles.badge, { backgroundColor: 'rgba(86,106,109,0.9)' }]}>
-              <Icon name="offline" size={16} color={colors.white} />
-              <Text variant="small" color={colors.white}>{listReady ? 'No signal — checking tickets on this phone' : 'No signal — scans are held'}</Text>
-            </View>
-          )}
-          {held > 0 && (
-            <View style={styles.badge}>
-              <Text variant="small" color={colors.white}>{held} waiting to upload</Text>
+          <Header title="Check-in" inverse />
+          <View style={styles.tools}>
+            <RoundButton
+              icon="bolt"
+              label={torch ? 'Turn the light off' : 'Turn the light on'}
+              on={torch}
+              onPress={() => setTorch((t) => !t)}
+            />
+            <RoundButton
+              icon="cameraFlip"
+              label={facing === 'back' ? 'Use the front camera' : 'Use the back camera'}
+              onPress={() => { setTorch(false); setFacing((f) => (f === 'back' ? 'front' : 'back')); }}
+            />
+          </View>
+          {(offline || held > 0) && (
+            <View style={styles.badges}>
+              {offline && (
+                <View style={[styles.badge, { backgroundColor: 'rgba(245,158,11,0.92)' }]}>
+                  <Icon name="offline" size={15} color={colors.white} />
+                  <Text variant="caption" weight="semibold" color={colors.white}>
+                    {listReady ? 'Offline — checking on this phone' : 'Offline — check-ins are saved'}
+                  </Text>
+                </View>
+              )}
+              {held > 0 && (
+                <View style={styles.badge}>
+                  <Text variant="caption" weight="semibold" color={colors.white}>{held} waiting to sync</Text>
+                </View>
+              )}
             </View>
           )}
         </View>
@@ -96,22 +103,30 @@ export default function Scan() {
 
       <SafeAreaView style={styles.bottom} edges={['bottom']} pointerEvents="box-none">
         {TEST_ENTRY && <TestCodeEntry onCode={onCode} />}
-        <View style={styles.hint}>
-          <Icon name="qr" size={20} color={colors.white} />
-          <Text color={colors.white}>Align the QR code within the frame</Text>
-        </View>
+        <Text color={colors.white} align="center" style={styles.hint}>{'Scan guest QR code\nto check in'}</Text>
         {me.data?.permissions.manualCheckIn && (
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => router.push('/attendees')}
-            style={styles.manual}
-          >
-            <Icon name="search" size={18} color={colors.white} />
-            <Text variant="small" weight="semibold" color={colors.white}>Find a guest by name</Text>
+          <Pressable accessibilityRole="button" onPress={() => router.push('/attendees')} style={styles.manual} hitSlop={6}>
+            <Icon name="search" size={16} color={colors.teal100} />
+            <Text variant="small" weight="semibold" color={colors.teal100}>No code? Find the guest by name</Text>
           </Pressable>
         )}
       </SafeAreaView>
     </View>
+  );
+}
+
+function RoundButton({ icon, label, onPress, on = false }: { icon: IconName; label: string; onPress: () => void; on?: boolean }) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ selected: on }}
+      onPress={onPress}
+      hitSlop={8}
+      style={[styles.round, on && { backgroundColor: colors.white }]}
+    >
+      <Icon name={icon} size={22} color={on ? colors.night : colors.white} />
+    </Pressable>
   );
 }
 
@@ -144,25 +159,24 @@ function TestCodeEntry({ onCode }: { onCode: (data: string) => void }) {
 }
 
 const styles = StyleSheet.create({
-  testEntry: {
-    minHeight: 44, paddingHorizontal: space.md, borderRadius: radius.md, color: colors.white,
-    backgroundColor: 'rgba(255,255,255,0.12)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)',
-  },
   screen: { flex: 1, backgroundColor: colors.camera },
-  top: { position: 'absolute', top: 0, left: 0, right: 0, backgroundColor: 'rgba(0,0,0,0.35)' },
-  pad: { paddingHorizontal: space.lg },
-  badges: { alignItems: 'center', gap: space.xs, paddingBottom: space.sm },
+  top: { position: 'absolute', top: 0, left: 0, right: 0 },
+  pad: { paddingHorizontal: space.lg, gap: space.sm },
+  tools: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: space.xs },
+  round: {
+    width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.16)',
+  },
+  badges: { alignItems: 'center', gap: space.xs },
   badge: {
     flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: space.md, paddingVertical: 6,
-    borderRadius: radius.pill, backgroundColor: 'rgba(13,91,94,0.9)',
+    borderRadius: radius.pill, backgroundColor: 'rgba(13,91,94,0.92)',
   },
-  bottom: { position: 'absolute', left: space.lg, right: space.lg, bottom: space.lg, gap: space.sm },
-  hint: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space.sm,
-    paddingVertical: space.md, paddingHorizontal: space.lg, borderRadius: radius.lg, backgroundColor: colors.overlay,
-  },
-  manual: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space.sm,
-    paddingVertical: space.sm,
+  bottom: { position: 'absolute', left: space.lg, right: space.lg, bottom: space.xl, gap: space.md, alignItems: 'center' },
+  hint: { fontSize: 16, lineHeight: 23 },
+  manual: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: space.sm },
+  testEntry: {
+    alignSelf: 'stretch', minHeight: 44, paddingHorizontal: space.md, borderRadius: radius.md, color: colors.white,
+    backgroundColor: 'rgba(255,255,255,0.12)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)',
   },
 });

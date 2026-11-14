@@ -14,6 +14,7 @@ type Props = {
   /** False while a result is on screen: the camera stays mounted but ignores codes. */
   paused?: boolean;
   torch?: boolean;
+  facing?: 'back' | 'front';
   frameSize?: number;
 };
 
@@ -37,7 +38,7 @@ function useReduceMotion(): boolean {
  * Native decoding (ML Kit on Android, AVFoundation on iOS) through expo-camera,
  * QR codes only — nothing else at a door is ours.
  */
-export function CodeCamera({ onCode, paused = false, torch = false, frameSize = 260 }: Props) {
+export function CodeCamera({ onCode, paused = false, torch = false, facing = 'back', frameSize = 250 }: Props) {
   const [permission, requestPermission] = useCameraPermissions();
   const last = useRef<{ token: string; at: number } | null>(null);
   const [line] = useState(() => new Animated.Value(0));
@@ -91,11 +92,21 @@ export function CodeCamera({ onCode, paused = false, torch = false, frameSize = 
     <View style={styles.fill}>
       <CameraView
         style={StyleSheet.absoluteFill}
-        facing="back"
-        enableTorch={torch}
+        facing={facing}
+        enableTorch={torch && facing === 'back'}
         barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
         onBarcodeScanned={paused ? undefined : handle}
       />
+      {/* The mockup's dimmed surround: the frame is the bright part. */}
+      <View pointerEvents="none" style={styles.shade}>
+        <View style={styles.shadeBand} />
+        <View style={{ flexDirection: 'row', height: frameSize }}>
+          <View style={styles.shadeBand} />
+          <View style={{ width: frameSize }} />
+          <View style={styles.shadeBand} />
+        </View>
+        <View style={styles.shadeBand} />
+      </View>
       <View pointerEvents="none" style={styles.center}>
         <View style={{ width: frameSize, height: frameSize }}>
           <Corner style={{ top: 0, left: 0, borderTopWidth: 5, borderLeftWidth: 5, borderTopLeftRadius: radius.lg }} />
@@ -124,7 +135,9 @@ const styles = StyleSheet.create({
   fill: { flex: 1, backgroundColor: colors.camera },
   ask: { justifyContent: 'center', padding: space.xl, gap: space.lg },
   center: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, alignItems: 'center', justifyContent: 'center' },
-  corner: { position: 'absolute', width: 44, height: 44, borderColor: colors.teal200 },
+  corner: { position: 'absolute', width: 46, height: 46, borderColor: '#8fd3cc' },
+  shade: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 },
+  shadeBand: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' },
   line: {
     position: 'absolute', left: 10, right: 10, height: 3, borderRadius: 2,
     backgroundColor: '#5eead4',

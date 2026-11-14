@@ -10,7 +10,7 @@ before it is entered; nothing here has been submitted.
 | Category | Business (both stores) |
 | Age rating | 4+ (Apple) · Everyone (Google): no user content, no ads, no purchases |
 | Price | Free, no in-app purchases |
-| Support URL | `https://eventsli.com/help` *(owner to confirm the page exists)* |
+| Support URL | `https://eventsli.com/contact` *(`/help` does not exist on the site; `/contact` does — checked 2026-11-14)* |
 | Privacy policy URL | `https://eventsli.com/privacy` *(needs the app section, see PRIVACY.md)* |
 | Marketing URL | `https://eventsli.com` |
 
@@ -67,8 +67,10 @@ before it is entered; nothing here has been submitted.
 ## Screenshots
 
 Six per platform, in this order, taken from the demo event (no real guest
-data). Apple needs 6.9" (1320 × 2868) and 6.5"; Google needs phone screenshots
-of at least 1080 px on the short side.
+data). Apple needs iPhone 6.9" (1320 × 2868); it scales those for smaller
+iPhones. **No iPad screenshots:** the app is iPhone-only on iOS
+(`ios.supportsTablet: false`; iPads run it in iPhone mode). Google needs phone
+screenshots of at least 1080 px on the short side.
 
 1. **Scan** — the camera with the frame. Caption: *Point, scan, done.*
 2. **Check-in Successful** — a VIP admission. Caption: *A clear answer for every ticket.*

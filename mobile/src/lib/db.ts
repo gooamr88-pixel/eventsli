@@ -4,6 +4,7 @@ import * as SQLite from 'expo-sqlite';
 
 import { bytesToHex } from './base64';
 import { migrate } from './dbSchema';
+import { assertEncrypted, hardenConnection } from './dbSecurity';
 
 /**
  * The phone's own database: this door's scan log and the event's ticket list
@@ -36,9 +37,12 @@ async function openKeyed(hexKey: string) {
   // The raw-key form: 64 hex characters, no key derivation. Must be the first
   // statement on the connection.
   await db.execAsync(`PRAGMA key = "x'${hexKey}'";`);
+  // A store build that is not really encrypted stops here (dbSecurity.ts).
+  await assertEncrypted(db, __DEV__);
   // Touching the schema proves the key is right; a wrong key fails here.
   await db.getFirstAsync('SELECT count(*) AS n FROM sqlite_master;');
   await db.execAsync('PRAGMA journal_mode = WAL;');
+  await hardenConnection(db);
   await migrate(db);
   return db;
 }

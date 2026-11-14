@@ -2,7 +2,7 @@
 appId: com.eventsli.checkin
 ---
 - runFlow: _signin-and-open-gala.yaml
-- tapOn: "Scan Tickets"
+- tapOn: "Start Check-in"
 - runFlow:
     file: _scan.yaml
     env:
@@ -14,4 +14,4 @@ appId: com.eventsli.checkin
     file: _scan.yaml
     env:
       CODE: ${QR_JOHN_1}
-- assertVisible: "Already checked in"
+- assertVisible: "Already Checked In"

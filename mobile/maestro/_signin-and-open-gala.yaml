@@ -9,8 +9,13 @@ appId: com.eventsli.checkin
 - extendedWaitUntil:
     visible: "Annual Gala 2026 (Demo)"
     timeout: 20000
+# The event's preview sheet, then its Start Check-in opens the door.
 - tapOn: "Annual Gala 2026 (Demo)"
-- tapOn: "Continue"
 - extendedWaitUntil:
-    visible: "Live Check-in"
+    visible: "Start Check-in"
+    timeout: 10000
+- tapOn: "Start Check-in"
+# The dashboard: its own Start Check-in, under the counts.
+- extendedWaitUntil:
+    visible: "Recent Check-ins"
     timeout: 20000

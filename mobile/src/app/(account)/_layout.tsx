@@ -17,7 +17,10 @@ export default function AccountLayout() {
   return (
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
       <Stack.Screen name="events" />
-      <Stack.Screen name="account" options={{ presentation: 'modal' }} />
+      <Stack.Screen name="account/index" options={{ animation: 'fade' }} />
+      <Stack.Screen name="account/profile" />
+      <Stack.Screen name="account/app-settings" />
+      <Stack.Screen name="account/help" />
     </Stack>
   );
 }

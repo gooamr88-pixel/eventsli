@@ -4,6 +4,8 @@ import { create } from 'zustand';
 import { logout as logoutCall } from '../api/endpoints';
 import type { DoorToken, User } from '../api/types';
 import { useOfflineList } from '../gate/offlineList';
+import { useScanLog } from '../gate/scanLog';
+import { queryClient } from '../lib/queryClient';
 
 /**
  * Who this phone is signed in as, and which door it is working.
@@ -116,6 +118,11 @@ export const useSession = create<State>((set, get) => ({
  * never used for another event, and is deleted 24 h after its own.
  */
 async function forgetGuestList() {
+  // What is in memory goes too: the guest list, search results, counts and the
+  // log on screen were fetched with the door's token and are not the next
+  // person's to see. (Held scans stay on disk, as above.)
+  queryClient.clear();
+  useScanLog.getState().clear();
   try {
     await useOfflineList.getState().wipeAll();
   } catch {
