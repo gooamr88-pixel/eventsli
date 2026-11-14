@@ -12799,11 +12799,13 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
 }
 .es-venuex__nav--prev { left: 0.75rem; }
 .es-venuex__nav--next { right: 0.75rem; }
+/* As wide as its tiles, never the whole frame: an empty full-width box sat
+   invisibly over the front rows and swallowed every tap on those seats. */
 .es-venuex__strip {
   position: absolute;
   left: 0.75rem;
-  right: 0.75rem;
   bottom: 0.75rem;
+  max-width: calc(100% - 1.5rem);
   z-index: 2;
   overflow-x: auto;
   scrollbar-width: none;
@@ -12827,15 +12829,17 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
 
 /* "Seats in this view" over a 360° photo. The same dark glass as the view
    strip it sits above; a selected seat is white, as it is in the 3D room. */
+/* Below the zoom buttons (a row across the top, 2.75rem tall at 0.75rem),
+   so on a phone they never cover its header; above the view strip. */
 .es-photoseats {
   position: absolute;
-  top: 0.75rem;
+  top: 4rem;
   left: 0.75rem;
   z-index: 2;
   display: flex;
   flex-direction: column;
-  width: min(20rem, calc(100% - 4.5rem));
-  max-height: calc(100% - 9.5rem);
+  width: min(20rem, calc(100% - 1.5rem));
+  max-height: calc(100% - 12rem);
   border-radius: var(--es-radius-lg);
   background: rgba(6, 20, 22, 0.72);
   backdrop-filter: blur(8px);

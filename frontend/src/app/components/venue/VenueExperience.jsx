@@ -60,14 +60,16 @@ export default function VenueExperience({
   // has landed: the page may refuse it (the per-order limit) or ask first
   // (the ticket details popup), so the jump waits for `selectedSeatIds`.
   const [goTo, setGoTo] = useState(null);
+  const [shot, setShot] = useState('auto');
+  const [hover, setHover] = useState(null);
+  // After every useState above: this calls their setters, and a `const`
+  // setter used before its line is a crash, not a no-op.
   if (goTo && selectedSeatIds.has(goTo.seatId)) {
     setGoTo(null);
     setFocusId(goTo.entryId);
     setShot('seat');
     setPickId(null);
   }
-  const [shot, setShot] = useState('auto');
-  const [hover, setHover] = useState(null);
   const frameRef = useRef(null);
   const controls = useRef(null);
 
