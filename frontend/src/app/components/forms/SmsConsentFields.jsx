@@ -74,6 +74,11 @@ export default function SmsConsentFields({
         </label>
       ))}
       {!hasPhone && <p className="text-xs text-subtle">Add a mobile number to choose text messages.</p>}
+      {/* A new tab: leaving the checkout would cost the person their held seats. */}
+      <p className="text-xs text-subtle">
+        Details in our <a href="/sms-terms" target="_blank" rel="noopener" className="text-accent underline">text message terms</a>
+        {' '}and <a href="/privacy" target="_blank" rel="noopener" className="text-accent underline">privacy policy</a>.
+      </p>
       {hasPhone && mode === 'registration' && Object.values(value).some(Boolean) && (
         <p className="text-xs text-subtle">Enter the number with its country code, starting with + (for example +1 416 555 0199).</p>
       )}

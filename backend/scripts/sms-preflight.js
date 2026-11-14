@@ -69,7 +69,10 @@ async function main() {
     if (args.has('--test-connection') && st.configured) {
       // eslint-disable-next-line no-await-in-loop
       const t = await adapter.testConnection();
-      (t.ok ? ok : blocker)(`${p.id} connection: ${t.ok ? `OK${t.account ? ` (${t.account})` : ''}${t.balance != null ? ` balance ${t.balance}` : ''}` : t.error}`);
+      (t.ok ? ok : blocker)(`${p.id} connection: ${t.ok ? `OK${t.account ? ` (${t.account})` : ''}${t.type ? ` type ${t.type}` : ''}${t.balance != null ? ` balance ${t.balance}` : ''}` : t.error}`);
+      // A Twilio TRIAL account only texts verified numbers and prefixes every
+      // message with "Sent from your Twilio trial account".
+      if (t.ok && String(t.type || '').toLowerCase() === 'trial') blocker(`${p.id} is a TRIAL account: upgrade it in the Twilio Console before going live.`);
     }
   }
   if (cfg.providers.get('vonage')?.enabled && !providers.ADAPTERS.vonage.signsWebhooks()) {

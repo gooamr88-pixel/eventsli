@@ -452,7 +452,15 @@ async function updateCategory(req, res, next) {
       enabled: 'enabled', requiresApproval: 'requires_approval', minRole: 'min_role',
       perRecipientDailyLimit: 'per_recipient_daily_limit', respectQuietHours: 'respect_quiet_hours',
       maxSegments: 'max_segments', label: 'label', description: 'description',
+      requiresConsent: 'requires_consent',
     });
+    // Consent is a choice for TRANSACTIONAL categories only (where the law of
+    // every enabled country allows texting a buyer about their own order
+    // without it). Marketing always requires it; the database refuses otherwise.
+    if (patch.requires_consent === false) {
+      const { data: cat } = await supabase.from('sms_categories').select('traffic_class').eq('key', req.params.key).maybeSingle();
+      if (cat?.traffic_class === 'marketing') return fail(res, 400, 'VALIDATION_ERROR', 'Marketing texts always require consent.');
+    }
     patch.updated_at = new Date().toISOString();
     patch.updated_by = req.user.id;
     const { data, error } = await supabase.from('sms_categories').update(patch).eq('key', req.params.key).select('*').maybeSingle();

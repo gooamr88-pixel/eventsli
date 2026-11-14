@@ -34,6 +34,8 @@ export const PUBLIC_PAGES = [
   { path: '/terms', changeFrequency: 'yearly', priority: 0.3 },
   { path: '/terms/organizer', changeFrequency: 'yearly', priority: 0.3 },
   { path: '/privacy', changeFrequency: 'yearly', priority: 0.3 },
+  // The public opt-in page carriers ask for in a toll-free / 10DLC registration.
+  { path: '/sms-terms', changeFrequency: 'yearly', priority: 0.3 },
 ];
 
 /**
@@ -130,6 +132,7 @@ export const FOOTER_GROUPS = [
       { path: '/terms', label: 'Ticket terms' },
       { path: '/terms/organizer', label: 'Organizer agreement' },
       { path: '/privacy', label: 'Privacy policy' },
+      { path: '/sms-terms', label: 'Text message terms' },
     ],
   },
 ];

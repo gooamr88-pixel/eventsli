@@ -136,6 +136,7 @@ router.delete('/sms/senders/:id', SUPER, UUID(), validate, cfg.deleteSender);
 router.get('/sms/categories', cfg.listCategories);
 router.patch('/sms/categories/:key', SUPER, param('key').isIn(['participant', 'event_notification', 'marketing', 'segmentation']),
   body('enabled').optional().isBoolean(), body('requiresApproval').optional().isBoolean(),
+  body('requiresConsent').optional().isBoolean({ strict: true }),
   body('minRole').optional().isIn(['admin', 'super_admin']),
   body('perRecipientDailyLimit').optional().isInt({ min: 1, max: 100 }),
   body('respectQuietHours').optional().isBoolean(), body('maxSegments').optional().isInt({ min: 1, max: 10 }),

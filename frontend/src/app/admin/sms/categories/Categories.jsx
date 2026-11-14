@@ -28,6 +28,7 @@ function CategoryCard({ c, canEdit, onSaved }) {
   const [f, setF] = useState({
     minRole: c.minRole, requiresApproval: c.requiresApproval, perRecipientDailyLimit: String(c.perRecipientDailyLimit),
     respectQuietHours: c.respectQuietHours, maxSegments: String(c.maxSegments),
+    requiresConsent: c.requiresConsent,
   });
   const [busy, setBusy] = useState(false);
   const set = (k) => (e) => setF((s) => ({ ...s, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }));
@@ -67,6 +68,10 @@ function CategoryCard({ c, canEdit, onSaved }) {
             <label className="es-smscheck"><input type="checkbox" checked={f.respectQuietHours} onChange={set('respectQuietHours')} /><span>Hold during the recipient’s quiet hours</span></label>
             {marketing && (
               <label className="es-smscheck"><input type="checkbox" checked={f.requiresApproval} onChange={set('requiresApproval')} /><span>Campaigns need a second admin’s approval</span></label>
+            )}
+            {!marketing && (
+              <label className="es-smscheck"><input type="checkbox" checked={f.requiresConsent} onChange={set('requiresConsent')} />
+                <span>Only text people who agreed to texts about their tickets (recommended; untick only where every enabled country’s law allows it)</span></label>
             )}
           </div>
         </fieldset>

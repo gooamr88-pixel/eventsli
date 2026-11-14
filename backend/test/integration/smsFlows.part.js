@@ -445,6 +445,20 @@ module.exports = function smsFlows(ctx) {
     await supabase.from('sms_messages').delete().eq('id', late.id);
   });
 
+  test('categories: transactional consent can be required or relaxed; marketing consent cannot be relaxed', async () => {
+    let r = await call('PATCH', '/admin/sms/categories/participant', { requiresConsent: false }, cookies.admin);
+    assert.equal(r.status, 403, 'a super admin decision');
+    r = await call('PATCH', '/admin/sms/categories/participant', { requiresConsent: false }, cookies.super);
+    assert.equal(r.status, 200, r.text);
+    assert.equal(r.body.data.requiresConsent, false);
+    r = await call('PATCH', '/admin/sms/categories/participant', { requiresConsent: true }, cookies.super);
+    assert.equal(r.body.data.requiresConsent, true);
+    r = await call('PATCH', '/admin/sms/categories/marketing', { requiresConsent: false }, cookies.super);
+    assert.equal(r.status, 400, 'marketing always requires consent');
+    const { data } = await supabase.from('sms_categories').select('requires_consent').eq('key', 'marketing').single();
+    assert.equal(data.requires_consent, true);
+  });
+
   test('flows: clean up', async () => {
     const campaignsMade = [flow.platformCampaign, flow.orgCampaign, flow.orgCampaign2].filter(Boolean);
     if (campaignsMade.length) {

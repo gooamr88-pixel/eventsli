@@ -29,7 +29,7 @@ export const metadata = {
   description: 'What Eventsli collects, why, who it is shared with, where it is stored, and the choices you have.',
 };
 
-const UPDATED = '18 October 2026';
+const UPDATED = '13 November 2026';
 
 const SUMMARY = [
   'We collect what it takes to sell, deliver and check tickets, and to run an organizer account. Nothing for advertising.',
@@ -45,7 +45,8 @@ const COLLECTED = [
     rows: [
       ['Your email address', 'To send your tickets and receipt, and to let you find them again. Required.'],
       ['Your name', 'Printed on the ticket and given to the organizer so they can admit you at the door.'],
-      ['Your phone number', 'Optional. Only if you give it, and only passed to the organizer of the event you bought from.'],
+      ['Your phone number', 'Optional. Only if you give it. It is passed to the organizer of the event you bought from, and used for texts only if you tick a box asking for them.'],
+      ['Your text message choices', 'If you agree to texts: which kinds you agreed to, the exact words beside the box, when, and a hashed form of your IP address, kept as evidence of your consent. Also every STOP, START or HELP you reply.'],
       ['What you bought', 'The event, the seats or ticket types, the amounts, any discount code, and when. Kept as a financial record.'],
       ['Check-in at the door', 'When your ticket was scanned, and by which door device or staff member. Stops a ticket being used twice.'],
       ['Ticket transfers', 'If you pass a ticket on, the email address you gave it to and when. Both of you are told by email.'],
@@ -86,6 +87,7 @@ const COLLECTED = [
 const USES = [
   ['To provide the service', 'Selling and delivering tickets, letting you in at the door, running organizer accounts, paying organizers and charging commission.'],
   ['To send you email about your activity', 'Tickets, receipts, transfers, sign-in codes and, for organizers, approvals, invoices and door-team notices. We do not send marketing email.'],
+  ['To send you texts, if you asked for them', 'Ticket confirmations, reminders and changes, and news and offers only if you ticked the box for them. Reply STOP to any text to stop. See our text message terms.'],
   ['To keep accounts and payments safe', 'Spotting repeated sign-in failures, stopping duplicate or fraudulent tickets, and keeping an audit trail of what administrators change.'],
   ['To meet legal and tax obligations', 'Keeping financial records, and answering lawful requests.'],
   ['To understand use of the site', 'Only the anonymous daily visit counts above.'],
@@ -100,6 +102,7 @@ const SHARED = [
   ['Google', 'Only in three cases. If you choose to sign in with Google, to confirm who you are. For organizers, the venue name typed into venue search, to suggest the place. For organizers who use "Create with AI", the event description or the event poster image (with an optional note), which Google Gemini turns into a draft. And for anyone who uses the Eventsli assistant on the homepage, the questions they type. We use Gemini’s free tier, and on that tier Google may use what it is sent to improve its products.', 'United States and other countries'],
   ['Groq', 'When Gemini cannot answer: the same event description or poster image for "Create with AI", or the same question for the Eventsli assistant. Groq says it does not keep it, except for up to 30 days when investigating abuse or a reliability problem.', 'United States'],
   ['OpenStreetMap', 'When you open the map on an event page, your browser loads it from OpenStreetMap, which sees your IP address. We send no referrer.', 'OpenStreetMap Foundation, United Kingdom'],
+  ['Twilio and Vonage', 'Only if you agreed to texts: they deliver them. They receive your mobile number and the text of each message, and tell us whether it was delivered and pass on your replies such as STOP. Your number and your consent to texts are not shared with anyone for their own marketing.', 'United States and other countries'],
   ['YouTube and Vimeo', 'Only if you press play on a video on our homepage. Nothing is loaded from them before you do.', 'United States'],
 ];
 
@@ -111,6 +114,7 @@ const RETENTION = [
   ['Visit counts', 'Kept as daily totals. The hashes in them change every day and identify no one.'],
   ['Server request logs', 'Deleted automatically after a short period.'],
   ['AI draft usage', 'Kept with the organizer account and deleted with it.'],
+  ['Text messages', 'The text of each message can be removed after a set period, while the record that it was sent stays. Your consent and opt-out records are kept as long as we might text your number, as evidence of what you agreed to.'],
 ];
 
 const RIGHTS = [
