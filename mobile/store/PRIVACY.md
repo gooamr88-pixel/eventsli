@@ -28,8 +28,9 @@ tracking and shows no ads.
 (`enableNative: false`), no session pings, no user, no install id, no IP
 inference (`sendDefaultPii: false`). Every report and timing passes the
 scrubber, which removes tokens, email addresses, ids, URL query strings, guest
-fields and Sentry's own `http.query` span data. With no DSN — the state today —
-nothing is sent to Sentry at all.
+fields and Sentry's own `http.query` span data. **Owner decision, 2026-11-14:
+Sentry is switched on for store builds**, once the DPA is accepted and the DSN
+is set (RELEASE.md step 0). Until a build carries the DSN, nothing is sent.
 
 ## Apple — App Privacy
 
@@ -42,25 +43,23 @@ Tracking: **No.** Data used to track you: **none.**
 | User Content → Other User Content *(check-in records)* | Yes | Yes | App Functionality |
 | Search History *(Find Guest searches: sent with the door's token, and kept briefly in server request logs)* | Yes | Yes | App Functionality |
 | Identifiers → Device ID *(Expo's random update-check id)* | Yes | No | App Functionality |
-| Diagnostics → Crash Data *(only with a Sentry DSN)* | Yes | No | App Functionality |
-| Diagnostics → Performance Data *(only with a Sentry DSN)* | Yes | No | App Functionality |
+| Diagnostics → Crash Data *(Sentry)* | Yes | No | App Functionality |
+| Diagnostics → Performance Data *(Sentry: scan timings)* | Yes | No | App Functionality |
 
-If the build ships **without** a Sentry DSN, Crash Data and Performance Data
-may be answered "not collected". Answering "collected" anyway is safe; the
-reverse is not. Keep the questionnaire and `ios.privacyManifests` in step.
+Keep the questionnaire and `ios.privacyManifests` in step (they match today).
 
 ## Google Play — Data safety
 
-- Data collected: **yes**. Data shared with third parties: **PENDING — do not
-  answer "no" yet** (PRIVACY-AUDIT-FINAL.md, F5, checked 2026-11-14):
-  - **Sentry** has a DPA (processor), but it only applies once accepted in the
-    Sentry organization. Accept it before any DSN is built in. Until then
-    nothing is sent to Sentry.
-  - **Expo** publishes no DPA, and its privacy policy does not say it is a
-    processor of the EAS Update data. Until Expo confirms in writing, either
-    answer **"shared"** for *Device or other IDs* (with Expo), or turn EAS
-    Update off (`"updates": { "enabled": false }`), in which case nothing goes
-    to Expo and "no" is correct.
+- Data collected: **yes**. Data shared with third parties: **yes — only
+  *Device or other IDs*, with Expo** (owner decision A, 2026-11-14; F5).
+  - **Expo** publishes no DPA and does not say it is a processor of the EAS
+    Update data, so its update-check id is declared as **shared**. The owner
+    has asked Expo for a DPA; if Expo confirms it acts only on Eventsli's
+    behalf, change that row to "not shared" (the form can be edited at any
+    time).
+  - **Sentry** is a processor under its DPA, so crash logs and diagnostics are
+    **collected, not shared** — *provided the DPA is accepted in the Sentry
+    organization before the DSN goes into a build.*
 - Encrypted in transit: **yes** (store builds refuse any address that is not
   HTTPS: `src/api/client.ts`, ATS, no cleartext on Android release builds).
 - Users can ask for their data to be deleted: **yes**, by email (see the
@@ -68,15 +67,17 @@ reverse is not. Keep the questionnaire and `ios.privacyManifests` in step.
   procedure is `ACCOUNT-DELETION-RUNBOOK.md`. Records the law requires
   (orders, tickets, invoices) are anonymized or retained, not deleted.
 
-| Category → type | Collected | Optional | Purposes |
-|---|---|---|---|
-| Personal info → Name | Yes | No | App functionality, Account management |
-| Personal info → Email address | Yes | No | App functionality, Account management |
-| App activity → In-app search history *(Find Guest)* | Yes | Yes | App functionality |
-| App activity → Other actions *(check-ins)* | Yes | No | App functionality |
-| Device or other IDs *(Expo's update-check id)* | Yes | No | App functionality |
-| App info and performance → Crash logs *(only with a Sentry DSN)* | Yes | No | App functionality |
-| App info and performance → Diagnostics *(only with a Sentry DSN)* | Yes | No | App functionality |
+| Category → type | Collected | Shared | Optional | Purposes |
+|---|---|---|---|---|
+| Personal info → Name | Yes | No | No | App functionality, Account management |
+| Personal info → Email address | Yes | No | No | App functionality, Account management |
+| App activity → In-app search history *(Find Guest)* | Yes | No | Yes | App functionality |
+| App activity → Other actions *(check-ins)* | Yes | No | No | App functionality |
+| Device or other IDs *(Expo's update-check id)* | Yes | **Yes (Expo)** | No | App functionality |
+| App info and performance → Crash logs *(Sentry)* | Yes | No | No | App functionality |
+| App info and performance → Diagnostics *(Sentry: scan timings)* | Yes | No | No | App functionality |
+
+For every row: data is encrypted in transit; it is not processed ephemerally.
 
 ## The iOS privacy manifest
 
@@ -181,28 +182,28 @@ Retention rows to add or change (fill the bracketed values once decided and
 checked on the server):
 
 > Check-in records (which ticket was scanned, when, at which door): the
-> detailed log is deleted [90] days after the event, unless it is needed for
+> detailed log is deleted 90 days after the event, unless it is needed for
 > an unresolved dispute or a legal claim. That a ticket was used stays with
 > the order record.
 >
-> Server request logs: kept for [14] days, without the search terms or other
+> Server request logs: kept for 14 days, without the search terms or other
 > parts of the address after the "?".
 >
 > Your account: when you ask us to close it, we delete your sign-ins and door
 > access and remove your name, email and phone from your profile. Orders,
 > tickets and invoices that tax law requires us to keep are kept for that
 > period, then deleted. Copies in our backups are deleted when the backups
-> expire, within [N] days.
+> expire, within 8 days.
 
 Add to the processors list:
 
 > **Expo (650 Industries)** — delivers updates to the Eventsli Check-in app.
 > Sees a random app identifier, the app version and the network address of
-> each phone that checks for an update. United States. *(Wording depends on
-> Expo's answer about its role — F5. If EAS Update is turned off, remove this
-> entry and the Expo sentence in the app section.)*
+> each phone that checks for an update, and uses them under its own privacy
+> policy. United States. *(If Expo later confirms it acts only on Eventsli's
+> behalf, the last clause can go.)*
 >
-> **Sentry (Functional Software)** — receives crash reports from the Eventsli
-> Check-in app, with names, email addresses, ticket codes and searches removed
-> on the phone first. United States. *(Only once crash reporting is switched
-> on.)*
+> **Sentry (Functional Software)** — receives crash reports and scan timings
+> from the Eventsli Check-in app, with names, email addresses, ticket codes,
+> ids and searches removed on the phone first, and without the network
+> address. Kept for 30 days. United States.

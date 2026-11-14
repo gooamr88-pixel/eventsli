@@ -11,16 +11,24 @@ the owner has. Steps marked **(approval)** change production.
 | Expo account `yousef424`, EAS project `582d60ea-…` | Builds, submissions, updates | Done (`eas init`) |
 | Apple Developer Program, **individual** (owner's choice, 2026-11-14) | iOS builds, TestFlight, App Store. The store shows the owner's **legal name** as seller, not "Eventsli". | Owner has it |
 | Google Play Console, **personal** account (owner's choice) | Android. A personal account made after Nov 2023 must run a **closed test: ≥ 12 testers opted in for 14 days in a row** before it can apply for production. Run the door-team pilot as that test (step 2). | Owner has it |
-| Data processing agreements with Expo and Sentry | Lets the store forms say "not shared with third parties" (store/PRIVACY.md) | To confirm |
-| Sentry organization and project (React Native) | Crash reports; gives the DSN and an auth token | To do |
+| Data processing agreements | Sentry: accepted by the owner. Expo: none published; asked; Google form says "shared" (store/PRIVACY.md) | Sentry done · Expo waiting |
+| Sentry organization `via-aq`, project `eventsli-checkin` (US region) | Crash reports | Done 2026-11-14 |
 | GitHub secret `EXPO_TOKEN` | Only if CI should start EAS builds | Optional |
 
-Sentry, once it exists, on EAS (`eas env:create`, or expo.dev → Environment variables):
-- `EXPO_PUBLIC_SENTRY_DSN` (production and preview). Without it, crash
-  reporting stays off.
-- `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN` (secret), for source
-  maps.
-- Then remove `SENTRY_DISABLE_AUTO_UPLOAD` from the profiles in `eas.json`.
+Sentry, as set up on 2026-11-14:
+- The DSN is in `eas.json` (`preview` and `production` env). It is public by
+  design, and keeping it there means `scripts/eas-update.js` sends it with
+  every update too. `development` builds have none, so they report nothing.
+- `organization` / `project` are options of the `@sentry/react-native` plugin
+  in `app.json`.
+- `SENTRY_AUTH_TOKEN` is an EAS environment variable (Secret, production),
+  set by the owner on expo.dev. Each profile names its `environment` in
+  `eas.json`, so production builds receive it and upload source maps.
+- `preview` keeps `SENTRY_DISABLE_AUTO_UPLOAD`: it reports crashes but uploads
+  no source maps, unless the token is also added to the preview environment
+  (then remove that line).
+- Sentry settings: DPA accepted; Security & Privacy → "Prevent Storing of IP
+  Addresses" on; default scrubbers on. Free plan keeps errors 30 days.
 
 ## 1. Production backend (approval)
 

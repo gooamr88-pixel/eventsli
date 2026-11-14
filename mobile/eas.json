@@ -7,6 +7,7 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
+      "environment": "development",
       "android": {
         "buildType": "apk"
       },
@@ -18,20 +19,25 @@
     },
     "preview": {
       "distribution": "internal",
+      "environment": "preview",
       "android": {
         "buildType": "apk"
       },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://eventsli.com/api/v1",
+        "EXPO_PUBLIC_SENTRY_DSN": "https://dc442ec9f03daa9d5cf9fcbc3bdbf0a6@o4512432217980928.ingest.us.sentry.io/4512432265887744",
+        "EXPO_PUBLIC_SENTRY_ENVIRONMENT": "preview",
         "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       },
       "channel": "preview"
     },
     "production": {
       "autoIncrement": true,
+      "environment": "production",
       "env": {
         "EXPO_PUBLIC_API_URL": "https://eventsli.com/api/v1",
-        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
+        "EXPO_PUBLIC_SENTRY_DSN": "https://dc442ec9f03daa9d5cf9fcbc3bdbf0a6@o4512432217980928.ingest.us.sentry.io/4512432265887744",
+        "EXPO_PUBLIC_SENTRY_ENVIRONMENT": "production"
       },
       "channel": "production"
     }

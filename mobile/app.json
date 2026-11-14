@@ -157,7 +157,14 @@
       "expo-font",
       "expo-web-browser",
       "expo-asset",
-      "@sentry/react-native",
+      [
+        "@sentry/react-native",
+        {
+          "organization": "via-aq",
+          "project": "eventsli-checkin",
+          "url": "https://sentry.io/"
+        }
+      ],
       "expo-status-bar"
     ],
     "experiments": {

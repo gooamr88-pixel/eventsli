@@ -129,7 +129,7 @@ production before running (`\d profiles`). Rehearse on a local copy first.
 
 | Where | What is there | What to do | Honest status |
 |---|---|---|---|
-| Database backups (Supabase) | Everything above, as of each backup | Nothing can be removed from a backup | **In backups until they expire** (confirm the plan's backup/PITR window in the Supabase dashboard and state it) |
+| Database backups (Supabase) | Everything above, as of each backup | Nothing can be removed from a backup | **In backups until they expire.** Checked 2026-11-14: Supabase Pro, daily physical backups, 7 kept, no point-in-time recovery, so data is out of every backup **within 8 days** of the deletion. (Storage objects such as images are not in these backups.) Re-check if the plan or PITR changes |
 | nginx access logs | IP address, request paths; **guest search text** while query strings are logged (PRIVACY-AUDIT-FINAL.md, P-F2) | Nothing per person | Deleted when the log rotates out (default logrotate keeps 14 days — **unverified** on the server) |
 | pm2 logs (`logs/backend-*.log`) | Application events: ids, no passwords or tokens (redacted) | Nothing per person | **No rotation configured in the repository** — retention unknown until checked on the server |
 | Brevo (email) | Emails sent to the address | Delete the contact in Brevo | Per Brevo's retention |
@@ -151,6 +151,6 @@ SELECT count(*) FROM profiles WHERE lower(email) = lower('<original email>');   
 Then try to sign in with the old email on the website and in the app: both
 must refuse. Reply to the person, in plain words, with: what was deleted,
 what was anonymized, what is retained and why (with the period), and that
-backups expire after <window>. Record the completion date in the private log.
+copies in backups are gone within 8 days. Record the completion date in the private log.
 Answer within the legal deadline that applies (for example 30 days under
 GDPR; PIPEDA requires a reasonable time).

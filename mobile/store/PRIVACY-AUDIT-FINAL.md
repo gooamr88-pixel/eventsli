@@ -206,15 +206,26 @@ visible in the data.
 
 ## Owner and legal decisions still required
 
-1. **Retention period** for check-in logs (proposed 90 days after the event),
-   and whether conflicts need a resolution workflow so they can expire too.
-2. **Apply** migration `20261118090000` in production, run the dry run, then
-   enable `report`, then `delete` (F1 steps).
-3. **nginx**: apply the no-query log format; decide whether to delete existing
-   access logs; confirm logrotate and pm2 log retention, and put the real
-   numbers in the policy.
-4. **Expo**: request a DPA / processor confirmation — or answer "shared", or
-   turn EAS Update off. **Sentry**: accept its DPA before any DSN is set.
+1. ~~Retention period~~ **Decided by the owner, 2026-11-14: 90 days.** Still
+   open: whether conflicts need a resolution workflow so they can expire too.
+2. ~~Apply migration, dry run, report, delete~~ **Done in production by the
+   owner, 2026-11-14** (owner's report; not seen from here).
+3. ~~nginx and log retention~~ **Done by the owner, 2026-11-14:**
+   - `log_format eventsli_noquery` lives in `/etc/nginx/conf.d/eventsli-logformat.conf`.
+   - `access_log /var/log/nginx/eventsli.access.log eventsli_noquery` is in the
+     443 block of `/etc/nginx/sites-enabled/eventsli` (a symlink, which is why
+     `grep -r` missed it).
+   - Guest-search lines were removed from `access.log` and `access.log.1`; the
+     `.gz` files had none.
+   - Retention: nginx daily, keeps 14; app logs via system logrotate and
+     pm2-logrotate, 14 days.
+   - Final check: a test request must log without `?q=`.
+4. **Decided by the owner, 2026-11-14:**
+   - **Expo:** option A. Google's form says Device IDs are **shared** with
+     Expo; the owner also asks Expo for a DPA. EAS Update stays on.
+   - **Sentry:** switched **on**. The owner accepts the DPA, creates the
+     project and sets the auth token; then the DSN, organization and project
+     go into eas.json and app.json.
 5. **Account deletion runbook**: counsel review, then one rehearsal on a copy
    of the database.
 6. **Privacy policy**: counsel review of the draft in `PRIVACY.md`, then
