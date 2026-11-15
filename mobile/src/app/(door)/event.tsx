@@ -180,7 +180,7 @@ const styles = StyleSheet.create({
   coverEmpty: { alignItems: 'center', justifyContent: 'center', backgroundColor: colors.night },
   back: {
     position: 'absolute', left: space.md, width: 42, height: 42, borderRadius: 21,
-    alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(6, 30, 32, 0.45)',
+    alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(17, 16, 24, 0.45)',
   },
   body: {
     marginTop: -24, borderTopLeftRadius: radius.xl + 4, borderTopRightRadius: radius.xl + 4,

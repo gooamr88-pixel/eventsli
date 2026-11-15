@@ -99,11 +99,15 @@ function gateTile(size, { radius = 0, safe = false } = {}) {
     `M${k(400)} ${k(316)}V${k(372)}a${q} ${q} 0 0 1 -${q} ${q}H${k(316)}`,
     `M${k(196)} ${k(400)}H${k(140)}a${q} ${q} 0 0 1 -${q} -${q}V${k(316)}`,
   ].map(corner).join('');
+  // Centred on the CARD, not on the viewBox: the mark's viewBox starts at
+  // y = -121 and is as tall as the word, so placing it by its box put the
+  // ticket high, over the top brackets (fixed 2026-11-15). The card itself is
+  // 119 wide, centred at (59.5, -39.5). mobile/scripts/brand-mark.js draws the
+  // app's icon with the same geometry.
   const m = 176 * s;
-  const mh = (m * MH) / MW;
   return `<div style="width:${size}px;height:${size}px;border-radius:${radius}px;background:${INK};overflow:hidden">
     <svg viewBox="0 0 512 512" width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">${brackets}
-      <g transform="translate(${(256 - m / 2).toFixed(1)} ${(256 - mh / 2).toFixed(1)}) scale(${(m / MW).toFixed(4)})">
+      <g transform="translate(256 256) scale(${(m / 119).toFixed(4)}) translate(-59.5 39.5)">
         <path d="${FRAME}" fill="${YELLOW}"/><path d="${INITIAL}" fill="${INK}"/></g></svg></div>`;
 }
 

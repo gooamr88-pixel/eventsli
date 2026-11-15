@@ -276,7 +276,7 @@ function SheetFrame({
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: space.xl },
   bottom: { flex: 1, justifyContent: 'flex-end' },
-  backdrop: { backgroundColor: 'rgba(6, 30, 32, 0.55)' },
+  backdrop: { backgroundColor: 'rgba(17, 16, 24, 0.55)' },
   dialog: {
     width: '100%', maxWidth: 380, backgroundColor: colors.surface, borderRadius: radius.xl,
     paddingHorizontal: space.xl, paddingTop: space.xl, paddingBottom: space.lg, gap: space.sm, alignItems: 'stretch',

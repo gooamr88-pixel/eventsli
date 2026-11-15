@@ -170,7 +170,7 @@ const styles = StyleSheet.create({
   badges: { alignItems: 'center', gap: space.xs },
   badge: {
     flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: space.md, paddingVertical: 6,
-    borderRadius: radius.pill, backgroundColor: 'rgba(13,91,94,0.92)',
+    borderRadius: radius.pill, backgroundColor: 'rgba(17,16,24,0.88)',
   },
   bottom: { position: 'absolute', left: space.lg, right: space.lg, bottom: space.xl, gap: space.md, alignItems: 'center' },
   hint: { fontSize: 16, lineHeight: 23 },

@@ -11,7 +11,7 @@ import { Text } from './Text';
 import { colors, radius, shadow, space, tones, type Tone } from './theme';
 
 /**
- * A screen in the mockup's style: the near-white background with mint waves
+ * A screen in the mockup's style: the near-white background with coral and yellow waves
  * in the corner, the safe area, optional scroll, an optional footer (the
  * primary button) and an optional bottom bar (the tab bar).
  */
@@ -224,8 +224,8 @@ export function StatusIcon({ kind, icon }: { kind: Badge; icon?: IconName }) {
 
 function Confetti() {
   const bits: [number, number, string, number][] = [
-    [-74, -30, '#f5b83d', 20], [70, -40, '#e5484d', -30], [-80, 22, '#3f9599', 0], [82, 14, '#3f9599', 45],
-    [-44, -60, '#3f9599', 60], [46, -62, '#f5b83d', -20], [-58, 52, '#e5484d', 30], [60, 50, '#f5b83d', 10],
+    [-74, -30, '#ffcc00', 20], [70, -40, '#ff414b', -30], [-80, 22, '#111018', 0], [82, 14, '#111018', 45],
+    [-44, -60, '#111018', 60], [46, -62, '#ffcc00', -20], [-58, 52, '#ff414b', 30], [60, 50, '#ffcc00', 10],
   ];
   return (
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>

@@ -180,9 +180,9 @@ export default function Dashboard() {
           <Svg style={StyleSheet.absoluteFill} accessible={false}>
             <Defs>
               <LinearGradient id="shade" x1="0" y1="0" x2="0" y2="1">
-                <Stop offset="0" stopColor="#061e20" stopOpacity="0.55" />
-                <Stop offset="0.45" stopColor="#061e20" stopOpacity="0.15" />
-                <Stop offset="1" stopColor="#061e20" stopOpacity="0.85" />
+                <Stop offset="0" stopColor="#111018" stopOpacity="0.55" />
+                <Stop offset="0.45" stopColor="#111018" stopOpacity="0.15" />
+                <Stop offset="1" stopColor="#111018" stopOpacity="0.85" />
               </LinearGradient>
             </Defs>
             <Rect x="0" y="0" width="100%" height="100%" fill="url(#shade)" />
@@ -361,7 +361,7 @@ const styles = StyleSheet.create({
   heroBar: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: space.md },
   heroButton: {
     width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: 'rgba(6, 30, 32, 0.35)',
+    backgroundColor: 'rgba(17, 16, 24, 0.35)',
   },
   heroText: { paddingHorizontal: space.xl, paddingBottom: 56, gap: space.sm },
   heroTitle: { fontFamily: 'Urbanist_900Black', fontSize: 27, lineHeight: 33, color: colors.white },

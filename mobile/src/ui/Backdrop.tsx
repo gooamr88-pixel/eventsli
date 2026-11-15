@@ -4,7 +4,7 @@ import Svg, { Path } from 'react-native-svg';
 import { colors } from './theme';
 
 /**
- * The soft mint waves in the mockup's corners: top right on every light
+ * The soft coral and yellow waves in the mockup's corners: top right on every light
  * screen, and bottom left on the full-screen answers. Drawn behind
  * everything and never touched.
  */

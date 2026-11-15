@@ -15942,3 +15942,17 @@ label.es-chip:has(:focus-visible) { outline: 2px solid var(--es-accent); outline
 .es-ptk__scan { margin: 0; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ptk-ink); }
 
 }   /* end @layer components — order confirmation */
+
+/* ── The workspace chip beside the sidebar logo (2026-11-15) ─────────────
+   The sidebar is 272px, 240px inside its padding. The logo at its own size
+   (~166px) and "SUPER ADMIN" (~100px) did not fit side by side, and the chip
+   was cut off at the panel's edge. The logo is drawn a step smaller here
+   (28px: ~123px wide), which leaves room for the longest label, and the row
+   may wrap, so a longer label someday drops under the logo instead of being
+   cut off. */
+@layer components {
+  .es-nav__brand { flex-wrap: wrap; row-gap: 0.5rem; }
+  .es-nav__brand > a { min-width: 0; }
+  .es-nav__brand .es-logo { --es-logo-h: 1.75rem; }
+  .es-nav__role { letter-spacing: 0.04em; }
+}
