@@ -13,13 +13,13 @@ changes, regenerate them (see the end of this page).
 
 | File | Use it on |
 |---|---|
-| `eventsli-logo-full-colour.svg` / `.png` | White or light backgrounds. The primary logo. |
+| `eventsli-logo-full-colour.svg` / `.png` | White or light backgrounds. The primary logo: the E-ticket and the word. |
 | `eventsli-logo-full-colour-no-tagline.svg` | Small sizes, where the tagline would be too small to read. |
-| `eventsli-logo-white.svg` / `.png` | Dark backgrounds and photographs. The word is white; the ticket stays yellow. |
+| `eventsli-logo-white.svg` / `.png` | Dark backgrounds and photographs. The word is white; the E-ticket stays yellow with its black E. |
 | `eventsli-logo-black.svg` / `.png` | One-colour printing: stamps, fax, engraving, newspaper ads. |
-| `eventsli-mark.svg` | The yellow ticket alone (stickers, social avatars, favicons). |
-| `eventsli-mark-black.svg` | The ticket alone, one colour. |
-| `eventsli-app-icon.svg` / `.png` | App icons and profile pictures: the yellow ticket on near-black. |
+| `eventsli-mark.svg` | The E-ticket alone (stickers, social avatars, favicons). |
+| `eventsli-mark-black.svg` | The E-ticket alone, one colour (the E knocked out). |
+| `eventsli-app-icon.svg` / `.png` | App icons and profile pictures: the E-ticket on near-black. |
 
 The SVG files are vectors and scale to any size, so prefer them for print. The
 PNGs are 2400 px wide (the icon is 1024 px), with transparent backgrounds.
@@ -34,7 +34,7 @@ The sheet's six colours. The website uses these exact values.
 | Name | HEX | RGB | Use |
 |---|---|---|---|
 | Pure White | `#FFFFFF` | 255 255 255 | Main background (about 70%) |
-| Sunshine Yellow | `#FFCC00` | 255 204 0 | Highlights, selected filters, the logo's ticket (about 15%) |
+| Sunshine Yellow | `#FFCC00` | 255 204 0 | Highlights, selected filters, the logo's E-ticket (about 15%) |
 | Coral Red | `#FF414B` | 255 65 75 | Calls to action (about 10%) |
 | Near Black | `#111018` | 17 16 24 | Headlines, navigation, the logo's word (about 5%) |
 | Soft Gray | `#EAEAEA` | 234 234 234 | Borders and dividers |
@@ -50,12 +50,18 @@ labels and small coral text on `#D61F2C`, or set them large and bold.
 **Yellow is never text** on a light background (`#FFCC00` on white is 1.5:1).
 Use it as a fill, with near-black words on it.
 
+## The mark
+
+The **E-ticket**: a yellow ticket (a rounded square with a notch in each side)
+with a near-black E on it. The E's middle bar ends in line with the right-hand
+notch, so the initial and the ticket read as one shape. The word beside it is
+Montserrat Bold, upright.
+
 ## Rules
 
-- **Clear space:** leave empty space around the logo at least as tall as the
-  ticket's star. Nothing else should sit inside it.
-- **Don't** stretch, squash or re-rotate the logo. The ticket's tilt is part of
-  the mark.
+- **Clear space:** leave empty space around the logo at least as wide as the
+  E's middle bar is long. Nothing else should sit inside it.
+- **Don't** stretch, squash or rotate the logo.
 - **Don't** add shadows, outlines, glows or other effects.
 - **Don't** change the colours. Use the full-colour version on light
   backgrounds, the white version on dark backgrounds and photographs, and the
@@ -64,8 +70,8 @@ Use it as a fill, with near-black words on it.
 
 ## Typefaces
 
-- **Montserrat** (ExtraBold, Black) for headlines. The wordmark is Montserrat
-  ExtraBold Italic, converted to outlines.
+- **Montserrat** (Bold, ExtraBold, Black) for headlines. The wordmark is
+  Montserrat Bold, converted to outlines.
 - **DM Sans** for body text, forms and small labels.
 
 Both are free from Google Fonts.
@@ -78,7 +84,7 @@ built from what it writes:
 ```
 cd frontend
 npm install --no-save opentype.js@1.3.4   # once; outlines the word and tagline
-node scripts/brandLogo.js                 # the ticket and the word (markPath.js, wordmarkPath.js)
+node scripts/brandLogo.js                 # the E-ticket and the word (markPath.js, wordmarkPath.js)
 node scripts/brandKit.js                  # this folder
 node scripts/brandIcons.js                # the website's favicon tile, app icons and share image
 ```

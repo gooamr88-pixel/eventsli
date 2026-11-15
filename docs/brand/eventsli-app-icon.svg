@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Eventsli — app icon (the yellow ticket on near-black). Generated from the product's logo source. -->
+<!-- Eventsli — app icon (the E-ticket on near-black). Generated from the product's logo source. -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
   <title>Eventsli</title>
   <rect width="1024" height="1024" fill="#111018"/>
-  <g transform="translate(174.1 252.6) scale(1.4139)">
-    <path d="M32.2 76.2L384.3 1.3A40 40 0 0 1 431.7 32.1L445 94.7A44 44 0 0 0 463.3 180.8L476.6 243.4A40 40 0 0 1 445.8 290.8L93.7 365.7A40 40 0 0 1 46.3 334.9L33 272.3A44 44 0 0 0 14.7 186.2L1.4 123.6A40 40 0 0 1 32.2 76.2Z" fill="#FFCC00"/>
-    <path d="M216.1 75.9L260 136.3L334.3 128.5L290.4 188.9L320.7 257.1L249.7 234.1L194.3 284L194.2 209.4L129.6 172L200.6 148.9Z" fill="#FFFFFF"/>
+  <g transform="translate(194.6 194.6) scale(1.3802)">
+    <path d="M100 0H360A100 100 0 0 1 460 100V180A50 50 0 0 0 460 280V360A100 100 0 0 1 360 460H100A100 100 0 0 1 0 360V280A50 50 0 0 0 0 180V100A100 100 0 0 1 100 0Z" fill="#FFCC00"/>
+    <path d="M130 115H330V170H190V202.5H295V257.5H190V290H330V345H130Z" fill="#111018"/>
   </g>
 </svg>

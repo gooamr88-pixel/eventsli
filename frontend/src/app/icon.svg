@@ -3,21 +3,19 @@
     The favicon, as a file convention: Next serves this at /icon.svg and links
     it in <head> on every page.
 
-    THE YELLOW TICKET, 2026-11-15. The two paths below are copied verbatim from
-    `components/brand/markPath.js` (scaled here); `test/logo.test.jsx` fails if
-    they ever differ, so the tab and the masthead cannot drift apart. Write it
-    again with scripts/brandIcons.js after a redraw.
+    THE E-TICKET, 2026-11-15. The two paths below are copied verbatim from
+    `components/brand/markPath.js` (a 460-unit grid, scaled here);
+    `test/logo.test.jsx` fails if they ever differ, so the tab and the masthead
+    cannot drift apart.
 
-    ON A NEAR-BLACK TILE rather than bare. The sheet's yellow is 1.5:1 on a
-    white tab bar and would all but vanish there; on the near-black it reads in
-    a light browser and a dark one alike.
+    BARE, with no tile. The near-black E on the yellow ticket is 12.5:1, so the
+    mark reads in a light tab bar and a dark one alike.
 
     The colours are written literally because this file is served on its own and
-    never sees a stylesheet: #111018 Near Black, #ffcc00 Sunshine Yellow.
+    never sees a stylesheet: #ffcc00 Sunshine Yellow, #111018 Near Black.
   -->
-  <rect width="32" height="32" rx="7" fill="#111018"/>
-  <g transform="translate(2.50 5.63) scale(0.0565)">
-    <path d="M32.2 76.2L384.3 1.3A40 40 0 0 1 431.7 32.1L445 94.7A44 44 0 0 0 463.3 180.8L476.6 243.4A40 40 0 0 1 445.8 290.8L93.7 365.7A40 40 0 0 1 46.3 334.9L33 272.3A44 44 0 0 0 14.7 186.2L1.4 123.6A40 40 0 0 1 32.2 76.2Z" fill="#ffcc00"/>
-    <path d="M216.1 75.9L260 136.3L334.3 128.5L290.4 188.9L320.7 257.1L249.7 234.1L194.3 284L194.2 209.4L129.6 172L200.6 148.9Z" fill="#ffffff"/>
+  <g transform="translate(0.5 0.5) scale(0.06739)">
+    <path d="M100 0H360A100 100 0 0 1 460 100V180A50 50 0 0 0 460 280V360A100 100 0 0 1 360 460H100A100 100 0 0 1 0 360V280A50 50 0 0 0 0 180V100A100 100 0 0 1 100 0Z" fill="#ffcc00"/>
+    <path d="M130 115H330V170H190V202.5H295V257.5H190V290H330V345H130Z" fill="#111018"/>
   </g>
 </svg>

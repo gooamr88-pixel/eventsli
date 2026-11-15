@@ -1,4 +1,4 @@
-import { MARK_FRAME, MARK_STAR, MARK_VIEWBOX } from '../brand/markPath';
+import { MARK_FRAME, MARK_INITIAL, MARK_VIEWBOX } from '../brand/markPath';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -86,7 +86,7 @@ export function brandQrSvg(rows, options) {
   const quiet = g.size + QUIET * 2;
   const logo = g.logo
     ? `<path d="${roundRect(g.logo.x + 0.3, g.logo.y + 0.3, g.logo.size - 0.6, g.logo.size - 0.6, 1.6)}" fill="#fff"/>`
-      + `<g transform="${markTransform(g.logo)}"><path d="${MARK_FRAME}" fill="${TICKET}"/><path d="${MARK_STAR}" fill="#fff"/></g>`
+      + `<g transform="${markTransform(g.logo)}"><path d="${MARK_FRAME}" fill="${TICKET}"/><path d="${MARK_INITIAL}" fill="${QR_INK}"/></g>`
     : '';
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${g.viewBox}" shape-rendering="geometricPrecision">`
     + `<rect x="${-QUIET}" y="${-QUIET}" width="${quiet}" height="${quiet}" rx="2" fill="#fff"/>`

@@ -14,9 +14,10 @@
  * so the kit cannot disagree with the site. Needs Playwright (or
  * playwright-core and an installed Chrome), as scripts/brandIcons.js does.
  *
- * THE WHITE / YELLOW / CORAL BRAND, 2026-11-15: the yellow ticket with a white
- * star, and "Eventsli" in Montserrat ExtraBold Italic, near-black. The ticket
- * stays yellow in every colour version except one-colour print.
+ * THE WHITE / YELLOW / CORAL BRAND, 2026-11-15: the E-ticket (a yellow ticket
+ * with a near-black E) and "Eventsli" in Montserrat Bold, near-black. The
+ * ticket stays yellow in every colour version except one-colour print, where
+ * the E is knocked out of a near-black ticket.
  * ═══════════════════════════════════════════════════════════════════════════ */
 const fs = require('node:fs');
 const path = require('node:path');
@@ -32,7 +33,7 @@ const readExport = (rel, name) => {
   return src.match(new RegExp(`export const ${name} = '([^']+)';`))[1];
 };
 const FRAME = readExport('src/app/components/brand/markPath.js', 'MARK_FRAME');
-const STAR = readExport('src/app/components/brand/markPath.js', 'MARK_STAR');
+const INITIAL = readExport('src/app/components/brand/markPath.js', 'MARK_INITIAL');
 const MARK_VB = readExport('src/app/components/brand/markPath.js', 'MARK_VIEWBOX');
 const EVENTS = readExport('src/app/components/brand/wordmarkPath.js', 'WORDMARK_EVENTS');
 const LI = readExport('src/app/components/brand/wordmarkPath.js', 'WORDMARK_LI');
@@ -78,11 +79,11 @@ function taglinePath(font, x0, baseline, size, length) {
  * Ticket + word, in the website's proportions (`.es-logo`): the ticket is 1.2 of
  * the word's height, the gap 0.3 of it, the tagline under the word.
  */
-function lockupSvg(font, { ticket, star, ink, tag, tagline = true, label }) {
+function lockupSvg(font, { ticket, initial, ink, tag, tagline = true, label }) {
   const k = 1;                          // the word at its own units
-  const tH = WH * 1.2;
+  const tH = WH * 1.3;
   const tW = (tH * MW) / MH;
-  const gap = WH * 0.3;
+  const gap = WH * 0.38;
   const wordX = tW + gap;
   const H = tagline ? WH + 51 : tH;
   const W = +(wordX + WW).toFixed(1);
@@ -97,7 +98,7 @@ function lockupSvg(font, { ticket, star, ink, tag, tagline = true, label }) {
   <title>Eventsli</title>
   <g transform="translate(0 ${markY.toFixed(2)}) scale(${(tH / MH).toFixed(4)})">
     <path d="${FRAME}" fill="${ticket}"/>
-    <path d="${STAR}" fill="${star}"/>
+    <path d="${INITIAL}" fill="${initial}"/>
   </g>
   <g transform="translate(${(wordX - WX * k).toFixed(1)} ${(wordY - WY).toFixed(1)})">
     <path d="${EVENTS}" fill="${ink}"/>
@@ -107,28 +108,28 @@ function lockupSvg(font, { ticket, star, ink, tag, tagline = true, label }) {
 `;
 }
 
-function markSvg({ ticket, star }, label) {
+function markSvg({ ticket, initial }, label) {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!-- Eventsli — ${label}. Generated from the product's logo source; do not edit by hand. -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="${MARK_VB}" width="${MW * 2}" height="${MH * 2}">
   <title>Eventsli</title>
   <path d="${FRAME}" fill="${ticket}"/>
-  <path d="${STAR}" fill="${star}"/>
+  <path d="${INITIAL}" fill="${initial}"/>
 </svg>
 `;
 }
 
 function appIconSvg() {
-  const w = 1024 * 0.66;
+  const w = 1024 * 0.62;
   const h = (w * MH) / MW;
   return `<?xml version="1.0" encoding="UTF-8"?>
-<!-- Eventsli — app icon (the yellow ticket on near-black). Generated from the product's logo source. -->
+<!-- Eventsli — app icon (the E-ticket on near-black). Generated from the product's logo source. -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
   <title>Eventsli</title>
   <rect width="1024" height="1024" fill="${INK}"/>
   <g transform="translate(${((1024 - w) / 2).toFixed(1)} ${((1024 - h) / 2).toFixed(1)}) scale(${(w / MW).toFixed(4)})">
     <path d="${FRAME}" fill="${YELLOW}"/>
-    <path d="${STAR}" fill="${WHITE}"/>
+    <path d="${INITIAL}" fill="${INK}"/>
   </g>
 </svg>
 `;
@@ -137,12 +138,12 @@ function appIconSvg() {
 (async () => {
   const font = await dmSans600();
   const files = {
-    'eventsli-logo-full-colour.svg': lockupSvg(font, { ticket: YELLOW, star: WHITE, ink: INK, tag: INK, label: 'primary logo, full colour, with tagline' }),
-    'eventsli-logo-full-colour-no-tagline.svg': lockupSvg(font, { ticket: YELLOW, star: WHITE, ink: INK, tagline: false, label: 'primary logo, full colour' }),
-    'eventsli-logo-black.svg': lockupSvg(font, { ticket: INK, star: WHITE, ink: INK, tag: INK, label: 'one colour (near-black), with tagline' }),
-    'eventsli-logo-white.svg': lockupSvg(font, { ticket: YELLOW, star: WHITE, ink: WHITE, tag: WHITE, label: 'reversed (white word, yellow ticket), with tagline — for dark grounds and photographs' }),
-    'eventsli-mark.svg': markSvg({ ticket: YELLOW, star: WHITE }, 'mark, full colour'),
-    'eventsli-mark-black.svg': markSvg({ ticket: INK, star: WHITE }, 'mark, one colour'),
+    'eventsli-logo-full-colour.svg': lockupSvg(font, { ticket: YELLOW, initial: INK, ink: INK, tag: INK, label: 'primary logo, full colour, with tagline' }),
+    'eventsli-logo-full-colour-no-tagline.svg': lockupSvg(font, { ticket: YELLOW, initial: INK, ink: INK, tagline: false, label: 'primary logo, full colour' }),
+    'eventsli-logo-black.svg': lockupSvg(font, { ticket: INK, initial: WHITE, ink: INK, tag: INK, label: 'one colour (near-black), with tagline' }),
+    'eventsli-logo-white.svg': lockupSvg(font, { ticket: YELLOW, initial: INK, ink: WHITE, tag: WHITE, label: 'reversed (white word, yellow ticket), with tagline — for dark grounds and photographs' }),
+    'eventsli-mark.svg': markSvg({ ticket: YELLOW, initial: INK }, 'mark, full colour'),
+    'eventsli-mark-black.svg': markSvg({ ticket: INK, initial: WHITE }, 'mark, one colour'),
     'eventsli-app-icon.svg': appIconSvg(),
   };
   for (const [name, svg] of Object.entries(files)) {

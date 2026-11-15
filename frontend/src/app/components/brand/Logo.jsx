@@ -1,19 +1,18 @@
 import { TAGLINE } from '../../lib/siteRoutes';
-import { MARK_FRAME, MARK_STAR, MARK_VIEWBOX } from './markPath';
+import { MARK_FRAME, MARK_INITIAL, MARK_VIEWBOX } from './markPath';
 import { WORDMARK_EVENTS, WORDMARK_LI, WORDMARK_VIEWBOX } from './wordmarkPath';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
- * The Eventsli logo: the yellow ticket with its star, the italic word, and the
- * optional tagline.
+ * The Eventsli logo: the E-ticket, the word, and the optional tagline.
  *
- * REDRAWN 2026-11-15 to the approved homepage concept. The mark is a tilted
- * sunshine-yellow ticket with a white star on it; the word is Montserrat
- * ExtraBold Italic in the sheet's near-black. Both are generated paths — see
+ * THE E-TICKET, the owner's choice on 2026-11-15: a sunshine-yellow ticket (a
+ * rounded square, notched on each side) with a near-black E on it; the word is
+ * upright Montserrat Bold in the sheet's near-black. Both are generated paths — see
  * scripts/brandLogo.js — not an <img> and not live text.
  *
  * THERE IS NO COLOUR PROP. Four CSS roles colour the logo (`--es-logo-mark`,
- * `--es-logo-star`, `--es-logo-ink`, `--es-logo-li`). They are the full-colour
+ * `--es-logo-initial`, `--es-logo-ink`, `--es-logo-li`). They are the full-colour
  * logo by default; the scopes that sit on a photograph, a dark ground or the
  * coral ticket stub turn the word white. The ticket stays yellow everywhere.
  * A caller can choose a size and whether the tagline shows. It cannot choose a
@@ -36,7 +35,7 @@ export function LogoMark({ className = '' }) {
   return (
     <svg className={`es-logo__mark ${className}`} viewBox={MARK_VIEWBOX} aria-hidden="true" focusable="false">
       <path className="es-logo__ticket" d={MARK_FRAME} />
-      <path className="es-logo__star" d={MARK_STAR} />
+      <path className="es-logo__initial" d={MARK_INITIAL} />
     </svg>
   );
 }
@@ -53,8 +52,8 @@ export function Wordmark({ tagline = false, className = '' }) {
       <path className="es-logo__li" d={WORDMARK_LI} />
       {tagline && (
         // x/y/textLength are in the word's own units: the line runs under the
-        // word from the E's stem to the i, allowing for the italic's lean.
-        <text className="es-logo__tagline" x={WX + 6} y={WY + WH + 47} textLength={Math.round(WW * 0.95)} lengthAdjust="spacing">
+        // word from the E's stem to the i.
+        <text className="es-logo__tagline" x={WX + 4} y={WY + WH + 47} textLength={Math.round(WW * 0.95)} lengthAdjust="spacing">
           {TAGLINE}
         </text>
       )}

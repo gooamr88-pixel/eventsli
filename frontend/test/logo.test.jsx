@@ -4,7 +4,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { render } from '@testing-library/react';
 import Logo from '../src/app/components/brand/Logo';
-import { MARK_FRAME, MARK_STAR } from '../src/app/components/brand/markPath';
+import { MARK_FRAME, MARK_INITIAL } from '../src/app/components/brand/markPath';
 import { WORDMARK_EVENTS, WORDMARK_LI } from '../src/app/components/brand/wordmarkPath';
 
 /**
@@ -26,10 +26,10 @@ describe('the logo', () => {
     expect(WORDMARK_EVENTS).not.toContain(WORDMARK_LI);
   });
 
-  test('the favicon carries the same ticket and star as the masthead', () => {
+  test('the favicon carries the same E-ticket as the masthead', () => {
     const icon = read('src', 'app', 'icon.svg');
     expect(icon).toContain(`d="${MARK_FRAME}"`);
-    expect(icon).toContain(`d="${MARK_STAR}"`);
+    expect(icon).toContain(`d="${MARK_INITIAL}"`);
     expect(icon).toContain('fill="#ffcc00"');
     expect(icon).toContain('fill="#111018"');
   });
@@ -84,7 +84,7 @@ describe('the brand values in globals.css', () => {
 
   test('the logo is full colour by default', () => {
     expect(value('--es-logo-mark')).toBe('var(--es-sun-400)');
-    expect(value('--es-logo-star')).toBe('#ffffff');
+    expect(value('--es-logo-initial')).toBe('var(--es-black)');
     expect(value('--es-logo-ink')).toBe('var(--es-black)');
   });
 

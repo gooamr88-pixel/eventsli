@@ -43,7 +43,7 @@ function readExport(rel, name) {
 }
 
 const FRAME = readExport('src/app/components/brand/markPath.js', 'MARK_FRAME');
-const STAR = readExport('src/app/components/brand/markPath.js', 'MARK_STAR');
+const INITIAL = readExport('src/app/components/brand/markPath.js', 'MARK_INITIAL');
 const MARK_VB = readExport('src/app/components/brand/markPath.js', 'MARK_VIEWBOX');
 const EVENTS = readExport('src/app/components/brand/wordmarkPath.js', 'WORDMARK_EVENTS');
 const LI = readExport('src/app/components/brand/wordmarkPath.js', 'WORDMARK_LI');
@@ -58,23 +58,23 @@ const MUTED = '#4a4a55';
 
 const [, , MW, MH] = MARK_VB.split(' ').map(Number);
 
-/** The ticket alone: yellow, its star white. */
-function mark({ ticket = YELLOW, star = '#ffffff' } = {}) {
+/** The E-ticket alone: yellow, its E near-black. */
+function mark({ ticket = YELLOW, initial = INK } = {}) {
   return `<svg viewBox="${MARK_VB}" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%;height:100%">`
-    + `<path d="${FRAME}" fill="${ticket}"/><path d="${STAR}" fill="${star}"/></svg>`;
+    + `<path d="${FRAME}" fill="${ticket}"/><path d="${INITIAL}" fill="${initial}"/></svg>`;
 }
 
-/** Ticket + word, in the proportions `.es-logo` uses (ticket 1.2 of the word height, gap 0.3). */
+/** Ticket + word, in the proportions `.es-logo` uses (ticket 1.3 of the word height, gap 0.38). */
 function lockup({ ink = INK, height = 60 } = {}) {
-  const tH = height * 1.2;
-  return `<div style="display:flex;align-items:center;gap:${height * 0.3}px">`
+  const tH = height * 1.3;
+  return `<div style="display:flex;align-items:center;gap:${height * 0.38}px">`
     + `<div style="height:${tH}px;width:${(tH * MW) / MH}px">${mark()}</div>`
     + `<svg viewBox="${WORD_VB}" style="height:${height}px" xmlns="http://www.w3.org/2000/svg">`
     + `<path d="${EVENTS}" fill="${ink}"/><path d="${LI}" fill="${ink}"/></svg></div>`;
 }
 
-/** The app tile: the full-colour ticket on the near-black. */
-function tile(size, { radius = 0, markScale = 0.66 } = {}) {
+/** The app tile: the full-colour E-ticket on the near-black. */
+function tile(size, { radius = 0, markScale = 0.62 } = {}) {
   const w = Math.round(size * markScale);
   return `<div style="width:${size}px;height:${size}px;border-radius:${radius}px;background:${INK};display:grid;place-items:center">
     <div style="width:${w}px;height:${(w * MH) / MW}px">${mark()}</div></div>`;
@@ -97,12 +97,12 @@ function gateTile(size, { radius = 0, safe = false } = {}) {
     `M${k(400)} ${k(316)}V${k(372)}a${q} ${q} 0 0 1 -${q} ${q}H${k(316)}`,
     `M${k(196)} ${k(400)}H${k(140)}a${q} ${q} 0 0 1 -${q} -${q}V${k(316)}`,
   ].map(corner).join('');
-  const m = 200 * s;
+  const m = 176 * s;
   const mh = (m * MH) / MW;
   return `<div style="width:${size}px;height:${size}px;border-radius:${radius}px;background:${INK};overflow:hidden">
     <svg viewBox="0 0 512 512" width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">${brackets}
       <g transform="translate(${(256 - m / 2).toFixed(1)} ${(256 - mh / 2).toFixed(1)}) scale(${(m / MW).toFixed(4)})">
-        <path d="${FRAME}" fill="${YELLOW}"/><path d="${STAR}" fill="#ffffff"/></g></svg></div>`;
+        <path d="${FRAME}" fill="${YELLOW}"/><path d="${INITIAL}" fill="${INK}"/></g></svg></div>`;
 }
 
 /**
@@ -124,7 +124,7 @@ function og() {
     <div style="position:absolute;left:84px;top:505px;display:inline-flex;align-items:center;gap:12px;padding:16px 30px;border-radius:999px;background:${CTA};color:#ffffff;font-weight:700;font-size:24px">Explore events &rarr;</div>
     <div style="position:absolute;right:-70px;top:-40px;width:430px;height:430px;background:${YELLOW};border-radius:44px;transform:skewX(-14deg)"></div>
     <div style="position:absolute;right:-50px;bottom:-70px;width:360px;height:270px;background:${CORAL};border-radius:44px;transform:skewX(-14deg)"></div>
-    <div style="position:absolute;right:110px;top:200px;width:290px;height:${(290 * MH) / MW}px;filter:drop-shadow(0 18px 30px rgba(17,16,24,.25))">${mark({ ticket: '#ffffff', star: YELLOW })}</div>
+    <div style="position:absolute;right:110px;top:200px;width:290px;height:${(290 * MH) / MW}px;filter:drop-shadow(0 18px 30px rgba(17,16,24,.25))">${mark({ ticket: '#ffffff', initial: INK })}</div>
   </div>`;
 }
 

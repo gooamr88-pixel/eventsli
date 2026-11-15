@@ -173,10 +173,10 @@ function seatLabel(ticket) {
  * masthead is a blank strip on the first email anybody ever gets from us —
  * which is the one that has to look legitimate.
  *
- * SET AS THE LOGO SETS IT (2026-11-15): "Eventsli" in a heavy italic
+ * SET AS THE LOGO SETS IT (2026-11-15): "Eventsli" in a bold upright
  * near-black, and DISCOVER - BOOK - ENJOY under it — the lockup rebuilt from
  * text, because the real wordmark is an SVG and mail clients drop SVG. The
- * mark beside it is the yellow ticket on a near-black tile (`apple-icon.png`,
+ * mark beside it is the E-ticket on a near-black tile (`apple-icon.png`,
  * rendered from the same paths as the site's logo by scripts/brandIcons.js).
  *
  * The 4px bar above is the brand yellow, the sheet's highlight colour. A filled cell rather than a border, because Outlook draws a border-top
@@ -197,7 +197,7 @@ function header() {
                  style="display:block;width:34px;height:34px;border:0;border-radius:8px" />
           </td>
           <td style="vertical-align:middle">
-            <span style="display:block;font-family:${FONT};font-size:21px;line-height:1.1;font-weight:800;font-style:italic;letter-spacing:-0.02em;color:${INK}">Eventsli</span>
+            <span style="display:block;font-family:${FONT};font-size:21px;line-height:1.1;font-weight:700;letter-spacing:-0.01em;color:${INK}">Eventsli</span>
             <span style="display:block;margin-top:2px;font-family:${FONT};font-size:9px;line-height:1.2;font-weight:600;letter-spacing:0.14em;color:${MUTED}">DISCOVER - BOOK - ENJOY</span>
           </td>
         </tr>

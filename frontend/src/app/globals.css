@@ -260,12 +260,13 @@
 
   /* ── The logo's colours ─────────────────────────────────────────────
      Not the accent role, and that is deliberate. The accent is a ROLE that a
-     scope may re-point; the logo is a MARK. The ticket is the sheet's yellow,
-     the star punched in it is white, and the word is near-black. Scopes that
-     sit on a photograph or a dark ground redefine `--es-logo-ink` (and the
-     legacy `--es-logo-li`) to white; the yellow ticket never changes. */
+     scope may re-point; the logo is a MARK. The E-ticket (owner's choice,
+     2026-11-15) is the sheet's yellow with a near-black E on it, and the word
+     is near-black. Scopes that sit on a photograph or a dark ground redefine
+     `--es-logo-ink` (and the legacy `--es-logo-li`) to white; the ticket and
+     its E never change — near-black on yellow reads on any ground. */
   --es-logo-mark: var(--es-sun-400);
-  --es-logo-star: #ffffff;
+  --es-logo-initial: var(--es-black);
   --es-logo-ink:  var(--es-black);
   --es-logo-li:   var(--es-black);
 
@@ -2884,19 +2885,19 @@ body:has(.es-buybar) { padding-block-end: calc(5.5rem + var(--fx-safe-b)); }
    The padding it used to pay for is now the header's at every width. */
 .es-event-head { padding-bottom: 1.25rem; }
 
-/* ── .es-logo — the yellow ticket, the italic word, the tagline ────────
+/* ── .es-logo — the E-ticket, the word, the tagline ────────────────────
    REDRAWN 2026-11-15 (see Logo.jsx and scripts/brandLogo.js). Proportions,
    all off `--es-logo-h`, the WORD height, so a size step scales the whole
    lockup and cannot distort it:
 
-     · the ticket is 1.2 of the word height — it is tilted, so its visual
-       mass sits inside the word's cap line, as in the concept,
-     · the gap between them is 0.3 of it,
+     · the E-ticket is 1.3 of the word height, so the square optically
+       matches the word's capitals and ascenders,
+     · the gap between them is 0.38 of it,
      · the tagline sits under the word and spans it (drawn inside the word's
        own SVG, so its width cannot drift).
 
    THE COLOURS ARE THE `--es-logo-*` ROLES, never the accent. The ticket is
-   always the sheet's yellow and its star white; only the word changes, to
+   always the sheet's yellow and its E near-black; only the word changes, to
    white, where the logo sits on a photograph or a dark ground.
 
    CLEAR SPACE is padding on the LOCKUP (the footer and sign-in placements),
@@ -2906,27 +2907,27 @@ body:has(.es-buybar) { padding-block-end: calc(5.5rem + var(--fx-safe-b)); }
   --es-logo-h: 1.4rem;
   display: inline-flex;
   align-items: center;
-  gap: calc(var(--es-logo-h) * 0.3);
+  gap: calc(var(--es-logo-h) * 0.38);
   line-height: 1;
 }
 .es-logo--sm { --es-logo-h: 1.15rem; }
 .es-logo--lg { --es-logo-h: 2.1rem; }
-.es-logo__mark { flex: none; width: auto; height: calc(var(--es-logo-h) * 1.2); }
+.es-logo__mark { flex: none; width: auto; height: calc(var(--es-logo-h) * 1.3); }
 .es-logo__ticket { fill: var(--es-logo-mark); }
-.es-logo__star { fill: var(--es-logo-star, #ffffff); }
+.es-logo__initial { fill: var(--es-logo-initial, #111018); }
 .es-logo__word { flex: none; width: auto; height: var(--es-logo-h); }
 .es-logo__events,
 .es-logo__tagline { fill: var(--es-logo-ink); }
 .es-logo__li { fill: var(--es-logo-li); }
-/* In the word's own units (its viewBox is 115 tall). */
+/* In the word's own units (its viewBox is 113 tall). */
 .es-logo__tagline { font-family: var(--es-font-sans); font-size: 30px; font-weight: 600; letter-spacing: 0.1em; }
 .es-logo--lockup {
   align-items: flex-start;
   padding-block: calc(var(--es-logo-h) * 0.44);
   padding-inline-end: calc(var(--es-logo-h) * 0.44);
 }
-/* 166 / 115: the word's viewBox extended down by the tagline's line. */
-.es-logo--lockup .es-logo__word { height: calc(var(--es-logo-h) * 1.443); }
+/* 164 / 113: the word's viewBox extended down by the tagline's line. */
+.es-logo--lockup .es-logo__word { height: calc(var(--es-logo-h) * 1.451); }
 
 /* ── .es-tkt — the ticket, after the brand guide's "Digital ticket" ────
    ADDED 2026-10-16 (TicketStub.jsx). Three parts: a coral STUB with the
