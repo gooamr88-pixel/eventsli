@@ -15519,3 +15519,426 @@ label.es-chip:has(:focus-visible) { outline: 2px solid var(--es-accent); outline
 .es-co__release:hover { color: var(--es-danger); }
 
 }   /* end @layer components — checkout */
+
+/* ═══════════════════════════════════════════════════════════════════════
+   "DRAW YOUR SIGNATURE" — THE CHECKOUT'S LAST STEP (2026-11-15)
+
+   The owner's reference: a coral pen mark, the title, a wide grey pad, and
+   two buttons — "Clear signature" outlined, the action filled (coral to pay,
+   yellow for free tickets, as on the page behind). On the native <dialog>
+   (.es-dialog) for the trap, Escape and the inert page. The pad stays
+   paper-light in both themes so the ink always reads.
+   ═══════════════════════════════════════════════════════════════════════ */
+@layer components {
+
+.es-sign { width: min(46rem, calc(100vw - 1.5rem)); border: 0; border-radius: 22px; }
+.es-sign__form { position: relative; display: grid; gap: 1rem; padding: clamp(1.25rem, 3vw, 2rem); }
+
+.es-sign__close {
+  position: absolute;
+  inset-block-start: 0.9rem;
+  inset-inline-end: 0.9rem;
+  display: inline-grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 1.5px solid var(--es-border-strong);
+  border-radius: var(--es-radius-full);
+  color: var(--es-text);
+  cursor: pointer;
+}
+.es-sign__close:hover:not(:disabled) { background: var(--es-bg-sunken); }
+
+.es-sign__mark {
+  display: inline-grid;
+  place-items: center;
+  width: 3.25rem;
+  height: 3.25rem;
+  border-radius: var(--es-radius-full);
+  background: color-mix(in srgb, var(--es-brand-coral) 12%, var(--es-surface));
+  color: var(--es-accent);
+}
+.es-sign__title {
+  margin: 0;
+  padding-inline-end: 3rem;
+  font-family: var(--es-font-display);
+  font-size: clamp(1.4rem, 1.15rem + 0.9vw, 1.85rem);
+  font-weight: 800;
+  color: var(--es-text);
+}
+
+/* Draw | Type */
+.es-sign__modes {
+  display: inline-flex;
+  justify-self: start;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border-radius: var(--es-radius-full);
+  background: var(--es-bg-sunken);
+}
+.es-sign__modes button {
+  min-width: 5.5rem;
+  min-height: 2.5rem;
+  padding: 0 1rem;
+  border-radius: var(--es-radius-full);
+  font-weight: 700;
+  color: var(--es-text-muted);
+  cursor: pointer;
+}
+.es-sign__modes button[aria-pressed='true'] { background: var(--es-surface); color: var(--es-text); box-shadow: var(--es-shadow-sm); }
+
+/* The pad. */
+.es-sign__pad {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 5 / 3;
+  overflow: hidden;
+  border: 1.5px dashed rgb(17 16 24 / 0.18);
+  border-radius: 16px;
+  background: #ececee;
+}
+@media (width >= theme(--breakpoint-sm)) { .es-sign__pad { aspect-ratio: 5 / 2; } }
+.es-sign__canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  touch-action: none;
+  cursor: crosshair;
+}
+.es-sign__placeholder {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: var(--es-font-display);
+  font-size: clamp(1.4rem, 1rem + 2vw, 2.4rem);
+  font-weight: 800;
+  color: rgb(17 16 24 / 0.16);
+  pointer-events: none;
+  user-select: none;
+}
+/* The line a signature sits on, with its ×. */
+.es-sign__line {
+  position: absolute;
+  inset-inline: 7%;
+  inset-block-end: 24%;
+  border-block-end: 1.5px solid rgb(17 16 24 / 0.22);
+  pointer-events: none;
+}
+.es-sign__line span {
+  position: absolute;
+  inset-inline-start: 0;
+  inset-block-end: 0.3rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1;
+  color: rgb(17 16 24 / 0.4);
+}
+
+/* Typed: the name in a hand. */
+.es-sign__typed { display: grid; gap: 0.75rem; }
+.es-sign__typed .es-input { min-height: 48px; border: 1.5px solid var(--es-control-border); border-radius: 12px; }
+.es-sign__typed .es-input:focus { border-color: var(--es-accent); box-shadow: 0 0 0 4px var(--es-accent-subtle); }
+.es-sign__preview {
+  display: grid;
+  place-items: center;
+  min-height: 9rem;
+  margin: 0;
+  padding: 1rem;
+  overflow-wrap: anywhere;
+  border-radius: 16px;
+  background: #ececee;
+  font-family: 'Segoe Script', 'Snell Roundhand', 'Brush Script MT', 'Apple Chancery', cursive;
+  font-size: clamp(1.75rem, 1.2rem + 2.4vw, 3rem);
+  font-style: italic;
+  line-height: 1.3;
+  text-align: center;
+  color: #111018;
+}
+
+.es-sign__status { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+.es-sign__hint { display: inline-flex; align-items: center; gap: 0.4rem; margin: 0; font-size: var(--es-text-sm); color: var(--es-text-muted); }
+.es-sign__hint--ok { font-weight: 600; color: var(--es-success); }
+.es-sign__undo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 2.25rem;
+  padding: 0 0.75rem;
+  border-radius: var(--es-radius-full);
+  font-size: var(--es-text-sm);
+  font-weight: 700;
+  color: var(--es-text);
+  cursor: pointer;
+}
+.es-sign__undo:hover:not(:disabled) { background: var(--es-bg-sunken); }
+.es-sign__legal { margin: 0; font-size: var(--es-text-xs); line-height: 1.5; color: var(--es-text-subtle); }
+.es-sign__error {
+  margin: 0;
+  padding: 0.7rem 0.9rem;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--es-danger) 10%, var(--es-surface));
+  font-size: var(--es-text-sm);
+  color: var(--es-text);
+}
+
+.es-sign__actions { display: grid; gap: 0.75rem; margin-top: 0.25rem; }
+@media (width >= theme(--breakpoint-sm)) {
+  .es-sign__actions { display: flex; justify-content: flex-end; }
+  .es-sign__actions button { min-width: 13rem; }
+}
+.es-sign__clear,
+.es-sign__go {
+  min-height: 52px;
+  padding: 0 1.5rem;
+  border-radius: 14px;
+  font-size: var(--es-text-md);
+  font-weight: 800;
+  cursor: pointer;
+}
+.es-sign__clear { border: 1.5px solid var(--es-accent); background: var(--es-surface); color: var(--es-text); }
+.es-sign__clear:hover:not(:disabled) { background: var(--es-accent-subtle); }
+.es-sign__clear:disabled { border-color: var(--es-border); color: var(--es-text-subtle); cursor: default; }
+.es-sign__go { background: var(--es-accent); color: var(--es-text-on-accent); box-shadow: var(--es-shadow-accent); }
+.es-sign__go:hover:not(:disabled) { background: var(--es-accent-hover); }
+.es-sign__go--free { background: var(--es-highlight); color: var(--es-text-on-highlight); box-shadow: 0 10px 24px -10px rgb(214 167 0 / 0.6); }
+.es-sign__go--free:hover:not(:disabled) { background: var(--es-highlight-hover); }
+/* Disabled reads as the reference's pale action: the colour, washed out. */
+.es-sign__go:disabled { background: color-mix(in srgb, var(--es-accent) 22%, var(--es-surface)); color: var(--es-text-muted); box-shadow: none; cursor: default; }
+.es-sign__go--free:disabled { background: color-mix(in srgb, var(--es-highlight) 40%, var(--es-surface)); color: var(--es-text-muted); }
+
+}   /* end @layer components — signature */
+
+/* ═══════════════════════════════════════════════════════════════════════
+   THE ORDER CONFIRMATION AND ITS PRINTABLE TICKETS (2026-11-15)
+
+   The owner's reference: a big check, "Payment successful", the statement
+   line, a row of print tools, and each ticket under its own "Include when
+   printing" box. OrderConfirmation.jsx / PrintableTicket.jsx; the print
+   rules themselves are mounted with the page.
+   ═══════════════════════════════════════════════════════════════════════ */
+@layer components {
+
+.es-ordx { display: grid; gap: 1.5rem; width: 100%; max-width: 72rem; margin-inline: auto; }
+
+.es-ordx__head { display: grid; justify-items: center; gap: 0.6rem; text-align: center; }
+.es-ordx__mark {
+  display: grid;
+  place-items: center;
+  width: 5.75rem;
+  height: 5.75rem;
+  margin-bottom: 0.5rem;
+  border-radius: var(--es-radius-full);
+  background: var(--es-accent);
+  color: var(--es-text-on-accent);
+  box-shadow: 0 0 0 10px var(--es-accent-wash), 0 18px 36px -14px rgb(214 31 44 / 0.55);
+  animation: es-ordx-pop 420ms var(--es-ease-default, ease-out) both;
+}
+@keyframes es-ordx-pop { from { transform: scale(0.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .es-ordx__mark { animation: none; } }
+.es-ordx__title {
+  margin: 0;
+  font-family: var(--es-font-display);
+  font-size: clamp(1.75rem, 1.3rem + 1.6vw, 2.5rem);
+  font-weight: 800;
+  color: var(--es-text);
+}
+.es-ordx__lede { max-width: 46rem; margin: 0; font-size: var(--es-text-md); line-height: 1.6; color: var(--es-text-muted); }
+.es-ordx__lede b { color: var(--es-text); }
+.es-ordx__em { font-weight: 700; color: var(--es-accent); }
+.es-ordx__sub { margin: 0; font-size: var(--es-text-sm); color: var(--es-text-muted); }
+.es-ordx__sub b { color: var(--es-text); }
+.es-ordx__event {
+  display: grid;
+  gap: 0.15rem;
+  margin: 0.4rem 0 0;
+  padding: 0.6rem 1.1rem;
+  border-radius: 14px;
+  background: var(--es-highlight-wash);
+  font-size: var(--es-text-sm);
+  color: var(--es-text-muted);
+}
+.es-ordx__event b { font-size: var(--es-text-md); color: var(--es-text); }
+
+/* The tools. */
+.es-ordx__tools { display: grid; justify-items: center; gap: 0.6rem; text-align: center; }
+.es-ordx__bar { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.75rem; }
+.es-ordx__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  min-height: 3.25rem;
+  padding: 0 1.4rem;
+  border-radius: 12px;
+  background: var(--es-bg-sunken);
+  font-size: var(--es-text-md);
+  font-weight: 700;
+  color: var(--es-text);
+  cursor: pointer;
+  transition: background-color var(--es-duration-fast) var(--es-ease-default);
+}
+.es-ordx__btn:hover:not(:disabled) { background: color-mix(in srgb, var(--es-text) 10%, var(--es-bg-sunken)); }
+.es-ordx__btn:disabled { color: var(--es-text-subtle); cursor: default; }
+.es-ordx__btn--pdf { background: var(--es-accent-wash); color: var(--es-accent); }
+.es-ordx__btn--pdf:hover:not(:disabled) { background: color-mix(in srgb, var(--es-accent) 16%, var(--es-surface)); }
+.es-ordx__bw input,
+.es-ordx__include input { width: 20px; height: 20px; flex-shrink: 0; accent-color: var(--es-accent); cursor: pointer; }
+.es-ordx__note { max-width: 44rem; margin: 0; font-size: var(--es-text-sm); line-height: 1.6; color: var(--es-text-muted); }
+@media (width < 40rem) {
+  .es-ordx__bar { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; }
+  .es-ordx__btn { padding: 0 0.75rem; font-size: var(--es-text-sm); }
+  /* Select all and Deselect all pair up; the rest take a row each. */
+  .es-ordx__btn--pdf, .es-ordx__bw, .es-ordx__bar > button:nth-child(4) { grid-column: 1 / -1; }
+}
+
+/* The tickets. */
+.es-ordx__list { display: grid; gap: 2rem; margin: 0; padding: 0; list-style: none; }
+.es-ordx__item { display: grid; gap: 0.6rem; }
+.es-ordx__include { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; font-weight: 700; color: var(--es-text); cursor: pointer; }
+.es-ordx__count { margin-inline-start: auto; font-size: var(--es-text-sm); font-weight: 600; color: var(--es-text-muted); }
+.es-ordx__item[data-include='no'] .es-ptk { opacity: 0.45; }
+.es-ordx__empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 1.25rem;
+  border-radius: 16px;
+  background: var(--es-bg-sunken);
+  color: var(--es-text-muted);
+  text-align: center;
+}
+.es-ordx__empty p { margin: 0; }
+.es-ordx__next { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.75rem; }
+.es-ordx__keep { margin: 0; font-size: var(--es-text-sm); text-align: center; color: var(--es-text-subtle); }
+
+/* ── The printable ticket. Paper in both themes: its colours are its own. ── */
+.es-ptk {
+  --ptk-paper: #fff8dc;
+  --ptk-frame: #ffd94d;
+  --ptk-stub: #ffe0e2;
+  --ptk-ink: #111018;
+  --ptk-muted: #4a4858;
+  --ptk-coral: #d61f2c;
+  --ptk-hole: var(--es-bg);
+  position: relative;
+  display: grid;
+  overflow: hidden;
+  border-radius: 6px;
+  color: var(--ptk-ink);
+  box-shadow: var(--es-shadow-md);
+}
+@media (width >= theme(--breakpoint-md)) {
+  .es-ptk { grid-template-columns: minmax(0, 1fr) 15.5rem; }
+}
+
+.es-ptk__main { padding: 1.1rem; background: var(--ptk-paper); }
+.es-ptk__frame {
+  display: grid;
+  justify-items: center;
+  gap: 0.9rem;
+  height: 100%;
+  padding: clamp(1rem, 2.5vw, 1.75rem);
+  border: 2px solid var(--ptk-frame);
+  border-radius: 18px;
+  text-align: center;
+}
+.es-ptk__type { margin: 0; font-size: var(--es-text-sm); color: var(--ptk-muted); }
+.es-ptk__type b { font-weight: 700; color: var(--ptk-ink); }
+.es-ptk__title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  margin: 0;
+  padding-bottom: 0.4rem;
+  border-bottom: 3px solid var(--ptk-coral);
+  font-family: var(--es-font-display);
+  font-size: clamp(1.35rem, 1.05rem + 1.2vw, 2rem);
+  font-weight: 800;
+  line-height: 1.2;
+}
+.es-ptk__tickets { color: var(--ptk-coral); }
+.es-ptk__star { flex-shrink: 0; font-size: 0.85em; }
+
+.es-ptk__facts {
+  display: grid;
+  gap: 0.55rem 2rem;
+  width: 100%;
+  margin: 0.4rem 0 0;
+  text-align: start;
+}
+@media (width >= theme(--breakpoint-sm)) {
+  .es-ptk__facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .es-ptk__wide { grid-column: 1 / -1; }
+}
+.es-ptk__facts > div { display: flex; flex-wrap: wrap; gap: 0.35rem; min-width: 0; }
+.es-ptk__facts dt { color: var(--ptk-muted); }
+.es-ptk__facts dd { margin: 0; font-weight: 600; color: var(--ptk-ink); }
+.es-ptk__facts dd.es-ptk__free { color: var(--ptk-coral); }
+
+.es-ptk__dots {
+  width: min(14rem, 70%);
+  height: 8px;
+  background: radial-gradient(circle, var(--ptk-coral) 3.5px, transparent 4px) 0 0 / 1.75rem 8px repeat-x;
+}
+.es-ptk__when { display: inline-flex; align-items: center; gap: 0.45rem; margin: 0; color: var(--ptk-ink); }
+
+/* The tear-off: a row of punched holes down its edge, the code on white. */
+.es-ptk__stub {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 0.75rem;
+  padding: 1.5rem 1.25rem 1.25rem;
+  background: var(--ptk-stub);
+}
+.es-ptk__stub::before {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  top: -7px;
+  height: 14px;
+  background: radial-gradient(circle, var(--ptk-hole) 6px, transparent 6.5px) 0 0 / 22px 14px repeat-x;
+}
+@media (width >= theme(--breakpoint-md)) {
+  .es-ptk__stub::before {
+    inset-inline: auto;
+    inset-inline-start: -7px;
+    top: 0;
+    bottom: 0;
+    width: 14px;
+    height: auto;
+    background: radial-gradient(circle, var(--ptk-hole) 6px, transparent 6.5px) 0 0 / 14px 22px repeat-y;
+  }
+}
+.es-ptk__brand {
+  --es-logo-mark: #ffcc00;
+  --es-logo-initial: #111018;
+  --es-logo-ink: #111018;
+  --es-logo-li: #111018;
+  display: grid;
+  justify-items: center;
+  gap: 0.3rem;
+  width: 100%;
+  padding: 0.9rem 0.75rem;
+  border-radius: 14px;
+  background: #ffffff;
+}
+.es-ptk__qr {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  padding: 0.75rem;
+  border-radius: 14px;
+  background: #ffffff;
+}
+.es-ptk__qr img { width: 100%; max-width: 11rem; height: auto; image-rendering: pixelated; }
+.es-ptk__nocode { margin: 0; padding: 1.5rem 0.5rem; font-size: var(--es-text-sm); text-align: center; color: var(--ptk-muted); }
+.es-ptk__scan { margin: 0; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ptk-ink); }
+
+}   /* end @layer components — order confirmation */

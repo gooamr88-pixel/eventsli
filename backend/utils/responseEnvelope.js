@@ -61,6 +61,8 @@ const ERROR_STATUS = {
   EVENT_CANCELLED: 410,
   EVENT_SUSPENDED: 403,
   TERMS_NOT_ACCEPTED: 403,        // BRD §21
+  SIGNATURE_REQUIRED: 400,        // the checkout signature (2026-11-15)
+  SIGNATURE_INVALID: 400,
 
   // inventory
   SEAT_UNAVAILABLE: 409,

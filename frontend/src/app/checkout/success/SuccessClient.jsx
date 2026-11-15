@@ -3,14 +3,11 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { get, PUBLIC_API_URL } from '../../utils/apiClient';
+import { get } from '../../utils/apiClient';
 import { describeError } from '../../utils/errors';
-import { formatMoney } from '../../utils/money';
-import { formatEventTime } from '../../lib/eventTime';
 import { useReservation } from '../../hooks/useReservation';
 import { useAuth } from '../../hooks/useAuth';
-import { SuccessMark } from '../Outcomes';
-import TicketStub from '../../components/TicketStub';
+import OrderConfirmation from '../OrderConfirmation';
 import NavIcon from '../../components/shell/NavIcon';
 
 /**
@@ -142,111 +139,19 @@ export default function SuccessClient() {
   }
 
   const { order, event, tickets = [], ticketsWithheld, message } = result;
-  // In the EVENT's zone and labelled with it, the way every other date in the
-  // product is — a buyer in another timezone reads "8:00 PM EST", not a number
-  // that quietly disagrees with the ticket they are holding.
-  const eventWhen = event?.startsAt ? formatEventTime(event.startsAt, event.timezone) : null;
 
+  // The confirmation, with the tickets ready to save and print (owner's
+  // reference, 2026-11-15) — the same page the free ending shows.
   return (
-    <div className="fx-stack">
-      {/**
-        * THE MARK, THE CLAIM, AND THE TWO WAYS ON.
-        *
-        * This screen used to open with a small mono eyebrow and go straight
-        * into ticket stubs, with no next step anywhere on the paid path — the
-        * one place in the product where a person has just handed over money and
-        * most wants to be told, unambiguously, that it worked. "Open my
-        * tickets" existed only in the withheld branch, so the ordinary
-        * successful buyer finished the entire funnel on a page with no button.
-        *
-        * The mark is `aria-hidden` and the heading carries the meaning: a
-        * screen reader gets "Payment confirmed", not "check mark image".
-        */}
-      <div className="fx-stack items-center gap-3 text-center">
-        <SuccessMark />
-        <h1 className="text-2xl">Payment confirmed</h1>
-        <p className="text-md text-muted">
-          You&apos;re going. {formatMoney(order.totalCents, order.currency)} paid.
-        </p>
-
-        {/**
-          * WHICH EVENT THE MONEY WENT TO.
-          *
-          * This page said "Payment confirmed", the amount and a masked email,
-          * and never named the event anywhere on it — the API did not even send
-          * it. On a receipt, for somebody choosing between two shows or coming
-          * back to a tab, that is the one fact worth checking. The checkout form
-          * one step earlier was given this header for the same reason; the
-          * screen you land on after paying had been left without it.
-          */}
-        {event?.title && (
-          <div className="fx-stack fx-stack--sm gap-1">
-            <p className="fx-break text-md text-ink">{event.title}</p>
-            {(eventWhen || event.venue) && (
-              <p className="text-sm text-muted">
-                {eventWhen}
-                {eventWhen && event.venue && ' · '}
-                {event.venue}
-              </p>
-            )}
-          </div>
-        )}
-
-        {order.email && (
-          <p className="text-sm text-subtle">
-            {/* The address is the thing to check for a typo, so it is the one
-                part of this sentence set in ink rather than subtle. */}
-            A confirmation has been sent to <span className="fx-break text-ink">{order.email}</span>
-          </p>
-        )}
-      </div>
-
-      {/**
-        * WHERE "MY TICKETS" GOES DEPENDS ON WHETHER THERE IS AN ACCOUNT.
-        *
-        * `/account/tickets` is a private prefix — `proxy.ts` bounces anyone
-        * without a session. Guest checkout is a first-class path here (the API
-        * takes an email and never requires registration), so pointing every
-        * buyer at it would end the happy path on a login wall for exactly the
-        * people who chose not to register. `/tickets/find` is the guest's
-        * equivalent: it emails the tickets to the address that bought them.
-        *
-        * While `loading` is true neither answer is known, so the button says
-        * the neutral thing and goes to the guest route, which works for both.
-        */}
-      <div className="fx-stack fx-stack--sm">
-        <Link
-          href={signedIn ? '/account/tickets' : '/tickets/find'}
-          className="es-btn es-btn--primary es-btn--lg es-btn--block"
-        >
-          {signedIn ? 'View my tickets' : 'Find my tickets'}
-        </Link>
-        <Link href="/events" className="es-btn es-btn--secondary es-btn--block">
-          Browse more events
-        </Link>
-      </div>
-
-      {ticketsWithheld ? (
-        <div className="es-card p-5">
-          <p className="text-sm text-muted">{message}</p>
-        </div>
-      ) : (
-        <div className="fx-stack fx-stack--sm">
-          {tickets.map((ticket) => (
-            <TicketStub
-              key={ticket.id}
-              ticket={ticket}
-              event={event}
-              timeZone={event?.timezone}
-              qrSrc={`${PUBLIC_API_URL}/public/qr/${encodeURIComponent(ticket.qr)}`}
-            />
-          ))}
-        </div>
-      )}
-
-      <p className="text-center text-sm text-subtle">
-        Keep the email — it is the link that works everywhere, on any device.
-      </p>
-    </div>
+    <OrderConfirmation
+      totalCents={order.totalCents}
+      currency={order.currency}
+      email={order.email}
+      event={event}
+      tickets={tickets}
+      ticketsWithheld={ticketsWithheld}
+      message={message}
+      signedIn={signedIn}
+    />
   );
 }

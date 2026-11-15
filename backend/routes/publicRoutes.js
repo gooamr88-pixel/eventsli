@@ -372,6 +372,9 @@ router.post(
   // page happened to send it.
   body('acceptTerms').custom((v) => v === true)
     .withMessage('Accept the terms to continue to payment.'),
+  // Signed under the terms (2026-11-15). Only the shape here; the points are
+  // checked one by one in services/signatureService.js.
+  body('signature').isObject().withMessage('Sign to continue — draw your signature, or type your name.'),
   validate,
   checkout.createSession,
 );
@@ -412,6 +415,7 @@ router.post(
    */
   body('acceptTerms').custom((v) => v === true)
     .withMessage('Accept the terms to claim your tickets.'),
+  body('signature').isObject().withMessage('Sign to continue — draw your signature, or type your name.'),
   validate,
   checkout.claimFree,
 );

@@ -89,6 +89,12 @@ export const ERRORS = Object.freeze(Object.fromEntries([
   // at checkout (BRD §21) — so it names neither.
   E('TERMS_NOT_ACCEPTED', 'Accept the terms first',
     'Read and accept the terms, then try again.'),
+  // The checkout signature (2026-11-15). The API's own message says what was
+  // wrong with the drawing; these are the fallbacks.
+  E('SIGNATURE_REQUIRED', 'Sign to continue',
+    'Draw your signature, or type your name, then try again.'),
+  E('SIGNATURE_INVALID', 'Sign again',
+    'That signature could not be used. Clear it and draw your full signature.'),
 
   // ── Inventory ─────────────────────────────────────────────────────────────
   // The seat-map codes are the ones a buyer meets most, and every one of them

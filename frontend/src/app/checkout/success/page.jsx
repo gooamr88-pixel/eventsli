@@ -10,7 +10,7 @@ export const metadata = {
 export default function SuccessPage() {
   return (
     <main className="fx-section fx-section--sm">
-      <div className="fx-container fx-container--sm">
+      <div className="fx-container fx-container--wide">
         {/* useSearchParams needs a Suspense boundary, or the whole route opts
             out of static rendering and Next says so at build time. */}
         <Suspense fallback={<p className="text-sm text-subtle">Confirming your order…</p>}>

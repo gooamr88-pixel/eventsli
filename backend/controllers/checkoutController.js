@@ -8,6 +8,7 @@ const tickets = require('../services/ticketService');
 const { sendOk, sendFail, ERROR_STATUS } = require('../utils/responseEnvelope');
 const logger = require('../utils/logger');
 const accessTokens = require('../services/accessTokens');
+const signatures = require('../services/signatureService');
 // Ticket delivery and retrieval live in one place; three callers need them and
 // a second copy would drift.
 const ticketCtrl = require('./ticketController');
@@ -154,6 +155,24 @@ async function captureSms(req, res, q) {
   }
 }
 
+/**
+ * The buyer's signature, checked BEFORE anything else happens (owner request
+ * 2026-11-15). Returns the canonical signature, or sends the refusal and
+ * returns null. Checked early so a buyer whose drawing is a dot is told so
+ * before a Stripe session is opened for them.
+ */
+function readSignature(req, res) {
+  try {
+    return signatures.normalize(req.body.signature);
+  } catch (err) {
+    if (err instanceof signatures.SignatureError) {
+      sendFail(res, { status: 400, error: err.code, message: err.message });
+      return null;
+    }
+    throw err;
+  }
+}
+
 // ─── POST /public/reservations/:reservationId/checkout ──────────────────────
 async function createSession(req, res, next) {
   try {
@@ -193,6 +212,10 @@ async function createSession(req, res, next) {
       });
     }
 
+    // …and signed under them. See readSignature.
+    const sig = readSignature(req, res);
+    if (!sig) return undefined;
+
     // The organizer chose how this event is paid for. An event that takes only
     // manual payment has no card checkout, whatever the buyer's page sends.
     // Read on its own and FAIL OPEN on a read error: this column is new, and a
@@ -227,12 +250,21 @@ async function createSession(req, res, next) {
     // terms for does not start.
     const terms = require('../services/termsService');
     const current = await terms.currentVersion('buyer');
-    await terms.accept({
+    const acceptance = await terms.accept({
       userId: buyer.userId,
       email: buyer.email,
       reservationId: req.params.reservationId,
       termsId: current.id,
       eventId: q.event.id,
+      req,
+    });
+    // The signature that seals it — kept, or the checkout does not go ahead.
+    await signatures.record({
+      sig,
+      eventId: q.event.id,
+      reservationId: req.params.reservationId,
+      acceptanceId: acceptance?.id || null,
+      buyer,
       req,
     });
 
@@ -344,7 +376,8 @@ async function checkoutResult(req, res, next) {
     const { data: order } = await supabase
       .from('orders')
       .select(`id, currency, buyer_total_cents, quantity, guest_email, created_at, paid_at,
-               events ( id, title, slug, starts_at, ends_at, timezone, venue_name )`)
+               events ( id, title, slug, starts_at, ends_at, timezone, venue_name, venue_address, city,
+                        organizers ( display_name ) )`)
       .eq('id', orderId).single();
 
     /**
@@ -392,15 +425,7 @@ async function checkoutResult(req, res, next) {
         email: maskEmail(order.guest_email),
         createdAt: order.created_at,
       },
-      event: order.events && {
-        id: order.events.id,
-        title: order.events.title,
-        slug: order.events.slug,
-        startsAt: order.events.starts_at,
-        endsAt: order.events.ends_at,
-        timezone: order.events.timezone,
-        venue: order.events.venue_name,
-      },
+      event: confirmationEvent(order.events),
       accessToken,
       tickets: withinWindow ? await tickets.forOrder(orderId) : [],
       ticketsWithheld: !withinWindow,
@@ -410,6 +435,26 @@ async function checkoutResult(req, res, next) {
       }),
     });
   } catch (err) { return next(err); }
+}
+
+/**
+ * The event as the confirmation shows it — on the printable tickets and in
+ * "your statement will show…". One shape for the paid and the free ending.
+ */
+function confirmationEvent(e) {
+  if (!e) return null;
+  const organizer = Array.isArray(e.organizers) ? e.organizers[0] : e.organizers;
+  return {
+    id: e.id,
+    title: e.title,
+    slug: e.slug,
+    startsAt: e.starts_at,
+    endsAt: e.ends_at,
+    timezone: e.timezone,
+    venue: e.venue_name,
+    venueAddress: e.venue_address || e.city || null,
+    organizerName: organizer?.display_name || null,
+  };
 }
 
 /**
@@ -636,16 +681,29 @@ async function claimFree(req, res, next) {
       });
     }
 
+    // …and signed under them. See readSignature.
+    const sig = readSignature(req, res);
+    if (!sig) return undefined;
+
     // Same failure mode as the paid path: a claim we cannot evidence the terms
     // for does not happen.
     const terms = require('../services/termsService');
     const current = await terms.currentVersion('buyer');
-    await terms.accept({
+    const acceptance = await terms.accept({
       userId: buyer.userId,
       email: buyer.email,
       reservationId: req.params.reservationId,
       termsId: current.id,
       eventId: q.event.id,
+      req,
+    });
+    // The signature that seals it — kept, or the checkout does not go ahead.
+    await signatures.record({
+      sig,
+      eventId: q.event.id,
+      reservationId: req.params.reservationId,
+      acceptanceId: acceptance?.id || null,
+      buyer,
       req,
     });
 
@@ -692,11 +750,29 @@ async function claimFree(req, res, next) {
         logger.error({ err: e.message, orderId: result.order_id }, 'ticket email failed'));
     }
 
+    /**
+     * THE TICKETS, ON THE PAGE (owner's reference, 2026-11-15). The claim has
+     * just issued them to the browser that holds this reservation's token, so
+     * showing their codes here gives nothing away that the email does not —
+     * the same reasoning as the paid page's window. Read AFTER the claim and
+     * never allowed to fail it: the tickets exist, and the email has them.
+     */
+    let confirmation = { event: null, tickets: [] };
+    try {
+      const { data: row } = await supabase.from('events')
+        .select('id, title, slug, starts_at, ends_at, timezone, venue_name, venue_address, city, organizers ( display_name )')
+        .eq('id', q.event.id).maybeSingle();
+      confirmation = { event: confirmationEvent(row), tickets: await tickets.forOrder(result.order_id) };
+    } catch (e) {
+      logger.warn({ err: e.message, orderId: result.order_id }, 'claim confirmation read failed');
+    }
+
     return sendOk(res, {
       orderId: result.order_id,
       ticketCount: result.ticket_count,
       free: true,
       email: maskEmail(buyer.email),
+      ...confirmation,
     }, { status: 201 });
   } catch (err) {
     if (err.code && ERROR_STATUS[err.code]) {

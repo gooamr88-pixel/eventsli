@@ -14,9 +14,11 @@ import HoldBar from './HoldBar';
 import HoldConfirm from './HoldConfirm';
 import Field from '../../components/forms/Field';
 import SmsConsentFields, { smsPayload } from '../../components/forms/SmsConsentFields';
-import { Claimed, Fatal, NotThisTab, PayError } from '../Outcomes';
+import { Fatal, NotThisTab, PayError } from '../Outcomes';
+import OrderConfirmation from '../OrderConfirmation';
 import { Loading } from '../../components/Feedback';
 import NavIcon from '../../components/shell/NavIcon';
+import SignatureDialog from './SignatureDialog';
 
 /**
  * The last screen before Stripe.
@@ -68,6 +70,11 @@ export default function CheckoutClient({ reservationId }) {
   // Set once a free claim has issued the tickets. There is no payment step and
   // nothing to wait for, so this page shows the outcome itself.
   const [claimed, setClaimed] = useState(null);
+  // The signature step (owner's reference, 2026-11-15): Pay opens it, and the
+  // order is placed from inside it. A refusal about the signature stays in the
+  // dialog; any other refusal closes it and shows on the page as before.
+  const [signing, setSigning] = useState(false);
+  const [signError, setSignError] = useState(null);
 
   /**
    * The hold is confirmed before the form is asked for.
@@ -163,15 +170,28 @@ export default function CheckoutClient({ reservationId }) {
    * send the buyer to the endpoint that then tells them to pay.
    * ───────────────────────────────────────────────────────────────────────────
    */
-  async function pay(e) {
+  /**
+   * Pay (or "Get my free tickets") on the page asks for the signature; the
+   * browser has already checked the email and the three agreements by then,
+   * because they are `required` in this form.
+   */
+  function askToSign(e) {
     e.preventDefault();
+    setError(null);
+    setSignError(null);
+    setSigning(true);
+  }
+
+  async function pay(signature) {
     setBusy('pay');
     setError(null);
+    setSignError(null);
     try {
       const body = {
         email: buyer.email || undefined,
         name: buyer.name || undefined,
         acceptTerms: checks.terms && checks.refund && checks.entry,
+        signature,
         ...(smsPayload(sms, phone).sms ? { phone: phone.trim(), ...smsPayload(sms, phone) } : {}),
       };
 
@@ -197,7 +217,11 @@ export default function CheckoutClient({ reservationId }) {
          * reservation in this tab that a later release could act on.
          */
         forget();
-        setClaimed({ ticketCount: result.ticketCount, email: result.email });
+        // The event and the tickets come back with the claim, so the buyer can
+        // save and print them here (OrderConfirmation).
+        setClaimed(result);
+        // The confirmation starts at its top, not wherever the form was scrolled.
+        window.scrollTo({ top: 0 });
         return;
       }
 
@@ -209,7 +233,12 @@ export default function CheckoutClient({ reservationId }) {
       // origin, and the client router cannot leave the app.
       window.location.href = checkoutUrl;
     } catch (err) {
-      setError(err);
+      if (String(err?.code || '').startsWith('SIGNATURE_')) {
+        setSignError(err);
+      } else {
+        setSigning(false);
+        setError(err);
+      }
       setBusy(null);
     }
   }
@@ -221,7 +250,18 @@ export default function CheckoutClient({ reservationId }) {
   }
 
   if (error && !quote) return <div className="es-co-narrow"><Fatal error={error} slug={reservation?.slug || stored?.slug} /></div>;
-  if (claimed) return <div className="es-co-narrow"><Claimed claimed={claimed} slug={reservation?.slug} /></div>;
+  if (claimed) {
+    return (
+      <OrderConfirmation
+        free
+        email={claimed.email}
+        event={claimed.event || quote?.event || null}
+        tickets={claimed.tickets || []}
+        signedIn={Boolean(user)}
+        holderName={buyer.name || null}
+      />
+    );
+  }
   if (!quote) return <div className="es-co-narrow"><Loading variant="card" /></div>;
 
   // Said BEFORE the form, not after Pay: without this tab's token every
@@ -264,7 +304,8 @@ export default function CheckoutClient({ reservationId }) {
      * not a nested form (HTML has none) — its button is `type="button"` and
      * Enter in its box applies it rather than paying.
      */
-    <form onSubmit={pay} className="es-co">
+    <>
+    <form onSubmit={askToSign} className="es-co">
       <HoldBar expired={expired} remaining={remaining} noun={noun} />
 
       <nav aria-label="Breadcrumb" className="es-co__crumbs">
@@ -467,12 +508,12 @@ export default function CheckoutClient({ reservationId }) {
                 ? (free ? 'Getting your tickets…' : 'Taking you to payment…')
                 : free ? 'Get my free tickets' : `Pay ${formatMoney(quote.totalCents, quote.currency)}`}
             </button>
-            {!free && (
-              <p className="es-co__secure">
-                <NavIcon name="shield" size={16} />
-                You finish on Stripe, our payment processor. Your card details never reach us.
-              </p>
-            )}
+            <p className="es-co__secure">
+              <NavIcon name="pencil" size={16} />
+              {free
+                ? 'You will sign to confirm, and your tickets are emailed straight away.'
+                : 'You will sign to confirm, then finish on Stripe, our payment processor. Your card details never reach us.'}
+            </p>
 
             <button type="button" onClick={abandon} disabled={busy === 'release'} className="es-co__release">
               {busy === 'release' ? 'Releasing…' : `Release my ${noun.many}`}
@@ -481,6 +522,21 @@ export default function CheckoutClient({ reservationId }) {
         </aside>
       </div>
     </form>
+
+    {/* Outside the page's form: the dialog has a form of its own, and HTML
+        has no nested forms. */}
+    <SignatureDialog
+        open={signing && !expired}
+        onClose={() => { if (busy !== 'pay') setSigning(false); }}
+        onSign={pay}
+        busy={busy === 'pay'}
+        error={signError}
+        free={free}
+        defaultName={buyer.name}
+        actionLabel={free ? 'Get my free tickets' : `Pay ${formatMoney(quote.totalCents, quote.currency)}`}
+        busyLabel={free ? 'Getting your tickets…' : 'Taking you to payment…'}
+      />
+    </>
   );
 }
 

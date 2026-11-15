@@ -56,7 +56,7 @@ module.exports = function smsFlows(ctx) {
     const res = await fetch(`${ctx.baseUrl()}/public/reservations/${reservationId}/claim`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-access-token': reservationToken },
-      body: JSON.stringify({ email: `sms-buyer-${phone.slice(-4)}-${stamp}@eventsli-test.invalid`, name: 'Buyer', acceptTerms: true, phone, ...(sms ? { sms } : {}) }),
+      body: JSON.stringify({ email: `sms-buyer-${phone.slice(-4)}-${stamp}@eventsli-test.invalid`, name: 'Buyer', acceptTerms: true, signature: { method: 'typed', name: 'Buyer' }, phone, ...(sms ? { sms } : {}) }),
     });
     const body = await res.json();
     assert.equal(res.status, 201, JSON.stringify(body));

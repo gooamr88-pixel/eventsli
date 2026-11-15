@@ -1,7 +1,9 @@
 const { supabase } = require('../config/supabase');
 const { parsePagination, applyPagination, buildMeta } = require('../middleware/pagination');
-const { sendOk } = require('../utils/responseEnvelope');
+const { sendOk, sendFail } = require('../utils/responseEnvelope');
 const { safeSearch } = require('../utils/search');
+const signatures = require('../services/signatureService');
+const logger = require('../utils/logger');
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -44,7 +46,7 @@ const ORDER_SELECT = `
   subtotal_cents, discount_cents, event_tax_cents,
   commission_cents, commission_tax_cents, buyer_total_cents, organizer_net_cents,
   guest_name, guest_email, manual_method, manual_note,
-  created_at, paid_at,
+  created_at, paid_at, reservation_id,
   profiles!orders_user_id_fkey ( full_name, email )
 `;
 
@@ -96,6 +98,19 @@ async function orders(req, res, next) {
     if (error) throw new Error(error.message);
 
     const rows = (data || []).map(shapeOrder);
+
+    /**
+     * Which of these orders the buyer signed for (the checkout signature,
+     * 2026-11-15). FAIL SOFT: the order list is the organizer's view of their
+     * money and must not go dark because the signatures table is missing (a
+     * deploy ahead of its migration) — the rows show without the mark instead.
+     */
+    try {
+      const signed = await signatures.signedReservations((data || []).map((o) => o.reservation_id));
+      rows.forEach((row, i) => { row.signed = signed.has(data[i].reservation_id); });
+    } catch (err) {
+      logger.warn({ err: err.message, eventId: req.params.eventId }, 'could not read order signatures');
+    }
 
     return sendOk(res, rows, {
       pagination: buildMeta(p, count),
@@ -269,4 +284,24 @@ function shapeAttendee(t) {
   };
 }
 
-module.exports = { orders, attendees };
+// ─── GET /events/:eventId/orders/:orderId/signature ─────────────────────────
+/**
+ * The signature the buyer drew (or typed) before paying for this order. The
+ * route has already checked the caller owns the event; the lookup checks the
+ * order is ON that event, so an order id from someone else's event is a 404,
+ * not their buyer's signature.
+ *
+ * The SVG was rendered by the server from checked numbers or escaped text (see
+ * signatureService), which is why the dashboard may show it as an image.
+ */
+async function orderSignature(req, res, next) {
+  try {
+    const { order, signature } = await signatures.forOrder(req.params.eventId, req.params.orderId);
+    if (!order) {
+      return sendFail(res, { status: 404, error: 'NOT_FOUND', message: 'That order is not on this event.' });
+    }
+    return sendOk(res, { orderId: order.id, signature });
+  } catch (err) { return next(err); }
+}
+
+module.exports = { orders, attendees, orderSignature };

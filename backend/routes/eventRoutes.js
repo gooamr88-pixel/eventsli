@@ -652,6 +652,15 @@ router.get(
   sales.orders,
 );
 
+// The buyer's checkout signature behind one order (2026-11-15).
+router.get(
+  '/:eventId/orders/:orderId/signature',
+  verifyEventOwner,
+  param('orderId').isUUID(),
+  validate,
+  sales.orderSignature,
+);
+
 router.get(
   '/:eventId/attendees',
   verifyEventOwner,
