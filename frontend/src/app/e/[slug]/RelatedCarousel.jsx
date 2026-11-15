@@ -2,12 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import NavIcon from '../../components/shell/NavIcon';
-import SaveEventButton from '../../components/SaveEventButton';
-import { eventDateParts, priceBlock } from '../../components/EventCard';
-import { categoryLabel } from '../../lib/categories';
-import { isDateOnly, formatDateOnly } from '../../lib/dateOnly';
+import EventCard from '../../components/EventCard';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -84,14 +80,12 @@ export default function RelatedCarousel({ events, title, city, moreHref }) {
             {city ? `Discover more events in ${city} and nearby.` : 'Discover more events you might enjoy.'}
           </p>
         </div>
+        <div className="es-related__actions">
         <Link href={moreHref} className="es-related__more">
           <NavIcon name="pin" size={20} />
           <span>{city ? `All events in ${city}` : 'All events'}</span>
           <NavIcon name="arrow" size={20} />
         </Link>
-      </div>
-
-      <div className="es-related__frame">
         {events.length > 1 && (
           <button
             type="button"
@@ -103,11 +97,6 @@ export default function RelatedCarousel({ events, title, city, moreHref }) {
             <NavIcon name="chevronLeft" size={22} />
           </button>
         )}
-
-        <ul ref={trackRef} className="es-related__track">
-          {events.map((event) => <li key={event.id} className="es-related__item"><RelatedCard event={event} /></li>)}
-        </ul>
-
         {events.length > 1 && (
           <button
             type="button"
@@ -119,6 +108,13 @@ export default function RelatedCarousel({ events, title, city, moreHref }) {
             <NavIcon name="chevronRight" size={22} />
           </button>
         )}
+        </div>
+      </div>
+
+      <div className="es-related__frame">
+        <ul ref={trackRef} className="es-related__track">
+          {events.map((event) => <li key={event.id} className="es-related__item"><EventCard event={event} /></li>)}
+        </ul>
       </div>
 
       {events.length > 1 && (
@@ -144,74 +140,4 @@ function splitTitle(title) {
   const words = String(title).split(' ');
   if (words.length < 3) return ['', title];
   return [words.slice(0, -2).join(' '), words.slice(-2).join(' ')];
-}
-
-function RelatedCard({ event }) {
-  const when = eventDateParts(event);
-  const place = [event.venue, event.city].filter(Boolean).join(', ') || event.organizer?.name || '';
-  const price = priceBlock(event);
-  const dateText = when && (isDateOnly(event) ? formatDateOnly(event, { style: 'short' }) : `${when.weekday} · ${when.time}`);
-  const category = event.category ? (event.categoryLabel || categoryLabel(event.category)) : 'Event';
-
-  return (
-    <div className="es-rcard-wrap">
-      <Link href={`/e/${event.slug}`} className="es-rcard">
-        <div className="es-rcard__media">
-          {event.coverUrl ? (
-            <Image src={event.coverUrl} alt="" fill sizes="(max-width: 640px) 85vw, 520px" className="es-rcard__art" />
-          ) : (
-            <span className="es-rcard__placeholder">{event.title}</span>
-          )}
-          {when && (
-            <span className="es-rcard__date">
-              <b>{when.day}</b>
-              <small>{when.month}</small>
-            </span>
-          )}
-          {/* The soft white wave where the photo meets the card. */}
-          <svg className="es-rcard__wave" viewBox="0 0 400 40" preserveAspectRatio="none" aria-hidden="true">
-            <path d="M0 22 C 90 6, 170 4, 250 16 S 360 30, 400 12 L 400 40 L 0 40 Z" className="es-rcard__wave-tint" />
-            <path d="M0 28 C 100 12, 180 10, 260 22 S 360 34, 400 20 L 400 40 L 0 40 Z" className="es-rcard__wave-fill" />
-          </svg>
-        </div>
-
-        <div className="es-rcard__body">
-          <h3 className="es-rcard__title">{event.title}</h3>
-          <p className="es-rcard__meta">
-            {dateText && <span><NavIcon name="calendar" size={18} />{dateText}</span>}
-            {dateText && place && <i aria-hidden="true" />}
-            {place && <span className="fx-min0"><NavIcon name="pin" size={18} /><span className="fx-truncate">{place}</span></span>}
-          </p>
-          <div className="es-rcard__foot">
-            <span className="es-rcard__tag">
-              <CategoryIcon category={event.category} />
-              {category}
-            </span>
-            <span className="es-rcard__go">
-              {price && (
-                <span className="es-rcard__price">
-                  {price.label}
-                  <b>{price.value}</b>
-                </span>
-              )}
-              <span className="es-rcard__arrow" aria-hidden="true"><NavIcon name="arrow" size={18} /></span>
-            </span>
-          </div>
-        </div>
-      </Link>
-      <SaveEventButton slug={event.slug} title={event.title} className="es-rcard__save" />
-    </div>
-  );
-}
-
-/** A music note for music, a tag for everything else. */
-function CategoryIcon({ category }) {
-  if (category === 'music' || category === 'concert' || category === 'concerts') {
-    return (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" />
-      </svg>
-    );
-  }
-  return <NavIcon name="tag" size={16} />;
 }

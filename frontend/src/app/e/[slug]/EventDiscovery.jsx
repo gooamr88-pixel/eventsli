@@ -65,7 +65,9 @@ export function EventQuickAnswers({ event }) {
  * removes the section and nothing else: this is the least important thing on
  * the page and must never be the reason it does not render.
  */
-const WANT = 4;
+// Eight, not four (2026-11-15): four cards across the page, and a second
+// screen to swipe to, so the page ends on "there is plenty more".
+const WANT = 8;
 
 async function upcoming(params) {
   try {

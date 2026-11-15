@@ -15231,3 +15231,58 @@ label.es-chip:has(:focus-visible) { outline: 2px solid var(--es-accent); outline
 }
 
 }   /* end @layer components — sale tags */
+
+/* ── "You might also like", on the shared card (2026-11-15) ───────────────
+   The carousel now draws the same EventCard as every listing — the sale tag,
+   the heart, the coral button — so a card means one thing everywhere. Four
+   across on a desktop, the poster shown WHOLE over its own blur (organizers'
+   flyers lost their headline to a crop), and the arrows beside "All events"
+   in the header instead of on top of the cards. */
+@layer components {
+
+.es-related__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; }
+.es-related__nav {
+  position: static;
+  display: inline-grid;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  border: 1px solid var(--es-border);
+  border-radius: var(--es-radius-full);
+  background: var(--es-surface);
+  color: var(--es-text);
+  box-shadow: var(--es-shadow-sm);
+  translate: none;
+  cursor: pointer;
+  transition: background-color var(--es-duration-fast) var(--es-ease-default), opacity var(--es-duration-fast) var(--es-ease-default);
+}
+.es-related__nav--next { border-color: transparent; background: var(--es-accent); color: var(--es-text-on-accent); }
+.es-related__nav:disabled { opacity: 0.35; cursor: default; }
+@media (width >= theme(--breakpoint-md)) {
+  .es-related__nav { position: static; translate: none; }
+}
+@media (width < 40rem) {
+  .es-related__nav { display: none; }
+}
+
+.es-related__item { flex: 0 0 74%; }
+@media (width >= theme(--breakpoint-md)) {
+  .es-related__item { flex-basis: calc((100% - 2 * var(--gap)) / 2.6); }
+}
+@media (width >= theme(--breakpoint-lg)) {
+  .es-related { --gap: 1.25rem; }
+  .es-related__item { flex-basis: calc((100% - 3 * var(--gap)) / 4); }
+}
+
+/* The whole poster, over its own blur. */
+.es-related .es-evcard__media { aspect-ratio: 4 / 5; background: var(--es-night-900); }
+.es-related .es-evcard__blur {
+  display: block;
+  object-fit: cover;
+  filter: blur(16px) brightness(0.7) saturate(1.1);
+  transform: scale(1.15);
+}
+.es-related .es-evcard__art { object-fit: contain; }
+.es-related .es-evcard:hover .es-evcard__art { transform: none; }
+
+}   /* end @layer components — related events */
