@@ -8357,118 +8357,166 @@ input.es-lp-filter__control::-webkit-search-cancel-button { display: none; }
    here, because Field and SubmitButton are shared with the dashboard and
    must not change there.
    ═══════════════════════════════════════════════════════════════════════ */
+/* REBUILT 2026-11-15 (owner: "auth pages are very terrible in everything").
+   The form on clean white; from lg a sticky yellow brand panel beside it with
+   the homepage's promise, three reasons, and a fan of real event posters.
+   Sticky so a long sign-up scrolls past it instead of stretching it. */
 .es-auth {
-  min-height: calc(100dvh - 4.5rem);
-  background:
-    radial-gradient(40% 50% at 0% 0%, var(--es-accent-subtle), transparent 70%),
-    radial-gradient(40% 50% at 100% 100%, var(--es-accent-subtle), transparent 70%),
-    var(--es-bg);
+  min-height: calc(100dvh - var(--es-header-h));
+  background: var(--es-bg);
 }
-.es-auth :is(h1, h2) { font-family: var(--es-font-display); font-weight: 800; letter-spacing: -0.025em; }
+.es-auth :is(h1, h2) { font-family: var(--es-font-display); font-weight: 800; letter-spacing: -0.02em; }
+.es-auth h1 { font-size: clamp(1.75rem, 1.3rem + 1.5vw, 2.25rem); line-height: 1.12; }
 
-/* minmax(0, 1fr), not a bare track: a single auto column grows to fit its
-   widest child — the Google button renders at a fixed width — and on a phone
-   the card then clipped the whole form's right edge. */
-.es-auth__shell {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  max-width: 68rem;
-  margin-inline: auto;
-  overflow: hidden;
-  border: 1px solid var(--es-border);
-  border-radius: 24px;
-  background: var(--es-surface);
-  box-shadow: var(--es-shadow-lg);
+.es-authx { display: grid; grid-template-columns: minmax(0, 1fr); }
+@media (width >= theme(--breakpoint-lg)) {
+  .es-authx { grid-template-columns: minmax(0, 1fr) minmax(0, 0.95fr); }
 }
+.es-authx__form-side {
+  display: flex;
+  justify-content: center;
+  min-width: 0;
+  padding: clamp(1.75rem, 5vw, 4rem) max(var(--fx-pad-x), var(--fx-safe-l)) clamp(2.5rem, 6vw, 5rem);
+}
+/* Wide enough for the two account-type cards side by side and a calm line
+   length; narrow enough to read as one column of questions. */
+.es-authx__form { width: 100%; min-width: 0; max-width: 32rem; }
 
-/* The photograph panel — lg and up only. A fixed night (near-black) veil over it, so the
-   white type measures the same whatever photograph an admin uploads. */
-.es-auth__aside {
-  position: relative;
-  isolation: isolate;
-  display: none;
-  flex-direction: column;
-  justify-content: flex-end;
-  min-height: 38rem;
-  padding: 3rem;
-  overflow: hidden;
-  background: linear-gradient(150deg, var(--es-coral-600), var(--es-coral-800));
-  color: #ffffff;
+/* The brand panel. */
+.es-authx__panel { display: none; }
+@media (width >= theme(--breakpoint-lg)) {
+  .es-authx__panel {
+    display: block;
+    position: relative;
+    padding: 1.25rem 1.25rem 1.25rem 0;
+  }
+  .es-authx__panel-inner {
+    position: sticky;
+    top: calc(var(--es-header-h) + 1.25rem);
+    display: flex;
+    flex-direction: column;
+    gap: 1.75rem;
+    min-height: calc(100dvh - var(--es-header-h) - 2.5rem);
+    padding: clamp(2rem, 4vw, 3.5rem);
+    overflow: hidden;
+    border-radius: 28px;
+    background: var(--es-highlight);
+    color: var(--es-text-on-highlight);
+    isolation: isolate;
+  }
+  /* A large E card in the corner, as a watermark — the logo's own shape. */
+  .es-authx__panel-inner::before {
+    content: '';
+    position: absolute;
+    right: -6rem;
+    top: -6rem;
+    z-index: -1;
+    width: 22rem;
+    height: 22rem;
+    border-radius: 3.5rem;
+    background: rgb(255 255 255 / 0.22);
+    transform: rotate(14deg);
+  }
 }
-.es-auth__photo { position: absolute; inset: 0; z-index: -2; width: 100%; height: 100%; object-fit: cover; }
-.es-auth__aside::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background: linear-gradient(180deg, rgb(6 30 32 / 0.15) 0%, rgb(6 30 32 / 0.55) 45%, rgb(6 30 32 / 0.9) 100%);
-}
-.es-auth__aside-body { display: flex; flex-direction: column; gap: 1rem; }
-.es-auth__aside-kicker {
+.es-authx__title {
   margin: 0;
-  font-family: var(--es-font-mono);
-  font-size: 0.75rem;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: rgb(255 255 255 / 0.8);
-}
-.es-auth__aside-title {
-  margin: 0;
-  max-width: 14ch;
-  font-size: clamp(2rem, 1.2rem + 1.6vw, 2.75rem);
-  font-weight: 700;
+  font-family: var(--es-font-display);
+  font-size: clamp(2.1rem, 1.3rem + 2vw, 3.1rem);
+  font-weight: 900;
   line-height: 1.08;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.02em;
 }
-.es-auth__reasons { display: grid; gap: 0.875rem; margin-top: 0.5rem; }
-.es-auth__reasons li { display: flex; align-items: flex-start; gap: 0.75rem; font-size: var(--es-text-sm); line-height: 1.5; color: rgb(255 255 255 / 0.9); }
-.es-auth__reason-icon {
+/* The homepage's highlight, inverted for a yellow ground: a white slab. */
+.es-authx__mark {
+  display: block;
+  width: fit-content;
+  margin-top: 0.15em;
+  padding: 0.02em 0.28em 0.06em;
+  margin-inline-start: -0.12em;
+  border-radius: 0.22em;
+  background: #ffffff;
+  transform: skewX(-8deg);
+}
+.es-authx__mark > span { display: inline-block; transform: skewX(8deg); }
+.es-authx__reasons { display: grid; gap: 1rem; margin: 0; padding: 0; list-style: none; }
+.es-authx__reasons li { display: flex; align-items: flex-start; gap: 0.85rem; font-size: var(--es-text-sm); line-height: 1.45; }
+.es-authx__reasons b { display: block; font-size: var(--es-text-base); font-weight: 800; }
+.es-authx__reason-icon {
   display: inline-flex;
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
-  border: 1px solid rgb(255 255 255 / 0.25);
-  border-radius: 10px;
-  background: rgb(255 255 255 / 0.14);
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--es-night-900);
+  color: var(--es-highlight);
 }
+/* The fan of posters: real events, tilted, overlapping, with depth. */
+.es-authx__fan { position: relative; flex: 1; min-height: 15rem; margin-top: auto; }
+.es-authx__poster {
+  position: absolute;
+  bottom: 0;
+  width: 42%;
+  max-width: 13rem;
+  aspect-ratio: 4 / 5;
+  object-fit: cover;
+  border: 4px solid #ffffff;
+  border-radius: 18px;
+  box-shadow: 0 24px 50px -20px rgb(17 16 24 / 0.55);
+}
+.es-authx__poster--1 { left: 2%; z-index: 1; transform: rotate(-8deg); }
+.es-authx__poster--2 { left: 29%; z-index: 3; bottom: 1.5rem; transform: rotate(2deg); }
+.es-authx__poster--3 { left: 56%; z-index: 2; transform: rotate(9deg); }
+.es-authx__fan--1 .es-authx__poster--1 { left: 25%; transform: rotate(-4deg); }
+.es-authx__fan--mark { display: grid; place-items: center; }
+.es-authx__bigmark {
+  display: grid;
+  place-items: center;
+  width: clamp(10rem, 16vw, 13rem);
+  aspect-ratio: 1;
+  border-radius: 2.25rem;
+  background: #ffffff;
+  box-shadow: 0 30px 60px -24px rgb(17 16 24 / 0.45);
+  transform: rotate(-8deg);
+}
+.es-authx__bigmark .es-logo__mark { width: 62%; height: auto; }
+.es-authx__bigmark .es-logo__ticket { fill: var(--es-logo-mark); }
+.es-authx__bigmark .es-logo__initial { fill: var(--es-logo-initial); }
 
-.es-auth__main { display: flex; align-items: center; min-width: 0; padding: clamp(1.25rem, 5vw, 3.5rem); }
-.es-auth__form { width: 100%; min-width: 0; max-width: 26rem; margin-inline: auto; }
-/* The full lockup above the form — mark, word and tagline — where it was a
-   bare mark in a tinted tile. A sign-in page is where a person checks they
-   are on the real site before typing a password, so it carries the whole
-   logo as the guide draws it. The lockup's own clear space supplies the gap
-   above the heading. */
-.es-auth__brand { display: flex; margin-bottom: 0.5rem; }
-
-/* The form parts, scoped: taller, softer fields with a brand focus ring, and
-   a square-cornered full-width button like the storefront's. */
-.es-auth label { font-weight: 500; }
+/* The form parts, scoped: white fields with a real edge (the grey fill read
+   as disabled), a coral focus ring, and a full-width button. */
+.es-auth label { font-weight: 600; }
 .es-auth .es-input {
   min-height: 50px;
   padding-inline: 14px;
-  border-color: transparent;
+  border: 1.5px solid var(--es-control-border);
   border-radius: 12px;
-  background: var(--es-bg-sunken);
+  background: var(--es-surface);
 }
-/* Hover only where there is a pointer: on a phone a tap leaves :hover stuck,
-   and one field kept a border the others did not have. */
-@media (hover: hover) { .es-auth .es-input:hover { border-color: var(--es-border-strong); } }
+@media (hover: hover) { .es-auth .es-input:hover { border-color: var(--es-text-muted); } }
 .es-auth .es-input:focus { border-color: var(--es-accent); background: var(--es-surface); box-shadow: 0 0 0 4px var(--es-accent-subtle); }
 .es-auth .es-btn--primary {
   width: 100%;
-  min-height: 50px;
-  border-radius: 12px;
-  font-weight: 600;
-  box-shadow: 0 6px 16px rgb(255 65 75 / 0.22);
+  min-height: 52px;
+  border-radius: var(--es-radius-full);
+  font-size: var(--es-text-md);
+  font-weight: 800;
+  box-shadow: var(--es-shadow-accent);
 }
-.es-auth a.text-accent { font-weight: 600; }
+/* Disabled reads as "not yet", in grey — a faded coral read as a broken
+   colour, not as a button waiting for the form. */
+.es-auth .es-btn--primary:disabled { opacity: 1; background: var(--es-grey-200); color: var(--es-text-subtle); box-shadow: none; }
+.es-auth a.text-accent { font-weight: 700; }
+/* Checkboxes a thumb can hit, in the brand: the native ones were 13px. */
+.es-auth input[type='checkbox'] { width: 20px; height: 20px; flex-shrink: 0; accent-color: var(--es-accent); cursor: pointer; }
 
-@media (width >= theme(--breakpoint-lg)) {
-  .es-auth__shell { grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); }
-  .es-auth__aside { display: flex; }
+/* The buyer / organizer cards, given room to breathe. */
+.es-auth .es-choice { padding: 1rem; border-radius: 16px; }
+.es-auth .es-choice__title { font-family: var(--es-font-display); font-weight: 800; }
+.es-auth .es-choice__list { margin-top: 0.35rem; }
+@media (width < 30rem) {
+  .es-auth .es-choice-grid--2 { grid-template-columns: minmax(0, 1fr); }
 }
 
 }   /* end @layer components */
