@@ -8452,23 +8452,62 @@ input.es-lp-filter__control::-webkit-search-cancel-button { display: none; }
   background: var(--es-night-900);
   color: var(--es-highlight);
 }
-/* The fan of posters: real events, tilted, overlapping, with depth. */
-.es-authx__fan { position: relative; flex: 1; min-height: 15rem; margin-top: auto; }
-.es-authx__poster {
+/* The fan's own box: tall enough for the posters, so they can never climb
+   into the reasons above them (the bug in the owner's screenshot,
+   2026-11-15). Everything in it is sized from this height. */
+.es-authx__fan { position: relative; flex: 1; min-height: clamp(18rem, 27vw, 24rem); margin-top: auto; }
+
+/* The deck (PosterDeck.jsx): a front poster and two tilted behind it. Each
+   card is placed by `data-slot`; the transform transitions, so a shuffle is
+   one state change animated on the compositor. */
+.es-deck { position: absolute; inset: 0; }
+.es-deck.is-floating { animation: es-deck-float 7s ease-in-out infinite; }
+@keyframes es-deck-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+.es-deck__card {
   position: absolute;
-  bottom: 0;
-  width: 42%;
-  max-width: 13rem;
+  left: 50%;
+  bottom: 3%;
+  height: 90%;
+  width: auto;
+  max-width: none;
   aspect-ratio: 4 / 5;
   object-fit: cover;
   border: 4px solid #ffffff;
-  border-radius: 18px;
-  box-shadow: 0 24px 50px -20px rgb(17 16 24 / 0.55);
+  border-radius: 20px;
+  background: var(--es-night-900);
+  box-shadow: 0 20px 44px -18px rgb(17 16 24 / 0.5);
+  transform-origin: 50% 100%;
+  transition:
+    transform 900ms cubic-bezier(0.22, 0.61, 0.36, 1),
+    filter 900ms cubic-bezier(0.22, 0.61, 0.36, 1),
+    box-shadow 900ms cubic-bezier(0.22, 0.61, 0.36, 1);
+  user-select: none;
 }
-.es-authx__poster--1 { left: 2%; z-index: 1; transform: rotate(-8deg); }
-.es-authx__poster--2 { left: 29%; z-index: 3; bottom: 1.5rem; transform: rotate(2deg); }
-.es-authx__poster--3 { left: 56%; z-index: 2; transform: rotate(9deg); }
-.es-authx__fan--1 .es-authx__poster--1 { left: 25%; transform: rotate(-4deg); }
+.es-deck__card[data-slot='0'] {
+  z-index: 3;
+  transform: translateX(-50%) rotate(-2deg) scale(1);
+  box-shadow: 0 34px 70px -24px rgb(17 16 24 / 0.65), 0 0 0 1px rgb(17 16 24 / 0.04);
+}
+.es-deck__card[data-slot='1'] {
+  z-index: 2;
+  transform: translateX(-50%) translateX(58%) translateY(-2%) rotate(10deg) scale(0.84);
+  filter: brightness(0.9) saturate(0.95);
+}
+.es-deck__card[data-slot='2'] {
+  z-index: 1;
+  transform: translateX(-50%) translateX(-58%) translateY(-2%) rotate(-11deg) scale(0.84);
+  filter: brightness(0.9) saturate(0.95);
+}
+/* Hovering the deck fans it out a little: the cards make room. */
+.es-deck:hover .es-deck__card[data-slot='1'] { transform: translateX(-50%) translateX(70%) translateY(-4%) rotate(13deg) scale(0.86); filter: none; }
+.es-deck:hover .es-deck__card[data-slot='2'] { transform: translateX(-50%) translateX(-70%) translateY(-4%) rotate(-14deg) scale(0.86); filter: none; }
+.es-deck:hover .es-deck__card[data-slot='0'] { transform: translateX(-50%) translateY(-3%) rotate(0deg) scale(1.03); }
+@media (prefers-reduced-motion: reduce) {
+  .es-deck.is-floating { animation: none; }
+}
 .es-authx__fan--mark { display: grid; place-items: center; }
 .es-authx__bigmark {
   display: grid;

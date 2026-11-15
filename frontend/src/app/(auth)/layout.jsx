@@ -1,6 +1,7 @@
 import NavIcon from '../components/shell/NavIcon';
 import { LogoMark } from '../components/brand/Logo';
 import { serverFetch } from '../utils/apiClient';
+import PosterDeck from './PosterDeck';
 
 /**
  * The credential screens: sign in, create an account, confirm the email, and
@@ -78,11 +79,8 @@ export default async function AuthLayout({ children }) {
           )}
 
           {fan.length > 0 && (
-            <div className={`es-authx__fan es-authx__fan--${fan.length}`}>
-              {fan.map((p, i) => (
-                // eslint-disable-next-line @next/next/no-img-element -- decorative posters straight from storage
-                <img key={p.id} src={p.url} alt="" loading="lazy" decoding="async" className={`es-authx__poster es-authx__poster--${i + 1}`} />
-              ))}
+            <div className="es-authx__fan">
+              <PosterDeck posters={fan} />
             </div>
           )}
         </div>
