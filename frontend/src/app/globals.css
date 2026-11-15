@@ -14962,18 +14962,19 @@ label.es-chip:has(:focus-visible) { outline: 2px solid var(--es-accent); outline
 /* The headline sponsor. */
 .es-evsp__featured {
   display: grid;
-  align-items: center;
-  gap: 1.25rem;
+  justify-items: center;
+  gap: 1.1rem;
+  width: min(100%, 40rem);
+  margin-inline: auto;
+  text-align: center;
   padding: clamp(1rem, 2.5vw, 1.5rem);
   border: 2px solid var(--es-highlight);
   border-radius: 20px;
   background: var(--es-surface);
   box-shadow: var(--es-shadow-md);
 }
-@media (width >= theme(--breakpoint-md)) {
-  .es-evsp__featured { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 2rem; }
-}
 .es-evsp__featured-logo {
+  width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -14985,7 +14986,7 @@ label.es-chip:has(:focus-visible) { outline: 2px solid var(--es-accent); outline
   background: var(--es-surface);
   box-shadow: inset 0 0 0 1px var(--es-border);
 }
-.es-evsp__featured-text { display: grid; justify-items: start; gap: 0.6rem; }
+.es-evsp__featured-text { display: grid; justify-items: center; gap: 0.6rem; }
 .es-evsp__badge {
   display: inline-flex;
   align-items: center;
@@ -15029,6 +15030,7 @@ label.es-chip:has(:focus-visible) { outline: 2px solid var(--es-accent); outline
 .es-evsp__tier-name {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.6rem;
   margin: 0;
   font-family: var(--es-font-display);
@@ -15036,7 +15038,12 @@ label.es-chip:has(:focus-visible) { outline: 2px solid var(--es-accent); outline
   font-weight: 800;
   color: var(--es-text);
 }
-.es-evsp__tier-name::after { content: ''; flex: 1; height: 1px; background: var(--es-border); }
+/* CENTRED (owner, 2026-11-15): the tier name sits between two rules, and
+   each tier's tiles are a centred row of one fixed width — so one sponsor or
+   five, the row is balanced under the heading. */
+.es-evsp__tier-name::before,
+.es-evsp__tier-name::after { content: ''; flex: 1; max-width: 12rem; height: 1px; background: var(--es-border); }
+.es-evsp__tier-name::before { order: -1; }
 .es-evsp__medal {
   width: 14px;
   height: 14px;
@@ -15045,13 +15052,15 @@ label.es-chip:has(:focus-visible) { outline: 2px solid var(--es-accent); outline
   box-shadow: inset 0 0 0 1px rgb(17 16 24 / 0.12);
 }
 .es-evsp__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(var(--tile), 100%), 1fr));
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 0.85rem;
   margin: 0;
   padding: 0;
   list-style: none;
 }
+.es-evsp__grid > li { flex: 0 1 var(--tile); min-width: 0; }
 .es-evsp__tile {
   display: flex;
   align-items: center;
@@ -15080,7 +15089,7 @@ label.es-chip:has(:focus-visible) { outline: 2px solid var(--es-accent); outline
   overflow-wrap: anywhere;
 }
 @media (width < 40rem) {
-  .es-evsp__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .es-evsp__grid > li { flex-basis: calc(50% - 0.425rem); }
 }
 
 }   /* end @layer components — event sponsors */
