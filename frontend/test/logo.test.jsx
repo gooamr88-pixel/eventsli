@@ -18,7 +18,7 @@ import { WORDMARK_EVENTS, WORDMARK_LI } from '../src/app/components/brand/wordma
 const read = (...p) => fs.readFileSync(path.join(process.cwd(), ...p), 'utf8');
 
 describe('the logo', () => {
-  test('the word is the generated Montserrat outline, in two halves', () => {
+  test('the word is the generated Nunito outline, in two halves', () => {
     // E v e n t s | l i — at least one closed outline per letter, and the
     // halves are separate shapes (the print kit and the CSS address them apart).
     expect(WORDMARK_EVENTS.match(/M/g).length).toBeGreaterThanOrEqual(6);

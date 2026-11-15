@@ -364,7 +364,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(6, 30, 32, 0.35)',
   },
   heroText: { paddingHorizontal: space.xl, paddingBottom: 56, gap: space.sm },
-  heroTitle: { fontFamily: 'Montserrat_800ExtraBold', fontSize: 27, lineHeight: 33, color: colors.white },
+  heroTitle: { fontFamily: 'Nunito_900Black', fontSize: 27, lineHeight: 33, color: colors.white },
   heroMeta: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   liveChip: {
     flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start',

@@ -55,7 +55,7 @@ Use it as a fill, with near-black words on it.
 The **E-ticket**: a yellow ticket (a rounded square with a notch in each side)
 with a near-black E on it. The E's middle bar ends in line with the right-hand
 notch, so the initial and the ticket read as one shape. The word beside it is
-Montserrat Bold, upright.
+Nunito Black: rounded, friendly, matching the ticket's corners.
 
 ## Rules
 
@@ -70,8 +70,8 @@ Montserrat Bold, upright.
 
 ## Typefaces
 
-- **Montserrat** (Bold, ExtraBold, Black) for headlines. The wordmark is
-  Montserrat Bold, converted to outlines.
+- **Nunito** (Bold, ExtraBold, Black) for headlines. The wordmark is Nunito
+  Black, converted to outlines.
 - **DM Sans** for body text, forms and small labels.
 
 Both are free from Google Fonts.

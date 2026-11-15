@@ -302,13 +302,14 @@
      so every rule that asks for them follows without being hunted down; the
      one place a monospace face still helps — digits a person copies, like a
      six-digit code — asks for `--es-font-code` by name. */
-  /* MONTSERRAT FOR HEADINGS (owner, 2026-11-15), DM Sans for everything a
+  /* NUNITO FOR HEADINGS (owner, 2026-11-15; Montserrat before it was "very
+     formal"), DM Sans for everything a
      person reads at length. The brand sheet sets its headlines and the
      wordmark in a heavy geometric face; DM Sans at 800 is close but rounder
      and quieter, and the sheet's "Discover Events." reads as a poster,
      not a paragraph. `--es-font-serif` is the legacy name every heading
      rule already asks for, so it points at the display face. */
-  --es-font-display: var(--font-montserrat), var(--es-font-sans);
+  --es-font-display: var(--font-nunito), var(--es-font-sans);
   --es-font-serif: var(--es-font-display);
   --es-font-mono:  var(--es-font-sans);
   --es-font-code:  var(--font-dm-mono), ui-monospace, 'Cascadia Code', Consolas, monospace;
@@ -2919,15 +2920,15 @@ body:has(.es-buybar) { padding-block-end: calc(5.5rem + var(--fx-safe-b)); }
 .es-logo__events,
 .es-logo__tagline { fill: var(--es-logo-ink); }
 .es-logo__li { fill: var(--es-logo-li); }
-/* In the word's own units (its viewBox is 113 tall). */
+/* In the word's own units (its viewBox is 107 tall). */
 .es-logo__tagline { font-family: var(--es-font-sans); font-size: 30px; font-weight: 600; letter-spacing: 0.1em; }
 .es-logo--lockup {
   align-items: flex-start;
   padding-block: calc(var(--es-logo-h) * 0.44);
   padding-inline-end: calc(var(--es-logo-h) * 0.44);
 }
-/* 164 / 113: the word's viewBox extended down by the tagline's line. */
-.es-logo--lockup .es-logo__word { height: calc(var(--es-logo-h) * 1.451); }
+/* 158 / 107: the word's viewBox extended down by the tagline's line. */
+.es-logo--lockup .es-logo__word { height: calc(var(--es-logo-h) * 1.477); }
 
 /* ── .es-tkt — the ticket, after the brand guide's "Digital ticket" ────
    ADDED 2026-10-16 (TicketStub.jsx). Three parts: a coral STUB with the
@@ -5285,7 +5286,7 @@ a.es-sponsor:hover { opacity: 0.7; }
    of the blue storefront review).
 
    White page. Since 2026-11-15 the approved homepage concept: yellow
-   highlights, coral calls to action, Montserrat headings. Every colour below is a ROLE, so the
+   highlights, coral calls to action, Nunito headings. Every colour below is a ROLE, so the
    dark theme follows without a second block. The only literals are the
    white chips and captions that sit on PHOTOGRAPHS (date badges, poster
    names, the play button, the closing panel's buttons) — a photograph is
@@ -8131,8 +8132,8 @@ body {
   text-rendering: optimizeLegibility;
 }
 
-/* Montserrat (2026-11-15). 800, and a touch less negative tracking than the
-   DM Sans headings had: Montserrat is wider set, and -0.02em on it at
+/* Nunito (2026-11-15). 800, and a touch less negative tracking than the
+   DM Sans headings had: Nunito's round forms close up, and -0.02em on it at
    display sizes pinches the counters of the bold forms. */
 h1, h2, h3, h4 {
   font-family: var(--es-font-display);

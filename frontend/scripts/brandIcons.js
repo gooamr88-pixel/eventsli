@@ -26,7 +26,7 @@
  * card is the homepage concept's hero in miniature.
  *
  * NEEDS Playwright (`playwright`, or `playwright-core` driving the installed
- * Chrome) and network access to Google Fonts, which supplies Montserrat and
+ * Chrome) and network access to Google Fonts, which supplies Nunito and
  * DM Sans for the share card. Not part of `npm run check` for that reason.
  * ═══════════════════════════════════════════════════════════════════════════ */
 const fs = require('node:fs');
@@ -115,7 +115,7 @@ function gateTile(size, { radius = 0, safe = false } = {}) {
 function og() {
   return `<div style="position:relative;width:1200px;height:630px;background:#ffffff;font-family:'DM Sans';overflow:hidden">
     <div style="position:absolute;left:84px;top:70px">${lockup({ height: 52 })}</div>
-    <div style="position:absolute;left:84px;top:190px;width:680px;font-family:Montserrat;font-weight:900;font-size:68px;line-height:1.1;color:${INK};letter-spacing:-0.01em">
+    <div style="position:absolute;left:84px;top:190px;width:680px;font-family:Nunito;font-weight:900;font-size:68px;line-height:1.1;color:${INK};letter-spacing:-0.01em">
       <div>Discover Events.</div>
       <div><span style="display:inline-block;background:${YELLOW};border-radius:14px;padding:0 18px;margin-left:-18px;transform:skewX(-6deg)"><span style="display:inline-block;transform:skewX(6deg)">Make Memories.</span></span></div>
     </div>
@@ -172,7 +172,7 @@ async function launch() {
 
 async function main() {
   const faces = (await faceCss('family=DM+Sans:wght@500;600;700'))
-    + (await faceCss('family=Montserrat:wght@800;900'));
+    + (await faceCss('family=Nunito:wght@800;900'));
   const browser = await launch();
   try {
     for (const asset of ASSETS) {

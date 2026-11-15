@@ -8,7 +8,7 @@ import { WORDMARK_EVENTS, WORDMARK_LI, WORDMARK_VIEWBOX } from './wordmarkPath';
  *
  * THE E-TICKET, the owner's choice on 2026-11-15: a sunshine-yellow ticket (a
  * rounded square, notched on each side) with a near-black E on it; the word is
- * upright Montserrat Bold in the sheet's near-black. Both are generated paths — see
+ * Nunito Black in the sheet's near-black. Both are generated paths — see
  * scripts/brandLogo.js — not an <img> and not live text.
  *
  * THERE IS NO COLOUR PROP. Four CSS roles colour the logo (`--es-logo-mark`,

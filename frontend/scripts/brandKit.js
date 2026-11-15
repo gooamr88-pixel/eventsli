@@ -15,7 +15,7 @@
  * playwright-core and an installed Chrome), as scripts/brandIcons.js does.
  *
  * THE WHITE / YELLOW / CORAL BRAND, 2026-11-15: the E-ticket (a yellow ticket
- * with a near-black E) and "Eventsli" in Montserrat Bold, near-black. The
+ * with a near-black E) and "Eventsli" in Nunito Black, near-black. The
  * ticket stays yellow in every colour version except one-colour print, where
  * the E is knocked out of a near-black ticket.
  * ═══════════════════════════════════════════════════════════════════════════ */
