@@ -14559,3 +14559,378 @@ label.es-chip:has(:focus-visible) { outline: 2px solid var(--es-accent); outline
 .es-smssteps li[data-ok] { color: var(--es-text); }
 .es-smssteps li[data-ok] svg { color: var(--es-success); }
 }   /* end @layer components — Global SMS console */
+
+/* ═══════════════════════════════════════════════════════════════════════
+   THE EVENT PAGE, REBUILT TO THE OWNER'S REFERENCE (2026-11-15)
+
+   "I need our guest experience as these exactly": the header in two parts
+   (poster | one tinted panel of title, headline, description and facts),
+   the tickets as a ticket, the blocks-and-prices door to the seat map, and
+   the questions as an accordion. In our identity — coral and yellow — not
+   the reference's.
+
+   Re-opens `components` (see the note at the top of this file): it sits
+   after the event page's first rules, so it wins by source order, and
+   utilities still beat it.
+   ═══════════════════════════════════════════════════════════════════════ */
+@layer components {
+
+/* The page widens from a reading column to the reference's full width. */
+.es-ev-page { max-width: 76rem; }
+
+/* ── 1 · Header ──────────────────────────────────────────────────────── */
+.es-evx-head { display: grid; gap: 1.25rem; align-items: stretch; }
+@media (width >= theme(--breakpoint-lg)) {
+  .es-evx-head { grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.75fr); gap: 1.75rem; }
+}
+.es-evx-head__poster { align-self: start; border-radius: 18px; }
+.es-evx-head__poster > .es-zoom { aspect-ratio: 16 / 10; }
+@media (width < 40rem) { .es-evx-head__poster > .es-zoom { aspect-ratio: 4 / 5; } }
+
+.es-evx-head__panel {
+  display: grid;
+  gap: 1.25rem;
+  padding: clamp(1.1rem, 2.5vw, 1.6rem) clamp(1.1rem, 2.5vw, 1.75rem);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--es-accent) 4%, var(--es-surface));
+}
+@media (width >= theme(--breakpoint-md)) {
+  .es-evx-head__panel { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 1.75rem; }
+  .es-evx-facts { padding-inline-start: 1.5rem; border-inline-start: 1px solid color-mix(in srgb, var(--es-accent) 12%, transparent); }
+}
+.es-evx-head__main { display: grid; align-content: start; gap: 0.5rem; min-width: 0; }
+.es-evx-head__title {
+  margin: 0;
+  font-family: var(--es-font-display);
+  font-size: clamp(1.5rem, 1.1rem + 1.3vw, 2.1rem);
+  font-weight: 800;
+  line-height: 1.15;
+  color: var(--es-text);
+}
+/* The organizer's headline, in the accent: words, so the text-safe coral. */
+.es-evx-head__tagline {
+  margin: 0;
+  font-family: var(--es-font-display);
+  font-size: clamp(1.2rem, 1rem + 0.8vw, 1.55rem);
+  font-weight: 800;
+  line-height: 1.2;
+  color: var(--es-accent);
+}
+.es-evx-about__text {
+  margin: 0;
+  font-size: var(--es-text-base);
+  line-height: 1.65;
+  white-space: pre-line;
+  color: var(--es-text);
+}
+.es-evx-about__text.is-clamped {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+}
+.es-evx-about__more {
+  margin-top: 0.35rem;
+  padding: 0;
+  font-weight: 600;
+  color: var(--es-accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.es-evx-facts { display: grid; align-content: start; gap: 0.85rem; margin: 0; padding: 0; list-style: none; }
+.es-evx-facts__row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  font-size: var(--es-text-base);
+  line-height: 1.4;
+  color: var(--es-text-muted);
+}
+.es-evx-facts__icon { display: inline-flex; flex-shrink: 0; color: var(--es-text-muted); }
+.es-evx-facts__link { font-weight: 600; color: var(--es-accent); text-decoration: underline; text-underline-offset: 3px; }
+.es-evx-facts__link:hover { color: var(--es-accent-hover); }
+
+/* ── 2 · Tickets ─────────────────────────────────────────────────────── */
+.es-evx-tickets {
+  display: grid;
+  justify-items: start;
+  gap: 1.1rem;
+  margin-top: 0.5rem;
+  padding: clamp(1rem, 2.5vw, 1.75rem);
+  border-radius: 24px;
+  background: var(--es-bg-sunken);
+}
+.es-evx-tickets__tab {
+  margin: 0;
+  padding: 0.5rem 1.25rem;
+  border: 1px solid var(--es-highlight);
+  border-radius: 12px;
+  background: var(--es-highlight-wash);
+  font-family: var(--es-font-display);
+  font-size: clamp(1.4rem, 1.1rem + 1vw, 1.9rem);
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--es-text);
+}
+.es-evx-tickets__pill {
+  display: inline-flex;
+  justify-self: center;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0.55rem 1.1rem;
+  border: 1px solid var(--es-highlight);
+  border-radius: var(--es-radius-full);
+  background: var(--es-highlight-wash);
+  font-size: var(--es-text-sm);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--es-text);
+}
+.es-evx-tickets__pill svg { color: var(--es-accent); }
+
+/* The card, drawn as a ticket: the body, a perforation, the yellow stub. */
+.es-evx-ticket {
+  position: relative;
+  display: grid;
+  width: 100%;
+  overflow: hidden;
+  border: 2px solid var(--es-highlight);
+  border-radius: 18px;
+  background: var(--es-surface);
+  box-shadow: var(--es-shadow-md);
+}
+@media (width >= theme(--breakpoint-md)) {
+  .es-evx-ticket { grid-template-columns: minmax(0, 1fr) 15rem; }
+}
+.es-evx-ticket__body { display: grid; justify-items: start; gap: 0.85rem; padding: clamp(1.25rem, 3vw, 2.25rem); }
+.es-evx-ticket__title {
+  margin: 0;
+  font-family: var(--es-font-display);
+  font-size: clamp(1.6rem, 1.2rem + 1.6vw, 2.5rem);
+  font-weight: 900;
+  line-height: 1.1;
+  color: var(--es-text);
+}
+.es-evx-ticket__text { max-width: 60ch; margin: 0; font-size: var(--es-text-md); line-height: 1.55; color: var(--es-text-muted); }
+.es-evx-ticket__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 50px;
+  margin-top: 0.25rem;
+  padding: 0.7rem 1.75rem;
+  border-radius: var(--es-radius-full);
+  background: var(--es-accent);
+  font-weight: 800;
+  color: var(--es-text-on-accent);
+  box-shadow: var(--es-shadow-accent);
+  transition: background-color var(--es-duration-fast) var(--es-ease-default);
+}
+.es-evx-ticket__btn:hover { background: var(--es-accent-hover); }
+.es-evx-ticket__stub {
+  position: relative;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 0.6rem;
+  padding: 1.5rem 1rem;
+  border-top: 3px dashed rgb(17 16 24 / 0.22);
+  background: var(--es-highlight);
+  color: var(--es-text-on-highlight);
+}
+@media (width >= theme(--breakpoint-md)) {
+  .es-evx-ticket__stub { border-top: 0; border-inline-start: 3px dashed rgb(17 16 24 / 0.22); }
+  /* The two bites out of the ticket, either end of the perforation. */
+  .es-evx-ticket__stub::before,
+  .es-evx-ticket__stub::after {
+    content: '';
+    position: absolute;
+    left: -16px;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--es-bg-sunken);
+  }
+  .es-evx-ticket__stub::before { top: -16px; }
+  .es-evx-ticket__stub::after { bottom: -16px; }
+}
+.es-evx-ticket__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 84px;
+  height: 84px;
+  border: 3px solid var(--es-text-on-highlight);
+  border-radius: 50%;
+}
+.es-evx-ticket__from { font-size: var(--es-text-sm); font-weight: 600; }
+/* On a phone the stub is a strip under the card: icon and price side by side. */
+@media (width < 48rem) {
+  .es-evx-ticket__stub { grid-auto-flow: column; align-items: center; gap: 1rem; padding: 0.9rem 1rem; }
+  .es-evx-ticket__icon { width: 52px; height: 52px; border-width: 2px; }
+  .es-evx-ticket__icon svg { width: 28px; height: 28px; }
+}
+.es-evx-ticket__from b { font-family: var(--es-font-display); font-size: var(--es-text-xl); font-weight: 900; }
+
+/* ── 3 · Blocks and prices ───────────────────────────────────────────── */
+.es-evx-blocks { display: grid; gap: 1.25rem; }
+.es-evx-blocks__top { display: flex; flex-wrap: wrap-reverse; align-items: center; gap: 1rem 1.5rem; }
+.es-evx-legend { display: flex; flex: 1 1 32rem; flex-wrap: wrap; gap: 0.75rem 1.4rem; margin: 0; padding: 0; list-style: none; }
+.es-evx-legend__item { display: inline-flex; align-items: center; gap: 0.5rem; font-size: var(--es-text-md); color: var(--es-text); }
+.es-evx-swatch { display: inline-block; flex-shrink: 0; width: 18px; height: 18px; border-radius: 5px; }
+.es-evx-limit {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0 0 0 auto;
+  padding: 0.7rem 1rem;
+  border: 1px solid var(--es-accent-edge);
+  border-radius: 12px;
+  background: var(--es-accent-wash);
+  font-weight: 700;
+  color: var(--es-text);
+}
+.es-evx-limit svg { color: var(--es-accent); }
+
+.es-evx-blocks__body { display: grid; gap: 1.25rem; }
+@media (width >= theme(--breakpoint-lg)) {
+  .es-evx-blocks__body { grid-template-columns: 19rem minmax(0, 1fr); align-items: stretch; }
+}
+.es-evx-blocklist {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 0.75rem;
+  border: 1px solid var(--es-border);
+  border-radius: 18px;
+  background: var(--es-surface);
+}
+.es-evx-blocklist__head { padding: 0.25rem 0.25rem 0.75rem; }
+.es-evx-blocklist__title { margin: 0; font-family: var(--es-font-display); font-size: var(--es-text-lg); font-weight: 800; color: var(--es-text); }
+.es-evx-blocklist__hint { margin: 0.15rem 0 0; font-size: var(--es-text-sm); color: var(--es-text-muted); }
+.es-evx-blocklist__list {
+  display: grid;
+  gap: 0.6rem;
+  max-height: 34rem;
+  margin: 0;
+  padding: 0 0.25rem 0.25rem 0;
+  overflow-y: auto;
+  list-style: none;
+}
+.es-evx-block {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--es-border);
+  border-radius: 12px;
+  background: var(--es-surface);
+  color: var(--es-text);
+  transition: border-color var(--es-duration-fast) var(--es-ease-default), box-shadow var(--es-duration-fast) var(--es-ease-default);
+}
+.es-evx-block:hover { border-color: var(--es-accent); box-shadow: var(--es-shadow-sm); }
+.es-evx-block.is-out { background: var(--es-bg-sunken); color: var(--es-text-muted); }
+.es-evx-block--ghost { height: 4.25rem; }
+.es-evx-block__name { font-weight: 700; color: var(--es-text); }
+.es-evx-block__row { display: inline-flex; align-items: center; gap: 0.55rem; font-size: var(--es-text-sm); font-weight: 600; }
+
+.es-evx-stage {
+  position: relative;
+  display: grid;
+  min-height: 22rem;
+  overflow: hidden;
+  border-radius: 18px;
+  background: var(--es-night-900);
+}
+@media (width >= theme(--breakpoint-lg)) { .es-evx-stage { min-height: 34rem; } }
+.es-evx-stage__img { position: absolute; inset: 0; width: 100%; max-width: none; height: 100%; object-fit: cover; }
+.es-evx-stage__veil { position: absolute; inset: 0; background: linear-gradient(180deg, rgb(17 16 24 / 0.25), rgb(17 16 24 / 0.6)); }
+.es-evx-stage__btn {
+  position: absolute;
+  left: 50%;
+  bottom: 14%;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 1.05rem 2.6rem;
+  border-radius: 14px;
+  background: var(--es-accent);
+  font-family: var(--es-font-display);
+  font-size: var(--es-text-lg);
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--es-text-on-accent);
+  box-shadow: 0 18px 40px -14px rgb(214 31 44 / 0.65);
+  transform: translateX(-50%);
+  transition: background-color var(--es-duration-fast) var(--es-ease-default), transform var(--es-duration-fast) var(--es-ease-default);
+}
+.es-evx-stage__btn:hover { background: var(--es-accent-hover); transform: translateX(-50%) translateY(-2px); }
+@media (width < 48rem) {
+  .es-evx-blocklist__list { max-height: 21rem; }
+  .es-evx-stage { min-height: 15rem; }
+  .es-evx-stage__btn { bottom: 50%; padding: 0.85rem 1.8rem; font-size: var(--es-text-base); transform: translate(-50%, 50%); }
+  .es-evx-stage__btn:hover { transform: translate(-50%, 50%); }
+  .es-evx-limit { margin-left: 0; }
+}
+
+/* ── 5 · Frequently asked questions ──────────────────────────────────── */
+.es-evx-faq { display: grid; gap: 0.75rem; margin-top: 1.5rem; }
+.es-evx-faq__title {
+  margin: 0;
+  font-family: var(--es-font-display);
+  font-size: clamp(1.75rem, 1.3rem + 1.8vw, 2.6rem);
+  font-weight: 800;
+  text-align: center;
+  color: var(--es-text);
+}
+.es-evx-faq__lede { margin: 0 auto 1.25rem; max-width: 52ch; font-size: var(--es-text-md); text-align: center; color: var(--es-text-muted); }
+.es-evx-faq__list { display: grid; gap: 0.9rem; }
+.es-evx-faq__item {
+  border: 1px solid color-mix(in srgb, var(--es-highlight) 30%, transparent);
+  border-radius: 14px;
+  background: var(--es-highlight-wash);
+}
+.es-evx-faq__q {
+  display: flex;
+  align-items: center;
+  gap: 1.1rem;
+  padding: 1.35rem 1.5rem;
+  font-family: var(--es-font-display);
+  font-size: clamp(1.05rem, 0.95rem + 0.4vw, 1.25rem);
+  font-weight: 700;
+  color: var(--es-text);
+  list-style: none;
+  cursor: pointer;
+}
+.es-evx-faq__q::-webkit-details-marker { display: none; }
+/* The "+" that turns to "×": two bars, rotated as one. */
+.es-evx-faq__plus { position: relative; flex-shrink: 0; width: 18px; height: 18px; transition: transform var(--es-duration-normal) var(--es-ease-spring); }
+.es-evx-faq__plus::before,
+.es-evx-faq__plus::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  margin-top: -1px;
+  border-radius: 2px;
+  background: var(--es-text);
+}
+.es-evx-faq__plus::after { transform: rotate(90deg); }
+.es-evx-faq__item[open] .es-evx-faq__plus { transform: rotate(45deg); }
+.es-evx-faq__a {
+  padding: 0 1.5rem 1.4rem calc(1.5rem + 18px + 1.1rem);
+  font-size: var(--es-text-base);
+  line-height: 1.65;
+  white-space: pre-line;
+  color: var(--es-text-muted);
+}
+.es-evx-faq__note { margin: 0.25rem 0 0; font-size: var(--es-text-xs); text-align: center; color: var(--es-text-subtle); }
+
+}   /* end @layer components — the event page, rebuilt */

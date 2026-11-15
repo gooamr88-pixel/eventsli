@@ -3,45 +3,37 @@ import { safeExternalUrl } from '../../utils/safeUrl';
 import NavIcon from '../../components/shell/NavIcon';
 import { Zoomable } from '../../components/Lightbox';
 import EventShare from './EventShare';
+import ClampText from './ClampText';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
- * The top of the event page: the poster, the title, and the three facts.
+ * The top of the event page: the poster on the left; on the right one tinted
+ * panel with the title, the organizer's headline and the description, and
+ * beside them the facts a guest checks — when, where, who, and the terms.
  *
- * NOTHING IS WRITTEN OVER THE POSTER, and that is the whole correction.
+ * REBUILT 2026-11-15 to the owner's reference (the guest experience the owner
+ * asked for "exactly"): everything a guest needs to decide is above the fold,
+ * in two columns, before the tickets.
  *
- * The first version laid the title, a supporting line and the venue across the
- * artwork behind a scrim. It looked right in a mockup drawn around a photograph
- * chosen for it, and it was wrong for this product: an organizer's cover IS
- * already a poster. It carries the event's name, its date, its venue and its
- * selling points, set by a designer. Printing our own title on top of it hid
- * the poster behind a scrim, repeated every word it already said, and covered
- * the part the organizer paid to have made — so the picture stopped being worth
- * showing at all.
+ * NOTHING IS WRITTEN OVER THE POSTER. A poster is the organizer's own artwork
+ * with its own words on it; text laid over it is text fighting it. It is shown
+ * whole (`contain`) over a blurred copy of itself, never cropped.
  *
- * So the poster is shown clean, at its own aspect ratio, and every word sits
- * underneath it. The page is longer by one line of type and the artwork is
- * finally legible.
- *
- * AND IT OPENS. A poster's small print — the dress code, the door time, the
- * line-up — is unreadable at the width of a phone. Tapping it opens the shared
- * `Lightbox` full screen, where it can be read and then dismissed.
+ * THE HEADLINE is the description's own first line when that line reads as a
+ * heading ("Tickets selling fast — get yours before it's too late"): it is
+ * the organizer's words, set in the accent, and it is not repeated in the
+ * paragraph under it. See `splitDescription` in page.jsx.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-export default function EventHero({ event, kicker, lede }) {
+export default function EventHero({ event, tagline, about, when }) {
   return (
-    <section className="es-ev-head">
+    <section className="es-evx-head">
       {event.coverUrl ? (
-        <div className="es-ev-poster">
+        <div className="es-ev-poster es-evx-head__poster">
           <Zoomable
             items={[{ url: event.coverUrl, caption: event.title }]}
             label={`Open the poster for ${event.title} full screen`}
           >
-            {/* `object-contain` on a tinted ground, not `cover`. A poster is
-                usually portrait and the card is not; cropping it to fill would
-                cut the top or the bottom off — which on a poster is the title
-                or the date. The blurred copy behind fills the gap so the card
-                still reads as one object rather than a picture with bars. */}
             <span aria-hidden className="es-ev-poster__wash">
               <Image src={event.coverUrl} alt="" fill sizes="100vw" />
             </span>
@@ -49,21 +41,18 @@ export default function EventHero({ event, kicker, lede }) {
               src={event.coverUrl}
               alt={`Poster for ${event.title}`}
               fill
-              sizes="(max-width: 48rem) 100vw, 46rem"
+              sizes="(max-width: 48rem) 100vw, 40rem"
               priority
               className="es-ev-poster__img"
             />
           </Zoomable>
-
           <div className="es-ev-head__actions">
             <EventShare title={event.title} slug={event.slug} />
           </div>
         </div>
       ) : (
-        /* No artwork is a normal state — an event may publish without one. The
-           title on the brand tint reads as a deliberate cover rather than as
-           the image that failed to load. */
-        <div className="es-ev-poster es-ev-poster--empty">
+        /* No artwork is a normal state — an event may publish without one. */
+        <div className="es-ev-poster es-ev-poster--empty es-evx-head__poster">
           <p className="es-ev-poster__fallback fx-break">{event.title}</p>
           <div className="es-ev-head__actions">
             <EventShare title={event.title} slug={event.slug} />
@@ -71,70 +60,40 @@ export default function EventHero({ event, kicker, lede }) {
         </div>
       )}
 
-      <div className="es-ev-title">
-        {kicker && <p className="es-ev-title__kicker">{kicker}</p>}
-        <h1 className="es-ev-title__h1 fx-break">{event.title}</h1>
-        {lede && <p className="es-ev-title__lede fx-break">{lede}</p>}
+      <div className="es-evx-head__panel">
+        <div className="es-evx-head__main">
+          <h1 className="es-evx-head__title fx-break">{event.title}</h1>
+          {tagline && <p className="es-evx-head__tagline fx-break">{tagline}</p>}
+          {about && <ClampText text={about} />}
+        </div>
+
+        <ul className="es-evx-facts" aria-label="Event details">
+          <Fact icon="calendar">Event date: {when.date}</Fact>
+          {when.start && <Fact icon="clock">Event starts at {when.start}</Fact>}
+          {when.end && <Fact icon="clock">Ends at {when.end}</Fact>}
+          {event.venue && <Fact icon="pin">{event.venue}</Fact>}
+          {event.venueAddress && <Fact icon="building">{event.venueAddress}</Fact>}
+          {event.organizer?.name && (
+            <Fact icon="tag">
+              Presented by <a href="#event-organizer" className="es-evx-facts__link">{event.organizer.name}</a>
+            </Fact>
+          )}
+          <Fact icon="info">
+            <a href="/terms" className="es-evx-facts__link">Terms &amp; Conditions</a>
+            {' / '}
+            <a href="#event-faq" className="es-evx-facts__link">Refund policy</a>
+          </Fact>
+        </ul>
       </div>
     </section>
   );
 }
 
-/**
- * When, where and who.
- *
- * A LIST OF ROWS, not three columns. Three columns of real words at phone
- * width gave each about 110px, which broke "(America/Los_Angeles)" across a
- * line mid-word and left the organizer's arrow stranded on a line of its own.
- * Rows give every value the full width, and the icons still let the eye jump
- * straight to the one it wants. From `sm` there is room for two across.
- *
- * The zone is named under the time rather than left to be inferred. A show at
- * 4pm in San Diego is at 4pm on the poster and at the door; printing it in the
- * reader's own clock is how people miss events.
- */
-export function EventFacts({ event, when, organizerHref }) {
+function Fact({ icon, children }) {
   return (
-    <ul className="es-ev-facts">
-      <Fact icon="calendar" label="When" value={when.date}>
-        {/* No time on a date-only listing, and so no zone either. */}
-        {when.time && <span className="es-ev-fact__note">{when.time}</span>}
-        {/* `fx-break` and its own line: a zone name is one unbreakable token
-            and will otherwise set the width of the column it sits in. */}
-        {when.time && <span className="es-ev-fact__zone fx-break">{event.timezone}</span>}
-      </Fact>
-
-      <Fact icon="pin" label="Where" value={event.venue || event.city || 'To be announced'}>
-        {(event.venueAddress || (event.venue && event.city)) && (
-          <span className="es-ev-fact__note fx-break">{event.venueAddress || event.city}</span>
-        )}
-      </Fact>
-
-      {event.organizer?.name && (
-        <Fact icon="user" label="Organizer" value={event.organizer.name} href={organizerHref} />
-      )}
-    </ul>
-  );
-}
-
-function Fact({ icon, label, value, href, children }) {
-  const body = (
-    <>
-      <span aria-hidden className="es-ev-fact__icon"><NavIcon name={icon} size={18} /></span>
-      <span className="es-ev-fact__text">
-        <span className="es-ev-fact__label">{label}</span>
-        <span className="es-ev-fact__value fx-break">{value}</span>
-        {children}
-      </span>
-      {href && (
-        <span aria-hidden className="es-ev-fact__go"><NavIcon name="arrow" size={16} /></span>
-      )}
-    </>
-  );
-
-  return (
-    <li className="es-ev-fact">
-      {href ? <a href={href} className="es-ev-fact__link">{body}</a> : body}
+    <li className="es-evx-facts__row">
+      <span aria-hidden className="es-evx-facts__icon"><NavIcon name={icon} size={20} /></span>
+      <span className="fx-min0 fx-break">{children}</span>
     </li>
   );
 }

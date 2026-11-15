@@ -3,17 +3,20 @@ import { jsonLdScript } from '../../utils/jsonLd';
 import NavIcon from '../../components/shell/NavIcon';
 import EventGallery from './EventGallery';
 import EventTabs from './EventTabs';
-import EventHero, { EventFacts, EventPresentedBy } from './EventHero';
+import EventHero, { EventPresentedBy } from './EventHero';
 import EventTickets, { EventMarks } from './EventTickets';
+import EventTicketCard from './EventTicketCard';
+import EventBlocks from './EventBlocks';
+import EventFaq from './EventFaq';
 import { EventBuyBar, EventPurchaseNotice } from './EventPurchasePanel';
 import {
-  EventSchedule, EventSponsors, EventPolicies, VenueMap,
+  EventSchedule, EventSponsors, VenueMap,
 } from './EventSections';
 import { serverFetch } from '../../utils/apiClient';
 import {
   seoTitle, seoDescription, seoKeywords, eventJsonLd, breadcrumbJsonLd, eventUrl,
 } from '../../lib/eventSeo';
-import { EventBreadcrumbs, EventQuickAnswers, RelatedEvents } from './EventDiscovery';
+import { EventBreadcrumbs, RelatedEvents } from './EventDiscovery';
 import EventsliPartners from './EventsliPartners';
 import { isDateOnly, formatDateOnly } from '../../lib/dateOnly';
 import VisitBeacon from '../../components/landing/VisitBeacon';
@@ -178,11 +181,19 @@ export default async function EventPage({ params, searchParams }) {
    * mockup's "NETWORK • RELAX • GROW". Three at most: it is one line over a
    * large title, and a fourth pushes it onto two.
    */
-  const kicker = (event.highlights || []).slice(0, 3).join(' • ') || null;
-
-  // Under the title in the hero. The first sentence of the description says
-  // what this is; the heading above already says what it is called.
-  const lede = firstSentence(aboutLead || event.description, 120);
+  // The header (owner's reference, 2026-11-15): the description's own heading
+  // line becomes the headline in the accent; the rest is the clamped text.
+  const about = [aboutLead, aboutRest].filter(Boolean).join('\n\n');
+  // A date-only listing (lib/dateOnly.js) states its day(s) and no time — it
+  // never had one, and "12:00 AM – 11:59 PM" is not one.
+  const when = isDateOnly(event) ? { date: formatDateOnly(event) } : {
+    date: fmt(starts, { dateStyle: 'medium' }),
+    start: fmt(starts, { timeStyle: 'short' }),
+    end: sameDay(starts, ends, event.timezone)
+      ? fmt(ends, { timeStyle: 'short' })
+      : fmt(ends, { dateStyle: 'medium', timeStyle: 'short' }),
+  };
+  const seated = !event.displayOnly && event.admissionType !== 'general';
 
   return (
     <main className="fx-section fx-section--xs">
@@ -208,27 +219,20 @@ export default async function EventPage({ params, searchParams }) {
         <div className="es-ev-page fx-stack">
           <EventBreadcrumbs event={event} />
 
-          {/* ── 1. The picture, on its own ───────────────────────────────── */}
-          <EventHero event={event} kicker={kicker} lede={lede} />
+          {/* ── 1. The header: poster | title, headline, description | facts ── */}
+          <EventHero event={event} tagline={aboutTitle} about={about} when={when} />
 
-          {/* ── 2. The three facts ───────────────────────────────────────── */}
-          <EventFacts
-            event={event}
-            // A date-only listing (lib/dateOnly.js) states its day(s) and no
-            // time — it never had one, and "12:00 AM – 11:59 PM" is not one.
-            when={isDateOnly(event) ? { date: formatDateOnly(event), time: null } : {
-              date: fmt(starts, { dateStyle: 'medium' }),
-              time: `${fmt(starts, { timeStyle: 'short' })} – ${
-                sameDay(starts, ends, event.timezone)
-                  ? fmt(ends, { timeStyle: 'short' })
-                  : fmt(ends, { dateStyle: 'medium', timeStyle: 'short' })
-              }`,
-            }}
-            organizerHref={event.organizer?.name ? '#event-organizer' : null}
-          />
+          {/* ── 2. Tickets: the ticket-shaped call to buy ────────────────── */}
+          <EventTicketCard event={event} cheapest={cheapest} soldOut={soldOut} />
 
-          {/* ── 3. Who is presenting ─────────────────────────────────────── */}
-          <EventPresentedBy sponsors={event.sponsors} />
+          {/* ── 3. Seated: blocks and prices, and the door to the map.
+                General admission: the ticket types, as before. ─────────── */}
+          {seated
+            ? <EventBlocks event={event} />
+            : <EventTickets event={event} cheapest={cheapest} soldOut={soldOut} />}
+
+          {/* The reasons a buyer might not be able to buy, said in full. */}
+          <EventPurchaseNotice event={event} soldOut={soldOut} focusTier={focusTier} />
 
           {/* ── 4. The sections ──────────────────────────────────────────────
               Every panel is in the page whether or not its tab is open —
@@ -242,39 +246,9 @@ export default async function EventPage({ params, searchParams }) {
             panels={[
               {
                 key: 'about',
-                label: 'About',
-                content: (event.description || (event.gallery || []).length > 0
-                  || (event.highlights || []).length > 0) && (
+                label: 'Highlights',
+                content: ((event.gallery || []).length > 0 || (event.highlights || []).length > 0) && (
                   <div className="fx-stack">
-                    <p className="es-ev-about__eyebrow">About the event</p>
-                    {aboutTitle && <h2 className="es-ev-about__title fx-break">{aboutTitle}</h2>}
-
-                    {aboutRest ? (
-                      <>
-                        <p className="fx-break max-w-[62ch] whitespace-pre-line text-md leading-relaxed text-muted">
-                          {aboutLead}
-                        </p>
-                        {/* `<details>`, so the long half costs no JavaScript and
-                            is still in the HTML for a crawler. */}
-                        <details className="es-ev-more">
-                          <summary>
-                            <span className="es-ev-more__show">Show more</span>
-                            <span className="es-ev-more__less">Show less</span>
-                            <span aria-hidden className="es-ev-more__caret">
-                              <NavIcon name="arrow" size={16} />
-                            </span>
-                          </summary>
-                          <p className="fx-break mt-2 max-w-[62ch] whitespace-pre-line text-md leading-relaxed text-muted">
-                            {aboutRest}
-                          </p>
-                        </details>
-                      </>
-                    ) : aboutLead ? (
-                      <p className="fx-break max-w-[62ch] whitespace-pre-line text-md leading-relaxed text-muted">
-                        {aboutLead}
-                      </p>
-                    ) : null}
-
                     <EventMarks items={event.highlights} />
                     <EventGallery items={event.gallery} />
                   </div>
@@ -309,34 +283,18 @@ export default async function EventPage({ params, searchParams }) {
                     <h2 id="event-organizer" className="text-lg">Organised by</h2>
                     <p className="text-md text-muted">{event.organizer.name}</p>
                     {/* The full list lives here rather than in a section of its
-                        own at the foot of the page. The headline sponsor is
-                        already up top; these are the rest. */}
+                        own at the foot of the page. The headline sponsor has its
+                        own card under these tabs; these are the rest. */}
                     <EventSponsors items={event.sponsors} />
                   </section>
-                ),
-              },
-              {
-                key: 'faqs',
-                label: 'FAQs',
-                // The quick answers are always there, so this tab always is:
-                // they are the plain-language "when / where / how much" that
-                // search queries about one event ask.
-                content: (
-                  <div className="fx-stack">
-                    <EventQuickAnswers event={event} />
-                    <EventPolicies items={event.policies} />
-                  </div>
                 ),
               },
             ]}
           />
 
-          {/* ── 5. What it costs ─────────────────────────────────────────── */}
-          <EventTickets event={event} cheapest={cheapest} soldOut={soldOut} />
-
-          {/* The reasons a buyer might not be able to buy, said in full. The
-              bar below has room for a label and a button and nothing else. */}
-          <EventPurchaseNotice event={event} soldOut={soldOut} focusTier={focusTier} />
+          {/* ── 5. Who is presenting, and the questions guests ask ───────── */}
+          <EventPresentedBy sponsors={event.sponsors} />
+          <EventFaq event={event} />
 
           {/* ── 6. Somewhere else to go ──────────────────────────────────── */}
           <RelatedEvents event={event} />
