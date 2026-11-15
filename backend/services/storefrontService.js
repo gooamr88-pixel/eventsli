@@ -38,7 +38,14 @@ class StorefrontError extends Error {
 
 // ─── Sponsors ───────────────────────────────────────────────────────────────
 
-const SPONSOR_COLUMNS = 'id, name, logo_url, logo_path, link_url, blurb, sort_order, is_enabled, created_at, updated_at';
+const SPONSOR_COLUMNS = 'id, name, logo_url, logo_path, link_url, blurb, logo_size, sort_order, is_enabled, created_at, updated_at';
+
+/**
+ * How large the logo is drawn in the strips (migration 20261119100000):
+ * a headline sponsor can be shown bigger than the rest. Named steps, not a
+ * number, so every choice the console offers looks right.
+ */
+const SPONSOR_SIZES = Object.freeze(['standard', 'large', 'xlarge']);
 
 function shapeSponsor(row, { publicView }) {
   const base = {
@@ -47,6 +54,7 @@ function shapeSponsor(row, { publicView }) {
     logoUrl: row.logo_url || null,
     linkUrl: row.link_url || null,
     blurb: row.blurb || null,
+    size: SPONSOR_SIZES.includes(row.logo_size) ? row.logo_size : 'standard',
   };
   if (publicView) return base;
   return {
@@ -139,6 +147,12 @@ function toSponsorRow(fields, { creating }) {
   if (fields.blurb !== undefined) row.blurb = emptyToNull(fields.blurb);
   if (fields.sortOrder !== undefined) row.sort_order = Number(fields.sortOrder);
   if (fields.isEnabled !== undefined) row.is_enabled = !!fields.isEnabled;
+  if (fields.size !== undefined) {
+    if (!SPONSOR_SIZES.includes(fields.size)) {
+      throw new StorefrontError('VALIDATION_ERROR', 'Choose a logo size: standard, large or extra large.');
+    }
+    row.logo_size = fields.size;
+  }
   // The pair moves together or not at all — the database has the same rule as a
   // CHECK, and sending one of the two would be a constraint violation rendered
   // to the operator as a database error rather than as a sentence.
@@ -332,6 +346,7 @@ const emptyToNull = (v) => {
 const CONSTRAINT_MESSAGES = {
   sponsor_link_is_http: 'A sponsor link must start with http:// or https://.',
   sponsor_name_present: 'A sponsor needs a name of 1 to 120 characters.',
+  sponsor_logo_size_known: 'Choose a logo size: standard, large or extra large.',
   sponsor_logo_url_and_path_together: 'Upload the logo again — its image and its file reference disagree.',
   testimonial_author_present: 'A testimonial needs an author name.',
   testimonial_body_present: 'A testimonial needs a quote of at most 1200 characters.',

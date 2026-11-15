@@ -109,6 +109,20 @@ export default function EventCard({ event, priority = false, headingLevel = 3, a
     <div className={`es-evcard-wrap ${adaptive ? 'es-evcard-wrap--adaptive' : ''}`}>
     <Link href={`/e/${event.slug}`} className={`es-evcard ${adaptive ? 'es-evcard--adaptive' : ''}`}>
       <div className="es-evcard__media">
+        {/* THE WHOLE POSTER on a phone (owner, 2026-11-15): the cover is shown
+            uncropped (`contain`) over a blurred copy of itself that fills the
+            frame. The same src and sizes, so the browser fetches it once. */}
+        {event.coverUrl && (
+          <Image
+            src={event.coverUrl}
+            alt=""
+            aria-hidden
+            fill
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 380px"
+            priority={priority}
+            className="es-evcard__blur"
+          />
+        )}
         {event.coverUrl ? (
           <Image
             src={event.coverUrl}

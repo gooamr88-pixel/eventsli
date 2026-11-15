@@ -280,7 +280,16 @@ function RowForm({ spec, row, busy, onCancel, onSubmit }) {
                 {field.label}
                 {field.optional && <span className="ms-1 text-subtle">(optional)</span>}
               </label>
-              {field.type === 'textarea' ? (
+              {field.type === 'select' ? (
+                <select
+                  id={`f-${field.name}`}
+                  value={draft[field.name] ?? field.initial ?? ''}
+                  onChange={(e) => set(field.name, e.target.value)}
+                  className="es-input"
+                >
+                  {field.options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              ) : field.type === 'textarea' ? (
                 <textarea
                   id={`f-${field.name}`}
                   rows={3}
@@ -351,6 +360,9 @@ function RowForm({ spec, row, busy, onCancel, onSubmit }) {
   );
 }
 
+/** The sponsor logo sizes (storefrontService SPONSOR_SIZES), as the console names them. */
+const SIZE_LABELS = { standard: 'Standard', large: 'Large', xlarge: 'Extra large' };
+
 /**
  * The three lists, as data.
  *
@@ -380,9 +392,24 @@ const KINDS = {
     imageLabel: 'Logo',
     scope: 'sponsors',
     describe: (r) => r.name,
-    subtitle: (r) => r.linkUrl || (r.logoUrl ? 'No link' : 'No logo — hidden from the homepage'),
+    subtitle: (r) => [
+      SIZE_LABELS[r.size] && r.size !== 'standard' ? `${SIZE_LABELS[r.size]} logo` : null,
+      r.linkUrl || (r.logoUrl ? 'No link' : 'No logo — hidden from the homepage'),
+    ].filter(Boolean).join(' · '),
     fields: [
       { name: 'name', label: 'Name', max: 120 },
+      {
+        name: 'size',
+        label: 'Logo size',
+        type: 'select',
+        initial: 'standard',
+        options: [
+          { value: 'standard', label: SIZE_LABELS.standard },
+          { value: 'large', label: SIZE_LABELS.large },
+          { value: 'xlarge', label: SIZE_LABELS.xlarge },
+        ],
+        hint: 'How big the logo appears in the sponsor strips. Use Extra large for a headline sponsor.',
+      },
       { name: 'linkUrl', label: 'Website', optional: true, max: 2000, placeholder: 'https://', hint: 'Opens in a new tab.' },
       { name: 'blurb', label: 'Note', optional: true, max: 300, type: 'textarea', hint: 'Internal only — not shown on the homepage.' },
     ],

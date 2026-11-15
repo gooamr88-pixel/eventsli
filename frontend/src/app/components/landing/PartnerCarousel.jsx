@@ -166,7 +166,7 @@ export default function PartnerCarousel({ label, sponsors, heading = true, varia
             {[0, 1].map((copy) => set.map((sponsor, i) => {
               const hidden = copy > 0 || i >= sponsors.length;
               return (
-                <li key={`${copy}-${i}-${sponsor.id}`} aria-hidden={hidden || undefined} className="es-lp-partners__item">
+                <li key={`${copy}-${i}-${sponsor.id}`} aria-hidden={hidden || undefined} className="es-lp-partners__item" data-size={sponsor.size || 'standard'}>
                   {/* eslint-disable-next-line @next/next/no-img-element --
                       sponsor logos are frequently SVG and have no intrinsic
                       dimensions we could give next/image without inventing them. */}

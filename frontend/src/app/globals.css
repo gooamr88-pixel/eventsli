@@ -5506,6 +5506,8 @@ a.es-sponsor:hover { opacity: 0.7; }
 .es-lp-partners__viewport::after { right: 0; background: linear-gradient(-90deg, var(--es-surface), transparent); }
 .es-lp-partners__track {
   display: flex;
+  /* Centred, because tiles differ in height once an admin sizes a logo up. */
+  align-items: center;
   width: max-content;
   margin: 0;
   padding: 0;
@@ -5515,12 +5517,19 @@ a.es-sponsor:hover { opacity: 0.7; }
 .es-lp-partners__item {
   position: relative;
   display: flex;
-  flex: 0 0 8.5rem;
+  flex: 0 0 calc(8.5rem * var(--es-sp-k, 1));
   align-items: center;
   justify-content: center;
-  height: 4.25rem;
+  height: calc(4.25rem * var(--es-sp-k, 1));
   padding-inline: 1rem;
 }
+/* LOGO SIZE, per sponsor, from the admin console (2026-11-15; migration
+   20261119100000). One multiplier scales the tile at every breakpoint and in
+   both variants below, so a headline sponsor stays in proportion wherever the
+   strip is drawn. The strip measures its own width (PartnerCarousel), so
+   tiles of different sizes loop seamlessly. */
+.es-lp-partners__item[data-size='large'] { --es-sp-k: 1.35; }
+.es-lp-partners__item[data-size='xlarge'] { --es-sp-k: 1.75; }
 /* On every tile's trailing side, so the divider at the loop's seam is the
    same one either side of the wrap. */
 .es-lp-partners__item::after {
@@ -5571,7 +5580,7 @@ a.es-sponsor:hover { opacity: 0.7; }
   .es-lp-partners__viewport { padding-block: 1.25rem; border-radius: 32px; }
   .es-lp-partners__viewport::before,
   .es-lp-partners__viewport::after { width: 4.5rem; }
-  .es-lp-partners__item { flex-basis: 13rem; height: 6rem; padding-inline: 1.75rem; }
+  .es-lp-partners__item { flex-basis: calc(13rem * var(--es-sp-k, 1)); height: calc(6rem * var(--es-sp-k, 1)); padding-inline: 1.75rem; }
   /* Round white buttons that overlap the card's ends. */
   .es-lp-partners__nav {
     width: 2.75rem;
@@ -5603,8 +5612,8 @@ a.es-sponsor:hover { opacity: 0.7; }
 .es-lp-partners--tiles .es-lp-partners__item::after,
 .es-lp-partners--tiles .es-lp-partners__progress { display: none; }
 .es-lp-partners--tiles .es-lp-partners__item {
-  flex-basis: 9.5rem;
-  height: 5.25rem;
+  flex-basis: calc(9.5rem * var(--es-sp-k, 1));
+  height: calc(5.25rem * var(--es-sp-k, 1));
   margin-inline-end: 0.75rem;
   padding: 0.875rem 1.25rem;
   border: 1px solid var(--es-border);
@@ -5622,7 +5631,7 @@ a.es-sponsor:hover { opacity: 0.7; }
 }
 @media (width >= theme(--breakpoint-lg)) {
   .es-lp-partners--tiles .es-lp-partners__frame { gap: 1rem; }
-  .es-lp-partners--tiles .es-lp-partners__item { flex-basis: 12rem; height: 6.5rem; padding: 1rem 1.5rem; }
+  .es-lp-partners--tiles .es-lp-partners__item { flex-basis: calc(12rem * var(--es-sp-k, 1)); height: calc(6.5rem * var(--es-sp-k, 1)); padding: 1rem 1.5rem; }
   .es-lp-partners--tiles .es-lp-partners__nav { width: 3rem; height: 3rem; margin: 0; }
 }
 
@@ -6304,19 +6313,92 @@ input.es-lp-filter__control::-webkit-search-cancel-button { display: none; }
   .es-vip__controls { margin-top: 0.5rem; }
 }
 
-/* Event cards in the phone rail: most of the screen wide, so the picture is
-   big, with the next card's edge showing so a swipe is obvious. */
+/* Event cards on a phone (owner's review, 2026-11-15): "make the poster
+   appear completely, and make the cards small so the visitor feels we have
+   many events". TWO COLUMNS of compact cards instead of a one-card swipe rail
+   — four rows of two shows the whole fetch at a glance — and each poster is
+   shown WHOLE (`contain`) in a portrait frame, over a blurred copy of itself
+   so the frame is never an empty box. The card is the link; its "Get Tickets"
+   shrinks to a coral arrow. Specific (`.es-lp-rail …`) because the card's own
+   rules come later in this file. */
+.es-evcard__blur { display: none; }
 @media (width < 48rem) {
-  .es-lp-cards.es-lp-rail { grid-auto-columns: 86%; }
-  .es-lp-rail .es-evcard { padding: 8px; border-radius: 16px; }
-  .es-lp-rail .es-evcard__media { border-radius: 10px; }
-  .es-lp-rail .es-evcard__body { padding: 10px 4px 2px; }
-  .es-lp-rail .es-evcard__title { min-height: 0; font-size: var(--es-text-base); }
-  .es-lp-rail .es-evcard__meta { gap: 4px; margin: 6px 0 10px; }
-  .es-lp-rail .es-evcard__line { font-size: 0.8125rem; }
-  .es-lp-rail .es-evcard__foot { padding-top: 10px; }
-  .es-lp-rail .es-evcard__cta { min-height: 32px; padding: 0.3rem 0.8rem; font-size: 0.8125rem; }
-  .es-lp-rail .es-evcard__price b { font-size: var(--es-text-base); }
+  .es-lp-cards.es-lp-rail {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-flow: row;
+    grid-auto-columns: auto;
+    gap: 0.625rem;
+    margin-inline: 0;
+    padding: 0;
+    overflow: visible;
+    scroll-snap-type: none;
+  }
+  .es-lp-rail .es-evcard { padding: 6px; border-radius: 14px; }
+  .es-lp-rail .es-evcard__media { aspect-ratio: 4 / 5; border-radius: 10px; background: var(--es-night-900); }
+  .es-lp-rail .es-evcard__blur {
+    display: block;
+    object-fit: cover;
+    filter: blur(16px) brightness(0.7) saturate(1.1);
+    transform: scale(1.15);
+  }
+  .es-lp-rail .es-evcard__art { object-fit: contain; }
+  .es-lp-rail .es-evcard:hover .es-evcard__art { transform: none; }
+  .es-lp-rail .es-lp-datebadge { left: 6px; top: 6px; min-width: 34px; padding: 4px 5px; border-radius: 8px; }
+  .es-lp-rail .es-lp-datebadge b { font-size: 0.875rem; }
+  .es-lp-rail .es-lp-datebadge small { margin-top: 1px; font-size: 0.5625rem; }
+  .es-lp-rail .es-evcard__save { right: 0.6rem; top: 0.6rem; transform: scale(0.82); transform-origin: top right; }
+  .es-lp-rail .es-evcard__body { padding: 8px 2px 2px; }
+  .es-lp-rail .es-evcard__title { min-height: calc(2 * 1.3em); font-size: 0.875rem; line-height: 1.3; }
+  .es-lp-rail .es-evcard__meta { gap: 2px; margin: 4px 0 8px; }
+  .es-lp-rail .es-evcard__line { gap: 0.3rem; font-size: 0.75rem; }
+  .es-lp-rail .es-evcard__icon svg { width: 13px; height: 13px; }
+  .es-lp-rail .es-evcard__foot { gap: 0.4rem; padding-top: 8px; }
+  .es-lp-rail .es-evcard__price { font-size: 0.6875rem; }
+  .es-lp-rail .es-evcard__price b { font-size: 0.875rem; }
+  .es-lp-rail .es-evcard__cta {
+    justify-content: center;
+    width: 32px;
+    min-height: 32px;
+    height: 32px;
+    padding: 0;
+    font-size: 0;
+  }
+  .es-lp-rail .es-evcard__cta svg { width: 15px; height: 15px; }
+}
+
+/* The slider on a phone shows the poster WHOLE too: the picture on top,
+   uncropped over its own blur, and the event's words in a dark strip under
+   it instead of over it. */
+.es-vip__blur { display: none; }
+@media (width < 48rem) {
+  .es-vip__stage { aspect-ratio: 3 / 4; }
+  .es-vip__slide { display: flex; flex-direction: column; }
+  .es-vip__media { position: relative; inset: auto; flex: 1; min-height: 0; overflow: hidden; }
+  .es-vip__media .es-vip__blur {
+    position: absolute;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    filter: blur(18px) brightness(0.6) saturate(1.1);
+    transform: scale(1.15);
+  }
+  .es-vip__media .es-vip__poster { position: relative; object-fit: contain; transform: none; }
+  .es-vip__slide[data-pos='0'] .es-vip__media .es-vip__poster { transform: none; }
+  .es-vip__info {
+    position: relative;
+    inset: auto;
+    gap: 0.3rem;
+    padding: 0.7rem 0.9rem 0.85rem;
+    background: var(--es-night-900);
+  }
+  .es-vip__badge { position: absolute; top: -2.1rem; left: 0.75rem; }
+  .es-vip__title { font-size: 1.05rem; -webkit-line-clamp: 1; }
+  .es-vip__meta { grid-auto-flow: row; font-size: 0.75rem; }
+  .es-vip__meta span + span { display: none; }
+  .es-vip__foot { margin-top: 0.15rem; }
 }
 
 /* The large lockup (footer, sign-in) is a poster on a desktop and a shout on

@@ -77,6 +77,8 @@ router.post(
   body('linkUrl').optional({ values: 'falsy' }).isURL({ protocols: ['http', 'https'], require_protocol: true })
     .withMessage('A sponsor link must start with http:// or https://.'),
   body('blurb').optional({ values: 'falsy' }).isString().trim().isLength({ max: 300 }),
+  body('size').optional().isIn(['standard', 'large', 'xlarge'])
+    .withMessage('Choose a logo size: standard, large or extra large.'),
   body('sortOrder').optional().isInt({ min: 0, max: 100000 }).toInt(),
   body('isEnabled').optional().isBoolean().toBoolean(),
   validate,
@@ -142,6 +144,8 @@ router.post(
   body('label').isString().trim().isLength({ min: 1, max: 60 })
     .withMessage('A category needs a name.'),
   body('blurb').optional({ values: 'falsy' }).isString().trim().isLength({ max: 300 }),
+  body('size').optional().isIn(['standard', 'large', 'xlarge'])
+    .withMessage('Choose a logo size: standard, large or extra large.'),
   body('sortOrder').optional().isInt({ min: 0, max: 100000 }).toInt(),
   body('isEnabled').optional().isBoolean().toBoolean(),
   validate,

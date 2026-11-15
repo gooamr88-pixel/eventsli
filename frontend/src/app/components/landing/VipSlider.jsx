@@ -191,11 +191,19 @@ function Slide({ event, pos, index, total, eager, onSelect }) {
       aria-hidden={current ? undefined : true}
     >
       <div className="es-vip__media">
+        {/* The blurred copy behind the poster: on a phone the poster is shown
+            whole (`contain`) and this fills the frame around it. Same src, one
+            download. */}
+        {event.coverUrl && (
+          // eslint-disable-next-line @next/next/no-img-element -- see below
+          <img className="es-vip__blur" src={event.coverUrl} alt="" aria-hidden loading="lazy" decoding="async" draggable={false} />
+        )}
         {event.coverUrl ? (
           // A plain <img> straight from storage, as the hero always did: the
           // file is uploaded already encoded.
           // eslint-disable-next-line @next/next/no-img-element -- see above
           <img
+            className="es-vip__poster"
             src={event.coverUrl}
             alt=""
             loading={eager ? 'eager' : 'lazy'}
