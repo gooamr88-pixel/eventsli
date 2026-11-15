@@ -1,66 +1,45 @@
 'use client';
 
+import NavIcon from '../../components/shell/NavIcon';
+
 /**
- * The countdown on the hold.
+ * ─────────────────────────────────────────────────────────────────────────────
+ * The banner across the top of the checkout: "Your cart will expire in 18 min
+ * 30 sec" (owner's reference, 2026-11-15).
  *
- * Its whole job is that `RESERVATION_EXPIRED` is never a surprise. Arriving as
- * a red wall on the payment button is the worst possible moment to learn the
- * hold went back on sale — the buyer has already entered their details and
- * committed to the purchase in their head.
+ * Minutes and seconds as WORDS with the numbers in the accent, rather than a
+ * "17:59" clock: a buyer typing an email reads it in a glance without parsing
+ * a time. It warms as the hold runs down — amber under five minutes, red
+ * under one — and says plainly when the hold is gone.
  *
- * So the number is visible the entire time, and it changes character twice: at
- * five minutes it warns, at one it goes urgent. Those are the two points where
- * a person can still do something about it.
+ * `remaining` arrives from the page (useCountdown) rather than being computed
+ * here: reading Date.now() during render is impure, and the value already
+ * exists on the same one-second beat.
+ * ─────────────────────────────────────────────────────────────────────────────
  */
 export default function HoldBar({
-  formatted, expired, remaining,
-  /* What is on hold, in words — `heldNoun(reservation)`. A general-admission
-     event has no seats, and this bar sits above the card-details form saying
-     "Seats held for" on every one of them. Defaulted, not required: it renders
-     on a live checkout and a missing prop must not be what breaks it. */
+  expired, remaining,
+  /* What is on hold, in words — `heldNoun(reservation)`. */
   noun = { one: 'seat', many: 'seats', they: 'they' },
 }) {
-  // `remaining` arrives from useCountdown rather than being recomputed here.
-  // Calling Date.now() during a render is impure — the same render can produce
-  // two different results — and the value is already on the right beat.
   if (remaining === null || remaining === undefined) return null;
-
   const urgent = !expired && remaining <= 60_000;
   const warning = !expired && !urgent && remaining <= 5 * 60_000;
-
-  const tone = expired
-    ? 'border-danger/40 bg-danger/10'
-    : urgent
-      ? 'border-danger/40 bg-danger/5'
-      : warning
-        ? 'border-warning/40 bg-warning/10'
-        : 'border-border-base bg-surface';
+  const tone = expired ? 'expired' : urgent ? 'urgent' : warning ? 'warning' : 'calm';
+  const min = Math.floor(remaining / 60_000);
+  const sec = Math.floor((remaining % 60_000) / 1000);
 
   return (
-    <div
-      className={`fx-row fx-row--between rounded-(--es-radius-md) border px-4 py-2.5 ${tone}`}
-      // Polite, not assertive: this updates every second, and an assertive
-      // region would have a screen reader interrupt itself sixty times a
-      // minute. The two threshold changes below carry the urgency instead.
-      aria-live="polite"
-    >
-      <span className="text-muted">
-        {expired
-          ? `Your ${noun.many} ${noun.they === 'it' ? 'has' : 'have'} been released`
-          : `${noun.many.charAt(0).toUpperCase()}${noun.many.slice(1)} held for`}
-      </span>
-      {!expired && (
-        /* `text-xl`, up from `text-lg`. This is a number that is counting down
-           on a page where the person is typing card details: it has to be
-           readable in peripheral vision, from a glance, without leaving the
-           field they are in. The three tones already carry urgency; the size
-           is what makes the glance work at all. */
-        <span
-          className={`es-nums font-mono text-xl font-medium ${urgent ? 'text-danger' : warning ? 'text-warning' : 'text-accent'}`}
-        >
-          {formatted}
+    <p className={`es-co-timer es-co-timer--${tone}`} role="timer" aria-live={urgent ? 'polite' : 'off'}>
+      <NavIcon name="clock" size={20} />
+      {expired ? (
+        <span>Your {noun.many} {noun.they === 'it' ? 'has' : 'have'} been released</span>
+      ) : (
+        <span>
+          Your cart will expire in{' '}
+          <b className="es-nums">{min}</b> min <b className="es-nums">{String(sec).padStart(2, '0')}</b> sec
         </span>
       )}
-    </div>
+    </p>
   );
 }

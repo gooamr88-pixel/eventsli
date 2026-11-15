@@ -54,6 +54,7 @@ async function quoteReservation(reservationId, { chargeModel = CHARGE_MODEL.DIRE
   const { data: event, error: eventError } = await supabase
     .from('events')
     .select(`id, slug, title, status, currency, organizer_id, venue_name, starts_at, timezone,
+             cover_url, ends_at, venue_address, city,
              commission_pct, commission_tax_pct, event_tax_pct,
              payment_fee_mode, payment_fee_pct, payment_fee_fixed_cents, fee_bearer,
              organizers ( display_name )`)
@@ -216,6 +217,12 @@ function publicBreakdown(q) {
       // The client cannot recover this after the fact, so it travels with the
       // timestamp it qualifies.
       timezone: q.event.timezone || null,
+      // For the checkout's order summary (2026-11-15): the poster, when it
+      // ends, and where exactly. Display only — nothing priced reads them.
+      coverUrl: q.event.cover_url || null,
+      endsAt: q.event.ends_at || null,
+      venueAddress: q.event.venue_address || null,
+      city: q.event.city || null,
     },
   };
 }

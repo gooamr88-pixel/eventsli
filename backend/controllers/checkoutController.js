@@ -76,6 +76,7 @@ async function quote(req, res, next) {
 
     return sendOk(res, {
       ...pricing.publicBreakdown(q),
+      tickets: await ticketLines(q.items),
       policies: (policies || []).map((p) => ({
         id: p.id, kind: p.kind, title: p.title, body: p.body,
       })),
@@ -86,6 +87,47 @@ async function quote(req, res, next) {
     }
     return next(err);
   }
+}
+
+/**
+ * What is being bought, line by line, for the checkout's order summary
+ * (2026-11-15): "VIP × 2 at $120", "Table T4 × 1 at $800". Grouped by name and
+ * unit price, so twelve seats of one type are one line.
+ *
+ * PRESENTATION ONLY. The amounts are the held items' own unit prices, the same
+ * ones the quote sums; the total the buyer pays is still `totalCents` from the
+ * breakdown, never a sum of these lines. A failed name lookup costs the names
+ * (the line reads "Ticket"), never the checkout.
+ */
+async function ticketLines(items = []) {
+  const tierIds = [...new Set(items.map((i) => i.tier_id).filter(Boolean))];
+  const tableIds = [...new Set(items.map((i) => i.table_id).filter(Boolean))];
+  const [tiers, tables] = await Promise.all([
+    tierIds.length
+      ? supabase.from('ticket_tiers').select('id, name').in('id', tierIds).then((r) => r.data || [], () => [])
+      : [],
+    tableIds.length
+      ? supabase.from('tables').select('id, label').in('id', tableIds).then((r) => r.data || [], () => [])
+      : [],
+  ]);
+  const tierName = new Map(tiers.map((t) => [t.id, t.name]));
+  const tableLabel = new Map(tables.map((t) => [t.id, t.label]));
+
+  const lines = new Map();
+  for (const item of items) {
+    // A whole table is one item: name it by the table. A seat or a general
+    // admission line is named by its ticket type.
+    const wholeTable = item.table_id && !item.seat_id;
+    const name = wholeTable
+      ? `Table ${tableLabel.get(item.table_id) || ''}`.trim()
+      : tierName.get(item.tier_id) || 'Ticket';
+    const unit = Number(item.unit_price_cents) || 0;
+    const key = `${name}|${unit}`;
+    const line = lines.get(key) || { key, name, unitPriceCents: unit, quantity: 0 };
+    line.quantity += Number(item.quantity) || 1;
+    lines.set(key, line);
+  }
+  return [...lines.values()];
 }
 
 /**

@@ -16,6 +16,7 @@ import Field from '../../components/forms/Field';
 import SmsConsentFields, { smsPayload } from '../../components/forms/SmsConsentFields';
 import { Claimed, Fatal, NotThisTab, PayError } from '../Outcomes';
 import { Loading } from '../../components/Feedback';
+import NavIcon from '../../components/shell/NavIcon';
 
 /**
  * The last screen before Stripe.
@@ -44,7 +45,9 @@ export default function CheckoutClient({ reservationId }) {
   const [promoCode, setPromoCode] = useState('');
   const [promoError, setPromoError] = useState(null);
   const [busy, setBusy] = useState(null);
-  const [buyer, setBuyer] = useState({ name: '', email: '', acceptTerms: false });
+  const [buyer, setBuyer] = useState({ name: '', email: '' });
+  // The three agreements beside the button (owner's reference, 2026-11-15).
+  const [checks, setChecks] = useState({ terms: false, refund: false, entry: false });
   // Optional texts: a number, and separate transactional / marketing boxes.
   const [phone, setPhone] = useState('');
   const [sms, setSms] = useState({});
@@ -168,7 +171,7 @@ export default function CheckoutClient({ reservationId }) {
       const body = {
         email: buyer.email || undefined,
         name: buyer.name || undefined,
-        acceptTerms: buyer.acceptTerms,
+        acceptTerms: checks.terms && checks.refund && checks.entry,
         ...(smsPayload(sms, phone).sms ? { phone: phone.trim(), ...smsPayload(sms, phone) } : {}),
       };
 
@@ -217,18 +220,19 @@ export default function CheckoutClient({ reservationId }) {
     router.push(reservation?.slug ? `/e/${reservation.slug}` : '/events');
   }
 
-  if (error && !quote) return <Fatal error={error} slug={reservation?.slug || stored?.slug} />;
-  if (claimed) return <Claimed claimed={claimed} slug={reservation?.slug} />;
-  if (!quote) return <Loading variant="card" />;
+  if (error && !quote) return <div className="es-co-narrow"><Fatal error={error} slug={reservation?.slug || stored?.slug} /></div>;
+  if (claimed) return <div className="es-co-narrow"><Claimed claimed={claimed} slug={reservation?.slug} /></div>;
+  if (!quote) return <div className="es-co-narrow"><Loading variant="card" /></div>;
 
   // Said BEFORE the form, not after Pay: without this tab's token every
   // action below is refused, and the buyer would find out last.
-  if (!reservation) return <NotThisTab slug={quote.event?.slug} />;
+  if (!reservation) return <div className="es-co-narrow"><NotThisTab slug={quote.event?.slug} /></div>;
 
   // What was held, for how long, and what it costs — before a single field
   // asks for anything. `HoldConfirm` argues the trade-off this step makes.
   if (!ready) {
     return (
+      <div className="es-co-narrow">
       <HoldConfirm
         quote={quote}
         formatted={formatted}
@@ -239,239 +243,265 @@ export default function CheckoutClient({ reservationId }) {
         slug={quote.event?.slug || reservation?.slug}
         onProceed={() => setReady(true)}
       />
+      </div>
     );
   }
 
   const discount = quote.lines.find((l) => l.amountCents < 0);
-  // Nothing to pay. Everything the page says about payment changes with it.
   const free = Number(quote.totalCents) === 0;
-
-  // In the EVENT's zone, and labelled with it — `formatEventTime` appends the
-  // short zone name, so a buyer in another timezone reads "8:00 PM EST" rather
-  // than a number that quietly disagrees with their ticket.
-  const eventWhen = quote.event?.startsAt
-    ? formatEventTime(quote.event.startsAt, quote.event.timezone)
-    : null;
+  const ev = quote.event || {};
+  const when = ev.startsAt ? formatEventTime(ev.startsAt, ev.timezone) : null;
+  const until = ev.endsAt ? formatEventTime(ev.endsAt, ev.timezone) : null;
+  const tickets = quote.tickets || [];
+  const allChecked = checks.terms && checks.refund && checks.entry;
+  const tick = (key) => (e) => setChecks((c) => ({ ...c, [key]: e.target.checked }));
 
   return (
-    <div className="fx-stack">
-      {/**
-        * WHICH EVENT THIS IS — kept on screen, not left behind.
-        *
-        * `HoldConfirm` names the event, and then hands over to this form and
-        * disappears. From that point the page said "Your order" over a list of
-        * money with no title, no date and no venue anywhere on it: somebody who
-        * opened two events in two tabs, or came back to this one after a
-        * detour, had nothing to check before paying. Every value comes from the
-        * quote the totals come from, so it cannot describe a different order
-        * from the one being charged.
-        */}
-      <header className="fx-stack fx-stack--sm gap-1">
-        <h1 className="text-2xl">Your order</h1>
-        {quote.event?.title && (
-          <p className="fx-break text-md text-ink">{quote.event.title}</p>
-        )}
-        {(eventWhen || quote.event?.venue) && (
-          <p className="text-sm text-muted">
-            {eventWhen}
-            {eventWhen && quote.event?.venue && ' · '}
-            {quote.event?.venue}
-          </p>
-        )}
-      </header>
+    /**
+     * ONE FORM around the whole page (owner's reference, 2026-11-15): the
+     * buyer's details sit in the left column and the agreement and the button
+     * in the right, and both belong to the same submit. The discount code is
+     * not a nested form (HTML has none) — its button is `type="button"` and
+     * Enter in its box applies it rather than paying.
+     */
+    <form onSubmit={pay} className="es-co">
+      <HoldBar expired={expired} remaining={remaining} noun={noun} />
 
-      {/* `remaining` is passed down rather than recomputed there: reading
-          Date.now() during a render is impure, and the value already exists
-          on the same one-second beat as the text beside it. */}
-      <HoldBar formatted={formatted} expired={expired} remaining={remaining} noun={noun} />
+      <nav aria-label="Breadcrumb" className="es-co__crumbs">
+        <Link href="/events">Events</Link>
+        <span aria-hidden>/</span>
+        {ev.slug && <><Link href={`/e/${ev.slug}`} className="fx-truncate">{ev.title}</Link><span aria-hidden>/</span></>}
+        {ev.slug && <><Link href={`/e/${ev.slug}#event-tickets`}>Tickets</Link><span aria-hidden>/</span></>}
+        <span aria-current="page" className="es-co__crumbs-here">Checkout</span>
+      </nav>
+      <h1 className="es-co__title">Checkout</h1>
 
-      {/* The summary is the one object on this page the buyer is actually
-          agreeing to, so it is a plate rather than a card — the same
-          treatment the seat map and the ticket stub get. The three panels
-          below it stay cards: they are controls, and if everything is
-          presented then nothing is. */}
-      <section className="es-plate bg-surface fx-stack fx-stack--sm p-6">
-        <p className="text-muted">
-          Admits {quote.admits} {quote.admits === 1 ? 'person' : 'people'}
-        </p>
+      <div className="es-co__grid">
+        <div className="es-co__main">
+          {/* ── The order summary ─────────────────────────────────────── */}
+          <section className="es-co__summary" aria-labelledby="co-summary">
+            <h2 id="co-summary" className="es-co__h2">Order summary</h2>
+            <p className="es-co__sub">Review your selections and check the total cost.</p>
 
-        <dl className="fx-stack fx-stack--sm">
-          {quote.lines.map((line) => (
-            <div key={line.label} className="fx-row fx-row--between">
-              <dt className="fx-min0 text-muted">{line.label}</dt>
-              <dd className="es-nums text-ink">{formatMoney(line.amountCents, quote.currency)}</dd>
+            <div className="es-co__event">
+              {ev.coverUrl && (
+                // eslint-disable-next-line @next/next/no-img-element -- the event's poster, straight from storage
+                <img src={ev.coverUrl} alt="" className="es-co__poster" />
+              )}
+              <div className="es-co__event-info">
+                <p className="es-co__event-title fx-break">
+                  <NavIcon name="info" size={18} />
+                  {ev.title}
+                </p>
+                <ul className="es-co__facts">
+                  {when && (
+                    <li><NavIcon name="calendar" size={16} />{when}{until ? ` – ${until}` : ''}</li>
+                  )}
+                  {ev.venue && <li><NavIcon name="building" size={16} />{ev.venue}</li>}
+                  {(ev.venueAddress || ev.city) && <li><NavIcon name="pin" size={16} />{ev.venueAddress || ev.city}</li>}
+                  {ev.organizerName && <li><NavIcon name="tag" size={16} /><span><b>Organized by:</b> {ev.organizerName}</span></li>}
+                </ul>
+                {ev.slug && (
+                  <p className="es-co__more"><b>Event details:</b> <Link href={`/e/${ev.slug}`}>See more</Link></p>
+                )}
+              </div>
             </div>
-          ))}
-          {/* The total was `text-lg` — 17.6px — one step above the line items
-              it sums. It is the number the whole page exists to state, and it
-              now gets the display treatment prices get everywhere else. */}
-          <div className="fx-row fx-row--between items-baseline border-t border-border-base pt-4">
-            <dt className="font-medium text-ink">Total</dt>
-            <dd className="es-price">
-              {formatMoney(quote.totalCents, quote.currency)}
-            </dd>
-          </div>
-        </dl>
-      </section>
 
-      <section className="fx-stack fx-stack--sm es-card p-5">
-        {discount ? (
-          <div className="fx-row fx-row--between">
-            <p className="text-sm text-ink">{discount.label} applied</p>
-            <button type="button" onClick={removePromo} disabled={busy === 'promo'} className="es-btn es-btn--ghost es-btn--sm">
-              Remove
-            </button>
-          </div>
-        ) : (
-          <form onSubmit={applyPromo} className="fx-row">
-            <input
-              value={promoCode}
-              onChange={(e) => setPromoCode(e.target.value)}
-              placeholder="Discount code"
-              aria-label="Discount code"
-              className="es-input fx-min0 flex-1"
-            />
+            {tickets.length > 0 ? (
+              <ul className="es-co__lines" aria-label="Tickets">
+                {tickets.map((t) => (
+                  <li key={t.key} className="es-co__line">
+                    <span aria-hidden className="es-co__line-icon"><NavIcon name="ticket" size={18} /></span>
+                    <span className="es-co__line-name fx-min0 fx-break">{t.name}</span>
+                    <span className="es-co__line-price es-nums">{formatMoney(t.unitPriceCents, quote.currency)}</span>
+                    <span className="es-co__line-qty es-nums" aria-label={`Quantity ${t.quantity}`}>× {t.quantity}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="es-co__admits">Admits {quote.admits} {quote.admits === 1 ? 'person' : 'people'}</p>
+            )}
+          </section>
+
+          {/* ── Where the tickets go ──────────────────────────────────── */}
+          <section className="es-co__card" aria-labelledby="co-details">
+            <h2 id="co-details" className="es-co__h2 es-co__h2--icon">
+              <NavIcon name="user" size={20} />
+              Your details
+            </h2>
+            {/* Guest checkout is a first-class path: an email, no account. */}
+            <p className="es-co__sub">
+              No account needed. Signed in? Your account email is filled in — change it to send the tickets elsewhere.
+            </p>
+            <div className="es-co__fields">
+              <Field
+                label="Full name"
+                name="name"
+                type="text"
+                optional
+                autoComplete="name"
+                value={buyer.name}
+                onChange={(e) => setBuyer((b) => ({ ...b, name: e.target.value }))}
+              />
+              {/* Required: the API refuses without one — the tickets go there. */}
+              <Field
+                label="Email address"
+                name="email"
+                type="email"
+                required
+                inputMode="email"
+                autoComplete="email"
+                hint="Your tickets and receipt are sent here — check it for typos."
+                value={buyer.email}
+                onChange={(e) => setBuyer((b) => ({ ...b, email: e.target.value }))}
+              />
+            </div>
+            <SmsConsentFields mode="checkout" value={sms} onChange={setSms} phone={phone} onPhone={setPhone} showPhone
+              organizerName={ev.organizerName} />
+          </section>
+        </div>
+
+        <aside className="es-co__side">
+          {/* A free order says so, loudly, the way the reference does: the
+              buyer is not about to be charged, and that is good news. */}
+          {free && <FreeStamp />}
+
+          <section className="es-co__total" aria-labelledby="co-total">
+            <h2 id="co-total" className="sr-only">Total and payment</h2>
+
+            {!free && (
+              <dl className="es-co__breakdown">
+                {quote.lines.map((line) => (
+                  <div key={line.label}>
+                    <dt>{line.label}</dt>
+                    <dd className="es-nums">{formatMoney(line.amountCents, quote.currency)}</dd>
+                  </div>
+                ))}
+              </dl>
+            )}
+
+            {!free && (
+              <div className="es-co__promo">
+                {discount ? (
+                  <div className="es-co__promo-on">
+                    <span><NavIcon name="tag" size={16} /> {discount.label} applied</span>
+                    <button type="button" onClick={removePromo} disabled={busy === 'promo'} className="es-co__link">Remove</button>
+                  </div>
+                ) : (
+                  <div className="es-co__promo-row">
+                    <input
+                      value={promoCode}
+                      onChange={(e) => setPromoCode(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (promoCode.trim().length >= 2) applyPromo(e); } }}
+                      placeholder="Discount code"
+                      aria-label="Discount code"
+                      className="es-input"
+                    />
+                    <button
+                      type="button"
+                      onClick={applyPromo}
+                      disabled={busy === 'promo' || promoCode.trim().length < 2}
+                      className="es-co__apply"
+                    >
+                      Apply
+                    </button>
+                  </div>
+                )}
+                {promoError && <p role="alert" className="text-sm text-danger">{describeError(promoError).recovery}</p>}
+              </div>
+            )}
+
+            <div className="es-co__total-row">
+              <span>Total amount</span>
+              <b className="es-nums">{free ? formatMoney(0, quote.currency) : formatMoney(quote.totalCents, quote.currency)}</b>
+            </div>
+
+            {/* BRD §02 — the terms are accepted before buying, and the API
+                records the acceptance against the version shown. The three
+                statements are the reference's; all three are required, and
+                `acceptTerms` is sent only when every one is ticked. */}
+            <div className="es-co__agree">
+              <label>
+                <input type="checkbox" required checked={checks.terms} onChange={tick('terms')} />
+                <span>
+                  By proceeding you accept the <Link href="/terms">Terms &amp; conditions</Link>, the{' '}
+                  <Link href="/privacy">Privacy policy</Link> and the purchase agreement.
+                </span>
+              </label>
+              <label>
+                <input type="checkbox" required checked={checks.refund} onChange={tick('refund')} />
+                <span>I accept that tickets are non-refundable; any refund is between me and the organizer.</span>
+              </label>
+              <label>
+                <input type="checkbox" required checked={checks.entry} onChange={tick('entry')} />
+                <span>
+                  Entry requires the electronic ticket sent by email (with its QR code, and seat number if
+                  applicable). Each ticket is valid for one entry only.
+                </span>
+              </label>
+            </div>
+
+            {/* The organizer's own checkout policies, before the button: a
+                refund policy read after paying becomes an email. */}
+            {(quote.policies || []).length > 0 && (
+              <div className="es-co__policies">
+                {quote.policies.map((policy) => (
+                  <details key={policy.id}>
+                    <summary>{policy.title}</summary>
+                    <div className="fx-break whitespace-pre-line">{policy.body}</div>
+                  </details>
+                ))}
+              </div>
+            )}
+
+            {error && <PayError error={error} />}
+
             <button
               type="submit"
-              disabled={busy === 'promo' || promoCode.trim().length < 2}
-              className="es-btn es-btn--secondary"
+              disabled={busy === 'pay' || expired || !allChecked}
+              aria-busy={busy === 'pay' || undefined}
+              className={`es-co__submit ${free ? 'es-co__submit--free' : ''}`}
             >
-              Apply
+              <NavIcon name={free ? 'ticket' : 'lock'} size={20} />
+              {busy === 'pay'
+                ? (free ? 'Getting your tickets…' : 'Taking you to payment…')
+                : free ? 'Get my free tickets' : `Pay ${formatMoney(quote.totalCents, quote.currency)}`}
             </button>
-          </form>
-        )}
-        {promoError && (
-          <p role="alert" className="text-sm text-danger">{describeError(promoError).recovery}</p>
-        )}
-      </section>
+            {!free && (
+              <p className="es-co__secure">
+                <NavIcon name="shield" size={16} />
+                You finish on Stripe, our payment processor. Your card details never reach us.
+              </p>
+            )}
 
-      <form onSubmit={pay} className="fx-stack fx-stack--sm es-card p-5">
-        <h2 className="text-lg">Where should the tickets go?</h2>
-        {/* Guest checkout is a first-class path — the API takes an optional
-            email rather than requiring an account, and asking someone to
-            register before they can pay is where conversion goes to die. */}
-        <p className="text-sm text-subtle">
-          You do not need an account. Signed in? Your account email is filled in — change it to send the tickets elsewhere.
-        </p>
-        {/* `Field`, not a bare input with a placeholder. Both of these carried
-            their label in `placeholder` + `aria-label`, which is the one
-            pattern `Field`'s own note argues against: a placeholder disappears
-            the moment somebody types, so a buyer who looks away mid-form has to
-            clear the box to find out what it wanted. On the screen that takes
-            their money and decides where the tickets are sent, that is the
-            worst place in the product for it. `Field` also gives each one a
-            real `<label for>`, the required star, and `aria-describedby` for
-            the hint below. */}
-        <Field
-          label="Full name"
-          name="name"
-          type="text"
-          optional
-          autoComplete="name"
-          value={buyer.name}
-          onChange={(e) => setBuyer((b) => ({ ...b, name: e.target.value }))}
-        />
-        {/* Required, because the API refuses without one — "Enter an email
-            address — your tickets are sent there." Catching it in the browser
-            saves a round trip that ends in a red box under a button they
-            already pressed. */}
-        <Field
-          label="Email address"
-          name="email"
-          type="email"
-          required
-          inputMode="email"
-          autoComplete="email"
-          hint="Your tickets and receipt are sent here — check it for typos."
-          value={buyer.email}
-          onChange={(e) => setBuyer((b) => ({ ...b, email: e.target.value }))}
-        />
+            <button type="button" onClick={abandon} disabled={busy === 'release'} className="es-co__release">
+              {busy === 'release' ? 'Releasing…' : `Release my ${noun.many}`}
+            </button>
+          </section>
+        </aside>
+      </div>
+    </form>
+  );
+}
 
-        <SmsConsentFields mode="checkout" value={sms} onChange={setSms} phone={phone} onPhone={setPhone} showPhone
-          organizerName={quote.event.organizerName} />
-
-        {/* BRD §02 — the buyer accepts the terms before paying, and the API
-            records the acceptance against the VERSION they were shown rather
-            than as a boolean. It only records it when we send the flag, so a
-            checkout that never asks is one where nobody ever agreed. */}
-        {/* Was `text-xs` — 10.4px on a phone for the sentence that carries
-            legal consent, beside a checkbox that records it. */}
-        <label className="fx-row items-start gap-2.5 text-sm text-muted">
-          <input
-            type="checkbox" required checked={buyer.acceptTerms}
-            onChange={(e) => setBuyer((b) => ({ ...b, acceptTerms: e.target.checked }))}
-            className="mt-0.5"
-          />
-          <span>
-            I agree to the <Link href="/terms" className="text-accent">terms</Link> and the{' '}
-            <Link href="/privacy" className="text-accent">privacy policy</Link>. Tickets are
-            non-refundable by default; any refund is between me and the organizer.
-          </span>
-        </label>
-
-        {/* The organizer's own policies, the ones they marked to show here.
-            Before the button, not under it: a refund policy read after paying
-            is one that becomes an email to the organizer. */}
-        {(quote.policies || []).length > 0 && (
-          <div className="fx-stack fx-stack--sm">
-            {quote.policies.map((policy) => (
-              <details key={policy.id} className="rounded-(--es-radius-md) border border-border-base px-4 py-3">
-                <summary className="cursor-pointer text-sm text-ink marker:text-subtle">{policy.title}</summary>
-                <div className="fx-break mt-2 whitespace-pre-line text-sm text-muted">{policy.body}</div>
-              </details>
-            ))}
-          </div>
-        )}
-
-        {error && <PayError error={error} />}
-
-        <button
-          type="submit"
-          disabled={busy === 'pay' || expired}
-          aria-busy={busy === 'pay' || undefined}
-          className="es-btn es-btn--primary es-btn--lg es-btn--block"
-        >
-          {busy === 'pay'
-            ? (free ? 'Getting your tickets…' : 'Taking you to payment…')
-            : free ? 'Get my tickets' : `Pay ${formatMoney(quote.totalCents, quote.currency)}`}
-        </button>
-
-        {/**
-          * WHERE THE CARD DETAILS GO, said before the button rather than
-          * discovered after it.
-          *
-          * Pressing Pay leaves this site: `createSession` returns a Stripe
-          * Checkout URL and the handler above does a full navigation to it. A
-          * buyer who expected a card form here and lands on a different domain
-          * has to decide whether that is the payment step or something wrong,
-          * and the page they left said nothing either way.
-          *
-          * Two plain facts, both true and both checkable — the name of the
-          * processor, and that the card never touches this server. No padlock
-          * glyph, no "100% secure", no trust-seal image: a claim about security
-          * made by the party asking for the money is worth nothing, and the
-          * decoration is what a phishing page copies first.
-          *
-          * Only on the paid path. A free claim goes nowhere near Stripe.
-          */}
-        {!free && (
-          <p className="text-center text-xs text-subtle">
-            You will finish on Stripe, our payment processor. Your card details are
-            entered there and never reach us.
-          </p>
-        )}
-
-        <button
-          type="button" onClick={abandon} disabled={busy === 'release'}
-          aria-busy={busy === 'release' || undefined}
-          className="es-btn es-btn--ghost es-btn--block"
-        >
-          {busy === 'release' ? 'Releasing…' : `Release my ${noun.many}`}
-        </button>
-      </form>
+/** The "FREE" stamp beside a free order — drawn, in the brand coral. */
+function FreeStamp() {
+  return (
+    <div className="es-co__stamp" aria-hidden="true">
+      <svg viewBox="0 0 320 220">
+        <g transform="rotate(-14 160 110)">
+          <rect x="28" y="40" width="264" height="140" rx="22" fill="none" stroke="currentColor" strokeWidth="10" />
+          <rect x="46" y="58" width="228" height="104" rx="12" fill="none" stroke="currentColor" strokeWidth="4" />
+          <text x="160" y="134" textAnchor="middle" fontFamily="var(--es-font-display)" fontWeight="900" fontSize="74" fill="currentColor" letterSpacing="4">FREE</text>
+          {[60, 100, 220, 260].map((x) => (
+            <path key={x} d={`M${x} 26l3 7 7 1-5 5 1 7-6-4-6 4 1-7-5-5 7-1z`} fill="currentColor" />
+          ))}
+        </g>
+      </svg>
     </div>
   );
 }
+
 
 /** The reservation token authorises release and promo changes. A bare id is
  *  not proof — it travels to the client, so anyone holding one could drop

@@ -18,7 +18,9 @@ export default async function CheckoutPage({ params }) {
   const { reservationId } = await params;
   return (
     <main className="fx-section fx-section--sm">
-      <div className="fx-container fx-container--sm">
+      {/* Wide for the two-column checkout (2026-11-15); the hold, outcome and
+          loading screens keep their reading width inside CheckoutClient. */}
+      <div className="fx-container fx-container--wide">
         <CheckoutClient reservationId={reservationId} />
       </div>
     </main>
