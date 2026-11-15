@@ -270,7 +270,7 @@ PDF, open the PDF on the Mac and scan it with the iPhone.
 ### 6.3 What to test
 | # | Test | Expected |
 |---|---|---|
-| 1 | Home-screen icon | White rounded frame on teal |
+| 1 | Home-screen icon | Yellow rounded frame on near-black (rebrand 2026-11-15; was white on teal) |
 | 2 | Sign in, choose an event | Works |
 | 3 | Scan a ticket | Green — admitted |
 | 4 | Scan the same ticket again | "Already checked in" |

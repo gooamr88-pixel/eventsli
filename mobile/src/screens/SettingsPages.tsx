@@ -236,14 +236,14 @@ export function HelpPage() {
 
 const styles = StyleSheet.create({
   center: { alignItems: 'center', gap: space.sm, paddingVertical: space.sm },
-  rolePill: { paddingHorizontal: space.md, paddingVertical: 4, borderRadius: radius.pill, backgroundColor: colors.mint },
+  rolePill: { paddingHorizontal: space.md, paddingVertical: 4, borderRadius: radius.pill, backgroundColor: colors.wash },
   rows: { paddingVertical: space.xs },
   rule: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
   ability: { flexDirection: 'row', alignItems: 'center', gap: space.md, minHeight: 50 },
   mark: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   helpHero: { alignItems: 'center', gap: space.xs, paddingVertical: space.sm },
   helpIcon: {
-    width: 64, height: 64, borderRadius: 32, backgroundColor: colors.mint,
+    width: 64, height: 64, borderRadius: 32, backgroundColor: colors.wash,
     alignItems: 'center', justifyContent: 'center', marginBottom: space.xs,
   },
   question: { flexDirection: 'row', alignItems: 'center', gap: space.md, minHeight: 54, paddingVertical: space.sm },

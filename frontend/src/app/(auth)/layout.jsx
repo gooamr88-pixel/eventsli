@@ -18,7 +18,7 @@ import { serverFetch } from '../utils/apiClient';
  *
  * The photograph is the one the admin uploaded for the homepage hero, read from
  * the same cached landing payload. If it cannot be loaded the panel falls back
- * to the brand teal, so a slow CMS never costs anyone the sign-in form.
+ * to the brand coral, so a slow CMS never costs anyone the sign-in form.
  */
 const REASONS = [
   ['ticket', 'Every ticket you buy, in one place — including ones bought as a guest with the same email.'],

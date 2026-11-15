@@ -287,6 +287,31 @@ that tells you whether you may.
 Never reach past a role for a ramp value in a component. The roles are where the
 contrast guarantee lives.
 
+## The brand: white, yellow, coral (2026-11-15)
+
+The approved brand sheet sets six colours, and `globals.css` names them on
+`:root` with the reasoning (`test/logo.test.jsx` pins the values):
+
+- **The CTA coral is `--es-coral-600` (#D61F2C), not the sheet's #FF414B.**
+  White on #FF414B is 3.44:1, so every button label and link would fail AA.
+  The sheet's exact coral is `--es-brand-coral`, for graphics only: heading
+  bars, hearts, pins, available seats.
+- **Yellow is a fill, never text** (`--es-highlight`, 1.5:1 on white). Selected
+  chips, the headline highlight, the logo's ticket — always with near-black on
+  it (`--es-text-on-highlight`).
+- **Montserrat for headings** (`--es-font-display`; `h1`–`h4` in the base
+  layer, `.es-lp-title`, and the scoped `.es-mk`/`.es-auth` headings), **DM Sans
+  for everything read at length**. `--es-font-serif` is a legacy alias of the
+  display face.
+- **The logo is generated.** `scripts/brandLogo.js` draws the ticket and
+  outlines the word into `components/brand/markPath.js` and `wordmarkPath.js`;
+  `scripts/brandIcons.js` and `scripts/brandKit.js` render every PNG, the
+  favicon tile and `docs/brand` from those. Never edit the path files by hand.
+
+Before naming a new class, grep `globals.css` for it: `.es-hero` and
+`.es-chip` were both already taken by older components when the homepage was
+rebuilt, which is why the new ones are `.es-home-hero` and `.es-catchip`.
+
 ## Routes, robots and the sitemap
 
 `lib/siteRoutes.js` is the one list. `sitemap.js`, `robots.js` and `SiteFooter`
@@ -330,7 +355,7 @@ thin IndexedDB adapter under it. Put new queue behaviour in the pure file; it is
 where the tests are, and where an admission gets lost.
 
 Two smaller things worth knowing: **the gate follows the site's palette**
-(white, `--es-accent` blue, the wordmark in `GateHead`) — it used to pin the
+(white, the `--es-accent` coral, the wordmark in `GateHead`) — it used to pin the
 dark one by riding on the `[data-theme="dark"]` selector, and that was reversed
 on 2026-10-12 because the door was the only screen in the product with no
 Eventsli on it. `.fx-gate__lens` keeps the camera viewport black, which is the

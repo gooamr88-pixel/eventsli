@@ -377,9 +377,9 @@ function NavLink({ link, pathname }) {
     <Link
       href={link.href}
       aria-current={active ? 'page' : undefined}
-      className={`fx-touch text-sm transition-colors hover:text-ink ${
-        active ? 'text-ink' : 'text-muted'
-      }`}
+      // The concept's masthead: near-black, bold links, the current one
+      // underlined in coral (`.es-navlink`, 2026-11-15).
+      className="es-navlink fx-touch text-sm"
     >
       {link.label}
     </Link>

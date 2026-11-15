@@ -12,7 +12,7 @@ import Logo from './brand/Logo';
  * REBUILT 2026-10-17 from the owner's mockup: the logo, one line about the
  * product and the social icons on the left; Explore, For organizers, Company
  * and Legal beside them; the copyright under a hairline. Light, on a soft
- * teal-grey wash with two faint curves — the site stays white (see the brand
+ * faint yellow wash with two soft curves — the site stays white (see the brand
  * notes in globals.css).
  *
  * A client component for one reason — the same reason SiteHeader is one: it has

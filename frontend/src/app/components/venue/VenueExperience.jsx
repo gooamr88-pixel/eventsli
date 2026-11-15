@@ -139,11 +139,11 @@ export default function VenueExperience({
   const dark = studio.scene.mood !== 'daylight';
   const colorFor = useCallback((entry) => {
     const s = entry.seat;
-    if (!s) return dark ? '#3b4549' : '#b7c0c3';
+    if (!s) return dark ? '#3d3c48' : '#bdbdc5';
     if (selectedSeatIds.has(s.id)) return '#ffffff';
     if (paint) return paint(s);
-    if (!s.available) return hideTaken ? (dark ? '#1c2a2d' : '#d6dddf') : (dark ? '#3b4549' : '#b7c0c3');
-    if (focusTiers && !focusTiers.has(s.tierId)) return dark ? '#2d4245' : '#cfd8da';
+    if (!s.available) return hideTaken ? (dark ? '#1f1e28' : '#dcdce1') : (dark ? '#3d3c48' : '#bdbdc5');
+    if (focusTiers && !focusTiers.has(s.tierId)) return dark ? '#34333f' : '#d4d4da';
     return (usePalette && palette.get(s.tierId)) || '#17a2a6';
   }, [selectedSeatIds, paint, focusTiers, hideTaken, usePalette, palette, dark]);
   const colorKey = useMemo(() => ({}), [colorFor, seats]); // eslint-disable-line react-hooks/exhaustive-deps

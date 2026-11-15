@@ -57,7 +57,7 @@ export default function EventDetails() {
             <Image source={{ uri: event.coverUrl }} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} accessible={false} />
           ) : (
             <View style={[StyleSheet.absoluteFill, styles.coverEmpty]}>
-              <Icon name="calendar" size={48} color={colors.teal300} />
+              <Icon name="calendar" size={48} color={colors.sun300} />
             </View>
           )}
           <Pressable
@@ -113,7 +113,7 @@ export default function EventDetails() {
               <Ring value={admitted} total={expected} size={132} stroke={14} label={`${percent(admitted, expected)}%`} sublabel="checked in" />
               <View style={styles.legend}>
                 <Legend color={colors.accent} label="Checked in" value={admitted} />
-                <Legend color={colors.teal100} label="Remaining" value={stats?.pending ?? 0} />
+                <Legend color={colors.coral100} label="Remaining" value={stats?.pending ?? 0} />
                 <Legend color={colors.borderStrong} label="Total" value={expected} />
                 {stats?.void ? <Legend color={colors.dangerHalo} label="Cancelled" value={stats.void} /> : null}
               </View>
@@ -176,8 +176,8 @@ function Legend({ color, label, value }: { color: string; label: string; value: 
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
-  cover: { backgroundColor: colors.teal800 },
-  coverEmpty: { alignItems: 'center', justifyContent: 'center', backgroundColor: colors.teal800 },
+  cover: { backgroundColor: colors.night },
+  coverEmpty: { alignItems: 'center', justifyContent: 'center', backgroundColor: colors.night },
   back: {
     position: 'absolute', left: space.md, width: 42, height: 42, borderRadius: 21,
     alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(6, 30, 32, 0.45)',

@@ -25,7 +25,7 @@ import TableCategoriesEmpty from './TableCategoriesEmpty';
  *
  * Renaming and recolouring are offered — the API always allowed both.
  */
-const DEFAULT_COLOR = '#0d5b5e';   // the brand teal, --es-teal-700
+const DEFAULT_COLOR = '#d61f2c';   // the CTA coral, --es-coral-600
 
 export default function TableCategories({ eventId }) {
   const toast = useToast();

@@ -38,19 +38,15 @@ export const metadata = {
 
 export const viewport = {
   /**
-   * THE BRAND TEAL (#0D5B5E, the guide's value), not the old near-black.
-   *
-   * The gate used to pin the dark palette and told the browser furniture the
-   * same thing. It follows the site now (see `.fx-gate` in globals.css), so an
-   * address bar left at #09090b would be the one black band on an otherwise
-   * white screen — the exact mismatch this value exists to prevent, pointing
-   * the other way.
+   * WHITE, like the gate screen itself (2026-11-15). The gate follows the
+   * site (see `.fx-gate` in globals.css), and the site is white with a
+   * near-black masthead word; a coloured address bar would be the one band on
+   * the screen that belongs to neither.
    *
    * A plain string rather than the root layout's light/dark pair: the gate has
-   * one appearance and does not follow the device, so offering the browser a
-   * choice would be describing a screen that cannot happen.
+   * one appearance and does not follow the device.
    */
-  themeColor: '#0d5b5e',
+  themeColor: '#ffffff',
   width: 'device-width',
   initialScale: 1,
   /**

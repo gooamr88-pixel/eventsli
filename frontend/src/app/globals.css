@@ -61,52 +61,62 @@
    ═══════════════════════════════════════════════════════════════════════ */
 
 :root {
-  /* ── Brand: TEAL, 2026-10-16 ───────────────────────────────────────
-     THE BRAND GUIDE SETS THESE, not this file. Via Marketing's "Full
-     Branding Package" names four colours and this palette uses all four
-     EXACTLY:
+  /* ── Brand: WHITE, YELLOW, CORAL — 2026-11-15 ──────────────────────
+     THE BRAND SHEET SETS THESE, not this file. "Eventsli | Brand color
+     guide" (the approved homepage concept, November 2026) names six:
 
-       Teal        #0D5B5E   R13 G91 B94     --es-teal-700, the accent
-       Black       #000000                   --es-black, the logo's word
-       White       #FFFFFF                   --es-bg, the page
-       Light Grey  #F2F4F5   R242 G244 B245  --es-grey-100, the sunken band
+       Pure White      #FFFFFF   --es-bg, the page            ~70%
+       Sunshine Yellow #FFCC00   --es-sun-400, highlights      ~15%
+       Coral Red       #FF414B   --es-coral-500, the CTA hue   ~10%
+       Near Black      #111018   --es-black, headlines, nav     ~5%
+       Soft Gray       #EAEAEA   --es-grey-200, borders
+       Off White       #F8F8F8   --es-grey-75, secondary surfaces
 
-     It replaced blue (#2c62bd), which replaced emerald before it. The ramp
-     names moved with the hue (blue → teal, mist → grey, navy → night) so no
-     variable describes a colour it no longer holds.
+     It replaced Via Marketing's teal (#0D5B5E), which replaced blue, which
+     replaced emerald. The ramp names moved with the hues (teal → coral, plus
+     a new yellow `sun` ramp) so no variable describes a colour it no longer
+     holds.
 
-     WHY THE ACCENT IS THE BRAND VALUE ITSELF, with no lighter "web teal".
-     Every earlier brand colour had to be shifted a step to pass AA — emerald
-     600 → 700 → 800, blue settled on 700 as the lightest step that cleared.
-     The guide's teal does not need it: it measures 7.85:1 on white and 7.12:1
-     on the light grey, and white on it is 7.85:1. So the colour on a button is
-     the colour on the business card. Do not lighten it to "brighten" the
-     site; that is how a brand colour drifts away from the brand.
+     WHY THE BUTTON IS NOT #FF414B (owner's decision, 2026-11-15). White on
+     the sheet's coral measures 3.44:1 and coral text on white the same —
+     both fail AA, and every button label and link in the product would.
+     The accent role is coral-600, #D61F2C: the lightest step of the same hue
+     that carries white at 5.13:1 and reads as text at 4.71:1 on the grey
+     band. The sheet's exact coral stays where it is a GRAPHIC — heading
+     bars, the heart, the map pin, available seats — where 3:1 is the bar
+     and it clears it. Do not "brighten" the accent back to #FF414B; that is
+     the failure this paragraph exists to stop.
 
-     The other steps are built on the teal's own hue (182°) for the jobs one
-     colour cannot do: hover (800), tints (50–200), the seat map (400) and the
-     focus ring (600). Measured by scripts/contrast.js. */
-  --es-teal-50:  #eef6f6;
-  --es-teal-100: #d8ebeb;
-  --es-teal-200: #b3d8d9;
-  --es-teal-300: #80bcbe;
-  --es-teal-400: #3f9599;
-  --es-teal-500: #1d7a7e;
-  --es-teal-600: #136a6d;
-  --es-teal-700: #0d5b5e;
-  --es-teal-800: #0a4b4e;
-  --es-teal-900: #083c3e;
+     YELLOW IS NEVER TEXT. #FFCC00 on white is 1.51:1. It is a FILL — the
+     selected filter chip, the headline highlight, the logo's ticket — and
+     the text on it is always near-black (12.5:1). */
+  --es-coral-50:  #fff1f2;
+  --es-coral-100: #ffe0e2;
+  --es-coral-200: #ffc2c6;
+  --es-coral-300: #ff949a;
+  --es-coral-400: #ff6b73;
+  --es-coral-500: #ff414b;
+  --es-coral-600: #d61f2c;
+  --es-coral-700: #b5121e;
+  --es-coral-800: #8f0e18;
+  --es-coral-900: #6b0a12;
 
-  /* The guide's black, for the logo. Body text is `--es-ink-on-light` below,
-     a black carrying a trace of the teal (18.4:1), which is the convention for
-     long reading on a screen; the WORD "Events" in the logo is this value
-     exactly, because the guide says not to change the logo's colours. */
-  --es-black: #000000;
+  --es-sun-50:  #fffbea;
+  --es-sun-100: #fff3c4;
+  --es-sun-200: #ffe58a;
+  --es-sun-300: #ffd94d;
+  --es-sun-400: #ffcc00;
+  --es-sun-500: #f0bd00;
+  --es-sun-600: #d6a700;
+  --es-sun-700: #a37f00;
+
+  /* The sheet's Near Black. It is the headline and navigation colour AND the
+     logo's word, so the reading ink and the brand black are one value now. */
+  --es-black: #111018;
 
   /* ── Neutrals ───────────────────────────────────────────────────────
-     Slate in light (cool, sits under emerald without going muddy), zinc
-     in dark. Two families rather than one because a slate this cool goes
-     blue at #09090B, and a zinc this warm goes grey at #F8FAFC. */
+     Slate and zinc stay as general-purpose primitives for the dashboards;
+     no role points at them. */
   --es-slate-50:  #f8fafc;
   --es-slate-100: #f1f5f9;
   --es-slate-200: #e2e8f0;
@@ -128,103 +138,76 @@
   --es-zinc-950: #09090b;
 
   /* ── Grey: the light grounds and the lines ──────────────────────────
-     REPLACED THE MIST RAMP, 2026-10-16. 100 is the guide's Light Grey
-     (#F2F4F5) exactly, and it is the page's only alternating ground.
+     NEUTRAL, with the faint violet of the sheet's near-black, so a border
+     and the ink read as one family.
 
-     It is 3.9 L* from white. That is closer than mist was (5.0) and still
-     above the 3.0 floor contrast.js holds every pair of grounds to — the
-     floor below which two bands are the same colour to a human eye. Card
-     grids sit on it; a flush white card on it is a visible object.
+     200 is the sheet's Soft Gray (#EAEAEA) exactly — every hairline.
+     75 is the sheet's Off White (#F8F8F8) exactly — a field, a hover, a
+     chip at rest: a SURFACE inside a white page.
 
-     The rest of the ramp shares its cool, faintly teal bias so a border, a
-     divider and a disabled seat all read as the same family as the band
-     they sit on. 50 is the hover for a white surface. */
-  --es-grey-50:  #f8f9fa;
-  --es-grey-100: #f2f4f5;
-  --es-grey-200: #e2e7e8;
-  --es-grey-300: #cfd7d9;
-  --es-grey-400: #b3bfc2;
-  --es-grey-500: #93a3a6;
+     100, the alternating BAND, is one step deeper than the sheet's off-white,
+     and that is a measurement. #F8F8F8 sits 2.4 L* from white, under the 3.0
+     floor contrast.js holds every pair of grounds to — the point below which
+     two bands are the same colour to a human eye. #F5F5F5 is 3.5. */
+  --es-grey-50:  #fafafa;
+  --es-grey-75:  #f8f8f8;
+  --es-grey-100: #f5f5f5;
+  --es-grey-200: #eaeaea;
+  --es-grey-300: #d9d9de;
+  --es-grey-400: #b8b8c0;
+  --es-grey-500: #8a8a96;
 
-  /* ── Night: the teal-black ──────────────────────────────────────────
-     The darkest tone in the product, and on the storefront it is never a
-     band (the owner rejected dark bands on 2026-09-16, and confirmed it on
-     2026-10-16). It is the VEIL over a photograph, so white type measures
-     the same whatever picture an admin uploads, and the bezel of the drawn
-     phone. It is the black of the guide's posters and banners: black with
-     the teal in it. */
-  --es-night-950: #031012;
-  --es-night-900: #061e20;
-  --es-night-800: #0a2729;
-  --es-night-700: #0e3436;
+  /* ── Night: the near-black family ───────────────────────────────────
+     On the storefront it is never a band. It is the VEIL over a photograph,
+     so white type measures the same whatever picture an admin uploads, and
+     the bezel of the drawn phone. 900 is the sheet's near-black. */
+  --es-night-950: #08070c;
+  --es-night-900: #111018;
+  --es-night-800: #1b1a24;
+  --es-night-700: #262531;
 
   /* ── Ink: the dark theme's grounds ──────────────────────────────────
-     RETONED 2026-10-16 to the teal, as they were to blue and to green before
-     it. The dark palette is applied to nothing on the site (see the note on
-     `:root[data-theme="dark"]` below); it is kept so contrast.js measures a
-     second palette, and these primitives are declared once so its grounds
-     cannot drift. Still 3.5 L* apart at the tightest pair. */
-  --es-ink-900: #0e2a2c;
-  --es-ink-950: #0a2022;
-  --es-ink-975: #061719;
-  --es-ink-raised: #133436;
-  --es-ink-border: #1f4a4d;
-  --es-ink-subtle: #93b6b8;
+     Retoned 2026-11-15 to the near-black, as they were to teal, blue and
+     green before it. The dark palette is applied to nothing on the site
+     (see the note on `:root[data-theme="dark"]` below); it is kept so
+     contrast.js measures a second palette. */
+  --es-ink-900: #1c1b25;
+  --es-ink-950: #15141c;
+  --es-ink-975: #0d0c12;
+  --es-ink-raised: #24232f;
+  --es-ink-border: #363545;
+  --es-ink-subtle: #a9a8b8;
 
   /* ── Text for a LIGHT ground, named once ────────────────────────────
-     Five scopes re-declare the light theme's text roles for themselves — a
-     band, the search bar on a photograph, the locate pill, the modal — because
-     an element that changes its ground must state its text (see the note on
-     `.es-band--ink`). They used to each carry the hex literally, so a palette
-     change was five hunts for #0f1d3a. They point here now.
-
-     Measured on white AND on the light grey, because both are grounds a
-     paragraph sits on. */
-  --es-ink-on-light:    #0b1617;
-  --es-muted-on-light:  #45585b;
-  --es-subtle-on-light: #566a6d;
+     Scopes that change their ground re-declare the light theme's text roles
+     from here (a band, the search bar on a photograph, the modal). Measured
+     on white AND on the grey band. */
+  --es-ink-on-light:    #111018;
+  --es-muted-on-light:  #4a4a55;
+  --es-subtle-on-light: #60606b;
 
   /* ── Semantic ───────────────────────────────────────────────────────
-     Separate from the brand hue on purpose. A green "success" that is
-     also the accent means a saved-successfully toast and a primary button
-     are the same colour, and neither reads as the thing it is. */
-  /* SUCCESS, WARNING AND INFO ARE TEXT-SAFE TOO (2026-10-15), for the reason
-     danger is below. They colour words: the door's "Admitted" and "Already
-     scanned", hold timers, low-stock notes, the password rules. At #16a34a,
-     #f59e0b and #3b82f6 those words were 3.30, 2.15 and 3.68:1 on white, and
-     under 3:1 on their own alert tints. Green-800, amber-800 and the brand's
-     own 800 step pass 4.5:1 on white, bg-sunken and their own 15% tint (the gate
-     and alert grounds); scripts/contrast.js measures all of it. Where amber
-     is a GRAPHIC rather than words (a held seat, rating stars) it is the
-     lighter amber-700 below, which still clears the 3:1 graphics floor. */
+     Text-safe on white, the band and their own 10–15% tints; measured by
+     scripts/contrast.js. Where amber is a GRAPHIC (rating stars) it is the
+     lighter amber-700, which clears the 3:1 graphics floor. */
   --es-success: #166534;
   --es-warning: #92400e;
   --es-amber-700: #b45309;
-  /* Red-700, not red-500. #ef4444 was 3.76:1 on white and 3.38:1 on the
-     sunken ground, so every error message, "Sign out everywhere" and the
-     error page's eyebrow failed AA as text. #b91c1c measures 6.47:1 on white,
-     5.81:1 on bg-sunken, 5.01:1 on its own 15% tint (the pill and alert
-     grounds) and carries white at 6.47:1 as a fill. It is the red the danger
-     buttons already used, so this is one red now rather than two. Measured by
-     scripts/contrast.js. */
+  /* Red-700. It sits close to the coral accent, and that is accepted rather
+     than solved with a second hue: an error is always words plus an icon, and
+     a danger button always says what it destroys. */
   --es-danger:  #b91c1c;
-  /* Info is the brand, one step deeper than the accent: an information notice
-     is the product speaking, not a warning, and a third hue (it was a stock
-     blue once) would be the one colour on the page the guide does not name. */
-  --es-info:    var(--es-teal-800);
+  /* Info is the product speaking, so it is the brand's ink rather than a
+     third hue the sheet does not name. */
+  --es-info:    #2e2d3d;
 
   /* ── Roles — what components actually reference ─────────────────────
      Every component takes its colour from a role, never from a scale
      value. Only the roles are redefined in dark, so a component written
      once works in both themes without knowing they exist. */
-  /* WHITE. Not a near-white, not a paper, not a cream.
-
-     `--es-bg` was sand-100 (#faf8f4). It is #ffffff now because the brief
-     for this storefront is two colours and neither of them is beige — an
-     off-white reads as a slightly dirty white next to the real white of a
-     card sitting on it, which is exactly what the surface role is. */
+  /* WHITE. The sheet's Pure White and 70% of the page. */
   --es-bg:            #ffffff;
-  /* The guide's Light Grey, exactly. See the grey ramp above for the 3.9 L*. */
+  /* The alternating band. See the grey ramp for why it is not #F8F8F8. */
   --es-bg-sunken:     var(--es-grey-100);
   /* The darkest ground. Never a band on the storefront — the veil a
      photograph sits under. */
@@ -233,72 +216,73 @@
   --es-surface-raised:#ffffff;
   --es-border:        var(--es-grey-200);
   --es-border-strong: var(--es-grey-400);
-  /* The edge of a control a person types into or toggles — text fields and the
-     switch's off track. WCAG 1.4.11 asks 3:1 of the boundary that identifies a
-     component, and a decorative grey is under 2:1 on white: a white field on a
-     white card was found by its label alone. 3.41:1 on white, 3.09:1 on the
-     light grey. Decorative dividers keep the lighter border roles. */
-  --es-control-border: #7d8e91;
+  /* The edge of a control a person types into or toggles. WCAG 1.4.11 asks
+     3:1 of the boundary that identifies a component; the sheet's Soft Gray is
+     1.2:1 and would leave a white field on a white card findable by its label
+     alone. 4.24:1 on white, 3.89:1 on the band. */
+  --es-control-border: #7a7a86;
 
   /* ── Ink ────────────────────────────────────────────────────────────
-     Black to read, with a trace of the teal in it so it sits with the brand
-     rather than beside it. Three levels, each measured by scripts/contrast.js
-     against white AND the light grey, because both are grounds a paragraph
-     sits on. `subtle` is the third level and the one with the least room:
-     it is the lightest value that still clears 4.5:1 on the grey. */
+     The sheet's near-black, and two greys of the same violet cast. Each is
+     measured against white AND the band. */
   --es-text:          var(--es-ink-on-light);
   --es-text-muted:    var(--es-muted-on-light);
   --es-text-subtle:   var(--es-subtle-on-light);
   --es-text-on-accent:#ffffff;
 
-  /* THE BRAND TEAL, unmodified — see the note on the teal ramp. 7.85:1 as
-     text on white, 7.12:1 on the light grey, and white on it is 7.85:1, so it
-     carries links, eyebrows, the primary button and the active pill as the
-     guide's own value. Hover goes DEEPER (800), never lighter: a lighter
-     hover is a lighter brand for as long as the pointer rests on it. */
-  --es-accent:        var(--es-teal-700);
-  --es-accent-hover:  var(--es-teal-800);
-  /* The brand at its palest, for a selected row or a confirmation circle.
-     teal-100 is 4.4 L* below the light grey, so a wash inside a card is still
-     distinguishable from the band behind it. */
-  --es-accent-wash:   var(--es-teal-100);
-  --es-accent-edge:   var(--es-teal-200);
+  /* THE CTA CORAL, made text-safe — see the brand note above. It carries
+     links, eyebrows, the primary button and "Get Tickets". Hover goes DEEPER
+     (700), never lighter. */
+  --es-accent:        var(--es-coral-600);
+  --es-accent-hover:  var(--es-coral-700);
+  /* The palest coral, for a selected row or a confirmation circle. */
+  --es-accent-wash:   var(--es-coral-50);
+  --es-accent-edge:   var(--es-coral-200);
 
-  /* CORRECTION 1 of 3, carried over from the old tokens.
-     `--border-focus`, `--shadow-accent` and `--accent-subtle` were all
-     still `rgba(79,70,229,…)` — indigo, from an identity two rebrands
-     ago. Every focus ring and every button shadow on the platform was
-     purple underneath a green skin. They follow the brand here, and are
-     the teal's own RGB (13 91 94) at low alpha. */
-  --es-focus-ring-color: var(--es-teal-600);
-  --es-shadow-accent: 0 4px 16px rgba(13, 91, 94, 0.22);
-  --es-accent-subtle: rgba(13, 91, 94, 0.12);
+  /* ── Highlight: the yellow role ─────────────────────────────────────
+     The sheet's "highlights and selected filters". A FILL with near-black on
+     it, never a text colour. `--es-highlight-wash` is the pale version for a
+     soft callout. */
+  --es-highlight:      var(--es-sun-400);
+  --es-highlight-hover:var(--es-sun-500);
+  --es-highlight-wash: var(--es-sun-50);
+  --es-text-on-highlight: var(--es-black);
 
-  /* ── The logo's three colours ───────────────────────────────────────
-     Not the accent role, and that is deliberate. The accent is a ROLE and a
-     scope may re-point it (the photo band makes it white so a link reads on
-     a picture); the logo is a MARK, and the guide says its colours do not
-     change. So it has its own three, which are the full-colour logo here and
-     are redefined only where the guide's reversed (all-white) version is the
-     right one: `.es-band--photo` and the ticket stub. See Logo.jsx. */
-  --es-logo-mark: var(--es-teal-700);
+  /* The sheet's exact coral, for decoration only: heading bars, hearts, pins.
+     Never text, never under a label. */
+  --es-brand-coral:    var(--es-coral-500);
+
+  /* Focus follows the CTA: coral-600 is 5.13:1 on white, well over the 3:1
+     a focus indicator needs. */
+  --es-focus-ring-color: var(--es-coral-600);
+  --es-shadow-accent: 0 6px 18px rgba(255, 65, 75, 0.28);
+  --es-accent-subtle: rgba(255, 65, 75, 0.12);
+
+  /* ── The logo's colours ─────────────────────────────────────────────
+     Not the accent role, and that is deliberate. The accent is a ROLE that a
+     scope may re-point; the logo is a MARK. The ticket is the sheet's yellow,
+     the star punched in it is white, and the word is near-black. Scopes that
+     sit on a photograph or a dark ground redefine `--es-logo-ink` (and the
+     legacy `--es-logo-li`) to white; the yellow ticket never changes. */
+  --es-logo-mark: var(--es-sun-400);
+  --es-logo-star: #ffffff;
   --es-logo-ink:  var(--es-black);
-  --es-logo-li:   var(--es-teal-700);
+  --es-logo-li:   var(--es-black);
 
   /* ── Seat map ───────────────────────────────────────────────────────
-     Named here rather than in the seat-map stylesheet because a seat's
-     colour is the single most load-bearing piece of information on the
-     purchase page, and it has to survive a theme switch intact.
+     The single most load-bearing colour on the purchase page.
 
-     Available is teal-400 and selected is the brand teal: 3.52:1 and 7.85:1
-     on white (a graphic needs 3), and 22 L* apart from each other, so the
-     seat a buyer just tapped is unmistakably not the one beside it. */
-  --es-seat-available: var(--es-teal-400);
-  --es-seat-selected:  var(--es-teal-700);
-  /* A graphic, so 3:1: amber-700 is 5.02:1 on white where amber-500 was 2.15.
-     Sold and blocked stay faint on purpose — an unavailable seat is an
-     inactive control, which WCAG 1.4.11 exempts, and fading it is the signal. */
-  --es-seat-held:      var(--es-amber-700);
+     Available is the sheet's coral (3.44:1 on white, 3.15:1 on the band — a
+     graphic needs 3), selected is the near-black (52 L* away from it), so the
+     seat a buyer just tapped is unmistakably theirs.
+
+     HELD IS VIOLET, not amber, since 2026-11-15. Amber beside a coral is two
+     warm reds to a protanope or deuteranope; violet is a different lightness
+     AND a different hue to every common colour vision. Sold and blocked stay
+     faint on purpose — an inactive control is exempt from 1.4.11. */
+  --es-seat-available: var(--es-coral-500);
+  --es-seat-selected:  var(--es-black);
+  --es-seat-held:      #6d4fd8;
   --es-seat-sold:      var(--es-grey-400);
   --es-seat-blocked:   var(--es-grey-300);
 
@@ -317,7 +301,14 @@
      so every rule that asks for them follows without being hunted down; the
      one place a monospace face still helps — digits a person copies, like a
      six-digit code — asks for `--es-font-code` by name. */
-  --es-font-serif: var(--es-font-sans);
+  /* MONTSERRAT FOR HEADINGS (owner, 2026-11-15), DM Sans for everything a
+     person reads at length. The brand sheet sets its headlines and the
+     wordmark in a heavy geometric face; DM Sans at 800 is close but rounder
+     and quieter, and the sheet's "Discover Events." reads as a poster,
+     not a paragraph. `--es-font-serif` is the legacy name every heading
+     rule already asks for, so it points at the display face. */
+  --es-font-display: var(--font-montserrat), var(--es-font-sans);
+  --es-font-serif: var(--es-font-display);
   --es-font-mono:  var(--es-font-sans);
   --es-font-code:  var(--font-dm-mono), ui-monospace, 'Cascadia Code', Consolas, monospace;
 
@@ -451,12 +442,12 @@
      about: ink-tinted rather than neutral black, and 0.55 is "dark enough
      to sit the panel forward, light enough that what is behind it is
      still recognisably there". The tint follows the brand: it was navy, and
-     since 2026-10-16 it is the night tone (the teal-black).
+     since 2026-11-15 it is the night tone (the sheet's near-black).
 
      THE LIGHTBOX KEEPS ITS OWN, at 0.94, and that is the one argued
      exception: it is a picture viewer, and a photograph read through a
      55% scrim of the page behind it is not a picture viewer. */
-  --es-scrim: rgb(3 16 18 / 0.55);
+  --es-scrim: rgb(8 7 12 / 0.55);
 
   /* ── Radius, shadow ─────────────────────────────────────────────────*/
   --es-radius-sm:   6px;
@@ -466,11 +457,11 @@
   --es-radius-2xl: 24px;
   --es-radius-full: 9999px;
 
-  --es-shadow-xs: 0 1px 2px rgba(6, 24, 26, 0.05);
-  --es-shadow-sm: 0 1px 3px rgba(6, 24, 26, 0.08), 0 1px 2px rgba(6, 24, 26, 0.04);
-  --es-shadow-md: 0 4px 12px rgba(6, 24, 26, 0.10), 0 1px 3px rgba(6, 24, 26, 0.06);
-  --es-shadow-lg: 0 8px 30px rgba(6, 24, 26, 0.15), 0 2px 6px rgba(6, 24, 26, 0.08);
-  --es-shadow-xl: 0 16px 50px rgba(6, 24, 26, 0.20), 0 4px 12px rgba(6, 24, 26, 0.10);
+  --es-shadow-xs: 0 1px 2px rgba(17, 16, 24, 0.05);
+  --es-shadow-sm: 0 1px 3px rgba(17, 16, 24, 0.08), 0 1px 2px rgba(17, 16, 24, 0.04);
+  --es-shadow-md: 0 4px 12px rgba(17, 16, 24, 0.10), 0 1px 3px rgba(17, 16, 24, 0.06);
+  --es-shadow-lg: 0 8px 30px rgba(17, 16, 24, 0.15), 0 2px 6px rgba(17, 16, 24, 0.08);
+  --es-shadow-xl: 0 16px 50px rgba(17, 16, 24, 0.20), 0 4px 12px rgba(17, 16, 24, 0.10);
 
   /* Two shadows that are not a step on the ramp above, because they do a
      different job. The ramp separates a surface from the page by a few
@@ -488,12 +479,12 @@
      Both are long (large blur, negative spread) and start well below the
      element, which is what separates "lifted" from "glowing". */
   --es-shadow-plate:
-    0 46px 92px -26px rgba(6, 24, 26, 0.32),
-    0 10px 24px -10px rgba(6, 24, 26, 0.16),
-    0 0 0 1px rgba(6, 24, 26, 0.05);
+    0 46px 92px -26px rgba(17, 16, 24, 0.32),
+    0 10px 24px -10px rgba(17, 16, 24, 0.16),
+    0 0 0 1px rgba(17, 16, 24, 0.05);
   --es-shadow-window:
-    0 54px 110px -34px rgba(6, 24, 26, 0.30),
-    0 14px 34px -14px rgba(6, 24, 26, 0.14);
+    0 54px 110px -34px rgba(17, 16, 24, 0.30),
+    0 14px 34px -14px rgba(17, 16, 24, 0.14);
 
   /* ── Motion ─────────────────────────────────────────────────────────
      Ported verbatim. Named curves rather than `ease-in-out` everywhere:
@@ -561,38 +552,38 @@
 :root[data-theme="dark"] {
   --es-bg:            var(--es-ink-950);
   --es-bg-sunken:     var(--es-ink-975);
-  /* Same lift as the media-query copy above. */
-  --es-bg-deep:       #1d4447;
+  --es-bg-deep:       #2a2936;
   --es-surface:       var(--es-ink-900);
   --es-surface-raised:var(--es-ink-raised);
   --es-border:        var(--es-ink-border);
-  --es-border-strong: #2f6164;
+  --es-border-strong: #4a4960;
   --es-control-border: var(--es-ink-subtle);
 
-  --es-text:          var(--es-teal-50);
-  --es-text-muted:    #b3cfd0;
+  --es-text:          #f4f4f7;
+  --es-text-muted:    #c9c8d6;
   --es-text-subtle:   var(--es-ink-subtle);
   --es-text-on-accent:var(--es-ink-975);
 
-  /* A pale teal: the brand value is 2.2:1 on these grounds, so on dark the
-     accent is the bright end of the hue and the text on it is the dark end. */
-  --es-accent:        #7fc9cc;
-  --es-accent-hover:  #a6dcde;
-  --es-accent-wash:   #0c3537;
-  --es-accent-edge:   #1d5a5d;
+  /* On a dark ground the sheet's coral itself is legible, and lighter is
+     the direction that reads: the text on it is the dark end. */
+  --es-accent:        var(--es-coral-400);
+  --es-accent-hover:  var(--es-coral-300);
+  --es-accent-wash:   #3a1a1f;
+  --es-accent-edge:   #6b2a31;
 
-  /* On a dark ground the logo is the guide's reversed version. */
-  --es-logo-mark: #ffffff;
+  --es-highlight-wash: #3a3214;
+
+  /* On a dark ground the word is white; the yellow ticket does not change. */
   --es-logo-ink:  #ffffff;
   --es-logo-li:   #ffffff;
 
-  --es-focus-ring-color: var(--es-teal-400);
-  --es-shadow-accent: 0 4px 16px rgba(63, 149, 153, 0.20);
-  --es-accent-subtle: rgba(63, 149, 153, 0.14);
+  --es-focus-ring-color: var(--es-coral-400);
+  --es-shadow-accent: 0 4px 16px rgba(255, 107, 115, 0.22);
+  --es-accent-subtle: rgba(255, 107, 115, 0.14);
 
-  --es-seat-available: var(--es-teal-400);
-  --es-seat-selected:  var(--es-teal-200);
-  --es-seat-held:      var(--es-warning);
+  --es-seat-available: var(--es-coral-400);
+  --es-seat-selected:  #ffffff;
+  --es-seat-held:      #a993f0;
   --es-seat-sold:      var(--es-zinc-700);
   --es-seat-blocked:   var(--es-zinc-800);
 
@@ -602,8 +593,8 @@
   --es-shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.7), 0 2px 6px rgba(0, 0, 0, 0.5);
   --es-shadow-xl: 0 16px 50px rgba(0, 0, 0, 0.8), 0 4px 12px rgba(0, 0, 0, 0.5);
 
-  /* Same reasoning as the media-query block above: on a dark ground the
-     hairline carries the edge, so it inverts to white at 8%. */
+  /* On a dark ground the hairline carries the edge, so it inverts to white
+     at 8%. */
   --es-shadow-plate:
     0 46px 92px -26px rgba(0, 0, 0, 0.75),
     0 10px 24px -10px rgba(0, 0, 0, 0.55),
@@ -1144,7 +1135,8 @@
   gap: 0.5rem;
   min-height: var(--fx-touch);
   padding-inline: 1.25rem;
-  border-radius: var(--es-radius-md);
+  /* PILLS since 2026-11-15 — every button in the homepage concept is one. */
+  border-radius: var(--es-radius-full);
   border: 1px solid transparent;
   font-family: var(--es-font-sans);
   font-size: var(--es-text-base);
@@ -1630,30 +1622,29 @@
   --es-text:          var(--es-ink-on-light);
   --es-text-muted:    var(--es-muted-on-light);
   --es-text-subtle:   var(--es-subtle-on-light);
-  --es-accent:        var(--es-teal-700);
-  --es-accent-hover:  var(--es-teal-800);
-  --es-accent-wash:   var(--es-teal-100);
-  --es-accent-edge:   var(--es-teal-200);
+  --es-accent:        var(--es-coral-600);
+  --es-accent-hover:  var(--es-coral-700);
+  --es-accent-wash:   var(--es-coral-100);
+  --es-accent-edge:   var(--es-coral-200);
   --es-text-on-accent:#ffffff;
   background: var(--es-bg);
   color: var(--es-text);
 }
 
 /* ── The site footer (SiteFooter.jsx) ───────────────────────────────────
-   REBUILT 2026-10-17 from the owner's mockup. Light, as the site is: a soft
-   teal-grey wash with two faint curves, under a hairline rather than the old
-   3px teal bar the mockup does not have. After .es-band--ink, so its
+   REBUILT 2026-10-17 from the owner's mockup. Light, as the site is: a faint
+   yellow wash with two soft curves (2026-11-15), under a hairline. After .es-band--ink, so its
    background wins over that band's plain one. */
 .es-site-foot {
   position: relative;
   overflow: hidden;
   border-top: 1px solid var(--es-border);
   background:
-    linear-gradient(180deg, rgb(13 91 94 / 0.02), rgb(13 91 94 / 0.045)),
+    linear-gradient(180deg, rgb(255 204 0 / 0.02), rgb(255 204 0 / 0.045)),
     var(--es-bg);
 }
 .es-site-foot__shapes { position: absolute; inset: 0; pointer-events: none; }
-.es-site-foot__shapes i { position: absolute; display: block; border-radius: 50%; background: rgb(13 91 94 / 0.045); }
+.es-site-foot__shapes i { position: absolute; display: block; border-radius: 50%; background: rgb(255 204 0 / 0.045); }
 .es-site-foot__shapes i:nth-child(1) { left: -14rem; bottom: -16rem; width: 30rem; height: 30rem; }
 .es-site-foot__shapes i:nth-child(2) { left: 48%; bottom: -19rem; width: 26rem; height: 22rem; }
 .es-site-foot__inner { position: relative; padding-block: clamp(2.75rem, 6vw, 4.5rem) 1.75rem; }
@@ -1787,10 +1778,10 @@
   --es-text:          var(--es-ink-on-light);
   --es-text-muted:    var(--es-muted-on-light);
   --es-text-subtle:   var(--es-subtle-on-light);
-  --es-accent:        var(--es-teal-700);
-  --es-accent-hover:  var(--es-teal-800);
-  --es-accent-wash:   var(--es-teal-100);
-  --es-accent-edge:   var(--es-teal-200);
+  --es-accent:        var(--es-coral-700);
+  --es-accent-hover:  var(--es-coral-800);
+  --es-accent-wash:   var(--es-coral-100);
+  --es-accent-edge:   var(--es-coral-200);
   --es-text-on-accent:#ffffff;
   background: var(--es-bg);
   color: var(--es-text);
@@ -1811,17 +1802,17 @@
   --es-surface:       #ffffff;
   --es-surface-raised:#ffffff;
   --es-text:          #ffffff;
-  --es-text-muted:    #dcebeb;
-  --es-text-subtle:   #b9d3d4;
+  --es-text-muted:    #e8e7ee;
+  --es-text-subtle:   #c9c8d6;
   --es-border:        rgba(255, 255, 255, 0.22);
   --es-border-strong: rgba(255, 255, 255, 0.34);
   --es-accent:        #ffffff;
-  --es-accent-hover:  #dcebeb;
+  --es-accent-hover:  #e8e7ee;
   --es-accent-wash:   rgba(255, 255, 255, 0.14);
   --es-accent-edge:   rgba(255, 255, 255, 0.45);
   --es-text-on-accent:var(--es-night-900);
   /* On a photograph the logo is the guide's reversed (all-white) version. */
-  --es-logo-mark: #ffffff;
+  --es-logo-mark: var(--es-sun-400);
   --es-logo-ink:  #ffffff;
   --es-logo-li:   #ffffff;
   background: var(--es-bg);
@@ -1871,13 +1862,13 @@
    brand colour came out white among four white ones — indistinguishable from
    the categories it is meant to close. Same specificity, stated once. */
 .es-band--photo .es-chip--more {
-  background: var(--es-teal-700);
-  border-color: var(--es-teal-700);
+  background: var(--es-coral-600);
+  border-color: var(--es-coral-600);
   color: #ffffff;
 }
 .es-band--photo .es-chip--more:hover {
-  background: var(--es-teal-800);
-  border-color: var(--es-teal-800);
+  background: var(--es-coral-700);
+  border-color: var(--es-coral-700);
 }
 
 /* `.es-bloom` WAS HERE and is deleted, 2026-09-16.
@@ -2065,7 +2056,7 @@
   margin-inline: auto;
   background: var(--es-surface);
   border-block-start: 1px solid var(--es-border);
-  box-shadow: 0 -6px 20px rgb(6 24 26 / 0.10);
+  box-shadow: 0 -6px 20px rgb(17 16 24 / 0.10);
   padding: 0.625rem max(var(--fx-pad-x), var(--fx-safe-l));
   padding-block-end: max(0.625rem, calc(var(--fx-safe-b) + 0.375rem));
 }
@@ -2546,7 +2537,7 @@ body:has(.es-buybar) { padding-block-end: calc(5.5rem + var(--fx-safe-b)); }
   background: var(--es-surface);
   border-block-start: 1px solid var(--es-border);
   padding: 4px 4px max(4px, var(--fx-safe-b));
-  box-shadow: 0 -4px 16px rgb(6 24 26 / 0.06);
+  box-shadow: 0 -4px 16px rgb(17 16 24 / 0.06);
 }
 @media (width >= 48rem) { .es-nav-bar { display: none; } }
 
@@ -2678,7 +2669,7 @@ body:has(.es-buybar) { padding-block-end: calc(5.5rem + var(--fx-safe-b)); }
   gap: 0.5rem 1rem;
 }
 .es-panel-head__title {
-  font-family: var(--es-font-sans);
+  font-family: var(--es-font-display);
   font-size: var(--es-text-md);
   font-weight: 600;
   line-height: var(--es-leading-snug);
@@ -2893,60 +2884,56 @@ body:has(.es-buybar) { padding-block-end: calc(5.5rem + var(--fx-safe-b)); }
    The padding it used to pay for is now the header's at every width. */
 .es-event-head { padding-bottom: 1.25rem; }
 
-/* ── .es-logo — the framed star, the two-colour word, the tagline ──────
-   REBUILT 2026-10-16 to the brand guide's lockup, and every proportion here
-   is measured off the artwork rather than chosen:
+/* ── .es-logo — the yellow ticket, the italic word, the tagline ────────
+   REDRAWN 2026-11-15 (see Logo.jsx and scripts/brandLogo.js). Proportions,
+   all off `--es-logo-h`, the WORD height, so a size step scales the whole
+   lockup and cannot distort it:
 
-     · the mark is 0.96 of the word's height (they share a cap line),
-     · the gap between them is 0.35 of it,
-     · the tagline line sits under the word and spans it (Logo.jsx draws it
-       inside the word's own SVG, so its width cannot drift).
+     · the ticket is 1.2 of the word height — it is tilted, so its visual
+       mass sits inside the word's cap line, as in the concept,
+     · the gap between them is 0.3 of it,
+     · the tagline sits under the word and spans it (drawn inside the word's
+       own SVG, so its width cannot drift).
 
-   One length, `--es-logo-h`, drives all three, so a size step scales the
-   whole lockup and cannot distort it — the guide's "do not stretch".
+   THE COLOURS ARE THE `--es-logo-*` ROLES, never the accent. The ticket is
+   always the sheet's yellow and its star white; only the word changes, to
+   white, where the logo sits on a photograph or a dark ground.
 
-   THE COLOURS ARE THE `--es-logo-*` ROLES, never the accent. See the note at
-   their declaration: full colour by default, white only where the guide's
-   reversed version belongs. Nothing below sets a colour of its own.
-
-   CLEAR SPACE is the guide's "X = the height of the star", which is 0.44 of
-   the word height. It is padding on the LOCKUP (the footer and sign-in
-   placements, where nothing else positions the logo). Inline-start is left
-   to the column: the gutter the lockup sits in is already wider than X, and
-   padding there would knock the logo out of line with the text below it. The
-   masthead, sidebar and gate give the bare logo more room than X by
-   construction — a 4rem bar around a 1.4rem logo. */
+   CLEAR SPACE is padding on the LOCKUP (the footer and sign-in placements),
+   0.44 of the word height. The masthead, sidebar and gate give the bare logo
+   more room than that by construction. */
 .es-logo {
   --es-logo-h: 1.4rem;
   display: inline-flex;
   align-items: center;
-  gap: calc(var(--es-logo-h) * 0.35);
+  gap: calc(var(--es-logo-h) * 0.3);
   line-height: 1;
 }
 .es-logo--sm { --es-logo-h: 1.15rem; }
 .es-logo--lg { --es-logo-h: 2.1rem; }
-.es-logo__mark { flex: none; width: auto; height: calc(var(--es-logo-h) * 0.96); fill: var(--es-logo-mark); }
+.es-logo__mark { flex: none; width: auto; height: calc(var(--es-logo-h) * 1.2); }
+.es-logo__ticket { fill: var(--es-logo-mark); }
+.es-logo__star { fill: var(--es-logo-star, #ffffff); }
 .es-logo__word { flex: none; width: auto; height: var(--es-logo-h); }
 .es-logo__events,
 .es-logo__tagline { fill: var(--es-logo-ink); }
 .es-logo__li { fill: var(--es-logo-li); }
-/* In the word's own units (its viewBox is 101 tall), so 31 is the artwork's
-   tagline cap height at any rendered size. */
-.es-logo__tagline { font-family: var(--es-font-sans); font-size: 31px; font-weight: 500; }
+/* In the word's own units (its viewBox is 115 tall). */
+.es-logo__tagline { font-family: var(--es-font-sans); font-size: 30px; font-weight: 600; letter-spacing: 0.1em; }
 .es-logo--lockup {
   align-items: flex-start;
   padding-block: calc(var(--es-logo-h) * 0.44);
   padding-inline-end: calc(var(--es-logo-h) * 0.44);
 }
-/* 152 / 101: the word's viewBox extended down by the tagline's line. */
-.es-logo--lockup .es-logo__word { height: calc(var(--es-logo-h) * 1.505); }
+/* 166 / 115: the word's viewBox extended down by the tagline's line. */
+.es-logo--lockup .es-logo__word { height: calc(var(--es-logo-h) * 1.443); }
 
 /* ── .es-tkt — the ticket, after the brand guide's "Digital ticket" ────
-   ADDED 2026-10-16 (TicketStub.jsx). Three parts: a teal STUB with the
+   ADDED 2026-10-16 (TicketStub.jsx). Three parts: a coral STUB with the
    reversed logo, the BODY with the event and the labelled facts, and a
    perforated TEAR-OFF with the code.
 
-   THE CODE NEVER SITS ON TEAL. It keeps a white pad and the full size it had,
+   THE CODE NEVER SITS ON CORAL. It keeps a white pad and the full size it had,
    because a door scanner reads contrast and quiet margin. The brand colour is
    all on the stub.
 
@@ -2968,10 +2955,10 @@ body:has(.es-buybar) { padding-block-end: calc(5.5rem + var(--fx-safe-b)); }
   box-shadow: var(--es-shadow-md);
 }
 
-/* The stub is the guide's reversed logo on the brand teal: the logo roles are
-   re-pointed to white here, which is one of the two places they ever are. */
+/* The stub is the reversed logo on the CTA coral: the word is re-pointed to
+   white here; the ticket stays yellow. */
 .es-tkt__stub {
-  --es-logo-mark: #ffffff;
+  --es-logo-mark: var(--es-sun-400);
   --es-logo-ink:  #ffffff;
   --es-logo-li:   #ffffff;
   position: relative;
@@ -2982,10 +2969,10 @@ body:has(.es-buybar) { padding-block-end: calc(5.5rem + var(--fx-safe-b)); }
   justify-content: space-between;
   gap: 0.75rem;
   padding: 1rem 1.25rem;
-  background: var(--es-teal-700);
+  background: var(--es-coral-600);
   color: #ffffff;
 }
-/* White on the brand teal is 7.85:1. */
+/* White on the CTA coral is 5.13:1. */
 .es-tkt__thanks { max-width: 22ch; font-size: var(--es-text-sm); font-weight: 600; line-height: var(--es-leading-snug); }
 .es-tkt__watermark {
   position: absolute;
@@ -3087,16 +3074,16 @@ body:has(.es-buybar) { padding-block-end: calc(5.5rem + var(--fx-safe-b)); }
   .es-tkt:not(.es-tkt--door) .es-tkt__code::after { top: auto; right: auto; bottom: -0.6875rem; left: -0.75rem; }
 }
 
-/* On paper the teal fill goes: a ticket is printed on an office printer far
+/* On paper the coral fill goes: a ticket is printed on an office printer far
    more often than at a print shop, and a solid band is most of a cartridge.
    The stub becomes the full-colour logo on white inside the card's own
    border — still the brand, and the code is untouched. */
 @media print {
   .es-tkt__card { box-shadow: none; }
   .es-tkt__stub {
-    --es-logo-mark: var(--es-teal-700);
+    --es-logo-mark: var(--es-sun-400);
     --es-logo-ink:  var(--es-black);
-    --es-logo-li:   var(--es-teal-700);
+    --es-logo-li:   var(--es-black);
     background: #ffffff;
     color: var(--es-text);
   }
@@ -3876,7 +3863,7 @@ body:has(.es-buybar) { padding-block-end: calc(5.5rem + var(--fx-safe-b)); }
   --es-text-muted:  var(--es-muted-on-light);
   --es-text-subtle: var(--es-subtle-on-light);
   --es-border:      var(--es-grey-200);
-  --es-accent-edge: var(--es-teal-200);
+  --es-accent-edge: var(--es-coral-200);
   color: var(--es-text);
   display: flex;
   flex-direction: column;
@@ -4002,7 +3989,7 @@ body:has(.es-buybar) { padding-block-end: calc(5.5rem + var(--fx-safe-b)); }
   pointer-events: none;
 }
 
-/* The submit is a brand-teal disc, not an `.es-btn`.
+/* The submit is a brand-coral disc, not an `.es-btn`.
    A full-width primary button inside a white pill is a second pill; the
    design ends the bar with a circle, and a circle is what an arrow wants.
    Below md it stretches, because a 48px disc under three full-width
@@ -4017,11 +4004,11 @@ body:has(.es-buybar) { padding-block-end: calc(5.5rem + var(--fx-safe-b)); }
   margin-block-start: 0.25rem;
   border: 0;
   border-radius: var(--es-radius-md);
-  background: var(--es-teal-700);
+  background: var(--es-coral-600);
   color: #ffffff;
   transition: background var(--es-dur-fast) var(--es-ease);
 }
-.es-searchbar__submit:hover { background: var(--es-teal-800); }
+.es-searchbar__submit:hover { background: var(--es-coral-700); }
 @media (width >= 48rem) {
   .es-searchbar__submit {
     width: var(--fx-touch);
@@ -4045,8 +4032,8 @@ body:has(.es-buybar) { padding-block-end: calc(5.5rem + var(--fx-safe-b)); }
   /* Same reasoning as `.es-searchbar`: it sits on the photograph, so it is a
      surface and it carries its own ink. */
   --es-text:       var(--es-ink-on-light);
-  --es-accent:     var(--es-teal-700);
-  --es-accent-wash:var(--es-teal-50);
+  --es-accent:     var(--es-coral-600);
+  --es-accent-wash:var(--es-coral-50);
   --es-text-on-accent: #ffffff;
   display: inline-flex;
   align-items: center;
@@ -4122,20 +4109,20 @@ body:has(.es-buybar) { padding-block-end: calc(5.5rem + var(--fx-safe-b)); }
 /* The last chip in a rail: "there are more of these". Filled rather than
    outlined, so it reads as the end of the row and not as a fifth
    category somebody might be looking for. */
-/* NAMED TEAL, not `--es-accent`.
+/* NAMED CORAL, not `--es-accent`.
    On `.es-band--photo` the accent role is WHITE — that is what makes a link
    legible on a photograph — so a chip filled with it came out white on white
    type. This chip is the one control on the rail that has to be the brand
    colour wherever it sits, so it says which colour that is. */
 .es-chip--more {
-  background: var(--es-teal-700);
-  border-color: var(--es-teal-700);
+  background: var(--es-coral-600);
+  border-color: var(--es-coral-600);
   color: #ffffff;
   font-weight: 600;
 }
 .es-chip--more:hover {
-  background: var(--es-teal-800);
-  border-color: var(--es-teal-800);
+  background: var(--es-coral-700);
+  border-color: var(--es-coral-700);
   color: #ffffff;
 }
 
@@ -4442,11 +4429,11 @@ a.es-sponsor:hover { opacity: 0.7; }
   --es-text-muted: rgb(255 255 255 / 0.86);
   --es-border:     rgb(255 255 255 / 0.20);
   --es-bg-sunken:  rgb(255 255 255 / 0.14);
-  --es-accent:     var(--es-teal-200);
-  --es-accent-hover: var(--es-teal-100);
+  --es-accent:     var(--es-coral-200);
+  --es-accent-hover: var(--es-coral-100);
   --es-text-on-accent: var(--es-night-950);
   /* Over a photograph the logo is the guide's reversed version. */
-  --es-logo-mark: #ffffff;
+  --es-logo-mark: var(--es-sun-400);
   --es-logo-ink:  #ffffff;
   --es-logo-li:   #ffffff;
   color: var(--es-text);
@@ -4618,8 +4605,8 @@ a.es-sponsor:hover { opacity: 0.7; }
   box-shadow:
     0 0 0 1px rgba(255, 255, 255, 0.10) inset,
     0 2px 0 rgba(255, 255, 255, 0.16) inset,
-    0 32px 60px -24px rgba(3, 16, 18, 0.55),
-    0 8px 20px -8px rgba(3, 16, 18, 0.35);
+    0 32px 60px -24px rgba(8, 7, 12, 0.55),
+    0 8px 20px -8px rgba(8, 7, 12, 0.35);
 }
 /* The pill cut-out. On the bezel, above the screen, in the bezel's own
    colour — a notch drawn in a border colour reads as a sticker. */
@@ -4805,7 +4792,7 @@ a.es-sponsor:hover { opacity: 0.7; }
   inset-block-end: 0.75rem;
   inset-inline-start: 0.75rem;
   background: #ffffff;
-  color: var(--es-teal-700);
+  color: var(--es-coral-600);
   font-weight: 600;
 }
 
@@ -4883,7 +4870,7 @@ a.es-sponsor:hover { opacity: 0.7; }
   height: 3.5rem;
   border: 0;
   background: #ffffff;
-  color: var(--es-teal-700);
+  color: var(--es-coral-600);
   box-shadow: var(--es-shadow-lg);
 }
 .es-roundbtn--lg:hover { transform: scale(1.06); background: #ffffff; }
@@ -5126,9 +5113,9 @@ a.es-sponsor:hover { opacity: 0.7; }
   --es-border-strong: var(--es-grey-400);
   --es-surface:       #ffffff;
   --es-bg-sunken:     var(--es-grey-100);
-  --es-accent:        var(--es-teal-700);
-  --es-accent-hover:  var(--es-teal-800);
-  --es-accent-wash:   var(--es-teal-50);
+  --es-accent:        var(--es-coral-600);
+  --es-accent-hover:  var(--es-coral-700);
+  --es-accent-wash:   var(--es-coral-50);
   --es-text-on-accent:#ffffff;
   color: var(--es-text);
 
@@ -5145,7 +5132,7 @@ a.es-sponsor:hover { opacity: 0.7; }
      rounded corner against a straight screen edge reads as a mistake. */
   border-radius: var(--es-radius-xl) var(--es-radius-xl) 0 0;
   background: #ffffff;
-  box-shadow: 0 -24px 60px -20px rgba(3, 16, 18, 0.4);
+  box-shadow: 0 -24px 60px -20px rgba(8, 7, 12, 0.4);
   animation: es-sheet-in var(--es-dur-base) var(--es-ease);
 }
 
@@ -5296,8 +5283,8 @@ a.es-sponsor:hover { opacity: 0.7; }
    THE STOREFRONT — 2026-09-17, built from the approved mockup (version 3
    of the blue storefront review).
 
-   White page, one brand colour — a calm medium blue then, the brand guide's
-   teal since 2026-10-16; the layout did not change. Every colour below is a ROLE, so the
+   White page. Since 2026-11-15 the approved homepage concept: yellow
+   highlights, coral calls to action, Montserrat headings. Every colour below is a ROLE, so the
    dark theme follows without a second block. The only literals are the
    white chips and captions that sit on PHOTOGRAPHS (date badges, poster
    names, the play button, the closing panel's buttons) — a photograph is
@@ -5314,8 +5301,9 @@ a.es-sponsor:hover { opacity: 0.7; }
   align-items: center;
   gap: 0.5rem;
   margin: 0 0 0.625rem;
-  font-family: var(--es-font-mono);
+  font-family: var(--es-font-sans);
   font-size: 0.75rem;
+  font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--es-accent);
@@ -5323,19 +5311,19 @@ a.es-sponsor:hover { opacity: 0.7; }
 .es-lp-kicker::before {
   content: '';
   width: 1rem;
-  height: 2px;
+  height: 3px;
   border-radius: 2px;
-  background: var(--es-accent-edge);
+  background: var(--es-highlight);
 }
 .es-lp-kicker--center { justify-content: center; }
 
 .es-lp-title {
   margin: 0;
-  font-family: var(--es-font-sans);
-  font-size: clamp(1.75rem, 1rem + 2.4vw, 2.75rem);
-  font-weight: 700;
+  font-family: var(--es-font-display);
+  font-size: clamp(1.625rem, 1rem + 2vw, 2.5rem);
+  font-weight: 800;
   line-height: 1.12;
-  letter-spacing: -0.028em;
+  letter-spacing: -0.015em;
   color: var(--es-text);
   text-wrap: balance;
 }
@@ -5345,6 +5333,23 @@ a.es-sponsor:hover { opacity: 0.7; }
   font-size: clamp(0.9375rem, 0.9rem + 0.2vw, 1.0625rem);
   line-height: 1.55;
   color: var(--es-text-muted);
+}
+/* The concept's section heading: a short coral bar before the words. The
+   sheet's exact coral, because it is a graphic, not text. */
+.es-lp-title--bar {
+  position: relative;
+  padding-inline-start: 0.85rem;
+  font-size: clamp(1.375rem, 1.05rem + 1.3vw, 2rem);
+}
+.es-lp-title--bar::before {
+  content: '';
+  position: absolute;
+  inset-inline-start: 0;
+  top: 0.12em;
+  bottom: 0.12em;
+  width: 5px;
+  border-radius: 3px;
+  background: var(--es-brand-coral);
 }
 .es-lp-head {
   display: flex;
@@ -5358,7 +5363,7 @@ a.es-sponsor:hover { opacity: 0.7; }
   display: inline-flex;
   align-items: center;
   gap: 0.375rem;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--es-accent);
   white-space: nowrap;
 }
@@ -5374,9 +5379,9 @@ a.es-sponsor:hover { opacity: 0.7; }
   min-height: 48px;
   padding: 0.625rem 1.5rem;
   border: 1.5px solid transparent;
-  border-radius: 12px;
+  border-radius: var(--es-radius-full);
   font-size: var(--es-text-base);
-  font-weight: 600;
+  font-weight: 700;
   line-height: 1.2;
   white-space: nowrap;
   /* `.es-btn` has carried this since it was written; this one was a `<Link>`
@@ -5405,59 +5410,22 @@ a.es-sponsor:hover { opacity: 0.7; }
   cursor: not-allowed;
   transform: none;
 }
-.es-lp-btn--solid { background: var(--es-accent); color: var(--es-text-on-accent); box-shadow: 0 6px 16px rgb(13 91 94 / 0.22); }
+.es-lp-btn--solid { background: var(--es-accent); color: var(--es-text-on-accent); box-shadow: 0 6px 16px rgb(255 65 75 / 0.22); }
 .es-lp-btn--solid:hover { background: var(--es-accent-hover); }
 .es-lp-btn--outline { border-color: var(--es-border-strong); background: var(--es-surface); color: var(--es-text); }
 .es-lp-btn--outline:hover { border-color: var(--es-text); }
 .es-lp-btn--ghost { border-color: var(--es-accent); color: var(--es-accent); }
 .es-lp-btn--ghost:hover { background: var(--es-accent-wash); }
-/* The hero's second button: the ghost's teal outline on a white face. */
+/* The hero's second button: a coral outline on a white face. */
 .es-lp-btn--line { border-color: var(--es-accent); background: var(--es-surface); color: var(--es-accent); }
 .es-lp-btn--line:hover { background: var(--es-accent-wash); }
-/* The two on the closing panel, which is a fixed brand teal in both themes. */
-.es-lp-btn--white { background: #ffffff; color: var(--es-teal-700); }
-.es-lp-btn--white:hover { background: var(--es-teal-50); }
+/* The two on the closing panel, which is a fixed coral in both themes. */
+.es-lp-btn--white { background: #ffffff; color: var(--es-coral-600); }
+.es-lp-btn--white:hover { background: var(--es-coral-50); }
 .es-lp-btn--glass { border-color: rgb(255 255 255 / 0.55); color: #ffffff; }
 .es-lp-btn--glass:hover { background: rgb(255 255 255 / 0.12); }
 
-/* ── 1 · Hero ─────────────────────────────────────────────────────────── */
-/* REBUILT 2026-10-17 from the owner's mockup — see Hero.jsx.
 
-   Below lg it is one column: the copy, the search card, then a full-width
-   photograph that the card overlaps. From lg up the photograph leaves the
-   flow and fills the right half, cut on a diagonal by an SVG mask with a
-   translucent teal shape behind it, and runs off the edge of the screen; the
-   search bar reaches across onto it and the partner card covers its foot.
-
-   No `.fx-section` on the hero itself: the phone photograph is full-bleed, so
-   the gutters are on the two wrappers instead (`__inner`, `__partners`), with
-   the same values `.fx-section` uses. */
-.es-lp-hero {
-  position: relative;
-  overflow: hidden;
-  background:
-    radial-gradient(55% 45% at 0% 0%, var(--es-accent-subtle), transparent 72%),
-    radial-gradient(30% 26% at 100% 4%, var(--es-accent-subtle), transparent 70%),
-    var(--es-bg);
-}
-.es-lp-hero__top { position: relative; }
-.es-lp-hero__inner,
-.es-lp-hero__partners {
-  position: relative;
-  z-index: 2;
-  padding-left: max(var(--fx-pad-x), var(--fx-safe-l));
-  padding-right: max(var(--fx-pad-x), var(--fx-safe-r));
-}
-.es-lp-hero__inner { padding-top: clamp(2.25rem, 6vw, 6rem); }
-.es-lp-hero:not(.es-lp-hero--art) .es-lp-hero__inner { padding-bottom: clamp(2rem, 5vw, 3rem); }
-
-.es-lp-hero__copy {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 1.125rem;
-  max-width: 38rem;
-}
 .es-lp-pill {
   display: inline-flex;
   align-items: center;
@@ -5487,227 +5455,6 @@ a.es-sponsor:hover { opacity: 0.7; }
   border-color: var(--es-border-strong);
   box-shadow: var(--es-shadow-sm);
 }
-.es-lp-hero__title {
-  margin: 0;
-  font-family: var(--es-font-sans);
-  font-size: clamp(2.375rem, 1.2rem + 3.9vw, 4.25rem);
-  font-weight: 700;
-  line-height: 1.04;
-  letter-spacing: -0.035em;
-  color: var(--es-text);
-}
-/* Its own line on a phone ("Extraordinary / Moments / Live Here"); never
-   broken in two on a desktop. */
-.es-lp-hero__accent { display: block; color: var(--es-accent); }
-.es-lp-hero__body {
-  margin: 0;
-  max-width: 35rem;
-  font-size: clamp(1rem, 0.95rem + 0.3vw, 1.1875rem);
-  line-height: 1.55;
-  color: var(--es-text-muted);
-  text-wrap: pretty;
-}
-.es-lp-hero__ctas {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.75rem;
-  width: 100%;
-  padding-top: 0.375rem;
-}
-.es-lp-hero__ctas .es-lp-btn { min-height: 52px; padding-inline: 0.75rem; border-radius: 10px; }
-/* The mockup drops the arrow on a phone, where the two buttons share a row. */
-.es-lp-hero__ctas .es-lp-btn svg { display: none; }
-
-@media (width >= theme(--breakpoint-sm)) {
-  .es-lp-hero__ctas { display: flex; width: auto; gap: 1.25rem; }
-  .es-lp-hero__ctas .es-lp-btn { min-width: 10.5rem; padding-inline: 1.5rem; }
-  .es-lp-hero__ctas .es-lp-btn svg { display: inline; }
-}
-@media (width >= theme(--breakpoint-lg)) {
-  .es-lp-hero__accent { display: inline; white-space: nowrap; }
-}
-
-/* The search bar. A card of three stacked rows beside a round arrow on a
-   phone; one row with dividers and a "Search" button from sm up. */
-.es-lp-filter {
-  position: relative;
-  z-index: 3;
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin-top: 1.75rem;
-  padding: 0.25rem 0.875rem 0.25rem 1rem;
-  border: 1px solid var(--es-border);
-  border-radius: 18px;
-  background: var(--es-surface);
-  box-shadow: 0 22px 44px -18px rgb(6 24 26 / 0.22), 0 2px 6px rgb(6 24 26 / 0.05);
-}
-.es-lp-filter__fields { display: flex; flex: 1 1 auto; flex-direction: column; min-width: 0; }
-.es-lp-filter__field {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  min-width: 0;
-  height: 3.25rem;
-  color: var(--es-text-muted);
-  text-align: start;
-  cursor: pointer;
-}
-.es-lp-filter__field + .es-lp-filter__field { border-top: 1px solid var(--es-border); }
-/* The ring is the field's underline, not an outline inside a transparent
-   control where it clips. */
-.es-lp-filter__field:focus-within { box-shadow: inset 0 -2px 0 var(--es-accent); }
-.es-lp-filter__field:focus-within .es-lp-filter__icon { color: var(--es-accent); }
-.es-lp-filter__icon { display: inline-flex; flex-shrink: 0; color: var(--es-text-muted); }
-.es-lp-filter__control {
-  display: block;
-  flex: 1 1 auto;
-  width: 100%;
-  min-width: 0;
-  padding: 0;
-  border: 0;
-  appearance: none;
-  background: transparent;
-  font: inherit;
-  font-size: 0.9375rem;
-  color: var(--es-text-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  cursor: pointer;
-}
-.es-lp-filter__control:focus { outline: none; }
-input.es-lp-filter__control[type='search'] { height: 100%; color: var(--es-text); cursor: text; }
-input.es-lp-filter__control::placeholder { color: var(--es-text-muted); opacity: 1; }
-input.es-lp-filter__control::-webkit-search-cancel-button { display: none; }
-.es-lp-filter__date { position: relative; display: flex; flex: 1 1 auto; align-items: center; min-width: 0; height: 100%; }
-.es-lp-filter__date > span { position: absolute; inset-inline: 0; pointer-events: none; }
-.es-lp-filter__control--date { height: 100%; color: var(--es-text); }
-.es-lp-filter__control--blank { color: transparent; }
-.es-lp-filter__control--blank::-webkit-datetime-edit { opacity: 0; }
-.es-lp-filter__control--date::-webkit-calendar-picker-indicator {
-  position: absolute;
-  inset: 0;
-  width: auto;
-  height: auto;
-  opacity: 0;
-  cursor: pointer;
-}
-.es-lp-filter__submit {
-  display: inline-flex;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  width: 3.25rem;
-  height: 3.25rem;
-  border-radius: 50%;
-  background: var(--es-accent);
-  font-weight: 600;
-  color: var(--es-text-on-accent);
-  box-shadow: 0 8px 18px -6px rgb(13 91 94 / 0.45);
-  transition: background-color var(--es-duration-fast) var(--es-ease-default);
-}
-.es-lp-filter__submit:hover { background: var(--es-accent-hover); }
-.es-lp-filter__submit-icon { display: inline-flex; }
-.es-lp-filter__submit-label { display: none; }
-
-@media (width >= theme(--breakpoint-sm)) {
-  .es-lp-filter { padding: 0.5rem 0.5rem 0.5rem 1.25rem; border-radius: 16px; }
-  .es-lp-filter__fields { flex-direction: row; align-items: center; }
-  .es-lp-filter__field { flex: 1 1 0; padding-inline: 1.125rem; }
-  .es-lp-filter__field:first-child { flex-grow: 1.2; padding-inline-start: 0; }
-  /* Short dividers between the segments, not full-height rules. */
-  .es-lp-filter__field + .es-lp-filter__field { border-top: 0; }
-  .es-lp-filter__field + .es-lp-filter__field::before {
-    content: '';
-    position: absolute;
-    inset-inline-start: 0;
-    top: 26%;
-    bottom: 26%;
-    width: 1px;
-    background: var(--es-border);
-  }
-  .es-lp-filter__submit { width: auto; height: 3.25rem; padding-inline: 2rem; border-radius: 12px; box-shadow: none; }
-  .es-lp-filter__submit-icon { display: none; }
-  .es-lp-filter__submit-label { display: inline; }
-}
-@media (width >= theme(--breakpoint-lg)) {
-  .es-lp-filter { width: 77%; margin-top: 2.25rem; }
-}
-
-/* The photograph. A full-width strip under the search card below lg. */
-.es-lp-hero__art {
-  position: relative;
-  z-index: 1;
-  aspect-ratio: 2 / 1;
-  max-height: 24rem;
-  margin-top: 2rem;
-}
-.es-lp-hero__top:has(.es-lp-filter) .es-lp-hero__art { margin-top: -3.25rem; }
-.es-lp-hero__glow { display: none; }
-.es-lp-hero__photo,
-.es-lp-hero__photo img { display: block; width: 100%; height: 100%; }
-.es-lp-hero__photo img { object-fit: cover; object-position: 40% 55%; }
-/* The strip fades in behind the search card instead of starting on a hard
-   line, and settles into the partners band below it. */
-@media (width < theme(--breakpoint-lg)) {
-  .es-lp-hero__photo {
-    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 30%, #000 88%, transparent);
-            mask-image: linear-gradient(to bottom, transparent, #000 30%, #000 88%, transparent);
-  }
-}
-
-@media (width >= theme(--breakpoint-lg)) {
-  .es-lp-hero--art .es-lp-hero__top { min-height: 37rem; }
-  .es-lp-hero__art {
-    position: absolute;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    left: calc(50% - 2rem);
-    height: auto;
-    max-height: none;
-    aspect-ratio: auto;
-    margin: 0;
-  }
-  /* Only the margin: a `bottom` here would outrank the partners rule below,
-     because `:has()` carries the specificity of its argument. */
-  .es-lp-hero__top:has(.es-lp-filter) .es-lp-hero__art { margin-top: 0; }
-  /* Down behind the partner card, which is white and sits above it, so the
-     photograph's foot passes under the search bar as in the mockup. */
-  .es-lp-hero--partners .es-lp-hero__art { bottom: -10.5rem; }
-  .es-lp-hero__photo,
-  .es-lp-hero__glow {
-    position: absolute;
-    inset: 0;
-    -webkit-mask-size: 100% 100%;
-            mask-size: 100% 100%;
-    -webkit-mask-repeat: no-repeat;
-            mask-repeat: no-repeat;
-  }
-  .es-lp-hero__photo {
-    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cpath d='M16 0H100V86C97 84.5 93 84 88 84H56C51.5 84 48.5 82 46.5 78.5L7.2 12C4.8 7 8 0 16 0Z'/%3E%3C/svg%3E");
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cpath d='M16 0H100V86C97 84.5 93 84 88 84H56C51.5 84 48.5 82 46.5 78.5L7.2 12C4.8 7 8 0 16 0Z'/%3E%3C/svg%3E");
-  }
-  .es-lp-hero__photo img { object-position: 18% 50%; }
-  /* The translucent teal shape a little behind and below the photograph,
-     deepening to the brand teal where it shows under the corner. */
-  .es-lp-hero__glow {
-    display: block;
-    background:
-      radial-gradient(55% 34% at 100% 100%, rgb(13 91 94 / 0.7), transparent 78%),
-      linear-gradient(160deg, rgb(13 91 94 / 0.07), rgb(13 91 94 / 0.14));
-    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cpath d='M12 0H100V100C97 95.5 92.5 92.5 86 92H54C48 92 44.5 89.5 42.5 85.5L3.8 13C1.8 7.5 5 0 12 0Z'/%3E%3C/svg%3E");
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cpath d='M12 0H100V100C97 95.5 92.5 92.5 86 92H54C48 92 44.5 89.5 42.5 85.5L3.8 13C1.8 7.5 5 0 12 0Z'/%3E%3C/svg%3E");
-  }
-}
-
-/* The partner logos, in a white card at the foot of the hero.
-   LARGE ON PURPOSE (owner, 2026-10-17: "more large and very clear for any
-   visitor"): each logo has a tile tall enough to read a wordmark's small
-   print, and the heading is full-strength text rather than a grey whisper. */
-.es-lp-hero__partners { padding-top: clamp(2rem, 4vw, 2.75rem); padding-bottom: clamp(2.5rem, 5vw, 4rem); }
 .es-lp-partners__label {
   margin: 0 0 1.25rem;
   font-size: clamp(0.8125rem, 0.75rem + 0.3vw, 0.9375rem);
@@ -5731,7 +5478,7 @@ input.es-lp-filter__control::-webkit-search-cancel-button { display: none; }
   border: 1px solid var(--es-border);
   border-radius: 26px;
   background: var(--es-surface);
-  box-shadow: 0 18px 40px -20px rgb(6 24 26 / 0.25), 0 2px 6px rgb(6 24 26 / 0.04);
+  box-shadow: 0 18px 40px -20px rgb(17 16 24 / 0.25), 0 2px 6px rgb(17 16 24 / 0.04);
   touch-action: pan-y;
   cursor: grab;
   user-select: none;
@@ -5855,7 +5602,7 @@ input.es-lp-filter__control::-webkit-search-cancel-button { display: none; }
   border: 1px solid var(--es-border);
   border-radius: 14px;
   background: var(--es-surface);
-  box-shadow: 0 10px 24px -16px rgb(6 24 26 / 0.3), 0 1px 2px rgb(6 24 26 / 0.04);
+  box-shadow: 0 10px 24px -16px rgb(17 16 24 / 0.3), 0 1px 2px rgb(17 16 24 / 0.04);
 }
 .es-lp-partners--tiles .es-lp-partners__nav {
   width: 2.5rem;
@@ -5879,11 +5626,11 @@ input.es-lp-filter__control::-webkit-search-cancel-button { display: none; }
   padding-left: max(var(--fx-pad-x), var(--fx-safe-l));
   padding-right: max(var(--fx-pad-x), var(--fx-safe-r));
   background:
-    linear-gradient(180deg, rgb(13 91 94 / 0.04), rgb(13 91 94 / 0.07)),
+    linear-gradient(180deg, rgb(255 204 0 / 0.04), rgb(255 204 0 / 0.07)),
     var(--es-bg);
 }
 .es-lp-band-partners__shapes { position: absolute; inset: 0; pointer-events: none; }
-.es-lp-band-partners__shapes i { position: absolute; display: block; border-radius: 50%; background: rgb(13 91 94 / 0.05); }
+.es-lp-band-partners__shapes i { position: absolute; display: block; border-radius: 50%; background: rgb(255 204 0 / 0.05); }
 .es-lp-band-partners__shapes i:nth-child(1) { left: -12rem; bottom: -14rem; width: 28rem; height: 28rem; }
 .es-lp-band-partners__shapes i:nth-child(2) { right: -9rem; top: -11rem; width: 22rem; height: 22rem; }
 .es-lp-band-partners__shapes i:nth-child(3) { right: -4rem; bottom: -7rem; width: 12rem; height: 12rem; }
@@ -5898,7 +5645,7 @@ input.es-lp-filter__control::-webkit-search-cancel-button { display: none; }
 }
 .es-lp-band-partners__title {
   margin: 0.75rem 0 0;
-  font-family: var(--es-font-sans);
+  font-family: var(--es-font-display);
   font-size: clamp(1.875rem, 1.2rem + 2.4vw, 2.75rem);
   font-weight: 700;
   line-height: 1.12;
@@ -5939,69 +5686,347 @@ input.es-lp-filter__control::-webkit-search-cancel-button { display: none; }
   font-size: 0.625rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--es-teal-700);
+  color: var(--es-coral-600);
+}
+
+
+
+/* ── 1 · Hero ─────────────────────────────────────────────────────────── */
+/* REBUILT 2026-11-15 to the approved homepage concept — see Hero.jsx.
+
+   A white band. Below lg one column in the concept's phone order: headline,
+   photographs, search. From lg the copy and the collage share a row and the
+   search bar runs under both. The photographs are SLANTED TILES: a skewed,
+   rounded box with the picture counter-skewed inside it, so the frame leans
+   and the picture does not. */
+.es-home-hero {
+  position: relative;
+  padding-block: clamp(1.5rem, 4vw, 3rem) clamp(1.25rem, 3vw, 2rem);
+  background: var(--es-bg);
+}
+.es-home-hero__grid {
+  display: grid;
+  gap: clamp(1.25rem, 3vw, 2.5rem);
+  align-items: center;
+}
+@media (width >= theme(--breakpoint-lg)) {
+  .es-home-hero__grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .es-home-hero__grid--solo { grid-template-columns: minmax(0, 1fr); }
+}
+.es-home-hero__copy { min-width: 0; }
+.es-home-hero__copy .es-lp-pill { margin-bottom: 1rem; }
+
+.es-home-hero__title {
+  margin: 0;
+  font-family: var(--es-font-display);
+  font-size: clamp(2.125rem, 1.4rem + 2.9vw, 3.5rem);
+  font-weight: 900;
+  line-height: 1.06;
+  letter-spacing: -0.02em;
+  color: var(--es-text);
+  overflow-wrap: break-word;
+}
+.es-home-hero__line { position: relative; display: inline-block; padding-inline-end: 0.55em; }
+/* The yellow highlight: a leaning yellow slab behind the second line, the
+   words upright on it. `box-decoration-break: clone` so a highlight that
+   wraps on a phone is two slabs, not one broken one. */
+.es-home-hero__mark {
+  display: inline-block;
+  margin-top: 0.12em;
+  padding: 0.02em 0.28em 0.06em;
+  margin-inline-start: -0.12em;
+  border-radius: 0.22em;
+  background: var(--es-highlight);
+  color: var(--es-text-on-highlight);
+  transform: skewX(-8deg);
+  -webkit-box-decoration-break: clone;
+          box-decoration-break: clone;
+}
+.es-home-hero__mark > span { display: inline-block; transform: skewX(8deg); }
+.es-home-hero__sparks {
+  position: absolute;
+  inset-inline-end: 0;
+  top: -0.25em;
+  width: 0.55em;
+  height: 0.55em;
+  fill: none;
+  stroke: var(--es-highlight);
+  stroke-width: 5;
+  stroke-linecap: round;
+}
+.es-home-hero__body {
+  max-width: 34rem;
+  margin: 1.125rem 0 0;
+  font-size: clamp(1rem, 0.95rem + 0.3vw, 1.1875rem);
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--es-text);
+}
+.es-home-hero__ctas { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.5rem; }
+
+/* The collage. One large tile and up to three small ones, on a 6 × 4 grid
+   so the layout is the same arithmetic at every width. */
+.es-home-hero__collage {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-rows: repeat(4, minmax(0, 1fr));
+  gap: clamp(0.4rem, 1vw, 0.75rem);
+  aspect-ratio: 16 / 9;
+  padding-inline: 4%;
+}
+.es-home-hero__tile {
+  position: relative;
+  overflow: hidden;
+  min-width: 0;
+  border-radius: clamp(14px, 2vw, 26px);
+  background: var(--es-bg-sunken);
+  transform: skewX(-10deg);
+  box-shadow: var(--es-shadow-md);
+}
+.es-home-hero__tile img {
+  position: absolute;
+  inset: 0 -16%;
+  /* Preflight caps every img at max-width: 100%, which would undo the
+     overhang that keeps the counter-skewed picture filling the frame. */
+  width: 132%;
+  max-width: none;
+  height: 100%;
+  object-fit: cover;
+  transform: skewX(10deg);
+}
+/* One photograph: the large tile alone. */
+.es-home-hero__collage--1 .es-home-hero__tile--1 { grid-column: 1 / -1; grid-row: 1 / -1; }
+/* Two: large left, one tall right. */
+.es-home-hero__collage--2 .es-home-hero__tile--1 { grid-column: 1 / 5; grid-row: 1 / -1; }
+.es-home-hero__collage--2 .es-home-hero__tile--2 { grid-column: 5 / -1; grid-row: 1 / -1; }
+/* Three: large left, two stacked right. */
+.es-home-hero__collage--3 .es-home-hero__tile--1 { grid-column: 1 / 5; grid-row: 1 / -1; }
+.es-home-hero__collage--3 .es-home-hero__tile--2 { grid-column: 5 / -1; grid-row: 1 / 3; }
+.es-home-hero__collage--3 .es-home-hero__tile--3 { grid-column: 5 / -1; grid-row: 3 / -1; }
+/* Four, the concept: large left, a wide one top right, two under it. */
+.es-home-hero__collage--4 .es-home-hero__tile--1 { grid-column: 1 / 4; grid-row: 1 / -1; }
+.es-home-hero__collage--4 .es-home-hero__tile--2 { grid-column: 4 / -1; grid-row: 1 / 3; }
+.es-home-hero__collage--4 .es-home-hero__tile--3 { grid-column: 4 / 5; grid-row: 3 / -1; margin-inline-start: -30%; }
+.es-home-hero__collage--4 .es-home-hero__tile--4 { grid-column: 5 / -1; grid-row: 3 / -1; }
+@media (width < 48rem) {
+  .es-home-hero__collage { aspect-ratio: 16 / 10; padding-inline: 7%; }
+}
+
+/* The partner logos, under the search bar. */
+.es-home-hero__partners { margin-top: clamp(1.25rem, 3vw, 2rem); }
+
+/* ── The search bar ──────────────────────────────────────────────────────
+   The concept's: one white pill with a soft shadow, hairline dividers
+   between what / where / when, and the coral Search at its end. Below md the
+   query has its own row, place and date sit side by side as two off-white
+   fields, and Search is a full-width coral bar. */
+.es-lp-filter {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: clamp(1.25rem, 3vw, 2rem);
+  padding: 6px 6px 6px 10px;
+  border: 1px solid var(--es-border);
+  border-radius: var(--es-radius-full);
+  background: var(--es-surface);
+  box-shadow: 0 10px 30px -12px rgb(17 16 24 / 0.18), 0 1px 2px rgb(17 16 24 / 0.04);
+}
+.es-lp-filter:focus-within { border-color: var(--es-control-border); }
+.es-lp-filter__fields { display: flex; flex: 1; align-items: center; min-width: 0; }
+.es-lp-filter__field {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  min-width: 0;
+  min-height: 48px;
+  padding-inline: 0.875rem;
+  color: var(--es-text);
+  text-align: start;
+  cursor: pointer;
+}
+.es-lp-filter__field:first-child { flex: 1.6; cursor: text; }
+.es-lp-filter__field + .es-lp-filter__field { flex: 1; border-inline-start: 1px solid var(--es-border); }
+.es-lp-filter__icon { display: inline-flex; flex-shrink: 0; color: var(--es-text); }
+.es-lp-filter__field + .es-lp-filter__field .es-lp-filter__icon { color: var(--es-accent); }
+.es-lp-filter__caret { display: inline-flex; margin-inline-start: auto; color: var(--es-text-muted); }
+.es-lp-filter__control {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: var(--es-text-base);
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--es-text);
+}
+input.es-lp-filter__control[type='search'] { height: 100%; font-weight: 500; cursor: text; }
+input.es-lp-filter__control::placeholder { color: var(--es-text-muted); opacity: 1; }
+input.es-lp-filter__control::-webkit-search-cancel-button { display: none; }
+/* The ring is on the bar, above. */
+.es-lp-filter__control:focus { outline: none; }
+/* The date: the "All Dates" label sits behind a transparent native input
+   until there is a value — see HeroSearch on Android's empty date field. */
+.es-lp-filter__date { position: relative; display: grid; flex: 1; min-width: 0; }
+.es-lp-filter__date > * { grid-area: 1 / 1; }
+.es-lp-filter__control--date { cursor: pointer; }
+.es-lp-filter__control--blank { opacity: 0; }
+.es-lp-filter__submit {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 48px;
+  padding-inline: 1.75rem;
+  border-radius: var(--es-radius-full);
+  background: var(--es-accent);
+  font-weight: 700;
+  color: var(--es-text-on-accent);
+  box-shadow: var(--es-shadow-accent);
+  cursor: pointer;
+  transition: background-color var(--es-duration-fast) var(--es-ease-default);
+}
+.es-lp-filter__submit:hover { background: var(--es-accent-hover); }
+@media (width < 48rem) {
+  .es-lp-filter {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+  .es-lp-filter__fields { flex-wrap: wrap; gap: 0.5rem; }
+  .es-lp-filter__field {
+    min-height: 48px;
+    border: 1px solid var(--es-border);
+    border-radius: 14px;
+    background: var(--es-grey-75);
+  }
+  .es-lp-filter__field:first-child { flex: 1 1 100%; background: var(--es-surface); border-color: var(--es-control-border); }
+  .es-lp-filter__field + .es-lp-filter__field { flex: 1 1 0; border-inline-start: 1px solid var(--es-border); }
+  .es-lp-filter__field:focus-within { border-color: var(--es-accent); }
+  .es-lp-filter__submit { width: 100%; border-radius: 14px; }
+}
+
+/* ── Category chips (PopularEvents) ──────────────────────────────────────
+   The concept's: white pills with a hairline and an icon; the chosen one is
+   the brand yellow with near-black words. One scrolling row on a phone. */
+.es-catchips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.625rem;
+  margin-bottom: clamp(1.5rem, 3vw, 2.25rem);
+}
+.es-catchip {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  padding: 0.5rem 1.125rem;
+  border: 1px solid var(--es-border);
+  border-radius: var(--es-radius-full);
+  background: var(--es-surface);
+  font-size: var(--es-text-sm);
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--es-text);
+  box-shadow: var(--es-shadow-xs);
+  cursor: pointer;
+  transition: background-color var(--es-duration-fast) var(--es-ease-default), border-color var(--es-duration-fast) var(--es-ease-default);
+}
+.es-catchip svg { color: var(--es-accent); }
+.es-catchip:hover { border-color: var(--es-border-strong); background: var(--es-grey-75); }
+.es-catchip[aria-pressed='true'] {
+  border-color: var(--es-highlight);
+  background: var(--es-highlight);
+  color: var(--es-text-on-highlight);
+}
+.es-catchip[aria-pressed='true'] svg { color: var(--es-text-on-highlight); }
+@media (width < 48rem) {
+  .es-catchips {
+    flex-wrap: nowrap;
+    margin-inline: calc(-1 * var(--fx-pad-x));
+    padding: 2px var(--fx-pad-x) 6px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .es-catchips::-webkit-scrollbar { display: none; }
+}
+.es-popular { padding-top: clamp(1rem, 2.5vw, 1.75rem); }
+
+/* ── Everything you need to host an event ───────────────────────────────
+   A heading on the left and four white tool cards with coral icons, as the
+   concept sets it; stacked below lg. */
+.es-host__inner { display: grid; gap: 1.25rem; align-items: center; }
+@media (width >= theme(--breakpoint-lg)) {
+  .es-host__inner { grid-template-columns: 14rem minmax(0, 1fr); gap: 1.75rem; }
+}
+.es-host__title { font-size: clamp(1.375rem, 1.1rem + 1vw, 1.75rem); }
+.es-host__lede { margin: 0.5rem 0 0; font-size: var(--es-text-sm); color: var(--es-text-muted); }
+.es-host__list { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(13rem, 100%), 1fr)); gap: 0.875rem; }
+@media (width >= theme(--breakpoint-xl)) {
+  .es-host__list { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+.es-host__tool {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  height: 100%;
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--es-border);
+  border-radius: 18px;
+  background: var(--es-surface);
+  color: var(--es-text);
+  box-shadow: var(--es-shadow-sm);
+  transition: transform 250ms var(--es-ease-default), box-shadow 250ms var(--es-ease-default);
+}
+.es-host__tool:hover { transform: translateY(-3px); box-shadow: var(--es-shadow-md); }
+.es-host__icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  background: var(--es-accent-wash);
+  color: var(--es-accent);
+}
+.es-host__name { display: block; font-family: var(--es-font-display); font-size: var(--es-text-base); font-weight: 800; }
+.es-host__desc { display: block; margin-top: 2px; font-size: var(--es-text-xs); line-height: 1.4; color: var(--es-text-muted); }
+
+/* ── The masthead's links (SiteHeader NavLink) ─────────────────────────
+   The concept's: near-black, semibold, and a coral bar under the page you
+   are on. The bar is the sheet's coral — a graphic, not text. */
+.es-navlink {
+  position: relative;
+  font-weight: 600;
+  color: var(--es-text);
+  transition: color var(--es-duration-fast) var(--es-ease-default);
+}
+.es-navlink:hover { color: var(--es-accent); }
+.es-navlink[aria-current='page'] { color: var(--es-accent); }
+.es-navlink[aria-current='page']::after {
+  content: '';
+  position: absolute;
+  inset-inline: 0.5rem;
+  bottom: 4px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--es-brand-coral);
 }
 
 /* ── 2 · Search ───────────────────────────────────────────────────────── */
 .es-lp-find { border-block: 1px solid var(--es-border); }
-.es-lp-find__inner { max-width: 46rem; margin-inline: auto; text-align: center; }
 .es-lp-find .es-lp-lede { margin-inline: auto; }
-.es-lp-findbar {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-top: 1.75rem;
-  padding: 6px 6px 6px 18px;
-  border: 1.5px solid var(--es-border-strong);
-  border-radius: 16px;
-  background: var(--es-surface);
-  box-shadow: var(--es-shadow-xs);
-  transition: border-color var(--es-duration-fast) var(--es-ease-default), box-shadow var(--es-duration-fast) var(--es-ease-default);
-}
-.es-lp-findbar:focus-within { border-color: var(--es-accent); box-shadow: 0 0 0 4px var(--es-accent-subtle); }
-.es-lp-findbar__icon { display: inline-flex; color: var(--es-text-subtle); }
-.es-lp-findbar__input {
-  flex: 1;
-  min-width: 0;
-  height: 50px;
-  border: 0;
-  background: transparent;
-  font-size: var(--es-text-base);
-  color: var(--es-text);
-}
-.es-lp-findbar__input::placeholder { color: var(--es-text-subtle); }
-/* The ring is on the bar, above. */
-.es-lp-findbar__input:focus { outline: none; }
-.es-lp-findbar__submit {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 48px;
-  padding-inline: 1.375rem;
-  border-radius: 12px;
-  background: var(--es-accent);
-  font-weight: 600;
-  color: var(--es-text-on-accent);
-}
-.es-lp-findbar__submit:hover { background: var(--es-accent-hover); }
-.es-lp-chips {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  margin-top: 1rem;
-  font-size: var(--es-text-sm);
-}
-.es-lp-chips > span { color: var(--es-text-muted); }
-.es-lp-chips a {
-  padding: 6px 14px;
-  border: 1px solid var(--es-border);
-  border-radius: var(--es-radius-full);
-  background: var(--es-surface);
-  color: var(--es-text);
-}
-.es-lp-chips a:hover { border-color: var(--es-accent); color: var(--es-accent); }
 
 /* ── 3 · Popular events ───────────────────────────────────────────────── */
 .es-lp-tabs {
@@ -6030,7 +6055,7 @@ input.es-lp-filter__control::-webkit-search-cancel-button { display: none; }
 }
 .es-lp-tabs__tab:hover { background: var(--es-surface); color: var(--es-text); }
 .es-lp-tabs__tab[aria-pressed='true'],
-.es-lp-tabs__tab[aria-current='page'] { background: var(--es-surface); color: var(--es-accent); box-shadow: var(--es-shadow-sm); }
+.es-lp-tabs__tab[aria-current='page'] { background: var(--es-highlight); color: var(--es-text-on-highlight); font-weight: 600; box-shadow: var(--es-shadow-sm); }
 
 .es-lp-cards {
   display: grid;
@@ -6038,16 +6063,17 @@ input.es-lp-filter__control::-webkit-search-cancel-button { display: none; }
   gap: 1.25rem;
 }
 .es-lp-cards__ghost { height: 24rem; border-radius: 18px; }
-/* Six on a desktop — two full rows of three. The page fetches eight so a
-   phone has more to swipe through; a grid of eight leaves two orphans. */
-@media (width >= theme(--breakpoint-md)) {
-  .es-lp-cards > li:nth-child(n + 7) { display: none; }
+/* Four across from lg, as the concept sets the row (2026-11-15); the page
+   fetches eight, so a desktop shows two full rows and a phone swipes. */
+@media (width >= theme(--breakpoint-lg)) {
+  .es-lp-cards { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 
 /* ── The event card ───────────────────────────────────────────────────────
-   Shared with /events. The date is a badge on the artwork, the price sits
-   opposite the category at the foot, and a rule separates the two so a row
-   of cards lines up its prices whatever the titles' lengths. */
+   Shared with /events. The date is a badge on the artwork; at the foot the
+   price sits opposite the coral "Get Tickets" pill (2026-11-15, the homepage
+   concept), behind a rule so a row of cards lines up whatever the titles'
+   lengths. */
 .es-evcard {
   display: flex;
   flex-direction: column;
@@ -6066,13 +6092,16 @@ input.es-lp-filter__control::-webkit-search-cancel-button { display: none; }
 .es-evcard__media {
   position: relative;
   overflow: hidden;
-  aspect-ratio: 1 / 1;
+  aspect-ratio: 4 / 3;
   border-radius: 12px;
   background: var(--es-bg-sunken);
 }
-/* Covers are organizers' flyers — square or portrait, with the names and the
-   date printed on them. A square box fills with a square flyer exactly and
-   trims only a sliver off a portrait one; the old 16:10 box cut them in half. */
+/* 4:3 SINCE 2026-11-15, the homepage concept's wider, shorter artwork. It
+   was square because covers are organizers' flyers, often square or portrait
+   with the names printed on them; 4:3 trims an eighth off the top and bottom
+   of a square flyer (the old 16:10 cut far more). Centred, so the middle of
+   the flyer — usually the headline act — survives. Back to 1 / 1 above if
+   flyers lose words that matter. */
 .es-evcard__art {
   object-fit: cover;
   object-position: center;
@@ -6134,10 +6163,10 @@ input.es-lp-filter__control::-webkit-search-cancel-button { display: none; }
   overflow: hidden;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
-  font-family: var(--es-font-sans);
+  font-family: var(--es-font-display);
   font-size: var(--es-text-md);
-  font-weight: 600;
-  line-height: 1.35;
+  font-weight: 800;
+  line-height: 1.3;
   letter-spacing: -0.01em;
   color: var(--es-text);
   overflow-wrap: anywhere;
@@ -6170,7 +6199,23 @@ input.es-lp-filter__control::-webkit-search-cancel-button { display: none; }
   font-weight: 500;
   color: var(--es-accent);
 }
-.es-evcard__price { font-size: 0.8125rem; line-height: 1.2; text-align: end; color: var(--es-text-muted); }
+.es-evcard__price { font-size: 0.8125rem; line-height: 1.2; color: var(--es-text-muted); }
+.es-evcard__cta {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.375rem;
+  min-height: 36px;
+  padding: 0.375rem 0.95rem;
+  border-radius: var(--es-radius-full);
+  background: var(--es-accent);
+  font-size: var(--es-text-sm);
+  font-weight: 700;
+  white-space: nowrap;
+  color: var(--es-text-on-accent);
+  transition: background-color var(--es-duration-fast) var(--es-ease-default);
+}
+.es-evcard:hover .es-evcard__cta { background: var(--es-accent-hover); }
 .es-evcard__price b { display: block; font-size: var(--es-text-md); font-weight: 700; color: var(--es-text); }
 
 /* ── Phone rails ──────────────────────────────────────────────────────────
@@ -6200,69 +6245,7 @@ input.es-lp-filter__control::-webkit-search-cancel-button { display: none; }
   .es-lp-rail > * { scroll-snap-align: start; }
 }
 
-/* ── 4 · Roles ────────────────────────────────────────────────────────── */
-.es-lp-roles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; }
-.es-lp-role {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  gap: 1.75rem;
-  height: 100%;
-  min-height: 11.5rem;
-  padding: 18px;
-  border: 1px solid var(--es-border);
-  border-radius: 18px;
-  background: var(--es-surface);
-  color: var(--es-text);
-  transition:
-    transform 250ms var(--es-ease-default),
-    border-color 250ms var(--es-ease-default),
-    box-shadow 250ms var(--es-ease-default);
-}
-.es-lp-role:hover { transform: translateY(-4px); border-color: var(--es-accent-edge); box-shadow: var(--es-shadow-md); }
-.es-lp-role__icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 50px;
-  height: 50px;
-  border-radius: 14px;
-  background: var(--es-accent-wash);
-  color: var(--es-accent);
-  transition: background-color 250ms var(--es-ease-default), color 250ms var(--es-ease-default);
-}
-.es-lp-role:hover .es-lp-role__icon { background: var(--es-accent); color: var(--es-text-on-accent); }
-.es-lp-role__name {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 0.5rem;
-  font-size: var(--es-text-base);
-  font-weight: 600;
-  line-height: 1.2;
-}
-.es-lp-role__desc { display: block; margin-top: 4px; font-size: 0.8125rem; font-weight: 400; color: var(--es-text-muted); }
-.es-lp-role__arrow {
-  display: inline-flex;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: 1px solid var(--es-border);
-  border-radius: 50%;
-  color: var(--es-accent);
-}
-/* Phone: six compact tiles, three by two — the icon and the name only. */
-@media (width < 40rem) {
-  .es-lp-roles { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem; }
-  .es-lp-role { align-items: center; gap: 0.625rem; min-height: 0; padding: 14px 8px; text-align: center; }
-  .es-lp-role__icon { width: 42px; height: 42px; }
-  .es-lp-role__name { justify-content: center; font-size: var(--es-text-sm); }
-  .es-lp-role__desc, .es-lp-role__arrow { display: none; }
-}
-@media (width >= theme(--breakpoint-sm)) { .es-lp-roles { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; } }
-@media (width >= theme(--breakpoint-lg)) { .es-lp-roles { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+
 
 /* ── 5 · Steps for organizers ─────────────────────────────────────────── */
 .es-lp-steps { display: grid; gap: 1rem; }
@@ -6279,7 +6262,7 @@ input.es-lp-filter__control::-webkit-search-cancel-button { display: none; }
   font-weight: 700;
   color: var(--es-accent);
 }
-.es-lp-step h3 { margin: 18px 0 6px; font-family: var(--es-font-sans); font-size: var(--es-text-md); font-weight: 600; }
+.es-lp-step h3 { margin: 18px 0 6px; font-family: var(--es-font-display); font-size: var(--es-text-md); font-weight: 600; }
 .es-lp-step p { margin: 0; font-size: var(--es-text-sm); color: var(--es-text-muted); }
 .es-lp-pagemini { margin-top: 20px; overflow: hidden; border: 1px solid var(--es-border); border-radius: 12px; }
 .es-lp-pagemini > div:first-child { height: 44px; background: linear-gradient(120deg, var(--es-accent-edge), var(--es-accent-wash)); }
@@ -6364,7 +6347,7 @@ input.es-lp-filter__control::-webkit-search-cancel-button { display: none; }
   backdrop-filter: blur(8px);
   transition: transform var(--es-duration-fast) var(--es-ease-default), background-color var(--es-duration-fast) var(--es-ease-default);
 }
-.es-lp-film__play:hover { transform: scale(1.06); background: var(--es-teal-700); border-color: var(--es-teal-700); }
+.es-lp-film__play:hover { transform: scale(1.06); background: var(--es-coral-600); border-color: var(--es-coral-600); }
 @media (width >= theme(--breakpoint-md)) { .es-lp-film { aspect-ratio: 21 / 9; } }
 
 /* ── 8 · Testimonials ─────────────────────────────────────────────────── */
@@ -6413,8 +6396,8 @@ input.es-lp-filter__control::-webkit-search-cancel-button { display: none; }
 
 /* ── 9 · Closing ──────────────────────────────────────────────────────────
    The page's one panel in the brand colour. A fixed gradient rather than
-   roles: it is the same panel in both themes. Teal 700 to 600, and the white
-   type on it measures 6.34:1 at its lightest end. */
+   roles: it is the same panel in both themes. Coral 600 deepening to 700
+   (2026-11-15), so the white type on it measures 5.13:1 at its lightest end. */
 .es-lp-close {
   position: relative;
   overflow: hidden;
@@ -6423,7 +6406,7 @@ input.es-lp-filter__control::-webkit-search-cancel-button { display: none; }
   gap: 1.25rem;
   padding: clamp(2.25rem, 6vw, 4.5rem) clamp(1.25rem, 5vw, 4rem);
   border-radius: 28px;
-  background: linear-gradient(135deg, var(--es-teal-700) 0%, var(--es-teal-600) 100%);
+  background: linear-gradient(135deg, var(--es-coral-600) 0%, var(--es-coral-700) 100%);
   text-align: center;
   color: #ffffff;
 }
@@ -6451,7 +6434,7 @@ input.es-lp-filter__control::-webkit-search-cancel-button { display: none; }
   position: relative;
   margin: 0;
   max-width: 18ch;
-  font-family: var(--es-font-sans);
+  font-family: var(--es-font-display);
   font-size: clamp(1.875rem, 1rem + 3vw, 3.25rem);
   font-weight: 700;
   line-height: 1.08;
@@ -6533,7 +6516,7 @@ input.es-lp-filter__control::-webkit-search-cancel-button { display: none; }
   border-radius: 50%;
   background: var(--es-accent);
   color: var(--es-text-on-accent);
-  box-shadow: 0 10px 24px rgb(13 91 94 / 0.3);
+  box-shadow: 0 10px 24px rgb(255 65 75 / 0.3);
   transition: transform var(--es-duration-fast) var(--es-ease-default);
 }
 .es-lp-chat__button:hover { transform: scale(1.06); }
@@ -6557,7 +6540,7 @@ input.es-lp-filter__control::-webkit-search-cancel-button { display: none; }
 .es-ev-hero__head { margin-bottom: 1.5rem; }
 .es-ev-title {
   margin: 0;
-  font-family: var(--es-font-sans);
+  font-family: var(--es-font-display);
   font-size: clamp(2rem, 1.2rem + 2.6vw, 3.25rem);
   font-weight: 700;
   line-height: 1.08;
@@ -7244,7 +7227,7 @@ input.es-lp-filter__control::-webkit-search-cancel-button { display: none; }
   border-start-start-radius: var(--es-radius-xl);
   border-start-end-radius: var(--es-radius-xl);
   background: var(--es-surface);
-  box-shadow: 0 -10px 30px rgb(6 24 26 / 0.12);
+  box-shadow: 0 -10px 30px rgb(17 16 24 / 0.12);
 }
 
 /* The chosen seats. Capped and scrolled, because this is fixed over the map
@@ -7810,7 +7793,7 @@ input.es-lp-filter__control::-webkit-search-cancel-button { display: none; }
    storefront, and a reader moving from / to /how-it-works should not see
    the typeface change under them.
    ═══════════════════════════════════════════════════════════════════════ */
-.es-mk :is(h1, h2, h3, h4) { font-family: var(--es-font-sans); letter-spacing: -0.015em; }
+.es-mk :is(h1, h2, h3, h4) { font-family: var(--es-font-display); letter-spacing: -0.015em; }
 
 .es-mk-header {
   border-bottom: 1px solid var(--es-border);
@@ -7884,7 +7867,7 @@ input.es-lp-filter__control::-webkit-search-cancel-button { display: none; }
 }
 @media (width >= theme(--breakpoint-lg)) { .es-mk-steps { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.25rem; } }
 
-/* Points: white cards with a brand-teal tick. On a phone they are one swipeable
+/* Points: white cards with a brand-coral tick. On a phone they are one swipeable
    row (.es-lp-rail); from md a grid. */
 .es-mk-points { display: grid; gap: 1rem; }
 .es-mk-point {
@@ -7993,7 +7976,7 @@ input.es-lp-filter__control::-webkit-search-cancel-button { display: none; }
     radial-gradient(40% 50% at 100% 100%, var(--es-accent-subtle), transparent 70%),
     var(--es-bg);
 }
-.es-auth :is(h1, h2) { font-family: var(--es-font-sans); font-weight: 700; letter-spacing: -0.025em; }
+.es-auth :is(h1, h2) { font-family: var(--es-font-display); font-weight: 800; letter-spacing: -0.025em; }
 
 /* minmax(0, 1fr), not a bare track: a single auto column grows to fit its
    widest child — the Google button renders at a fixed width — and on a phone
@@ -8010,7 +7993,7 @@ input.es-lp-filter__control::-webkit-search-cancel-button { display: none; }
   box-shadow: var(--es-shadow-lg);
 }
 
-/* The photograph panel — lg and up only. A fixed night (teal-black) veil over it, so the
+/* The photograph panel — lg and up only. A fixed night (near-black) veil over it, so the
    white type measures the same whatever photograph an admin uploads. */
 .es-auth__aside {
   position: relative;
@@ -8021,7 +8004,7 @@ input.es-lp-filter__control::-webkit-search-cancel-button { display: none; }
   min-height: 38rem;
   padding: 3rem;
   overflow: hidden;
-  background: linear-gradient(150deg, var(--es-teal-700), var(--es-teal-900));
+  background: linear-gradient(150deg, var(--es-coral-600), var(--es-coral-800));
   color: #ffffff;
 }
 .es-auth__photo { position: absolute; inset: 0; z-index: -2; width: 100%; height: 100%; object-fit: cover; }
@@ -8091,7 +8074,7 @@ input.es-lp-filter__control::-webkit-search-cancel-button { display: none; }
   min-height: 50px;
   border-radius: 12px;
   font-weight: 600;
-  box-shadow: 0 6px 16px rgb(13 91 94 / 0.22);
+  box-shadow: 0 6px 16px rgb(255 65 75 / 0.22);
 }
 .es-auth a.text-accent { font-weight: 600; }
 
@@ -8147,11 +8130,14 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+/* Montserrat (2026-11-15). 800, and a touch less negative tracking than the
+   DM Sans headings had: Montserrat is wider set, and -0.02em on it at
+   display sizes pinches the counters of the bold forms. */
 h1, h2, h3, h4 {
-  font-family: var(--es-font-sans);
-  font-weight: 700;
+  font-family: var(--es-font-display);
+  font-weight: 800;
   line-height: var(--es-leading-tight);
-  letter-spacing: -0.02em;
+  letter-spacing: -0.015em;
   text-wrap: balance;
 }
 
@@ -9107,7 +9093,7 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
    Now: the heading with "See all" on the same line, then ONE location bar —
    a pin, where we are looking, the privacy promise as its subtitle — and the
    two ways to change it side by side as real buttons. Results are the same
-   card rail the popular-events band uses, each with its distance in the brand teal. */
+   card rail the popular-events band uses, each with its distance in the brand coral. */
 .es-near.fx-section { padding-top: clamp(2rem, 5vw, 3.5rem); }
 
 .es-near__head {
@@ -9349,17 +9335,17 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
 .es-ai-quota__dots { display: inline-flex; gap: 0.25rem; }
 .es-ai-quota__dot { width: 0.5rem; height: 0.5rem; border-radius: 999px; background: var(--es-accent); }
 .es-ai-quota__dot.is-used { background: transparent; box-shadow: inset 0 0 0 1.5px var(--es-control-border); }
-.es-ai-quota--light { color: var(--es-teal-100); }
+.es-ai-quota--light { color: var(--es-coral-100); }
 .es-ai-quota--light .es-ai-quota__dot { background: var(--es-text-on-accent); }
-.es-ai-quota--light .es-ai-quota__dot.is-used { background: transparent; box-shadow: inset 0 0 0 1.5px var(--es-teal-200); }
+.es-ai-quota--light .es-ai-quota__dot.is-used { background: transparent; box-shadow: inset 0 0 0 1.5px var(--es-coral-200); }
 
 /* ── Entry: the AI offer above the two manual choices ────────────────── */
 .es-ai-hero {
   position: relative; display: flex; flex-direction: column; gap: 0.625rem; padding: 1.5rem;
   border-radius: var(--es-radius-xl); text-decoration: none; color: var(--es-text-on-accent);
   background:
-    radial-gradient(120% 90% at 100% 0%, var(--es-teal-500) 0%, transparent 60%),
-    linear-gradient(160deg, var(--es-teal-700), var(--es-teal-800));
+    radial-gradient(120% 90% at 100% 0%, var(--es-coral-500) 0%, transparent 60%),
+    linear-gradient(160deg, var(--es-coral-600), var(--es-coral-700));
   box-shadow: var(--es-shadow-md);
   transition: transform var(--es-transition-base, 150ms ease), box-shadow var(--es-transition-base, 150ms ease);
 }
@@ -9376,7 +9362,7 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
   border: 1px solid color-mix(in srgb, var(--es-text-on-accent) 22%, transparent);
 }
 .es-ai-hero__title { font-size: var(--es-text-xl); font-weight: 600; letter-spacing: -0.015em; line-height: 1.2; margin-top: 0.25rem; }
-.es-ai-hero__text { font-size: var(--es-text-sm); line-height: 1.55; color: var(--es-teal-100); max-width: 36rem; }
+.es-ai-hero__text { font-size: var(--es-text-sm); line-height: 1.55; color: var(--es-coral-100); max-width: 36rem; }
 .es-ai-hero__foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem; margin-top: 0.625rem; }
 .es-ai-hero__cta {
   display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; min-height: 3rem; padding-inline: 1.375rem;
@@ -9468,7 +9454,7 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
 .es-ai-gen { display: flex; flex-direction: column; align-items: center; gap: 0.75rem; text-align: center; }
 .es-ai-gen__orb {
   display: grid; place-items: center; width: 4rem; height: 4rem; border-radius: var(--es-radius-xl); color: var(--es-text-on-accent);
-  background: linear-gradient(160deg, var(--es-teal-500), var(--es-teal-800));
+  background: linear-gradient(160deg, var(--es-coral-500), var(--es-coral-700));
   box-shadow: 0 0 0 0.5rem var(--es-accent-wash), var(--es-shadow-md);
   animation: es-ai-breathe 2.4s ease-in-out infinite;
 }
@@ -9524,7 +9510,7 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
 .es-ai-page--ghost { pointer-events: none; }
 .es-ai-cover {
   display: grid; place-items: center; height: 8.25rem;
-  background: radial-gradient(90% 120% at 85% 10%, var(--es-teal-500) 0%, transparent 55%), linear-gradient(150deg, var(--es-teal-700), var(--es-teal-800));
+  background: radial-gradient(90% 120% at 85% 10%, var(--es-coral-500) 0%, transparent 55%), linear-gradient(150deg, var(--es-coral-600), var(--es-coral-700));
 }
 @media (width >= 64rem) { .es-ai-cover { height: 12.5rem; } }
 .es-ai-cover--ghost { background: var(--es-bg-sunken); }
@@ -9749,7 +9735,7 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
 /* ── AI tools on a saved event: the Seating Designer and the launch kit ────
    Seating Designer: map/SeatingDesigner.jsx. Launch kit: share/LaunchKit.jsx. */
 @layer components {
-.es-ai-design__orb { display: grid; place-items: center; width: 2rem; height: 2rem; border-radius: var(--es-radius-md); background: linear-gradient(160deg, var(--es-teal-500), var(--es-teal-800)); color: var(--es-text-on-accent); }
+.es-ai-design__orb { display: grid; place-items: center; width: 2rem; height: 2rem; border-radius: var(--es-radius-md); background: linear-gradient(160deg, var(--es-coral-500), var(--es-coral-700)); color: var(--es-text-on-accent); }
 .es-ai-designbar {
   display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem;
   border: 1px solid var(--es-accent-edge); border-radius: var(--es-radius-lg); background: var(--es-accent-wash);
@@ -9790,7 +9776,7 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
 
 /* ── The Eventsli assistant (components/assistant/AssistantPanel.jsx) ──────
    A panel above the homepage's round button; full screen on a phone, where a
-   corner card would leave no room to read. Header in the AI teal used by the
+   corner card would leave no room to read. Header in the AI colour used by the
    organizer's AI tools, so "this is AI" reads the same everywhere. */
 @layer components {
 .es-lp-chat__button { position: relative; }
@@ -9799,7 +9785,7 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
 .es-lp-chat[data-open="true"] { z-index: var(--es-z-modal); }
 .es-lp-chat__badge {
   position: absolute; top: -2px; right: -2px; display: grid; place-items: center; width: 22px; height: 22px;
-  border: 2px solid var(--es-surface); border-radius: 999px; background: var(--es-teal-800); color: var(--es-text-on-accent);
+  border: 2px solid var(--es-surface); border-radius: 999px; background: var(--es-coral-700); color: var(--es-text-on-accent);
 }
 .es-asst {
   display: flex; flex-direction: column; overflow: hidden;
@@ -9814,7 +9800,7 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
 .es-asst__head {
   display: flex; align-items: center; gap: 0.75rem; padding: 0.875rem 0.875rem 0.875rem 1rem;
   padding-top: max(0.875rem, var(--fx-safe-t, 0px));
-  background: radial-gradient(120% 140% at 100% 0%, var(--es-teal-500) 0%, transparent 55%), linear-gradient(160deg, var(--es-teal-700), var(--es-teal-800));
+  background: radial-gradient(120% 140% at 100% 0%, var(--es-coral-500) 0%, transparent 55%), linear-gradient(160deg, var(--es-coral-600), var(--es-coral-700));
   color: var(--es-text-on-accent);
 }
 .es-asst__orb {
@@ -9822,7 +9808,7 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
   background: color-mix(in srgb, var(--es-text-on-accent) 16%, transparent); border: 1px solid color-mix(in srgb, var(--es-text-on-accent) 24%, transparent);
 }
 .es-asst__title { font-size: var(--es-text-md); font-weight: 600; line-height: 1.2; color: inherit; }
-.es-asst__status { display: flex; align-items: center; gap: 0.375rem; font-size: var(--es-text-xs); color: var(--es-teal-100); }
+.es-asst__status { display: flex; align-items: center; gap: 0.375rem; font-size: var(--es-text-xs); color: var(--es-coral-100); }
 .es-asst__dot { width: 0.5rem; height: 0.5rem; border-radius: 999px; background: var(--es-success); box-shadow: 0 0 0 3px color-mix(in srgb, var(--es-success) 30%, transparent); }
 .es-asst__iconbtn {
   display: grid; place-items: center; flex: none; width: 2.25rem; height: 2.25rem; border: 0; border-radius: 999px;
@@ -9916,10 +9902,10 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
 .es-door__ft { display: block; font-weight: 600; }
 .es-door__fd { display: block; font-size: var(--es-text-sm); color: var(--es-text-muted); }
 
-.es-door__phone { position: relative; z-index: 1; width: min(17rem, 100%); padding: 0.625rem; border-radius: 2.5rem; background: #0e1416; box-shadow: var(--es-shadow-xl); }
+.es-door__phone { position: relative; z-index: 1; width: min(17rem, 100%); padding: 0.625rem; border-radius: 2.5rem; background: #111018; box-shadow: var(--es-shadow-xl); }
 .es-door__screen { display: flex; flex-direction: column; gap: 0.625rem; overflow: hidden; padding: 0.5rem 0.75rem 0.875rem; border-radius: 2rem; background: var(--es-surface); color: var(--es-text); font-size: 0.75rem; }
 .es-door__statusbar { display: flex; align-items: center; justify-content: space-between; font-size: 0.6875rem; font-weight: 600; }
-.es-door__notch { width: 4.5rem; height: 1.1rem; border-radius: 999px; background: #0e1416; }
+.es-door__notch { width: 4.5rem; height: 1.1rem; border-radius: 999px; background: #111018; }
 .es-door__head { display: flex; align-items: center; gap: 0.375rem; }
 .es-door__brand { display: inline-flex; align-items: center; gap: 0.25rem; font-weight: 700; color: var(--es-accent); }
 .es-door__brand svg { width: 1rem; height: 1rem; fill: currentColor; }
@@ -9931,14 +9917,14 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
 .es-door__count b { font-size: 1rem; color: var(--es-text); }
 .es-door__bar { display: block; height: 0.3125rem; margin-top: 0.25rem; overflow: hidden; border-radius: 999px; background: var(--es-bg-sunken); }
 .es-door__bar span { display: block; height: 100%; border-radius: 999px; background: var(--es-accent); }
-.es-door__lens { position: relative; display: grid; place-items: center; aspect-ratio: 1; border-radius: 1rem; background: radial-gradient(circle at 50% 40%, #2b3436, #0b0f10); overflow: hidden; }
+.es-door__lens { position: relative; display: grid; place-items: center; aspect-ratio: 1; border-radius: 1rem; background: radial-gradient(circle at 50% 40%, #2d2c38, #0a090e); overflow: hidden; }
 .es-door__lens-qr { width: 58%; border-radius: 6px; transform: rotate(-4deg); box-shadow: 0 10px 30px rgb(0 0 0 / 0.5); }
 .es-door__corner { position: absolute; width: 1.5rem; height: 1.5rem; border: 3px solid #fff; }
 .es-door__corner--tl { top: 12%; left: 12%; border-right: 0; border-bottom: 0; border-top-left-radius: 8px; }
 .es-door__corner--tr { top: 12%; right: 12%; border-left: 0; border-bottom: 0; border-top-right-radius: 8px; }
 .es-door__corner--bl { bottom: 12%; left: 12%; border-right: 0; border-top: 0; border-bottom-left-radius: 8px; }
 .es-door__corner--br { bottom: 12%; right: 12%; border-left: 0; border-top: 0; border-bottom-right-radius: 8px; }
-.es-door__beam { position: absolute; left: 14%; right: 14%; top: 20%; height: 2px; background: #6ee7d8; box-shadow: 0 0 12px #6ee7d8; animation: es-door-scan 2.4s ease-in-out infinite alternate; }
+.es-door__beam { position: absolute; left: 14%; right: 14%; top: 20%; height: 2px; background: #ff414b; box-shadow: 0 0 12px #ff414b; animation: es-door-scan 2.4s ease-in-out infinite alternate; }
 @keyframes es-door-scan { to { top: 78%; } }
 @media (prefers-reduced-motion: reduce) { .es-door__beam { animation: none; top: 50%; } }
 .es-door__result { padding: 0.625rem; border: 1px solid color-mix(in srgb, var(--es-success) 40%, transparent); border-radius: 0.875rem; background: color-mix(in srgb, var(--es-success) 12%, var(--es-surface)); }
@@ -9987,10 +9973,10 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
 .es-door__ft { display: block; font-weight: 600; }
 .es-door__fd { display: block; font-size: var(--es-text-sm); color: var(--es-text-muted); }
 
-.es-door__phone { position: relative; z-index: 1; width: min(17rem, 100%); padding: 0.625rem; border-radius: 2.5rem; background: #0e1416; box-shadow: var(--es-shadow-xl); }
+.es-door__phone { position: relative; z-index: 1; width: min(17rem, 100%); padding: 0.625rem; border-radius: 2.5rem; background: #111018; box-shadow: var(--es-shadow-xl); }
 .es-door__screen { display: flex; flex-direction: column; gap: 0.625rem; overflow: hidden; padding: 0.5rem 0.75rem 0.875rem; border-radius: 2rem; background: var(--es-surface); color: var(--es-text); font-size: 0.75rem; }
 .es-door__statusbar { display: flex; align-items: center; justify-content: space-between; font-size: 0.6875rem; font-weight: 600; }
-.es-door__notch { width: 4.5rem; height: 1.1rem; border-radius: 999px; background: #0e1416; }
+.es-door__notch { width: 4.5rem; height: 1.1rem; border-radius: 999px; background: #111018; }
 .es-door__head { display: flex; align-items: center; gap: 0.375rem; }
 .es-door__brand { display: inline-flex; align-items: center; gap: 0.25rem; font-weight: 700; color: var(--es-accent); }
 .es-door__brand svg { width: 1rem; height: 1rem; fill: currentColor; }
@@ -10002,14 +9988,14 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
 .es-door__count b { font-size: 1rem; color: var(--es-text); }
 .es-door__bar { display: block; height: 0.3125rem; margin-top: 0.25rem; overflow: hidden; border-radius: 999px; background: var(--es-bg-sunken); }
 .es-door__bar span { display: block; height: 100%; border-radius: 999px; background: var(--es-accent); }
-.es-door__lens { position: relative; display: grid; place-items: center; aspect-ratio: 1; overflow: hidden; border-radius: 1rem; background: radial-gradient(circle at 50% 40%, #2b3436, #0b0f10); }
+.es-door__lens { position: relative; display: grid; place-items: center; aspect-ratio: 1; overflow: hidden; border-radius: 1rem; background: radial-gradient(circle at 50% 40%, #2d2c38, #0a090e); }
 .es-door__lens-qr { width: 58%; border-radius: 6px; transform: rotate(-4deg); box-shadow: 0 10px 30px rgb(0 0 0 / 0.5); }
 .es-door__corner { position: absolute; width: 1.5rem; height: 1.5rem; border: 3px solid #fff; }
 .es-door__corner--tl { top: 12%; left: 12%; border-right: 0; border-bottom: 0; border-top-left-radius: 8px; }
 .es-door__corner--tr { top: 12%; right: 12%; border-left: 0; border-bottom: 0; border-top-right-radius: 8px; }
 .es-door__corner--bl { bottom: 12%; left: 12%; border-right: 0; border-top: 0; border-bottom-left-radius: 8px; }
 .es-door__corner--br { bottom: 12%; right: 12%; border-left: 0; border-top: 0; border-bottom-right-radius: 8px; }
-.es-door__beam { position: absolute; left: 14%; right: 14%; top: 20%; height: 2px; background: #6ee7d8; box-shadow: 0 0 12px #6ee7d8; animation: es-door-scan 2.4s ease-in-out infinite alternate; }
+.es-door__beam { position: absolute; left: 14%; right: 14%; top: 20%; height: 2px; background: #ff414b; box-shadow: 0 0 12px #ff414b; animation: es-door-scan 2.4s ease-in-out infinite alternate; }
 @keyframes es-door-scan { to { top: 78%; } }
 @media (prefers-reduced-motion: reduce) { .es-door__beam { animation: none; top: 50%; } }
 .es-door__result { padding: 0.625rem; border: 1px solid color-mix(in srgb, var(--es-success) 40%, transparent); border-radius: 0.875rem; background: color-mix(in srgb, var(--es-success) 12%, var(--es-surface)); }
@@ -10082,9 +10068,9 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
 }
 .es-dash-hero__hill { fill: var(--es-accent-edge); opacity: 0.55; }
 .es-dash-hero__hill--back { opacity: 0.3; }
-.es-dash-hero__ticket { fill: var(--es-teal-400); stroke: var(--es-teal-500); stroke-width: 1.5; }
+.es-dash-hero__ticket { fill: var(--es-coral-400); stroke: var(--es-coral-500); stroke-width: 1.5; }
 .es-dash-hero__star { fill: var(--es-surface); }
-.es-dash-hero__burst path { fill: none; stroke: var(--es-teal-500); stroke-width: 3; stroke-linecap: round; }
+.es-dash-hero__burst path { fill: none; stroke: var(--es-coral-500); stroke-width: 3; stroke-linecap: round; }
 @media (width < 40rem) {
   .es-dash-hero__card { padding: 1rem 1.25rem; }
   .es-dash-hero__art { width: 55%; opacity: 0.45; }
@@ -10453,13 +10439,13 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
 .es-donut__legend li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 0.625rem; font-size: var(--es-text-sm); color: var(--es-text-muted); }
 .es-donut__legend b { color: var(--es-text); font-variant-numeric: tabular-nums; }
 .es-donut__swatch { width: 0.625rem; height: 0.625rem; border-radius: 0.1875rem; }
-.es-donut__slice[data-tone="1"] { stroke: var(--es-teal-700); }
-.es-donut__slice[data-tone="2"] { stroke: var(--es-teal-400); }
-.es-donut__slice[data-tone="3"] { stroke: var(--es-teal-200); }
+.es-donut__slice[data-tone="1"] { stroke: var(--es-coral-600); }
+.es-donut__slice[data-tone="2"] { stroke: var(--es-coral-400); }
+.es-donut__slice[data-tone="3"] { stroke: var(--es-coral-200); }
 .es-donut__slice[data-tone="4"] { stroke: var(--es-grey-200); }
-.es-donut__swatch[data-tone="1"] { background: var(--es-teal-700); }
-.es-donut__swatch[data-tone="2"] { background: var(--es-teal-400); }
-.es-donut__swatch[data-tone="3"] { background: var(--es-teal-200); }
+.es-donut__swatch[data-tone="1"] { background: var(--es-coral-600); }
+.es-donut__swatch[data-tone="2"] { background: var(--es-coral-400); }
+.es-donut__swatch[data-tone="3"] { background: var(--es-coral-200); }
 .es-donut__swatch[data-tone="4"] { background: var(--es-grey-200); }
 
 /* Attendees by location */
@@ -10475,7 +10461,7 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
 .es-places__row svg { color: var(--es-text-muted); }
 .es-places__row b { text-align: right; font-variant-numeric: tabular-nums; }
 .es-places__bar { display: block; height: 0.5rem; overflow: hidden; border-radius: 999px; background: var(--es-bg-sunken); }
-.es-places__bar span { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--es-teal-500), var(--es-teal-400)); }
+.es-places__bar span { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--es-coral-500), var(--es-coral-400)); }
 
 }   /* end @layer components — organizer dashboard below the figures */
 
@@ -10621,7 +10607,7 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
 .es-avatar--lg {
   width: 2.75rem;
   height: 2.75rem;
-  background: var(--es-teal-800);
+  background: var(--es-coral-700);
   font-size: var(--es-text-md);
 }
 
@@ -10669,7 +10655,7 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
 .es-account .es-avatar {
   width: 2.75rem;
   height: 2.75rem;
-  background: var(--es-teal-800);
+  background: var(--es-coral-700);
   font-size: var(--es-text-md);
 }
 .es-account__name { font-size: 0.9375rem; font-weight: 700; }
@@ -10949,7 +10935,7 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
   padding: 1.5rem 1.75rem;
   overflow: hidden;
   border-radius: 1rem;
-  background: linear-gradient(120deg, var(--es-teal-900), var(--es-teal-600));
+  background: linear-gradient(120deg, var(--es-coral-800), var(--es-coral-600));
   color: #fff;
   isolation: isolate;
 }
@@ -11577,19 +11563,19 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
 /* Illustrations */
 .es-art { display: block; width: 100%; height: auto; }
 .es-art__blob { fill: var(--es-accent-wash); }
-.es-art__card { fill: var(--es-teal-300); }
-.es-art__card--back { fill: var(--es-teal-200); }
+.es-art__card { fill: var(--es-coral-300); }
+.es-art__card--back { fill: var(--es-coral-200); }
 .es-art__chip { fill: var(--es-surface); opacity: 0.85; }
 .es-art__line, .es-art__wave { fill: none; stroke: var(--es-surface); stroke-width: 5; stroke-linecap: round; opacity: 0.9; }
-.es-art__pill { fill: var(--es-surface); filter: drop-shadow(0 4px 10px rgb(6 24 26 / 0.12)); }
+.es-art__pill { fill: var(--es-surface); filter: drop-shadow(0 4px 10px rgb(17 16 24 / 0.12)); }
 .es-art__pilltext { font: 700 22px var(--es-font-sans); fill: var(--es-text); letter-spacing: -0.02em; }
 .es-art__coin { fill: #d9a43a; }
 .es-art__coin--top { fill: #f1c15c; }
-.es-art__awning { fill: var(--es-teal-400); }
-.es-art__stripe { fill: var(--es-teal-700); }
-.es-art__ticket { fill: var(--es-surface); stroke: var(--es-teal-500); stroke-width: 3; }
-.es-art__ticket + .es-art__line { stroke: var(--es-teal-300); }
-.es-art__burst path { fill: none; stroke: var(--es-teal-600); stroke-width: 4; stroke-linecap: round; }
+.es-art__awning { fill: var(--es-coral-400); }
+.es-art__stripe { fill: var(--es-coral-600); }
+.es-art__ticket { fill: var(--es-surface); stroke: var(--es-coral-500); stroke-width: 3; }
+.es-art__ticket + .es-art__line { stroke: var(--es-coral-300); }
+.es-art__burst path { fill: none; stroke: var(--es-coral-600); stroke-width: 4; stroke-linecap: round; }
 
 .es-page-head__art { display: none; width: min(18rem, 34vw); margin-inline-start: auto; }
 @media (width >= theme(--breakpoint-md)) {
@@ -11625,7 +11611,7 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
   align-items: center;
   gap: 0.75rem;
   padding: 0.875rem 1.5rem;
-  background: var(--es-teal-800);
+  background: var(--es-coral-700);
   font-size: var(--es-text-md);
   font-weight: 700;
   color: #fff;
@@ -11809,8 +11795,8 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
 .es-art__floor { opacity: 0.8; }
 .es-art__stub { fill: var(--es-surface); stroke: var(--es-accent); stroke-width: 4; stroke-linejoin: round; }
 .es-art__stubmark { fill: none; stroke: var(--es-accent); stroke-width: 3.5; stroke-linejoin: round; }
-.es-art__stubdot { fill: var(--es-teal-400); }
-.es-art__stubline { fill: none; stroke: var(--es-teal-300); stroke-width: 6; stroke-linecap: round; }
+.es-art__stubdot { fill: var(--es-coral-400); }
+.es-art__stubline { fill: none; stroke: var(--es-coral-300); stroke-width: 6; stroke-linecap: round; }
 
 /* A search field with its magnifier inside (ui/Filters.jsx SearchBox) */
 .es-searchfield { position: relative; display: flex; }
@@ -11872,13 +11858,13 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
 .es-stack-empty > .es-btn { margin-top: 0.5rem; }
 
 /* InvoiceArt (ui/Illustrations.jsx) */
-.es-art__leaf { fill: var(--es-teal-200); }
-.es-art__leaf--light { fill: var(--es-teal-100); }
-.es-art__paper { fill: var(--es-surface); stroke: var(--es-teal-800); stroke-width: 3.5; }
-.es-art__papertitle { font: 800 12px var(--es-font-sans); letter-spacing: 0.06em; fill: var(--es-teal-700); }
-.es-art__bar { fill: var(--es-teal-200); }
-.es-art__bar--soft { fill: var(--es-teal-100); }
-.es-art__badge { fill: var(--es-teal-500); stroke: var(--es-surface); stroke-width: 4; }
+.es-art__leaf { fill: var(--es-coral-200); }
+.es-art__leaf--light { fill: var(--es-coral-100); }
+.es-art__paper { fill: var(--es-surface); stroke: var(--es-coral-700); stroke-width: 3.5; }
+.es-art__papertitle { font: 800 12px var(--es-font-sans); letter-spacing: 0.06em; fill: var(--es-coral-600); }
+.es-art__bar { fill: var(--es-coral-200); }
+.es-art__bar--soft { fill: var(--es-coral-100); }
+.es-art__badge { fill: var(--es-coral-500); stroke: var(--es-surface); stroke-width: 4; }
 .es-art__badgetick { fill: none; stroke: var(--es-surface); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
 
 /* The figure card as a TILE — icon on a soft square, bold label, toned value.
@@ -11941,13 +11927,13 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
 .es-doorbar__filters { flex: 1 1 32rem; align-items: center; min-width: 0; }
 
 /* ScannerArt, PeopleArt (ui/Illustrations.jsx) */
-.es-art__scanticket { fill: var(--es-surface); stroke: var(--es-teal-500); stroke-width: 4; stroke-linejoin: round; }
-.es-art__qrdark { fill: none; stroke: var(--es-teal-600); stroke-width: 3.5; }
-.es-art__qrdot { fill: var(--es-teal-600); }
-.es-art__gun { fill: var(--es-teal-500); }
-.es-art__gunnose, .es-art__gungrip { fill: var(--es-teal-900); }
+.es-art__scanticket { fill: var(--es-surface); stroke: var(--es-coral-500); stroke-width: 4; stroke-linejoin: round; }
+.es-art__qrdark { fill: none; stroke: var(--es-coral-600); stroke-width: 3.5; }
+.es-art__qrdot { fill: var(--es-coral-600); }
+.es-art__gun { fill: var(--es-coral-500); }
+.es-art__gunnose, .es-art__gungrip { fill: var(--es-coral-800); }
 .es-art__gunshine { fill: none; stroke: var(--es-surface); stroke-width: 4; stroke-linecap: round; opacity: 0.6; }
-.es-art__person { fill: var(--es-teal-100); stroke: var(--es-teal-600); stroke-width: 4; stroke-linejoin: round; }
+.es-art__person { fill: var(--es-coral-100); stroke: var(--es-coral-600); stroke-width: 4; stroke-linejoin: round; }
 .es-art__person--front { fill: var(--es-surface); }
 .es-stack-empty__art .es-art--people { max-width: 9rem; }
 
@@ -12048,11 +12034,11 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
 .es-statline--featured .es-statline__value { color: var(--es-accent); }
 
 /* PhoneScanArt, TabletArt (ui/Illustrations.jsx) */
-.es-art__blob--deep { fill: var(--es-teal-100); }
-.es-art__device { fill: var(--es-surface); stroke: var(--es-teal-800); stroke-width: 5; stroke-linejoin: round; }
-.es-art__devicenotch { fill: var(--es-teal-800); }
-.es-art__devicebar { fill: none; stroke: var(--es-teal-800); stroke-width: 4; stroke-linecap: round; }
-.es-art__frame path { fill: none; stroke: var(--es-teal-700); stroke-width: 4.5; stroke-linecap: round; stroke-linejoin: round; }
+.es-art__blob--deep { fill: var(--es-coral-100); }
+.es-art__device { fill: var(--es-surface); stroke: var(--es-coral-700); stroke-width: 5; stroke-linejoin: round; }
+.es-art__devicenotch { fill: var(--es-coral-700); }
+.es-art__devicebar { fill: none; stroke: var(--es-coral-700); stroke-width: 4; stroke-linecap: round; }
+.es-art__frame path { fill: none; stroke: var(--es-coral-600); stroke-width: 4.5; stroke-linecap: round; stroke-linejoin: round; }
 
 /* ── A buyer's first visit (account/dashboard/BuyerDashboard.jsx) ───────
    The steps in their own soft card beside the welcome, a picture under the
@@ -12138,18 +12124,18 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
 .es-tipscard__text { display: block; margin-top: 0.125rem; font-size: var(--es-text-sm); color: var(--es-text-muted); }
 
 /* TicketQrArt, ReceiptArt, ShieldArt (ui/Illustrations.jsx) */
-.es-art__ticketback { fill: var(--es-teal-200); stroke: var(--es-teal-600); stroke-width: 4; stroke-linejoin: round; }
-.es-art__ticketfront { fill: var(--es-surface); stroke: var(--es-teal-700); stroke-width: 4.5; stroke-linejoin: round; }
-.es-art__ticketspot { fill: var(--es-teal-100); }
-.es-art__ticketstar { fill: none; stroke: var(--es-teal-700); stroke-width: 3; stroke-linejoin: round; }
-.es-art__ticketperf { fill: none; stroke: var(--es-teal-400); stroke-width: 3; stroke-dasharray: 6 6; stroke-linecap: round; }
-.es-art__ticketqr rect { fill: none; stroke: var(--es-teal-700); stroke-width: 2.5; }
-.es-art__ticketqr path { fill: var(--es-teal-700); }
-.es-art__receipt { fill: var(--es-surface); stroke: var(--es-teal-700); stroke-width: 4.5; stroke-linejoin: round; }
-.es-art__receiptcurl { fill: var(--es-teal-200); stroke: var(--es-teal-700); stroke-width: 4; stroke-linejoin: round; }
-.es-art__receiptcart { fill: none; stroke: var(--es-teal-700); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.es-art__shield { fill: var(--es-surface); stroke: var(--es-teal-700); stroke-width: 8; stroke-linejoin: round; }
-.es-art__shieldtick { fill: none; stroke: var(--es-teal-600); stroke-width: 9; stroke-linecap: round; stroke-linejoin: round; }
+.es-art__ticketback { fill: var(--es-coral-200); stroke: var(--es-coral-600); stroke-width: 4; stroke-linejoin: round; }
+.es-art__ticketfront { fill: var(--es-surface); stroke: var(--es-coral-600); stroke-width: 4.5; stroke-linejoin: round; }
+.es-art__ticketspot { fill: var(--es-coral-100); }
+.es-art__ticketstar { fill: none; stroke: var(--es-coral-600); stroke-width: 3; stroke-linejoin: round; }
+.es-art__ticketperf { fill: none; stroke: var(--es-coral-400); stroke-width: 3; stroke-dasharray: 6 6; stroke-linecap: round; }
+.es-art__ticketqr rect { fill: none; stroke: var(--es-coral-600); stroke-width: 2.5; }
+.es-art__ticketqr path { fill: var(--es-coral-600); }
+.es-art__receipt { fill: var(--es-surface); stroke: var(--es-coral-600); stroke-width: 4.5; stroke-linejoin: round; }
+.es-art__receiptcurl { fill: var(--es-coral-200); stroke: var(--es-coral-600); stroke-width: 4; stroke-linejoin: round; }
+.es-art__receiptcart { fill: none; stroke: var(--es-coral-600); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.es-art__shield { fill: var(--es-surface); stroke: var(--es-coral-600); stroke-width: 8; stroke-linejoin: round; }
+.es-art__shieldtick { fill: none; stroke: var(--es-coral-600); stroke-width: 9; stroke-linecap: round; stroke-linejoin: round; }
 
 /* ── Sign-in & security (account/security/Security.jsx) ─────────────────
    The account card and the reassurance card side by side from lg; every
@@ -12287,16 +12273,16 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
 .es-caughtup svg { flex: none; color: var(--es-accent); }
 
 /* ClipboardArt, CalendarXArt (ui/Illustrations.jsx) */
-.es-art__checkbox { fill: var(--es-teal-100); stroke: var(--es-teal-700); stroke-width: 3; }
-.es-art__checktick { fill: none; stroke: var(--es-teal-700); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
-.es-art__clip { fill: var(--es-teal-200); stroke: var(--es-teal-800); stroke-width: 3.5; }
-.es-art__lens { fill: color-mix(in srgb, var(--es-teal-100) 70%, transparent); stroke: var(--es-teal-800); stroke-width: 6; }
-.es-art__lenshandle { fill: none; stroke: var(--es-teal-800); stroke-width: 10; stroke-linecap: round; }
-.es-art__calline { fill: none; stroke: var(--es-teal-800); stroke-width: 4; }
-.es-art__ring { fill: var(--es-surface); stroke: var(--es-teal-800); stroke-width: 4; }
-.es-art__cell { fill: var(--es-teal-100); }
-.es-art__badgex { fill: var(--es-surface); stroke: var(--es-teal-800); stroke-width: 5; }
-.es-art__xmark { fill: none; stroke: var(--es-teal-800); stroke-width: 5; stroke-linecap: round; }
+.es-art__checkbox { fill: var(--es-coral-100); stroke: var(--es-coral-600); stroke-width: 3; }
+.es-art__checktick { fill: none; stroke: var(--es-coral-600); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.es-art__clip { fill: var(--es-coral-200); stroke: var(--es-coral-700); stroke-width: 3.5; }
+.es-art__lens { fill: color-mix(in srgb, var(--es-coral-100) 70%, transparent); stroke: var(--es-coral-700); stroke-width: 6; }
+.es-art__lenshandle { fill: none; stroke: var(--es-coral-700); stroke-width: 10; stroke-linecap: round; }
+.es-art__calline { fill: none; stroke: var(--es-coral-700); stroke-width: 4; }
+.es-art__ring { fill: var(--es-surface); stroke: var(--es-coral-700); stroke-width: 4; }
+.es-art__cell { fill: var(--es-coral-100); }
+.es-art__badgex { fill: var(--es-surface); stroke: var(--es-coral-700); stroke-width: 5; }
+.es-art__xmark { fill: none; stroke: var(--es-coral-700); stroke-width: 5; stroke-linecap: round; }
 
 /* ── Commission invoices filters (admin/invoices) ───────────────────────
    Two pickers with an icon inside, then the search, on one line from lg. */
@@ -12314,7 +12300,7 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
   pointer-events: none;
 }
 .es-selectfield .es-input { padding-inline-start: 2.75rem; }
-.es-art__badgedot { fill: var(--es-teal-800); }
+.es-art__badgedot { fill: var(--es-coral-700); }
 
 /* ── Homepage content (admin/content) ───────────────────────────────────
    Labels beside their inputs; the hero and the video with a preview at the
@@ -12355,7 +12341,7 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
   overflow: hidden;
   aspect-ratio: 16 / 9;
   border-radius: 0.75rem;
-  background: var(--es-teal-900);
+  background: var(--es-coral-800);
   isolation: isolate;
 }
 .es-heroprev__frame--mobile { width: min(100%, 15rem); margin-inline: auto; aspect-ratio: 9 / 16; }
@@ -12366,7 +12352,7 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
 .es-heroprev__eyebrow { font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.85; }
 .es-heroprev__title { font-size: clamp(1.125rem, 3.2vw, 1.875rem); font-weight: 800; line-height: 1.1; letter-spacing: -0.02em; }
 .es-heroprev__frame--mobile .es-heroprev__title { font-size: 1.25rem; }
-.es-heroprev__accent { color: var(--es-teal-200); }
+.es-heroprev__accent { color: var(--es-coral-200); }
 .es-heroprev__body { font-size: var(--es-text-xs); opacity: 0.9; }
 .es-heroprev__ctas { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem; margin-top: 0.25rem; }
 .es-heroprev__cta { padding: 0.375rem 0.875rem; border-radius: 0.5rem; background: var(--es-accent); font-size: var(--es-text-xs); font-weight: 700; color: #fff; }
@@ -12443,17 +12429,17 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
 }
 
 /* DoorPrinterArt (ui/Illustrations.jsx) */
-.es-art__printer { fill: var(--es-teal-700); }
-.es-art__printertop { fill: var(--es-teal-200); }
-.es-art__printerslot { fill: var(--es-teal-900); }
-.es-art__qrcard { fill: var(--es-teal-500); }
+.es-art__printer { fill: var(--es-coral-600); }
+.es-art__printertop { fill: var(--es-coral-200); }
+.es-art__printerslot { fill: var(--es-coral-800); }
+.es-art__qrcard { fill: var(--es-coral-500); }
 .es-art__qr { fill: var(--es-surface); }
 .es-art__qrline { fill: none; stroke: var(--es-surface); stroke-width: 3.5; stroke-linecap: round; }
 
 .es-tcat-art { width: min(100%, 25rem); height: auto; }
 .es-tcat-art__ground { fill: var(--es-accent-wash); }
 .es-tcat-art__line { fill: none; stroke: var(--es-accent); stroke-width: 3.5; stroke-linecap: round; }
-.es-tcat-art__chip { font-family: inherit; font-size: 15px; font-weight: 700; fill: #10312b; }
+.es-tcat-art__chip { font-family: inherit; font-size: 15px; font-weight: 700; fill: #111018; }
 .es-tcat-art__chair { fill: #e6d3aa; stroke: var(--es-accent); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
 .es-tcat-art__cloth { fill: var(--es-surface); stroke: var(--es-accent); stroke-width: 3; stroke-linejoin: round; }
 .es-tcat-art__fold { fill: none; stroke: var(--es-accent); stroke-width: 1.5; stroke-linecap: round; opacity: 0.35; }
@@ -12568,8 +12554,8 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
 .es-tierempty__art { width: min(17rem, 80%); margin-block: -0.5rem -0.75rem; }
 .es-tierempty__title { margin: 0; font-size: var(--es-text-xl); font-weight: 700; letter-spacing: -0.02em; color: var(--es-text); }
 .es-tierempty__text { max-width: 36rem; font-size: var(--es-text-sm); color: var(--es-text-muted); }
-.es-art__outline { stroke: var(--es-teal-600); stroke-width: 3; }
-.es-art__star { fill: var(--es-teal-500); }
+.es-art__outline { stroke: var(--es-coral-600); stroke-width: 3; }
+.es-art__star { fill: var(--es-coral-500); }
 
 .es-tierex__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem; }
 .es-tierex__title { display: inline-flex; align-items: center; gap: 0.5rem; margin: 0; font-size: var(--es-text-md); font-weight: 700; color: var(--es-text); }
@@ -12693,15 +12679,15 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
 @layer components {
 
 /* ── 2D map additions ───────────────────────────────────────────────────── */
-.es-mapbadge { fill: color-mix(in srgb, var(--es-teal-900) 82%, transparent); }
+.es-mapbadge { fill: color-mix(in srgb, var(--es-coral-800) 82%, transparent); }
 .es-mapbadge__text { fill: #ffffff; font-size: 21px; font-weight: 700; letter-spacing: 0.02em; }
 /* Under the seats (the buyer map, 2026-11-10): a pale floor label, so the
    seats painted over it stay the loudest thing and nothing reads as empty. */
-.es-mapbadges--under .es-mapbadge { fill: color-mix(in srgb, var(--es-surface) 70%, transparent); stroke: color-mix(in srgb, var(--es-teal-900) 35%, transparent); stroke-width: 1.5px; }
-.es-mapbadges--under .es-mapbadge__text { fill: var(--es-teal-900); paint-order: stroke; stroke: var(--es-surface); stroke-width: 4px; stroke-linejoin: round; }
+.es-mapbadges--under .es-mapbadge { fill: color-mix(in srgb, var(--es-surface) 70%, transparent); stroke: color-mix(in srgb, var(--es-coral-800) 35%, transparent); stroke-width: 1.5px; }
+.es-mapbadges--under .es-mapbadge__text { fill: var(--es-coral-800); paint-order: stroke; stroke: var(--es-surface); stroke-width: 4px; stroke-linejoin: round; }
 
 /* ── the 3D / 360° canvas ───────────────────────────────────────────────── */
-.es-venue3d { background: #081315; isolation: isolate; }
+.es-venue3d { background: #0d0c12; isolation: isolate; }
 .es-venue3d canvas { outline: none; }
 .es-venue3d__msg { color: #ffffff; }
 .es-venue3d__loading {
@@ -12709,14 +12695,14 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
   inset: 0;
   display: grid;
   place-items: center;
-  background: radial-gradient(ellipse at 50% 30%, #12393b 0%, #081315 70%);
+  background: radial-gradient(ellipse at 50% 30%, #2a1f2c 0%, #0d0c12 70%);
 }
 .es-venue3d__loading span {
   width: 2.25rem;
   height: 2.25rem;
   border-radius: var(--es-radius-full);
   border: 3px solid rgba(255, 255, 255, 0.18);
-  border-top-color: var(--es-teal-300);
+  border-top-color: var(--es-coral-300);
   animation: es-venue3d-spin 0.9s linear infinite;
 }
 @keyframes es-venue3d-spin { to { transform: rotate(360deg); } }
@@ -12841,7 +12827,7 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
   width: min(20rem, calc(100% - 1.5rem));
   max-height: calc(100% - 12rem);
   border-radius: var(--es-radius-lg);
-  background: rgba(6, 20, 22, 0.72);
+  background: rgba(17, 16, 24, 0.72);
   backdrop-filter: blur(8px);
   color: #ffffff;
   overflow: hidden;
@@ -12876,7 +12862,7 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
   min-width: 2rem;
   height: 2rem;
   padding-inline: 0.25rem;
-  border: 2px solid var(--seat-tier, var(--es-teal-300));
+  border: 2px solid var(--seat-tier, var(--es-coral-300));
   border-radius: 0.5rem;
   background: rgba(255, 255, 255, 0.08);
   color: #ffffff;
@@ -12888,11 +12874,11 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
 }
 .es-photoseats__seat:hover:not(:disabled) { background: rgba(255, 255, 255, 0.2); }
 .es-photoseats__seat--chosen { border-color: #ffffff; background: #ffffff; color: #0b1f21; }
-.es-photoseats__seat--chosen:hover:not(:disabled) { background: #e6eeef; }
+.es-photoseats__seat--chosen:hover:not(:disabled) { background: #f1f0f4; }
 .es-photoseats__seat--taken { border-color: rgba(255, 255, 255, 0.18); background: transparent; color: rgba(255, 255, 255, 0.45); text-decoration: line-through; }
 .es-photoseats__seat:disabled { cursor: not-allowed; }
 .es-photoseats__seat.is-dim { opacity: 0.45; }
-.es-photoseats__seat.is-active { outline: 2px solid var(--es-teal-300); outline-offset: 2px; }
+.es-photoseats__seat.is-active { outline: 2px solid var(--es-coral-300); outline-offset: 2px; }
 .es-photoseats__seat:focus-visible { outline: 2px solid #ffffff; outline-offset: 2px; }
 
 /* Seats placed on a 360° photo. Positioned every frame by PanoramaViewer
@@ -12904,9 +12890,9 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
   top: 0;
   left: 0;
   padding: 0;
-  border: 3px solid var(--seat-tier, var(--es-teal-300));
+  border: 3px solid var(--seat-tier, var(--es-coral-300));
   border-radius: var(--es-radius-full);
-  background: rgba(6, 20, 22, 0.35);
+  background: rgba(17, 16, 24, 0.35);
   box-shadow: 0 0 0 1.5px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(0, 0, 0, 0.35);
   pointer-events: auto;
   touch-action: none;
@@ -12914,7 +12900,7 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
   transition: background-color var(--es-dur-fast) var(--es-ease), scale var(--es-dur-fast) var(--es-ease);
 }
 .es-pano__spot:hover:not(:disabled) { background: rgba(255, 255, 255, 0.45); scale: 1.15; }
-.es-pano__spot--chosen { border-color: #ffffff; background: #ffffff; box-shadow: 0 0 0 3px var(--es-teal-700), 0 2px 8px rgba(0, 0, 0, 0.4); }
+.es-pano__spot--chosen { border-color: #ffffff; background: #ffffff; box-shadow: 0 0 0 3px var(--es-coral-600), 0 2px 8px rgba(0, 0, 0, 0.4); }
 .es-pano__spot--taken { border-color: rgba(255, 255, 255, 0.35); background: rgba(0, 0, 0, 0.45); cursor: not-allowed; }
 .es-pano__spot--taken::after { content: ""; position: absolute; inset: 20%; border-top: 2px solid rgba(255, 255, 255, 0.55); rotate: -45deg; translate: 0 30%; }
 .es-pano__spot.is-dim { opacity: 0.4; }
@@ -12946,7 +12932,7 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
 .es-iconbtn--sm { width: 2rem; height: 2rem; border-radius: 0.5rem; }
 
 /* ── 360° view strip ───────────────────────────────────────────────────── */
-.es-viewstrip { display: flex; gap: 0.5rem; margin: 0; padding: 0.375rem; list-style: none; width: max-content; border-radius: var(--es-radius-lg); background: rgba(6, 20, 22, 0.55); backdrop-filter: blur(8px); }
+.es-viewstrip { display: flex; gap: 0.5rem; margin: 0; padding: 0.375rem; list-style: none; width: max-content; border-radius: var(--es-radius-lg); background: rgba(17, 16, 24, 0.55); backdrop-filter: blur(8px); }
 .es-viewstrip__tile {
   display: flex;
   flex-direction: column;
@@ -12960,17 +12946,17 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
   font: inherit;
   cursor: pointer;
 }
-.es-viewstrip__tile[aria-pressed="true"] { border-color: var(--es-teal-300); background: rgba(255, 255, 255, 0.08); }
+.es-viewstrip__tile[aria-pressed="true"] { border-color: var(--es-coral-300); background: rgba(255, 255, 255, 0.08); }
 .es-viewstrip__img {
   display: block;
   width: 100%;
   height: 3.75rem;
   border-radius: 0.5rem;
   object-fit: cover;
-  background: linear-gradient(180deg, #0f3437, #081315);
+  background: linear-gradient(180deg, #1d1a26, #0d0c12);
 }
-.es-viewstrip__img--seat { background: radial-gradient(ellipse at 50% 110%, #2fa9a5 0%, #0d3b3e 45%, #081315 80%); }
-.es-viewstrip__img--stage { background: radial-gradient(ellipse at 50% -10%, #8f7dff 0%, #24305e 45%, #081315 85%); }
+.es-viewstrip__img--seat { background: radial-gradient(ellipse at 50% 110%, #ff6b73 0%, #3a1a24 45%, #0d0c12 80%); }
+.es-viewstrip__img--stage { background: radial-gradient(ellipse at 50% -10%, #8f7dff 0%, #24305e 45%, #0d0c12 85%); }
 .es-viewstrip__label { font-size: var(--es-text-xs); font-weight: 600; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* ── studio tabs ───────────────────────────────────────────────────────── */
@@ -13026,7 +13012,7 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
   .es-studio-split--wide > aside { position: sticky; top: 1rem; max-height: calc(100dvh - 2rem); overflow-y: auto; }
 }
 .es-studio-stagecard { display: flex; flex-direction: column; gap: 0.75rem; }
-.es-studio-viewport { height: clamp(22rem, 64vh, 46rem); border-radius: var(--es-radius-lg); overflow: hidden; background: #081315; }
+.es-studio-viewport { height: clamp(22rem, 64vh, 46rem); border-radius: var(--es-radius-lg); overflow: hidden; background: #0d0c12; }
 .es-studio-empty {
   display: grid;
   place-content: center;
@@ -13122,7 +13108,7 @@ label.es-chip:has(:focus-visible) { outline: 2px solid var(--es-accent); outline
 .es-sectiondlg__preview { display: flex; flex-direction: column; gap: 0.5rem; margin: 0; }
 .es-sectiondlg__preview svg { width: 100%; height: auto; border-radius: var(--es-radius-lg); background: var(--es-bg-sunken); }
 .es-sectiondlg__floor { fill: var(--es-surface); stroke: var(--es-border); stroke-width: 2; }
-.es-sectiondlg__stage { fill: #1b2a2e; }
+.es-sectiondlg__stage { fill: #1d1a26; }
 .es-sectiondlg__zone { fill: none; stroke: var(--es-border-strong); stroke-width: 2; stroke-dasharray: 6 6; }
 .es-sectiondlg__old { fill: var(--es-seat-sold); opacity: 0.55; }
 .es-sectiondlg__new { fill: var(--es-accent); }
@@ -13204,7 +13190,7 @@ label.es-chip:has(:focus-visible) { outline: 2px solid var(--es-accent); outline
 .es-seathead__cover--blank {
   display: grid;
   place-items: center;
-  background: radial-gradient(ellipse at 50% 120%, #2fa9a5 0%, #0d3b3e 55%, #081315 100%);
+  background: radial-gradient(ellipse at 50% 120%, #ff6b73 0%, #3a1a24 55%, #0d0c12 100%);
   color: #ffffff;
 }
 .es-seathead__title { margin: 0; font-size: clamp(1.25rem, 1rem + 1.1vw, 1.875rem); font-weight: 800; line-height: 1.15; color: var(--es-text); overflow-wrap: anywhere; }
@@ -13472,7 +13458,7 @@ label.es-chip:has(:focus-visible) { outline: 2px solid var(--es-accent); outline
 .es-previewbar { display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem 2rem; }
 .es-previewbar fieldset { display: block; }
 .es-previewbar legend { float: left; margin: 0.5rem 0.75rem 0 0; }
-.es-preview3d__view { height: 13rem; overflow: hidden; border-radius: var(--es-radius-md); background: #081315; }
+.es-preview3d__view { height: 13rem; overflow: hidden; border-radius: var(--es-radius-md); background: #0d0c12; }
 }   /* end @layer components — Venue Studio stats */
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -13533,7 +13519,7 @@ label.es-chip:has(:focus-visible) { outline: 2px solid var(--es-accent); outline
 /* The Stripe and Manual badges (components/PaymentBadges.jsx). */
 .es-paybadges { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem; margin: 0; padding: 0; list-style: none; }
 .es-paybadges li { display: flex; }
-.es-paybadge { display: block; width: auto; height: 2.25rem; border-radius: 0.5625rem; box-shadow: var(--es-shadow-xs, 0 1px 2px rgb(6 24 26 / 0.08)); }
+.es-paybadge { display: block; width: auto; height: 2.25rem; border-radius: 0.5625rem; box-shadow: var(--es-shadow-xs, 0 1px 2px rgb(17 16 24 / 0.08)); }
 .es-trustcard__list { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
 .es-trustcard__list li {
   display: flex;
@@ -13838,9 +13824,9 @@ label.es-chip:has(:focus-visible) { outline: 2px solid var(--es-accent); outline
   transition: translate var(--es-dur-fast) var(--es-ease), box-shadow var(--es-dur-fast) var(--es-ease);
 }
 .es-rcard:hover { translate: 0 -3px; box-shadow: var(--es-shadow-lg); }
-.es-rcard__media { position: relative; aspect-ratio: 16 / 8.5; background: #0d3b3e; }
+.es-rcard__media { position: relative; aspect-ratio: 16 / 8.5; background: #3a1a24; }
 .es-rcard__art { object-fit: cover; }
-.es-rcard__placeholder { position: absolute; inset: 0; display: grid; place-items: center; padding: 1.5rem; background: radial-gradient(ellipse at 50% 120%, #2fa9a5 0%, #0d3b3e 60%, #081315 100%); font-size: 1.375rem; font-weight: 800; text-align: center; color: #ffffff; }
+.es-rcard__placeholder { position: absolute; inset: 0; display: grid; place-items: center; padding: 1.5rem; background: radial-gradient(ellipse at 50% 120%, #ff6b73 0%, #3a1a24 60%, #0d0c12 100%); font-size: 1.375rem; font-weight: 800; text-align: center; color: #ffffff; }
 .es-rcard__date {
   position: absolute;
   top: 1rem;
@@ -13928,7 +13914,7 @@ label.es-chip:has(:focus-visible) { outline: 2px solid var(--es-accent); outline
   min-height: 11rem; padding: 3.5rem var(--tdx-pad) 1.25rem;
   background:
     radial-gradient(120% 140% at 85% 15%, color-mix(in srgb, var(--tdx-gold) 40%, transparent), transparent 60%),
-    linear-gradient(120deg, var(--es-teal-900), var(--es-teal-700));
+    linear-gradient(120deg, var(--es-coral-800), var(--es-coral-600));
   color: #fff; isolation: isolate; overflow: hidden;
 }
 .es-tdx__hero.has-photo { min-height: 13rem; background: #1b1712; }
@@ -13989,7 +13975,7 @@ label.es-chip:has(:focus-visible) { outline: 2px solid var(--es-accent); outline
   border: 1px solid var(--tdx-line); border-radius: 16px; background: var(--tdx-card);
 }
 .es-tdx__price-label { font-size: var(--es-text-sm); font-weight: 600; color: var(--es-text-muted); }
-.es-tdx__price-value { position: relative; z-index: 1; font-size: clamp(1.75rem, 1.45rem + 1.2vw, 2.375rem); font-weight: 800; line-height: 1.15; letter-spacing: -0.01em; color: var(--es-teal-900); }
+.es-tdx__price-value { position: relative; z-index: 1; font-size: clamp(1.75rem, 1.45rem + 1.2vw, 2.375rem); font-weight: 800; line-height: 1.15; letter-spacing: -0.01em; color: var(--es-coral-800); }
 :root[data-theme="dark"] .es-tdx__price-value { color: var(--es-text); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .es-tdx__price-value { color: var(--es-text); } }
 .es-tdx__price-art { position: absolute; top: 50%; right: 1rem; translate: 0 -50%; rotate: -24deg; color: var(--tdx-gold); opacity: 0.4; }

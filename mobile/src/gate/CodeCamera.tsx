@@ -34,7 +34,7 @@ function useReduceMotion(): boolean {
 }
 
 /**
- * The camera with the mockup's frame: four teal corners and a moving scan line.
+ * The camera with the mockup's frame: four yellow corners and a moving scan line.
  * Native decoding (ML Kit on Android, AVFoundation on iOS) through expo-camera,
  * QR codes only — nothing else at a door is ours.
  */
@@ -67,7 +67,7 @@ export function CodeCamera({ onCode, paused = false, torch = false, facing = 'ba
     return (
       <View style={[styles.fill, styles.ask]}>
         <Text variant="title" color={colors.white} align="center">Camera access needed</Text>
-        <Text color={colors.teal100} align="center">
+        <Text color={colors.onDark} align="center">
           Eventsli Check-in uses the camera to read ticket codes. Nothing is recorded or stored.
         </Text>
         {permission.canAskAgain ? (

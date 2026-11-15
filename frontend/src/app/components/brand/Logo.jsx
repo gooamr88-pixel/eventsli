@@ -4,46 +4,39 @@ import { WORDMARK_EVENTS, WORDMARK_LI, WORDMARK_VIEWBOX } from './wordmarkPath';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
- * The Eventsli logo: the framed star, the two-colour wordmark, and the tagline.
+ * The Eventsli logo: the yellow ticket with its star, the italic word, and the
+ * optional tagline.
  *
- * REBUILT 2026-10-16 to Via Marketing's brand guide. Three things changed:
+ * REDRAWN 2026-11-15 to the approved homepage concept. The mark is a tilted
+ * sunshine-yellow ticket with a white star on it; the word is Montserrat
+ * ExtraBold Italic in the sheet's near-black. Both are generated paths — see
+ * scripts/brandLogo.js — not an <img> and not live text.
  *
- *   THE MARK is the framed star again (see markPath.js). The leaf that replaced
- *   it on 2026-09-16 is gone everywhere.
+ * THERE IS NO COLOUR PROP. Four CSS roles colour the logo (`--es-logo-mark`,
+ * `--es-logo-star`, `--es-logo-ink`, `--es-logo-li`). They are the full-colour
+ * logo by default; the scopes that sit on a photograph, a dark ground or the
+ * coral ticket stub turn the word white. The ticket stays yellow everywhere.
+ * A caller can choose a size and whether the tagline shows. It cannot choose a
+ * colour.
  *
- *   THE WORD IS TWO COLOURS. "Events" is the brand black and "li" with its star
- *   is the brand teal, which is how the guide sets it. That is why the wordmark
- *   is two paths now rather than one.
- *
- *   THERE IS NO COLOUR PROP, and that is the guide's "do not change the logo
- *   colours" made into something the code enforces. Three CSS roles colour the
- *   logo (`--es-logo-mark`, `--es-logo-ink`, `--es-logo-li`); they are the full-
- *   colour logo by default, and the only scopes that redefine them are the ones
- *   that mean the guide's REVERSED version (a photograph, the ticket stub), where
- *   all three are white. A caller can choose a size and whether the tagline
- *   shows. It cannot choose a colour.
- *
- * THE TAGLINE is part of the lockup in the artwork, set under the word and
- * spanning it. It is drawn in the same SVG as the word so it can never sit at
- * the wrong width; `textLength` stretches the letter-spacing to the word's
- * measure exactly. It is opt-in because at masthead size it would be 6px tall,
- * which is decoration nobody can read: the header, the sidebar and the gate show
- * the word alone, and the footer, the sign-in page and the email carry it.
+ * THE TAGLINE is drawn in the same SVG as the word so it can never sit at the
+ * wrong width; `textLength` stretches its spacing to the word's measure. It is
+ * opt-in because at masthead size it would be decoration nobody can read.
  *
  * Decorative SVGs with a real text alternative beside them: a screen reader
- * hears "Eventsli" once, not a description of a star.
+ * hears "Eventsli" once, not a description of a ticket.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
 /** The word's viewBox, extended downwards to hold the tagline line. */
-const [WX, WY, WW] = WORDMARK_VIEWBOX.split(' ').map(Number);
-const LOCKUP_VIEWBOX = `${WX} ${WY} ${WW} 152`;
+const [WX, WY, WW, WH] = WORDMARK_VIEWBOX.split(' ').map(Number);
+const LOCKUP_VIEWBOX = `${WX} ${WY} ${WW} ${WH + 51}`;
 
 export function LogoMark({ className = '' }) {
   return (
     <svg className={`es-logo__mark ${className}`} viewBox={MARK_VIEWBOX} aria-hidden="true" focusable="false">
-      <path fillRule="evenodd" d={MARK_FRAME} />
-      <path d={MARK_STAR} />
+      <path className="es-logo__ticket" d={MARK_FRAME} />
+      <path className="es-logo__star" d={MARK_STAR} />
     </svg>
   );
 }
@@ -56,12 +49,12 @@ export function Wordmark({ tagline = false, className = '' }) {
       aria-hidden="true"
       focusable="false"
     >
-      <path className="es-logo__events" fillRule="evenodd" d={WORDMARK_EVENTS} />
-      <path className="es-logo__li" fillRule="evenodd" d={WORDMARK_LI} />
+      <path className="es-logo__events" d={WORDMARK_EVENTS} />
+      <path className="es-logo__li" d={WORDMARK_LI} />
       {tagline && (
-        // x/y/textLength are in the word's own units: the line starts under the
-        // E's stem and ends under the i, as in the artwork.
-        <text className="es-logo__tagline" x={WX + 16} y={WY + 148} textLength="435" lengthAdjust="spacing">
+        // x/y/textLength are in the word's own units: the line runs under the
+        // word from the E's stem to the i, allowing for the italic's lean.
+        <text className="es-logo__tagline" x={WX + 6} y={WY + WH + 47} textLength={Math.round(WW * 0.95)} lengthAdjust="spacing">
           {TAGLINE}
         </text>
       )}
@@ -71,7 +64,7 @@ export function Wordmark({ tagline = false, className = '' }) {
 
 /**
  * @param {'sm'|'md'|'lg'} [size]
- * @param {boolean} [mark]     only the framed star (a collapsed rail, an app bar)
+ * @param {boolean} [mark]     only the ticket (a collapsed rail, an app bar)
  * @param {boolean} [tagline]  the full lockup, with DISCOVER - BOOK - ENJOY under the word
  */
 export default function Logo({ size = 'md', mark = false, tagline = false, className = '' }) {

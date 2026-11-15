@@ -33,7 +33,7 @@ export default function MiniLocator({ model, seatId, colorFor, colorKey, classNa
       ctx.save();
       ctx.translate(px(z.x), pz(z.z));
       ctx.rotate(-z.rot);
-      ctx.fillStyle = '#1b2a2e';
+      ctx.fillStyle = '#1d1a26';
       ctx.fillRect((-z.w / 2) * scale, (-z.d / 2) * scale, z.w * scale, z.d * scale);
       ctx.restore();
     }
@@ -48,9 +48,9 @@ export default function MiniLocator({ model, seatId, colorFor, colorKey, classNa
     if (pin) {
       const x = px(pin.x);
       const y = pz(pin.z);
-      ctx.fillStyle = 'rgba(13,91,94,0.25)';
+      ctx.fillStyle = 'rgba(255,65,75,0.25)';
       ctx.beginPath(); ctx.arc(x, y, 9, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#0d5b5e';
+      ctx.fillStyle = '#ff414b';
       ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = 2;
       ctx.beginPath(); ctx.arc(x, y, 4.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();

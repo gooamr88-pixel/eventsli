@@ -1,5 +1,5 @@
 import { headers } from 'next/headers';
-import { DM_Sans, DM_Mono, Sacramento } from 'next/font/google';
+import { DM_Sans, DM_Mono, Montserrat, Sacramento } from 'next/font/google';
 import SiteHeader from './components/SiteHeader';
 import SiteFooter from './components/SiteFooter';
 import './globals.css';
@@ -27,8 +27,21 @@ const dmSans = DM_Sans({
 });
 
 /**
+ * THE HEADING FACE, 2026-11-15. The brand sheet sets its headlines and the
+ * wordmark in a heavy geometric sans; the owner chose Montserrat for every
+ * heading and kept DM Sans for body copy. 700 for small headings and panel
+ * titles, 800 for section and page headings, 900 for the one display line.
+ */
+const montserrat = Montserrat({
+  subsets: ['latin'],
+  weight: ['700', '800', '900'],
+  variable: '--font-montserrat',
+  display: 'swap',
+});
+
+/**
  * DM Serif Display is gone: the owner rejected the serif headline, and the
- * site is DM Sans only. Mono remains for `--es-font-code` alone — the six
+ * site is DM Sans for reading and Montserrat for headings. Mono remains for `--es-font-code` alone — the six
  * digit boxes, where a person copies characters one by one.
  */
 const dmMono = DM_Mono({
@@ -149,10 +162,10 @@ export const metadata = {
 
 export const viewport = {
   themeColor: [
-    // The brand guide's teal, and its teal-black for a browser in dark mode:
-    // the site itself is light-only, so the dark entry only tints the chrome.
-    { media: '(prefers-color-scheme: light)', color: '#0d5b5e' },
-    { media: '(prefers-color-scheme: dark)', color: '#061e20' },
+    // The page is white, so the browser chrome is white too; the near-black
+    // for a browser in dark mode. The site itself is light-only.
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: dark)', color: '#111018' },
   ],
   width: 'device-width',
   initialScale: 1,
@@ -196,7 +209,7 @@ export default async function RootLayout({ children }) {
   await headers();
 
   return (
-    <html lang="en" className={`${dmSans.variable} ${dmMono.variable} ${script.variable}`}>
+    <html lang="en" className={`${dmSans.variable} ${montserrat.variable} ${dmMono.variable} ${script.variable}`}>
       <head>
         {/*
           THE HERO IMAGE LIVES ON ANOTHER ORIGIN, and the browser cannot know

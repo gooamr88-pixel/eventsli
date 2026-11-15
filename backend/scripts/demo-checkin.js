@@ -359,7 +359,7 @@ async function writeSheet(m) {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Check-in demo tickets</title>
 <style>
-  :root { --teal:#0d5b5e; --ink:#0b1617; --muted:#45585b; --bg:#ffffff; --sunken:#f2f4f5; }
+  :root { --teal:#d61f2c; --ink:#111018; --muted:#4a4a55; --bg:#ffffff; --sunken:#f5f5f5; }
   body { margin:0; font:16px/1.45 system-ui, sans-serif; color:var(--ink); background:var(--bg); }
   header { background:var(--teal); color:#fff; padding:24px 16px; }
   header h1 { margin:0 0 4px; font-size:24px; }

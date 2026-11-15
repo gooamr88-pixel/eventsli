@@ -1,29 +1,23 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Eventsli">
   <!--
     The favicon, as a file convention: Next serves this at /icon.svg and links
-    it in <head> on every page. SVG rather than a .ico so it stays crisp on a
-    high-density display and weighs a few hundred bytes.
+    it in <head> on every page.
 
-    THE FRAMED STAR, 2026-10-16, with the brand guide. The two paths below are
-    copied verbatim from `components/brand/markPath.js` (a 512 x 500 box, scaled
-    here); `test/logo.test.js` fails if they ever differ, so the tab and the
-    masthead cannot drift apart.
+    THE YELLOW TICKET, 2026-11-15. The two paths below are copied verbatim from
+    `components/brand/markPath.js` (scaled here); `test/logo.test.jsx` fails if
+    they ever differ, so the tab and the masthead cannot drift apart. Write it
+    again with scripts/brandIcons.js after a redraw.
 
-    A WHITE STAR ON A TEAL TILE, the guide's reversed logo, rather than the teal
-    star alone. A browser tab is white in one theme and near-black in the other,
-    and the brand teal measures 7.9:1 on the first but about 2:1 on the second:
-    a bare mark would all but vanish from every dark-mode tab bar. The tile
-    reads on both.
-
-    `evenodd` on the frame is load-bearing: its second subpath is the window
-    the star sits in, and without the rule it paints as a solid square.
+    ON A NEAR-BLACK TILE rather than bare. The sheet's yellow is 1.5:1 on a
+    white tab bar and would all but vanish there; on the near-black it reads in
+    a light browser and a dark one alike.
 
     The colours are written literally because this file is served on its own and
-    never sees a stylesheet. #0d5b5e is the guide's Teal (--es-teal-700).
+    never sees a stylesheet: #111018 Near Black, #ffcc00 Sunshine Yellow.
   -->
-  <rect width="32" height="32" rx="7" fill="#0d5b5e"/>
-  <g transform="translate(6.78 7) scale(0.036)" fill="#ffffff">
-    <path fill-rule="evenodd" d="M90 0H420L512 90V432H420V500H92V432H0V90ZM92 70V432H420V70Z"/>
-    <path d="M256 118L284.2 204.7H375.4L301.7 258.3L329.8 345L256 291.5L182.2 345L210.3 258.3L136.6 204.7H227.8Z"/>
+  <rect width="32" height="32" rx="7" fill="#111018"/>
+  <g transform="translate(2.50 5.63) scale(0.0565)">
+    <path d="M32.2 76.2L384.3 1.3A40 40 0 0 1 431.7 32.1L445 94.7A44 44 0 0 0 463.3 180.8L476.6 243.4A40 40 0 0 1 445.8 290.8L93.7 365.7A40 40 0 0 1 46.3 334.9L33 272.3A44 44 0 0 0 14.7 186.2L1.4 123.6A40 40 0 0 1 32.2 76.2Z" fill="#ffcc00"/>
+    <path d="M216.1 75.9L260 136.3L334.3 128.5L290.4 188.9L320.7 257.1L249.7 234.1L194.3 284L194.2 209.4L129.6 172L200.6 148.9Z" fill="#ffffff"/>
   </g>
 </svg>

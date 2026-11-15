@@ -8,7 +8,8 @@ import { MARK_FRAME, MARK_STAR } from '../src/app/components/brand/markPath';
 import { WORDMARK_EVENTS, WORDMARK_LI } from '../src/app/components/brand/wordmarkPath';
 
 /**
- * The brand guide (Via Marketing, 2026-10-16) as things a build can check.
+ * The brand sheet (the approved homepage concept, 2026-11-15) as things a
+ * build can check.
  *
  * Every assertion here is a rule from the guide that the code could quietly
  * break: the logo's shapes, its colours, and the four brand values. A logo is
@@ -17,22 +18,20 @@ import { WORDMARK_EVENTS, WORDMARK_LI } from '../src/app/components/brand/wordma
 const read = (...p) => fs.readFileSync(path.join(process.cwd(), ...p), 'utf8');
 
 describe('the logo', () => {
-  test('the two-colour word is the traced artwork, split and not edited', () => {
-    // sha256 of the single path the wordmark was before the split. "Events" +
-    // "li★" concatenated must be that path byte for byte.
-    const whole = WORDMARK_EVENTS + WORDMARK_LI;
-    expect(crypto.createHash('sha256').update(whole).digest('hex'))
-      .toBe('0db8843900cf0859af22a9e901b38630b04707c622b0f744897330c8f54e8fb0');
-    // E v e n t s | l i star
-    expect(WORDMARK_EVENTS.match(/M/g)).toHaveLength(6);
-    expect(WORDMARK_LI.match(/M/g)).toHaveLength(3);
+  test('the word is the generated Montserrat outline, in two halves', () => {
+    // E v e n t s | l i — at least one closed outline per letter, and the
+    // halves are separate shapes (the print kit and the CSS address them apart).
+    expect(WORDMARK_EVENTS.match(/M/g).length).toBeGreaterThanOrEqual(6);
+    expect(WORDMARK_LI.match(/M/g).length).toBeGreaterThanOrEqual(2);
+    expect(WORDMARK_EVENTS).not.toContain(WORDMARK_LI);
   });
 
-  test('the favicon carries the same framed star as the masthead', () => {
+  test('the favicon carries the same ticket and star as the masthead', () => {
     const icon = read('src', 'app', 'icon.svg');
     expect(icon).toContain(`d="${MARK_FRAME}"`);
     expect(icon).toContain(`d="${MARK_STAR}"`);
-    expect(icon).toContain('fill="#0d5b5e"');
+    expect(icon).toContain('fill="#ffcc00"');
+    expect(icon).toContain('fill="#111018"');
   });
 
   test('no shape carries a colour of its own — the CSS roles decide', () => {
@@ -65,25 +64,31 @@ describe('the brand values in globals.css', () => {
   const css = read('src', 'app', 'globals.css');
   const value = (name) => css.match(new RegExp(`${name}:\\s*([^;]+);`))?.[1].trim();
 
-  test('the four colours are the guide\'s, exactly', () => {
-    expect(value('--es-teal-700')).toBe('#0d5b5e');   // Teal
-    expect(value('--es-black')).toBe('#000000');      // Black
-    expect(value('--es-bg')).toBe('#ffffff');         // White
-    expect(value('--es-grey-100')).toBe('#f2f4f5');   // Light Grey
+  test('the six colours are the sheet\'s, exactly', () => {
+    expect(value('--es-bg')).toBe('#ffffff');          // Pure White
+    expect(value('--es-sun-400')).toBe('#ffcc00');     // Sunshine Yellow
+    expect(value('--es-coral-500')).toBe('#ff414b');   // Coral Red
+    expect(value('--es-black')).toBe('#111018');       // Near Black
+    expect(value('--es-grey-200')).toBe('#eaeaea');    // Soft Gray
+    expect(value('--es-grey-75')).toBe('#f8f8f8');     // Off White
   });
 
-  test('the accent IS the brand teal, not a lighter "web" version of it', () => {
-    expect(value('--es-accent')).toBe('var(--es-teal-700)');
-    expect(value('--es-bg-sunken')).toBe('var(--es-grey-100)');
+  test('the CTA is the text-safe coral, and the sheet\'s coral stays decorative', () => {
+    // #ff414b carries white at 3.44:1 — an AA failure on every button label.
+    // See the brand note in globals.css; contrast.js measures the result.
+    expect(value('--es-accent')).toBe('var(--es-coral-600)');
+    expect(value('--es-brand-coral')).toBe('var(--es-coral-500)');
+    expect(value('--es-highlight')).toBe('var(--es-sun-400)');
+    expect(value('--es-border')).toBe('var(--es-grey-200)');
   });
 
   test('the logo is full colour by default', () => {
-    expect(value('--es-logo-mark')).toBe('var(--es-teal-700)');
+    expect(value('--es-logo-mark')).toBe('var(--es-sun-400)');
+    expect(value('--es-logo-star')).toBe('#ffffff');
     expect(value('--es-logo-ink')).toBe('var(--es-black)');
-    expect(value('--es-logo-li')).toBe('var(--es-teal-700)');
   });
 
-  test('no blue-era ramp survives', () => {
-    expect(css).not.toMatch(/--es-(blue|mist|navy)-\d/);
+  test('no earlier ramp survives', () => {
+    expect(css).not.toMatch(/--es-(blue|mist|navy|teal)-\d/);
   });
 });

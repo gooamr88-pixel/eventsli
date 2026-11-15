@@ -31,15 +31,17 @@ const TEXT: [string, string, string][] = [
   ['a danger choice in a sheet on white', colors.dangerGlyph, colors.surface],
   ['warning chip text on its halo', colors.warning, colors.warningHalo],
   ['success chip text on its halo', colors.success, colors.successHalo],
-  ['accent text on the mint chips', colors.accent, colors.mint],
+  ['accent text on the coral wash chips', colors.accent, colors.wash],
   ...Object.entries(tones).map(([name, t]) => [`${name} answer text on its own wash`, t.fg, t.soft] as [string, string, string]),
   ...Object.entries(tones).map(([name, t]) => [`${name} text on white`, t.fg, colors.bg] as [string, string, string]),
 ];
 
 const GRAPHICS: [string, string, string][] = [
   ...Object.entries(tones).map(([name, t]) => [`the white mark on the ${name} disc`, colors.white, t.strong] as [string, string, string]),
-  ['white camera badges on the teal', colors.white, colors.teal700],
-  ['dialog icons on their halos: info', colors.accent, colors.mint],
+  ['white camera badges on the coral', colors.white, colors.accent],
+  ['yellow scanner frame on the near-black', colors.highlight, colors.night],
+  ['pale-yellow words on the camera', colors.onDark, colors.camera],
+  ['dialog icons on their halos: info', colors.accent, colors.wash],
   ['dialog icons on their halos: success', colors.success, colors.successHalo],
   ['dialog icons on their halos: warning', colors.warningGlyph, colors.warningHalo],
   ['dialog icons on their halos: danger', colors.dangerGlyph, colors.dangerHalo],

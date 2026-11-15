@@ -26,7 +26,9 @@ export const FORMATS = Object.freeze({
 
 const INK = '#ffffff';
 const SUB = 'rgba(255,255,255,0.82)';
-const BRAND = ['#0d5b5e', '#0a3f42'];
+// The fallback ground when there is no cover: the CTA coral deepening to
+// the near-black, so white type stays legible across the whole gradient.
+const BRAND = ['#d61f2c', '#3a0d14'];
 
 /** Words → lines no wider than `max`, at most `limit` lines, the last one ellipsised. */
 export function wrapText(measure, text, max, limit = 3) {
@@ -104,7 +106,7 @@ export function drawShareImage(format, info, cover) {
     ctx.filter = 'blur(48px) saturate(1.2)';
     ctx.drawImage(cover, (W - cover.width * scale) / 2, (H - cover.height * scale) / 2, cover.width * scale, cover.height * scale);
     ctx.restore();
-    ctx.fillStyle = 'rgba(8, 20, 24, 0.55)';
+    ctx.fillStyle = 'rgba(17, 16, 24, 0.55)';
     ctx.fillRect(0, 0, W, H);
   } else {
     const g = ctx.createLinearGradient(0, 0, W, H);
@@ -147,7 +149,7 @@ export function drawShareImage(format, info, cover) {
   }
   if (info.date) {
     font(700, 34);
-    ctx.fillStyle = '#7fe0d4';
+    ctx.fillStyle = '#ffcc00';
     ctx.fillText(info.date, pad, y);
     y -= 56;
   }

@@ -6,7 +6,11 @@ import NearMeDialog from './NearMeDialog';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
- * The hero's search bar: what, where and when, then the teal button.
+ * The hero's search bar: what, where and when, then the coral button.
+ *
+ * RESTYLED 2026-11-15 to the homepage concept: one white bar under the hero
+ * with hairline dividers and a coral "Search"; on a phone, the field on its
+ * own row, place and date side by side, and a full-width Search.
  *
  * REBUILT 2026-10-17 to the owner's mockup — "Search events · Location · Any
  * date · Search" in one white bar on a desktop, three stacked rows beside a
@@ -71,7 +75,7 @@ export default function HeroSearch() {
               type="search"
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Search events"
+              placeholder="Search for events, artists, or venues"
               autoComplete="off"
               enterKeyHint="search"
               maxLength={100}
@@ -87,13 +91,14 @@ export default function HeroSearch() {
           >
             <span aria-hidden className="es-lp-filter__icon"><NavIcon name="pin" size={19} /></span>
             <span className="es-lp-filter__control">Location</span>
+            <span aria-hidden className="es-lp-filter__caret"><NavIcon name="chevronDown" size={16} /></span>
           </button>
 
           <label className="es-lp-filter__field" htmlFor={`${id}-from`}>
             <span aria-hidden className="es-lp-filter__icon"><NavIcon name="calendar" size={19} /></span>
             <span className="sr-only">On or after</span>
             <span className="es-lp-filter__date">
-              {!when && <span aria-hidden className="es-lp-filter__control">Any date</span>}
+              {!when && <span aria-hidden className="es-lp-filter__control">All Dates</span>}
               <input
                 id={`${id}-from`}
                 name={when ? 'from' : undefined}
@@ -103,14 +108,13 @@ export default function HeroSearch() {
                 className={`es-lp-filter__control es-lp-filter__control--date ${when ? '' : 'es-lp-filter__control--blank'}`}
               />
             </span>
+            <span aria-hidden className="es-lp-filter__caret"><NavIcon name="chevronDown" size={16} /></span>
           </label>
         </div>
 
-        {/* The word on a desktop, a round arrow on a phone — the aria-label
-            names it either way. */}
-        <button type="submit" className="es-lp-filter__submit" aria-label="Search events">
-          <span aria-hidden className="es-lp-filter__submit-label">Search</span>
-          <span aria-hidden className="es-lp-filter__submit-icon"><NavIcon name="arrow" size={20} /></span>
+        <button type="submit" className="es-lp-filter__submit">
+          <NavIcon name="search" size={18} />
+          Search
         </button>
       </form>
 

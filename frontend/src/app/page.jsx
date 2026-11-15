@@ -1,6 +1,6 @@
 import Hero from './components/landing/Hero';
 import PopularEvents from './components/landing/PopularEvents';
-import { SearchBand, Roles, Steps } from './components/landing/Sections';
+import { HostTools, Steps } from './components/landing/Sections';
 import { Testimonials, Closing, PartnersBand } from './components/landing/Social';
 import VideoBand from './components/landing/VideoBand';
 import ChatBubble from './components/landing/ChatBubble';
@@ -12,23 +12,27 @@ import { serverFetch } from './utils/apiClient';
  * ─────────────────────────────────────────────────────────────────────────────
  * THE HOMEPAGE.
  *
- * REBUILT 2026-09-17 from the mockup the owner approved (version 3 of the blue
- * storefront review): a white page with one calm medium blue.
+ * REBUILT 2026-11-15 to the approved homepage concept ("Eventsli | Website
+ * design inspiration"): a white page, yellow highlights, coral calls to action.
  *
- *   1  hero            headline, search bar, photograph, partner logos
- *   2  search          find an event by name; the first four categories
- *   3  popular events  category tabs and the cards
- *   4  roles           who the product is for, and where each starts
+ *   1  hero            headline on a yellow highlight, the photo collage, the
+ *                      search bar; partner logos under it, if any
+ *   2  popular events  category chips (the chosen one yellow), the cards
+ *   3  host tools      "Everything you need to host an event"
+ *   4  near you        only while some city has an upcoming event
  *   5  three steps     how an organizer goes on sale
  *   6  highlights      only if there is a film
  *   7  testimonials    only if any are published
- *   8  closing         the one teal panel
+ *   8  closing         the one coral panel
  *   9  partners        the logos as tiles, above the footer; only if any
+ *
+ * The search band and "Choose your role" are gone: the hero's bar does the
+ * first, and the host strip says the second in the concept's words.
  *
  * ── Where the words come from ────────────────────────────────────────────
  * The hero, the event-list heading, the statistics labels, the film and the
  * testimonials heading are rows in `site_content`. A phrase between asterisks
- * is painted blue; a section heading with none gets its last word painted
+ * is painted coral; a section heading with none gets its last word painted
  * instead (see Accent.jsx). The search band, the roles and the three steps are
  * in source: they are claims about what the product does.
  * ─────────────────────────────────────────────────────────────────────────────
@@ -89,14 +93,13 @@ export default async function HomePage() {
       <VisitBeacon path="/" />
 
       <Hero content={content} events={events} sponsors={sponsors} />
+      <PopularEvents copy={copy} categories={categories} events={events} failed={failed} />
+      <HostTools />
       {/* Nearby events by default, when this browser already allows location;
           otherwise a location bar. LEFT OUT while no city has an upcoming event:
           it could only show controls that find nothing, above a "Nothing is on
           sale just yet" that already says so (owner's review, 2026-10-16). */}
       {(cities === null || cities.length > 0) && <NearbyEvents initialCities={cities} />}
-      <SearchBand categories={categories} />
-      <PopularEvents copy={copy} categories={categories} events={events} failed={failed} />
-      <Roles />
       <Steps />
       <VideoBand block={content.video} />
       <Testimonials copy={copy} testimonials={testimonials} />

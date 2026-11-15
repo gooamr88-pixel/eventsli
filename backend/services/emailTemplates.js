@@ -40,22 +40,24 @@
 /**
  * The storefront's palette (frontend `globals.css`), named the same way.
  *
- * THE BRAND GUIDE'S VALUES since 2026-10-16: Teal #0D5B5E and Light Grey
- * #F2F4F5 exactly, with the site's measured ink. SUBTLE was #8494a6, which is
- * 3.0:1 on white — the footer's 12px "why you got this" line failed the same
- * AA bar the site holds itself to. It is the site's subtle text now (5.7:1).
- * `BRAND_TINT` is the pale teal the site uses for secondary text ON the brand
- * colour (4.98:1 on it), for the ticket's header row.
+ * THE WHITE / YELLOW / CORAL BRAND since 2026-11-15 (the approved brand
+ * sheet). `BRAND` is the site's text-safe coral (--es-accent, #D61F2C): the
+ * sheet's #FF414B carries white at only 3.44:1, so a button label on it would
+ * fail AA. White on #D61F2C is 5.13:1. `HIGHLIGHT` is the sheet's yellow, used
+ * only as a fill (the bar over the masthead). `BRAND_TINT` is the pale yellow
+ * for secondary words ON the coral (4.61:1), for the ticket's header row.
+ * SUBTLE is the site's subtle text (6.2:1 on white).
  */
-const BRAND = '#0d5b5e';
-const BRAND_DARK = '#0a4b4e';
-const BRAND_TINT = '#b9d3d4';
-const INK = '#0b1617';
-const MUTED = '#45585b';
-const SUBTLE = '#566a6d';
-const LINE = '#e2e7e8';
+const BRAND = '#d61f2c';
+const BRAND_DARK = '#b5121e';
+const BRAND_TINT = '#fff3c4';
+const HIGHLIGHT = '#ffcc00';
+const INK = '#111018';
+const MUTED = '#4a4a55';
+const SUBTLE = '#60606b';
+const LINE = '#eaeaea';
 const SURFACE = '#ffffff';
-const SUNKEN = '#f2f4f5';
+const SUNKEN = '#f5f5f5';
 const WARN_BG = '#fef6e7';
 const WARN_LINE = '#b45309';
 const DANGER_BG = '#fdecec';
@@ -164,28 +166,27 @@ function seatLabel(ticket) {
 /* ── Blocks ──────────────────────────────────────────────────────────────── */
 
 /**
- * The masthead: a teal bar, the mark, then the name in type with its tagline.
+ * The masthead: a yellow bar, the mark, then the name in type with its tagline.
  *
  * The NAME IS TEXT, not part of the image, and that is deliberate. Gmail
  * blocks images from an unknown sender by default, so a logo-as-image
  * masthead is a blank strip on the first email anybody ever gets from us —
  * which is the one that has to look legitimate.
  *
- * SET AS THE BRAND GUIDE SETS IT (2026-10-16): "Events" in ink, "li" in the
- * brand teal, and DISCOVER - BOOK - ENJOY under it — the logo lockup rebuilt
- * from text, because the real wordmark is an SVG and mail clients drop SVG.
- * The mark beside it is the framed star on a teal tile (`apple-icon.png`,
+ * SET AS THE LOGO SETS IT (2026-11-15): "Eventsli" in a heavy italic
+ * near-black, and DISCOVER - BOOK - ENJOY under it — the lockup rebuilt from
+ * text, because the real wordmark is an SVG and mail clients drop SVG. The
+ * mark beside it is the yellow ticket on a near-black tile (`apple-icon.png`,
  * rendered from the same paths as the site's logo by scripts/brandIcons.js).
  *
- * The 4px bar above is the guide's own motif: every page of it opens under
- * one. A filled cell rather than a border, because Outlook draws a border-top
+ * The 4px bar above is the brand yellow, the sheet's highlight colour. A filled cell rather than a border, because Outlook draws a border-top
  * on a rounded table as a square line poking out of the corners.
  */
 function header() {
   const logo = `${siteUrl()}/apple-icon.png`;
   return `
   <tr>
-    <td style="height:4px;line-height:4px;font-size:0;background-color:${BRAND}" bgcolor="${BRAND}">&nbsp;</td>
+    <td style="height:4px;line-height:4px;font-size:0;background-color:${HIGHLIGHT}" bgcolor="${HIGHLIGHT}">&nbsp;</td>
   </tr>
   <tr>
     <td style="padding:24px 32px 20px;background-color:${SURFACE}">
@@ -196,7 +197,7 @@ function header() {
                  style="display:block;width:34px;height:34px;border:0;border-radius:8px" />
           </td>
           <td style="vertical-align:middle">
-            <span style="display:block;font-family:${FONT};font-size:20px;line-height:1.1;font-weight:700;letter-spacing:-0.02em;color:${INK}">Events<span style="color:${BRAND}">li</span></span>
+            <span style="display:block;font-family:${FONT};font-size:21px;line-height:1.1;font-weight:800;font-style:italic;letter-spacing:-0.02em;color:${INK}">Eventsli</span>
             <span style="display:block;margin-top:2px;font-family:${FONT};font-size:9px;line-height:1.2;font-weight:600;letter-spacing:0.14em;color:${MUTED}">DISCOVER - BOOK - ENJOY</span>
           </td>
         </tr>
@@ -381,10 +382,10 @@ function ticketCard(ticket, { index, total } = {}) {
   const label = seatLabel(ticket);
   const counter = total > 1 ? `Ticket ${index + 1} of ${total}` : 'Admits one';
 
-  // THE BRAND GUIDE'S TICKET, in what a mail client can draw: a teal header row
-  // standing in for the stub (the counter, and the ticket type when there is
-  // one), then the seat, the code on white, and "Scan at entry". The code never
-  // sits on teal — a scanner reads contrast, not branding.
+  // THE TICKET, in what a mail client can draw: a coral header row standing in
+  // for the stub (the counter, and the ticket type when there is one), then
+  // the seat, the code on white, and "Scan at entry". The code never sits on
+  // coral — a scanner reads contrast, not branding.
   return `
   <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"
          style="width:100%;margin:0 0 14px;background-color:${SURFACE};border:1px solid ${LINE};border-radius:12px;overflow:hidden">

@@ -28,7 +28,7 @@ export function Splash() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.surface },
   brand: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingBottom: '42%' },
-  word: { fontFamily: 'DMSans_700Bold', fontSize: 46, lineHeight: 54, marginTop: space.lg },
+  word: { fontFamily: 'Montserrat_800ExtraBold', fontSize: 46, lineHeight: 54, marginTop: space.lg },
   scanner: { fontSize: 24, lineHeight: 28, marginTop: -2 },
   tagline: { marginTop: space.xl, fontSize: 17, lineHeight: 24 },
   scene: { position: 'absolute', left: 0, right: 0, bottom: 0 },

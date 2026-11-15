@@ -125,7 +125,7 @@ export default function ZoneShape({
  * in white. It is the one thing every seat on the map is chosen in relation
  * to, so it is drawn as the room's anchor rather than as one more pale box.
  * Fixed colours, not theme roles: it is a picture of a stage, dark in both
- * themes, and the white label on #12262a measures 15:1.
+ * themes, and the white label on #1d1c26 measures 16:1.
  */
 function StageShowcase({ box, label }) {
   const id = `stage-${Math.round(box.cx)}-${Math.round(box.cy)}`;
@@ -135,12 +135,12 @@ function StageShowcase({ box, label }) {
     <g transform={`translate(${box.cx} ${box.cy}) rotate(${box.rotation})`} aria-hidden="true" style={{ pointerEvents: 'none' }}>
       <defs>
         <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#1d3a3e" />
-          <stop offset="1" stopColor="#0b1a1c" />
+          <stop offset="0" stopColor="#2a2936" />
+          <stop offset="1" stopColor="#111018" />
         </linearGradient>
       </defs>
       <rect x={-box.w / 2} y={-box.h / 2} width={box.w} height={box.h} rx={r} fill={`url(#${id})`} />
-      <rect x={-box.w / 2 + r} y={box.h / 2 - 3.5} width={Math.max(0, box.w - r * 2)} height={3.5} rx={1.75} fill="#5fe0d6" />
+      <rect x={-box.w / 2 + r} y={box.h / 2 - 3.5} width={Math.max(0, box.w - r * 2)} height={3.5} rx={1.75} fill="#ffcc00" />
       <text
         x={0} y={size * 0.36} textAnchor="middle" fill="#ffffff"
         style={{ fontSize: size, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase' }}

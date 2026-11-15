@@ -157,7 +157,7 @@ const styles = StyleSheet.create({
   rows: { paddingVertical: space.xs },
   door: {
     flexDirection: 'row', alignItems: 'center', gap: space.md, padding: space.md,
-    borderRadius: radius.lg, backgroundColor: colors.mint,
+    borderRadius: radius.lg, backgroundColor: colors.wash,
   },
   doorIcon: {
     width: 44, height: 44, borderRadius: radius.md, backgroundColor: colors.accent,

@@ -192,7 +192,7 @@ const BADGES: Record<Badge, { icon: IconName; glyph: string; halo: string; disc?
   warning: { icon: 'history', glyph: colors.warningGlyph, halo: colors.warningHalo },
   danger: { icon: 'close', glyph: colors.dangerGlyph, halo: colors.dangerHalo, ring: true },
   hold: { icon: 'clock', glyph: colors.hold, halo: colors.holdSoft },
-  info: { icon: 'offline', glyph: colors.accent, halo: colors.mint },
+  info: { icon: 'offline', glyph: colors.accent, halo: colors.wash },
 };
 
 /**
@@ -269,7 +269,7 @@ export function Section({
   );
 }
 
-/** A round avatar: the person's initials on a soft teal, or a person glyph when there is no name. */
+/** A round avatar: the person's initials on a soft coral, or a person glyph when there is no name. */
 export function Avatar({ name, size = 40, tone = 'soft' }: { name?: string | null; size?: number; tone?: 'soft' | 'solid' }) {
   const letters = initials(name);
   const solid = tone === 'solid';
@@ -278,7 +278,7 @@ export function Avatar({ name, size = 40, tone = 'soft' }: { name?: string | nul
       accessible={false}
       style={{
         width: size, height: size, borderRadius: size / 2,
-        backgroundColor: solid ? colors.accent : colors.mint,
+        backgroundColor: solid ? colors.accent : colors.wash,
         alignItems: 'center', justifyContent: 'center',
       }}
     >
@@ -313,7 +313,7 @@ export function InfoRow({
 const PHASE: Record<EventPhase, { bg: string; fg: string; dot: string }> = {
   live: { bg: colors.successHalo, fg: colors.success, dot: colors.successStrong },
   soon: { bg: colors.warningHalo, fg: colors.warning, dot: colors.warningStrong },
-  upcoming: { bg: colors.mint, fg: colors.accent, dot: colors.accent },
+  upcoming: { bg: colors.wash, fg: colors.accent, dot: colors.accent },
   ended: { bg: colors.bgSunken, fg: colors.muted, dot: colors.subtle },
 };
 
@@ -376,7 +376,7 @@ const styles = StyleSheet.create({
   bit: { position: 'absolute', left: 97, top: 67, width: 7, height: 3.5, borderRadius: 2 },
   empty: { alignItems: 'center', gap: space.sm, paddingVertical: space.xxl, paddingHorizontal: space.lg },
   emptyIcon: {
-    width: 56, height: 56, borderRadius: 28, backgroundColor: colors.mint,
+    width: 56, height: 56, borderRadius: 28, backgroundColor: colors.wash,
     alignItems: 'center', justifyContent: 'center', marginBottom: space.xs,
   },
   section: { gap: space.sm },

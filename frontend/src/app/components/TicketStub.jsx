@@ -5,7 +5,7 @@ import NavIcon from './shell/NavIcon';
 /**
  * One ticket, with the code that opens the door.
  *
- * REDRAWN 2026-10-16 after the brand guide's "Digital ticket example": a teal
+ * REDRAWN 2026-10-16 after the brand guide's "Digital ticket example": a coral (2026-11-15; teal before)
  * stub carrying the reversed logo and a thank-you line, the details in the
  * middle (event, time, venue, then ticket type and seat as labelled facts), and
  * a perforated tear-off holding the code and "Scan at entry". It was a plain
@@ -14,7 +14,7 @@ import NavIcon from './shell/NavIcon';
  * WHAT THE REDESIGN WAS NOT ALLOWED TO TOUCH is the code itself. The QR stays
  * on a white pad at full size with nothing behind it, because a cheap fixed-
  * focus scanner at a dark door reads contrast and quiet margin, not branding.
- * The teal is all on the stub, never under the code.
+ * The coral is all on the stub, never under the code.
  *
  * The QR is a plain <img> pointing at `GET /public/qr/:token`, which the API
  * renders itself after checking the signature. It is NOT generated in the
@@ -61,7 +61,7 @@ export default function TicketStub({ ticket, qrSrc, timeZone = null, prominent =
     // container query about itself.
     <article className={`es-ticket-stub es-tkt ${prominent ? 'es-tkt--door' : ''}`}>
       <div className="es-tkt__card">
-        {/* THE STUB — the guide's reversed logo on teal. Decorative throughout:
+        {/* THE STUB — the reversed logo on coral. Decorative throughout:
             the thank-you line is a courtesy, and a screen reader is better served
             starting at the event than at a slogan. */}
         <div className="es-tkt__stub" aria-hidden="true">

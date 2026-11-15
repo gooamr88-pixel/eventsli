@@ -191,7 +191,7 @@ export function seatName(seat, tableLabel, index) {
 }
 
 /**
- * A colour per ticket type, most expensive first: gold, then the brand's teal,
+ * A colour per ticket type, most expensive first: gold, then teal,
  * then hues far enough apart to tell at seat size. These fill seats (shapes,
  * not text), and every one sits on both the light floor and the dark 3D room.
  */

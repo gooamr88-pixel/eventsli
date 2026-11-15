@@ -7,7 +7,7 @@
   "scope": "/gate",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#0d5b5e",
+  "theme_color": "#111018",
   "orientation": "any",
   "categories": ["utilities", "productivity"],
   "icons": [

@@ -4,8 +4,8 @@ import DoorShowcase, { ScanMini } from './DoorShowcase';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
- * The storefront's bands that make claims about the PRODUCT: the search band,
- * who it is for, and how an organizer goes on sale.
+ * The storefront's bands that make claims about the PRODUCT: the tools an
+ * organizer gets, and how they go on sale.
  *
  * REBUILT 2026-09-17 from the approved mockup. Their words are in source, not
  * in the CMS, for the reason the FAQ's were: "Door staff — scan, even offline"
@@ -14,85 +14,40 @@ import DoorShowcase, { ScanMini } from './DoorShowcase';
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
-// ─── Search ─────────────────────────────────────────────────────────────────
-/** A GET form to /events, like the hero's: works before hydration, and the
- *  result is a URL somebody can share. The chips are the admin's first four
- *  categories — real filters, not suggested searches nobody wrote. */
-export function SearchBand({ categories }) {
-  return (
-    <section className="es-band--sunken es-lp-find fx-section fx-section--sm">
-      <div className="es-lp-find__inner">
-        <p className="es-lp-kicker es-lp-kicker--center">Search</p>
-        <h2 className="es-lp-title">
-          Looking for something <span className="es-lp-accent">special?</span>
-        </h2>
-        <p className="es-lp-lede">Type an event, an artist or a venue.</p>
-
-        <form action="/events" method="get" role="search" className="es-lp-findbar">
-          <span aria-hidden className="es-lp-findbar__icon"><NavIcon name="search" size={20} /></span>
-          <label htmlFor="es-lp-find" className="sr-only">Event, artist or venue</label>
-          <input
-            id="es-lp-find"
-            name="q"
-            type="search"
-            autoComplete="off"
-            placeholder="Event, artist or venue"
-            className="es-lp-findbar__input"
-          />
-          <button type="submit" className="es-lp-findbar__submit">Search</button>
-        </form>
-
-        {categories.length > 0 && (
-          <div className="es-lp-chips">
-            <span>Popular:</span>
-            {categories.slice(0, 4).map((c) => (
-              <Link key={c.slug} href={`/events?category=${encodeURIComponent(c.slug)}`}>{c.label}</Link>
-            ))}
-          </div>
-        )}
-      </div>
-    </section>
-  );
-}
-
-// ─── Choose your role ───────────────────────────────────────────────────────
+// ─── Everything you need to host an event ───────────────────────────────────
 /**
- * The people this product actually serves, each linking to where their part of
- * it starts. A tile that leads to a page about something the product does not
- * do is the kind of placeholder that ships, so every one of these is real.
+ * The concept's strip under the event list (2026-11-15): a heading with the
+ * coral bar and four tools, each a white card with a coral icon.
+ *
+ * THE CONCEPT'S FOURTH TILE WAS "VENDORS" — vendor applications and a
+ * marketplace — and this product has neither. A tile promising a feature that
+ * does not exist is the placeholder that ships, so the fourth tile is the seat
+ * map, which is real and is the thing this product does that others do not.
+ * Every tile here links to where the claim is explained.
  */
-const ROLES = [
-  { label: 'Organizer', desc: 'Sell tickets & tables', href: '/register/organizer', icon: 'briefcase' },
-  { label: 'Ticket buyer', desc: 'Pick your seat', href: '/events', icon: 'ticket' },
-  { label: 'Door staff', desc: 'Scan, even offline', href: '/gate', icon: 'scan' },
-  { label: 'Group booker', desc: 'A whole table at once', href: '/events', icon: 'users' },
-  { label: 'Sponsor', desc: 'Meet your audience', href: '/contact', icon: 'star' },
-  { label: 'Venue partner', desc: 'List your space', href: '/contact', icon: 'map' },
+const HOST_TOOLS = [
+  { name: 'Ticketing', desc: 'Sell tickets online and manage attendees.', icon: 'ticket', href: '/how-it-works' },
+  { name: 'QR Check-in', desc: 'Fast and secure entry with QR scanning — even offline.', icon: 'qr', href: '/how-it-works' },
+  { name: 'Sponsors', desc: 'Showcase sponsors on your event page.', icon: 'handshake', href: '/why-us' },
+  { name: 'Seat maps', desc: 'Let buyers pick their exact seat or table.', icon: 'map', href: '/why-us' },
 ];
 
-export function Roles() {
+export function HostTools() {
   return (
-    <section id="roles" className="es-band fx-section fx-section--sm">
-      <div className="fx-container fx-container--xl">
-        <div className="es-lp-head">
-          <div>
-            <p className="es-lp-kicker">Built for everyone</p>
-            <h2 className="es-lp-title">Choose <span className="es-lp-accent">your role</span></h2>
-            <p className="es-lp-lede">From the person selling the tickets to the one scanning them at the door.</p>
-          </div>
+    <section id="host" className="es-band es-host fx-section fx-section--sm">
+      <div className="fx-container fx-container--xl es-host__inner">
+        <div className="es-host__head">
+          <h2 className="es-lp-title es-lp-title--bar es-host__title">Everything you need to host an event</h2>
+          <p className="es-host__lede">Powerful tools for organizers, sponsors, and door staff — all in one platform.</p>
         </div>
-
-        <ul className="es-lp-roles">
-          {ROLES.map((role) => (
-            <li key={role.label}>
-              <Link href={role.href} className="es-lp-role">
-                <span aria-hidden className="es-lp-role__icon"><NavIcon name={role.icon} size={24} /></span>
-                <span className="es-lp-role__name">
-                  <span>
-                    {role.label}
-                    <span className="es-lp-role__desc">{role.desc}</span>
-                  </span>
-                  <span aria-hidden className="es-lp-role__arrow"><NavIcon name="arrowUpRight" size={14} /></span>
+        <ul className="es-host__list">
+          {HOST_TOOLS.map((tool) => (
+            <li key={tool.name}>
+              <Link href={tool.href} className="es-host__tool">
+                <span aria-hidden className="es-host__icon"><NavIcon name={tool.icon} size={26} /></span>
+                <span>
+                  <span className="es-host__name">{tool.name}</span>
+                  <span className="es-host__desc">{tool.desc}</span>
                 </span>
               </Link>
             </li>

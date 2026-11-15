@@ -91,7 +91,7 @@
     "android": {
       "package": "com.eventsli.checkin",
       "adaptiveIcon": {
-        "backgroundColor": "#0D5B5E",
+        "backgroundColor": "#111018",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },

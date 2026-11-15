@@ -21,7 +21,7 @@ export function Ring({
       accessibilityLabel={`${label} ${sublabel}, ${Math.round(share * 100)} percent`}
     >
       <Svg width={size} height={size} style={{ position: 'absolute' }}>
-        <Circle cx={size / 2} cy={size / 2} r={r} stroke={colors.teal100} strokeWidth={stroke} fill="none" />
+        <Circle cx={size / 2} cy={size / 2} r={r} stroke={colors.coral100} strokeWidth={stroke} fill="none" />
         <Circle
           cx={size / 2}
           cy={size / 2}
@@ -65,7 +65,7 @@ export function Bars({
 export function ShareBar({ value, total, color = colors.accent }: { value: number; total: number; color?: string }) {
   const share = total > 0 ? Math.min(1, value / total) : 0;
   return (
-    <View style={{ height: 8, borderRadius: 4, backgroundColor: colors.teal50, overflow: 'hidden' }}>
+    <View style={{ height: 8, borderRadius: 4, backgroundColor: colors.coral50, overflow: 'hidden' }}>
       <View style={{ width: `${share * 100}%`, height: '100%', backgroundColor: color, borderRadius: 4 }} />
     </View>
   );

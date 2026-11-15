@@ -67,21 +67,20 @@ const BLOCKS = {
     label: 'Hero',
     fields: {
       eyebrow:      { type: TEXT, max: 60,  label: 'Eyebrow', default: 'More than events' },
-      title:        { type: TEXT, max: 80,  label: 'Headline', default: 'Extraordinary Moments' },
-      titleAccent:  { type: TEXT, max: 40,  label: 'Headline accent', default: 'Live Here', optional: true },
+      title:        { type: TEXT, max: 80,  label: 'Headline', default: 'Discover Events.' },
+      titleAccent:  { type: TEXT, max: 40,  label: 'Headline accent', default: 'Make Memories.', optional: true },
       subtitle:     { type: TEXT, max: 120, label: 'Subtitle', default: 'Discover. Create. Attend. Celebrate.', optional: true },
       body:         { type: LONGTEXT, max: 320, label: 'Supporting line', optional: true,
-        default: 'Eventsli brings people closer through unforgettable experiences — '
-          + 'from intimate gatherings to sold-out nights.' },
+        default: 'Find events near you, book tickets, or host your own.' },
       script:       { type: TEXT, max: 60, label: 'Script accent', optional: true,
         default: 'Good events, brighter people' },
       imageUrl:     { type: IMAGE, label: 'Background image (desktop)', optional: true },
       imagePath:    { type: TEXT, max: 400, label: 'Background image key', optional: true, internal: true },
       mobileImageUrl:  { type: IMAGE, label: 'Background image (mobile)', optional: true },
       mobileImagePath: { type: TEXT, max: 400, label: 'Mobile image key', optional: true, internal: true },
-      primaryCtaLabel:   { type: TEXT, max: 32, label: 'Primary button', default: 'Browse events' },
+      primaryCtaLabel:   { type: TEXT, max: 32, label: 'Primary button', default: 'Explore Events' },
       primaryCtaHref:    { type: HREF, label: 'Primary button link', default: '/events' },
-      secondaryCtaLabel: { type: TEXT, max: 32, label: 'Secondary button', default: 'Start selling', optional: true },
+      secondaryCtaLabel: { type: TEXT, max: 32, label: 'Secondary button', default: 'Create an Event', optional: true },
       secondaryCtaHref:  { type: HREF, label: 'Secondary button link', default: '/register', optional: true },
       /**
        * THE BADGE ABOVE THE HEADLINE — "NEW · Pick your exact seat on the
@@ -201,10 +200,9 @@ const BLOCKS = {
   sections: {
     label: 'Section headings',
     fields: {
-      featuredEyebrow: { type: TEXT, max: 60, label: 'Featured eyebrow', default: 'Handpicked for you' },
-      featuredTitle:   { type: TEXT, max: 80, label: 'Featured heading', default: 'Featured events' },
-      featuredBody:    { type: TEXT, max: 160, label: 'Featured subheading', optional: true,
-        default: 'Curated experiences. Unforgettable moments.' },
+      featuredEyebrow: { type: TEXT, max: 60, label: 'Featured eyebrow', optional: true },
+      featuredTitle:   { type: TEXT, max: 80, label: 'Featured heading', default: 'Popular Events Near You' },
+      featuredBody:    { type: TEXT, max: 160, label: 'Featured subheading', optional: true },
       sponsorsEyebrow: { type: TEXT, max: 60, label: 'Sponsors eyebrow', default: 'Our sponsors' },
       sponsorsTitle:   { type: TEXT, max: 80, label: 'Sponsors heading', default: 'Trusted by leading brands' },
       testimonialsEyebrow: { type: TEXT, max: 60, label: 'Testimonials eyebrow', default: 'What people say' },

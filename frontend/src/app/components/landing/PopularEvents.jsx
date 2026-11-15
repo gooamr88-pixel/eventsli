@@ -21,6 +21,11 @@ import Accent from './Accent';
  * Vendors" are kinds of listing this product does not have, and a tab that
  * leads nowhere is worse than no tab.
  *
+ * RESTYLED 2026-11-15 to the homepage concept: the categories are chips with
+ * an icon each, the chosen one on the brand yellow; then a heading with the
+ * coral bar beside it and "View All Events" opposite. Only the first seven
+ * categories are chips — "More" goes to /events, where all of them are.
+ *
  * Toggle buttons with `aria-pressed`, not an ARIA tablist: a tablist promises
  * arrow-key navigation and a tabpanel relationship, and a filter that
  * re-renders one list is neither.
@@ -48,36 +53,49 @@ export default function PopularEvents({ copy, categories, events, failed }) {
 
   const current = results[active];
   const activeLabel = categories.find((c) => c.slug === active)?.label;
+  const chips = [{ slug: '', label: 'All Events' }, ...categories.slice(0, 7)];
 
   return (
-    <section id="events" className="es-band fx-section">
+    <section id="events" className="es-band es-popular fx-section fx-section--tight-bottom">
       <div className="fx-container fx-container--xl">
-        <div className="es-lp-head">
-          <div>
-            {copy.featuredEyebrow && <p className="es-lp-kicker">{copy.featuredEyebrow}</p>}
-            <h2 className="es-lp-title"><Accent text={copy.featuredTitle || 'Popular events'} lastWord /></h2>
-            {copy.featuredBody && <p className="es-lp-lede"><Accent text={copy.featuredBody} /></p>}
-          </div>
-          <Link href="/events" className="es-lp-link">
-            Browse all events <NavIcon name="arrow" size={16} />
-          </Link>
-        </div>
-
         {categories.length > 0 && (
-          <div className="es-lp-tabs" role="group" aria-label="Filter by category">
-            {[{ slug: '', label: 'All events' }, ...categories].map((c) => (
+          <div className="es-catchips" role="group" aria-label="Filter by category">
+            {chips.map((c) => (
               <button
                 key={c.slug || 'all'}
                 type="button"
                 aria-pressed={active === c.slug}
                 onClick={() => setActive(c.slug)}
-                className="es-lp-tabs__tab"
+                className="es-catchip"
               >
+                <NavIcon name={categoryIcon(c.slug)} size={18} />
                 {c.label}
               </button>
             ))}
+            {categories.length > 7 && (
+              <Link href="/events" className="es-catchip">
+                <NavIcon name="dots" size={18} />
+                More
+              </Link>
+            )}
           </div>
         )}
+
+        <div className="es-lp-head">
+          <div>
+            {copy.featuredEyebrow && <p className="es-lp-kicker">{copy.featuredEyebrow}</p>}
+            <h2 className="es-lp-title es-lp-title--bar">
+              <Accent text={copy.featuredTitle || 'Popular Events Near You'} />
+            </h2>
+            {copy.featuredBody && <p className="es-lp-lede"><Accent text={copy.featuredBody} /></p>}
+          </div>
+          <Link
+            href={active ? `/events?category=${encodeURIComponent(active)}` : '/events'}
+            className="es-lp-link"
+          >
+            View All Events <NavIcon name="arrow" size={16} />
+          </Link>
+        </div>
 
         {!current ? (
           <ul className="es-lp-cards" aria-busy="true">
@@ -93,17 +111,30 @@ export default function PopularEvents({ copy, categories, events, failed }) {
           <Empty failed={current.failed} label={activeLabel} />
         )}
 
-        <div className="es-lp-center mt-9">
-          <Link
-            href={active ? `/events?category=${encodeURIComponent(active)}` : '/events'}
-            className="es-lp-btn es-lp-btn--ghost"
-          >
-            View all events <NavIcon name="arrow" size={16} />
-          </Link>
-        </div>
       </div>
     </section>
   );
+}
+
+/**
+ * The icon for a category chip. The categories are the admin's, so this is a
+ * lookup with a fallback: a category added later still gets the ticket.
+ */
+const CATEGORY_ICONS = {
+  '': 'ticket',
+  music: 'music', concert: 'music', concerts: 'music',
+  festival: 'tent', festivals: 'tent', outdoors: 'tent',
+  boat: 'ship', boat_party: 'ship', boat_parties: 'ship', cruise: 'ship',
+  arts: 'masks', theater: 'masks', theatre: 'masks', culture: 'masks',
+  comedy: 'mic', nightlife: 'sparkle', dance: 'sparkle', gala: 'star',
+  sports: 'ball', food_drink: 'food', film: 'film',
+  business: 'briefcase', conference: 'users', conferences: 'users', exhibition: 'building', exhibitions: 'building',
+  education: 'bulb', tech: 'laptop', community: 'users', family: 'home',
+  charity: 'heart', wellness: 'pulse', fashion: 'sparkle', holiday: 'star', faith: 'star',
+  other: 'dots',
+};
+export function categoryIcon(slug) {
+  return CATEGORY_ICONS[slug] || 'ticket';
 }
 
 /** Says WHO failed: "we could not load" is about us, "nothing on sale" is a

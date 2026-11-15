@@ -106,8 +106,8 @@ export default function Scan() {
         <Text color={colors.white} align="center" style={styles.hint}>{'Scan guest QR code\nto check in'}</Text>
         {me.data?.permissions.manualCheckIn && (
           <Pressable accessibilityRole="button" onPress={() => router.push('/attendees')} style={styles.manual} hitSlop={6}>
-            <Icon name="search" size={16} color={colors.teal100} />
-            <Text variant="small" weight="semibold" color={colors.teal100}>No code? Find the guest by name</Text>
+            <Icon name="search" size={16} color={colors.onDark} />
+            <Text variant="small" weight="semibold" color={colors.onDark}>No code? Find the guest by name</Text>
           </Pressable>
         )}
       </SafeAreaView>
@@ -146,7 +146,7 @@ function TestCodeEntry({ onCode }: { onCode: (data: string) => void }) {
       testID="e2e-code"
       accessibilityLabel="Test code (test builds only)"
       placeholder="Test builds: type or paste a code"
-      placeholderTextColor={colors.teal200}
+      placeholderTextColor={colors.onDarkMuted}
       value={code}
       onChangeText={setCode}
       autoCapitalize="none"

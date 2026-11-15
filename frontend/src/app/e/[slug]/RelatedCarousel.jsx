@@ -14,7 +14,7 @@ import { isDateOnly, formatDateOnly } from '../../lib/dateOnly';
  * "You might also like" — the owner's design (2026-11-10, image 2).
  *
  * A carousel of wide cards: neighbours peek in at the edges, a white arrow
- * steps back and a teal one steps on, and a dot per card says where you are.
+ * steps back and a coral one steps on, and a dot per card says where you are.
  * Each card: the photo with a date badge and a heart, a soft wave where it
  * meets the card, the title, date and venue on one line, then the category
  * and the price with a round arrow.

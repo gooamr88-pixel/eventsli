@@ -5,21 +5,22 @@ import { Text } from './Text';
 import { colors } from './theme';
 
 /**
- * The scanner's mark from the owner's mockup: a teal rounded square around a
- * white rounded-square frame. The same drawing is exported to the native
+ * The scanner's mark from the owner's mockup: a near-black rounded square
+ * around a yellow rounded-square frame (white / yellow / coral brand,
+ * 2026-11-15 — the website's gate icon in the same colours). The same drawing is exported to the native
  * splash image (assets/images/splash-icon.png, scripts/splash-icon.js).
  */
 export const SCANNER_MARK_SVG = (fill: string) => `
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
   <rect x="0" y="0" width="100" height="100" rx="24" fill="${fill}"/>
-  <rect x="27" y="27" width="46" height="46" rx="11" fill="none" stroke="#ffffff" stroke-width="10"/>
+  <rect x="27" y="27" width="46" height="46" rx="11" fill="none" stroke="#ffcc00" stroke-width="10"/>
 </svg>`;
 
-export function ScannerMark({ size = 48, color = colors.accent }: { size?: number; color?: string }) {
+export function ScannerMark({ size = 48, color = colors.night }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 100 100" accessible={false}>
       <Rect x={0} y={0} width={100} height={100} rx={24} fill={color} />
-      <Rect x={27} y={27} width={46} height={46} rx={11} fill="none" stroke={colors.white} strokeWidth={10} />
+      <Rect x={27} y={27} width={46} height={46} rx={11} fill="none" stroke={colors.highlight} strokeWidth={10} />
     </Svg>
   );
 }
@@ -44,17 +45,17 @@ export function SkylineScene({ width, height }: { width: number; height: number 
     <Svg width={width} height={height} viewBox="0 0 400 380" preserveAspectRatio="xMidYMax slice" accessible={false}>
       <Defs>
         <LinearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
-          <Stop offset="0" stopColor="#dff1ef" />
-          <Stop offset="0.55" stopColor="#f7dccb" />
+          <Stop offset="0" stopColor="#fff3c4" />
+          <Stop offset="0.55" stopColor="#ffd9c2" />
           <Stop offset="1" stopColor="#f1c6ad" />
         </LinearGradient>
         <LinearGradient id="water" x1="0" y1="0" x2="0" y2="1">
-          <Stop offset="0" stopColor="#2c6b6e" />
-          <Stop offset="1" stopColor="#0b3d40" />
+          <Stop offset="0" stopColor="#3a2f4a" />
+          <Stop offset="1" stopColor="#111018" />
         </LinearGradient>
         <LinearGradient id="wave" x1="0" y1="0" x2="1" y2="0">
-          <Stop offset="0" stopColor="#b3d8d9" />
-          <Stop offset="1" stopColor="#dff1ef" />
+          <Stop offset="0" stopColor="#ffc2c6" />
+          <Stop offset="1" stopColor="#fff1f2" />
         </LinearGradient>
       </Defs>
       {/* The sky, inside the big wave */}

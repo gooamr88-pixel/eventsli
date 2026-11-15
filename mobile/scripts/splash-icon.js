@@ -15,8 +15,8 @@ const sharp = require('sharp');
 
 const SVG = `
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="1024" height="1024">
-  <rect x="0" y="0" width="100" height="100" rx="24" fill="#0d5b5e"/>
-  <rect x="27" y="27" width="46" height="46" rx="11" fill="none" stroke="#ffffff" stroke-width="10"/>
+  <rect x="0" y="0" width="100" height="100" rx="24" fill="#111018"/>
+  <rect x="27" y="27" width="46" height="46" rx="11" fill="none" stroke="#ffcc00" stroke-width="10"/>
 </svg>`;
 
 const out = path.join(__dirname, '..', 'assets', 'images', 'splash-icon.png');

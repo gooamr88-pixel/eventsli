@@ -95,7 +95,7 @@ export const dialog = {
 };
 
 const TONE: Record<DialogTone, { fg: string; halo: string; icon: IconName }> = {
-  info: { fg: colors.accent, halo: colors.mint, icon: 'info' },
+  info: { fg: colors.accent, halo: colors.wash, icon: 'info' },
   success: { fg: colors.success, halo: colors.successHalo, icon: 'check' },
   warning: { fg: colors.warningGlyph, halo: colors.warningHalo, icon: 'alert' },
   danger: { fg: colors.dangerGlyph, halo: colors.dangerHalo, icon: 'alert' },
@@ -210,7 +210,7 @@ function ActionsView({ spec }: { spec: ActionsSpec & { id: number } }) {
             onPress={() => choose(o)}
             style={({ pressed }) => [styles.option, i > 0 && styles.optionRule, pressed && !o.disabled && styles.pressed, o.disabled && styles.disabled]}
           >
-            <View style={[styles.optionIcon, { backgroundColor: o.danger ? colors.dangerHalo : colors.mint }]}>
+            <View style={[styles.optionIcon, { backgroundColor: o.danger ? colors.dangerHalo : colors.wash }]}>
               <Icon name={o.icon} size={20} color={o.danger ? colors.dangerGlyph : colors.accent} />
             </View>
             <View style={{ flex: 1, gap: 1 }}>

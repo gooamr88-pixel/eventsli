@@ -58,7 +58,7 @@ export function Button({
 const PALETTE = {
   primary: { bg: colors.accent, pressed: colors.accentPressed, fg: colors.onAccent, border: colors.accent },
   // The mockup's outline button: View Details, Cancel.
-  secondary: { bg: colors.surface, pressed: colors.teal50, fg: colors.accent, border: colors.accent },
+  secondary: { bg: colors.surface, pressed: colors.coral50, fg: colors.accent, border: colors.accent },
   ghost: { bg: 'transparent', pressed: colors.bgSunken, fg: colors.accent, border: 'transparent' },
   danger: { bg: colors.surface, pressed: colors.dangerSoft, fg: colors.danger, border: colors.border },
   // The confirming button of a destructive dialog: Sign out, Leave.

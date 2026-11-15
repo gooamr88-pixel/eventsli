@@ -122,7 +122,7 @@ you were on, even if the screen looked right.
 ### A. Launch
 | # | Do | Expect |
 |---|---|---|
-| A1 | Open the app | White splash with the teal mark, then the **Eventsli Scanner** opening screen ("Event Check-in Made Simple", the city at the bottom), then sign-in |
+| A1 | Open the app | White splash with the scanner mark (yellow frame on near-black), then the **Eventsli Scanner** opening screen ("Event Check-in Made Simple", the city at the bottom), then sign-in |
 | A2 | Look for "Update required" | Not shown |
 
 ### B. Sign in

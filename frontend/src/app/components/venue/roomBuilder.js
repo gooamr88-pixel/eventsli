@@ -31,7 +31,7 @@ export const MOOD_STYLE = Object.freeze({
 });
 
 /** A sprite of text on a rounded plate: section badges, zone names, STAGE. */
-export function makeLabel(THREE, text, { bg = 'rgba(8,24,26,0.82)', fg = '#ffffff', height = 1.4, weight = 700 } = {}) {
+export function makeLabel(THREE, text, { bg = 'rgba(17,16,24,0.82)', fg = '#ffffff', height = 1.4, weight = 700 } = {}) {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
   const px = 64;
@@ -69,13 +69,13 @@ function screenTexture(THREE, title) {
   canvas.height = 400;
   const ctx = canvas.getContext('2d');
   const g = ctx.createRadialGradient(512, 420, 40, 512, 260, 620);
-  g.addColorStop(0, '#7ff5e8');
-  g.addColorStop(0.35, '#1aa6a3');
-  g.addColorStop(1, '#03181a');
+  g.addColorStop(0, '#ffd94d');
+  g.addColorStop(0.35, '#ff414b');
+  g.addColorStop(1, '#16070b');
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, 1024, 400);
   for (let i = 0; i < 9; i += 1) {
-    ctx.strokeStyle = `rgba(160,255,245,${0.05 + (i % 3) * 0.03})`;
+    ctx.strokeStyle = `rgba(255,230,160,${0.05 + (i % 3) * 0.03})`;
     ctx.lineWidth = 18;
     ctx.beginPath();
     ctx.moveTo(512, 420);
@@ -423,7 +423,7 @@ function addZone(THREE, group, z, scene, style, title, animated, zoneLabels) {
   );
   group.add(placeFlat(THREE, slab, z, 0.03));
   if (z.kind !== 'aisle') {
-    const tag = makeLabel(THREE, label, { height: 0.5, weight: 600, bg: 'rgba(8,24,26,0.6)' });
+    const tag = makeLabel(THREE, label, { height: 0.5, weight: 600, bg: 'rgba(17,16,24,0.6)' });
     tag.position.set(z.x, 0.6, z.z);
     group.add(tag);
     zoneLabels.push(tag);

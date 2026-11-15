@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { formatMoneyCompact } from '../utils/money';
-import { categoryLabel } from '../lib/categories';
 import NavIcon from './shell/NavIcon';
 import SaveEventButton from './SaveEventButton';
 import { isDateOnly, formatDateOnly } from '../lib/dateOnly';
@@ -19,6 +18,11 @@ import { isDateOnly, formatDateOnly } from '../lib/dateOnly';
  * (weekday · time) and where. At the foot, behind a rule: the category on one
  * side and the lowest price on the other, so a row of cards lines up its
  * prices whatever the titles' lengths.
+ *
+ * RESTYLED 2026-11-15 to the homepage concept: the heart on the artwork, the
+ * title, the place behind a coral pin, and at the foot the price opposite a
+ * coral "Get Tickets" pill. The pill is a SPAN, styled as a button — the card
+ * is already the link, and it says where the link goes.
  *
  * The whole card is ONE link. There is no button inside it: an <a> or <button>
  * inside a link is invalid HTML, and two targets on one card is one more than
@@ -67,6 +71,13 @@ export function priceBlock(event) {
   const low = Math.min(...valid);
   if (low === 0) return { label: 'Tickets', value: 'Free' };
   return { label: 'From', value: formatMoneyCompact(low, event.currency) };
+}
+
+/** What the card's pill says. Decorative — the card's link is the action. */
+export function ctaLabel(event) {
+  if (event.displayOnly) return 'Details';
+  if (event.availability?.soldOut) return 'View event';
+  return 'Get Tickets';
 }
 
 /**
@@ -144,17 +155,16 @@ export default function EventCard({ event, priority = false, headingLevel = 3, a
         </div>
 
         <div className="es-evcard__foot">
-          <span className="es-evcard__tag">
-            {/* The database's label, which the listing now carries; the
-                fallback map only for an older payload. */}
-            {event.category ? (event.categoryLabel || categoryLabel(event.category)) : 'Event'}
-          </span>
-          {price && (
+          {price ? (
             <span className="es-evcard__price">
               {price.label}
               <b>{price.value}</b>
             </span>
-          )}
+          ) : <span />}
+          <span aria-hidden className="es-evcard__cta">
+            {ctaLabel(event)}
+            <NavIcon name="arrow" size={14} />
+          </span>
         </div>
       </div>
     </Link>

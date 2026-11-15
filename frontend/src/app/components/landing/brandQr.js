@@ -1,4 +1,4 @@
-import { MARK_FRAME, MARK_STAR } from '../brand/markPath';
+import { MARK_FRAME, MARK_STAR, MARK_VIEWBOX } from '../brand/markPath';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -8,12 +8,12 @@ import { MARK_FRAME, MARK_STAR } from '../brand/markPath';
  * "eyes" in three corners, the light/dark value at the centre of each module,
  * and a quiet margin around the whole. So:
  *   · the eyes keep their exact 7-3-1 proportions, only with rounded corners
- *     and the centre in brand teal (7:1 against white — far above what any
- *     reader needs);
+ *     and the centre in the brand coral (5.1:1 against white — far above
+ *     what any reader needs);
  *   · modules in a row are merged into one softly rounded bar — the centres a
  *     scanner samples are untouched, and the code reads as one designed object
  *     instead of a grid of pixels;
- *   · the Eventsli mark sits in a cleared 9 × 9 centre: 7% of a version-4 code,
+ *   · the Eventsli ticket sits in a cleared 9 × 9 centre: 7% of a version-4 code,
  *     well inside the 30% that error correction H recovers;
  *   · the four-module quiet zone is kept, on white, in both themes. A QR code
  *     is never inverted for dark mode: plenty of readers cannot read light on
@@ -23,8 +23,10 @@ import { MARK_FRAME, MARK_STAR } from '../brand/markPath';
  * and as an image for the real ticket component (`brandQrDataUri`).
  * ─────────────────────────────────────────────────────────────────────────────
  */
-export const QR_INK = '#0b3436';
-export const QR_EYE = '#0d5b5e';
+export const QR_INK = '#111018';
+export const QR_EYE = '#d61f2c';
+const TICKET = '#ffcc00';
+const [, , MARK_W, MARK_H] = MARK_VIEWBOX.split(' ').map(Number);
 const QUIET = 4;
 const R = 0.38;          // corner radius of a bar, in modules
 const LOGO = 9;          // the cleared centre, in modules
@@ -74,8 +76,8 @@ export function qrGeometry(rows, { logo = true } = {}) {
 /** The mark, scaled into the logo square with a margin. */
 function markTransform(logo) {
   const inner = logo.size - 2.4;
-  const scale = inner / 512;
-  return `translate(${n3(logo.x + 1.2)} ${n3(logo.y + 1.2 + (inner - 500 * scale) / 2)}) scale(${n3(scale * 1000) / 1000})`;
+  const scale = inner / MARK_W;
+  return `translate(${n3(logo.x + 1.2)} ${n3(logo.y + 1.2 + (inner - MARK_H * scale) / 2)}) scale(${n3(scale * 1000) / 1000})`;
 }
 
 /** The whole code as SVG markup — for an <img>, where JSX cannot go. */
@@ -84,7 +86,7 @@ export function brandQrSvg(rows, options) {
   const quiet = g.size + QUIET * 2;
   const logo = g.logo
     ? `<path d="${roundRect(g.logo.x + 0.3, g.logo.y + 0.3, g.logo.size - 0.6, g.logo.size - 0.6, 1.6)}" fill="#fff"/>`
-      + `<g transform="${markTransform(g.logo)}" fill="${QR_EYE}"><path fill-rule="evenodd" d="${MARK_FRAME}"/><path d="${MARK_STAR}"/></g>`
+      + `<g transform="${markTransform(g.logo)}"><path d="${MARK_FRAME}" fill="${TICKET}"/><path d="${MARK_STAR}" fill="#fff"/></g>`
     : '';
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${g.viewBox}" shape-rendering="geometricPrecision">`
     + `<rect x="${-QUIET}" y="${-QUIET}" width="${quiet}" height="${quiet}" rx="2" fill="#fff"/>`

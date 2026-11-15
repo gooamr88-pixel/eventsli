@@ -175,7 +175,7 @@ export default function Dashboard() {
           {event?.coverUrl ? (
             <Image source={{ uri: event.coverUrl }} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} accessible={false} />
           ) : (
-            <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.teal800 }]} />
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.night800 }]} />
           )}
           <Svg style={StyleSheet.absoluteFill} accessible={false}>
             <Defs>
@@ -336,7 +336,7 @@ function Stat({ label, value, accent = false }: { label: string; value: number; 
 const NOTICE = {
   danger: { bg: colors.dangerHalo, fg: colors.danger },
   warning: { bg: colors.warningHalo, fg: colors.warning },
-  info: { bg: colors.mint, fg: colors.accent },
+  info: { bg: colors.wash, fg: colors.accent },
 } as const;
 
 function Notice({ icon, tone, text, onPress }: { icon: IconName; tone: keyof typeof NOTICE; text: string; onPress?: () => void }) {
@@ -357,14 +357,14 @@ function Notice({ icon, tone, text, onPress }: { icon: IconName; tone: keyof typ
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
-  hero: { justifyContent: 'space-between', backgroundColor: colors.teal900 },
+  hero: { justifyContent: 'space-between', backgroundColor: colors.night },
   heroBar: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: space.md },
   heroButton: {
     width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center',
     backgroundColor: 'rgba(6, 30, 32, 0.35)',
   },
   heroText: { paddingHorizontal: space.xl, paddingBottom: 56, gap: space.sm },
-  heroTitle: { fontFamily: 'DMSans_700Bold', fontSize: 27, lineHeight: 33, color: colors.white },
+  heroTitle: { fontFamily: 'Montserrat_800ExtraBold', fontSize: 27, lineHeight: 33, color: colors.white },
   heroMeta: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   liveChip: {
     flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start',
@@ -391,7 +391,7 @@ const styles = StyleSheet.create({
     flex: 1, alignItems: 'center', gap: 6, paddingVertical: space.md, borderRadius: radius.lg,
     backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border,
   },
-  tileIcon: { width: 42, height: 42, borderRadius: 21, backgroundColor: colors.mint, alignItems: 'center', justifyContent: 'center' },
+  tileIcon: { width: 42, height: 42, borderRadius: 21, backgroundColor: colors.wash, alignItems: 'center', justifyContent: 'center' },
   recent: { paddingVertical: space.xs },
   recentRow: { flexDirection: 'row', alignItems: 'center', gap: space.md, paddingVertical: space.sm + 2 },
   recentRule: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },

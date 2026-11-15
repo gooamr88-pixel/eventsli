@@ -256,7 +256,7 @@ const styles = StyleSheet.create({
   cardValue: { fontFamily: 'DMSans_700Bold', fontSize: 22, lineHeight: 28 },
   pending: {
     flexDirection: 'row', alignItems: 'center', gap: space.sm, paddingHorizontal: space.md,
-    minHeight: 44, borderRadius: radius.md, backgroundColor: colors.mint,
+    minHeight: 44, borderRadius: radius.md, backgroundColor: colors.wash,
   },
   row: { flexDirection: 'row', alignItems: 'center', gap: space.md, paddingVertical: space.md },
   rowRule: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
