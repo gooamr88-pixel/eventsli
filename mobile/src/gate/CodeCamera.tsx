@@ -135,12 +135,13 @@ const styles = StyleSheet.create({
   fill: { flex: 1, backgroundColor: colors.camera },
   ask: { justifyContent: 'center', padding: space.xl, gap: space.lg },
   center: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, alignItems: 'center', justifyContent: 'center' },
-  corner: { position: 'absolute', width: 46, height: 46, borderColor: '#8fd3cc' },
+  // The brand yellow on the black camera, as the gate icon's brackets are.
+  corner: { position: 'absolute', width: 46, height: 46, borderColor: colors.highlight },
   shade: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 },
   shadeBand: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' },
   line: {
     position: 'absolute', left: 10, right: 10, height: 3, borderRadius: 2,
-    backgroundColor: '#5eead4',
-    shadowColor: '#5eead4', shadowOpacity: 0.9, shadowRadius: 8, shadowOffset: { width: 0, height: 0 },
+    backgroundColor: colors.highlight,
+    shadowColor: colors.highlight, shadowOpacity: 0.9, shadowRadius: 8, shadowOffset: { width: 0, height: 0 },
   },
 });

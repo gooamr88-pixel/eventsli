@@ -99,7 +99,7 @@ function renderPng(url, size = 'sm') {
     errorCorrectionLevel: 'M',
     margin: 2,
     width: SIZES[size] || SIZES.sm,
-    color: { dark: '#0E1613', light: '#FFFFFF' },
+    color: { dark: '#111018', light: '#FFFFFF' },
   });
 }
 
@@ -113,7 +113,7 @@ function renderSvg(url) {
     type: 'svg',
     errorCorrectionLevel: 'M',
     margin: 2,
-    color: { dark: '#0E1613', light: '#FFFFFF' },
+    color: { dark: '#111018', light: '#FFFFFF' },
   });
 }
 

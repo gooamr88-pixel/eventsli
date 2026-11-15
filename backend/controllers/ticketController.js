@@ -200,7 +200,7 @@ async function qrImage(req, res, next) {
       errorCorrectionLevel: 'M',
       margin: 1,
       width: 360,          // scanned off a phone at a dark door, often cracked
-      color: { dark: '#0E1613', light: '#FFFFFF' },
+      color: { dark: '#111018', light: '#FFFFFF' },
     });
 
     res.set({
@@ -299,7 +299,7 @@ async function sendTicketEmail(orderId) {
   const { data: order } = await supabase
     .from('orders')
     .select(`id, currency, buyer_total_cents, guest_name, guest_email, user_id,
-             events ( id, title, slug, organizer_id, starts_at, timezone, venue_name, city ),
+             events ( id, title, slug, organizer_id, starts_at, timezone, venue_name, venue_address, city ),
              profiles!orders_user_id_fkey ( email )`)
     .eq('id', orderId)
     .maybeSingle();

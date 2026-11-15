@@ -6,7 +6,8 @@
  *   node scripts/brandIcons.js
  *
  * Writes:
- *   src/app/apple-icon.png              180 × 180  home screen, and the email masthead
+ *   public/email-logo.png               the full lockup, 80px tall, for the email masthead
+ *   src/app/apple-icon.png              180 × 180  home screen
  *   public/gate-icon-192.png            192 × 192  the door scanner's app icon
  *   public/gate-icon-512.png            512 × 512
  *   public/gate-icon-maskable-512.png   512 × 512  Android's adaptive icon
@@ -129,7 +130,24 @@ function og() {
   </div>`;
 }
 
+/**
+ * The email masthead's logo: the full lockup, at twice the size it is shown
+ * (40px tall) so it is sharp on a phone. On white rather than transparent —
+ * a mail client that darkens the page would otherwise put near-black letters
+ * on near-black. Email cannot use the SVG (Gmail and Outlook drop it), so this
+ * PNG is the only way the real wordmark — Urbanist, the spark — reaches an
+ * inbox. The masthead keeps the name as the image's alt text for the clients
+ * that block images.
+ */
+const EMAIL_LOGO_H = 80;
+const [, , WW, WH] = WORD_VB.split(' ').map(Number);
+const EMAIL_LOGO_W = Math.ceil(EMAIL_LOGO_H * (MW / MH + GAP + WW / WH)) + 4;
+function emailLogo() {
+  return `<div style="width:${EMAIL_LOGO_W}px;height:${EMAIL_LOGO_H}px;background:#ffffff;display:flex;align-items:center;justify-content:center">${lockup({ height: EMAIL_LOGO_H })}</div>`;
+}
+
 const ASSETS = [
+  { out: 'public/email-logo.png', w: EMAIL_LOGO_W, h: EMAIL_LOGO_H, html: emailLogo() },
   // iOS rounds the corners itself, and the email masthead rounds them in CSS:
   // a square, full-bleed tile is what both expect.
   { out: 'src/app/apple-icon.png', w: 180, h: 180, html: tile(180) },

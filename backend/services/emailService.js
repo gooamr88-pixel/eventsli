@@ -134,7 +134,9 @@ async function sendTickets({ to, buyerName, event, tickets, order, organizerEmai
       body: `
         ${T.p(`Hi ${escapeHtml(buyerName || 'there')}, here ${one ? 'is your ticket' : `are your ${tickets.length} tickets`}.`)}
         ${T.eventCard(event)}
-        ${tickets.map((t, i) => T.ticketCard(t, { index: i, total: tickets.length })).join('')}
+        ${tickets.map((t, i) => T.ticketCard(t, {
+    index: i, total: tickets.length, event, free: Number(order.buyer_total_cents) === 0,
+  })).join('')}
         ${T.note('info', `
           <strong>At the door:</strong> show ${one ? 'this code' : 'these codes'} on your phone.
           Each one is scanned once. Turn your screen brightness up — it is read by a camera.`)}

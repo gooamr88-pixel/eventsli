@@ -62,6 +62,14 @@ const WARN_BG = '#fef6e7';
 const WARN_LINE = '#b45309';
 const DANGER_BG = '#fdecec';
 const DANGER_LINE = '#b42318';
+/* The site's yellow wash (--es-highlight-wash) and its edge, for the event
+   card; and the printable ticket's paper, frame and tear-off (PrintableTicket
+   on the confirmation page), so the ticket in the inbox is the same ticket. */
+const HIGHLIGHT_WASH = '#fffbea';
+const HIGHLIGHT_LINE = '#ffe58a';
+const PAPER = '#fff8dc';
+const PAPER_FRAME = '#ffd94d';
+const STUB = '#ffe0e2';
 
 const FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
 const MONO = "ui-monospace,SFMono-Regular,Menlo,Consolas,'Courier New',monospace";
@@ -173,35 +181,27 @@ function seatLabel(ticket) {
  * masthead is a blank strip on the first email anybody ever gets from us —
  * which is the one that has to look legitimate.
  *
- * SET AS THE LOGO SETS IT (2026-11-15): "eventsli" in lowercase extra-bold
- * near-black, and DISCOVER - BOOK - ENJOY under it — the lockup rebuilt from
- * text, because the real wordmark is an SVG and mail clients drop SVG. The
- * mark beside it is the E card on a near-black tile (`apple-icon.png`,
- * rendered from the same paths as the site's logo by scripts/brandIcons.js).
+ * THE REAL LOGO (2026-11-15): `email-logo.png` is the site's lockup — the
+ * yellow E ticket, "eventsli" in Urbanist with its spark — rendered from the
+ * same paths by frontend/scripts/brandIcons.js, because mail clients drop the
+ * SVG. When a client blocks images the ALT TEXT stands in, styled as the
+ * name (lowercase, extra-bold, near-black), so the first email still says
+ * who it is from. DISCOVER - BOOK - ENJOY stays as text under it.
  *
  * The 4px bar above is the brand yellow, the sheet's highlight colour. A filled cell rather than a border, because Outlook draws a border-top
  * on a rounded table as a square line poking out of the corners.
  */
 function header() {
-  const logo = `${siteUrl()}/apple-icon.png`;
+  const logo = `${siteUrl()}/email-logo.png`;
   return `
   <tr>
-    <td style="height:4px;line-height:4px;font-size:0;background-color:${HIGHLIGHT}" bgcolor="${HIGHLIGHT}">&nbsp;</td>
+    <td style="height:6px;line-height:6px;font-size:0;background-color:${HIGHLIGHT}" bgcolor="${HIGHLIGHT}">&nbsp;</td>
   </tr>
   <tr>
-    <td style="padding:24px 32px 20px;background-color:${SURFACE}">
-      <table role="presentation" cellpadding="0" cellspacing="0" border="0">
-        <tr>
-          <td style="padding-right:10px;vertical-align:middle">
-            <img src="${logo}" width="34" height="34" alt=""
-                 style="display:block;width:34px;height:34px;border:0;border-radius:8px" />
-          </td>
-          <td style="vertical-align:middle">
-            <span style="display:block;font-family:${FONT};font-size:22px;line-height:1.1;font-weight:800;letter-spacing:-0.02em;color:${INK}">eventsli</span>
-            <span style="display:block;margin-top:2px;font-family:${FONT};font-size:9px;line-height:1.2;font-weight:600;letter-spacing:0.14em;color:${MUTED}">DISCOVER - BOOK - ENJOY</span>
-          </td>
-        </tr>
-      </table>
+    <td style="padding:26px 32px 22px;background-color:${SURFACE}">
+      <img src="${logo}" width="179" height="40" alt="eventsli"
+           style="display:block;width:179px;height:40px;border:0;font-family:${FONT};font-size:24px;line-height:40px;font-weight:800;letter-spacing:-0.02em;color:${INK}" />
+      <span style="display:block;margin-top:6px;font-family:${FONT};font-size:9px;line-height:1.2;font-weight:700;letter-spacing:0.18em;color:${MUTED}">DISCOVER - BOOK - ENJOY</span>
     </td>
   </tr>`;
 }
@@ -272,7 +272,7 @@ function layout({ title, preheader, body, reason }) {
           ${header()}
           <tr>
             <td style="padding:0 32px 8px;background-color:${SURFACE}">
-              <h1 style="margin:0 0 16px;font-family:${FONT};font-size:22px;line-height:1.25;font-weight:700;letter-spacing:-0.02em;color:${INK}">
+              <h1 style="margin:0 0 16px;font-family:${FONT};font-size:24px;line-height:1.25;font-weight:800;letter-spacing:-0.02em;color:${INK}">
                 ${escapeHtml(title)}
               </h1>
             </td>
@@ -312,9 +312,9 @@ function button(href, label) {
   return `
   <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:4px 0 20px">
     <tr>
-      <td align="center" bgcolor="${BRAND}" style="background-color:${BRAND};border-radius:10px">
+      <td align="center" bgcolor="${BRAND}" style="background-color:${BRAND};border-radius:999px">
         <a href="${escapeHtml(href)}"
-           style="display:inline-block;padding:13px 26px;font-family:${FONT};font-size:15px;font-weight:600;line-height:1;color:#ffffff;text-decoration:none;border-radius:10px">
+           style="display:inline-block;padding:14px 28px;font-family:${FONT};font-size:15px;font-weight:700;line-height:1;color:#ffffff;text-decoration:none;border-radius:999px">
           ${escapeHtml(label)}
         </a>
       </td>
@@ -350,10 +350,10 @@ function eventCard(event = {}) {
 
   return `
   <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"
-         style="width:100%;margin:0 0 20px;background-color:${SUNKEN};border:1px solid ${LINE};border-radius:12px">
+         style="width:100%;margin:0 0 20px;background-color:${HIGHLIGHT_WASH};border:1px solid ${HIGHLIGHT_LINE};border-radius:14px">
     <tr>
-      <td style="padding:16px 18px;background-color:${SUNKEN}">
-        <p style="margin:0 0 10px;font-family:${FONT};font-size:16px;font-weight:700;line-height:1.3;color:${INK}">
+      <td style="padding:16px 18px;background-color:${HIGHLIGHT_WASH}">
+        <p style="margin:0 0 10px;font-family:${FONT};font-size:17px;font-weight:800;line-height:1.3;color:${INK}">
           ${escapeHtml(event.title)}
         </p>
         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
@@ -372,39 +372,81 @@ function eventCard(event = {}) {
 /**
  * One ticket: the code that opens the door, and what it admits.
  *
+ * DRAWN AS THE CONFIRMATION PAGE DRAWS IT (PrintableTicket, the owner's
+ * reference, 2026-11-15): pale-yellow paper inside a yellow frame, the ticket
+ * type, the event in a starred heading with "Tickets" in coral over a coral
+ * rule, the holder and the place as labelled lines, a dotted rule and the
+ * start time — then the tear-off, in the pale coral, with the code on white
+ * and "Scan at entry". Stacked rather than side by side: a two-column table
+ * squeezes the code on a phone, and the code is the part that has to scan.
+ *
  * The QR comes from OUR domain. It used to come from a public QR generator
  * with the signed admission token in the query string — handing a third party
- * the credential that opens the door for every ticket ever sold.
+ * the credential that opens the door for every ticket ever sold. The code
+ * never sits on colour: a scanner reads contrast, not branding.
+ *
+ * `event` and `free` are optional; without them the ticket shows only what
+ * is on it.
  */
-function ticketCard(ticket, { index, total } = {}) {
+function ticketCard(ticket, { index, total, event = null, free = false } = {}) {
   const api = apiUrl();
   const src = `${api}/api/v1/public/qr/${encodeURIComponent(ticket.qr)}.png`;
   const label = seatLabel(ticket);
+  // 'General admission' under a ticket type that already says so reads as a
+  // rendering fault (TicketStub's rule).
+  const seatLine = label === 'General admission' && /general|admission/i.test(ticket.tierName || '') ? null : label;
   const counter = total > 1 ? `Ticket ${index + 1} of ${total}` : 'Admits one';
+  const title = event?.title;
+  const when = event ? whenText(event.startsAt ?? event.starts_at, event.timezone) : null;
+  const venue = event ? (event.venue ?? event.venue_name) : null;
+  const address = event ? (event.venueAddress ?? event.venue_address ?? event.city) : null;
 
-  // THE TICKET, in what a mail client can draw: a coral header row standing in
-  // for the stub (the counter, and the ticket type when there is one), then
-  // the seat, the code on white, and "Scan at entry". The code never sits on
-  // coral — a scanner reads contrast, not branding.
+  const line = (name, value, { coral = false } = {}) => (value ? `
+        <p style="margin:0 0 6px;font-family:${FONT};font-size:14px;line-height:1.5;color:${MUTED}">
+          ${name}: <strong style="color:${coral ? BRAND : INK}">${escapeHtml(value)}</strong>
+        </p>` : '');
+
   return `
+  <p style="margin:0 0 6px;font-family:${FONT};font-size:12px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:${MUTED}">${escapeHtml(counter)}</p>
   <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"
-         style="width:100%;margin:0 0 14px;background-color:${SURFACE};border:1px solid ${LINE};border-radius:12px;overflow:hidden">
+         style="width:100%;margin:0 0 22px;background-color:${PAPER};border-radius:8px;overflow:hidden">
     <tr>
-      <td bgcolor="${BRAND}" style="padding:11px 18px;background-color:${BRAND};font-family:${FONT};font-size:12px;line-height:1.4;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#ffffff">
-        ${escapeHtml(counter)}${ticket.tierName ? `<span style="color:${BRAND_TINT}"> &nbsp;·&nbsp; ${escapeHtml(ticket.tierName)}</span>` : ''}
+      <td bgcolor="${PAPER}" style="padding:12px;background-color:${PAPER}">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"
+               style="width:100%;border:2px solid ${PAPER_FRAME};border-radius:14px">
+          <tr>
+            <td align="center" style="padding:18px 18px 16px;background-color:${PAPER}">
+              ${ticket.tierName ? `<p style="margin:0 0 10px;font-family:${FONT};font-size:13px;line-height:1.4;color:${MUTED}">Ticket type: <strong style="color:${INK}">${escapeHtml(ticket.tierName)}</strong></p>` : ''}
+              ${title ? `<p style="margin:0 0 14px;padding-bottom:6px;border-bottom:3px solid ${BRAND};font-family:${FONT};font-size:21px;line-height:1.25;font-weight:800;color:${INK}">
+                &#9733; <span style="color:${BRAND}">Tickets</span> ${escapeHtml(title)} &#9733;
+              </p>` : ''}
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+                <tr><td style="text-align:left;background-color:${PAPER}">
+                  ${line('Name', ticket.attendeeName)}
+                  ${free ? line('Price', 'Free ticket', { coral: true }) : ''}
+                  ${line('Seat', seatLine)}
+                  ${line('Location', venue)}
+                  ${line('Address', address)}
+                </td></tr>
+              </table>
+              <p style="margin:10px 0 8px;font-family:${FONT};font-size:16px;line-height:1;letter-spacing:8px;color:${BRAND}">&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;</p>
+              ${when ? `<p style="margin:0;font-family:${FONT};font-size:14px;line-height:1.5;color:${INK}">Starts ${escapeHtml(when)}</p>` : ''}
+            </td>
+          </tr>
+        </table>
       </td>
     </tr>
     <tr>
-      <td align="center" style="padding:18px 18px 20px;background-color:${SURFACE}">
-        <p style="margin:0 0 14px;font-family:${FONT};font-size:16px;font-weight:700;line-height:1.35;color:${INK}">
-          ${escapeHtml(label)}
-        </p>
-        <img src="${src}" alt="Entry code for ${escapeHtml(label)}" width="200" height="200"
-             style="display:block;margin:0 auto;width:200px;height:200px;border:0;background-color:#ffffff;padding:8px;border-radius:8px" />
-        <p style="margin:10px 0 0;font-family:${FONT};font-size:12px;font-weight:600;letter-spacing:0.04em;color:${INK}">Scan at entry</p>
-        ${ticket.attendeeName ? `<p style="margin:6px 0 0;font-family:${FONT};font-size:13px;color:${MUTED}">
-          ${escapeHtml(ticket.attendeeName)}
-        </p>` : ''}
+      <td align="center" bgcolor="${STUB}" style="padding:18px 18px 16px;background-color:${STUB};border-top:2px dashed ${PAPER_FRAME}">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+          <tr>
+            <td align="center" bgcolor="#ffffff" style="padding:12px;background-color:#ffffff;border-radius:12px">
+              <img src="${src}" alt="Entry code for ${escapeHtml(label)}" width="200" height="200"
+                   style="display:block;width:200px;height:200px;border:0;background-color:#ffffff" />
+            </td>
+          </tr>
+        </table>
+        <p style="margin:10px 0 0;font-family:${FONT};font-size:11px;font-weight:800;letter-spacing:0.16em;color:${INK}">SCAN AT ENTRY</p>
       </td>
     </tr>
   </table>`;
@@ -449,7 +491,7 @@ function facts(pairs) {
 }
 
 module.exports = {
-  BRAND, BRAND_DARK, BRAND_TINT, INK, MUTED, SUBTLE, LINE, SURFACE, SUNKEN, FONT, MONO,
+  BRAND, BRAND_DARK, BRAND_TINT, HIGHLIGHT, HIGHLIGHT_WASH, PAPER, STUB, INK, MUTED, SUBTLE, LINE, SURFACE, SUNKEN, FONT, MONO,
   escapeHtml, siteUrl, apiUrl, money, whenText, seatLabel,
   layout, p, button, eventCard, ticketCard, note, quote, facts,
 };
