@@ -1,5 +1,8 @@
 # Releasing Eventsli Check-in
 
+> The iOS release as it actually happened — every command, prompt and answer,
+> and how updates work afterwards — is in **IOS-RELEASE-LOG.md**.
+
 The order matters: the API and database go first, because store builds talk
 to `https://eventsli.com`. Steps marked **(owner)** need accounts or access only
 the owner has. Steps marked **(approval)** change production.
