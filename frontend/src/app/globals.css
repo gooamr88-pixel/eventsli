@@ -14934,3 +14934,153 @@ label.es-chip:has(:focus-visible) { outline: 2px solid var(--es-accent); outline
 .es-evx-faq__note { margin: 0.25rem 0 0; font-size: var(--es-text-xs); text-align: center; color: var(--es-text-subtle); }
 
 }   /* end @layer components — the event page, rebuilt */
+
+/* ── The event's sponsors (EventSponsorsSection.jsx, 2026-11-15) ─────────
+   One section in tiers: a featured card for the headline sponsor, then a
+   marker per tier in its own metal and a grid of IDENTICAL white tiles —
+   larger for a higher tier — so logos of any shape line up. */
+@layer components {
+
+.es-evsp {
+  display: grid;
+  gap: 1.5rem;
+  margin-top: 1rem;
+  padding: clamp(1.25rem, 3vw, 2.25rem);
+  border-radius: 24px;
+  background: var(--es-bg-sunken);
+}
+.es-evsp__head { text-align: center; }
+.es-evsp__title {
+  margin: 0;
+  font-family: var(--es-font-display);
+  font-size: clamp(1.6rem, 1.2rem + 1.5vw, 2.3rem);
+  font-weight: 800;
+  color: var(--es-text);
+}
+.es-evsp__lede { margin: 0.35rem 0 0; color: var(--es-text-muted); }
+
+/* The headline sponsor. */
+.es-evsp__featured {
+  display: grid;
+  align-items: center;
+  gap: 1.25rem;
+  padding: clamp(1rem, 2.5vw, 1.5rem);
+  border: 2px solid var(--es-highlight);
+  border-radius: 20px;
+  background: var(--es-surface);
+  box-shadow: var(--es-shadow-md);
+}
+@media (width >= theme(--breakpoint-md)) {
+  .es-evsp__featured { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 2rem; }
+}
+.es-evsp__featured-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  overflow: hidden;
+  height: clamp(8rem, 14vw, 11rem);
+  padding: 1rem 1.5rem;
+  border-radius: 14px;
+  background: var(--es-surface);
+  box-shadow: inset 0 0 0 1px var(--es-border);
+}
+.es-evsp__featured-text { display: grid; justify-items: start; gap: 0.6rem; }
+.es-evsp__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.75rem;
+  border-radius: var(--es-radius-full);
+  background: var(--es-highlight);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--es-text-on-highlight);
+}
+.es-evsp__featured-name {
+  margin: 0;
+  font-family: var(--es-font-display);
+  font-size: clamp(1.25rem, 1rem + 0.9vw, 1.6rem);
+  font-weight: 800;
+  line-height: 1.2;
+  color: var(--es-text);
+}
+.es-evsp__visit {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 44px;
+  padding: 0.55rem 1.2rem;
+  border: 1.5px solid var(--es-accent);
+  border-radius: var(--es-radius-full);
+  font-weight: 700;
+  color: var(--es-accent);
+  transition: background-color var(--es-duration-fast) var(--es-ease-default);
+}
+.es-evsp__visit:hover { background: var(--es-accent-wash); }
+
+/* The tiers. Each sets its tile size and its medal. */
+.es-evsp__tier { --tile: 9.5rem; --medal: var(--es-grey-400); display: grid; gap: 0.85rem; }
+.es-evsp__tier[data-level='gold'] { --tile: 13rem; --medal: linear-gradient(135deg, #f7d774, #c99a1e); }
+.es-evsp__tier[data-level='silver'] { --tile: 11rem; --medal: linear-gradient(135deg, #eef0f3, #a8afb8); }
+.es-evsp__tier[data-level='bronze'] { --tile: 10rem; --medal: linear-gradient(135deg, #f0b98a, #a8622c); }
+.es-evsp__tier-name {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0;
+  font-family: var(--es-font-display);
+  font-size: var(--es-text-md);
+  font-weight: 800;
+  color: var(--es-text);
+}
+.es-evsp__tier-name::after { content: ''; flex: 1; height: 1px; background: var(--es-border); }
+.es-evsp__medal {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--medal);
+  box-shadow: inset 0 0 0 1px rgb(17 16 24 / 0.12);
+}
+.es-evsp__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(var(--tile), 100%), 1fr));
+  gap: 0.85rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.es-evsp__tile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  aspect-ratio: 3 / 2;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--es-border);
+  border-radius: 14px;
+  background: var(--es-surface);
+  box-shadow: var(--es-shadow-xs);
+}
+.es-evsp__tile--link { transition: transform 200ms var(--es-ease-default), box-shadow 200ms var(--es-ease-default), border-color 200ms var(--es-ease-default); }
+.es-evsp__tile--link:hover { transform: translateY(-3px); border-color: var(--es-border-strong); box-shadow: var(--es-shadow-md); }
+/* Any logo, any shape: fitted inside its frame by its own proportions,
+   never stretched, never spilling out. `max-*` on an auto-sized image —
+   a percentage HEIGHT on a flex child of an auto row has nothing to be a
+   percentage of, which is how a tall logo burst out of its card. */
+.es-evsp__img { display: block; width: auto; max-width: 100%; height: auto; max-height: 100%; object-fit: contain; }
+.es-evsp__name-only {
+  font-family: var(--es-font-display);
+  font-size: var(--es-text-md);
+  font-weight: 800;
+  text-align: center;
+  color: var(--es-text);
+  overflow-wrap: anywhere;
+}
+@media (width < 40rem) {
+  .es-evsp__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+}   /* end @layer components — event sponsors */

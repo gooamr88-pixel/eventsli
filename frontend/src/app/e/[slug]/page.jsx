@@ -3,21 +3,21 @@ import { jsonLdScript } from '../../utils/jsonLd';
 import NavIcon from '../../components/shell/NavIcon';
 import EventGallery from './EventGallery';
 import EventTabs from './EventTabs';
-import EventHero, { EventPresentedBy } from './EventHero';
+import EventHero from './EventHero';
+import EventSponsorsSection from './EventSponsorsSection';
 import EventTickets, { EventMarks } from './EventTickets';
 import EventTicketCard from './EventTicketCard';
 import EventBlocks from './EventBlocks';
 import EventFaq from './EventFaq';
 import { EventBuyBar, EventPurchaseNotice } from './EventPurchasePanel';
 import {
-  EventSchedule, EventSponsors, VenueMap,
+  EventSchedule, VenueMap,
 } from './EventSections';
 import { serverFetch } from '../../utils/apiClient';
 import {
   seoTitle, seoDescription, seoKeywords, eventJsonLd, breadcrumbJsonLd, eventUrl,
 } from '../../lib/eventSeo';
 import { EventBreadcrumbs, RelatedEvents } from './EventDiscovery';
-import EventsliPartners from './EventsliPartners';
 import { isDateOnly, formatDateOnly } from '../../lib/dateOnly';
 import VisitBeacon from '../../components/landing/VisitBeacon';
 
@@ -282,25 +282,22 @@ export default async function EventPage({ params, searchParams }) {
                   <section className="fx-stack fx-stack--sm" aria-labelledby="event-organizer">
                     <h2 id="event-organizer" className="text-lg">Organised by</h2>
                     <p className="text-md text-muted">{event.organizer.name}</p>
-                    {/* The full list lives here rather than in a section of its
-                        own at the foot of the page. The headline sponsor has its
-                        own card under these tabs; these are the rest. */}
-                    <EventSponsors items={event.sponsors} />
                   </section>
                 ),
               },
             ]}
           />
 
-          {/* ── 5. Who is presenting, and the questions guests ask ───────── */}
-          <EventPresentedBy sponsors={event.sponsors} />
+          {/* ── 5. The event's sponsors, and the questions guests ask ───────── */}
+          <EventSponsorsSection sponsors={event.sponsors} />
           <EventFaq event={event} />
 
           {/* ── 6. Somewhere else to go ──────────────────────────────────── */}
           <RelatedEvents event={event} />
 
-          {/* ── 7. Eventsli's partners — the platform's, labelled as such ── */}
-          <EventsliPartners />
+          {/* Eventsli's OWN partners are not shown here (owner, 2026-11-15): an
+              event page shows that event's sponsors only — see
+              EventSponsorsSection above. They stay on the homepage. */}
 
         </div>
       </div>
