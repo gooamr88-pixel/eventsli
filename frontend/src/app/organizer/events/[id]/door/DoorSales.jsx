@@ -109,7 +109,8 @@ export default function DoorSales({ eventId }) {
       const result = await post(`/events/${eventId}/manual-sales`, { ...selection, ...buyer }, { noRedirect: true });
       toast.success(
         `Recorded ${result.ticketCount} ${result.ticketCount === 1 ? 'ticket' : 'tickets'}. `
-        + `${formatMoney(result.commissionOwedCents, event.currency)} added to what you owe.`,
+        + `${formatMoney(result.commissionOwedCents, event.currency)} added to what you owe.`
+        + (result.emailedTo ? ` Tickets are on their way to ${result.emailedTo}.` : ''),
         { title: 'Sale recorded' },
       );
       clearSelection();

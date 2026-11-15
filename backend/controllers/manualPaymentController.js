@@ -1,6 +1,7 @@
 const { supabase } = require('../config/supabase');
 const manual = require('../services/manualPaymentService');
 const tickets = require('../services/ticketService');
+const ticketCtrl = require('./ticketController');
 const { parsePagination, applyPagination, buildMeta } = require('../middleware/pagination');
 const { sendOk, sendFail, ERROR_STATUS } = require('../utils/responseEnvelope');
 const logger = require('../utils/logger');
@@ -49,13 +50,14 @@ async function quote(req, res, next) {
 // POST /events/:eventId/manual-sales
 async function record(req, res, next) {
   try {
+    const buyerEmail = (req.body.buyerEmail || '').trim().toLowerCase() || null;
     const result = await manual.recordSale({
       eventId: req.params.eventId,
       seatIds: req.body.seatIds,
       tableId: req.body.tableId,
       buyer: {
         name: (req.body.buyerName || '').trim(),
-        email: (req.body.buyerEmail || '').trim().toLowerCase() || null,
+        email: buyerEmail,
         phone: (req.body.buyerPhone || '').trim() || null,
       },
       method: req.body.method,
@@ -65,10 +67,26 @@ async function record(req, res, next) {
 
     logger.info({ eventId: req.params.eventId, orderId: result.order_id }, 'manual sale recorded');
 
+    /**
+     * The buyer's tickets — QR codes, date, venue — by email, the same message
+     * an online buyer gets. The form promised it ("without it they get no
+     * ticket by email") but nothing sent it, so a door buyer who gave an
+     * address walked away with nothing to show at the scanner.
+     *
+     * After the sale is saved and never awaited into the response, exactly as
+     * checkout does it: the sale stands whether or not the email lands.
+     */
+    const emailedTo = buyerEmail || null;
+    if (emailedTo) {
+      ticketCtrl.sendTicketEmail(result.order_id).catch((e) =>
+        logger.error({ err: e.message, orderId: result.order_id }, 'door sale ticket email failed'));
+    }
+
     return sendOk(res, {
       orderId: result.order_id,
       ticketCount: result.ticket_count,
       commissionOwedCents: result.commission_owed_cents,
+      emailedTo,
       tickets: await tickets.forOrder(result.order_id),
     }, { status: 201 });
   } catch (err) {
