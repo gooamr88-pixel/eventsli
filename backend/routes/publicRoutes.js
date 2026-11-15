@@ -53,6 +53,9 @@ router.get(
   query('from').optional().isISO8601(),
   query('to').optional().isISO8601(),
   query('includePast').optional().isIn(['true', 'false']),
+  // "Tickets on sale" (owner, 2026-11-15): only events sold here, never a
+  // display-only listing.
+  query('onSale').optional().isIn(['true', 'false']),
   query('city').optional().isString().trim().isLength({ min: 1, max: 120 }),
   // Cents. "Under $40" from smart search is 4000; "free" is 0.
   query('maxPrice').optional().isInt({ min: 0, max: 10_000_000 }).toInt(),

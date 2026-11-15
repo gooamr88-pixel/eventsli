@@ -73,10 +73,34 @@ export function priceBlock(event) {
   return { label: 'From', value: formatMoneyCompact(low, event.currency) };
 }
 
+/**
+ * The sale tag on the artwork (owner, 2026-11-15): which events can actually
+ * be bought here, at a glance, in a colour of its own.
+ *
+ *   on-sale   yellow   ticketed, and something is buyable (a price exists)
+ *   sold-out  dark     every ticket has gone
+ *   info      grey     a display-only listing: information, no tickets here
+ *
+ * Null when none is honest — a ticketed event whose sales have not opened
+ * yet has no buyable price, and claiming "on sale" would be untrue.
+ * Exported for its test.
+ */
+export function saleTag(event) {
+  if (event.displayOnly) return { kind: 'info', label: 'Info only' };
+  if (event.availability?.soldOut) return { kind: 'sold-out', label: 'Sold out' };
+  const buyable = 'fromPriceCents' in event
+    ? event.fromPriceCents !== null && event.fromPriceCents !== undefined
+    : (event.tiers || []).length > 0;
+  return buyable ? { kind: 'on-sale', label: 'Tickets on sale' } : null;
+}
+
 /** What the card's pill says. Decorative — the card's link is the action. */
 export function ctaLabel(event) {
   if (event.displayOnly) return 'Details';
   if (event.availability?.soldOut) return 'View event';
+  // Nothing buyable yet (sales not open): the same rule as the sale tag, so
+  // a card never says "Get Tickets" without a ticket to get.
+  if (!saleTag(event)) return 'View event';
   return 'Get Tickets';
 }
 
@@ -95,6 +119,7 @@ export default function EventCard({ event, priority = false, headingLevel = 3, a
   const when = eventDateParts(event);
   const place = [event.venue, event.city].filter(Boolean).join(', ') || event.organizer?.name || '';
   const price = priceBlock(event);
+  const tag = saleTag(event);
 
   return (
     /**
@@ -139,6 +164,13 @@ export default function EventCard({ event, priority = false, headingLevel = 3, a
              The title on the brand tint reads as a deliberate cover rather
              than as the card that failed to load. */
           <span className="es-evcard__placeholder">{event.title}</span>
+        )}
+
+        {tag && (
+          <span className={`es-evcard__sale es-evcard__sale--${tag.kind}`}>
+            {tag.kind === 'on-sale' && <NavIcon name="ticket" size={14} />}
+            {tag.label}
+          </span>
         )}
 
         {when && (

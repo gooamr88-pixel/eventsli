@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { get } from '../utils/apiClient';
 import { useSavedCount } from '../hooks/useSavedEvents';
+import NavIcon from '../components/shell/NavIcon';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -40,6 +41,7 @@ export default function QuickFilters({ city }) {
   const weekend = weekendRange();
   const from = params.get('from');
   const weekendActive = from === weekend.from;
+  const onSale = params.get('onSale') === 'true';
 
   /** The current query with some keys replaced, so a quick filter narrows what
    *  is already on screen instead of resetting it. */
@@ -122,6 +124,17 @@ export default function QuickFilters({ city }) {
         <Link href={withParams(weekendActive ? { from: null, to: null } : weekend)} className={chip(weekendActive)}>
           <Cal />
           This weekend
+        </Link>
+
+        {/* Only events sold here (2026-11-15) — the yellow "Tickets on sale"
+            tag on the cards, as a filter. A link, like "This weekend". */}
+        <Link
+          href={withParams({ onSale: onSale ? null : 'true' })}
+          aria-current={onSale ? 'true' : undefined}
+          className={chip(onSale)}
+        >
+          <NavIcon name="ticket" size={16} />
+          Tickets on sale
         </Link>
 
         {/* Back, now that `/events/saved` exists to receive it.

@@ -15093,3 +15093,54 @@ label.es-chip:has(:focus-visible) { outline: 2px solid var(--es-accent); outline
 }
 
 }   /* end @layer components — event sponsors */
+
+/* ── Sale tags on event cards, and the "on sale" search option (2026-11-15)
+   Which events can actually be bought here, at a glance, in a colour of its
+   own: yellow "Tickets on sale", near-black "Sold out", grey "Info only" for
+   a display-only listing. On the artwork's bottom-left corner, clear of the
+   date badge (top-left) and the heart (top-right). See EventCard saleTag(). */
+@layer components {
+
+.es-evcard__sale {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  max-width: calc(100% - 20px);
+  padding: 0.3rem 0.65rem;
+  border-radius: var(--es-radius-full);
+  font-size: 0.75rem;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px -4px rgb(17 16 24 / 0.35);
+}
+.es-evcard__sale--on-sale { background: var(--es-highlight); color: var(--es-text-on-highlight); }
+.es-evcard__sale--sold-out { background: var(--es-night-900); color: #ffffff; }
+.es-evcard__sale--info { background: #ffffff; color: var(--es-ink-on-light); box-shadow: inset 0 0 0 1px var(--es-grey-300), 0 4px 12px -4px rgb(17 16 24 / 0.25); }
+@media (width < 48rem) {
+  .es-lp-rail .es-evcard__sale { left: 6px; bottom: 6px; max-width: calc(100% - 12px); padding: 0.22rem 0.5rem; font-size: 0.625rem; }
+  .es-lp-rail .es-evcard__sale svg { width: 11px; height: 11px; }
+}
+
+/* The homepage search's "Only events with tickets on sale". */
+.es-lp-onsale {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-top: 0.85rem;
+  font-size: var(--es-text-sm);
+  color: var(--es-text-muted);
+  cursor: pointer;
+}
+.es-lp-onsale b { font-weight: 700; color: var(--es-text); }
+.es-lp-onsale__box { width: 18px; height: 18px; accent-color: var(--es-accent); cursor: pointer; }
+@media (width < 64rem) {
+  .es-lp-onsale { display: flex; justify-content: center; }
+}
+
+}   /* end @layer components — sale tags */

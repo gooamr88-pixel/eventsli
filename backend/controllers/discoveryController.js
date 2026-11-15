@@ -107,6 +107,15 @@ async function listEvents(req, res, next, { phraseSearch = false } = {}) {
       query = query.in('slug', slugs);
     }
 
+    /**
+     * "TICKETS ON SALE" — only events whose tickets are sold here (owner,
+     * 2026-11-15). A display-only listing (BRD §12) is information about an
+     * event, not a place to buy for it, so this filter leaves it out. Sold-out
+     * events stay in: excluding them needs availability per event, and the
+     * card already says "Sold out" on its own.
+     */
+    if (req.query.onSale === 'true') query = query.eq('listing_type', 'ticketed');
+
     if (req.query.country) query = query.eq('country', String(req.query.country).toUpperCase());
     /**
      * City, case-insensitively and exactly.

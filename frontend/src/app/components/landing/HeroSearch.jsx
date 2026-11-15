@@ -63,7 +63,7 @@ export default function HeroSearch() {
 
   return (
     <>
-      <form ref={formRef} action="/events" method="get" role="search" className="es-lp-filter">
+      <form ref={formRef} id={`${id}-form`} action="/events" method="get" role="search" className="es-lp-filter">
         <div className="es-lp-filter__fields">
           <label className="es-lp-filter__field" htmlFor={`${id}-q`}>
             <span aria-hidden className="es-lp-filter__icon"><NavIcon name="search" size={19} /></span>
@@ -117,6 +117,14 @@ export default function HeroSearch() {
           Search
         </button>
       </form>
+
+      {/* "Tickets on sale only" (2026-11-15): a real checkbox of this GET form
+          (the `form` attribute), so checking it sends `onSale=true` to /events
+          with no JavaScript. Outside the bar, so the bar keeps its shape. */}
+      <label className="es-lp-onsale">
+        <input type="checkbox" name="onSale" value="true" form={`${id}-form`} className="es-lp-onsale__box" />
+        <span>Only events with <b>tickets on sale</b></span>
+      </label>
 
       <NearMeDialog open={nearOpen} onClose={() => setNearOpen(false)} />
     </>

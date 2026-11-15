@@ -41,6 +41,8 @@ async function load(params) {
   // from Friday onwards. Forwarded now, like every other filter.
   if (params.to) query.set('to', params.to);
   if (Number.isInteger(params.maxPrice)) query.set('maxPrice', String(params.maxPrice));
+  // "Tickets on sale" (2026-11-15): only events sold here.
+  if (params.onSale) query.set('onSale', 'true');
   query.set('limit', '24');
 
   try {
@@ -109,6 +111,7 @@ export default async function EventsPage({ searchParams }) {
   const from = dateParam(params.from);
   const to = dateParam(params.to);
   const tz = safeTimeZone(params.tz);
+  const onSale = params.onSale === 'true';
 
   const smart = await understand(q, tz, await liveCategories());
   const effective = {
@@ -118,6 +121,7 @@ export default async function EventsPage({ searchParams }) {
     from: from || smart?.from || '',
     to: to || smart?.to || '',
     maxPrice: smart?.maxPriceCents ?? null,
+    onSale,
   };
 
   let { events, categories, failed } = await load({ ...effective, country: params.country });
@@ -130,7 +134,7 @@ export default async function EventsPage({ searchParams }) {
    */
   let relaxed = false;
   if (smart?.understood.length && events.length === 0 && !failed) {
-    const plain = await load({ q, category: active, city, from, to, country: params.country });
+    const plain = await load({ q, category: active, city, from, to, onSale, country: params.country });
     if (plain.events.length > 0) ({ events, categories, failed } = { ...plain, categories: plain.categories.length ? plain.categories : categories });
     relaxed = plain.events.length > 0;
   }
@@ -144,6 +148,7 @@ export default async function EventsPage({ searchParams }) {
     if (to) next.set('to', to);
     if (params.tz) next.set('tz', tz);
     if (category) next.set('category', category);
+    if (onSale) next.set('onSale', 'true');
     const s = next.toString();
     return s ? `/events?${s}` : '/events';
   };
@@ -164,10 +169,12 @@ export default async function EventsPage({ searchParams }) {
     ...smart.understood.map((u) => ({ label: u.label, key: `smart-${u.key}`, href: without('q', withoutPhrase(q, u.phrase)) })),
     city && { label: `in ${city}`, key: 'city' },
     from && { label: `from ${from.slice(0, 10)}`, key: 'from' },
+    onSale && { label: 'Tickets on sale', key: 'onSale' },
   ].filter(Boolean) : [
     q && { label: `\u201c${q}\u201d`, key: 'q' },
     city && { label: `in ${city}`, key: 'city' },
     from && { label: `from ${from.slice(0, 10)}`, key: 'from' },
+    onSale && { label: 'Tickets on sale', key: 'onSale' },
   ].filter(Boolean);
 
   /** This page's URL with one filter removed. */
@@ -180,11 +187,12 @@ export default async function EventsPage({ searchParams }) {
     if (from && key !== 'from') next.set('from', from);
     if (to && key !== 'from') next.set('to', to);
     if (params.tz && keptQ) next.set('tz', tz);
+    if (onSale && key !== 'onSale') next.set('onSale', 'true');
     const s = next.toString();
     return s ? `/events?${s}` : '/events';
   }
 
-  const filtered = Boolean(q || active || city || from);
+  const filtered = Boolean(q || active || city || from || onSale);
   // The API pages at 24, so a full page may not be everything.
   const count = events.length >= 24 ? '24+' : String(events.length);
 
