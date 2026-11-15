@@ -111,6 +111,18 @@ router.get('/sponsors', async (req, res, next) => {
 });
 
 /**
+ * The homepage hero's slider: the events an admin marked VIP, in their order,
+ * that are published and not over — or, when there are none, the soonest
+ * upcoming events with a cover (`chosen: false`). See vipEventsService.
+ */
+router.get('/vip-events', async (req, res, next) => {
+  try {
+    const vipEvents = require('../services/vipEventsService');
+    return sendOk(res, await vipEvents.listPublic());
+  } catch (err) { return next(err); }
+});
+
+/**
  * The countries organizers can choose today: the markets a super admin has
  * open in platform settings. Every country picker offers only these, so a
  * closed market is not offered and then refused on submit.

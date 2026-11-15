@@ -5702,11 +5702,9 @@ a.es-sponsor:hover { opacity: 0.7; }
 /* ── 1 · Hero ─────────────────────────────────────────────────────────── */
 /* REBUILT 2026-11-15 to the approved homepage concept — see Hero.jsx.
 
-   A white band. Below lg one column in the concept's phone order: headline,
-   photographs, search. From lg the copy and the collage share a row and the
-   search bar runs under both. The photographs are SLANTED TILES: a skewed,
-   rounded box with the picture counter-skewed inside it, so the frame leans
-   and the picture does not. */
+   A white band. Below lg one column: headline, the VIP slider, search.
+   From lg the copy and the slider share a row and the search bar runs under
+   both. The slider's own rules follow this block (`.es-vip`). */
 .es-home-hero {
   position: relative;
   padding-block: clamp(1.5rem, 4vw, 3rem) clamp(1.25rem, 3vw, 2rem);
@@ -5772,56 +5770,282 @@ a.es-sponsor:hover { opacity: 0.7; }
 }
 .es-home-hero__ctas { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.5rem; }
 
-/* The collage. One large tile and up to three small ones, on a 6 × 4 grid
-   so the layout is the same arithmetic at every width. */
-.es-home-hero__collage {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  grid-template-rows: repeat(4, minmax(0, 1fr));
-  gap: clamp(0.4rem, 1vw, 0.75rem);
-  aspect-ratio: 16 / 9;
-  padding-inline: 4%;
-}
-.es-home-hero__tile {
+/* The partner logos, under the search bar. */
+.es-home-hero__partners { margin-top: clamp(1.25rem, 3vw, 2rem); }
+
+
+
+/* ── The VIP slider (VipSlider.jsx) ──────────────────────────────────────
+   2026-11-15, replacing the photo collage. The current slide in the middle,
+   its neighbours peeking in at each side, smaller and dimmed; everything is
+   placed by `data-pos` (the offset from the current slide) and the transform
+   is what transitions, so a move left or right animates every slide at once
+   on the compositor. Portrait slides (4:5), because covers are organizers'
+   flyers. */
+.es-vip { position: relative; min-width: 0; user-select: none; }
+.es-vip__stage {
   position: relative;
+  aspect-ratio: 5 / 4;
   overflow: hidden;
-  min-width: 0;
-  border-radius: clamp(14px, 2vw, 26px);
-  background: var(--es-bg-sunken);
-  transform: skewX(-10deg);
-  box-shadow: var(--es-shadow-md);
+  touch-action: pan-y;
+  /* The side slides fade out at the edges rather than being cut by them. */
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 9%, #000 91%, transparent 100%);
+          mask-image: linear-gradient(90deg, transparent 0, #000 9%, #000 91%, transparent 100%);
 }
-.es-home-hero__tile img {
+.es-vip__slide {
+  --es-vip-w: 56%;
   position: absolute;
-  inset: 0 -16%;
-  /* Preflight caps every img at max-width: 100%, which would undo the
-     overhang that keeps the counter-skewed picture filling the frame. */
-  width: 132%;
+  top: 3%;
+  left: 50%;
+  width: var(--es-vip-w);
+  height: 94%;
+  overflow: hidden;
+  border-radius: 22px;
+  background: var(--es-night-900);
+  box-shadow: 0 30px 60px -28px rgb(17 16 24 / 0.55), 0 8px 18px -10px rgb(17 16 24 / 0.3);
+  transform: translateX(-50%) scale(var(--es-vip-scale, 1));
+  transition:
+    transform 760ms cubic-bezier(0.22, 0.61, 0.36, 1),
+    opacity 760ms cubic-bezier(0.22, 0.61, 0.36, 1),
+    filter 760ms cubic-bezier(0.22, 0.61, 0.36, 1);
+  will-change: transform;
+}
+.es-vip__slide[data-pos='0'] { z-index: 3; }
+.es-vip__slide[data-pos='-1'],
+.es-vip__slide[data-pos='1'] { z-index: 2; --es-vip-scale: 0.8; filter: brightness(0.62) saturate(0.85); }
+.es-vip__slide[data-pos='-1'] { transform: translateX(calc(-50% - 62%)) scale(0.8); }
+.es-vip__slide[data-pos='1'] { transform: translateX(calc(-50% + 62%)) scale(0.8); }
+.es-vip__slide[data-pos='-2'] { z-index: 1; opacity: 0; transform: translateX(calc(-50% - 120%)) scale(0.66); }
+.es-vip__slide[data-pos='2'] { z-index: 1; opacity: 0; transform: translateX(calc(-50% + 120%)) scale(0.66); }
+
+.es-vip__media { position: absolute; inset: 0; }
+.es-vip__media img {
+  width: 100%;
   max-width: none;
   height: 100%;
   object-fit: cover;
-  transform: skewX(10deg);
+  transform: scale(1.06);
+  transition: transform 6s linear;
 }
-/* One photograph: the large tile alone. */
-.es-home-hero__collage--1 .es-home-hero__tile--1 { grid-column: 1 / -1; grid-row: 1 / -1; }
-/* Two: large left, one tall right. */
-.es-home-hero__collage--2 .es-home-hero__tile--1 { grid-column: 1 / 5; grid-row: 1 / -1; }
-.es-home-hero__collage--2 .es-home-hero__tile--2 { grid-column: 5 / -1; grid-row: 1 / -1; }
-/* Three: large left, two stacked right. */
-.es-home-hero__collage--3 .es-home-hero__tile--1 { grid-column: 1 / 5; grid-row: 1 / -1; }
-.es-home-hero__collage--3 .es-home-hero__tile--2 { grid-column: 5 / -1; grid-row: 1 / 3; }
-.es-home-hero__collage--3 .es-home-hero__tile--3 { grid-column: 5 / -1; grid-row: 3 / -1; }
-/* Four, the concept: large left, a wide one top right, two under it. */
-.es-home-hero__collage--4 .es-home-hero__tile--1 { grid-column: 1 / 4; grid-row: 1 / -1; }
-.es-home-hero__collage--4 .es-home-hero__tile--2 { grid-column: 4 / -1; grid-row: 1 / 3; }
-.es-home-hero__collage--4 .es-home-hero__tile--3 { grid-column: 4 / 5; grid-row: 3 / -1; margin-inline-start: -30%; }
-.es-home-hero__collage--4 .es-home-hero__tile--4 { grid-column: 5 / -1; grid-row: 3 / -1; }
+/* A slow push-in on the current slide — the "living poster" feel. */
+.es-vip__slide[data-pos='0'] .es-vip__media img { transform: scale(1); }
+.es-vip__placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 1.5rem;
+  background: linear-gradient(150deg, var(--es-coral-600), var(--es-night-900));
+  font-family: var(--es-font-display);
+  font-size: var(--es-text-2xl);
+  font-weight: 900;
+  line-height: 1.1;
+  text-align: center;
+  color: #ffffff;
+}
+/* Words on the photograph: a veil from the bottom, white type on it. The veil
+   is the night tone, so the type measures the same on any cover. */
+.es-vip__info {
+  position: absolute;
+  inset: auto 0 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 3.5rem 1.25rem 1.15rem;
+  background: linear-gradient(180deg, transparent 0%, rgb(17 16 24 / 0.72) 38%, rgb(17 16 24 / 0.94) 100%);
+  color: #ffffff;
+  transition: opacity 500ms ease, transform 500ms ease;
+}
+.es-vip__slide:not([data-pos='0']) .es-vip__info { opacity: 0; transform: translateY(12px); }
+.es-vip__badge {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: var(--es-radius-full);
+  background: var(--es-highlight);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--es-text-on-highlight);
+}
+.es-vip__title {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  font-family: var(--es-font-display);
+  font-size: clamp(1.25rem, 1rem + 0.9vw, 1.6rem);
+  font-weight: 900;
+  line-height: 1.12;
+  color: #ffffff;
+  overflow-wrap: anywhere;
+}
+.es-vip__meta {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  font-size: var(--es-text-sm);
+  color: rgb(255 255 255 / 0.86);
+}
+.es-vip__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.35rem;
+}
+.es-vip__price { font-size: var(--es-text-sm); color: rgb(255 255 255 / 0.86); }
+.es-vip__price b { font-size: var(--es-text-md); font-weight: 800; color: #ffffff; }
+.es-vip__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 40px;
+  padding: 0.4rem 1.1rem;
+  border-radius: var(--es-radius-full);
+  background: var(--es-accent);
+  font-size: var(--es-text-sm);
+  font-weight: 700;
+  white-space: nowrap;
+  color: var(--es-text-on-accent);
+  box-shadow: var(--es-shadow-accent);
+  transition: background-color var(--es-duration-fast) var(--es-ease-default);
+}
+.es-vip__slide[data-pos='0']:hover .es-vip__cta { background: var(--es-accent-hover); }
+/* The whole slide is the target: the link on the current one, a "bring me to
+   the middle" button on the peeking ones. */
+.es-vip__link {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  cursor: pointer;
+}
+.es-vip__link:focus-visible { outline: 3px solid var(--es-highlight); outline-offset: -3px; }
+
+/* Arrows: white discs over the peeking slides. */
+.es-vip__arrow {
+  position: absolute;
+  top: 50%;
+  z-index: 4;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: #ffffff;
+  color: var(--es-ink-on-light);
+  box-shadow: 0 10px 24px -8px rgb(17 16 24 / 0.45);
+  transform: translateY(-50%);
+  cursor: pointer;
+  transition: transform var(--es-duration-fast) var(--es-ease-default), background-color var(--es-duration-fast) var(--es-ease-default);
+}
+.es-vip__arrow:hover { background: var(--es-highlight); transform: translateY(-50%) scale(1.06); }
+.es-vip__arrow--prev { left: 6.5%; }
+.es-vip__arrow--next { right: 6.5%; }
+
+/* Progress: one short bar per event; the current one fills over the interval. */
+.es-vip__controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+.es-vip__dots { display: flex; align-items: center; gap: 0.4rem; }
+.es-vip__dot {
+  position: relative;
+  width: 22px;
+  height: 24px;
+  cursor: pointer;
+}
+.es-vip__dot::before {
+  content: '';
+  position: absolute;
+  inset: 10px 0;
+  border-radius: 2px;
+  background: var(--es-grey-300);
+  transition: background-color var(--es-duration-fast) var(--es-ease-default);
+}
+.es-vip__dot[aria-current='true'] { width: 44px; }
+.es-vip__dot[aria-current='true']::before { background: var(--es-grey-200); }
+.es-vip__dot:hover::before { background: var(--es-grey-400); }
+.es-vip__fill {
+  position: absolute;
+  inset: 10px auto 10px 0;
+  width: 100%;
+  border-radius: 2px;
+  background: var(--es-brand-coral);
+  transform-origin: left center;
+  animation-name: es-vip-fill;
+  animation-timing-function: linear;
+  animation-fill-mode: both;
+}
+@keyframes es-vip-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.es-vip__pause {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--es-border);
+  border-radius: 50%;
+  background: var(--es-surface);
+  color: var(--es-text);
+  cursor: pointer;
+}
+.es-vip__pause:hover { border-color: var(--es-border-strong); }
+
+/* Phone: the current slide takes most of the width; the neighbours peek. */
 @media (width < 48rem) {
-  .es-home-hero__collage { aspect-ratio: 16 / 10; padding-inline: 7%; }
+  .es-vip__stage { aspect-ratio: 1 / 1.05; }
+  .es-vip__slide { --es-vip-w: 74%; }
+  .es-vip__slide[data-pos='-1'] { transform: translateX(calc(-50% - 74%)) scale(0.84); }
+  .es-vip__slide[data-pos='1'] { transform: translateX(calc(-50% + 74%)) scale(0.84); }
+  .es-vip__arrow { width: 38px; height: 38px; }
+  .es-vip__arrow--prev { left: 2%; }
+  .es-vip__arrow--next { right: 2%; }
 }
 
-/* The partner logos, under the search bar. */
-.es-home-hero__partners { margin-top: clamp(1.25rem, 3vw, 2rem); }
+/* The console's list of VIP events (admin/content/VipEvents.jsx). */
+.es-vipadmin__row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--es-border);
+  border-radius: var(--es-radius-md);
+  background: var(--es-surface);
+}
+.es-vipadmin__pos {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--es-highlight);
+  font-size: var(--es-text-sm);
+  font-weight: 800;
+  color: var(--es-text-on-highlight);
+}
+.es-vipadmin__thumb {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 55px;
+  border-radius: var(--es-radius-sm);
+  object-fit: cover;
+  background: var(--es-bg-sunken);
+  color: var(--es-text-subtle);
+}
 
 /* ── The search bar ──────────────────────────────────────────────────────
    The concept's: one white pill with a soft shadow, hairline dividers

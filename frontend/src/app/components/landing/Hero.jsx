@@ -4,6 +4,7 @@ import Accent from './Accent';
 import HeroCta from './HeroCta';
 import HeroSearch from './HeroSearch';
 import PartnerCarousel from './PartnerCarousel';
+import VipSlider from './VipSlider';
 import NavIcon from '../shell/NavIcon';
 
 /**
@@ -13,7 +14,9 @@ import NavIcon from '../shell/NavIcon';
  * REBUILT 2026-11-15 to the approved homepage concept ("Eventsli | Website
  * design inspiration"): on a white page, the headline with its second line on
  * a yellow highlight, one sentence, a coral "Explore Events" and an outlined
- * "Create an Event"; on the right a collage of slanted photographs. Under both,
+ * "Create an Event"; on the right the VIP SLIDER (VipSlider.jsx) — the events an
+ * admin chose, sliding left and right. It replaced a collage of slanted
+ * photographs the owner called "very terrible" (2026-11-15). Under both,
  * across the full width, the search bar — what, where, when, and one coral
  * Search. On a phone it stacks in the concept's order: headline, photographs,
  * search.
@@ -22,22 +25,20 @@ import NavIcon from '../shell/NavIcon';
  * carousel). The headline and the buttons are what a crawler and a share-card
  * scraper need, and neither requires JavaScript.
  *
- * ── The photographs ─────────────────────────────────────────────────────────
- * The admin's hero artwork first, then the covers of events actually on sale,
- * up to four. A platform with fewer simply shows fewer tiles; with none the
+ * ── The slider ─────────────────────────────────────────────────────────────
+ * `vip` is `/public/vip-events`: the admin's choice in their order, or the
+ * soonest upcoming events with a cover when none is chosen. With neither, the
  * copy stands alone — never a stock picture of something that is not on sale.
- * Decorative (`alt=""`, `aria-hidden`): the events are named in the list below.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-export default function Hero({ content, events, sponsors = [] }) {
+export default function Hero({ content, vip = [], sponsors = [] }) {
   const hero = content?.hero || {};
   const copy = content?.sections || {};
-  const photos = collagePhotos(hero, events);
 
   return (
     <section className={`es-home-hero fx-gutter ${sponsors.length ? 'es-home-hero--partners' : ''}`}>
       <div className="fx-container fx-container--xl">
-        <div className={`es-home-hero__grid ${photos.length ? '' : 'es-home-hero__grid--solo'}`}>
+        <div className={`es-home-hero__grid ${vip.length ? '' : 'es-home-hero__grid--solo'}`}>
           <div className="es-home-hero__copy">
             {/* Admin-owned, from `landingSchema`'s hero block. Clearing
                 `badgeText` in the console removes it entirely. */}
@@ -78,25 +79,7 @@ export default function Hero({ content, events, sponsors = [] }) {
             </div>
           </div>
 
-          {photos.length > 0 && (
-            <div aria-hidden className={`es-home-hero__collage es-home-hero__collage--${photos.length}`}>
-              {photos.map((src, i) => (
-                <span key={src} className={`es-home-hero__tile es-home-hero__tile--${i + 1}`}>
-                  {/* A plain <img> straight from storage: the file is uploaded
-                      already encoded, and the optimiser's first-request
-                      re-encode cost five seconds here. */}
-                  {/* eslint-disable-next-line @next/next/no-img-element -- see above */}
-                  <img
-                    src={src}
-                    alt=""
-                    loading={i === 0 ? 'eager' : 'lazy'}
-                    fetchPriority={i === 0 ? 'high' : 'auto'}
-                    decoding="async"
-                  />
-                </span>
-              ))}
-            </div>
-          )}
+          {vip.length > 0 && <VipSlider events={vip} />}
         </div>
 
         {hero.showSearch !== false && <HeroSearch />}
@@ -113,16 +96,6 @@ export default function Hero({ content, events, sponsors = [] }) {
       )}
     </section>
   );
-}
-
-/**
- * The admin's artwork, then real event covers, de-duplicated, at most four.
- * The landscape artwork is used at every width (owner's review, 2026-10-17);
- * the portrait file is only a fallback.
- */
-export function collagePhotos(hero, events = []) {
-  const list = [hero?.imageUrl || hero?.mobileImageUrl, ...events.map((e) => e.coverUrl)];
-  return [...new Set(list.filter(Boolean))].slice(0, 4);
 }
 
 /** The three yellow strokes beside the headline in the concept. Decoration. */

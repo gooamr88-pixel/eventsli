@@ -55,6 +55,18 @@ router.put(
   c.putContent,
 );
 
+// ─── VIP events (the hero slider) ───────────────────────────────────────────
+// The whole ordered list in one PUT: see vipEventsService.save. A super-admin
+// write like everything under /storefront (the router-level guard above).
+router.get('/storefront/vip-events', c.listVipEvents);
+router.put(
+  '/storefront/vip-events',
+  body('eventIds').isArray({ max: 12 }).withMessage('Choose at most 12 events.'),
+  body('eventIds.*').isUUID().withMessage('One of those is not an event.'),
+  validate,
+  c.saveVipEvents,
+);
+
 // ─── Sponsors ───────────────────────────────────────────────────────────────
 router.get('/storefront/sponsors', c.listSponsors);
 

@@ -12,13 +12,14 @@ import { useToast } from '../../components/ui/Toast';
 import NavIcon from '../../components/shell/NavIcon';
 import BlockForm, { isDirty, PATH_FIELD } from './BlockForm';
 import ListEditor from './ListEditor';
+import VipEvents from './VipEvents';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
  * The homepage, editable.
  *
- * Five tabs over three kinds of thing: the blocks of copy (`site_content`), the
- * three ordered lists, and nothing else. There is deliberately no control here
+ * Five tabs over four kinds of thing: the blocks of copy (`site_content`), the
+ * VIP events on the hero's slider, the three ordered lists, and nothing else. There is deliberately no control here
  * for the ORDER OF THE BANDS or for adding one — a CMS that lets an operator
  * rearrange the page is a CMS that lets an operator break the band rhythm the
  * design system exists to protect, and `scripts/contrast.js` cannot check a
@@ -32,6 +33,8 @@ import ListEditor from './ListEditor';
  */
 const TABS = [
   { key: 'blocks', label: 'Page content' },
+  // The hero slider's events (2026-11-15) — see VipEvents.jsx.
+  { key: 'vip', label: 'VIP events' },
   { key: 'categories', label: 'Categories' },
   { key: 'sponsors', label: 'Sponsors' },
   { key: 'testimonials', label: 'Testimonials' },
@@ -80,7 +83,9 @@ export default function Content() {
         ))}
       </nav>
 
-      {tab === 'blocks' ? <Blocks canEdit={canEdit} /> : <ListEditor kind={tab} />}
+      {tab === 'blocks' ? <Blocks canEdit={canEdit} />
+        : tab === 'vip' ? <VipEvents canEdit={canEdit} />
+          : <ListEditor kind={tab} />}
     </div>
   );
 }

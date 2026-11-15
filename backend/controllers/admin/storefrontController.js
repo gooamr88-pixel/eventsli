@@ -3,6 +3,7 @@ const { writeAudit } = require('../../services/auditService');
 const storefront = require('../../services/storefrontService');
 const categories = require('../../services/categoryService');
 const siteMedia = require('../../services/siteMediaService');
+const vipEvents = require('../../services/vipEventsService');
 const stats = require('../../services/statsService');
 const { revalidate, LANDING_TAG } = require('../../services/revalidateService');
 const { describe, CONTENT_KEYS } = require('../../utils/landingSchema');
@@ -37,7 +38,8 @@ function handle(fn) {
     try {
       return await fn(req, res);
     } catch (err) {
-      if (err instanceof storefront.StorefrontError || err?.code === 'VALIDATION_ERROR') {
+      if (err instanceof storefront.StorefrontError || err instanceof vipEvents.VipEventsError
+        || err?.code === 'VALIDATION_ERROR') {
         const status = err.code === 'NOT_FOUND' ? 404 : err.code === 'CONFLICT' ? 409 : 400;
         return sendFail(res, {
           status,
@@ -307,8 +309,25 @@ const confirmUpload = handle(async (req, res) => {
   }
 });
 
+// ─── VIP events: the hero slider ────────────────────────────────────────────
+
+const listVipEvents = handle(async (req, res) =>
+  sendOk(res, { events: await vipEvents.listAdmin(), max: vipEvents.MAX_VIP }));
+
+/** Replaces the whole list, in order — see vipEventsService.save. */
+const saveVipEvents = handle(async (req, res) => {
+  const events = await vipEvents.save(req.body?.eventIds);
+  await writeAudit(req, {
+    action: 'storefront.vip_events_saved', targetType: 'storefront', targetId: null,
+    payload: { eventIds: events.map((e) => e.id) },
+  });
+  touched();
+  return sendOk(res, { events, max: vipEvents.MAX_VIP });
+});
+
 module.exports = {
   getContent, putContent,
+  listVipEvents, saveVipEvents,
   listSponsors, createSponsor, updateSponsor, deleteSponsor,
   listTestimonials, createTestimonial, updateTestimonial, deleteTestimonial,
   listCategories, createCategory, updateCategory, deleteCategory,

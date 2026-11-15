@@ -15,8 +15,9 @@ import { serverFetch } from './utils/apiClient';
  * REBUILT 2026-11-15 to the approved homepage concept ("Eventsli | Website
  * design inspiration"): a white page, yellow highlights, coral calls to action.
  *
- *   1  hero            headline on a yellow highlight, the photo collage, the
- *                      search bar; partner logos under it, if any
+ *   1  hero            headline on a yellow highlight, the VIP events slider
+ *                      (chosen in the admin console), the search bar;
+ *                      partner logos under it, if any
  *   2  popular events  category chips (the chosen one yellow), the cards
  *   3  host tools      "Everything you need to host an event"
  *   4  near you        only while some city has an upcoming event
@@ -56,7 +57,7 @@ export const revalidate = 60;
  * because the page must still render its headline when the CMS is unreachable.
  */
 async function load() {
-  const [events, landing, cities] = await Promise.all([
+  const [events, landing, cities, vip] = await Promise.all([
     serverFetch('/public/events?limit=8', { tags: ['events:published'], revalidate: 60 })
       .then((rows) => ({ rows: Array.isArray(rows) ? rows : [], failed: false }))
       .catch(() => ({ rows: [], failed: true })),
@@ -73,13 +74,21 @@ async function load() {
     serverFetch('/public/cities', { tags: ['events:published'], revalidate: 60 })
       .then((d) => (Array.isArray(d?.cities) ? d.cities : null))
       .catch(() => null),
+
+    // The hero's slider (2026-11-15). Tagged `landing` so an admin's save in
+    // the console drops it at once, and `events:published` so an event that
+    // is unpublished leaves the slider with the listing. A failure costs the
+    // slider only: the hero's words stand alone.
+    serverFetch('/public/vip-events', { tags: ['landing', 'events:published'], revalidate: 60 })
+      .then((d) => (Array.isArray(d?.events) ? d.events : []))
+      .catch(() => []),
   ]);
 
-  return { events: events.rows, failed: events.failed, landing, cities };
+  return { events: events.rows, failed: events.failed, landing, cities, vip };
 }
 
 export default async function HomePage() {
-  const { events, failed, landing, cities } = await load();
+  const { events, failed, landing, cities, vip } = await load();
 
   const content = landing?.content || {};
   const copy = content.sections || {};
@@ -92,7 +101,7 @@ export default async function HomePage() {
       {/* Counts this view. Renders nothing — see VisitBeacon. */}
       <VisitBeacon path="/" />
 
-      <Hero content={content} events={events} sponsors={sponsors} />
+      <Hero content={content} vip={vip} sponsors={sponsors} />
       <PopularEvents copy={copy} categories={categories} events={events} failed={failed} />
       <HostTools />
       {/* Nearby events by default, when this browser already allows location;
