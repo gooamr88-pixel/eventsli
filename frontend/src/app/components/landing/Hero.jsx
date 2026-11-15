@@ -90,7 +90,7 @@ export default function Hero({ content, vip = [], sponsors = [] }) {
       {sponsors.length > 0 && (
         <div className="es-home-hero__partners">
           <div className="fx-container fx-container--xl">
-            <PartnerCarousel label={copy.sponsorsEyebrow || 'Proudly partnered with'} sponsors={sponsors} />
+            <PartnerCarousel label={copy.sponsorsEyebrow || 'Our sponsors'} sponsors={sponsors} />
           </div>
         </div>
       )}

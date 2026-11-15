@@ -35,11 +35,12 @@ export default async function EventsliPartners() {
   return (
     <section className="es-ev-partners" aria-labelledby="eventsli-partners">
       <div className="es-ev-partners__head">
-        <p className="es-ev-partners__eyebrow">Eventsli partners</p>
-        <h2 id="eventsli-partners" className="es-ev-partners__title">Proudly supported by</h2>
-        <p className="es-ev-partners__lede">The brands that power Eventsli and the events on it.</p>
+        {/* "Our sponsors" (owner, 2026-11-15) — it read "Proudly supported by". */}
+        <p className="es-ev-partners__eyebrow">Eventsli</p>
+        <h2 id="eventsli-partners" className="es-ev-partners__title">Our sponsors</h2>
+        <p className="es-ev-partners__lede">The brands that support Eventsli and the events on it.</p>
       </div>
-      <PartnerCarousel label="Eventsli partners" sponsors={sponsors} heading={false} variant="tiles" />
+      <PartnerCarousel label="Our sponsors" sponsors={sponsors} heading={false} variant="tiles" />
     </section>
   );
 }

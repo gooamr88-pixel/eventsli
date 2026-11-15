@@ -6304,10 +6304,10 @@ input.es-lp-filter__control::-webkit-search-cancel-button { display: none; }
   .es-vip__controls { margin-top: 0.5rem; }
 }
 
-/* Event cards in the phone rail: two-thirds of the screen wide, so the next
-   one is plainly there, and compact — a card, not a page. */
+/* Event cards in the phone rail: most of the screen wide, so the picture is
+   big, with the next card's edge showing so a swipe is obvious. */
 @media (width < 48rem) {
-  .es-lp-cards.es-lp-rail { grid-auto-columns: 72%; }
+  .es-lp-cards.es-lp-rail { grid-auto-columns: 86%; }
   .es-lp-rail .es-evcard { padding: 8px; border-radius: 16px; }
   .es-lp-rail .es-evcard__media { border-radius: 10px; }
   .es-lp-rail .es-evcard__body { padding: 10px 4px 2px; }
@@ -6364,10 +6364,16 @@ input.es-lp-filter__control::-webkit-search-cancel-button { display: none; }
   gap: 1.25rem;
 }
 .es-lp-cards__ghost { height: 24rem; border-radius: 18px; }
-/* Four across from lg, as the concept sets the row (2026-11-15); the page
-   fetches eight, so a desktop shows two full rows and a phone swipes. */
+/* THREE across from lg (two on a tablet), large (owner's review, 2026-11-15: "the images in
+   the cards are very small"). Two full rows — the page fetches eight so a
+   phone has more to swipe through, and a grid of eight would leave two
+   orphans. */
+@media (width >= theme(--breakpoint-md)) {
+  .es-lp-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5rem; }
+  .es-lp-cards > li:nth-child(n + 7) { display: none; }
+}
 @media (width >= theme(--breakpoint-lg)) {
-  .es-lp-cards { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .es-lp-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
 /* ── The event card ───────────────────────────────────────────────────────
@@ -6393,16 +6399,15 @@ input.es-lp-filter__control::-webkit-search-cancel-button { display: none; }
 .es-evcard__media {
   position: relative;
   overflow: hidden;
-  aspect-ratio: 4 / 3;
+  aspect-ratio: 1 / 1;
   border-radius: 12px;
   background: var(--es-bg-sunken);
 }
-/* 4:3 SINCE 2026-11-15, the homepage concept's wider, shorter artwork. It
-   was square because covers are organizers' flyers, often square or portrait
-   with the names printed on them; 4:3 trims an eighth off the top and bottom
-   of a square flyer (the old 16:10 cut far more). Centred, so the middle of
-   the flyer — usually the headline act — survives. Back to 1 / 1 above if
-   flyers lose words that matter. */
+/* SQUARE. Covers are organizers' flyers — square or portrait, with the names
+   and the date printed on them. A square box fills with a square flyer exactly
+   and trims only a sliver off a portrait one. It was 4:3 for a day
+   (2026-11-15) to match the concept's wider artwork; the owner found the
+   pictures too small, and they were. */
 .es-evcard__art {
   object-fit: cover;
   object-position: center;
