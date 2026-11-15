@@ -143,7 +143,7 @@ const styles = StyleSheet.create({
   scroll: { paddingHorizontal: space.xl, paddingTop: space.xxl, paddingBottom: space.xl, gap: space.xl },
   brand: { alignItems: 'center', marginTop: space.lg, marginBottom: space.lg },
   intro: { gap: space.sm },
-  title: { fontFamily: 'Nunito_900Black', fontSize: 28, lineHeight: 34, color: colors.text },
+  title: { fontFamily: 'Urbanist_900Black', fontSize: 28, lineHeight: 34, color: colors.text },
   form: { gap: space.md },
   submit: { marginTop: space.sm },
   link: { paddingVertical: space.sm },

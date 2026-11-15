@@ -1,5 +1,5 @@
 import { headers } from 'next/headers';
-import { DM_Sans, DM_Mono, Nunito, Sacramento } from 'next/font/google';
+import { DM_Sans, DM_Mono, Urbanist, Sacramento } from 'next/font/google';
 import SiteHeader from './components/SiteHeader';
 import SiteFooter from './components/SiteFooter';
 import './globals.css';
@@ -27,22 +27,22 @@ const dmSans = DM_Sans({
 });
 
 /**
- * THE HEADING FACE, 2026-11-15: Nunito, the face the logo's word is drawn in.
- * Montserrat came first and the owner found it "very formal"; Nunito's rounded
- * terminals are friendly without being a toy, and echo the E-ticket's corners.
- * DM Sans stays for body copy. 700 for small headings and panel titles, 800 for
+ * THE HEADING FACE, 2026-11-15: Urbanist, the face the logo's word is drawn
+ * in. Montserrat came first ("very formal"), then rounded Nunito and Poppins;
+ * the owner asked for something SHARP and chose the logo set in Urbanist Black,
+ * so the headings follow it. DM Sans stays for body copy. 700 for small headings and panel titles, 800 for
  * section and page headings, 900 for the one display line.
  */
-const nunito = Nunito({
+const urbanist = Urbanist({
   subsets: ['latin'],
   weight: ['700', '800', '900'],
-  variable: '--font-nunito',
+  variable: '--font-urbanist',
   display: 'swap',
 });
 
 /**
  * DM Serif Display is gone: the owner rejected the serif headline, and the
- * site is DM Sans for reading and Nunito for headings. Mono remains for `--es-font-code` alone — the six
+ * site is DM Sans for reading and Urbanist for headings. Mono remains for `--es-font-code` alone — the six
  * digit boxes, where a person copies characters one by one.
  */
 const dmMono = DM_Mono({
@@ -210,7 +210,7 @@ export default async function RootLayout({ children }) {
   await headers();
 
   return (
-    <html lang="en" className={`${dmSans.variable} ${nunito.variable} ${dmMono.variable} ${script.variable}`}>
+    <html lang="en" className={`${dmSans.variable} ${urbanist.variable} ${dmMono.variable} ${script.variable}`}>
       <head>
         {/*
           THE HERO IMAGE LIVES ON ANOTHER ORIGIN, and the browser cannot know

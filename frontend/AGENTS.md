@@ -299,8 +299,8 @@ The approved brand sheet sets six colours, and `globals.css` names them on
 - **Yellow is a fill, never text** (`--es-highlight`, 1.5:1 on white). Selected
   chips, the headline highlight, the logo's ticket — always with near-black on
   it (`--es-text-on-highlight`).
-- **Nunito for headings** (`--es-font-display`; Montserrat was tried first
-  and the owner found it "very formal"; `h1`–`h4` in the base
+- **Urbanist for headings**, the logo's own face (`--es-font-display`;
+  Montserrat was "very formal" and Nunito too round; `h1`–`h4` in the base
   layer, `.es-lp-title`, and the scoped `.es-mk`/`.es-auth` headings), **DM Sans
   for everything read at length**. `--es-font-serif` is a legacy alias of the
   display face.

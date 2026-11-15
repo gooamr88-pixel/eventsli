@@ -14,10 +14,10 @@
  * so the kit cannot disagree with the site. Needs Playwright (or
  * playwright-core and an installed Chrome), as scripts/brandIcons.js does.
  *
- * THE WHITE / YELLOW / CORAL BRAND, 2026-11-15: the E-ticket (a yellow ticket
- * with a near-black E) and "Eventsli" in Nunito Black, near-black. The
- * ticket stays yellow in every colour version except one-colour print, where
- * the E is knocked out of a near-black ticket.
+ * THE WHITE / YELLOW / CORAL BRAND, 2026-11-15: the E card (a sharp yellow
+ * ticket with a capital E) and "eventsli" in Urbanist Black with a yellow
+ * spark over the i. The card and spark stay yellow in every colour version
+ * except one-colour print, where the E is knocked out of a near-black card.
  * ═══════════════════════════════════════════════════════════════════════════ */
 const fs = require('node:fs');
 const path = require('node:path');
@@ -38,6 +38,8 @@ const MARK_VB = readExport('src/app/components/brand/markPath.js', 'MARK_VIEWBOX
 const EVENTS = readExport('src/app/components/brand/wordmarkPath.js', 'WORDMARK_EVENTS');
 const LI = readExport('src/app/components/brand/wordmarkPath.js', 'WORDMARK_LI');
 const WORD_VB = readExport('src/app/components/brand/wordmarkPath.js', 'WORDMARK_VIEWBOX');
+const GAP = readExport('src/app/components/brand/wordmarkPath.js', 'LOGO_GAP');
+const SPARK = readExport('src/app/components/brand/wordmarkPath.js', 'WORDMARK_SPARK');
 const TAGLINE = readExport('src/app/lib/siteRoutes.js', 'TAGLINE');
 
 const YELLOW = '#FFCC00';
@@ -76,33 +78,31 @@ function taglinePath(font, x0, baseline, size, length) {
 }
 
 /**
- * Ticket + word, in the website's proportions (`.es-logo`): the ticket is 1.2 of
- * the word's height, the gap 0.3 of it, the tagline under the word.
+ * The E card and the word in their own shared coordinate system (both files
+ * have the same vertical extent and units): the card at x 0, the word after
+ * the gap the website uses (`LOGO_GAP`), the tagline under the word. The
+ * spark is the card's colour (`ticket`), so the one-colour version is one
+ * colour.
  */
-function lockupSvg(font, { ticket, initial, ink, tag, tagline = true, label }) {
-  const k = 1;                          // the word at its own units
-  const tH = WH * 1.3;
-  const tW = (tH * MW) / MH;
-  const gap = WH * 0.38;
-  const wordX = tW + gap;
-  const H = tagline ? WH + 51 : tH;
-  const W = +(wordX + WW).toFixed(1);
-  const markY = tagline ? (WH - tH) / 2 : 0;
-  const wordY = tagline ? 0 : (tH - WH) / 2;
+function lockupSvg(font, { ticket, initial, ink, tag, tagline = true, label, spark = ticket }) {
+  const gap = Number(GAP) * WH;
+  const dx = MW + gap - WX;              // where "ventsli" starts
+  const W = Math.ceil(MW + gap + WW);
+  const H = tagline ? WH + 50 : WH;
   const tg = tagline
-    ? `\n  <path d="${taglinePath(font, wordX + 6, WH + 47, 30, Math.round(WW * 0.95))}" fill="${tag}"/>`
+    ? `
+  <path d="${taglinePath(font, dx + WX + 2, WY + WH + 40, 28, Math.round(WW * 0.97))}" fill="${tag}"/>`
     : '';
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!-- Eventsli — ${label}. Generated from the product's logo source; do not edit by hand. -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 ${Math.min(0, markY).toFixed(1)} ${W} ${(H - Math.min(0, markY)).toFixed(1)}" width="${W * 4}" height="${((H - Math.min(0, markY)) * 4).toFixed(0)}">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 ${WY} ${W} ${H}" width="${W * 4}" height="${H * 4}">
   <title>Eventsli</title>
-  <g transform="translate(0 ${markY.toFixed(2)}) scale(${(tH / MH).toFixed(4)})">
-    <path d="${FRAME}" fill="${ticket}"/>
-    <path d="${INITIAL}" fill="${initial}"/>
-  </g>
-  <g transform="translate(${(wordX - WX * k).toFixed(1)} ${(wordY - WY).toFixed(1)})">
+  <path d="${FRAME}" fill="${ticket}"/>
+  <path d="${INITIAL}" fill="${initial}"/>
+  <g transform="translate(${dx.toFixed(1)} 0)">
     <path d="${EVENTS}" fill="${ink}"/>
     <path d="${LI}" fill="${ink}"/>
+    <path d="${SPARK}" fill="${spark}"/>
   </g>${tg}
 </svg>
 `;

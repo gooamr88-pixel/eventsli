@@ -74,10 +74,10 @@ export const colors = {
   white: '#ffffff',
 } as const;
 
-/** As on the site: DM Sans to read, Nunito for titles (2026-11-15).
+/** As on the site: DM Sans to read, Urbanist for titles (2026-11-15).
  *  Names match the loaded font assets. */
 export const fonts = {
-  display: 'Nunito_900Black',
+  display: 'Urbanist_900Black',
   regular: 'DMSans_400Regular',
   medium: 'DMSans_500Medium',
   semibold: 'DMSans_600SemiBold',

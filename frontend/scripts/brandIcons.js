@@ -26,7 +26,7 @@
  * card is the homepage concept's hero in miniature.
  *
  * NEEDS Playwright (`playwright`, or `playwright-core` driving the installed
- * Chrome) and network access to Google Fonts, which supplies Nunito and
+ * Chrome) and network access to Google Fonts, which supplies Urbanist and
  * DM Sans for the share card. Not part of `npm run check` for that reason.
  * ═══════════════════════════════════════════════════════════════════════════ */
 const fs = require('node:fs');
@@ -48,6 +48,8 @@ const MARK_VB = readExport('src/app/components/brand/markPath.js', 'MARK_VIEWBOX
 const EVENTS = readExport('src/app/components/brand/wordmarkPath.js', 'WORDMARK_EVENTS');
 const LI = readExport('src/app/components/brand/wordmarkPath.js', 'WORDMARK_LI');
 const WORD_VB = readExport('src/app/components/brand/wordmarkPath.js', 'WORDMARK_VIEWBOX');
+const SPARK = readExport('src/app/components/brand/wordmarkPath.js', 'WORDMARK_SPARK');
+const GAP = Number(readExport('src/app/components/brand/wordmarkPath.js', 'LOGO_GAP'));
 
 // The brand sheet's values (globals.css holds the same; test/logo.test.jsx pins them).
 const YELLOW = '#ffcc00';
@@ -64,13 +66,12 @@ function mark({ ticket = YELLOW, initial = INK } = {}) {
     + `<path d="${FRAME}" fill="${ticket}"/><path d="${INITIAL}" fill="${initial}"/></svg>`;
 }
 
-/** Ticket + word, in the proportions `.es-logo` uses (ticket 1.3 of the word height, gap 0.38). */
+/** The E card + the word as `.es-logo` draws them: the same height, LOGO_GAP apart. */
 function lockup({ ink = INK, height = 60 } = {}) {
-  const tH = height * 1.3;
-  return `<div style="display:flex;align-items:center;gap:${height * 0.38}px">`
-    + `<div style="height:${tH}px;width:${(tH * MW) / MH}px">${mark()}</div>`
+  return `<div style="display:flex;align-items:center;gap:${height * GAP}px">`
+    + `<div style="height:${height}px;width:${(height * MW) / MH}px">${mark()}</div>`
     + `<svg viewBox="${WORD_VB}" style="height:${height}px" xmlns="http://www.w3.org/2000/svg">`
-    + `<path d="${EVENTS}" fill="${ink}"/><path d="${LI}" fill="${ink}"/></svg></div>`;
+    + `<path d="${EVENTS}" fill="${ink}"/><path d="${LI}" fill="${ink}"/><path d="${SPARK}" fill="${YELLOW}"/></svg></div>`;
 }
 
 /** The app tile: the full-colour E-ticket on the near-black. */
@@ -114,8 +115,8 @@ function gateTile(size, { radius = 0, safe = false } = {}) {
  */
 function og() {
   return `<div style="position:relative;width:1200px;height:630px;background:#ffffff;font-family:'DM Sans';overflow:hidden">
-    <div style="position:absolute;left:84px;top:70px">${lockup({ height: 52 })}</div>
-    <div style="position:absolute;left:84px;top:190px;width:680px;font-family:Nunito;font-weight:900;font-size:68px;line-height:1.1;color:${INK};letter-spacing:-0.01em">
+    <div style="position:absolute;left:84px;top:70px">${lockup({ height: 64 })}</div>
+    <div style="position:absolute;left:84px;top:190px;width:680px;font-family:Urbanist;font-weight:900;font-size:68px;line-height:1.1;color:${INK};letter-spacing:-0.01em">
       <div>Discover Events.</div>
       <div><span style="display:inline-block;background:${YELLOW};border-radius:14px;padding:0 18px;margin-left:-18px;transform:skewX(-6deg)"><span style="display:inline-block;transform:skewX(6deg)">Make Memories.</span></span></div>
     </div>
@@ -172,7 +173,7 @@ async function launch() {
 
 async function main() {
   const faces = (await faceCss('family=DM+Sans:wght@500;600;700'))
-    + (await faceCss('family=Nunito:wght@800;900'));
+    + (await faceCss('family=Urbanist:wght@900'));
   const browser = await launch();
   try {
     for (const asset of ASSETS) {

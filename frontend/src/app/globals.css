@@ -302,14 +302,14 @@
      so every rule that asks for them follows without being hunted down; the
      one place a monospace face still helps — digits a person copies, like a
      six-digit code — asks for `--es-font-code` by name. */
-  /* NUNITO FOR HEADINGS (owner, 2026-11-15; Montserrat before it was "very
-     formal"), DM Sans for everything a
+  /* URBANIST FOR HEADINGS (owner, 2026-11-15: the logo's face. Montserrat was
+     "very formal", Nunito too round), DM Sans for everything a
      person reads at length. The brand sheet sets its headlines and the
      wordmark in a heavy geometric face; DM Sans at 800 is close but rounder
      and quieter, and the sheet's "Discover Events." reads as a poster,
      not a paragraph. `--es-font-serif` is the legacy name every heading
      rule already asks for, so it points at the display face. */
-  --es-font-display: var(--font-nunito), var(--es-font-sans);
+  --es-font-display: var(--font-urbanist), var(--es-font-sans);
   --es-font-serif: var(--es-font-display);
   --es-font-mono:  var(--es-font-sans);
   --es-font-code:  var(--font-dm-mono), ui-monospace, 'Cascadia Code', Consolas, monospace;
@@ -2886,49 +2886,55 @@ body:has(.es-buybar) { padding-block-end: calc(5.5rem + var(--fx-safe-b)); }
    The padding it used to pay for is now the header's at every width. */
 .es-event-head { padding-bottom: 1.25rem; }
 
-/* ── .es-logo — the E-ticket, the word, the tagline ────────────────────
+/* ── .es-logo — the E card, "eventsli" with its spark, the tagline ──────
    REDRAWN 2026-11-15 (see Logo.jsx and scripts/brandLogo.js). Proportions,
-   all off `--es-logo-h`, the WORD height, so a size step scales the whole
-   lockup and cannot distort it:
+   all off `--es-logo-h`, the height BOTH SVGs share (the top of the spark
+   to the card's bottom edge), so a size step scales the whole lockup and
+   cannot distort it:
 
-     · the E-ticket is 1.3 of the word height, so the square optically
-       matches the word's capitals and ascenders,
-     · the gap between them is 0.38 of it,
+     · the E card and the word are drawn at the SAME height, which puts
+       them on one baseline (their viewBoxes share a vertical extent),
+     · the gap between them is 0.1887 of it — `LOGO_GAP` in wordmarkPath.js,
+       held equal by test/logo.test.jsx,
      · the tagline sits under the word and spans it (drawn inside the word's
        own SVG, so its width cannot drift).
 
    THE COLOURS ARE THE `--es-logo-*` ROLES, never the accent. The ticket is
-   always the sheet's yellow and its E near-black; only the word changes, to
+   always the sheet's yellow and its e near-black; only the word changes, to
    white, where the logo sits on a photograph or a dark ground.
 
    CLEAR SPACE is padding on the LOCKUP (the footer and sign-in placements),
    0.44 of the word height. The masthead, sidebar and gate give the bare logo
    more room than that by construction. */
 .es-logo {
-  --es-logo-h: 1.4rem;
+  --es-logo-h: 2.35rem;
   display: inline-flex;
   align-items: center;
-  gap: calc(var(--es-logo-h) * 0.38);
+  gap: calc(var(--es-logo-h) * 0.1887);
   line-height: 1;
 }
-.es-logo--sm { --es-logo-h: 1.15rem; }
-.es-logo--lg { --es-logo-h: 2.1rem; }
-.es-logo__mark { flex: none; width: auto; height: calc(var(--es-logo-h) * 1.3); }
+.es-logo--sm { --es-logo-h: 1.9rem; }
+.es-logo--lg { --es-logo-h: 3.2rem; }
+.es-logo__mark { flex: none; width: auto; height: var(--es-logo-h); }
 .es-logo__ticket { fill: var(--es-logo-mark); }
 .es-logo__initial { fill: var(--es-logo-initial, #111018); }
 .es-logo__word { flex: none; width: auto; height: var(--es-logo-h); }
 .es-logo__events,
 .es-logo__tagline { fill: var(--es-logo-ink); }
 .es-logo__li { fill: var(--es-logo-li); }
-/* In the word's own units (its viewBox is 107 tall). */
-.es-logo__tagline { font-family: var(--es-font-sans); font-size: 30px; font-weight: 600; letter-spacing: 0.1em; }
+/* The spark over the i: the sheet's yellow, like the card, on every ground. */
+.es-logo__spark { fill: var(--es-logo-mark); }
+/* In the word's own units (its viewBox is 141 tall). */
+.es-logo__tagline { font-family: var(--es-font-sans); font-size: 28px; font-weight: 600; letter-spacing: 0.1em; }
 .es-logo--lockup {
   align-items: flex-start;
-  padding-block: calc(var(--es-logo-h) * 0.44);
-  padding-inline-end: calc(var(--es-logo-h) * 0.44);
+  padding-block: calc(var(--es-logo-h) * 0.3);
+  padding-inline-end: calc(var(--es-logo-h) * 0.3);
 }
-/* 158 / 107: the word's viewBox extended down by the tagline's line. */
-.es-logo--lockup .es-logo__word { height: calc(var(--es-logo-h) * 1.477); }
+/* 191 / 141: the word's viewBox extended down by the tagline's line. The
+   card keeps its own height and both start at the top, so they still share a
+   baseline. */
+.es-logo--lockup .es-logo__word { height: calc(var(--es-logo-h) * 1.3546); }
 
 /* ── .es-tkt — the ticket, after the brand guide's "Digital ticket" ────
    ADDED 2026-10-16 (TicketStub.jsx). Three parts: a coral STUB with the
@@ -5286,7 +5292,7 @@ a.es-sponsor:hover { opacity: 0.7; }
    of the blue storefront review).
 
    White page. Since 2026-11-15 the approved homepage concept: yellow
-   highlights, coral calls to action, Nunito headings. Every colour below is a ROLE, so the
+   highlights, coral calls to action, Urbanist headings. Every colour below is a ROLE, so the
    dark theme follows without a second block. The only literals are the
    white chips and captions that sit on PHOTOGRAPHS (date badges, poster
    names, the play button, the closing panel's buttons) — a photograph is
@@ -8132,8 +8138,8 @@ body {
   text-rendering: optimizeLegibility;
 }
 
-/* Nunito (2026-11-15). 800, and a touch less negative tracking than the
-   DM Sans headings had: Nunito's round forms close up, and -0.02em on it at
+/* Urbanist (2026-11-15). 800, and a touch less negative tracking than the
+   DM Sans headings had: Urbanist's forms are open and geometric, and -0.02em at
    display sizes pinches the counters of the bold forms. */
 h1, h2, h3, h4 {
   font-family: var(--es-font-display);

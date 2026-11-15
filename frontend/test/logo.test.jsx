@@ -5,7 +5,8 @@ import crypto from 'node:crypto';
 import { render } from '@testing-library/react';
 import Logo from '../src/app/components/brand/Logo';
 import { MARK_FRAME, MARK_INITIAL } from '../src/app/components/brand/markPath';
-import { WORDMARK_EVENTS, WORDMARK_LI } from '../src/app/components/brand/wordmarkPath';
+import { WORDMARK_EVENTS, WORDMARK_LI, WORDMARK_SPARK, WORDMARK_VIEWBOX, LOGO_GAP } from '../src/app/components/brand/wordmarkPath';
+import { MARK_VIEWBOX } from '../src/app/components/brand/markPath';
 
 /**
  * The brand sheet (the approved homepage concept, 2026-11-15) as things a
@@ -18,15 +19,29 @@ import { WORDMARK_EVENTS, WORDMARK_LI } from '../src/app/components/brand/wordma
 const read = (...p) => fs.readFileSync(path.join(process.cwd(), ...p), 'utf8');
 
 describe('the logo', () => {
-  test('the word is the generated Nunito outline, in two halves', () => {
-    // E v e n t s | l i — at least one closed outline per letter, and the
-    // halves are separate shapes (the print kit and the CSS address them apart).
+  test('"eventsli" is the generated Urbanist outline, in two halves and a spark', () => {
+    // e v e n t s | l i — at least one closed outline per letter; the i is
+    // dotless, and its dot is the spark, a single closed shape of 8 points.
     expect(WORDMARK_EVENTS.match(/M/g).length).toBeGreaterThanOrEqual(6);
     expect(WORDMARK_LI.match(/M/g).length).toBeGreaterThanOrEqual(2);
     expect(WORDMARK_EVENTS).not.toContain(WORDMARK_LI);
+    expect(WORDMARK_SPARK.match(/M/g)).toHaveLength(1);
+    expect(WORDMARK_SPARK.match(/L/g)).toHaveLength(7);
   });
 
-  test('the favicon carries the same E-ticket as the masthead', () => {
+  test('the E card and the word share a baseline: one vertical extent', () => {
+    const [, my, , mh] = MARK_VIEWBOX.split(' ').map(Number);
+    const [, wy, , wh] = WORDMARK_VIEWBOX.split(' ').map(Number);
+    expect([my, mh]).toEqual([wy, wh]);
+  });
+
+  test('the CSS gap between the two is the generated LOGO_GAP', () => {
+    const css = read('src', 'app', 'globals.css');
+    const gap = Number(css.match(/\.es-logo \{[^}]*gap: calc\(var\(--es-logo-h\) \* ([\d.]+)\)/)[1]);
+    expect(gap).toBeCloseTo(Number(LOGO_GAP), 2);
+  });
+
+  test('the favicon carries the same E card as the masthead', () => {
     const icon = read('src', 'app', 'icon.svg');
     expect(icon).toContain(`d="${MARK_FRAME}"`);
     expect(icon).toContain(`d="${MARK_INITIAL}"`);

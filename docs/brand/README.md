@@ -13,13 +13,13 @@ changes, regenerate them (see the end of this page).
 
 | File | Use it on |
 |---|---|
-| `eventsli-logo-full-colour.svg` / `.png` | White or light backgrounds. The primary logo: the E-ticket and the word. |
+| `eventsli-logo-full-colour.svg` / `.png` | White or light backgrounds. The primary logo: the E card and the word. |
 | `eventsli-logo-full-colour-no-tagline.svg` | Small sizes, where the tagline would be too small to read. |
-| `eventsli-logo-white.svg` / `.png` | Dark backgrounds and photographs. The word is white; the E-ticket stays yellow with its black E. |
+| `eventsli-logo-white.svg` / `.png` | Dark backgrounds and photographs. The word is white; the E card and the spark stay yellow. |
 | `eventsli-logo-black.svg` / `.png` | One-colour printing: stamps, fax, engraving, newspaper ads. |
-| `eventsli-mark.svg` | The E-ticket alone (stickers, social avatars, favicons). |
-| `eventsli-mark-black.svg` | The E-ticket alone, one colour (the E knocked out). |
-| `eventsli-app-icon.svg` / `.png` | App icons and profile pictures: the E-ticket on near-black. |
+| `eventsli-mark.svg` | The E card alone (stickers, social avatars, favicons). |
+| `eventsli-mark-black.svg` | The E card alone, one colour (the E knocked out). |
+| `eventsli-app-icon.svg` / `.png` | App icons and profile pictures: the E card on near-black. |
 
 The SVG files are vectors and scale to any size, so prefer them for print. The
 PNGs are 2400 px wide (the icon is 1024 px), with transparent backgrounds.
@@ -34,7 +34,7 @@ The sheet's six colours. The website uses these exact values.
 | Name | HEX | RGB | Use |
 |---|---|---|---|
 | Pure White | `#FFFFFF` | 255 255 255 | Main background (about 70%) |
-| Sunshine Yellow | `#FFCC00` | 255 204 0 | Highlights, selected filters, the logo's E-ticket (about 15%) |
+| Sunshine Yellow | `#FFCC00` | 255 204 0 | Highlights, selected filters, the logo's card and spark (about 15%) |
 | Coral Red | `#FF414B` | 255 65 75 | Calls to action (about 10%) |
 | Near Black | `#111018` | 17 16 24 | Headlines, navigation, the logo's word (about 5%) |
 | Soft Gray | `#EAEAEA` | 234 234 234 | Borders and dividers |
@@ -50,17 +50,18 @@ labels and small coral text on `#D61F2C`, or set them large and bold.
 **Yellow is never text** on a light background (`#FFCC00` on white is 1.5:1).
 Use it as a fill, with near-black words on it.
 
-## The mark
+## The logo
 
-The **E-ticket**: a yellow ticket (a rounded square with a notch in each side)
-with a near-black E on it. The E's middle bar ends in line with the right-hand
-notch, so the initial and the ticket read as one shape. The word beside it is
-Nunito Black: rounded, friendly, matching the ticket's corners.
+The **E card** — a sharp yellow ticket (small corners, a notch in each side)
+carrying a near-black capital E — beside the word **eventsli** in lowercase
+Urbanist Black, near-black, with a yellow four-point spark for the dot of the
+i. The E card on its own is the icon: favicon, app icon, social avatar.
 
 ## Rules
 
 - **Clear space:** leave empty space around the logo at least as wide as the
-  E's middle bar is long. Nothing else should sit inside it.
+  yellow ticket. Nothing else should sit inside it.
+- **Always lowercase** when the name is written in the logo's style.
 - **Don't** stretch, squash or rotate the logo.
 - **Don't** add shadows, outlines, glows or other effects.
 - **Don't** change the colours. Use the full-colour version on light
@@ -70,8 +71,8 @@ Nunito Black: rounded, friendly, matching the ticket's corners.
 
 ## Typefaces
 
-- **Nunito** (Bold, ExtraBold, Black) for headlines. The wordmark is Nunito
-  Black, converted to outlines.
+- **Urbanist** (Bold, ExtraBold, Black) for headlines. The wordmark is
+  lowercase Urbanist Black, converted to outlines.
 - **DM Sans** for body text, forms and small labels.
 
 Both are free from Google Fonts.

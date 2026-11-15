@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Eventsli — mark, one colour. Generated from the product's logo source; do not edit by hand. -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 460 460" width="920" height="920">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -121 119 141" width="238" height="282">
   <title>Eventsli</title>
-  <path d="M100 0H360A100 100 0 0 1 460 100V180A50 50 0 0 0 460 280V360A100 100 0 0 1 360 460H100A100 100 0 0 1 0 360V280A50 50 0 0 0 0 180V100A100 100 0 0 1 100 0Z" fill="#111018"/>
-  <path d="M130 115H330V170H190V202.5H295V257.5H190V290H330V345H130Z" fill="#FFFFFF"/>
+  <path d="M11.2 -98H107.8A11.2 11.2 0 0 1 119 -86.8V-53.5A14 14 0 0 0 119 -25.5V7.8A11.2 11.2 0 0 1 107.8 19H11.2A11.2 11.2 0 0 1 0 7.8V-25.5A14 14 0 0 0 0 -53.5V-86.8A11.2 11.2 0 0 1 11.2 -98Z" fill="#111018"/>
+  <path d="M83.9-1.3L35.1-1.3L35.1-77.7L83.9-77.7L83.9-61.3L51.5-61.3L51.5-50.4L76.4-50.4L76.4-34.0L51.5-34.0L51.5-17.6L83.9-17.6L83.9-1.3Z" fill="#FFFFFF"/>
 </svg>
