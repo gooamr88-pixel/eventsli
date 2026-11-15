@@ -6256,6 +6256,75 @@ input.es-lp-filter__control::-webkit-search-cancel-button { display: none; }
   background: var(--es-brand-coral);
 }
 
+/* ── The homepage on a phone and a tablet (owner's review, 2026-11-15) ────
+   "In mobile is very terrible — make the words in the centre." Below lg the
+   hero is one column, so its words are CENTRED: headline, line and buttons on
+   one axis, with the slider and the search under them. The buttons are the
+   same width, stacked, rather than two pills of different lengths on a ragged
+   left edge. Re-opens nothing: this block sits after the rules it adjusts, in
+   the same layer, so it wins by source order and utilities still beat it. */
+.es-home-hero__line { padding-inline-end: 0; }
+.es-home-hero__sparks { inset-inline-end: -0.6em; }
+@media (width < 64rem) {
+  .es-home-hero__copy { text-align: center; }
+  .es-home-hero__copy .es-lp-pill { margin-inline: auto; }
+  .es-home-hero__body { margin-inline: auto; }
+  .es-home-hero__ctas { justify-content: center; }
+}
+@media (width < 40rem) {
+  .es-home-hero { padding-block-start: 1.25rem; }
+  .es-home-hero__title { font-size: clamp(2rem, 1.2rem + 4.2vw, 2.5rem); }
+  .es-home-hero__body { max-width: 30ch; margin-top: 0.75rem; font-size: var(--es-text-base); }
+  .es-home-hero__ctas {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.625rem;
+    width: min(100%, 22rem);
+    margin-inline: auto;
+    margin-top: 1.25rem;
+  }
+  .es-home-hero__ctas .es-lp-btn { width: 100%; }
+}
+
+/* The slider on a phone: no arrows (a thumb swipes, and the dots say where it
+   is); the current slide a little wider and shorter, the neighbours a sliver
+   at each edge, and the card's words smaller so the picture leads. */
+@media (width < 48rem) {
+  .es-vip { margin-top: 0.25rem; }
+  .es-vip__stage { aspect-ratio: 1 / 1.08; }
+  .es-vip__slide { --es-vip-w: 78%; top: 2%; height: 96%; border-radius: 18px; }
+  .es-vip__slide[data-pos='-1'] { transform: translateX(calc(-50% - 80%)) scale(0.86); }
+  .es-vip__slide[data-pos='1'] { transform: translateX(calc(-50% + 80%)) scale(0.86); }
+  .es-vip__arrow { display: none; }
+  .es-vip__info { gap: 0.35rem; padding: 3rem 1rem 0.9rem; }
+  .es-vip__title { font-size: 1.2rem; }
+  .es-vip__meta { font-size: 0.8125rem; }
+  .es-vip__price b { font-size: var(--es-text-base); }
+  .es-vip__cta { min-height: 36px; padding: 0.35rem 0.9rem; font-size: 0.8125rem; }
+  .es-vip__controls { margin-top: 0.5rem; }
+}
+
+/* Event cards in the phone rail: two-thirds of the screen wide, so the next
+   one is plainly there, and compact — a card, not a page. */
+@media (width < 48rem) {
+  .es-lp-cards.es-lp-rail { grid-auto-columns: 72%; }
+  .es-lp-rail .es-evcard { padding: 8px; border-radius: 16px; }
+  .es-lp-rail .es-evcard__media { border-radius: 10px; }
+  .es-lp-rail .es-evcard__body { padding: 10px 4px 2px; }
+  .es-lp-rail .es-evcard__title { min-height: 0; font-size: var(--es-text-base); }
+  .es-lp-rail .es-evcard__meta { gap: 4px; margin: 6px 0 10px; }
+  .es-lp-rail .es-evcard__line { font-size: 0.8125rem; }
+  .es-lp-rail .es-evcard__foot { padding-top: 10px; }
+  .es-lp-rail .es-evcard__cta { min-height: 32px; padding: 0.3rem 0.8rem; font-size: 0.8125rem; }
+  .es-lp-rail .es-evcard__price b { font-size: var(--es-text-base); }
+}
+
+/* The large lockup (footer, sign-in) is a poster on a desktop and a shout on
+   a phone. */
+@media (width < 48rem) {
+  .es-logo--lg { --es-logo-h: 2.4rem; }
+}
+
 /* ── 2 · Search ───────────────────────────────────────────────────────── */
 .es-lp-find { border-block: 1px solid var(--es-border); }
 .es-lp-find .es-lp-lede { margin-inline: auto; }
