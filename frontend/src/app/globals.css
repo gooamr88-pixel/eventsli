@@ -16203,3 +16203,44 @@ label.es-chip:has(:focus-visible) { outline: 2px solid var(--es-accent); outline
     box-shadow: 0 0 0 4px color-mix(in srgb, var(--es-success) 14%, transparent);
   }
 }
+
+/* -- The Eventsli badge on covers (owner, 2026-11-17) ----------------------
+   CoverBrand.jsx. A white pill with the logo, in a corner nothing else uses:
+   bottom-right on cards and the poster, top-right on the hero slider. Fixed
+   colours in both themes (it sits on a photo), a soft shadow so it lifts off
+   light and dark images alike, and no pointer events, so a click on the cover
+   still opens the poster or the event. */
+@layer components {
+  .es-coverbrand {
+    position: absolute;
+    right: 10px;
+    bottom: 10px;
+    z-index: 3;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 28px;
+    padding: 6px 10px 6px 7px;
+    border-radius: 999px;
+    background: rgb(255 255 255 / 0.94);
+    box-shadow: 0 6px 18px -8px rgb(17 16 24 / 0.55), 0 0 0 1px rgb(17 16 24 / 0.06);
+    pointer-events: none;
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+  }
+  .es-coverbrand svg { display: block; flex: none; width: auto; }
+  .es-coverbrand__mark { height: 16px; }
+  .es-coverbrand__word { height: 13px; }
+  .es-coverbrand.is-compact { padding: 6px; }
+  .es-coverbrand--lg { right: 14px; bottom: 14px; height: 38px; gap: 7px; padding: 8px 14px 8px 10px; }
+  .es-coverbrand--lg .es-coverbrand__mark { height: 22px; }
+  .es-coverbrand--lg .es-coverbrand__word { height: 18px; }
+  /* The slider's title sits along the bottom of the slide, so the badge goes up. */
+  .es-coverbrand--top { top: 12px; bottom: auto; }
+  /* Phone-size rail cards (two across): the E card alone, beside the sale tag. */
+  @media (width < 48rem) {
+    .es-lp-rail .es-coverbrand { right: 6px; bottom: 6px; height: 24px; padding: 4px; }
+    .es-lp-rail .es-coverbrand__word { display: none; }
+    .es-lp-rail .es-coverbrand__mark { height: 15px; }
+  }
+}

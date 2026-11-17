@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 
 import NavIcon from '../shell/NavIcon';
+import CoverBrand from '../brand/CoverBrand';
 import { eventDateParts, priceBlock, ctaLabel } from '../EventCard';
 import { isDateOnly, formatDateOnly } from '../../lib/dateOnly';
 
@@ -214,6 +215,9 @@ function Slide({ event, pos, index, total, eager, onSelect }) {
         ) : (
           <span className="es-vip__placeholder">{event.title}</span>
         )}
+        {/* The Eventsli badge (CoverBrand.jsx), top-right: the title runs
+            along the bottom of the slide. */}
+        {event.coverUrl && <CoverBrand className="es-coverbrand--top" />}
       </div>
 
       <div className="es-vip__info">

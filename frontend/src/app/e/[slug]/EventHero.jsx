@@ -3,6 +3,7 @@ import NavIcon from '../../components/shell/NavIcon';
 import { Zoomable } from '../../components/Lightbox';
 import EventShare from './EventShare';
 import ClampText from './ClampText';
+import CoverBrand from '../../components/brand/CoverBrand';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -45,6 +46,8 @@ export default function EventHero({ event, tagline, about, when }) {
               className="es-ev-poster__img"
             />
           </Zoomable>
+          {/* The Eventsli badge (CoverBrand.jsx); clicks pass through to the poster. */}
+          <CoverBrand size="lg" />
           <div className="es-ev-head__actions">
             <EventShare title={event.title} slug={event.slug} />
           </div>

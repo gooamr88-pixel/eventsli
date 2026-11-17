@@ -74,6 +74,10 @@ export async function generateMetadata({ params }) {
   const title = seoTitle(event);
   const description = seoDescription(event);
   const canonical = eventUrl(event.slug);
+  // The generated, branded share card for this event (opengraph-image.jsx).
+  // `updatedAt` in the query, so a changed title or cover is a new image URL
+  // and chat apps that cache previews by URL fetch it again.
+  const shareCard = `${canonical}/opengraph-image${event.updatedAt ? `?v=${encodeURIComponent(Date.parse(event.updatedAt) || '')}` : ''}`;
 
   return {
     title: { absolute: title },
@@ -89,11 +93,13 @@ export async function generateMetadata({ params }) {
       follow: true,
       googleBot: { index: true, follow: true, 'max-image-preview': 'large', 'max-snippet': -1, 'max-video-preview': -1 },
     },
+    // The branded card, large, for every event — with or without a cover it
+    // is a full 1200×630 image (twitter-image.jsx).
     twitter: {
-      card: event.coverUrl ? 'summary_large_image' : 'summary',
+      card: 'summary_large_image',
       title: event.title,
       description,
-      images: [event.coverUrl || '/og-default.png'],
+      images: [shareCard],
     },
     /**
      * A PAGE'S `openGraph` REPLACES THE LAYOUT'S. It does not merge into it.
@@ -113,21 +119,13 @@ export async function generateMetadata({ params }) {
       url: canonical,
       siteName: 'Eventsli',
       locale: 'en_US',
-      // The cover doubles as the share card. There is no separate og_image
-      // column on purpose — one image to keep current beats two that disagree.
-      //
-      // Its dimensions are not declared, deliberately: the file is whatever the
-      // organizer uploaded and a wrong width is worse than none, because a
-      // crawler believes it. The default card below is ours and is exactly
-      // 1200×630, so there its dimensions are stated.
-      images: event.coverUrl
-        ? [{ url: event.coverUrl, alt: event.title }]
-        : [{
-          url: '/og-default.png',
-          width: 1200,
-          height: 630,
-          alt: 'Eventsli — find something to go to',
-        }],
+      // THE BRANDED SHARE CARD (2026-11-17), generated beside this page
+      // (opengraph-image.jsx): the poster shown whole with the title, the
+      // date, the city and the Eventsli logo. Named here explicitly rather than
+      // left to file-based metadata, which this Next version did not apply
+      // over `generateMetadata` when checked. Ours, so exactly 1200×630, and
+      // it draws its own fallback when an event has no usable cover.
+      images: [{ url: shareCard, width: 1200, height: 630, alt: `${event.title} on Eventsli` }],
     },
   };
 }
