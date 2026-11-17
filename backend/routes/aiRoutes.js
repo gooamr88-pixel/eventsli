@@ -48,6 +48,9 @@ const draftBasics = () => [
   body('requestId').isUUID().withMessage('Send a request id.'),
   body('listingType').isIn(['ticketed', 'display_only'])
     .withMessage('Choose a ticketed event or a display-only listing.'),
+  // A ticketed event announced early as "coming soon" (2026-11-17): only
+  // changes what the model is told (eventDraftPrompt.listingLine).
+  body('comingSoon').optional().isBoolean({ strict: true }),
   body('country').isString().trim().isLength({ min: 2, max: 2 })
     .withMessage('Country must be a two-letter code, e.g. CA or US.'),
   body('timezone').isString().trim().custom(isTimeZone)

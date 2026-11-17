@@ -20,6 +20,21 @@ describe('pickSeats', () => {
     expect(pickSeats(seats, VIP, 2, new Set(), seats[1]).map((s) => s.id)).toEqual(['b2', 'b3']);
   });
 
+  test('a seat tapped at a table stays at that table, however many are asked for', () => {
+    // VIP 3 has five free seats; another table has plenty.
+    const vip3 = [1, 2, 3, 4, 5].map((n) => seat(`v${n}`, 'A', n, { tableId: 'vip3', section: 'VIP 3' }));
+    const other = [1, 2, 3, 4, 5, 6].map((n) => seat(`o${n}`, 'A', n, { tableId: 'vip4', section: 'VIP 4' }));
+    const picked = pickSeats([...vip3, ...other], VIP, 10, new Set(), vip3[2]).map((s) => s.id);
+    expect(picked).toHaveLength(5);
+    expect(picked[0]).toBe('v3');
+    expect(picked.every((id) => id.startsWith('v'))).toBe(true);
+  });
+
+  test('a seat tapped in a row may still continue into the next row', () => {
+    const rows = [seat('a1', 'A', 1, { tableId: null }), seat('b1', 'B', 1, { tableId: null }), seat('b2', 'B', 2, { tableId: null })];
+    expect(pickSeats(rows, VIP, 3, new Set(), rows[0]).map((s) => s.id)).toEqual(['a1', 'b1', 'b2']);
+  });
+
   test('skips seats already chosen and other ticket types, and never invents seats', () => {
     const seats = [seat('a1', 'A', 1), seat('a2', 'A', 2, { tierId: 'other' }), seat('a3', 'A', 3)];
     expect(pickSeats(seats, VIP, 5, new Set(['a1'])).map((s) => s.id)).toEqual(['a3']);
@@ -48,6 +63,14 @@ describe('TierDetailsDialog', () => {
     expect(more.disabled).toBe(true);
     fireEvent.click(screen.getByRole('button', { name: /Add to cart/ }));
     expect(onAdd).toHaveBeenCalledWith(2);
+  });
+
+  test('every included item is marked with a check', () => {
+    // Portalled to <body>, so it is looked for there.
+    render(<TierDetailsDialog tier={tier} currency="CAD" max={2} onClose={() => {}} />);
+    const items = document.body.querySelectorAll('.es-tdx__list li');
+    expect(items.length).toBe(1);
+    items.forEach((li) => expect(li.querySelector('.es-tdx__check')).not.toBeNull());
   });
 
   test('a sold-out type says why and cannot be added', () => {

@@ -7,6 +7,7 @@ import { toIso, formatEventTime } from '../../../../lib/eventTime';
 import { AiStepper, ActionBar } from './AiParts';
 import { priceToCents, laterNeeds, sectionState, TIER_KINDS } from './aiDraftModel';
 import { dateOnlyRange, formatDateOnly } from '../../../../lib/dateOnly';
+import { monthRange, formatYm } from '../../../../lib/comingSoon';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -143,7 +144,12 @@ export default function DraftReview({
   const label = categories?.find((c) => c.slug === form.category)?.label || categoryLabel(form.category);
   const listing = form.listingType === 'display_only';
   const days = listing && form.firstDay ? dateOnlyRange(form.firstDay, form.lastDay, form.timezone) : null;
-  const when = listing
+  const when = form.comingSoon
+    // A teaser shows its month (lib/comingSoon.js), never an invented time.
+    ? (form.month && monthRange(form.month, form.timezone).startsAt
+      ? { date: `Coming soon · ${formatYm(form.month)}`, time: 'A month for now — the exact day and time come before ticket sales open' }
+      : null)
+    : listing
     ? (days?.startsAt ? { date: formatDateOnly({ displayOnly: true, ...days, timezone: form.timezone }), time: 'Date only — no times needed for a listing' } : null)
     : (form.startsAt ? whenText(form) : null);
 
@@ -216,7 +222,10 @@ export default function DraftReview({
               </Block>
 
               <Block id="when" title="When and where" onEdit={onEdit}>
-                {when && !has('startsAt') ? <Fact icon="calendar" main={when.date} sub={when.time} />
+                {form.comingSoon ? (
+                  when && !has('month') ? <Fact icon="calendar" main={when.date} sub={when.time} />
+                    : <Need title="Which month is it happening?" detail={has('month') && form.month ? problems.find((p) => p.field === 'month').message : 'A month is enough for a coming-soon event.'} action="Choose" onClick={() => onEdit('when')} />
+                ) : when && !has('startsAt') ? <Fact icon="calendar" main={when.date} sub={when.time} />
                   : <Need title={listing ? 'What date is it on?' : 'When does it start?'} detail={form.startEvidence ? `${form.source === 'poster' ? 'The poster says' : 'You wrote'} “${form.startEvidence}” — add the time.` : `Your ${form.source === 'poster' ? 'poster' : 'description'} doesn’t say.`} action="Add" onClick={() => onEdit('when')} />}
                 {has('endsAt') && <Need title={listing ? 'Check the last day' : 'When does it end?'} detail={problems.find((p) => p.field === 'endsAt').message === 'When does it end?' ? `Your ${form.source === 'poster' ? 'poster' : 'description'} doesn’t say.` : problems.find((p) => p.field === 'endsAt').message} action="Add" onClick={() => onEdit('when')} />}
                 {form.venueName || form.venueAddress
@@ -238,7 +247,13 @@ export default function DraftReview({
               </Block>
 
               {ticketed && (
-                <Block id="tickets" title="Tickets" onEdit={onEdit}>
+                <Block id="tickets" title={form.comingSoon ? 'Tickets (for when sales open)' : 'Tickets'} onEdit={onEdit}>
+                  {form.comingSoon && (
+                    <p className="es-ai-later">
+                      <NavIcon name="info" size={15} /> Saved with the event but not shown on the coming-soon page.
+                      Nothing is sold until you open ticket sales.
+                    </p>
+                  )}
                   <p className="es-ai-fact__sub">
                     {form.admissionType === 'general' ? 'General admission' : 'Reserved seating'}
                     {form.admissionType === 'reserved' && ` · ${{ seat_only: 'buyers choose seats', table_only: 'whole tables only', seat_and_table: 'buyers choose a seat or a whole table' }[form.purchaseMode]}`}

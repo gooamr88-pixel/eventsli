@@ -58,7 +58,7 @@ export function TicketCategories({ tiers, palette, currency, picked, onToggle, s
           );
         })}
       </ul>
-      <p className="text-xs text-subtle">Tick categories to pick their seats out on the map.</p>
+      <p className="text-xs text-subtle">Tick a category to jump to its seats on the map.</p>
       <label className="es-catlist__toggle">
         <span>Show unavailable seats</span>
         <input type="checkbox" role="switch" className="es-studio-switch" checked={showTaken} onChange={(e) => onShowTaken(e.target.checked)} />

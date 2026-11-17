@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import {
   worldOf, SEAT_RADIUS, tableBody, seatPositions, toWorld, contentBounds, normaliseShape,
 } from './seatingGeometry';
@@ -100,6 +100,8 @@ export default function SeatMapCanvas({
   // The map's world (seatingGeometry.worldOf of the layout). Absent: the default.
   world = worldOf(null),
   className = '',
+  // { key, tierIds }: glide to the seats of these ticket types (see below).
+  frameRequest = null,
 }) {
   const bounds = useMemo(() => contentBounds(tables, zones, world), [tables, zones, world]);
   const focusTiers = useMemo(
@@ -107,8 +109,27 @@ export default function SeatMapCanvas({
     [highlightTierIds, highlightTierId],
   );
   const {
-    svgRef, view, fit, zoomIn, zoomOut, wasDragged, handlers,
+    svgRef, view, fit, frameTo, zoomIn, zoomOut, wasDragged, handlers,
   } = usePanZoom(bounds);
+
+  /**
+   * "TAKE ME TO THESE SEATS" (owner, 2026-11-17). A ticked ticket category
+   * used only dimmed the others, so a buyer still had to find its seats in a
+   * room of a thousand. `frameRequest` ({ key, tierIds }) glides the map to the
+   * tables holding seats of those types; a new `key` is a new request, and no
+   * tier ids frames the whole room again.
+   */
+  useEffect(() => {
+    if (!frameRequest) return;
+    const ids = frameRequest.tierIds;
+    if (!ids || ids.size === 0) { frameTo(bounds); return; }
+    const holding = new Set(seats.filter((s) => ids.has(s.tierId) && s.tableId).map((s) => s.tableId));
+    const target = tables.filter((t) => holding.has(t.id));
+    if (target.length === 0) return;
+    frameTo(contentBounds(target, [], world));
+    // Only a new request moves the map — not every re-render of the seats.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [frameRequest?.key]);
   // Section names capped at a readable size on screen (useBadgeScale.js).
   const badgeScale = useBadgeScale(svgRef, view, world);
 

@@ -41,7 +41,10 @@ function nextSteps(hasCover, needsMap) {
 export default function SaveStep({
   form, set, organizer, summary, busy, error, partial, onBack, onSave, onRetryPartial, hasCover = false,
 }) {
-  const ticketed = form.listingType !== 'display_only';
+  // A coming-soon teaser sells nothing yet: how buyers pay and who carries the
+  // fees are chosen before ticket sales open, from the event (2026-11-17).
+  const teaser = Boolean(form.comingSoon);
+  const ticketed = form.listingType !== 'display_only' && !teaser;
   const choices = organizer.payments?.choices || [];
   const perOrder = Number(form.maxTicketsPerOrder);
   const perOrderBad = ticketed && !(Number.isInteger(perOrder) && perOrder >= 1 && perOrder <= 100);
@@ -77,10 +80,14 @@ export default function SaveStep({
     <form className="es-ai es-ai--narrow" onSubmit={(e) => { e.preventDefault(); if (!perOrderBad) onSave(); }} noValidate>
       <AiStepper index={2} />
       <header className="es-ai-head">
-        <h1 className="es-ai-title">{ticketed ? 'How buyers pay' : 'Save your listing'}</h1>
+        <h1 className="es-ai-title">{teaser ? 'Save your coming-soon event' : ticketed ? 'How buyers pay' : 'Save your listing'}</h1>
         <p className="es-ai-lede es-ai-lede--icon">
           <NavIcon name="shield" size={16} />
-          <span>{ticketed ? 'Always your choice. AI never sets payments or fees.' : 'A listing sells nothing, so there is nothing to pay for.'}</span>
+          <span>
+            {teaser
+              ? 'Nothing is sold yet. You choose how buyers pay, and who pays the fees, before you open ticket sales.'
+              : ticketed ? 'Always your choice. AI never sets payments or fees.' : 'A listing sells nothing, so there is nothing to pay for.'}
+          </span>
         </p>
       </header>
 
@@ -132,8 +139,9 @@ export default function SaveStep({
         <p className="es-ai-summary__sub">{summary}</p>
         <p className="es-ai-summary__next">
           {hasCover && 'Your poster is saved as the cover. '}
-          Next: {nextSteps(hasCover, ticketed && form.admissionType === 'reserved')}{' '}
-          Eventsli reviews every new event.
+          {teaser
+            ? <>Next: {hasCover ? 'publish your coming-soon page.' : 'add a cover, then publish your coming-soon page.'} People can then ask to be told when tickets go on sale.</>
+            : <>Next: {nextSteps(hasCover, ticketed && form.admissionType === 'reserved')}{' '}Eventsli reviews every new event.</>}
         </p>
       </div>
 

@@ -254,7 +254,7 @@ async function runDraft(req, res, next, { fromImage }) {
       },
     }, async () => {
       const result = await generateEventDraft({
-        text, image, listingType: req.body.listingType, country, currency, timezone: req.body.timezone, categories, cfg,
+        text, image, listingType: req.body.listingType, comingSoon: req.body.comingSoon === true, country, currency, timezone: req.body.timezone, categories, cfg,
       });
       return {
         meta: result.meta,

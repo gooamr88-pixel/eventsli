@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import SeatMapCanvas from '../seating/SeatMapCanvas';
 import { worldOf } from '../seating/seatingGeometry';
 import VenueScene3D from './VenueScene3D';
@@ -50,8 +50,20 @@ export default function VenueExperience({
   // The organizer's availability view: colours every seat and allows any to
   // be pressed. `seatAction` replaces the buyer's Select button.
   paint = null, pickAny = false, seatAction = null,
+  // { key, tierIds }: take the buyer to these ticket types' seats (2026-11-17).
+  frameRequest = null,
 }) {
   const [view, setView] = useState('2d');
+  /**
+   * A NEW "take me to these seats" request switches to the 2D map, where the
+   * seats are chosen, and the canvas glides to them. Adjusted during render
+   * (React's way to respond to a prop), so the 3D view is never painted first.
+   */
+  const [seenFrame, setSeenFrame] = useState(frameRequest?.key ?? null);
+  if (frameRequest && frameRequest.key !== seenFrame) {
+    setSeenFrame(frameRequest.key);
+    if (view !== '2d') setView('2d');
+  }
   const [focusId, setFocusId] = useState(null);
   // The seat whose card is open over the 3D or 360° view. Separate from
   // `focusId` because in 360° a tap must not move the camera: the card's
@@ -73,6 +85,15 @@ export default function VenueExperience({
   }
   const frameRef = useRef(null);
   const controls = useRef(null);
+
+  // ...and brings the map on screen: on a phone the categories sit above it,
+  // and the glide is no use if the map is scrolled away. `nearest` leaves a map
+  // that is already in view where it is.
+  useEffect(() => {
+    if (!frameRequest || !frameRef.current?.scrollIntoView) return;
+    const reduce = typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    frameRef.current.scrollIntoView({ block: 'nearest', behavior: reduce ? 'auto' : 'smooth' });
+  }, [frameRequest?.key]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const studio = useMemo(() => readStudio(layout), [layout]);
   // The map's own size: percentages resolve against it in every view.
@@ -281,6 +302,7 @@ export default function VenueExperience({
           onSelectTable={onSelectTable}
           seatFill={seatFill}
           pickAny={pickAny}
+          frameRequest={frameRequest}
         />
       ) : (
         <div className={`relative ${boxClassName}`}>

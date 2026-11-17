@@ -53,12 +53,12 @@ function readPoster(json, notes) {
  * `text` as the organizer's optional note).
  */
 async function generateEventDraft({
-  text, image = null, listingType, country, currency, timezone, categories, cfg, now = new Date(), callers = CALLERS,
+  text, image = null, listingType, comingSoon = false, country, currency, timezone, categories, cfg, now = new Date(), callers = CALLERS,
 }) {
   const poster = Boolean(image);
   const request = poster
-    ? buildPosterRequest({ notes: text, listingType, country, currency, timezone, categories, now })
-    : buildRequest({ text, listingType, country, currency, timezone, categories, now });
+    ? buildPosterRequest({ notes: text, listingType, comingSoon, country, currency, timezone, categories, now })
+    : buildRequest({ text, listingType, comingSoon, country, currency, timezone, categories, now });
   const slugs = categories.map((c) => c.slug);
 
   let read = null;

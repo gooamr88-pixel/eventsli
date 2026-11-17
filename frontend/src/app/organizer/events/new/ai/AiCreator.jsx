@@ -100,17 +100,25 @@ export default function AiCreator({ organizer }) {
     setStage('generating');
     try {
       const requestId = crypto.randomUUID();
-      const { listingType, country, timezone } = request;
+      const { country, timezone } = request;
+      /**
+       * "COMING SOON" is a ticketed event announced early (2026-11-17). The
+       * API is asked for a ticketed draft with `comingSoon: true`, which tells
+       * the model not to invent a date or prices the words do not give; the
+       * review then asks for a month instead of times.
+       */
+      const comingSoon = request.listingType === 'coming_soon';
+      const listingType = comingSoon ? 'ticketed' : request.listingType;
       const data = fromPoster
         ? await post('/ai/event-drafts/from-image', {
-          requestId, listingType, country, timezone,
+          requestId, listingType, country, timezone, ...(comingSoon ? { comingSoon } : {}),
           notes: (request.notes || '').trim(),
           image: { mimeType: 'image/jpeg', data: base64Of(poster?.dataUrl) },
         }, { noRedirect: true, signal: controller.signal })
         : await post('/ai/event-drafts', {
-          requestId, listingType, country, timezone, description: request.description,
+          requestId, listingType, country, timezone, description: request.description, ...(comingSoon ? { comingSoon } : {}),
         }, { noRedirect: true, signal: controller.signal });
-      setForm(formFromDraft(data, organizer));
+      setForm(formFromDraft(data, organizer, { comingSoon }));
       setQuota(data.quota);
       setStage('review');
     } catch (err) {

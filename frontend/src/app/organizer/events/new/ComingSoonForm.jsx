@@ -17,6 +17,7 @@ import FormError from '../../../components/forms/FormError';
 import SubmitButton from '../../../components/forms/SubmitButton';
 import NavIcon from '../../../components/shell/NavIcon';
 import MonthFields from './MonthFields';
+import { draftKey } from './wizardModel';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -39,10 +40,24 @@ export default function ComingSoonForm({ organizer }) {
 
   const [form, setForm] = useState(() => {
     const country = organizer?.country || DEFAULT_COUNTRY;
-    return {
+    const base = {
       title: '', category: 'other', city: '', description: '',
       country, timezone: defaultTimeZone(country, browserZone()), month: '',
     };
+    // Handed over by the AI creator's "set it up yourself": what was already
+    // typed comes with it, so nothing is retyped (AiCreator.handOff).
+    try {
+      const saved = JSON.parse(sessionStorage.getItem(draftKey('coming_soon')) || 'null')?.form;
+      if (saved) {
+        return {
+          ...base,
+          description: typeof saved.description === 'string' ? saved.description : '',
+          ...(saved.country ? { country: saved.country } : {}),
+          ...(saved.timezone ? { timezone: saved.timezone } : {}),
+        };
+      }
+    } catch { /* storage unavailable: start empty */ }
+    return base;
   });
   const [showErrors, setShowErrors] = useState(false);
   const [attempt, setAttempt] = useState(0);
@@ -86,6 +101,7 @@ export default function ComingSoonForm({ organizer }) {
         comingSoon: true,
         ...(form.description.trim() ? { description: form.description.trim() } : {}),
       }, { noRedirect: true });
+      try { sessionStorage.removeItem(draftKey('coming_soon')); } catch { /* fine */ }
       router.push(`/organizer/events/${event.id}?created=1`);
     } catch (err) {
       setError(err);

@@ -112,7 +112,9 @@ export default function DescribeStep({
       <div className="es-ai-split">
         <div className="es-ai-panel">
           <div className="es-ai-seg" role="radiogroup" aria-label="What are you creating?">
-            {[['ticketed', 'Ticketed', 'ticket'], ['display_only', 'Display only', 'eye']].map(([value, label, icon]) => (
+            {/* "Coming soon" (2026-11-17): an early announcement — a month,
+                a city and a cover; tickets go on sale later. */}
+            {[['ticketed', 'Ticketed', 'ticket'], ['display_only', 'Display only', 'eye'], ['coming_soon', 'Coming soon', 'bell']].map(([value, label, icon]) => (
               <label key={value} className={`es-ai-seg__opt${request.listingType === value ? ' is-on' : ''}`}>
                 <input
                   type="radio" name="listingType" value={value}

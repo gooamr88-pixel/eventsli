@@ -16184,3 +16184,22 @@ label.es-chip:has(:focus-visible) { outline: 2px solid var(--es-accent); outline
     color: var(--es-text-subtle);
   }
 }
+
+/* -- "What's included": a check on every line (owner, 2026-11-17) ---------
+   TierDetailsDialog.jsx. A filled green circle with a white tick (7:1), with
+   a soft ring, aligned with the item's title line. Replaces the icon tiles in
+   the buyer's card; the organizer's editor keeps its own icon picker. */
+@layer components {
+  .es-tdx__list li { align-items: start; }
+  .es-tdx__check {
+    display: grid;
+    place-items: center;
+    width: 1.625rem;
+    height: 1.625rem;
+    margin-top: 0.05rem;
+    border-radius: 50%;
+    background: var(--es-success);
+    color: #ffffff;
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--es-success) 14%, transparent);
+  }
+}

@@ -9,6 +9,7 @@ import { categoryLabel } from '../../../../lib/categories';
 import { zoneLabel as nameZone, zoneOptions } from '../../../../lib/timezones';
 import { MAX_HIGHLIGHTS } from './aiDraftModel';
 import DateOnlyFields from '../DateOnlyFields';
+import MonthFields from '../MonthFields';
 
 /**
  * The editors behind the review page's "Edit" buttons, for the parts of the
@@ -117,7 +118,18 @@ export function EditWhen({ form, set, errorFor }) {
         label="Time zone" required value={form.timezone} options={zoneOptions(form.country, form.timezone)}
         onChange={(e) => set({ timezone: e.target.value })}
       />
-      {form.listingType === 'display_only' ? (
+      {form.comingSoon ? (
+        /* A coming-soon teaser: a month, not times (lib/comingSoon.js). The
+           words the AI read the date from stay underneath, to check. */
+        <div className="fx-stack fx-stack--sm gap-1">
+          <MonthFields
+            value={form.month} timezone={form.timezone} onChange={(month) => set({ month })}
+            error={errorFor('month')}
+            hint="Shown as “Coming soon” with this month. You set the exact day and time before tickets go on sale."
+          />
+          <Source text={form.startEvidence} />
+        </div>
+      ) : form.listingType === 'display_only' ? (
         <div className="fx-stack fx-stack--sm gap-1">
           <DateOnlyFields
             firstDay={form.firstDay} lastDay={form.lastDay} timezone={form.timezone} zoneLabel={zoneLabel}
@@ -144,11 +156,12 @@ export function EditWhen({ form, set, errorFor }) {
         </>
       )}
       <PlaceAutocomplete
-        label={form.listingType === 'display_only' ? 'Venue name (optional)' : 'Venue name'} name="venueName" maxLength={200} country={form.country}
+        label={form.listingType === 'display_only' || form.comingSoon ? 'Venue name (optional)' : 'Venue name'} name="venueName" maxLength={200} country={form.country}
+        hint={form.comingSoon ? 'Not shown on the coming-soon page — it is needed before tickets go on sale.' : undefined}
         value={form.venueName} onChange={setVenueName} onPlace={applyPlace}
       />
       <Field
-        label={form.listingType === 'display_only' ? 'Street address (optional)' : 'Street address'}
+        label={form.listingType === 'display_only' || form.comingSoon ? 'Street address (optional)' : 'Street address'}
         name="venueAddress" maxLength={300} autoComplete="street-address"
         value={form.venueAddress} onChange={(e) => set({ venueAddress: e.target.value })}
       />

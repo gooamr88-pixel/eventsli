@@ -7,7 +7,8 @@
  * what a group buying together wants. So:
  *
  *   • with an ANCHOR (the seat the buyer tapped), it is always included, then
- *     the free seats nearest it in its own line, then the fullest other lines;
+ *     the free seats nearest it in its own line, then the fullest other lines
+ *     — except at a TABLE, where it stays at that table;
  *   • without one, the first unbroken run of N free seats in any line, the
  *     line with the most free seats tried first;
  *   • failing a run, the fullest lines are filled in turn, so the party is
@@ -44,6 +45,14 @@ export function pickSeats(seats, tierId, n, takenIds = new Set(), anchor = null)
       // same way every time.
       .sort((a, b) => a[1] - b[1] || Number(a[2]) - Number(b[2]))
       .map(([s]) => s);
+    /**
+     * A TABLE IS ITS OWN UNIT (owner, 2026-11-17: "each table, not another
+     * table"). Tapping a seat at VIP 3 and asking for six means six at VIP 3,
+     * never four there and two at a stranger's table across the room. The
+     * caller caps the quantity at the free seats at that table, so nothing is
+     * dropped silently. A seat in a ROW still spills into the next rows.
+     */
+    if (anchor.tableId) return [anchor, ...near].slice(0, n);
     const rest = ordered.filter((line) => line !== home).flat().filter(free);
     return [anchor, ...near, ...rest].slice(0, n);
   }

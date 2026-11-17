@@ -92,9 +92,13 @@ export default function TierDetailsDialog({
               <h3 id={`${titleId}-inc`} className="es-tdx__h">{included.length ? 'What’s included' : 'About this ticket'}</h3>
               {included.length > 0 ? (
                 <ul className="es-tdx__list">
+                  {/* A green check on every line (owner, 2026-11-17): the list
+                      says what the ticket INCLUDES, and a check is how that
+                      reads at a glance. The organizer's per-item icon is kept
+                      in the data but no longer drawn here. */}
                   {included.map((item, i) => (
                     <li key={`${item.title}-${i}`}>
-                      <span className="es-tdx__tile"><TierDetailIcon name={item.icon} size={26} /></span>
+                      <span className="es-tdx__check" aria-hidden="true"><NavIcon name="tick" size={16} /></span>
                       <span className="fx-min0">
                         <b>{item.title}</b>
                         {item.text && <small>{item.text}</small>}

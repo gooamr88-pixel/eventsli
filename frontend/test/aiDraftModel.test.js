@@ -122,3 +122,46 @@ describe('saving', () => {
     expect(plan.event).not.toHaveProperty('paymentOption');
   });
 });
+
+describe('a coming-soon draft (2026-11-17)', () => {
+  const YM = DRAFT_START_LOCAL.slice(0, 7);
+  const form = () => {
+    const f = formFromDraft(RESULT, ORGANIZER, { comingSoon: true });
+    // Prices are not this suite's subject: the second fixture tier has none.
+    f.tiers = f.tiers.slice(0, 1);
+    return f;
+  };
+
+  test('takes the month of the day the AI read, and is flagged', () => {
+    const f = form();
+    expect(f.comingSoon).toBe(true);
+    expect(f.month).toBe(YM);
+  });
+
+  test('needs a month, not a start and an end', () => {
+    const f = { ...form(), startsAt: '', endsAt: '' };
+    expect(problemsFor(f, NOW).map((p) => p.field)).not.toContain('startsAt');
+    expect(problemsFor({ ...f, month: '' }, NOW).map((p) => p.field)).toContain('month');
+    expect(problemsFor({ ...f, month: '2020-01' }, NOW).find((p) => p.field === 'month')?.message).toMatch(/over/);
+  });
+
+  test('before publishing it needs a city and a cover, not a venue', () => {
+    const f = { ...form(), venueName: '', venueAddress: '', city: '', useAsCover: false };
+    expect(laterNeeds(f)).toEqual(['the city', 'a cover image']);
+  });
+
+  test('is saved as a teaser over its whole month', () => {
+    const { event } = savePlan(form(), ['manual']);
+    expect(event.comingSoon).toBe(true);
+    expect(event.listingType).toBe('ticketed');
+    // The whole month at the venue: 00:00 on the 1st, Toronto time.
+    expect(event.startsAt.slice(0, 7)).toBe(YM);
+    expect(new Date(event.startsAt).toISOString()).toBe(event.startsAt);
+    expect(new Date(event.endsAt) > new Date(event.startsAt)).toBe(true);
+  });
+
+  test('an ordinary draft is not a teaser', () => {
+    const { event } = savePlan(formFromDraft(RESULT, ORGANIZER), ['manual']);
+    expect(event.comingSoon).toBeUndefined();
+  });
+});

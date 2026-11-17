@@ -277,10 +277,45 @@ export function usePanZoom(bounds, { wheelMode = 'zoom' } = {}) {
   const zoomIn = useCallback(() => zoomAt(1 / 1.35, centreOf(svgRef).x, centreOf(svgRef).y), [zoomAt]);
   const zoomOut = useCallback(() => zoomAt(1.35, centreOf(svgRef).x, centreOf(svgRef).y), [zoomAt]);
 
+  /**
+   * GLIDES the view to a box (world units) — "take me to these seats"
+   * (owner, 2026-11-17). About 450ms, eased, unless the reader asked for
+   * reduced motion, when it jumps. Clamped like every other move, so a box at
+   * the edge of the room cannot pan the content off screen.
+   */
+  const anim = useRef(0);
+  const frameTo = useCallback((box) => {
+    if (!box) return;
+    const target = clampView(box, bounds);
+    cancelAnimationFrame(anim.current);
+    const reduce = typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+      && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduce || typeof requestAnimationFrame !== 'function') { setView(target); return; }
+    let from = null;
+    let start = null;
+    const step = (now) => {
+      if (start === null) start = now;
+      const t = Math.min(1, (now - start) / 450);
+      const ease = 1 - (1 - t) ** 3;
+      setView((v) => {
+        if (!from) from = v;
+        return {
+          x: from.x + (target.x - from.x) * ease,
+          y: from.y + (target.y - from.y) * ease,
+          width: from.width + (target.width - from.width) * ease,
+          height: from.height + (target.height - from.height) * ease,
+        };
+      });
+      if (t < 1) anim.current = requestAnimationFrame(step);
+    };
+    anim.current = requestAnimationFrame(step);
+  }, [bounds]);
+
   return {
     svgRef,
     view,
     fit,
+    frameTo,
     zoomIn,
     zoomOut,
     zoomAt,

@@ -157,11 +157,20 @@ export default function SeatPicker({ slug, currency, purchaseMode, maxPerOrder, 
   // and whether taken seats are drawn at all.
   const [pickedTiers, setPickedTiers] = useState(() => new Set());
   const [showTaken, setShowTaken] = useState(true);
-  const togglePickedTier = (id) => setPickedTiers((prev) => {
-    const next = new Set(prev);
+  /**
+   * TICKING A CATEGORY TAKES YOU TO ITS SEATS (owner, 2026-11-17). It used to
+   * only dim every other seat, which left the buyer hunting for the bright
+   * ones. Now the map glides to the tables holding the ticked categories'
+   * seats (switching to 2D if needed); unticking the last one shows the whole
+   * room again. The dimming stays, and dimmed seats can still be chosen.
+   */
+  const [frameRequest, setFrameRequest] = useState(null);
+  const togglePickedTier = (id) => {
+    const next = new Set(pickedTiers);
     if (next.has(id)) next.delete(id); else next.add(id);
-    return next;
-  });
+    setPickedTiers(next);
+    setFrameRequest((f) => ({ key: (f?.key || 0) + 1, tierIds: next }));
+  };
   const priceGuide = useMemo(() => {
     const byTier = new Map();
     for (const seat of map?.seats || []) {
@@ -362,16 +371,41 @@ export default function SeatPicker({ slug, currency, purchaseMode, maxPerOrder, 
     || (map.tiers || []).find((t) => t.id === details.tierId) : null;
   let detailMax = 0;
   let detailUnavailable = null;
+  /**
+   * A SEAT TAPPED AT A TABLE BUYS AT THAT TABLE (owner, 2026-11-17). The most
+   * the card offers is the free seats of this type at THAT table — not every
+   * free seat of the type in the room, which let a buyer ask for ten at a
+   * table with five left and have the rest land at other tables (pickSeats
+   * now stays at the table, and this keeps the stepper honest about it).
+   */
+  const anchorTable = details?.anchor?.tableId
+    ? (map.tables || []).find((t) => t.id === details.anchor.tableId) || { id: details.anchor.tableId }
+    : null;
+  let tableLeft = null;
   if (detailTier) {
     const base = selectedTable ? [] : selectedSeats;
     const mine = base.filter((s) => s.tierId === detailTier.id).length;
     const free = Math.max(0, (detailTier.free ?? 0) - mine);
     const ownCap = detailTier.maxPerOrder ? detailTier.maxPerOrder - mine : Infinity;
-    detailMax = Math.max(0, Math.min(free, ownCap, maxPerOrder - base.length));
+    if (anchorTable) {
+      const chosen = new Set(base.map((s) => s.id));
+      tableLeft = (map.seats || []).filter((s) => s.tableId === anchorTable.id && s.tierId === detailTier.id
+        && s.available && !chosen.has(s.id)).length;
+    }
+    detailMax = Math.max(0, Math.min(free, ownCap, maxPerOrder - base.length, tableLeft ?? Infinity));
     if (detailTier.soldOut || free === 0) detailUnavailable = 'Sold out — every seat of this type is taken.';
     else if (detailTier.onSale === false) detailUnavailable = 'Not on sale right now.';
+    else if (tableLeft === 0) detailUnavailable = 'Every seat at this table is taken. Choose another table on the map.';
     else if (detailMax === 0) detailUnavailable = `You already have the most allowed in one order (${maxPerOrder}).`;
   }
+  // "VIP 3" reads as a name already; a bare "4" needs the word "table".
+  const tableName = !anchorTable?.label ? 'this table'
+    : /table|^vip|[a-z]{3,}/i.test(anchorTable.label) ? anchorTable.label : `table ${anchorTable.label}`;
+  const detailFootnote = anchorTable
+    ? `${tableLeft} ${tableLeft === 1 ? 'seat is' : 'seats are'} free at ${tableName}. Starting with the seat you tapped — you can change them on the map.`
+    : details?.anchor
+      ? 'Starting with the seat you tapped, then the seats beside it. You can change them on the map.'
+      : 'We pick the best seats side by side. You can change them on the map before checkout.';
   const closeDetails = () => setDetails(null);
   const addFromDetails = (qty) => {
     const base = selectedTable ? [] : selectedSeats;
@@ -445,6 +479,7 @@ export default function SeatPicker({ slug, currency, purchaseMode, maxPerOrder, 
           selectedTableIds={selectedTableIds}
           highlightTierIds={highlightTierIds}
           hideTaken={!showTaken}
+          frameRequest={frameRequest}
           showVenueInfo={false}
           purchaseMode={purchaseMode}
           currency={currency}
@@ -522,9 +557,7 @@ export default function SeatPicker({ slug, currency, purchaseMode, maxPerOrder, 
           max={detailMax}
           unavailable={detailUnavailable}
           addLabel={details.anchor ? 'Add to selection' : 'Add to cart'}
-          footnote={details.anchor
-            ? 'Starting with the seat you tapped, then the seats beside it. You can change them on the map.'
-            : 'We pick the best seats side by side. You can change them on the map before checkout.'}
+          footnote={detailFootnote}
           onAdd={addFromDetails}
           onClose={closeDetails}
         />

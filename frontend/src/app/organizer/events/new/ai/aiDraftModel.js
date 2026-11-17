@@ -3,6 +3,7 @@ import { dateOnlyRange, todayAt } from '../../../../lib/dateOnly';
 import { pinProblem } from '../../../../components/forms/VenuePin';
 import { parseMoneyToCents } from '../../../../lib/moneyInput';
 import { minorUnits } from '../../../../lib/markets';
+import { monthRange, thisMonth } from '../../../../lib/comingSoon';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -66,12 +67,31 @@ export function centsToPrice(cents, currency = 'CAD') {
 /** The day a time fact is on: the server's `date`, or the day of its local time. */
 const dayOf = (fact) => fact?.date || (fact?.local ? fact.local.slice(0, 10) : '');
 
-/** The API's answer → the form the review screen edits. */
-export function formFromDraft(result, organizer) {
+/**
+ * The month a coming-soon draft starts from: the month of whatever day the AI
+ * read ("March 14" → March), or '' for the organizer to choose. Never this
+ * month by default — a guessed month on a public teaser is a promise.
+ */
+function draftMonth(d) {
+  const day = dayOf(d.startsAt);
+  return /^\d{4}-\d{2}/.test(day) ? day.slice(0, 7) : '';
+}
+
+/**
+ * The API's answer → the form the review screen edits.
+ *
+ * `comingSoon` (2026-11-17): the organizer chose "Coming soon" before
+ * generating. The draft is then a teaser — a month instead of times, saved
+ * with `comingSoon: true` — and its ticket types, if the words named any, are
+ * kept for when sales open.
+ */
+export function formFromDraft(result, organizer, { comingSoon = false } = {}) {
   const d = result.draft;
   const tz = d.timezone;
   return {
     generationId: result.generationId,
+    comingSoon,
+    month: comingSoon ? draftMonth(d) : '',
     // 'poster' when it was read off an image. The review screen then shows the
     // poster as the cover, and "What we read" beside it.
     source: result.source === 'poster' ? 'poster' : 'text',
@@ -143,7 +163,11 @@ export function problemsFor(form, now = new Date()) {
   const endIso = toIso(form.endsAt, form.timezone);
 
   if (form.title.trim().length < 3) add('basics', 'title', 'Give the event a title of at least 3 characters.');
-  if (form.listingType === 'display_only') {
+  if (form.comingSoon) {
+    // A teaser has a month, not times (lib/comingSoon.js). This month counts.
+    if (!monthRange(form.month, form.timezone).startsAt) add('when', 'month', 'Which month is it happening?');
+    else if (form.month < thisMonth(form.timezone, now)) add('when', 'month', 'That month is already over.');
+  } else if (form.listingType === 'display_only') {
     if (!form.firstDay) add('when', 'startsAt', 'What date is it on?');
     else if (form.firstDay < todayAt(form.timezone, now)) add('when', 'startsAt', 'The date has to be today or later.');
     if (form.lastDay && form.firstDay && form.lastDay < form.firstDay) add('when', 'endsAt', 'The last day has to be on or after the first.');
@@ -182,6 +206,11 @@ export function problemsFor(form, now = new Date()) {
 
 /** The submit-only gaps: shown in the section, never blocking a draft. */
 export function laterNeeds(form) {
+  // A coming-soon teaser publishes with a city and a cover; the venue comes
+  // before ticket sales open (backend submissionService.teaserBlockers).
+  if (form.comingSoon) {
+    return [!form.city.trim() && 'the city', !form.useAsCover && 'a cover image'].filter(Boolean);
+  }
   // A display-only listing needs only the city (backend submissionService.js).
   const listing = form.listingType === 'display_only';
   return [
@@ -204,10 +233,14 @@ export function savePlan(form, choices = [], poster = null) {
     category: form.category,
     country: form.country,
     timezone: form.timezone,
-    ...(ticketed
-      ? { startsAt: toIso(form.startsAt, form.timezone), endsAt: toIso(form.endsAt, form.timezone) }
-      : dateOnlyRange(form.firstDay, form.lastDay, form.timezone)),
+    // A coming-soon teaser is stored as its whole month at the venue.
+    ...(form.comingSoon
+      ? monthRange(form.month, form.timezone)
+      : ticketed
+        ? { startsAt: toIso(form.startsAt, form.timezone), endsAt: toIso(form.endsAt, form.timezone) }
+        : dateOnlyRange(form.firstDay, form.lastDay, form.timezone)),
     listingType: form.listingType,
+    ...(form.comingSoon ? { comingSoon: true } : {}),
     aiGenerationId: form.generationId,
     ...(ticketed ? {
       admissionType: form.admissionType,

@@ -204,3 +204,31 @@ test('a declined launch says the teaser is still live', async () => {
   assert.match(sent[0].htmlContent, /still live/);
   assert.match(sent[0].htmlContent, /Add the venue address\./);
 });
+
+// ── The AI creator ──────────────────────────────────────────────────────────
+
+const { buildRequest, buildPosterRequest } = require('../services/ai/eventDraftPrompt');
+
+const AI_BASE = {
+  listingType: 'ticketed', country: 'CA', currency: 'CAD', timezone: 'America/Toronto',
+  categories: [{ slug: 'music', label: 'Music' }], now: new Date('2026-11-17T12:00:00Z'),
+};
+
+test('the AI is told a coming-soon draft may have only a month, and must not guess', () => {
+  for (const req of [
+    buildRequest({ ...AI_BASE, comingSoon: true, text: 'Summer Jazz Fest, Toronto, July 2027. More soon.' }),
+    buildPosterRequest({ ...AI_BASE, comingSoon: true, notes: '' }),
+  ]) {
+    assert.match(req.user, /COMING SOON/);
+    assert.match(req.user, /never guess/);
+    assert.match(req.user, /price is written/);
+  }
+});
+
+test('an ordinary draft is asked for exactly as before', () => {
+  const ticketed = buildRequest({ ...AI_BASE, text: 'x'.repeat(50) });
+  assert.match(ticketed.user, /^Listing: ticketed\.$/m);
+  assert.doesNotMatch(ticketed.user, /COMING SOON/);
+  const listing = buildRequest({ ...AI_BASE, listingType: 'display_only', text: 'x'.repeat(50) });
+  assert.match(listing.user, /display only \(no tickets are sold, so tiers must be an empty list\)/);
+});
