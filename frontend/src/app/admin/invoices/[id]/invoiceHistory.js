@@ -13,4 +13,6 @@ export const HISTORY_LABELS = Object.freeze({
   reopened: 'Reopened',
   voided: 'Voided',
   note: 'Note',
+  credited: 'Credit note applied',
+  credit_released: 'Credit released (invoice voided)',
 });

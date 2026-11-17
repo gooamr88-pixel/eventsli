@@ -49,6 +49,7 @@ export const VERB_GROUPS = [
   ['Money and settings', {
     'invoice.raised': ['Raised an invoice', ''],
     'invoice.settled': ['Settled an invoice', 'es-pill--accent'],
+    'credit_note.refunded': ['Paid a credit back to an organizer', ''],
     'settings.changed': ['Changed a platform setting', ''],
   }],
   ['Storefront', {
@@ -155,6 +156,8 @@ function detailLines(action, p) {
     case 'event.suspended':
     case 'event.cancelled':
       return p.openCheckoutsClosed ? [`${p.openCheckoutsClosed} open checkouts closed`] : [];
+    case 'credit_note.refunded':
+      return [p.number, p.reference ? `ref. ${p.reference}` : null].filter(Boolean);
     case 'invoice.raised':
       return [[p.number, p.orderCount !== null && p.orderCount !== undefined ? `${p.orderCount} door sales` : null]
         .filter(Boolean).join(' · ')].filter(Boolean);

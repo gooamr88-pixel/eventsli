@@ -59,6 +59,7 @@ const STATUSES = [
   { value: 'submitted', label: 'Receipt sent' },
   { value: 'paid', label: 'Settled' },
   { value: 'waived', label: 'Waived' },
+  { value: 'credited', label: 'Credited' },
   { value: 'void', label: 'Void' },
 ];
 
@@ -243,7 +244,7 @@ export default function Invoices({ initialStatus = '', eventId = '' }) {
                       </a>
                     )}
                     <Link href={`/admin/invoices/${i.id}`} className="es-btn es-btn--ghost es-btn--sm">Manage</Link>
-                    {!['paid', 'waived', 'void'].includes(i.status) && (
+                    {!['paid', 'waived', 'credited', 'void'].includes(i.status) && (
                       <button type="button" className="es-btn es-btn--primary es-btn--sm" disabled={busyId === i.id} onClick={() => settle(i)}>
                         {busyId === i.id ? 'Settling…' : 'Settle'}
                       </button>

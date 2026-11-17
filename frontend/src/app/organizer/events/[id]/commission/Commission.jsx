@@ -37,6 +37,12 @@ import { useEventContext } from '../EventContext';
  * from the organizer except internal notes.
  *
  * Due dates are on the event's clock: the gate locks at that moment at the venue.
+ *
+ * CREDIT NOTES (20261123110000). A sale an invoice already covered that is
+ * then voided or refunded issues a credit note; it comes off what the invoice
+ * asks for, and anything left is a credit balance the next invoice deducts.
+ * No invoice is issued until the organizer's billing details are complete, so
+ * the page says what is missing and where to add it.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 export default function Commission({ eventId }) {
@@ -51,7 +57,10 @@ export default function Commission({ eventId }) {
   const open = data.invoices.filter((i) => !SETTLED_STATUSES.includes(i.status));
   const overdue = open.filter((i) => i.isOverdue).length;
   const payable = open.filter((i) => ['open', 'overdue'].includes(i.status));
-  const settled = data.invoices.filter((i) => ['paid', 'waived'].includes(i.status)).length;
+  const settled = data.invoices.filter((i) => ['paid', 'waived', 'credited'].includes(i.status)).length;
+  const creditNotes = data.creditNotes || [];
+  const missing = data.billing?.organizerMissing || [];
+  const inCredit = data.owedCents < 0;
 
   return (
     <div className="fx-stack">
@@ -63,9 +72,9 @@ export default function Commission({ eventId }) {
       <KpiRow label="Commission at a glance" tiles>
         <Kpi
           icon="percent"
-          label="Outstanding"
-          value={formatMoney(data.owedCents, data.currency)}
-          note={overdue ? `${overdue} overdue` : 'Nothing overdue'}
+          label={inCredit ? 'In credit' : 'Outstanding'}
+          value={formatMoney(Math.abs(data.owedCents), data.currency)}
+          note={inCredit ? 'Comes off your next invoice' : overdue ? `${overdue} overdue` : 'Nothing overdue'}
           tone={overdue ? 'danger' : undefined}
           featured={!overdue}
         />
@@ -97,6 +106,22 @@ export default function Commission({ eventId }) {
         </Panel>
       )}
 
+      {missing.length > 0 && (
+        <Notice tone="warning" title="Add your billing details so Eventsli can invoice you.">
+          <p>
+            An invoice has to show who it is addressed to. Missing: {missing.map((f) => BILLING_FIELD[f] || f).join(', ')}.
+            {' '}No invoice is issued until they are complete.
+          </p>
+          <p><a href="/organizer/profile#billing" className="es-ai-link">Add billing details</a></p>
+        </Notice>
+      )}
+
+      {data.creditBalanceCents > 0 && (
+        <Notice tone="info" title={`You have ${formatMoney(data.creditBalanceCents, data.currency)} in credit.`}>
+          <p>From sales you voided or refunded after their commission was invoiced and paid. It comes off your next invoice, or Eventsli pays it back to you.</p>
+        </Notice>
+      )}
+
       {data.uninvoicedCents > 0 && (
         <Notice tone="info" title={`${formatMoney(data.uninvoicedCents, data.currency)} is not invoiced yet.`}>
           <p>Commission on door sales since your last invoice. Eventsli emails you an invoice for it — nothing is due until then.</p>
@@ -114,9 +139,42 @@ export default function Commission({ eventId }) {
           ))}
         </ul>
       )}
+
+      {creditNotes.length > 0 && (
+        <Panel icon="receipt" title="Credit notes">
+          <p className="text-sm text-muted">Issued when a sale an invoice already covered was voided or refunded. Each one takes that sale&rsquo;s commission off what you owe.</p>
+          <ul className="fx-stack fx-stack--sm text-sm">
+            {creditNotes.map((n) => (
+              <li key={n.id} className="fx-row fx-row--between border-t border-border-base pt-2">
+                <span className="fx-stack gap-0.5 fx-min0">
+                  <span className="font-mono text-ink fx-break">{n.number}</span>
+                  <span className="text-muted">
+                    {n.kind === 'refund' ? 'Refunded sale' : 'Voided sale'} · {formatEventTime(n.issuedAt, timezone, { time: false })}
+                    {n.remainingCents > 0 ? ` · ${formatMoney(n.remainingCents, n.currency)} still to use` : ''}
+                  </span>
+                </span>
+                <span className="fx-row items-center gap-2">
+                  <span className="es-nums text-ink">−{formatMoney(n.amountCents, n.currency)}</span>
+                  <a href={`/organizer/events/${eventId}/commission/credit-notes/${n.id}`} className="es-btn es-btn--ghost es-btn--sm">View</a>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </Panel>
+      )}
     </div>
   );
 }
+
+/** invoice_billing_check's field names, as the organizer's profile labels them. */
+const BILLING_FIELD = {
+  legal_name: 'organization name',
+  billing_address: 'billing address',
+  country: 'country',
+  tax_status: 'whether you are registered for tax',
+  tax_id: 'tax number',
+  email: 'account email',
+};
 
 function InvoiceCard({ eventId, invoice, timezone, onChanged }) {
   const toast = useToast();
@@ -164,8 +222,12 @@ function InvoiceCard({ eventId, invoice, timezone, onChanged }) {
           </p>
           <p className="es-nums text-right">
             <span className="block text-lg text-ink">{money(closed ? invoice.amountCents : invoice.balanceCents)}</span>
-            {!closed && invoice.paidCents > 0 && (
-              <span className="block text-xs text-muted">of {money(invoice.amountCents)} · {money(invoice.paidCents)} received</span>
+            {!closed && (invoice.paidCents > 0 || invoice.creditedCents > 0) && (
+              <span className="block text-xs text-muted">
+                of {money(invoice.amountCents)}
+                {invoice.paidCents > 0 ? ` · ${money(invoice.paidCents)} received` : ''}
+                {invoice.creditedCents > 0 ? ` · ${money(invoice.creditedCents)} credited` : ''}
+              </span>
             )}
           </p>
         </div>
@@ -176,6 +238,10 @@ function InvoiceCard({ eventId, invoice, timezone, onChanged }) {
           <p className="text-sm text-muted">
             {invoice.paidCents > 0 ? `${money(invoice.paidCents)} paid, the rest waived` : 'Waived'}
             {invoice.waiveReason ? ` — ${invoice.waiveReason}` : ''}. Nothing further to do.
+          </p>
+        ) : invoice.status === 'credited' ? (
+          <p className="text-sm text-muted">
+            Credit notes took off the whole amount — the sales on it were voided or refunded. Nothing is due.
           </p>
         ) : closed ? (
           <p className="text-sm text-muted">

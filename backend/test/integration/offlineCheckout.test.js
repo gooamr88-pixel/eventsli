@@ -4,19 +4,20 @@ const http = require('node:http');
 const { randomUUID } = require('node:crypto');
 
 require('../helpers/testEnv');
+const { ensureInvoiceIssuer } = require('../helpers/billing');
 const { supabase } = require('../../config/supabase');
 const app = require('../../app');
 
 /**
- * ─────────────────────────────────────────────────────────────────────────────
- * PHASE 2 — offline checkout, end to end against the real database.
+ * â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+ * PHASE 2 â€” offline checkout, end to end against the real database.
  *
  * An Egyptian organizer (no card payments) with a bank-transfer method and a
  * general-admission event. A buyer reserves and is given instructions; the
  * organizer marks it paid; tickets exist only then. Plus: the switch is off by
  * default, double confirmation, wrong amounts, expiry releasing stock, cancel,
  * void and refund reversing commission, and an audit row for every step.
- * ─────────────────────────────────────────────────────────────────────────────
+ * â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
  */
 let server; let baseUrl;
 const stamp = Date.now();
@@ -149,7 +150,7 @@ test('switched off (the default), the event is not sold online and offline reser
   assert.equal(hold.body.error, 'TICKETS_NOT_SOLD_ONLINE');
 });
 
-test('switched on: the event is purchasable, offline is offered with the organizer’s methods', async () => {
+test('switched on: the event is purchasable, offline is offered with the organizerâ€™s methods', async () => {
   await setOffline({ enabled: true, payment_hours: 48, min_hours_before_event: 2 });
   const page = await client()('GET', `/public/events/${ids.slug}`);
   assert.equal(page.body.data.purchasable, true);
@@ -346,47 +347,73 @@ test('the organizer sees their offline payments and the audit trail', async () =
 });
 
 test('a commission invoice is itemised and frozen: sales, commission, tax, issuer and organizer', async () => {
-  const { data: before } = await supabase.from('platform_settings').select('value').eq('key', 'invoice_issuer').maybeSingle();
-  await supabase.from('platform_settings').upsert({ key: 'invoice_issuer', value: { legal_name: 'Eventsli Test Inc.', tax_id: 'BN 123' } }, { onConflict: 'key' });
-  try {
-    const { res } = await reserve(1);
-    const ok = await ids.org('POST', `/events/${ids.eventId}/offline-payments/${res.body.data.id}/confirm`, { amountCents: 50000 });
-    assert.equal(ok.status, 200, JSON.stringify(ok.body));
+  // Eventsli's half of the billing details (never blanked: the suite runs files in parallel).
+  const issuer = await ensureInvoiceIssuer(supabase);
 
-    const { data: raised, error } = await supabase.rpc('raise_commission_invoice', { p_event_id: ids.eventId, p_admin_id: null });
-    assert.ifError(error);
-    assert.equal(raised.ok, true, JSON.stringify(raised));
-    const { data: inv } = await supabase.from('invoices')
-      .select('amount_cents, sales_count, sales_gross_cents, commission_cents, commission_tax_cents, adjustment_cents, issuer, recipient, currency')
-      .eq('id', raised.invoice_id).single();
-    // The refunded order is not a sale; only the one just confirmed is.
-    assert.equal(inv.sales_count, 1);
-    assert.equal(Number(inv.sales_gross_cents), 50000);
-    assert.equal(Number(inv.commission_cents), 5000);
-    assert.equal(Number(inv.commission_tax_cents), 0);
-    assert.equal(Number(inv.adjustment_cents), 0);
-    assert.equal(Number(inv.amount_cents), Number(inv.commission_cents) + Number(inv.commission_tax_cents) + Number(inv.adjustment_cents));
-    assert.equal(inv.currency, 'EGP');
-    assert.equal(inv.issuer.legal_name, 'Eventsli Test Inc.');
-    assert.equal(inv.recipient.legal_name, 'Nile Nights LLC');
-    assert.equal(inv.recipient.country, 'EG');
+  const { res } = await reserve(1);
+  const ok = await ids.org('POST', `/events/${ids.eventId}/offline-payments/${res.body.data.id}/confirm`, { amountCents: 50000 });
+  assert.equal(ok.status, 200, JSON.stringify(ok.body));
 
-    // Frozen: changing the issuer later does not rewrite the invoice.
-    await supabase.from('platform_settings').update({ value: { legal_name: 'Someone Else Ltd.' } }).eq('key', 'invoice_issuer');
-    const { data: again } = await supabase.from('invoices').select('issuer').eq('id', raised.invoice_id).single();
-    assert.equal(again.issuer.legal_name, 'Eventsli Test Inc.');
+  // The organizer has not given a billing address or tax status: nothing is issued.
+  const refused = (await supabase.rpc('raise_commission_invoice', { p_event_id: ids.eventId, p_admin_id: null })).data;
+  assert.equal(refused.ok, false);
+  assert.equal(refused.error, 'BILLING_DETAILS_INCOMPLETE');
+  assert.deepEqual(refused.organizer_missing, ['billing_address', 'tax_status']);
+  const before = await ids.org('GET', '/organizer/me');
+  assert.equal(before.body.data.billingComplete, false);
 
-    // The organizer's view carries the lines for the printable invoice.
-    const view = await ids.org('GET', `/events/${ids.eventId}/commission`);
-    const shaped = view.body.data.invoices.find((i) => i.id === raised.invoice_id);
-    assert.deepEqual(shaped.lines, { salesCount: 1, salesGrossCents: 50000, commissionCents: 5000, commissionTaxCents: 0, adjustmentCents: 0 });
-    assert.equal(shaped.issuer.legal_name, 'Eventsli Test Inc.');
+  // The profile validates them together.
+  const noNumber = await ids.org('PATCH', '/organizer', { billingAddress: '12 Nile Corniche\nCairo 11511\nEgypt', taxStatus: 'registered' });
+  assert.equal(noNumber.status, 400, 'registered for tax without a number');
+  const strayNumber = await ids.org('PATCH', '/organizer', { taxStatus: 'not_registered', taxId: '123-456-789' });
+  assert.equal(strayNumber.status, 400, 'a number while not registered');
+  const shortAddress = await ids.org('PATCH', '/organizer', { billingAddress: 'Cairo' });
+  assert.equal(shortAddress.status, 400, 'an address too short to post anything to');
+  const saved = await ids.org('PATCH', '/organizer', {
+    billingAddress: '12 Nile Corniche\nCairo 11511\nEgypt', taxStatus: 'registered', taxId: '123-456-789',
+  });
+  assert.equal(saved.status, 200, JSON.stringify(saved.body));
+  assert.equal(saved.body.data.billingComplete, true);
+  assert.equal(saved.body.data.taxId, '123-456-789');
 
-    // The database refuses a breakdown that does not add up.
-    const bad = await supabase.from('invoices').update({ adjustment_cents: 1 }).eq('id', raised.invoice_id);
-    assert.ok(bad.error, 'a breakdown that does not add up was accepted');
-    await supabase.from('invoices').delete().eq('id', raised.invoice_id);
-  } finally {
-    await supabase.from('platform_settings').upsert({ key: 'invoice_issuer', value: before?.value || {} }, { onConflict: 'key' });
-  }
+  const { data: raised, error } = await supabase.rpc('raise_commission_invoice', { p_event_id: ids.eventId, p_admin_id: null });
+  assert.ifError(error);
+  assert.equal(raised.ok, true, JSON.stringify(raised));
+  const { data: inv } = await supabase.from('invoices')
+    .select('amount_cents, sales_count, sales_gross_cents, commission_cents, commission_tax_cents, adjustment_cents, issuer, recipient, currency')
+    .eq('id', raised.invoice_id).single();
+  // The refunded order is not a sale; only the one just confirmed is.
+  assert.equal(inv.sales_count, 1);
+  assert.equal(Number(inv.sales_gross_cents), 50000);
+  assert.equal(Number(inv.commission_cents), 5000);
+  assert.equal(Number(inv.commission_tax_cents), 0);
+  assert.equal(Number(inv.adjustment_cents), 0);
+  assert.equal(Number(inv.amount_cents), Number(inv.commission_cents) + Number(inv.commission_tax_cents) + Number(inv.adjustment_cents));
+  assert.equal(inv.currency, 'EGP');
+  assert.equal(inv.issuer.legal_name, issuer.legal_name);
+  assert.equal(inv.issuer.tax_id, issuer.tax_id);
+  assert.equal(inv.recipient.legal_name, 'Nile Nights LLC');
+  assert.equal(inv.recipient.country, 'EG');
+  assert.equal(inv.recipient.billing_address, '12 Nile Corniche\nCairo 11511\nEgypt');
+  assert.equal(inv.recipient.tax_id, '123-456-789');
+
+  // Frozen: changing the organizer's details later does not rewrite the invoice.
+  await ids.org('PATCH', '/organizer', { billingAddress: '1 Somewhere Else, Alexandria, Egypt', taxStatus: 'not_registered' });
+  const { data: again } = await supabase.from('invoices').select('recipient').eq('id', raised.invoice_id).single();
+  assert.equal(again.recipient.billing_address, '12 Nile Corniche\nCairo 11511\nEgypt');
+  assert.equal(again.recipient.tax_id, '123-456-789');
+
+  // The organizer's view carries the lines for the printable invoice.
+  const view = await ids.org('GET', `/events/${ids.eventId}/commission`);
+  const shaped = view.body.data.invoices.find((i) => i.id === raised.invoice_id);
+  assert.deepEqual(shaped.lines, { salesCount: 1, salesGrossCents: 50000, commissionCents: 5000, commissionTaxCents: 0, adjustmentCents: 0 });
+  assert.equal(shaped.issuer.legal_name, issuer.legal_name);
+  assert.equal(shaped.creditedCents, 0);
+  assert.equal(view.body.data.billing.ready, true);
+  assert.deepEqual(view.body.data.creditNotes, []);
+
+  // The database refuses a breakdown that does not add up.
+  const bad = await supabase.from('invoices').update({ adjustment_cents: 1 }).eq('id', raised.invoice_id);
+  assert.ok(bad.error, 'a breakdown that does not add up was accepted');
+  await supabase.from('invoices').delete().eq('id', raised.invoice_id);
 });

@@ -20,6 +20,8 @@ export default function AdminInvoiceDocument({ invoiceId }) {
       event={detail.data.event}
       instructions={instructions}
       backHref={`/admin/invoices/${invoiceId}`}
+      creditNotes={detail.data.creditNotes || []}
+      creditNoteHref={(n) => `/admin/credit-notes/${n.id}`}
     />
   );
 }

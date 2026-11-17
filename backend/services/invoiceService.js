@@ -143,7 +143,8 @@ function shapeEvent(e, { admin = false } = {}) {
 
 const CREDIT_NOTE_COLUMNS = 'id, number, event_id, invoice_id, order_id, currency, commission_cents, '
   + 'commission_tax_cents, amount_cents, remaining_cents, kind, reason, issuer, recipient, created_at, '
-  + 'credit_note_allocations ( id, invoice_id, kind, amount_cents, from_write_off, method, reference, created_at )';
+  + 'credit_note_allocations ( id, invoice_id, kind, amount_cents, from_write_off, method, reference, created_at, '
+  + 'invoice:invoices!credit_note_allocations_invoice_id_fkey ( number ) )';
 
 /**
  * A credit note and where its money went. `appliedCents` is the net amount it
@@ -155,6 +156,7 @@ function shapeCreditNote(n, { forInvoiceId = null } = {}) {
     .map((a) => ({
       kind: a.kind,
       invoiceId: a.invoice_id,
+      invoiceNumber: a.invoice?.number || null,
       amountCents: Number(a.amount_cents),
       fromWriteOff: Boolean(a.from_write_off),
       at: a.created_at,
@@ -207,12 +209,12 @@ async function creditNotesForInvoice(invoiceId, eventId) {
 /** One credit note with its event and invoice number, for its document page. */
 async function creditNote(creditNoteId) {
   const { data, error } = await supabase.from('credit_notes')
-    .select(`${CREDIT_NOTE_COLUMNS}, organizer_id, invoices ( id, number ), events ( id, title, timezone )`)
+    .select(`${CREDIT_NOTE_COLUMNS}, organizer_id, corrects:invoices!credit_notes_invoice_id_fkey ( id, number ), events ( id, title, timezone )`)
     .eq('id', creditNoteId).maybeSingle();
   if (error) throw new Error(error.message);
   if (!data) throw fail('NOT_FOUND', 'That credit note does not exist.');
   return {
-    creditNote: { ...shapeCreditNote(data), invoiceNumber: data.invoices?.number || null },
+    creditNote: { ...shapeCreditNote(data), invoiceNumber: data.corrects?.number || null },
     event: data.events ? { id: data.events.id, title: data.events.title, timezone: data.events.timezone } : null,
     organizerId: data.organizer_id,
     eventId: data.event_id,

@@ -18,6 +18,7 @@ import DataTable from '../../../components/ui/DataTable';
 import InvoiceStatus from '../../../components/ui/InvoiceStatus';
 import { Loading, ErrorNotice, Notice } from '../../../components/Feedback';
 import { HISTORY_LABELS } from './invoiceHistory';
+import CreditNotesPanel from './CreditNotesPanel';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -44,7 +45,7 @@ export default function InvoiceDetail({ invoiceId }) {
   if (error) return <ErrorNotice error={error} onRetry={reload} action={{ href: '/admin/invoices', label: 'All invoices' }} />;
   if (loading && !data) return <Loading variant="stats" rows={3} label="Loading the invoice" />;
 
-  const { invoice, event, organizer, payments, history, gate, actions } = data;
+  const { invoice, event, organizer, payments, history, gate, actions, creditNotes } = data;
   const tz = event?.timezone;
   const money = (cents) => formatMoney(cents, invoice.currency);
 
@@ -119,6 +120,7 @@ export default function InvoiceDetail({ invoiceId }) {
         <Kpi icon="receipt" label="Invoiced" value={money(invoice.amountCents)} note={`${invoice.orderCount} door ${invoice.orderCount === 1 ? 'sale' : 'sales'}`} />
         <Kpi icon="check" label="Paid" value={money(invoice.paidCents)} note={`${payments.filter((p) => !p.reversedAt).length} payment(s)`} iconTone="success" />
         {invoice.writtenOffCents > 0 && <Kpi icon="percent" label="Waived" value={money(invoice.writtenOffCents)} />}
+        {invoice.creditedCents > 0 && <Kpi icon="receipt" label="Credited" value={money(invoice.creditedCents)} note="Credit notes" />}
         <Kpi
           icon="coins" label="To pay" value={money(invoice.balanceCents)} featured={invoice.balanceCents > 0}
           note={invoice.balanceCents > 0 ? `Due ${formatEventTime(invoice.dueAt, tz)}` : 'Nothing left to pay'}
@@ -283,6 +285,8 @@ export default function InvoiceDetail({ invoiceId }) {
         )}
       </Panel>
 
+      <CreditNotesPanel invoice={invoice} creditNotes={creditNotes} timezone={tz} />
+
       <Panel icon="list" title="History">
         <ol className="fx-stack fx-stack--sm">
           {[...history].reverse().map((h) => (
@@ -291,6 +295,7 @@ export default function InvoiceDetail({ invoiceId }) {
                 {HISTORY_LABELS[h.kind] || h.kind}
                 {h.amountCents !== null && h.kind !== 'note' ? ` · ${money(h.amountCents)}` : ''}
                 {h.kind === 'due_changed' && h.detail?.to ? ` → ${formatEventTime(h.detail.to, tz)}` : ''}
+                {h.detail?.creditNoteNumber ? ` · ${h.detail.creditNoteNumber}` : ''}
               </span>
               {h.note && <span className="whitespace-pre-line text-muted">{h.note}</span>}
               <span className="text-xs text-subtle">

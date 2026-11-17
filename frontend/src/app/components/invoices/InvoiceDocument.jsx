@@ -22,14 +22,19 @@ import NavIcon from '../shell/NavIcon';
  *
  * What this document is NOT: a receipt. "Paid" below means an Eventsli admin
  * RECORDED a payment, not that the bank has confirmed it.
+ *
+ * CREDIT NOTES (20261123110000): the amount as issued never changes. A sale on
+ * it that was later voided or refunded issues a credit note, listed here with
+ * what it took off; the balance is net of them. `creditNotes` are the ones
+ * that correct this invoice or were applied to it, each with `appliedCents`.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 const STATUS_LABEL = {
   open: 'Unpaid', submitted: 'Receipt under review', overdue: 'Overdue', paid: 'Paid',
-  waived: 'Waived', void: 'Cancelled (void)',
+  waived: 'Waived', credited: 'Credited — nothing due', void: 'Cancelled (void)',
 };
 
-export default function InvoiceDocument({ invoice, event, instructions = null, backHref = null }) {
+export default function InvoiceDocument({ invoice, event, instructions = null, backHref = null, creditNotes = [], creditNoteHref = null }) {
   const money = (c) => formatMoney(c, invoice.currency);
   const tz = event?.timezone;
   const issuer = invoice.issuer || {};
@@ -74,7 +79,11 @@ export default function InvoiceDocument({ invoice, event, instructions = null, b
             {recipient.legal_name && recipient.display_name && recipient.display_name !== recipient.legal_name && (
               <p>Trading as {recipient.display_name}</p>
             )}
-            {recipient.country && <p>{COUNTRY_NAMES[recipient.country] || recipient.country}</p>}
+            {recipient.billing_address
+              ? <p className="whitespace-pre-line">{recipient.billing_address}</p>
+              : recipient.country && <p>{COUNTRY_NAMES[recipient.country] || recipient.country}</p>}
+            {recipient.tax_status === 'registered' && recipient.tax_id && <p>Tax no. {recipient.tax_id}</p>}
+            {recipient.tax_status === 'not_registered' && <p>Not registered for tax</p>}
             {recipient.email && <p>{recipient.email}</p>}
           </div>
           <dl className="es-invdoc__meta">
@@ -120,9 +129,34 @@ export default function InvoiceDocument({ invoice, event, instructions = null, b
             <tr className="es-invdoc__total"><th scope="row">Total</th><td className="es-invdoc__num es-nums">{money(invoice.amountCents)}</td></tr>
             {invoice.paidCents > 0 && <tr><th scope="row">Payments recorded</th><td className="es-invdoc__num es-nums">−{money(invoice.paidCents)}</td></tr>}
             {invoice.writtenOffCents > 0 && <tr><th scope="row">Waived</th><td className="es-invdoc__num es-nums">−{money(invoice.writtenOffCents)}</td></tr>}
+            {invoice.creditedCents > 0 && <tr><th scope="row">Credit notes</th><td className="es-invdoc__num es-nums">−{money(invoice.creditedCents)}</td></tr>}
             <tr className="es-invdoc__total"><th scope="row">{invoice.status === 'void' ? 'Nothing due (cancelled)' : 'Balance due'}</th><td className="es-invdoc__num es-nums">{money(invoice.status === 'void' ? 0 : invoice.balanceCents)}</td></tr>
           </tfoot>
         </table>
+
+        {creditNotes.length > 0 && (
+          <section>
+            <p className="es-invdoc__label">Credit notes</p>
+            <table className="es-invdoc__lines">
+              <thead><tr><th scope="col">Credit note</th><th scope="col" className="es-invdoc__num">Taken off this invoice</th></tr></thead>
+              <tbody>
+                {creditNotes.map((n) => (
+                  <tr key={n.id}>
+                    <td>
+                      {creditNoteHref ? <a href={creditNoteHref(n)} className="es-nums">{n.number}</a> : <span className="es-nums">{n.number}</span>}
+                      {' '}· {formatEventTime(n.issuedAt, tz, { time: false })} · {n.kind === 'refund' ? 'sale refunded' : 'sale voided'}, {money(n.amountCents)}
+                      {n.invoiceId !== invoice.id ? ' (credit carried from an earlier invoice)' : ''}
+                      {n.invoiceId === invoice.id && n.appliedCents < n.amountCents
+                        ? ` — ${money(n.amountCents - n.appliedCents)} ${n.remainingCents > 0 ? 'held as credit' : 'used elsewhere'}`
+                        : ''}
+                    </td>
+                    <td className="es-invdoc__num es-nums">{n.appliedCents > 0 ? `−${money(n.appliedCents)}` : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+        )}
 
         {invoice.status !== 'void' && invoice.balanceCents > 0 && (
           <section className="es-invdoc__pay">
@@ -150,7 +184,7 @@ export default function InvoiceDocument({ invoice, event, instructions = null, b
  * The page's print rules, mounted with it (the tickets do the same): only the
  * invoice prints, on white, without the buttons.
  */
-function InvoicePrintStyles() {
+export function InvoicePrintStyles() {
   return (
     <style>{`
       .es-invdoc { background: #fff; color: #111018; border: 1px solid var(--es-border, #e5e5e5); border-radius: 12px; padding: clamp(1rem, 3vw, 2.5rem); display: flex; flex-direction: column; gap: 1.5rem; font-size: 0.9rem; line-height: 1.5; }

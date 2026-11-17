@@ -86,7 +86,7 @@ const FORMS = {
   // Printed on every commission invoice and frozen into it at issue.
   invoice_issuer: {
     title: 'Invoice issuer',
-    hint: 'Eventsli\'s details printed on every commission invoice. Each invoice keeps the details it was issued with.',
+    hint: 'Eventsli\'s details printed on every commission invoice and credit note. All four are required — no invoice is issued until they are complete (an address of at least 10 characters, a valid email). Each invoice keeps the details it was issued with.',
     fields: [
       { name: 'legal_name', label: 'Legal name', type: 'text', maxLength: 160, optional: true, placeholder: 'e.g. Eventsli Inc.' },
       { name: 'address', label: 'Address', type: 'text', maxLength: 500, optional: true, placeholder: 'Registered address' },

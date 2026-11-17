@@ -10,6 +10,18 @@ import { useEventContext } from '../../../EventContext';
  * PDF. Read from the event's commission endpoint, which only ever returns this
  * organizer's own invoices (verifyEventOwner).
  */
+/** The event's credit notes that correct this invoice or were applied to it, with what each took off it. */
+function creditNotesFor(notes, invoiceId) {
+  return (notes || [])
+    .filter((n) => n.invoiceId === invoiceId || n.allocations.some((a) => a.invoiceId === invoiceId))
+    .map((n) => ({
+      ...n,
+      appliedCents: n.allocations
+        .filter((a) => a.invoiceId === invoiceId && (a.kind === 'applied' || a.kind === 'released'))
+        .reduce((s, a) => s + (a.kind === 'released' ? -a.amountCents : a.amountCents), 0),
+    }));
+}
+
 export default function OrganizerInvoice({ eventId, invoiceId }) {
   const event = useEventContext()?.event;
   const { data, error, reload } = useApi(`/events/${eventId}/commission`);
@@ -26,6 +38,8 @@ export default function OrganizerInvoice({ eventId, invoiceId }) {
       event={event}
       instructions={data.paymentInstructions}
       backHref={`/organizer/events/${eventId}/commission`}
+      creditNotes={creditNotesFor(data.creditNotes, invoiceId)}
+      creditNoteHref={(n) => `/organizer/events/${eventId}/commission/credit-notes/${n.id}`}
     />
   );
 }

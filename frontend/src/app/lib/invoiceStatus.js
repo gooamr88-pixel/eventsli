@@ -12,6 +12,8 @@ const LABELS = {
   overdue: ['Overdue', 'danger'],
   paid: ['Settled', 'accent'],
   waived: ['Waived', 'neutral'],
+  // Cleared by credit notes (sales voided or refunded after issue), nothing paid.
+  credited: ['Credited · nothing due', 'neutral'],
   void: ['Void', 'neutral'],
 };
 
@@ -22,7 +24,7 @@ export const TONE_CLASS = Object.freeze({
   neutral: '',
 });
 
-export const SETTLED_STATUSES = Object.freeze(['paid', 'waived', 'void']);
+export const SETTLED_STATUSES = Object.freeze(['paid', 'waived', 'credited', 'void']);
 export const UNPAID_STATUSES = Object.freeze(['open', 'submitted', 'overdue']);
 
 export function invoiceStatus(invoice) {

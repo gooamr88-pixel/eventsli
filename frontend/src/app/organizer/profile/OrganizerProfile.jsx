@@ -10,6 +10,7 @@ import Field, { TextareaField } from '../../components/forms/Field';
 import FormError from '../../components/forms/FormError';
 import SubmitButton from '../../components/forms/SubmitButton';
 import CreateProfile from '../CreateProfile';
+import BillingDetails from './BillingDetails';
 import { PageHeader } from '../../components/ui/Page';
 import NavIcon from '../../components/shell/NavIcon';
 import { StoreArt } from '../../components/ui/Illustrations';
@@ -147,6 +148,8 @@ export default function OrganizerProfile() {
           </Link>
         </section>
       </div>
+
+      <BillingDetails organizer={organizer} onSaved={refresh} />
     </div>
   );
 }
