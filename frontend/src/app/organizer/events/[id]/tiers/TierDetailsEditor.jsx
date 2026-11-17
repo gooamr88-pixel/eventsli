@@ -213,7 +213,12 @@ function RowList({ title, rows, max, suggestions, suggestionLabel, blank, onChan
  * The photo: resized in the browser to a card-sized JPEG, signed, PUT straight
  * to storage, confirmed — the Venue Studio's steps against the tier endpoints.
  */
-function PhotoField({ eventId, image, onChange }) {
+// Exported for the add-ons' pictures (2026-11-17): `base` picks the endpoints,
+// `/events/:id/tiers/…` or `/events/:id/addons/…`, which work the same way.
+export function PhotoField({
+  eventId, image, onChange, base = 'tiers',
+  hint = 'Wide works best (about 16 : 9). Without one, the card uses your brand colours.',
+}) {
   const input = useRef(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -225,11 +230,11 @@ function PhotoField({ eventId, image, onChange }) {
     setBusy(true);
     try {
       const blob = await downscale(file, { width: 1800, height: 1000, quality: 0.85 });
-      const signed = await post(`/events/${eventId}/tiers/image-upload`, { contentType: blob.type }, { noRedirect: true });
+      const signed = await post(`/events/${eventId}/${base}/image-upload`, { contentType: blob.type }, { noRedirect: true });
       if (blob.size > signed.maxBytes) throw new Error(`That image is larger than ${Math.round(signed.maxBytes / 1048576)} MB.`);
       const put = await fetch(signed.uploadUrl, { method: 'PUT', headers: { 'Content-Type': blob.type }, body: blob });
       if (!put.ok) throw new Error('The image did not upload. Try again.');
-      const saved = await post(`/events/${eventId}/tiers/image`, { path: signed.path }, { noRedirect: true });
+      const saved = await post(`/events/${eventId}/${base}/image`, { path: signed.path }, { noRedirect: true });
       onChange({ path: saved.path, url: saved.url });
     } catch (err) {
       setError(messageFor(err) || err.message);
@@ -258,7 +263,7 @@ function PhotoField({ eventId, image, onChange }) {
               <button type="button" className="es-btn es-btn--ghost es-btn--sm" onClick={() => onChange(undefined)}>Remove</button>
             )}
           </span>
-          <small className="text-xs text-subtle">Wide works best (about 16 : 9). Without one, the card uses your brand colours.</small>
+          <small className="text-xs text-subtle">{hint}</small>
         </span>
         <input ref={input} type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={(e) => upload(e.target.files?.[0])} />
       </div>

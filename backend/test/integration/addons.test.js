@@ -202,3 +202,52 @@ test('the organizer: price fixed once sold, stock not below sold, removal only t
   const fresh = await addonService.create(ids.event, { name: 'Never sold', priceCents: 100 });
   assert.equal((await addonService.remove(ids.event, fresh.id)).deleted, true);
 });
+
+test('a picture: only this event\'s own add-on image is accepted, and buyers get its URL', async () => {
+  const foreign = `events/00000000-0000-0000-0000-000000000000/addon-0123456789abcdef.jpg`;
+  await assert.rejects(addonService.update(ids.event, addon.poster, { imagePath: foreign }), (e) => e.code === 'VALIDATION_ERROR');
+  await assert.rejects(addonService.update(ids.event, addon.poster, { imagePath: `events/${ids.event}/cover-0123456789abcdef.jpg` }),
+    (e) => e.code === 'VALIDATION_ERROR', 'a cover is not an add-on picture');
+
+  const own = `events/${ids.event}/addon-0123456789abcdef.jpg`;
+  const saved = await addonService.update(ids.event, addon.poster, { imagePath: own });
+  assert.match(saved.imageUrl, /addon-0123456789abcdef\.jpg$/);
+  const offered = await addonService.listForBuyer(ids.event);
+  assert.equal(offered.find((a) => a.id === addon.poster).imageUrl, saved.imageUrl);
+
+  const cleared = await addonService.update(ids.event, addon.poster, { imagePath: null });
+  assert.equal(cleared.imageUrl, null);
+
+  const signed = await call('POST', `/events/${ids.event}/addons/image-upload`, { contentType: 'image/jpeg' });
+  assert.equal(signed.status, 401, 'signing an upload needs the organizer');
+});
+
+test('Popular events: ?ticketedFirst puts events sold here before display-only listings', async () => {
+  const { data: terms } = await supabase.from('terms_versions').select('id').eq('audience', 'organizer').eq('is_current', true).single();
+  const { data: poster, error } = await supabase.from('events').insert({
+    organizer_id: ids.organizer, slug: `addons-poster-${stamp}`, title: 'Poster only',
+    country: 'CA', timezone: 'America/Toronto', city: 'Toronto',
+    starts_at: new Date(Date.now() + 2 * 86400e3).toISOString(),
+    ends_at: new Date(Date.now() + 2 * 86400e3 + 3600e3).toISOString(),
+    currency: 'CAD', status: 'published', terms_accepted_id: terms.id, listing_type: 'display_only',
+  }).select('id').single();
+  assert.ifError(error);
+  try {
+    const res = await call('GET', '/public/events?limit=200&ticketedFirst=true');
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    const rows = res.body.data;
+    const firstPoster = rows.findIndex((e) => e.displayOnly);
+    const lastTicketed = rows.map((e) => !e.displayOnly).lastIndexOf(true);
+    assert.ok(firstPoster === -1 || lastTicketed < firstPoster, 'every ticketed event comes before every listing');
+    const both = `slugs=${slug},addons-poster-${stamp}`;
+    const pair = (await call('GET', `/public/events?ticketedFirst=true&${both}`)).body.data;
+    assert.deepEqual(pair.map((e) => e.id), [ids.event, poster.id],
+      'the ticketed event leads even though the poster starts sooner');
+
+    const plain = (await call('GET', `/public/events?${both}`)).body.data;
+    assert.deepEqual(plain.map((e) => e.id), [poster.id, ids.event],
+      'without the flag the listing is still soonest first');
+  } finally {
+    await supabase.from('events').delete().eq('id', poster.id);
+  }
+});

@@ -17,6 +17,7 @@ import { Loading, ErrorNotice } from '../../../../components/Feedback';
 import { useEventContext } from '../EventContext';
 import NavIcon from '../../../../components/shell/NavIcon';
 import { toCents } from './Tiers';
+import { PhotoField } from './TierDetailsEditor';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -133,7 +134,12 @@ export default function AddonsPanel({ eventId }) {
         <ul className="es-addonlist">
           {addons.map((a) => (
             <li key={a.id} className={`es-addonlist__item ${a.isActive ? '' : 'is-off'}`}>
-              <span className="es-addonlist__icon" aria-hidden="true"><NavIcon name="star" size={18} /></span>
+              {a.imageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element -- the add-on's picture, straight from storage
+                <img src={a.imageUrl} alt="" className="es-addonlist__img" loading="lazy" />
+              ) : (
+                <span className="es-addonlist__icon" aria-hidden="true"><NavIcon name="star" size={18} /></span>
+              )}
               <div className="fx-min0">
                 <p className="es-addonlist__name fx-break">
                   {a.name}
@@ -170,6 +176,9 @@ function AddonForm({ eventId, currency, addon, onDone, onCancel }) {
     price: addon ? centsToInput(addon.priceCents, currency) : '',
     quantity: addon?.quantity === null || addon?.quantity === undefined ? '' : String(addon.quantity),
   }));
+  // The picture: `{ url, path }` once uploaded here; an existing one has a URL
+  // only. Undefined is none (or removed).
+  const [image, setImage] = useState(() => (addon?.imageUrl ? { url: addon.imageUrl, path: null } : undefined));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
@@ -192,6 +201,8 @@ function AddonForm({ eventId, currency, addon, onDone, onCancel }) {
         if ((form.description.trim() || null) !== (addon.description || null)) body.description = form.description.trim() || null;
         if (!priceLocked && cents !== null && cents !== addon.priceCents) body.priceCents = cents;
         if (quantity !== addon.quantity) body.quantity = quantity;
+        if (image?.path) body.imagePath = image.path;
+        else if (!image && addon.imageUrl) body.imagePath = null;
         if (Object.keys(body).length === 0) { onCancel(); return; }
         await patch(`/events/${eventId}/addons/${addon.id}`, body, { noRedirect: true });
         onDone(`“${form.name.trim()}” was updated.`);
@@ -201,6 +212,7 @@ function AddonForm({ eventId, currency, addon, onDone, onCancel }) {
           priceCents: cents ?? 0,
           ...(form.description.trim() ? { description: form.description.trim() } : {}),
           ...(quantity !== null ? { quantity } : {}),
+          ...(image?.path ? { imagePath: image.path } : {}),
         }, { noRedirect: true });
         onDone(`“${form.name.trim()}” was added.`);
       }
@@ -244,6 +256,13 @@ function AddonForm({ eventId, currency, addon, onDone, onCancel }) {
           error={belowSold ? `${sold} have already sold, so it cannot go lower.` : null}
           value={form.quantity}
           onChange={(e) => setForm((f) => ({ ...f, quantity: e.target.value }))}
+        />
+        <PhotoField
+          eventId={eventId}
+          base="addons"
+          image={image}
+          onChange={setImage}
+          hint="Optional — shown to buyers at checkout, e.g. the star they meet. Square or wide works best."
         />
         <FormError error={error} />
         <div className="fx-row">

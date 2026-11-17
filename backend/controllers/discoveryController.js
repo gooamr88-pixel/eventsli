@@ -190,6 +190,17 @@ async function listEvents(req, res, next, { phraseSearch = false } = {}) {
       }
     }
 
+    /**
+     * TICKETED FIRST (owner, 2026-11-17): the homepage's Popular events showed
+     * the eight soonest, so an event that sells tickets here but starts later
+     * than eight display-only posters never appeared. Events on sale here lead,
+     * a teaser next, then the listings — each group soonest first.
+     * 'ticketed' sorts after 'display_only', hence descending.
+     */
+    if (req.query.ticketedFirst === 'true') {
+      query = query.order('listing_type', { ascending: false }).order('coming_soon', { ascending: true });
+    }
+
     const { data, error, count } = await query
       .order(p.sort, { ascending })
       .range(p.from, p.to);

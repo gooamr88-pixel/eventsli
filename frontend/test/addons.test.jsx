@@ -1,5 +1,5 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 vi.mock('../src/app/utils/apiClient', () => ({ put: vi.fn(), post: vi.fn(), patch: vi.fn(), del: vi.fn() }));
@@ -131,5 +131,24 @@ describe('AddonsPanel (organizer)', () => {
     await userEvent.type(qty, '20');
     await userEvent.click(screen.getByRole('button', { name: 'Save add-on' }));
     await waitFor(() => expect(patch).toHaveBeenCalledWith('/events/e1/addons/a1', { quantity: 20 }, { noRedirect: true }));
+  });
+});
+
+describe('add-on pictures', () => {
+  test('the buyer sees the organizer\'s picture beside the add-on', () => {
+    const q = quote({ addonsOffered: [{ id: 'p', name: 'Photo with the headliner', priceCents: 2000, remaining: 5, imageUrl: 'https://cdn.test/addon-1.jpg' }] });
+    const { container } = render(<AddonPicker reservationId="r1" headers={HEADERS} quote={q} organizerName="X" onChanged={vi.fn()} />);
+    expect(container.querySelector('img.es-addons__img')?.getAttribute('src')).toBe('https://cdn.test/addon-1.jpg');
+  });
+
+  test('removing a picture sends imagePath: null', async () => {
+    listed = [{ id: 'a1', name: 'Photo', description: null, priceCents: 2000, quantity: null, remaining: null, sold: 0, isActive: true, imageUrl: 'https://cdn.test/a.jpg' }];
+    patch.mockResolvedValue({});
+    render(<AddonsPanel eventId="e1" />);
+    await userEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    const form = screen.getByRole('button', { name: 'Save add-on' }).closest('form');
+    await userEvent.click(within(form).getByRole('button', { name: 'Remove' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Save add-on' }));
+    await waitFor(() => expect(patch).toHaveBeenCalledWith('/events/e1/addons/a1', { imagePath: null }, { noRedirect: true }));
   });
 });

@@ -1,4 +1,5 @@
 const addons = require('../services/addonService');
+const media = require('../services/mediaService');
 const { sendOk, sendFail, ERROR_STATUS } = require('../utils/responseEnvelope');
 
 /**
@@ -27,4 +28,25 @@ async function remove(req, res, next) {
   try { return sendOk(res, await addons.remove(req.params.eventId, req.params.addonId)); } catch (err) { return answer(res, err, next); }
 }
 
-module.exports = { list, create, update, remove };
+/** POST /events/:eventId/addons/image-upload — a signed URL for the picture. */
+async function signImageUpload(req, res, next) {
+  try {
+    return sendOk(res, await media.signUpload({
+      eventId: req.params.eventId,
+      contentType: String(req.body.contentType || '').toLowerCase(),
+      kind: 'addon',
+    }));
+  } catch (err) { return answer(res, err, next); }
+}
+
+/** POST /events/:eventId/addons/image — the upload landed; its URL to preview. */
+async function confirmImage(req, res, next) {
+  try {
+    if (!addons.ownAddonImage(req.params.eventId, req.body.path)) {
+      return sendFail(res, { status: 400, error: 'VALIDATION_ERROR', message: 'That image does not belong to this event.' });
+    }
+    return sendOk(res, await media.attach({ eventId: req.params.eventId, path: req.body.path }));
+  } catch (err) { return answer(res, err, next); }
+}
+
+module.exports = { list, create, update, remove, signImageUpload, confirmImage };

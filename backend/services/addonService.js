@@ -14,7 +14,21 @@ const { supabase } = require('../config/supabase');
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
-const COLUMNS = 'id, event_id, name, description, price_cents, quantity, sort_order, is_active, created_at, updated_at';
+const COLUMNS = 'id, event_id, name, description, price_cents, quantity, sort_order, is_active, image_path, created_at, updated_at';
+
+/**
+ * The add-on's picture (2026-11-17): this event's own `addon-<16 hex>.<ext>`
+ * object, uploaded through the signed-upload steps (mediaService). Checked by
+ * shape, so a caller cannot point an add-on at another event's file.
+ */
+function ownAddonImage(eventId, path) {
+  if (typeof path !== 'string' || path.length > 300) return false;
+  const prefix = `events/${eventId}/`;
+  if (!path.startsWith(prefix)) return false;
+  return /^addon-[0-9a-f]{16}\.(jpg|png|webp)$/.test(path.slice(prefix.length));
+}
+
+const imageUrlOf = (path) => (path ? require('./mediaService').publicUrl(path) : null);
 
 function fail(code, message, meta) {
   return Object.assign(new Error(message), { code, ...(meta ? { meta } : {}) });
@@ -58,6 +72,7 @@ function shape(a, { sold = 0, taken = 0 } = {}) {
     sold,
     sortOrder: a.sort_order,
     isActive: a.is_active,
+    imageUrl: imageUrlOf(a.image_path),
   };
 }
 
@@ -79,12 +94,17 @@ async function listForBuyer(eventId) {
   const taken = await takenCounts((data || []).map((a) => a.id));
   return (data || []).map((a) => {
     const s = shape(a, { taken: taken.get(a.id) || 0 });
-    return { id: s.id, name: s.name, description: s.description, priceCents: s.priceCents, remaining: s.remaining };
+    return { id: s.id, name: s.name, description: s.description, priceCents: s.priceCents, remaining: s.remaining, imageUrl: s.imageUrl };
   });
 }
 
-function rowFrom(body, { partial = false } = {}) {
+function rowFrom(body, { partial = false, eventId } = {}) {
   const row = {};
+  if (body.imagePath !== undefined) {
+    if (body.imagePath === null || body.imagePath === '') row.image_path = null;
+    else if (ownAddonImage(eventId, body.imagePath)) row.image_path = body.imagePath;
+    else throw fail('VALIDATION_ERROR', 'That image does not belong to this event.');
+  }
   if (!partial || body.name !== undefined) row.name = String(body.name || '').trim();
   if (!partial || body.description !== undefined) row.description = body.description ? String(body.description).trim() : null;
   if (!partial || body.priceCents !== undefined) row.price_cents = Number(body.priceCents);
@@ -96,7 +116,7 @@ function rowFrom(body, { partial = false } = {}) {
 
 async function create(eventId, body) {
   const { data, error } = await supabase.from('event_addons')
-    .insert({ event_id: eventId, ...rowFrom(body) }).select(COLUMNS).single();
+    .insert({ event_id: eventId, ...rowFrom(body, { eventId }) }).select(COLUMNS).single();
   if (error) throw new Error(error.message);
   return shape(data);
 }
@@ -110,7 +130,7 @@ async function update(eventId, addonId, body) {
     .eq('id', addonId).eq('event_id', eventId).maybeSingle();
   if (readError) throw new Error(readError.message);
   if (!current) throw fail('NOT_FOUND', 'That add-on does not exist.');
-  const row = rowFrom(body, { partial: true });
+  const row = rowFrom(body, { partial: true, eventId });
   const sold = (await soldCounts([addonId])).get(addonId) || 0;
   if (sold > 0 && row.price_cents !== undefined && row.price_cents !== Number(current.price_cents)) {
     throw fail('CONFLICT', `${sold} already sold at the current price, so the price is fixed. Add a new add-on for a new price.`);
@@ -122,6 +142,10 @@ async function update(eventId, addonId, body) {
   const { data, error } = await supabase.from('event_addons').update(row)
     .eq('id', addonId).eq('event_id', eventId).select(COLUMNS).single();
   if (error) throw new Error(error.message);
+  // A replaced or removed picture is deleted, best effort; nothing else uses it.
+  if (row.image_path !== undefined && current.image_path && current.image_path !== row.image_path) {
+    await require('./mediaService').remove(current.image_path).catch(() => {});
+  }
   const taken = await takenCounts([addonId]);
   return shape(data, { sold, taken: taken.get(addonId) || 0 });
 }
@@ -191,6 +215,7 @@ async function namesForTickets(ticketIds) {
 }
 
 module.exports = {
+  ownAddonImage,
   listForOrganizer, listForBuyer, create, update, remove,
   forReservation, setForReservation, namesForTickets, fail,
 };

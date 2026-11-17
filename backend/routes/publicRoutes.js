@@ -56,6 +56,9 @@ router.get(
   // "Tickets on sale" (owner, 2026-11-15): only events sold here, never a
   // display-only listing.
   query('onSale').optional().isIn(['true', 'false']),
+  // The homepage's Popular events (owner, 2026-11-17): events that sell
+  // tickets here first, then listings, each soonest first.
+  query('ticketedFirst').optional().isIn(['true', 'false']),
   query('city').optional().isString().trim().isLength({ min: 1, max: 120 }),
   // Cents. "Under $40" from smart search is 4000; "free" is 0.
   query('maxPrice').optional().isInt({ min: 0, max: 10_000_000 }).toInt(),

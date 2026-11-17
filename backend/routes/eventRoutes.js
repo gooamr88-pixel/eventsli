@@ -623,7 +623,28 @@ const addonRules = (partial) => [
     .withMessage('How many are available: a whole number, or leave it empty for no limit.'),
   body('sortOrder').optional().isInt({ min: 0, max: 9999 }),
   body('isActive').optional().isBoolean({ strict: true }),
+  // The picture's storage key from the upload steps below; null removes it.
+  body('imagePath').optional({ values: 'null' }).isString().trim().isLength({ max: 300 }),
 ];
+
+// The add-on's picture: sign, PUT, confirm. Registered before the
+// `:addonId` routes so "image-upload" is never read as an add-on id.
+router.post(
+  '/:eventId/addons/image-upload',
+  verifyEventOwner, requireEditableEvent,
+  body('contentType').isIn(Object.keys(EXTENSION_FOR))
+    .withMessage('Upload a JPEG, PNG or WebP image.'),
+  validate,
+  addonCtrl.signImageUpload,
+);
+router.post(
+  '/:eventId/addons/image',
+  verifyEventOwner, requireEditableEvent,
+  body('path').isString().trim().isLength({ min: 1, max: 300 })
+    .withMessage('Send back the path from the upload step.'),
+  validate,
+  addonCtrl.confirmImage,
+);
 
 router.get('/:eventId/addons', verifyEventOwner, addonCtrl.list);
 router.post('/:eventId/addons', verifyEventOwner, requireEditableEvent, ...addonRules(false), validate, addonCtrl.create);

@@ -81,7 +81,12 @@ export default function AddonPicker({ reservationId, headers, quote, organizerNa
           const working = busy === a.id;
           return (
             <li key={a.id} className={`es-addons__item ${a.mine > 0 ? 'is-on' : ''}`}>
-              <div className="fx-min0">
+              {/* The organizer's picture (2026-11-17): the star the photo is with. */}
+              {a.imageUrl && (
+                // eslint-disable-next-line @next/next/no-img-element -- the add-on's picture, straight from storage
+                <img src={a.imageUrl} alt="" className="es-addons__img" loading="lazy" decoding="async" />
+              )}
+              <div className="fx-min0 es-addons__body">
                 <p className="es-addons__name fx-break">{a.name}</p>
                 {a.description && <p className="es-addons__desc fx-break">{a.description}</p>}
                 <p className="es-addons__price es-nums">

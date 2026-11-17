@@ -42,7 +42,7 @@ export default function PopularEvents({ copy, categories, events, failed }) {
     (async () => {
       let entry;
       try {
-        const rows = await get(`/public/events?limit=8&category=${encodeURIComponent(active)}`, { noRedirect: true });
+        const rows = await get(`/public/events?limit=24&ticketedFirst=true&category=${encodeURIComponent(active)}`, { noRedirect: true });
         entry = { rows: Array.isArray(rows) ? rows : [], failed: false };
       } catch {
         entry = { rows: [], failed: true };

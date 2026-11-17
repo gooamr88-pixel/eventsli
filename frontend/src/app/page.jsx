@@ -62,7 +62,9 @@ export const revalidate = 60;
  */
 async function load() {
   const [events, landing, cities, vip] = await Promise.all([
-    serverFetch('/public/events?limit=8', { tags: ['events:published'], revalidate: 60 })
+    // Ticketed first, 24 at most (owner, 2026-11-17): with the eight soonest
+    // only, an event selling tickets here could be pushed off by posters.
+    serverFetch('/public/events?limit=24&ticketedFirst=true', { tags: ['events:published'], revalidate: 60 })
       .then((rows) => ({ rows: Array.isArray(rows) ? rows : [], failed: false }))
       .catch(() => ({ rows: [], failed: true })),
 

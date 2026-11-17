@@ -16479,7 +16479,11 @@ label.es-chip:has(:focus-visible) { outline: 2px solid var(--es-accent); outline
     border-radius: 14px;
     background: var(--es-surface);
   }
-  .es-addons__item > .fx-min0 { flex: 1 1 12rem; }
+  .es-addons__item > .fx-min0 { flex: 1 1 10rem; }
+  /* The add-on picture: a square beside its name, cropped to fill. */
+  .es-addons__img { flex: none; width: 76px; height: 76px; border-radius: 12px; object-fit: cover; background: var(--es-bg-sunken); }
+  @media (width >= theme(--breakpoint-md)) { .es-addons__img { width: 92px; height: 92px; } }
+  .es-addonlist__img { width: 44px; height: 44px; border-radius: 10px; object-fit: cover; }
   .es-addons__item.is-on { border-color: var(--es-highlight); background: var(--es-highlight-wash); }
   .es-addons__name { margin: 0; font-weight: 700; color: var(--es-text); }
   .es-addons__desc { margin: 0.15rem 0 0; font-size: var(--es-text-sm); color: var(--es-text-muted); }
