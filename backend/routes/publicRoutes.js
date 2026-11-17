@@ -425,6 +425,19 @@ router.get(
   checkout.quote,
 );
 
+// The buyer's add-ons for this hold — the whole choice (2026-11-17). Proved
+// by the reservation token, like every other change to a hold.
+router.put(
+  '/reservations/:reservationId/addons',
+  holdLimiter,
+  param('reservationId').isUUID(),
+  body('lines').isArray({ max: 20 }),
+  body('lines.*.addonId').isUUID(),
+  body('lines.*.quantity').isInt({ min: 0, max: 100 }),
+  validate,
+  checkout.setAddons,
+);
+
 router.post(
   '/reservations/:reservationId/checkout',
   holdLimiter,

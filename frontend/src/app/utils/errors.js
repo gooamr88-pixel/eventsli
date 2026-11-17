@@ -112,6 +112,10 @@ export const ERRORS = Object.freeze(Object.fromEntries([
     'Check the password with the organizer and try again.', 'retry'),
   E('TIER_SOLD_OUT', 'Sold out',
     'That ticket type has gone. Try another.'),
+  // An add-on's stock ran out (2026-11-17). The tickets are still held; only
+  // the extra is gone, so the message says so rather than "sold out" alone.
+  E('ADDON_SOLD_OUT', 'That extra is gone',
+    'Someone took the last one. Your tickets are still held — carry on without it, or choose fewer.'),
   // The seats carry no price — an unfinished seat map, not a free event. The
   // buyer is told what is true for them and nothing about the organizer's
   // configuration: "this event has no prices set" invites them to keep trying

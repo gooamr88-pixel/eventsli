@@ -21,6 +21,7 @@ import { Loading } from '../../components/Feedback';
 import NavIcon from '../../components/shell/NavIcon';
 import SignatureDialog from './SignatureDialog';
 import PayOptions, { usePayOptions } from './PayOptions';
+import AddonPicker from './AddonPicker';
 
 /**
  * The last screen before Stripe.
@@ -109,7 +110,7 @@ export default function CheckoutClient({ reservationId }) {
   const [payMode, setPayMode] = useState(null);
   const [methodId, setMethodId] = useState('');
   const payOptions = usePayOptions(reservationId, token(reservation),
-    Boolean(ready && reservation && quote && Number(quote.totalCents) > 0));
+    Boolean(ready && reservation && quote && Number(quote.totalCents) > 0), quote?.totalCents);
   const offlineMode = Boolean(payOptions?.available)
     && (payOptions.card === false || payMode === 'offline');
 
@@ -407,6 +408,16 @@ export default function CheckoutClient({ reservationId }) {
               <p className="es-co__admits">Admits {quote.admits} {quote.admits === 1 ? 'person' : 'people'}</p>
             )}
           </section>
+
+          {/* ── Add-ons, when the event offers any (2026-11-17) ────────── */}
+          <AddonPicker
+            reservationId={reservationId}
+            headers={token(reservation)}
+            quote={quote}
+            organizerName={ev.organizerName}
+            disabled={expired || busy === 'pay'}
+            onChanged={loadQuote}
+          />
 
           {/* ── Where the tickets go ──────────────────────────────────── */}
           <section className="es-co__card" aria-labelledby="co-details">

@@ -93,9 +93,20 @@ async function quoteReservation(reservationId, { chargeModel = CHARGE_MODEL.DIRE
 
   const qtyOf = (i) => Math.max(1, Number(i.quantity) || 1);
 
-  const subtotalCents = items.reduce(
+  const ticketSubtotalCents = items.reduce(
     (sum, i) => sum + Number(i.unit_price_cents) * qtyOf(i), 0,
   );
+
+  /**
+   * ADD-ONS (2026-11-17) join the subtotal, at the price the buyer chose them
+   * at, so every fee, tax and commission below applies to them exactly as to
+   * the tickets — the owner's rule — and every fulfilment, which writes the
+   * order from this quote, charges and records them without a change of its
+   * own. Which tickets carry them is the database trigger's job.
+   */
+  const addons = await require('./addonService').forReservation(reservationId);
+  const addonsCents = addons.reduce((sum, a) => sum + a.amountCents, 0);
+  const subtotalCents = ticketSubtotalCents + addonsCents;
 
   // How many people this admits — a whole-table item is one line at one price
   // but seats the whole table, and that is the number the buyer counts. A GA
@@ -152,6 +163,8 @@ async function quoteReservation(reservationId, { chargeModel = CHARGE_MODEL.DIRE
 
   return {
     breakdown: { ...breakdown, quantity: admits },
+    ticketSubtotalCents,
+    addons,
     event,
     reservation: res,
     items,
@@ -164,7 +177,11 @@ async function quoteReservation(reservationId, { chargeModel = CHARGE_MODEL.DIRE
 function publicBreakdown(q) {
   const b = q.breakdown;
   const lines = [
-    { label: 'Tickets', amountCents: b.subtotalCents },
+    // The tickets alone, then each add-on on its own line (2026-11-17), so the
+    // buyer sees exactly what the extras cost. A quote from before add-ons
+    // existed has no `ticketSubtotalCents`; then the subtotal is all tickets.
+    { label: 'Tickets', amountCents: q.ticketSubtotalCents ?? b.subtotalCents },
+    ...(q.addons || []).map((a) => ({ label: `${a.name} × ${a.quantity}`, amountCents: a.amountCents, addon: true })),
   ];
   if (b.discountCents > 0) {
     // Named on the receipt. A bare "Discount" line makes a buyer wonder whether
@@ -201,6 +218,8 @@ function publicBreakdown(q) {
     currency: q.event.currency,
     admits: q.admits,
     lines,
+    // What the hold carries, for the checkout's add-on picker to start from.
+    addons: (q.addons || []).map((a) => ({ addonId: a.addonId, name: a.name, quantity: a.quantity, unitPriceCents: a.unitPriceCents })),
     totalCents: b.buyerTotalCents,
     expiresAt: q.reservation.expires_at,
     heldForMs,

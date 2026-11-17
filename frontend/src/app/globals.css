@@ -16462,3 +16462,126 @@ label.es-chip:has(:focus-visible) { outline: 2px solid var(--es-accent); outline
   .es-cartnudge p { flex: 1 1 14rem; margin: 0; line-height: 1.45; }
   .es-cartnudge__icon { display: grid; flex: none; place-items: center; width: 2.25rem; height: 2.25rem; border-radius: 50%; background: var(--es-surface); }
 }
+
+/* ─── Ticket add-ons (2026-11-17) ───────────────────────────────────────────
+   The checkout's "Make it special" card, the organizer's list under the
+   ticket types, and the door scanner's line saying what to hand over. */
+@layer components {
+  .es-addons__list { display: grid; gap: 0.6rem; margin: 0; padding: 0; list-style: none; }
+  .es-addons__item {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem 1rem;
+    padding: 0.85rem 1rem;
+    border: 1.5px solid var(--es-border);
+    border-radius: 14px;
+    background: var(--es-surface);
+  }
+  .es-addons__item > .fx-min0 { flex: 1 1 12rem; }
+  .es-addons__item.is-on { border-color: var(--es-highlight); background: var(--es-highlight-wash); }
+  .es-addons__name { margin: 0; font-weight: 700; color: var(--es-text); }
+  .es-addons__desc { margin: 0.15rem 0 0; font-size: var(--es-text-sm); color: var(--es-text-muted); }
+  .es-addons__price { margin: 0.3rem 0 0; font-weight: 700; color: var(--es-text); }
+  .es-addons__price span { font-weight: 500; color: var(--es-text-muted); }
+  .es-addons__price em { font-style: normal; font-weight: 600; color: var(--es-accent); }
+  .es-addons__step { display: inline-flex; flex: none; align-items: center; gap: 0.5rem; margin-left: auto; }
+  .es-addons__step > span { min-width: 2rem; font-weight: 800; text-align: center; color: var(--es-text); }
+  .es-addons__step > button {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border: 1.5px solid var(--es-border-strong);
+    border-radius: 50%;
+    background: var(--es-surface);
+    font-size: 1.25rem;
+    color: var(--es-text);
+  }
+  .es-addons__step > button:hover:not(:disabled) { background: var(--es-bg-sunken); }
+  .es-addons__step > button:disabled { opacity: 0.4; cursor: not-allowed; }
+  .es-addons__note {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    margin: 0;
+    padding: 0.7rem 0.85rem;
+    border-radius: 12px;
+    background: var(--es-bg-sunken);
+    font-size: var(--es-text-sm);
+    line-height: 1.45;
+    color: var(--es-text-muted);
+  }
+  .es-addons__note svg { flex: none; margin-top: 0.15em; }
+
+  /* The organizer's side. */
+  .es-addonhead {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-top: 1.5rem;
+    padding-top: 1.75rem;
+    border-top: 1px solid var(--es-border);
+  }
+  .es-addonhead > .fx-min0 { flex: 1 1 18rem; }
+  .es-addonhead__title {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin: 0;
+    font-family: var(--es-font-display);
+    font-size: clamp(1.35rem, 1.15rem + 0.7vw, 1.7rem);
+    font-weight: 800;
+    color: var(--es-text);
+  }
+  .es-addonhead__title svg { color: var(--es-accent); }
+  .es-addonhead__lede { margin: 0.35rem 0 0; max-width: 62ch; color: var(--es-text-muted); }
+  .es-addonlist { display: grid; gap: 0.6rem; margin: 0; padding: 0; list-style: none; }
+  .es-addonlist__item {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
+    gap: 0.5rem 0.85rem;
+    padding: 0.9rem 1rem;
+    border: 1px solid var(--es-border);
+    border-radius: 14px;
+    background: var(--es-surface);
+  }
+  .es-addonlist__item.is-off { background: var(--es-bg-sunken); }
+  .es-addonlist__icon {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: var(--es-night-900);
+    color: var(--es-highlight);
+  }
+  .es-addonlist__name { margin: 0; font-weight: 700; color: var(--es-text); }
+  .es-addonlist__meta { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; margin: 0.35rem 0 0; font-size: var(--es-text-sm); color: var(--es-text-muted); }
+  .es-addonlist__meta b { color: var(--es-text); }
+  .es-addonlist__actions { display: flex; flex-wrap: wrap; gap: 0.4rem; grid-column: 1 / -1; }
+  @media (width >= theme(--breakpoint-md)) {
+    .es-addonlist__item { grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; }
+    .es-addonlist__actions { grid-column: auto; }
+  }
+
+  /* The door: what this guest also paid for. */
+  .es-scanaddons {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    margin: 0;
+    padding: 0.6rem 0.85rem;
+    border: 1.5px solid var(--es-highlight);
+    border-radius: 12px;
+    background: var(--es-highlight-wash);
+    font-size: var(--es-text-lg);
+    font-weight: 700;
+    color: var(--es-text);
+  }
+  .es-scanaddons > span { color: var(--es-accent); }
+}

@@ -90,7 +90,8 @@ async function forOrder(orderId) {
              seats ( section_key, row_label, seat_number ),
              issued_table_label, issued_section, issued_row, issued_seat_number,
              tables ( label, section_name ),
-             ticket_tiers ( name )`)
+             ticket_tiers ( name ),
+             ticket_addons ( event_addons ( name, sort_order ) )`)
     .eq('order_id', orderId)
     .order('created_at')
     .order('id');
@@ -127,7 +128,8 @@ async function forOrders(orderIds) {
              seats ( section_key, row_label, seat_number ),
              issued_table_label, issued_section, issued_row, issued_seat_number,
              tables ( label, section_name ),
-             ticket_tiers ( name )`, first ? { count: 'exact' } : undefined)
+             ticket_tiers ( name ),
+             ticket_addons ( event_addons ( name, sort_order ) )`, first ? { count: 'exact' } : undefined)
     .in('order_id', ids)
     .order('created_at')
     .order('id')
@@ -152,6 +154,7 @@ async function forToken(token) {
              issued_table_label, issued_section, issued_row, issued_seat_number,
              tables ( label, section_name ),
              ticket_tiers ( name ),
+             ticket_addons ( event_addons ( name, sort_order ) ),
              events ( title, slug, starts_at, ends_at, timezone, venue_name, status )`)
     .eq('id', decoded.ticketId)
     .maybeSingle();
@@ -185,6 +188,7 @@ async function receivedBy(email) {
              issued_table_label, issued_section, issued_row, issued_seat_number,
              tables ( label, section_name ),
              ticket_tiers ( name ),
+             ticket_addons ( event_addons ( name, sort_order ) ),
              orders!inner ( status ),
              events ( id, title, slug, starts_at, ends_at, timezone, venue_name, status )`)
     .eq('attendee_email', address)
@@ -257,6 +261,16 @@ function shape(t, { holder = false } = {}) {
     // Null when the tier was deleted after the sale (tier_id is ON DELETE SET
     // NULL); the ticket then simply leaves the line out.
     tierName: t.ticket_tiers?.name || null,
+    /**
+     * What this ticket includes beyond entry (2026-11-17): "Photo with the
+     * headliner". Printed on the ticket and shown at the door, and delivered
+     * by the organizer alone.
+     */
+    addons: (t.ticket_addons || [])
+      .map((x) => (Array.isArray(x.event_addons) ? x.event_addons[0] : x.event_addons))
+      .filter(Boolean)
+      .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+      .map((a) => a.name),
     transferred,
     // The buyer's copy of a ticket they gave away: no code, and the page says why.
     transferredAway: transferred && !holder,

@@ -9,6 +9,7 @@ const { sendOk, sendFail, ERROR_STATUS } = require('../utils/responseEnvelope');
 const logger = require('../utils/logger');
 const accessTokens = require('../services/accessTokens');
 const signatures = require('../services/signatureService');
+const addonService = require('../services/addonService');
 // Ticket delivery and retrieval live in one place; three callers need them and
 // a second copy would drift.
 const ticketCtrl = require('./ticketController');
@@ -78,6 +79,10 @@ async function quote(req, res, next) {
     return sendOk(res, {
       ...pricing.publicBreakdown(q),
       tickets: await ticketLines(q.items),
+      // The add-ons this event offers (2026-11-17), with what is left — for
+      // the checkout's "Make it special" step. What the hold already carries
+      // is `addons` in the breakdown above.
+      addonsOffered: await addonService.listForBuyer(q.event.id),
       policies: (policies || []).map((p) => ({
         id: p.id, kind: p.kind, title: p.title, body: p.body,
       })),
@@ -85,6 +90,40 @@ async function quote(req, res, next) {
   } catch (err) {
     if (err.code) {
       return sendFail(res, { status: statusFor(err.code), error: err.code, message: err.message });
+    }
+    return next(err);
+  }
+}
+
+// ─── PUT /public/reservations/:reservationId/addons ─────────────────────────
+/**
+ * The buyer's add-on choice for this hold (2026-11-17) — the WHOLE choice, so
+ * an add-on left out comes off. Their hold, proved by its token.
+ *
+ * A Stripe page already open on the hold is closed FIRST: it was opened for
+ * the old total, and paying it would charge one amount while the tickets
+ * carried other add-ons. Refused while the buyer has chosen to pay the
+ * organizer offline — that amount is already fixed. The limits (one per
+ * ticket, the organizer's stock) are the database's, under a lock.
+ */
+async function setAddons(req, res, next) {
+  try {
+    if (!ownsReservation(req)) return sendFail(res, NOT_YOURS);
+    if (await require('../services/offlineCheckoutService').pendingFor(req.params.reservationId)) {
+      return sendFail(res, {
+        status: 409, error: 'CONFLICT',
+        message: 'You chose to pay the organizer for these tickets, so the order is fixed. Cancel that reservation to change it.',
+      });
+    }
+    await checkoutSessions.closeOpenSession(req.params.reservationId);
+    await addonService.setForReservation(req.params.reservationId, req.body.lines || []);
+    const q = await pricing.quoteReservation(req.params.reservationId);
+    return sendOk(res, { ...pricing.publicBreakdown(q) });
+  } catch (err) {
+    if (err.code) {
+      return sendFail(res, {
+        status: statusFor(err.code), error: err.code, message: err.message, ...(err.meta ? { meta: err.meta } : {}),
+      });
     }
     return next(err);
   }
@@ -855,4 +894,6 @@ async function claimFree(req, res, next) {
   }
 }
 
-module.exports = { quote, createSession, createOffline, claimFree, checkoutResult, fulfillFromSession };
+module.exports = {
+  quote, setAddons, createSession, createOffline, claimFree, checkoutResult, fulfillFromSession,
+};

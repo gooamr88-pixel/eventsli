@@ -71,6 +71,8 @@ const ERROR_STATUS = {
   TABLE_PASSWORD_REQUIRED: 403,   // BRD §27
   TABLE_PASSWORD_INVALID: 403,
   TIER_SOLD_OUT: 409,
+  // An add-on's stock ran out (2026-11-17); the tickets are still held.
+  ADDON_SOLD_OUT: 409,
   // A seat with no ticket type and no override resolves to no price at all,
   // which `seat_price_cents` used to read as free. 409, not 400: the request
   // is well formed and the seat is real — what is wrong is the state of the

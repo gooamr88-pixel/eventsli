@@ -107,6 +107,8 @@ export type ScanAnswer = {
   holder_is_buyer?: boolean;
   tier?: string | null;
   tier_kind?: string | null;
+  /** Extras this guest paid for, e.g. "Photo with the headliner" (2026-11-17). */
+  addons?: string[];
   seat?: string | null;
   table?: string | null;
   event_title?: string;

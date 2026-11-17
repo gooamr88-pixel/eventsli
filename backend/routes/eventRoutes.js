@@ -607,6 +607,29 @@ router.post(
 
 router.get('/:eventId/tiers', verifyEventOwner, tiers.list);
 
+// ─── Add-ons (2026-11-17) ──────────────────────────────────────────────────
+// Extras sold with a ticket — "Photo with the headliner" — delivered by the
+// organizer alone (controllers/addonController.js).
+const addonCtrl = require('../controllers/addonController');
+const addonRules = (partial) => [
+  body('name')[partial ? 'optional' : 'exists']().isString().trim().isLength({ min: 1, max: 80 })
+    .withMessage('Give the add-on a name, e.g. Photo with the headliner.'),
+  body('description').optional({ values: 'null' }).isString().trim().isLength({ max: 300 })
+    .withMessage('A description is at most 300 characters.'),
+  // Integer minor units, like every price here.
+  body('priceCents')[partial ? 'optional' : 'exists']().isInt({ min: 0, max: 100_000_000 })
+    .withMessage('The price must be a whole number of cents.'),
+  body('quantity').optional({ values: 'null' }).isInt({ min: 1, max: 100_000 })
+    .withMessage('How many are available: a whole number, or leave it empty for no limit.'),
+  body('sortOrder').optional().isInt({ min: 0, max: 9999 }),
+  body('isActive').optional().isBoolean({ strict: true }),
+];
+
+router.get('/:eventId/addons', verifyEventOwner, addonCtrl.list);
+router.post('/:eventId/addons', verifyEventOwner, requireEditableEvent, ...addonRules(false), validate, addonCtrl.create);
+router.patch('/:eventId/addons/:addonId', verifyEventOwner, requireEditableEvent, param('addonId').isUUID(), ...addonRules(true), validate, addonCtrl.update);
+router.delete('/:eventId/addons/:addonId', verifyEventOwner, requireEditableEvent, param('addonId').isUUID(), validate, addonCtrl.remove);
+
 router.post(
   '/:eventId/tiers',
   verifyEventOwner, requireEditableEvent,

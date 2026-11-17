@@ -97,7 +97,11 @@ async function describe(reservationId) {
     return { gone: r?.state === 'converted' ? 'purchased' : err.code === 'EVENT_NOT_PUBLISHED' ? 'off_sale' : 'expired' };
   }
 
-  const [lines, selection] = await Promise.all([linesFor(reservationId, q.items), heldSelection(reservationId)]);
+  const [held, selection] = await Promise.all([linesFor(reservationId, q.items), heldSelection(reservationId)]);
+  // Add-ons chosen at checkout (2026-11-17) are part of the total, so they are listed.
+  const lines = [...held, ...(q.addons || []).map((a) => ({
+    kind: 'addon', label: a.name, quantity: a.quantity, amountCents: a.amountCents,
+  }))];
   const b = q.breakdown;
   const e = q.event;
   const org = Array.isArray(e.organizers) ? e.organizers[0] : e.organizers;

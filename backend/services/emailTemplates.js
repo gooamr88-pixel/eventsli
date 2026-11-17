@@ -451,6 +451,7 @@ function ticketCard(ticket, { index, total, event = null, free = false } = {}) {
                   ${line('Name', ticket.attendeeName)}
                   ${free ? line('Price', 'Free ticket', { coral: true }) : ''}
                   ${line('Seat', seatLine)}
+                  ${line('Includes', (ticket.addons || []).join(', '), { coral: true })}
                   ${line('Location', venue)}
                   ${line('Address', address)}
                 </td></tr>

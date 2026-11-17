@@ -201,6 +201,9 @@ export function ticketFacts(ticket) {
   }
 
   if (ticket.attendeeName) facts.push(['Name', ticket.attendeeName]);
+  // Add-ons paid for with this ticket (2026-11-17), e.g. "Photo with the
+  // headliner" — shown so the holder knows what to collect.
+  if (Array.isArray(ticket.addons) && ticket.addons.length) facts.push(['Includes', ticket.addons.join(', ')]);
   return facts;
 }
 

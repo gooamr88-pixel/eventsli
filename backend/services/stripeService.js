@@ -133,7 +133,10 @@ async function createCheckoutSession({
         currency: String(quote.event.currency).toLowerCase(),
         product_data: {
           name: quote.event.title,
-          description: `${quote.admits} ${quote.admits === 1 ? 'admission' : 'admissions'}`,
+          // Add-ons named on Stripe's page too (2026-11-17): the buyer is
+          // paying for them, and "3 admissions" alone would not say so.
+          description: `${quote.admits} ${quote.admits === 1 ? 'admission' : 'admissions'}${
+            (quote.addons || []).length ? ` + ${quote.addons.map((a) => `${a.quantity} × ${a.name}`).join(', ')}` : ''}`,
         },
         unit_amount: b.buyerTotalCents,
       },

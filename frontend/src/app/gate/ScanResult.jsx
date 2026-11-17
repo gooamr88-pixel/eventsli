@@ -108,6 +108,14 @@ export default function ScanResult({ entry, onUndo, onDismiss }) {
         </p>
       )}
 
+      {/* ADD-ONS (2026-11-17): what this guest paid for besides entry, so the
+          door can point them to it. Coral, so it is not missed in a queue. */}
+      {record.addons?.length > 0 && (
+        <p className="es-scanaddons" role="status">
+          <span aria-hidden="true">★</span> Includes: {record.addons.join(', ')}
+        </p>
+      )}
+
       <p className="max-w-[52ch] text-sm text-muted">{record.message || note}</p>
 
       {!known && (

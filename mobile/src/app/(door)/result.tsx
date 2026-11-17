@@ -109,6 +109,8 @@ export default function Result() {
           {code ? <FactRow icon="ticket"><Text variant="body" weight="medium">{code}</Text></FactRow> : null}
           {seat ? <FactRow icon="seat"><Text variant="body" weight="medium">{seat}</Text></FactRow> : null}
           {a?.tier && !seat ? <FactRow icon="ticket"><Text variant="body" weight="medium">{a.tier}</Text></FactRow> : null}
+          {/* Add-ons (2026-11-17): what to hand this guest besides entry. */}
+          {a?.addons?.length ? <FactRow icon="star"><Text variant="body" weight="medium">Includes: {a.addons.join(', ')}</Text></FactRow> : null}
           <FactRow icon="clock"><Text variant="body" weight="medium">{doorTime(a?.scanned_at || record?.occurredAt)}</Text></FactRow>
         </Card>
       ) : result === 'duplicate' ? (

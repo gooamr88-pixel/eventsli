@@ -177,6 +177,9 @@ An answer about a ticket also carries:
 - `attendee`: the holder, or the buyer when `holder_is_buyer` is true; null
   after a transfer
 - `tier`, `tier_kind`, `seat`, `table`
+- `addons` (on `admitted` and `duplicate`): the names of the extras paid for
+  with this ticket, e.g. `["Photo with the headliner"]`; empty when none.
+  Shown so the door can point the guest to them. Not in the offline manifest.
 - `event_title`, `event_starts_at`, `event_timezone`
 - `method`
 

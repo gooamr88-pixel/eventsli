@@ -20,7 +20,7 @@ import NavIcon from '../../components/shell/NavIcon';
  * card checkout it always was.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-export function usePayOptions(reservationId, headers, enabled) {
+export function usePayOptions(reservationId, headers, enabled, refreshKey) {
   const [options, setOptions] = useState(null);
   useEffect(() => {
     if (!enabled) return undefined;
@@ -38,8 +38,10 @@ export function usePayOptions(reservationId, headers, enabled) {
     })();
     return () => { cancelled = true; };
     // headers is a fresh object each render; the token inside it is what matters.
+    // refreshKey: the quote's total. A promo code or an add-on changes it, and
+    // the offline amounts must follow (2026-11-17).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reservationId, enabled, headers?.['x-access-token']]);
+  },[reservationId, enabled, headers?.['x-access-token'], refreshKey]);
   return options;
 }
 

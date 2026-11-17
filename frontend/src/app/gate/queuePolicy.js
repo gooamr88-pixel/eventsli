@@ -103,6 +103,9 @@ export function applyResults(records, results) {
       attendee: answer.attendee || null,
       seat: answer.seat || null,
       table: answer.table || null,
+      // What this guest has to collect (add-ons, 2026-11-17): "Photo with
+      // the headliner". Shown with the admission so staff hand it over.
+      addons: Array.isArray(answer.addons) ? answer.addons : [],
       replay: Boolean(answer.replay),
       syncedAt: new Date().toISOString(),
     };

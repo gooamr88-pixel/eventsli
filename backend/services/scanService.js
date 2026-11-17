@@ -224,7 +224,24 @@ async function scan({
   // routes answer 503 (the door holds the scan); in an upload the row says
   // 'error' and the phone sends it again.
   if (error) return { ok: false, result: 'error', message: error.message, unavailable: true };
-  return data;
+  return withAddons(data, decoded.ticketId);
+}
+
+/**
+ * The ticket's add-ons on the door's answer (2026-11-17): staff see at the
+ * scan that this guest has "Photo with the headliner" to collect. Only for a
+ * real ticket (admitted, or already in). Best effort, always: a lookup that
+ * fails must never turn an admission into a refusal at the door.
+ */
+async function withAddons(data, ticketId) {
+  if (!data || !['admitted', 'duplicate'].includes(data.result)) return data;
+  try {
+    const names = (await require('./addonService').namesForTickets([ticketId])).get(ticketId) || [];
+    return names.length ? { ...data, addons: names } : data;
+  } catch (err) {
+    logger.warn({ err: err.message, ticketId }, 'scan: could not read the ticket add-ons');
+    return data;
+  }
 }
 
 /**
