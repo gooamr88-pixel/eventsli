@@ -77,6 +77,8 @@ export const PRIVATE_PREFIXES = [
   // and meaningless without the app's request in the URL.
   '/app-auth',
   '/checkout',
+  // The buyer's own held tickets (2026-11-17): personal, and empty to a bot.
+  '/cart',
   '/t',
   '/login',
   '/register',

@@ -7,6 +7,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useSavedCount } from '../hooks/useSavedEvents';
 import { LogoutConfirmDialog } from './auth/LogoutConfirm';
 import Logo from './brand/Logo';
+import CartButton from './cart/CartButton';
 // The rules about who is offered what. Out of this file so they can be tested
 // without mounting a client component — see `lib/siteNav.js`.
 import { navLinks, navCta } from '../lib/siteNav';
@@ -231,6 +232,9 @@ function SiteNav({ pathname }) {
               {links.map((link) => (
                 <NavLink key={link.href} link={link} pathname={pathname} />
               ))}
+              {/* The ticket cart (2026-11-17): every page, so a buyer can get
+                  back to what they hold from anywhere. */}
+              <CartButton />
               {signedIn && (
                 <button
                   type="button"
@@ -251,6 +255,9 @@ function SiteNav({ pathname }) {
                 see globals.css. The wrapper stays because the burger needs a
                 flex parent to sit in on a phone. */}
             <div className="fx-row md:hidden">
+            {/* On a phone the cart sits beside the menu, not inside it: a buyer
+                checking what they hold should not have to open a panel. */}
+            <CartButton />
 
             {/* ── The phone's button ─────────────────────────────────
                 `aria-expanded` and `aria-controls` are not decoration: they

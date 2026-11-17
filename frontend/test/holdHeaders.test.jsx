@@ -9,7 +9,7 @@ vi.mock('../src/app/utils/apiClient', async () => {
 });
 
 import { post } from '../src/app/utils/apiClient';
-import { useReservation, TABLE_ACCESS_HEADER } from '../src/app/hooks/useReservation';
+import { useReservation, TABLE_ACCESS_HEADER, REPLACE_HEADER } from '../src/app/hooks/useReservation';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -68,6 +68,11 @@ test('the header name is the one the API reads', () => {
   );
   expect(TABLE_ACCESS_HEADER).toBe('x-table-access');
   const reads = controller.match(/req\.headers\['([^']+)'\]/g) || [];
-  expect(reads.length).toBeGreaterThan(0);
-  for (const r of reads) expect(r).toContain(TABLE_ACCESS_HEADER);
+  // The cart's replace proof (2026-11-17) is the controller's one other header,
+  // and it must agree with the client's spelling just the same.
+  const replaceReads = reads.filter((r) => r.includes(REPLACE_HEADER));
+  expect(replaceReads.length).toBeGreaterThan(0);
+  const tableReads = reads.filter((r) => !r.includes(REPLACE_HEADER));
+  expect(tableReads.length).toBeGreaterThan(0);
+  for (const r of tableReads) expect(r).toContain(TABLE_ACCESS_HEADER);
 });

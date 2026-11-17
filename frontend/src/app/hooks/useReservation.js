@@ -2,6 +2,7 @@
 
 import { useCallback, useSyncExternalStore } from 'react';
 import { post } from '../utils/apiClient';
+import { addToCart } from '../lib/cartStore';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -31,6 +32,9 @@ const KEY = 'eventsli.reservation';
 /** The header a private table's unlock key travels in — read by the public
  *  seat map AND by the hold (seatMapController.js). One name, one place. */
 export const TABLE_ACCESS_HEADER = 'x-table-access';
+
+/** The header that proves a cart's existing hold is the buyer's, when a new hold replaces it. */
+export const REPLACE_HEADER = 'x-replace-token';
 
 /**
  * A module-level cache, because useSyncExternalStore demands a STABLE snapshot:
@@ -111,8 +115,18 @@ export function useReservation() {
    * The API refuses a request carrying more than one of them, so the branch
    * below picks exactly one rather than merging what it was given.
    */
-  const hold = useCallback(async (slug, { seatIds, tableId, tableToken, lines }) => {
-    const body = lines ? { lines } : tableId ? { tableId } : { seatIds };
+  /**
+   * `replaces` (the cart, 2026-11-17): the buyer's existing hold on THIS
+   * event. The selection sent is then the WHOLE new selection for the event
+   * (the seat page starts from what the cart holds), and the server releases
+   * the old hold and places this one in a single request. Holds on OTHER
+   * events are left alone — that is the cart.
+   */
+  const hold = useCallback(async (slug, { seatIds, tableId, tableToken, lines }, { replaces = null } = {}) => {
+    const body = {
+      ...(lines ? { lines } : tableId ? { tableId } : { seatIds }),
+      ...(replaces ? { replaces: replaces.reservationId } : {}),
+    };
     /**
      * THE TABLE KEYS GO IN `x-table-access` — the header the seat map is read
      * with, and the one the hold reads (TECH-AUDIT-LOG S-01).
@@ -123,7 +137,14 @@ export function useReservation() {
      * right after the buyer had unlocked it. Sent for seats as well as tables:
      * a seat at a private table needs the key just the same.
      */
-    const headers = tableToken ? { [TABLE_ACCESS_HEADER]: tableToken } : undefined;
+    const sent = {
+      ...(tableToken ? { [TABLE_ACCESS_HEADER]: tableToken } : {}),
+      // Proof the replaced hold is this buyer's (seatMapController.hold).
+      ...(replaces ? { [REPLACE_HEADER]: replaces.reservationToken } : {}),
+    };
+    // None at all rather than an empty set: an empty header is split by the
+    // API into a bogus token (test/holdHeaders.test.jsx).
+    const headers = Object.keys(sent).length ? sent : undefined;
     // WHAT IS BEING HELD, so the checkout can name it. See `heldNoun` below.
     const kind = lines ? 'general' : tableId ? 'table' : 'seats';
 
@@ -132,26 +153,28 @@ export function useReservation() {
     // request that turns a chosen seat into a hold, and a future 401 anywhere
     // behind it would hard-navigate the buyer to /login and lose the selection
     // instead of showing them an error they can act on.
-    const data = await post(`/public/events/${slug}/hold`, body, { headers, noRedirect: true });
+    let data;
+    try {
+      data = await post(`/public/events/${slug}/hold`, body, { headers, noRedirect: true });
+    } catch (err) {
+      // A refused replace: the server put the original hold back, under a new
+      // id. The cart follows it before the refusal is shown.
+      const restored = err?.meta?.restored;
+      if (replaces && restored?.reservationId) addToCart({ ...restored, slug }, { replaces: replaces.reservationId });
+      throw err;
+    }
 
     /**
-     * ONE HOLD PER TAB (TECH-AUDIT-LOG T-034).
+     * ONE HOLD PER EVENT (TECH-AUDIT-LOG T-034, kept by the cart).
      *
      * A buyer who went Back from the checkout and chose again used to keep
-     * BOTH holds: the first one's token was overwritten, so its seats stayed
-     * off sale for 35 minutes and nobody could release them — and the old
-     * checkout, reopened, sent the new token and was refused as "not yours".
-     * The previous hold is released once the new one exists, never before:
-     * a refused new hold leaves the buyer with what they already had.
+     * BOTH holds, the first one's seats off sale for 35 minutes with nobody
+     * able to release them. Now every hold goes into the cart, and a second
+     * choice for an event already in it is sent as `replaces` — the server
+     * releases the old hold in the same request. Holds on OTHER events stay:
+     * keeping several is what a cart is for.
      */
-    const previous = snapshot();
-    if (previous?.reservationId && previous.reservationId !== data.reservationId) {
-      post(
-        `/public/reservations/${previous.reservationId}/release`,
-        undefined,
-        { headers: { 'x-access-token': previous.reservationToken }, noRedirect: true },
-      ).catch(() => { /* the sweeper collects it */ });
-    }
+    addToCart({ ...data, slug }, { replaces: replaces?.reservationId || null });
 
     const next = {
       reservationId: data.reservationId,
@@ -222,7 +245,26 @@ export function useReservation() {
    *  request: the hold is already gone server-side and asking would 410. */
   const forget = useCallback(() => commit(null), []);
 
-  return { reservation, hold, release, forget };
+  /**
+   * Makes a cart item the hold this tab checks out (the checkout page reads it
+   * by id). From the cart's live data: the token is fresh, the deadline real.
+   */
+  const select = useCallback((item) => {
+    const kind = item.selection?.lines ? 'general' : item.selection?.tableId ? 'table' : 'seats';
+    commit({
+      reservationId: item.reservationId,
+      reservationToken: item.reservationToken,
+      expiresAt: item.expiresAt,
+      seatCount: item.ticketCount,
+      subtotalCents: item.subtotalCents,
+      currency: item.currency,
+      tableLabel: item.lines?.find((l) => l.kind === 'table')?.label?.replace(/^Table /, '') || null,
+      kind,
+      slug: item.event?.slug || null,
+    });
+  }, []);
+
+  return { reservation, hold, release, forget, select };
 }
 
 /**

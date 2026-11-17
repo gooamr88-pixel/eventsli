@@ -344,6 +344,10 @@ router.post(
   body('lines').optional().isArray({ min: 1, max: 20 }),
   body('lines.*.tierId').optional().isUUID(),
   body('lines.*.quantity').optional().isInt({ min: 1, max: 100 }),
+  // The cart (2026-11-17): the buyer's current hold on this event, replaced by
+  // this one — the body is then the COMBINED selection. Proved by the
+  // `x-replace-token` header (seatMapController.hold).
+  body('replaces').optional().isUUID(),
   body().custom((value) => {
     const chosen = [value.tableId, value.seatIds, value.lines].filter(Boolean).length;
     if (chosen === 0) {
@@ -358,6 +362,30 @@ router.post(
   }),
   validate,
   c.hold,
+);
+
+/**
+ * THE CART — the buyer's live holds across events, grouped by organizer
+ * (controllers/cartController.js). A POST because it carries the device's
+ * reservation tokens, which are credentials and do not belong in a URL.
+ * Signed in, the account's holds are included and the device's are claimed.
+ */
+const cartLimiter = makeLimiter({
+  windowMs: 5 * 60 * 1000,
+  max: 120,
+  name: 'cart-view',
+  message: 'Too many requests. Please wait a moment.',
+});
+const cart = require('../controllers/cartController');
+
+router.post(
+  '/cart',
+  cartLimiter,
+  optionalAuth,
+  body('tokens').optional().isArray({ max: cart.MAX_ITEMS }),
+  body('tokens.*').optional().isString().isLength({ min: 10, max: 2000 }),
+  validate,
+  cart.view,
 );
 
 router.post(

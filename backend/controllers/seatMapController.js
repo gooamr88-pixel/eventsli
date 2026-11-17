@@ -9,6 +9,8 @@ const { fetchAll } = require('../utils/fetchAll');
 const { sellableSeats } = require('../services/seatSellability');
 const ticketDetails = require('../services/ticketDetails');
 const purchasability = require('../services/purchasability');
+const { releaseHold, heldSelection } = require('../services/holdRelease');
+const { placeHold } = require('../services/placeHold');
 
 const TTL_MINUTES = () => parseInt(process.env.RESERVATION_TTL_MINUTES || '35', 10);
 
@@ -334,94 +336,86 @@ async function hold(req, res, next) {
       });
     }
 
+    /**
+     * ─────────────────────────────────────────────────────────────────────────
+     * ADDING MORE TO AN EVENT ALREADY IN THE CART (2026-11-17).
+     *
+     * `replaces` names the buyer's current hold on this event, and the
+     * `x-replace-token` header proves it is theirs. The body is the COMBINED
+     * selection — what they had plus what they added. In this one request the
+     * old hold is released and the combined one placed, which keeps the moment
+     * a stranger could take a just-freed seat as short as it can be. If the
+     * combined hold is refused, the original is put back as it was, and the
+     * refusal says so (`meta.restored`), so the buyer never loses what they had
+     * because what they added was gone.
+     * ─────────────────────────────────────────────────────────────────────────
+     */
+    let previous = null;
+    if (req.body.replaces) {
+      if (accessTokens.readReservationToken(req.headers['x-replace-token']) !== req.body.replaces) {
+        return sendFail(res, { status: 403, error: 'FORBIDDEN', message: 'That hold is not yours.' });
+      }
+      const { data: old, error: oldError } = await supabase
+        .from('reservations').select('id, event_id, state, expires_at').eq('id', req.body.replaces).maybeSingle();
+      if (oldError) throw new Error(`replaced hold lookup failed: ${oldError.message}`);
+      const live = old && old.state === 'active' && new Date(old.expires_at) > new Date();
+      if (live && old.event_id === event.id) {
+        if (await require('../services/offlineCheckoutService').pendingFor(old.id)) {
+          return sendFail(res, {
+            status: 409, error: 'CONFLICT',
+            message: 'You chose to pay the organizer for the tickets you already have for this event. Finish or cancel that first.',
+          });
+        }
+        previous = { id: old.id, selection: await heldSelection(old.id) };
+        try {
+          await releaseHold(old.id);
+        } catch (err) {
+          if (err.code) return sendFail(res, { status: statusFor(err.code), error: err.code, message: err.message });
+          throw err;
+        }
+      }
+      // A hold that already lapsed, or is for another event, has nothing to
+      // release: the request is simply a new hold.
+    }
+
     const userId = req.user?.id || null;   // null is a guest checkout
     const { seatIds, tableId, lines } = req.body;
+    const place = (selection) => placeHold({
+      event, userId, selection, tableAccessHeader: req.headers['x-table-access'], ttlMinutes: TTL_MINUTES(), statusFor,
+    });
 
-    let result;
-    let rpcError = null;
-    if (Array.isArray(lines)) {
-      /**
-       * GENERAL ADMISSION — a quantity of a ticket type, with no seat behind it.
-       *
-       * No private-table check, because there are no tables: the whole point of
-       * GA is that stock is a number on a ticket type rather than a place in a
-       * room. The rules that DO apply — the sale window, the per-type order cap,
-       * the allocation — are all enforced inside `hold_general`, under a row
-       * lock on the tiers, because three separate paths take stock and a rule
-       * checked out here is a rule the other two do not have.
-       */
-      ({ data: result, error: rpcError } = await supabase.rpc('hold_general', {
-        p_event_id: event.id, p_user_id: userId, p_lines: lines, p_ttl_minutes: TTL_MINUTES(),
-      }));
-    } else if (tableId) {
-      // A private table needs its token presented here too. Without this check
-      // the password would gate only the map, and anyone who guessed the id
-      // could buy the table without ever seeing it.
-      const isPrivate = await tableIsPrivate(tableId);
-      if (isPrivate) {
-        const unlocked = access.unlockedTableIds(
-          (req.headers['x-table-access'] || '').split(',').filter(Boolean), event.id,
-        );
-        if (!unlocked.has(tableId)) {
-          return sendFail(res, {
-            status: 403, error: 'TABLE_PASSWORD_REQUIRED',
-            message: 'This table needs its password before it can be booked.',
-          });
-        }
+    const attempt = await place({ seatIds, tableId, lines });
+    if (!attempt.ok) {
+      let restored = null;
+      if (previous?.selection) {
+        const back = await place(previous.selection).catch((err) => {
+          logger.error({ err: err.message, reservationId: previous.id }, 'cart merge: could not restore the original hold');
+          return null;
+        });
+        if (back?.ok) restored = shapeHold(back.result);
       }
-      ({ data: result, error: rpcError } = await supabase.rpc('hold_table', {
-        p_event_id: event.id, p_user_id: userId, p_table_id: tableId, p_ttl_minutes: TTL_MINUTES(),
-      }));
-    } else {
-      // BRD §27 — seats AT a private table need its token too. Only the
-      // whole-table path checked, so a seat id — still valid after the unlock
-      // token expired, or forwarded by someone who had it — could be held
-      // without ever knowing the password.
-      const privateTables = await privateTablesFor(seatIds);
-      if (privateTables.length > 0) {
-        const unlocked = access.unlockedTableIds(
-          (req.headers['x-table-access'] || '').split(',').filter(Boolean), event.id,
-        );
-        if (privateTables.some((id) => !unlocked.has(id))) {
-          return sendFail(res, {
-            status: 403, error: 'TABLE_PASSWORD_REQUIRED',
-            message: 'Some of those seats are at a private table. Unlock it with its password first.',
-          });
-        }
-      }
-      ({ data: result, error: rpcError } = await supabase.rpc('hold_seats', {
-        p_event_id: event.id, p_user_id: userId, p_seat_ids: seatIds, p_ttl_minutes: TTL_MINUTES(),
-      }));
+      return sendFail(res, { ...attempt.fail, meta: { ...(attempt.fail.meta || {}), ...(restored ? { restored } : {}) } });
     }
 
-    // A failed call is not a taken seat. It used to fall through to the
-    // refusal below and tell the buyer the seats had gone (T-039).
-    if (rpcError) throw new Error(`hold failed: ${rpcError.message}`);
-
-    if (!result?.ok) {
-      return sendFail(res, {
-        status: statusFor(result?.error),
-        error: result?.error || 'CONFLICT',
-        message: result?.message || 'Those seats are no longer available.',
-        meta: result?.requested !== undefined
-          ? { requested: result.requested, available: result.available } : undefined,
-      });
-    }
-
-    return sendOk(res, {
-      reservationId: result.reservation_id,
-      // Proof that this caller made the hold. Required to release it or change
-      // its promo code — a bare reservation id is not proof, because it travels
-      // to the client and anyone who picks one up could drop someone's seats
-      // while they were paying.
-      reservationToken: accessTokens.issueReservationToken(result.reservation_id),
-      expiresAt: result.expires_at,
-      seatCount: result.seat_count,
-      subtotalCents: result.subtotal_cents,
-      currency: result.currency,
-      tableLabel: result.table_label,
-    }, { status: 201 });
+    return sendOk(res, shapeHold(attempt.result), { status: 201 });
   } catch (err) { return next(err); }
+}
+
+/** A placed hold, as the buyer's page keeps it. */
+function shapeHold(result) {
+  return {
+    reservationId: result.reservation_id,
+    // Proof that this caller made the hold. Required to release it or change
+    // its promo code — a bare reservation id is not proof, because it travels
+    // to the client and anyone who picks one up could drop someone's seats
+    // while they were paying.
+    reservationToken: accessTokens.issueReservationToken(result.reservation_id),
+    expiresAt: result.expires_at,
+    seatCount: result.seat_count,
+    subtotalCents: result.subtotal_cents,
+    currency: result.currency,
+    tableLabel: result.table_label,
+  };
 }
 
 // POST /public/reservations/:reservationId/release
@@ -437,58 +431,18 @@ async function release(req, res, next) {
       });
     }
 
-    // A Stripe page still open on this hold would take payment for seats about
-    // to go back on sale. Made unpayable first; refused if already paid, since
-    // that payment's fulfilment needs the hold (TECH-AUDIT-LOG T-010).
+    // Open Stripe page closed first, the promo let go, then the stock freed —
+    // see services/holdRelease.js, which the cart's merge shares.
     try {
-      await require('../services/checkoutSessions').closeOpenSession(req.params.reservationId);
+      const { seatsReleased } = await releaseHold(req.params.reservationId);
+      return sendOk(res, { released: true, seats: seatsReleased });
     } catch (err) {
       if (err.code) {
         return sendFail(res, { status: statusFor(err.code), error: err.code, message: err.message });
       }
       throw err;
     }
-
-    // Released FIRST. A limited code otherwise leaks one use per abandoned
-    // checkout, and the leak is invisible until the code runs out early.
-    await require('../services/promoService').release(req.params.reservationId);
-
-    const { data: result, error: releaseError } = await supabase.rpc('release_reservation', {
-      p_reservation_id: req.params.reservationId,
-    });
-    if (releaseError) throw new Error(`release_reservation failed: ${releaseError.message}`);
-    if (!result?.ok) {
-      return sendFail(res, {
-        status: statusFor(result?.error), error: result?.error || 'CONFLICT',
-        message: result?.message || 'That hold could not be released.',
-      });
-    }
-    return sendOk(res, { released: true, seats: result.seats_released });
   } catch (err) { return next(err); }
-}
-
-/** The private tables any of these seats sit at. Throws on a lookup error: this is a gate, so it fails closed. */
-async function privateTablesFor(seatIds) {
-  if (!Array.isArray(seatIds) || seatIds.length === 0) return [];
-  const { data, error } = await supabase
-    .from('seats')
-    .select('table_id, tables!inner ( is_private )')
-    .in('id', seatIds)
-    .eq('tables.is_private', true);
-  if (error) throw new Error(`private table lookup failed: ${error.message}`);
-  return [...new Set((data || []).map((s) => s.table_id))];
-}
-
-/**
- * Throws on a lookup error, like `privateTablesFor`. This used to read `data`
- * only, so a failed lookup answered "not private" and a private table became
- * holdable without its password (TECH-AUDIT-LOG T-015). A gate fails closed.
- */
-async function tableIsPrivate(tableId) {
-  const { data, error } = await supabase
-    .from('tables').select('is_private').eq('id', tableId).maybeSingle();
-  if (error) throw new Error(`private table lookup failed: ${error.message}`);
-  return !!data?.is_private;
 }
 
 const { ERROR_STATUS } = require('../utils/responseEnvelope');

@@ -9,6 +9,10 @@ import { useReservation } from '../../../hooks/useReservation';
 import { Loading, Empty, ErrorNotice, Notice } from '../../../components/Feedback';
 import NavIcon from '../../../components/shell/NavIcon';
 import TierDetailsDialog, { hasDetails } from '../../../components/tickets/TierDetailsDialog';
+import Link from 'next/link';
+import { useCart, refreshCart } from '../../../hooks/useCart';
+import { useToast } from '../../../components/ui/Toast';
+import { cartItemFor } from '../seats/cartSeats';
 import { formatEventTime } from '../../../lib/eventTime';
 
 /**
@@ -48,6 +52,27 @@ export default function TicketPicker({ slug, focusTierId }) {
   // The ticket type whose details card is open. A "show before buying" card
   // opens on "+" for as long as none of that type is chosen.
   const [detailsId, setDetailsId] = useState(null);
+  const toast = useToast();
+
+  /**
+   * THE CART (2026-11-17). If this event is already in the cart, the counts
+   * start from what it holds, and "Update cart" replaces that hold with the
+   * new counts. The public `remaining` leaves out the buyer's own held
+   * tickets, so they are added back here: they are theirs to keep.
+   */
+  const { items: cartItems, count: cartCount } = useCart();
+  const cartItem = cartItemFor(cartItems, slug);
+  const heldQty = useMemo(
+    () => Object.fromEntries((cartItem?.selection?.lines || []).map((l) => [l.tierId, l.quantity])),
+    [cartItem],
+  );
+  const [seededFor, setSeededFor] = useState(null);
+  if (cartItem && seededFor !== cartItem.reservationId) {
+    setSeededFor(cartItem.reservationId);
+    if (Object.keys(counts).length === 0 && Object.keys(heldQty).length) setCounts(heldQty);
+  }
+  const remainingOf = (tier) => (tier.remaining === null || tier.remaining === undefined
+    ? null : tier.remaining + (heldQty[tier.id] || 0));
 
   const tiers = useMemo(() => event?.tiers || [], [event]);
   const maxPerOrder = event?.maxTicketsPerOrder || 10;
@@ -73,7 +98,7 @@ export default function TicketPicker({ slug, focusTierId }) {
   /** What one more of this type would be refused for, or null. */
   function blockedReason(tier) {
     const current = counts[tier.id] || 0;
-    if (tier.remaining !== null && current >= tier.remaining) return 'That is all that is left.';
+    if (remainingOf(tier) !== null && current >= remainingOf(tier)) return 'That is all that is left.';
     const own = tier.maxPerOrder;
     if (own !== null && own !== undefined && current >= own) {
       return `Up to ${own} of this type in one order.`;
@@ -86,7 +111,7 @@ export default function TicketPicker({ slug, focusTierId }) {
   function roomFor(tier) {
     const current = counts[tier.id] || 0;
     const limits = [maxPerOrder - chosen];
-    if (tier.remaining !== null && tier.remaining !== undefined) limits.push(tier.remaining - current);
+    if (remainingOf(tier) !== null) limits.push(remainingOf(tier) - current);
     if (tier.maxPerOrder !== null && tier.maxPerOrder !== undefined) limits.push(tier.maxPerOrder - current);
     return Math.max(0, Math.min(...limits));
   }
@@ -122,7 +147,8 @@ export default function TicketPicker({ slug, focusTierId }) {
     });
   }
 
-  async function submit() {
+  /** Holds the counts into the cart — then stays (`cart`) or goes to pay (`checkout`). */
+  async function submit(mode = 'checkout') {
     if (chosen === 0) return;
     setBusy(true);
     setActionError(null);
@@ -131,9 +157,23 @@ export default function TicketPicker({ slug, focusTierId }) {
         .filter(([, quantity]) => quantity > 0)
         .map(([tierId, quantity]) => ({ tierId, quantity }));
 
-      const reservation = await hold(slug, { lines });
+      const reservation = await hold(slug, { lines }, {
+        replaces: cartItem ? { reservationId: cartItem.reservationId, reservationToken: cartItem.reservationToken } : null,
+      });
+      if (mode === 'cart') {
+        toast.success(cartItem ? 'Your cart is updated. The tickets are held for you.' : 'Added to your cart. The tickets are held for you.', {
+          title: cartItem ? 'Cart updated' : 'Added to cart',
+        });
+        setSeededFor(reservation.reservationId);
+        await refreshCart();
+        reload();
+        setBusy(false);
+        return;
+      }
       router.push(`/checkout/${reservation.reservationId}`);
     } catch (err) {
+      // A refused replace put the original hold back; the cart shows it again.
+      if (err?.meta?.restored) refreshCart();
       setActionError(err);
       /**
        * Somebody else took the last of a type between the render and the hold.
@@ -284,12 +324,26 @@ export default function TicketPicker({ slug, focusTierId }) {
 
         <button
           type="button"
-          onClick={submit}
+          onClick={() => submit('checkout')}
           disabled={chosen === 0 || busy}
           className="es-btn es-btn--primary es-btn--block es-btn--lg"
         >
-          {busy ? 'Holding…' : chosen === 0 ? 'Choose your tickets' : 'Continue'}
+          {busy ? 'Holding…' : chosen === 0 ? 'Choose your tickets' : 'Checkout'}
         </button>
+        {/* The cart (2026-11-17): hold these and keep browsing other events. */}
+        <button
+          type="button"
+          onClick={() => submit('cart')}
+          disabled={chosen === 0 || busy}
+          className="es-btn es-btn--secondary es-btn--block"
+        >
+          <NavIcon name="cart" size={18} />{cartItem ? 'Update cart' : 'Add to cart'}
+        </button>
+        {cartCount > 0 && (
+          <Link href="/cart" className="es-basket__cartlink">
+            <NavIcon name="cart" size={16} />View cart ({cartCount} {cartCount === 1 ? 'ticket' : 'tickets'})
+          </Link>
+        )}
 
         <p className="text-center text-xs text-subtle">
           Up to {maxPerOrder} tickets per order · held for 35 minutes once you continue

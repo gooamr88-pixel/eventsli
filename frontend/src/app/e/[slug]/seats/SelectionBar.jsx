@@ -1,6 +1,7 @@
 'use client';
 
 import { formatMoney } from '../../../utils/money';
+import NavIcon from '../../../components/shell/NavIcon';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -14,6 +15,7 @@ import { formatMoney } from '../../../utils/money';
  */
 export default function SelectionBar({
   count, subtotal, currency, label, seats = [], busy, onContinue, onRemoveSeat, onClear,
+  onAddToCart = null, inCart = false,
   // The Venue Studio names a seat by its section and row when it has one
   // ("Section Gold · Row B · Seat 15"); null falls back to the table's name.
   nameFor = null,
@@ -122,9 +124,20 @@ export default function SelectionBar({
         </div>
 
         <div className="fx-row">
-          {count > 0 && (
+          {count > 0 && !onAddToCart && (
             <button type="button" onClick={onClear} className="es-btn es-btn--ghost es-btn--sm">
               Clear
+            </button>
+          )}
+          {/* The cart (2026-11-17): hold and keep browsing. An icon button on
+              a phone, named for screen readers, so the bar keeps one row. */}
+          {onAddToCart && (
+            <button
+              type="button" onClick={onAddToCart} disabled={count === 0 || busy}
+              className="es-btn es-btn--secondary es-selbar__cart"
+              aria-label={inCart ? 'Update cart' : 'Add to cart'} title={inCart ? 'Update cart' : 'Add to cart'}
+            >
+              <NavIcon name="cart" size={20} />
             </button>
           )}
           <button
@@ -137,7 +150,7 @@ export default function SelectionBar({
             aria-busy={busy || undefined}
             className="es-btn es-btn--primary"
           >
-            {busy ? 'Holding…' : 'Continue'}
+            {busy ? 'Holding…' : onAddToCart ? 'Checkout' : 'Continue'}
           </button>
         </div>
       </div>

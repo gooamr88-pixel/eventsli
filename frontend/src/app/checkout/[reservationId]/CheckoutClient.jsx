@@ -8,6 +8,7 @@ import { describeError } from '../../utils/errors';
 import { formatMoney } from '../../utils/money';
 import { formatEventTime } from '../../lib/eventTime';
 import { useReservation, heldNoun } from '../../hooks/useReservation';
+import { rememberBuyer, recalledBuyer } from '../../lib/cartStore';
 import { useCountdown } from '../../hooks/useCountdown';
 import { useAuth } from '../../hooks/useAuth';
 import HoldBar from './HoldBar';
@@ -53,6 +54,22 @@ export default function CheckoutClient({ reservationId }) {
   const [checks, setChecks] = useState({ terms: false, refund: false, entry: false });
   // Optional texts: a number, and separate transactional / marketing boxes.
   const [phone, setPhone] = useState('');
+
+  /**
+   * A cart's next checkout starts with the details given at the last one
+   * (2026-11-17). After mount, not in the initial state: the server has no
+   * tab storage, and a first render that differs from it is a hydration
+   * mismatch. Only empty fields are filled — nothing typed is overwritten.
+   */
+  useEffect(() => {
+    const kept = recalledBuyer();
+    if (!kept) return undefined;
+    const t = setTimeout(() => {
+      setBuyer((b) => ({ name: b.name || kept.name || '', email: b.email || kept.email || '' }));
+      if (kept.phone) setPhone((p) => p || kept.phone);
+    }, 0);
+    return () => clearTimeout(t);
+  }, []);
   const [sms, setSms] = useState({});
 
   /**
@@ -197,6 +214,9 @@ export default function CheckoutClient({ reservationId }) {
     setBusy('pay');
     setError(null);
     setSignError(null);
+    // Kept for the next event in the cart (2026-11-17): the buyer types their
+    // name and email once. This tab only — never across devices or people.
+    rememberBuyer({ name: buyer.name, email: buyer.email, phone });
     try {
       const body = {
         email: buyer.email || undefined,

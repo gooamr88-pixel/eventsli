@@ -7,6 +7,7 @@ import { formatMoney } from '../utils/money';
 import { formatEventTime } from '../lib/eventTime';
 import NavIcon from '../components/shell/NavIcon';
 import PrintableTicket from './PrintableTicket';
+import CartNudge from '../components/cart/CartNudge';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -89,6 +90,10 @@ export default function OrderConfirmation({
       data-bw={bw ? '' : undefined}
     >
       <OrderPrintStyles />
+
+      {/* More held in the cart? Said first, while the holds are still live
+          (2026-11-17). Print shows the ticket list alone, so not this. */}
+      <CartNudge />
 
       <header className="es-ordx__head" role="status">
         <span className="es-ordx__mark" aria-hidden="true">

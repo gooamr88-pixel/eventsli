@@ -16289,3 +16289,176 @@ label.es-chip:has(:focus-visible) { outline: 2px solid var(--es-accent); outline
   .es-logokit__svg:hover { color: var(--es-accent-hover); }
   .es-logokit__foot { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; }
 }
+
+/* -- The ticket cart (owner, 2026-11-17) -----------------------------------
+   CartButton (header), the /cart page (CartClient), the seat page's cart
+   actions and the confirmation's nudge. The page is grouped by organizer -
+   one payment each - and every event shows a live hold timer: calm, amber
+   under five minutes, red under one. */
+@layer components {
+  /* The header's cart: an icon with a count once anything is held. */
+  .es-cartbtn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 50%;
+    color: var(--es-text);
+    transition: background-color var(--es-duration-fast) var(--es-ease-default);
+  }
+  .es-cartbtn:hover { background: var(--es-bg-sunken); }
+  .es-cartbtn__badge {
+    position: absolute;
+    top: 2px;
+    right: 0;
+    min-width: 1.2rem;
+    height: 1.2rem;
+    padding: 0 0.3rem;
+    border-radius: 999px;
+    background: var(--es-accent);
+    box-shadow: 0 0 0 2px var(--es-surface);
+    font-size: 0.6875rem;
+    font-weight: 800;
+    line-height: 1.2rem;
+    text-align: center;
+    color: var(--es-text-on-accent);
+  }
+
+  /* The seat page and ticket picker: the second action and the way to the cart. */
+  .es-basket__go + .es-basket__go { margin-top: 0.5rem; }
+  .es-basket__cartlink {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    width: 100%;
+    min-height: 44px;
+    font-size: var(--es-text-sm);
+    font-weight: 600;
+    color: var(--es-accent);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .es-selbar__cart { width: 2.75rem; min-width: 2.75rem; padding: 0; }
+
+  /* The page. */
+  .es-cart__head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 1rem; }
+  .es-cart__title {
+    margin: 0.35rem 0 0;
+    font-family: var(--es-font-display);
+    font-size: clamp(1.75rem, 1.3rem + 1.6vw, 2.5rem);
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    color: var(--es-text);
+  }
+  .es-cart__lede { max-width: 52ch; margin: 0.5rem 0 0; font-size: var(--es-text-sm); line-height: 1.5; color: var(--es-text-muted); }
+  .es-cart__foot { display: flex; gap: 0.5rem; align-items: center; justify-content: center; margin: 0; font-size: var(--es-text-xs); color: var(--es-text-subtle); text-align: center; }
+
+  .es-cart__empty {
+    display: grid;
+    justify-items: center;
+    gap: 0.6rem;
+    padding: clamp(2rem, 6vw, 4rem) 1rem;
+    border: 1px dashed var(--es-border-strong);
+    border-radius: 22px;
+    text-align: center;
+  }
+  .es-cart__emptyicon { display: grid; place-items: center; width: 4.5rem; height: 4.5rem; border-radius: 50%; background: var(--es-highlight-wash); color: var(--es-text); }
+  .es-cart__emptytitle { margin: 0.25rem 0 0; font-family: var(--es-font-display); font-size: 1.35rem; font-weight: 800; color: var(--es-text); }
+  .es-cart__emptytext { max-width: 40ch; margin: 0 0 0.5rem; font-size: var(--es-text-sm); line-height: 1.5; color: var(--es-text-muted); }
+
+  /* One organizer - one payment. */
+  /* minmax(0, 1fr): an implicit grid column grows to its content's natural
+     width, which pushed the cards past their border on a phone. */
+  .es-cartgroup {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.75rem;
+    padding: clamp(0.875rem, 2vw, 1.25rem);
+    border: 1px solid var(--es-border);
+    border-radius: 22px;
+    background: var(--es-surface);
+    box-shadow: var(--es-shadow-sm);
+  }
+  .es-cartgroup__head { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--es-border); }
+  .es-cartgroup__seller { display: inline-flex; align-items: center; gap: 0.45rem; font-size: var(--es-text-sm); color: var(--es-text-muted); }
+  .es-cartgroup__seller b { color: var(--es-text); }
+  .es-cartgroup__total { font-family: var(--es-font-display); font-size: 1.25rem; font-weight: 800; color: var(--es-text); }
+  .es-cartgroup__note { display: flex; gap: 0.4rem; align-items: flex-start; margin: 0; font-size: var(--es-text-xs); line-height: 1.45; color: var(--es-text-muted); }
+  .es-cartgroup__items { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.75rem; margin: 0; padding: 0; list-style: none; }
+
+  /* One event's hold. */
+  .es-cartitem {
+    display: grid;
+    grid-template-columns: 4.5rem minmax(0, 1fr);
+    gap: 0.75rem;
+    padding: 0.875rem;
+    border: 1px solid var(--es-border);
+    border-radius: 16px;
+    background: var(--es-bg);
+  }
+  @media (width >= 48rem) {
+    .es-cartitem { grid-template-columns: 8.5rem minmax(0, 1fr); gap: 1rem; }
+  }
+  .es-cartitem__cover { display: block; overflow: hidden; aspect-ratio: 4 / 5; align-self: start; border-radius: 12px; background: var(--es-bg-sunken); }
+  .es-cartitem__cover img { width: 100%; height: 100%; object-fit: cover; }
+  .es-cartitem__nocover { display: grid; place-items: center; width: 100%; height: 100%; color: var(--es-text-subtle); }
+  .es-cartitem__body { display: grid; gap: 0.75rem; min-width: 0; }
+  .es-cartitem__top { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem; }
+  .es-cartitem__title { margin: 0; font-family: var(--es-font-display); font-size: 1.125rem; font-weight: 800; line-height: 1.25; }
+  .es-cartitem__title a { color: var(--es-text); }
+  .es-cartitem__title a:hover { color: var(--es-accent); }
+  .es-cartitem__meta { display: flex; flex-wrap: wrap; gap: 0.25rem 0.9rem; margin: 0.3rem 0 0; font-size: var(--es-text-xs); color: var(--es-text-muted); }
+  .es-cartitem__meta span { display: inline-flex; align-items: center; gap: 0.3rem; }
+  .es-cartitem__meta svg { flex: none; color: var(--es-brand-coral); }
+  .es-cartitem__lines { display: grid; gap: 0.4rem; margin: 0; padding: 0; list-style: none; }
+  .es-cartitem__lines li { display: flex; justify-content: space-between; gap: 0.75rem; font-size: var(--es-text-sm); color: var(--es-text); }
+  .es-cartitem__lines li > .es-nums { flex: none; }
+  .es-cartitem__lines small { display: block; margin-top: 0.1rem; font-size: var(--es-text-xs); color: var(--es-text-muted); }
+  .es-cartitem__sum { display: grid; gap: 0.25rem; margin: 0; padding-top: 0.6rem; border-top: 1px dashed var(--es-border); }
+  .es-cartitem__sum div { display: flex; justify-content: space-between; font-size: var(--es-text-sm); color: var(--es-text-muted); }
+  .es-cartitem__sum dd { margin: 0; }
+  .es-cartitem__sum .es-cartitem__total { font-weight: 800; color: var(--es-text); }
+  .es-cartitem__sum .es-cartitem__total dd { font-size: var(--es-text-md); }
+  .es-cartitem__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; }
+  .es-cartitem__go { margin-inline-start: auto; }
+  @media (width < 40rem) {
+    .es-cartitem__go { flex: 1 1 100%; justify-content: center; }
+  }
+
+  /* The hold timer. */
+  .es-holdtimer {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.25rem 0.6rem;
+    border-radius: 999px;
+    background: var(--es-bg-sunken);
+    font-size: var(--es-text-xs);
+    font-weight: 700;
+    color: var(--es-text);
+  }
+  .es-holdtimer[data-tone="warning"] { background: color-mix(in srgb, var(--es-amber-700) 14%, var(--es-surface)); color: var(--es-warning); }
+  .es-holdtimer[data-tone="danger"] { background: color-mix(in srgb, var(--es-danger) 12%, var(--es-surface)); color: var(--es-danger); }
+
+  /* After a checkout: what is still held. */
+  .es-cartnudge {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+    padding: 0.875rem 1rem;
+    border: 1px solid var(--es-highlight);
+    border-radius: 16px;
+    background: var(--es-highlight-wash);
+    font-size: var(--es-text-sm);
+    color: var(--es-text);
+  }
+  .es-cartnudge p { flex: 1 1 14rem; margin: 0; line-height: 1.45; }
+  .es-cartnudge__icon { display: grid; flex: none; place-items: center; width: 2.25rem; height: 2.25rem; border-radius: 50%; background: var(--es-surface); }
+}

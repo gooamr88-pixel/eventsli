@@ -202,7 +202,7 @@ describe('continuing', () => {
     await user.click(plus(/one more Standard/i));
     await user.click(plus(/one more Standard/i));
     await user.click(plus(/one more VIP/i));
-    await user.click(screen.getByRole('button', { name: /^continue$/i }));
+    await user.click(screen.getByRole('button', { name: /^checkout$/i }));
 
     await waitFor(() => expect(hold).toHaveBeenCalled());
     const [slug, body] = hold.mock.calls[0];
@@ -226,7 +226,7 @@ describe('continuing', () => {
     await user.click(plus());
     await user.click(minus());
     await user.click(plus());
-    await user.click(screen.getByRole('button', { name: /^continue$/i }));
+    await user.click(screen.getByRole('button', { name: /^checkout$/i }));
 
     await waitFor(() => expect(hold).toHaveBeenCalled());
     expect(hold.mock.calls[0][1].lines).toEqual([{ tierId: 'tier-1', quantity: 1 }]);
@@ -240,7 +240,7 @@ describe('continuing', () => {
     render(<TicketPicker slug="gala" />);
 
     await user.click(plus());
-    await user.click(screen.getByRole('button', { name: /^continue$/i }));
+    await user.click(screen.getByRole('button', { name: /^checkout$/i }));
 
     await waitFor(() => expect(screen.getByText('0 tickets')).toBeInTheDocument());
     expect(push).not.toHaveBeenCalled();
@@ -254,7 +254,7 @@ describe('continuing', () => {
     render(<TicketPicker slug="gala" />);
 
     await user.click(plus());
-    await user.click(screen.getByRole('button', { name: /^continue$/i }));
+    await user.click(screen.getByRole('button', { name: /^checkout$/i }));
 
     await waitFor(() => expect(screen.getByText(/at most 4 tickets/i)).toBeInTheDocument());
   });

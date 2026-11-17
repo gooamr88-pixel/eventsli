@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import NavIcon from '../../../components/shell/NavIcon';
 import PaymentBadges from '../../../components/PaymentBadges';
 import { formatMoney } from '../../../utils/money';
@@ -69,6 +70,7 @@ export function TicketCategories({ tiers, palette, currency, picked, onToggle, s
 
 export function Basket({
   seats, tableLabel, nameFor, tierOf, currency, subtotal, count, busy, onRemove, onClear, onContinue, error, payments,
+  onAddToCart = null, inCart = false, cartCount = 0,
 }) {
   const empty = count === 0;
   return (
@@ -133,6 +135,19 @@ export function Basket({
       <button type="button" className="es-btn es-btn--primary es-basket__go" disabled={empty || busy} onClick={onContinue}>
         {busy ? 'Holding your seats…' : 'Proceed to checkout'}<NavIcon name="arrow" size={18} />
       </button>
+      {/* THE CART (2026-11-17): hold these and keep browsing. With this event
+          already in the cart it becomes "Update cart" — the cart then holds
+          exactly what is selected here. */}
+      {onAddToCart && (
+        <button type="button" className="es-btn es-btn--secondary es-basket__go" disabled={empty || busy} onClick={onAddToCart}>
+          <NavIcon name="cart" size={18} />{inCart ? 'Update cart' : 'Add to cart'}
+        </button>
+      )}
+      {cartCount > 0 && (
+        <Link href="/cart" className="es-basket__cartlink">
+          <NavIcon name="cart" size={16} />View cart ({cartCount} {cartCount === 1 ? 'ticket' : 'tickets'})
+        </Link>
+      )}
 
       {/* As in the owner's mockup: the payment reassurance under the button.
           Cards only, because that is what checkout takes (Stripe). */}

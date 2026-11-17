@@ -17,6 +17,9 @@ import { TicketCategories, Basket, CategoryChips, TrustCard } from './SeatSidePa
 import VenueInfoCard from '../../../components/venue/VenueInfoCard';
 import TierDetailsDialog, { hasDetails } from '../../../components/tickets/TierDetailsDialog';
 import { pickSeats } from './pickSeats';
+import { cartItemFor, withMyHolds, selectionFromCart } from './cartSeats';
+import { useCart, refreshCart } from '../../../hooks/useCart';
+import { useToast } from '../../../components/ui/Toast';
 
 /**
  * The buyer's half of the seat map: selection, the private-table gate, and the
@@ -31,6 +34,7 @@ export default function SeatPicker({ slug, currency, purchaseMode, maxPerOrder, 
   const router = useRouter();
   const searchParams = useSearchParams();
   const { hold } = useReservation();
+  const toast = useToast();
   const { header: accessHeader, add: addTableToken } = useTableAccess(slug);
 
   /**
@@ -41,7 +45,7 @@ export default function SeatPicker({ slug, currency, purchaseMode, maxPerOrder, 
   const invitedTableId = searchParams.get('table');
   const tierParam = searchParams.get('tier');
 
-  const [map, setMap] = useState(null);
+  const [rawMap, setMap] = useState(null);
   const [showAllTiers, setShowAllTiers] = useState(false);
   const [loadError, setLoadError] = useState(null);
   const [selectedSeats, setSelectedSeats] = useState([]);
@@ -49,6 +53,25 @@ export default function SeatPicker({ slug, currency, purchaseMode, maxPerOrder, 
   const [unlockDismissed, setUnlockDismissed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState(null);
+
+  /**
+   * THE CART (2026-11-17). If this event is already in the buyer's cart, its
+   * seats are drawn as theirs and the page starts with them selected — so
+   * "Update cart" can add seats or drop some (cartSeats.js). Everything below
+   * reads `map`, which is the server's map with that one adjustment.
+   */
+  const { items: cartItems, count: cartCount } = useCart();
+  const cartItem = cartItemFor(cartItems, slug);
+  const map = useMemo(() => withMyHolds(rawMap, cartItem), [rawMap, cartItem]);
+  const [seededFor, setSeededFor] = useState(null);
+  if (map && cartItem && seededFor !== cartItem.reservationId) {
+    setSeededFor(cartItem.reservationId);
+    if (selectedSeats.length === 0 && !selectedTable) {
+      const start = selectionFromCart(map, cartItem);
+      setSelectedSeats(start.seats);
+      setSelectedTable(start.table);
+    }
+  }
 
   const loadMap = useCallback(async () => {
     try {
@@ -269,7 +292,14 @@ export default function SeatPicker({ slug, currency, purchaseMode, maxPerOrder, 
 
   const count = selectedTable ? (selectedTable.seatCount || 1) : selectedSeats.length;
 
-  async function onContinue() {
+  /**
+   * HOLD, INTO THE CART — then stay (`cart`) or go straight to paying (`checkout`).
+   *
+   * The whole selection is sent; with this event already in the cart it
+   * REPLACES that hold (the server releases the old one in the same request),
+   * so the cart always holds exactly what the map shows as selected.
+   */
+  async function onContinue(mode = 'checkout') {
     setBusy(true);
     setActionError(null);
     try {
@@ -279,10 +309,22 @@ export default function SeatPicker({ slug, currency, purchaseMode, maxPerOrder, 
       // API works out which one applies.
       const reservation = await hold(slug, selectedTable
         ? { tableId: selectedTable.id, tableToken: accessHeader }
-        : { seatIds: selectedSeats.map((s) => s.id), tableToken: accessHeader });
+        : { seatIds: selectedSeats.map((s) => s.id), tableToken: accessHeader },
+      { replaces: cartItem ? { reservationId: cartItem.reservationId, reservationToken: cartItem.reservationToken } : null });
 
+      if (mode === 'cart') {
+        toast.success(cartItem ? 'Your cart is updated. The seats are held for you.' : 'Added to your cart. The seats are held for you.', {
+          title: cartItem ? 'Cart updated' : 'Added to cart',
+        });
+        setSeededFor(reservation.reservationId);
+        await Promise.all([loadMap(), refreshCart()]);
+        setBusy(false);
+        return;
+      }
       router.push(`/checkout/${reservation.reservationId}`);
     } catch (err) {
+      // A refused replace put the original hold back; the cart shows it again.
+      if (err?.meta?.restored) refreshCart();
       setActionError(err);
       // Someone else took a seat between the render and the hold. The map on
       // screen is now a lie, so it is reloaded and the selection dropped —
@@ -519,7 +561,10 @@ export default function SeatPicker({ slug, currency, purchaseMode, maxPerOrder, 
           busy={busy}
           onRemove={toggleSeat}
           onClear={clear}
-          onContinue={onContinue}
+          onContinue={() => onContinue('checkout')}
+          onAddToCart={() => onContinue('cart')}
+          inCart={Boolean(cartItem)}
+          cartCount={cartCount}
           error={actionError ? <ErrorNote error={actionError} /> : null}
           payments={payments}
         />
@@ -541,7 +586,9 @@ export default function SeatPicker({ slug, currency, purchaseMode, maxPerOrder, 
           // something the API refuses.
           seats={selectedTable ? [] : selectedSeats}
           busy={busy}
-          onContinue={onContinue}
+          onContinue={() => onContinue('checkout')}
+          onAddToCart={() => onContinue('cart')}
+          inCart={Boolean(cartItem)}
           onRemoveSeat={toggleSeat}
           nameFor={nameFor}
           onClear={clear}
