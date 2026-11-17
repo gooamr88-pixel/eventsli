@@ -42,7 +42,7 @@ const terms = require('./termsService');
 async function organizerReadiness(organizerId) {
   const [{ data: org, error }, { count, error: mErr }] = await Promise.all([
     supabase.from('organizers')
-      .select('display_name, legal_name, description, policies_accepted_at, stripe_onboarding_complete, stripe_payouts_enabled')
+      .select('display_name, legal_name, description, country, policies_accepted_at, stripe_onboarding_complete, stripe_payouts_enabled')
       .eq('id', organizerId).maybeSingle(),
     supabase.from('organizer_payment_methods')
       .select('id', { count: 'exact', head: true })
@@ -53,9 +53,13 @@ async function organizerReadiness(organizerId) {
   // Required inside the function, not at the top: keeping the edge one-way at
   // load time costs nothing and this module is required from controllers.
   const { isSetupComplete } = require('../controllers/organizerController');
+  // Card counts only where card checkout is switched on for their country;
+  // everywhere else an organizer sells offline (utils/markets.js).
+  const cardAvailable = org ? await require('./marketsService').cardEnabled(org.country) : false;
   return {
     setupComplete: isSetupComplete(org),
-    stripeReady: canReceivePayouts(org),
+    cardAvailable,
+    stripeReady: cardAvailable && canReceivePayouts(org),
     manualReady: (count || 0) > 0,
   };
 }

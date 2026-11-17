@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { post, patch } from '../../../../utils/apiClient';
 import { describeError, messageFor } from '../../../../utils/errors';
 import { formatMoney } from '../../../../utils/money';
+import { minorUnits } from '../../../../lib/markets';
 import { useApi } from '../../../../hooks/useApi';
 import { useToast } from '../../../../components/ui/Toast';
 import { SectionHeader, Panel } from '../../../../components/ui/Page';
@@ -102,8 +103,9 @@ export default function Promos({ eventId }) {
               // which leaves a buyer to guess what 25 is.
               render: (p) => (p.discountType === 'percentage'
                 ? `${Number(p.discountValue)}% off`
-                // Stored in whole currency units (claim_promo_code multiplies by 100).
-                : `${formatMoney(Math.round(Number(p.discountValue) * 100), currency)} off`),
+                // Stored in whole currency units (claim_promo_code scales by the
+                // currency's minor unit: ×100 for dollars, ×1 for yen).
+                : `${formatMoney(Math.round(Number(p.discountValue) * 10 ** minorUnits(currency)), currency)} off`),
             },
             {
               key: 'uses',

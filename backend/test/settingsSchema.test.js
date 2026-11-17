@@ -44,9 +44,23 @@ test('closing every market is refused — no event could be created anywhere', (
 
 test('the currency follows the country, and allowed is derived rather than trusted', () => {
   assert.match(validateSetting('currencies', { by_country: { CA: 'USD' } }).errors.join(' '), /CA sells in CAD/);
-  assert.match(validateSetting('currencies', { by_country: { EG: 'EGP' } }).errors.join(' '), /not a market/);
+  assert.match(validateSetting('currencies', { by_country: { XX: 'XXX' } }).errors.join(' '), /not a country/);
+  assert.match(validateSetting('currencies', { by_country: { RU: 'RUB' } }).errors.join(' '), /not a country/);
 
   const result = validateSetting('currencies', { allowed: ['USD', 'EUR'], by_country: { CA: 'CAD' } });
   assert.equal(result.ok, true);
-  assert.deepEqual(result.value, { allowed: ['CAD'], by_country: { CA: 'CAD' } });
+  assert.deepEqual(result.value, { allowed: ['CAD'], by_country: { CA: 'CAD' }, card: ['CA'] });
+});
+
+test('every country can be opened; card only where Stripe operates and the country is open', () => {
+  const opened = validateSetting('currencies', { by_country: { EG: 'EGP', GB: 'GBP', CA: 'CAD' }, card: ['gb', 'CA'] });
+  assert.equal(opened.ok, true);
+  assert.deepEqual(opened.value, { allowed: ['CAD', 'EGP', 'GBP'], by_country: { EG: 'EGP', GB: 'GBP', CA: 'CAD' }, card: ['CA', 'GB'] });
+
+  assert.match(validateSetting('currencies', { by_country: { EG: 'EGP' }, card: ['EG'] }).errors.join(' '), /Egypt cannot take card payments/);
+  assert.match(validateSetting('currencies', { by_country: { CA: 'CAD' }, card: ['GB'] }).errors.join(' '), /Open United Kingdom before/);
+  assert.match(validateSetting('currencies', { by_country: { CA: 'CAD' }, card: 'CA' }).errors.join(' '), /card must be a list/);
+
+  const noCard = validateSetting('currencies', { by_country: { CA: 'CAD' }, card: [] });
+  assert.deepEqual(noCard.value.card, []);
 });

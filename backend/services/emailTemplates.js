@@ -37,6 +37,8 @@
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
+const { minorUnits } = require('../utils/markets');
+
 /**
  * The storefront's palette (frontend `globals.css`), named the same way.
  *
@@ -102,12 +104,16 @@ function apiUrl() {
 function money(cents, currency) {
   const n = Number(cents);
   if (!Number.isFinite(n)) return '';
+  // Minor units: two decimals for most currencies, none for the yen, three for
+  // the dinar (utils/markets.js).
+  const digits = minorUnits(currency || 'CAD');
   try {
-    return new Intl.NumberFormat('en-CA', { style: 'currency', currency: currency || 'CAD' })
-      .format(n / 100);
+    return new Intl.NumberFormat('en-CA', {
+      style: 'currency', currency: currency || 'CAD', minimumFractionDigits: digits, maximumFractionDigits: digits,
+    }).format(n / 10 ** digits);
   } catch {
     // An unknown currency code must not take an email down with it.
-    return `${(n / 100).toFixed(2)} ${currency || ''}`.trim();
+    return `${(n / 10 ** digits).toFixed(digits)} ${currency || ''}`.trim();
   }
 }
 
@@ -286,7 +292,7 @@ function layout({ title, preheader, body, reason }) {
         </table>
 
         <p style="margin:16px 0 0;font-family:${FONT};font-size:11px;color:${SUBTLE}">
-          Eventsli · Tickets and seat maps for events across Canada and the United States
+          Eventsli · Tickets and seat maps for events worldwide
         </p>
       </td>
     </tr>

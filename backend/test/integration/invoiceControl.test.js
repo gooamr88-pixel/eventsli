@@ -1,4 +1,5 @@
 const { test, before, after } = require('node:test');
+const { randomUUID } = require('node:crypto');
 const assert = require('node:assert/strict');
 const http = require('node:http');
 
@@ -199,7 +200,17 @@ test('a part payment reduces the balance and the ledger, and the organizer is to
 test('more than is owed is refused', async () => {
   const res = await call('POST', `/admin/invoices/${ids.a}/payments`, { amountCents: 700 }, cookies.admin);
   assert.equal(res.status, 400);
-  assert.match(res.body.message, /more than is owed/);
+  assert.match(res.body.message, /more than the balance/);
+});
+
+test('the same part payment is recorded once: a retried form, or the same bank reference', async () => {
+  const key = randomUUID();
+  const first = await call('POST', `/admin/invoices/${ids.a}/payments`, {
+    amountCents: 100, method: 'e-transfer', reference: 'ET-1234', idempotencyKey: key,
+  }, cookies.admin);
+  // ET-1234 is already on this invoice (the test above): the same money, refused.
+  assert.equal(first.status, 409, JSON.stringify(first.body));
+  assert.match(first.body.message, /already recorded/);
 });
 
 test('the organizer sees payments and history, never internal notes', async () => {
@@ -448,4 +459,57 @@ test('the admin detail offers only what the rules allow', async () => {
   const paid = await call('GET', `/admin/invoices/${ids.b}`, null, cookies.admin);
   assert.equal(paid.body.data.actions.settle, false);
   assert.equal(paid.body.data.actions.reversePayment, true);
+});
+
+test('a part payment submitted twice at once is recorded once, with one audit row', async () => {
+  // The event's one unpaid invoice (a second cannot be raised while it is open).
+  const invoiceId = ids.d;
+  const countPays = async () => (await supabase.from('invoice_payments')
+    .select('id', { count: 'exact', head: true }).eq('invoice_id', invoiceId)).count;
+  const countAudit = async () => (await supabase.from('admin_audit').select('id')
+    .eq('target_id', invoiceId).eq('action', 'invoice.payment_recorded')).data.length;
+  const paysBefore = await countPays();
+  const auditBefore = await countAudit();
+
+  const keyed = { amountCents: 100, method: 'cash', reference: 'CASH-77', idempotencyKey: randomUUID() };
+  const [a, b] = await Promise.all([
+    call('POST', `/admin/invoices/${invoiceId}/payments`, keyed, cookies.admin),
+    call('POST', `/admin/invoices/${invoiceId}/payments`, keyed, cookies.admin),
+  ]);
+  assert.deepEqual([a.status, b.status], [200, 200], JSON.stringify([a.body, b.body]));
+  assert.equal(a.body.data.payment_id, b.body.data.payment_id, 'one payment, answered twice');
+  assert.equal([a, b].filter((r) => r.body.data.duplicate).length, 1);
+  assert.equal(await countPays(), paysBefore + 1);
+  assert.equal(await countAudit(), auditBefore + 1, 'the retry wrote no second audit row');
+});
+
+test('a door sale is audited, can be voided once, frees its seat and reverses its commission', async () => {
+  const sale = await doorSale();
+  const { data: rec } = await supabase.from('payment_audit').select('action, actor_id')
+    .eq('order_id', sale.order_id);
+  assert.deepEqual(rec.map((r) => r.action), ['door_sale.recorded']);
+  assert.equal(rec[0].actor_id, ids.seller);
+
+  const owed = async () => (await supabase.rpc('manual_commission_owed', { p_event_id: ids.event, p_currency: 'CAD' })).data;
+  const before = await owed();
+  const { data: t } = await supabase.from('tickets').select('id, seat_id').eq('order_id', sale.order_id).single();
+
+  // Admitted first: then it cannot be voided.
+  await supabase.from('tickets').update({ status: 'scanned' }).eq('id', t.id);
+  const admitted = await call('POST', `/events/${ids.event}/orders/${sale.order_id}/void`, { kind: 'void', reason: 'Recorded by mistake' }, cookies.seller);
+  assert.equal(admitted.status, 409);
+  await supabase.from('tickets').update({ status: 'valid' }).eq('id', t.id);
+
+  const res = await call('POST', `/events/${ids.event}/orders/${sale.order_id}/void`, { kind: 'void', reason: 'Recorded by mistake' }, cookies.seller);
+  assert.equal(res.status, 200, JSON.stringify(res.body));
+  assert.equal(await owed(), before - 500, 'the 500 commission on this sale is no longer owed');
+  const { data: seat } = await supabase.from('seats').select('status').eq('id', t.seat_id).single();
+  assert.equal(seat.status, 'available');
+  const { data: after } = await supabase.from('payment_audit').select('action, reason')
+    .eq('order_id', sale.order_id).order('created_at');
+  assert.deepEqual(after.map((r) => r.action), ['door_sale.recorded', 'order.voided']);
+
+  const list = await call('GET', `/events/${ids.event}/manual-sales`, null, cookies.seller);
+  const row = list.body.data.find((o) => o.id === sale.order_id);
+  assert.equal(row.state, 'void');
 });

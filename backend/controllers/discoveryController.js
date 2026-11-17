@@ -6,6 +6,7 @@ const { safeSearch, textFilter } = require('../utils/search');
 const logger = require('../utils/logger');
 const categoryService = require('../services/categoryService');
 const ticketDetails = require('../services/ticketDetails');
+const purchasability = require('../services/purchasability');
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -34,9 +35,11 @@ const SELECT = `
   highlights, venue_lat, venue_lng, max_tickets_per_order,
   accepts_stripe, accepts_manual,
   updated_at,
-  organizers ( display_name ),
+  organizers ( display_name, country ),
   event_categories ( label )
 `;
+// `country` is read only to decide whether card checkout is on for the event
+// (services/purchasability.js). `shape` never returns it.
 // `event_categories ( label )`: the label the admin gave the category, so every
 // card names it the way the homepage tabs and /events filters do. It was named
 // from a hard-coded map in the browser, which disagreed with the database for
@@ -311,8 +314,18 @@ async function eventBySlug(req, res, next) {
     const asked = String(req.query.tier || '');
     const visibleTiers = (tiers || []).filter((t) => !t.is_hidden || t.id === asked);
 
+    // Whether a buyer can get tickets here online at all (global launch). The
+    // page hides Buy when not, rather than letting someone into a checkout that
+    // ends in "this event does not take card payments".
+    const ways = await purchasability.forEvent(event, { tiers: tiers || [] });
+    const shaped = shape(event);
+
     return sendOk(res, {
-      ...shape(event),
+      ...shaped,
+      // `manual` means a buyer can reserve and pay the organizer online — phase 2.
+      // Accepting door payments is not that, so it no longer shows a badge.
+      payments: { card: ways.card, manual: ways.offline },
+      purchasable: ways.online,
       description: event.description,
       venueAddress: event.venue_address,
       tiers: visibleTiers.map((t) => ({ ...publicTier(t), details: ticketDetails.present(event.id, t.details) })),

@@ -1,4 +1,5 @@
 import { formatEventTime } from '../../lib/eventTime';
+import { formatMoney } from '../../utils/money';
 
 /**
  * What one audit row actually says.
@@ -160,10 +161,13 @@ function detailLines(action, p) {
     case 'invoice.settled':
       return p.alreadySettled ? ['It was already settled'] : [];
     case 'price.change': {
-      // Amounts are cents in the event's own currency, which the payload does
-      // not carry — so they are shown as plain amounts, never with a symbol
-      // that might be the wrong one.
-      const amount = (c) => (c === null || c === undefined ? 'none' : (Number(c) / 100).toFixed(2));
+      // Amounts are minor units in the event's own currency. Entries since
+      // 20261121090000 name it; older ones (all CAD or USD) do not, so they
+      // are shown as plain two-decimal amounts, never with a guessed symbol.
+      const amount = (c) => {
+        if (c === null || c === undefined) return 'none';
+        return p.currency ? formatMoney(Number(c), p.currency) : (Number(c) / 100).toFixed(2);
+      };
       const what = p.name ? `Ticket type "${p.name}"` : `Table "${show(p.label)}"`;
       const field = { price: p.name ? 'price' : 'whole-table price', seatPrice: 'seat price', ticketType: 'ticket type' }[p.field] || p.field;
       const change = p.field === 'ticketType'

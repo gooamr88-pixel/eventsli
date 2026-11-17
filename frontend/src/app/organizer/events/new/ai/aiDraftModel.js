@@ -1,6 +1,8 @@
 import { toIso, toLocalInput } from '../../../../lib/eventTime';
 import { dateOnlyRange, todayAt } from '../../../../lib/dateOnly';
 import { pinProblem } from '../../../../components/forms/VenuePin';
+import { parseMoneyToCents } from '../../../../lib/moneyInput';
+import { minorUnits } from '../../../../lib/markets';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -41,19 +43,24 @@ export const TIER_KINDS = [
 let counter = 0;
 const key = (prefix) => `${prefix}-${Date.now().toString(36)}-${(counter += 1)}`;
 
-/** "95" / "95.5" / "95.50" → 9550, or null. Strings only — no float arithmetic on money. */
-export function priceToCents(value) {
+/**
+ * "95" / "95.5" / "95.50" → 9550 in dollars; "3000" → 3000 in yen. Null when
+ * it is not a price in this currency. Strings only — no float arithmetic.
+ */
+export function priceToCents(value, currency = 'CAD') {
   const text = String(value ?? '').trim().replace(/^\$/, '').replace(/,/g, '');
-  if (!/^\d{1,6}(\.\d{1,2})?$/.test(text)) return null;
-  const [whole, frac = ''] = text.split('.');
-  return Number(whole) * 100 + Number(frac.padEnd(2, '0'));
+  if (!/^\d{1,9}(\.\d+)?$/.test(text)) return null;
+  return parseMoneyToCents(text, currency);
 }
 
-/** 9550 → "95.50"; null → "". */
-export function centsToPrice(cents) {
+/** 9550 → "95.50" in dollars, 3000 → "3000" in yen; null → "". */
+export function centsToPrice(cents, currency = 'CAD') {
   if (cents === null || cents === undefined || !Number.isFinite(Number(cents))) return '';
+  const digits = minorUnits(currency);
   const n = Math.round(Number(cents));
-  return `${Math.floor(n / 100)}.${String(n % 100).padStart(2, '0')}`;
+  if (!digits) return String(n);
+  const scale = 10 ** digits;
+  return `${Math.floor(n / scale)}.${String(n % scale).padStart(digits, '0')}`;
 }
 
 /** The day a time fact is on: the server's `date`, or the day of its local time. */
@@ -102,7 +109,7 @@ export function formFromDraft(result, organizer) {
       kind: t.kind || 'standard',
       description: t.description || '',
       quantity: t.quantity === null || t.quantity === undefined ? '' : String(t.quantity),
-      price: centsToPrice(t.priceCents),
+      price: centsToPrice(t.priceCents, d.currency),
       free: t.priceCents === 0,
       priceEvidence: t.priceEvidence || null,
     })),
@@ -156,7 +163,7 @@ export function problemsFor(form, now = new Date()) {
       if (!t.name.trim()) add('tickets', `tier-${t.key}-name`, `${label} needs a name.`);
       else if (names.has(t.name.trim().toLowerCase())) add('tickets', `tier-${t.key}-name`, `There are two ticket types called “${t.name.trim()}”.`);
       names.add(t.name.trim().toLowerCase());
-      if (!t.free && priceToCents(t.price) === null) {
+      if (!t.free && priceToCents(t.price, form.currency) === null) {
         add('tickets', `tier-${t.key}-price`, t.price.trim()
           ? `${label}: enter the price as a number, like 25 or 25.50.`
           : `${label} needs a price.`);
@@ -224,7 +231,7 @@ export function savePlan(form, choices = [], poster = null) {
     body: {
       name: t.name.trim(),
       kind: t.kind,
-      priceCents: t.free ? 0 : priceToCents(t.price),
+      priceCents: t.free ? 0 : priceToCents(t.price, form.currency),
       sortOrder: i,
       ...(t.description.trim() ? { description: t.description.trim() } : {}),
       ...(form.admissionType === 'general' && t.quantity !== '' ? { quantity: Number(t.quantity) } : {}),

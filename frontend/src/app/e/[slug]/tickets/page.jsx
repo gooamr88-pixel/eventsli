@@ -52,6 +52,8 @@ export default async function TicketsPage({ params, searchParams }) {
 
   // BRD §12 — a listing with nothing behind it has no tickets to choose.
   if (event.displayOnly) notFound();
+  // No online way to pay (global launch, phase 1): back to the event page.
+  if (event.purchasable === false) redirect(`/e/${event.slug}`);
   if (event.admissionType !== 'general') {
     redirect(`/e/${event.slug}/seats${tierParam ? `?tier=${encodeURIComponent(String(tierParam))}` : ''}`);
   }

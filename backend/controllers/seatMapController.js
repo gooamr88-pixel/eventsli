@@ -8,6 +8,7 @@ const logger = require('../utils/logger');
 const { fetchAll } = require('../utils/fetchAll');
 const { sellableSeats } = require('../services/seatSellability');
 const ticketDetails = require('../services/ticketDetails');
+const purchasability = require('../services/purchasability');
 
 const TTL_MINUTES = () => parseInt(process.env.RESERVATION_TTL_MINUTES || '35', 10);
 
@@ -305,10 +306,24 @@ async function unlockTable(req, res, next) {
 async function hold(req, res, next) {
   try {
     const { data: event } = await supabase
-      .from('events').select('id, status').eq('slug', req.params.slug).maybeSingle();
+      .from('events')
+      .select('id, status, listing_type, accepts_stripe, accepts_manual, organizer_id')
+      .eq('slug', req.params.slug).maybeSingle();
 
     if (!event || event.status !== 'published') {
       return sendFail(res, { status: 404, error: 'EVENT_NOT_FOUND', message: 'That event is not available.' });
+    }
+
+    // No way to pay for it online (card off for the organizer's country, and
+    // not free): refused BEFORE seats are held, so a buyer never reaches a
+    // checkout that cannot take their money and nobody else loses those seats
+    // to a hold that can never convert (global launch, phase 1).
+    const ways = await purchasability.forEvent(event);
+    if (!ways.online) {
+      return sendFail(res, {
+        status: 403, error: 'TICKETS_NOT_SOLD_ONLINE',
+        message: 'Tickets for this event are not sold online. Contact the organizer to buy.',
+      });
     }
 
     const userId = req.user?.id || null;   // null is a guest checkout

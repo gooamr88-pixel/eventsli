@@ -17,6 +17,7 @@
  * number you want already exists on a quote.
  * ─────────────────────────────────────────────────────────────────────────────
  */
+import { minorUnits } from '../lib/markets';
 
 /**
  * Formatters are cached because constructing an Intl.NumberFormat is genuinely
@@ -25,21 +26,28 @@
  */
 const cache = new Map();
 
+/**
+ * "Cents" here is the currency's MINOR unit (lib/markets.js `minorUnits`):
+ * 2 decimals for most currencies, 0 for the yen, 3 for the Kuwaiti dinar. An
+ * amount is divided by that scale and shown with exactly that many decimals.
+ */
 function formatter(currency, options) {
   const key = `${currency}|${options}`;
   let f = cache.get(key);
   if (!f) {
+    const digits = options === 'whole' ? 0 : minorUnits(currency);
     f = new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency,
-      ...(options === 'whole'
-        ? { minimumFractionDigits: 0, maximumFractionDigits: 0 }
-        : { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits,
     });
     cache.set(key, f);
   }
   return f;
 }
+
+const scaleOf = (currency) => 10 ** minorUnits(currency);
 
 /**
  * The only money function most components need.
@@ -56,7 +64,7 @@ function formatter(currency, options) {
  */
 export function formatMoney(cents, currency = 'USD') {
   if (cents === null || cents === undefined || Number.isNaN(Number(cents))) return '—';
-  return formatter(currency, 'cents').format(Number(cents) / 100);
+  return formatter(currency, 'cents').format(Number(cents) / scaleOf(currency));
 }
 
 /**
@@ -70,8 +78,9 @@ export function formatMoney(cents, currency = 'USD') {
 export function formatMoneyCompact(cents, currency = 'USD') {
   if (cents === null || cents === undefined || Number.isNaN(Number(cents))) return '—';
   const n = Number(cents);
-  if (n % 100 !== 0) return formatMoney(n, currency);
-  return formatter(currency, 'whole').format(n / 100);
+  const scale = scaleOf(currency);
+  if (n % scale !== 0) return formatMoney(n, currency);
+  return formatter(currency, 'whole').format(n / scale);
 }
 
 /**

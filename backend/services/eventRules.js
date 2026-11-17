@@ -69,6 +69,8 @@ const ORGANIZER_EDITABLE = Object.freeze({
   // submitting — see paymentReadiness.
   acceptsStripe: 'accepts_stripe',
   acceptsManual: 'accepts_manual',
+  // Phase 2: hours a buyer has to pay this organizer offline (null = the platform's).
+  offlinePaymentHours: 'offline_payment_hours',
 });
 
 /**
@@ -210,7 +212,7 @@ const LIVE_EDITABLE = Object.freeze([
   'description', 'max_tickets_per_order', 'allow_ticket_transfer',
   // Adding a way to pay changes nothing a buyer already agreed to, and an
   // organizer whose Stripe account is restricted mid-sale needs to switch.
-  'accepts_stripe', 'accepts_manual',
+  'accepts_stripe', 'accepts_manual', 'offline_payment_hours',
   // Content, not terms. Highlights and a pin on a map describe the event an
   // admin already approved; they do not change what anybody bought, and
   // correcting "doors at 7" on a live listing is exactly the kind of fix that

@@ -26,7 +26,7 @@ async function stripeCostModel() {
 /**
  * @returns {{ breakdown, event, reservation, items }} — or throws with a code.
  */
-async function quoteReservation(reservationId, { chargeModel = CHARGE_MODEL.DIRECT } = {}) {
+async function quoteReservation(reservationId, { chargeModel = CHARGE_MODEL.DIRECT, offline = false } = {}) {
   // Every read below checks its error (TECH-AUDIT-LOG S-17). A failed read is
   // not an absent row: the promo read in particular, ignored, priced a hold
   // WITHOUT the buyer's code — a full-price charge they had been shown less for.
@@ -120,7 +120,10 @@ async function quoteReservation(reservationId, { chargeModel = CHARGE_MODEL.DIRE
   // with its last use all get it and nine are charged the wrong amount.
   const claimed = await promo.forReservation(reservationId);
 
-  const stripe = await stripeCostModel();
+  // OFFLINE (phase 2): the buyer pays the organizer directly, so there is no
+  // card cost to recover and no payment fee — priced exactly as a door sale is
+  // (manualPaymentService.priceManualSale). Commission and tax are unchanged.
+  const stripe = offline ? { pct: 0, fixedCents: 0 } : await stripeCostModel();
 
   // `quantity` stays 1: the fixed component of the payment fee mirrors Stripe's
   // per-CHARGE cost, and an order is one charge however many seats it holds.
@@ -131,19 +134,20 @@ async function quoteReservation(reservationId, { chargeModel = CHARGE_MODEL.DIRE
     eventTaxPct: Number(event.event_tax_pct),
     commissionPct: Number(event.commission_pct),
     commissionTaxPct: Number(event.commission_tax_pct),
-    paymentFeeMode: event.payment_fee_mode === 'manual'
+    paymentFeeMode: offline || event.payment_fee_mode === 'manual'
       ? PAYMENT_FEE_MODE.MANUAL : PAYMENT_FEE_MODE.AUTO,
-    paymentFeePct: Number(event.payment_fee_pct),
-    paymentFeeFixedCents: Number(event.payment_fee_fixed_cents),
-    feeBearer: event.fee_bearer === 'organizer' ? FEE_BEARER.ORGANIZER : FEE_BEARER.BUYER,
+    paymentFeePct: offline ? 0 : Number(event.payment_fee_pct),
+    paymentFeeFixedCents: offline ? 0 : Number(event.payment_fee_fixed_cents),
+    feeBearer: offline || event.fee_bearer === 'organizer' ? FEE_BEARER.ORGANIZER : FEE_BEARER.BUYER,
     discountCents: claimed?.discountCents || 0,
     stripe,
     // A card sale is a DIRECT charge on the organizer's own account
     // (TECH-AUDIT-LOG T-074): our fee is the commission and its tax; Stripe's
     // fee is the organizer's. DESTINATION only for a legacy session opened by
     // the previous release on the platform account and paid after this one
-    // went live (checkoutController.fulfillFromSession).
-    chargeModel,
+    // went live (checkoutController.fulfillFromSession). Offline: no card, so
+    // the plain (destination-shaped) breakdown with every card cost at zero.
+    chargeModel: offline ? CHARGE_MODEL.DESTINATION : chargeModel,
   });
 
   return {

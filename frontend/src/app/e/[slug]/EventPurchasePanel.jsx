@@ -48,6 +48,13 @@ export function ctaFor(event, soldOut, tierId) {
   if (event.displayOnly) {
     return { kind: 'listing', note: 'This event is listed for information. Tickets are not sold here.' };
   }
+  // No online way to pay (card payments are not available for this organizer's
+  // country yet, and it is not free). No Buy button at all: the checkout it
+  // led to could not take payment. `purchasable` is absent on older API
+  // answers, which keeps the old behaviour.
+  if (event.purchasable === false) {
+    return { kind: 'offline', note: 'Tickets for this event are not sold online. Contact the organizer to buy.' };
+  }
   if (soldOut) return { kind: 'soldout', note: 'Sold out' };
 
   const general = event.admissionType === 'general';

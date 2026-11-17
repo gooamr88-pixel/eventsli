@@ -19,6 +19,7 @@ import OrderConfirmation from '../OrderConfirmation';
 import { Loading } from '../../components/Feedback';
 import NavIcon from '../../components/shell/NavIcon';
 import SignatureDialog from './SignatureDialog';
+import PayOptions, { usePayOptions } from './PayOptions';
 
 /**
  * The last screen before Stripe.
@@ -84,6 +85,16 @@ export default function CheckoutClient({ reservationId }) {
    * last time, which is the single most useful thing it can tell them.
    */
   const [ready, setReady] = useState(false);
+
+  // Phase 2: card, or reserve and pay the organizer. Asked only once the hold
+  // is confirmed and there is something to pay; off by default, when the
+  // answer is "card only" and the page is unchanged.
+  const [payMode, setPayMode] = useState(null);
+  const [methodId, setMethodId] = useState('');
+  const payOptions = usePayOptions(reservationId, token(reservation),
+    Boolean(ready && reservation && quote && Number(quote.totalCents) > 0));
+  const offlineMode = Boolean(payOptions?.available)
+    && (payOptions.card === false || payMode === 'offline');
 
   const loadQuote = useCallback(async () => {
     try {
@@ -222,6 +233,19 @@ export default function CheckoutClient({ reservationId }) {
         setClaimed(result);
         // The confirmation starts at its top, not wherever the form was scrolled.
         window.scrollTo({ top: 0 });
+        return;
+      }
+
+      if (offlineMode) {
+        // Reserved, not paid: the hold now lasts until the payment deadline and
+        // the instructions page is where the buyer goes next. The hold is no
+        // longer this tab's to release, so it is forgotten here.
+        const reserved = await post(
+          `/public/reservations/${reservationId}/offline`, { ...body, methodId },
+          { headers: token(reservation), noRedirect: true },
+        );
+        forget();
+        router.push(`/checkout/offline/${reserved.id}?token=${encodeURIComponent(reserved.accessToken)}`);
         return;
       }
 
@@ -410,9 +434,18 @@ export default function CheckoutClient({ reservationId }) {
           <section className="es-co__total" aria-labelledby="co-total">
             <h2 id="co-total" className="sr-only">Total and payment</h2>
 
+            <PayOptions
+              options={payOptions}
+              mode={offlineMode ? 'offline' : 'card'}
+              onMode={setPayMode}
+              methodId={methodId}
+              onMethod={setMethodId}
+              timezone={ev.timezone}
+            />
+
             {!free && (
               <dl className="es-co__breakdown">
-                {quote.lines.map((line) => (
+                {((offlineMode && Array.isArray(payOptions.lines)) ? payOptions.lines : quote.lines).map((line) => (
                   <div key={line.label}>
                     <dt>{line.label}</dt>
                     <dd className="es-nums">{formatMoney(line.amountCents, quote.currency)}</dd>
@@ -454,7 +487,7 @@ export default function CheckoutClient({ reservationId }) {
 
             <div className="es-co__total-row">
               <span>Total amount</span>
-              <b className="es-nums">{free ? formatMoney(0, quote.currency) : formatMoney(quote.totalCents, quote.currency)}</b>
+              <b className="es-nums">{free ? formatMoney(0, quote.currency) : formatMoney(offlineMode ? payOptions.totalCents : quote.totalCents, quote.currency)}</b>
             </div>
 
             {/* BRD §02 — the terms are accepted before buying, and the API
@@ -499,20 +532,22 @@ export default function CheckoutClient({ reservationId }) {
 
             <button
               type="submit"
-              disabled={busy === 'pay' || expired || !allChecked}
+              disabled={busy === 'pay' || expired || !allChecked || (offlineMode && !methodId)}
               aria-busy={busy === 'pay' || undefined}
               className={`es-co__submit ${free ? 'es-co__submit--free' : ''}`}
             >
-              <NavIcon name={free ? 'ticket' : 'lock'} size={20} />
+              <NavIcon name={free ? 'ticket' : offlineMode ? 'cash' : 'lock'} size={20} />
               {busy === 'pay'
-                ? (free ? 'Getting your tickets…' : 'Taking you to payment…')
-                : free ? 'Get my free tickets' : `Pay ${formatMoney(quote.totalCents, quote.currency)}`}
+                ? (free ? 'Getting your tickets…' : offlineMode ? 'Reserving…' : 'Taking you to payment…')
+                : free ? 'Get my free tickets' : offlineMode ? 'Reserve and get payment details' : `Pay ${formatMoney(quote.totalCents, quote.currency)}`}
             </button>
             <p className="es-co__secure">
               <NavIcon name="pencil" size={16} />
               {free
                 ? 'You will sign to confirm, and your tickets are emailed straight away.'
-                : 'You will sign to confirm, then finish on Stripe, our payment processor. Your card details never reach us.'}
+                : offlineMode
+                  ? 'You will sign to confirm. You pay the organizer directly — Eventsli never takes this payment.'
+                  : 'You will sign to confirm, then finish on Stripe, our payment processor. Your card details never reach us.'}
             </p>
 
             <button type="button" onClick={abandon} disabled={busy === 'release'} className="es-co__release">
@@ -533,8 +568,8 @@ export default function CheckoutClient({ reservationId }) {
         error={signError}
         free={free}
         defaultName={buyer.name}
-        actionLabel={free ? 'Get my free tickets' : `Pay ${formatMoney(quote.totalCents, quote.currency)}`}
-        busyLabel={free ? 'Getting your tickets…' : 'Taking you to payment…'}
+        actionLabel={free ? 'Get my free tickets' : offlineMode ? 'Reserve and get payment details' : `Pay ${formatMoney(quote.totalCents, quote.currency)}`}
+        busyLabel={free ? 'Getting your tickets…' : offlineMode ? 'Reserving…' : 'Taking you to payment…'}
       />
     </>
   );

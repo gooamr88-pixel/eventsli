@@ -34,7 +34,7 @@ router.post(
   // accepted and became the country of the organizer's Stripe account, which
   // cannot be changed afterwards.
   body('country').isString().trim().toUpperCase().isIn(SUPPORTED_COUNTRIES)
-    .withMessage('Eventsli is open to organizers in Canada (CA) and the United States (US).'),
+    .withMessage('Choose the country your organization is based in.'),
   validate,
   c.create,
 );
@@ -87,7 +87,7 @@ function requireOrganizerProfile(req, res, next) {
 const methodRules = (optional) => {
   const maybe = (chain) => (optional ? chain.optional() : chain);
   return [
-    maybe(body('kind')).isIn(['e_transfer', 'bank_transfer', 'cash', 'other'])
+    maybe(body('kind')).isIn(['e_transfer', 'bank_transfer', 'cash', 'mobile_money', 'other'])
       .withMessage('Choose the kind of payment.'),
     maybe(body('label')).isString().trim().isLength({ min: 2, max: 80 })
       .withMessage('Give it a short name buyers recognise, e.g. "Interac e-Transfer".'),

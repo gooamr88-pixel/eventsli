@@ -57,7 +57,7 @@ function priceText(e) {
   if (e.displayOnly) return 'listing only, no tickets sold here';
   if (e.fromPriceCents === null || e.fromPriceCents === undefined) return 'price on the event page';
   if (e.fromPriceCents === 0) return 'free tickets';
-  return `from $${(e.fromPriceCents / 100).toFixed(e.fromPriceCents % 100 ? 2 : 0)} ${e.currency}`;
+  return `from ${require('../utils/money').formatCompact(Number(e.fromPriceCents), e.currency || 'USD')} ${e.currency}`;
 }
 
 function whenText(e) {

@@ -3,6 +3,7 @@
 import { useId } from 'react';
 import Link from 'next/link';
 import { formatMoney } from '../../utils/money';
+import { minorUnits } from '../../lib/markets';
 import { formatDay } from '../../lib/eventTime';
 import { PERIODS } from '../../lib/periods';
 import NavIcon from '../../components/shell/NavIcon';
@@ -57,7 +58,7 @@ export function RevenueOverview({ timeline, currency, trend, days, onDays }) {
       <AreaChart
         data={series}
         ariaLabel={`Revenue per day in ${currency}, last ${days} days: ${formatMoney(total, currency)} in all`}
-        formatAxis={(cents) => compact.format(cents / 100)}
+        formatAxis={(cents) => compact.format(cents / 10 ** minorUnits(currency))}
       />
     </section>
   );

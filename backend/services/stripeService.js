@@ -59,12 +59,19 @@ const enabled = () => /^(1|true|yes|on)$/i.test(String(process.env.PAYMENTS_STRI
 async function organizerCanReceive(organizerId) {
   const { data: org } = await supabase
     .from('organizers')
-    .select('id, stripe_account_id, stripe_onboarding_complete, stripe_payouts_enabled')
+    .select('id, country, stripe_account_id, stripe_onboarding_complete, stripe_payouts_enabled')
     .eq('id', organizerId)
     .maybeSingle();
 
   if (!org?.stripe_account_id) {
     return { ok: false, reason: 'STRIPE_NOT_CONNECTED' };
+  }
+
+  // Card checkout switched off for their country (utils/markets.js) stops the
+  // next sale, even on an account that is fully set up. Asked before Stripe so
+  // the cached payout flag is not "healed" for a reason Stripe knows nothing of.
+  if (!(await require('./marketsService').cardEnabled(org.country))) {
+    return { ok: false, reason: 'CARD_NOT_AVAILABLE' };
   }
 
   try {

@@ -59,14 +59,15 @@ test('a correctly configured account that has not finished onboarding is "not ac
   assert.equal(checkAccount(null).reason, 'STRIPE_NOT_CONNECTED');
 });
 
-test('the v2 account body: full dashboard, Stripe collects fees AND losses, card payments, CA or US only', () => {
+test('the v2 account body: full dashboard, Stripe collects fees AND losses, card payments, only where Stripe operates', () => {
   const ca = accountCreateBody({ id: 'o1', country: 'CA', email: 'o@x.test', display_name: 'O' });
   assert.equal(ca.dashboard, 'full');
   assert.deepEqual(ca.defaults.responsibilities, { fees_collector: 'stripe', losses_collector: 'stripe' });
   assert.deepEqual(ca.configuration.merchant.capabilities, { card_payments: { requested: true } });
   assert.equal(ca.identity.country, 'ca');
   assert.equal(accountCreateBody({ id: 'o2', country: 'US' }).identity.country, 'us');
-  assert.throws(() => accountCreateBody({ id: 'o3', country: 'GB' }), (e) => e.code === 'VALIDATION_ERROR');
+  assert.equal(accountCreateBody({ id: 'o3', country: 'GB' }).identity.country, 'gb');
+  assert.throws(() => accountCreateBody({ id: 'o4', country: 'EG' }), (e) => e.code === 'VALIDATION_ERROR');
 });
 
 const STRIPE = { pct: 2.9, fixedCents: 30 };

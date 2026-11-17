@@ -155,15 +155,29 @@ test('a US event is priced in USD', async () => {
 });
 
 test('an unsupported country is refused rather than defaulted', async () => {
+  // Russia is under comprehensive sanctions: not in the markets table at all.
   const res = await organizer('POST', '/events', {
     title: 'Nowhere Event',
+    country: 'RU',
+    timezone: 'Europe/Moscow',
+    startsAt: new Date(Date.now() + 20 * 86400e3).toISOString(),
+    endsAt: new Date(Date.now() + 20 * 86400e3 + 3600e3).toISOString(),
+  });
+  assert.equal(res.status, 400);
+  assert.match(res.body.message, /not open/, 'the message should say the country is not open');
+});
+
+test('an open country outside North America is priced in its own currency', async () => {
+  const res = await organizer('POST', '/events', {
+    title: 'Cairo Event',
     country: 'EG',
     timezone: 'Africa/Cairo',
     startsAt: new Date(Date.now() + 20 * 86400e3).toISOString(),
     endsAt: new Date(Date.now() + 20 * 86400e3 + 3600e3).toISOString(),
   });
-  assert.equal(res.status, 400);
-  assert.match(res.body.message, /CA|US/, 'the message should say which markets are open');
+  assert.equal(res.status, 201, JSON.stringify(res.body));
+  cleanup.events.push(res.body.data.id);
+  assert.equal(res.body.data.currency, 'EGP');
 });
 
 // ── BRD §05 — the commission is the admin's, and only the admin's ───────────

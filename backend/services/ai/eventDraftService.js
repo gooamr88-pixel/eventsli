@@ -74,7 +74,7 @@ async function generateEventDraft({
     accept: (answer) => {
       read = poster ? readPoster(answer.json, text) : null;
       const evidence = read ? read.evidence : text;
-      const { draft } = validateDraft(answer.json, { text: evidence, listingType, timezone, categories: slugs, now });
+      const { draft } = validateDraft(answer.json, { text: evidence, listingType, timezone, currency, categories: slugs, now });
       return draft;
     },
   });

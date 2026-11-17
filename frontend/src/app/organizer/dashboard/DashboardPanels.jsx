@@ -28,7 +28,9 @@ export function GettingStarted({ organizer }) {
       title: 'Payment methods',
       detail: paymentsReady
         ? describeChoices(organizer)
-        : 'Connect Stripe for cards, add e-Transfer or cash, or both. Not needed for display-only events.',
+        : organizer.payments?.cardAvailable === false
+          ? 'Add how buyers pay you — bank transfer, cash or mobile money. Not needed for display-only events.'
+          : 'Connect Stripe for cards, add bank transfer or cash, or both. Not needed for display-only events.',
     },
     {
       key: 'event',

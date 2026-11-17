@@ -37,7 +37,7 @@ export default function NewTierInline({ onCreated, onCancel }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
-  const cents = toCents(price);
+  const cents = toCents(price, currency);
   const priceInvalid = price !== '' && cents === null;
   const ready = name.trim() !== '' && cents !== null && !busy;
 

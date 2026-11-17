@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { post, patch, del } from '../../../../utils/apiClient';
 import { describeError, messageFor } from '../../../../utils/errors';
 import { formatMoney, formatMoneyCompact } from '../../../../utils/money';
+import { parseMoneyToCents, centsToInput, moneyPlaceholder } from '../../../../lib/moneyInput';
+import { minorUnits } from '../../../../lib/markets';
 import { useApi } from '../../../../hooks/useApi';
 import { useToast } from '../../../../components/ui/Toast';
 import { useConfirm } from '../../../../components/ui/Confirm';
@@ -249,7 +251,7 @@ function TierForm({ eventId, currency, tier, onDone, onCancel }) {
   const [form, setForm] = useState(() => ({
     name: tier?.name || '',
     description: tier?.description || '',
-    price: tier ? (tier.priceCents / 100).toString() : '',
+    price: tier ? centsToInput(tier.priceCents, currency) : '',
     quantity: tier?.quantity === null || tier?.quantity === undefined ? '' : String(tier.quantity),
     kind: tier?.kind || 'standard',
     salesStartAt: toLocalInput(tier?.salesStartAt),
@@ -262,7 +264,7 @@ function TierForm({ eventId, currency, tier, onDone, onCancel }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
-  const cents = toCents(form.price);
+  const cents = toCents(form.price, currency);
   const priceInvalid = form.price !== '' && cents === null;
   const quantity = form.quantity === '' ? null : Number(form.quantity);
   const belowSold = tier && quantity !== null && quantity < tier.soldCount;
@@ -346,7 +348,8 @@ function TierForm({ eventId, currency, tier, onDone, onCancel }) {
             hint={tier && tier.soldCount > 0
               ? `${tier.soldCount} sold keep the price they were bought at. A new price applies to the rest.`
               : '0 is allowed — that makes it free.'}
-            error={priceInvalid ? 'Enter an amount like 25 or 25.50.' : null}
+            error={priceInvalid ? `Enter an amount like ${minorUnits(currency) ? `25 or 25.${'5'.padEnd(minorUnits(currency), '0')}` : '2500 (no decimals)'}.` : null}
+            placeholder={moneyPlaceholder(currency)}
             value={form.price}
             onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))}
           />
@@ -485,14 +488,6 @@ function TierForm({ eventId, currency, tier, onDone, onCancel }) {
 }
 
 /**
- * "25.50" → 2550. Returns null for anything that is not money.
- *
- * `Math.round(Number(x) * 100)` is the trap in the other direction:
- * `19.99 * 100` is 1998.9999999999998, which truncates to 1998 — a cent short
- * on every ticket. Rounding fixes that case, and the string is parsed rather
- * than trusted so "25.999" and "abc" are refused instead of silently accepted.
- */
-/**
  * An ISO instant → the value a `datetime-local` input wants, in the BROWSER's
  * zone. Empty for no date, which is what "no limit at this end" looks like.
  *
@@ -544,8 +539,12 @@ function toIso(value) {
   return Number.isNaN(when.getTime()) ? null : when.toISOString();
 }
 
-export function toCents(value) {
-  const text = String(value ?? '').trim();
-  if (!/^\d+(\.\d{1,2})?$/.test(text)) return null;
-  return Math.round(Number(text) * 100);
+/**
+ * "25.50" → 2550 in dollars, "3000" → 3000 in yen. Null for anything that is
+ * not money in this currency (lib/moneyInput.js). Thousands separators are
+ * refused here, as they always were: a price field takes a plain number.
+ */
+export function toCents(value, currency = 'USD') {
+  if (String(value ?? '').includes(',')) return null;
+  return parseMoneyToCents(value, currency);
 }

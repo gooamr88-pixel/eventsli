@@ -28,6 +28,12 @@ const TYPES = Object.freeze({
   /** Operate on one hold — release it, apply or remove a promo code. */
   RESERVATION: 'reservation',
   /**
+   * Read one offline payment's instructions and status, and cancel it while
+   * unpaid (phase 2). Emailed to the buyer, so it outlives the 60-minute hold
+   * token: payment windows are hours or days.
+   */
+  OFFLINE: 'offline_payment',
+  /**
    * Ask whether ONE account has finished confirming its email, and be signed in
    * when it has.
    *
@@ -80,6 +86,22 @@ function issueReservationToken(reservationId) {
     process.env.JWT_SECRET,
     { algorithm: 'HS256', expiresIn: `${RESERVATION_TTL_MINUTES}m` },
   );
+}
+
+/** Days an offline payment link works: the longest payment window, plus margin. */
+const OFFLINE_TTL_DAYS = 21;
+
+function issueOfflineToken(offlinePaymentId) {
+  return jwt.sign(
+    { typ: TYPES.OFFLINE, pid: offlinePaymentId },
+    process.env.JWT_SECRET,
+    { algorithm: 'HS256', expiresIn: `${OFFLINE_TTL_DAYS}d` },
+  );
+}
+
+function readOfflineToken(token) {
+  const claims = verify(token);
+  return claims?.typ === TYPES.OFFLINE && claims.pid ? claims.pid : null;
 }
 
 function issueVerifyWatchToken(userId) {
@@ -147,6 +169,8 @@ module.exports = {
   issueOrderToken,
   issueReservationToken,
   issueVerifyWatchToken,
+  issueOfflineToken,
+  readOfflineToken,
   readOrderToken,
   readReservationToken,
   readVerifyWatchToken,

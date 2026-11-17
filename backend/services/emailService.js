@@ -676,7 +676,87 @@ async function sendDoorTeamAdded({ to, name, eventTitle, organizerName, startsAt
   });
 }
 
+// ─── Offline checkout (phase 2) ─────────────────────────────────────────────
+/** Instructions text, kept as the organizer wrote it, line breaks and all. */
+const instructionsHtml = (text) => escapeHtml(String(text || '')).replace(/\n/g, '<br>');
+
+/**
+ * The buyer reserved and chose to pay the organizer. Everything needed to pay
+ * is in this one email: amount, how, the reference to quote, and the deadline
+ * after which the seats go back on sale.
+ */
+async function sendOfflineReserved({ to, buyerName, event, organizerName, payment, url }) {
+  const due = T.whenText(payment.due_at, event.timezone);
+  return send({
+    to,
+    subject: `How to pay for ${event.title} — reference ${payment.reference_code}`,
+    html: T.layout({
+      title: 'Your seats are reserved',
+      preheader: `Pay ${money(payment.amount_cents, payment.currency)} to ${organizerName || 'the organizer'} by ${due}`,
+      reason: 'You are receiving this because you reserved tickets on Eventsli.',
+      body: `
+        ${T.p(`Hi ${escapeHtml(buyerName || 'there')},`)}
+        ${T.p(`Your tickets are held until <strong>${escapeHtml(due)}</strong>. Pay ${escapeHtml(organizerName || 'the organizer')} directly using the details below. Your tickets are issued as soon as they confirm the payment.`)}
+        ${T.eventCard(event)}
+        ${T.facts([
+    ['Amount', money(payment.amount_cents, payment.currency)],
+    ['Reference', payment.reference_code],
+    ['Pay by', due],
+    ['Method', payment.method?.label || ''],
+  ])}
+        ${T.note('info', `<strong>How to pay</strong><br>${instructionsHtml(payment.method?.instructions)}<br><br>Put <strong>${escapeHtml(payment.reference_code)}</strong> in the payment note so the organizer can match it.`)}
+        ${T.note('warning', 'If the payment is not confirmed by the deadline, the reservation ends and the seats go back on sale. Eventsli never takes this payment — it goes to the organizer.')}
+        ${url ? T.button(url, 'See payment details') : ''}`,
+    }),
+  });
+}
+
+/** The organizer has a reservation waiting on payment. */
+async function sendOfflineReservedToOrganizer({ to, organizerName, event, payment, buyerName, url }) {
+  return send({
+    to,
+    subject: `Reservation awaiting payment — ${payment.reference_code} — ${event.title}`,
+    html: T.layout({
+      title: 'A buyer will pay you directly',
+      preheader: `${money(payment.amount_cents, payment.currency)} expected, reference ${payment.reference_code}`,
+      reason: 'You are receiving this because you have an organizer account on Eventsli.',
+      body: `
+        ${T.p(`Hi ${escapeHtml(organizerName || 'there')},`)}
+        ${T.p(`${escapeHtml(buyerName || 'A buyer')} reserved tickets and will pay you by <strong>${escapeHtml(payment.method?.label || 'your payment method')}</strong>.`)}
+        ${T.eventCard(event)}
+        ${T.facts([
+    ['Expected', money(payment.amount_cents, payment.currency)],
+    ['Reference', payment.reference_code],
+    ['Deadline', T.whenText(payment.due_at, event.timezone)],
+  ])}
+        ${T.p('When the money arrives, open the event and mark this reservation paid — that issues the tickets. If it does not arrive by the deadline, the seats are released automatically.')}
+        ${url ? T.button(url, 'Open offline payments') : ''}`,
+    }),
+  });
+}
+
+/** The organizer cancelled an unpaid reservation. */
+async function sendOfflineCancelled({ to, buyerName, event, payment, reason }) {
+  return send({
+    to,
+    subject: `Reservation ${payment.reference_code} cancelled — ${event.title}`,
+    html: T.layout({
+      title: 'Your reservation was cancelled',
+      preheader: `Reference ${payment.reference_code}`,
+      reason: 'You are receiving this because you reserved tickets on Eventsli.',
+      body: `
+        ${T.p(`Hi ${escapeHtml(buyerName || 'there')},`)}
+        ${T.p('The organizer cancelled your unpaid reservation, and the seats were released. If you already sent a payment, contact the organizer to get it back.')}
+        ${T.eventCard(event)}
+        ${reason ? T.note('info', `Their note: ${escapeHtml(reason)}`) : ''}`,
+    }),
+  });
+}
+
 module.exports = {
+  sendOfflineReserved,
+  sendOfflineReservedToOrganizer,
+  sendOfflineCancelled,
   loggable,
   configured,
   send,

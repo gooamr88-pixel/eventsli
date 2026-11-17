@@ -216,7 +216,7 @@ const settle = ({ invoiceId, adminId, note }) => call('settle_invoice', {
   p_invoice_id: invoiceId, p_admin_id: adminId || null, p_note: note || null,
 });
 
-const recordPayment = ({ invoiceId, amountCents, method, reference, receivedAt, note, adminId }) => call('invoice_record_payment', {
+const recordPayment = ({ invoiceId, amountCents, method, reference, receivedAt, note, adminId, idempotencyKey }) => call('invoice_record_payment', {
   p_invoice_id: invoiceId,
   p_amount_cents: amountCents,
   p_method: method || null,
@@ -224,6 +224,8 @@ const recordPayment = ({ invoiceId, amountCents, method, reference, receivedAt, 
   p_received_at: receivedAt || null,
   p_note: note || null,
   p_admin_id: adminId,
+  // The form's key (20261121100000): the same submission twice records once.
+  p_idempotency_key: idempotencyKey || null,
 });
 
 const reversePayment = ({ paymentId, reason, adminId }) => call('invoice_reverse_payment', {

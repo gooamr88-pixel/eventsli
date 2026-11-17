@@ -41,7 +41,7 @@ const SELECT = `
   max_tickets_per_order, allow_ticket_transfer,
   rejection_reason, reviewed_at, cancelled_at, cancelled_reason,
   suspended_at, suspended_reason, terms_accepted_id, created_at, updated_at,
-  accepts_stripe, accepts_manual, archived_at, archived_from
+  accepts_stripe, accepts_manual, offline_payment_hours, archived_at, archived_from
 `;
 
 // Both moved to services/submissionService.js, where `submit` and its preview
@@ -628,6 +628,7 @@ function shape(e, { currentTermsId = null } = {}) {
     payments: {
       acceptsStripe: !!e.accepts_stripe,
       acceptsManual: !!e.accepts_manual,
+      offlinePaymentHours: e.offline_payment_hours ?? null,
     },
     archivedAt: e.archived_at || null,
     archivedFrom: e.archived_from || null,

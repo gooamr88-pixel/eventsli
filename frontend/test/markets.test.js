@@ -2,45 +2,32 @@ import { describe, test, expect } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import {
-  MARKETS, COUNTRIES, CURRENCIES, COUNTRY_OPTIONS, MARKET_ROWS, DEFAULT_COUNTRY, currencyFor,
+  MARKETS, COUNTRIES, CURRENCIES, COUNTRY_OPTIONS, MARKET_ROWS, DEFAULT_COUNTRY, CARD_CAPABLE, REGIONS,
+  currencyFor, minorUnits, zoneFor,
 } from '../src/app/lib/markets';
+import { formatMoney, formatMoneyCompact, formatPrice } from '../src/app/utils/money';
+import { parseMoneyToCents, centsToInput, moneyPlaceholder } from '../src/app/lib/moneyInput';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
  * THE MARKET LIST HAS TO AGREE WITH THE API'S (BRD §07).
  *
- * `backend/utils/markets.js` says the table is read "in three known places" —
- * the organizer sign-up route, the settings schema, and the database's CHECK
- * constraints. There were four more it did not count, all in the frontend, and
- * they are the ones that decide whether a market can be SELECTED at all:
- *
- *     admin/settings/Settings.jsx        the switches that open a market
- *     organizer/CreateProfile.jsx        the organization's country
- *     organizer/events/new/NewEventForm  the event's country
- *     organizer/dashboard/Dashboard.jsx  country → currency, as a ternary
- *
- * Opening a third market with those out of step fails silently in the worst
- * direction: the API accepts it, the database allows it, and no form offers it.
+ * Both sides read a `markets.json`, and they must be the same file: a country
+ * the API opens but no form offers fails silently in the worst direction —
+ * the backend accepts it, the database allows it, and nobody can select it.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-const BACKEND = path.join(process.cwd(), '..', 'backend', 'utils', 'markets.js');
+const BACKEND = path.join(process.cwd(), '..', 'backend', 'utils', 'markets.json');
+const FRONTEND = path.join(process.cwd(), 'src', 'app', 'lib', 'markets.json');
 
 describe('the market table matches the API', () => {
-  test('country → currency is identical', () => {
-    const src = fs.readFileSync(BACKEND, 'utf8');
-    const body = src.match(/SUPPORTED_MARKETS = Object\.freeze\(\{([^}]*)\}\)/)?.[1];
-    expect(body, 'could not find SUPPORTED_MARKETS in the API').toBeTruthy();
-
-    const theirs = Object.fromEntries(
-      body.split(',').map((p) => p.split(':').map((s) => s.trim().replace(/['"]/g, '')))
-        .filter((p) => p[0]),
-    );
-    expect(theirs).toEqual({ ...MARKETS });
+  test('the two markets.json files are byte-identical', () => {
+    expect(fs.readFileSync(FRONTEND, 'utf8')).toBe(fs.readFileSync(BACKEND, 'utf8'));
   });
 
   test('the derived lists follow the table rather than being written out', () => {
     expect(COUNTRIES).toEqual(Object.keys(MARKETS));
-    expect(CURRENCIES).toEqual([...new Set(Object.values(MARKETS))]);
+    expect(CURRENCIES).toEqual([...new Set(Object.values(MARKETS))].sort());
     expect(COUNTRY_OPTIONS.map(([code]) => code)).toEqual(COUNTRIES);
     expect(MARKET_ROWS.map((m) => m.country)).toEqual(COUNTRIES);
   });
@@ -56,8 +43,21 @@ describe('the market table matches the API', () => {
     }
   });
 
+  test('the whole world is here, card only where Stripe operates', () => {
+    expect(COUNTRIES.length).toBeGreaterThan(230);
+    expect(COUNTRIES).toContain('EG');
+    expect(CARD_CAPABLE).toContain('GB');
+    expect(CARD_CAPABLE).not.toContain('EG');
+    expect(REGIONS.length).toBeGreaterThan(3);
+  });
+
   test('the default country is a real market', () => {
     expect(COUNTRIES).toContain(DEFAULT_COUNTRY);
+  });
+
+  test('a country names its main time zone', () => {
+    expect(zoneFor('EG')).toBe('Africa/Cairo');
+    expect(zoneFor('zz')).toBeNull();
   });
 });
 
@@ -65,6 +65,8 @@ describe('currencyFor', () => {
   test('maps each market', () => {
     expect(currencyFor('CA')).toBe('CAD');
     expect(currencyFor('US')).toBe('USD');
+    expect(currencyFor('EG')).toBe('EGP');
+    expect(currencyFor('FR')).toBe('EUR');
   });
 
   test('is case insensitive, because a country code arrives from several places', () => {
@@ -80,5 +82,39 @@ describe('currencyFor', () => {
     for (const odd of ['ZZ', '', null, undefined, 42]) {
       expect(currencyFor(odd), String(odd)).toBe(MARKETS[DEFAULT_COUNTRY]);
     }
+  });
+});
+
+describe('money follows each currency’s decimals', () => {
+  test('minor units are ISO 4217', () => {
+    expect(minorUnits('USD')).toBe(2);
+    expect(minorUnits('JPY')).toBe(0);
+    expect(minorUnits('KWD')).toBe(3);
+    expect(minorUnits('HUF')).toBe(2);
+  });
+
+  test('formatting divides by the right scale', () => {
+    const plain = (s) => s.replace(/\s/g, ' ');
+    expect(formatMoney(1999, 'USD')).toBe('$19.99');
+    expect(formatMoney(3000, 'JPY')).toBe('¥3,000');
+    expect(plain(formatMoney(12500, 'KWD'))).toBe('KWD 12.500');
+    expect(formatMoneyCompact(3000, 'JPY')).toBe('¥3,000');
+    expect(formatMoneyCompact(1250, 'EUR')).toBe('€12.50');
+    expect(formatMoneyCompact(1200, 'EUR')).toBe('€12');
+    expect(formatPrice(0, 'EGP')).toBe('Free');
+  });
+
+  test('a typed price is read in the currency’s own unit', () => {
+    expect(parseMoneyToCents('25.50', 'USD')).toBe(2550);
+    expect(parseMoneyToCents('3000', 'JPY')).toBe(3000);
+    expect(parseMoneyToCents('30.5', 'JPY')).toBeNull();
+    expect(parseMoneyToCents('12.5', 'KWD')).toBe(12500);
+    expect(parseMoneyToCents('19.999', 'USD')).toBeNull();
+    expect(centsToInput(2550, 'USD')).toBe('25.5');
+    expect(centsToInput(3000, 'JPY')).toBe('3000');
+    expect(centsToInput(12500, 'KWD')).toBe('12.5');
+    expect(centsToInput(null, 'USD')).toBe('');
+    expect(moneyPlaceholder('JPY')).toBe('0');
+    expect(moneyPlaceholder('KWD')).toBe('0.000');
   });
 });

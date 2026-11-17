@@ -363,7 +363,7 @@ function whenText(e) {
 }
 
 function priceText(tiers, currency) {
-  const money = (c) => (c === 0 ? 'free' : `$${(c / 100).toFixed(c % 100 ? 2 : 0)} ${currency}`);
+  const money = (c) => (c === 0 ? 'free' : `${require('../utils/money').formatCompact(c, currency)} ${currency}`);
   return tiers.map((t) => `${t.name} ${money(Number(t.price_cents))}`).join('; ');
 }
 

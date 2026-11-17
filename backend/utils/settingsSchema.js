@@ -1,4 +1,6 @@
-const { SUPPORTED_MARKETS } = require('./markets');
+const {
+  SUPPORTED_MARKETS, CARD_CAPABLE, DEFAULT_CARD_COUNTRIES, marketFor,
+} = require('./markets');
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -24,7 +26,7 @@ const SETTING_DEFAULTS = Object.freeze({
   commission: { default_pct: 1.5, default_tax_pct: 0 },
   payment_fee: { default_pct: 2.9, default_fixed_cents: 30 },
   stripe_cost: { pct: 2.9, fixed_cents: 30 },
-  currencies: { allowed: ['CAD', 'USD'], by_country: { CA: 'CAD', US: 'USD' } },
+  currencies: { allowed: ['CAD', 'USD'], by_country: { CA: 'CAD', US: 'USD' }, card: ['CA', 'US'] },
   manual_invoice: {
     due_days: 7, min_hours_before_event: 24,
     enforce_gate: true, grace_hours: 0, pause_on_receipt: false, reminder_hours_before_due: 48,
@@ -32,6 +34,7 @@ const SETTING_DEFAULTS = Object.freeze({
   // 2026-11-03, owner: organizers publish immediately; admins are emailed and
   // review afterwards. Set to true to bring back review BEFORE publishing.
   event_publishing: { require_approval: false },
+  offline_checkout: { enabled: false, payment_hours: 48, min_hours_before_event: 2 },
 });
 
 const percent = { type: 'number', min: 0, max: 100, decimals: 2 };
@@ -72,6 +75,14 @@ const SCHEMAS = {
   },
   event_publishing: {
     require_approval: { type: 'boolean', label: 'Review events before they go live' },
+  },
+  // Phase 2: buyers reserve online and pay the organizer directly. Off by
+  // default; the window is how long a reservation waits for payment, capped
+  // at `min_hours_before_event` before the doors.
+  offline_checkout: {
+    enabled: { type: 'boolean', label: 'Buyers can reserve and pay the organizer offline' },
+    payment_hours: { type: 'integer', min: 1, max: 336, label: 'Hours to pay' },
+    min_hours_before_event: { type: 'integer', min: 0, max: 168, label: 'Payment due at least this long before the event' },
   },
   currencies: null,   // validated by validateCurrencies — its shape is relational
 };
@@ -139,12 +150,15 @@ function validateFields(schema, value) {
  * country must be a supported market, its currency must be that market's
  * currency (BRD §07 — never chosen separately), and `allowed` is derived from
  * the countries rather than trusted, so the two cannot disagree.
+ *
+ * `card` — where card checkout is on — may only name countries that are open
+ * AND where Stripe offers accounts. Every other open country sells offline.
  */
 function validateCurrencies(value) {
   const errors = [];
   if (!isPlainObject(value)) return { errors: ['Send { by_country: { CA: "CAD", … } }.'] };
 
-  const unknown = Object.keys(value).filter((k) => !['allowed', 'by_country'].includes(k));
+  const unknown = Object.keys(value).filter((k) => !['allowed', 'by_country', 'card'].includes(k));
   if (unknown.length) errors.push(`Not a field of this setting: ${unknown.join(', ')}.`);
 
   const byCountry = value.by_country;
@@ -157,7 +171,7 @@ function validateCurrencies(value) {
   for (const [country, currency] of Object.entries(byCountry)) {
     const expected = SUPPORTED_MARKETS[country];
     if (!expected) {
-      errors.push(`${country} is not a market Eventsli supports (${Object.keys(SUPPORTED_MARKETS).join(', ')}).`);
+      errors.push(`${country} is not a country Eventsli can open.`);
     } else if (currency !== expected) {
       errors.push(`${country} sells in ${expected}; the currency follows the country.`);
     } else {
@@ -169,7 +183,31 @@ function validateCurrencies(value) {
     errors.push('allowed must be a list of currency codes.');
   }
 
-  return { errors, clean: { allowed: [...new Set(Object.values(clean))].sort(), by_country: clean } };
+  // Left out, card keeps the verified default for whichever of those is open.
+  let card = DEFAULT_CARD_COUNTRIES.filter((c) => clean[c]);
+  if (value.card !== undefined) {
+    if (!Array.isArray(value.card)) {
+      errors.push('card must be a list of country codes.');
+    } else {
+      card = [];
+      for (const raw of value.card) {
+        const country = String(raw).toUpperCase();
+        if (!CARD_CAPABLE.includes(country)) {
+          errors.push(`${marketFor(country)?.name || country} cannot take card payments: Stripe does not offer accounts there.`);
+        } else if (!clean[country]) {
+          errors.push(`Open ${marketFor(country).name} before switching its card payments on.`);
+        } else if (!card.includes(country)) {
+          card.push(country);
+        }
+      }
+      card.sort();
+    }
+  }
+
+  return {
+    errors,
+    clean: { allowed: [...new Set(Object.values(clean))].sort(), by_country: clean, card },
+  };
 }
 
 /** `{ ok: true, value }` with the normalised value, or `{ ok: false, errors }`. */

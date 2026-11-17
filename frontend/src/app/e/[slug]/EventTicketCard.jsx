@@ -26,18 +26,22 @@ export default function EventTicketCard({ event, cheapest = [], soldOut }) {
     <section id="event-tickets" className="es-evx-tickets" aria-labelledby="event-tickets-title">
       <p className="es-evx-tickets__tab">Tickets</p>
 
-      <p className="es-evx-tickets__pill">
-        <NavIcon name="ticket" size={18} />
-        Instant purchase — no account needed
-      </p>
+      {cta.kind !== 'offline' && (
+        <p className="es-evx-tickets__pill">
+          <NavIcon name="ticket" size={18} />
+          Instant purchase — no account needed
+        </p>
+      )}
 
       <div className="es-evx-ticket">
         <div className="es-evx-ticket__body">
           <h2 id="event-tickets-title" className="es-evx-ticket__title">
-            {cta.kind === 'soldout' ? 'This event is sold out' : 'Get your tickets now!'}
+            {cta.kind === 'soldout' ? 'This event is sold out' : cta.kind === 'offline' ? 'Tickets from the organizer' : 'Get your tickets now!'}
           </h2>
           <p className="es-evx-ticket__text">
-            {cta.kind === 'soldout'
+            {cta.kind === 'offline'
+              ? cta.note
+              : cta.kind === 'soldout'
               ? 'Every ticket has gone. Keep an eye on the organizer’s other events, or check back in case seats are released.'
               : 'Buy directly and secure your spot. No account is needed — a quick, simple checkout, and your tickets arrive by email.'}
           </p>

@@ -64,7 +64,7 @@ function draftSchema(categorySlugs) {
   });
 }
 
-const SYSTEM = `You turn an event organizer's own description into a draft event for Eventsli, a ticketing platform in Canada and the United States. Answer only with JSON that matches the schema.
+const SYSTEM = `You turn an event organizer's own description into a draft event for Eventsli, a ticketing platform for events worldwide. Answer only with JSON that matches the schema.
 
 FACTS COME ONLY FROM THE DESCRIPTION.
 - starts, ends, venueName, venueAddress, city: give a value only if the description states it. Put in "evidence" the exact words copied from the description that state it, as few words as possible. If it is not stated, value and evidence are both null. Never guess or look up a venue, address, city, date or time.
@@ -153,7 +153,7 @@ function posterSchema(categorySlugs) {
   });
 }
 
-const POSTER_SYSTEM = `You turn an event poster, flyer or invitation into a draft event for Eventsli, a ticketing platform in Canada and the United States. You are given the image and sometimes a short note from the organizer. Answer only with JSON that matches the schema.
+const POSTER_SYSTEM = `You turn an event poster, flyer or invitation into a draft event for Eventsli, a ticketing platform for events worldwide. You are given the image and sometimes a short note from the organizer. Answer only with JSON that matches the schema.
 
 FIRST, TRANSCRIBE THE IMAGE.
 - posterText: every word, number and symbol printed on the image, exactly as written, top to bottom, one line of the poster per line. Keep the spelling, capitals, "$", ":" and dates as printed. Do not correct, translate, summarize or add anything. Skip text you cannot read.

@@ -5,6 +5,7 @@ import { SHAPES } from '../../../../components/seating/seatingGeometry';
 import { SHAPE_NAMES } from './shapeNames';
 import { MAX_SEATS_PER_TABLE, keyOf } from './useMapDraft';
 import { toCents } from '../tiers/Tiers';
+import { centsToInput } from '../../../../lib/moneyInput';
 import Field from '../../../../components/forms/Field';
 import { Notice } from '../../../../components/Feedback';
 import { useEventContext } from '../EventContext';
@@ -222,7 +223,7 @@ const WHOLE_TABLE_HINT = (currency) => `In ${currency || 'the event currency'}. 
 
 function PriceField({ tableKey, priceCents, onCommit, label = 'Whole-table price', hint = WHOLE_TABLE_HINT }) {
   const currency = useEventContext()?.event?.currency;
-  const external = priceCents === null || priceCents === undefined ? '' : (priceCents / 100).toString();
+  const external = centsToInput(priceCents, currency);
   const signature = `${tableKey}:${priceCents ?? ''}`;
 
   const [draft, setDraft] = useState(external);
@@ -231,12 +232,12 @@ function PriceField({ tableKey, priceCents, onCommit, label = 'Whole-table price
     setDraftFor(signature);
     // Kept when it already means this amount ("25.50" and 2550), so a commit
     // never rewrites what is being typed.
-    if (toCents(draft) !== (priceCents ?? null) || (draft === '') !== (priceCents === null || priceCents === undefined)) {
+    if (toCents(draft, currency) !== (priceCents ?? null) || (draft === '') !== (priceCents === null || priceCents === undefined)) {
       setDraft(external);
     }
   }
 
-  const invalid = draft.trim() !== '' && toCents(draft) === null;
+  const invalid = draft.trim() !== '' && toCents(draft, currency) === null;
 
   return (
     <Field
@@ -244,12 +245,12 @@ function PriceField({ tableKey, priceCents, onCommit, label = 'Whole-table price
       value={draft}
       inputMode="decimal"
       hint={hint(currency)}
-      error={invalid ? 'Enter an amount like 25 or 25.50.' : null}
+      error={invalid ? 'Enter an amount in this currency, like 25.' : null}
       onChange={(e) => {
         const text = e.target.value;
         setDraft(text);
         if (text.trim() === '') { onCommit(null); return; }
-        const cents = toCents(text);
+        const cents = toCents(text, currency);
         if (cents !== null) onCommit(cents);
       }}
     />

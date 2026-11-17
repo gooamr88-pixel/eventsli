@@ -125,7 +125,7 @@ export const metadata = {
     template: '%s · Eventsli',
   },
   description:
-    'Book concerts, festivals, conferences and sports across Canada and the United States. '
+    'Book concerts, festivals, conferences and sports near you and around the world. '
     + 'Choose your seat on the map, pay once, and arrive with a ticket on your phone.',
   applicationName: 'Eventsli',
   openGraph: {

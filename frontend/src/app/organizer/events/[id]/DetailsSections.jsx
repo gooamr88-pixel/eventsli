@@ -290,6 +290,7 @@ export function QuickSettings({ f }) {
   }
   const free = event.needs && !event.needs.payment;
   const stripeReady = Boolean(organizer?.payments?.stripeReady);
+  const cardAvailable = organizer?.payments?.cardAvailable;
   const manualReady = organizer?.payments?.manualMethods > 0;
   return (
     <section className="es-dcard" aria-label="Quick settings">
@@ -308,7 +309,7 @@ export function QuickSettings({ f }) {
         ) : (
           <>
             <Switch icon="card" label="Card payments (Stripe)"
-              detail={stripeReady ? 'Buyers pay by card at checkout.' : 'Connect Stripe first.'}
+              detail={stripeReady ? 'Buyers pay by card at checkout.' : cardAvailable === false ? 'Not available in your country yet.' : 'Connect Stripe first.'}
               checked={form.acceptsStripe}
               // Turning one OFF is always allowed; turning one ON needs it set up.
               available={stripeReady || form.acceptsStripe}
@@ -318,6 +319,16 @@ export function QuickSettings({ f }) {
               checked={form.acceptsManual}
               available={manualReady || form.acceptsManual}
               onChange={(v) => setForm((x) => ({ ...x, acceptsManual: v }))} />
+            {/* Phase 2: how long a buyer who reserves has to pay you. */}
+            {form.acceptsManual && organizer?.payments?.offlineCheckout && (
+              <label className="fx-stack fx-stack--sm gap-1.5 text-sm text-ink">
+                Hours buyers have to pay you (optional)
+                <input className="es-input es-nums" type="number" min={1} max={336} step={1} inputMode="numeric"
+                  placeholder="Platform default" value={form.offlinePaymentHours ?? ''}
+                  onChange={(e) => setForm((x) => ({ ...x, offlinePaymentHours: e.target.value }))} />
+                <span className="text-xs text-subtle">Unpaid reservations end after this, and never later than shortly before the event.</span>
+              </label>
+            )}
             {!form.acceptsStripe && !form.acceptsManual && (
               <p className="text-xs text-danger">Choose at least one way to pay before submitting this event.</p>
             )}

@@ -137,6 +137,10 @@ export const ERRORS = Object.freeze(Object.fromEntries([
     'Stripe still needs information from them before they can be paid.', 'waiting'),
   E('STRIPE_NOT_CONFIGURED', 'Card payments are switched off',
     'This is a configuration on our side, not yours. Please try again shortly.', 'waiting'),
+  E('CARD_NOT_AVAILABLE', 'Card payments are not available in your country',
+    'Add a payment method of your own — bank transfer, cash, mobile money — and confirm each payment when it arrives.'),
+  E('TICKETS_NOT_SOLD_ONLINE', 'Tickets are not sold online for this event',
+    'Contact the organizer to buy. Their details are on the event page.', 'fatal'),
   E('CURRENCY_LOCKED_AFTER_SALE', 'The currency cannot change',
     'Tickets have already sold, so this event has to stay in the currency they were sold in.'),
   E('SCANNER_LOCKED', 'Scanning is locked for this event',
@@ -309,5 +313,5 @@ export function isSelectionLost(code) {
 
 /** True when the blocker is the organizer's Stripe setup, not the buyer. */
 export function isOrganizerPayoutProblem(code) {
-  return ['STRIPE_NOT_CONNECTED', 'STRIPE_NOT_ACTIVE', 'STRIPE_NOT_CONFIGURED'].includes(code);
+  return ['STRIPE_NOT_CONNECTED', 'STRIPE_NOT_ACTIVE', 'STRIPE_NOT_CONFIGURED', 'CARD_NOT_AVAILABLE'].includes(code);
 }

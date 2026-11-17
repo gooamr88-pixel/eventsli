@@ -21,7 +21,7 @@ export const revalidate = 60;
 
 export const metadata = {
   title: 'Events',
-  description: 'Concerts, festivals, conferences and sports across Canada and the United States.',
+  description: 'Concerts, festivals, conferences and sports, near you and around the world.',
 };
 
 /** Display names for the API's enum — see lib/categories.js. */
@@ -202,7 +202,7 @@ export default async function EventsPage({ searchParams }) {
       <section className="es-ev-hero fx-section fx-section--sm">
         <div className="fx-container fx-container--xl">
           <div className="es-ev-hero__head">
-            <p className="es-lp-kicker">Canada &amp; the United States</p>
+            <p className="es-lp-kicker">Events worldwide</p>
             <h1 className="es-ev-title">
               Find your next <span className="es-lp-accent">event</span>
             </h1>

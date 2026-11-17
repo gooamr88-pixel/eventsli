@@ -17,7 +17,8 @@ export default function EventTierDetails({ event, tier, soldOut }) {
   const [open, setOpen] = useState(false);
   if (!hasDetails(tier)) return null;
   const cta = ctaFor(event, soldOut, tier.id);
-  const unavailable = tier.soldOut ? 'Sold out.' : tier.onSale === false ? 'Not on sale right now.' : null;
+  const unavailable = cta.kind === 'offline' ? 'Not sold online — contact the organizer.'
+    : tier.soldOut ? 'Sold out.' : tier.onSale === false ? 'Not on sale right now.' : null;
 
   return (
     <>

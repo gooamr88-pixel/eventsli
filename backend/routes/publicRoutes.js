@@ -133,14 +133,19 @@ router.get('/vip-events', async (req, res, next) => {
 router.get('/markets', async (req, res, next) => {
   try {
     const { supabase } = require('../config/supabase');
-    const { SUPPORTED_MARKETS, openCountries } = require('../utils/markets');
+    const { SUPPORTED_MARKETS, openCountries, cardCountries } = require('../utils/markets');
     const { data, error } = await supabase
       .from('platform_settings').select('value').eq('key', 'currencies').maybeSingle();
     if (error) throw error;
     const countries = openCountries(data ? (data.value?.by_country ?? {}) : undefined);
+    // Where card checkout is on. Every other open country sells offline.
+    const card = cardCountries(data?.value?.card).filter((c) => countries.includes(c));
     return sendOk(res, {
       countries,
-      markets: countries.map((country) => ({ country, currency: SUPPORTED_MARKETS[country] })),
+      card,
+      markets: countries.map((country) => ({
+        country, currency: SUPPORTED_MARKETS[country], card: card.includes(country),
+      })),
     });
   } catch (err) { return next(err); }
 });
@@ -378,6 +383,42 @@ router.post(
   validate,
   checkout.createSession,
 );
+
+// ─── Offline checkout (phase 2; FEATURE_DISABLED until switched on) ─────────
+const offlineCtrl = require('../controllers/offlineCheckoutController');
+
+/** Whether this hold can be paid to the organizer, with their methods and deadline. */
+router.get(
+  '/reservations/:reservationId/offline-options',
+  optionalAuth,
+  param('reservationId').isUUID(),
+  validate,
+  offlineCtrl.options,
+);
+
+/** Reserve and pay the organizer: the same guards as the card checkout. */
+router.post(
+  '/reservations/:reservationId/offline',
+  holdLimiter,
+  optionalAuth,
+  param('reservationId').isUUID(),
+  body('methodId').isUUID().withMessage('Choose how you will pay the organizer.'),
+  body('email').optional().isEmail().normalizeEmail(),
+  body('name').optional().isString().trim().isLength({ max: 120 }),
+  body('phone').optional().isString().trim().matches(/^[0-9+\-() ]{7,20}$/),
+  body('sms').optional().isObject(),
+  body('sms.transactional').optional().isBoolean({ strict: true }),
+  body('sms.marketingPlatform').optional().isBoolean({ strict: true }),
+  body('sms.marketingOrganizer').optional().isBoolean({ strict: true }),
+  body('acceptTerms').custom((v) => v === true).withMessage('Accept the terms to continue.'),
+  body('signature').isObject().withMessage('Sign to continue — draw your signature, or type your name.'),
+  validate,
+  checkout.createOffline,
+);
+
+/** The buyer's payment page: instructions, reference, deadline, status. Token-keyed. */
+router.get('/offline-payments/:id', param('id').isUUID(), validate, offlineCtrl.view);
+router.post('/offline-payments/:id/cancel', holdLimiter, param('id').isUUID(), validate, offlineCtrl.cancelByBuyer);
 
 /**
  * Claiming free tickets. Same guards as the paid checkout — identify yourself,

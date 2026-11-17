@@ -127,9 +127,11 @@ const FAQ = [
   },
   {
     q: 'Which countries do you work in?',
-    a: 'Canada and the United States. Events are priced in Canadian or US dollars, decided by '
-      + 'the event’s market and fixed once the first ticket is sold — so a price cannot '
-      + 'change currency underneath somebody who has already paid.',
+    a: 'Organizers anywhere in the world can sell on Eventsli. Each event is priced in its '
+      + 'country’s own currency, fixed once the first ticket is sold — so a price cannot change '
+      + 'currency underneath somebody who has already paid. In some countries buyers pay by card; '
+      + 'elsewhere the organizer sells tickets directly — in person, or by bank transfer or mobile '
+      + 'money — and records each sale, and Eventsli issues the tickets.',
   },
 ];
 

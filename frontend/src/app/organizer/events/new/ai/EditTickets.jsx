@@ -50,7 +50,7 @@ function TierRow({ tier, index, total, admissionType, currency, update, remove, 
 
       <p id={`${id}-price-note`} className={`es-ai-src${needs ? ' es-ai-src--need' : ''}`}>
         {needs
-          ? <><NavIcon name="alert" size={13} /> {tier.priceEvidence || priceToCents(tier.price) !== null ? priceError : 'Your description has no price for this one. Enter one, mark it free, or remove it.'}</>
+          ? <><NavIcon name="alert" size={13} /> {tier.priceEvidence || priceToCents(tier.price, currency) !== null ? priceError : 'Your description has no price for this one. Enter one, mark it free, or remove it.'}</>
           : tier.priceEvidence
             ? <><NavIcon name="list" size={13} /> You wrote: &ldquo;{tier.priceEvidence}&rdquo;</>
             : tier.free ? 'Free ticket' : 'Price set by you'}

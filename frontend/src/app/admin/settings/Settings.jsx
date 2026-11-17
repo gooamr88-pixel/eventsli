@@ -10,7 +10,7 @@ import { formatEventTime } from '../../lib/eventTime';
 import { PageHeader, Panel } from '../../components/ui/Page';
 import FormError from '../../components/forms/FormError';
 import { Loading, ErrorNotice, Notice } from '../../components/Feedback';
-import { MARKET_ROWS as MARKETS } from '../../lib/markets';
+import MarketSwitches, { marketsDraft, marketsValue } from './MarketSwitches';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -45,8 +45,19 @@ const FORMS = {
     ],
   },
   currencies: {
-    title: 'Markets open for new events',
-    hint: 'Where organizers can create events. The currency follows the country and cannot be chosen separately.',
+    title: 'Countries open to organizers',
+    hint: 'Where organizers can sign up and create events, and where buyers can pay by card. The currency follows the country and cannot be chosen separately.',
+  },
+  // Phase 2: buyers reserve online and pay the organizer directly. Off until
+  // switched on here; every entry point refuses while it is off.
+  offline_checkout: {
+    title: 'Offline checkout',
+    hint: 'Buyers reserve online and pay the organizer directly (bank transfer, cash, mobile money). The organizer marks each payment received; tickets are issued then. Unpaid reservations end at their deadline.',
+    fields: [
+      { name: 'enabled', label: 'Buyers can reserve and pay the organizer offline', type: 'boolean' },
+      { name: 'payment_hours', label: 'Hours to pay', unit: 'hours', step: '1', min: 1, max: 336 },
+      { name: 'min_hours_before_event', label: 'Due at least this long before the event', unit: 'hours', step: '1', min: 0, max: 168 },
+    ],
   },
   commission: {
     title: 'Commission',
@@ -112,7 +123,7 @@ export default function Settings() {
         eyebrow="Governance"
         icon="settings"
         title="Platform settings"
-        lede="The markets Eventsli sells in, and the defaults every new event starts from."
+        lede="The countries Eventsli operates in, and the defaults every new event starts from."
       />
 
       <Notice tone="info" title="Changes apply from now on.">
@@ -126,8 +137,8 @@ export default function Settings() {
       )}
 
       {markets && !markets.isSet && (
-        <Notice tone="danger" title="No market is open.">
-          <p>Nobody can create an event until the markets below are saved.</p>
+        <Notice tone="danger" title="No country is open.">
+          <p>Nobody can create an event until the countries below are saved.</p>
         </Notice>
       )}
 
@@ -168,12 +179,13 @@ function SettingCard({ setting, canEdit, onSaved }) {
     e.preventDefault();
     if (value === null) return;
     const closing = setting.key === 'currencies'
-      && Object.keys(base.by_country || {}).some((country) => !value.by_country[country]);
+      && (Object.keys(base.by_country || {}).some((country) => !value.by_country[country])
+        || (base.card || []).some((country) => !value.card.includes(country)));
     const answer = await confirm({
       title: `Save “${form.title}”?`,
       tone: closing ? 'danger' : 'default',
       body: closing
-        ? <p>Organizers in a market you close can no longer create events there. Events that already exist are not affected.</p>
+        ? <p>Organizers in a country you close can no longer create events there, and where you switch card payments off, card checkout stops on the next sale. Events that already exist are otherwise not affected.</p>
         : setting.key === 'event_publishing'
           ? <p>Applies to the next event an organizer publishes. Events already live are not affected.</p>
           : <p>New events use this from the moment it is saved.</p>,
@@ -196,25 +208,18 @@ function SettingCard({ setting, canEdit, onSaved }) {
   }
 
   return (
-    <Panel title={form.title} action={!setting.isSet && <span className="es-pill es-pill--warning">Not saved yet</span>}>
+    <Panel
+      title={form.title}
+      className={setting.key === 'currencies' ? 'md:col-span-2' : ''}
+      action={!setting.isSet && <span className="es-pill es-pill--warning">Not saved yet</span>}
+    >
       <form onSubmit={save} className="fx-stack fx-stack--sm">
         <p className="text-sm text-muted">{form.hint}</p>
 
         {setting.key === 'currencies' ? (
           <fieldset className="fx-stack fx-stack--sm">
-            <legend className="sr-only">Markets</legend>
-            {MARKETS.map((m) => (
-              <label key={m.country} className="fx-row text-sm text-ink">
-                <input
-                  type="checkbox"
-                  className="size-5 accent-[var(--es-accent)]"
-                  disabled={!canEdit}
-                  checked={draft.includes(m.country)}
-                  onChange={(e) => setDraft((d) => (e.target.checked ? [...d, m.country] : d.filter((c) => c !== m.country)))}
-                />
-                {m.name} — sells in {m.currency}
-              </label>
-            ))}
+            <legend className="sr-only">Countries</legend>
+            <MarketSwitches draft={draft} setDraft={setDraft} canEdit={canEdit} />
           </fieldset>
         ) : canEdit ? (
           // Not .fx-grid--2: its 560px track never fits this half-width card, so it
@@ -297,7 +302,7 @@ function SettingCard({ setting, canEdit, onSaved }) {
         {canEdit && value === null && (
           <p className="text-sm text-danger" role="status">
             {setting.key === 'currencies'
-              ? 'Open at least one market — with none, no event can be created anywhere.'
+              ? 'Open at least one country — with none, no event can be created anywhere.'
               : 'Each value must be a number within its range, and fixed amounts in whole cents or days.'}
           </p>
         )}
@@ -317,7 +322,7 @@ function SettingCard({ setting, canEdit, onSaved }) {
 }
 
 function initialDraft(key, base) {
-  if (key === 'currencies') return Object.keys(base.by_country || {});
+  if (key === 'currencies') return marketsDraft(base);
   // A field added after the setting was first saved starts at its default,
   // which is also what the server falls back to — never at a blank or "off".
   return Object.fromEntries(FORMS[key].fields.map((f) => {
@@ -328,14 +333,7 @@ function initialDraft(key, base) {
 
 /** The value to send, or null when the draft is not valid. */
 function buildValue(key, base, draft) {
-  if (key === 'currencies') {
-    const chosen = MARKETS.filter((m) => draft.includes(m.country));
-    if (!chosen.length) return null;
-    return {
-      allowed: [...new Set(chosen.map((m) => m.currency))].sort(),
-      by_country: Object.fromEntries(chosen.map((m) => [m.country, m.currency])),
-    };
-  }
+  if (key === 'currencies') return marketsValue(draft);
   // Optional fields the form does not show are kept: payment_fee.default_mode,
   // and manual_invoice.min_hours_from_issue, which the due-date trigger reads.
   const value = key === 'payment_fee' && base.default_mode ? { default_mode: base.default_mode } : {};

@@ -95,6 +95,8 @@ function fromEvent(event) {
     allowTicketTransfer: Boolean(event.rules?.allowTicketTransfer),
     acceptsStripe: Boolean(event.payments?.acceptsStripe),
     acceptsManual: Boolean(event.payments?.acceptsManual),
+    // Phase 2: hours a buyer has to pay offline; blank = the platform's.
+    offlinePaymentHours: event.payments?.offlinePaymentHours ? String(event.payments.offlinePaymentHours) : '',
   };
 }
 
@@ -263,6 +265,7 @@ export default function EventDetailsEditor({ event, onSaved }) {
       else if (key === 'venueLat' || key === 'venueLng') {
         body[key] = form[key] === '' ? null : Number(form[key]);
       } else if (key === 'venuePlaceId') body[key] = form[key] || null;
+      else if (key === 'offlinePaymentHours') body[key] = form[key] === '' ? null : Number(form[key]);
       else if (typeof form[key] === 'string') body[key] = form[key].trim();
       else body[key] = form[key];
     }

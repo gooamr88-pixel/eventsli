@@ -170,6 +170,7 @@ router.post(
   body('receivedAt').optional({ values: 'falsy' }).isISO8601().withMessage('Enter when the money arrived.'),
   body('note').optional({ values: 'falsy' }).isString().trim().isLength({ max: 500 }),
   body('notify').optional().isBoolean(),
+  body('idempotencyKey').optional({ values: 'falsy' }).isUUID().withMessage('idempotencyKey must be a UUID.'),
   validate,
   manual.adminRecordPayment,
 );

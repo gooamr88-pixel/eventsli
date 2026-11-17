@@ -59,6 +59,8 @@
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
+const { minorUnits } = require('./markets');
+
 /** Guard: every amount crossing this module must be a safe integer. */
 function assertCents(value, label) {
   if (!Number.isInteger(value)) {
@@ -83,33 +85,57 @@ function pctOf(cents, pct) {
   return Math.sign(raw) * Math.round(Math.abs(raw));
 }
 
-/** Money → display string. Presentation only; never feed this back into math. */
+/**
+ * Money → display string. Presentation only; never feed this back into math.
+ *
+ * "Cents" throughout this module means the currency's MINOR unit — yen for
+ * JPY, fils for KWD — and `minorUnits` says how many decimals that is. The
+ * decimals shown are always those, never Intl's own default (which hides the
+ * decimals of HUF, COP, IDR and others that Stripe and ISO 4217 keep).
+ */
 function formatCents(cents, currency = 'USD', locale = 'en-CA') {
   assertCents(cents, 'amount');
+  const code = String(currency).toUpperCase();
+  const digits = minorUnits(code);
   return new Intl.NumberFormat(locale, {
     style: 'currency',
-    currency: String(currency).toUpperCase(),
-    minimumFractionDigits: 2,
-  }).format(cents / 100);
+    currency: code,
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  }).format(cents / 10 ** digits);
+}
+
+/** As formatCents, without the decimals when they are all zero: "$45", "€12.50", "¥3,000". */
+function formatCompact(cents, currency = 'USD', locale = 'en-US') {
+  assertCents(cents, 'amount');
+  const scale = 10 ** minorUnits(currency);
+  if (cents % scale !== 0) return formatCents(cents, currency, locale);
+  return new Intl.NumberFormat(locale, {
+    style: 'currency', currency: String(currency).toUpperCase(), minimumFractionDigits: 0, maximumFractionDigits: 0,
+  }).format(cents / scale);
 }
 
 /**
- * Parse a human-typed amount ("19.99", "1,299.50") into cents WITHOUT floats.
+ * Parse a human-typed amount ("19.99", "1,299.50") into minor units WITHOUT
+ * floats, allowing exactly as many decimals as the currency has.
  *
  * String-split rather than `Math.round(parseFloat(x) * 100)` so the value never
  * passes through a binary float at all. The float route is correct for almost
  * every input, which is exactly what makes the handful it gets wrong so hard to
  * find later.
  */
-function parseAmountToCents(input) {
+function parseAmountToCents(input, currency = 'USD') {
+  const digits = minorUnits(currency);
   const s = String(input).trim().replace(/,/g, '');
-  if (!/^-?\d+(\.\d{0,2})?$/.test(s)) {
+  const pattern = digits === 0 ? /^-?\d+$/ : new RegExp(`^-?\\d+(\\.\\d{0,${digits}})?$`);
+  if (!pattern.test(s)) {
     throw new TypeError(`Not a valid money amount: "${input}"`);
   }
   const negative = s.startsWith('-');
   const [whole, frac = ''] = (negative ? s.slice(1) : s).split('.');
-  const cents = parseInt(whole, 10) * 100 + parseInt((frac + '00').slice(0, 2), 10);
-  return negative ? -cents : cents;
+  const minor = parseInt(whole, 10) * 10 ** digits
+    + (digits ? parseInt((frac + '000').slice(0, digits), 10) : 0);
+  return negative ? -minor : minor;
 }
 
 /**
@@ -504,6 +530,7 @@ module.exports = {
   assertCents,
   pctOf,
   formatCents,
+  formatCompact,
   parseAmountToCents,
   stripeCostCents,
   solvePaymentFeeCents,

@@ -85,6 +85,13 @@ const ERROR_STATUS = {
   STRIPE_NOT_CONNECTED: 403,
   STRIPE_NOT_ACTIVE: 403,
   STRIPE_NOT_CONFIGURED: 503,
+  // Card checkout is not on for the organizer's country: Stripe does not
+  // operate there, or a super admin has not switched it on (utils/markets.js).
+  // They sell with their own payment methods instead.
+  CARD_NOT_AVAILABLE: 403,
+  // No online way to pay for this event (services/purchasability.js): a hold
+  // is refused rather than leading to a checkout that cannot take payment.
+  TICKETS_NOT_SOLD_ONLINE: 403,
   CURRENCY_LOCKED_AFTER_SALE: 409,
   SCANNER_LOCKED: 403,
 

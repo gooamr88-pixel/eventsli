@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { post } from '../../../utils/apiClient';
 import { describeError, messageFor } from '../../../utils/errors';
 import { formatMoney } from '../../../utils/money';
-import { parseMoneyToCents } from '../../../lib/moneyInput';
+import { parseMoneyToCents, centsToInput } from '../../../lib/moneyInput';
 import { safeExternalUrl } from '../../../utils/safeUrl';
 import { formatEventTime, toIso, toLocalInput } from '../../../lib/eventTime';
 import { describeGate, gateModeLabel } from '../../../lib/gateState';
@@ -311,14 +311,18 @@ function Fact({ term, value }) {
 
 /** A payment as it arrived — partial is fine, more than is owed is refused. */
 function RecordPayment({ invoice, busy, onSubmit }) {
-  const [amount, setAmount] = useState((invoice.balanceCents / 100).toFixed(2));
+  const [amount, setAmount] = useState(centsToInput(invoice.balanceCents, invoice.currency));
   const [method, setMethod] = useState('bank transfer');
   const [reference, setReference] = useState('');
   const [today] = useState(() => new Date().toISOString().slice(0, 10));
   const [receivedOn, setReceivedOn] = useState(today);
   const [note, setNote] = useState('');
   const [notify, setNotify] = useState(true);
-  const cents = parseMoneyToCents(amount);
+  // One key per payment being entered: a double-click or a retried request
+  // sends the same key, and the server records the payment once. A new key
+  // only after a payment has actually been recorded.
+  const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID());
+  const cents = parseMoneyToCents(amount, invoice.currency);
   const tooMuch = cents !== null && cents > invoice.balanceCents;
 
   async function submit(e) {
@@ -328,8 +332,9 @@ function RecordPayment({ invoice, busy, onSubmit }) {
       amountCents: cents, method, reference: reference || undefined, note: note || undefined, notify,
       // Midday on the chosen day, so no zone can move it to the day before.
       receivedAt: receivedOn ? new Date(`${receivedOn}T12:00:00`).toISOString() : undefined,
+      idempotencyKey,
     });
-    if (ok) { setReference(''); setNote(''); }
+    if (ok) { setReference(''); setNote(''); setIdempotencyKey(crypto.randomUUID()); }
   }
 
   return (

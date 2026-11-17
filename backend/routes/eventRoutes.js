@@ -182,6 +182,8 @@ router.patch(
   body('allowTicketTransfer').optional().isBoolean(),
   body('acceptsStripe').optional().isBoolean(),
   body('acceptsManual').optional().isBoolean(),
+  body('offlinePaymentHours').optional({ values: 'null' }).isInt({ min: 1, max: 336 })
+    .withMessage('Give buyers between 1 and 336 hours to pay.'),
   // An admin's note for the audit trail when they change an organizer's event.
   body('reason').optional().isString().trim().isLength({ max: 1000 }),
   validate,
@@ -470,6 +472,30 @@ router.post(
 
 router.get('/:eventId/manual-sales', verifyEventOwner, manual.listSales);
 router.get('/:eventId/commission', verifyEventOwner, manual.debt);
+
+// ─── Offline checkout (phase 2) — the organizer's side ─────────────────────
+const offlineCtrl = require('../controllers/offlineCheckoutController');
+router.get('/:eventId/offline-payments', verifyEventOwner,
+  query('status').optional().isIn(['awaiting', 'paid', 'expired', 'cancelled', 'voided', 'refunded']),
+  validate, offlineCtrl.list);
+// Mark as paid: exactly the amount owed; the same key (or a second click) returns the first answer.
+router.post('/:eventId/offline-payments/:offlineId/confirm', verifyEventOwner,
+  param('offlineId').isUUID(),
+  body('amountCents').isInt({ min: 1, max: 1_000_000_000 }).withMessage('Enter the amount you received.'),
+  body('reference').optional({ values: 'falsy' }).isString().trim().isLength({ max: 120 }),
+  body('confirmKey').optional({ values: 'falsy' }).isUUID(),
+  validate, offlineCtrl.confirm);
+router.post('/:eventId/offline-payments/:offlineId/cancel', verifyEventOwner,
+  param('offlineId').isUUID(),
+  body('reason').optional({ values: 'falsy' }).isString().trim().isLength({ max: 300 }),
+  validate, offlineCtrl.cancelByOrganizer);
+// Void (recorded in error) or refund (money returned) a door or offline order.
+router.post('/:eventId/orders/:orderId/void', verifyEventOwner,
+  param('orderId').isUUID(),
+  body('kind').isIn(['void', 'refund']).withMessage('Choose void or refund.'),
+  body('reason').isString().trim().isLength({ min: 5, max: 300 }).withMessage('Say why, in a few words.'),
+  validate, offlineCtrl.voidOrder);
+router.get('/:eventId/payment-audit', verifyEventOwner, offlineCtrl.audit);
 
 router.post(
   '/:eventId/invoices/:invoiceId/proof',

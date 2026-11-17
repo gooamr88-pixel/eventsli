@@ -4,6 +4,7 @@ const terms = require('../services/termsService');
 const { sendOk, sendFail } = require('../utils/responseEnvelope');
 const { canReceivePayouts } = require('../utils/payouts');
 const { paymentChoices } = require('../services/eventRules');
+const marketsSvc = require('../services/marketsService');
 const logger = require('../utils/logger');
 
 /**
@@ -52,6 +53,17 @@ async function create(req, res, next) {
       });
     }
 
+    // Supported is checked by the route; OPEN is the platform setting's call.
+    const country = String(req.body.country).toUpperCase();
+    const { openCountries, marketFor } = require('../utils/markets');
+    const setting = await marketsSvc.currencySetting();
+    if (!openCountries(setting === undefined ? undefined : (setting.by_country ?? {})).includes(country)) {
+      return sendFail(res, {
+        status: 400, error: 'VALIDATION_ERROR',
+        message: `Eventsli is not open to organizers in ${marketFor(country)?.name || country} yet.`,
+      });
+    }
+
     await recordPolicyAcceptance(req);
 
     const now = new Date().toISOString();
@@ -62,7 +74,7 @@ async function create(req, res, next) {
         display_name: String(req.body.displayName).trim(),
         legal_name: String(req.body.legalName).trim(),
         description: String(req.body.description).trim(),
-        country: String(req.body.country).toUpperCase(),
+        country,
         policies_accepted_at: now,
         updated_at: now,
       })
@@ -89,7 +101,7 @@ async function create(req, res, next) {
     // request still sees them as an attendee.
     rbac.invalidate(req.user.id);
 
-    return sendOk(res, shape(data, { manualMethods: 0 }), { status: 201 });
+    return sendOk(res, shape(data, { manualMethods: 0, cardAvailable: await marketsSvc.cardEnabled(data.country) }), { status: 201 });
   } catch (err) {
     return next(err);
   }
@@ -111,7 +123,7 @@ async function me(req, res, next) {
         message: 'You do not have an organizer profile yet.',
       });
     }
-    return sendOk(res, shape(data, { manualMethods: await activeManualMethods(data.id) }));
+    return sendOk(res, shape(data, await paymentContext(data)));
   } catch (err) {
     return next(err);
   }
@@ -179,7 +191,7 @@ async function update(req, res, next) {
 
     if (error) throw new Error(error.message);
     rbac.invalidate(req.user.id);
-    return sendOk(res, shape(data, { manualMethods: await activeManualMethods(data.id) }));
+    return sendOk(res, shape(data, await paymentContext(data)));
   } catch (err) {
     return next(err);
   }
@@ -205,6 +217,17 @@ async function activeManualMethods(organizerId) {
   return count || 0;
 }
 
+/** What `shape` needs to say how this organizer can be paid. */
+async function paymentContext(row) {
+  const [manualMethods, cardAvailable, offlineCheckout] = await Promise.all([
+    activeManualMethods(row.id),
+    marketsSvc.cardEnabled(row.country),
+    // Phase 2: whether buyers can reserve online and pay these methods.
+    require('../services/purchasability').offlineCheckoutOn(),
+  ]);
+  return { manualMethods, cardAvailable, offlineCheckout };
+}
+
 /**
  * `stripe_account_id` is never returned. It identifies a connected account and
  * is useful to an attacker; nothing in the UI needs it, only whether payouts
@@ -214,8 +237,11 @@ async function activeManualMethods(organizerId) {
  * create-event screen shows exactly these, so it never offers card payments to
  * an organizer who cannot be paid by card.
  */
-function shape(row, { manualMethods = 0 } = {}) {
-  const stripeReady = canReceivePayouts(row);
+function shape(row, { manualMethods = 0, cardAvailable = false, offlineCheckout = false } = {}) {
+  // `cardAvailable`: card checkout is switched on for their country
+  // (utils/markets.js). Where it is not, they sell offline — with their own
+  // payment methods — and the Stripe step is not offered at all.
+  const stripeReady = cardAvailable && canReceivePayouts(row);
   const manualReady = manualMethods > 0;
   return {
     id: row.id,
@@ -229,6 +255,8 @@ function shape(row, { manualMethods = 0 } = {}) {
     policiesAcceptedAt: row.policies_accepted_at,
     setupComplete: isSetupComplete(row),
     payments: {
+      cardAvailable,
+      offlineCheckout,
       stripeReady,
       stripeConnected: !!row.stripe_account_id,
       manualMethods,
@@ -390,6 +418,14 @@ async function startStripeOnboarding(req, res, next) {
       return sendFail(res, {
         status: 404, error: 'NOT_FOUND',
         message: 'Create your organizer profile first.',
+      });
+    }
+
+    // A Stripe account's country is permanent. Created where card checkout is
+    // not on, it could never be charged on — so it is not created at all.
+    if (!(await marketsSvc.cardEnabled(org.country))) {
+      return sendFail(res, {
+        status: 403, error: 'CARD_NOT_AVAILABLE', message: marketsSvc.cardUnavailableMessage(org.country),
       });
     }
 

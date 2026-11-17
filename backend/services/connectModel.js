@@ -28,14 +28,19 @@
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
+const { CARD_CAPABLE } = require('../utils/markets');
+
 /** Stripe API version for the Accounts v2 calls. Overridable, never preview. */
 const ACCOUNTS_V2_API_VERSION = '2026-10-28.endive';
 
 /** The v2 body that creates an organizer account with the required responsibilities. */
 function accountCreateBody(organizer) {
+  // Only where Stripe offers accounts (utils/markets.js). Whether card checkout
+  // is switched ON for the country is the platform setting's question, asked by
+  // the caller; this is the hard floor under it.
   const country = String(organizer.country || '').toLowerCase();
-  if (!['ca', 'us'].includes(country)) {
-    throw Object.assign(new Error(`Organizers can connect from Canada or the United States, not "${organizer.country}".`),
+  if (!CARD_CAPABLE.includes(country.toUpperCase())) {
+    throw Object.assign(new Error(`Stripe does not offer accounts in "${organizer.country}".`),
       { code: 'VALIDATION_ERROR' });
   }
   return {

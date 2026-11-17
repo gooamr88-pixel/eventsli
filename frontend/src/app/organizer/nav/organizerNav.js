@@ -216,6 +216,8 @@ export function organizerNavGroups({
       items: [
         item('share', 'Share & QR', 'qr', '/share'),
         item('orders', 'Orders', 'receipt', '/orders'),
+        // Phase 2: buyers who reserved online and pay the organizer directly.
+        item('offline', 'Offline payments', 'coins', '/offline'),
         item('door', 'Door sales', 'cash', '/door'),
         item('commission', 'Commission', 'percent', '/commission'),
       ],

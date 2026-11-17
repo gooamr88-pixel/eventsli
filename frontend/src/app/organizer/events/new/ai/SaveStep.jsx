@@ -90,7 +90,7 @@ export default function SaveStep({
             <legend className="es-ai-label">Payment options</legend>
             {choices.length === 0 ? (
               <Notice tone="warning" title="You have no payment method yet.">
-                <p>You can still save this draft. It cannot go on sale until you connect Stripe or add a manual payment method.</p>
+                <p>You can still save this draft. It cannot go on sale until you add a payment method.</p>
               </Notice>
             ) : (
               <div className="es-ai-opts">

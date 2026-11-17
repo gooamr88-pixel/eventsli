@@ -20,6 +20,7 @@ import { DoorPrinterArt } from '../../../../components/ui/Illustrations';
 import { useEventContext } from '../EventContext';
 import { toSaleMap } from './doorMap';
 import { DoorSummary, DoorEmpty } from './DoorParts';
+import OrderUndo from '../offline/OrderUndo';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -277,6 +278,16 @@ export default function DoorSales({ eventId }) {
                   label: 'When',
                   wide: true,
                   render: (s) => <span className="whitespace-nowrap">{formatEventTime(s.recordedAt, event.timezone)}</span>,
+                },
+                {
+                  // Void (recorded in error) or refund — tickets stop working,
+                  // the seat goes back on sale, the commission is reversed.
+                  key: 'undo',
+                  label: '',
+                  align: 'end',
+                  render: (s) => (s.state === 'void' || s.state === 'refund'
+                    ? <span className="es-pill es-pill--danger" title={s.voidReason || ''}>{s.state === 'refund' ? 'Refunded' : 'Voided'}</span>
+                    : <OrderUndo eventId={eventId} order={{ orderId: s.id, amountCents: s.buyerPaidCents, currency: s.currency }} onDone={() => { sales.reload(); summary.reload(); }} />),
                 },
               ]}
             />

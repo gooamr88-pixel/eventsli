@@ -185,6 +185,15 @@ async function createSession(req, res, next) {
 
     if (!ownsReservation(req)) return sendFail(res, NOT_YOURS);
 
+    // A hold already waiting on an offline payment to the organizer (phase 2)
+    // cannot also be paid by card — that is how a buyer pays twice.
+    if (await require('../services/offlineCheckoutService').pendingFor(req.params.reservationId)) {
+      return sendFail(res, {
+        status: 409, error: 'CONFLICT',
+        message: 'You chose to pay the organizer for these tickets. Cancel that reservation first to pay by card.',
+      });
+    }
+
     const q = await pricing.quoteReservation(req.params.reservationId);
 
     // Guests must identify themselves — the ticket has to reach someone, and a
@@ -286,6 +295,70 @@ async function createSession(req, res, next) {
     });
 
     return sendOk(res, { checkoutUrl: session.url, sessionId: session.id });
+  } catch (err) {
+    if (err.code && ERROR_STATUS[err.code]) {
+      return sendFail(res, { status: statusFor(err.code), error: err.code, message: err.message });
+    }
+    return next(err);
+  }
+}
+
+// ─── POST /public/reservations/:reservationId/offline ───────────────────────
+/**
+ * Reserve and pay the organizer directly (phase 2). The same guards as the card
+ * checkout — the hold is yours, you are identified, you accepted the terms and
+ * signed — and then offline_reserve extends the hold to the payment deadline.
+ * No tickets exist until the organizer marks it paid.
+ */
+async function createOffline(req, res, next) {
+  try {
+    if (!ownsReservation(req)) return sendFail(res, NOT_YOURS);
+    const offline = require('../services/offlineCheckoutService');
+
+    const buyer = {
+      userId: req.user?.id || null,
+      name: (req.body.name || req.user?.access?.fullName || '').trim(),
+      email: (req.body.email || req.user?.email || '').trim().toLowerCase(),
+      phone: (req.body.phone || '').trim(),
+    };
+    if (!buyer.email) {
+      return sendFail(res, {
+        status: 400, error: 'VALIDATION_ERROR',
+        message: 'Enter an email address — the payment details and your tickets are sent there.',
+      });
+    }
+    if (req.body.acceptTerms !== true) {
+      return sendFail(res, { status: 403, error: 'TERMS_NOT_ACCEPTED', message: 'Accept the terms to continue.' });
+    }
+    const sig = readSignature(req, res);
+    if (!sig) return undefined;
+
+    // Price and availability first (FEATURE_DISABLED when phase 2 is off), so
+    // nothing is recorded for a reservation that cannot be made.
+    const q = await pricing.quoteReservation(req.params.reservationId, { offline: true });
+    await offline.settings().then((s) => {
+      if (s.enabled !== true) {
+        throw Object.assign(new Error('Paying the organizer offline is not available yet.'), { code: 'FEATURE_DISABLED' });
+      }
+    });
+
+    const terms = require('../services/termsService');
+    const current = await terms.currentVersion('buyer');
+    const acceptance = await terms.accept({
+      userId: buyer.userId, email: buyer.email, reservationId: req.params.reservationId,
+      termsId: current.id, eventId: q.event.id, req,
+    });
+    await signatures.record({
+      sig, eventId: q.event.id, reservationId: req.params.reservationId,
+      acceptanceId: acceptance?.id || null, buyer, req,
+    });
+    if (!(await captureSms(req, res, q))) return undefined;
+
+    const result = await offline.reserve({
+      reservationId: req.params.reservationId, methodId: req.body.methodId, buyer,
+    });
+    return sendOk(res, { ...result.payment, accessToken: result.token, duplicate: result.duplicate },
+      { status: result.duplicate ? 200 : 201 });
   } catch (err) {
     if (err.code && ERROR_STATUS[err.code]) {
       return sendFail(res, { status: statusFor(err.code), error: err.code, message: err.message });
@@ -782,4 +855,4 @@ async function claimFree(req, res, next) {
   }
 }
 
-module.exports = { quote, createSession, claimFree, checkoutResult, fulfillFromSession };
+module.exports = { quote, createSession, createOffline, claimFree, checkoutResult, fulfillFromSession };

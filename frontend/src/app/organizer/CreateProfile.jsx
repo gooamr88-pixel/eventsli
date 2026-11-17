@@ -10,8 +10,20 @@ import SubmitButton from '../components/forms/SubmitButton';
 import NavIcon from '../components/shell/NavIcon';
 import { useShellFocus } from '../components/shell/shellFocus';
 import { OnboardingProgress } from './OnboardingProgress';
-import { DEFAULT_COUNTRY } from '../lib/markets';
+import { DEFAULT_COUNTRY, currencyFor, guessCountry } from '../lib/markets';
 import { useOpenCountries, openCountryFor } from '../hooks/useOpenCountries';
+
+/**
+ * What choosing this country means, said before it is fixed for good: the
+ * currency, and whether buyers can pay by card or the organizer collects.
+ */
+function countryHint(country, cardCountries) {
+  const currency = currencyFor(country);
+  const payments = cardCountries.includes(country)
+    ? 'Buyers can pay by card, or with your own payment methods.'
+    : 'Online card payments are not available here yet: you sell tickets directly — in person, by bank transfer or mobile money — and record each sale.';
+  return `Where your organization is based. Your events are priced in ${currency}. ${payments} This cannot be changed later.`;
+}
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -45,9 +57,22 @@ export default function CreateProfile({ organizer = null, onCreated }) {
   const [brandTouched, setBrandTouched] = useState(Boolean(organizer?.displayName));
   // Only the markets an admin has open are offered; a closed default moves to
   // the first open one (during render, so the closed one never paints).
-  const { options: countryOptions, ready: countriesReady } = useOpenCountries();
+  const { options: countryOptions, cardCountries, ready: countriesReady } = useOpenCountries();
   const openCountry = countriesReady && !organizer ? openCountryFor(form.country, countryOptions) : null;
   if (openCountry && openCountry !== form.country) setForm((f) => ({ ...f, country: openCountry }));
+  // Start where they are, not in Canada: their clock or language names the
+  // country more often than not. Once, when the open list arrives — during
+  // render, like the move above, so Canada never paints first. Safe to read the
+  // browser here: this form only renders after the organizer fetch, in the
+  // browser, never in the server's HTML.
+  const [guessed, setGuessed] = useState(false);
+  if (!organizer && !guessed && countriesReady) {
+    setGuessed(true);
+    const guess = guessCountry();
+    if (guess && guess !== form.country && countryOptions.some(([code]) => code === guess)) {
+      setForm((f) => ({ ...f, country: guess }));
+    }
+  }
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
@@ -145,11 +170,13 @@ export default function CreateProfile({ organizer = null, onCreated }) {
 
         {!organizer && (
           <SelectField
-            label="Country" required value={form.country} onChange={set('country')} options={countryOptions}
+            label="Country" required value={form.country}
+            onChange={set('country')}
+            options={countryOptions}
             // Not editable afterwards, and the API refuses to change it: it
             // decides which Stripe entity you are onboarded under and the
             // currency your events are priced in.
-            hint="Where your organization is based. It sets your payout currency and cannot be changed later."
+            hint={countryHint(form.country, cardCountries)}
           />
         )}
 

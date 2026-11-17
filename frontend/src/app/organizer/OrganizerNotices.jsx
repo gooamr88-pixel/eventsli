@@ -43,7 +43,9 @@ export default function OrganizerNotices({ organizer, payouts = true }) {
           title={organizer.stripeConnected ? 'Stripe still needs some details.' : 'No payment method yet.'}
           action={{ href: '/organizer/payments', label: 'Set up payment methods' }}
         >
-          <p>Ticketed events cannot go on sale until you connect Stripe or add a manual payment method.</p>
+          <p>{organizer.payments?.cardAvailable === false
+            ? 'Ticketed events cannot go on sale until you add a payment method — bank transfer, cash or mobile money.'
+            : 'Ticketed events cannot go on sale until you connect Stripe or add a manual payment method.'}</p>
         </Notice>
       )}
     </>

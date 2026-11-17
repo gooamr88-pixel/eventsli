@@ -34,6 +34,7 @@
 const { zonedToUtcIso } = require('../../utils/zonedTime');
 const { TIER_KINDS, ADMISSION, PURCHASE, LIMITS } = require('./eventDraftPrompt');
 const { NANP, INTL } = require('./redact');
+const { SUPPORTED_CURRENCIES, minorUnits } = require('../../utils/markets');
 
 const MAX = Object.freeze({
   title: 200, description: 3000, venueName: 200, venueAddress: 300, city: 120,
@@ -251,24 +252,89 @@ function placeFact(raw, max, text) {
 }
 
 // ─── Money ─────────────────────────────────────────────────────────────────
-const MONEY = /(?:c\$|us\$|\$|cad|usd)\s*(\d{1,6}(?:,\d{3})*(?:\.\d{1,2})?)|(\d{1,6}(?:,\d{3})*(?:\.\d{1,2})?)\s*(?:\$|cad|usd|dollars?\b)/gi;
-const OTHER_CURRENCY = /[€£¥₹]|\b(eur|gbp|euros?|pounds?)\b/i;
+// Each mark is a regex fragment. The event's own currency is recognised by its
+// code, its symbols and a few spoken names; ANY_MARKS is every mark we know,
+// used to spot a price in some other currency and to find money in copy.
+const NUM = '(\\d{1,9}(?:,\\d{3})*(?:\\.\\d{1,3})?)';
+const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const DOLLAR = ['\\$', 'c\\$', 'ca\\$', 'us\\$', 'cad', 'usd', 'dollars?'];
+const WORDS = {
+  EUR: ['euros?'], GBP: ['pounds?', 'quid'], JPY: ['yen', '円'], EGP: ['pounds?', 'le', 'l\\.e\\.?', 'جنيه'],
+  MXN: ['pesos?'], INR: ['rupees?', 'rs\\.?'], PKR: ['rupees?', 'rs\\.?'], SAR: ['riyals?', 'ريال'],
+  AED: ['dirhams?', 'درهم'], CHF: ['francs?', 'fr\\.?'], ZAR: ['rand', 'r'], NGN: ['naira'], KES: ['shillings?', 'ksh'],
+};
+const ANY_MARKS = [
+  ...DOLLAR, '€', '£', '¥', '₹', '₩', '₺', '₦', '₱', '฿', '₫', '₪', '₴', '₸', '₼', '₾', '﷼', '৳', '₨',
+  'euros?', 'pounds?', 'yen', 'rupees?', 'pesos?', 'riyals?', 'dirhams?', 'francs?', 'naira', 'shillings?',
+  ...SUPPORTED_CURRENCIES.map((c) => c.toLowerCase()),
+];
 
-function amountsIn(value) {
-  return [...String(value || '').matchAll(MONEY)]
+function symbolOf(currency, display) {
+  try {
+    return new Intl.NumberFormat('en', { style: 'currency', currency, currencyDisplay: display })
+      .formatToParts(1).find((p) => p.type === 'currency')?.value || null;
+  } catch {
+    return null;
+  }
+}
+
+/** The marks that mean "this event's currency". */
+function ownMarks(currency) {
+  const c = String(currency || 'CAD').toUpperCase();
+  const symbols = [symbolOf(c, 'symbol'), symbolOf(c, 'narrowSymbol')].filter(Boolean);
+  // CAD and USD accept each other's marks, as they always have: "$95" on a
+  // Toronto poster is Canadian dollars, and so is "95 USD" typed by mistake.
+  const dollars = c === 'CAD' || c === 'USD' ? DOLLAR : (symbols.includes('$') ? ['\\$', 'dollars?'] : []);
+  return [c.toLowerCase(), ...symbols.map((s) => esc(s.toLowerCase())), ...dollars, ...(WORDS[c] || [])];
+}
+
+const regexCache = new Map();
+function moneyRegex(marks) {
+  const key = marks.join('|');
+  if (!regexCache.has(key)) {
+    const alt = [...new Set(marks)].sort((a, b) => b.length - a.length).join('|');
+    regexCache.set(key, new RegExp(`(?<!\\p{L})(?:${alt})\\s*${NUM}|${NUM}\\s*(?:${alt})(?!\\p{L})`, 'giu'));
+  }
+  const re = regexCache.get(key);
+  re.lastIndex = 0;
+  return re;
+}
+
+/**
+ * The amounts written next to a currency mark: the event's own currency when
+ * one is given, any currency when not (copy scrubbing, where money in any
+ * currency the organizer never wrote is cut).
+ */
+function amountsIn(value, currency) {
+  const re = moneyRegex(currency ? ownMarks(currency) : ANY_MARKS);
+  return [...String(value || '').matchAll(re)]
     .map((m) => Number(String(m[1] || m[2]).replace(/,/g, '')))
     .filter(Number.isFinite);
 }
 
-/** Integer cents, or null. See the note at the top on why this is strict. */
-function priceFact(price, rawEvidence, text) {
+/** Does the quote name a currency other than the event's? */
+function namesOtherCurrency(evidence, currency) {
+  const own = new RegExp(`(?<!\\p{L})(?:${ownMarks(currency).join('|')})(?!\\p{L})`, 'giu');
+  const rest = String(evidence).toLowerCase().replace(own, ' ');
+  return new RegExp(`(?<!\\p{L})(?:${ANY_MARKS.join('|')})(?!\\p{L})|[€£¥₹₩₺₦₱฿₫₪₴₸₼₾﷼৳₨$]`, 'iu').test(rest);
+}
+
+/**
+ * Integer minor units (cents, yen, fils), or null. See the note at the top on
+ * why this is strict. `currency` is the event's; a price in another is dropped.
+ */
+function priceFact(price, rawEvidence, text, currency = 'CAD') {
   if (price === null || price === undefined || !Number.isFinite(Number(price))) return { cents: null, evidence: null };
   const n = Number(price);
   const evidence = quoted(rawEvidence, text);
-  if (!evidence || n < 0 || n > MAX_PRICE || OTHER_CURRENCY.test(evidence)) return { cents: null, evidence: null };
+  // The typo guard is in major units, so it only fits currencies near the
+  // dollar's size; 100,000 is an ordinary ticket in dong or rupiah.
+  const narrow = symbolOf(String(currency).toUpperCase(), 'narrowSymbol');
+  const cap = ['$', '€', '£'].includes(narrow) || currency === 'CHF' ? MAX_PRICE : 1e9;
+  if (!evidence || n < 0 || n > cap || namesOtherCurrency(evidence, currency)) return { cents: null, evidence: null };
   if (n === 0) return /\bfree\b/i.test(evidence) ? { cents: 0, evidence } : { cents: null, evidence: null };
-  if (!amountsIn(evidence).some((a) => Math.abs(a - n) < 0.005)) return { cents: null, evidence: null };
-  return { cents: Math.round(n * 100), evidence };
+  if (!amountsIn(evidence, currency).some((a) => Math.abs(a - n) < 0.0005)) return { cents: null, evidence: null };
+  return { cents: Math.round(n * 10 ** minorUnits(currency)), evidence };
 }
 
 function quantityFact(quantity, rawEvidence, text) {
@@ -327,7 +393,7 @@ function highlightsFrom(raw, text) {
 }
 
 // ─── Ticket types and schedule ─────────────────────────────────────────────
-function tiersFrom(raw, { text, listingType, admissionType }) {
+function tiersFrom(raw, { text, listingType, admissionType, currency }) {
   if (listingType === 'display_only') return [];
   const seen = new Set();
   const out = [];
@@ -335,7 +401,7 @@ function tiersFrom(raw, { text, listingType, admissionType }) {
     const name = noContacts(t?.name, MAX.tierName);
     if (!name || seen.has(norm(name))) continue;
     seen.add(norm(name));
-    const price = priceFact(t.price, t.priceEvidence, text);
+    const price = priceFact(t.price, t.priceEvidence, text, currency);
     // Quantity only means something without a seat map: on reserved seating
     // the map decides how many exist.
     const qty = admissionType === 'general'
@@ -415,7 +481,7 @@ function validateDraft(raw, ctx) {
     admissionType,
     purchaseMode,
     highlights: highlightsFrom(raw.highlights, c.text),
-    tiers: tiersFrom(raw.tiers, { text: c.text, listingType: c.listingType, admissionType }),
+    tiers: tiersFrom(raw.tiers, { text: c.text, listingType: c.listingType, admissionType, currency: c.currency }),
     schedule: scheduleFrom(raw.schedule, c, starts.at),
   };
 

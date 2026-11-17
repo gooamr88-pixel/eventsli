@@ -20,12 +20,16 @@ async function currencyForCountry(country) {
   const { data } = await supabase
     .from('platform_settings').select('value').eq('key', 'currencies').maybeSingle();
 
+  // The setting opens a country; the table says what it sells in. Both must
+  // agree, as the database's foreign key into `markets` will also insist.
+  const { SUPPORTED_MARKETS, marketFor } = require('../utils/markets');
+  const code = String(country || '').toUpperCase();
   const map = data?.value?.by_country || {};
-  const currency = map[String(country || '').toUpperCase()];
+  const currency = map[code] && map[code] === SUPPORTED_MARKETS[code] ? map[code] : null;
   if (!currency) {
-    const allowed = Object.keys(map).join(', ') || 'none configured';
+    // The open list is ~240 countries now; naming them all helps nobody.
     throw Object.assign(
-      new Error(`Events cannot be created in "${country}" yet. Supported: ${allowed}.`),
+      new Error(`Events cannot be created in ${marketFor(code)?.name || `"${country}"`} — Eventsli is not open there.`),
       { code: 'VALIDATION_ERROR' },
     );
   }

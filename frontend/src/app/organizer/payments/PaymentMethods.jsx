@@ -42,14 +42,20 @@ const KINDS = [
   ['e_transfer', 'Interac e-Transfer'],
   ['bank_transfer', 'Bank transfer'],
   ['cash', 'Cash'],
+  ['mobile_money', 'Mobile money'],
   ['other', 'Other'],
 ];
 const KIND_LABEL = Object.fromEntries(KINDS);
+/** A method's kind, as a list names it. */
+const kindName = (kind) => KIND_LABEL[kind];
+/** Interac e-Transfer is Canadian; nobody else is offered it for a new method. */
+const kindsFor = (country) => KINDS.filter(([kind]) => kind !== 'e_transfer' || country === 'CA');
 const PLACEHOLDER = {
   e_transfer: 'Send the total to pay@yourorg.com. Put your order number in the message.',
-  bank_transfer: 'Account name, institution, transit and account number — and what to write as the reference.',
+  bank_transfer: 'Account name, bank, account number or IBAN — and what to write as the reference.',
   cash: 'Pay at the door on the night, or at our box office Mon–Fri 10am–5pm.',
-  other: 'Tell buyers exactly how to pay you.',
+  mobile_money: 'The wallet or number to send to (e.g. Vodafone Cash, M-Pesa, InstaPay), and the name it is under.',
+  other: 'Tell buyers exactly how to pay you — a payment link, a pickup point — and to quote their reference.',
 };
 
 
@@ -68,6 +74,9 @@ export default function PaymentMethods() {
 function PaymentsPage({ organizer, onboarding, onChanged }) {
   const choices = organizer.payments?.choices || [];
   const nothing = choices.length === 0;
+  // Card checkout is not on for their country (utils/markets.js on the API):
+  // they sell with their own methods only, and Stripe is not offered at all.
+  const cardAvailable = organizer.payments?.cardAvailable !== false;
 
   // Step 2 of getting set up is a task with its own sticky Back / Continue, so
   // the shell's tab bar stands down for it — the same as step 1 and the wizard.
@@ -82,8 +91,10 @@ function PaymentsPage({ organizer, onboarding, onChanged }) {
           <div className="es-wizard__head">
             <h1 className="es-wizard__title">How will buyers pay you?</h1>
             <p className="es-wizard__lede">
-              Connect Stripe for card payments, add a manual method like e-Transfer, or both.
-              You can skip this if you only want to list events without selling tickets.
+              {cardAvailable
+                ? 'Connect Stripe for card payments, add a manual method like bank transfer, or both.'
+                : 'Add how buyers pay you — bank transfer, cash, mobile money. You confirm each payment when it arrives.'}
+              {' '}You can skip this if you only want to list events without selling tickets.
             </p>
           </div>
         </>
@@ -91,7 +102,9 @@ function PaymentsPage({ organizer, onboarding, onChanged }) {
         <PageHeader
           icon="card"
           title="Payment methods"
-          lede="Accept payments online with cards, or manually — bank transfer, e-Transfer or cash. Each event chooses which it takes."
+          lede={cardAvailable
+            ? 'Accept payments online with cards, or manually — bank transfer, cash or another method of yours. Each event chooses which it takes.'
+            : 'Buyers pay you directly — bank transfer, cash, mobile money — and you confirm each payment. Each event chooses which methods it takes.'}
         />
       )}
 
@@ -111,15 +124,17 @@ function PaymentsPage({ organizer, onboarding, onChanged }) {
               : organizer.payments.stripeReady && organizer.payments.manualMethods > 0
                 ? 'Each ticketed event can take cards, manual payments, or both — you choose when you create it.'
                 : organizer.payments.stripeReady
-                  ? 'Your events take cards through Stripe. Add a manual method below to also offer e-Transfer, bank transfer or cash.'
-                  : 'Your events take manual payments. Connect Stripe below to also take cards online.'}
+                  ? 'Your events take cards through Stripe. Add a manual method below to also offer bank transfer, cash or another method.'
+                  : cardAvailable
+                    ? 'Your events take manual payments. Connect Stripe below to also take cards online.'
+                    : 'Your events take payments by the methods below. You confirm each one when the money arrives.'}
           </p>
         </div>
         <CardsArt className="es-payintro__art" />
       </section>
 
-      <StripeSection organizer={organizer} onChanged={onChanged} />
-      <ManualSection onChanged={onChanged} />
+      {cardAvailable ? <StripeSection organizer={organizer} onChanged={onChanged} /> : <NoCardNotice offlineCheckout={Boolean(organizer.payments?.offlineCheckout)} />}
+      <ManualSection country={organizer.country} offlineCheckout={Boolean(organizer.payments?.offlineCheckout)} onChanged={onChanged} />
 
       {onboarding && (
         <div className="es-wizard__actions fx-sticky-actions">
@@ -131,6 +146,29 @@ function PaymentsPage({ organizer, onboarding, onChanged }) {
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * In a country where card checkout is not on. Said plainly, once, so nobody
+ * hunts for a Stripe button that is not coming — and what to do instead.
+ */
+function NoCardNotice({ offlineCheckout = false }) {
+  return (
+    <Notice tone="info" title="Card payments are not available in your country yet.">
+      {offlineCheckout ? (
+        <p>
+          Buyers reserve online and pay you directly with the methods below. You mark each payment received under
+          Offline payments, and their tickets are issued then. Unpaid reservations end at their deadline.
+        </p>
+      ) : (
+        <p>
+          Buyers cannot pay online for events in your country yet. Sell tickets directly — in person, or by a bank
+          transfer or mobile payment you arrange — and record each sale under Door sales; Eventsli issues the
+          tickets the moment you record it.
+        </p>
+      )}
+    </Notice>
   );
 }
 
@@ -282,7 +320,7 @@ export function StripeSection({ organizer, onChanged }) {
 }
 
 // ─── Manual methods ────────────────────────────────────────────────────────
-function ManualSection({ onChanged }) {
+function ManualSection({ country, offlineCheckout = false, onChanged }) {
   const toast = useToast();
   const confirm = useConfirm();
   const { data, error, reload } = useApi('/organizer/payment-methods');
@@ -332,10 +370,22 @@ function ManualSection({ onChanged }) {
           <h2 id="pay-manual" className="es-paycard__title">Manual payments</h2>
           <span className="es-paycard__chip">Optional</span>
         </div>
-        <p className="es-paycard__desc">Payments buyers make to you directly, outside Eventsli — bank transfer, e-Transfer or cash.</p>
+        <p className="es-paycard__desc">Payments buyers make to you directly, outside Eventsli — bank transfer, cash, mobile money{country === 'CA' ? ' or e-Transfer' : ''}.</p>
         <ul className="es-paycard__checks">
-          <li><NavIcon name="tick" size={16} />Your own instructions, shown to buyers at checkout</li>
-          <li><NavIcon name="tick" size={16} />You confirm each payment yourself before the tickets are issued</li>
+          {/* What is TRUE, not what is planned: with offline checkout on
+              (phase 2) buyers see these instructions when they reserve;
+              without it, nobody sees them and sales go under Door sales. */}
+          {offlineCheckout ? (
+            <>
+              <li><NavIcon name="tick" size={16} />Shown to buyers who reserve online, with a reference to quote</li>
+              <li><NavIcon name="tick" size={16} />You mark each payment received under Offline payments; the tickets are issued then</li>
+            </>
+          ) : (
+            <>
+              <li><NavIcon name="tick" size={16} />Take payment yourself — in person, by bank transfer or mobile money</li>
+              <li><NavIcon name="tick" size={16} />Record each sale under Door sales (seated events); the tickets are issued when you do</li>
+            </>
+          )}
         </ul>
         {error && <ErrorNotice error={error} />}
         {!methods && !error && <Loading variant="list" rows={2} label="Loading manual methods" />}
@@ -346,14 +396,14 @@ function ManualSection({ onChanged }) {
             {methods.map((m) => (
               <li key={m.id}>
                 {editing === m.id ? (
-                  <MethodForm method={m} onCancel={() => setEditing(null)} onSaved={() => changed('Saved.')} />
+                  <MethodForm method={m} country={country} onCancel={() => setEditing(null)} onSaved={() => changed('Saved.')} />
                 ) : (
                   <div className="es-method" data-active={m.isActive}>
                     <span className="es-method__icon"><NavIcon name={m.kind === 'cash' ? 'cash' : 'bank'} size={20} /></span>
                     <div className="es-method__body">
                       <p className="fx-row gap-2 text-ink">
                         <span className="font-medium">{m.label}</span>
-                        {KIND_LABEL[m.kind] !== m.label && <span className="text-xs text-subtle">{KIND_LABEL[m.kind]}</span>}
+                        {kindName(m.kind) !== m.label && <span className="text-xs text-subtle">{kindName(m.kind)}</span>}
                         {!m.isActive && <span className="es-optional">Off</span>}
                       </p>
                       <p className="fx-break whitespace-pre-line text-sm text-muted">{m.instructions}</p>
@@ -377,7 +427,7 @@ function ManualSection({ onChanged }) {
         )}
 
         {editing === 'new' ? (
-          <MethodForm onCancel={() => setEditing(null)} onSaved={() => changed('Manual payment method added.')} />
+          <MethodForm country={country} onCancel={() => setEditing(null)} onSaved={() => changed('Manual payment method added.')} />
         ) : methods && (
           <div>
             <button type="button" className="es-btn es-btn--secondary" onClick={() => setEditing('new')}>
@@ -391,10 +441,13 @@ function ManualSection({ onChanged }) {
   );
 }
 
-function MethodForm({ method = null, onCancel, onSaved }) {
+function MethodForm({ method = null, country, onCancel, onSaved }) {
+  const firstKind = country === 'CA' ? 'e_transfer' : 'bank_transfer';
+  // An existing method keeps its own kind on offer, even an e-Transfer outside Canada.
+  const kinds = method ? KINDS.filter(([k]) => k === method.kind || kindsFor(country).some(([c]) => c === k)) : kindsFor(country);
   const [form, setForm] = useState(() => ({
-    kind: method?.kind || 'e_transfer',
-    label: method?.label || 'Interac e-Transfer',
+    kind: method?.kind || firstKind,
+    label: method?.label || KIND_LABEL[firstKind],
     instructions: method?.instructions || '',
   }));
   const [labelTouched, setLabelTouched] = useState(Boolean(method));
@@ -403,7 +456,7 @@ function MethodForm({ method = null, onCancel, onSaved }) {
 
   const setKind = (e) => {
     const kind = e.target.value;
-    setForm((f) => ({ ...f, kind, ...(labelTouched ? {} : { label: KIND_LABEL[kind] === 'Other' ? '' : KIND_LABEL[kind] }) }));
+    setForm((f) => ({ ...f, kind, ...(labelTouched ? {} : { label: kind === 'other' ? '' : KIND_LABEL[kind] }) }));
   };
   const ready = form.label.trim().length >= 2 && form.instructions.trim().length >= 5;
 
@@ -426,7 +479,7 @@ function MethodForm({ method = null, onCancel, onSaved }) {
   return (
     <form onSubmit={submit} className="fx-stack fx-stack--sm rounded-(--es-radius-md) border border-border-base bg-bg-sunken p-4">
       <p className="font-medium text-ink">{method ? 'Edit payment method' : 'New manual payment method'}</p>
-      <SelectField label="Type" required value={form.kind} onChange={setKind} options={KINDS} />
+      <SelectField label="Type" required value={form.kind} onChange={setKind} options={kinds} />
       <Field
         label="Name buyers see" required minLength={2} maxLength={80}
         value={form.label}

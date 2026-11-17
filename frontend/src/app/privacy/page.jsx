@@ -17,6 +17,11 @@
  * Not rendered from the database like the terms are: nobody accepts this
  * document, so it is not versioned or bound to an acceptance.
  *
+ * 2026-11-17: the Eventsli Check-in app (mobile/) was added from
+ * mobile/store/PRIVACY.md, which is checked against the app's code. The app's
+ * section, the Expo and Sentry rows, the 14-day app session, the 90-day
+ * check-in log and the 14-day server log must change when that file does.
+ *
  * ⚠ Accurate, but NOT reviewed by a lawyer. PIPEDA, Quebec's Law 25 and the US
  * state laws the platform sells into should be checked by one before launch —
  * the cross-border and retention sections especially.
@@ -29,7 +34,7 @@ export const metadata = {
   description: 'What Eventsli collects, why, who it is shared with, where it is stored, and the choices you have.',
 };
 
-const UPDATED = '13 November 2026';
+const UPDATED = '17 November 2026';
 
 const SUMMARY = [
   'We collect what it takes to sell, deliver and check tickets, and to run an organizer account. Nothing for advertising.',
@@ -103,16 +108,19 @@ const SHARED = [
   ['Groq', 'When Gemini cannot answer: the same event description or poster image for "Create with AI", or the same question for the Eventsli assistant. Groq says it does not keep it, except for up to 30 days when investigating abuse or a reliability problem.', 'United States'],
   ['OpenStreetMap', 'When you open the map on an event page, your browser loads it from OpenStreetMap, which sees your IP address. We send no referrer.', 'OpenStreetMap Foundation, United Kingdom'],
   ['Twilio and Vonage', 'Only if you agreed to texts: they deliver them. They receive your mobile number and the text of each message, and tell us whether it was delivered and pass on your replies such as STOP. Your number and your consent to texts are not shared with anyone for their own marketing.', 'United States and other countries'],
+  ['Expo (650 Industries)', 'Delivers updates to the Eventsli Check-in app. Each time the app starts, Expo sees a random identifier the app made for this purpose, the app version and the phone’s network address, and uses them under its own privacy policy.', 'United States'],
+  ['Sentry (Functional Software)', 'Receives crash reports and scan timings from the Eventsli Check-in app. Names, email addresses, ticket codes, ids and searches are removed on the phone before anything is sent, and the network address is not kept. Kept for 30 days.', 'United States'],
   ['YouTube and Vimeo', 'Only if you press play on a video on our homepage. Nothing is loaded from them before you do.', 'United States'],
 ];
 
 const RETENTION = [
   ['Orders, tickets, invoices and payments', 'As long as tax and accounting law requires. In Canada that is generally six years.'],
-  ['Your account', 'Until you ask us to close it. Records we must keep by law stay; the rest is deleted.'],
-  ['Sign-in sessions', 'Each lasts at most 24 hours. Expired sessions are deleted automatically.'],
+  ['Your account', 'Until you ask us to close it. Then we delete your sign-ins and door access and remove your name, email and phone from your profile. Orders, tickets and invoices that tax law requires us to keep are kept for that period, then deleted. Copies in our backups are deleted when the backups expire, within 8 days.'],
+  ['Sign-in sessions', 'On the website, each lasts at most 24 hours; in the Eventsli Check-in app, at most 14 days. Expired sessions are deleted automatically.'],
+  ['Check-in records', 'Which ticket was scanned, when and at which door: the detailed log is deleted 90 days after the event, unless it is needed for an unresolved dispute or a legal claim. That a ticket was used stays with the order record.'],
   ['Email codes and reset links', 'Useless after 10 and 60 minutes. They are deleted with the account.'],
   ['Visit counts', 'Kept as daily totals. The hashes in them change every day and identify no one.'],
-  ['Server request logs', 'Deleted automatically after a short period.'],
+  ['Server request logs', 'Kept for 14 days, without the search terms or any other part of the address after the “?”.'],
   ['AI draft usage', 'Kept with the organizer account and deleted with it.'],
   ['Text messages', 'The text of each message can be removed after a set period, while the record that it was sent stays. Your consent and opt-out records are kept as long as we might text your number, as evidence of what you agreed to.'],
 ];
@@ -168,7 +176,8 @@ export default function PrivacyPage() {
         <Section id="who" title="Who we are">
           <p className="max-w-[62ch] text-muted">
             Eventsli is a Canadian business that runs eventsli.com, where people buy tickets and organizers sell them.
-            This policy covers everyone who uses it: visitors, ticket buyers, organizers and their door teams. We follow
+            It also makes the Eventsli Check-in app, which organizers and their door teams use to check guests in.
+            This policy covers everyone who uses either: visitors, ticket buyers, organizers and their door teams. We follow
             Canada&rsquo;s privacy law (PIPEDA), Quebec&rsquo;s privacy law, and the privacy laws of the US states where
             we sell tickets. Our Privacy Officer is responsible for it and can be reached at {mail}.
           </p>
@@ -226,6 +235,31 @@ export default function PrivacyPage() {
             when you close it. The assistant cannot see your account, orders or tickets. Please do not type personal or
             payment details into it. Every draft is checked and edited by the organizer before anything is saved, and nothing is published
             until the organizer publishes it; Eventsli then reviews every new event. Organizers who prefer not to use AI can create every event by hand.
+          </p>
+        </Section>
+
+        <Section id="checkin-app" title="The Eventsli Check-in app">
+          <p className="max-w-[62ch] text-muted">
+            Organizers and their door teams use the app to check guests in. The camera only reads ticket codes on the
+            phone; no photo or video is kept or sent. To check tickets where the venue has no signal, the app can keep
+            an encrypted copy of the event&rsquo;s ticket list on the phone (ticket type, seat and status, and guest
+            names only if the organizer allows it). That copy is deleted when you leave the event or sign out, when
+            offline check-in is switched off, and 24 hours after the event.
+          </p>
+          <p className="max-w-[62ch] text-muted">
+            Check-in records (which ticket was scanned, when and at which door) are sent to Eventsli; the phone keeps
+            its own copy for at most 48 hours, without the ticket code. Names typed into the guest search are sent to
+            Eventsli to find the guest and are not kept: our server logs leave out search terms. When you sign in, the
+            app sends your phone&rsquo;s model (for example &ldquo;iPhone 15&rdquo;) so you can recognise the session
+            on your account page.
+          </p>
+          <p className="max-w-[62ch] text-muted">
+            Each time it starts, the app asks Expo, our update service, whether a newer version is available; Expo sees
+            a random identifier the app made for this purpose, the app version and your network address. If the app
+            crashes, it may send a crash report to Sentry that contains no names, email addresses, ticket codes or
+            searches. The app collects no location, contacts or photos, shows no ads and does no tracking. An app
+            sign-in lasts up to 14 days, is kept in the phone&rsquo;s secure storage rather than a cookie, and can be
+            ended at any time from your account page.
           </p>
         </Section>
 

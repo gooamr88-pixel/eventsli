@@ -11,6 +11,7 @@ process.env.AI_GEMINI_API_KEY = 'integration-gemini';
 process.env.AI_GROQ_API_KEY = 'integration-groq';
 
 const { supabase } = require('../../config/supabase');
+const { zonedToUtcIso } = require('../../utils/zonedTime');
 const aiHttp = require('../../services/ai/aiHttp');
 const app = require('../../app');
 
@@ -34,18 +35,32 @@ const ORG_SETUP = {
   acceptPolicies: true,
 };
 
-const TEXT = 'Comedy night at The Rex, 194 Queen St W, Toronto, Friday November 13 from 8pm until 10:30pm. '
+/**
+ * The show is ~60 days from today, in Toronto. It was a fixed "Friday November
+ * 13" (2026), and the validator rightly drops a start in the past, so every
+ * test built on it began failing on 2026-11-14. The words and the ISO day are
+ * derived from the same date, so the draft's evidence still agrees with it.
+ */
+const SHOW = (() => {
+  const at = new Date(Date.now() + 60 * 86400e3);
+  const part = (opts) => new Intl.DateTimeFormat('en-US', { timeZone: 'America/Toronto', ...opts }).format(at);
+  const day = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Toronto', year: 'numeric', month: '2-digit', day: '2-digit' }).format(at);
+  return { words: `${part({ weekday: 'long' })} ${part({ month: 'long' })} ${Number(part({ day: 'numeric' }))}`, day };
+})();
+const SHOW_STARTS_UTC = zonedToUtcIso(`${SHOW.day}T20:00`, 'America/Toronto');
+
+const TEXT = `Comedy night at The Rex, 194 Queen St W, Toronto, ${SHOW.words} from 8pm until 10:30pm. `
   + '300 tickets, general admission $25. Doors 7:30, show at 8.';
 const ANSWER = {
   title: 'Comedy Night at The Rex', category: 'comedy', description: 'Stand-up comedy at The Rex.',
-  starts: { value: '2026-11-13T20:00', evidence: 'Friday November 13 from 8pm' },
-  ends: { value: '2026-11-13T22:30', evidence: 'until 10:30pm' },
+  starts: { value: `${SHOW.day}T20:00`, evidence: `${SHOW.words} from 8pm` },
+  ends: { value: `${SHOW.day}T22:30`, evidence: 'until 10:30pm' },
   venueName: { value: 'The Rex', evidence: 'at The Rex' },
   venueAddress: { value: '194 Queen St W', evidence: '194 Queen St W' },
   city: { value: 'Toronto', evidence: 'Toronto' },
   admissionType: 'general', purchaseMode: 'seat_only', highlights: ['Stand-up comedy at The Rex'],
   tiers: [{ name: 'General admission', kind: 'general', description: null, quantity: 300, quantityEvidence: '300 tickets', price: 25, priceEvidence: 'general admission $25' }],
-  schedule: [{ title: 'Doors', startsLocal: '2026-11-13T19:30', timeEvidence: 'Doors 7:30', location: null, locationEvidence: null }],
+  schedule: [{ title: 'Doors', startsLocal: `${SHOW.day}T19:30`, timeEvidence: 'Doors 7:30', location: null, locationEvidence: null }],
 };
 
 let mode = 'ok';
@@ -131,7 +146,7 @@ test('two drafts a day, then a refusal that says when the next one is', async ()
   const { draft, quota, generationId } = first.body.data;
   assert.ok(generationId);
   assert.equal(quota.remaining, 1);
-  assert.equal(draft.startsAt.at, '2026-11-14T01:00:00.000Z', '8 pm EST');
+  assert.equal(draft.startsAt.at, SHOW_STARTS_UTC, '8 pm in Toronto');
   assert.equal(draft.tiers[0].priceCents, 2500);
   assert.equal(draft.tiers[0].quantity, 300);
   assert.equal(draft.currency, 'CAD', 'currency follows the country, never the model');
@@ -220,7 +235,7 @@ test('refusals before any provider call cost nothing', async () => {
   const o = await organizer('refuse');
   const short = await o.call('POST', '/ai/event-drafts', draftBody({ description: 'Gala on Saturday' }));
   assert.equal(short.status, 400);
-  const market = await o.call('POST', '/ai/event-drafts', draftBody({ country: 'FR' }));
+  const market = await o.call('POST', '/ai/event-drafts', draftBody({ country: 'RU' }));
   assert.equal(market.status, 400);
   const zone = await o.call('POST', '/ai/event-drafts', draftBody({ timezone: 'Toronto' }));
   assert.equal(zone.status, 400);
@@ -337,7 +352,7 @@ function posterPng(width = 900, height = 1200) {
   return { mimeType: 'image/png', data: head.toString('base64') };
 }
 
-const POSTER_TEXT = 'COMEDY NIGHT\nTHE REX · 194 QUEEN ST W · TORONTO\nFRIDAY NOVEMBER 13 FROM 8PM UNTIL 10:30PM\n'
+const POSTER_TEXT = `COMEDY NIGHT\nTHE REX · 194 QUEEN ST W · TORONTO\n${SHOW.words.toUpperCase()} FROM 8PM UNTIL 10:30PM\n`
   + '300 TICKETS · GENERAL ADMISSION $25\nDOORS 7:30';
 
 const posterBody = (over = {}) => ({
@@ -366,7 +381,7 @@ test('a poster becomes a draft for one of the same daily drafts, with what was r
   const o = await organizer('poster');
   assert.equal((await o.call('GET', '/ai/quota')).body.data.poster, true);
   const res = await withPosterAnswer(
-    { ...ANSWER, posterText: POSTER_TEXT, isEventPoster: true, starts: { value: '2026-11-13T20:00', evidence: 'FRIDAY NOVEMBER 13 FROM 8PM' } },
+    { ...ANSWER, posterText: POSTER_TEXT, isEventPoster: true, starts: { value: `${SHOW.day}T20:00`, evidence: `${SHOW.words.toUpperCase()} FROM 8PM` } },
     () => o.call('POST', '/ai/event-drafts/from-image', posterBody()),
   );
   assert.equal(res.status, 200, JSON.stringify(res.body));

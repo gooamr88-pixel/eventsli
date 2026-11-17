@@ -25,6 +25,7 @@
  * is still offered, because `zoneOptions` always includes the current value.
  * ─────────────────────────────────────────────────────────────────────────────
  */
+import { zoneFor } from './markets';
 
 /** The market countries' own zones, named the way people there say them. */
 export const TIME_ZONES = {
@@ -242,18 +243,21 @@ export function isTimeZone(zone) {
 
 const FALLBACK = { CA: 'America/Toronto', US: 'America/New_York' };
 
+/** Elsewhere, the country's main zone from the markets table. */
+const fallbackFor = (country) => FALLBACK[country] || zoneFor(country) || 'UTC';
+
 /**
  * The zone to preselect before a venue is chosen: the organizer's own clock,
  * wherever in the world it is — they are usually where their events are.
  *
- * Only when the browser gives no usable zone does the market's most populous
- * zone stand in. This used to REQUIRE the browser's zone to be Canadian or
+ * Only when the browser gives no usable zone does the country's main zone
+ * stand in. This used to REQUIRE the browser's zone to be Canadian or
  * American and replace anything else with Toronto, which is how an organizer
  * in Sydney ended up with every event sixteen hours out.
  */
 export function defaultTimeZone(country, browserZone) {
   if (isTimeZone(browserZone)) return browserZone;
-  return FALLBACK[country] || 'UTC';
+  return fallbackFor(country);
 }
 
 /** The market's own zones (Canada's or the US's); empty for any other code. */

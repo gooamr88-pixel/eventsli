@@ -13,21 +13,25 @@ import { COUNTRY_OPTIONS } from '../lib/markets';
  * API still refuses a closed market on submit, so the fallback is a form that
  * says no late rather than one with nothing to pick.
  */
-let state = { status: 'idle', countries: null };
+let state = { status: 'idle', countries: null, card: null };
 const listeners = new Set();
 const emit = () => { for (const l of listeners) l(); };
 const subscribe = (l) => { listeners.add(l); return () => listeners.delete(l); };
 const snapshot = () => state;
-const SERVER = Object.freeze({ status: 'idle', countries: null });
+const SERVER = Object.freeze({ status: 'idle', countries: null, card: null });
 
 async function load() {
   if (state.status !== 'idle') return;
-  state = { status: 'loading', countries: null };
+  state = { status: 'loading', countries: null, card: null };
   try {
     const data = await get('/public/markets', { noRedirect: true });
-    state = { status: 'ready', countries: Array.isArray(data?.countries) ? data.countries : null };
+    state = {
+      status: 'ready',
+      countries: Array.isArray(data?.countries) ? data.countries : null,
+      card: Array.isArray(data?.card) ? data.card : null,
+    };
   } catch {
-    state = { status: 'failed', countries: null };
+    state = { status: 'failed', countries: null, card: null };
   }
   emit();
 }
@@ -37,7 +41,10 @@ export function useOpenCountries() {
   useEffect(() => { load(); }, []);
   const open = current.countries;
   const options = open ? COUNTRY_OPTIONS.filter(([code]) => open.includes(code)) : COUNTRY_OPTIONS;
-  return { options, ready: current.status === 'ready' && Array.isArray(open) };
+  // Where card checkout is on; every other open country sells offline. Until
+  // the answer arrives, the verified default.
+  const cardCountries = current.card || ['CA', 'US'];
+  return { options, cardCountries, ready: current.status === 'ready' && Array.isArray(open) };
 }
 
 /**
@@ -51,4 +58,4 @@ export function openCountryFor(current, options) {
 }
 
 /** Tests only. */
-export function resetOpenCountriesForTests() { state = { status: 'idle', countries: null }; }
+export function resetOpenCountriesForTests() { state = { status: 'idle', countries: null, card: null }; }

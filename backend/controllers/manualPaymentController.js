@@ -101,9 +101,12 @@ async function listSales(req, res, next) {
     const p = parsePagination(req, { sortable: ['created_at', 'buyer_total_cents'], defaultSort: 'created_at' });
     const query = supabase
       .from('orders')
-      .select('id, currency, quantity, subtotal_cents, event_tax_cents, commission_cents, commission_tax_cents, buyer_total_cents, guest_name, guest_email, manual_method, manual_note, created_at', { count: 'exact' })
+      .select('id, currency, quantity, subtotal_cents, event_tax_cents, commission_cents, commission_tax_cents, buyer_total_cents, guest_name, guest_email, manual_method, manual_note, created_at, status, void_kind, voided_at, void_reason', { count: 'exact' })
       .eq('event_id', req.params.eventId)
-      .eq('channel', 'manual');
+      .eq('channel', 'manual')
+      // Door sales only: a confirmed offline reservation is also channel
+      // 'manual' and has its own list (offline payments, phase 2).
+      .eq('manual_source', 'door');
 
     const { data, error, count } = await applyPagination(query, p);
     if (error) throw new Error(error.message);
@@ -120,6 +123,9 @@ async function listSales(req, res, next) {
       method: o.manual_method,
       note: o.manual_note,
       recordedAt: o.created_at,
+      // 'paid', or 'void' / 'refund' once undone (order_void_offline).
+      state: o.voided_at ? o.void_kind : o.status,
+      voidReason: o.void_reason || null,
     })), { pagination: buildMeta(p, count) });
   } catch (err) { return next(err); }
 }
@@ -262,6 +268,9 @@ function adminAction({ audit, run, payload = () => ({}), notify = null }) {
       const result = await run(req);
       const invoiceId = result.invoice_id || req.params.invoiceId;
       const gate = await gateFor(invoiceId);
+      // A repeated submission (same idempotency key) changed nothing: no second
+      // audit row and no second email — just the first answer again.
+      if (result.duplicate) return sendOk(res, { ...result, gate, gateReopened: gate ? !gate.locked : null, duplicate: true });
       const audited = await writeAudit(req, {
         action: `invoice.${audit}`, targetType: 'invoice', targetId: invoiceId,
         payload: {
@@ -335,6 +344,7 @@ const adminRecordPayment = adminAction({
     receivedAt: req.body.receivedAt,
     note: req.body.note,
     adminId: req.user.id,
+    idempotencyKey: req.body.idempotencyKey,
   }),
   payload: (req, r) => ({
     paymentId: r.payment_id, amountCents: Number(req.body.amountCents), method: req.body.method || null,

@@ -4,6 +4,8 @@ const assert = require('node:assert/strict');
 const {
   pctOf,
   parseAmountToCents,
+  formatCents,
+  formatCompact,
   stripeCostCents,
   solvePaymentFeeCents,
   describeOrder,
@@ -28,6 +30,22 @@ test('parseAmountToCents never routes through a float', () => {
   assert.equal(parseAmountToCents('-5.25'), -525);
   assert.throws(() => parseAmountToCents('19.999'), TypeError);
   assert.throws(() => parseAmountToCents('abc'), TypeError);
+});
+
+test('amounts follow the currency decimals: none for the yen, three for the dinar', () => {
+  assert.equal(parseAmountToCents('3000', 'JPY'), 3000);
+  assert.throws(() => parseAmountToCents('30.5', 'JPY'), TypeError);
+  assert.equal(parseAmountToCents('12.5', 'KWD'), 12500);
+  assert.equal(parseAmountToCents('0.125', 'KWD'), 125);
+  assert.throws(() => parseAmountToCents('0.1255', 'KWD'), TypeError);
+  assert.equal(formatCents(3000, 'JPY', 'en-US'), '¥3,000');
+  // Intl puts a no-break space between a code and the number.
+  const plain = (s) => s.replace(/\s/g, ' ');
+  assert.equal(plain(formatCents(12500, 'KWD', 'en-US')), 'KWD 12.500');
+  assert.equal(plain(formatCents(150000, 'HUF', 'en-US')), 'HUF 1,500.00');
+  assert.equal(formatCompact(4500, 'USD'), '$45');
+  assert.equal(formatCompact(1250, 'EUR'), '€12.50');
+  assert.equal(formatCompact(3000, 'JPY'), '¥3,000');
 });
 
 test('pctOf is symmetric, so a reversal cancels its sale to exactly zero', () => {

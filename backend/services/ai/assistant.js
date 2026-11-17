@@ -55,7 +55,7 @@ const LINK_KEYS = Object.freeze(['none', ...Object.keys(LINKS)]);
  * place a policy is written.
  */
 const KNOWLEDGE = `About Eventsli:
-- Eventsli is a ticketing platform for events in Canada and the United States. Events are priced in Canadian or US dollars.
+- Eventsli is a ticketing platform for events worldwide. Each event is priced in the local currency of its country. Card payments are available in some countries; elsewhere organizers sell with their own payment methods (bank transfer, cash) and confirm payments themselves.
 - Anyone can browse events without an account, by category, city or date. Every listing shows the real starting price.
 - Where the organizer has drawn a seat map, buyers choose the actual seat or table. Choosing seats holds them for 35 minutes with a countdown; if the buyer leaves, they go back on sale.
 - Payment is by card through Stripe, on Stripe's own page. The breakdown (ticket price and any fee the organizer passes on) is shown before paying. Some organizers absorb the fees.

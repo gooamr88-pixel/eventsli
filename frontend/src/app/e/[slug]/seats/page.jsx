@@ -52,6 +52,9 @@ export default async function SeatsPage({ params, searchParams }) {
   // BRD §12 — a listing with nothing behind it has no seat map to show, and
   // arriving here means a stale link rather than a mistake worth an error page.
   if (event.displayOnly) notFound();
+  // No online way to pay (global launch, phase 1): back to the event page,
+  // which says so, rather than a map whose hold would be refused.
+  if (event.purchasable === false) redirect(`/e/${event.slug}`);
 
   /**
    * ───────────────────────────────────────────────────────────────────────────

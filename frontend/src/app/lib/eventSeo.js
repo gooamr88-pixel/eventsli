@@ -1,4 +1,5 @@
 import { isDateOnly, formatDateOnly, dateOnlyDays } from './dateOnly';
+import { minorUnits } from './markets';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -93,14 +94,16 @@ function prices(event) {
 }
 
 export function money(cents, currency) {
-  const whole = cents % 100 === 0;
+  const digits = minorUnits(currency || 'CAD');
+  const scale = 10 ** digits;
+  const whole = cents % scale === 0;
   try {
     return new Intl.NumberFormat('en-US', {
       style: 'currency', currency: currency || 'CAD', currencyDisplay: 'narrowSymbol',
-      minimumFractionDigits: whole ? 0 : 2, maximumFractionDigits: 2,
-    }).format(cents / 100);
+      minimumFractionDigits: whole ? 0 : digits, maximumFractionDigits: digits,
+    }).format(cents / scale);
   } catch {
-    return `$${(cents / 100).toFixed(whole ? 0 : 2)}`;
+    return `${(cents / scale).toFixed(whole ? 0 : digits)} ${currency || ''}`.trim();
   }
 }
 
@@ -299,7 +302,7 @@ export function eventJsonLd(event, { origin = siteOrigin(), now = new Date() } =
         '@type': 'Offer',
         name: t.name,
         url,
-        price: (Number(t.priceCents) / 100).toFixed(2),
+        price: (Number(t.priceCents) / 10 ** minorUnits(event.currency)).toFixed(minorUnits(event.currency)),
         priceCurrency: event.currency,
         availability: availabilityOf(t, event, now),
         ...(t.salesStartAt ? { validFrom: isoWithOffset(t.salesStartAt, event.timezone) } : {}),

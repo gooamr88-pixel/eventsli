@@ -1,6 +1,7 @@
 'use client';
 
 import NavIcon from '../../../../components/shell/NavIcon';
+import { minorUnits } from '../../../../lib/markets';
 import { categoryLabel } from '../../../../lib/categories';
 import { toIso, formatEventTime } from '../../../../lib/eventTime';
 import { AiStepper, ActionBar } from './AiParts';
@@ -29,9 +30,16 @@ import { dateOnlyRange, formatDateOnly } from '../../../../lib/dateOnly';
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
-const money = (cents, currency) => new Intl.NumberFormat('en-CA', {
-  style: 'currency', currency: currency || 'CAD', minimumFractionDigits: cents % 100 ? 2 : 0,
-}).format(cents / 100);
+// en-CA, so a Canadian organizer reads "$95" rather than "CA$95"; decimals
+// follow the currency (none for the yen, three for the dinar).
+const money = (cents, currency) => {
+  const code = currency || 'CAD';
+  const digits = minorUnits(code);
+  const scale = 10 ** digits;
+  return new Intl.NumberFormat('en-CA', {
+    style: 'currency', currency: code, minimumFractionDigits: cents % scale ? digits : 0, maximumFractionDigits: digits,
+  }).format(cents / scale);
+};
 
 function Block({ id, title, onEdit, children, eyebrow }) {
   return (
@@ -238,7 +246,7 @@ export default function DraftReview({
                   {form.tiers.length === 0 && <p className="es-ai-later">No ticket types yet. Add them here or on the event after saving.</p>}
                   <ul className="es-ai-tiers">
                     {form.tiers.map((t) => {
-                      const cents = t.free ? 0 : priceToCents(t.price);
+                      const cents = t.free ? 0 : priceToCents(t.price, form.currency);
                       const needs = problems.find((p) => p.field.startsWith(`tier-${t.key}`));
                       return needs ? (
                         <li key={t.key} className="es-ai-tiers__need">

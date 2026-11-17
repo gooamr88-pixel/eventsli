@@ -14,7 +14,7 @@ require('dotenv').config();
 const { connect } = require('./db');
 
 const TABLES = [
-  'profiles', 'organizers', 'platform_settings',
+  'profiles', 'organizers', 'platform_settings', 'markets',
   'terms_versions', 'terms_acceptances',
   'events', 'ticket_tiers',
   'venue_maps', 'table_categories', 'tables', 'seats',
@@ -88,9 +88,9 @@ const FUNCTIONS = [
 
 // Rules the database enforces as CHECKs (20260915140000).
 const CONSTRAINTS = [
-  'organizers_country_supported',     // BRD §07 — CA and US only
+  'organizers_country_supported',     // BRD §07 — a country in `markets` (20261121090000)
   'events_country_supported',
-  'events_currency_follows_country',  // CAD in Canada, USD in the US
+  'events_currency_follows_country',  // the currency that country sells in
   'terms_versions_audience_version_key',
   'ai_generations_request',           // a retried request is never charged twice
   // Direct charges (20261106090000).

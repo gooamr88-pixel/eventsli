@@ -522,7 +522,7 @@ function EventWizard({ type, organizer }) {
                   columns={choices.length === 3 ? 3 : choices.length}
                   error={shown('paymentOption')}
                 />
-                {!organizer.payments.stripeReady && (
+                {!organizer.payments.stripeReady && organizer.payments.cardAvailable !== false && (
                   <p className="text-sm text-muted">
                     Want card payments too? <Link href="/organizer/payments" className="text-accent underline">Connect Stripe</Link>.
                   </p>
