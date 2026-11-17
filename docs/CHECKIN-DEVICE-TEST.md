@@ -185,7 +185,7 @@ an admission the screen returns to the camera by itself after 2 seconds.
 |---|---|---|
 | F1 | On E2's answer, **View Details** | The ticket screen with its door history |
 | F2 | Scan a fresh ticket (Ahmed Ali 1), then within 60 s tap *Scanned by mistake? Undo* | **Check-in Reversed**. Scanning again admits |
-| F3 | Profile → **App Settings** → turn off *Back to the camera* | An admission stays until you tap Scan Next |
+| F3 | Scan a fresh ticket and wait 10 s, with another ticket in front of the camera | The answer stays until you tap **Scan Next**; nothing else is scanned meanwhile |
 
 ### G. Sounds and vibration
 | # | Do | Expect |

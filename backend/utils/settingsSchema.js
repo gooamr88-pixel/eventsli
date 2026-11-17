@@ -35,6 +35,7 @@ const SETTING_DEFAULTS = Object.freeze({
   // review afterwards. Set to true to bring back review BEFORE publishing.
   event_publishing: { require_approval: false },
   offline_checkout: { enabled: false, payment_hours: 48, min_hours_before_event: 2 },
+  invoice_issuer: {},
 });
 
 const percent = { type: 'number', min: 0, max: 100, decimals: 2 };
@@ -84,6 +85,16 @@ const SCHEMAS = {
     payment_hours: { type: 'integer', min: 1, max: 336, label: 'Hours to pay' },
     min_hours_before_event: { type: 'integer', min: 0, max: 168, label: 'Payment due at least this long before the event' },
   },
+  // Who issues commission invoices: printed on every invoice, frozen at issue
+  // (20261123100000). All optional — an empty field is simply not printed.
+  // Each may be saved on its own, but no invoice is issued until all four are
+  // set and valid (invoice_billing_check, 20261123110000) — the same minimums.
+  invoice_issuer: {
+    legal_name: { type: 'text', minLength: 2, maxLength: 160, optional: true, label: 'Legal name' },
+    address: { type: 'text', minLength: 10, maxLength: 500, optional: true, label: 'Address' },
+    tax_id: { type: 'text', minLength: 3, maxLength: 80, optional: true, label: 'Business / tax number' },
+    email: { type: 'text', maxLength: 160, optional: true, format: 'email', label: 'Billing email' },
+  },
   currencies: null,   // validated by validateCurrencies — its shape is relational
 };
 
@@ -107,6 +118,12 @@ function checkField(name, rule, value, errors) {
     }
     const text = value.replace(/\r\n?/g, '\n').trim();
     if (text.length > rule.maxLength) errors.push(`${rule.label} can be at most ${rule.maxLength} characters.`);
+    if (text && rule.minLength && text.length < rule.minLength) {
+      errors.push(`${rule.label} must be at least ${rule.minLength} characters.`);
+    }
+    if (text && rule.format === 'email' && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(text)) {
+      errors.push(`${rule.label} must be an email address.`);
+    }
     // Empty is "not set": stored as absent rather than as a blank string.
     return text || undefined;
   }

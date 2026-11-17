@@ -11,6 +11,7 @@ import SubmitButton from '../../../components/forms/SubmitButton';
 import NavIcon from '../../../components/shell/NavIcon';
 import MoneyLines from './MoneyLines';
 import { isDateOnly, formatDateOnly } from '../../../lib/dateOnly';
+import { formatYm } from '../../../lib/comingSoon';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -68,6 +69,43 @@ export default function SubmitReview({ eventId, onClose, onConfirm, busy = false
   const currency = event?.currency || 'USD';
   const blockers = data?.blockers || [];
   const ready = Boolean(data) && data.canSubmit && agreed && !busy;
+  /**
+   * WHICH CONFIRM THIS IS (the API's `mode`): publishing a coming-soon teaser,
+   * opening a live teaser's ticket sales, or an event as always. The checks
+   * behind each differ, and the words say what pressing the button does.
+   */
+  const mode = data?.mode || 'event';
+  const direct = data?.requiresApproval === false;
+  const copy = {
+    teaser: {
+      eyebrow: 'Before you publish',
+      lede: 'Your coming-soon page: what people see now, and the fees that apply once tickets go on sale.',
+      agree: direct
+        ? 'I have checked the details and the fees above, and I want to publish this coming-soon page now.'
+        : 'I have checked the details and the fees above, and I want to send this coming-soon page to Eventsli for review.',
+      button: direct ? 'Publish coming soon' : 'Submit for review',
+      busy: direct ? 'Publishing…' : 'Submitting…',
+    },
+    launch: {
+      eyebrow: 'Before you open ticket sales',
+      lede: 'Check what buyers will see, and what every ticket pays you. Everyone on your notify list is emailed once sales open.',
+      agree: direct
+        ? 'I have checked the details, the fees and the policies above, and I want to open ticket sales now.'
+        : 'I have checked the details, the fees and the policies above, and I want Eventsli to approve ticket sales.',
+      button: direct ? 'Open ticket sales' : 'Request approval',
+      busy: direct ? 'Opening…' : 'Sending…',
+    },
+    event: {
+      eyebrow: 'Before you submit',
+      lede: 'Eventsli reviews this next. Check what buyers will see, and what every ticket pays you.',
+      agree: direct
+        ? 'I have checked the details, the fees and the policies above, and I want to publish this event now.'
+        : 'I have checked the details, the fees and the policies above, and I want to send this event to Eventsli for review.',
+      button: direct ? 'Publish now' : 'Submit for review',
+      busy: direct ? 'Publishing…' : 'Submitting…',
+    },
+  }[mode] || {};
+  const teaser = mode === 'teaser';
 
   return (
     <dialog
@@ -80,11 +118,9 @@ export default function SubmitReview({ eventId, onClose, onConfirm, busy = false
     >
       <div className="es-review">
         <header className="es-review__head">
-          <p className="es-review__eyebrow">Before you submit</p>
+          <p className="es-review__eyebrow">{copy.eyebrow}</p>
           <h2 id={titleId} className="es-review__title">{event?.title || 'Review your event'}</h2>
-          <p className="text-sm text-muted">
-            Eventsli reviews this next. Check what buyers will see, and what every ticket pays you.
-          </p>
+          <p className="text-sm text-muted">{copy.lede}</p>
         </header>
 
         <div className="es-review__body">
@@ -105,7 +141,9 @@ export default function SubmitReview({ eventId, onClose, onConfirm, busy = false
               <Section title="The event" icon="calendar">
                 <Facts rows={[
                   ['Title', event.title],
-                  ['Type', event.listingType === 'display_only'
+                  ['Type', teaser
+                    ? 'Coming soon — tickets go on sale later'
+                    : event.listingType === 'display_only'
                     ? 'Listing only — no tickets sold'
                     : event.admissionType === 'general'
                       ? 'General admission'
@@ -121,7 +159,10 @@ export default function SubmitReview({ eventId, onClose, onConfirm, busy = false
               </Section>
 
               <Section title="When" icon="clock">
-                <Facts rows={isDateOnly(event) ? [
+                <Facts rows={teaser && event.roughMonth ? [
+                  ['Month', formatYm(event.roughMonth)],
+                  ['Time zone', event.timezone || 'Not set'],
+                ] : isDateOnly(event) ? [
                   ['Date', formatDateOnly(event)],
                   ['Time zone', event.timezone || 'Not set'],
                 ] : [
@@ -137,8 +178,9 @@ export default function SubmitReview({ eventId, onClose, onConfirm, busy = false
               <Section title="Where" icon="map">
                 <Facts rows={[
                   // Optional on a display-only listing (submissionService.js).
-                  ['Venue', event.venueName || (event.listingType === 'display_only' ? 'Not given' : <Missing>No venue name</Missing>)],
-                  ['Address', event.venueAddress || (event.listingType === 'display_only' ? 'Not given' : <Missing>No street address</Missing>)],
+                  // A teaser shows only its city; the venue comes before sales open.
+                  ['Venue', teaser ? 'Added before tickets go on sale' : event.venueName || (event.listingType === 'display_only' ? 'Not given' : <Missing>No venue name</Missing>)],
+                  ['Address', teaser ? 'Added before tickets go on sale' : event.venueAddress || (event.listingType === 'display_only' ? 'Not given' : <Missing>No street address</Missing>)],
                   ['City', event.city || <Missing>No city</Missing>],
                   ['Country', event.country || 'Not set'],
                 ]} />
@@ -150,6 +192,12 @@ export default function SubmitReview({ eventId, onClose, onConfirm, busy = false
               </Section>
 
               <Section title="Tickets, fees and what you receive" icon="ticket">
+                {teaser && (
+                  <p className="text-sm text-muted">
+                    No tickets are sold on a coming-soon page. These are the rates that will apply
+                    when you open ticket sales — you review them again then.
+                  </p>
+                )}
                 <MoneyLines
                   lines={data.lines}
                   fees={data.fees}
@@ -205,11 +253,7 @@ export default function SubmitReview({ eventId, onClose, onConfirm, busy = false
               disabled={busy || !data?.canSubmit}
               onChange={(e) => setAgreed(e.target.checked)}
             />
-            <span className="text-sm text-ink">
-              {data?.requiresApproval === false
-                ? 'I have checked the details, the fees and the policies above, and I want to publish this event now.'
-                : 'I have checked the details, the fees and the policies above, and I want to send this event to Eventsli for review.'}
-            </span>
+            <span className="text-sm text-ink">{copy.agree}</span>
           </label>
 
           <div className="es-review__actions">
@@ -219,11 +263,11 @@ export default function SubmitReview({ eventId, onClose, onConfirm, busy = false
             <SubmitButton
               type="button"
               busy={busy}
-              busyLabel={data?.requiresApproval === false ? 'Publishing…' : 'Submitting…'}
+              busyLabel={copy.busy}
               disabled={!ready}
               onClick={onConfirm}
             >
-              {data?.requiresApproval === false ? 'Publish now' : 'Submit for review'}
+              {copy.button}
             </SubmitButton>
           </div>
         </footer>

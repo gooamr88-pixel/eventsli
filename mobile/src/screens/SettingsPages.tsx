@@ -119,15 +119,7 @@ export function AppSettingsPage() {
       <Section title="At the door">
         <Card style={styles.rows}>
           <ToggleRow icon="bell" label="Sound" hint="A tone for every answer, even on silent." value={s.sound} onChange={(v) => s.set({ sound: v })} />
-          <ToggleRow icon="pulse" label="Vibration" hint="Not felt on iPhone while the camera is open." value={s.haptics} onChange={(v) => s.set({ haptics: v })} />
-          <ToggleRow
-            icon="scan"
-            label="Back to the camera"
-            hint="Two seconds after a successful check-in. Other answers always wait."
-            value={s.autoContinue}
-            onChange={(v) => s.set({ autoContinue: v })}
-            last
-          />
+          <ToggleRow icon="pulse" label="Vibration" hint="Not felt on iPhone while the camera is open." value={s.haptics} onChange={(v) => s.set({ haptics: v })} last />
         </Card>
         <Button
           label="Try the check-in sound"

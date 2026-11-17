@@ -107,7 +107,12 @@ export default function InvoiceDetail({ invoiceId }) {
         icon="receipt"
         title={invoice.number}
         lede={[event?.title, organizer?.name].filter(Boolean).join(' · ')}
-        actions={<Link href="/admin/invoices" className="es-btn es-btn--ghost es-btn--sm">All invoices</Link>}
+        actions={(
+          <span className="fx-row gap-2">
+            <Link href={`/admin/invoices/${invoice.id}/document`} className="es-btn es-btn--ghost es-btn--sm">Invoice document</Link>
+            <Link href="/admin/invoices" className="es-btn es-btn--ghost es-btn--sm">All invoices</Link>
+          </span>
+        )}
       />
 
       <KpiRow label="The money" tiles>

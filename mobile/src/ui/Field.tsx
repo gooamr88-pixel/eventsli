@@ -11,17 +11,20 @@ type Props = TextInputProps & {
   error?: string | null;
   /** A password field gets the show/hide eye from the mockup. */
   secret?: boolean;
+  /** The sign-in mockup's soft rounded field: a pale fill, a hairline after the icon. */
+  pill?: boolean;
 };
 
 export const Field = forwardRef<TextInputInstance, Props>(function Field(
-  { label, icon, error, secret = false, style, ...rest },
+  { label, icon, error, secret = false, pill = false, style, ...rest },
   ref,
 ) {
   const [hidden, setHidden] = useState(secret);
   return (
     <View style={styles.wrap}>
-      <View style={[styles.box, error ? styles.boxError : null]}>
-        {icon && <Icon name={icon} size={20} color={colors.muted} />}
+      <View style={[styles.box, pill && styles.pill, error ? styles.boxError : null]}>
+        {icon && <Icon name={icon} size={pill ? 22 : 20} color={colors.muted} />}
+        {icon && pill && <View style={styles.divider} />}
         <TextInput
           ref={ref}
           accessibilityLabel={label}
@@ -61,6 +64,19 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     backgroundColor: colors.surface,
   },
+  pill: {
+    minHeight: 58,
+    borderRadius: radius.pill,
+    paddingHorizontal: space.xl,
+    backgroundColor: colors.field,
+    borderColor: colors.fieldBorder,
+    shadowColor: '#111018',
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 1,
+  },
+  divider: { width: 1, height: 24, backgroundColor: colors.fieldBorder },
   boxError: { borderColor: colors.danger },
   input: { flex: 1, fontFamily: fonts.regular, fontSize: 16, color: colors.text, paddingVertical: space.md },
 });

@@ -21,6 +21,7 @@ const logger = require('../utils/logger');
 
 const COLUMNS = `
   id, display_name, legal_name, description, country, stripe_account_id,
+  billing_address, tax_status, tax_id,
   stripe_onboarding_complete, stripe_payouts_enabled, is_banned,
   policies_accepted_at, created_at
 `;
@@ -158,6 +159,15 @@ async function update(req, res, next) {
     if (req.body.displayName !== undefined) patch.display_name = String(req.body.displayName).trim();
     if (req.body.legalName !== undefined) patch.legal_name = String(req.body.legalName).trim();
     if (req.body.description !== undefined) patch.description = String(req.body.description).trim();
+    // Billing details (the route has validated them together). Not registered
+    // means no number: one left behind would still print on the next invoice.
+    if (req.body.billingAddress !== undefined) {
+      patch.billing_address = String(req.body.billingAddress).replace(/\r\n?/g, '\n').trim();
+    }
+    if (req.body.taxStatus !== undefined) {
+      patch.tax_status = req.body.taxStatus;
+      patch.tax_id = req.body.taxStatus === 'registered' ? String(req.body.taxId).trim() : null;
+    }
 
     // `country` is NOT editable here. It determines which Stripe entity the
     // organizer is onboarded under and is used to resolve settlement currency —
@@ -195,6 +205,20 @@ async function update(req, res, next) {
   } catch (err) {
     return next(err);
   }
+}
+
+/**
+ * Can a commission invoice be addressed to them? The organizer half of
+ * invoice_billing_check (20261123110000), so the profile can say so. Pure.
+ */
+function isBillingComplete(row) {
+  return Boolean(
+    (row?.legal_name || '').trim().length >= 2
+    && (row?.billing_address || '').trim().length >= 10
+    && /^[A-Z]{2}$/.test(row?.country || '')
+    && (row?.tax_status === 'not_registered'
+      || (row?.tax_status === 'registered' && (row?.tax_id || '').trim().length >= 3)),
+  );
 }
 
 /** Is the organization set up enough to create an event? Pure. */
@@ -249,6 +273,10 @@ function shape(row, { manualMethods = 0, cardAvailable = false, offlineCheckout 
     legalName: row.legal_name,
     description: row.description,
     country: row.country,
+    billingAddress: row.billing_address || null,
+    taxStatus: row.tax_status || null,
+    taxId: row.tax_id || null,
+    billingComplete: isBillingComplete(row),
     stripeConnected: !!row.stripe_account_id,
     canReceivePayouts: stripeReady,
     isBanned: !!row.is_banned,

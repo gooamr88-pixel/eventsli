@@ -59,17 +59,23 @@ export function ScannerMark({ size = 48, color = colors.night }: { size?: number
  * i), drawn from the same paths rather than typed.
  */
 export function ScannerLockup({ size = 28 }: { size?: number }) {
-  const [, , w, h] = WORDMARK_VIEWBOX.split(' ').map(Number);
-  const wordH = size * 0.78;
   return (
     <View accessible accessibilityRole="image" accessibilityLabel="Eventsli" style={{ flexDirection: 'row', alignItems: 'center', gap: size * 0.3 }}>
       <ScannerMark size={size} />
-      <Svg width={(wordH * w) / h} height={wordH} viewBox={WORDMARK_VIEWBOX} accessible={false}>
-        <Path d={WORDMARK_EVENTS} fill={colors.text} />
-        <Path d={WORDMARK_LI} fill={colors.text} />
-        <Path d={WORDMARK_SPARK} fill={colors.highlight} />
-      </Svg>
+      <Wordmark height={size * 0.78} />
     </View>
+  );
+}
+
+/** The website's wordmark alone, "eventsli" with the yellow spark, by height. Decorative. */
+export function Wordmark({ height, color = colors.text }: { height: number; color?: string }) {
+  const [, , w, h] = WORDMARK_VIEWBOX.split(' ').map(Number);
+  return (
+    <Svg width={(height * w) / h} height={height} viewBox={WORDMARK_VIEWBOX} accessible={false}>
+      <Path d={WORDMARK_EVENTS} fill={color} />
+      <Path d={WORDMARK_LI} fill={color} />
+      <Path d={WORDMARK_SPARK} fill={colors.highlight} />
+    </Svg>
   );
 }
 

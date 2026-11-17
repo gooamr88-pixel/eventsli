@@ -25,11 +25,16 @@ const invoices_ = require('./invoiceService');
 async function priceManualSale({ eventId, seatIds, tableId }) {
   const { data: event } = await supabase
     .from('events')
-    .select('id, currency, status, commission_pct, commission_tax_pct, event_tax_pct')
+    .select('id, currency, status, commission_pct, commission_tax_pct, event_tax_pct, coming_soon')
     .eq('id', eventId)
     .maybeSingle();
 
   if (!event) throw fail('EVENT_NOT_FOUND', 'That event does not exist.');
+  // A "coming soon" teaser sells nothing, at the door or anywhere else, until
+  // its sales open — and then through the checks that opening runs.
+  if (event.coming_soon) {
+    throw fail('CONFLICT', 'This event is still coming soon. Open ticket sales before recording a sale.');
+  }
 
   let subtotalCents = 0;
   let seats = [...new Set(seatIds || [])];
@@ -144,16 +149,18 @@ async function recordSale({ eventId, seatIds, tableId, buyer, method, note, reco
  */
 async function debtFor(eventId) {
   const { data: event } = await supabase
-    .from('events').select('id, currency, title, starts_at').eq('id', eventId).maybeSingle();
+    .from('events').select('id, currency, title, starts_at, organizer_id').eq('id', eventId).maybeSingle();
   if (!event) throw fail('EVENT_NOT_FOUND', 'That event does not exist.');
 
-  const [{ data: owed }, { data: invoices, error }, { data: gate }, { data: setting }] = await Promise.all([
+  const [{ data: owed }, { data: invoices, error }, { data: gate }, { data: setting }, creditNotes, billing] = await Promise.all([
     supabase.rpc('manual_commission_owed', { p_event_id: eventId, p_currency: event.currency }),
     supabase.from('invoices')
       .select(invoices_.INVOICE_COLUMNS)
       .eq('event_id', eventId).order('issued_at', { ascending: false }),
     supabase.rpc('scanner_is_locked', { p_event_id: eventId }),
     supabase.from('platform_settings').select('value').eq('key', 'manual_invoice').maybeSingle(),
+    invoices_.creditNotesForEvent(eventId),
+    invoices_.billingCheck(event.organizer_id),
   ]);
   if (error) throw new Error(error.message);
 
@@ -185,6 +192,19 @@ async function debtFor(eventId) {
     // How to pay Eventsli. Null until an admin sets it (Platform settings).
     paymentInstructions: typeof instructions === 'string' && instructions.trim() ? instructions.trim() : null,
     invoices: shaped,
+    // Credit notes for sales voided or refunded after an invoice asked for
+    // their commission (20261123110000), and what is still unspent: it comes
+    // off the next invoice, or Eventsli pays it back.
+    creditNotes,
+    creditBalanceCents: creditNotes.reduce((sum, n) => sum + n.remainingCents, 0),
+    // No invoice is issued until both sides' legal and tax details are
+    // complete. The organizer sees what is missing on their side; Eventsli's
+    // own gaps are reported as one flag, not field by field.
+    billing: {
+      ready: billing.ok,
+      organizerMissing: billing.organizerMissing,
+      issuerReady: billing.issuerMissing.length === 0,
+    },
   };
 }
 

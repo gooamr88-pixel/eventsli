@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { messageFor } from '@/api/client';
@@ -9,7 +9,6 @@ import { admits, describeScan, screenResult } from '@/gate/outcomes';
 import { useScanLog } from '@/gate/scanLog';
 import { useDoorExit } from '@/gate/useDoor';
 import { doorTime, ticketCode } from '@/lib/format';
-import { useSettings } from '@/lib/settings';
 import { Button } from '@/ui/Button';
 import { dialog } from '@/ui/Dialog';
 import { Icon, type IconName } from '@/ui/Icon';
@@ -17,7 +16,6 @@ import { Card, FactRow, Header, Screen, StatusIcon } from '@/ui/layout';
 import { Text } from '@/ui/Text';
 import { colors, space } from '@/ui/theme';
 
-const AUTO_CONTINUE_MS = 2000;
 const UNDO_WINDOW_MS = 60_000;
 
 /** Which of the mockup's three answer layouts, by outcome. */
@@ -31,29 +29,19 @@ const ICON: Partial<Record<string, IconName>> = {
  *   Check-in Successful   green tick, the guest, the ticket, the seat, the time
  *   Already Checked In    amber, with when they were let in
  *   Invalid Ticket        red, for every refusal, with the reason
- * An admission returns to the camera on its own after two seconds (a setting);
- * anything else stays until someone has read it.
+ * Every answer stays on screen until the staff member presses Scan Next (or
+ * Scan Another): the camera is off meanwhile, so no second code is read.
  */
 export default function Result() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const record = useScanLog((s) => s.records.find((r) => r.clientScanId === id));
   const door = useSession((s) => s.door);
-  const autoContinue = useSettings((s) => s.autoContinue);
   const exit = useDoorExit();
-  const [held, setHeld] = useState(false); // the operator touched something: no auto-return
   const [undoing, setUndoing] = useState(false);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const result = screenResult(record);
   const outcome = describeScan(result, (record?.answer as { reason?: string } | undefined)?.reason ?? null);
   const a = record?.answer;
-
-  useEffect(() => {
-    if (admits(result) && autoContinue && !held) {
-      timer.current = setTimeout(() => router.back(), AUTO_CONTINUE_MS);
-    }
-    return () => { if (timer.current) clearTimeout(timer.current); };
-  }, [result, autoContinue, held]);
 
   // Undo is offered for a minute after the scan: long enough to catch a
   // mistake at the door, short enough that it is not a way to re-admit later.
@@ -66,14 +54,8 @@ export default function Result() {
     return () => clearTimeout(t);
   }, [occurredAt]);
 
-  const stop = () => {
-    setHeld(true);
-    if (timer.current) clearTimeout(timer.current);
-  };
-
   async function undo() {
     if (!record || !door) return;
-    stop();
     setUndoing(true);
     try {
       await useScanLog.getState().undo(record, door.token);
@@ -105,7 +87,7 @@ export default function Result() {
         <Button
           label="View Details"
           variant="secondary"
-          onPress={() => { stop(); router.push({ pathname: '/ticket/[ticketId]', params: { ticketId: record.ticketId! } }); }}
+          onPress={() => router.push({ pathname: '/ticket/[ticketId]', params: { ticketId: record.ticketId! } })}
         />
       )}
       <Button label="Scan Another" onPress={() => router.back()} />
@@ -115,7 +97,7 @@ export default function Result() {
   return (
     <Screen waves="both" footer={footer}>
       {admitted ? <View style={styles.spacer} /> : <Header onBack={() => router.back()} />}
-      <View style={styles.hero} accessible accessibilityRole="alert" accessibilityLabel={`${outcome.title}. ${detail}`} onTouchStart={stop}>
+      <View style={styles.hero} accessible accessibilityRole="alert" accessibilityLabel={`${outcome.title}. ${detail}`}>
         <StatusIcon kind={BADGE[outcome.tone]} icon={ICON[result]} />
         <Text variant="heading" align="center">{outcome.title}</Text>
         {!admitted && <Text color={colors.muted} align="center" style={styles.detail}>{detail}</Text>}

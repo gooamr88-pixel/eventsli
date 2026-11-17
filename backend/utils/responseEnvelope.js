@@ -155,6 +155,10 @@ const ERROR_STATUS = {
   // app.js's catch-all. A client can receive it, so it needs a sentence.
   INTERNAL_ERROR: 500,
 
+  // invoices (20261123110000): Eventsli's or the organizer's legal/tax
+  // details are incomplete, so no invoice was issued. meta lists the fields.
+  BILLING_DETAILS_INCOMPLETE: 422,
+
   // generic
   VALIDATION_ERROR: 400,
   RATE_LIMITED: 429,

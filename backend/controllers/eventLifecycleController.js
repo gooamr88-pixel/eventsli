@@ -46,7 +46,8 @@ async function archive(req, res, next) {
     const now = new Date().toISOString();
     const { data, error } = await supabase
       .from('events')
-      .update({ status: 'archived', archived_at: now, archived_from: event.status, updated_at: now })
+      // A waiting request to open a teaser's sales is withdrawn with it.
+      .update({ status: 'archived', archived_at: now, archived_from: event.status, launch_requested_at: null, updated_at: now })
       .eq('id', event.id)
       .eq('status', event.status)   // optimistic lock
       .select(SELECT)

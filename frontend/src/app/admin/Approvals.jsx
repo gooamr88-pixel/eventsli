@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { get, post } from '../utils/apiClient';
 import { describeError, messageFor } from '../utils/errors';
 import { formatEventTime } from '../lib/eventTime';
+import { monthRange, monthOf, comingSoonLabel } from '../lib/comingSoon';
 import { useApi } from '../hooks/useApi';
 import { useToast } from '../components/ui/Toast';
 import { useConfirm } from '../components/ui/Confirm';
@@ -77,9 +78,10 @@ export default function Approvals() {
     setBusyId(event.id);
     try {
       await post(`/admin/events/${event.id}/${what}`, body, { noRedirect: true });
+      const opening = event.request === 'open_sales';
       toast.success(what === 'approve'
-        ? `“${event.title}” is published.`
-        : `“${event.title}” went back to the organizer.`);
+        ? (opening ? `Tickets for “${event.title}” are on sale. Everyone waiting is being emailed.` : `“${event.title}” is published.`)
+        : (opening ? `Ticket sales for “${event.title}” stay closed; the organizer was told why.` : `“${event.title}” went back to the organizer.`));
       reload();
       setDecided((n) => n + 1);
     } catch (err) {
@@ -93,23 +95,35 @@ export default function Approvals() {
 
   async function approve(event) {
     const payable = event.listingType === 'display_only' || event.organizer?.canReceivePayouts;
+    // What approving does depends on the request (coming soon, 2026-11-17).
+    const opening = event.request === 'open_sales';
+    const teaser = event.request === 'coming_soon';
     const ok = await confirm({
-      title: `Publish “${event.title}”?`,
+      title: opening ? `Open ticket sales for “${event.title}”?` : `Publish “${event.title}”?`,
       body: (
         <>
-          <p>It goes on sale straight away, at the prices and fees it was submitted with.</p>
-          {!payable && <p>The organizer&rsquo;s payout account is not set up, so buyers will not be able to pay yet.</p>}
+          <p>
+            {opening
+              ? 'Its coming-soon page becomes an event on sale straight away, and everyone on its notify list is emailed.'
+              : teaser
+                ? 'Its coming-soon page goes live with a “Notify me” button. Nothing is sold until the organizer opens ticket sales, which comes back here.'
+                : 'It goes on sale straight away, at the prices and fees it was submitted with.'}
+          </p>
+          {!teaser && !payable && <p>The organizer&rsquo;s payout account is not set up, so buyers will not be able to pay yet.</p>}
         </>
       ),
-      confirmLabel: 'Approve and publish',
+      confirmLabel: opening ? 'Approve and open sales' : 'Approve and publish',
     });
     if (ok) act(event, 'approve');
   }
 
   async function reject(event) {
+    const opening = event.request === 'open_sales';
     const answer = await confirm({
-      title: `Ask for changes to “${event.title}”?`,
-      body: <p>The organizer sees your note on their event, can fix it and submit again.</p>,
+      title: opening ? `Keep ticket sales closed for “${event.title}”?` : `Ask for changes to “${event.title}”?`,
+      body: opening
+        ? <p>The coming-soon page stays live. The organizer sees your note, can fix it and ask to open sales again.</p>
+        : <p>The organizer sees your note on their event, can fix it and submit again.</p>,
       confirmLabel: 'Send it back',
       reason: REASON,
     });
@@ -171,7 +185,14 @@ export default function Approvals() {
                 ),
               },
               // In the event's own zone, named — a Toronto show at 8pm is not "tomorrow, 00:00 UTC".
-              { key: 'when', label: 'Starts', render: (e) => formatEventTime(e.startsAt, e.timezone) },
+              {
+                key: 'when',
+                label: 'Starts',
+                // A teaser still on its month reads as the month, not "the 1st at midnight".
+                render: (e) => (e.request === 'coming_soon' && monthRange(monthOf(e), e.timezone).startsAt === new Date(e.startsAt).toISOString()
+                  ? comingSoonLabel(e)
+                  : formatEventTime(e.startsAt, e.timezone)),
+              },
               {
                 key: 'kind',
                 label: 'Kind',
@@ -179,6 +200,8 @@ export default function Approvals() {
                   <span className="fx-row gap-1">
                     <span className="es-pill">{e.country} · {e.currency}</span>
                     {e.listingType === 'display_only' && <span className="es-pill">Listing only</span>}
+                    {e.request === 'coming_soon' && <span className="es-soon-badge">Coming soon</span>}
+                    {e.request === 'open_sales' && <span className="es-pill es-pill--accent">Open ticket sales</span>}
                     {/* Drafted with the Smart Event Creator: its description
                         and highlights are AI-written copy the organizer kept. */}
                     {e.aiAssisted && <span className="es-pill es-pill--accent">AI-assisted</span>}

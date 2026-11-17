@@ -5,6 +5,7 @@ const http = require('node:http');
 
 // Sets DISABLE_RATE_LIMIT before the app builds its limiters. Must come first.
 require('../helpers/testEnv');
+const { ORGANIZER_BILLING, ensureInvoiceIssuer } = require('../helpers/billing');
 const { supabase } = require('../../config/supabase');
 const app = require('../../app');
 const manual = require('../../services/manualPaymentService');
@@ -95,6 +96,7 @@ async function withSetting(patch, fn) {
 }
 
 before(async () => {
+  await ensureInvoiceIssuer(require('../../config/supabase').supabase);
   for (const k of ['BREVO_API_KEY', 'FRONTEND_URL']) env[k] = process.env[k];
   process.env.BREVO_API_KEY = 'test-brevo';
   process.env.FRONTEND_URL = 'https://eventsli.test';
@@ -118,6 +120,7 @@ before(async () => {
     owner_user_id: ids.seller, display_name: 'Invoice Control Co', country: 'CA',
     legal_name: 'Invoice Control Company Ltd.',
     description: 'An organizer this suite invoices, pays, reverses, waives and voids.',
+    ...ORGANIZER_BILLING,
     policies_accepted_at: new Date().toISOString(),
   }).select('id').single();
   ids.organizer = org.id;

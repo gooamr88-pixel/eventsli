@@ -186,7 +186,16 @@ function howToPay(invoice, instructions) {
 }
 
 /** An invoice was raised — what is owed, by when, how to pay, and the consequence. */
-async function sendInvoiceIssued({ to, organizerName, invoice, event, url, instructions }) {
+async function sendInvoiceIssued({ to, organizerName, invoice, event, url, documentUrl = null, instructions }) {
+  // The line items, when the invoice has them (20261123100000): sales covered,
+  // commission, its tax, and anything carried over — adding up to the amount.
+  const itemised = invoice.commission_cents !== null && invoice.commission_cents !== undefined;
+  const lines = itemised ? [
+    ['Sales covered', `${invoice.sales_count} sale${invoice.sales_count === 1 ? '' : 's'} · ${money(invoice.sales_gross_cents, invoice.currency)} paid by buyers`],
+    ['Commission', money(invoice.commission_cents, invoice.currency)],
+    ...(Number(invoice.commission_tax_cents) ? [['Tax on commission', money(invoice.commission_tax_cents, invoice.currency)]] : []),
+    ...(Number(invoice.adjustment_cents) ? [[Number(invoice.adjustment_cents) < 0 ? 'Credit (earlier sales voided or refunded)' : 'Balance carried forward', money(invoice.adjustment_cents, invoice.currency)]] : []),
+  ] : [['Sales covered', `${invoice.order_count} sale${invoice.order_count === 1 ? '' : 's'}`]];
   return send({
     to,
     subject: `Commission invoice ${invoice.number} — ${event.title}`,
@@ -200,22 +209,22 @@ async function sendInvoiceIssued({ to, organizerName, invoice, event, url, instr
         ${T.eventCard(event)}
         ${T.facts([
     ['Invoice', invoice.number],
-    ['Door sales covered', `${invoice.order_count} sale${invoice.order_count === 1 ? '' : 's'}`],
-    ['Amount', money(invoice.amount_cents, invoice.currency)],
+    ...lines,
+    ['Total due', money(invoice.amount_cents, invoice.currency)],
     ['Due', invoiceDue(invoice, event)],
   ])}
         ${T.note('warning', `
           If it is not settled by the due date, <strong>ticket scanning for this event is switched
           off</strong> until it is. Your account and your other events are not affected.`)}
         ${howToPay(invoice, instructions)}
-        ${url ? T.button(url, 'Open the invoice') : ''}`,
+        ${documentUrl ? T.button(documentUrl, 'View or download the invoice') : (url ? T.button(url, 'Open the invoice') : '')}`,
     }),
   });
 }
 
 /** What is still to pay: the balance when part has been paid, else the amount. */
 function stillOwed(invoice) {
-  const balance = invoice.balance_cents ?? (Number(invoice.amount_cents) - Number(invoice.paid_cents || 0) - Number(invoice.written_off_cents || 0));
+  const balance = invoice.balance_cents ?? (Number(invoice.amount_cents) - Number(invoice.paid_cents || 0) - Number(invoice.written_off_cents || 0) - Number(invoice.credited_cents || 0));
   return money(Number.isFinite(balance) ? balance : invoice.amount_cents, invoice.currency);
 }
 
@@ -444,6 +453,54 @@ async function sendEventRejected({ to, organizerName, event, reason, wasLive = f
   });
 }
 
+/**
+ * A coming-soon event's request to open ticket sales was declined. Unlike a
+ * rejection, nothing came down: the teaser stays live and nothing was on sale.
+ */
+async function sendLaunchDeclined({ to, organizerName, event, reason }) {
+  const site = T.siteUrl();
+  return send({
+    to,
+    subject: `Ticket sales not opened yet — ${event.title}`,
+    html: T.layout({
+      title: 'Changes needed before ticket sales open',
+      preheader: 'Your coming-soon page is still live. Here is what to change.',
+      reason: 'You are receiving this because you published an event on Eventsli.',
+      body: `
+        ${T.p(`Hi ${escapeHtml(organizerName || 'there')},`)}
+        ${T.p('An Eventsli admin reviewed your request to open ticket sales and asked for a change first:')}
+        ${T.quote(reason)}
+        ${T.eventCard({ ...event, comingSoon: true })}
+        ${T.note('info', 'Your coming-soon page is still live, and everyone on its notify list is still waiting to hear from you.')}
+        ${T.p('Make the change in your dashboard and open ticket sales again.')}
+        ${site && event.id ? T.button(`${site}/organizer/events/${event.id}`, 'Open my event') : ''}`,
+    }),
+  });
+}
+
+/**
+ * To somebody who asked to be told: the coming-soon event they signed up for
+ * is on sale. Sent ONCE (services/comingSoonService.js), and the only email
+ * that address ever gets from the list.
+ */
+async function sendComingSoonOnSale({ to, event }) {
+  const site = T.siteUrl();
+  const url = site && event.slug ? `${site}/e/${encodeURIComponent(event.slug)}` : null;
+  return send({
+    to,
+    subject: `Tickets are on sale — ${event.title}`,
+    html: T.layout({
+      title: 'Tickets are on sale',
+      preheader: `You asked us to tell you when ${event.title} went on sale. It just did.`,
+      reason: 'You are receiving this one-time email because you asked Eventsli to tell you when tickets for this event went on sale. You will not get any more emails about it.',
+      body: `
+        ${T.p(`You asked us to let you know — tickets for <strong>${escapeHtml(event.title)}</strong> are on sale now.`)}
+        ${T.eventCard(event)}
+        ${url ? T.button(url, 'Get tickets') : ''}`,
+    }),
+  });
+}
+
 /** An admin pulled a live event from view (reversible). The reason is the admin's. */
 async function sendEventSuspended({ to, organizerName, event, reason }) {
   const site = T.siteUrl();
@@ -517,7 +574,7 @@ async function sendEventPublishedToAdmins({ to, event, organizerName, adminUrl, 
       preheader: `${organizerName || 'An organizer'} published ${event.title}. Review it when you can.`,
       reason: 'You are receiving this because you are an Eventsli administrator.',
       body: `
-        ${T.p(`<strong>${escapeHtml(organizerName || 'An organizer')}</strong> published a new ${event.listingType === 'display_only' ? 'listing' : 'ticketed event'}. It is live on Eventsli now.`)}
+        ${T.p(`<strong>${escapeHtml(organizerName || 'An organizer')}</strong> published a new ${event.comingSoon ? 'coming-soon page (no tickets on sale yet)' : event.listingType === 'display_only' ? 'listing' : 'ticketed event'}. It is live on Eventsli now.`)}
         ${T.eventCard({ ...event, organizerName })}
         ${adminUrl ? T.button(adminUrl, 'Review it in the admin console') : ''}
         ${T.p(`If something is wrong, <strong>Reject</strong> takes it down and emails the organizer your reason; <strong>Suspend</strong> and <strong>Cancel</strong> do the same.${publicUrl ? ` Public page: <a href="${escapeHtml(publicUrl)}">${escapeHtml(publicUrl)}</a>` : ''}`, { small: true, color: T.MUTED })}`,
@@ -527,7 +584,9 @@ async function sendEventPublishedToAdmins({ to, event, organizerName, adminUrl, 
 
 /** The event is live — approved by an admin, or (`direct`) published straight away. */
 async function sendEventApproved({ to, organizerName, event, url, direct = false }) {
-  const sells = event.listingType !== 'display_only';
+  // A coming-soon teaser is live but sells nothing until its sales open.
+  const teaser = event.comingSoon === true;
+  const sells = event.listingType !== 'display_only' && !teaser;
   return send({
     to,
     subject: `${event.title} is live`,
@@ -537,7 +596,9 @@ async function sendEventApproved({ to, organizerName, event, url, direct = false
       reason: 'You are receiving this because you published an event on Eventsli.',
       body: `
         ${T.p(`Hi ${escapeHtml(organizerName || 'there')},`)}
-        ${T.p(`Your event ${direct ? 'is published' : 'has been approved'} and is now ${sells ? 'on sale' : 'listed on Eventsli'}. Here is what people will see:`)}
+        ${T.p(teaser
+          ? `Your coming-soon page ${direct ? 'is published' : 'has been approved'}. People can find it on Eventsli now and ask to be told when tickets go on sale. When the details are ready, open ticket sales from your dashboard.`
+          : `Your event ${direct ? 'is published' : 'has been approved'} and is now ${sells ? 'on sale' : 'listed on Eventsli'}. Here is what people will see:`)}
         ${direct ? T.p('Eventsli reviews new events after they go live. If anything needs to change, we will email you with the reason.', { small: true, color: T.MUTED }) : ''}
         ${T.eventCard(event)}
         ${url ? T.button(url, 'View my event page') : ''}
@@ -770,6 +831,8 @@ module.exports = {
   sendInvoiceUpdate,
   sendGateChanged,
   sendEventRejected,
+  sendLaunchDeclined,
+  sendComingSoonOnSale,
   sendEventApproved,
   sendEventSuspended,
   sendEventCancelledByAdmin,

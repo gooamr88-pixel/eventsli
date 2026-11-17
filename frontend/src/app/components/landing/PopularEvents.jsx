@@ -7,6 +7,7 @@ import EventCard from '../EventCard';
 import NavIcon from '../shell/NavIcon';
 import { get } from '../../utils/apiClient';
 import Accent from './Accent';
+import CardRail from './CardRail';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -102,11 +103,13 @@ export default function PopularEvents({ copy, categories, events, failed }) {
             {[0, 1, 2].map((n) => <li key={n} className="es-skeleton es-lp-cards__ghost" />)}
           </ul>
         ) : current.rows.length > 0 ? (
-          <ul className="es-lp-cards es-lp-rail">
+          /* Paged with dots from a tablet up (CardRail): every fetched event is
+             reachable, not just the first six. */
+          <CardRail key={active} label="Events">
             {current.rows.map((event, i) => (
               <li key={event.id}><EventCard event={event} priority={active === '' && i < 2} /></li>
             ))}
-          </ul>
+          </CardRail>
         ) : (
           <Empty failed={current.failed} label={activeLabel} />
         )}

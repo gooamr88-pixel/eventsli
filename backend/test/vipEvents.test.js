@@ -47,7 +47,8 @@ stub('config/supabase.js', {
 stub('controllers/discoveryController.js', {
   SELECT: '*',
   shape: (e) => ({ id: e.id, slug: e.slug, title: e.title }),
-  lowestTierPrices: async (ids) => new Map(ids.map((id) => [id, 2500])),
+  // Rows or ids, as the real one takes (rows let it skip coming-soon teasers).
+  lowestTierPrices: async (events) => new Map(events.map((e) => [typeof e === 'string' ? e : e.id, 2500])),
 });
 
 const vip = require('../services/vipEventsService');

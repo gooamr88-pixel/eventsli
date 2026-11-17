@@ -25,13 +25,13 @@ const { loadForEmail, adminRecipients } = require('./eventPublishing');
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
-const INVOICE_FIELDS = 'id, number, currency, amount_cents, paid_cents, written_off_cents, status, due_at, due_at_original, order_count, event_id, proof_url, proof_submitted_at, confirmed_at';
+const INVOICE_FIELDS = 'id, number, currency, amount_cents, paid_cents, written_off_cents, credited_cents, status, due_at, due_at_original, order_count, event_id, proof_url, proof_submitted_at, confirmed_at, sales_count, sales_gross_cents, commission_cents, commission_tax_cents, adjustment_cents';
 
 async function loadInvoice(invoiceId) {
   const { data, error } = await supabase.from('invoices').select(INVOICE_FIELDS).eq('id', invoiceId).maybeSingle();
   if (error) throw new Error(error.message);
   if (!data) return null;
-  return { ...data, balance_cents: Number(data.amount_cents) - Number(data.paid_cents || 0) - Number(data.written_off_cents || 0) };
+  return { ...data, balance_cents: Number(data.amount_cents) - Number(data.paid_cents || 0) - Number(data.written_off_cents || 0) - Number(data.credited_cents || 0) };
 }
 
 /** The platform's "how to pay Eventsli" text, or null when an admin has not set it. */
@@ -50,6 +50,12 @@ async function paymentInstructions() {
 function commissionUrl(eventId) {
   const site = T.siteUrl();
   return site ? `${site}/organizer/events/${eventId}/commission` : null;
+}
+
+/** The printable invoice (Save as PDF) for one invoice. */
+function invoiceDocumentUrl(eventId, invoiceId) {
+  const site = T.siteUrl();
+  return site ? `${site}/organizer/events/${eventId}/commission/invoices/${invoiceId}` : null;
 }
 
 async function gateOf(eventId) {
@@ -94,6 +100,7 @@ function notifyIssued(invoiceId) {
     if (!to) return { sent: false, reason: 'no_recipient' };
     return email.sendInvoiceIssued({
       to, organizerName: info.organizerName, invoice, event: info.event, url,
+      documentUrl: invoiceDocumentUrl(invoice.event_id, invoice.id),
       instructions: await paymentInstructions(),
     });
   });

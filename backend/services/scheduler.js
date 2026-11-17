@@ -184,6 +184,9 @@ const JOBS = [
   // Hourly as well: a reminder 48 hours out does not need minute precision.
   { name: 'invoice-reminders', everyMs: 3_600_000, run: sendInvoiceReminders, immediate: false },
   { name: 'purge-sessions', everyMs: 6 * 3_600_000, run: purgeSessions, immediate: false },
+  // Every five minutes: people who asked to hear when a coming-soon event goes
+  // on sale (services/comingSoonService.js). Opening sales also kicks it at once.
+  { name: 'coming-soon-notices', everyMs: 5 * 60_000, run: () => withLeaderLock('coming-soon-notices', () => require('./comingSoonService').sendOnSaleNotices()), immediate: false },
   // Daily. Does nothing unless SCAN_RETENTION_MODE is report or delete
   // (services/scanRetention.js); off by default.
   { name: 'scan-retention', everyMs: 24 * 3_600_000, run: () => require('./scanRetention').scheduled(withLeaderLock), immediate: false },
@@ -223,4 +226,6 @@ function stop() {
   timers.length = 0;
 }
 
-module.exports = { start, stop, expireReservations, markOverdueInvoices, sendInvoiceReminders, purgeSessions };
+module.exports = {
+  start, stop, withLeaderLock, expireReservations, markOverdueInvoices, sendInvoiceReminders, purgeSessions,
+};

@@ -40,7 +40,7 @@ function refreshPublicPages(slug) {
   return revalidate([`event:${slug}`, 'events:published', LANDING_TAG]).catch(() => {});
 }
 
-const EVENT_FIELDS = 'id, slug, title, listing_type, starts_at, ends_at, timezone, venue_name, city, organizer_id, '
+const EVENT_FIELDS = 'id, slug, title, listing_type, starts_at, ends_at, timezone, venue_name, city, organizer_id, coming_soon, '
   + 'organizers ( display_name, profiles!organizers_owner_user_id_fkey ( email ) )';
 
 async function loadForEmail(eventId) {
@@ -53,6 +53,7 @@ async function loadForEmail(eventId) {
     event: {
       id: data.id, slug: data.slug, title: data.title, listingType: data.listing_type,
       startsAt: data.starts_at, timezone: data.timezone, venue: data.venue_name, city: data.city,
+      comingSoon: data.coming_soon === true,
     },
     organizerName: org?.display_name || null,
     organizerEmail: profile?.email || null,
@@ -125,8 +126,23 @@ async function notifyOrganizer({ eventId, action, reason = null, wasLive = false
     suspended: () => email.sendEventSuspended({ ...base, reason }),
     cancelled: () => email.sendEventCancelledByAdmin({ ...base, reason }),
     restored: () => email.sendEventRestored({ ...base, url: eventUrl(info.event.slug) }),
+    launch_declined: () => email.sendLaunchDeclined({ ...base, reason }),
   }[action];
   if (send) await safely(`organizer ${action} email`, eventId, send());
+}
+
+/**
+ * A coming-soon event's ticket sales just opened — by its organizer, or by an
+ * admin approving the request. The organizer and the admins hear it as a
+ * publish (it is now on sale), and the people on its notify list are emailed
+ * by the notice job, which is kicked now rather than left for its next tick.
+ */
+async function notifySalesOpened({ eventId, origin, direct }) {
+  await notifyPublished({ eventId, origin, direct });
+  // Under the job's own lease, so this and a scheduled run never send at once.
+  // If the job holds it right now, its next tick picks these up.
+  const { withLeaderLock } = require('./scheduler');
+  await withLeaderLock('coming-soon-notices', () => require('./comingSoonService').sendOnSaleNotices());
 }
 
 /** Fire and forget from a request handler: the response never waits on mail. */
@@ -135,6 +151,6 @@ function inBackground(label, promise) {
 }
 
 module.exports = {
-  requiresApproval, notifyPublished, notifyOrganizer, refreshPublicPages, adminRecipients, inBackground,
+  requiresApproval, notifyPublished, notifySalesOpened, notifyOrganizer, refreshPublicPages, adminRecipients, inBackground,
   loadForEmail,
 };

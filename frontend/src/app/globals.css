@@ -5779,8 +5779,6 @@ a.es-sponsor:hover { opacity: 0.7; }
 }
 .es-home-hero__ctas { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.5rem; }
 
-/* The partner logos, under the search bar. */
-.es-home-hero__partners { margin-top: clamp(1.25rem, 3vw, 2rem); }
 
 
 
@@ -15955,4 +15953,234 @@ label.es-chip:has(:focus-visible) { outline: 2px solid var(--es-accent); outline
   .es-nav__brand > a { min-width: 0; }
   .es-nav__brand .es-logo { --es-logo-h: 1.75rem; }
   .es-nav__role { letter-spacing: 0.04em; }
+}
+
+/* -- "Coming soon": the Notify me card and badge (2026-11-17) --------------
+   The teaser page's call to action is drawn as the same ticket as "Get your
+   tickets", with an email box where the Buy button was. The badge marks a
+   teaser on every event card. Yellow is a fill, never text. */
+@layer components {
+  .es-evx-notify { display: flex; flex-wrap: wrap; gap: 0.6rem; width: 100%; max-width: 32rem; }
+  .es-evx-notify .es-input { flex: 1 1 14rem; min-width: 0; min-height: 50px; }
+  .es-evx-notify .es-evx-ticket__btn { margin-top: 0; border: 0; cursor: pointer; }
+  .es-evx-notify .es-evx-ticket__btn:disabled { opacity: 0.6; cursor: progress; }
+  .es-evx-ticket__month { font-family: var(--es-font-display); font-size: 1.35rem; font-weight: 900; line-height: 1.1; text-align: center; }
+  /* A teaser on a card: coral, so it is never mistaken for yellow "on sale". */
+  .es-evcard__sale--soon { background: var(--es-accent); color: var(--es-text-on-accent); }
+  .es-soon-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.2rem 0.6rem;
+    border-radius: var(--es-radius-full);
+    background: var(--es-highlight);
+    font-size: var(--es-text-xs);
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--es-text-on-highlight);
+  }
+}
+
+/* -- "Happening near you" directly under the hero (owner, 2026-11-17) ------
+   It took the place of the sponsor strip. The hero already ends with its own
+   bottom padding under the search bar, so the band's full top padding on top
+   of that left a gap wider than any other on the page; below it, the full
+   section padding plus the next band's left 124px under a one-line location
+   bar. Both are tightened only when it follows the hero, so it sits evenly
+   between the search bar and the event list. */
+@layer components {
+  .es-home-hero + .es-near.fx-section { padding-block: clamp(1rem, 2.5vw, 1.75rem) clamp(1.5rem, 3.5vw, 2.5rem); }
+}
+
+/* -- Event rails you can page through, with dots (owner, 2026-11-17) -------
+   CardRail.jsx. From md the homepage's event lists are ONE scroll-snapped row
+   (two across on a tablet, three on a desktop) instead of a grid that hid
+   every card after the sixth. Below md nothing changes: the two-column phone
+   grid above. The controls are the hero slider's: short grey bars, the
+   current one long and coral, between two round arrows. */
+@layer components {
+  @media (width >= 48rem) {
+    .es-rail .es-lp-cards.es-lp-rail {
+      display: grid;
+      grid-auto-flow: column;
+      grid-template-columns: none;
+      grid-auto-columns: calc((100% - 1.5rem) / 2);
+      gap: 1.5rem;
+      /* Room for the card's hover lift and shadow inside the scroller. */
+      margin-block: -6px -14px;
+      padding-block: 6px 14px;
+      overflow-x: auto;
+      overscroll-behavior-x: contain;
+      scroll-snap-type: x mandatory;
+      scrollbar-width: none;
+    }
+    .es-rail .es-lp-rail::-webkit-scrollbar { display: none; }
+    .es-rail .es-lp-rail > li { display: block; scroll-snap-align: start; }
+  }
+  @media (width >= 64rem) {
+    .es-rail .es-lp-cards.es-lp-rail { grid-auto-columns: calc((100% - 3rem) / 3); }
+  }
+
+  .es-rail__nav {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+  }
+  /* ROUND POINTS (owner, 2026-11-17: "professional points"): an 8px grey
+     dot per page; the current one a larger coral dot with a soft ring, so
+     where you are reads at a glance. Each sits in a 24px button, the size a
+     thumb can hit, with the dot drawn inside it. */
+  .es-rail__dots { display: flex; align-items: center; gap: 0.125rem; }
+  .es-rail__dot {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background: none;
+    cursor: pointer;
+  }
+  .es-rail__dot::before {
+    content: '';
+    display: block;
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: var(--es-grey-300);
+    transition: width 200ms var(--es-ease-default), height 200ms var(--es-ease-default), background-color var(--es-duration-fast) var(--es-ease-default);
+  }
+  .es-rail__dot:hover::before { background: var(--es-grey-400); }
+  .es-rail__dot[aria-current='true']::before {
+    width: 10px;
+    height: 10px;
+    background: var(--es-brand-coral);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--es-brand-coral) 18%, transparent);
+  }
+  .es-rail__dot:focus-visible { outline: 2px solid var(--es-accent); outline-offset: 1px; }
+  .es-rail__arrow {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border: 1px solid var(--es-border);
+    border-radius: 50%;
+    background: var(--es-surface);
+    color: var(--es-text);
+    box-shadow: var(--es-shadow-sm);
+    cursor: pointer;
+    transition: background-color var(--es-duration-fast) var(--es-ease-default), border-color var(--es-duration-fast) var(--es-ease-default);
+  }
+  .es-rail__arrow:hover:not(:disabled) { border-color: var(--es-highlight); background: var(--es-highlight); color: var(--es-text-on-highlight); }
+  .es-rail__arrow:disabled { opacity: 0.4; cursor: default; box-shadow: none; }
+  @media (prefers-reduced-motion: reduce) {
+    .es-rail__dot, .es-rail__dot::before, .es-rail__arrow { transition: none; }
+  }
+}
+
+/* -- "Payment platforms we use", above the partners band (2026-11-17) -----
+   PaymentPlatforms.jsx. Stripe on its own, then the card brands on white
+   tiles that stay white in dark mode — the marks are made for white, and a
+   navy Visa on a dark surface disappears. Brand colours are the brands' own. */
+@layer components {
+  .es-pay { border-top: 1px solid var(--es-border); background: var(--es-bg); }
+  .es-pay__head { max-width: 40rem; margin: 0 auto; text-align: center; }
+  .es-pay__eyebrow {
+    margin: 0;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--es-accent);
+  }
+  .es-pay__title {
+    margin: 0.75rem 0 0;
+    font-family: var(--es-font-display);
+    font-size: clamp(1.75rem, 1.2rem + 2vw, 2.5rem);
+    font-weight: 700;
+    line-height: 1.12;
+    letter-spacing: -0.03em;
+    color: var(--es-text);
+  }
+  .es-pay__lede { margin: 0.75rem auto 0; font-size: var(--es-text-md); line-height: 1.55; color: var(--es-text-muted); }
+
+  .es-pay__panel {
+    display: grid;
+    gap: 1rem;
+    align-items: center;
+    margin-top: clamp(1.75rem, 4vw, 2.5rem);
+    padding: clamp(1rem, 2.5vw, 1.5rem);
+    border: 1px solid var(--es-border);
+    border-radius: 22px;
+    background: var(--es-surface);
+    box-shadow: var(--es-shadow-sm);
+  }
+  @media (width >= 64rem) {
+    .es-pay__panel { grid-template-columns: auto minmax(0, 1fr); gap: 1.5rem; }
+  }
+
+  .es-pay__stripe {
+    display: flex;
+    align-items: center;
+    gap: 0.875rem;
+    padding: 0.875rem 1.25rem;
+    border-radius: 16px;
+    background: #635bff;
+    color: #ffffff;
+  }
+  .es-pay__stripe-mark {
+    display: inline-flex;
+    width: 44px;
+    height: 44px;
+    padding: 8px;
+    border-radius: 12px;
+    background: #ffffff;
+    color: #635bff;
+  }
+  .es-pay__stripe-text { display: grid; gap: 0.15rem; }
+  .es-pay__stripe-name { font-family: var(--es-font-display); font-size: 1.5rem; font-weight: 800; line-height: 1; letter-spacing: -0.02em; }
+  .es-pay__stripe-sub { display: inline-flex; align-items: center; gap: 0.35rem; font-size: var(--es-text-xs); font-weight: 600; opacity: 0.95; }
+
+  .es-pay__brands {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
+    gap: 0.75rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .es-pay__brand {
+    display: grid;
+    justify-items: center;
+    gap: 0.5rem;
+    padding: 0.875rem 0.5rem 0.75rem;
+    border: 1px solid #e6e3df;
+    border-radius: 14px;
+    background: #ffffff;
+  }
+  /* Square, because the marks are drawn in square 24 x 24 boxes; a wordmark
+     such as Visa fills the width, so the box has to be wide AND tall. */
+  .es-pay__logo { display: inline-flex; width: 60px; height: 60px; margin-block: -10px; }
+  .es-pay__logo--mastercard { width: 52px; height: 34px; margin-block: 3px; }
+  .es-pay__logo--visa { color: #1a1f71; }
+  .es-pay__logo--americanexpress { color: #2e77bc; }
+  .es-pay__logo--applepay, .es-pay__logo--googlepay { color: #000000; }
+  /* Fixed ink on the fixed white tile, in both themes (#4a4a55 on white is 8.6:1). */
+  .es-pay__name { font-size: var(--es-text-xs); font-weight: 600; text-align: center; color: #4a4a55; }
+
+  .es-pay__note {
+    max-width: 46rem;
+    margin: 1rem auto 0;
+    font-size: var(--es-text-sm);
+    line-height: 1.5;
+    text-align: center;
+    color: var(--es-text-subtle);
+  }
 }

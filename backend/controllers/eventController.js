@@ -19,6 +19,7 @@ const { safeSearch } = require('../utils/search');
 const logger = require('../utils/logger');
 const aiQuota = require('../services/ai/quotaService');
 const publishing = require('../services/eventPublishing');
+const comingSoon = require('../services/comingSoonService');
 const { frontendOrigin } = require('../utils/frontendOrigin');
 
 /**
@@ -41,7 +42,8 @@ const SELECT = `
   max_tickets_per_order, allow_ticket_transfer,
   rejection_reason, reviewed_at, cancelled_at, cancelled_reason,
   suspended_at, suspended_reason, terms_accepted_id, created_at, updated_at,
-  accepts_stripe, accepts_manual, offline_payment_hours, archived_at, archived_from
+  accepts_stripe, accepts_manual, offline_payment_hours, archived_at, archived_from,
+  coming_soon, launch_requested_at, sales_opened_at
 `;
 
 // Both moved to services/submissionService.js, where `submit` and its preview
@@ -163,6 +165,9 @@ async function create(req, res, next) {
           ? { allow_ticket_transfer: req.body.allowTicketTransfer === true || req.body.allowTicketTransfer === 'true' } : {}),
         ...financials,
         ...payments,
+        // A coming-soon teaser (20261124090000): published with a title, a city,
+        // a cover and a month; its sales open later through POST /open-sales.
+        coming_soon: req.body.comingSoon === true,
         status: 'draft',
       })
       .select(SELECT)
@@ -230,9 +235,13 @@ async function get(req, res, next) {
         .limit(1),
     ]);
     if (error) throw new Error(error.message);
+    // How many people asked to hear when sales open — a count, never the list.
+    const waiting = data.coming_soon || data.sales_opened_at
+      ? await comingSoon.waitingCount(data.id) : null;
     return sendOk(res, {
       ...shape(data, { currentTermsId }),
       ...await setup(data),
+      notifyCount: waiting,
       cancellationRequest: shapeCancellationRequest(requests?.[0]),
       // Whether "Publish" puts it live now or sends it to the approval queue
       // (services/eventPublishing.js) — so the page can say which.
@@ -283,7 +292,7 @@ async function update(req, res, next) {
     const auditColumns = isAdmin ? Object.keys(allowed) : [];
     const { data: current } = await supabase
       .from('events')
-      .select([...new Set(['status', 'country', 'currency', 'starts_at', ...auditColumns])].join(', '))
+      .select([...new Set(['status', 'country', 'currency', 'starts_at', 'coming_soon', 'launch_requested_at', ...auditColumns])].join(', '))
       .eq('id', req.params.eventId).single();
 
     // A cancelled event is a historical record, not a draft (BRD §17).
@@ -325,18 +334,26 @@ async function update(req, res, next) {
       columns,
       isAdmin,
       hasPaidOrders: touchesSaleLocked ? await events.hasPaidOrders(req.params.eventId) : false,
+      comingSoon: current.coming_soon === true,
+      launchRequested: Boolean(current.launch_requested_at),
     });
     if (consequence.refused.length > 0) {
       const fields = consequence.refused.map(events.apiFieldName);
+      const message = {
+        LOCKED_AFTER_SALE: `Tickets have already sold, so ${fields.join(', ')} can no longer change.`,
+        COMING_SOON_LOCKED: 'This event is live, so it cannot switch between coming soon and on sale here. '
+          + 'A coming-soon event goes on sale with “Open ticket sales”.',
+      }[consequence.reason]
+        || `This event is on sale, so ${fields.join(', ')} cannot change without Eventsli `
+          + 'reviewing it again. Contact us to make this change.';
       return sendFail(res, {
-        status: 409, error: 'CONFLICT',
-        message: consequence.reason === 'LOCKED_AFTER_SALE'
-          ? `Tickets have already sold, so ${fields.join(', ')} can no longer change.`
-          : `This event is on sale, so ${fields.join(', ')} cannot change without Eventsli `
-            + 'reviewing it again. Contact us to make this change.',
+        status: 409, error: 'CONFLICT', message,
         meta: { lockedFields: fields, reason: consequence.reason },
       });
     }
+    // An edit to a live teaser waiting for its sales to be approved withdraws
+    // the request: the admin approves what they saw (editConsequence).
+    if (consequence.withdrawsLaunch) allowed.launch_requested_at = null;
 
     // Changing the country implies changing the currency (BRD §07), which the
     // database refuses once anything has sold. Check here so the message is
@@ -396,11 +413,18 @@ async function update(req, res, next) {
       });
     }
 
+    // A live teaser's page changed: drop the cached copy so buyers see it now.
+    if (data.status === 'published' && data.coming_soon) publishing.refreshPublicPages(data.slug);
+
     const currentTermsId = await currentOrganizerTermsId();
+    const meta = {
+      ...(consequence.returnsToDraft ? { returnedToDraft: true } : {}),
+      ...(consequence.withdrawsLaunch ? { launchWithdrawn: true } : {}),
+    };
     return sendOk(
       res,
       shape(data, { currentTermsId }),
-      consequence.returnsToDraft ? { meta: { returnedToDraft: true } } : undefined,
+      Object.keys(meta).length ? { meta } : undefined,
     );
   } catch (err) {
     if (err.code === 'VALIDATION_ERROR') {
@@ -431,7 +455,16 @@ async function submitForReview(req, res, next) {
      * each check has always produced — the client maps several of those codes
      * to a recovery action.
      */
-    const { blockers, termsId } = await submission.submissionBlockers({
+    // A live teaser is already published; its next step is opening sales.
+    if (submission.checkMode(event) === 'launch') {
+      return sendFail(res, {
+        status: 409, error: 'CONFLICT',
+        message: 'This coming-soon event is already live. Use “Open ticket sales” to put it on sale.',
+      });
+    }
+
+    // A teaser is checked for its four things; any other event as it always was.
+    const { blockers, termsId } = await submission.blockersFor({
       event, userId: req.user.id,
     });
     if (blockers.length > 0) {
@@ -479,6 +512,87 @@ async function submitForReview(req, res, next) {
   }
 }
 
+// ─── POST /events/:eventId/open-sales ───────────────────────────────────────
+/**
+ * A LIVE "COMING SOON" EVENT GOES ON SALE (owner, 2026-11-17).
+ *
+ * The normal publish checks, in full (`submission.launchBlockers`): terms,
+ * venue, exact times, a way to pay, a price on every seat. Then, as for any
+ * publish:
+ *
+ *   approval off  the teaser flag comes off at once — the Buy button appears,
+ *                 the organizer and the admins are emailed, and everybody on
+ *                 the notify list is told by the notice job;
+ *   approval on   `launch_requested_at` is set and an admin decides from the
+ *                 approval queue. The teaser stays live meanwhile, so the page
+ *                 people were sent to does not vanish while it waits.
+ */
+async function openSales(req, res, next) {
+  try {
+    const { data: event, error: readError } = await supabase
+      .from('events')
+      .select(submission.SUBMIT_SELECT)
+      .eq('id', req.params.eventId).single();
+    if (readError) throw new Error(readError.message);
+
+    if (event.launch_requested_at) {
+      return sendFail(res, {
+        status: 409, error: 'CONFLICT',
+        message: 'Opening ticket sales is already waiting for Eventsli to approve it.',
+      });
+    }
+
+    const { blockers, termsId } = await submission.launchBlockers({ event, userId: req.user.id });
+    if (blockers.length > 0) {
+      const [first] = blockers;
+      return sendFail(res, {
+        status: first.status,
+        error: first.error,
+        message: first.message,
+        ...(first.meta ? { meta: first.meta } : {}),
+      });
+    }
+
+    const direct = !(await publishing.requiresApproval());
+    const now = new Date().toISOString();
+    const { data, error } = await supabase
+      .from('events')
+      .update(direct
+        ? {
+          coming_soon: false, sales_opened_at: now, launch_requested_at: null,
+          rejection_reason: null, terms_accepted_id: termsId, updated_at: now,
+        }
+        : { launch_requested_at: now, rejection_reason: null, terms_accepted_id: termsId, updated_at: now })
+      .eq('id', event.id)
+      .eq('status', 'published')
+      .eq('coming_soon', true)          // optimistic lock: not already opened
+      .is('launch_requested_at', null)
+      .select(SELECT)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!data) {
+      return sendFail(res, {
+        status: 409, error: 'CONFLICT',
+        message: 'This event changed a moment ago. Reload and try again.',
+      });
+    }
+
+    await writeAudit(req, {
+      action: direct ? 'event.sales_opened' : 'event.sales_requested',
+      targetType: 'event', targetId: event.id, payload: {},
+    });
+    if (direct) {
+      logger.info({ eventId: event.id }, 'coming-soon event opened its ticket sales');
+      publishing.inBackground('sales opened notices', publishing.notifySalesOpened({
+        eventId: event.id, origin: frontendOrigin(req.headers.origin), direct: true,
+      }));
+    }
+    return sendOk(res, { ...shape(data, { currentTermsId: termsId }), salesOpenedDirectly: direct });
+  } catch (err) {
+    return next(err);
+  }
+}
+
 // ─── GET /events/:eventId/submission-preview ────────────────────────────────
 /**
  * WHAT THE ORGANIZER IS ABOUT TO AGREE TO, before anything is sent.
@@ -515,10 +629,11 @@ async function submissionPreview(req, res, next) {
 async function acceptTerms(req, res, next) {
   try {
     const { data: event, error: readError } = await supabase
-      .from('events').select('id, status').eq('id', req.params.eventId).single();
+      .from('events').select('id, status, coming_soon').eq('id', req.params.eventId).single();
     if (readError) throw new Error(readError.message);
 
-    if (!TERMS_ACCEPTABLE_FROM.includes(event.status)) {
+    // Before submitting, and on a live teaser before its sales open.
+    if (!rules.canAcceptTerms({ status: event.status, comingSoon: event.coming_soon === true })) {
       return sendFail(res, {
         status: 409, error: 'CONFLICT',
         message: `This event is ${event.status.replace('_', ' ')}, so its terms were already agreed when it was submitted.`,
@@ -632,6 +747,15 @@ function shape(e, { currentTermsId = null } = {}) {
     },
     archivedAt: e.archived_at || null,
     archivedFrom: e.archived_from || null,
+    /**
+     * A "coming soon" teaser (20261124090000). `roughMonth` is `'YYYY-MM'`
+     * while the dates are still the whole month — the teaser's rough date —
+     * and null once exact times are set.
+     */
+    comingSoon: e.coming_soon === true,
+    roughMonth: rules.roughMonth({ startsAt: e.starts_at, endsAt: e.ends_at, timezone: e.timezone }),
+    launchRequestedAt: e.launch_requested_at || null,
+    salesOpenedAt: e.sales_opened_at || null,
     review: {
       rejectionReason: e.rejection_reason,
       reviewedAt: e.reviewed_at,
@@ -659,7 +783,7 @@ function shapeCancellationRequest(r) {
 }
 
 module.exports = {
-  create, list, get, update, submitForReview, submissionPreview, acceptTerms, shape,
+  create, list, get, update, submitForReview, openSales, submissionPreview, acceptTerms, shape,
   shapeCancellationRequest,
   organizerReadiness, SELECT,
 };

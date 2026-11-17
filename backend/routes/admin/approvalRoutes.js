@@ -208,6 +208,22 @@ router.post(
 
 router.post('/invoices/:invoiceId/remind', invoiceParam, validate, manual.adminRemind);
 
+// ─── Credit notes (20261123110000) ─────────────────────────────────────────
+// Issued by the database when a sale an invoice covered is voided or
+// refunded; an admin only reads them, and records a credit paid back.
+const creditNoteParam = param('creditNoteId').isUUID();
+router.get('/credit-notes/:creditNoteId', creditNoteParam, validate, manual.adminCreditNote);
+router.post(
+  '/credit-notes/:creditNoteId/refund',
+  creditNoteParam,
+  body('amountCents').isInt({ min: 1, max: 100_000_000 }).withMessage('Enter the amount paid back, in cents.'),
+  body('method').optional({ values: 'falsy' }).isString().trim().isLength({ min: 2, max: 60 }),
+  body('reference').isString().trim().isLength({ min: 2, max: 120 }).withMessage('Enter the reference of the payment back to the organizer.'),
+  body('note').optional({ values: 'falsy' }).isString().trim().isLength({ max: 500 }),
+  validate,
+  manual.adminRefundCredit,
+);
+
 // ─── BRD §19 — the settings only an admin may set ──────────────────────────
 const settings = require('../../controllers/admin/settingsController');
 

@@ -21,11 +21,14 @@ const { isInvoiceOverdue, invoiceMoney } = require('../utils/invoices');
 const UNPAID = ['open', 'submitted', 'overdue'];
 
 const INVOICE_COLUMNS = [
-  'id', 'number', 'currency', 'amount_cents', 'paid_cents', 'written_off_cents', 'status',
+  'id', 'number', 'currency', 'amount_cents', 'paid_cents', 'written_off_cents', 'credited_cents', 'status',
   'issued_at', 'due_at', 'due_at_original', 'order_count', 'covers_from', 'covers_to',
   'proof_url', 'proof_submitted_at', 'receipt_rejected_at', 'receipt_rejection_reason',
   'confirmed_at', 'reminder_sent_at', 'overdue_notified_at',
   'waived_at', 'waive_reason', 'voided_at', 'void_reason', 'event_id', 'organizer_id',
+  // Frozen at issue (20261123100000): the line items and who it is from/to.
+  'sales_count', 'sales_gross_cents', 'commission_cents', 'commission_tax_cents', 'adjustment_cents',
+  'issuer', 'recipient',
 ].join(', ');
 
 function fail(code, message, meta) {
@@ -41,7 +44,7 @@ async function call(fn, args) {
 }
 
 function shapeInvoice(i) {
-  const { paid, writtenOff, balance } = invoiceMoney(i);
+  const { paid, writtenOff, credited, balance } = invoiceMoney(i);
   return {
     id: i.id,
     number: i.number,
@@ -49,6 +52,8 @@ function shapeInvoice(i) {
     amountCents: Number(i.amount_cents),
     paidCents: paid,
     writtenOffCents: writtenOff,
+    // Taken off by credit notes for sales voided or refunded after issue.
+    creditedCents: credited,
     balanceCents: balance,
     status: i.status,
     issuedAt: i.issued_at,
@@ -69,6 +74,19 @@ function shapeInvoice(i) {
     // Computed, not read from `status`: between runs of the hourly job a due
     // invoice still says "open" while it already counts against the gate.
     isOverdue: isInvoiceOverdue(i),
+    // The invoice document (20261123100000). Null on invoices raised before
+    // itemisation existed; the page says so rather than inventing lines.
+    lines: i.commission_cents === null || i.commission_cents === undefined ? null : {
+      salesCount: Number(i.sales_count || 0),
+      salesGrossCents: Number(i.sales_gross_cents || 0),
+      commissionCents: Number(i.commission_cents),
+      commissionTaxCents: Number(i.commission_tax_cents || 0),
+      adjustmentCents: Number(i.adjustment_cents || 0),
+    },
+    coversFrom: i.covers_from || null,
+    coversTo: i.covers_to || null,
+    issuer: i.issuer && Object.keys(i.issuer).length ? i.issuer : null,
+    recipient: i.recipient || null,
   };
 }
 
@@ -94,6 +112,7 @@ function shapePayment(p, { admin = false } = {}) {
 const ORGANIZER_KINDS = new Set([
   'raised', 'reminder_sent', 'overdue', 'receipt_submitted', 'receipt_rejected', 'due_changed',
   'payment_recorded', 'payment_reversed', 'settled', 'waived', 'reopened', 'voided',
+  'credited', 'credit_released',
 ]);
 
 function shapeEvent(e, { admin = false } = {}) {
@@ -113,9 +132,104 @@ function shapeEvent(e, { admin = false } = {}) {
       ...(detail.method ? { method: detail.method } : {}),
       ...(detail.reference ? { reference: detail.reference } : {}),
       ...(detail.received_at ? { receivedAt: detail.received_at } : {}),
+      ...(detail.credit_note_number ? { creditNoteNumber: detail.credit_note_number } : {}),
       ...(detail.url && admin ? { url: detail.url } : {}),
     },
     ...(admin ? { actor: e.actor?.full_name || e.actor?.email || null } : {}),
+  };
+}
+
+// ─── Credit notes (20261123110000) ───────────────────────────────────────────
+
+const CREDIT_NOTE_COLUMNS = 'id, number, event_id, invoice_id, order_id, currency, commission_cents, '
+  + 'commission_tax_cents, amount_cents, remaining_cents, kind, reason, issuer, recipient, created_at, '
+  + 'credit_note_allocations ( id, invoice_id, kind, amount_cents, from_write_off, method, reference, created_at )';
+
+/**
+ * A credit note and where its money went. `appliedCents` is the net amount it
+ * took off `forInvoiceId` (applied less released), when one is given.
+ */
+function shapeCreditNote(n, { forInvoiceId = null } = {}) {
+  const allocations = [...(n.credit_note_allocations || [])]
+    .sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)))
+    .map((a) => ({
+      kind: a.kind,
+      invoiceId: a.invoice_id,
+      amountCents: Number(a.amount_cents),
+      fromWriteOff: Boolean(a.from_write_off),
+      at: a.created_at,
+      ...(a.kind === 'refunded' ? { method: a.method, reference: a.reference } : {}),
+    }));
+  const appliedCents = forInvoiceId ? allocations
+    .filter((a) => a.invoiceId === forInvoiceId && (a.kind === 'applied' || a.kind === 'released'))
+    .reduce((s, a) => s + (a.kind === 'released' ? -a.amountCents : a.amountCents), 0) : null;
+  return {
+    id: n.id,
+    number: n.number,
+    issuedAt: n.created_at,
+    kind: n.kind,
+    // The organizer's own words when they voided the sale; an admin's when they did.
+    reason: n.reason,
+    currency: n.currency,
+    commissionCents: Number(n.commission_cents),
+    commissionTaxCents: Number(n.commission_tax_cents),
+    amountCents: Number(n.amount_cents),
+    remainingCents: Number(n.remaining_cents),
+    invoiceId: n.invoice_id,
+    orderId: n.order_id,
+    issuer: n.issuer && Object.keys(n.issuer).length ? n.issuer : null,
+    recipient: n.recipient || null,
+    allocations,
+    ...(forInvoiceId ? { appliedCents } : {}),
+  };
+}
+
+async function creditNoteRows(eventId) {
+  const { data, error } = await supabase.from('credit_notes')
+    .select(CREDIT_NOTE_COLUMNS).eq('event_id', eventId).order('created_at', { ascending: true });
+  if (error) throw new Error(error.message);
+  return data || [];
+}
+
+/** Every credit note on an event, oldest first. */
+async function creditNotesForEvent(eventId) {
+  return (await creditNoteRows(eventId)).map((n) => shapeCreditNote(n));
+}
+
+/** The credit notes that correct this invoice or were applied to it. */
+async function creditNotesForInvoice(invoiceId, eventId) {
+  return (await creditNoteRows(eventId))
+    .filter((n) => n.invoice_id === invoiceId
+      || (n.credit_note_allocations || []).some((a) => a.invoice_id === invoiceId))
+    .map((n) => shapeCreditNote(n, { forInvoiceId: invoiceId }));
+}
+
+/** One credit note with its event and invoice number, for its document page. */
+async function creditNote(creditNoteId) {
+  const { data, error } = await supabase.from('credit_notes')
+    .select(`${CREDIT_NOTE_COLUMNS}, organizer_id, invoices ( id, number ), events ( id, title, timezone )`)
+    .eq('id', creditNoteId).maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) throw fail('NOT_FOUND', 'That credit note does not exist.');
+  return {
+    creditNote: { ...shapeCreditNote(data), invoiceNumber: data.invoices?.number || null },
+    event: data.events ? { id: data.events.id, title: data.events.title, timezone: data.events.timezone } : null,
+    organizerId: data.organizer_id,
+    eventId: data.event_id,
+  };
+}
+
+/**
+ * Whether an invoice may be issued to this organizer now:
+ * { ok, issuerMissing: [...], organizerMissing: [...] } — field names.
+ */
+async function billingCheck(organizerId) {
+  const { data, error } = await supabase.rpc('invoice_billing_check', { p_organizer_id: organizerId });
+  if (error) throw new Error(error.message);
+  return {
+    ok: Boolean(data?.ok),
+    issuerMissing: data?.issuer_missing || [],
+    organizerMissing: data?.organizer_missing || [],
   };
 }
 
@@ -131,7 +245,7 @@ async function detail(invoiceId) {
   if (error) throw new Error(error.message);
   if (!invoice) throw fail('NOT_FOUND', 'That invoice does not exist.');
 
-  const [payments, events, gate] = await Promise.all([
+  const [payments, events, gate, credits] = await Promise.all([
     supabase.from('invoice_payments')
       .select('*, recorded_by_profile:profiles!invoice_payments_recorded_by_fkey ( full_name, email )')
       .eq('invoice_id', invoiceId).order('recorded_at', { ascending: true }),
@@ -139,6 +253,7 @@ async function detail(invoiceId) {
       .select('*, actor:profiles!invoice_events_actor_id_fkey ( full_name, email )')
       .eq('invoice_id', invoiceId).order('created_at', { ascending: true }),
     supabase.rpc('scanner_is_locked', { p_event_id: invoice.event_id }),
+    creditNotesForInvoice(invoice.id, invoice.event_id),
   ]);
   if (payments.error) throw new Error(payments.error.message);
   if (events.error) throw new Error(events.error.message);
@@ -155,6 +270,7 @@ async function detail(invoiceId) {
     organizer: org && { id: org.id, name: org.display_name, email: profile?.email || null },
     payments: (payments.data || []).map((p) => shapePayment(p, { admin: true })),
     history: (events.data || []).map((e) => shapeEvent(e, { admin: true })),
+    creditNotes: credits,
     gate: gate.data || null,
     actions: allowedActions(invoice),
   };
@@ -236,6 +352,12 @@ const waive = ({ invoiceId, reason, adminId }) => call('invoice_waive', { p_invo
 const reopen = ({ invoiceId, reason, adminId }) => call('invoice_reopen', { p_invoice_id: invoiceId, p_reason: reason, p_admin_id: adminId });
 const voidInvoice = ({ invoiceId, reason, adminId }) => call('invoice_void', { p_invoice_id: invoiceId, p_reason: reason, p_admin_id: adminId });
 
+/** A credit balance paid back to the organizer (credit_note_refund). */
+const refundCredit = ({ creditNoteId, amountCents, method, reference, note, adminId }) => call('credit_note_refund', {
+  p_credit_note_id: creditNoteId, p_amount_cents: amountCents, p_method: method || null,
+  p_reference: reference || null, p_note: note || null, p_admin_id: adminId,
+});
+
 const setDueDate = ({ invoiceId, dueAt, reason, adminId }) => call('invoice_set_due', {
   p_invoice_id: invoiceId, p_due_at: dueAt, p_reason: reason, p_admin_id: adminId,
 });
@@ -266,6 +388,7 @@ async function eventOf(invoiceId) {
 module.exports = {
   UNPAID, INVOICE_COLUMNS, shapeInvoice, shapePayment, shapeEvent, allowedActions,
   detail, organizerHistory, eventOf,
+  shapeCreditNote, creditNotesForEvent, creditNotesForInvoice, creditNote, billingCheck, refundCredit,
   raise, submitReceipt, settle, recordPayment, reversePayment, waive, reopen, voidInvoice,
   setDueDate, rejectReceipt, addNote, logReminder, fail,
 };

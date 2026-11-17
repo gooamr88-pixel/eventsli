@@ -33,7 +33,7 @@ const SELECT = `
   country, timezone, starts_at, ends_at, currency,
   listing_type, purchase_mode, admission_type, category, cover_url, logo_url,
   highlights, venue_lat, venue_lng, max_tickets_per_order,
-  accepts_stripe, accepts_manual,
+  accepts_stripe, accepts_manual, coming_soon,
   updated_at,
   organizers ( display_name, country ),
   event_categories ( label )
@@ -117,7 +117,8 @@ async function listEvents(req, res, next, { phraseSearch = false } = {}) {
      * events stay in: excluding them needs availability per event, and the
      * card already says "Sold out" on its own.
      */
-    if (req.query.onSale === 'true') query = query.eq('listing_type', 'ticketed');
+    // A "coming soon" teaser is not on sale yet either (owner, 2026-11-17).
+    if (req.query.onSale === 'true') query = query.eq('listing_type', 'ticketed').eq('coming_soon', false);
 
     if (req.query.country) query = query.eq('country', String(req.query.country).toUpperCase());
     /**
@@ -162,7 +163,8 @@ async function listEvents(req, res, next, { phraseSearch = false } = {}) {
       if (priceError) throw new Error(priceError.message);
       const ids = [...new Set((cheap || []).map((t) => t.event_id))];
       if (ids.length === 0) return sendOk(res, [], { pagination: buildMeta(p, 0) });
-      query = query.in('id', ids);
+      // A teaser has no announced price, so it answers no price question.
+      query = query.in('id', ids).eq('coming_soon', false);
     }
 
     if (p.q) {
@@ -201,7 +203,7 @@ async function listEvents(req, res, next, { phraseSearch = false } = {}) {
     if (error) throw new Error(error.message);
 
     const rows = data || [];
-    const fromPrices = await lowestTierPrices(rows.map((e) => e.id));
+    const fromPrices = await lowestTierPrices(rows);
 
     return sendOk(
       res,
@@ -238,8 +240,16 @@ async function listEvents(req, res, next, { phraseSearch = false } = {}) {
  * to "Get tickets" — not the cheapest thing a buyer cannot have.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-async function lowestTierPrices(eventIds) {
+async function lowestTierPrices(events) {
   const lowest = new Map();
+  /**
+   * Rows or bare ids. Given rows, a "coming soon" teaser is left out: its
+   * ticket types are still being prepared, so "From $40" on its card would be
+   * a price nobody can pay yet and the organizer has not announced.
+   */
+  const eventIds = (events || [])
+    .filter((e) => typeof e === 'string' || e?.coming_soon !== true)
+    .map((e) => (typeof e === 'string' ? e : e.id));
   if (eventIds.length === 0) return lowest;
 
   // The cheapest thing a buyer can actually take — see `event_from_prices`
@@ -284,6 +294,26 @@ async function eventBySlug(req, res, next) {
     if (!event) {
       return sendFail(res, {
         status: 404, error: 'EVENT_NOT_FOUND', message: 'That event is not available.',
+      });
+    }
+
+    /**
+     * A "COMING SOON" TEASER SHOWS WHAT IT WAS PUBLISHED WITH, and nothing the
+     * organizer is still preparing: no ticket types, no prices, no venue, no
+     * availability. Those are drafts until sales open, and showing a half-set
+     * price list on a public page would be showing a promise nobody made.
+     */
+    if (event.coming_soon) {
+      const content = await eventContent.publicBundle(event.id);
+      return sendOk(res, {
+        ...shape(event),
+        payments: { card: false, manual: false },
+        purchasable: false,
+        description: event.description,
+        venueAddress: null,
+        tiers: [],
+        availability: null,
+        ...content,
       });
     }
 
@@ -428,11 +458,16 @@ async function availability(event, tiers = []) {
 function shape(e) {
   const organizer = Array.isArray(e.organizers) ? e.organizers[0] : e.organizers;
   const category = Array.isArray(e.event_categories) ? e.event_categories[0] : e.event_categories;
+  // A "coming soon" teaser (20261124090000) is announced with a city and a
+  // month. Its venue and exact times may already be typed in while the
+  // organizer prepares, but they are not public until sales open.
+  const teaser = e.coming_soon === true;
   return {
     id: e.id,
     slug: e.slug,
     title: e.title,
-    venue: e.venue_name,
+    comingSoon: teaser,
+    venue: teaser ? null : e.venue_name,
     city: e.city || null,
     country: e.country,
     timezone: e.timezone,
@@ -466,13 +501,15 @@ function shape(e) {
     admissionType: e.admission_type || 'reserved',
     logoUrl: e.logo_url || null,
     highlights: Array.isArray(e.highlights) ? e.highlights : [],
-    venueLocation: e.venue_lat === null || e.venue_lat === undefined
+    venueLocation: teaser || e.venue_lat === null || e.venue_lat === undefined
       ? null : { lat: Number(e.venue_lat), lng: Number(e.venue_lng) },
     maxTicketsPerOrder: e.max_tickets_per_order,
     // How a buyer can pay, for the seat page's payment badges (2026-11-10).
     // Card follows checkoutController: refused only when accepts_stripe is
     // false. Manual is the organizer's own e-Transfer, bank or cash methods.
-    payments: { card: e.accepts_stripe !== false, manual: e.accepts_manual === true },
+    payments: teaser
+      ? { card: false, manual: false }
+      : { card: e.accepts_stripe !== false, manual: e.accepts_manual === true },
     // The name only. An organizer's email, country of registration and Stripe
     // state are theirs, and none of it belongs on a public page.
     organizer: organizer ? { name: organizer.display_name } : null,

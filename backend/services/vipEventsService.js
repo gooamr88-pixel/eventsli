@@ -35,7 +35,7 @@ class VipEventsError extends Error {
 
 /** The public card shape, plus the lowest price and whether an admin chose it. */
 async function withPrices(rows, vip) {
-  const prices = await discovery.lowestTierPrices(rows.map((e) => e.id));
+  const prices = await discovery.lowestTierPrices(rows);
   return rows.map((e) => ({ ...discovery.shape(e), fromPriceCents: prices.get(e.id) ?? null, vip }));
 }
 

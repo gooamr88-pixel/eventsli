@@ -43,9 +43,10 @@ function sumInvoiceTotals(rows) {
     if (row.status === 'void') continue;
     const t = out.byCurrency[row.currency]
       || (out.byCurrency[row.currency] = { totalCents: 0, unpaidCents: 0, settledCents: 0 });
-    const { amount, paid, writtenOff, balance } = invoiceMoney(row);
-    // Everything asked for and not forgiven; what arrived; what is still to come.
-    t.totalCents += amount - writtenOff;
+    const { amount, paid, writtenOff, credited, balance } = invoiceMoney(row);
+    // Everything asked for, less what was forgiven or credited back; what
+    // arrived; what is still to come.
+    t.totalCents += amount - writtenOff - credited;
     t.settledCents += paid;
     if (UNPAID.has(row.status)) t.unpaidCents += balance;
   }
@@ -53,7 +54,9 @@ function sumInvoiceTotals(rows) {
 }
 
 /**
- * An invoice row's money: face amount, paid, written off, balance.
+ * An invoice row's money: face amount, paid, written off, credited (credit
+ * notes for sales voided or refunded after it was issued — 20261123110000),
+ * balance.
  *
  * Rows from before payments were itemised carry no `paid_cents` /
  * `written_off_cents`; for those a paid invoice was paid in full and a waived
@@ -68,8 +71,9 @@ function invoiceMoney(row) {
   const writtenOff = row?.written_off_cents === undefined || row?.written_off_cents === null
     ? (status === 'waived' ? Math.max(amount - paid, 0) : 0)
     : Number(row.written_off_cents) || 0;
-  const balance = status === 'void' ? 0 : Math.max(amount - paid - writtenOff, 0);
-  return { amount, paid, writtenOff, balance };
+  const credited = Number(row?.credited_cents) || 0;
+  const balance = status === 'void' ? 0 : Math.max(amount - paid - writtenOff - credited, 0);
+  return { amount, paid, writtenOff, credited, balance };
 }
 
 /**

@@ -5,8 +5,6 @@ import { create } from 'zustand';
 export type Settings = {
   sound: boolean;
   haptics: boolean;
-  /** After an admission, go back to the camera on its own after a moment. */
-  autoContinue: boolean;
   /**
    * Offline check-in on this phone (the dashboard's Offline Mode): keep the
    * event's ticket list here and decide with no signal. Off, the list is
@@ -17,7 +15,7 @@ export type Settings = {
 };
 
 const KEY = 'eventsli.settings';
-const DEFAULTS: Settings = { sound: true, haptics: true, autoContinue: true, offlineMode: true };
+const DEFAULTS: Settings = { sound: true, haptics: true, offlineMode: true };
 
 type State = Settings & {
   load: () => Promise<void>;
@@ -29,13 +27,17 @@ export const useSettings = create<State>((set, get) => ({
   async load() {
     try {
       const raw = await SecureStore.getItemAsync(KEY);
-      if (raw) set({ ...DEFAULTS, ...JSON.parse(raw) });
+      if (raw) {
+        // Older builds also stored autoContinue; it is gone (staff always press Next).
+        const { sound, haptics, offlineMode } = { ...DEFAULTS, ...JSON.parse(raw) } as Settings;
+        set({ sound, haptics, offlineMode });
+      }
     } catch {
       // Defaults are fine.
     }
   },
   async set(patch) {
-    const next = { sound: get().sound, haptics: get().haptics, autoContinue: get().autoContinue, offlineMode: get().offlineMode, ...patch };
+    const next = { sound: get().sound, haptics: get().haptics, offlineMode: get().offlineMode, ...patch };
     set(next);
     await SecureStore.setItemAsync(KEY, JSON.stringify(next)).catch(() => undefined);
   },

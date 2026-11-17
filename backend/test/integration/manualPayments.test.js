@@ -4,6 +4,7 @@ const http = require('node:http');
 
 // Sets DISABLE_RATE_LIMIT before the app builds its limiters. Must come first.
 require('../helpers/testEnv');
+const { ORGANIZER_BILLING, ensureInvoiceIssuer } = require('../helpers/billing');
 const { supabase } = require('../../config/supabase');
 const app = require('../../app');
 const manual = require('../../services/manualPaymentService');
@@ -35,6 +36,7 @@ async function seed() {
 
   const { data: org } = await supabase.from('organizers').insert({
     owner_user_id: profile.id, display_name: 'Manual Co', country: 'CA',
+    legal_name: 'Manual Company Ltd.', ...ORGANIZER_BILLING,
   }).select('id').single();
   ids.organizer = org.id;
 
@@ -82,6 +84,7 @@ async function seed() {
 }
 
 before(async () => {
+  await ensureInvoiceIssuer(require('../../config/supabase').supabase);
   server = http.createServer(app);
   await new Promise((r) => server.listen(0, '127.0.0.1', r));
   baseUrl = `http://127.0.0.1:${server.address().port}/api/v1`;

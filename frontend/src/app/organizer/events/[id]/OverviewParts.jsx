@@ -6,6 +6,7 @@ import StatusPill from '../../StatusPill';
 import { formatMoneyCompact } from '../../../utils/money';
 import { formatEventTime } from '../../../lib/eventTime';
 import { isDateOnly, formatDateOnly } from '../../../lib/dateOnly';
+import { formatYm } from '../../../lib/comingSoon';
 import { categoryLabel } from '../../../lib/categories';
 import { TrendBadge, trendOf } from '../../dashboard/DashboardHero';
 
@@ -18,6 +19,8 @@ import { TrendBadge, trendOf } from '../../dashboard/DashboardHero';
  */
 
 function when(event) {
+  // A coming-soon teaser while it still only has a month (lib/comingSoon.js).
+  if (event.comingSoon && event.roughMonth) return `Coming soon · ${formatYm(event.roughMonth)}`;
   return isDateOnly(event) ? formatDateOnly(event) : formatEventTime(event.startsAt, event.timezone);
 }
 
@@ -118,7 +121,7 @@ export function EventSummary({ event, stats }) {
   const items = [
     {
       key: 'when', icon: 'calendar', term: 'Date & Time',
-      value: dateOnly ? formatDateOnly(event) : (
+      value: event.comingSoon && event.roughMonth ? `Coming soon · ${formatYm(event.roughMonth)}` : dateOnly ? formatDateOnly(event) : (
         <>
           {formatEventTime(event.startsAt, event.timezone, { time: false })}
           <br />
@@ -129,7 +132,7 @@ export function EventSummary({ event, stats }) {
     { key: 'where', icon: 'pin', term: 'Location', value: event.venue?.name || event.city || '—' },
     { key: 'type', icon: 'tag', term: 'Event Type', value: event.category ? <span className="es-ovchip">{categoryLabel(event.category)}</span> : '—' },
     { key: 'cap', icon: 'users', term: 'Capacity', value: cap ? cap.toLocaleString() : '—' },
-    { key: 'long', icon: 'clock', term: 'Duration', value: duration(event.startsAt, event.endsAt) },
+    { key: 'long', icon: 'clock', term: 'Duration', value: event.comingSoon && event.roughMonth ? 'Set before sales open' : duration(event.startsAt, event.endsAt) },
     { key: 'status', icon: 'settings', term: 'Status', value: <StatusPill status={event.status} /> },
   ];
   return (

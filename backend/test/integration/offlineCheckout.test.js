@@ -344,3 +344,49 @@ test('the organizer sees their offline payments and the audit trail', async () =
   assert.equal(trail.status, 200);
   assert.ok(trail.body.data.length >= 8);
 });
+
+test('a commission invoice is itemised and frozen: sales, commission, tax, issuer and organizer', async () => {
+  const { data: before } = await supabase.from('platform_settings').select('value').eq('key', 'invoice_issuer').maybeSingle();
+  await supabase.from('platform_settings').upsert({ key: 'invoice_issuer', value: { legal_name: 'Eventsli Test Inc.', tax_id: 'BN 123' } }, { onConflict: 'key' });
+  try {
+    const { res } = await reserve(1);
+    const ok = await ids.org('POST', `/events/${ids.eventId}/offline-payments/${res.body.data.id}/confirm`, { amountCents: 50000 });
+    assert.equal(ok.status, 200, JSON.stringify(ok.body));
+
+    const { data: raised, error } = await supabase.rpc('raise_commission_invoice', { p_event_id: ids.eventId, p_admin_id: null });
+    assert.ifError(error);
+    assert.equal(raised.ok, true, JSON.stringify(raised));
+    const { data: inv } = await supabase.from('invoices')
+      .select('amount_cents, sales_count, sales_gross_cents, commission_cents, commission_tax_cents, adjustment_cents, issuer, recipient, currency')
+      .eq('id', raised.invoice_id).single();
+    // The refunded order is not a sale; only the one just confirmed is.
+    assert.equal(inv.sales_count, 1);
+    assert.equal(Number(inv.sales_gross_cents), 50000);
+    assert.equal(Number(inv.commission_cents), 5000);
+    assert.equal(Number(inv.commission_tax_cents), 0);
+    assert.equal(Number(inv.adjustment_cents), 0);
+    assert.equal(Number(inv.amount_cents), Number(inv.commission_cents) + Number(inv.commission_tax_cents) + Number(inv.adjustment_cents));
+    assert.equal(inv.currency, 'EGP');
+    assert.equal(inv.issuer.legal_name, 'Eventsli Test Inc.');
+    assert.equal(inv.recipient.legal_name, 'Nile Nights LLC');
+    assert.equal(inv.recipient.country, 'EG');
+
+    // Frozen: changing the issuer later does not rewrite the invoice.
+    await supabase.from('platform_settings').update({ value: { legal_name: 'Someone Else Ltd.' } }).eq('key', 'invoice_issuer');
+    const { data: again } = await supabase.from('invoices').select('issuer').eq('id', raised.invoice_id).single();
+    assert.equal(again.issuer.legal_name, 'Eventsli Test Inc.');
+
+    // The organizer's view carries the lines for the printable invoice.
+    const view = await ids.org('GET', `/events/${ids.eventId}/commission`);
+    const shaped = view.body.data.invoices.find((i) => i.id === raised.invoice_id);
+    assert.deepEqual(shaped.lines, { salesCount: 1, salesGrossCents: 50000, commissionCents: 5000, commissionTaxCents: 0, adjustmentCents: 0 });
+    assert.equal(shaped.issuer.legal_name, 'Eventsli Test Inc.');
+
+    // The database refuses a breakdown that does not add up.
+    const bad = await supabase.from('invoices').update({ adjustment_cents: 1 }).eq('id', raised.invoice_id);
+    assert.ok(bad.error, 'a breakdown that does not add up was accepted');
+    await supabase.from('invoices').delete().eq('id', raised.invoice_id);
+  } finally {
+    await supabase.from('platform_settings').upsert({ key: 'invoice_issuer', value: before?.value || {} }, { onConflict: 'key' });
+  }
+});

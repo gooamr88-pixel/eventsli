@@ -100,7 +100,7 @@ async function detail(req, res, next) {
       supabase.rpc('event_sales_summary', { p_event_id: eventId, p_days: 30 }),
       scanSvc.gateStatus(eventId),
       supabase.from('invoices')
-        .select('id, number, currency, amount_cents, paid_cents, written_off_cents, status, issued_at, due_at, proof_submitted_at')
+        .select('id, number, currency, amount_cents, paid_cents, written_off_cents, credited_cents, status, issued_at, due_at, proof_submitted_at')
         .eq('event_id', eventId).order('issued_at', { ascending: false }).limit(20),
       supabase.from('event_staff').select('id', { count: 'exact', head: true })
         .eq('event_id', eventId).is('revoked_at', null),

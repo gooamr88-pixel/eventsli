@@ -87,7 +87,7 @@ async function contextEvents(text) {
 
   const seen = new Set();
   const rows = [...(matched.data || []), ...(soon.data || [])].filter((e) => !seen.has(e.id) && seen.add(e.id)).slice(0, 16);
-  const prices = await lowestTierPrices(rows.map((e) => e.id));
+  const prices = await lowestTierPrices(rows);
   return rows.map((e) => {
     const card = { ...shape(e), fromPriceCents: prices.get(e.id) ?? null };
     return { card, slug: card.slug, title: card.title, when: whenText(card), venue: card.venue, city: card.city, category: card.categoryLabel || card.category, price: priceText(card) };

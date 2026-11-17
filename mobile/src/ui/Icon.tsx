@@ -16,6 +16,8 @@ const APP_PATHS = {
   cloudUpload: ['M7 18a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 8.5a4 4 0 0 1-.5 9.5', 'M12 12v8', 'M9 15l3-3 3 3'],
   seat: ['M7 11V5.5A1.5 1.5 0 0 1 8.5 4h7A1.5 1.5 0 0 1 17 5.5V11', 'M5 11h14v4H5z', 'M7 15v5', 'M17 15v5'],
   more: ['M5 12a1 1 0 1 0 2 0 1 1 0 1 0-2 0', 'M11 12a1 1 0 1 0 2 0 1 1 0 1 0-2 0', 'M17 12a1 1 0 1 0 2 0 1 1 0 1 0-2 0'],
+  // An arrow going in through a door frame: the Sign In button.
+  signIn: ['M9 8V6a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-7a2 2 0 0 1-2-2v-2', 'M11 16l4-4-4-4', 'M3 12h12'],
   logs: ['M8 4h8', 'M9 3h6v3H9z', 'M6 5h12v16H6z', 'M9 11h6', 'M9 15h4'],
 } as const;
 

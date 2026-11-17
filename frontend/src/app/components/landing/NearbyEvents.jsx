@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 
 import EventCard from '../EventCard';
+import CardRail from './CardRail';
 import NavIcon from '../shell/NavIcon';
 import { get } from '../../utils/apiClient';
 import {
@@ -205,7 +206,7 @@ export default function NearbyEvents({ initialCities = null }) {
             </ul>
           )}
           {state.phase === 'results' && (
-            <ul className="es-lp-cards es-lp-rail">
+            <CardRail label="Nearby events">
               {state.events.map((event) => (
                 <li key={event.id} className="es-near__item">
                   <EventCard event={event} />
@@ -217,7 +218,7 @@ export default function NearbyEvents({ initialCities = null }) {
                   )}
                 </li>
               ))}
-            </ul>
+            </CardRail>
           )}
           {state.phase === 'empty' && (
             <div className="es-empty es-empty--rich es-near__empty">

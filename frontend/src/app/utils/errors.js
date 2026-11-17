@@ -206,6 +206,10 @@ export const ERRORS = Object.freeze(Object.fromEntries([
   E('FEATURE_DISABLED', 'Not available yet',
     'This is switched off on Eventsli for now. Nothing was charged or changed — try again later or use another way in.', 'waiting'),
 
+  // ── Invoices ──────────────────────────────────────────────────────────────
+  E('BILLING_DETAILS_INCOMPLETE', 'Billing details are missing',
+    'An invoice needs complete legal and tax details for Eventsli and for the organizer. Nothing was issued — fill them in, then try again.'),
+
   // ── Generic ───────────────────────────────────────────────────────────────
   E('VALIDATION_ERROR', 'Check the details',
     'Something in the form needs fixing.'),

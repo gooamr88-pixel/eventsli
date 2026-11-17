@@ -140,14 +140,21 @@ export const FOOTER_GROUPS = [
 /**
  * The brand's social profiles, in the order the footer shows them.
  *
- * EMPTY UNTIL THE ACCOUNTS EXIST. An icon linking to a profile that does not
- * exist is a dead end on every page of the site, so the footer renders the
- * row only for entries here. `network` is one of: instagram, x, facebook,
+ * Only real accounts go here. An icon linking to a profile that does not exist
+ * is a dead end on every page of the site, so the footer renders one icon per
+ * entry and nothing else. `network` is one of: instagram, x, facebook,
  * linkedin, youtube.
  *
- *   { network: 'instagram', href: 'https://www.instagram.com/…' },
+ * CLEAN URLS. The owner's Facebook link came with `?ref=PROFILE_EDIT…`, which
+ * is Facebook's own tracking from the page editor; the public link is the
+ * page's address alone (owner, 2026-11-17). The same list feeds the site's
+ * Organization structured data (`organizationJsonLd`), so search engines tie
+ * these profiles to Eventsli.
  */
-export const SOCIAL_LINKS = [];
+export const SOCIAL_LINKS = Object.freeze([
+  { network: 'instagram', href: 'https://www.instagram.com/eventslicom/' },
+  { network: 'facebook', href: 'https://www.facebook.com/Eventsli' },
+]);
 
 /**
  * The brand's tagline, as the brand guide sets it under the wordmark.

@@ -5,6 +5,7 @@ import { useApi } from '../../../hooks/useApi';
 import { useOrganizer } from '../../../hooks/useOrganizer';
 import { Panel } from '../../../components/ui/Page';
 import NavIcon from '../../../components/shell/NavIcon';
+import { isComingSoon } from '../../../lib/comingSoon';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -21,7 +22,17 @@ export function useLaunchSteps(event) {
   const { organizer } = useOrganizer();
   const { data: stats } = useApi(`/events/${event.id}/stats?days=7`);
   const base = `/organizer/events/${event.id}`;
-  const submitted = ['pending_review', 'published'].includes(event.status);
+  /**
+   * A COMING-SOON TEASER (2026-11-17) has two checklists. Before it is live:
+   * the four things a teaser is published with. Once it is live: everything a
+   * full event needs, ending in "Open ticket sales" rather than Publish.
+   */
+  const teaser = isComingSoon(event);
+  const opening = teaser && event.status === 'published';
+  if (teaser && !opening) return teaserSteps(event, base, Boolean(organizer));
+  const submitted = opening
+    ? Boolean(event.launchRequestedAt)
+    : ['pending_review', 'published'].includes(event.status);
   const choosesPayment = event.payments?.acceptsStripe || event.payments?.acceptsManual;
 
   /**
@@ -52,14 +63,17 @@ export function useLaunchSteps(event) {
     {
       key: 'details',
       label: 'Event details',
-      // A title and dates exist on every event; a venue is what is usually missing.
-      done: Boolean(event.title && event.startsAt && event.venue?.name),
+      // A title and dates exist on every event; a venue is what is usually
+      // missing — and on a teaser opening its sales, the exact times too.
+      done: Boolean(event.title && event.startsAt && event.venue?.name && !(opening && event.roughMonth)),
       // `${base}/details`, not `${base}#details`. The form is its own build
       // step now; the anchor pointed at a section of the overview, which is
       // the page this checklist is ON — so following it went nowhere.
       href: `${base}/details`,
-      hint: 'Add the venue so buyers know where to go',
-      cta: 'Add the venue',
+      hint: opening && event.roughMonth
+        ? 'Set the exact date and time, and the venue'
+        : 'Add the venue so buyers know where to go',
+      cta: opening && event.roughMonth ? 'Set the date and venue' : 'Add the venue',
     },
     ...(needs.tickets ? [
       {
@@ -151,7 +165,16 @@ export function useLaunchSteps(event) {
       key: 'terms', label: 'Accept the terms', done: Boolean(event.review?.termsAccepted), href: '#going-on-sale',
       hint: 'See the fees and agree to them', cta: 'Review the fees',
     },
-    {
+    opening ? {
+      key: 'submit',
+      label: 'Open ticket sales',
+      done: submitted,
+      href: '#going-on-sale',
+      hint: event.requiresApproval === false
+        ? 'Tickets go on sale, and everyone waiting is emailed'
+        : 'Eventsli approves it, then everyone waiting is emailed',
+      cta: 'Open ticket sales',
+    } : {
       // Publish first, review after, unless the platform requires approval.
       ...(event.requiresApproval === false
         ? { key: 'submit', label: 'Publish', done: submitted, href: '#going-on-sale', hint: 'It goes live straight away', cta: 'Publish' }
@@ -171,11 +194,56 @@ export function useLaunchSteps(event) {
   };
 }
 
-export default function LaunchChecklist({ steps }) {
+/**
+ * A coming-soon teaser before it is live: a title, a city and a month (all
+ * set when it was created), a cover, the terms, and Publish. The same four
+ * the API's `teaserBlockers` demands — and nothing about tickets.
+ */
+function teaserSteps(event, base, loaded) {
+  const items = [
+    {
+      key: 'details',
+      label: 'Title, city and month',
+      done: Boolean(event.title && event.city && event.startsAt),
+      href: `${base}/details`,
+      hint: 'Where and roughly when — the venue and times can wait',
+      cta: 'Add the city',
+      build: true,
+    },
+    {
+      key: 'cover', label: 'Cover image', done: Boolean(event.cover), href: `${base}/content`,
+      hint: 'The picture on the coming-soon page and every share', cta: 'Add a cover', build: true,
+    },
+    {
+      key: 'terms', label: 'Accept the terms', done: Boolean(event.review?.termsAccepted), href: '#going-on-sale',
+      hint: 'See the fees that will apply and agree to them', cta: 'Review the fees',
+    },
+    {
+      key: 'submit',
+      label: event.requiresApproval === false ? 'Publish coming soon' : 'Submit for review',
+      done: event.status === 'pending_review',
+      href: '#going-on-sale',
+      hint: event.requiresApproval === false
+        ? 'It goes live straight away, with a “Notify me” button'
+        : 'Eventsli checks it, usually within a day',
+      cta: event.requiresApproval === false ? 'Publish' : 'Submit for review',
+    },
+  ];
+  return {
+    items,
+    loaded,
+    ready: items.filter((i) => i.done).length,
+    total: items.length,
+    buildReady: items.filter((i) => i.build).every((i) => i.done),
+    next: items.find((i) => !i.done) || null,
+  };
+}
+
+export default function LaunchChecklist({ steps, title = 'Before it goes on sale' }) {
   const { items, ready, total, loaded } = steps;
 
   return (
-    <Panel title="Before it goes on sale" description={loaded ? `${ready} of ${total} done` : 'Checking…'}>
+    <Panel title={title} description={loaded ? `${ready} of ${total} done` : 'Checking…'}>
       <progress className="es-progress" max={total} value={ready} aria-label={`${ready} of ${total} steps done`} />
 
       <ol className="fx-stack fx-stack--sm">

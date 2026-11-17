@@ -337,7 +337,7 @@ async function eventsNear(req, res, next) {
     placed.sort((a, b) => a.distance - b.distance
       || new Date(a.row.starts_at) - new Date(b.row.starts_at));
     const nearby = placed.slice(0, limit);
-    const fromPrices = await discovery.lowestTierPrices(nearby.map((p) => p.row.id));
+    const fromPrices = await discovery.lowestTierPrices(nearby.map((p) => p.row));
     const events = nearby.map(({ row, distance, precise }) => ({
       ...discovery.shape(row),
       fromPriceCents: fromPrices.get(row.id) ?? null,

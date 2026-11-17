@@ -115,12 +115,14 @@ async function publicMap(req, res, next) {
     // A failure is a 500 the page can offer to retry; absence is a real answer.
     const { data: event, error: eventError } = await supabase
       .from('events')
-      .select('id, slug, title, status, currency, purchase_mode, admission_type, max_tickets_per_order, starts_at, ends_at')
+      .select('id, slug, title, status, currency, purchase_mode, admission_type, max_tickets_per_order, starts_at, ends_at, coming_soon')
       .eq('slug', req.params.slug)
       .maybeSingle();
     if (eventError) throw new Error(`seat map: event lookup failed: ${eventError.message}`);
 
-    if (!event || event.status !== 'published') {
+    // A "coming soon" teaser has no seat page yet: its map may be half drawn,
+    // and nothing on it can be bought until the organizer opens sales.
+    if (!event || event.status !== 'published' || event.coming_soon) {
       // 404 for anything not on sale — draft, pending, suspended and cancelled
       // all look alike from outside, which is correct: a rejected event should
       // not be discoverable by its slug.
@@ -307,11 +309,17 @@ async function hold(req, res, next) {
   try {
     const { data: event } = await supabase
       .from('events')
-      .select('id, status, listing_type, accepts_stripe, accepts_manual, organizer_id')
+      .select('id, status, listing_type, accepts_stripe, accepts_manual, organizer_id, coming_soon')
       .eq('slug', req.params.slug).maybeSingle();
 
     if (!event || event.status !== 'published') {
       return sendFail(res, { status: 404, error: 'EVENT_NOT_FOUND', message: 'That event is not available.' });
+    }
+    if (event.coming_soon) {
+      return sendFail(res, {
+        status: 403, error: 'TICKETS_NOT_SOLD_ONLINE',
+        message: 'Tickets for this event are not on sale yet. Use “Notify me” on the event page to hear when they are.',
+      });
     }
 
     // No way to pay for it online (card off for the organizer's country, and

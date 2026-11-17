@@ -61,7 +61,11 @@ export default function SiteFooter() {
                 <ul className="es-site-foot__social" aria-label="Eventsli on social media">
                   {socials.map((s) => (
                     <li key={s.network}>
-                      <a href={s.href} target="_blank" rel="noopener noreferrer" aria-label={SOCIAL_ICONS[s.network].label}>
+                      <a
+                        href={s.href} target="_blank" rel="noopener noreferrer"
+                        aria-label={`Eventsli on ${SOCIAL_ICONS[s.network].label} (opens in a new tab)`}
+                        title={`Eventsli on ${SOCIAL_ICONS[s.network].label}`}
+                      >
                         <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">{SOCIAL_ICONS[s.network].glyph}</svg>
                       </a>
                     </li>

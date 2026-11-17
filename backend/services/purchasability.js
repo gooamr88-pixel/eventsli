@@ -75,7 +75,10 @@ async function offlineCheckoutOn() {
  * @returns {Promise<{ card: boolean, offline: boolean, free: boolean, online: boolean }>}
  */
 async function forEvent(event, { tiers } = {}) {
-  if (!event || event.listing_type === 'display_only') {
+  // A listing is never bought here, and a "coming soon" teaser not YET — its
+  // page offers "Notify me" until the organizer opens sales. The database
+  // refuses the hold as well (20261124090000).
+  if (!event || event.listing_type === 'display_only' || event.coming_soon === true) {
     return { card: false, offline: false, free: false, online: false };
   }
   const [country, setting, offlineOn] = await Promise.all([

@@ -142,8 +142,110 @@ async function unpricedSeatCount(eventId) {
 
 /** The columns every check below reads. */
 const SUBMIT_SELECT = `id, organizer_id, status, listing_type, admission_type, purchase_mode,
-                       starts_at, ends_at,
-                       accepts_stripe, accepts_manual, venue_name, venue_address, city`;
+                       starts_at, ends_at, timezone, title,
+                       accepts_stripe, accepts_manual, venue_name, venue_address, city,
+                       coming_soon, cover_url, launch_requested_at`;
+
+/**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * A "COMING SOON" TEASER NEEDS FOUR THINGS (owner, 2026-11-17): a title, a
+ * city, a cover and a rough date — plus the terms, like any publish.
+ *
+ * No venue, no ticket types, no payment method: those come when the organizer
+ * opens sales, and `launchBlockers` below demands every one of them then. The
+ * title is already required to create the row; the month is the event's dates
+ * (see `roughMonth` in eventRules.js), and it must not be over.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+async function teaserBlockers({ event, userId }) {
+  const blockers = [];
+
+  if (!rules.canTransition(event.status, 'pending_review')) {
+    blockers.push({
+      status: 409,
+      error: 'CONFLICT',
+      message: `An event that is ${event.status} cannot be submitted for review.`,
+    });
+  }
+
+  const { accepted, termsId, version } = await terms.hasAcceptedCurrent({
+    userId, audience: 'organizer', eventId: event.id,
+  });
+  if (!accepted) {
+    blockers.push({
+      status: 403,
+      error: 'TERMS_NOT_ACCEPTED',
+      message: 'Review and accept the organizer terms for this event before publishing it.',
+      meta: { termsId, version },
+    });
+  }
+
+  // Measured on the END: a teaser for "this month" is still worth publishing.
+  if (new Date(event.ends_at) <= new Date()) {
+    blockers.push({
+      status: 400,
+      error: 'VALIDATION_ERROR',
+      message: 'The month for this event is already over. Choose a later month before publishing.',
+    });
+  }
+
+  const missing = [
+    !String(event.city || '').trim() && 'a city',
+    !event.cover_url && 'a cover image',
+  ].filter(Boolean);
+  if (missing.length > 0) {
+    blockers.push({
+      status: 400,
+      error: 'VALIDATION_ERROR',
+      message: `Add ${missing.join(' and ')} before publishing — a coming-soon page is the title, the city, the month and the picture.`,
+      meta: { missing },
+    });
+  }
+
+  return { blockers, termsId, termsVersion: version, termsAccepted: accepted };
+}
+
+/**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * OPENING SALES ON A LIVE TEASER — the normal publish checks, in full.
+ *
+ * Everything `submissionBlockers` asks of a new event (terms, a future date,
+ * the venue, a way to pay, a price on every seat), with two differences:
+ *
+ *   · the status check is "is this a live teaser", not the review transition,
+ *     because the event is already published and stays published;
+ *   · on a TICKETED event the dates must no longer be the rough month. A
+ *     ticket is for a time, at a door.
+ *
+ * Ticket types are checked by the client's checklist, as for a new event; the
+ * unpriced-seat check below is the one that protects buyers.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+async function launchBlockers({ event, userId }) {
+  const full = await submissionBlockers({ event, userId, launch: true });
+  const blockers = full.blockers.slice();
+
+  if (event.status !== 'published' || !event.coming_soon) {
+    blockers.unshift({
+      status: 409,
+      error: 'CONFLICT',
+      message: 'Only a coming-soon event that is live can open its ticket sales.',
+    });
+  }
+
+  if (event.listing_type !== 'display_only' && rules.roughMonth({
+    startsAt: event.starts_at, endsAt: event.ends_at, timezone: event.timezone,
+  })) {
+    blockers.push({
+      status: 400,
+      error: 'VALIDATION_ERROR',
+      message: 'Set the exact start and end time in Event details before opening sales — the event still only has a month.',
+      meta: { missing: ['exact dates'] },
+    });
+  }
+
+  return { ...full, blockers };
+}
 
 /**
  * Everything standing between this event and the review queue, in the order
@@ -158,10 +260,12 @@ const SUBMIT_SELECT = `id, organizer_id, status, listing_type, admission_type, p
  * responds with, because those strings are the ones already tested and already
  * mapped to recovery actions in the client.
  */
-async function submissionBlockers({ event, userId }) {
+async function submissionBlockers({ event, userId, launch = false }) {
   const blockers = [];
 
-  if (!rules.canTransition(event.status, 'pending_review')) {
+  // Opening a live teaser's sales is checked by `launchBlockers`, which owns
+  // the status question for that case.
+  if (!launch && !rules.canTransition(event.status, 'pending_review')) {
     blockers.push({
       status: 409,
       error: 'CONFLICT',
@@ -309,6 +413,27 @@ async function submissionBlockers({ event, userId }) {
   };
 }
 
+/**
+ * Which set of checks applies to this event right now, and its answer in the
+ * one shape `submit`, `open-sales` and the preview all read.
+ *
+ *   'teaser'  a coming-soon event being published
+ *   'launch'  a live coming-soon event opening its sales
+ *   'event'   everything else — the checks as they always were
+ */
+function checkMode(event) {
+  if (!event.coming_soon) return 'event';
+  return event.status === 'published' ? 'launch' : 'teaser';
+}
+
+async function blockersFor({ event, userId }) {
+  const mode = checkMode(event);
+  if (mode === 'launch') return { mode, ...await launchBlockers({ event, userId }) };
+  if (mode === 'event') return { mode, ...await submissionBlockers({ event, userId }) };
+  const [teaser, setup] = await Promise.all([teaserBlockers({ event, userId }), eventSetup(event)]);
+  return { mode, ...teaser, ...setup, payment: { ok: true, reason: null }, readiness: null };
+}
+
 /** One priced line of the preview, from the same function that prices a sale. */
 function priceLine({ label, kind, priceCents, detail, fees, stripe }) {
   const b = describeOrder({
@@ -369,13 +494,13 @@ async function preview({ eventId, userId }) {
              max_tickets_per_order, allow_ticket_transfer,
              commission_pct, commission_tax_pct, event_tax_pct,
              payment_fee_mode, payment_fee_pct, payment_fee_fixed_cents, fee_bearer,
-             accepts_stripe, accepts_manual, organizer_id`)
+             accepts_stripe, accepts_manual, organizer_id, coming_soon, launch_requested_at`)
     .eq('id', eventId)
     .single();
   if (error) throw new Error(error.message);
 
   const [state, stripe, { data: tiers }, { data: policies }, { data: map }] = await Promise.all([
-    submissionBlockers({ event, userId }),
+    blockersFor({ event, userId }),
     stripeCostModel(),
     supabase.from('ticket_tiers')
       .select('id, name, price_cents, quantity, sold_count, kind, is_hidden, sort_order')
@@ -461,7 +586,12 @@ async function preview({ eventId, userId }) {
       allowTicketTransfer: event.allow_ticket_transfer,
       acceptsStripe: event.accepts_stripe,
       acceptsManual: event.accepts_manual,
+      comingSoon: event.coming_soon === true,
+      roughMonth: rules.roughMonth({ startsAt: event.starts_at, endsAt: event.ends_at, timezone: event.timezone }),
     },
+    // Which checks these are: publishing a teaser, opening its sales, or an
+    // ordinary event — so the dialog can say what confirming does.
+    mode: state.mode,
     fees: {
       ...fees,
       // The real card cost, so "Stripe takes" is a figure and not a rumour.
@@ -489,5 +619,6 @@ async function preview({ eventId, userId }) {
 }
 
 module.exports = {
-  organizerReadiness, eventSetup, submissionBlockers, preview, SUBMIT_SELECT,
+  organizerReadiness, eventSetup, submissionBlockers, teaserBlockers, launchBlockers,
+  blockersFor, checkMode, preview, SUBMIT_SELECT,
 };

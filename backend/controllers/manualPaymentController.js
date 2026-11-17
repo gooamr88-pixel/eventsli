@@ -164,7 +164,7 @@ async function submitProof(req, res, next) {
 
 // ═══ ADMIN ══════════════════════════════════════════════════════════════════
 
-const LIST_COLUMNS = 'id, number, currency, amount_cents, paid_cents, written_off_cents, status, issued_at, due_at, due_at_original, proof_url, proof_submitted_at, receipt_rejected_at, confirmed_at, order_count, voided_at, waived_at';
+const LIST_COLUMNS = 'id, number, currency, amount_cents, paid_cents, written_off_cents, credited_cents, status, issued_at, due_at, due_at_original, proof_url, proof_submitted_at, receipt_rejected_at, confirmed_at, order_count, voided_at, waived_at';
 
 // GET /admin/invoices
 async function adminList(req, res, next) {
@@ -219,7 +219,7 @@ async function adminList(req, res, next) {
 async function invoiceTotals() {
   const rows = await fetchAll((range, first) => supabase
     .from('invoices')
-    .select('id, currency, amount_cents, paid_cents, written_off_cents, status', first ? { count: 'exact' } : undefined)
+    .select('id, currency, amount_cents, paid_cents, written_off_cents, credited_cents, status', first ? { count: 'exact' } : undefined)
     .order('id', { ascending: true })
     .range(range.from, range.to), { what: 'invoices' });
   return sumInvoiceTotals(rows);
@@ -449,8 +449,50 @@ async function adminReady(req, res, next) {
   } catch (err) { return next(err); }
 }
 
+// GET /admin/credit-notes/:creditNoteId
+async function adminCreditNote(req, res, next) {
+  try {
+    return sendOk(res, await invoices.creditNote(req.params.creditNoteId));
+  } catch (err) {
+    if (err.code) return asFailure(res, err);
+    return next(err);
+  }
+}
+
+// POST /admin/credit-notes/:creditNoteId/refund
+/**
+ * Records that Eventsli paid a credit balance back to the organizer. Refused
+ * while the event has an unpaid invoice (the credit goes there first) and for
+ * more than the organizer's account really holds — so a credit is never both
+ * netted and refunded.
+ */
+async function adminRefundCredit(req, res, next) {
+  try {
+    const result = await invoices.refundCredit({
+      creditNoteId: req.params.creditNoteId,
+      amountCents: req.body.amountCents,
+      method: req.body.method,
+      reference: req.body.reference,
+      note: req.body.note,
+      adminId: req.user.id,
+    });
+    const audited = await writeAudit(req, {
+      action: 'credit_note.refunded', targetType: 'credit_note', targetId: req.params.creditNoteId,
+      payload: {
+        number: result.number, amountCents: result.refunded_cents, remainingCents: result.remaining_cents,
+        method: req.body.method || null, reference: req.body.reference || null,
+      },
+    });
+    logger.info({ creditNoteId: req.params.creditNoteId, by: req.user.id }, 'credit note refunded');
+    return sendOk(res, { ...result, audited });
+  } catch (err) {
+    if (err.code) return asFailure(res, err);
+    return next(err);
+  }
+}
+
 module.exports = {
-  quote, record, listSales, debt, submitProof,
+  quote, record, listSales, debt, submitProof, adminCreditNote, adminRefundCredit,
   adminList, adminDetail, adminReady, adminRaise, adminSettle,
   adminRecordPayment, adminReversePayment, adminWaive, adminReopen, adminVoid,
   adminSetDue, adminRejectReceipt, adminNote, adminRemind,

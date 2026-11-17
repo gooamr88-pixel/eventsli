@@ -13,6 +13,8 @@ import { Panel } from '../../../components/ui/Page';
 import { Loading, Notice } from '../../../components/Feedback';
 import { useApi } from '../../../hooks/useApi';
 import { useNowMinute } from '../../../hooks/useNowMinute';
+import { isComingSoon } from '../../../lib/comingSoon';
+import ComingSoonLive from './ComingSoonLive';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -74,6 +76,9 @@ function Overview({ event, refresh }) {
   const preLaunch = PRE_LAUNCH.includes(event.status);
   const finished = ['cancelled', 'completed', 'archived'].includes(event.status);
   const justCreated = params.get('created') === '1' && event.status === 'draft';
+  // A "coming soon" teaser (2026-11-17): it sells nothing until its sales open.
+  const teaser = isComingSoon(event);
+  const teaserLive = teaser && event.status === 'published';
   const request = event.cancellationRequest;
 
   return (
@@ -98,7 +103,11 @@ function Overview({ event, refresh }) {
       {justCreated && (
         <p className="fx-row flex-nowrap items-start gap-2 text-sm text-muted" role="status">
           <span className="shrink-0 text-accent"><NavIcon name="check" size={18} /></span>
-          <span>Your event is saved as a private draft. Follow the steps below to put it on sale.</span>
+          <span>
+            {teaser
+              ? 'Saved as a private draft. Add a cover image, then publish your coming-soon page.'
+              : 'Your event is saved as a private draft. Follow the steps below to put it on sale.'}
+          </span>
         </p>
       )}
 
@@ -163,9 +172,12 @@ function Overview({ event, refresh }) {
         </Notice>
       )}
 
-      {ticketed && !preLaunch && <OverviewStats stats={stats} currency={event.currency} />}
+      {ticketed && !preLaunch && !teaser && <OverviewStats stats={stats} currency={event.currency} />}
 
       {preLaunch && <PreLaunch event={event} onChanged={refresh} />}
+
+      {/* Live as a teaser: who is waiting, and what is left before sales open. */}
+      {teaserLive && <ComingSoonLive event={event} onChanged={refresh} />}
 
       <div className="es-ovgrid">
         <div className="es-ovgrid__main">

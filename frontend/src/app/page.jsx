@@ -6,7 +6,11 @@ import VideoBand from './components/landing/VideoBand';
 import ChatBubble from './components/landing/ChatBubble';
 import VisitBeacon from './components/landing/VisitBeacon';
 import NearbyEvents from './components/landing/NearbyEvents';
+import PaymentPlatforms from './components/landing/PaymentPlatforms';
 import { serverFetch } from './utils/apiClient';
+import { jsonLdScript } from './utils/jsonLd';
+import { organizationJsonLd } from './lib/eventSeo';
+import { SOCIAL_LINKS, CONTACT_EMAIL } from './lib/siteRoutes';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -100,19 +104,29 @@ export default async function HomePage() {
     <main>
       {/* Counts this view. Renders nothing — see VisitBeacon. */}
       <VisitBeacon path="/" />
+      {/* Eventsli as an Organization, with its official social profiles —
+          `jsonLdScript`, never JSON.stringify (see utils/jsonLd.js). */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: jsonLdScript(organizationJsonLd({ socials: SOCIAL_LINKS, email: CONTACT_EMAIL })) }}
+      />
 
-      <Hero content={content} vip={vip} sponsors={sponsors} />
+      <Hero content={content} vip={vip} />
+      {/* DIRECTLY UNDER THE HERO (owner, 2026-11-17), where the sponsor strip
+          was. Nearby events by default, when this browser already allows
+          location; otherwise a location bar. LEFT OUT while no city has an
+          upcoming event: it could only show controls that find nothing, above
+          a "Nothing is on sale just yet" that already says so (owner's review,
+          2026-10-16). The sponsors are still on the page, in PartnersBand. */}
+      {(cities === null || cities.length > 0) && <NearbyEvents initialCities={cities} />}
       <PopularEvents copy={copy} categories={categories} events={events} failed={failed} />
       <HostTools />
-      {/* Nearby events by default, when this browser already allows location;
-          otherwise a location bar. LEFT OUT while no city has an upcoming event:
-          it could only show controls that find nothing, above a "Nothing is on
-          sale just yet" that already says so (owner's review, 2026-10-16). */}
-      {(cities === null || cities.length > 0) && <NearbyEvents initialCities={cities} />}
       <Steps />
       <VideoBand block={content.video} />
       <Testimonials copy={copy} testimonials={testimonials} />
       <Closing />
+      {/* How buyers pay, directly above the sponsors (owner, 2026-11-17). */}
+      <PaymentPlatforms />
       <PartnersBand copy={copy} sponsors={sponsors} />
 
       <ChatBubble />

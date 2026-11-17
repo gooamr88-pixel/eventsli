@@ -130,7 +130,7 @@ export function TypeChooser() {
         </p>
       )}
 
-      <div className="es-choice-grid es-choice-grid--2">
+      <div className="es-choice-grid es-choice-grid--3">
         <Link href="/organizer/events/new?type=ticketed" className="es-choice es-choice--lg">
           <span className="es-choice__icon"><NavIcon name="ticket" size={22} /></span>
           <span className="es-choice__body">
@@ -157,6 +157,22 @@ export function TypeChooser() {
             </ul>
           </span>
           <span className="es-choice__cta">Create a listing <NavIcon name="arrow" size={16} /></span>
+        </Link>
+
+        {/* COMING SOON (owner, 2026-11-17): announce it before the details
+            are final. Title, city, month and a cover; sales open later. */}
+        <Link href="/organizer/events/new?type=coming_soon" className="es-choice es-choice--lg">
+          <span className="es-choice__icon"><NavIcon name="bell" size={22} /></span>
+          <span className="es-choice__body">
+            <span className="es-choice__title">Coming soon</span>
+            <span className="es-choice__desc">Announce it now, and add the details when they are ready.</span>
+            <ul className="es-choice__list">
+              <Point>Just a title, city, month and cover</Point>
+              <Point>Fans ask to be told when tickets go on sale</Point>
+              <Point>Open ticket sales later — they are emailed</Point>
+            </ul>
+          </span>
+          <span className="es-choice__cta">Announce an event <NavIcon name="arrow" size={16} /></span>
         </Link>
       </div>
     </div>

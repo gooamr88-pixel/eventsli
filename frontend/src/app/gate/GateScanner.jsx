@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { describeError } from '../utils/errors';
 import { clearSession, gateFetch, GateAuthError, useGateSession } from './gateSession';
@@ -28,6 +28,11 @@ export default function GateScanner() {
   const [status, setStatus] = useState(null);
   const [fatal, setFatal] = useState(null);
   const [confirmSignOut, setConfirmSignOut] = useState(false);
+  // True from the moment a code is read until the operator presses Next. The
+  // camera keeps running (restarting it costs a black frame and a permission
+  // check) but every code it reads meanwhile is ignored, so one guest's answer
+  // is never replaced by the next ticket before the operator has dealt with it.
+  const holdRef = useRef(false);
 
   // `undefined` is "not read yet" — see useGateSession. Only a definite `null`
   // means this tablet has never been signed in.
@@ -58,10 +63,13 @@ export default function GateScanner() {
 
   // ── One code, from the camera or from the keyboard ────────────────────────
   const handleCode = useCallback(async (raw) => {
+    holdRef.current = true;
+    let shown = false;
     try {
       const outcome = await queue.submit(raw);
       if (!outcome) return;
       setEntry(outcome);
+      shown = true;
 
       const result = outcome.record.state === 'done' ? outcome.record.result : 'queued';
       // The sound is chosen from the OUTCOME's tone rather than from a branch
@@ -75,11 +83,27 @@ export default function GateScanner() {
       if (result === 'scanner_locked') setScanning(false);
     } catch (err) {
       if (err instanceof GateAuthError) setFatal(err);
-      else setEntry({ record: { state: 'done', result: 'error' }, error: err });
+      else {
+        setEntry({ record: { state: 'done', result: 'error' }, error: err });
+        shown = true;
+      }
+    } finally {
+      if (!shown) holdRef.current = false;
     }
   }, [queue]);
 
-  const scanner = useScanner({ active: scanning, onDecode: handleCode });
+  const fromCamera = useCallback((raw) => {
+    if (holdRef.current) return;
+    handleCode(raw);
+  }, [handleCode]);
+
+  /** Next: clear the answer and let the camera read the next ticket. */
+  const next = useCallback(() => {
+    holdRef.current = false;
+    setEntry(null);
+  }, []);
+
+  const scanner = useScanner({ active: scanning, onDecode: fromCamera });
 
   /**
    * Undo, and say so on the card that is showing (T-046).
@@ -194,7 +218,7 @@ export default function GateScanner() {
         {!scanning && (
           <button
             type="button"
-            onClick={() => { primeAudio(); setScanning(true); }}
+            onClick={() => { primeAudio(); next(); setScanning(true); }}
             className="rounded-(--es-radius-lg) bg-accent px-4 py-5 text-lg font-medium text-on-accent"
           >
             Start scanning
@@ -204,7 +228,7 @@ export default function GateScanner() {
         <ScanResult
           entry={entry}
           onUndo={undoEntry}
-          onDismiss={() => setEntry(null)}
+          onDismiss={next}
         />
 
         <ManualEntry onSubmit={handleCode} />

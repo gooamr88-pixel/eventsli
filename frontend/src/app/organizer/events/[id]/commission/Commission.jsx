@@ -146,7 +146,16 @@ function InvoiceCard({ eventId, invoice, timezone, onChanged }) {
 
   return (
     <li>
-      <Panel title={`Invoice ${invoice.number}`} action={<InvoiceStatus invoice={invoice} />}>
+      <Panel
+        title={`Invoice ${invoice.number}`}
+        action={(
+          <span className="fx-row items-center gap-2">
+            {/* The invoice as a document — print or Save as PDF (20261123100000). */}
+            <a href={`/organizer/events/${eventId}/commission/invoices/${invoice.id}`} className="es-btn es-btn--ghost es-btn--sm">View / download</a>
+            <InvoiceStatus invoice={invoice} />
+          </span>
+        )}
+      >
         <div className="fx-row fx-row--between">
           <p className="text-sm text-muted">
             {invoice.orderCount} door {invoice.orderCount === 1 ? 'sale' : 'sales'}

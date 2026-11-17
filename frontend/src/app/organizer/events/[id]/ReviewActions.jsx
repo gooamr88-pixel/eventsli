@@ -9,6 +9,7 @@ import SubmitButton from '../../../components/forms/SubmitButton';
 import NavIcon from '../../../components/shell/NavIcon';
 import FeeSummary from './FeeSummary';
 import SubmitReview from './SubmitReview';
+import { isComingSoon } from '../../../lib/comingSoon';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -47,7 +48,14 @@ export default function ReviewActions({ event, onChanged, buildReady = true }) {
    */
   const [reviewing, setReviewing] = useState(false);
 
-  const canSubmit = ['draft', 'rejected'].includes(event.status);
+  /**
+   * A COMING-SOON TEASER (2026-11-17) goes through this panel twice: once to
+   * publish the teaser, and once, live, to OPEN TICKET SALES — the same two
+   * steps (terms, then a reviewed confirm), against `/open-sales`.
+   */
+  const teaser = isComingSoon(event);
+  const opening = teaser && event.status === 'published';
+  const canSubmit = opening ? !event.launchRequestedAt : ['draft', 'rejected'].includes(event.status);
   const accepted = Boolean(event.review?.termsAccepted);
 
   async function acceptTerms() {
@@ -75,12 +83,22 @@ export default function ReviewActions({ event, onChanged, buildReady = true }) {
     setBusy('submit');
     setError(null);
     try {
-      const updated = await post(`/events/${event.id}/submit`, undefined, { noRedirect: true });
+      const updated = await post(`/events/${event.id}/${opening ? 'open-sales' : 'submit'}`, undefined, { noRedirect: true });
       // Closed only once the server has taken it. A dialog that closes on the
       // click and fails behind the page is how somebody believes an event was
       // submitted that never was.
       setReviewing(false);
-      if (updated?.publishedDirectly) {
+      if (opening) {
+        toast.success(updated?.salesOpenedDirectly
+          ? 'Tickets are on sale. Everyone who asked to be told is being emailed now.'
+          : 'Eventsli approves ticket sales next — usually within a day. Your coming-soon page stays live meanwhile.', {
+          title: updated?.salesOpenedDirectly ? 'Ticket sales open' : 'Sent for approval',
+        });
+      } else if (updated?.publishedDirectly && teaser) {
+        toast.success('Your coming-soon page is live. Share it — people can ask to be told when tickets go on sale.', {
+          title: 'Published',
+        });
+      } else if (updated?.publishedDirectly) {
         toast.success('It is live on Eventsli now. Eventsli reviews new events afterwards and emails you if anything needs to change.', {
           title: 'Published',
         });
@@ -108,7 +126,9 @@ export default function ReviewActions({ event, onChanged, buildReady = true }) {
   return (
     <section className="es-card fx-stack fx-stack--sm p-5" aria-labelledby={`${agreeId}-title`}>
       <div className="es-panel-head">
-        <h2 id={`${agreeId}-title`} className="es-panel-head__title">Going on sale</h2>
+        <h2 id={`${agreeId}-title`} className="es-panel-head__title">
+          {opening ? 'Opening ticket sales' : teaser ? 'Going live' : 'Going on sale'}
+        </h2>
         {canSubmit && (
           <span className="es-status" data-tone={!buildReady ? 'muted' : accepted ? 'success' : 'neutral'}>
             {!buildReady ? 'Not yet' : accepted ? 'Ready to submit' : 'Step 1 of 2'}
@@ -121,8 +141,9 @@ export default function ReviewActions({ event, onChanged, buildReady = true }) {
           that worked sent an empty event to review. */}
       {canSubmit && !buildReady && !accepted && (
         <p className="text-sm text-muted">
-          This unlocks once the event has its ticket types, seating map and a way to pay. Then you
-          review the fees, accept the terms and send it to Eventsli — two taps.
+          {teaser && !opening
+            ? 'This unlocks once the event has its city and a cover image. Then you review the fees that will apply, accept the terms and publish — two taps.'
+            : 'This unlocks once the event has its ticket types, seating map and a way to pay. Then you review the fees, accept the terms and send it to Eventsli — two taps.'}
         </p>
       )}
 
@@ -191,9 +212,15 @@ export default function ReviewActions({ event, onChanged, buildReady = true }) {
             <div className="es-steps__body">
               {/* Publish first, review after (2026-11-03) unless the platform
                   requires approval — the API says which (`requiresApproval`). */}
-              <p className="es-steps__title">{direct ? 'Publish' : 'Submit for review'}</p>
+              <p className="es-steps__title">
+                {opening ? 'Open ticket sales' : direct ? (teaser ? 'Publish coming soon' : 'Publish') : 'Submit for review'}
+              </p>
               <p className="text-sm text-muted">
-                {direct
+                {opening ? (direct
+                  ? 'Tickets go on sale as soon as you confirm, and everyone on your notify list is emailed.'
+                  : 'Eventsli approves ticket sales first. Your coming-soon page stays live while it does, and everyone on your notify list is emailed once they open.')
+                  : teaser && direct ? 'It goes live as soon as you confirm, with a “Notify me” button instead of tickets.'
+                  : direct
                   ? (event.status === 'rejected'
                     ? 'Publish it again once you have made the changes Eventsli asked for.'
                     : 'It goes live as soon as you confirm. Eventsli reviews new events afterwards and emails you if anything needs to change.')
@@ -209,9 +236,11 @@ export default function ReviewActions({ event, onChanged, buildReady = true }) {
                   disabled={!accepted || !buildReady || Boolean(busy)}
                   onClick={() => { setError(null); setReviewing(true); }}
                 >
-                  {direct
-                    ? (event.status === 'rejected' ? 'Review and publish again' : 'Review and publish')
-                    : (event.status === 'rejected' ? 'Review and submit again' : 'Review and submit')}
+                  {opening
+                    ? 'Review and open sales'
+                    : direct
+                      ? (event.status === 'rejected' ? 'Review and publish again' : 'Review and publish')
+                      : (event.status === 'rejected' ? 'Review and submit again' : 'Review and submit')}
                 </button>
               </div>
               {!buildReady
@@ -229,7 +258,14 @@ export default function ReviewActions({ event, onChanged, buildReady = true }) {
         </div>
       )}
 
-      {event.status === 'published' && (
+      {opening && event.launchRequestedAt && (
+        <div className="es-notice es-notice--info">
+          <p>Waiting for Eventsli to approve ticket sales.</p>
+          <p>Your coming-soon page stays live. Editing the details takes the request back — open sales again afterwards.</p>
+        </div>
+      )}
+
+      {event.status === 'published' && !teaser && (
         <div className="es-notice es-notice--info">
           <p>On sale.</p>
           <p>Prices are locked for any ticket type that has already sold — buyers get what they paid for.</p>

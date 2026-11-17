@@ -139,6 +139,21 @@ function whenText(startsAt, timezone, { withZone = true } = {}) {
 }
 
 /**
+ * A coming-soon event's rough date: "Coming soon · March 2027". The month is
+ * the one at the venue — the teaser's dates are that whole month there.
+ */
+function monthText(startsAt, timezone) {
+  if (!startsAt) return null;
+  const at = new Date(startsAt);
+  if (Number.isNaN(at.getTime())) return null;
+  try {
+    return new Intl.DateTimeFormat('en-CA', { month: 'long', year: 'numeric', timeZone: timezone || 'UTC' }).format(at);
+  } catch {
+    return new Intl.DateTimeFormat('en-CA', { month: 'long', year: 'numeric' }).format(at);
+  }
+}
+
+/**
  * THE SEAT, AS A PERSON READS IT — and the reason this file exists at all.
  *
  * `ticketService.shape()` returns `seat` as an OBJECT: `{ section, row,
@@ -342,8 +357,13 @@ function button(href, label) {
  */
 function eventCard(event = {}) {
   if (!event.title) return '';
-  const when = whenText(event.startsAt ?? event.starts_at, event.timezone);
-  const venue = event.venue ?? event.venue_name;
+  // A teaser has a month, not a time — printing "Monday, March 1 at 12:00 a.m."
+  // would state as fact a time nobody chose.
+  const teaser = event.comingSoon === true || event.coming_soon === true;
+  const startsAt = event.startsAt ?? event.starts_at;
+  const month = teaser ? monthText(startsAt, event.timezone) : null;
+  const when = teaser ? (month ? `Coming soon · ${month}` : 'Coming soon') : whenText(startsAt, event.timezone);
+  const venue = teaser ? null : (event.venue ?? event.venue_name);
   const place = [venue, event.city].filter(Boolean).join(', ');
   const site = siteUrl();
   const href = event.slug && site ? `${site}/e/${encodeURIComponent(event.slug)}` : null;
@@ -498,6 +518,6 @@ function facts(pairs) {
 
 module.exports = {
   BRAND, BRAND_DARK, BRAND_TINT, HIGHLIGHT, HIGHLIGHT_WASH, PAPER, STUB, INK, MUTED, SUBTLE, LINE, SURFACE, SUNKEN, FONT, MONO,
-  escapeHtml, siteUrl, apiUrl, money, whenText, seatLabel,
+  escapeHtml, siteUrl, apiUrl, money, whenText, monthText, seatLabel,
   layout, p, button, eventCard, ticketCard, note, quote, facts,
 };

@@ -4,6 +4,7 @@ import { formatMoneyCompact } from '../utils/money';
 import NavIcon from './shell/NavIcon';
 import SaveEventButton from './SaveEventButton';
 import { isDateOnly, formatDateOnly } from '../lib/dateOnly';
+import { comingSoonLabel } from '../lib/comingSoon';
 
 /**
  * One event in a listing. Used by the homepage and by /events, so the two can
@@ -48,6 +49,7 @@ export function eventDateParts(event) {
     month: format({ month: 'short' }),
     weekday: format({ weekday: 'short' }),
     time: format({ hour: 'numeric', minute: '2-digit' }).toLowerCase(),
+    year: format({ year: 'numeric' }),
   };
 }
 
@@ -57,6 +59,8 @@ export function eventDateParts(event) {
  * single-event payload sends `tiers` instead, so both are read.
  */
 export function priceBlock(event) {
+  // A coming-soon teaser has no announced price (the API sends none).
+  if (event.comingSoon) return null;
   if (event.displayOnly) return { label: 'Listing', value: 'Details' };
   if (event.availability?.soldOut) return { label: 'Tickets', value: 'Sold out' };
 
@@ -86,6 +90,8 @@ export function priceBlock(event) {
  * Exported for its test.
  */
 export function saleTag(event) {
+  // Announced, not on sale yet (2026-11-17) — coral, never the yellow of "on sale".
+  if (event.comingSoon) return { kind: 'soon', label: 'Coming soon' };
   if (event.displayOnly) return { kind: 'info', label: 'Info only' };
   if (event.availability?.soldOut) return { kind: 'sold-out', label: 'Sold out' };
   const buyable = 'fromPriceCents' in event
@@ -96,6 +102,7 @@ export function saleTag(event) {
 
 /** What the card's pill says. Decorative — the card's link is the action. */
 export function ctaLabel(event) {
+  if (event.comingSoon) return 'Notify me';
   if (event.displayOnly) return 'Details';
   if (event.availability?.soldOut) return 'View event';
   // Nothing buyable yet (sales not open): the same rule as the sale tag, so
@@ -169,14 +176,17 @@ export default function EventCard({ event, priority = false, headingLevel = 3, a
         {tag && (
           <span className={`es-evcard__sale es-evcard__sale--${tag.kind}`}>
             {tag.kind === 'on-sale' && <NavIcon name="ticket" size={14} />}
+            {tag.kind === 'soon' && <NavIcon name="bell" size={14} />}
             {tag.label}
           </span>
         )}
 
         {when && (
+          /* A teaser has a month, not a day: "MAR / 2027" rather than a "01"
+             nobody chose. */
           <span className="es-lp-datebadge">
-            <b>{when.day}</b>
-            <small>{when.month}</small>
+            <b>{event.comingSoon ? when.month : when.day}</b>
+            <small>{event.comingSoon ? when.year : when.month}</small>
           </span>
         )}
       </div>
@@ -189,7 +199,11 @@ export default function EventCard({ event, priority = false, headingLevel = 3, a
             <p className="es-evcard__line">
               <span aria-hidden className="es-evcard__icon"><NavIcon name="clock" size={16} /></span>
               {/* A date-only listing shows its day(s), never a midnight. */}
-              <span>{isDateOnly(event) ? formatDateOnly(event, { style: 'short' }) : `${when.weekday} · ${when.time}`}</span>
+              <span>
+                {event.comingSoon
+                  ? comingSoonLabel(event, { style: 'short' })
+                  : isDateOnly(event) ? formatDateOnly(event, { style: 'short' }) : `${when.weekday} · ${when.time}`}
+              </span>
             </p>
           )}
           {place && (

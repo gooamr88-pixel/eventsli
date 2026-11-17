@@ -50,7 +50,7 @@ export default function ScanResult({ entry, onUndo, onDismiss }) {
       <div className="fx-stack fx-stack--sm rounded-(--es-radius-lg) border border-dashed border-border-strong p-6 text-center">
         <p className="text-muted">Point the camera at a ticket.</p>
         <p className="text-sm text-subtle">
-          The answer appears here. It stays until the next scan.
+          The answer appears here. It stays until you press Next.
         </p>
       </div>
     );
@@ -96,19 +96,6 @@ export default function ScanResult({ entry, onUndo, onDismiss }) {
             )}
           </div>
         </div>
-        {/* A REAL BUTTON, because of where this is used. The door is a dark
-            room, a moving queue and often a gloved thumb, and "Clear" was a
-            ~20px line of text — the smallest target in the product sitting on
-            the screen with the least margin for a missed tap. `.es-btn--ghost`
-            keeps it visually quiet and gives it the 44px floor. */}
-        <button
-          type="button"
-          onClick={onDismiss}
-          aria-label="Clear this result"
-          className="es-btn es-btn--ghost es-btn--sm shrink-0"
-        >
-          Clear
-        </button>
       </div>
 
       {record.attendee && (
@@ -162,6 +149,18 @@ export default function ScanResult({ entry, onUndo, onDismiss }) {
           )}
         </div>
       )}
+
+      {/* The camera reads nothing while this card is up: the next ticket is
+          only checked once the operator presses Next. Full width, because the
+          door is a dark room, a moving queue and often a gloved thumb. */}
+      <button
+        type="button"
+        onClick={onDismiss}
+        aria-label="Next ticket"
+        className="rounded-(--es-radius-lg) bg-accent px-4 py-4 text-lg font-medium text-on-accent"
+      >
+        Next
+      </button>
     </div>
   );
 }

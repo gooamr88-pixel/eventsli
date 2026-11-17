@@ -1,4 +1,5 @@
 import { isDateOnly, formatDateOnly, dateOnlyDays } from './dateOnly';
+import { isComingSoon, formatMonth, comingSoonLabel } from './comingSoon';
 import { minorUnits } from './markets';
 
 /**
@@ -115,6 +116,23 @@ export function money(cents, currency) {
  */
 export function seoTitle(event) {
   const name = squash(event.title) || 'Event';
+  /**
+   * A COMING-SOON TEASER sells no tickets yet and has a month, not a day:
+   * "Jazz Fest – Coming soon to Toronto, Mar 2027 | Eventsli".
+   */
+  if (isComingSoon(event)) {
+    const month = formatMonth(event, { style: 'short' });
+    const city = event.city && !says(name, event.city) ? squash(event.city) : null;
+    const options = [
+      city && month && `${name} – Coming soon to ${city}, ${month}`,
+      city && `${name} – Coming soon to ${city}`,
+      month && `${name} – Coming soon, ${month}`,
+      `${name} – Coming soon`,
+    ].filter(Boolean);
+    for (const c of options) if (`${c} | ${BRAND}`.length <= TITLE_MAX) return `${c} | ${BRAND}`;
+    for (const c of options) if (c.length <= TITLE_MAX) return c;
+    return name;
+  }
   const ticketed = !event.displayOnly;
   const base = ticketed && !/\btickets?\b/i.test(name) ? `${name} Tickets` : name;
   const city = event.city && !says(name, event.city) ? squash(event.city) : null;
@@ -138,6 +156,7 @@ export function seoTitle(event) {
 /** "Sat, Nov 14, 2026 at 9:00 PM" in the event's own zone. */
 export function whenPhrase(event) {
   if (!event.startsAt) return '';
+  if (isComingSoon(event)) return comingSoonLabel(event, { style: 'short' });
   if (isDateOnly(event)) return formatDateOnly(event, { style: 'short' });
   const day = fmt(event.startsAt, event.timezone, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
   const time = fmt(event.startsAt, event.timezone, { hour: 'numeric', minute: '2-digit' });
@@ -322,6 +341,25 @@ export function breadcrumbs(event, origin = siteOrigin()) {
   ].map((c) => ({ ...c, url: `${origin}${c.href}` }));
 }
 
+/**
+ * Eventsli itself, for the homepage: the name, the site, the logo, the contact
+ * address and the official social profiles (`sameAs`) — which is how a search
+ * engine knows the Facebook and Instagram pages are this company's.
+ */
+export function organizationJsonLd({ socials = [], email = null, origin = siteOrigin() } = {}) {
+  const sameAs = socials.map((s) => s.href).filter(Boolean);
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    '@id': `${origin}/#organization`,
+    name: BRAND,
+    url: `${origin}/`,
+    logo: `${origin}/email-logo.png`,
+    ...(email ? { email } : {}),
+    ...(sameAs.length ? { sameAs } : {}),
+  };
+}
+
 export function breadcrumbJsonLd(event, origin = siteOrigin()) {
   return {
     '@context': 'https://schema.org',
@@ -345,7 +383,19 @@ export function breadcrumbJsonLd(event, origin = siteOrigin()) {
 export function quickAnswers(event) {
   const name = squash(event.title);
   const out = [];
-  if (event.startsAt && isDateOnly(event)) {
+  const teaser = isComingSoon(event);
+  if (teaser) {
+    // A month, honestly — and how to hear the day.
+    const month = formatMonth(event);
+    out.push({
+      q: `When is ${name}?`,
+      a: `${name} is coming soon${month ? ` — expected in ${month}` : ''}. The exact date is announced when tickets go on sale.`,
+    });
+    out.push({
+      q: `How do I get tickets for ${name}?`,
+      a: `Tickets are not on sale yet. Leave your email on this page and ${BRAND} will tell you the moment they are.`,
+    });
+  } else if (event.startsAt && isDateOnly(event)) {
     out.push({ q: `When is ${name}?`, a: `${name} is on ${formatDateOnly(event)}.` });
   } else if (event.startsAt) {
     const day = fmt(event.startsAt, event.timezone, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
@@ -359,7 +409,7 @@ export function quickAnswers(event) {
   if (where.length) {
     out.push({ q: `Where is ${name}?`, a: `${name} takes place at ${[...new Set(where)].join(', ')}.` });
   }
-  if (!event.displayOnly) {
+  if (!event.displayOnly && !teaser) {
     const price = pricePhrase(event);
     if (price) {
       const tiers = (event.tiers || []).filter((t) => !t.hidden);

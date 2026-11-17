@@ -13,6 +13,8 @@ type Props = {
   busy?: boolean;
   disabled?: boolean;
   size?: 'md' | 'lg';
+  /** Fully rounded, with a hairline between the icon and the label (sign-in). */
+  pill?: boolean;
   style?: ViewStyle;
   accessibilityHint?: string;
 };
@@ -23,7 +25,7 @@ type Props = {
  */
 export function Button({
   label, onPress, variant = 'primary', icon, iconRight, busy = false, disabled = false,
-  size = 'md', style, accessibilityHint,
+  size = 'md', pill = false, style, accessibilityHint,
 }: Props) {
   const off = disabled || busy;
   const palette = PALETTE[variant];
@@ -37,6 +39,8 @@ export function Button({
       style={({ pressed }) => [
         styles.base,
         size === 'lg' && styles.lg,
+        pill && styles.pill,
+        pill && variant === 'primary' && styles.glow,
         { backgroundColor: pressed && !off ? palette.pressed : palette.bg, borderColor: palette.border },
         off && styles.off,
         style,
@@ -46,8 +50,9 @@ export function Button({
         {busy ? (
           <ActivityIndicator color={palette.fg} />
         ) : (
-          icon && <Icon name={icon} size={20} color={palette.fg} />
+          icon && <Icon name={icon} size={pill ? 22 : 20} color={palette.fg} />
         )}
+        {pill && (icon || busy) ? <View style={[styles.divider, { backgroundColor: palette.fg }]} /> : null}
         <Text variant="label" color={palette.fg}>{label}</Text>
         {iconRight && !busy && <Icon name={iconRight} size={20} color={palette.fg} />}
       </View>
@@ -75,6 +80,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   lg: { minHeight: 58 },
+  pill: { minHeight: 58, borderRadius: radius.pill },
+  // A soft coral glow under the main button, not a hard drop shadow.
+  glow: { shadowColor: colors.accent, shadowOpacity: 0.22, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 3 },
+  divider: { width: 1, height: 22, opacity: 0.45, marginHorizontal: space.xs },
   off: { opacity: 0.5 },
   row: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
 });

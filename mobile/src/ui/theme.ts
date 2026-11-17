@@ -36,6 +36,9 @@ export const colors = {
   bgSunken: '#f1f1f3',
   surface: '#ffffff',
   border: '#eaeaea',
+  // The sign-in mockup's soft pill fields.
+  field: '#f6f6f8',
+  fieldBorder: '#e3e3e8',
   // The pale coral behind an accent icon or chip (was the mint wash).
   wash: '#fff1f2',
   borderStrong: '#b8b8c0',
@@ -78,6 +81,8 @@ export const colors = {
  *  Names match the loaded font assets. */
 export const fonts = {
   display: 'Urbanist_900Black',
+  // A lighter Urbanist for the sign-in welcome, as the mockup sets it.
+  displayBold: 'Urbanist_700Bold',
   regular: 'DMSans_400Regular',
   medium: 'DMSans_500Medium',
   semibold: 'DMSans_600SemiBold',

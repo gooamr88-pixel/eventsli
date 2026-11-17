@@ -274,6 +274,48 @@ router.post(
 
 router.get('/events/:slug', discovery.eventBySlug);
 
+/**
+ * "NOTIFY ME" on a coming-soon event (owner, 2026-11-17). One email, once,
+ * when sales open — services/comingSoonService.js.
+ *
+ * Limited per address AND per event: the list is a way to reach people, so a
+ * script must not be able to pour thousands of addresses into it. The answer
+ * is the same for an address already on the list, so this cannot be used to
+ * learn who signed up.
+ */
+const notifyLimiter = makeLimiter({
+  windowMs: 60 * 60 * 1000,
+  max: 10,
+  name: 'coming-soon-notify',
+  keyGenerator: (req) => `${req.ip}|${req.params.slug}`,
+  message: 'Too many sign-ups from here. Please try again later.',
+});
+
+router.post(
+  '/events/:slug/notify',
+  notifyLimiter,
+  optionalAuth,
+  param('slug').isString().trim().isLength({ min: 1, max: 200 }),
+  body('email').isString().trim().isLength({ min: 3, max: 254 }).isEmail()
+    .withMessage('Enter a valid email address.'),
+  validate,
+  async (req, res, next) => {
+    try {
+      const comingSoon = require('../services/comingSoonService');
+      const result = await comingSoon.signup({
+        slug: req.params.slug, email: req.body.email, userId: req.user?.id || null,
+      });
+      if (result.ok) return sendOk(res, { subscribed: true });
+      const refusal = {
+        EVENT_NOT_FOUND: { status: 404, error: 'EVENT_NOT_FOUND', message: 'That event is not available.' },
+        INVALID_EMAIL: { status: 400, error: 'VALIDATION_ERROR', message: 'Enter a valid email address.' },
+        NOT_COMING_SOON: { status: 409, error: 'CONFLICT', message: 'Tickets for this event are already on sale — reload the page to get them.' },
+      }[result.code];
+      return sendFail(res, refusal);
+    } catch (err) { return next(err); }
+  },
+);
+
 router.get('/events/:slug/seat-map', c.publicMap);
 
 router.post(

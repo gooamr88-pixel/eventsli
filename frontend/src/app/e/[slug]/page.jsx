@@ -19,6 +19,8 @@ import {
 } from '../../lib/eventSeo';
 import { EventBreadcrumbs, RelatedEvents } from './EventDiscovery';
 import { isDateOnly, formatDateOnly } from '../../lib/dateOnly';
+import { isComingSoon, comingSoonLabel } from '../../lib/comingSoon';
+import EventNotifyCard from './EventNotifyCard';
 import VisitBeacon from '../../components/landing/VisitBeacon';
 
 /**
@@ -186,7 +188,9 @@ export default async function EventPage({ params, searchParams }) {
   const about = [aboutLead, aboutRest].filter(Boolean).join('\n\n');
   // A date-only listing (lib/dateOnly.js) states its day(s) and no time — it
   // never had one, and "12:00 AM – 11:59 PM" is not one.
-  const when = isDateOnly(event) ? { date: formatDateOnly(event) } : {
+  // A "coming soon" teaser has a month, not a time (lib/comingSoon.js).
+  const teaser = isComingSoon(event);
+  const when = teaser ? { date: comingSoonLabel(event) } : isDateOnly(event) ? { date: formatDateOnly(event) } : {
     date: fmt(starts, { dateStyle: 'medium' }),
     start: fmt(starts, { timeStyle: 'short' }),
     end: sameDay(starts, ends, event.timezone)
@@ -206,10 +210,15 @@ export default async function EventPage({ params, searchParams }) {
           `jsonLdScript`, not `JSON.stringify`. The values are typed by the
           organizer, and JSON escaping has no opinion about `</script>` — which
           ends this block before any JavaScript is parsed. See utils/jsonLd.js. */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: jsonLdScript(eventJsonLd(event)) }}
-      />
+      {/* Not for a teaser: an Event needs a start date, and a teaser has only
+          a month — stating "the 1st at midnight" to a search engine would be
+          publishing a time nobody chose. */}
+      {!teaser && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: jsonLdScript(eventJsonLd(event)) }}
+        />
+      )}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: jsonLdScript(breadcrumbJsonLd(event)) }}
@@ -222,17 +231,24 @@ export default async function EventPage({ params, searchParams }) {
           {/* ── 1. The header: poster | title, headline, description | facts ── */}
           <EventHero event={event} tagline={aboutTitle} about={about} when={when} />
 
-          {/* ── 2. Tickets: the ticket-shaped call to buy ────────────────── */}
-          <EventTicketCard event={event} cheapest={cheapest} soldOut={soldOut} />
+          {teaser ? (
+            /* ── 2. Coming soon: "Notify me" where the tickets will be. ── */
+            <EventNotifyCard event={event} />
+          ) : (
+            <>
+              {/* ── 2. Tickets: the ticket-shaped call to buy ────────────── */}
+              <EventTicketCard event={event} cheapest={cheapest} soldOut={soldOut} />
 
-          {/* ── 3. Seated: blocks and prices, and the door to the map.
-                General admission: the ticket types, as before. ─────────── */}
-          {seated
-            ? <EventBlocks event={event} />
-            : <EventTickets event={event} cheapest={cheapest} soldOut={soldOut} />}
+              {/* ── 3. Seated: blocks and prices, and the door to the map.
+                    General admission: the ticket types, as before. ─────── */}
+              {seated
+                ? <EventBlocks event={event} />
+                : <EventTickets event={event} cheapest={cheapest} soldOut={soldOut} />}
 
-          {/* The reasons a buyer might not be able to buy, said in full. */}
-          <EventPurchaseNotice event={event} soldOut={soldOut} focusTier={focusTier} />
+              {/* The reasons a buyer might not be able to buy, said in full. */}
+              <EventPurchaseNotice event={event} soldOut={soldOut} focusTier={focusTier} />
+            </>
+          )}
 
           {/* ── 4. The sections ──────────────────────────────────────────────
               Every panel is in the page whether or not its tab is open —
@@ -304,12 +320,14 @@ export default async function EventPage({ params, searchParams }) {
 
       {/* Fixed to the bottom at every width — the sticky side panel it replaced
           only ever existed on a desktop, and this page is now one column. */}
-      <EventBuyBar
-        event={event}
-        soldOut={soldOut}
-        tierId={focusTier?.id}
-        cheapest={cheapest}
-      />
+      {!teaser && (
+        <EventBuyBar
+          event={event}
+          soldOut={soldOut}
+          tierId={focusTier?.id}
+          cheapest={cheapest}
+        />
+      )}
     </main>
   );
 }

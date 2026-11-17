@@ -25,6 +25,7 @@ import { useShellFocus } from '../../../components/shell/shellFocus';
 import { Loading, ErrorNotice, Notice } from '../../../components/Feedback';
 import CreateProfile from '../../CreateProfile';
 import AiCreator from './ai/AiCreator';
+import ComingSoonForm from './ComingSoonForm';
 import DateOnlyFields from './DateOnlyFields';
 import { dateOnlyRange } from '../../../lib/dateOnly';
 import { useOpenCountries, openCountryFor } from '../../../hooks/useOpenCountries';
@@ -86,6 +87,8 @@ export default function NewEventForm() {
 
   // The Smart Event Creator (`?mode=ai`) — its own three steps, in ./ai.
   if (params.get('mode') === 'ai') return <AiCreator organizer={organizer} />;
+  // "Coming soon" (2026-11-17): one screen — title, city, month — in ./ComingSoonForm.
+  if (type === 'coming_soon') return <ComingSoonForm organizer={organizer} />;
   // `key={type}` so switching between the two products rebuilds the wizard
   // rather than carrying one type's answers into the other's steps.
   if (!TYPES[type]) return <TypeChooser />;

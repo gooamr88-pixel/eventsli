@@ -71,6 +71,13 @@ const ORGANIZER_EDITABLE = Object.freeze({
   acceptsManual: 'accepts_manual',
   // Phase 2: hours a buyer has to pay this organizer offline (null = the platform's).
   offlinePaymentHours: 'offline_payment_hours',
+  /**
+   * A "coming soon" teaser (20261124090000). Editable only before it is
+   * published — switching a draft between a teaser and a full event. Once it
+   * is live, a teaser becomes an event on sale through `POST /open-sales`,
+   * which runs the full checks; see editConsequence.
+   */
+  comingSoon: 'coming_soon',
 });
 
 /**
@@ -259,8 +266,10 @@ function apiFieldName(column) {
  *
  * An admin is held to neither rule: their edits ARE the review.
  */
-function editConsequence({ status, columns, isAdmin, hasPaidOrders }) {
-  const nothing = { refused: [], reason: null, returnsToDraft: false };
+function editConsequence({
+  status, columns, isAdmin, hasPaidOrders, comingSoon = false, launchRequested = false,
+}) {
+  const nothing = { refused: [], reason: null, returnsToDraft: false, withdrawsLaunch: false };
   if (isAdmin) return nothing;
 
   // `currency` follows `country` and `updated_at` is bookkeeping; neither is
@@ -269,15 +278,84 @@ function editConsequence({ status, columns, isAdmin, hasPaidOrders }) {
 
   if (hasPaidOrders) {
     const locked = changed.filter((c) => LOCKED_AFTER_SALE.includes(c));
-    if (locked.length) return { refused: locked, reason: 'LOCKED_AFTER_SALE', returnsToDraft: false };
+    if (locked.length) return { ...nothing, refused: locked, reason: 'LOCKED_AFTER_SALE' };
+  }
+
+  /**
+   * A TEASER BECOMES A FULL EVENT THROUGH ONE DOOR. Before it is published the
+   * flag is the organizer's to flip either way; after, `POST /open-sales` is
+   * the only way off it (it runs every check a normal publish runs), and a
+   * live event is never turned back into a teaser.
+   */
+  if (changed.includes('coming_soon') && !['draft', 'rejected', 'pending_review'].includes(status)) {
+    return { ...nothing, refused: ['coming_soon'], reason: 'COMING_SOON_LOCKED' };
+  }
+
+  /**
+   * A LIVE TEASER IS STILL BEING WRITTEN. Nothing is on sale, so nobody bought
+   * anything an edit could change, and the organizer has to be able to add the
+   * venue, the exact times and the rest before opening sales — which is
+   * reviewed in full then. Each edit withdraws a waiting launch request, so an
+   * admin never approves sales on details they did not see (the same rule as
+   * an edit to an event in the review queue).
+   */
+  if (status === 'published' && comingSoon) {
+    return { ...nothing, withdrawsLaunch: launchRequested && changed.length > 0 };
   }
 
   if (status === 'published' || status === 'suspended') {
     const reviewed = changed.filter((c) => !LIVE_EDITABLE.includes(c));
-    if (reviewed.length) return { refused: reviewed, reason: 'EVENT_ON_SALE', returnsToDraft: false };
+    if (reviewed.length) return { ...nothing, refused: reviewed, reason: 'EVENT_ON_SALE' };
   }
 
   return { ...nothing, returnsToDraft: status === 'pending_review' && changed.length > 0 };
+}
+
+/**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * A TEASER'S ROUGH DATE — the whole month, at the venue.
+ *
+ * A coming-soon event is published with a month ("March 2027"), not a time.
+ * It is stored as 00:00 on the 1st to 23:59 on the month's last day in the
+ * event's zone, the same way a date-only listing is stored as whole days.
+ *
+ * `roughMonth` returns `'YYYY-MM'` when the dates have exactly that shape, and
+ * null otherwise. Opening sales on a ticketed event refuses while it is still
+ * true: a ticket is for a time, at a door, and "some time in March" is not one.
+ *
+ * Pure: Intl only, so the rules stay testable without a database.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+function localWallClock(iso, timeZone) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  try {
+    const p = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
+      timeZone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+    }).formatToParts(d).map((x) => [x.type, x.value]));
+    return { y: Number(p.year), m: Number(p.month), d: Number(p.day), time: `${p.hour}:${p.minute}` };
+  } catch {
+    return null;
+  }
+}
+
+function roughMonth({ startsAt, endsAt, timezone }) {
+  const s = localWallClock(startsAt, timezone);
+  const e = localWallClock(endsAt, timezone);
+  if (!s || !e) return null;
+  if (s.y !== e.y || s.m !== e.m) return null;
+  const lastDay = new Date(Date.UTC(s.y, s.m, 0)).getUTCDate();
+  if (s.d !== 1 || s.time !== '00:00' || e.d !== lastDay || e.time !== '23:59') return null;
+  return `${s.y}-${String(s.m).padStart(2, '0')}`;
+}
+
+/**
+ * May the organizer accept the terms on this event now? Before submitting, as
+ * always — and on a live teaser, because opening its sales is the moment the
+ * money settings start to apply and the current terms are what it opens under.
+ */
+function canAcceptTerms({ status, comingSoon = false }) {
+  return TERMS_ACCEPTABLE_FROM.includes(status) || (status === 'published' && comingSoon === true);
 }
 
 /**
@@ -311,7 +389,9 @@ const TERMS_ACCEPTABLE_FROM = Object.freeze(['draft', 'rejected']);
 function termsAcceptedFor(event, currentTermsId = null) {
   const acceptedId = event?.terms_accepted_id || null;
   if (!acceptedId) return false;
-  if (TERMS_ACCEPTABLE_FROM.includes(event.status) && currentTermsId) {
+  // A live teaser has not opened its sales yet, so the CURRENT version is the
+  // one opening them will demand (canAcceptTerms).
+  if (canAcceptTerms({ status: event.status, comingSoon: event.coming_soon === true }) && currentTermsId) {
     return acceptedId === currentTermsId;
   }
   return true;
@@ -502,6 +582,8 @@ module.exports = {
   LOCKED_AFTER_SALE,
   TERMS_ACCEPTABLE_FROM,
   termsAcceptedFor,
+  canAcceptTerms,
+  roughMonth,
   restoreTarget,
   paymentChoices,
   paymentFlags,

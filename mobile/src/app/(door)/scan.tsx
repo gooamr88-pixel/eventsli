@@ -1,7 +1,7 @@
 import { useNetInfo } from '@react-native-community/netinfo';
 import { router, useIsFocused } from 'expo-router';
 import { useKeepAwake } from 'expo-keep-awake';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -40,9 +40,16 @@ export default function Scan() {
   const offline = net.isConnected === false;
   const listReady = useOfflineList((s) => s.complete && !s.off);
 
+  // Once an answer is on screen, no further code is read until the staff
+  // member presses Scan Next and this screen is in front again.
+  useEffect(() => {
+    if (focused) busy.current = false;
+  }, [focused]);
+
   async function onCode(data: string) {
     if (!door || busy.current) return;
     busy.current = true;
+    let shown = false;
     try {
       const rec = await measureScan(
         () => useScanLog.getState().submit(data, door.token, { offline }),
@@ -51,12 +58,13 @@ export default function Scan() {
       if (!rec) return;
       signal(describeScan(screenResult(rec)).tone);
       router.push({ pathname: '/result', params: { id: rec.clientScanId } });
+      shown = true;
     } catch (err) {
       if (!(await exit(err))) {
         dialog.alert('Could not check that code', 'Something went wrong reading it. Scan it again.', { tone: 'warning', icon: 'qr', button: 'Scan again' });
       }
     } finally {
-      busy.current = false;
+      if (!shown) busy.current = false;
     }
   }
 

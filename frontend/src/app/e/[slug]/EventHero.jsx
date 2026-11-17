@@ -71,6 +71,8 @@ export default function EventHero({ event, tagline, about, when }) {
           {when.start && <Fact icon="clock">Event starts at {when.start}</Fact>}
           {when.end && <Fact icon="clock">Ends at {when.end}</Fact>}
           {event.venue && <Fact icon="pin">{event.venue}</Fact>}
+          {/* A coming-soon teaser is announced with its city alone. */}
+          {!event.venue && event.comingSoon && event.city && <Fact icon="pin">{event.city}</Fact>}
           {event.venueAddress && <Fact icon="building">{event.venueAddress}</Fact>}
           {event.organizer?.name && (
             <Fact icon="tag">

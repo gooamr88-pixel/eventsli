@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import NavIcon from '../../../components/shell/NavIcon';
 import StatusPill from '../../StatusPill';
@@ -10,6 +11,7 @@ import { categoryLabel } from '../../../lib/categories';
 import { formatEventTime } from '../../../lib/eventTime';
 import { isDateOnly, formatDateOnly } from '../../../lib/dateOnly';
 import DateOnlyFields from '../new/DateOnlyFields';
+import MonthFields from '../new/MonthFields';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -93,7 +95,10 @@ export function BasicSection({ f }) {
                 : [[form.category, categoryLabel(form.category)]]} />
           </div>
 
-          {listing ? (
+          {f.teaser ? (
+            /* A coming-soon teaser: a month, until the exact times are known. */
+            <TeaserDates f={f} />
+          ) : listing ? (
             /* A listing has a date, not a time (lib/dateOnly.js): the whole
                day(s) at the venue, written through the same two fields so the
                form's save and checks are unchanged. */
@@ -156,6 +161,61 @@ export function BasicSection({ f }) {
         </div>
       )}
     </section>
+  );
+}
+
+/**
+ * A COMING-SOON TEASER'S DATE: a month, or — once known — exact times.
+ *
+ * Written through the same `startsAt`/`endsAt` wall-clock fields as every
+ * event, so the form's save and checks are unchanged: a month is 00:00 on the
+ * 1st to 23:59 on the last day at the venue (lib/comingSoon.js). Opening sales
+ * on a ticketed event needs the exact times; the API refuses a month.
+ */
+function TeaserDates({ f }) {
+  const { event, form, set, setForm } = f;
+  const [exact, setExact] = useState(() => !event.roughMonth);
+  // Keeps a year picked before its month (MonthFields' `'YYYY-'`).
+  const [partial, setPartial] = useState('');
+  const month = /^\d{4}-\d{2}/.test(form.startsAt) ? form.startsAt.slice(0, 7) : '';
+
+  const setMonth = (ym) => {
+    if (!/^\d{4}-\d{2}$/.test(ym)) { setPartial(ym); return; }
+    setPartial('');
+    const [y, m] = ym.split('-').map(Number);
+    const last = String(new Date(Date.UTC(y, m, 0)).getUTCDate()).padStart(2, '0');
+    setForm((x) => ({ ...x, startsAt: `${ym}-01T00:00`, endsAt: `${ym}-${last}T23:59` }));
+  };
+
+  return (
+    <div className="fx-stack fx-stack--sm">
+      {exact ? (
+        <div className="es-dgrid">
+          <Field label="Start date & time" type="datetime-local" name="startsAt" required
+            value={form.startsAt} onChange={set('startsAt')} />
+          <Field label="End date & time" type="datetime-local" name="endsAt" required
+            min={form.startsAt || undefined}
+            error={f.endsBeforeStart ? 'The event has to end after it starts.' : null}
+            value={form.endsAt} onChange={set('endsAt')} />
+        </div>
+      ) : (
+        <MonthFields
+          value={partial || month} timezone={form.timezone} onChange={setMonth}
+          hint="Shown as “Coming soon” with this month. Set the exact times before opening ticket sales."
+        />
+      )}
+      <label className="es-check">
+        <input
+          type="checkbox" className="es-check__box" checked={exact}
+          onChange={(e) => {
+            setExact(e.target.checked);
+            // Back to a month: the month the event starts in.
+            if (!e.target.checked && month) setMonth(month);
+          }}
+        />
+        <span className="text-sm text-ink">I know the exact date and time</span>
+      </label>
+    </div>
   );
 }
 

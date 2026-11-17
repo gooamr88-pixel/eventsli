@@ -17,6 +17,29 @@ const router = express.Router();
 // quietly make the field optional on POST as well.
 const legalNameRule = () => body('legalName').isString().trim().isLength({ min: 2, max: 160 })
   .withMessage('Enter the name of your organization.');
+/**
+ * Billing details, printed on every commission invoice (20261123110000). An
+ * invoice is not issued until they are complete: a billing address, and either
+ * "registered for tax" with the number, or "not registered".
+ */
+const TAX_ID = /^[A-Za-z0-9][A-Za-z0-9 .\/-]{1,38}[A-Za-z0-9]$/;
+const billingRules = () => [
+  body('billingAddress').optional().isString().trim().isLength({ min: 10, max: 500 })
+    .withMessage('Enter the full billing address: street, city, postal code and country (10–500 characters).'),
+  body('taxStatus').optional().isIn(['registered', 'not_registered'])
+    .withMessage('Say whether the organization is registered for tax (VAT, GST, sales tax).'),
+  body('taxId').optional({ values: 'null' }).isString().trim().matches(TAX_ID)
+    .withMessage('Enter the tax number as it appears on your registration (3–40 letters, digits, spaces, dots, dashes or slashes).'),
+  body('taxId').custom((v, { req }) => {
+    if (req.body.taxStatus === 'registered' && !(typeof v === 'string' && v.trim())) {
+      throw new Error('Enter the tax number you are registered under.');
+    }
+    if (v && req.body.taxStatus !== 'registered') {
+      throw new Error('A tax number is only kept when the organization is registered for tax.');
+    }
+    return true;
+  }),
+];
 const descriptionRule = () => body('description').isString().trim().isLength({ min: 20, max: 2000 })
   .withMessage('Describe your organization in a sentence or two (at least 20 characters).');
 
@@ -65,6 +88,7 @@ router.patch(
   body('displayName').optional().isString().trim().isLength({ min: 2, max: 120 }),
   legalNameRule().optional(),
   descriptionRule().optional(),
+  ...billingRules(),
   body('acceptPolicies').optional().isBoolean(),
   validate,
   c.update,

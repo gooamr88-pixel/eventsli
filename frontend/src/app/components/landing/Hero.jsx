@@ -3,7 +3,6 @@ import Link from 'next/link';
 import Accent from './Accent';
 import HeroCta from './HeroCta';
 import HeroSearch from './HeroSearch';
-import PartnerCarousel from './PartnerCarousel';
 import VipSlider from './VipSlider';
 import NavIcon from '../shell/NavIcon';
 
@@ -21,9 +20,13 @@ import NavIcon from '../shell/NavIcon';
  * Search. On a phone it stacks in the concept's order: headline, photographs,
  * search.
  *
- * A SERVER component with two client islands (the search bar and the logo
- * carousel). The headline and the buttons are what a crawler and a share-card
+ * A SERVER component with two client islands (the search bar and the VIP
+ * slider). The headline and the buttons are what a crawler and a share-card
  * scraper need, and neither requires JavaScript.
+ *
+ * NO SPONSOR STRIP UNDER IT any more (owner, 2026-11-17): "Happening near you"
+ * now sits directly below the hero, and the sponsors appear once, in the
+ * partners band near the foot of the page (Social.jsx).
  *
  * ── The slider ─────────────────────────────────────────────────────────────
  * `vip` is `/public/vip-events`: the admin's choice in their order, or the
@@ -31,12 +34,11 @@ import NavIcon from '../shell/NavIcon';
  * copy stands alone — never a stock picture of something that is not on sale.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-export default function Hero({ content, vip = [], sponsors = [] }) {
+export default function Hero({ content, vip = [] }) {
   const hero = content?.hero || {};
-  const copy = content?.sections || {};
 
   return (
-    <section className={`es-home-hero fx-gutter ${sponsors.length ? 'es-home-hero--partners' : ''}`}>
+    <section className="es-home-hero fx-gutter">
       <div className="fx-container fx-container--xl">
         <div className={`es-home-hero__grid ${vip.length ? '' : 'es-home-hero__grid--solo'}`}>
           <div className="es-home-hero__copy">
@@ -84,16 +86,6 @@ export default function Hero({ content, vip = [], sponsors = [] }) {
 
         {hero.showSearch !== false && <HeroSearch />}
       </div>
-
-      {/* Still nothing until an admin publishes a real logo — see Social.jsx
-          on why nothing is seeded. */}
-      {sponsors.length > 0 && (
-        <div className="es-home-hero__partners">
-          <div className="fx-container fx-container--xl">
-            <PartnerCarousel label={copy.sponsorsEyebrow || 'Our sponsors'} sponsors={sponsors} />
-          </div>
-        </div>
-      )}
     </section>
   );
 }

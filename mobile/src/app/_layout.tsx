@@ -3,6 +3,7 @@ import { DMSans_400Regular } from '@expo-google-fonts/dm-sans/400Regular';
 import { DMSans_500Medium } from '@expo-google-fonts/dm-sans/500Medium';
 import { DMSans_600SemiBold } from '@expo-google-fonts/dm-sans/600SemiBold';
 import { DMSans_700Bold } from '@expo-google-fonts/dm-sans/700Bold';
+import { Urbanist_700Bold } from '@expo-google-fonts/urbanist/700Bold';
 import { Urbanist_900Black } from '@expo-google-fonts/urbanist/900Black';
 import { QueryClientProvider, useQuery } from '@tanstack/react-query';
 import * as Application from 'expo-application';
@@ -56,7 +57,7 @@ startMonitoring();
 export default function RootLayout() {
   // A font that fails to load falls back to the system font; it must never
   // keep the door shut behind the splash screen.
-  const [fontsReady, fontError] = useFonts({ DMSans_400Regular, DMSans_500Medium, DMSans_600SemiBold, DMSans_700Bold, Urbanist_900Black });
+  const [fontsReady, fontError] = useFonts({ DMSans_400Regular, DMSans_500Medium, DMSans_600SemiBold, DMSans_700Bold, Urbanist_700Bold, Urbanist_900Black });
   const fontsLoaded = fontsReady || Boolean(fontError);
   const hydrated = useSession((s) => s.hydrated);
   const account = useSession((s) => s.account);

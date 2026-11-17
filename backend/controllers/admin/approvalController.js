@@ -32,10 +32,12 @@ async function queue(req, res, next) {
       .from('events')
       .select(`
         id, slug, title, status, country, currency, timezone, starts_at, ends_at,
-        listing_type, created_at, updated_at,
+        listing_type, created_at, updated_at, coming_soon, launch_requested_at,
         organizers ( id, display_name, country, stripe_onboarding_complete, stripe_payouts_enabled )
       `, { count: 'exact' })
-      .eq('status', 'pending_review');
+      // Waiting for review, or a live "coming soon" event waiting for its
+      // ticket sales to be approved (eventController.openSales).
+      .or('status.eq.pending_review,and(status.eq.published,launch_requested_at.not.is.null)');
 
     const { data, error, count } = await applyPagination(
       query, { ...p, order: req.query.order === 'desc' ? 'desc' : 'asc' },
@@ -62,7 +64,11 @@ async function queue(req, res, next) {
       // the next day.
       timezone: e.timezone,
       listingType: e.listing_type,
-      submittedAt: e.updated_at,
+      // What approving does: publish a coming-soon teaser, open a live
+      // teaser's ticket sales, or publish an event as always.
+      request: e.launch_requested_at ? 'open_sales' : e.coming_soon ? 'coming_soon' : 'publish',
+      comingSoon: e.coming_soon === true,
+      submittedAt: e.launch_requested_at || e.updated_at,
       organizer: {
         id: e.organizers?.id,
         name: e.organizers?.display_name,
@@ -83,11 +89,15 @@ async function approve(req, res, next) {
   try {
     const { data: event } = await supabase
       .from('events')
-      .select('id, status, listing_type, terms_accepted_id, organizer_id, organizers ( is_banned )')
+      .select('id, status, listing_type, terms_accepted_id, organizer_id, coming_soon, launch_requested_at, organizers ( is_banned )')
       .eq('id', req.params.eventId).maybeSingle();
 
     if (!event) {
       return sendFail(res, { status: 404, error: 'EVENT_NOT_FOUND', message: 'That event does not exist.' });
+    }
+    // A live teaser asking to open its sales: approving puts it on sale.
+    if (event.status === 'published' && event.launch_requested_at) {
+      return approveLaunch(req, res, event);
     }
     // Explicitly the queue: a draft may now go to published too, but only by
     // its organizer's own Publish, never by an admin approving it.
@@ -150,16 +160,102 @@ async function approve(req, res, next) {
   }
 }
 
+/**
+ * Approving a coming-soon event's request to open ticket sales. Its organizer
+ * passed every publish check when they asked (eventController.openSales), and
+ * any edit since withdrew the request — so what is approved is what was asked.
+ */
+async function approveLaunch(req, res, event) {
+  const organizer = Array.isArray(event.organizers) ? event.organizers[0] : event.organizers;
+  if (organizer?.is_banned) {
+    return sendFail(res, {
+      status: ERROR_STATUS.ORGANIZER_BANNED, error: 'ORGANIZER_BANNED',
+      message: 'This organizer is banned from selling. Lift the ban first if this event should go on sale.',
+    });
+  }
+  const now = new Date().toISOString();
+  const { data, error } = await supabase
+    .from('events')
+    .update({
+      coming_soon: false,
+      launch_requested_at: null,
+      sales_opened_at: now,
+      rejection_reason: null,
+      reviewed_by: req.user.id,
+      reviewed_at: now,
+      updated_at: now,
+    })
+    .eq('id', event.id)
+    .eq('status', 'published')
+    .eq('launch_requested_at', event.launch_requested_at)   // the request the reviewer saw
+    .select('id, slug, status, reviewed_at')
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) {
+    return sendFail(res, {
+      status: 409, error: 'CONFLICT',
+      message: 'This request changed or was already decided. Reload the queue.',
+    });
+  }
+
+  await audit(req, 'event.sales_approved', event.id, {});
+  logger.info({ eventId: event.id, by: req.user.id }, 'coming-soon event: ticket sales approved');
+  publishing.inBackground('sales approved notices', publishing.notifySalesOpened({
+    eventId: event.id, origin: frontendOrigin(req.headers.origin), direct: false,
+  }));
+  return sendOk(res, { id: data.id, slug: data.slug, status: data.status, reviewedAt: data.reviewed_at, salesOpened: true });
+}
+
+/**
+ * Declining a coming-soon event's request to open sales. The teaser stays
+ * live — nothing was on sale, and the people waiting are still waiting — and
+ * the organizer is told why, with the reason, as for any rejection.
+ */
+async function declineLaunch(req, res, event, reason) {
+  const { data, error } = await supabase
+    .from('events')
+    .update({
+      launch_requested_at: null,
+      rejection_reason: reason,
+      reviewed_by: req.user.id,
+      reviewed_at: new Date().toISOString(),
+    })
+    .eq('id', event.id)
+    .eq('launch_requested_at', event.launch_requested_at)
+    .select('id, status, rejection_reason, reviewed_at')
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) {
+    return sendFail(res, {
+      status: 409, error: 'CONFLICT',
+      message: 'This request changed or was already decided. Reload the queue.',
+    });
+  }
+  await audit(req, 'event.sales_declined', event.id, { reason });
+  publishing.inBackground('launch declined notice', publishing.notifyOrganizer({
+    eventId: event.id, action: 'launch_declined', reason,
+  }));
+  return sendOk(res, {
+    id: data.id, status: data.status, rejectionReason: data.rejection_reason,
+    reviewedAt: data.reviewed_at, salesDeclined: true,
+  });
+}
+
 // ─── POST /admin/events/:eventId/reject ─────────────────────────────────────
 async function reject(req, res, next) {
   try {
     const reason = String(req.body.reason || '').trim();
 
     const { data: event } = await supabase
-      .from('events').select('id, status').eq('id', req.params.eventId).maybeSingle();
+      .from('events').select('id, status, launch_requested_at').eq('id', req.params.eventId).maybeSingle();
 
     if (!event) {
       return sendFail(res, { status: 404, error: 'EVENT_NOT_FOUND', message: 'That event does not exist.' });
+    }
+    // From the queue, a launch request: decline the sales, keep the teaser.
+    // `takeDown: true` is the admin choosing to remove the whole event instead.
+    if (event.status === 'published' && event.launch_requested_at && req.body.takeDown !== true) {
+      return declineLaunch(req, res, event, reason);
     }
     // From the queue, or — now that events publish first — a live event
     // reviewed afterwards: it comes down until the organizer fixes it.
@@ -175,6 +271,8 @@ async function reject(req, res, next) {
       .from('events')
       .update({
         status: 'rejected',
+        // Taking a teaser down ends any request to open its sales with it.
+        launch_requested_at: null,
         rejection_reason: reason,
         reviewed_by: req.user.id,
         reviewed_at: new Date().toISOString(),

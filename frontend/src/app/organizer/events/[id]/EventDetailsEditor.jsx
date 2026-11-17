@@ -18,6 +18,7 @@ import SubmitButton from '../../../components/forms/SubmitButton';
 import { useStepSave } from './BuildStep';
 import { Notice } from '../../../components/Feedback';
 import { useNowMinute } from '../../../hooks/useNowMinute';
+import { isComingSoon } from '../../../lib/comingSoon';
 import FeeSummary from './FeeSummary';
 import { BasicSection, DescriptionSection, FormatSection, QuickSettings } from './DetailsSections';
 
@@ -121,7 +122,10 @@ export default function EventDetailsEditor({ event, onSaved }) {
     setForm(fromEvent(event));
   }
 
-  const live = event.status === 'published' || event.status === 'suspended';
+  // A live "coming soon" teaser is still being written — nothing on it is on
+  // sale, so its details stay editable (backend eventRules.editConsequence).
+  const teaser = isComingSoon(event);
+  const live = (event.status === 'published' && !teaser) || event.status === 'suspended';
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
 
   /**
@@ -202,7 +206,8 @@ export default function EventDetailsEditor({ event, onSaved }) {
    * `POST /events/:id/submit` enforces the same rule on the way in, so a
    * draft still cannot reach the review queue without all three.
    */
-  const venueOptional = ['draft', 'rejected'].includes(event.status);
+  // A teaser is published with a city alone; the venue is needed to open sales.
+  const venueOptional = ['draft', 'rejected'].includes(event.status) || teaser;
   // A display-only listing needs only the city (submissionService.js).
   const listing = form.listingType === 'display_only';
   const venueMissing = listing
@@ -296,7 +301,9 @@ export default function EventDetailsEditor({ event, onSaved }) {
       const saved = await patch(`/events/${event.id}`, body, { noRedirect: true });
       toast.success(event.status === 'pending_review' && saved?.status === 'draft'
         ? 'Saved. It went back to draft — submit it again when it is ready.'
-        : 'Event details saved.');
+        : event.launchRequestedAt && saved && !saved.launchRequestedAt
+          ? 'Saved. Your request to open ticket sales was withdrawn — open sales again when it is ready.'
+          : 'Event details saved.');
       onSaved?.();
       return true;
     } catch (err) {
@@ -327,7 +334,7 @@ export default function EventDetailsEditor({ event, onSaved }) {
   ];
   const shown = tabs.some((t) => t.key === tab) ? tab : 'basic';
   const f = {
-    event, form, set, setForm, live, listing, venueOptional, venueNote, setVenueName, applyPlace,
+    event, form, set, setForm, live, listing, teaser, venueOptional, venueNote, setVenueName, applyPlace,
     categories, zoneOptions, organizer, titleInvalid, endsBeforeStart, perOrderInvalid,
   };
 
@@ -336,6 +343,15 @@ export default function EventDetailsEditor({ event, onSaved }) {
       {event.status === 'pending_review' && (
         <Notice tone="info" title="This event is waiting for review.">
           <p>Saving a change takes it out of the queue and back to draft, so Eventsli reviews what you actually changed. Submit it again afterwards.</p>
+        </Notice>
+      )}
+
+      {teaser && event.status === 'published' && (
+        <Notice tone="info" title="Your coming-soon page is live.">
+          <p>
+            The title, city, month, category and description show on it as soon as you save. The venue and
+            exact times stay private until you open ticket sales — add them here whenever they are ready.
+          </p>
         </Notice>
       )}
 

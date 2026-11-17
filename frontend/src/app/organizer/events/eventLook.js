@@ -7,6 +7,8 @@
  * other status names itself, because a draft dated last week is still a draft.
  */
 
+import { formatYm } from '../../lib/comingSoon';
+
 const LOOKS = {
   draft: ['Draft', 'warning', 'pencil'],
   pending_review: ['In review', 'info', 'clock'],
@@ -28,6 +30,8 @@ export function whenOf(event, now) {
 
 /** `[label, tone, icon]`. `now` null (before the clock is read) = status only. */
 export function eventLook(event, now) {
+  // A live coming-soon teaser is not on sale: it is waiting (2026-11-17).
+  if (event.status === 'published' && event.comingSoon) return ['Coming soon', 'info', 'bell'];
   if (event.status === 'published' && now !== null && now !== undefined) {
     const when = whenOf(event, now);
     if (when === 'ongoing') return ['Ongoing', 'info', 'refresh'];
@@ -38,6 +42,8 @@ export function eventLook(event, now) {
 
 /** "Nov 15, 2026", or "Nov 1 – Nov 3, 2026" across days, in the event's zone. */
 export function dateRange(event) {
+  // A teaser still on its month shows the month (lib/comingSoon.js).
+  if (event.comingSoon && event.roughMonth) return `Coming soon · ${formatYm(event.roughMonth, { style: 'short' })}`;
   const start = new Date(event.startsAt);
   const end = new Date(event.endsAt || event.startsAt);
   if (Number.isNaN(start.getTime())) return '—';
@@ -70,6 +76,8 @@ export function toCard(event, figures) {
     venue: typeof event.venue === 'string' ? event.venue : event.venue?.name || null,
     coverUrl: event.coverUrl || event.cover?.url || null,
     listingType: event.listingType || null,
+    comingSoon: event.comingSoon === true,
+    roughMonth: event.roughMonth || null,
     sold: f.sold ?? event.sold ?? null,
     capacity: f.capacity ?? event.capacity ?? null,
     grossCents: f.grossCents ?? null,

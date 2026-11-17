@@ -120,6 +120,8 @@ router.post(
   // The Smart Event Creator generation this event was drafted from, if any.
   // Only ever links the organizer's own successful generation (quotaService).
   body('aiGenerationId').optional({ values: 'falsy' }).isUUID(),
+  // A "coming soon" teaser: a title, a city, a cover and a month to publish.
+  body('comingSoon').optional().isBoolean({ strict: true }).withMessage('comingSoon is true or false.'),
   validate,
   c.create,
 );
@@ -184,6 +186,8 @@ router.patch(
   body('acceptsManual').optional().isBoolean(),
   body('offlinePaymentHours').optional({ values: 'null' }).isInt({ min: 1, max: 336 })
     .withMessage('Give buyers between 1 and 336 hours to pay.'),
+  // Only before it is published — see eventRules.editConsequence.
+  body('comingSoon').optional().isBoolean({ strict: true }),
   // An admin's note for the audit trail when they change an organizer's event.
   body('reason').optional().isString().trim().isLength({ max: 1000 }),
   validate,
@@ -246,6 +250,10 @@ router.get('/:eventId/submission-preview', verifyEventOwner, c.submissionPreview
 
 // BRD §16 — an organizer submits; only an admin publishes.
 router.post('/:eventId/submit', verifyEventOwner, c.submitForReview);
+
+// A live "coming soon" event goes on sale: the full publish checks, then live
+// at once or into the approval queue (eventController.openSales).
+router.post('/:eventId/open-sales', verifyEventOwner, requireEditableEvent, c.openSales);
 
 // BRD §17 — there is deliberately no cancel route here. The organizer cannot
 // cancel an event; they ASK, and a super admin decides in the console.

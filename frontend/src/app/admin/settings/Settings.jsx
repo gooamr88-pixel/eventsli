@@ -83,6 +83,17 @@ const FORMS = {
       { name: 'fixed_cents', label: 'Fixed amount', ...cents },
     ],
   },
+  // Printed on every commission invoice and frozen into it at issue.
+  invoice_issuer: {
+    title: 'Invoice issuer',
+    hint: 'Eventsli\'s details printed on every commission invoice. Each invoice keeps the details it was issued with.',
+    fields: [
+      { name: 'legal_name', label: 'Legal name', type: 'text', maxLength: 160, optional: true, placeholder: 'e.g. Eventsli Inc.' },
+      { name: 'address', label: 'Address', type: 'text', maxLength: 500, optional: true, placeholder: 'Registered address' },
+      { name: 'tax_id', label: 'Business / tax number', type: 'text', maxLength: 80, optional: true, placeholder: 'e.g. GST/HST number' },
+      { name: 'email', label: 'Billing email', type: 'text', maxLength: 160, optional: true },
+    ],
+  },
   manual_invoice: {
     title: 'Door-sale invoices',
     hint: 'How long an organizer has to pay the commission on door sales, and how they pay it.',
