@@ -9,7 +9,7 @@ import { useCategories } from '../../../hooks/useCategories';
 import { categoryLabel } from '../../../lib/categories';
 import { defaultTimeZone, zoneOptions } from '../../../lib/timezones';
 import { browserZone } from '../../../lib/eventTime';
-import { DEFAULT_COUNTRY } from '../../../lib/markets';
+import { DEFAULT_COUNTRY, withCurrency, currencyHint } from '../../../lib/markets';
 import { monthRange } from '../../../lib/comingSoon';
 import { useOpenCountries, openCountryFor } from '../../../hooks/useOpenCountries';
 import Field, { SelectField, TextareaField } from '../../../components/forms/Field';
@@ -142,7 +142,7 @@ export default function ComingSoonForm({ organizer }) {
           <div className="fx-grid fx-grid--2">
             <SelectField
               label="Country" required value={form.country} onChange={set('country')}
-              options={countryOptions} hint="Sets the currency when tickets go on sale."
+              options={withCurrency(countryOptions)} hint={currencyHint(form.country)}
             />
             <SelectField
               label="Time zone" required value={form.timezone} onChange={set('timezone')}

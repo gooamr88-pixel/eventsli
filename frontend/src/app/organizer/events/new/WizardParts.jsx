@@ -6,6 +6,7 @@ import NavIcon from '../../../components/shell/NavIcon';
 import { categoryLabel } from '../../../lib/categories';
 import { formatEventTime } from '../../../lib/eventTime';
 import { formatDateOnly } from '../../../lib/dateOnly';
+import { currencyOf, currencyName, currencyTag } from '../../../lib/markets';
 import { ADMISSION_TYPES, PURCHASE_MODES, PAYMENT_OPTIONS, STEP_SHORT } from './wizardModel';
 import { useAiQuota } from '../../../hooks/useAiQuota';
 import { QuotaDots } from './ai/AiParts';
@@ -258,6 +259,9 @@ export function Review({ form, ticketed, startIso, endIso = null, choices, onEdi
     ['when', 'Venue', form.venueName.trim() || 'Not added yet'],
     ['when', 'City', form.city.trim() || 'Not added yet'],
     ...(ticketed ? [
+      // Set by the country, never chosen (lib/markets.js) — said here so the
+      // organizer sees it before the prices they type next.
+      ['when', 'Currency', currencyOf(form.country) ? `${currencyName(currencyOf(form.country))} — ${currencyTag(currencyOf(form.country))}` : '—'],
       ['tickets', 'Tickets', ADMISSION_TYPES.find(([v]) => v === form.admissionType)?.[1]],
       // Meaningless without a map, so it is left off the summary entirely
       // rather than shown as a setting that will not apply.

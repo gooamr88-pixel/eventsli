@@ -5,7 +5,9 @@ import Link from 'next/link';
 import NavIcon from '../../../../components/shell/NavIcon';
 import { SelectField } from '../../../../components/forms/Field';
 import FormError from '../../../../components/forms/FormError';
-import { COUNTRY_NAMES } from '../../../../lib/markets';
+import {
+  COUNTRY_NAMES, withCurrency, currencyHint, currencyTag, currencyOf,
+} from '../../../../lib/markets';
 import { useOpenCountries } from '../../../../hooks/useOpenCountries';
 import { zoneLabel, zoneOptions } from '../../../../lib/timezones';
 import { AiStepper, QuotaDots, ActionBar, nextDraftTime } from './AiParts';
@@ -129,7 +131,8 @@ export default function DescribeStep({
           {where ? (
             <div className="fx-grid fx-grid--2">
               <SelectField
-                label="Country" required value={request.country} options={countryOptions}
+                label="Country" required value={request.country} options={withCurrency(countryOptions)}
+                hint={currencyHint(request.country)}
                 onChange={(e) => set('country', e.target.value)}
               />
               <SelectField
@@ -139,7 +142,8 @@ export default function DescribeStep({
             </div>
           ) : (
             <div className="es-ai-where">
-              <span><NavIcon name="pin" size={16} /> {COUNTRY_NAMES[request.country] || request.country} · {zoneLabel(request.timezone)}</span>
+              {/* The currency rides along: it is what the draft's prices are read in. */}
+              <span><NavIcon name="pin" size={16} /> {COUNTRY_NAMES[request.country] || request.country} · {currencyTag(currencyOf(request.country))} · {zoneLabel(request.timezone)}</span>
               <button type="button" className="es-ai-link" onClick={() => setWhere(true)} aria-label="Change country and time zone">
                 Change
               </button>

@@ -121,6 +121,12 @@ function PosterCover({ poster, form, onToggleCover }) {
           <span className="es-ai-toggle__track" aria-hidden="true" />
           Use this poster as the event&rsquo;s cover image
         </label>
+        {/* The cover rule (2026-11-17): the logo files are on the event's
+            Page & branding screen, next to the cover upload. */}
+        <p className="es-ai-later">
+          <NavIcon name="info" size={15} /> Covers must include the Eventsli logo. If this poster doesn&rsquo;t have it yet,
+          you can download the logo and upload an updated cover from the event&rsquo;s Page &amp; branding screen.
+        </p>
         {form.posterText && (
           <details className="es-ai-read">
             <summary><NavIcon name="eye" size={15} /> What we read on your poster</summary>

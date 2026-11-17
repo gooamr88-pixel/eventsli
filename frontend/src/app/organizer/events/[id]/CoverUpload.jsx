@@ -9,6 +9,7 @@ import { useToast } from '../../../components/ui/Toast';
 import ContentCard from './content/ContentCard';
 import NavIcon from '../../../components/shell/NavIcon';
 import FormError from '../../../components/forms/FormError';
+import LogoKit from './LogoKit';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -102,7 +103,7 @@ export default function CoverUpload({ event, onChanged }) {
     <ContentCard
       icon="image"
       title="Cover image"
-      description="Shown at the top of your event page, in listings and on every shared link. JPEG, PNG or WebP, about 1920×800."
+      description="Shown at the top of your event page, in listings and on every shared link. JPEG, PNG or WebP, about 1920×800 — designed with the Eventsli logo on it."
     >
       {picker}
       {event.cover ? (
@@ -129,13 +130,17 @@ export default function CoverUpload({ event, onChanged }) {
         <label htmlFor={`cover-${event.id}`} aria-disabled={busy || undefined} className="es-pbdrop es-pbdrop--wide">
           <NavIcon name="image" size={28} />
           <b>{busy ? 'Uploading…' : 'Upload a cover'}</b>
-          <small>Events with a cover are easier to share.</small>
+          <small>With the Eventsli logo on it — download it below.</small>
         </label>
       ) : (
         <div className="es-pbdrop es-pbdrop--wide"><small>No cover image.</small></div>
       )}
 
       <FormError error={error} />
+
+      {/* The rule and the files to meet it (owner, 2026-11-17): every cover
+          carries the Eventsli logo, designed in by the organizer. */}
+      {editable && <LogoKit />}
     </ContentCard>
   );
 }

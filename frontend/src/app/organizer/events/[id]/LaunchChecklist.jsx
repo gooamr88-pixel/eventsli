@@ -144,7 +144,7 @@ export function useLaunchSteps(event) {
      */
     {
       key: 'cover', label: 'Cover image', done: Boolean(event.cover), href: `${base}/content`,
-      hint: 'Recommended — it is the picture on every share', cta: 'Add a cover', optional: true,
+      hint: 'Designed with the Eventsli logo — it is the picture on every share', cta: 'Add a cover', optional: true,
     },
     {
       key: 'content',
@@ -212,7 +212,7 @@ function teaserSteps(event, base, loaded) {
     },
     {
       key: 'cover', label: 'Cover image', done: Boolean(event.cover), href: `${base}/content`,
-      hint: 'The picture on the coming-soon page and every share', cta: 'Add a cover', build: true,
+      hint: 'Designed with the Eventsli logo — the picture on the coming-soon page and every share', cta: 'Add a cover', build: true,
     },
     {
       key: 'terms', label: 'Accept the terms', done: Boolean(event.review?.termsAccepted), href: '#going-on-sale',

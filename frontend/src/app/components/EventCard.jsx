@@ -5,7 +5,6 @@ import NavIcon from './shell/NavIcon';
 import SaveEventButton from './SaveEventButton';
 import { isDateOnly, formatDateOnly } from '../lib/dateOnly';
 import { comingSoonLabel } from '../lib/comingSoon';
-import CoverBrand from './brand/CoverBrand';
 
 /**
  * One event in a listing. Used by the homepage and by /events, so the two can
@@ -173,9 +172,6 @@ export default function EventCard({ event, priority = false, headingLevel = 3, a
              than as the card that failed to load. */
           <span className="es-evcard__placeholder">{event.title}</span>
         )}
-
-        {/* The Eventsli badge, on a real cover only (CoverBrand.jsx). */}
-        {event.coverUrl && <CoverBrand />}
 
         {tag && (
           <span className={`es-evcard__sale es-evcard__sale--${tag.kind}`}>

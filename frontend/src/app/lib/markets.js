@@ -41,6 +41,81 @@ export const COUNTRY_OPTIONS = Object.freeze(
   MARKET_LIST.map((m) => Object.freeze([m.country, m.name])),
 );
 
+/**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * EACH COUNTRY'S CURRENCY, SAID ON SCREEN (owner, 2026-11-17).
+ *
+ * Every country has always sold in its own currency — Egypt in EGP, the UK in
+ * GBP — set from the event's country and never chosen separately (BRD §07).
+ * But no form ever said so: the country list showed names only, and the
+ * wizard's hint still read "CAD or USD" from the two-market days. These say it.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+
+/**
+ * The currency an event in this country is priced in, or null. Unlike
+ * `currencyFor` below, NO fallback: a label must never claim CAD for a
+ * country it does not know.
+ */
+export function currencyOf(country) {
+  return MARKETS[String(country || '').toUpperCase()] || null;
+}
+
+/**
+ * "E£" for EGP, "£" for GBP, "CA$" for CAD; null when the only symbol is the
+ * code itself (AED). The NARROW symbol is preferred where it is distinctive —
+ * except a bare "$", which would make CAD, AUD and USD look the same.
+ */
+export function currencySymbol(code) {
+  const c = String(code || '').toUpperCase();
+  const part = (display) => {
+    try {
+      return new Intl.NumberFormat('en', { style: 'currency', currency: c, currencyDisplay: display })
+        .formatToParts(0).find((p) => p.type === 'currency')?.value || null;
+    } catch {
+      return null;
+    }
+  };
+  const symbol = part('symbol');
+  if (symbol && symbol !== c) return symbol;
+  const narrow = part('narrowSymbol');
+  return narrow && narrow !== c && narrow !== '$' ? narrow : null;
+}
+
+/** "Egyptian Pound", from the runtime's own names; the code when it has none. */
+export function currencyName(code) {
+  const c = String(code || '').toUpperCase();
+  try {
+    return new Intl.DisplayNames(['en'], { type: 'currency' }).of(c) || c;
+  } catch {
+    return c;
+  }
+}
+
+/** "EGP (E£)", or "AED" when the symbol is just the code. */
+export function currencyTag(code) {
+  const symbol = currencySymbol(code);
+  return symbol ? `${code} (${symbol})` : String(code || '');
+}
+
+/**
+ * A country `<select>`'s options with each one's currency: "Egypt — EGP (E£)".
+ * For the forms where the country decides the event's currency.
+ */
+export function withCurrency(options) {
+  return options.map(([code, name]) => {
+    const currency = currencyOf(code);
+    return [code, currency ? `${name} — ${currencyTag(currency)}` : name];
+  });
+}
+
+/** The line under an event's country: what its tickets are priced in. */
+export function currencyHint(country) {
+  const currency = currencyOf(country);
+  if (!currency) return null;
+  return `Tickets are priced in ${currencyName(currency)} — ${currencyTag(currency)}. Set by the country, and fixed once tickets sell.`;
+}
+
 /** `[{ country, name, currency, region, card }]`, for the settings screen's switches. */
 export const MARKET_ROWS = Object.freeze(
   MARKET_LIST.map((m) => Object.freeze({

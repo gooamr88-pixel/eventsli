@@ -16204,43 +16204,88 @@ label.es-chip:has(:focus-visible) { outline: 2px solid var(--es-accent); outline
   }
 }
 
-/* -- The Eventsli badge on covers (owner, 2026-11-17) ----------------------
-   CoverBrand.jsx. A white pill with the logo, in a corner nothing else uses:
-   bottom-right on cards and the poster, top-right on the hero slider. Fixed
-   colours in both themes (it sits on a photo), a soft shadow so it lifts off
-   light and dark images alike, and no pointer events, so a click on the cover
-   still opens the poster or the event. */
+/* -- The logo kit on the cover screen (owner, 2026-11-17) ------------------
+   LogoKit.jsx. The requirement first, on a pale yellow wash with the coral
+   alert mark; then the placement rules with green ticks; then one tile per
+   logo, each previewed on the kind of cover it is for (dark for the white
+   logo), with PNG / SVG downloads; then "Download all". */
 @layer components {
-  .es-coverbrand {
-    position: absolute;
-    right: 10px;
-    bottom: 10px;
-    z-index: 3;
+  .es-logokit {
+    display: grid;
+    gap: 1rem;
+    margin-top: 1.25rem;
+    padding: clamp(1rem, 2.5vw, 1.5rem);
+    border: 1px solid var(--es-highlight);
+    border-radius: 18px;
+    background: var(--es-highlight-wash);
+  }
+  .es-logokit__head { display: flex; gap: 0.75rem; align-items: flex-start; }
+  .es-logokit__icon {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 50%;
+    background: var(--es-surface);
+    color: var(--es-accent);
+  }
+  .es-logokit__title { margin: 0; font-family: var(--es-font-display); font-size: 1.125rem; font-weight: 800; line-height: 1.25; color: var(--es-text); }
+  .es-logokit__lede { margin: 0.25rem 0 0; font-size: var(--es-text-sm); line-height: 1.5; color: var(--es-text-muted); }
+  .es-logokit__rules { display: grid; gap: 0.4rem; margin: 0; padding: 0; list-style: none; }
+  .es-logokit__rules li { display: flex; gap: 0.5rem; align-items: flex-start; font-size: var(--es-text-sm); line-height: 1.45; color: var(--es-text); }
+  .es-logokit__rules li > span {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 1.125rem;
+    height: 1.125rem;
+    margin-top: 0.125rem;
+    border-radius: 50%;
+    background: var(--es-success);
+    color: #ffffff;
+  }
+  .es-logokit__files {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(9.25rem, 100%), 1fr));
+    gap: 0.75rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .es-logokit__file {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding: 0.75rem;
+    border: 1px solid var(--es-border);
+    border-radius: 14px;
+    background: var(--es-surface);
+  }
+  /* Previews on fixed grounds in both themes: the white logo is shown on the
+     dark it is made for, the others on white. */
+  .es-logokit__preview { display: flex; align-items: center; justify-content: center; height: 5rem; padding: 0.75rem; overflow: hidden; border-radius: 10px; }
+  .es-logokit__preview--dark { background: #111018; }
+  .es-logokit__preview--light { background: #ffffff; box-shadow: inset 0 0 0 1px #eaeaea; }
+  /* A fixed cap, not a percentage: the mark SVG carries its own pixel size. */
+  .es-logokit__preview img { width: auto; height: auto; max-width: 100%; max-height: 3.5rem; object-fit: contain; }
+  .es-logokit__name { margin-top: 0.25rem; font-size: var(--es-text-sm); font-weight: 700; color: var(--es-text); }
+  .es-logokit__use { font-size: var(--es-text-xs); line-height: 1.4; color: var(--es-text-muted); }
+  /* Pinned to the foot of the tile, so a row of tiles lines its buttons up. */
+  .es-logokit__links { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: auto; padding-top: 0.35rem; }
+  .es-logokit__links { align-items: center; flex-wrap: nowrap; }
+  .es-logokit__links .es-btn { padding-inline: 0.65rem; }
+  .es-logokit__svg {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
-    height: 28px;
-    padding: 6px 10px 6px 7px;
-    border-radius: 999px;
-    background: rgb(255 255 255 / 0.94);
-    box-shadow: 0 6px 18px -8px rgb(17 16 24 / 0.55), 0 0 0 1px rgb(17 16 24 / 0.06);
-    pointer-events: none;
-    -webkit-backdrop-filter: blur(6px);
-    backdrop-filter: blur(6px);
+    min-height: 44px;
+    padding-inline: 0.4rem;
+    font-size: var(--es-text-sm);
+    font-weight: 600;
+    color: var(--es-accent);
+    text-decoration: underline;
+    text-underline-offset: 3px;
   }
-  .es-coverbrand svg { display: block; flex: none; width: auto; }
-  .es-coverbrand__mark { height: 16px; }
-  .es-coverbrand__word { height: 13px; }
-  .es-coverbrand.is-compact { padding: 6px; }
-  .es-coverbrand--lg { right: 14px; bottom: 14px; height: 38px; gap: 7px; padding: 8px 14px 8px 10px; }
-  .es-coverbrand--lg .es-coverbrand__mark { height: 22px; }
-  .es-coverbrand--lg .es-coverbrand__word { height: 18px; }
-  /* The slider's title sits along the bottom of the slide, so the badge goes up. */
-  .es-coverbrand--top { top: 12px; bottom: auto; }
-  /* Phone-size rail cards (two across): the E card alone, beside the sale tag. */
-  @media (width < 48rem) {
-    .es-lp-rail .es-coverbrand { right: 6px; bottom: 6px; height: 24px; padding: 4px; }
-    .es-lp-rail .es-coverbrand__word { display: none; }
-    .es-lp-rail .es-coverbrand__mark { height: 15px; }
-  }
+  .es-logokit__svg:hover { color: var(--es-accent-hover); }
+  .es-logokit__foot { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; }
 }

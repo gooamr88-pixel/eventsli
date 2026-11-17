@@ -4,6 +4,7 @@ import path from 'node:path';
 import {
   MARKETS, COUNTRIES, CURRENCIES, COUNTRY_OPTIONS, MARKET_ROWS, DEFAULT_COUNTRY, CARD_CAPABLE, REGIONS,
   currencyFor, minorUnits, zoneFor,
+  currencyOf, currencySymbol, currencyName, currencyTag, withCurrency, currencyHint,
 } from '../src/app/lib/markets';
 import { formatMoney, formatMoneyCompact, formatPrice } from '../src/app/utils/money';
 import { parseMoneyToCents, centsToInput, moneyPlaceholder } from '../src/app/lib/moneyInput';
@@ -116,5 +117,39 @@ describe('money follows each currency’s decimals', () => {
     expect(centsToInput(null, 'USD')).toBe('');
     expect(moneyPlaceholder('JPY')).toBe('0');
     expect(moneyPlaceholder('KWD')).toBe('0.000');
+  });
+});
+
+describe('each country says its currency (2026-11-17)', () => {
+  test('every country has its own currency, with no CAD fallback for an unknown one', () => {
+    expect(currencyOf('EG')).toBe('EGP');
+    expect(currencyOf('gb')).toBe('GBP');
+    expect(currencyOf('FR')).toBe('EUR');
+    expect(currencyOf('ZZ')).toBeNull();
+  });
+
+  test('symbols are distinctive: no bare "$" standing in for CAD', () => {
+    expect(currencySymbol('USD')).toBe('$');
+    expect(currencySymbol('CAD')).toBe('CA$');
+    expect(currencySymbol('GBP')).toBe('£');
+    expect(currencySymbol('EGP')).toBe('E£');
+    expect(currencySymbol('AED')).toBeNull();
+    expect(currencyTag('AED')).toBe('AED');
+    expect(currencyTag('EGP')).toBe('EGP (E£)');
+  });
+
+  test('a country list names each currency', () => {
+    expect(withCurrency([['EG', 'Egypt'], ['CA', 'Canada']])).toEqual([
+      ['EG', 'Egypt — EGP (E£)'], ['CA', 'Canada — CAD (CA$)'],
+    ]);
+    expect(withCurrency(COUNTRY_OPTIONS).every(([, label]) => / — [A-Z]{3}/.test(label))).toBe(true);
+  });
+
+  test('the hint says the currency, and never "CAD or USD"', () => {
+    expect(currencyName('EGP')).toMatch(/Egyptian Pound/i);
+    const hint = currencyHint('EG');
+    expect(hint).toMatch(/EGP \(E£\)/);
+    expect(hint).not.toMatch(/CAD or USD/);
+    expect(currencyHint('ZZ')).toBeNull();
   });
 });

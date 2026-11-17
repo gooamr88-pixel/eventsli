@@ -29,6 +29,7 @@ import ComingSoonForm from './ComingSoonForm';
 import DateOnlyFields from './DateOnlyFields';
 import { dateOnlyRange } from '../../../lib/dateOnly';
 import { useOpenCountries, openCountryFor } from '../../../hooks/useOpenCountries';
+import { withCurrency, currencyHint } from '../../../lib/markets';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -363,8 +364,10 @@ function EventWizard({ type, organizer }) {
               <div className="fx-grid fx-grid--2">
                 <SelectField
                   label="Country" required value={form.country} onChange={setCountry}
-                  options={countryOptions}
-                  hint={ticketed ? 'Sets the currency — CAD or USD.' : null}
+                  // Each country with its currency (lib/markets.js); the hint
+                  // says what this event's tickets will be priced in.
+                  options={withCurrency(countryOptions)}
+                  hint={ticketed ? currencyHint(form.country) : null}
                 />
                 <SelectField
                   label="Time zone" required value={form.timezone} onChange={set('timezone')}
