@@ -5,6 +5,8 @@ import { formatEventTime } from '../../lib/eventTime';
 import TicketStub from '../../components/TicketStub';
 import SaveTicket, { TicketPrintStyles } from './SaveTicket';
 import { qrDataUri } from './qrDataUri';
+import AddToCalendar from '../../components/AddToCalendar';
+import OrganizerContactCard from '../../components/OrganizerContactCard';
 
 /**
  * The emailed ticket link.
@@ -148,6 +150,16 @@ export default async function TicketPage({ params }) {
         {/* The way to keep it. This page is the only copy a guest buyer has,
             and until now it offered no way to save one. */}
         <SaveTicket />
+
+        {/* Owner, 2026-11-18: the date in their calendar, and a way to reach the
+            organizer — the token in this URL is what lets them send a message. */}
+        {!event.cancelled && (
+          <AddToCalendar
+            className="es-ticket-print-hide"
+            event={{ ...event, organizerName: order.organizer?.name || null }}
+          />
+        )}
+        <OrganizerContactCard className="es-ticket-print-hide" organizer={order.organizer} orderToken={token} />
 
         {event.slug && (
           <Link href={`/e/${event.slug}`} className="es-ticket-print-hide fx-touch text-sm text-accent">

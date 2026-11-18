@@ -122,6 +122,35 @@ const methodRules = (optional) => {
 
 const methods = [requireAuth, requireRole('organizer'), requireOrganizerProfile, requireActiveOrganizer];
 
+// ─── Public profile (2026-11-18) — what buyers see at /o/<slug> ────────────
+const profile = require('../controllers/organizerProfileController');
+router.get('/public-profile', requireAuth, requireRole('organizer'), requireOrganizerProfile, profile.mine);
+router.patch(
+  '/public-profile',
+  ...methods,
+  body('slug').optional().isString().trim().isLength({ min: 2, max: 60 }),
+  body('publicEmail').optional({ nullable: true }).isString().trim().isLength({ max: 254 }),
+  body('publicPhone').optional({ nullable: true }).isString().trim().isLength({ max: 40 }),
+  body('website').optional({ nullable: true }).isString().trim().isLength({ max: 300 }),
+  body('social').optional().isObject(),
+  validate,
+  profile.update,
+);
+router.post(
+  '/public-profile/logo-upload',
+  ...methods,
+  body('contentType').isIn(['image/jpeg', 'image/png', 'image/webp']).withMessage('Upload a JPEG, PNG or WebP image.'),
+  validate,
+  profile.logoUpload,
+);
+router.put(
+  '/public-profile/logo',
+  ...methods,
+  body('path').optional({ nullable: true }).isString().isLength({ max: 300 }),
+  validate,
+  profile.setLogo,
+);
+
 router.get('/payment-methods', ...methods, c.listPaymentMethods);
 router.post('/payment-methods', ...methods, ...methodRules(false), validate, c.createPaymentMethod);
 router.patch(

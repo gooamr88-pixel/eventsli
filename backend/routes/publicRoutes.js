@@ -623,6 +623,32 @@ router.get(
   ticketCtrl.byToken,
 );
 
+// ─── Organizer profiles and messages (2026-11-18) ───────────────────────────
+const organizerProfiles = require('../controllers/organizerProfileController');
+
+/** An organizer's public page and all their published events. */
+router.get(
+  '/organizers/:slug',
+  param('slug').isString().trim().isLength({ min: 2, max: 60 }),
+  validate,
+  organizerProfiles.publicProfile,
+);
+
+/**
+ * "Message the organizer" from a ticket. The order token is the proof of a
+ * ticket; the service also caps messages per order. This limiter is per
+ * address, against one machine cycling through many links.
+ */
+router.post(
+  '/t/:token/contact',
+  makeLimiter({ windowMs: 60 * 60 * 1000, max: 10, name: 'organizer-contact', message: 'You have sent a lot of messages. Please wait a while before sending another.' }),
+  param('token').isString().isLength({ min: 20, max: 2000 }),
+  body('message').isString().trim().isLength({ min: 2, max: 2000 }).withMessage('Write a message of up to 2000 characters.'),
+  body('name').optional({ values: 'falsy' }).isString().trim().isLength({ max: 120 }),
+  validate,
+  organizerProfiles.contactFromTicket,
+);
+
 /**
  * The QR image itself, drawn by us.
  *

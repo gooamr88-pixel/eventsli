@@ -42,7 +42,15 @@ export default function EventTicketCard({ event, cheapest = [], soldOut }) {
             {cta.kind === 'offline'
               ? cta.note
               : cta.kind === 'soldout'
-              ? 'Every ticket has gone. Keep an eye on the organizer’s other events, or check back in case seats are released.'
+              ? (
+                <>
+                  Every ticket has gone. Keep an eye on{' '}
+                  {event.organizerProfile?.slug
+                    ? <Link href={`/o/${event.organizerProfile.slug}`}>the organizer’s other events</Link>
+                    : 'the organizer’s other events'}
+                  , or check back in case seats are released.
+                </>
+              )
               : 'Buy directly and secure your spot. No account is needed — a quick, simple checkout, and your tickets arrive by email.'}
           </p>
           {cta.kind === 'buy' && (

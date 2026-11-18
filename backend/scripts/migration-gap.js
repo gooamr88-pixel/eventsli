@@ -62,6 +62,7 @@ const MIGRATIONS = [
   // do ticket pages and the door scan (2026-11-18 production 500s).
   ['20261125090000_ticket_addons.sql', tab('reservation_addons')],
   ['20261126090000_addon_images.sql', col('event_addons', 'image_path')],
+  ['20261127090000_organizer_public_profile.sql', tab('organizer_messages')],
 ];
 
 const EXTRA = [

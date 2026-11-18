@@ -337,10 +337,12 @@ async function eventsNear(req, res, next) {
     placed.sort((a, b) => a.distance - b.distance
       || new Date(a.row.starts_at) - new Date(b.row.starts_at));
     const nearby = placed.slice(0, limit);
-    const fromPrices = await discovery.lowestTierPrices(nearby.map((p) => p.row));
+    const rows = nearby.map((p) => p.row);
+    const [fromPrices, avail] = await Promise.all([discovery.lowestTierPrices(rows), discovery.listingAvailability(rows)]);
     const events = nearby.map(({ row, distance, precise }) => ({
       ...discovery.shape(row),
       fromPriceCents: fromPrices.get(row.id) ?? null,
+      availability: avail.get(row.id) ?? null,
       // One decimal under 10 km, where the difference is a walk; whole
       // kilometres beyond.
       distanceKm: distance < 10 ? Math.round(distance * 10) / 10 : Math.round(distance),

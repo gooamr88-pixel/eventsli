@@ -26,3 +26,16 @@ test('the single-event payload (tiers, no fromPriceCents) is read too', () => {
   expect(saleTag({ tiers: [{ id: 'a' }] })).toMatchObject({ kind: 'on-sale' });
   expect(saleTag({ tiers: [] })).toBeNull();
 });
+
+// 2026-11-18 (owner): past events, sold out, selling fast.
+test('a past event says "Past event", ahead of every other state', () => {
+  expect(saleTag({ isPast: true, fromPriceCents: 2500 })).toMatchObject({ kind: 'past', label: 'Past event' });
+  expect(saleTag({ isPast: true, availability: { soldOut: true } })).toMatchObject({ kind: 'past' });
+  expect(saleTag({ isPast: true, comingSoon: true })).toMatchObject({ kind: 'past' });
+});
+
+test('nearly gone is "Selling fast" — but only when something can be bought', () => {
+  expect(saleTag({ fromPriceCents: 2500, availability: { sellingFast: true } })).toMatchObject({ kind: 'fast', label: 'Selling fast' });
+  expect(saleTag({ fromPriceCents: null, availability: { sellingFast: true } })).toBeNull();
+  expect(saleTag({ availability: { soldOut: true, sellingFast: false }, fromPriceCents: 2500 })).toMatchObject({ kind: 'sold-out', label: 'Sold out' });
+});

@@ -22,6 +22,7 @@ import { isDateOnly, formatDateOnly } from '../../lib/dateOnly';
 import { isComingSoon, comingSoonLabel } from '../../lib/comingSoon';
 import EventNotifyCard from './EventNotifyCard';
 import VisitBeacon from '../../components/landing/VisitBeacon';
+import OrganizerContactCard from '../../components/OrganizerContactCard';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -292,11 +293,12 @@ export default async function EventPage({ params, searchParams }) {
               {
                 key: 'organizer',
                 label: 'Organizer',
+                // Their logo, public page and published contact details
+                // (2026-11-18). The id is the hero's "Presented by" anchor.
                 content: event.organizer?.name && (
-                  <section className="fx-stack fx-stack--sm" aria-labelledby="event-organizer">
-                    <h2 id="event-organizer" className="text-lg">Organised by</h2>
-                    <p className="text-md text-muted">{event.organizer.name}</p>
-                  </section>
+                  <div id="event-organizer">
+                    <OrganizerContactCard organizer={event.organizerProfile} fallbackName={event.organizer.name} />
+                  </div>
                 ),
               },
             ]}

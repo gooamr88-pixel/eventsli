@@ -34,8 +34,17 @@ import NavIcon from '../shell/NavIcon';
  * copy stands alone — never a stock picture of something that is not on sale.
  * ─────────────────────────────────────────────────────────────────────────────
  */
+const HERO_FALLBACK = Object.freeze({ title: 'Discover Events.', titleAccent: 'Make Memories.', subtitle: 'Discover. Create. Attend. Celebrate.' });
+
 export default function Hero({ content, vip = [] }) {
-  const hero = content?.hero || {};
+  /**
+   * The admin's hero text, or — when it cannot be loaded at all — the
+   * schema's own defaults (backend/utils/landingSchema.js), so the page never
+   * shows an empty headline with only the sparks beside it (2026-11-18). An
+   * admin who cleared the accent on purpose keeps it cleared: this only applies
+   * when there is no hero block at all.
+   */
+  const hero = content?.hero || HERO_FALLBACK;
 
   return (
     <section className="es-home-hero fx-gutter">

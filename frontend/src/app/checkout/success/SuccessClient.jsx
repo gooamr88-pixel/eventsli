@@ -138,7 +138,7 @@ export default function SuccessClient() {
     );
   }
 
-  const { order, event, tickets = [], ticketsWithheld, message } = result;
+  const { order, event, tickets = [], ticketsWithheld, message, accessToken = null } = result;
 
   // The confirmation, with the tickets ready to save and print (owner's
   // reference, 2026-11-15) — the same page the free ending shows.
@@ -152,6 +152,7 @@ export default function SuccessClient() {
       ticketsWithheld={ticketsWithheld}
       message={message}
       signedIn={signedIn}
+      accessToken={accessToken}
     />
   );
 }

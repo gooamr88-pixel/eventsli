@@ -8,6 +8,8 @@ import { formatEventTime } from '../lib/eventTime';
 import NavIcon from '../components/shell/NavIcon';
 import PrintableTicket from './PrintableTicket';
 import CartNudge from '../components/cart/CartNudge';
+import AddToCalendar from '../components/AddToCalendar';
+import OrganizerContactCard from '../components/OrganizerContactCard';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -48,6 +50,8 @@ export default function OrderConfirmation({
   message = null,
   signedIn = false,
   holderName = null,
+  // The order's link token: lets "Message the organizer" send (2026-11-18).
+  accessToken = null,
 }) {
   const [excluded, setExcluded] = useState(() => new Set());
   const [bw, setBw] = useState(false);
@@ -182,6 +186,14 @@ export default function OrderConfirmation({
         <div className="es-ordx__empty">
           <NavIcon name="mail" size={22} />
           <p>{message || 'Your tickets are in your email — open the link there to show them at the door.'}</p>
+        </div>
+      )}
+
+      {/* Owner, 2026-11-18: into their calendar, and a way to reach the organizer. */}
+      {event?.startsAt && (
+        <div className="es-ordx__extras">
+          <AddToCalendar event={event} />
+          <OrganizerContactCard organizer={event.organizer} fallbackName={event.organizerName} orderToken={accessToken} />
         </div>
       )}
 

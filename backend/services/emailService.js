@@ -814,6 +814,32 @@ async function sendOfflineCancelled({ to, buyerName, event, payment, reason }) {
   });
 }
 
+/**
+ * A ticket holder wrote to the organizer from their ticket page (2026-11-18).
+ * Sent with the BUYER as reply-to, so the organizer simply replies; neither
+ * side's address is shown to the other until the organizer chooses to answer.
+ * The words are the buyer's own and are escaped, line breaks kept.
+ */
+async function sendOrganizerMessage({ to, organizerName, event = {}, senderName, senderEmail, body, orderRef }) {
+  const words = escapeHtml(String(body || '')).replace(/\r?\n/g, '<br>');
+  const who = senderName ? escapeHtml(senderName) : 'A ticket holder';
+  return send({
+    to,
+    replyTo: senderEmail,
+    subject: `Message from a ticket holder — ${event.title || 'your event'}`,
+    html: T.layout({
+      title: 'A message from a ticket holder',
+      preheader: `${senderName || 'A ticket holder'} wrote to you about ${event.title || 'your event'}.`,
+      reason: 'You are receiving this because somebody holding a ticket to your event used "Message the organizer" on their Eventsli ticket. Reply to this email to answer them directly.',
+      body: `
+        ${T.p(`Hi ${escapeHtml(organizerName || 'there')}, <strong>${who}</strong> holds a ticket to your event and sent you this message:`)}
+        ${T.note('info', `<span style="color:${T.INK}">${words}</span>`)}
+        ${T.facts([['Event', event.title], ['From', senderName], ['Reply to', senderEmail], ['Order', orderRef]])}
+        ${T.p('Just reply to this email — your answer goes straight to them.', { small: true, color: T.MUTED })}`,
+    }),
+  });
+}
+
 module.exports = {
   sendOfflineReserved,
   sendOfflineReservedToOrganizer,
@@ -843,4 +869,5 @@ module.exports = {
   sendCancellationRequested,
   sendCancellationDecided,
   sendDoorTeamAdded,
+  sendOrganizerMessage,
 };

@@ -62,9 +62,9 @@ export const revalidate = 60;
  */
 async function load() {
   const [events, landing, cities, vip] = await Promise.all([
-    // Ticketed first, 24 at most (owner, 2026-11-17): with the eight soonest
-    // only, an event selling tickets here could be pushed off by posters.
-    serverFetch('/public/events?limit=24&ticketedFirst=true', { tags: ['events:published'], revalidate: 60 })
+    // By date, soonest first, 24 at most (owner, 2026-11-18). It was ticketed
+    // first (2026-11-17); the owner wants plain date order, like /events.
+    serverFetch('/public/events?limit=24', { tags: ['events:published'], revalidate: 60 })
       .then((rows) => ({ rows: Array.isArray(rows) ? rows : [], failed: false }))
       .catch(() => ({ rows: [], failed: true })),
 

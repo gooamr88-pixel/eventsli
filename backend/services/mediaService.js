@@ -83,7 +83,7 @@ function storageUnavailable(err) {
  * bytes under that exact URL, and an organizer who fixes a typo in their poster
  * watches the wrong one keep appearing in shares for days.
  */
-async function signUpload({ eventId, contentType, kind = 'cover' }) {
+async function signUpload({ eventId, contentType, kind = 'cover', folder = null }) {
   const ext = EXTENSION_FOR[contentType];
   if (!ext) {
     throw new MediaError(
@@ -104,7 +104,9 @@ async function signUpload({ eventId, contentType, kind = 'cover' }) {
     throw new MediaError('VALIDATION_ERROR', 'Unknown image type.');
   }
 
-  const path = `events/${eventId}/${kind}-${crypto.randomBytes(8).toString('hex')}.${ext}`;
+  // `folder` is set only by this module's own organizer helpers below, never
+  // from a request: the default is the event's folder.
+  const path = `${folder || `events/${eventId}`}/${kind}-${crypto.randomBytes(8).toString('hex')}.${ext}`;
 
   const { data, error } = await supabase.storage
     .from(BUCKET)
@@ -141,16 +143,17 @@ async function signUpload({ eventId, contentType, kind = 'cover' }) {
  * event — pointing their own listing at a competitor's artwork, or at a file
  * they had uploaded under an event they own and then deleted.
  */
-async function attach({ eventId, path, previousPath }) {
-  const prefix = `events/${eventId}/`;
-  if (typeof path !== 'string' || !path.startsWith(prefix) || path.includes('..')) {
-    throw new MediaError('VALIDATION_ERROR', 'That image does not belong to this event.');
+async function attach({ eventId, path, previousPath, folder = null }) {
+  const dir = folder || `events/${eventId}`;
+  const prefix = `${dir}/`;
+  if (typeof path !== 'string' || !path.startsWith(prefix) || path.includes('..') || path.slice(prefix.length).includes('/')) {
+    throw new MediaError('VALIDATION_ERROR', folder ? 'That image does not belong to this organizer.' : 'That image does not belong to this event.');
   }
 
   const name = path.slice(prefix.length);
   const { data: found, error } = await supabase.storage
     .from(BUCKET)
-    .list(`events/${eventId}`, { search: name, limit: 1 });
+    .list(dir, { search: name, limit: 1 });
 
   if (error) {
     if (storageUnavailable(error)) {
@@ -218,8 +221,19 @@ function publicUrl(path) {
   return supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
 }
 
+/**
+ * An organizer's logo (public profile, 2026-11-18): the same signed upload and
+ * the same confirm step as an event's images, under the organizer's own
+ * `organizers/<id>/` folder, so one organizer cannot claim another's file.
+ */
+const organizerFolder = (organizerId) => `organizers/${organizerId}`;
+const signOrganizerLogo = ({ organizerId, contentType }) => signUpload({ contentType, kind: 'logo', folder: organizerFolder(organizerId) });
+const attachOrganizerLogo = ({ organizerId, path, previousPath }) => attach({ path, previousPath, folder: organizerFolder(organizerId) });
+
 module.exports = {
   BUCKET,
+  signOrganizerLogo,
+  attachOrganizerLogo,
   publicUrl,
   MAX_BYTES,
   EXTENSION_FOR,

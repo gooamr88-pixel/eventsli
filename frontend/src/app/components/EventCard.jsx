@@ -4,7 +4,6 @@ import { formatMoneyCompact } from '../utils/money';
 import NavIcon from './shell/NavIcon';
 import SaveEventButton from './SaveEventButton';
 import { isDateOnly, formatDateOnly } from '../lib/dateOnly';
-import { comingSoonLabel } from '../lib/comingSoon';
 
 /**
  * One event in a listing. Used by the homepage and by /events, so the two can
@@ -59,8 +58,9 @@ export function eventDateParts(event) {
  * single-event payload sends `tiers` instead, so both are read.
  */
 export function priceBlock(event) {
-  // A coming-soon teaser has no announced price (the API sends none).
-  if (event.comingSoon) return null;
+  // A coming-soon teaser has no announced price (the API sends none), and an
+  // event that is over has nothing left to sell.
+  if (event.comingSoon || event.isPast) return null;
   if (event.displayOnly) return { label: 'Listing', value: 'Details' };
   if (event.availability?.soldOut) return { label: 'Tickets', value: 'Sold out' };
 
@@ -81,15 +81,19 @@ export function priceBlock(event) {
  * The sale tag on the artwork (owner, 2026-11-15): which events can actually
  * be bought here, at a glance, in a colour of its own.
  *
- *   on-sale   yellow   ticketed, and something is buyable (a price exists)
+ *   past      grey     the event is over (2026-11-18) — beats everything below
+ *   soon      coral    announced, not on sale yet
+ *   info      white    a display-only listing: information, no tickets here
  *   sold-out  dark     every ticket has gone
- *   info      grey     a display-only listing: information, no tickets here
+ *   fast      coral    on sale, and four in five are gone (the API's `sellingFast`)
+ *   on-sale   yellow   ticketed, and something is buyable (a price exists)
  *
  * Null when none is honest — a ticketed event whose sales have not opened
  * yet has no buyable price, and claiming "on sale" would be untrue.
  * Exported for its test.
  */
 export function saleTag(event) {
+  if (event.isPast) return { kind: 'past', label: 'Past event' };
   // Announced, not on sale yet (2026-11-17) — coral, never the yellow of "on sale".
   if (event.comingSoon) return { kind: 'soon', label: 'Coming soon' };
   if (event.displayOnly) return { kind: 'info', label: 'Info only' };
@@ -97,11 +101,14 @@ export function saleTag(event) {
   const buyable = 'fromPriceCents' in event
     ? event.fromPriceCents !== null && event.fromPriceCents !== undefined
     : (event.tiers || []).length > 0;
-  return buyable ? { kind: 'on-sale', label: 'Tickets on sale' } : null;
+  if (!buyable) return null;
+  if (event.availability?.sellingFast) return { kind: 'fast', label: 'Selling fast' };
+  return { kind: 'on-sale', label: 'Tickets on sale' };
 }
 
 /** What the card's pill says. Decorative — the card's link is the action. */
 export function ctaLabel(event) {
+  if (event.isPast) return 'View event';
   if (event.comingSoon) return 'Notify me';
   if (event.displayOnly) return 'Details';
   if (event.availability?.soldOut) return 'View event';
@@ -139,7 +146,7 @@ export default function EventCard({ event, priority = false, headingLevel = 3, a
      * grid cell, which `.es-evcard { height: 100% }` was already relying on.
      */
     <div className={`es-evcard-wrap ${adaptive ? 'es-evcard-wrap--adaptive' : ''}`}>
-    <Link href={`/e/${event.slug}`} className={`es-evcard ${adaptive ? 'es-evcard--adaptive' : ''}`}>
+    <Link href={`/e/${event.slug}`} className={`es-evcard ${adaptive ? 'es-evcard--adaptive' : ''} ${event.isPast ? 'es-evcard--past' : ''}`}>
       <div className="es-evcard__media">
         {/* THE WHOLE POSTER on a phone (owner, 2026-11-15): the cover is shown
             uncropped (`contain`) over a blurred copy of itself that fills the
@@ -177,16 +184,18 @@ export default function EventCard({ event, priority = false, headingLevel = 3, a
           <span className={`es-evcard__sale es-evcard__sale--${tag.kind}`}>
             {tag.kind === 'on-sale' && <NavIcon name="ticket" size={14} />}
             {tag.kind === 'soon' && <NavIcon name="bell" size={14} />}
+            {tag.kind === 'fast' && <NavIcon name="trend" size={14} />}
+            {tag.kind === 'past' && <NavIcon name="clock" size={14} />}
             {tag.label}
           </span>
         )}
 
-        {when && (
-          /* A teaser has a month, not a day: "MAR / 2027" rather than a "01"
-             nobody chose. */
+        {/* NO DATE ON A TEASER (owner, 2026-11-18): the organizer does not know
+            the month, or even the year, yet — the poster says it all. */}
+        {when && !event.comingSoon && (
           <span className="es-lp-datebadge">
-            <b>{event.comingSoon ? when.month : when.day}</b>
-            <small>{event.comingSoon ? when.year : when.month}</small>
+            <b>{when.day}</b>
+            <small>{when.month}</small>
           </span>
         )}
       </div>
@@ -195,14 +204,12 @@ export default function EventCard({ event, priority = false, headingLevel = 3, a
         <Heading className="es-evcard__title">{event.title}</Heading>
 
         <div className="es-evcard__meta">
-          {when && (
+          {when && !event.comingSoon && (
             <p className="es-evcard__line">
               <span aria-hidden className="es-evcard__icon"><NavIcon name="clock" size={16} /></span>
               {/* A date-only listing shows its day(s), never a midnight. */}
               <span>
-                {event.comingSoon
-                  ? comingSoonLabel(event, { style: 'short' })
-                  : isDateOnly(event) ? formatDateOnly(event, { style: 'short' }) : `${when.weekday} · ${when.time}`}
+                {isDateOnly(event) ? formatDateOnly(event, { style: 'short' }) : `${when.weekday} · ${when.time}`}
               </span>
             </p>
           )}

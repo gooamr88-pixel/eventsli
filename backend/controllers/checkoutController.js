@@ -488,7 +488,7 @@ async function checkoutResult(req, res, next) {
     const { data: order } = await supabase
       .from('orders')
       .select(`id, currency, buyer_total_cents, quantity, guest_email, created_at, paid_at,
-               events ( id, title, slug, starts_at, ends_at, timezone, venue_name, venue_address, city,
+               events ( id, title, slug, starts_at, ends_at, timezone, venue_name, venue_address, city, organizer_id,
                         organizers ( display_name ) )`)
       .eq('id', orderId).single();
 
@@ -537,7 +537,7 @@ async function checkoutResult(req, res, next) {
         email: maskEmail(order.guest_email),
         createdAt: order.created_at,
       },
-      event: confirmationEvent(order.events),
+      event: await withOrganizer(confirmationEvent(order.events), order.events?.organizer_id),
       accessToken,
       tickets: withinWindow ? await tickets.forOrder(orderId) : [],
       ticketsWithheld: !withinWindow,
@@ -567,6 +567,15 @@ function confirmationEvent(e) {
     venueAddress: e.venue_address || e.city || null,
     organizerName: organizer?.display_name || null,
   };
+}
+
+/**
+ * The organizer's profile link and published contact details, for the
+ * confirmation's "Contact the organizer" card (2026-11-18). Never fails it.
+ */
+async function withOrganizer(event, organizerId) {
+  if (!event) return event;
+  return { ...event, organizer: await require('../services/organizerProfileService').linkFor(organizerId) };
 }
 
 /**
@@ -872,9 +881,9 @@ async function claimFree(req, res, next) {
     let confirmation = { event: null, tickets: [] };
     try {
       const { data: row } = await supabase.from('events')
-        .select('id, title, slug, starts_at, ends_at, timezone, venue_name, venue_address, city, organizers ( display_name )')
+        .select('id, title, slug, starts_at, ends_at, timezone, venue_name, venue_address, city, organizer_id, organizers ( display_name )')
         .eq('id', q.event.id).maybeSingle();
-      confirmation = { event: confirmationEvent(row), tickets: await tickets.forOrder(result.order_id) };
+      confirmation = { event: await withOrganizer(confirmationEvent(row), row?.organizer_id), tickets: await tickets.forOrder(result.order_id) };
     } catch (e) {
       logger.warn({ err: e.message, orderId: result.order_id }, 'claim confirmation read failed');
     }
@@ -884,6 +893,10 @@ async function claimFree(req, res, next) {
       ticketCount: result.ticket_count,
       free: true,
       email: maskEmail(buyer.email),
+      // The order's link token, as the paid ending gets within its window: this
+      // response already carries the tickets themselves, and the token lets the
+      // confirmation send "Message the organizer" (2026-11-18).
+      accessToken: accessTokens.issueOrderToken(result.order_id),
       ...confirmation,
     }, { status: 201 });
   } catch (err) {

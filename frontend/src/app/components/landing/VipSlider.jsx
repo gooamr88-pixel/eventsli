@@ -177,7 +177,8 @@ function Slide({ event, pos, index, total, eager, onSelect }) {
   const current = pos === 0;
   const when = eventDateParts(event);
   const price = priceBlock(event);
-  const date = when
+  // No date on a coming-soon teaser (owner, 2026-11-18): not known yet.
+  const date = when && !event.comingSoon
     ? (isDateOnly(event) ? formatDateOnly(event, { style: 'short' }) : `${when.weekday}, ${when.month} ${Number(when.day)} · ${when.time}`)
     : '';
   const place = [event.venue, event.city].filter(Boolean).join(', ');

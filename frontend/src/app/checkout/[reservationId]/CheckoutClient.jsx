@@ -304,6 +304,7 @@ export default function CheckoutClient({ reservationId }) {
         tickets={claimed.tickets || []}
         signedIn={Boolean(user)}
         holderName={buyer.name || null}
+        accessToken={claimed.accessToken || null}
       />
     );
   }

@@ -16705,3 +16705,146 @@ label.es-chip:has(:focus-visible) { outline: 2px solid var(--es-accent); outline
     }
   }
 }
+
+/* ═══ EVENT CARD STATES — past, sold out, selling fast (2026-11-18) ═══════
+   The owner's words: a past event says "Past event", a sold-out one says so
+   "professionally", and a nearly gone one says "Selling fast".
+
+   SOLD OUT reads as a stamp, not a chip: near-black, capitals, tracked out —
+   final, calm, no colour shouting. SELLING FAST is the coral CTA ink on white
+   (5.13:1), never a solid coral, so it cannot be confused with the solid
+   coral of "Coming soon". PAST greys the poster itself, so a row of cards
+   shows at a glance which are still ahead. */
+@layer components {
+  .es-evcard__sale--sold-out {
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-size: 0.6875rem;
+  }
+  .es-evcard__sale--fast {
+    background: #ffffff;
+    color: var(--es-coral-600);
+    box-shadow: inset 0 0 0 1.5px var(--es-coral-600), 0 4px 12px -4px rgb(17 16 24 / 0.3);
+  }
+  .es-evcard__sale--past {
+    background: var(--es-grey-100);
+    color: var(--es-ink-on-light);
+    box-shadow: inset 0 0 0 1px var(--es-grey-300), 0 4px 12px -4px rgb(17 16 24 / 0.25);
+  }
+  .es-evcard--past .es-evcard__art { filter: grayscale(1); opacity: 0.8; }
+  /* Keeps the backdrop's own blur; a bare grayscale() would replace it. */
+  .es-evcard--past .es-evcard__blur { filter: blur(16px) brightness(0.7) grayscale(1); }
+}
+
+/* ═══ ORGANIZER PROFILES, CONTACT AND CALENDAR (2026-11-18) ═══════════════
+   .es-cal       "Add to your calendar" on a bought ticket
+   .es-orgcard   the organizer on a ticket and on the event page: logo, name,
+                 profile link, the details they published, "Message"
+   .es-orgpage   /o/<slug> — an organizer's public page
+   The logo tile is the brand's yellow with a near-black initial when there is
+   no logo, so a page without one still looks deliberate. */
+@layer components {
+  .es-cal {
+    display: grid;
+    gap: 0.75rem;
+    padding: 1rem;
+    border: 1px solid var(--es-border);
+    border-radius: var(--es-radius-lg);
+    background: var(--es-surface);
+  }
+  .es-cal__title { display: flex; align-items: center; gap: 0.5rem; margin: 0; font-size: var(--es-text-sm); font-weight: 700; color: var(--es-text); }
+  .es-cal__row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .es-cal__btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    min-height: 2.5rem;
+    padding: 0.5rem 0.9rem;
+    border: 1px solid var(--es-border-strong);
+    border-radius: var(--es-radius-full);
+    background: var(--es-surface);
+    color: var(--es-text);
+    font-size: var(--es-text-sm);
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .es-cal__btn:hover { border-color: var(--es-accent); color: var(--es-accent); }
+  .es-cal__btn--quiet { border-style: dashed; }
+  .es-cal__note { margin: 0; font-size: var(--es-text-xs); color: var(--es-text-subtle); }
+
+  .es-orgcard {
+    display: grid;
+    gap: 0.9rem;
+    padding: 1rem;
+    border: 1px solid var(--es-border);
+    border-radius: var(--es-radius-lg);
+    background: var(--es-surface);
+  }
+  .es-orgcard__head { display: flex; align-items: center; gap: 0.85rem; flex-wrap: wrap; }
+  .es-orgcard__head > .fx-min0 { flex: 1; }
+  .es-orgcard__logo,
+  .es-orgpage__logo {
+    display: grid;
+    flex: none;
+    place-items: center;
+    overflow: hidden;
+    border-radius: 14px;
+    background: var(--es-highlight);
+    color: var(--es-text-on-highlight);
+    font-family: var(--es-font-display);
+    font-weight: 900;
+  }
+  .es-orgcard__logo { width: 3.25rem; height: 3.25rem; font-size: 1.4rem; }
+  .es-orgcard__logo img,
+  .es-orgpage__logo img { width: 100%; height: 100%; object-fit: cover; background: #ffffff; }
+  .es-orgcard__kicker { margin: 0; font-size: var(--es-text-xs); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--es-text-subtle); }
+  .es-orgcard__name { margin: 0.1rem 0 0; font-family: var(--es-font-display); font-size: var(--es-text-lg); font-weight: 800; color: var(--es-text); }
+  .es-orgcard__profile { display: inline-flex; align-items: center; gap: 0.3rem; font-size: var(--es-text-sm); font-weight: 700; color: var(--es-accent); text-decoration: none; }
+  .es-orgcard__profile:hover { text-decoration: underline; }
+  .es-orgcard__details { display: grid; gap: 0.5rem; margin: 0; padding: 0; list-style: none; font-size: var(--es-text-sm); }
+  .es-orgcard__details li { display: flex; align-items: center; gap: 0.55rem; color: var(--es-text-muted); }
+  .es-orgcard__details a { color: var(--es-text); font-weight: 600; text-decoration: none; }
+  .es-orgcard__details a:hover { color: var(--es-accent); text-decoration: underline; }
+  .es-orgcard__social { flex-wrap: wrap; }
+  .es-orgcard__social a + a::before { content: '·'; margin-inline: 0.45rem; color: var(--es-text-subtle); }
+
+  .es-ordx__extras { display: grid; gap: 1rem; margin-block: 1.5rem; }
+  @media (width >= theme(--breakpoint-md)) {
+    .es-ordx__extras { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
+  }
+
+  /* ── /o/<slug> ── */
+  .es-orgpage__hero {
+    padding-block: 2.5rem 2rem;
+    border-bottom: 1px solid var(--es-border);
+    background:
+      radial-gradient(60rem 18rem at 10% -20%, var(--es-highlight-wash), transparent 70%),
+      var(--es-surface);
+  }
+  .es-orgpage__head { display: grid; gap: 1.25rem; align-items: center; }
+  @media (width >= theme(--breakpoint-md)) {
+    .es-orgpage__head { grid-template-columns: auto minmax(0, 1fr) auto; gap: 1.75rem; }
+  }
+  .es-orgpage__logo { width: 6.5rem; height: 6.5rem; border-radius: 22px; font-size: 3rem; box-shadow: 0 10px 30px -12px rgb(17 16 24 / 0.35); }
+  .es-orgpage__logo--sm { width: 4.5rem; height: 4.5rem; border-radius: 16px; font-size: 2rem; box-shadow: none; }
+  .es-orgpage__kicker { display: flex; align-items: center; gap: 0.4rem; margin: 0; font-size: var(--es-text-xs); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--es-accent); }
+  .es-orgpage__name { margin: 0.35rem 0 0; font-family: var(--es-font-display); font-size: var(--es-text-4xl); font-weight: 900; line-height: 1.05; color: var(--es-text); }
+  .es-orgpage__stats { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.9rem 0 0; padding: 0; list-style: none; }
+  .es-orgpage__stats li { padding: 0.3rem 0.75rem; border: 1px solid var(--es-border); border-radius: var(--es-radius-full); background: var(--es-surface); font-size: var(--es-text-sm); color: var(--es-text-muted); }
+  .es-orgpage__stats b { color: var(--es-text); }
+  .es-orgpage__contact { display: grid; gap: 0.75rem; justify-items: start; }
+  @media (width >= theme(--breakpoint-md)) { .es-orgpage__contact { justify-items: end; } }
+  .es-orgpage__actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .es-orgpage__social { display: flex; flex-wrap: wrap; gap: 0.35rem 1rem; margin: 0; padding: 0; list-style: none; font-size: var(--es-text-sm); }
+  .es-orgpage__social a { font-weight: 700; color: var(--es-text); text-decoration: none; }
+  .es-orgpage__social a:hover { color: var(--es-accent); text-decoration: underline; }
+  .es-orgpage__about { max-width: 46rem; margin: 1.5rem 0 0; font-size: var(--es-text-md, 1rem); line-height: 1.65; color: var(--es-text-muted); white-space: pre-line; }
+  .es-orgpage__h2 { margin: 0; font-family: var(--es-font-display); font-size: var(--es-text-2xl); font-weight: 800; color: var(--es-text); }
+  .es-orgpage__grid { margin: 0; padding: 0; list-style: none; }
+  .es-orgpage__empty { display: flex; align-items: center; gap: 0.75rem; padding: 1.25rem; border: 1px dashed var(--es-border-strong); border-radius: var(--es-radius-lg); color: var(--es-text-muted); }
+  .es-orgpage__empty p { margin: 0; }
+  .es-orgpage__empty a { font-weight: 700; color: var(--es-accent); }
+
+  .es-pubprof__logo { display: flex; align-items: center; gap: 1rem; }
+}

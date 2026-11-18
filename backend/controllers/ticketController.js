@@ -254,7 +254,7 @@ async function resend(req, res, next) {
 async function orderPayload(orderId) {
   const { data: order } = await supabase
     .from('orders')
-    .select('id, currency, buyer_total_cents, quantity, guest_email, created_at, paid_at, events ( id, title, slug, starts_at, ends_at, timezone, venue_name, venue_address, status )')
+    .select('id, currency, buyer_total_cents, quantity, guest_email, created_at, paid_at, events ( id, title, slug, starts_at, ends_at, timezone, venue_name, venue_address, status, organizer_id )')
     .eq('id', orderId)
     .maybeSingle();
 
@@ -273,6 +273,8 @@ async function orderPayload(orderId) {
       venue: { name: order.events.venue_name, address: order.events.venue_address },
       cancelled: order.events.status === 'cancelled',
     },
+    // Who to contact, and their public page (2026-11-18). Null when unknown.
+    organizer: order.events ? await require('../services/organizerProfileService').linkFor(order.events.organizer_id) : null,
     currency: order.currency,
     totalCents: order.buyer_total_cents,
     purchasedAt: order.paid_at || order.created_at,

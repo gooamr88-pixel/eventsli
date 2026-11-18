@@ -33,7 +33,7 @@ const SELECT = `
   country, timezone, starts_at, ends_at, currency,
   listing_type, purchase_mode, admission_type, category, cover_url, logo_url,
   highlights, venue_lat, venue_lng, max_tickets_per_order,
-  accepts_stripe, accepts_manual, coming_soon,
+  accepts_stripe, accepts_manual, coming_soon, organizer_id,
   updated_at,
   organizers ( display_name, country ),
   event_categories ( label )
@@ -214,11 +214,11 @@ async function listEvents(req, res, next, { phraseSearch = false } = {}) {
     if (error) throw new Error(error.message);
 
     const rows = data || [];
-    const fromPrices = await lowestTierPrices(rows);
+    const [fromPrices, avail] = await Promise.all([lowestTierPrices(rows), listingAvailability(rows)]);
 
     return sendOk(
       res,
-      rows.map((e) => ({ ...shape(e), fromPriceCents: fromPrices.get(e.id) ?? null })),
+      rows.map((e) => ({ ...shape(e), fromPriceCents: fromPrices.get(e.id) ?? null, availability: avail.get(e.id) ?? null })),
       { pagination: buildMeta(p, count) },
     );
   } catch (err) { return next(err); }
@@ -324,11 +324,12 @@ async function eventBySlug(req, res, next) {
         venueAddress: null,
         tiers: [],
         availability: null,
+        organizerProfile: await require('../services/organizerProfileService').linkFor(event.organizer_id),
         ...content,
       });
     }
 
-    const [{ data: tiers }, content] = await Promise.all([
+    const [{ data: tiers }, content, organizerProfile] = await Promise.all([
       supabase
         .from('ticket_tiers')
         .select('id, name, description, price_cents, quantity, sold_count, kind, '
@@ -336,6 +337,8 @@ async function eventBySlug(req, res, next) {
         .eq('event_id', event.id)
         .order('sort_order'),
       eventContent.publicBundle(event.id),
+      // The organizer's public page (2026-11-18); null if it cannot be read.
+      require('../services/organizerProfileService').linkFor(event.organizer_id),
     ]);
 
     /**
@@ -371,6 +374,7 @@ async function eventBySlug(req, res, next) {
       venueAddress: event.venue_address,
       tiers: visibleTiers.map((t) => ({ ...publicTier(t), details: ticketDetails.present(event.id, t.details) })),
       availability: await availability(event, tiers || []),
+      organizerProfile,
       ...content,
     });
   } catch (err) { return next(err); }
@@ -441,11 +445,11 @@ async function availability(event, tiers = []) {
 
     const total = tiers.reduce((n, t) => n + Number(t.quantity), 0);
     const sold = tiers.reduce((n, t) => n + Number(t.sold_count || 0), 0);
-    return {
+    return withPace({
       seatsTotal: total,
       seatsAvailable: Math.max(0, total - sold),
       soldOut: total > 0 && sold >= total,
-    };
+    });
   }
 
   const { data: map } = await supabase
@@ -459,11 +463,63 @@ async function availability(event, tiers = []) {
       .eq('venue_map_id', map.id).eq('status', 'available'),
   ]);
 
-  return {
+  return withPace({
     seatsTotal: Number(total) || 0,
     seatsAvailable: Number(free) || 0,
     soldOut: (Number(total) || 0) > 0 && (Number(free) || 0) === 0,
+  });
+}
+
+/**
+ * "SELLING FAST" (owner, 2026-11-18): four in five gone and not yet sold out.
+ * Only where the count is real — an uncapped event has no total, and a claim
+ * of scarcity there would be invented.
+ */
+const SELLING_FAST_SHARE = 0.2;
+function withPace(a) {
+  const total = Number(a.seatsTotal) || 0;
+  return {
+    ...a,
+    sellingFast: !a.soldOut && total > 0 && Number(a.seatsAvailable) / total <= SELLING_FAST_SHARE,
   };
+}
+
+/**
+ * Availability for a page of cards (2026-11-18) — the same answer the event
+ * page gives, so a card can say "Sold out" or "Selling fast".
+ *
+ * Batched: ONE tier query for every general-admission event; seated events
+ * count their map (two head counts each, in parallel). Left out: display-only
+ * listings, coming-soon teasers and past events — none has anything to sell.
+ * A failure costs the tags, never the listing.
+ */
+async function listingAvailability(rows) {
+  const out = new Map();
+  const live = (rows || []).filter((e) => e.listing_type !== 'display_only' && e.coming_soon !== true && !isPastRow(e));
+  if (live.length === 0) return out;
+  try {
+    const general = live.filter((e) => e.admission_type === 'general');
+    const tiersBy = new Map();
+    if (general.length) {
+      const { data, error } = await supabase.from('ticket_tiers')
+        .select('event_id, quantity, sold_count').in('event_id', general.map((e) => e.id));
+      if (error) throw new Error(error.message);
+      for (const t of data || []) tiersBy.set(t.event_id, [...(tiersBy.get(t.event_id) || []), t]);
+    }
+    const answers = await Promise.all(live.map((e) => availability(e, tiersBy.get(e.id) || []).catch(() => null)));
+    live.forEach((e, i) => { if (answers[i]) out.set(e.id, answers[i]); });
+  } catch (err) {
+    logger.warn({ err: err.message }, 'listing availability failed; cards go without sold-out tags');
+  }
+  return out;
+}
+
+/** Over: its end has passed — or its start, when it has no end. */
+function isPastRow(e) {
+  const end = e.ends_at || e.starts_at;
+  if (!end) return false;
+  const t = new Date(end).getTime();
+  return Number.isFinite(t) && t < Date.now();
 }
 
 function shape(e) {
@@ -484,6 +540,8 @@ function shape(e) {
     timezone: e.timezone,
     startsAt: e.starts_at,
     endsAt: e.ends_at,
+    // Over (2026-11-18): the card says "Past event" instead of selling it.
+    isPast: isPastRow(e),
     /**
      * When the listing itself last changed, for `<lastmod>` in the sitemap.
      *
@@ -529,4 +587,4 @@ function shape(e) {
 
 // SELECT, shape and lowestTierPrices are shared with "near you"
 // (landingController.eventsNear), so a nearby card is the same card as a listed one.
-module.exports = { listEvents, eventBySlug, SELECT, shape, lowestTierPrices };
+module.exports = { listEvents, eventBySlug, SELECT, shape, lowestTierPrices, listingAvailability };
