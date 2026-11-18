@@ -77,7 +77,7 @@ export default function StyledZoneShape({
       onPointerDown={interactive ? onPointerDown : undefined}
       onKeyDown={interactive ? onKeyDown : undefined}
       {...(interactive
-        ? { role: 'button', tabIndex: 0, style: { cursor: 'move' }, 'aria-label': `${label}, ${meta.label}${selected ? ', selected' : ''}` }
+        ? { role: 'button', tabIndex: 0, style: { cursor: 'move' }, 'aria-label': `${label}${label !== meta.label ? `, ${meta.label}` : ''}${selected ? ', selected' : ''}` }
         : { 'aria-hidden': true, style: { pointerEvents: 'none' } })}
     >
       {hitPad > 0 && (

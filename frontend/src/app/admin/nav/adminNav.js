@@ -53,6 +53,8 @@ export function adminNavGroups() {
       label: 'Storefront',
       items: [
         { key: 'content', label: 'Homepage content', icon: 'layers', href: '/admin/content' },
+        // Event templates (2026-11-19): Eventsli's, shared with every organizer.
+        { key: 'templates', label: 'Event templates', icon: 'copy', href: '/admin/templates' },
       ],
     },
     {

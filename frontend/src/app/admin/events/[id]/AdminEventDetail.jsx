@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { useApi } from '../../../hooks/useApi';
+import { useAuth } from '../../../hooks/useAuth';
 import InvoiceStatus from '../../../components/ui/InvoiceStatus';
 import { formatMoney } from '../../../utils/money';
 import { formatEventTime } from '../../../lib/eventTime';
@@ -27,6 +28,7 @@ import FeeEditor from './FeeEditor';
  */
 export default function AdminEventDetail({ eventId }) {
   const { data, error, loading, reload } = useApi(`/admin/events/${eventId}`);
+  const { user } = useAuth();
 
   if (error) {
     return <ErrorNotice error={error} onRetry={reload} action={{ href: '/admin/events', label: 'Back to all events' }} />;
@@ -52,6 +54,10 @@ export default function AdminEventDetail({ eventId }) {
         actions={(
           <>
             <StatusPill status={event.status} />
+            {/* Templates (2026-11-19): this event's setup, for every organizer. */}
+            {user?.isSuperAdmin && (
+              <Link href={`/admin/templates?from=${event.id}`} className="es-btn es-btn--secondary es-btn--sm">Make Eventsli template</Link>
+            )}
             {event.status === 'published' && (
               <a href={`/e/${event.slug}`} target="_blank" rel="noreferrer" className="es-btn es-btn--secondary es-btn--sm">
                 Public page <span className="sr-only">(opens in a new tab)</span>

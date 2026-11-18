@@ -27,6 +27,8 @@ import CreateProfile from '../../CreateProfile';
 import AiCreator from './ai/AiCreator';
 import ComingSoonForm from './ComingSoonForm';
 import DateOnlyFields from './DateOnlyFields';
+import { useTemplate, formFromTemplate, applyTemplate, TemplateBanner } from './TemplateStart';
+import { useToast } from '../../../components/ui/Toast';
 import { dateOnlyRange } from '../../../lib/dateOnly';
 import { useOpenCountries, openCountryFor } from '../../../hooks/useOpenCountries';
 import { withCurrency, currencyHint } from '../../../lib/markets';
@@ -86,6 +88,8 @@ export default function NewEventForm() {
   if (error) return <ErrorNotice error={error} onRetry={refresh} />;
   if (!organizer || !organizer.setupComplete) return <CreateProfile organizer={organizer} onCreated={refresh} />;
 
+  // From a template (2026-11-19): read it, then the wizard opens pre-filled.
+  if (params.get('template')) return <FromTemplate id={params.get('template')} type={type} organizer={organizer} />;
   // The Smart Event Creator (`?mode=ai`) — its own three steps, in ./ai.
   if (params.get('mode') === 'ai') return <AiCreator organizer={organizer} />;
   // "Coming soon" (2026-11-17): one screen — title, city, month — in ./ComingSoonForm.
@@ -96,13 +100,27 @@ export default function NewEventForm() {
   return <EventWizard key={type} type={type} organizer={organizer} />;
 }
 
-function EventWizard({ type, organizer }) {
+function FromTemplate({ id, type, organizer }) {
+  const { template, error, loading } = useTemplate(id);
+  if (loading) return <Loading variant="card" />;
+  if (error || !template) return <ErrorNotice error={error} action={<Link href="/organizer/templates" className="es-btn es-btn--secondary">Back to templates</Link>} />;
+  const kind = TYPES[type] ? type : template.listingType === 'display_only' ? 'display_only' : 'ticketed';
+  return <EventWizard key={`${kind}:${id}`} type={kind} organizer={organizer} template={template} />;
+}
+
+function EventWizard({ type, organizer, template = null }) {
   const router = useRouter();
   const headingRef = useRef(null);
   const { steps, title: typeTitle } = TYPES[type];
   const ticketed = type === 'ticketed';
 
-  const [initial] = useState(() => initialForm(type, organizer));
+  const toast = useToast();
+  const [initial] = useState(() => {
+    if (!template) return initialForm(type, organizer);
+    // A template's answers, never a saved draft of some other event.
+    const blank = initialForm(type, organizer, { ignoreDraft: true });
+    return { form: formFromTemplate(template, blank.form), step: 0 };
+  });
   const [form, setForm] = useState(initial.form);
   const [index, setIndex] = useState(Math.min(initial.step, steps.length - 1));
   const [showErrors, setShowErrors] = useState(false);
@@ -131,10 +149,12 @@ function EventWizard({ type, organizer }) {
   const step = steps[index];
   const choices = organizer.payments?.choices || [];
 
-  // Keep the answers as they are typed.
+  // Keep the answers as they are typed — not a template's, which would
+  // otherwise come back as the next blank event's draft.
   useEffect(() => {
+    if (template) return;
     try { sessionStorage.setItem(draftKey(type), JSON.stringify({ form, step: index })); } catch { /* private mode */ }
-  }, [type, form, index]);
+  }, [type, form, index, template]);
 
   // A new step is a new screen: take focus to its heading so a screen reader
   // announces where they are, and so the page starts at the top.
@@ -310,6 +330,13 @@ function EventWizard({ type, organizer }) {
         ...(form.description.trim() ? { description: form.description.trim() } : {}),
       }, { noRedirect: true });
       try { sessionStorage.removeItem(draftKey(type)); } catch { /* fine */ }
+      if (template) {
+        // Ticket types, add-ons and the seating map, into the new draft.
+        const applied = await applyTemplate(event.id, template);
+        if (applied.ok) toast.success(applied.text, { title: 'Event created from a template' });
+        else toast.error(applied.text, { title: 'Template not applied' });
+        for (const w of applied.warnings) toast.error(w, { title: 'Check this' });
+      }
       router.push(`/organizer/events/${event.id}?created=1`);
     } catch (err) {
       setError(err);
@@ -329,6 +356,8 @@ function EventWizard({ type, organizer }) {
         </p>
         <WizardStepper steps={steps} index={index} title={typeTitle} onGo={go} disabled={busy} />
       </div>
+
+      {template && <TemplateBanner template={template} />}
 
       <div className="es-wizard__head">
         <h1 ref={headingRef} tabIndex={-1} className="es-wizard__title outline-none">{heading}</h1>

@@ -131,6 +131,16 @@ export function TypeChooser() {
         </p>
       )}
 
+      {/* Templates (2026-11-19): one of theirs or Eventsli's, pre-filled. */}
+      <Link href="/organizer/templates" className="es-tplstart">
+        <span className="es-tplstart__icon" aria-hidden="true"><NavIcon name="copy" size={22} /></span>
+        <span className="fx-min0">
+          <b>Start from a template</b>
+          <small>Reuse an event you have run before, or a ready-made Eventsli template — ticket types and seating map included.</small>
+        </span>
+        <NavIcon name="arrow" size={18} />
+      </Link>
+
       <div className="es-choice-grid es-choice-grid--3">
         <Link href="/organizer/events/new?type=ticketed" className="es-choice es-choice--lg">
           <span className="es-choice__icon"><NavIcon name="ticket" size={22} /></span>

@@ -112,6 +112,8 @@ export function organizerNavGroups({
     items: [
       { key: 'dashboard', label: 'Dashboard', icon: 'home', href: '/organizer', exact: true },
       { key: 'events', label: 'Your events', icon: 'calendar', href: '/organizer/events' },
+      // Event templates (2026-11-19): theirs and Eventsli's.
+      { key: 'templates', label: 'Templates', icon: 'copy', href: '/organizer/templates' },
       /**
        * ─────────────────────────────────────────────────────────────────────
        * "CREATE EVENT" IS NOT HERE, AND THIS IS WHERE IT WAS.

@@ -207,6 +207,8 @@ export default function EventActions({ event, onChanged, primary = false, childr
           trigger={primary ? <>{working || 'More'}<span aria-hidden className="es-more__chev"><NavIcon name="chevronDown" size={16} /></span></> : undefined}
         >
           {showMap && <MoreItem href={`${base}/map`} icon="map">Seating map</MoreItem>}
+          {/* Templates (2026-11-19): this event's setup, to start new ones from. */}
+          <MoreItem href={`/organizer/templates?from=${event.id}`} icon="copy">Save as template</MoreItem>
           {showArchive && (
             <>
               {showMap && <MoreDivider />}

@@ -151,6 +151,22 @@ router.put(
   profile.setLogo,
 );
 
+// Event templates (2026-11-19): the organizer's library and Eventsli's shared
+// templates (controllers/eventTemplateController.js).
+const tpl = require('../controllers/eventTemplateController');
+const templateText = () => [
+  body('name').optional({ values: 'falsy' }).isString().trim().isLength({ min: 2, max: 80 })
+    .withMessage('A template name is 2 to 80 characters.'),
+  body('description').optional({ values: 'null' }).isString().isLength({ max: 500 })
+    .withMessage('A description is at most 500 characters.'),
+];
+router.get('/templates', requireAuth, requireRole('organizer'), requireOrganizerProfile, tpl.list);
+router.get('/templates/:id', requireAuth, requireRole('organizer'), requireOrganizerProfile, param('id').isUUID(), validate, tpl.get);
+router.post('/templates', ...methods, body('eventId').isUUID().withMessage('Choose the event to save.'), ...templateText(), validate, tpl.create);
+router.patch('/templates/:id', ...methods, param('id').isUUID(), ...templateText(), validate, tpl.update);
+router.delete('/templates/:id', ...methods, param('id').isUUID(), validate, tpl.remove);
+router.post('/templates/:id/copy', ...methods, param('id').isUUID(), ...templateText(), validate, tpl.copy);
+
 // Saved seating-map looks (2026-11-18): the Venue Builder's Map look panel.
 router.get('/map-looks', requireAuth, requireRole('organizer'), requireOrganizerProfile, profile.listMapLooks);
 router.put(

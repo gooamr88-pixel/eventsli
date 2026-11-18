@@ -646,6 +646,16 @@ router.post(
   addonCtrl.confirmImage,
 );
 
+// Event templates (2026-11-19): a fresh draft takes a template's ticket
+// types, add-ons, table categories and seating map.
+router.post(
+  '/:eventId/apply-template',
+  verifyEventOwner, requireEditableEvent,
+  body('templateId').isUUID().withMessage('Choose a template.'),
+  validate,
+  require('../controllers/eventTemplateController').apply,
+);
+
 router.get('/:eventId/addons', verifyEventOwner, addonCtrl.list);
 router.post('/:eventId/addons', verifyEventOwner, requireEditableEvent, ...addonRules(false), validate, addonCtrl.create);
 router.patch('/:eventId/addons/:addonId', verifyEventOwner, requireEditableEvent, param('addonId').isUUID(), ...addonRules(true), validate, addonCtrl.update);

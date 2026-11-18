@@ -222,6 +222,20 @@ export function useMapDraft() {
     return { tableKeys: tablesNext.map((t) => t.localKey), zoneIds: zonesNext.map((z) => z.id) };
   }, [apply]);
 
+  /**
+   * A whole map from a template (2026-11-19): tables (with their styles and
+   * seat prices), zones, the venue's size and its look, in ONE undo step.
+   */
+  const loadMap = useCallback(({ tables: specs = [], zones: nextZones = [], world: nextWorld, look: nextLook = null }) => {
+    const built = buildTables(specs.slice(0, MAX_TABLES), new Set()).map((t, i) => ({
+      ...t,
+      ...(specs[i].style ? { style: specs[i].style } : {}),
+      seatPriceCents: specs[i].seatPriceCents ?? null,
+    }));
+    apply((p) => ({ ...p, tables: built, zones: nextZones, world: nextWorld || p.world, look: nextLook }));
+    return built.map((t) => t.localKey);
+  }, [apply]);
+
   /** The single-table form the "Add table" button and a double-click use. */
   const addTable = useCallback((position) => addTables([{ position }])[0], [addTables]);
 
@@ -499,6 +513,7 @@ export function useMapDraft() {
     addTable,
     addTables,
     replaceLayout,
+    loadMap,
     updateTable,
     updateTables,
     setLook,

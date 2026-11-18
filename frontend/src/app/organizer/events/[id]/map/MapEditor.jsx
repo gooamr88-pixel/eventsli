@@ -34,6 +34,7 @@ import { useEditorKeys } from './useEditorKeys';
 import { useUnsavedGuard } from './useUnsavedGuard';
 import { useStepSave } from '../BuildStep';
 import { useWallTool } from './style/useWallTool';
+import MapTemplateDialog from './style/MapTemplateDialog';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -192,7 +193,9 @@ export default function MapEditor({ eventId }) {
   });
 
   /** An Add-to-layout item: a tool (Draw walls), a seating section, or the Add dialog. */
+  const [showMapTpl, setShowMapTpl] = useState(false);
   const addFrom = (initial) => {
+    if (initial.family === 'template') { setShowMapTpl(true); return; }
     if (initial.family === 'tool') { selection.clear(); setToolBoth(initial.key); return; }
     if (initial.family === 'section') { setShowSection(true); return; }
     setAddInitial(initial); setShowAdd(true);
@@ -413,6 +416,21 @@ export default function MapEditor({ eventId }) {
             const keys = draft.addTables(rows);
             selection.replace(keys, []);
             studioDraft.edit('sections', [...studio.sections, ...added]);
+          }}
+        />
+      )}
+
+      {showMapTpl && (
+        <MapTemplateDialog
+          tiers={tiers}
+          categories={categories}
+          replacing={tables.length > 0 || zones.length > 0}
+          blocked={soldTotal > 0 ? `${soldTotal} seat${soldTotal === 1 ? ' is' : 's are'} already held or sold on this map, so it can’t be replaced. Edit the map by hand instead.` : null}
+          onClose={() => setShowMapTpl(false)}
+          onApply={(spec) => {
+            selection.replace(draft.loadMap(spec), []);
+            studioDraft.edit('sections', spec.sections || []);
+            setShowMapTpl(false);
           }}
         />
       )}

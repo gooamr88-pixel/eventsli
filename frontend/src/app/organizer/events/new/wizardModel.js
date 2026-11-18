@@ -154,7 +154,7 @@ export function draftKey(type) {
  * Read on the client only; this runs after the organizer has loaded, so the
  * server never renders it.
  */
-export function initialForm(type, organizer) {
+export function initialForm(type, organizer, { ignoreDraft = false } = {}) {
   const country = organizer?.country || DEFAULT_COUNTRY;
   const base = {
     title: '', category: 'other', description: '',
@@ -178,6 +178,7 @@ export function initialForm(type, organizer) {
     paymentOption: organizer?.payments?.choices?.[0] || '',
   };
 
+  if (ignoreDraft) return { form: base, step: 0 };
   try {
     const saved = JSON.parse(sessionStorage.getItem(draftKey(type)) || 'null');
     if (saved?.form) {

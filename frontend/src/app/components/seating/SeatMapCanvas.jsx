@@ -149,7 +149,9 @@ export default function SeatMapCanvas({
    */
   const zoneSummary = useMemo(() => {
     if (zones.length === 0) return null;
-    return zones.map(zoneLabel).join(', ');
+    // Walls are the room's outline, not something to find; a hidden name is hidden.
+    const named = zones.filter((z) => z.kind !== 'wall' && z.showLabel !== false);
+    return named.length ? named.map(zoneLabel).join(', ') : null;
   }, [zones]);
 
   /**

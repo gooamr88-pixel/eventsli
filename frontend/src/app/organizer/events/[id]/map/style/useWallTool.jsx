@@ -34,8 +34,19 @@ export function useWallTool({ svgRef, view, world, look, zones, active, onCreate
     if (!active) { setPoints([]); setHover(null); }
   }
 
+  // Through the SVG's own screen transform where it has one: exact even when
+  // the canvas letterboxes the viewBox, which the plain ratio below is not.
   const toWorldPoint = useCallback((e) => {
-    const rect = svgRef.current?.getBoundingClientRect();
+    const svg = svgRef.current;
+    const ctm = svg?.getScreenCTM?.();
+    if (ctm && typeof svg.createSVGPoint === 'function') {
+      const p = svg.createSVGPoint();
+      p.x = e.clientX;
+      p.y = e.clientY;
+      const w = p.matrixTransform(ctm.inverse());
+      return { x: w.x, y: w.y };
+    }
+    const rect = svg?.getBoundingClientRect();
     if (!rect || !rect.width) return null;
     return {
       x: view.x + ((e.clientX - rect.left) / rect.width) * view.width,

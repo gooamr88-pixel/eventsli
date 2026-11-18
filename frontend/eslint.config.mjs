@@ -46,6 +46,14 @@ const config = [
       // A stray console.log ships and stays. warn and error survive because
       // both are used deliberately — see describeError in utils/errors.js.
       'no-console': ['warn', { allow: ['warn', 'error'] }],
+
+      /**
+       * A name used but never declared is a crash in the browser, not a style
+       * point — and Next's preset leaves this rule off. It was how a missing
+       * `useState` line in the Map look card (2026-11-18) passed lint, tests
+       * and the build, then took down the Venue Builder on first render.
+       */
+      'no-undef': 'error',
     },
   },
 
