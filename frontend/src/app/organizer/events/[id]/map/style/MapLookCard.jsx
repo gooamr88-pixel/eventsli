@@ -32,6 +32,8 @@ export default function MapLookCard({ look, onChange, onApplyToTables, tableCoun
   const [saved, setSaved] = useState([]);
   const [note, setNote] = useState(null);
   const [busy, setBusy] = useState(false);
+  // The name being typed for a new saved look, or null when not saving.
+  const [naming, setNaming] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
