@@ -9749,7 +9749,42 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
   color: var(--es-accent);
 }
 .es-near__empty { border-radius: 20px; background: var(--es-bg-sunken); }
-.es-near__empty-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem; }
+
+/* One or two events on a phone (2026-11-18): fill the width inside the
+   gutter instead of a lone 46% card with empty space beside it. One is laid
+   out as a row — poster left, details right — by EventCard's adaptive mode. */
+@media (width < 48rem) {
+  .es-near .es-lp-cards.es-lp-rail.es-near__rail--n1,
+  .es-near .es-lp-cards.es-lp-rail.es-near__rail--n2 { margin-inline: 0; padding-inline: 0; scroll-padding-inline: 0; overflow: visible; }
+  .es-near .es-lp-cards.es-lp-rail.es-near__rail--n1 { grid-auto-columns: 100%; }
+  .es-near .es-lp-cards.es-lp-rail.es-near__rail--n2 { grid-auto-columns: calc((100% - 0.75rem) / 2); }
+}
+
+/* One event on a laptop: a wide row card — poster left, details right —
+   rather than one quarter-width card alone on the line. */
+@media (width >= 48rem) {
+  .es-near .es-rail .es-lp-cards.es-lp-rail.es-near__rail--n1 { grid-auto-columns: min(100%, 46rem); }
+  .es-near__rail--n1 .es-evcard { flex-direction: row; gap: 1.25rem; }
+  .es-near__rail--n1 .es-evcard:hover { transform: none; }
+  .es-near__rail--n1 .es-evcard__media { flex: 0 0 12.5rem; aspect-ratio: 4 / 5; }
+  .es-near__rail--n1 .es-evcard__body { flex: 1; min-width: 0; padding-block: 0.5rem; }
+  .es-near__rail--n1 .es-evcard__title { min-height: 0; font-size: var(--es-text-lg); }
+  .es-near__rail--n1 .es-evcard-wrap .es-evcard__save { left: calc(12.5rem - 2.6rem); right: auto; }
+}
+
+/* No events in that city: compact, beside the prompt's pin, with one-tap ways on. */
+.es-near__none {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  padding: 1rem;
+  border-radius: 16px;
+  background: var(--es-bg-sunken);
+}
+.es-near__none-title { margin: 0.35rem 0 0; font-size: var(--es-text-sm); font-weight: 700; color: var(--es-text); }
+.es-near__none-sub { margin: 0.2rem 0 0; font-size: var(--es-text-xs); color: var(--es-text-muted); }
+.es-near__none-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.75rem; }
+.es-near__none-actions .es-near__chip { min-height: 2.25rem; text-decoration: none; }
 }   /* end @layer components — near you */
 
 @layer components {

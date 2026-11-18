@@ -151,12 +151,14 @@ export default function NearbyEvents({ initialCities = null }) {
    */
   const TOP = 8;
   const ranked = [...cities].sort((a, b) => (b.events || 0) - (a.events || 0));
-  const top = ranked.slice(0, TOP);
-  if (place?.city && !top.some((c) => c.city === place.city)) {
-    const chosen = ranked.find((c) => c.city === place.city);
-    if (chosen) top.push(chosen);
-  }
+  // The chosen city FIRST, right after Near me, so its chip is always in view
+  // on a phone — at the end of a swipe row it was off screen (2026-11-18).
+  const chosen = place?.city ? ranked.find((c) => c.city === place.city && (c.country || '') === (place.country || '')) : null;
+  const top = [...(chosen ? [chosen] : []), ...ranked.filter((c) => c !== chosen).slice(0, chosen ? TOP - 1 : TOP)];
   const more = ranked.filter((c) => !top.includes(c));
+  // For an empty city: the busiest other city, as a one-tap way on.
+  const suggestion = ranked.find((c) => c !== chosen && c.city !== state.nearest?.city) || null;
+  const count = state.phase === 'results' ? state.events.length : 0;
   const isActive = (c) => place?.city === c.city && (place.country || '') === (c.country || '');
 
   const prompting = state.phase === 'offer' || state.phase === 'manual';
@@ -248,10 +250,12 @@ export default function NearbyEvents({ initialCities = null }) {
             </div>
           )}
           {state.phase === 'results' && (
-            <CardRail label="Nearby events" className="es-near__rail">
+            /* One or two events fill the width on a phone instead of leaving a
+               lone narrow card; a single one is laid out as a row (2026-11-18). */
+            <CardRail label="Nearby events" className={`es-near__rail es-near__rail--n${Math.min(count, 3)}`}>
               {state.events.map((event) => (
                 <li key={event.id} className="es-near__item">
-                  <EventCard event={event} />
+                  <EventCard event={event} adaptive={count === 1} />
                   {distanceLabel(event) && (
                     <p className="es-near__distance">
                       <NavIcon name="pin" size={14} />
@@ -263,16 +267,27 @@ export default function NearbyEvents({ initialCities = null }) {
             </CardRail>
           )}
           {state.phase === 'empty' && (
-            <div className="es-empty es-empty--rich es-near__empty">
-              <span aria-hidden className="es-empty__mark"><NavIcon name="pin" size={22} /></span>
-              <p className="text-md font-medium text-ink">{state.message}</p>
-              <div className="es-near__empty-actions">
-                {state.nearest?.city && (
-                  <button type="button" className="es-btn es-btn--primary es-btn--sm" onClick={() => loadCity({ city: state.nearest.city, country: state.nearest.country })}>
-                    See events in {state.nearest.city}
-                  </button>
-                )}
-                <Link href="/events" className="es-btn es-btn--secondary es-btn--sm">Browse all events</Link>
+            /* Compact, like the prompt: what happened, and one tap to somewhere
+               with events (2026-11-18 — the big centred box looked broken). */
+            <div className="es-near__none">
+              <span aria-hidden className="es-near__prompt-mark"><NavIcon name="pin" size={20} /></span>
+              <div className="fx-min0">
+                <p className="es-near__none-title">{state.message}</p>
+                <p className="es-near__none-sub">New events are added every week. Meanwhile:</p>
+                <div className="es-near__none-actions">
+                  {state.nearest?.city && (
+                    <button type="button" className="es-near__chip" onClick={() => loadCity({ city: state.nearest.city, country: state.nearest.country })}>
+                      See events in {state.nearest.city}
+                    </button>
+                  )}
+                  {suggestion && (
+                    <button type="button" className="es-near__chip" onClick={() => loadCity({ city: suggestion.city, country: suggestion.country })}>
+                      Try {suggestion.city}
+                      {suggestion.events ? <span className="es-near__count">{suggestion.events}</span> : null}
+                    </button>
+                  )}
+                  <Link href="/events" className="es-near__chip">Browse all events</Link>
+                </div>
               </div>
             </div>
           )}

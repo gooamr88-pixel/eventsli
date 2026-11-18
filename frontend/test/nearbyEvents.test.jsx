@@ -158,4 +158,21 @@ describe('Near you on the homepage', () => {
     // The chosen city joins the chips, pressed.
     expect(within(group).getByRole("button", { name: /City K/ })).toHaveAttribute("aria-pressed", "true");
   });
+
+  test("a city with nothing on: the chosen chip comes first, and one tap goes somewhere busier", async () => {
+    permission = "prompt";
+    window.localStorage.setItem("eventsli.nearby.city", JSON.stringify({ city: "Quiet Town", country: "CA" }));
+    const cities = [{ city: "Toronto", country: "CA", events: 12 }, { city: "Quiet Town", country: "CA", events: 1 }];
+    get.mockImplementation(async (path) => (path.includes("city=Quiet") ? [] : [{ ...EVENT, id: "e3", title: "Toronto Night" }]));
+    render(<NearbyEvents initialCities={cities} />);
+    await flush();
+    const chips = within(screen.getByRole("group", { name: /Where to look/ })).getAllByRole("button");
+    expect(chips[1]).toHaveTextContent("Quiet Town");
+    expect(chips[1]).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByText("Nothing is on in Quiet Town just yet.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Browse all events" })).toHaveAttribute("href", "/events");
+    fireEvent.click(screen.getByRole("button", { name: /Try Toronto/ }));
+    await flush();
+    expect(screen.getByText("Toronto Night")).toBeInTheDocument();
+  });
 });
