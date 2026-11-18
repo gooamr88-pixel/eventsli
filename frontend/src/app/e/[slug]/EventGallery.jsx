@@ -2,7 +2,6 @@
 
 import { useCallback, useRef, useState } from 'react';
 import Image from 'next/image';
-import ImageLoader from '../../components/ImageLoader';
 import Lightbox from '../../components/Lightbox';
 import { safeExternalUrl } from '../../utils/safeUrl';
 
@@ -84,7 +83,6 @@ export default function EventGallery({ items = [] }) {
                 sizes="(max-width: 640px) 50vw, 200px"
                 className="object-cover transition-transform duration-300 group-hover:scale-105"
               />
-              <ImageLoader />
               {item.caption && (
                 <span className="absolute inset-x-0 bottom-0 bg-ink/70 px-2 py-1 text-left text-xs text-white">
                   {item.caption}

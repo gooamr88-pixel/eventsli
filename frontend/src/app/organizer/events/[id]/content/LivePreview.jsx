@@ -1,6 +1,5 @@
 import Image from 'next/image';
 import NavIcon from '../../../../components/shell/NavIcon';
-import ImageLoader from '../../../../components/ImageLoader';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -52,7 +51,6 @@ export default function LivePreview({ event, media, schedule, sponsors, publicUr
           {event.cover?.url
             ? <Image src={event.cover.url} alt="" fill sizes="360px" className="object-cover" />
             : <span className="es-pbprev__none"><NavIcon name="image" size={28} /></span>}
-          {event.cover?.url && <ImageLoader key={event.cover.url} />}
           <span className="es-pbprev__logo">
             {event.logo?.url
               ? <Image src={event.logo.url} alt="" width={64} height={64} className="h-full w-full object-contain" />
@@ -74,7 +72,7 @@ export default function LivePreview({ event, media, schedule, sponsors, publicUr
             <p className="es-pbprev__h"><NavIcon name="image" size={18} />Gallery</p>
             <div className="es-pbprev__thumbs">
               {photos.map((m) => (
-                <span key={m.id} className="es-pbprev__thumb"><Image src={m.url} alt="" fill sizes="120px" className="object-cover" /><ImageLoader /></span>
+                <span key={m.id} className="es-pbprev__thumb"><Image src={m.url} alt="" fill sizes="120px" className="object-cover" /></span>
               ))}
             </div>
           </div>

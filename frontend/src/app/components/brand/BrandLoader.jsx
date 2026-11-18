@@ -3,15 +3,14 @@ import { WORDMARK_EVENTS, WORDMARK_LI, WORDMARK_SPARK } from './wordmarkPath';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
- * The logo, assembling itself — the loading animation (owner's video,
- * 2026-11-18), looped:
+ * The logo, assembling itself — the owner's video (2026-11-18), played once
+ * between pages by PageTransition:
  *
  *   1. the yellow card drops in and settles with a small squash
  *   2. the ticket notches cut into its sides
  *   3. the E is drawn stroke by stroke: I → F → E
  *   4. "eventsli" rises into place from behind a mask
- *   5. the spark pops over the i with a little burst
- *   6. a hold, then the whole thing fades and starts again
+ *   5. the spark pops over the i with a little burst, and it rests there
  *
  * BUILT FROM THE REAL LOGO GEOMETRY (markPath.js / wordmarkPath.js), not a
  * video or a GIF: it is a few hundred bytes, sharp at any size, and it takes
@@ -30,8 +29,8 @@ import { WORDMARK_EVENTS, WORDMARK_LI, WORDMARK_SPARK } from './wordmarkPath';
  * resting style is the finished logo, so under `prefers-reduced-motion` —
  * where the animations are switched off — the complete logo simply sits there.
  *
- * Decorative: the caller says what is loading (ImageLoader is aria-hidden; a
- * route fallback puts the words on its role="status" wrapper).
+ * Decorative: the caller says what is loading (PageTransition puts the words
+ * on its role="status" wrapper).
  *
  * @param {'full'|'mark'} [variant]  the stacked lockup, or the card alone for
  *   frames too small for the word to be read

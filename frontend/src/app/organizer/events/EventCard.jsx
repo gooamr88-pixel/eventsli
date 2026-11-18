@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import { formatMoneyCompact } from '../../utils/money';
 import NavIcon from '../../components/shell/NavIcon';
-import ImageLoader from '../../components/ImageLoader';
 import MoreActions, { MoreItem } from '../../components/ui/MoreActions';
 import { eventLook, whenOf, dateRange } from './eventLook';
 
@@ -32,7 +31,6 @@ export default function EventCard({ event, now }) {
           // eslint-disable-next-line @next/next/no-img-element
           ? <img src={event.coverUrl} alt="" loading="lazy" />
           : <span className="es-ocard__placeholder"><NavIcon name="image" size={32} /></span>}
-        {event.coverUrl && <ImageLoader />}
         <span className="es-evpill es-ocard__pill" data-tone={tone}><NavIcon name={icon} size={14} />{label}</span>
         <span className="es-ocard__more">
           <MoreActions compact align="end" srLabel={`More for ${event.title}`} triggerClassName="es-ocard__kebab" trigger={<NavIcon name="kebab" size={20} />}>

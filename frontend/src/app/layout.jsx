@@ -2,6 +2,7 @@ import { headers } from 'next/headers';
 import { DM_Sans, DM_Mono, Urbanist, Sacramento } from 'next/font/google';
 import SiteHeader from './components/SiteHeader';
 import SiteFooter from './components/SiteFooter';
+import PageTransition from './components/PageTransition';
 import './globals.css';
 
 /**
@@ -242,6 +243,8 @@ export default async function RootLayout({ children }) {
           {children}
         </div>
         <SiteFooter />
+        {/* The logo animation between pages; renders nothing until a link is followed. */}
+        <PageTransition />
       </body>
     </html>
   );

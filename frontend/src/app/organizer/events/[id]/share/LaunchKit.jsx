@@ -9,7 +9,6 @@ import NavIcon from '../../../../components/shell/NavIcon';
 import { QuotaDots } from '../../new/ai/AiParts';
 import { useEventContext } from '../EventContext';
 import { FORMATS, dateLine, drawShareImage, loadImage } from './shareImage';
-import BrandLoader from '../../../../components/brand/BrandLoader';
 import { keepKey, keptWhen, readKept, writeKept } from '../../../../utils/localKeep';
 
 /**
@@ -131,15 +130,7 @@ function ShareImages({ coverUrl, info, slug }) {
             {images[format]
               // eslint-disable-next-line @next/next/no-img-element
               ? <img src={images[format]} alt={`${f.label} image for this event`} />
-              // The logo animation while the images are drawn.
-              : (
-                <span className="es-kit-image__ghost" aria-hidden="true">
-                  <span className="es-imgload">
-                    <BrandLoader className="es-imgload__full" />
-                    <BrandLoader variant="mark" className="es-imgload__mark" />
-                  </span>
-                </span>
-              )}
+              : <span className="es-skeleton es-kit-image__ghost" aria-hidden="true" />}
           </div>
           <figcaption className="es-kit-image__info">
             <span className="text-md font-semibold text-ink">{f.label}</span>

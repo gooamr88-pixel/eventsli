@@ -6,7 +6,6 @@ import { messageFor } from '../../../../utils/errors';
 import NavIcon from '../../../../components/shell/NavIcon';
 import TierDetailIcon, { DETAIL_ICONS } from '../../../../components/tickets/TierDetailIcon';
 import { downscale } from '../map/studio/uploadStudioImage';
-import ImageLoader from '../../../../components/ImageLoader';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -254,7 +253,6 @@ export function PhotoField({
             // eslint-disable-next-line @next/next/no-img-element
             ? <img src={image.url} alt="" />
             : <NavIcon name="image" size={26} />}
-          {image?.url && <ImageLoader key={image.url} />}
         </span>
         <span className="fx-stack fx-stack--sm gap-1">
           <span className="fx-row gap-2">

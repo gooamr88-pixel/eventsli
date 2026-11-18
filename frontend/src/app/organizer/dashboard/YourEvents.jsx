@@ -6,7 +6,6 @@ import { formatEventTime } from '../../lib/eventTime';
 import NavIcon from '../../components/shell/NavIcon';
 import MoreActions, { MoreItem } from '../../components/ui/MoreActions';
 import { whenOf, eventLook } from '../events/eventLook';
-import ImageLoader from '../../components/ImageLoader';
 import { useNowMinute } from '../../hooks/useNowMinute';
 
 /**
@@ -96,7 +95,6 @@ export function EventRow({ event, now }) {
             // eslint-disable-next-line @next/next/no-img-element
             ? <img src={event.coverUrl} alt="" loading="lazy" />
             : <NavIcon name="image" size={22} />}
-          {event.coverUrl && <ImageLoader />}
         </span>
         <span className="fx-min0">
           <span className="es-evrow__title fx-truncate">{event.title}</span>

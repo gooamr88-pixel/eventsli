@@ -19,8 +19,6 @@
  * replace it and must not be extended to imitate it.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-import BrandLoader from '../../components/brand/BrandLoader';
-
 export default function EventLoading() {
   return (
     <main>
@@ -29,14 +27,8 @@ export default function EventLoading() {
           <div role="status" aria-live="polite" aria-label="Loading this event">
             <div aria-hidden="true" className="fx-stack">
               {/* The cover. A ratio rather than a height, matching the real
-                  hero, so the fold does not move when the image arrives — and
-                  the logo animation in it, as on every image still loading. */}
-              <span className="relative block aspect-[16/9] w-full overflow-hidden rounded-(--es-radius-lg)">
-                <span className="es-imgload">
-                  <BrandLoader className="es-imgload__full" />
-                  <BrandLoader variant="mark" className="es-imgload__mark" />
-                </span>
-              </span>
+                  hero, so the fold does not move when the image arrives. */}
+              <span className="es-skeleton aspect-[16/9] w-full rounded-(--es-radius-lg)" />
 
               {/* Kicker, title, then the date-and-venue line. Uneven widths:
                   a stack of equal bars reads as a loading graphic rather than
