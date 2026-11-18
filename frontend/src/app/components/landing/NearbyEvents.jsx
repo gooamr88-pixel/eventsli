@@ -141,14 +141,33 @@ export default function NearbyEvents({ initialCities = null }) {
   const title = place?.city ? `What's on in ${place.city}` : place?.here ? 'Happening near you' : "What's on near you";
   const browseHref = place?.city ? `/events?city=${encodeURIComponent(place.city)}` : '/events';
 
-  // The bar's two lines: where we are looking, and what happens to the answer.
-  const where = place?.here
-    ? { main: 'Near your location', sub: 'Within 100 km, nearest first. Your location is never stored.' }
+  /**
+   * REDESIGNED 2026-11-18 (owner: "very terrible in mobile mode — also laptop").
+   * The location bar and its dropdown became ONE row of chips — Near me, then
+   * the busiest cities with their counts — that swipes on a phone and wraps on
+   * a laptop; the rest of the cities sit in a small "More cities" menu. The
+   * results are a compact horizontal strip at every size, so this band stays
+   * short and does not repeat the Popular grid under it.
+   */
+  const TOP = 8;
+  const ranked = [...cities].sort((a, b) => (b.events || 0) - (a.events || 0));
+  const top = ranked.slice(0, TOP);
+  if (place?.city && !top.some((c) => c.city === place.city)) {
+    const chosen = ranked.find((c) => c.city === place.city);
+    if (chosen) top.push(chosen);
+  }
+  const more = ranked.filter((c) => !top.includes(c));
+  const isActive = (c) => place?.city === c.city && (place.country || '') === (c.country || '');
+
+  const prompting = state.phase === 'offer' || state.phase === 'manual';
+  // One quiet line under the chips: what happens to the answer.
+  const hint = place?.here
+    ? 'Within 100 km, nearest first. Your location is rounded to about 100 m and never stored.'
     : place?.city
-      ? { main: place.city, sub: 'Remembered on this device only.' }
-      : { main: 'Find events near you', sub: canLocate
-        ? 'Use your location — rounded to about 100 m and never stored — or pick a city.'
-        : 'Pick a city to see what is on there.' };
+      ? `Showing ${place.city}. Remembered on this device only.`
+      : canLocate
+        ? 'Tap Near me — your location is rounded to about 100 m and never stored — or pick a city.'
+        : 'Pick a city to see what is on there.';
 
   return (
     <section className="es-near fx-section" aria-labelledby="near-title">
@@ -163,50 +182,73 @@ export default function NearbyEvents({ initialCities = null }) {
           </Link>
         </div>
 
-        <div className="es-near__bar">
-          <div className="es-near__where">
-            <span aria-hidden className="es-near__pin"><NavIcon name="pin" size={20} /></span>
-            <div className="fx-min0">
-              <p className="es-near__place">{where.main}</p>
-              <p className="es-near__hint">{where.sub}</p>
-            </div>
-          </div>
-
-          <div className="es-near__actions">
-            {canLocate && (
-              <button type="button" className="es-near__locate" onClick={locate} disabled={loading}>
-                <NavIcon name="locate" size={18} />
-                {place?.here ? 'Refresh location' : 'Use my location'}
-              </button>
-            )}
-            <label className="es-near__city">
-              <span className="sr-only">{canLocate ? 'Or choose a city' : 'Choose a city'}</span>
+        <div className="es-near__picker" role="group" aria-label="Where to look for events">
+          {canLocate && (
+            <button
+              type="button"
+              className="es-near__chip es-near__chip--here"
+              aria-pressed={place?.here ? 'true' : 'false'}
+              onClick={locate}
+              disabled={loading}
+            >
+              <NavIcon name="locate" size={16} />
+              {place?.here ? 'Near me · refresh' : 'Near me'}
+            </button>
+          )}
+          {top.map((c) => (
+            <button
+              key={`${c.city}|${c.country}`}
+              type="button"
+              className="es-near__chip"
+              aria-pressed={isActive(c) ? 'true' : 'false'}
+              onClick={() => (isActive(c) ? chooseCity('') : chooseCity(`${c.city}|${c.country || ''}`))}
+              disabled={loading}
+            >
+              {c.city}
+              {c.events ? <span className="es-near__count">{c.events}</span> : null}
+            </button>
+          ))}
+          {more.length > 0 && (
+            <label className="es-near__more">
+              <span className="sr-only">More cities</span>
               <select
-                className="es-input es-near__select"
-                value={place?.city ? `${place.city}|${place.country || ''}` : ''}
+                value=""
                 onChange={(e) => chooseCity(e.target.value)}
                 disabled={loading}
               >
-                <option value="">{place?.city ? 'Any city' : 'Select a city'}</option>
-                {cities.map((c) => (
-                  <option key={`${c.city}|${c.country}`} value={`${c.city}|${c.country}`}>
+                <option value="">More cities</option>
+                {more.map((c) => (
+                  <option key={`${c.city}|${c.country}`} value={`${c.city}|${c.country || ''}`}>
                     {c.city} ({c.events})
                   </option>
                 ))}
               </select>
+              <NavIcon name="chevronDown" size={14} />
             </label>
-          </div>
+          )}
         </div>
-        {state.note && <p className="es-near__note" role="status">{state.note}</p>}
+        {/* Not under the prompt, which says the same thing. */}
+        {(state.note || !prompting) && <p className="es-near__hint">{state.note || hint}</p>}
 
         <div className="es-near__results" aria-live="polite" aria-busy={loading}>
           {loading && (
-            <ul className="es-lp-cards" aria-label="Finding events near you">
-              {[0, 1, 2].map((n) => <li key={n} className="es-skeleton es-lp-cards__ghost" />)}
+            <ul className="es-near__ghosts" aria-label="Finding events near you">
+              {[0, 1, 2, 3].map((n) => <li key={n} className="es-skeleton" />)}
             </ul>
           )}
+          {prompting && (
+            <div className="es-near__prompt">
+              <span aria-hidden className="es-near__prompt-mark"><NavIcon name="pin" size={20} /></span>
+              <p>
+                <b>See what&apos;s on around you.</b>{' '}
+                {canLocate
+                  ? 'Tap Near me — your location is rounded to about 100 m and never stored — or choose a city.'
+                  : 'Choose a city above.'}
+              </p>
+            </div>
+          )}
           {state.phase === 'results' && (
-            <CardRail label="Nearby events">
+            <CardRail label="Nearby events" className="es-near__rail">
               {state.events.map((event) => (
                 <li key={event.id} className="es-near__item">
                   <EventCard event={event} />

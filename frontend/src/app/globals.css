@@ -9567,6 +9567,15 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
    a pin, where we are looking, the privacy promise as its subtitle — and the
    two ways to change it side by side as real buttons. Results are the same
    card rail the popular-events band uses, each with its distance in the brand coral. */
+/* REDESIGNED AGAIN 2026-11-18 (owner: "very terrible in mobile mode — also
+   laptop"). The location card — a pin, two lines of small print, a red
+   button and a dropdown — took a phone's whole first screen, and the results
+   were a tall two-column stack right before the Popular grid that looks the
+   same. Now: ONE row of chips (Near me, then the busiest cities with their
+   counts; the rest in "More cities"), a single quiet line under it, and the
+   results as a compact strip — about two cards on a phone, four on a laptop —
+   so this band stays short. Selected chips are the brand's yellow fill with
+   near-black text, like the category chips. */
 .es-near.fx-section { padding-top: clamp(2rem, 5vw, 3.5rem); }
 
 .es-near__head {
@@ -9574,86 +9583,161 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
   align-items: flex-end;
   justify-content: space-between;
   gap: 1rem;
-  margin-bottom: 1.25rem;
+  margin-bottom: 1rem;
 }
 /* Room to press: a bare text link at the end of a heading row is easy to miss. */
 .es-near__all { flex: none; min-height: var(--fx-touch); }
 
-.es-near__bar {
-  display: grid;
-  gap: 1rem;
-  padding: 1rem;
-  border: 1px solid var(--es-border);
-  border-radius: 20px;
-  background: var(--es-surface);
-  box-shadow: var(--es-shadow-sm);
+/* Swipes on a phone, edge to edge; wraps from md. */
+.es-near__picker {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.5rem;
+  margin-inline: calc(-1 * var(--fx-pad-x));
+  padding: 2px var(--fx-pad-x) 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
 }
-.es-near__where { display: flex; align-items: center; gap: 0.875rem; min-width: 0; }
-.es-near__pin {
-  display: grid;
-  place-items: center;
-  flex: none;
-  width: 2.75rem;
-  height: 2.75rem;
-  border-radius: 999px;
-  background: var(--es-accent-wash);
-  color: var(--es-accent);
-}
-.es-near__place {
-  margin: 0;
-  font-size: var(--es-text-md);
-  font-weight: 600;
-  line-height: 1.25;
-  color: var(--es-text);
-}
-.es-near__hint {
-  margin: 0.125rem 0 0;
-  font-size: var(--es-text-sm);
-  line-height: 1.4;
-  color: var(--es-text-muted);
+.es-near__picker::-webkit-scrollbar { display: none; }
+@media (width >= 48rem) {
+  .es-near__picker { flex-wrap: wrap; margin-inline: 0; padding: 0; overflow: visible; }
 }
 
-/* Two equal halves on a phone, and on a wide screen beside the text. */
-.es-near__actions {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
-  gap: 0.625rem;
-}
-.es-near__locate {
+.es-near__chip {
   display: inline-flex;
+  flex: none;
   align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  min-height: 3rem;
-  padding: 0 1rem;
-  border: 0;
-  border-radius: 12px;
-  background: var(--es-accent);
-  color: var(--es-text-on-accent);
+  gap: 0.45rem;
+  min-height: 2.5rem;
+  padding: 0 0.95rem;
+  border: 1px solid var(--es-border-strong);
+  border-radius: var(--es-radius-full);
+  background: var(--es-surface);
+  color: var(--es-text);
   font-family: var(--es-font-sans);
   font-size: var(--es-text-sm);
   font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
-  transition: background-color var(--es-transition-fast);
+  transition: border-color var(--es-transition-fast), background-color var(--es-transition-fast);
 }
-.es-near__locate:hover { background: var(--es-accent-hover); }
-.es-near__locate:disabled { cursor: progress; opacity: 0.7; }
-.es-near__city { display: block; min-width: 0; }
-.es-near__select { width: 100%; min-height: 3rem; border-radius: 12px; font-weight: 500; }
-
-@media (width >= 48rem) {
-  .es-near__bar {
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
-    padding: 1rem 1rem 1rem 1.25rem;
-  }
-  .es-near__actions { grid-template-columns: auto minmax(12rem, 16rem); }
+.es-near__chip:hover { border-color: var(--es-text); }
+.es-near__chip:disabled { cursor: progress; opacity: 0.7; }
+.es-near__chip--here { border-color: var(--es-accent); color: var(--es-accent); }
+.es-near__chip--here:hover { border-color: var(--es-accent); background: var(--es-accent-wash); }
+.es-near__chip[aria-pressed='true'] {
+  border-color: var(--es-highlight);
+  background: var(--es-highlight);
+  color: var(--es-text-on-highlight);
 }
+.es-near__count {
+  min-width: 1.4rem;
+  padding: 0 0.4rem;
+  border-radius: var(--es-radius-full);
+  background: var(--es-bg-sunken);
+  font-size: var(--es-text-xs);
+  font-weight: 700;
+  line-height: 1.4rem;
+  text-align: center;
+  color: var(--es-text-muted);
+}
+.es-near__chip[aria-pressed='true'] .es-near__count { background: rgb(255 255 255 / 0.55); color: var(--es-text-on-highlight); }
 
-.es-near__note { margin: 0.75rem 0 0; font-size: var(--es-text-sm); color: var(--es-text-muted); }
-.es-near__results { margin-top: 1.25rem; }
+.es-near__more { position: relative; display: inline-flex; flex: none; align-items: center; color: var(--es-text); }
+.es-near__more select {
+  appearance: none;
+  min-height: 2.5rem;
+  padding: 0 2.1rem 0 0.95rem;
+  border: 1px dashed var(--es-border-strong);
+  border-radius: var(--es-radius-full);
+  background: var(--es-surface);
+  color: var(--es-text);
+  font-family: var(--es-font-sans);
+  font-size: var(--es-text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+.es-near__more svg { position: absolute; right: 0.8rem; pointer-events: none; }
+
+.es-near__hint { margin: 0.6rem 0 0; font-size: var(--es-text-xs); line-height: 1.45; color: var(--es-text-subtle); }
+
+.es-near__results { margin-top: 1rem; }
 .es-near__results:empty { display: none; }
+
+/* Nothing chosen yet: one short line, not an empty box. */
+.es-near__prompt {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.9rem 1rem;
+  border-radius: 16px;
+  background: var(--es-highlight-wash);
+  font-size: var(--es-text-sm);
+  color: var(--es-text-muted);
+}
+.es-near__prompt p { margin: 0; }
+.es-near__prompt b { color: var(--es-text); }
+.es-near__prompt-mark {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 999px;
+  background: var(--es-surface);
+  color: var(--es-accent);
+}
+
+.es-near__ghosts {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 46%;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  list-style: none;
+}
+.es-near__ghosts > li { aspect-ratio: 4 / 6.4; border-radius: 14px; }
+@media (width >= 48rem) { .es-near__ghosts { grid-auto-columns: calc((100% - 2rem) / 3); gap: 1rem; } }
+@media (width >= 64rem) { .es-near__ghosts { grid-auto-columns: calc((100% - 3.75rem) / 4); gap: 1.25rem; } }
+
+/* The strip. On a phone: a swipe row of the compact cards (about two in
+   view, the next peeking) instead of the two-column grid the Popular band
+   uses. From md: the paged rail, but four across on a laptop. Every card is
+   kept — the Popular grid hides those after the sixth, a strip does not need
+   to. Specific enough to win over both .es-lp-rail rule sets. */
+.es-near .es-lp-cards.es-lp-rail {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-columns: none;
+  grid-auto-columns: 46%;
+  gap: 0.75rem;
+  margin-inline: calc(-1 * var(--fx-pad-x));
+  padding: 4px var(--fx-pad-x) 12px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: var(--fx-pad-x);
+  scrollbar-width: none;
+}
+.es-near .es-lp-cards > li:nth-child(n) { display: grid; scroll-snap-align: start; }
+@media (width >= 40rem) { .es-near .es-lp-cards.es-lp-rail { grid-auto-columns: 31%; } }
+@media (width >= 48rem) {
+  .es-near .es-rail .es-lp-cards.es-lp-rail {
+    grid-auto-columns: calc((100% - 2rem) / 3);
+    gap: 1rem;
+    margin-inline: 0;
+    padding-inline: 0;
+    scroll-padding-inline: 0;
+  }
+}
+@media (width >= 64rem) {
+  .es-near .es-rail .es-lp-cards.es-lp-rail { grid-auto-columns: calc((100% - 3.75rem) / 4); gap: 1.25rem; }
+}
+
+/* On a phone the half-visible next card says there is more; the arrows and
+   dots would only add a gap. */
+@media (width < 48rem) { .es-near .es-rail__nav { display: none; } }
 .es-near__item { display: grid; gap: 0.375rem; align-content: start; }
 .es-near__distance {
   display: inline-flex;
@@ -16814,37 +16898,144 @@ label.es-chip:has(:focus-visible) { outline: 2px solid var(--es-accent); outline
     .es-ordx__extras { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
   }
 
-  /* ── /o/<slug> ── */
-  .es-orgpage__hero {
-    padding-block: 2.5rem 2rem;
-    border-bottom: 1px solid var(--es-border);
-    background:
-      radial-gradient(60rem 18rem at 10% -20%, var(--es-highlight-wash), transparent 70%),
-      var(--es-surface);
-  }
-  .es-orgpage__head { display: grid; gap: 1.25rem; align-items: center; }
-  @media (width >= theme(--breakpoint-md)) {
-    .es-orgpage__head { grid-template-columns: auto minmax(0, 1fr) auto; gap: 1.75rem; }
-  }
-  .es-orgpage__logo { width: 6.5rem; height: 6.5rem; border-radius: 22px; font-size: 3rem; box-shadow: 0 10px 30px -12px rgb(17 16 24 / 0.35); }
+  /* ── /o/<slug> — redesigned 2026-11-18 ("profile in design is very terrible";
+     a lone event card stretched across the whole width).
+     A cover band of their own artwork, the logo overlapping it, the name and
+     actions under it, three stat tiles, then events beside a sidebar. The event
+     grid is the listing's own (.es-ev-results, auto-fill), so a single card
+     keeps a card's width. ── */
   .es-orgpage__logo--sm { width: 4.5rem; height: 4.5rem; border-radius: 16px; font-size: 2rem; box-shadow: none; }
-  .es-orgpage__kicker { display: flex; align-items: center; gap: 0.4rem; margin: 0; font-size: var(--es-text-xs); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--es-accent); }
-  .es-orgpage__name { margin: 0.35rem 0 0; font-family: var(--es-font-display); font-size: var(--es-text-4xl); font-weight: 900; line-height: 1.05; color: var(--es-text); }
-  .es-orgpage__stats { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.9rem 0 0; padding: 0; list-style: none; }
-  .es-orgpage__stats li { padding: 0.3rem 0.75rem; border: 1px solid var(--es-border); border-radius: var(--es-radius-full); background: var(--es-surface); font-size: var(--es-text-sm); color: var(--es-text-muted); }
-  .es-orgpage__stats b { color: var(--es-text); }
-  .es-orgpage__contact { display: grid; gap: 0.75rem; justify-items: start; }
-  @media (width >= theme(--breakpoint-md)) { .es-orgpage__contact { justify-items: end; } }
-  .es-orgpage__actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-  .es-orgpage__social { display: flex; flex-wrap: wrap; gap: 0.35rem 1rem; margin: 0; padding: 0; list-style: none; font-size: var(--es-text-sm); }
-  .es-orgpage__social a { font-weight: 700; color: var(--es-text); text-decoration: none; }
-  .es-orgpage__social a:hover { color: var(--es-accent); text-decoration: underline; }
-  .es-orgpage__about { max-width: 46rem; margin: 1.5rem 0 0; font-size: var(--es-text-md, 1rem); line-height: 1.65; color: var(--es-text-muted); white-space: pre-line; }
-  .es-orgpage__h2 { margin: 0; font-family: var(--es-font-display); font-size: var(--es-text-2xl); font-weight: 800; color: var(--es-text); }
-  .es-orgpage__grid { margin: 0; padding: 0; list-style: none; }
-  .es-orgpage__empty { display: flex; align-items: center; gap: 0.75rem; padding: 1.25rem; border: 1px dashed var(--es-border-strong); border-radius: var(--es-radius-lg); color: var(--es-text-muted); }
-  .es-orgpage__empty p { margin: 0; }
-  .es-orgpage__empty a { font-weight: 700; color: var(--es-accent); }
+
+  .es-orgp { padding-bottom: 4rem; }
+  .es-orgp__cover {
+    position: relative;
+    height: 11rem;
+    overflow: hidden;
+    background:
+      radial-gradient(40rem 14rem at 15% 0%, rgb(255 204 0 / 0.45), transparent 70%),
+      radial-gradient(36rem 14rem at 90% 100%, rgb(255 65 75 / 0.4), transparent 70%),
+      var(--es-night-900);
+  }
+  .es-orgp__cover-img {
+    position: absolute;
+    inset: -40px;
+    width: calc(100% + 80px);
+    height: calc(100% + 80px);
+    object-fit: cover;
+    filter: blur(28px) saturate(1.2) brightness(0.7);
+  }
+  .es-orgp__cover::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgb(17 16 24 / 0) 40%, rgb(17 16 24 / 0.35));
+  }
+  @media (width >= theme(--breakpoint-md)) { .es-orgp__cover { height: 14rem; } }
+
+  .es-orgp__head {
+    position: relative;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0.5rem 1rem;
+    align-items: start;
+    margin-top: -3rem;
+  }
+  /* Only the logo overlaps the cover; the words start below its edge. */
+  .es-orgp__id { padding-top: 3.4rem; }
+  .es-orgp__logo {
+    display: grid;
+    place-items: center;
+    width: 6rem;
+    height: 6rem;
+    overflow: hidden;
+    border: 4px solid var(--es-surface);
+    border-radius: 22px;
+    background: var(--es-highlight);
+    color: var(--es-text-on-highlight);
+    font-family: var(--es-font-display);
+    font-size: 2.6rem;
+    font-weight: 900;
+    box-shadow: 0 12px 30px -12px rgb(17 16 24 / 0.45);
+  }
+  .es-orgp__logo img { width: 100%; height: 100%; object-fit: cover; background: #ffffff; }
+  .es-orgp__kicker { margin: 0; font-size: var(--es-text-xs); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--es-accent); }
+  .es-orgp__name { margin: 0.15rem 0 0; font-family: var(--es-font-display); font-size: var(--es-text-2xl); font-weight: 900; line-height: 1.08; color: var(--es-text); }
+  .es-orgp__meta { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; margin: 0.4rem 0 0; font-size: var(--es-text-sm); color: var(--es-text-muted); }
+  .es-orgp__meta span { display: inline-flex; align-items: center; gap: 0.3rem; }
+  .es-orgp__actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.75rem; }
+  @media (width >= theme(--breakpoint-md)) {
+    .es-orgp__head { grid-template-columns: auto minmax(0, 1fr) auto; gap: 1.25rem; margin-top: -3.75rem; }
+    .es-orgp__logo { width: 8rem; height: 8rem; border-radius: 28px; font-size: 3.4rem; }
+    .es-orgp__name { font-size: var(--es-text-3xl); }
+    .es-orgp__id { padding-top: 4.4rem; }
+    .es-orgp__actions { grid-column: auto; margin-top: 0; padding-top: 4.6rem; }
+  }
+
+  .es-orgp__stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.75rem;
+    margin: 1.75rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  .es-orgp__stats li {
+    display: grid;
+    gap: 0.15rem;
+    padding: 0.85rem 1rem;
+    border: 1px solid var(--es-border);
+    border-radius: var(--es-radius-lg);
+    background: var(--es-surface);
+  }
+  .es-orgp__stats b { font-family: var(--es-font-display); font-size: var(--es-text-2xl); font-weight: 900; line-height: 1; color: var(--es-text); }
+  .es-orgp__stats span { font-size: var(--es-text-xs); font-weight: 600; color: var(--es-text-muted); }
+  @media (width >= theme(--breakpoint-md)) { .es-orgp__stats { max-width: 36rem; } }
+
+  .es-orgp__body { display: grid; gap: 2rem; margin-top: 2.25rem; }
+  @media (width >= theme(--breakpoint-lg)) {
+    .es-orgp__body { grid-template-columns: minmax(0, 1fr) 20rem; gap: 2.5rem; align-items: start; }
+    .es-orgp__side { position: sticky; top: 6rem; }
+  }
+  .es-orgp__main { display: grid; gap: 2.5rem; min-width: 0; }
+  .es-orgp__section { display: grid; gap: 1rem; }
+  .es-orgp__sechead { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; padding-bottom: 0.6rem; border-bottom: 1px solid var(--es-border); }
+  .es-orgp__h2 { margin: 0; font-family: var(--es-font-display); font-size: var(--es-text-xl, 1.5rem); font-weight: 800; color: var(--es-text); }
+  .es-orgp__count { font-size: var(--es-text-sm); font-weight: 600; color: var(--es-text-subtle); }
+  /* The sidebar is narrower than the listing's page, so two cards across. */
+  @media (width >= theme(--breakpoint-md)) {
+    .es-orgp .es-ev-results { grid-template-columns: repeat(auto-fill, minmax(min(16.5rem, 100%), 1fr)); }
+  }
+
+  .es-orgp__empty { display: flex; align-items: center; gap: 1rem; padding: 1.25rem; border: 1px dashed var(--es-border-strong); border-radius: var(--es-radius-lg); color: var(--es-text-muted); }
+  .es-orgp__empty p { margin: 0; }
+  .es-orgp__empty a { font-weight: 700; color: var(--es-accent); }
+  .es-orgp__empty-icon { display: grid; flex: none; place-items: center; width: 2.75rem; height: 2.75rem; border-radius: 12px; background: var(--es-highlight-wash); color: var(--es-text); }
+  .es-orgp__empty-title { font-weight: 700; color: var(--es-text); }
+
+  .es-orgp__side { display: grid; gap: 1rem; }
+  .es-orgp__card { display: grid; gap: 0.6rem; padding: 1.1rem 1.2rem; border: 1px solid var(--es-border); border-radius: var(--es-radius-lg); background: var(--es-surface); box-shadow: var(--es-shadow-sm); }
+  .es-orgp__cardtitle { margin: 0; font-size: var(--es-text-xs); font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--es-text-subtle); }
+  .es-orgp__about { margin: 0; font-size: var(--es-text-sm); line-height: 1.65; color: var(--es-text-muted); white-space: pre-line; }
+  .es-orgp__rows { display: grid; gap: 0.65rem; margin: 0; padding: 0; list-style: none; font-size: var(--es-text-sm); }
+  .es-orgp__rows li { display: flex; align-items: center; gap: 0.6rem; color: var(--es-text-subtle); }
+  .es-orgp__rows a { font-weight: 600; color: var(--es-text); text-decoration: none; }
+  .es-orgp__rows a:hover { color: var(--es-accent); text-decoration: underline; }
+  .es-orgp__social { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0; padding: 0; list-style: none; }
+  .es-orgp__social a {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.4rem 0.8rem;
+    border: 1px solid var(--es-border-strong);
+    border-radius: var(--es-radius-full);
+    font-size: var(--es-text-sm);
+    font-weight: 600;
+    color: var(--es-text);
+    text-decoration: none;
+  }
+  .es-orgp__social a:hover { border-color: var(--es-accent); color: var(--es-accent); }
+  .es-orgp__note { display: flex; gap: 0.5rem; margin: 0; padding: 0 0.25rem; font-size: var(--es-text-xs); line-height: 1.5; color: var(--es-text-subtle); }
+  .es-orgp__note svg { flex: none; margin-top: 0.1rem; }
 
   .es-pubprof__logo { display: flex; align-items: center; gap: 1rem; }
 }

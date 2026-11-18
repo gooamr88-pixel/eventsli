@@ -1,5 +1,5 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, act, fireEvent } from '@testing-library/react';
+import { render, screen, act, fireEvent, within } from '@testing-library/react';
 import { startMode, roundCoords, distanceLabel, emptyMessage } from '../src/app/components/landing/nearbyModel';
 
 /**
@@ -80,13 +80,14 @@ describe('Near you on the homepage', () => {
     expect(nearCall).toContain('lat=43.643&lng=-79.387');   // rounded before it left
   });
 
+  // Redesign 2026-11-18: "Near me" is a chip, and the cities are a row of chips.
   test('not yet asked: no prompt on load — a button and a city list instead', async () => {
     permission = 'prompt';
     render(<NearbyEvents />);
     await flush();
     expect(navigator.geolocation.getCurrentPosition).not.toHaveBeenCalled();
-    expect(screen.getByRole('button', { name: /Use my location/ })).toBeInTheDocument();
-    expect(screen.getByRole('combobox')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Near me/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Toronto/ })).toHaveAttribute('aria-pressed', 'false');
   });
 
   test('refused: falls back to the city list, which works', async () => {
@@ -94,11 +95,11 @@ describe('Near you on the homepage', () => {
     position = Object.assign(new Error('denied'), { code: 1 });
     render(<NearbyEvents />);
     await flush();
-    fireEvent.click(screen.getByRole('button', { name: /Use my location/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Near me/ }));
     await flush();
     expect(screen.getByText(/Location is turned off for this site/)).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Use my location/ })).toBeNull();
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'Toronto|CA' } });
+    expect(screen.queryByRole('button', { name: /Near me/ })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /Toronto/ }));
     await flush();
     expect(screen.getByText('Toronto Night')).toBeInTheDocument();
     expect(JSON.parse(window.localStorage.getItem('eventsli.nearby.city'))).toEqual({ city: 'Toronto', country: 'CA' });
@@ -139,7 +140,22 @@ describe('Near you on the homepage', () => {
     permission = 'prompt';
     render(<NearbyEvents />);
     await flush();
-    expect(screen.queryByRole('button', { name: /Use my location/ })).toBeNull();
-    expect(screen.getByText('Choose a city')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Near me/ })).toBeNull();
+    expect(screen.getByRole('group', { name: /Where to look/ })).toBeInTheDocument();
+    expect(screen.getByText(/Choose a city above/)).toBeInTheDocument();
+  });
+  test("the busiest eight cities are chips; the rest wait in More cities", async () => {
+    permission = "prompt";
+    const cities = Array.from({ length: 11 }, (_, i) => ({ city: `City ${String.fromCharCode(65 + i)}`, country: "CA", events: 20 - i }));
+    render(<NearbyEvents initialCities={cities} />);
+    await flush();
+    const group = screen.getByRole("group", { name: /Where to look/ });
+    expect(within(group).getAllByRole("button", { name: /^City / })).toHaveLength(8);
+    const more = within(group).getByRole("combobox", { name: "More cities" });
+    expect(within(more).getAllByRole("option").map((o) => o.textContent)).toEqual(["More cities", "City I (12)", "City J (11)", "City K (10)"]);
+    fireEvent.change(more, { target: { value: "City K|CA" } });
+    await flush();
+    // The chosen city joins the chips, pressed.
+    expect(within(group).getByRole("button", { name: /City K/ })).toHaveAttribute("aria-pressed", "true");
   });
 });
