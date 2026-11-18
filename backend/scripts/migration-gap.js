@@ -54,6 +54,14 @@ const MIGRATIONS = [
   ['20261121090000_global_markets.sql', tab('markets')],
   ['20261121100000_invoice_payment_idempotency.sql', col('invoice_payments', 'idempotency_key')],
   ['20261122090000_offline_checkout.sql', tab('offline_payments')],
+  ['20261123090000_ticket_terms_v2.sql', setting('buyer terms version 2 is current', "SELECT 1 FROM terms_versions WHERE audience = 'buyer' AND version = 2 AND is_current")],
+  ['20261123100000_invoice_document.sql', col('invoices', 'sales_count')],
+  ['20261123110000_credit_notes_and_billing_details.sql', col('invoices', 'credited_cents')],
+  ['20261124090000_coming_soon.sql', col('events', 'coming_soon')],
+  // Without these two the price quote fails, so EVERY checkout fails, and so
+  // do ticket pages and the door scan (2026-11-18 production 500s).
+  ['20261125090000_ticket_addons.sql', tab('reservation_addons')],
+  ['20261126090000_addon_images.sql', col('event_addons', 'image_path')],
 ];
 
 const EXTRA = [

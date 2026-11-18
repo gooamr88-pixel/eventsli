@@ -9,12 +9,11 @@ import BrandLoader from './brand/BrandLoader';
  * The logo animation, full screen, BETWEEN PAGES (owner, 2026-11-18: "between
  * moving between pages only and appear completely").
  *
- * WHEN IT SHOWS. A click on a link — or back/forward — to a DIFFERENT page
- * that loads its content from the database (DATA_PAGES, owner 2026-11-18).
- * A fixed-content page (How it works, Privacy, the sign-in forms) is on screen
- * almost at once, and a logo in front of it would be a wait we invented.
- * Not on the first load, not on images, and not when only the query or the
- * hash changes (filter tabs, in-page anchors) — those are the same page.
+ * WHEN IT SHOWS. A click on a link — or back/forward — to one of the three
+ * storefront pages in TRANSITION_PAGES (owner 2026-11-18: "not for all pages
+ * of database — the suitable ones"). Not on the first load, not on images,
+ * and not when only the query or the hash changes (filter tabs, in-page
+ * anchors) — those are the same page.
  *
  * IT PLAYS COMPLETELY. The overlay stays until BOTH the animation has run to
  * the finished logo (HOLD_MS) AND the new page has arrived (the pathname
@@ -26,9 +25,6 @@ import BrandLoader from './brand/BrandLoader';
  * `defaultPrevented` cannot be used to filter — <Link> prevents the default
  * itself, before this listener runs. Programmatic `router.push()` (after a
  * form submits) is not covered; those already show their own busy state.
- *
- * NOT ON THE GATE, though it fetches. `/gate` is the door scanner: a second
- * per screen there is a second per guest in the queue.
  *
  * A link that turns out not to navigate (a handler cancelled it) would leave
  * the overlay up, so GIVE_UP_MS takes it down regardless.
@@ -43,26 +39,37 @@ const OUT_MS = 220;
 const GIVE_UP_MS = 12000;
 
 /**
- * The pages that wait on the database, by prefix (each covers its subpages).
- * Checked 2026-11-18: these fetch on the server or through apiClient as they
- * open. Everything else — /how-it-works, /why-us, /trust, /contact, /privacy,
- * /sms-terms, /tickets/find (fetches only after its form is sent), the
- * sign-in and register pages — is fixed content. A new page that loads data
- * belongs here.
+ * WHICH PAGES. The storefront's discovery path, where the server fetches
+ * before anything shows and a brand moment suits the jump:
+ *
+ *   /           the homepage, with its events
+ *   /events     the listing (not /events/saved — a small list of your own)
+ *   /e/<slug>   an event's page (not its /seats or /tickets steps)
+ *
+ * Deliberately NOT, though they load data (chosen 2026-11-18):
+ *   · the purchase steps — seats, tickets, cart, checkout: the buyer is mid
+ *     purchase, those screens have their own loading shapes, and a logo
+ *     there reads as a delay at the worst moment
+ *   · the dashboards (organizer, admin, account): worked in all day, and
+ *     they have their own skeletons — "not suitable between sections"
+ *   · a ticket, the terms, every fixed-content page (How it works, Privacy,
+ *     sign-in) — on screen at once, nothing to cover
+ *   · the door scanner, where a second per screen is a second per guest
  */
-const DATA_PAGES = [
-  '/events',     // the listing, and the saved list
-  '/e',          // an event, its seats, its tickets
-  '/cart',
-  '/checkout',
-  '/t',          // a ticket (`/t/` only — not /terms or /trust)
-  '/terms',      // the legal texts are served from the API
-  '/account',
-  '/organizer',
-  '/admin',
-];
-export const isDataPage = (path) => path === '/'   // the homepage's events
-  || DATA_PAGES.some((p) => path === p || path.startsWith(`${p}/`));
+export const isTransitionPage = (path) => path === '/' || path === '/events' || /^\/e\/[^/]+$/.test(path);
+
+const eventOf = (path) => path.match(/^\/e\/([^/]+)/)?.[1] || null;
+
+/** Does moving from `from` to `to` get the transition? */
+export function showsTransition(from, to) {
+  if (!to || to === from) return false;
+  if (!isTransitionPage(to)) return false;
+  // Back to an event's page from its own seats or tickets step: the same
+  // event, already loaded — no logo.
+  const ev = eventOf(to);
+  if (ev && ev === eventOf(from || '')) return false;
+  return true;
+}
 
 export default function PageTransition() {
   const pathname = usePathname();
@@ -109,16 +116,16 @@ export default function PageTransition() {
       let url;
       try { url = new URL(a.href, window.location.href); } catch { return; }
       if (url.origin !== window.location.origin) return;
-      // Same page — only the query or the hash differs.
-      if (url.pathname === window.location.pathname) return;
-      if (!isDataPage(url.pathname)) return;
+      // Same page (only the query or hash differs), a fixed-content page, or
+      // a hop between dashboard sections: no transition.
+      if (!showsTransition(window.location.pathname, url.pathname)) return;
       start();
     };
     // Back/forward: the URL has already changed; `st.path` is still the page
     // on screen.
     const onPop = () => {
       const next = window.location.pathname;
-      if (next !== st.path && isDataPage(next)) start();
+      if (showsTransition(st.path || '', next)) start();
     };
 
     document.addEventListener('click', onClick);
