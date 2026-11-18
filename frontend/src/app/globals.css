@@ -16589,3 +16589,158 @@ label.es-chip:has(:focus-visible) { outline: 2px solid var(--es-accent); outline
   }
   .es-scanaddons > span { color: var(--es-accent); }
 }
+
+/* ═══ THE LOADING LOGO — .es-bl, .es-imgload (2026-11-18) ═════════════════
+   The owner's video, as CSS on the real logo geometry (BrandLoader.jsx):
+   the card drops in and settles, the notches cut in, the E draws I → F → E,
+   the word rises from behind a mask, the spark pops with a burst, a hold,
+   then a fade and round again. One 3.4s loop; every part reads its own
+   keyframes against the same clock, so they cannot drift.
+
+   EVERY PART'S RESTING STYLE IS THE FINISHED LOGO. The keyframes describe
+   where each part comes FROM. So under reduced motion, where the animation
+   name is switched off, the complete logo sits still — not a blank frame
+   (the global block only shortens durations, and a shortened loop would end
+   on its faded-out last frame).
+
+   SVG transforms here are in the viewBox's own units, and every animated
+   part uses `transform-box: fill-box` so its origin is its own box. */
+@layer components {
+  .es-bl {
+    --es-bl-loop: 3.4s;
+    --es-bl-ease: cubic-bezier(0.22, 1, 0.36, 1);
+    display: block;
+    height: auto;
+    overflow: visible;
+  }
+  .es-bl :is(.es-bl__all, .es-bl__tile, .es-bl__notch, .es-bl__stem, .es-bl__arm, .es-bl__word, .es-bl__spark, .es-bl__burst) {
+    transform-box: fill-box;
+    animation-duration: var(--es-bl-loop);
+    animation-iteration-count: infinite;
+    animation-timing-function: var(--es-bl-ease);
+    animation-fill-mode: both;
+  }
+  .es-bl__all    { animation-name: es-bl-all; transform-origin: center; }
+  .es-bl__tile   { animation-name: es-bl-tile; transform-origin: 50% 100%; }
+  .es-bl__notch  { animation-name: es-bl-notch; transform-origin: center; }
+  .es-bl__stem   { animation-name: es-bl-stem; transform-origin: 50% 0; }
+  .es-bl__arm    { transform-origin: 0 50%; }
+  .es-bl__arm--1 { animation-name: es-bl-arm1; }
+  .es-bl__arm--2 { animation-name: es-bl-arm2; }
+  .es-bl__arm--3 { animation-name: es-bl-arm3; }
+  .es-bl__word   { animation-name: es-bl-word; }
+  .es-bl__spark  { animation-name: es-bl-spark; transform-origin: center; }
+  .es-bl__burst  { animation-name: es-bl-burst; transform-origin: center; opacity: 0; }
+  .es-bl__burst line { stroke: var(--es-logo-mark); stroke-width: 5; stroke-linecap: round; }
+  .es-bl--mark .es-bl__burst line { stroke-width: 3.5; }
+
+  @keyframes es-bl-all {
+    0%, 86%   { opacity: 1; transform: scale(1); }
+    95%, 100% { opacity: 0; transform: scale(0.96); }
+  }
+  /* Falls from above, stretched by its speed; lands, squashes, settles. */
+  @keyframes es-bl-tile {
+    0%   { opacity: 0; transform: translateY(-90px) scale(0.9, 1.22); animation-timing-function: cubic-bezier(0.55, 0, 1, 0.45); }
+    10%  { opacity: 1; transform: translateY(0) scale(1, 1.06); animation-timing-function: ease-out; }
+    13%  { transform: scale(1.07, 0.9); animation-timing-function: ease-in-out; }
+    17%  { transform: scale(0.98, 1.03); }
+    20%, 100% { opacity: 1; transform: none; }
+  }
+  @keyframes es-bl-notch {
+    0%, 17% { transform: scale(0); }
+    23%     { transform: scale(1.12); }
+    26%, 100% { transform: none; }
+  }
+  @keyframes es-bl-stem {
+    0%, 25% { transform: scaleY(0); }
+    30%, 100% { transform: none; }
+  }
+  @keyframes es-bl-arm1 {
+    0%, 29% { transform: scaleX(0); }
+    33%, 100% { transform: none; }
+  }
+  @keyframes es-bl-arm2 {
+    0%, 32% { transform: scaleX(0); }
+    36%, 100% { transform: none; }
+  }
+  @keyframes es-bl-arm3 {
+    0%, 35% { transform: scaleX(0); }
+    39%, 100% { transform: none; }
+  }
+  /* Rises the word's full height from behind the clip under the card. */
+  @keyframes es-bl-word {
+    0%, 39% { transform: translateY(130px); }
+    54%, 100% { transform: none; }
+  }
+  @keyframes es-bl-spark {
+    0%, 53% { opacity: 0; transform: scale(0) rotate(-140deg); }
+    59%     { opacity: 1; transform: scale(1.35) rotate(10deg); }
+    64%, 100% { opacity: 1; transform: none; }
+  }
+  @keyframes es-bl-burst {
+    0%, 56% { opacity: 0; transform: scale(0.5); }
+    60%     { opacity: 1; }
+    70%, 100% { opacity: 0; transform: scale(1.45); }
+  }
+
+  /* ── .es-imgload — the logo over an image frame until it arrives ───────
+     Sits on top of the frame's pictures (later in the DOM, no z-index) so
+     badges written after it stay above it, and the reveal is a fade of the
+     loader rather than a picture painting in row by row. ImageLoader.jsx
+     removes it after the fade. */
+  .es-imgload {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    background:
+      radial-gradient(ellipse at 50% 45%, var(--es-surface) 0%, transparent 70%),
+      var(--es-bg-sunken);
+    /* Size, not inline-size: the logo is capped by the frame's height too, so
+       a wide, short banner (the organizer card) doesn't fill edge to edge. */
+    container-type: size;
+    pointer-events: none;
+    transition: opacity 400ms var(--es-ease-default);
+  }
+  .es-imgload.is-done { opacity: 0; }
+  .es-imgload.is-paused .es-bl :is(.es-bl__all, .es-bl__tile, .es-bl__notch, .es-bl__stem, .es-bl__arm, .es-bl__word, .es-bl__spark, .es-bl__burst) {
+    animation-play-state: paused;
+  }
+  /* A fast image never shows the loader: it appears after 180ms. */
+  .es-imgload > .es-bl { animation: es-imgload-in 300ms ease-out 180ms both; }
+  @keyframes es-imgload-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+  /* The lockup is 1.85:1, so 100cqh of width keeps it to ~54% of the height. */
+  .es-imgload__full { width: min(50cqw, 220px, 100cqh); }
+  .es-imgload__mark { display: none; width: min(36cqw, 60px, 55cqh); }
+  @container (width < 190px) or (height < 110px) {
+    .es-imgload__full { display: none; }
+    .es-imgload__mark { display: block; }
+  }
+  /* On a dark ground the word turns white, as the logo does everywhere else. */
+  .es-imgload--dark {
+    --es-logo-ink: #fff;
+    --es-logo-li: #fff;
+    background:
+      radial-gradient(ellipse at 50% 45%, rgb(255 255 255 / 0.08) 0%, transparent 70%),
+      var(--es-night-900);
+  }
+  /* The hero poster lifts its picture with z-index: 1; the loader matches. */
+  .es-ev-poster > .es-imgload { z-index: 1; }
+  /* Frames that don't clip their corners (the live preview's cover) still
+     get round ones. */
+  .es-imgload { border-radius: inherit; }
+  /* Organizer frames that were static grids: the loader needs a box to fill. */
+  .es-evrow__thumb,
+  .es-evident__thumb,
+  .es-tdxed__thumb,
+  .es-kit-image__ghost { position: relative; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .es-bl :is(.es-bl__all, .es-bl__tile, .es-bl__notch, .es-bl__stem, .es-bl__arm, .es-bl__word, .es-bl__spark, .es-bl__burst) {
+      animation-name: none;
+    }
+  }
+}

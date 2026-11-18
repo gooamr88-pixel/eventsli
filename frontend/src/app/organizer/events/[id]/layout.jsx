@@ -12,6 +12,7 @@ import { EventProvider } from './EventContext';
 import BuildNav, { BuildProgress } from './BuildNav';
 import { organizerNavGroups } from '../../nav/organizerNav';
 import { BuildStepProvider } from './BuildStep';
+import ImageLoader from '../../../components/ImageLoader';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -213,6 +214,7 @@ function EventHeader({ event, eventId }) {
             // eslint-disable-next-line @next/next/no-img-element
             ? <img src={event.cover.url} alt="" />
             : <NavIcon name="image" size={22} />}
+          {event.cover?.url && <ImageLoader />}
         </Link>
         <div className="fx-min0">
           <p className="es-evident__title fx-truncate">{event.title}</p>

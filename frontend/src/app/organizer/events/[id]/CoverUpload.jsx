@@ -10,6 +10,7 @@ import ContentCard from './content/ContentCard';
 import NavIcon from '../../../components/shell/NavIcon';
 import FormError from '../../../components/forms/FormError';
 import LogoKit from './LogoKit';
+import ImageLoader from '../../../components/ImageLoader';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -115,6 +116,7 @@ export default function CoverUpload({ event, onChanged }) {
             sizes="(max-width: 1280px) 100vw, 640px"
             className="object-cover"
           />
+          <ImageLoader key={event.cover.url} />
           {editable && (
             <div className="es-pbcover__tools">
               <label htmlFor={`cover-${event.id}`} aria-disabled={busy || undefined} className="es-pbcover__chip">

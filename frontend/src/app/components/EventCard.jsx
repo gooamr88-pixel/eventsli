@@ -3,6 +3,7 @@ import Image from 'next/image';
 import { formatMoneyCompact } from '../utils/money';
 import NavIcon from './shell/NavIcon';
 import SaveEventButton from './SaveEventButton';
+import ImageLoader from './ImageLoader';
 import { isDateOnly, formatDateOnly } from '../lib/dateOnly';
 import { comingSoonLabel } from '../lib/comingSoon';
 
@@ -172,6 +173,8 @@ export default function EventCard({ event, priority = false, headingLevel = 3, a
              than as the card that failed to load. */
           <span className="es-evcard__placeholder">{event.title}</span>
         )}
+        {/* The logo animation until the cover arrives; it removes itself. */}
+        {event.coverUrl && <ImageLoader />}
 
         {tag && (
           <span className={`es-evcard__sale es-evcard__sale--${tag.kind}`}>

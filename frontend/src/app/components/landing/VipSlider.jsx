@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 
 import NavIcon from '../shell/NavIcon';
+import ImageLoader from '../ImageLoader';
 import { eventDateParts, priceBlock, ctaLabel } from '../EventCard';
 import { isDateOnly, formatDateOnly } from '../../lib/dateOnly';
 
@@ -214,6 +215,7 @@ function Slide({ event, pos, index, total, eager, onSelect }) {
         ) : (
           <span className="es-vip__placeholder">{event.title}</span>
         )}
+        {event.coverUrl && <ImageLoader tone="dark" />}
       </div>
 
       <div className="es-vip__info">

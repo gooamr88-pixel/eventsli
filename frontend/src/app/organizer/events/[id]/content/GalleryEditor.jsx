@@ -12,6 +12,7 @@ import { useToast } from '../../../../components/ui/Toast';
 import { useSectionDraft, uploadImage, IMAGE_ACCEPT } from './useContentSection';
 import SaveBar from './SaveBar';
 import RowControls from './RowControls';
+import ImageLoader from '../../../../components/ImageLoader';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -151,6 +152,7 @@ export default function GalleryEditor({ eventId, section }) {
               ) : (
                 <div className="relative aspect-[4/3] overflow-hidden rounded-(--es-radius-sm) bg-bg-sunken">
                   <Image src={item.url} alt={item.caption || ''} fill sizes="160px" className="object-cover" />
+                  <ImageLoader />
                 </div>
               )}
 
