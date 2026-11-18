@@ -153,6 +153,7 @@ const ERROR_STATUS = {
   AI_UNAVAILABLE: 503,             // every provider failed; nothing was counted
   AI_NOT_AN_EVENT: 422,            // the poster image shows no event; nothing was counted
   AI_NOT_A_ROOM: 422,              // the seating description is not about a room; nothing was counted
+  AI_NOT_A_MAP: 422,               // the uploaded picture is not a seating map; nothing was counted
 
   // app.js's catch-all. A client can receive it, so it needs a sentence.
   INTERNAL_ERROR: 500,

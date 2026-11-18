@@ -31,6 +31,8 @@ export const BUILD_ITEMS = [
   { key: 'wall', icon: 'pencil', title: 'Draw walls', text: 'Click the room’s corners. Leave gaps where the doors are.', initial: { family: 'tool', key: 'wall' } },
   { key: 'door', icon: 'door', title: 'Door', text: 'A named gap in a wall — Entrance, Side door.', initial: { family: 'zone', key: 'door_gap' } },
   { key: 'text', icon: 'fileText', title: 'Text label', text: 'Words anywhere on the floor.', initial: { family: 'zone', key: 'text' } },
+  // A picture of a seating map, read by AI and redrawn (2026-11-19).
+  { key: 'image', icon: 'image', title: 'Import from a picture', text: 'Upload a floor plan or seating chart; AI redraws it here.', initial: { family: 'image' } },
   // Templates (2026-11-19): a whole map from one of theirs or Eventsli's.
   { key: 'template', icon: 'copy', title: 'Map from a template', text: 'Start from a saved or Eventsli seating map.', initial: { family: 'template' } },
   { key: 'decor', icon: 'target', title: 'Decorative feature', text: 'A fountain, tree or centrepiece, drawn in rings.', initial: { family: 'zone', key: 'decor' } },

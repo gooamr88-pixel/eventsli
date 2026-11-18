@@ -123,3 +123,24 @@ and teal seats, D-shape booths, a dashed kitchen) as organizer options.
   the organizer's colours.
 - Without the migration, saved looks read as none and saving one says the
   feature is off; everything else works.
+
+## Import from a picture (2026-11-19)
+
+Venue Builder → Add to layout → **Import from a picture**: the organizer uploads
+a floor plan or seating chart and AI redraws it as an editable map.
+
+- `POST /ai/events/:eventId/seating-plan/from-image` (`aiController.createSeatingPlanFromImage`)
+  reads the picture with the vision models (`services/ai/seatingFromImage.js`):
+  every table's box in % of the picture, seats counted per side, the curved side
+  of D-shapes, areas, wall segments, doors, floor labels and colours. The answer
+  is clamped and checked (`validateMap`); one use of the Seating Designer's
+  daily allowance, refused for maps with held or sold seats, never stored.
+- `components/seating/imageImport.js` (`planToMap`) places it: the picture is
+  scaled so its tables match ours in size, then enlarged only as far as needed
+  for no two tables' seats to touch (at most 1.6×). Tall tables turn 90°,
+  curves face the way they are drawn, and side counts turn with them.
+- The dialog shows the picture and the rebuilt map side by side; Apply puts it
+  in the unsaved draft as one undo step. Ticket types are left to assign.
+- `test/fixtures/referencePlan.js` is the owner's reference plan written out as
+  the AI should read it; `imageImport.test.jsx` checks it rebuilds with every
+  table, the right turns and no overlapping seats.

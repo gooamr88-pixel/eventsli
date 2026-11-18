@@ -63,7 +63,9 @@ function parseJson(text) {
  * inline beside the text, and switches each provider to its vision model.
  * Without it, both calls are exactly what they were.
  */
-async function gemini({ system, user, geminiSchema, timeoutMs, image = null }) {
+// `maxTokens`: a request's own output budget (a floor plan read from an
+// image lists every table); absent, the budgets are what they always were.
+async function gemini({ system, user, geminiSchema, timeoutMs, image = null, maxTokens = null }) {
   const model = image ? PROVIDERS.gemini.visionModel() : PROVIDERS.gemini.model();
   if (!SAFE_MODEL.test(model)) throw aiError('AI_REQUEST_REJECTED', 'The Gemini model setting is not a model id.');
 
@@ -85,7 +87,7 @@ async function gemini({ system, user, geminiSchema, timeoutMs, image = null }) {
         responseSchema: geminiSchema,
         temperature: 0.2,
         // A poster's transcript is written out before the draft, so it gets room.
-        maxOutputTokens: image ? 6144 : 4096,
+        maxOutputTokens: maxTokens || (image ? 6144 : 4096),
       },
     },
   });
@@ -131,7 +133,7 @@ function groqVisionMessages({ system, user, jsonSchema, image }) {
   ];
 }
 
-async function groq({ system, user, jsonSchema, timeoutMs, image = null }) {
+async function groq({ system, user, jsonSchema, timeoutMs, image = null, maxTokens = null }) {
   const model = image ? PROVIDERS.groq.visionModel() : PROVIDERS.groq.model();
   if (!SAFE_MODEL.test(model)) throw aiError('AI_REQUEST_REJECTED', 'The Groq model setting is not a model id.');
 
@@ -144,7 +146,7 @@ async function groq({ system, user, jsonSchema, timeoutMs, image = null }) {
       messages: groqVisionMessages({ system, user, jsonSchema, image }),
       response_format: { type: 'json_object' },
       temperature: 0.2,
-      max_completion_tokens: 6144,
+      max_completion_tokens: maxTokens || 6144,
       // Copying a poster's words into a form needs no reasoning, and thinking
       // first is seconds the fallback does not have. Qwen 3.8 accepts "none";
       // `hidden` keeps any reasoning out of the content (JSON mode refuses

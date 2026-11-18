@@ -73,6 +73,8 @@ export const ERRORS = Object.freeze(Object.fromEntries([
     'Our AI services did not answer in time. This did not use any of your daily drafts. Try again.', 'retry'),
   E('AI_NOT_A_ROOM', 'That doesn’t describe a room',
     'Say how many guests, what kind of tables, and what else is in the room. This did not use any of your daily drafts.'),
+  E('AI_NOT_A_MAP', 'That picture isn’t a seating map',
+    'Try a floor plan or seating chart with the tables drawn on it. This did not use any of your daily drafts.'),
   E('AI_NOT_AN_EVENT', 'We couldn’t find an event in that image',
     'Try a poster or flyer that shows the event’s name and date, or describe the event instead. This did not use any of your daily drafts.'),
 

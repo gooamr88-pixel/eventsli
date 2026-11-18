@@ -5,6 +5,7 @@ const { generateEventDraft } = require('../services/ai/eventDraftService');
 const { redact } = require('../services/ai/redact');
 const { readPosterImage } = require('../services/ai/posterImage');
 const { generateSeatingPlan } = require('../services/ai/seatingDesigner');
+const { readSeatingMap } = require('../services/ai/seatingFromImage');
 const { generateLaunchKit } = require('../services/ai/launchKit');
 const { eventUrl } = require('../services/shareLinks');
 const { supabase } = require('../config/supabase');
@@ -307,25 +308,14 @@ async function createSeatingPlan(req, res, next) {
     if (refused) return refused;
     const organizerId = req.user.access.organizerId;
     const event = await loadEvent(req.params.eventId);
-    if (event.listing_type === 'display_only' || event.admission_type === 'general') {
-      return conflict(res, 'The Seating Designer is for reserved-seating events, where buyers choose a seat or a table.');
-    }
-    if (CLOSED.includes(event.status)) return conflict(res, `A ${event.status} event's seating cannot change.`);
-
-    const { data: map } = await supabase.from('venue_maps').select('id, layout').eq('event_id', event.id).maybeSingle();
-    if (map) {
-      const { count, error } = await supabase.from('seats').select('id', { count: 'exact', head: true })
-        .eq('venue_map_id', map.id).neq('status', 'available');
-      if (error) throw new Error(error.message);
-      if (count > 0) {
-        return conflict(res, `${count} seat${count === 1 ? ' is' : 's are'} already held or sold, so the layout can't be replaced. Edit the map by hand instead.`);
-      }
-    }
+    const guard = await seatingGuard(res, event);
+    if (guard.refused) return guard.refused;
+    const { map } = guard;
     const [{ data: tiers }, { data: cats }] = await Promise.all([
       supabase.from('ticket_tiers').select('name').eq('event_id', event.id),
       supabase.from('table_categories').select('name').eq('event_id', event.id),
     ]);
-    const zones = Array.isArray(map?.layout?.zones) ? map.layout.zones : [];
+    const zones = Array.isArray(map?.layout_json?.zones) ? map.layout_json.zones : [];
     const { text } = redact(String(req.body.description || '').trim());
 
     return await spend(req, res, {
@@ -349,6 +339,69 @@ async function createSeatingPlan(req, res, next) {
       return { meta: result.meta, body: { plan: result.plan } };
     });
   } catch (err) {
+    return next(err);
+  }
+}
+
+/**
+ * What both Seating Designer requests refuse before anything costs: a map
+ * for an event that has none, a closed event, and a layout that buyers
+ * already hold or own seats in. Returns `{ refused }` (a sent response) or `{ map }`.
+ */
+async function seatingGuard(res, event) {
+  if (event.listing_type === 'display_only' || event.admission_type === 'general') {
+    return { refused: conflict(res, 'The Seating Designer is for reserved-seating events, where buyers choose a seat or a table.') };
+  }
+  if (CLOSED.includes(event.status)) return { refused: conflict(res, `A ${event.status} event's seating cannot change.`) };
+
+  // `layout_json` — the column's real name. This read asked for `layout`,
+  // so the designer never knew a stage was already drawn.
+  const { data: map } = await supabase.from('venue_maps').select('id, layout_json').eq('event_id', event.id).maybeSingle();
+  if (map) {
+    const { count, error } = await supabase.from('seats').select('id', { count: 'exact', head: true })
+      .eq('venue_map_id', map.id).neq('status', 'available');
+    if (error) throw new Error(error.message);
+    if (count > 0) {
+      return { refused: conflict(res, `${count} seat${count === 1 ? ' is' : 's are'} already held or sold, so the layout can't be replaced. Edit the map by hand instead.`) };
+    }
+  }
+  return { map };
+}
+
+// ─── POST /ai/events/:eventId/seating-plan/from-image ─────────────────────
+/**
+ * A seating map read from a picture (owner, 2026-11-19). The picture is
+ * checked (`readPosterImage`) before the reservation, so a file that is not a
+ * readable image never costs a draft; it counts as one Seating Designer use.
+ */
+async function createSeatingPlanFromImage(req, res, next) {
+  const cfg = aiConfig(req);
+  try {
+    const refused = refuseEarly(req, res, cfg);
+    if (refused) return refused;
+    if (!cfg.poster) {
+      return sendFail(res, { status: 503, error: 'AI_DISABLED', message: 'Reading pictures is not available right now. Describe the room instead.' });
+    }
+    const event = await loadEvent(req.params.eventId);
+    const guard = await seatingGuard(res, event);
+    if (guard.refused) return guard.refused;
+    const image = readPosterImage(req.body.image, { noun: 'seating map' });   // VALIDATION_ERROR → 400
+    const { text } = redact(String(req.body.notes || '').trim());
+
+    return await spend(req, res, {
+      cfg, organizerId: req.user.access.organizerId, feature: 'seating_designer',
+      answers: {
+        AI_NOT_A_MAP: {
+          status: 422,
+          message: 'That picture doesn’t look like a seating map. Try a floor plan or seating chart with the tables drawn on it. This did not use any of your daily drafts.',
+        },
+      },
+    }, async () => {
+      const result = await readSeatingMap({ image, notes: text, cfg });
+      return { meta: result.meta, body: { plan: result.plan } };
+    });
+  } catch (err) {
+    if (err.code === 'VALIDATION_ERROR') return sendFail(res, { status: 400, error: 'VALIDATION_ERROR', message: err.message });
     return next(err);
   }
 }
@@ -411,4 +464,6 @@ async function createLaunchKit(req, res, next) {
 const createEventDraft = (req, res, next) => runDraft(req, res, next, { fromImage: false });
 const createEventDraftFromImage = (req, res, next) => runDraft(req, res, next, { fromImage: true });
 
-module.exports = { getQuota, createEventDraft, createEventDraftFromImage, createSeatingPlan, createLaunchKit };
+module.exports = {
+  getQuota, createEventDraft, createEventDraftFromImage, createSeatingPlan, createSeatingPlanFromImage, createLaunchKit,
+};

@@ -103,10 +103,10 @@ function dimensions(buf, type) {
  *
  * @returns {{ mimeType: string, data: string, bytes: number, width: number, height: number }}
  */
-function readPosterImage(input) {
-  if (!input || typeof input !== 'object') throw invalid('Add a poster image.');
+function readPosterImage(input, { noun = 'poster' } = {}) {
+  if (!input || typeof input !== 'object') throw invalid(`Add a ${noun} image.`);
   const declared = String(input.mimeType || '').toLowerCase();
-  if (!TYPES.includes(declared)) throw invalid('Upload the poster as a JPEG, PNG or WebP image.');
+  if (!TYPES.includes(declared)) throw invalid(`Upload the ${noun} as a JPEG, PNG or WebP image.`);
 
   const data = String(input.data || '').replace(/^data:[^;,]+;base64,/, '').replace(/\s+/g, '');
   if (data.length > MAX_BASE64) throw invalid('That image is too large. Use one under 1.4 MB.');
@@ -115,7 +115,7 @@ function readPosterImage(input) {
   }
 
   const buf = Buffer.from(data, 'base64');
-  if (buf.length < MIN_BYTES) throw invalid('That image is too small to read. Use the full-size poster.');
+  if (buf.length < MIN_BYTES) throw invalid(`That image is too small to read. Use the full-size ${noun}.`);
 
   const actual = sniff(buf);
   if (!actual) throw invalid('That file is not a JPEG, PNG or WebP image.');
@@ -124,7 +124,7 @@ function readPosterImage(input) {
   const size = dimensions(buf, actual);
   if (!size || !size.width || !size.height) throw invalid('The image could not be read. Try choosing it again.');
   if (Math.min(size.width, size.height) < MIN_SIDE) {
-    throw invalid(`That image is ${size.width}×${size.height} pixels — too small to read. Use the full-size poster.`);
+    throw invalid(`That image is ${size.width}×${size.height} pixels — too small to read. Use the full-size ${noun}.`);
   }
   if (size.width * size.height > MAX_PIXELS) throw invalid('That image has too many pixels. Use one under 25 megapixels.');
 

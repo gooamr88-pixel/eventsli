@@ -109,6 +109,24 @@ router.post(
   ai.createSeatingPlan,
 );
 
+// A seating map read from a picture (2026-11-19): the same limiter, owner
+// check and request id as the designer; the image is checked properly in
+// the controller, these only bound the request's shape.
+router.post(
+  '/events/:eventId/seating-plan/from-image',
+  draftLimiter,
+  verifyEventOwner,
+  body('requestId').isUUID().withMessage('Send a request id.'),
+  body('notes').optional({ values: 'null' }).isString().trim().isLength({ max: 500 })
+    .withMessage('Keep the note under 500 characters.'),
+  body('image').isObject().withMessage('Add a picture of the seating map.'),
+  body('image.mimeType').isIn(TYPES).withMessage('Upload the map as a JPEG, PNG or WebP image.'),
+  body('image.data').isString().isLength({ min: 1, max: MAX_BASE64 + 64 })
+    .withMessage('That image is too large. Use one under 1.4 MB.'),
+  validate,
+  ai.createSeatingPlanFromImage,
+);
+
 router.post(
   '/events/:eventId/launch-kit',
   draftLimiter,
