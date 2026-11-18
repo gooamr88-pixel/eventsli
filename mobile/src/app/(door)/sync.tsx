@@ -62,6 +62,7 @@ export default function Sync() {
 
   return (
     <Screen
+      width="form"
       waves="both"
       footer={finished ? (
         <Button label="Done" onPress={() => router.back()} />

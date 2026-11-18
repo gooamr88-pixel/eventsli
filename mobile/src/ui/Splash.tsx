@@ -1,5 +1,6 @@
 import { StyleSheet, View, useWindowDimensions } from 'react-native';
 
+import { BREAKPOINT } from './responsive';
 import { ScannerMark, SkylineScene } from './ScannerMark';
 import { Text } from './Text';
 import { colors, space } from './theme';
@@ -10,10 +11,15 @@ import { colors, space } from './theme';
  */
 export function Splash() {
   const { width, height } = useWindowDimensions();
+  // The brand is lifted clear of the skyline. A phone keeps the mockup's 42 %
+  // (of the width, which is how React Native reads a percentage padding); an
+  // iPad, often sideways, measures from the height so the brand stays above
+  // the city in landscape too.
+  const tablet = width >= BREAKPOINT.regular;
   return (
     <View style={styles.screen} accessible accessibilityLabel="Eventsli Scanner. Event check-in made simple.">
-      <View style={styles.brand}>
-        <ScannerMark size={78} />
+      <View style={[styles.brand, tablet && { paddingBottom: height * 0.42 }]}>
+        <ScannerMark size={tablet ? 96 : 78} />
         <Text style={styles.word} color={colors.text}>Eventsli</Text>
         <Text variant="title" weight="medium" color={colors.muted} style={styles.scanner}>Scanner</Text>
         <Text variant="body" color={colors.muted} align="center" style={styles.tagline}>{'Event Check-in\nMade Simple'}</Text>

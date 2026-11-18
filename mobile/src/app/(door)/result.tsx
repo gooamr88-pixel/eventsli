@@ -95,7 +95,7 @@ export default function Result() {
   );
 
   return (
-    <Screen waves="both" footer={footer}>
+    <Screen waves="both" footer={footer} width="form">
       {admitted ? <View style={styles.spacer} /> : <Header onBack={() => router.back()} />}
       <View style={styles.hero} accessible accessibilityRole="alert" accessibilityLabel={`${outcome.title}. ${detail}`}>
         <StatusIcon kind={BADGE[outcome.tone]} icon={ICON[result]} />

@@ -21,9 +21,11 @@ import { Icon, type IconName } from '@/ui/Icon';
 import { Avatar, Card, ListRow, Section, ToggleRow } from '@/ui/layout';
 import { TabBar } from '@/ui/TabBar';
 import { Text } from '@/ui/Text';
+import { columnStyle, useLayout } from '@/ui/responsive';
 import { colors, radius, shadow, space } from '@/ui/theme';
 
 const HERO = 260;
+const HERO_TABLET = 340;
 const RECENT = 5;
 
 /**
@@ -159,6 +161,89 @@ export default function Dashboard() {
 
   const updated = status.dataUpdatedAt ? doorTime(new Date(status.dataUpdatedAt).toISOString()) : '';
 
+  // iPad: a taller cover, the text lined up with a centred page, and on a wide
+  // window (landscape, 13-inch) the door's controls on the left and what is
+  // happening on the right. A phone keeps the mockup exactly.
+  const layout = useLayout();
+  const page = layout.compact ? null : columnStyle(layout, 'page');
+  const heroHeight = layout.compact ? HERO : HERO_TABLET;
+
+  const main = (
+    <>
+      <View style={styles.statsCard}>
+        <View style={styles.stats} accessible accessibilityLabel={`${total} total, ${admitted} checked in, ${remaining} remaining, ${share} percent`}>
+          <Stat label="Total" value={total} large={!layout.compact} />
+          <View style={styles.statRule} />
+          <Stat label="Checked In" value={admitted} accent large={!layout.compact} />
+          <View style={styles.statRule} />
+          <Stat label="Remaining" value={remaining} large={!layout.compact} />
+        </View>
+        <View style={styles.progress}>
+          <ShareBar value={admitted} total={total} />
+          <Text variant="caption" color={colors.muted}>{share}% of guests checked in</Text>
+        </View>
+      </View>
+
+      {gate?.locked && !gate.override ? (
+        <Notice icon="ban" tone="danger" text={lockedNote(gate.reason) ?? 'Scanning is switched off for this event.'} />
+      ) : conflicts > 0 ? (
+        <Notice icon="alert" tone="warning" text={`${conflicts} guest${conflicts === 1 ? '' : 's'} let in at two doors offline`} onPress={() => router.push('/settings/data-sync')} />
+      ) : held > 0 ? (
+        <Notice icon="cloudUpload" tone="info" text={`${held} check-in${held === 1 ? '' : 's'} waiting to sync`} onPress={() => router.push(offline ? '/offline' : '/sync')} />
+      ) : offline ? (
+        <Notice icon="offline" tone="warning" text="Offline — check-ins are saved on this phone" onPress={() => router.push('/offline')} />
+      ) : null}
+
+      <Button label="Start Check-in" icon="scan" size="lg" onPress={() => router.push('/scan')} />
+
+      <View style={styles.tiles}>
+        {tiles.map((t) => (
+          <Pressable
+            key={t.label}
+            accessibilityRole="button"
+            accessibilityLabel={t.label}
+            onPress={t.onPress}
+            style={({ pressed }) => [styles.tile, pressed && { opacity: 0.6 }]}
+          >
+            <View style={styles.tileIcon}><Icon name={t.icon} size={22} color={colors.accent} /></View>
+            <Text variant="caption" weight="semibold" numberOfLines={1}>{t.label}</Text>
+          </Pressable>
+        ))}
+      </View>
+    </>
+  );
+
+  const side = (
+    <>
+      <Section title="Recent Check-ins" action={{ label: 'View All', onPress: () => router.push('/logs') }}>
+        <Card style={styles.recent}>
+          {recent.isLoading ? (
+            <ActivityIndicator color={colors.accent} style={{ paddingVertical: space.lg }} />
+          ) : (recent.data ?? []).length === 0 ? (
+            <View style={styles.recentEmpty}>
+              <Icon name="scan" size={22} color={colors.subtle} />
+              <Text variant="small" color={colors.muted} style={{ flex: 1 }}>No check-ins yet. They appear here as guests arrive.</Text>
+            </View>
+          ) : (recent.data ?? []).slice(0, RECENT).map((r, i) => <RecentRow key={r.id} scan={r} last={i === Math.min(RECENT, recent.data!.length) - 1} />)}
+        </Card>
+      </Section>
+
+      <Card style={styles.rows}>
+        <ListRow icon="info" label="Event Details" onPress={() => router.push('/event')} />
+        <ListRow icon="download" label="Download Guest List" value={listValue} onPress={download} hint="Keeps the event's tickets on this phone for check-in with no signal" />
+        <ToggleRow
+          icon="offline"
+          label="Offline Mode"
+          value={offlineMode && !list.off}
+          disabled={list.off}
+          onChange={setOffline}
+          hint={list.off ? 'Switched off by the organizer' : 'Check tickets on this phone with no signal'}
+          last
+        />
+      </Card>
+    </>
+  );
+
   return (
     <View style={styles.screen}>
       <ScrollView
@@ -171,7 +256,7 @@ export default function Dashboard() {
           />
         )}
       >
-        <View style={[styles.hero, { height: HERO + insets.top }]}>
+        <View style={[styles.hero, { height: heroHeight + insets.top }]}>
           {event?.coverUrl ? (
             <Image source={{ uri: event.coverUrl }} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} accessible={false} />
           ) : (
@@ -187,18 +272,18 @@ export default function Dashboard() {
             </Defs>
             <Rect x="0" y="0" width="100%" height="100%" fill="url(#shade)" />
           </Svg>
-          <View style={[styles.heroBar, { paddingTop: insets.top + space.xs }]}>
+          <View style={[styles.heroBar, { paddingTop: insets.top + space.xs }, !layout.compact && { paddingHorizontal: layout.gutter - space.xs }]}>
             <HeroButton icon="chevronLeft" label={pin ? 'Sign this device out' : 'Leave this event'} onPress={() => { void leave(); }} />
             <HeroButton icon="more" label="More" onPress={more} />
           </View>
-          <View style={styles.heroText}>
+          <View style={[styles.heroText, page, page && styles.heroTextTablet]}>
             <View style={[styles.liveChip, offline && styles.liveChipOff]} accessibilityLabel={offline ? `Offline, updated ${updated}` : 'Live check-in'}>
               <View style={[styles.liveDot, { backgroundColor: offline ? colors.offline : '#4ade80' }]} />
               <Text variant="caption" weight="semibold" color={colors.white}>
                 {offline ? `Offline${updated ? ` · updated ${updated}` : ''}` : 'Live Check-in'}
               </Text>
             </View>
-            <Text style={styles.heroTitle} numberOfLines={2} accessibilityRole="header">{title}</Text>
+            <Text style={[styles.heroTitle, !layout.compact && styles.heroTitleTablet]} numberOfLines={2} accessibilityRole="header">{title}</Text>
             {event && (
               <View style={styles.heroMeta}>
                 <Icon name="calendar" size={16} color={colors.white} />
@@ -214,74 +299,18 @@ export default function Dashboard() {
           </View>
         </View>
 
-        <View style={styles.body}>
-          <View style={styles.statsCard}>
-            <View style={styles.stats} accessible accessibilityLabel={`${total} total, ${admitted} checked in, ${remaining} remaining, ${share} percent`}>
-              <Stat label="Total" value={total} />
-              <View style={styles.statRule} />
-              <Stat label="Checked In" value={admitted} accent />
-              <View style={styles.statRule} />
-              <Stat label="Remaining" value={remaining} />
+        <View style={[styles.body, page, layout.wide && styles.bodyWide]}>
+          {layout.wide ? (
+            <View style={styles.split}>
+              <View style={styles.splitCol}>{main}</View>
+              <View style={styles.splitCol}>{side}</View>
             </View>
-            <View style={styles.progress}>
-              <ShareBar value={admitted} total={total} />
-              <Text variant="caption" color={colors.muted}>{share}% of guests checked in</Text>
-            </View>
-          </View>
-
-          {gate?.locked && !gate.override ? (
-            <Notice icon="ban" tone="danger" text={lockedNote(gate.reason) ?? 'Scanning is switched off for this event.'} />
-          ) : conflicts > 0 ? (
-            <Notice icon="alert" tone="warning" text={`${conflicts} guest${conflicts === 1 ? '' : 's'} let in at two doors offline`} onPress={() => router.push('/settings/data-sync')} />
-          ) : held > 0 ? (
-            <Notice icon="cloudUpload" tone="info" text={`${held} check-in${held === 1 ? '' : 's'} waiting to sync`} onPress={() => router.push(offline ? '/offline' : '/sync')} />
-          ) : offline ? (
-            <Notice icon="offline" tone="warning" text="Offline — check-ins are saved on this phone" onPress={() => router.push('/offline')} />
-          ) : null}
-
-          <Button label="Start Check-in" icon="scan" size="lg" onPress={() => router.push('/scan')} />
-
-          <View style={styles.tiles}>
-            {tiles.map((t) => (
-              <Pressable
-                key={t.label}
-                accessibilityRole="button"
-                accessibilityLabel={t.label}
-                onPress={t.onPress}
-                style={({ pressed }) => [styles.tile, pressed && { opacity: 0.6 }]}
-              >
-                <View style={styles.tileIcon}><Icon name={t.icon} size={22} color={colors.accent} /></View>
-                <Text variant="caption" weight="semibold" numberOfLines={1}>{t.label}</Text>
-              </Pressable>
-            ))}
-          </View>
-
-          <Section title="Recent Check-ins" action={{ label: 'View All', onPress: () => router.push('/logs') }}>
-            <Card style={styles.recent}>
-              {recent.isLoading ? (
-                <ActivityIndicator color={colors.accent} style={{ paddingVertical: space.lg }} />
-              ) : (recent.data ?? []).length === 0 ? (
-                <View style={styles.recentEmpty}>
-                  <Icon name="scan" size={22} color={colors.subtle} />
-                  <Text variant="small" color={colors.muted} style={{ flex: 1 }}>No check-ins yet. They appear here as guests arrive.</Text>
-                </View>
-              ) : (recent.data ?? []).slice(0, RECENT).map((r, i) => <RecentRow key={r.id} scan={r} last={i === Math.min(RECENT, recent.data!.length) - 1} />)}
-            </Card>
-          </Section>
-
-          <Card style={styles.rows}>
-            <ListRow icon="info" label="Event Details" onPress={() => router.push('/event')} />
-            <ListRow icon="download" label="Download Guest List" value={listValue} onPress={download} hint="Keeps the event's tickets on this phone for check-in with no signal" />
-            <ToggleRow
-              icon="offline"
-              label="Offline Mode"
-              value={offlineMode && !list.off}
-              disabled={list.off}
-              onChange={setOffline}
-              hint={list.off ? 'Switched off by the organizer' : 'Check tickets on this phone with no signal'}
-              last
-            />
-          </Card>
+          ) : (
+            <>
+              {main}
+              {side}
+            </>
+          )}
         </View>
       </ScrollView>
       <TabBar active="events" mode="door" />
@@ -324,11 +353,11 @@ function HeroButton({ icon, label, onPress }: { icon: IconName; label: string; o
   );
 }
 
-function Stat({ label, value, accent = false }: { label: string; value: number; accent?: boolean }) {
+function Stat({ label, value, accent = false, large = false }: { label: string; value: number; accent?: boolean; large?: boolean }) {
   return (
     <View style={styles.stat}>
       <Text variant="small" color={accent ? colors.accent : colors.muted} weight={accent ? 'semibold' : 'regular'}>{label}</Text>
-      <Text style={styles.statValue} color={accent ? colors.accent : colors.text}>{count(value)}</Text>
+      <Text style={[styles.statValue, large && styles.statValueLarge]} color={accent ? colors.accent : colors.text}>{count(value)}</Text>
     </View>
   );
 }
@@ -364,7 +393,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(17, 16, 24, 0.35)',
   },
   heroText: { paddingHorizontal: space.xl, paddingBottom: 56, gap: space.sm },
+  heroTextTablet: { paddingBottom: 72 },
   heroTitle: { fontFamily: 'Urbanist_900Black', fontSize: 27, lineHeight: 33, color: colors.white },
+  heroTitleTablet: { fontSize: 38, lineHeight: 46 },
   heroMeta: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   liveChip: {
     flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start',
@@ -373,6 +404,11 @@ const styles = StyleSheet.create({
   liveChipOff: { backgroundColor: 'rgba(146, 64, 14, 0.85)' },
   liveDot: { width: 8, height: 8, borderRadius: 4 },
   body: { paddingHorizontal: space.lg + 4, gap: space.lg, marginTop: -40 },
+  // Two columns side by side: the stats card no longer rides up over the
+  // cover, or the right column's heading would land on the photo.
+  bodyWide: { marginTop: space.xl },
+  split: { flexDirection: 'row', alignItems: 'flex-start', gap: space.xl },
+  splitCol: { flex: 1, minWidth: 0, gap: space.lg },
   statsCard: {
     backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border,
     paddingTop: space.lg, paddingBottom: space.md, gap: space.md, ...shadow.raised,
@@ -380,6 +416,7 @@ const styles = StyleSheet.create({
   stats: { flexDirection: 'row', alignItems: 'center' },
   stat: { flex: 1, alignItems: 'center', gap: 4 },
   statValue: { fontFamily: 'DMSans_700Bold', fontSize: 24, lineHeight: 30 },
+  statValueLarge: { fontSize: 34, lineHeight: 42 },
   statRule: { width: StyleSheet.hairlineWidth, alignSelf: 'stretch', backgroundColor: colors.border },
   progress: { paddingHorizontal: space.lg, gap: 6 },
   notice: {

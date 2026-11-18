@@ -118,7 +118,7 @@ production).
 
 | Setting | Value | Why |
 |---|---|---|
-| `ios.supportsTablet` | `false` | The iPad and landscape layouts were never designed or tested. iPads still run the app, in iPhone mode. Turning it on later needs iPad screenshots and landscape testing. |
+| `ios.supportsTablet` | `true` (since 2026-11-18, from Build 4 of 1.0; Build 3 was `false`) | The iPad layouts follow the window size, not the device (`src/ui/responsive.ts`): iOS 27 lets a person resize an iPad app's window and ignores the orientations it asks for. The iPhone stays portrait (`orientation`); on iPad Expo writes all four orientations and leaves `UIRequiresFullScreen` off, which Split View, Stage Manager and App Store validation (ITMS-90474) need. `test/tablet.test.tsx` holds all of this. **Cannot be undone** once an iPad version is approved: Apple does not let an app drop iPad support. Needs iPad 13" screenshots (2064 × 2752). |
 | `ios.config.usesNonExemptEncryption` | `false` | The app's encryption is HTTPS and SQLCipher built with Apple's CommonCrypto (`SQLCIPHER_CRYPTO_CC` in expo-sqlite's podspec): encryption within the operating system, which Apple lists as exempt. **Owner to confirm**; if counsel disagrees, set `true` and answer the export questions in App Store Connect. |
 | `NSAppTransportSecurity` | arbitrary loads off, local networking on | Store builds talk HTTPS only; local networking keeps a development build able to reach a laptop. |
 | `ios.privacyManifests` | data types + required-reason APIs | Matches store/PRIVACY.md. The API reasons repeat those in the bundled SDKs' own manifests, because Apple does not always read manifests inside static pods. |

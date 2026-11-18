@@ -1,12 +1,13 @@
 import { router } from 'expo-router';
 import type { ReactNode } from 'react';
-import { Pressable, ScrollView, StyleSheet, Switch, View, type ViewStyle } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Switch, View, type StyleProp, type ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { eventPhase, initials, type EventPhase } from '../lib/format';
 
 import { Backdrop } from './Backdrop';
 import { Icon, type IconName } from './Icon';
+import { columnStyle, useLayout, type ContentWidth } from './responsive';
 import { Text } from './Text';
 import { colors, radius, shadow, space, tones, type Tone } from './theme';
 
@@ -14,9 +15,13 @@ import { colors, radius, shadow, space, tones, type Tone } from './theme';
  * A screen in the mockup's style: the near-white background with coral and yellow waves
  * in the corner, the safe area, optional scroll, an optional footer (the
  * primary button) and an optional bottom bar (the tab bar).
+ *
+ * On an iPad the content is a centred column (`width`: a form, a column of
+ * text and rows, or a page of cards) so a 13-inch screen never stretches a
+ * row of text from edge to edge. On a phone `width` changes nothing.
  */
 export function Screen({
-  children, scroll = false, style, edges = ['top', 'bottom'], footer, bar, waves = 'top',
+  children, scroll = false, style, edges = ['top', 'bottom'], footer, bar, waves = 'top', width = 'column',
 }: {
   children: ReactNode;
   scroll?: boolean;
@@ -26,20 +31,23 @@ export function Screen({
   /** A tab bar: drawn under the footer, reaching the bottom edge itself. */
   bar?: ReactNode;
   waves?: 'top' | 'both' | 'none';
+  width?: ContentWidth;
 }) {
+  const layout = useLayout();
+  const column = columnStyle(layout, width);
   const safe = bar ? edges.filter((e) => e !== 'bottom') : edges;
   return (
     <View style={styles.screen}>
       {waves !== 'none' && <Backdrop bottom={waves === 'both'} />}
       <SafeAreaView style={styles.flex} edges={safe}>
         {scroll ? (
-          <ScrollView contentContainerStyle={[styles.pad, style]} keyboardShouldPersistTaps="handled">
+          <ScrollView contentContainerStyle={[styles.pad, column, style]} keyboardShouldPersistTaps="handled">
             {children}
           </ScrollView>
         ) : (
-          <View style={[styles.pad, styles.flex, style]}>{children}</View>
+          <View testID="screen-content" style={[styles.pad, column, styles.flex, style]}>{children}</View>
         )}
-        {footer && <View style={styles.footer}>{footer}</View>}
+        {footer && <View style={[styles.footer, column]}>{footer}</View>}
       </SafeAreaView>
       {bar}
     </View>
@@ -106,7 +114,7 @@ export function IconButton({
   );
 }
 
-export function Card({ children, style }: { children: ReactNode; style?: ViewStyle }) {
+export function Card({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
   return <View style={[styles.card, style]}>{children}</View>;
 }
 
@@ -343,8 +351,9 @@ export function Divider({ label }: { label?: string }) {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   flex: { flex: 1 },
-  pad: { paddingHorizontal: space.lg + 4, paddingBottom: space.lg, gap: space.lg },
-  footer: { paddingHorizontal: space.lg + 4, paddingBottom: space.md, paddingTop: space.sm, gap: space.md },
+  // The gutter comes from the size class (src/ui/responsive.ts): 20 on a phone.
+  pad: { paddingBottom: space.lg, gap: space.lg },
+  footer: { paddingBottom: space.md, paddingTop: space.sm, gap: space.md },
   header: { flexDirection: 'row', alignItems: 'center', minHeight: 52 },
   side: { minWidth: 52, justifyContent: 'center' },
   sideRight: { alignItems: 'flex-end' },

@@ -16,6 +16,7 @@ import { measureScan } from '@/lib/monitoring';
 import { dialog } from '@/ui/Dialog';
 import { Icon, type IconName } from '@/ui/Icon';
 import { Header } from '@/ui/layout';
+import { columnStyle, useLayout } from '@/ui/responsive';
 import { Text } from '@/ui/Text';
 import { colors, radius, space } from '@/ui/theme';
 
@@ -39,6 +40,12 @@ export default function Scan() {
   const held = pendingCount(records);
   const offline = net.isConnected === false;
   const listReady = useOfflineList((s) => s.complete && !s.off);
+  // On an iPad the frame grows with the window (a ticket is held further from
+  // a tablet on a stand), up to 380 pt, and the controls stay in a centred
+  // column instead of the two far corners of a 13-inch screen.
+  const layout = useLayout();
+  const frame = layout.compact ? 250 : Math.round(Math.min(380, Math.min(layout.width, layout.height) * 0.5));
+  const column = layout.compact ? null : columnStyle(layout, 'column');
 
   // Once an answer is on screen, no further code is read until the staff
   // member presses Scan Next and this screen is in front again.
@@ -71,10 +78,10 @@ export default function Scan() {
   return (
     <View style={styles.screen}>
       {/* Mounted only while this screen is in front: one camera at a time. */}
-      {focused ? <CodeCamera onCode={onCode} torch={torch} facing={facing} /> : <View style={styles.screen} />}
+      {focused ? <CodeCamera onCode={onCode} torch={torch} facing={facing} frameSize={frame} /> : <View style={styles.screen} />}
 
       <SafeAreaView style={styles.top} edges={['top']} pointerEvents="box-none">
-        <View style={styles.pad}>
+        <View style={[styles.pad, column]}>
           <Header title="Check-in" inverse />
           <View style={styles.tools}>
             <RoundButton
@@ -109,7 +116,7 @@ export default function Scan() {
         </View>
       </SafeAreaView>
 
-      <SafeAreaView style={styles.bottom} edges={['bottom']} pointerEvents="box-none">
+      <SafeAreaView style={[styles.bottom, column && styles.bottomTablet]} edges={['bottom']} pointerEvents="box-none">
         {TEST_ENTRY && <TestCodeEntry onCode={onCode} />}
         <Text color={colors.white} align="center" style={styles.hint}>{'Scan guest QR code\nto check in'}</Text>
         {me.data?.permissions.manualCheckIn && (
@@ -181,6 +188,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill, backgroundColor: 'rgba(17,16,24,0.88)',
   },
   bottom: { position: 'absolute', left: space.lg, right: space.lg, bottom: space.xl, gap: space.md, alignItems: 'center' },
+  bottomTablet: { bottom: space.xxl * 2 },
   hint: { fontSize: 16, lineHeight: 23 },
   manual: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: space.sm },
   testEntry: {

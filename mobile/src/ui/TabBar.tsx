@@ -47,8 +47,11 @@ export function TabBar({ active, mode }: { active: Tab; mode: 'door' | 'account'
     else router.navigate('/settings');
   }
 
+  // On an iPad the four tabs sit together in the middle, as UIKit's tab bar
+  // does there, instead of four buttons spread across a 13-inch edge.
   return (
-    <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, space.sm) }]} accessibilityRole="tablist">
+    <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, space.sm) }]}>
+      <View style={styles.tabs} accessibilityRole="tablist">
       {TABS.map((t) => {
         const on = t.key === active;
         const color = on ? colors.accent : colors.muted;
@@ -66,17 +69,18 @@ export function TabBar({ active, mode }: { active: Tab; mode: 'door' | 'account'
           </Pressable>
         );
       })}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   bar: {
-    flexDirection: 'row',
     backgroundColor: colors.surface,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
     paddingTop: space.sm,
   },
+  tabs: { flexDirection: 'row', width: '100%', maxWidth: 560, alignSelf: 'center' },
   tab: { flex: 1, alignItems: 'center', gap: 3, minHeight: 48, justifyContent: 'center' },
 });

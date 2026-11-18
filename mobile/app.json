@@ -10,7 +10,7 @@
     "backgroundColor": "#FFFFFF",
     "ios": {
       "bundleIdentifier": "com.eventsli.checkin",
-      "supportsTablet": false,
+      "supportsTablet": true,
       "icon": "./assets/images/icon.png",
       "config": {
         "usesNonExemptEncryption": false

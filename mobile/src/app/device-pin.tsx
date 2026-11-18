@@ -81,7 +81,7 @@ export default function DevicePin() {
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <Screen scroll>
+      <Screen scroll width="form">
         <Header title="Shared door device" />
         <Text color={colors.muted}>
           For a tablet or phone the whole door team shares. The organizer registers it under

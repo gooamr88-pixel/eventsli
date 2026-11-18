@@ -5,8 +5,15 @@ import { create } from 'zustand';
 
 import { Button } from './Button';
 import { Icon, type IconName } from './Icon';
+import { useLayout } from './responsive';
 import { Text } from './Text';
 import { colors, radius, shadow, space } from './theme';
+
+/**
+ * Every orientation. React Native presents a Modal in portrait only unless told
+ * otherwise, which on an iPad held sideways draws the pop-up turned through 90°.
+ */
+const ORIENTATIONS = ['portrait', 'portrait-upside-down', 'landscape-left', 'landscape-right'] as const;
 
 /**
  * The app's own pop-ups, drawn in the mockup's style instead of the system's
@@ -154,7 +161,7 @@ function DialogView({ spec }: { spec: DialogSpec & { id: number } }) {
   };
 
   return (
-    <Modal transparent visible animationType="fade" statusBarTranslucent onRequestClose={dismiss}>
+    <Modal transparent visible animationType="fade" statusBarTranslucent onRequestClose={dismiss} supportedOrientations={[...ORIENTATIONS]}>
       <View style={styles.center}>
         <Pressable
           accessibilityRole="button"
@@ -244,20 +251,24 @@ function SheetFrame({
 }: { onClose: () => void; title?: string; subtitle?: string; children: ReactNode; testID: string }) {
   const insets = useSafeAreaInsets();
   const t = useEntrance();
+  // On an iPad a sheet is a card in the middle of the screen, as iPadOS
+  // presents a form sheet: a 13-inch-wide strip along the bottom edge would put
+  // its buttons far from where the person is looking.
+  const card = !useLayout().compact;
   return (
-    <Modal transparent visible animationType="fade" statusBarTranslucent onRequestClose={onClose}>
-      <View style={styles.bottom}>
+    <Modal transparent visible animationType="fade" statusBarTranslucent onRequestClose={onClose} supportedOrientations={[...ORIENTATIONS]}>
+      <View style={card ? styles.center : styles.bottom}>
         <Pressable accessibilityRole="button" accessibilityLabel="Close" style={[StyleSheet.absoluteFill, styles.backdrop]} onPress={onClose} />
         <Animated.View
           testID={testID}
           accessibilityViewIsModal
           style={[
             styles.sheet,
-            { paddingBottom: Math.max(insets.bottom, space.md) + space.sm },
-            { transform: [{ translateY: t.interpolate({ inputRange: [0, 1], outputRange: [360, 0] }) }] },
+            card ? styles.sheetCard : { paddingBottom: Math.max(insets.bottom, space.md) + space.sm },
+            { transform: [{ translateY: t.interpolate({ inputRange: [0, 1], outputRange: [card ? 40 : 360, 0] }) }] },
           ]}
         >
-          <View style={styles.handle} />
+          {!card && <View style={styles.handle} />}
           {title ? (
             <View style={styles.sheetHead}>
               <Text variant="title" accessibilityRole="header" numberOfLines={2}>{title}</Text>
@@ -290,6 +301,10 @@ const styles = StyleSheet.create({
   sheet: {
     backgroundColor: colors.surface, borderTopLeftRadius: radius.xl + 4, borderTopRightRadius: radius.xl + 4,
     paddingHorizontal: space.lg + 4, paddingTop: space.sm, maxHeight: '88%', ...shadow.raised,
+  },
+  sheetCard: {
+    width: '100%', maxWidth: 560, borderRadius: radius.xl + 4,
+    paddingHorizontal: space.xl, paddingTop: space.xl, paddingBottom: space.xl, maxHeight: '86%',
   },
   handle: { alignSelf: 'center', width: 40, height: 5, borderRadius: 3, backgroundColor: colors.border, marginBottom: space.md },
   sheetHead: { gap: 2, marginBottom: space.md },

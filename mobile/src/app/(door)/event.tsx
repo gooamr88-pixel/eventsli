@@ -14,6 +14,7 @@ import { Ring, ShareBar } from '@/ui/charts';
 import { Icon } from '@/ui/Icon';
 import { Card, FactRow, InfoRow, PhaseChip, Section } from '@/ui/layout';
 import { Text } from '@/ui/Text';
+import { columnStyle, useLayout } from '@/ui/responsive';
 import { colors, radius, space } from '@/ui/theme';
 
 /** The phone's maps app, searching for the venue. */
@@ -49,10 +50,13 @@ export default function EventDetails() {
   const phase = event ? eventPhase(event.startsAt, event.endsAt) : null;
   const place = event ? [event.venue, event.address, event.city].filter(Boolean).join(', ') : '';
 
+  // iPad: a taller cover and the details in a centred column on the sheet.
+  const layout = useLayout();
+
   return (
     <View style={styles.screen}>
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + space.xl }}>
-        <View style={[styles.cover, { height: 200 + insets.top }]}>
+        <View style={[styles.cover, { height: (layout.compact ? 200 : 300) + insets.top }]}>
           {event?.coverUrl ? (
             <Image source={{ uri: event.coverUrl }} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} accessible={false} />
           ) : (
@@ -72,6 +76,7 @@ export default function EventDetails() {
         </View>
 
         <View style={styles.body}>
+          <View style={[styles.inner, columnStyle(layout, 'column')]}>
           <View style={{ gap: space.sm }}>
             {event && <PhaseChip startsAt={event.startsAt} endsAt={event.endsAt} />}
             <Text variant="heading" accessibilityRole="header">{event?.title ?? door?.eventTitle ?? 'Event'}</Text>
@@ -158,6 +163,7 @@ export default function EventDetails() {
 
           {perms?.analytics && <Button label="Analytics" variant="secondary" icon="chart" onPress={() => router.push('/analytics')} />}
           {perms?.viewGuests && <Button label="Find a Guest" variant="secondary" icon="search" onPress={() => router.push('/attendees')} />}
+          </View>
         </View>
       </ScrollView>
     </View>
@@ -184,8 +190,10 @@ const styles = StyleSheet.create({
   },
   body: {
     marginTop: -24, borderTopLeftRadius: radius.xl + 4, borderTopRightRadius: radius.xl + 4,
-    backgroundColor: colors.bg, paddingHorizontal: space.lg + 4, paddingTop: space.xl, gap: space.lg,
+    backgroundColor: colors.bg, paddingTop: space.xl,
   },
+  // The gutter (20 on a phone) and the iPad width come from columnStyle.
+  inner: { gap: space.lg },
   card: { paddingVertical: space.sm, gap: space.xs },
   maps: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: space.xs },
   progress: { flexDirection: 'row', alignItems: 'center', gap: space.lg },

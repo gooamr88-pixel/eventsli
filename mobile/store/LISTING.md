@@ -67,9 +67,12 @@ before it is entered; nothing here has been submitted.
 ## Screenshots
 
 Six per platform, in this order, taken from the demo event (no real guest
-data). Apple needs iPhone 6.9" (1320 × 2868); it scales those for smaller
-iPhones. **No iPad screenshots:** the app is iPhone-only on iOS
-(`ios.supportsTablet: false`; iPads run it in iPhone mode). Google needs phone
+data). Apple's required iPhone slot is now "iPhone with Dynamic Island
+(medium display)": 1206 × 2622 or 1179 × 2556 (checked 2026-11-18; the old
+6.9" size is optional and scaled down from). **The app runs on iPad** from
+Build 4 of 1.0 (`ios.supportsTablet: true`), so App Store Connect also
+requires iPad 13" screenshots: 2064 × 2752 or 2048 × 2732 portrait, or the
+landscape sizes 2752 × 2064 / 2732 × 2048. Google needs phone
 screenshots of at least 1080 px on the short side.
 
 1. **Scan** — the camera with the frame. Caption: *Point, scan, done.*

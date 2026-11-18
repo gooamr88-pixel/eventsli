@@ -17,12 +17,17 @@ const GOLD = '#f0c75e';
 const LINEN = '#f7eeee';
 const DOT = '#c9c9d1';
 
-/** The waves in the top corners: grey on the left, blush on the right. */
-export function SignInWaves({ width }: { width: number }) {
-  const h = width * 0.75;
+/**
+ * The waves in the top corners: grey on the left, blush on the right. Given a
+ * `height` (an iPad), the drawing is stretched across the width at that height
+ * rather than scaled up whole: scaled, a 1024-point screen would carry waves
+ * 770 points tall.
+ */
+export function SignInWaves({ width, height }: { width: number; height?: number }) {
+  const h = height ?? width * 0.75;
   return (
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-      <Svg width={width} height={h} viewBox="0 0 400 300" accessible={false}>
+      <Svg width={width} height={h} viewBox="0 0 400 300" preserveAspectRatio={height ? 'none' : undefined} accessible={false}>
         <Defs>
           <LinearGradient id="blush" x1="0" y1="0" x2="1" y2="1">
             <Stop offset="0" stopColor={BLUSH_PALE} stopOpacity={0.5} />
@@ -178,11 +183,12 @@ export function ConcertScene({ width }: { width: number }) {
 
 // ── The footer band ────────────────────────────────────────────────────────
 
-/** The bottom of the screen: a blush ribbon, a gold hairline, a linen band. */
-export function FooterBand({ width }: { width: number }) {
+/** The bottom of the screen: a blush ribbon, a gold hairline, a linen band. `height` as for the waves. */
+export function FooterBand({ width, height }: { width: number; height?: number }) {
+  const h = height ?? width * 0.5;
   return (
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-      <Svg width={width} height={width * 0.5} viewBox="0 0 400 200" accessible={false}>
+      <Svg width={width} height={h} viewBox="0 0 400 200" preserveAspectRatio={height ? 'none' : undefined} accessible={false}>
         <Defs>
           <LinearGradient id="ribbon" x1="0" y1="0" x2="1" y2="0">
             <Stop offset="0" stopColor={BLUSH} stopOpacity={0.7} />
@@ -194,7 +200,7 @@ export function FooterBand({ width }: { width: number }) {
         <Path d="M0 118C90 108 180 93 260 73 320 58 370 50 400 48V200H0Z" fill={LINEN} />
         <Path d="M0 118C90 108 180 93 260 73 320 58 370 50 400 48" fill="none" stroke={GOLD} strokeWidth={1.6} />
       </Svg>
-      <View style={[styles.linen, { top: width * 0.5 - 1 }]} />
+      <View style={[styles.linen, { top: h - 1 }]} />
       <Dots style={styles.dotsRight} cols={8} rows={4} from="topRight" />
     </View>
   );

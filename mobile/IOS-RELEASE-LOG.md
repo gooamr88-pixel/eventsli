@@ -57,7 +57,8 @@ password, the Sentry auth token, the App Store Connect API key file (`.p8`).
   `store/PRIVACY-AUDIT*.md` for what they contain.
 - iOS settings that matter for the store, all in `app.json`:
   - `ios.supportsTablet: false` — iPhone only; iPads run it in iPhone mode,
-    and no iPad screenshots are needed.
+    and no iPad screenshots are needed. (Builds 2 and 3 only: turned on for
+    Build 4 on 2026-11-18, see "iPad, in version 1.0" below.)
   - `ios.config.usesNonExemptEncryption: false` — App Store Connect does not
     ask the export-compliance question for each build.
   - `ios.privacyManifests` — the privacy manifest (matches `store/PRIVACY.md`).
@@ -436,6 +437,50 @@ safety answers are in `store/PRIVACY.md` (the Expo update id is declared as
 
 ---
 
+## 11a. iPad, in version 1.0
+
+Built 2026-11-18, before 1.0 was submitted, so the owner chose to ship
+iPhone and iPad together in 1.0 (Build 4). Build 3 was iPhone only. iPad
+support is native (it changes `UIDeviceFamily` in Info.plist), so it needs a
+new build, never an update. Later iPad layout changes are ordinary updates
+(section 9.1).
+
+**What the app does on an iPad.** Layouts follow the window size, not the
+device (`src/ui/responsive.ts`): under 600 pt is the phone design, exactly;
+600–999 is one centred column; 1000 and wider gets two columns. This matters
+because iOS 27 lets a person resize an iPad app's window (Split View, Stage
+Manager) and ignores the orientations an app asks for.
+
+- Dashboard: a taller cover; on a wide window the counts, Start Check-in and
+  shortcuts on the left, Recent Check-ins and the settings on the right.
+- My Events: a grid of event cards with covers, 2 or 3 across.
+- Analytics: the four numbers in one row; the breakdowns side by side.
+- Scan: a bigger frame (up to 380 pt), the controls centred.
+- Sign-in, the answers, offline and sync: a centred form width.
+- Sheets open as a card in the middle; the tab bar sits in the middle.
+- Every pop-up works in landscape (React Native's `Modal` is portrait-only
+  unless told otherwise).
+- The iPhone stays portrait; the iPad turns freely. Expo writes the iPad's
+  four orientations and leaves `UIRequiresFullScreen` off.
+
+**Steps:**
+1. Build and upload (version stays `1.0.0`; EAS raises the build number to 4):
+   ```
+   cd D:\Projects\eventsli\mobile
+   npx eas-cli@latest build --profile production --platform ios
+   npx eas-cli@latest submit --platform ios --latest
+   ```
+2. Test it on TestFlight, on an iPad **and** on an iPhone. On the iPad, test
+   portrait, landscape, and Split View, and test the camera turned both ways.
+3. App Store Connect → the 1.0 page → **Build**: replace Build 3 with Build 4
+   → **iPad 13" Display** screenshots (2064 × 2752 or 2048 × 2732; landscape
+   2752 × 2064 also accepted) → Submit for Review.
+
+**Cannot be undone:** once an iPad version is approved, Apple does not let an
+app drop iPad support.
+
+---
+
 ## 12. Timeline
 
 | Date | What |
@@ -444,4 +489,6 @@ safety answers are in `store/PRIVACY.md` (the Expo update id is declared as
 | 2026-11-15 | Session with the Account Holder: agreements, API access, first build (wrong-folder attempt, then build 2 succeeded); certificates created; uploaded to App Store Connect (app id 6835016139). |
 | 2026-11-15 | Sentry source maps and debug files confirmed. Found that EAS had already generated and linked its own admin API key during the first upload; the hand-made key (`57…`) is unused. |
 | 2026-11-15 | Unused `57…` key revoked and its `.p8` deleted; the Account Holder's saved Apple session removed from the Windows PC. |
-| Next | TestFlight on a real iPhone (the Account Holder's); privacy policy published; review account; screenshots; store page; submit for review. |
+| 2026-11-17 | Build 3 (rebrand icon and splash). TestFlight on a real iPhone. Privacy policy published with the app section. |
+| 2026-11-18 | 1.0 store page being filled (App Information, age rating 16+, App Privacy; screenshots needed 1206 × 2622). iPad layouts built (section 11a); the owner chose to ship them in 1.0. |
+| Next | Build 4 (iPhone + iPad), TestFlight on both, iPad screenshots, submit 1.0 for review. |

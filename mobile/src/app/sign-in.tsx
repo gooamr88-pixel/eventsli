@@ -13,6 +13,7 @@ import { deviceLabel, signInWithEventsli, SignInCancelled, siteUrl } from '@/aut
 import { useSession } from '@/auth/session';
 import { Button } from '@/ui/Button';
 import { Field } from '@/ui/Field';
+import { MAX_WIDTH, useLayout } from '@/ui/responsive';
 import { ScannerMark, Wordmark } from '@/ui/ScannerMark';
 import { ConcertScene, FooterBand, SignInWaves, SparkleRule } from '@/ui/SignInScene';
 import { Text } from '@/ui/Text';
@@ -35,9 +36,15 @@ export default function SignIn() {
   const passwordRef = useRef<TextInputInstance>(null);
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const mark = Math.min(68, width * 0.17);
-  const titleSize = Math.min(36, width * 0.088);
-  const rule = Math.min(56, width * 0.13);
+  // iPad: the brand, title and form are a centred column (`art` wide) and the
+  // drawings keep a phone's proportions to it; the waves and the footer band
+  // still reach both edges, stretched to a fixed height. A phone: unchanged.
+  const tablet = !useLayout().compact;
+  const art = tablet ? Math.min(width, MAX_WIDTH.form) : width;
+  const mark = Math.min(68, art * 0.17);
+  const titleSize = Math.min(36, art * 0.088);
+  const rule = Math.min(56, art * 0.13);
+  const band = tablet ? 240 : width * 0.5;
 
   async function withPassword() {
     if (!email.trim() || !password) {
@@ -74,10 +81,11 @@ export default function SignIn() {
 
   return (
     <View style={styles.screen}>
-      <SignInWaves width={width} />
+      <SignInWaves width={width} height={tablet ? 300 : undefined} />
       <SafeAreaView style={styles.flex} edges={['top']}>
         <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+            <View style={[styles.column, tablet && styles.columnTablet]}>
             <View style={styles.brand} accessible accessibilityRole="image" accessibilityLabel="Eventsli Scanner">
               <View style={styles.lockup}>
                 <View style={[styles.markRing, { borderRadius: mark * 0.24 }]}>
@@ -95,8 +103,8 @@ export default function SignIn() {
 
             <View style={styles.intro}>
               {/* The concert behind the title, bleeding off the right edge. */}
-              <View pointerEvents="none" style={[styles.scene, { width: width * 0.62, top: -width * 0.2 }]}>
-                <ConcertScene width={width * 0.62} />
+              <View pointerEvents="none" style={[styles.scene, { width: art * 0.62, top: -art * 0.2 }]}>
+                <ConcertScene width={art * 0.62} />
               </View>
               <Text style={[styles.title, { fontSize: titleSize, lineHeight: titleSize * 1.2 }]} accessibilityRole="header">
                 {'Sign in to\n'}
@@ -156,12 +164,13 @@ export default function SignIn() {
                 <Text weight="semibold" color={colors.accent} align="center">Forgot password?</Text>
               </Pressable>
             </View>
+            </View>
 
             {/* The other two ways in, on the band at the foot of the screen. It
                 is part of the scroll, so the keyboard never pushes it over the
                 fields. */}
-            <View style={[styles.footer, { minHeight: width * 0.5 + insets.bottom, paddingBottom: insets.bottom + space.xl }]}>
-              <FooterBand width={width} />
+            <View style={[styles.footer, { minHeight: band + insets.bottom, paddingBottom: insets.bottom + space.xl }]}>
+              <FooterBand width={width} height={tablet ? band : undefined} />
               <SparkleRule />
               <View style={styles.other}>
                 <Pressable accessibilityRole="button" onPress={busy ? undefined : withEventsli} hitSlop={8}>
@@ -186,6 +195,8 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   flex: { flex: 1 },
   scroll: { flexGrow: 1, paddingTop: space.xl, gap: space.xl },
+  column: { gap: space.xl },
+  columnTablet: { width: '100%', maxWidth: MAX_WIDTH.form, alignSelf: 'center', paddingTop: space.xxl },
   brand: { alignItems: 'center', gap: space.lg, marginTop: space.lg, paddingHorizontal: space.xl },
   lockup: { flexDirection: 'row', alignItems: 'center', gap: space.lg },
   // A faint yellow edge around the mark, as the mockup's tile has.

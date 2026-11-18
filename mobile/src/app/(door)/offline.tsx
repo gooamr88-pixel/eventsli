@@ -31,6 +31,7 @@ export default function Offline() {
 
   return (
     <Screen
+      width="form"
       waves="both"
       footer={online && pending > 0 ? (
         <Button label={`Sync ${count(pending)} check-in${pending === 1 ? '' : 's'} now`} icon="cloudUpload" onPress={() => router.replace('/sync')} />

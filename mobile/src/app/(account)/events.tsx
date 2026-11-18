@@ -14,10 +14,11 @@ import { ShareBar } from '@/ui/charts';
 import { dialog, Sheet } from '@/ui/Dialog';
 import { Icon } from '@/ui/Icon';
 import { Avatar, Empty, FactRow, PhaseChip, Screen, ScreenTitle } from '@/ui/layout';
+import { contentWidth, gridColumns, useLayout } from '@/ui/responsive';
 import { Segmented } from '@/ui/Segmented';
 import { TabBar } from '@/ui/TabBar';
 import { Text } from '@/ui/Text';
-import { colors, fonts, radius, space } from '@/ui/theme';
+import { colors, fonts, radius, shadow, space } from '@/ui/theme';
 
 type Scope = 'assigned' | 'all';
 
@@ -83,8 +84,16 @@ export default function Events() {
 
   const firstName = (account?.user.fullName || '').trim().split(/\s+/)[0];
 
+  // iPad: a grid of event cards with their covers, two or three across as the
+  // window allows (300 pt a card at the least). A phone keeps the mockup's list.
+  const layout = useLayout();
+  const available = contentWidth(layout, 'page');
+  const columns = layout.compact ? 1 : gridColumns(available, 300, space.lg);
+  // An exact width, so a last row of one card lines up with the rows above.
+  const tileWidth = (available - space.lg * (columns - 1)) / columns;
+
   return (
-    <Screen bar={<TabBar active="events" mode="account" />}>
+    <Screen width="page" bar={<TabBar active="events" mode="account" />}>
       <ScreenTitle
         right={(
           <Pressable accessibilityRole="button" accessibilityLabel="Settings" onPress={() => router.navigate('/account')} hitSlop={8}>
@@ -122,9 +131,13 @@ export default function Events() {
       </View>
 
       <FlatList
+        // A list cannot change its column count in place: a new count is a new list.
+        key={`cols-${columns}`}
         data={list}
+        numColumns={columns}
+        columnWrapperStyle={columns > 1 ? styles.gridRow : undefined}
         keyExtractor={(e) => e.id}
-        contentContainerStyle={{ paddingBottom: space.lg }}
+        contentContainerStyle={[{ paddingBottom: space.lg }, columns > 1 && styles.grid]}
         keyboardShouldPersistTaps="handled"
         refreshControl={<RefreshControl refreshing={query.isRefetching} onRefresh={() => { query.refetch(); }} tintColor={colors.accent} />}
         ListEmptyComponent={query.isLoading ? <ActivityIndicator color={colors.accent} style={{ marginTop: space.xl }} /> : (
@@ -138,9 +151,11 @@ export default function Events() {
             action={query.error ? <Button label="Try again" variant="secondary" onPress={() => query.refetch()} /> : undefined}
           />
         )}
-        renderItem={({ item, index }) => (
+        renderItem={({ item, index }) => (columns > 1 ? (
+          <EventTile event={item} width={tileWidth} onPress={() => setPreview(item)} />
+        ) : (
           <EventRow event={item} first={index === 0} onPress={() => setPreview(item)} />
-        )}
+        ))}
       />
 
       <Sheet visible={Boolean(preview)} onClose={() => (opening ? undefined : setPreview(null))}>
@@ -174,6 +189,34 @@ function EventRow({ event, first, onPress }: { event: EventCard; first: boolean;
         <PhaseChip startsAt={event.startsAt} endsAt={event.endsAt} />
       </View>
       <Icon name="chevronRight" size={20} color={colors.muted} />
+    </Pressable>
+  );
+}
+
+/** An event as a card in the iPad grid: the cover on top, then what, when and where. */
+function EventTile({ event, width, onPress }: { event: EventCard; width: number; onPress: () => void }) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityHint="Shows the event"
+      onPress={onPress}
+      style={({ pressed }) => [styles.tile, { width }, pressed && { opacity: 0.7 }]}
+    >
+      <Cover event={event} style={styles.tileCover} />
+      <View style={styles.tileBody}>
+        <Text variant="label" numberOfLines={2}>{event.title}</Text>
+        <View style={styles.meta}>
+          <Icon name="calendar" size={15} color={colors.muted} />
+          <Text variant="small" color={colors.muted} numberOfLines={1} style={styles.shrink}>{eventDate(event.startsAt, event.timezone)}</Text>
+        </View>
+        {(event.city || event.venue) && (
+          <View style={styles.meta}>
+            <Icon name="pin" size={15} color={colors.muted} />
+            <Text variant="small" color={colors.muted} numberOfLines={1} style={styles.shrink}>{[event.city, event.venue].filter(Boolean)[0]}</Text>
+          </View>
+        )}
+        <PhaseChip startsAt={event.startsAt} endsAt={event.endsAt} />
+      </View>
     </Pressable>
   );
 }
@@ -262,6 +305,15 @@ const styles = StyleSheet.create({
   rowRule: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
   thumb: { width: 80, height: 80, borderRadius: radius.md, backgroundColor: colors.wash },
   thumbEmpty: { backgroundColor: colors.coral500, alignItems: 'center', justifyContent: 'center' },
+  grid: { paddingTop: space.xs, gap: space.lg },
+  gridRow: { gap: space.lg },
+  tile: {
+    backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border,
+    overflow: 'hidden', ...shadow.card,
+  },
+  tileCover: { width: '100%', aspectRatio: 16 / 9, backgroundColor: colors.wash },
+  tileBody: { padding: space.md, gap: 6 },
+  shrink: { flexShrink: 1 },
   info: { flex: 1, gap: 4 },
   meta: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   preview: { gap: space.md },

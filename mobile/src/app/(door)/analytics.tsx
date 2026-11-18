@@ -12,6 +12,7 @@ import { count, doorTime } from '@/lib/format';
 import { Bars, ShareBar } from '@/ui/charts';
 import { Card, Empty, Header } from '@/ui/layout';
 import { Text } from '@/ui/Text';
+import { columnStyle, useLayout } from '@/ui/responsive';
 import { colors, space } from '@/ui/theme';
 
 /**
@@ -36,11 +37,17 @@ export default function Analytics() {
   const expected = a ? a.stats.admitted + a.stats.pending : 0;
   const share = expected ? Math.round((a!.stats.admitted / expected) * 100) : 0;
 
+  // iPad: a centred page, the four numbers in one row, and the breakdowns side
+  // by side under a taller arrivals chart. A phone keeps the mockup.
+  const layout = useLayout();
+  const frame = layout.compact ? styles.pad : columnStyle(layout, 'page');
+  const col = [styles.col, !layout.compact && styles.colSplit];
+
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
-      <View style={styles.pad}><Header title="Analytics" /></View>
+      <View style={frame}><Header title="Analytics" /></View>
       <ScrollView
-        contentContainerStyle={[styles.pad, styles.body]}
+        contentContainerStyle={[frame, styles.body]}
         refreshControl={<RefreshControl refreshing={q.isRefetching} onRefresh={() => { q.refetch(); }} tintColor={colors.accent} />}
       >
         {!a ? (
@@ -49,20 +56,18 @@ export default function Analytics() {
           )
         ) : (
           <>
-            <View style={styles.tiles}>
-              <Tile label="Checked in" value={count(a.stats.admitted)} sub={`${share}% of ${count(expected)}`} />
-              <Tile label="Last 5 min" value={count(a.lastFiveMinutes)} sub="arrivals" />
-            </View>
-            <View style={styles.tiles}>
-              <Tile label="Peak" value={count(a.peak?.admitted ?? 0)} sub={a.peak ? `per ${a.bucketMinutes} min at ${doorTime(a.peak.at)}` : 'no arrivals yet'} />
-              <Tile label="First in" value={a.firstAt ? doorTime(a.firstAt) : '—'} sub={a.lastAt ? `last ${doorTime(a.lastAt)}` : ''} />
+            <View style={[styles.tiles, layout.compact && styles.tilesTwo]}>
+              <Tile half={layout.compact} label="Checked in" value={count(a.stats.admitted)} sub={`${share}% of ${count(expected)}`} />
+              <Tile half={layout.compact} label="Last 5 min" value={count(a.lastFiveMinutes)} sub="arrivals" />
+              <Tile half={layout.compact} label="Peak" value={count(a.peak?.admitted ?? 0)} sub={a.peak ? `per ${a.bucketMinutes} min at ${doorTime(a.peak.at)}` : 'no arrivals yet'} />
+              <Tile half={layout.compact} label="First in" value={a.firstAt ? doorTime(a.firstAt) : '—'} sub={a.lastAt ? `last ${doorTime(a.lastAt)}` : ''} />
             </View>
 
             <Card style={{ gap: space.md }}>
               <Text variant="label">Arrivals every {a.bucketMinutes} minutes</Text>
               {a.timeline.length ? (
                 <>
-                  <Bars values={a.timeline.map((b) => b.admitted)} />
+                  <Bars values={a.timeline.map((b) => b.admitted)} height={layout.compact ? 120 : 200} />
                   <View style={styles.axis}>
                     <Text variant="caption" color={colors.subtle}>{doorTime(a.timeline[0].at)}</Text>
                     <Text variant="caption" color={colors.subtle}>{doorTime(a.timeline[a.timeline.length - 1].at)}</Text>
@@ -73,6 +78,8 @@ export default function Analytics() {
               )}
             </Card>
 
+            <View style={layout.compact ? styles.col : styles.split}>
+            <View style={col}>
             <Card style={{ gap: space.md }}>
               <Text variant="label">By ticket type</Text>
               {a.byTier.map((t) => (
@@ -85,6 +92,9 @@ export default function Analytics() {
                 </View>
               ))}
             </Card>
+            </View>
+
+            <View style={col}>
 
             {a.byDevice.length > 0 && (
               <Card style={{ gap: space.sm }}>
@@ -119,6 +129,8 @@ export default function Analytics() {
                 </>
               )}
             </Card>
+            </View>
+            </View>
           </>
         )}
       </ScrollView>
@@ -126,9 +138,9 @@ export default function Analytics() {
   );
 }
 
-function Tile({ label, value, sub }: { label: string; value: string; sub: string }) {
+function Tile({ label, value, sub, half = false }: { label: string; value: string; sub: string; half?: boolean }) {
   return (
-    <Card style={{ flex: 1, gap: 2 }}>
+    <Card style={[{ flex: 1, gap: 2 }, half && styles.half]}>
       <Text variant="small" color={colors.muted}>{label}</Text>
       <Text variant="heading" style={{ fontVariant: ['tabular-nums'] }}>{value}</Text>
       <Text variant="caption" color={colors.subtle} numberOfLines={1}>{sub}</Text>
@@ -141,6 +153,12 @@ const styles = StyleSheet.create({
   pad: { paddingHorizontal: space.lg },
   body: { gap: space.lg, paddingBottom: space.xl },
   tiles: { flexDirection: 'row', gap: space.md },
+  // A phone: two tiles a row, as the mockup has them.
+  tilesTwo: { flexWrap: 'wrap', rowGap: space.lg },
+  half: { flexBasis: '40%' },
+  col: { gap: space.lg },
+  colSplit: { flex: 1, minWidth: 0 },
+  split: { flexDirection: 'row', alignItems: 'flex-start', gap: space.lg },
   axis: { flexDirection: 'row', justifyContent: 'space-between' },
   between: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: space.md },
 });
