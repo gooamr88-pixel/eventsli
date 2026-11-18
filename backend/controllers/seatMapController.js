@@ -11,6 +11,7 @@ const ticketDetails = require('../services/ticketDetails');
 const purchasability = require('../services/purchasability');
 const { releaseHold, heldSelection } = require('../services/holdRelease');
 const { placeHold } = require('../services/placeHold');
+const { publicLayout } = require('../services/venueStudio');
 
 const TTL_MINUTES = () => parseInt(process.env.RESERVATION_TTL_MINUTES || '35', 10);
 
@@ -194,7 +195,9 @@ async function publicMap(req, res, next) {
 
     return sendOk(res, {
       event: publicEvent(event),
-      map: { id: map.id, layout: map.layout_json, version: map.version },
+      // Table styles are keyed by table name, so a hidden table's would name
+      // it: only the visible tables' styles leave the server.
+      map: { id: map.id, layout: publicLayout(map.layout_json, visible.map((t) => t.label)), version: map.version },
       tiers: (tiers || []).map((t) => ({
         id: t.id,
         name: t.name,

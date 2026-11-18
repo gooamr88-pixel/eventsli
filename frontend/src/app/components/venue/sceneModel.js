@@ -92,7 +92,7 @@ export function buildSceneModel({
     const elev = isRow ? Math.max(0, distances[ti] - nearest - FLAT_FLOOR) * slope : 0;
     const list = seatsByTable.get(t.id) || [];
 
-    seatPositions(shape, t.seatCount).forEach((pt, i) => {
+    seatPositions(shape, t.seatCount, t.style).forEach((pt, i) => {
       const r = rotate(pt.x, pt.y, pos.rotation);
       const s = toScene(pos.x + r.x, pos.y + r.y);
       const target = isRow ? focus : centre;
@@ -111,7 +111,7 @@ export function buildSceneModel({
       radius = Math.max(radius, Math.hypot(s.x, s.z));
     });
 
-    const body = tableBody(shape, t.seatCount);
+    const body = tableBody(shape, t.seatCount, t.style);
     if (isRow) {
       if (elev > 0.02) {
         risers.push({

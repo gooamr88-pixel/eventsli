@@ -17074,3 +17074,70 @@ label.es-chip:has(:focus-visible) { outline: 2px solid var(--es-accent); outline
 
   .es-pubprof__logo { display: flex; align-items: center; gap: 1rem; }
 }
+
+/* ── Venue Builder styling (2026-11-18): shape tiles, seats per side, the
+   style fields and the Map look card (organizer/.../map/style/). ───────── */
+@layer components {
+  .es-shapegrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.375rem; }
+  .es-shapegrid--6 { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .es-shapegrid__tile {
+    display: grid;
+    justify-items: center;
+    gap: 0.15rem;
+    min-width: 0;
+    padding: 0.4rem 0.2rem;
+    border: 1px solid var(--es-border);
+    border-radius: var(--es-radius-sm);
+    background: var(--es-surface);
+    color: var(--es-text-muted);
+    font: inherit;
+    font-size: 0.6875rem;
+    line-height: 1.2;
+    text-align: center;
+    cursor: pointer;
+  }
+  .es-shapegrid__tile span { overflow: hidden; max-width: 100%; text-overflow: ellipsis; white-space: nowrap; }
+  .es-shapegrid__tile:hover { border-color: var(--es-border-strong); color: var(--es-text); }
+  .es-shapegrid__tile[aria-pressed="true"] { border: 2px solid var(--es-brand-coral); padding: calc(0.4rem - 1px) calc(0.2rem - 1px); background: var(--es-accent-wash); color: var(--es-text); }
+
+  .es-sides { display: flex; align-items: center; gap: 0.75rem; }
+  .es-sides__art { display: grid; flex: none; place-items: center; width: 6.5rem; height: 6.5rem; border-radius: var(--es-radius-md); background: var(--es-bg-sunken); color: var(--es-text-muted); }
+  .es-sides > .fx-stack { flex: 1; }
+
+  .es-stepper { display: inline-flex; align-items: center; border: 1px solid var(--es-border-strong); border-radius: var(--es-radius-sm); overflow: hidden; }
+  .es-stepper button { width: 1.9rem; height: 1.9rem; border: 0; background: var(--es-surface); color: var(--es-text); font: inherit; font-size: 1rem; cursor: pointer; }
+  .es-stepper button:hover:not(:disabled) { background: var(--es-bg-sunken); }
+  .es-stepper button:disabled { color: var(--es-text-subtle); cursor: not-allowed; }
+  .es-stepper span { min-width: 2rem; padding: 0 0.25rem; border-inline: 1px solid var(--es-border); font-size: var(--es-text-sm); text-align: center; }
+
+  .es-seg { display: inline-flex; border: 1px solid var(--es-border-strong); border-radius: var(--es-radius-sm); overflow: hidden; }
+  .es-seg button { padding: 0.3rem 0.6rem; border: 0; background: var(--es-surface); color: var(--es-text); font: inherit; font-size: var(--es-text-xs); cursor: pointer; }
+  .es-seg button + button { border-inline-start: 1px solid var(--es-border); }
+  .es-seg button[aria-pressed="true"] { background: var(--es-black); color: #ffffff; }
+
+  .es-colourswatch { width: 2.5rem; height: 1.9rem; padding: 0.125rem; border: 1px solid var(--es-border-strong); border-radius: var(--es-radius-sm); background: var(--es-surface); cursor: pointer; }
+  .es-stylerange { width: 7rem; accent-color: var(--es-brand-coral); }
+  .es-linkbtn { padding: 0; border: 0; background: none; color: var(--es-accent); font: inherit; text-decoration: underline; cursor: pointer; }
+
+  .es-lookgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(4.75rem, 1fr)); gap: 0.4rem; margin: 0; padding: 0; list-style: none; }
+  .es-lookgrid__item { position: relative; min-width: 0; }
+  .es-lookgrid__tile {
+    display: grid;
+    gap: 0.25rem;
+    width: 100%;
+    padding: 0.3rem;
+    border: 1px solid var(--es-border);
+    border-radius: var(--es-radius-sm);
+    background: var(--es-surface);
+    color: var(--es-text-muted);
+    font: inherit;
+    font-size: 0.6875rem;
+    text-align: center;
+    cursor: pointer;
+  }
+  .es-lookgrid__tile[aria-pressed="true"] { border: 2px solid var(--es-brand-coral); padding: calc(0.3rem - 1px); color: var(--es-text); }
+  .es-lookgrid__tile--add { border-style: dashed; }
+  .es-lookgrid__swatch { display: block; border-radius: 4px; border: 1px solid var(--es-border); }
+  .es-lookgrid__plus { display: grid; place-items: center; height: 28px; font-size: 1.1rem; }
+  .es-lookgrid__remove { position: absolute; top: -0.4rem; right: -0.4rem; width: 1.25rem; height: 1.25rem; border: 1px solid var(--es-border-strong); border-radius: 50%; background: var(--es-surface); color: var(--es-text); font-size: 0.8rem; line-height: 1; cursor: pointer; }
+}

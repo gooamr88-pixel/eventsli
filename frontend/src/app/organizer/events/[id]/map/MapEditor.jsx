@@ -16,6 +16,7 @@ import { MapHeader, MapBanner, MapNotices, countUnpriced } from './MapChrome';
 import { useEventContext } from '../EventContext';
 import { frameFor, sameBox, clamp } from './mapApi';
 import { liveSections } from '../../../../components/venue/venueModel';
+import { writeLook } from '../../../../components/seating/mapStyle';
 import StudioTabs from './studio/StudioTabs';
 import SectionDialog from './studio/SectionDialog';
 import StudioWorkspace from './studio/StudioWorkspace';
@@ -32,6 +33,7 @@ import { useCanvasInteraction } from './useCanvasInteraction';
 import { useEditorKeys } from './useEditorKeys';
 import { useUnsavedGuard } from './useUnsavedGuard';
 import { useStepSave } from '../BuildStep';
+import { useWallTool } from './style/useWallTool';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -182,6 +184,28 @@ export default function MapEditor({ eventId }) {
     onRemove: removeSelected,
   });
 
+  /** Draw walls (style/useWallTool.jsx): its walls land selected, as one undo step. */
+  const wallTool = useWallTool({
+    svgRef: panzoom.svgRef, view: panzoom.view, world, look: draft.look, zones, active: tool === 'wall',
+    onCreate: (segments) => selection.replace([], draft.addZones(segments)),
+    onExit: () => setToolBoth('select'),
+  });
+
+  /** An Add-to-layout item: a tool (Draw walls), a seating section, or the Add dialog. */
+  const addFrom = (initial) => {
+    if (initial.family === 'tool') { selection.clear(); setToolBoth(initial.key); return; }
+    if (initial.family === 'section') { setShowSection(true); return; }
+    setAddInitial(initial); setShowAdd(true);
+  };
+
+  /** "Apply to all tables": clears the tables' own colours so the look shows. */
+  const applyLookToTables = () => {
+    draft.updateTables(tables.map(keyOf), (t) => {
+      const { fill, labelColor, stroke, strokeWidth, ...rest } = t.style || {};  
+      return { style: Object.keys(rest).length ? rest : null };
+    });
+  };
+
   const interaction = useCanvasInteraction({
     svgRef: panzoom.svgRef,
     view: panzoom.view,
@@ -196,6 +220,8 @@ export default function MapEditor({ eventId }) {
   /* ── derived ────────────────────────────────────────────────────────────── */
 
   const sections = liveSections(studio.sections, tables);
+  // The Studio's preview shows the draft's look, not the last saved one.
+  const previewLayout = useMemo(() => writeLook(layout, draft.look), [layout, draft.look]);
   const preview3d = <Preview3DCard tables={tables} zones={zones} world={world} scene={studio.scene} tiers={tiers} onOpen={() => setWorkspace('3d')} />;
 
   const sole = soleSelected(selection.selection, tables, zones);
@@ -270,7 +296,7 @@ export default function MapEditor({ eventId }) {
 
       <div id="studio-panel" role="tabpanel" aria-labelledby={`studio-tab-${workspace}`} className="fx-stack">
       <StudioWorkspace
-        workspace={workspace} eventId={eventId} tables={tables} zones={zones} layout={layout}
+        workspace={workspace} eventId={eventId} tables={tables} zones={zones} layout={previewLayout}
         world={world} onResizeWorld={draft.resizeWorld}
         sections={sections} tiers={tiers} eventTitle={eventTitle} eventInfo={eventInfo} draft={studioDraft}
       />
@@ -292,10 +318,7 @@ export default function MapEditor({ eventId }) {
             enough for three columns; narrower, the add tools stay in the
             panel on the right (EditorSidePanel → BuildPanel). */}
         <div className="es-mapeditor__tools">
-          <BuildPalette onAdd={(initial) => {
-            if (initial.family === 'section') { setShowSection(true); return; }
-            setAddInitial(initial); setShowAdd(true);
-          }} />
+          <BuildPalette onAdd={addFrom} />
           <LayersCard layers={layers} onToggle={toggleLayer} />
         </div>
         {/* The toolbar sits ON the canvas card, as one surface — and that card
@@ -350,6 +373,8 @@ export default function MapEditor({ eventId }) {
             }}
             onNudge={onElementKeyDown}
             layers={layers}
+            look={draft.look}
+            wallTool={wallTool}
           />
         </div>
 
@@ -362,10 +387,9 @@ export default function MapEditor({ eventId }) {
           categories={categories} purchaseMode={purchaseMode} onTierCreated={io.addTier}
           onAssignTier={assignTier} onRotate={rotateSelected} onDuplicate={duplicateSelected}
           onRemoveSelected={removeSelected}
-          onAdd={(initial) => {
-            if (initial.family === 'section') { setShowSection(true); return; }
-            setAddInitial(initial); setShowAdd(true);
-          }}
+          onAdd={addFrom}
+          wallTool={wallTool}
+          onApplyLook={applyLookToTables}
         />
         {selection.count > 0 && preview3d}
         </div>

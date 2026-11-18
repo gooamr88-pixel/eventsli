@@ -1,8 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { SHAPES } from '../../../../components/seating/seatingGeometry';
-import { SHAPE_NAMES } from './shapeNames';
+import TableStyleSection from './style/TableStyleSection';
 import { MAX_SEATS_PER_TABLE, keyOf } from './useMapDraft';
 import { toCents } from '../tiers/Tiers';
 import { centsToInput } from '../../../../lib/moneyInput';
@@ -65,12 +64,6 @@ export default function TablePanel({
         onChange={(e) => set({ label: e.target.value })}
       />
 
-      <Select
-        label="Shape" value={table.shape}
-        onChange={(v) => set({ shape: v })}
-        options={SHAPES.map((s) => [s, SHAPE_NAMES[s] || s])}
-        hint={table.shape === 'row' ? 'A straight bank of seats with no table.' : undefined}
-      />
 
       <Field
         label="Seats" type="number" min={1} max={MAX_SEATS_PER_TABLE}
@@ -81,10 +74,19 @@ export default function TablePanel({
           // Clamped to the database's own CHECK (1–60), so the field cannot
           // hold a value the save would be refused for.
           if (Number.isFinite(n)) {
-            set({ seatCount: Math.min(MAX_SEATS_PER_TABLE, Math.max(1, Math.round(n))) });
+            // A typed count goes back to the shape's own spread: seats per
+            // side that no longer add up would be ignored anyway.
+            const { sides, ...rest } = table.style || {};
+            set({
+              seatCount: Math.min(MAX_SEATS_PER_TABLE, Math.max(1, Math.round(n))),
+              ...(sides ? { style: Object.keys(rest).length ? rest : null } : {}),
+            });
           }
         }}
       />
+
+      {/* Shape, seats per side and colours (2026-11-18). */}
+      <TableStyleSection table={table} onChange={set} sold={Number(table.soldSeats) || 0} />
 
       {/* BRD §25 — a table's price is INDEPENDENT, not the sum of its seats.
           Ten $50 seats may sell as a $450 table or a $550 one; the organizer

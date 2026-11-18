@@ -1,6 +1,6 @@
 import { describe, test, expect } from 'vitest';
 import {
-  ZONES, ZONE_KINDS, MIN_ZONE_SIZE, MAX_ZONES, zoneMeta, zoneBox, zoneColor, zoneLabel,
+  ZONES, ZONE_KINDS, MIN_ZONE_SIZE, MAX_ZONES, minZoneSize, zoneMeta, zoneBox, zoneColor, zoneLabel,
 } from '../src/app/components/seating/venueZones';
 import { ZONE_ICONS, iconPaths } from '../src/app/components/seating/zoneIcons';
 import { readZones, writeZones, makeZone, newZoneId } from '../src/app/components/seating/layoutZones';
@@ -37,8 +37,9 @@ describe('the catalogue is complete', () => {
   test('every zone has a drawable size and a real colour', () => {
     for (const kind of ZONE_KINDS) {
       const meta = ZONES[kind];
-      expect(meta.w, kind).toBeGreaterThanOrEqual(MIN_ZONE_SIZE);
-      expect(meta.h, kind).toBeGreaterThanOrEqual(MIN_ZONE_SIZE);
+      // The room kinds (a wall is a few units thick) set their own minimum.
+      expect(meta.w, kind).toBeGreaterThanOrEqual(minZoneSize(kind).w);
+      expect(meta.h, kind).toBeGreaterThanOrEqual(minZoneSize(kind).h);
       // Smaller than the room, or a single zone covers the whole floor plan.
       expect(meta.w, kind).toBeLessThan(WORLD.width);
       expect(meta.h, kind).toBeLessThan(WORLD.height);

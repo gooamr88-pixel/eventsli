@@ -73,7 +73,36 @@ export const ZONES = Object.freeze({
   accessible:   { label: 'Accessible seating', w: 56, h: 40, icon: 'wheelchair', color: '#2f5fa8' },
   barrier:      { label: 'Barrier',      w: 160, h: 24,  icon: 'barrier',    color: '#55595f' },
   custom:       { label: 'Custom area',  w: 76,  h: 52,  icon: 'area',       color: '#0d5b5e' },
+  // The room (2026-11-18, the owner's floor-plan reference). A wall is a thin
+  // solid bar, drawn corner to corner by the Draw wall tool; a door is a gap
+  // painted in the floor's colour over a wall, with its name beside it; text
+  // is words on the floor; a decorative feature is a centrepiece in rings.
+  // `min` lets these be thinner than MIN_ZONE_SIZE, which they must be.
+  wall:         { label: 'Wall',         w: 200, h: 6,   icon: 'wall',       color: '#0e3a4a', min: { w: 8, h: 2 } },
+  door_gap:     { label: 'Door',         w: 60,  h: 10,  icon: 'door',       color: '#0e3a4a', min: { w: 12, h: 2 } },
+  text:         { label: 'Text label',   w: 150, h: 26,  icon: 'text',       color: '#10303d', min: { w: 20, h: 10 } },
+  decor:        { label: 'Decorative feature', w: 96, h: 96, icon: 'decor',  color: '#946e58' },
 });
+
+/** The kinds that are the room itself rather than furniture in it: drawn
+ *  without the furniture's wash, icon or capitals (ZoneShape). */
+export const ROOM_KINDS = Object.freeze(new Set(['wall', 'door_gap', 'text']));
+
+/**
+ * Zones in the order they are painted: walls first, so a door gap laid over a
+ * wall paints the gap whatever order the two were drawn in. Stable otherwise.
+ */
+export function paintOrder(zones) {
+  if (!zones.some((z) => z.kind === 'wall')) return zones;
+  return [...zones.filter((z) => z.kind === 'wall'), ...zones.filter((z) => z.kind !== 'wall')];
+}
+
+/** How small a zone of this kind may be: MIN_ZONE_SIZE, unless its catalogue
+ *  entry says less (a wall is a few units thick). */
+export function minZoneSize(kind) {
+  const m = zoneMeta(kind).min;
+  return { w: m?.w ?? MIN_ZONE_SIZE, h: m?.h ?? MIN_ZONE_SIZE };
+}
 
 /** The catalogue in the order the Add dialog offers it. Insertion order of a
  *  frozen literal is stable, so this is that order, named. */
@@ -100,7 +129,7 @@ export const MIN_ZONE_SIZE = 24;
 
 /** A room can hold a lot of furniture, but not unbounded furniture: the layout
  *  blob is one JSONB column read on every map load, including the buyer's. */
-export const MAX_ZONES = 120;
+export const MAX_ZONES = 300;
 
 /**
  * A zone's box in world units.
@@ -113,8 +142,9 @@ export const MAX_ZONES = 120;
  */
 export function zoneBox(zone, world) {
   const meta = zoneMeta(zone.kind);
-  const w = positive(zone.w, meta.w);
-  const h = positive(zone.h, meta.h);
+  const min = minZoneSize(zone.kind);
+  const w = positive(zone.w, meta.w, min.w);
+  const h = positive(zone.h, meta.h, min.h);
   const cx = (Number(zone.x) || 0) / 100 * world.width;
   const cy = (Number(zone.y) || 0) / 100 * world.height;
   return {
@@ -185,7 +215,7 @@ export function zoneLabel(zone) {
   return own || zoneMeta(zone?.kind).label;
 }
 
-function positive(value, fallback) {
+function positive(value, fallback, min = MIN_ZONE_SIZE) {
   const n = Number(value);
-  return Number.isFinite(n) && n >= MIN_ZONE_SIZE ? n : fallback;
+  return Number.isFinite(n) && n >= min ? n : fallback;
 }

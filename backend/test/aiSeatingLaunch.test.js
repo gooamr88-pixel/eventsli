@@ -47,7 +47,7 @@ test('a plan keeps what the map can draw and the event really has', () => {
     isSeatingRequest: true,
     sections: [
       { name: 'VIP', tableCount: 6, seatsPerTable: 10, shape: 'round', area: 'front', ticketType: 'vip table', tableCategory: null },
-      { name: 'Guests', tableCount: 24, seatsPerTable: 80, shape: 'hexagon', area: 'nowhere', ticketType: 'Platinum', tableCategory: 'family' },
+      { name: 'Guests', tableCount: 24, seatsPerTable: 80, shape: 'trapezoid', area: 'nowhere', ticketType: 'Platinum', tableCategory: 'family' },
     ],
     zones: [
       { kind: 'stage', label: null, position: 'front' },

@@ -8,8 +8,10 @@ import { usePanZoom } from './usePanZoom';
 import { useBadgeScale } from './useBadgeScale';
 import ZoneShape from './ZoneShape';
 import { SectionPlates, SectionBadges } from './MapOverlays';
-import { zoneLabel } from './venueZones';
+import { paintOrder, zoneLabel } from './venueZones';
 import { formatMoney } from '../../utils/money';
+import TableBodyShape from './TableBodyShape';
+import { inkOn, lookFont, tablePaint } from './mapStyle';
 
 /**
  * Enter and Space press a focused SVG "button" (TECH-AUDIT-LOG T-035).
@@ -102,6 +104,9 @@ export default function SeatMapCanvas({
   className = '',
   // { key, tierIds }: glide to the seats of these ticket types (see below).
   frameRequest = null,
+  // The organizer's map look (mapStyle.readLook): floor, table and label
+  // colours. Absent: the map's plain default.
+  look = null,
 }) {
   const bounds = useMemo(() => contentBounds(tables, zones, world), [tables, zones, world]);
   const focusTiers = useMemo(
@@ -186,7 +191,7 @@ export default function SeatMapCanvas({
         // `touch-action: none` is what stops the browser scrolling the page
         // instead of panning the map. Without it a one-finger drag on a phone
         // scrolls past the map and the seats are unreachable.
-        style={{ touchAction: 'none', overscrollBehavior: 'contain', cursor: 'grab' }}
+        style={{ touchAction: 'none', overscrollBehavior: 'contain', cursor: 'grab', ...(look?.floor ? { background: look.floor } : {}) }}
         role="group"
         aria-label="Seat map"
         {...handlers}
@@ -194,7 +199,7 @@ export default function SeatMapCanvas({
         {/* ZONES FIRST. SVG has no z-index — paint order is the only thing
             keeping a dance floor from covering the seats around it. */}
         <SectionPlates plates={plates} />
-        {zones.map((zone) => <ZoneShape key={zone.id} zone={zone} showcase={showcase} world={world} />)}
+        {paintOrder(zones).map((zone) => <ZoneShape key={zone.id} zone={zone} showcase={showcase} world={world} look={look} />)}
 
         {/* SECTION NAMES UNDER THE SEATS (owner, 2026-11-10). Drawn on top, a
             dark pill at each section's centre hid the seats beneath it, and a
@@ -221,6 +226,7 @@ export default function SeatMapCanvas({
             seatFill={seatFill}
             pickAny={pickAny}
             world={world}
+            look={look}
           />
         ))}
       </svg>
@@ -272,12 +278,19 @@ function MapButton({ onClick, label, boxed = false, children }) {
 
 function Table({
   table, seats, selectedSeatIds, isTableSelected, focusTiers, hideTaken,
-  canPickSeats, canPickTables, onSelectSeat, onSelectTable, wasDragged, currency, seatFill, pickAny, world,
+  canPickSeats, canPickTables, onSelectSeat, onSelectTable, wasDragged, currency, seatFill, pickAny, world, look,
 }) {
   const pos = toWorld(table.position, world);
   const shape = normaliseShape(table.shape);
-  const body = tableBody(shape, table.seatCount);
-  const layout = seatPositions(shape, table.seatCount);
+  const body = tableBody(shape, table.seatCount, table.style);
+  const layout = seatPositions(shape, table.seatCount, table.style);
+  // The organizer's colours for this table (mapStyle.tablePaint). A seat
+  // colour of their own beats the ticket type's; the holds view (pickAny)
+  // paints availability and is never overridden.
+  const paint = tablePaint(table, look);
+  const ownSeat = pickAny ? null : paint.seat || null;
+  const lookSeat = pickAny ? null : look?.seat || null;
+  const font = lookFont(look);
 
   // BRD §25 — a table and its seats are two views of ONE piece of stock. Once a
   // single seat sells individually the whole-table option closes, and the API
@@ -306,6 +319,7 @@ function Table({
           clickable={wholeTableAvailable}
           onClick={handleTable}
           onPress={pressTable}
+          paint={paint}
           label={table.label}
           price={currency && table.priceCents !== null && table.priceCents !== undefined
             ? formatMoney(table.priceCents, currency) : null}
@@ -330,7 +344,7 @@ function Table({
             price={seatPrice(seat, currency)}
             available={available}
             reason={seat?.reason || null}
-            fill={seat && seatFill ? seatFill(seat) : null}
+            fill={available && ownSeat ? ownSeat : (seat && seatFill ? seatFill(seat) : null) || (available ? lookSeat : null)}
             selected={selected}
             dimmed={isTableSelected}
             outsideFocus={Boolean(focusTiers && seat && !focusTiers.has(seat.tierId))}
@@ -355,10 +369,13 @@ function Table({
           swallows a tap meant for the seat underneath it. */}
       {body.kind !== 'none' && (
         <text
+          // Upright whatever way the table is turned, as on a printed plan.
+          transform={`translate(0 ${body.labelY || 0}) rotate(${-pos.rotation})`}
           y={4}
           textAnchor="middle"
-          className="fill-ink"
-          style={{ fontSize: 14, fontWeight: 500, pointerEvents: 'none' }}
+          className={paint.label || paint.fill ? undefined : 'fill-ink'}
+          fill={paint.label || inkOn(paint.fill) || undefined}
+          style={{ fontSize: shape === 'high_top' ? 11 : 14, fontWeight: font.fontWeight, fontFamily: font.fontFamily, pointerEvents: 'none' }}
         >
           {table.label}
         </text>
@@ -380,14 +397,14 @@ function seatPrice(seat, currency) {
   return seat.priceCents === 0 ? 'Free' : formatMoney(seat.priceCents, currency);
 }
 
-function TableBody({ body, selected, clickable, onClick, onPress, label, price }) {
-  const fill = selected ? 'var(--es-seat-selected)' : 'var(--es-surface)';
-  const stroke = selected ? 'var(--es-accent)' : 'var(--es-border-strong)';
+function TableBody({ body, selected, clickable, onClick, onPress, label, price, paint = {} }) {
+  const fill = selected ? 'var(--es-seat-selected)' : paint.fill || 'var(--es-surface)';
+  const stroke = selected ? 'var(--es-accent)' : paint.stroke || (paint.fill ? 'none' : 'var(--es-border-strong)');
 
   const common = {
     fill,
     stroke,
-    strokeWidth: selected ? 3 : 1.5,
+    strokeWidth: selected ? 3 : paint.strokeWidth ?? 1.5,
     style: { cursor: clickable ? 'pointer' : 'default' },
     onClick,
     ...(clickable
@@ -402,21 +419,7 @@ function TableBody({ body, selected, clickable, onClick, onPress, label, price }
   };
   const tip = clickable ? <title>{`Table ${label} — book the whole table${price ? ` · ${price}` : ''}`}</title> : null;
 
-  if (body.kind === 'ellipse') {
-    return <ellipse rx={body.width / 2} ry={body.height / 2} {...common}>{tip}</ellipse>;
-  }
-  return (
-    <rect
-      x={-body.width / 2}
-      y={-body.height / 2}
-      width={body.width}
-      height={body.height}
-      rx={body.rx}
-      {...common}
-    >
-      {tip}
-    </rect>
-  );
+  return <TableBodyShape body={body} {...common}>{tip}</TableBodyShape>;
 }
 
 function Seat({

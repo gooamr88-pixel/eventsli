@@ -98,3 +98,28 @@ Positions are percentages of the map's **world**, and the world is per map:
 - Replaced or removed studio images are not deleted from the bucket.
 - A blocked seat counts as "booked" when removing its row in the editor;
   release it first.
+
+## Map styling (2026-11-18)
+
+The owner's floor-plan reference (cream floor, slate walls, grey tables, pink
+and teal seats, D-shape booths, a dashed kitchen) as organizer options.
+
+| What | Where it is stored | Code |
+|---|---|---|
+| 7 more table shapes: D-shape, rounded end, pill, hexagon, U-shape, half-moon, high-top | `tables.shape` (TEXT, no migration) | `seatingGeometry.SHAPES`, drawn by `tableSides.js` |
+| Seats per side (top, right, bottom, left) | `layout.tableStyles[label].sides` | `sideCounts`; used only when they add up to the seat count |
+| Table, name, border and seat colours; corner roundness | `layout.tableStyles[label]` | `mapStyle.tablePaint` |
+| Area shape, fill and strength, border style and thickness, second line, text size and colour, show name or icon | fields on each zone | `StyledZoneShape.jsx` (styled zones look the same to buyers) |
+| Walls, door gaps, text labels, decorative rings | zone kinds `wall`, `door_gap`, `text`, `decor` | Draw walls tool: `map/style/useWallTool.jsx` |
+| The whole map's look (presets or colour by colour) | `layout.look` | `MapLookCard.jsx` |
+| Saved looks | `organizers.map_looks` (migration `20261128090000`) | `GET/PUT /organizer/map-looks` |
+
+- Table styles are keyed by the table's label, lower case (labels are unique
+  per map). The public seat map sends only the visible tables' styles
+  (`venueStudio.publicLayout`), so a private table's name never leaks.
+- The API cleans `tableStyles` and `look` on save; the frontend reads them
+  defensively (`mapStyle.js`).
+- The printed pack draws the shapes, walls and doors but keeps ink only, never
+  the organizer's colours.
+- Without the migration, saved looks read as none and saving one says the
+  feature is off; everything else works.

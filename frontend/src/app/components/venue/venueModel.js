@@ -199,14 +199,17 @@ export const TIER_COLORS = Object.freeze([
   '#e5b22f', '#17a2a6', '#8b6cf0', '#2fa36b', '#e0704f', '#4f7fd9', '#c75a86', '#8a9aa6',
 ]);
 
-export function tierPalette(tiers, seats) {
+export function tierPalette(tiers, seats, look = null) {
   const prices = new Map();
   for (const s of seats || []) {
     if (!s.tierId) continue;
     prices.set(s.tierId, Math.max(prices.get(s.tierId) ?? -1, Number(s.priceCents) || 0));
   }
   const ordered = [...(tiers || [])].sort((a, b) => (prices.get(b.id) ?? b.priceCents ?? 0) - (prices.get(a.id) ?? a.priceCents ?? 0));
-  return new Map(ordered.map((t, i) => [t.id, TIER_COLORS[i % TIER_COLORS.length]]));
+  // A map look's two seat colours lead the palette (mapStyle.LOOK_PRESETS):
+  // the dearest ticket type takes the first, the next the second.
+  const colours = [look?.seat, look?.accent, ...TIER_COLORS].filter(Boolean);
+  return new Map(ordered.map((t, i) => [t.id, colours[i % colours.length]]));
 }
 
 /** Total seats on the map plus the venue's declared standing room. */

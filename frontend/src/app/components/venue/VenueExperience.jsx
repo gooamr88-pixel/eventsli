@@ -16,6 +16,7 @@ import {
   readStudio, liveSections, sectionIndex, seatName, tierPalette,
 } from './venueModel';
 import { buildSceneModel, eyeFor, stageEye, bestSeat } from './sceneModel';
+import { readLook, withTableStyles } from '../seating/mapStyle';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -38,7 +39,7 @@ import { buildSceneModel, eyeFor, stageEye, bestSeat } from './sceneModel';
 const NO_SET = new Set();
 
 export default function VenueExperience({
-  tables = [], seats = [], zones = [], layout = null, tiers = [], currency = null,
+  tables: propTables = [], seats = [], zones = [], layout = null, tiers = [], currency = null,
   purchaseMode = 'seat_only', eventTitle = '',
   selectedSeatIds = NO_SET, selectedTableIds = NO_SET, highlightTierId = null,
   // The buyer's category filter (several at once) and "show unavailable seats".
@@ -96,13 +97,19 @@ export default function VenueExperience({
   }, [frameRequest?.key]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const studio = useMemo(() => readStudio(layout), [layout]);
+  // The organizer's styling (mapStyle.js): each table's colours and seats per
+  // side, and the map's look. A table that already carries a style (the
+  // editor's preview) keeps its own.
+  const look = useMemo(() => readLook(layout), [layout]);
+  const styledTables = useMemo(() => withTableStyles(propTables, layout), [propTables, layout]);
+  const tables = styledTables;
   // The map's own size: percentages resolve against it in every view.
   const world = worldOf(layout);
   const sections = useMemo(() => liveSections(studio.sections, tables), [studio.sections, tables]);
   const index = useMemo(() => sectionIndex(sections), [sections]);
   const tableById = useMemo(() => new Map(tables.map((t) => [t.id, t])), [tables]);
   const tierById = useMemo(() => new Map(tiers.map((t) => [t.id, t])), [tiers]);
-  const palette = useMemo(() => tierPalette(tiers, seats), [tiers, seats]);
+  const palette = useMemo(() => tierPalette(tiers, seats, look), [tiers, seats, look]);
   // Colour by ticket type only when there is more than one on this map; a
   // single-type room keeps the map's own seat colour.
   const usePalette = useMemo(() => new Set(seats.map((s) => s.tierId).filter(Boolean)).size > 1, [seats]);
@@ -303,6 +310,7 @@ export default function VenueExperience({
           seatFill={seatFill}
           pickAny={pickAny}
           frameRequest={frameRequest}
+          look={look}
         />
       ) : (
         <div className={`relative ${boxClassName}`}>

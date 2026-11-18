@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { makeZone, newZoneId } from '../../../../components/seating/layoutZones';
-import { MIN_ZONE_SIZE, zoneLabel, zoneMeta } from '../../../../components/seating/venueZones';
+import { minZoneSize, zoneLabel, zoneMeta } from '../../../../components/seating/venueZones';
 import { moveToWorld, worldOf } from '../../../../components/seating/seatingGeometry';
 import {
   MAX_SEATS_PER_TABLE, MAX_TABLES, mapProblems, numberedLabel, buildTables,
@@ -54,13 +54,15 @@ export { MAX_TABLES, MAX_SEATS_PER_TABLE };
 
 const MAX_HISTORY = 40;
 const DEFAULT_WORLD = worldOf(null);
-const EMPTY = Object.freeze({ tables: Object.freeze([]), zones: Object.freeze([]), world: DEFAULT_WORLD });
+// `look` is the map's theme (mapStyle.js), in the snapshot so a theme change
+// is one undo step like any other edit.
+const EMPTY = Object.freeze({ tables: Object.freeze([]), zones: Object.freeze([]), world: DEFAULT_WORLD, look: null });
 
 export function useMapDraft() {
   const [history, setHistory] = useState({ past: [], present: EMPTY, future: [], mergeKey: null });
   const [saved, setSaved] = useState(EMPTY);
 
-  const { tables, zones, world } = history.present;
+  const { tables, zones, world, look = null } = history.present;
   const dirty = history.present !== saved;
 
   /**
@@ -107,8 +109,8 @@ export function useMapDraft() {
 
   /** Replaces everything without touching history — for the initial load and
    *  for the re-read after a save. What it loads is, by definition, saved. */
-  const reset = useCallback((nextTables, nextZones, nextWorld) => {
-    const snapshot = { tables: nextTables || [], zones: nextZones || [], world: nextWorld || DEFAULT_WORLD };
+  const reset = useCallback((nextTables, nextZones, nextWorld, nextLook = null) => {
+    const snapshot = { tables: nextTables || [], zones: nextZones || [], world: nextWorld || DEFAULT_WORLD, look: nextLook || null };
     presentRef.current = snapshot;
     setHistory({ past: [], present: snapshot, future: [], mergeKey: null });
     setSaved(snapshot);
@@ -130,12 +132,12 @@ export function useMapDraft() {
    * save would create them a second time. The draft stays dirty, because the
    * later edits are not saved yet.
    */
-  const rebase = useCallback((nextTables, nextZones, sent, nextWorld) => {
+  const rebase = useCallback((nextTables, nextZones, sent, nextWorld, nextLook = null) => {
     if (presentRef.current === sent) {
-      reset(nextTables, nextZones, nextWorld);
+      reset(nextTables, nextZones, nextWorld, nextLook);
       return;
     }
-    const savedSnapshot = { tables: nextTables || [], zones: nextZones || [], world: nextWorld || DEFAULT_WORLD };
+    const savedSnapshot = { tables: nextTables || [], zones: nextZones || [], world: nextWorld || DEFAULT_WORLD, look: nextLook || null };
     const idByLabel = new Map(savedSnapshot.tables.map((t) => [String(t.label).toLowerCase(), t]));
     setHistory((h) => {
       const tables = h.present.tables.map((t) => {
@@ -429,8 +431,8 @@ export function useMapDraft() {
       ...p,
       zones: p.zones.map((z) => (z.id === id ? {
         ...z,
-        w: clamp(w, MIN_ZONE_SIZE, p.world.width),
-        h: clamp(h, MIN_ZONE_SIZE, p.world.height),
+        w: clamp(w, minZoneSize(z.kind).w, p.world.width),
+        h: clamp(h, minZoneSize(z.kind).h, p.world.height),
       } : z)),
     }), options);
   }, [apply]);
@@ -462,12 +464,27 @@ export function useMapDraft() {
     }));
   }, [apply]);
 
+  /** The map's look (a preset, a saved look, or colours set one by one). */
+  const setLook = useCallback((next, options) => {
+    apply((p) => ({ ...p, look: typeof next === 'function' ? next(p.look || null) : next || null }), options);
+  }, [apply]);
+
+  /** One patch for many tables — the look panel's "apply to all tables". */
+  const updateTables = useCallback((keys, patchOf, options) => {
+    const wanted = new Set(keys);
+    apply((p) => ({
+      ...p,
+      tables: p.tables.map((t) => (wanted.has(keyOf(t)) ? { ...t, ...patchOf(t) } : t)),
+    }), options);
+  }, [apply]);
+
   const problems = useMemo(() => mapProblems(tables, zones), [tables, zones]);
 
   return {
     tables,
     zones,
     world,
+    look,
     dirty,
     problems,
     // Derived from STATE, so the buttons actually enable and disable.
@@ -483,6 +500,8 @@ export function useMapDraft() {
     addTables,
     replaceLayout,
     updateTable,
+    updateTables,
+    setLook,
     removeTable,
     addZones,
     updateZone,

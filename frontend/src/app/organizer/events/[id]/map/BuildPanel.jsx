@@ -26,6 +26,12 @@ export const BUILD_ITEMS = [
   { key: 'table', icon: 'layers', title: 'Table', text: 'A table with seats around it — round, oval or long.', initial: { family: 'table', key: 'round', seatCount: 10 } },
   { key: 'stage', icon: 'flag', title: 'Stage', text: 'Where everyone looks. Not for sale.', initial: { family: 'zone', key: 'stage' } },
   { key: 'area', icon: 'map', title: 'Area', text: 'A labelled space — standing area, bar, walkway, screen.', initial: { family: 'zone', key: 'custom' } },
+  // The room (2026-11-18): walls drawn corner to corner, doors, words on the
+  // floor and a decorative centrepiece.
+  { key: 'wall', icon: 'pencil', title: 'Draw walls', text: 'Click the room’s corners. Leave gaps where the doors are.', initial: { family: 'tool', key: 'wall' } },
+  { key: 'door', icon: 'door', title: 'Door', text: 'A named gap in a wall — Entrance, Side door.', initial: { family: 'zone', key: 'door_gap' } },
+  { key: 'text', icon: 'fileText', title: 'Text label', text: 'Words anywhere on the floor.', initial: { family: 'zone', key: 'text' } },
+  { key: 'decor', icon: 'target', title: 'Decorative feature', text: 'A fountain, tree or centrepiece, drawn in rings.', initial: { family: 'zone', key: 'decor' } },
 ];
 
 /**

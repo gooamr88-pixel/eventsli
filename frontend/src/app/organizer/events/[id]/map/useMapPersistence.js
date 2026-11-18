@@ -4,6 +4,9 @@ import { useCallback, useEffect, useState } from 'react';
 import { get, put } from '../../../../utils/apiClient';
 import { worldOf } from '../../../../components/seating/seatingGeometry';
 import { readZones, writeZones } from '../../../../components/seating/layoutZones';
+import {
+  readLook, writeLook, withTableStyles, writeTableStyles,
+} from '../../../../components/seating/mapStyle';
 import { fromApi, toApi, frameFor } from './mapApi';
 
 /**
@@ -64,10 +67,12 @@ export function useMapPersistence({ eventId, draft, studioDraft, selection, onFr
         ]);
         if (cancelled) return;
 
-        const loadedTables = (map?.tables || []).map(fromApi);
+        // Each table's colours and seats per side ride in the layout blob,
+        // keyed by label (mapStyle.js).
+        const loadedTables = withTableStyles((map?.tables || []).map(fromApi), map?.layout);
         const loadedZones = readZones(map?.layout);
         const loadedWorld = worldOf(map?.layout);
-        reset(loadedTables, loadedZones, loadedWorld);
+        reset(loadedTables, loadedZones, loadedWorld, readLook(map?.layout));
         loadStudio(map);
         setEventInfo({
           currency: event?.currency || event?.event?.currency || null,
@@ -115,7 +120,13 @@ export function useMapPersistence({ eventId, draft, studioDraft, selection, onFr
         // an editor that predates a future key cannot destroy it on a
         // full-replace save. Sections are pruned to rows still on the map.
         layout: studioDraft.toLayout(
-          writeZones({ ...layout, world: { width: sent.world.width, height: sent.world.height } }, sent.zones),
+          writeLook(
+            writeTableStyles(
+              writeZones({ ...layout, world: { width: sent.world.width, height: sent.world.height } }, sent.zones),
+              sent.tables,
+            ),
+            sent.look,
+          ),
           sent.tables,
         ),
         tables: sent.tables.map((t) => toApi(t, sections)),
@@ -134,7 +145,10 @@ export function useMapPersistence({ eventId, draft, studioDraft, selection, onFr
       // `reset` loads counts as saved, so "unsaved changes" clears.
       const map = await get(`/events/${eventId}/venue-map`, { cache: 'no-store' });
       const untouched = draft.current() === sent;
-      draft.rebase((map?.tables || []).map(fromApi), readZones(map?.layout), sent, worldOf(map?.layout));
+      draft.rebase(
+        withTableStyles((map?.tables || []).map(fromApi), map?.layout),
+        readZones(map?.layout), sent, worldOf(map?.layout), readLook(map?.layout),
+      );
       setLayout(map?.layout || {});
       setMapVersion(Number(map?.version) || 0);
       studioDraft.afterSave(map, sentStudio, sentHolds);

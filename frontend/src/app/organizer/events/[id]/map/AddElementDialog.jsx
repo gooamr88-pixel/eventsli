@@ -5,6 +5,7 @@ import { useModal } from '../../../../hooks/useModal';
 import { SHAPES, tableBody, unitsToPercent, worldOf } from '../../../../components/seating/seatingGeometry';
 import { ZONES, ZONE_KINDS, zoneMeta } from '../../../../components/seating/venueZones';
 import { SHAPE_NAMES, SHAPE_HINTS } from './shapeNames';
+import ShapeArt from './style/ShapeArt';
 import { MAX_SEATS_PER_TABLE } from './draftRules';
 import ZonePreview from './ZonePreview';
 
@@ -300,22 +301,7 @@ function Tile({ active, onClick, art, label, title }) {
   );
 }
 
-/** A miniature of the shape itself, drawn by the same function that draws it on
- *  the canvas — so the tile cannot promise a silhouette the map then contradicts. */
-function ShapeArt({ shape }) {
-  const body = tableBody(shape, 8);
-  const k = 26 / Math.max(body.width, body.height, 1);
-  const w = body.width * k;
-  const h = Math.max(body.height * k, 3);
 
-  return (
-    <svg width={28} height={28} viewBox="-14 -14 28 28" aria-hidden="true">
-      {body.kind === 'ellipse' && <ellipse rx={w / 2} ry={h / 2} fill="none" stroke="currentColor" strokeWidth={1.4} />}
-      {body.kind === 'rect' && <rect x={-w / 2} y={-h / 2} width={w} height={h} rx={2} fill="none" stroke="currentColor" strokeWidth={1.4} />}
-      {body.kind === 'none' && [-8, -3, 2, 7].map((x) => <circle key={x} cx={x} cy={0} r={2} fill="currentColor" />)}
-    </svg>
-  );
-}
 
 function TextField({ label, value, onChange, hint, ...rest }) {
   const id = `es-add-${label.replace(/\W+/g, '-').toLowerCase()}`;

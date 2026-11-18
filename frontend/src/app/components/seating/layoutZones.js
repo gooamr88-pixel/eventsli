@@ -26,7 +26,8 @@
  * and there is nothing to merge against afterwards.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-import { MAX_ZONES, MIN_ZONE_SIZE, ZONES, zoneMeta } from './venueZones';
+import { MAX_ZONES, ZONES, minZoneSize, zoneMeta } from './venueZones';
+import { cleanZoneStyle } from './mapStyle';
 import { worldOf } from './seatingGeometry';
 
 /** Matches `NUMERIC(6,3)` on the table positions, so zones and tables round
@@ -61,16 +62,19 @@ export function readZones(layout) {
     seen.add(id);
 
     const meta = zoneMeta(z.kind);
+    const min = minZoneSize(z.kind);
     out.push({
       id,
       kind: z.kind,
       label: typeof z.label === 'string' ? z.label.slice(0, 40) : '',
       x: clamp(num(z.x, 50), 0, 100),
       y: clamp(num(z.y, 50), 0, 100),
-      w: clamp(num(z.w, meta.w), MIN_ZONE_SIZE, world.width),
-      h: clamp(num(z.h, meta.h), MIN_ZONE_SIZE, world.height),
+      w: clamp(num(z.w, meta.w), min.w, world.width),
+      h: clamp(num(z.h, meta.h), min.h, world.height),
       rotation: ((num(z.rotation, 0) % 360) + 360) % 360,
       color: typeof z.color === 'string' && /^#[0-9a-f]{3}([0-9a-f]{3})?$/i.test(z.color) ? z.color : null,
+      // The organizer's styling (mapStyle.js): shape, fill, border, text.
+      ...cleanZoneStyle(z),
     });
 
     if (out.length >= MAX_ZONES) break;
@@ -97,10 +101,11 @@ export function writeZones(layout, zones) {
       ...(String(z.label || '').trim() ? { label: String(z.label).trim().slice(0, 40) } : {}),
       x: round3(clamp(num(z.x, 50), 0, 100)),
       y: round3(clamp(num(z.y, 50), 0, 100)),
-      w: round3(clamp(num(z.w, zoneMeta(z.kind).w), MIN_ZONE_SIZE, world.width)),
-      h: round3(clamp(num(z.h, zoneMeta(z.kind).h), MIN_ZONE_SIZE, world.height)),
+      w: round3(clamp(num(z.w, zoneMeta(z.kind).w), minZoneSize(z.kind).w, world.width)),
+      h: round3(clamp(num(z.h, zoneMeta(z.kind).h), minZoneSize(z.kind).h, world.height)),
       rotation: round3(((num(z.rotation, 0) % 360) + 360) % 360),
       ...(z.color ? { color: z.color } : {}),
+      ...cleanZoneStyle(z),
     })),
   };
 }

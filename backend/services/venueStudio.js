@@ -166,6 +166,87 @@ function cleanWorld(raw) {
   };
 }
 
+/* ── map styling (2026-11-18) ─────────────────────────────────────────────
+ * The organizer's colours: per-table styles keyed by label, and the map's
+ * look. The frontend cleans both the same way (components/seating/mapStyle.js);
+ * this is the server's copy of that rule, so a hand-made request stores only
+ * colours, numbers in range and known words.
+ */
+const HEX = /^#[0-9a-f]{6}$/i;
+const MAX_TABLE_STYLES = 400;
+const LOOK_COLOURS = ['floor', 'wall', 'table', 'label', 'seat', 'accent'];
+const LOOK_FONTS = ['sans', 'bold', 'serif'];
+const SIDE_KEYS = ['top', 'right', 'bottom', 'left'];
+const hex = (v) => (typeof v === 'string' && HEX.test(v.trim()) ? v.trim().toLowerCase() : undefined);
+const bounded = (v, lo, hi) => {
+  if (v === null || v === undefined || v === '') return undefined;
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : undefined;
+};
+
+function cleanTableStyle(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+  const out = {};
+  if (raw.sides && typeof raw.sides === 'object') {
+    const sides = {};
+    for (const k of SIDE_KEYS) {
+      const v = bounded(raw.sides[k], 0, 60);
+      if (v !== undefined) sides[k] = Math.round(v);
+    }
+    if (Object.keys(sides).length) out.sides = sides;
+  }
+  for (const k of ['fill', 'labelColor', 'stroke', 'seatColor']) {
+    const c = hex(raw[k]);
+    if (c) out[k] = c;
+  }
+  const sw = bounded(raw.strokeWidth, 0, 8);
+  if (sw !== undefined) out.strokeWidth = sw;
+  const radius = bounded(raw.radius, 0, 26);
+  if (radius !== undefined) out.radius = Math.round(radius);
+  return Object.keys(out).length ? out : undefined;
+}
+
+function cleanTableStyles(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+  const out = {};
+  for (const [label, style] of Object.entries(raw).slice(0, MAX_TABLE_STYLES)) {
+    const key = text(label, 40).toLowerCase();
+    const clean = cleanTableStyle(style);
+    if (key && clean) out[key] = clean;
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
+function cleanLook(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+  const out = {};
+  for (const k of LOOK_COLOURS) {
+    const c = hex(raw[k]);
+    if (c) out[k] = c;
+  }
+  if (LOOK_FONTS.includes(raw.font)) out.font = raw.font;
+  const name = text(raw.name, 40);
+  if (name) out.name = name;
+  return Object.keys(out).length ? out : undefined;
+}
+
+/**
+ * The layout as buyers receive it: table styles only for the tables they can
+ * see. A style is keyed by the table's name, so a private table's style would
+ * announce that table to everyone.
+ */
+function publicLayout(layout, visibleLabels) {
+  if (!layout || typeof layout !== 'object' || !layout.tableStyles) return layout;
+  const keep = new Set((visibleLabels || []).map((l) => String(l).trim().toLowerCase()));
+  const styles = {};
+  for (const [label, style] of Object.entries(layout.tableStyles)) {
+    if (keep.has(label)) styles[label] = style;
+  }
+  const out = { ...layout, tableStyles: styles };
+  if (Object.keys(styles).length === 0) delete out.tableStyles;
+  return out;
+}
+
 /**
  * The layout as it will be stored. Throws a VALIDATION_ERROR only for a blob
  * too large to serve; anything malformed inside the studio's keys is dropped
@@ -180,6 +261,8 @@ function sanitizeLayout(eventId, layout) {
   if ('sections' in layout) set('sections', cleanSections(layout.sections));
   if ('scene' in layout) set('scene', cleanScene(layout.scene));
   if ('world' in layout) set('world', cleanWorld(layout.world));
+  if ('tableStyles' in layout) set('tableStyles', cleanTableStyles(layout.tableStyles));
+  if ('look' in layout) set('look', cleanLook(layout.look));
 
   if (Buffer.byteLength(JSON.stringify(out), 'utf8') > MAX_LAYOUT_BYTES) {
     throw new StudioError('This venue layout is too large to save. Remove some areas or views and try again.');
@@ -188,6 +271,6 @@ function sanitizeLayout(eventId, layout) {
 }
 
 module.exports = {
-  sanitizeLayout, ownPath, MAX_LAYOUT_BYTES, MAX_VIEWS, VIEW_KINDS, ACCESS_FEATURES, VENUE_TYPES,
+  sanitizeLayout, publicLayout, cleanLook, ownPath, MAX_LAYOUT_BYTES, MAX_VIEWS, VIEW_KINDS, ACCESS_FEATURES, VENUE_TYPES,
   DEFAULT_WORLD, MAX_WORLD,
 };

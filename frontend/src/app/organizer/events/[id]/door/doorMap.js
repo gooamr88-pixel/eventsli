@@ -1,4 +1,5 @@
 import { worldOf } from '../../../../components/seating/seatingGeometry';
+import { withTableStyles } from '../../../../components/seating/mapStyle';
 
 /**
  * The organizer's own map, in the shape the buyer's SeatMapCanvas draws.
@@ -26,7 +27,9 @@ export function toSaleMap(map, tiers, purchaseMode) {
     available: seat.status === 'available',
   });
 
-  const tables = (map?.tables || []).map((t) => ({
+  // Seats per side and shapes come from the layout's table styles, so seat 4
+  // sits where the organizer drew it (mapStyle.js).
+  const tables = withTableStyles((map?.tables || []).map((t) => ({
     id: t.id,
     label: t.label,
     seatCount: t.seatCount,
@@ -38,7 +41,7 @@ export function toSaleMap(map, tiers, purchaseMode) {
     position: t.position,
     shape: t.shape,
     categoryId: t.categoryId,
-  }));
+  })), map?.layout);
 
   const seats = [
     ...(map?.tables || []).flatMap((t) => (t.seats || []).map((s) => seatFor(s, t.id))),

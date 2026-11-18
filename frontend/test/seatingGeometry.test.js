@@ -76,18 +76,21 @@ describe('seatingGeometry — the contract', () => {
   });
 
   test('the shapes are the ones the renderer can actually draw', () => {
-    expect(SHAPES).toEqual(['round', 'oval', 'rect', 'square', 'row']);
+    expect(SHAPES).toEqual([
+      'round', 'oval', 'rect', 'square', 'row',
+      'd_shape', 'rounded_end', 'pill', 'hexagon', 'u_shape', 'half_moon', 'high_top',
+    ]);
     // Every shape must produce a body of a kind a renderer knows.
     for (const shape of SHAPES) {
-      expect(['ellipse', 'rect', 'none']).toContain(tableBody(shape, 8).kind);
+      expect(['ellipse', 'rect', 'path', 'none']).toContain(tableBody(shape, 8).kind);
     }
   });
 
   test('an unknown shape degrades to round rather than to nothing', () => {
     // A map with one bad row should lose one table, not the whole room.
-    expect(normaliseShape('hexagon')).toBe('round');
+    expect(normaliseShape('trapezoid')).toBe('round');
     expect(normaliseShape(undefined)).toBe('round');
-    expect(tableBody('hexagon', 8)).toEqual(tableBody('round', 8));
+    expect(tableBody('trapezoid', 8)).toEqual(tableBody('round', 8));
   });
 });
 

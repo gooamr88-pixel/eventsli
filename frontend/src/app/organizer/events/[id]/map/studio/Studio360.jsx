@@ -36,7 +36,7 @@ export default function Studio360({ eventId, tables, zones, world, scene, views,
   const fileRef = useRef(null);
 
   const plain = useMemo(() => tables.map((t) => ({
-    id: keyOf(t), label: t.label, shape: t.shape, seatCount: t.seatCount, position: t.position, tierId: t.tierId,
+    id: keyOf(t), label: t.label, shape: t.shape, seatCount: t.seatCount, position: t.position, tierId: t.tierId, style: t.style,
   })), [tables]);
   const model = useMemo(() => buildSceneModel({ tables: plain, zones, scene, world }), [plain, zones, scene, world]);
   const palette = useMemo(() => tierPalette(tiers, []), [tiers]);

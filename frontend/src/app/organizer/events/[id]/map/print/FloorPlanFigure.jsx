@@ -3,7 +3,9 @@
 import {
   SEAT_RADIUS, tableBody, seatPositions, toWorld, normaliseShape, worldOf,
 } from '../../../../../components/seating/seatingGeometry';
-import { zoneBox, zoneLabel } from '../../../../../components/seating/venueZones';
+import TableBodyShape from '../../../../../components/seating/TableBodyShape';
+import { paintOrder, zoneBox, zoneLabel } from '../../../../../components/seating/venueZones';
+import { Outline } from '../../../../../components/seating/StyledZoneShape';
 import { keyOf } from '../useMapDraft';
 
 /**
@@ -53,7 +55,7 @@ export default function FloorPlanFigure({
         fill="none" stroke={INK} strokeWidth={1} opacity={0.35}
       />
 
-      {zones.map((zone) => <PlanZone key={zone.id} zone={zone} world={world} />)}
+      {paintOrder(zones).map((zone) => <PlanZone key={zone.id} zone={zone} world={world} />)}
       {tables.map((table) => (
         <PlanTable
           key={keyOf(table)}
@@ -78,17 +80,41 @@ function PlanZone({ zone, world }) {
   const box = zoneBox(zone, world);
   const label = zoneLabel(zone).toUpperCase();
   const fontSize = clamp(Math.min(box.w, box.h) / 3.4, 9, 17);
+  const at = `translate(${box.cx} ${box.cy}) rotate(${box.rotation})`;
+
+  // The room (2026-11-18): walls in solid ink, a door as the gap it is with
+  // its name beside it, words on the floor as words.
+  if (zone.kind === 'wall') {
+    return <g transform={at}><rect x={-box.w / 2} y={-box.h / 2} width={box.w} height={box.h} fill={INK} /></g>;
+  }
+  if (zone.kind === 'door_gap') {
+    return (
+      <g transform={at}>
+        <rect x={-box.w / 2} y={-box.h / 2 - 1} width={box.w} height={box.h + 2} fill="#ffffff" />
+        <text x={0} y={-box.h / 2 - 5} textAnchor="middle" fill={INK} style={{ fontSize: 11, fontWeight: 700 }}>{label}</text>
+      </g>
+    );
+  }
+  if (zone.kind === 'text') {
+    return (
+      <g transform={at}>
+        <text x={0} y={box.h * 0.2} textAnchor="middle" fill={INK} style={{ fontSize: clamp(box.h * 0.6, 8, 40), fontWeight: 700 }}>
+          {zoneLabel(zone)}
+        </text>
+      </g>
+    );
+  }
 
   return (
-    <g transform={`translate(${box.cx} ${box.cy}) rotate(${box.rotation})`}>
-      <rect
-        x={-box.w / 2} y={-box.h / 2} width={box.w} height={box.h}
-        rx={Math.min(8, Math.min(box.w, box.h) / 5)}
+    <g transform={at}>
+      <Outline
+        shape={zone.shape === 'rings' || zone.kind === 'decor' ? 'ellipse' : zone.shape || 'rounded'}
+        w={box.w} h={box.h}
         // A very light wash, not the zone's colour: enough to read as a solid
         // area on a good printer, invisibly faint on a bad one, and never dark
         // enough to fight the label sitting on it.
         fill={INK} fillOpacity={0.045}
-        stroke={INK} strokeWidth={1.1} strokeDasharray="6 4" opacity={0.75}
+        stroke={INK} strokeWidth={1.1} dash="6 4"
       />
       <text
         x={0} y={fontSize * 0.34} textAnchor="middle"
@@ -116,24 +142,16 @@ function PlanZone({ zone, world }) {
 function PlanTable({ table, showSeats, showSold, world }) {
   const pos = toWorld(table.position, world);
   const shape = normaliseShape(table.shape);
-  const body = tableBody(shape, table.seatCount);
-  const layout = seatPositions(shape, table.seatCount);
+  const body = tableBody(shape, table.seatCount, table.style);
+  const layout = seatPositions(shape, table.seatCount, table.style);
   const sold = showSold ? (Number(table.soldSeats) || 0) : 0;
 
   const numeral = clamp(Math.min(body.width, body.height || 40) / 2.4, 11, 30);
 
   return (
     <g transform={`translate(${pos.x} ${pos.y}) rotate(${pos.rotation})`}>
-      {body.kind === 'ellipse' && (
-        <ellipse rx={body.width / 2} ry={body.height / 2} fill="#ffffff" stroke={INK} strokeWidth={1.4} />
-      )}
-      {body.kind === 'rect' && (
-        <rect
-          x={-body.width / 2} y={-body.height / 2}
-          width={body.width} height={body.height} rx={body.rx}
-          fill="#ffffff" stroke={INK} strokeWidth={1.4}
-        />
-      )}
+      {/* Shape only, never the organizer's colours: this page meets a mono laser. */}
+      <TableBodyShape body={body} fill="#ffffff" stroke={INK} strokeWidth={1.4} />
 
       {showSeats && layout.map((point, index) => (
         <circle
@@ -155,6 +173,7 @@ function PlanTable({ table, showSeats, showSold, world }) {
       )}
 
       <text
+        transform={`translate(0 ${body.labelY || 0}) rotate(${-pos.rotation})`}
         x={0} y={numeral * 0.34} textAnchor="middle"
         fill={INK}
         style={{ fontSize: numeral, fontWeight: 700 }}

@@ -4,6 +4,8 @@ import TablePanel from './TablePanel';
 import ZonePanel from './ZonePanel';
 import SelectionPanel from './SelectionPanel';
 import BuildPanel from './BuildPanel';
+import WallToolPanel from './style/WallToolPanel';
+import MapLookCard from './style/MapLookCard';
 import { countUnpriced } from './MapChrome';
 import { keyOf } from './useMapDraft';
 
@@ -15,8 +17,10 @@ import { keyOf } from './useMapDraft';
  */
 export default function EditorSidePanel({
   sole, selection, draft, tables, tiers, world, categories, purchaseMode, onTierCreated,
-  onAssignTier, onRotate, onDuplicate, onRemoveSelected, onAdd,
+  onAssignTier, onRotate, onDuplicate, onRemoveSelected, onAdd, wallTool = null, onApplyLook,
 }) {
+  // Drawing walls: the tool's own options, whatever is selected.
+  if (wallTool?.active) return <WallToolPanel tool={wallTool} />;
   if (selection.count > 1) {
     return (
       <SelectionPanel
@@ -46,7 +50,13 @@ export default function EditorSidePanel({
     );
   }
   if (sole?.kind !== 'table') {
-    return <BuildPanel tableCount={tables.length} unpricedCount={countUnpriced(tables, purchaseMode)} onAdd={onAdd} />;
+    return (
+      <>
+        <BuildPanel tableCount={tables.length} unpricedCount={countUnpriced(tables, purchaseMode)} onAdd={onAdd} />
+        {/* The whole map's theme, while nothing is selected (2026-11-18). */}
+        <MapLookCard look={draft.look} onChange={draft.setLook} onApplyToTables={onApplyLook} tableCount={tables.length} />
+      </>
+    );
   }
   return (
     <TablePanel

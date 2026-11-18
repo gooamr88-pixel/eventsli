@@ -18,6 +18,13 @@ export const SHAPE_NAMES = Object.freeze({
   rect: 'Rectangle',
   square: 'Square',
   row: 'Row of seats',
+  d_shape: 'D-shape booth',
+  rounded_end: 'Rounded end',
+  pill: 'Pill',
+  hexagon: 'Hexagon',
+  u_shape: 'U-shape',
+  half_moon: 'Half-moon',
+  high_top: 'High-top',
 });
 
 /** A one-line description for the Add dialog, where the organizer is choosing
@@ -28,4 +35,11 @@ export const SHAPE_HINTS = Object.freeze({
   rect: 'Banquet style — seats down both long sides.',
   square: 'Seats spread over four sides.',
   row: 'A straight bank of seats with no table.',
+  d_shape: 'A booth: flat back, curved front.',
+  rounded_end: 'Long table with one rounded end.',
+  pill: 'Long table, both ends rounded.',
+  hexagon: 'Six sides, seats on the long ones.',
+  u_shape: 'Head table, seats around the outside.',
+  half_moon: 'Seats along the curve only.',
+  high_top: 'A small standing table with stools.',
 });

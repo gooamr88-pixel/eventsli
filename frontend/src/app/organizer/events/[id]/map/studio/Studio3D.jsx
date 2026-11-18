@@ -25,7 +25,7 @@ export default function Studio3D({ tables, zones, world, scene, onScene, section
   const controls = useRef(null);
 
   const plain = useMemo(() => tables.map((t) => ({
-    id: keyOf(t), label: t.label, shape: t.shape, seatCount: t.seatCount, position: t.position, tierId: t.tierId,
+    id: keyOf(t), label: t.label, shape: t.shape, seatCount: t.seatCount, position: t.position, tierId: t.tierId, style: t.style,
   })), [tables]);
   const model = useMemo(() => buildSceneModel({ tables: plain, zones, scene, world }), [plain, zones, scene, world]);
   const index = useMemo(() => sectionIndex(sections), [sections]);

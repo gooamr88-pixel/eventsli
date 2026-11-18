@@ -1,4 +1,5 @@
 const profiles = require('../services/organizerProfileService');
+const mapLooks = require('../services/mapLookService');
 const accessTokens = require('../services/accessTokens');
 const { sendOk, sendFail, ERROR_STATUS } = require('../utils/responseEnvelope');
 
@@ -61,4 +62,16 @@ async function setLogo(req, res, next) {
   try { return sendOk(res, await profiles.setLogo(req.user.id, req.body.path || null)); } catch (err) { return answer(res, err, next); }
 }
 
-module.exports = { publicProfile, contactFromTicket, mine, update, logoUpload, setLogo };
+// GET /organizers/map-looks — the organizer's saved seating-map looks
+async function listMapLooks(req, res, next) {
+  try { return sendOk(res, { looks: await mapLooks.listForOwner(req.user.id) }); } catch (err) { return answer(res, err, next); }
+}
+
+// PUT /organizers/map-looks  { looks: [...] } — the whole list to keep
+async function saveMapLooks(req, res, next) {
+  try { return sendOk(res, { looks: await mapLooks.saveForOwner(req.user.id, req.body.looks) }); } catch (err) { return answer(res, err, next); }
+}
+
+module.exports = {
+  publicProfile, contactFromTicket, mine, update, logoUpload, setLogo, listMapLooks, saveMapLooks,
+};

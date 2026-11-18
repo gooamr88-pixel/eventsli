@@ -42,6 +42,10 @@
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
+import {
+  STYLED_SHAPES, styledBody, styledSeats, customSides, defaultSides,
+} from './tableSides';
+
 /** The default world, and the size of every map that does not set its own.
  *  10:7 — a room is wider than it is deep. */
 export const WORLD = Object.freeze({ width: 1000, height: 700 });
@@ -69,6 +73,9 @@ export const SEAT_PITCH = SEAT_RADIUS * 2 + 6;
 /** Real size: one seat pitch is 0.55 m. That turns a world into a venue in
  *  metres — the 3D model's scale and the venue size the organizer types. */
 export const METRES_PER_UNIT = 0.55 / SEAT_PITCH;
+
+/** The constants tableSides.js draws with (passed in: it cannot import back). */
+const K = Object.freeze({ R: SEAT_RADIUS, P: SEAT_PITCH });
 
 /* ── the world ──────────────────────────────────────────────────────────── */
 
@@ -146,7 +153,10 @@ export function unitsToPercent(dx, dy, world = WORLD) {
  * the database accepts anything — which makes this list the only real
  * constraint, and the reason it is exported rather than inlined.
  */
-export const SHAPES = Object.freeze(['round', 'oval', 'rect', 'square', 'row']);
+export const SHAPES = Object.freeze([
+  'round', 'oval', 'rect', 'square', 'row',
+  'd_shape', 'rounded_end', 'pill', 'hexagon', 'u_shape', 'half_moon', 'high_top',
+]);
 
 export const DEFAULT_SHAPE = 'round';
 
@@ -164,10 +174,15 @@ export function normaliseShape(shape) {
  * `{ kind, width, height, rx }` so a renderer never switches on the shape name
  * — adding a sixth shape must not mean editing every consumer.
  */
-export function tableBody(shape, seatCount) {
+export function tableBody(shape, seatCount, style = null) {
   const n = clampSeats(seatCount);
+  const kind = normaliseShape(shape);
+  if (STYLED_SHAPES.includes(kind)) return styledBody(kind, n, sideCounts(kind, n, style), K);
+  // The organizer's seats per side (rect and square), when set.
+  const custom = customSides(kind, n, style);
+  const rx = cornerRadius(style, 6);
 
-  switch (normaliseShape(shape)) {
+  switch (kind) {
     case 'round': {
       // The circumference has to hold n seats at SEAT_PITCH, so the radius
       // follows from the seat count rather than being chosen and then
@@ -183,20 +198,28 @@ export function tableBody(shape, seatCount) {
 
     case 'square': {
       // Seats spread over four sides.
-      const perSide = Math.ceil(n / 4);
+      const perSide = custom ? Math.max(...custom) : Math.ceil(n / 4);
       const side = Math.max(48, perSide * SEAT_PITCH + 12);
-      return { kind: 'rect', width: side, height: side, rx: 6 };
+      return { kind: 'rect', width: side, height: side, rx };
     }
 
     case 'rect': {
       // The long sides take the seats; the ends take one each when the count
       // is not divisible by two, which is how a real banquet table works.
+      if (custom) {
+        return {
+          kind: 'rect',
+          width: Math.max(70, Math.max(custom[0], custom[2]) * SEAT_PITCH + 12),
+          height: Math.max(52, Math.max(custom[1], custom[3]) * SEAT_PITCH + 12),
+          rx,
+        };
+      }
       const perSide = Math.ceil(n / 2);
       return {
         kind: 'rect',
         width: Math.max(70, perSide * SEAT_PITCH + 12),
         height: 52,
-        rx: 6,
+        rx,
       };
     }
 
@@ -219,10 +242,15 @@ export function tableBody(shape, seatCount) {
  * Seat 1 starts at the TOP and they run clockwise, matching how people number
  * a table when they walk up to it.
  */
-export function seatPositions(shape, seatCount) {
+export function seatPositions(shape, seatCount, style = null) {
   const n = clampSeats(seatCount);
-  const body = tableBody(shape, n);
+  const body = tableBody(shape, n, style);
   const kind = normaliseShape(shape);
+
+  if (STYLED_SHAPES.includes(kind)) {
+    return styledSeats(kind, n, sideCounts(kind, n, style), body, K)
+      .map((p) => ({ x: round3(p.x), y: round3(p.y), angle: round3(p.angle) }));
+  }
 
   if (kind === 'round' || kind === 'oval') {
     const rx = body.width / 2 + SEAT_RADIUS + 4;
@@ -250,7 +278,25 @@ export function seatPositions(shape, seatCount) {
     }));
   }
 
-  return rectangularSeats(kind, n, body);
+  return rectangularSeats(sideCounts(kind, n, style), n, body);
+}
+
+/**
+ * How many seats each side of a table takes, clockwise from the top: the
+ * organizer's own counts (`style.sides`) when they are usable for this shape and
+ * add up to the seat count, otherwise the shape's default spread.
+ */
+export function sideCounts(shape, seatCount, style = null) {
+  const n = clampSeats(seatCount);
+  const kind = normaliseShape(shape);
+  return customSides(kind, n, style) || defaultSides(kind, n);
+}
+
+/** A rect or square table's corner rounding: the organizer's, or the default. */
+function cornerRadius(style, fallback) {
+  if (style?.radius === null || style?.radius === undefined) return fallback;
+  const v = Number(style.radius);
+  return Number.isFinite(v) ? clamp(v, 0, 26) : fallback;
 }
 
 /**
@@ -261,25 +307,13 @@ export function seatPositions(shape, seatCount) {
  * clockwise from the top-left so numbering is continuous, which matters at the
  * door — staff read "table 4, seat 7" off a printed map and have to find it.
  */
-function rectangularSeats(kind, n, body) {
+function rectangularSeats(counts, n, body) {
   const halfW = body.width / 2;
   const halfH = body.height / 2;
   const out = [];
-
-  // How many seats each side gets, clockwise from the top.
-  let counts;
-  if (kind === 'square') {
-    const base = Math.floor(n / 4);
-    counts = [base, base, base, base];
-    for (let i = 0; i < n % 4; i += 1) counts[i] += 1;
-  } else {
-    const top = Math.ceil(n / 2);
-    const bottom = n - top;
-    counts = [top, 0, bottom, 0];
-    // With an odd seat left over on a small table, put it on an end rather than
-    // crowding a long side.
-    if (n >= 6 && n % 2 === 1) { counts[0] -= 1; counts[1] = 1; }
-  }
+  // How many seats each side gets, clockwise from the top: `sideCounts`. With
+  // an odd seat left over on a small rect, the default puts it on an end
+  // rather than crowding a long side (tableSides.defaultSides).
 
   const spread = (count, length) =>
     Array.from({ length: count }, (_, i) => (count === 1 ? 0 : -length / 2 + (i * length) / (count - 1)));
@@ -387,7 +421,7 @@ function extent(tables, zones, world) {
 
   for (const t of (hasTables ? tables : [])) {
     const { x, y } = toWorld(t.position, world);
-    const body = tableBody(t.shape, t.seatCount);
+    const body = tableBody(t.shape, t.seatCount, t.style);
     // The seats sit outside the body, so the extent is the body plus a seat
     // and its pitch — measured, not guessed, or labels clip on the edges.
     const reach = Math.max(body.width, body.height) / 2 + SEAT_PITCH + SEAT_RADIUS;

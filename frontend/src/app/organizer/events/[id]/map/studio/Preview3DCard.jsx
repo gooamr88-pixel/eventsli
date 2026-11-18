@@ -25,7 +25,7 @@ export default function Preview3DCard({ tables, zones, world, scene, tiers, onOp
   }, [tables, zones]);
 
   const plain = useMemo(() => snapshot.tables.map((t) => ({
-    id: keyOf(t), label: t.label, shape: t.shape, seatCount: t.seatCount, position: t.position, tierId: t.tierId,
+    id: keyOf(t), label: t.label, shape: t.shape, seatCount: t.seatCount, position: t.position, tierId: t.tierId, style: t.style,
   })), [snapshot.tables]);
   const model = useMemo(
     () => buildSceneModel({ tables: plain, zones: snapshot.zones, scene, world }),

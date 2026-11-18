@@ -18,7 +18,7 @@ const PAD = SEAT_RADIUS * 1.9;
 export function seatPoints(table, world = worldOf(null)) {
   const p = toWorld(table.position, world);
   const r = (p.rotation * Math.PI) / 180;
-  return seatPositions(table.shape, table.seatCount).map((pt) => ({
+  return seatPositions(table.shape, table.seatCount, table.style).map((pt) => ({
     x: p.x + pt.x * Math.cos(r) - pt.y * Math.sin(r),
     y: p.y + pt.x * Math.sin(r) + pt.y * Math.cos(r),
   }));

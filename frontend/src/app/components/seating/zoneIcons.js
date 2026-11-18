@@ -118,6 +118,19 @@ export const ZONE_ICONS = Object.freeze({
   area: [
     'M12 3l2.6 5.6 6.1.8-4.5 4.3 1.2 6-5.4-3-5.4 3 1.2-6L3.3 9.4l6.1-.8z',
   ],
+  // The room tools (2026-11-18): walls, door gaps, words on the floor, and a
+  // decorative feature (fountain, tree, centrepiece).
+  wall: [
+    'M3 5h18v14H3z', 'M3 12h18', 'M9 5v7', 'M15 12v7',
+  ],
+  text: [
+    'M5 6V4h14v2', 'M12 4v16', 'M9 20h6',
+  ],
+  decor: [
+    'M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0',
+    'M7 12a5 5 0 1 0 10 0a5 5 0 1 0-10 0',
+    'M11 12a1 1 0 1 0 2 0a1 1 0 1 0-2 0',
+  ],
 });
 
 /** The grid every path above is drawn on. Consumers scale by this, rather than

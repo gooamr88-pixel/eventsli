@@ -137,7 +137,7 @@ describe('useMapDraft — the refusals, before the round trip', () => {
 
   test('an unknown shape is refused, because nothing could draw it', () => {
     const { result } = renderHook(() => useMapDraft());
-    act(() => { result.current.reset([base({ shape: 'hexagon' })]); });
+    act(() => { result.current.reset([base({ shape: 'trapezoid' })]); });
     expect(result.current.problems.join(' ')).toMatch(/shape the map cannot draw/);
   });
 });

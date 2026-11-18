@@ -4,6 +4,8 @@ import React from 'react';
 import {
   SEAT_RADIUS, tableBody, seatPositions, toWorld, normaliseShape,
 } from '../../../../components/seating/seatingGeometry';
+import TableBodyShape from '../../../../components/seating/TableBodyShape';
+import { inkOn, lookFont, tablePaint } from '../../../../components/seating/mapStyle';
 import SelectionHandles from './SelectionHandles';
 import { keyOf } from './useMapDraft';
 
@@ -26,17 +28,22 @@ import { keyOf } from './useMapDraft';
  * ─────────────────────────────────────────────────────────────────────────────
  */
 const EditableTable = React.memo(function EditableTable({
-  table, colour, seatColour, selected, showHandles, scale, sold, world,
+  table, colour, seatColour, selected, showHandles, scale, sold, world, look = null,
   onPointerDown, onKeyDown, onRotateStart,
 }) {
   const pos = toWorld(table.position, world);
   const shape = normaliseShape(table.shape);
-  const body = tableBody(shape, table.seatCount);
-  const layout = seatPositions(shape, table.seatCount);
+  const body = tableBody(shape, table.seatCount, table.style);
+  const layout = seatPositions(shape, table.seatCount, table.style);
 
   const inv = (n) => n / Math.max(scale, 0.0001);
-  const fill = colour || 'var(--es-surface)';
-  const stroke = selected ? 'var(--es-accent)' : 'var(--es-border-strong)';
+  // The table's own colours, then its category's, then the map's look.
+  const paint = tablePaint(table, look, { fill: colour });
+  const fill = paint.fill || 'var(--es-surface)';
+  const stroke = selected ? 'var(--es-accent)' : paint.stroke || (paint.fill ? 'none' : 'var(--es-border-strong)');
+  const strokeWidth = selected ? inv(2) : paint.strokeWidth ?? inv(1.2);
+  const font = lookFont(look);
+  const seatPaint = paint.seat || seatColour || look?.seat || 'var(--es-seat-available)';
 
   return (
     <g
@@ -65,16 +72,7 @@ const EditableTable = React.memo(function EditableTable({
         <SelectedHalo body={body} inv={inv} />
       )}
 
-      {body.kind === 'ellipse' && (
-        <ellipse rx={body.width / 2} ry={body.height / 2} fill={fill} stroke={stroke} strokeWidth={inv(selected ? 2 : 1.2)} />
-      )}
-      {body.kind === 'rect' && (
-        <rect
-          x={-body.width / 2} y={-body.height / 2}
-          width={body.width} height={body.height} rx={body.rx}
-          fill={fill} stroke={stroke} strokeWidth={inv(selected ? 2 : 1.2)}
-        />
-      )}
+      <TableBodyShape body={body} fill={fill} stroke={stroke} strokeWidth={strokeWidth} />
 
       {layout.map((point, index) => (
         <circle
@@ -85,15 +83,18 @@ const EditableTable = React.memo(function EditableTable({
           // why a table refuses to be deleted. Finding that out from a red
           // save error, after rearranging the room around it, is the version
           // of this that wastes an afternoon.
-          fill={index < sold ? 'var(--es-seat-sold)' : seatColour || 'var(--es-seat-available)'}
+          fill={index < sold ? 'var(--es-seat-sold)' : seatPaint}
           opacity={0.9}
         />
       ))}
 
       {body.kind !== 'none' && (
         <text
-          y={4} textAnchor="middle" className="fill-ink es-layer-label"
-          style={{ fontSize: 14, fontWeight: 500, pointerEvents: 'none' }}
+          transform={`translate(0 ${body.labelY || 0}) rotate(${-pos.rotation})`}
+          y={4} textAnchor="middle"
+          className={paint.label || paint.fill ? 'es-layer-label' : 'fill-ink es-layer-label'}
+          fill={paint.label || inkOn(paint.fill) || undefined}
+          style={{ fontSize: shape === 'high_top' ? 11 : 14, fontWeight: font.fontWeight, fontFamily: font.fontFamily, pointerEvents: 'none' }}
         >
           {table.label}
         </text>
@@ -128,7 +129,7 @@ const EditableTable = React.memo(function EditableTable({
   // wholesale on every edit and the rest are primitives — so this is the
   // shallow comparison, stated, minus the handler identities that change on
   // every parent render and would defeat the memo entirely.
-  a.table === b.table && a.colour === b.colour && a.selected === b.selected
+  a.table === b.table && a.colour === b.colour && a.seatColour === b.seatColour && a.look === b.look && a.selected === b.selected
   && a.showHandles === b.showHandles && a.scale === b.scale && a.sold === b.sold && a.world === b.world
 ));
 
@@ -136,20 +137,9 @@ export default EditableTable;
 
 /** The selection ring, outside the table's own edge. */
 function SelectedHalo({ body, inv }) {
-  const pad = inv(4);
-  if (body.kind === 'ellipse') {
-    return (
-      <ellipse
-        rx={body.width / 2 + pad} ry={body.height / 2 + pad}
-        fill="none" stroke="var(--es-accent)" strokeWidth={inv(1.5)} opacity={0.45}
-      />
-    );
-  }
   return (
-    <rect
-      x={-body.width / 2 - pad} y={-body.height / 2 - pad}
-      width={body.width + pad * 2} height={body.height + pad * 2}
-      rx={body.rx + pad}
+    <TableBodyShape
+      body={body} pad={inv(4)}
       fill="none" stroke="var(--es-accent)" strokeWidth={inv(1.5)} opacity={0.45}
     />
   );

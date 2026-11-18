@@ -25,11 +25,15 @@ const { runProviders } = require('./providerLoop');
 const { aiError } = require('./aiHttp');
 
 /** Mirrors `seatingGeometry.SHAPES` and `venueZones.ZONE_KINDS` — a frontend test holds them equal. */
-const SHAPES = Object.freeze(['round', 'oval', 'rect', 'square', 'row']);
+const SHAPES = Object.freeze([
+  'round', 'oval', 'rect', 'square', 'row',
+  'd_shape', 'rounded_end', 'pill', 'hexagon', 'u_shape', 'half_moon', 'high_top',
+]);
 const ZONE_KINDS = Object.freeze([
   'stage', 'dance_floor', 'bar', 'dj_booth', 'entrance', 'restroom', 'coat_check', 'gift_table',
   'cake_table', 'photo_booth', 'welcome_desk', 'buffet', 'lounge',
   'screen', 'standing', 'aisle', 'accessible', 'barrier', 'custom',
+  'wall', 'door_gap', 'text', 'decor',
 ]);
 const AREAS = Object.freeze(['front', 'middle', 'back', 'left', 'right', 'anywhere']);
 const POSITIONS = Object.freeze([
@@ -64,7 +68,7 @@ const SYSTEM = `You plan the seating of an event room for Eventsli, a ticketing 
 
 SECTIONS are groups of identical tables.
 - tableCount and seatsPerTable come from the description. When it gives guests and table size ("300 guests, tables of 10"), tableCount is guests divided by table size, rounded up. When it gives no table size, use 10 for round dinner tables, 8 for cocktail or family tables, 12 for long banquet tables. seatsPerTable is between 1 and 60.
-- shape: round for dinners and galas, rect for banquet or long tables, square for small groups, oval for head tables, row for theatre, ceremony or conference seating (a row is a line of chairs, seatsPerTable chairs long, and tableCount rows).
+- shape: round for dinners and galas, rect for banquet or long tables, square for small groups, oval for head tables, row for theatre, ceremony or conference seating (a row is a line of chairs, seatsPerTable chairs long, and tableCount rows). Also available: d_shape for booths along a wall, pill or rounded_end for long tables with rounded ends, high_top for standing cocktail tables, half_moon for seats facing one way, hexagon and u_shape for feature or head tables.
 - area: where in the room the section goes. "front" is nearest the stage. Use front for VIP, family, sponsors or head tables, back for general or late-booked tables, left or right only when the description says so, otherwise anywhere.
 - ticketType: the ticket type these tables sell as, copied exactly from the list below, only when the description links them ("VIP tables" and a "VIP" ticket type). Otherwise null. Never invent a ticket type and never give a price.
 - tableCategory: the same, from the table category list, or null.

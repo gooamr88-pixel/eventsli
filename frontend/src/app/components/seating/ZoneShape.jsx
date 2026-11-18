@@ -1,7 +1,9 @@
 'use client';
 
 import { worldOf } from './seatingGeometry';
-import { zoneBox, zoneColor, zoneInk, zoneLabel, zoneMeta } from './venueZones';
+import { ROOM_KINDS, zoneBox, zoneColor, zoneInk, zoneLabel, zoneMeta } from './venueZones';
+import { isStyledZone } from './mapStyle';
+import StyledZoneShape from './StyledZoneShape';
 import { iconPaths, ZONE_ICON_VIEWBOX } from './zoneIcons';
 
 /**
@@ -40,8 +42,23 @@ export default function ZoneShape({
   // The buyer's map: see StageShowcase and the solid tile below. Off for the
   // editor and the printed pack, whose dashed outlines survive a photocopier.
   showcase = false,
+  // The map's look (mapStyle.readLook): the floor a door shows, wall and
+  // label colours. Only styled zones and the room kinds read it.
+  look = null,
 }) {
   const box = zoneBox(zone, world);
+  // The organizer's own design wins everywhere, buyer's map included
+  // (StyledZoneShape.jsx). Unstyled furniture keeps its stock look below.
+  if (isStyledZone(zone) || ROOM_KINDS.has(zone.kind) || zone.kind === 'decor') {
+    return (
+      <StyledZoneShape
+        zone={zone} box={box} selected={selected} interactive={interactive} scale={scale} look={look}
+        onPointerDown={onPointerDown} onKeyDown={onKeyDown}
+      >
+        {children}
+      </StyledZoneShape>
+    );
+  }
   if (showcase && zone.kind === 'stage') return <StageShowcase box={box} label={zoneLabel(zone)} />;
   if (showcase && SHOWCASE_PLAIN.has(zone.kind)) return <PlainShowcase box={box} kind={zone.kind} />;
   if (showcase && Math.min(box.w, box.h) < 56) {

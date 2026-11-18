@@ -151,6 +151,16 @@ router.put(
   profile.setLogo,
 );
 
+// Saved seating-map looks (2026-11-18): the Venue Builder's Map look panel.
+router.get('/map-looks', requireAuth, requireRole('organizer'), requireOrganizerProfile, profile.listMapLooks);
+router.put(
+  '/map-looks',
+  ...methods,
+  body('looks').isArray({ max: 12 }).withMessage('You can keep up to 12 saved looks.'),
+  validate,
+  profile.saveMapLooks,
+);
+
 router.get('/payment-methods', ...methods, c.listPaymentMethods);
 router.post('/payment-methods', ...methods, ...methodRules(false), validate, c.createPaymentMethod);
 router.patch(

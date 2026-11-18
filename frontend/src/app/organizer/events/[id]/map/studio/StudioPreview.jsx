@@ -57,7 +57,7 @@ export default function StudioPreview({
       const saved = t.id ? byTable.get(t.id) || [] : [];
       const price = t.seatPriceCents ?? tierPrice.get(t.tierId) ?? null;
       outTables.push({
-        id, label: t.label, seatCount: t.seatCount, shape: t.shape, position: t.position,
+        id, label: t.label, seatCount: t.seatCount, shape: t.shape, position: t.position, style: t.style ?? null,
         priceCents: t.priceCents ?? null, status: 'available', canBookWhole: false,
       });
       for (let i = 0; i < t.seatCount; i += 1) {

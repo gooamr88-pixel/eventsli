@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import {
   SEAT_PITCH, SEAT_RADIUS, tableBody, toWorld, toPercent, worldOf, screenScale,
 } from '../../../../components/seating/seatingGeometry';
-import { zoneBox } from '../../../../components/seating/venueZones';
+import { paintOrder, zoneBox } from '../../../../components/seating/venueZones';
 import ZoneShape from '../../../../components/seating/ZoneShape';
 import EditableTable from './EditableTable';
 import { tierPalette } from '../../../../components/venue/venueModel';
@@ -62,6 +62,10 @@ export default function EditorCanvas({
   world = worldOf(null),
   // The Layers card (LayersCard.jsx): what is drawn, never what exists.
   layers = { zones: true, labels: true },
+  // The map's look (mapStyle.js): floor, walls, tables and labels.
+  look = null,
+  // Draw-wall mode (useWallTool): its pointer handler and the wall in progress.
+  wallTool = null,
   className = '',
 }) {
   const { svgRef, view, handlers } = panzoom;
@@ -93,11 +97,11 @@ export default function EditorCanvas({
     return {
       tables: tables.filter((t) => {
         const { x, y } = toWorld(t.position, world);
-        const body = tableBody(t.shape, t.seatCount);
+        const body = tableBody(t.shape, t.seatCount, t.style);
         const reach = Math.max(body.width, body.height) / 2 + SEAT_PITCH + SEAT_RADIUS;
         return x + reach >= left && x - reach <= right && y + reach >= top && y - reach <= bottom;
       }),
-      zones: zones.filter((z) => {
+      zones: paintOrder(zones).filter((z) => {
         const b = zoneBox(z, world);
         return b.right >= left && b.x <= right && b.bottom >= top && b.y <= bottom;
       }),
@@ -109,7 +113,7 @@ export default function EditorCanvas({
   const soleTable = selection.selection.tables.size === 1 && selection.selection.zones.size === 0
     ? [...selection.selection.tables][0] : null;
 
-  const cursor = tool === 'hand' || spacePan ? 'grab' : 'crosshair';
+  const cursor = tool === 'hand' || spacePan ? 'grab' : tool === 'wall' ? 'cell' : 'crosshair';
 
   return (
     <div
@@ -126,6 +130,8 @@ export default function EditorCanvas({
         aria-label="Seating map editor"
         {...handlers}
         onPointerDown={(e) => {
+          // Drawing a wall takes the press before anything else.
+          if (wallTool?.onPointerDown(e)) return;
           // The marquee gets first refusal. When it takes the gesture the pan
           // must not also start — otherwise the box is drawn while the map
           // slides underneath it and the two disagree about what was swept.
@@ -136,7 +142,9 @@ export default function EditorCanvas({
         // to be suppressed — without this the pan works and ends with a context
         // menu over the map every time.
         onContextMenu={(e) => e.preventDefault()}
+        onPointerMove={(e) => { wallTool?.onPointerMove(e); handlers.onPointerMove?.(e); }}
         onDoubleClick={(e) => {
+          if (wallTool?.active) { wallTool.finish(); return; }
           const rect = svgRef.current?.getBoundingClientRect();
           if (!rect) return;
           onAddAt(toPercent(
@@ -178,7 +186,7 @@ export default function EditorCanvas({
         <rect
           x={0} y={0} width={world.width} height={world.height}
           rx={6}
-          fill="var(--es-surface)"
+          fill={look?.floor || 'var(--es-surface)'}
           stroke="var(--es-border-strong)"
           strokeWidth={1.25}
           vectorEffect="non-scaling-stroke"
@@ -204,6 +212,7 @@ export default function EditorCanvas({
             selected={selection.has('zone', zone.id)}
             interactive
             scale={scale}
+            look={look}
             onPointerDown={(e) => interaction.onElementPointerDown(e, 'zone', zone.id)}
             onKeyDown={(e) => onNudge(e, 'zone', zone.id)}
           >
@@ -235,11 +244,13 @@ export default function EditorCanvas({
             scale={scale}
             sold={soldByTable?.get(keyOf(table)) || 0}
             world={world}
+            look={look}
             onPointerDown={(e) => interaction.onElementPointerDown(e, 'table', keyOf(table))}
             onKeyDown={(e) => onNudge(e, 'table', keyOf(table))}
             onRotateStart={(e) => interaction.onRotateStart(e, 'table', keyOf(table))}
           />
         ))}
+        {wallTool?.preview}
       </svg>
 
       {/* The marquee is drawn as an overlay in SCREEN pixels, which is the same

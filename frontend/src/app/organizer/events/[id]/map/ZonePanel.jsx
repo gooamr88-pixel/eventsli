@@ -1,6 +1,7 @@
 'use client';
 
-import { MIN_ZONE_SIZE, zoneColor, zoneLabel, zoneMeta } from '../../../../components/seating/venueZones';
+import { minZoneSize, zoneColor, zoneLabel, zoneMeta } from '../../../../components/seating/venueZones';
+import ZoneStyleSection from './style/ZoneStyleSection';
 import { worldOf } from '../../../../components/seating/seatingGeometry';
 import ZonePreview from './ZonePreview';
 
@@ -26,6 +27,7 @@ export default function ZonePanel({
 }) {
   const meta = zoneMeta(zone.kind);
   const colour = zoneColor(zone);
+  const min = minZoneSize(zone.kind);
   const set = (patch, options) => onChange(zone.id, patch, options);
 
   return (
@@ -61,11 +63,11 @@ export default function ZonePanel({
 
       <div className="fx-grid" style={{ '--fx-col': '120px', '--fx-gap': '10px' }}>
         <SizeField
-          id="es-zone-w" label="Width" value={zone.w} max={world.width}
+          id="es-zone-w" label={zone.kind === 'wall' ? 'Length' : 'Width'} value={zone.w} min={min.w} max={world.width}
           onChange={(w) => set({ w }, { mergeKey: `${zone.id}:w` })}
         />
         <SizeField
-          id="es-zone-h" label="Height" value={zone.h} max={world.height}
+          id="es-zone-h" label={zone.kind === 'wall' ? 'Thickness' : 'Height'} value={zone.h} min={min.h} max={world.height}
           onChange={(h) => set({ h }, { mergeKey: `${zone.id}:h` })}
         />
       </div>
@@ -74,7 +76,7 @@ export default function ZonePanel({
       </p>
 
       <div className="fx-stack fx-stack--sm gap-1.5">
-        <label htmlFor="es-zone-colour" className="text-sm text-ink">Colour</label>
+        <label htmlFor="es-zone-colour" className="text-sm text-ink">{zone.kind === 'wall' ? 'Wall colour' : 'Colour'}</label>
         <div className="fx-row items-center gap-2">
           <input
             id="es-zone-colour"
@@ -93,9 +95,12 @@ export default function ZonePanel({
           </button>
         </div>
         <p className="text-xs text-subtle">
-          Only for telling two of the same kind apart. The map reads better when most zones keep their own colour.
+          The outline, the icon, and the light wash when there is no fill. Walls and doors follow the map look until you pick one.
         </p>
       </div>
+
+      {/* Shape, fill, border and words (2026-11-18). */}
+      <ZoneStyleSection zone={zone} colour={colour} onChange={(patch, options) => onChange(zone.id, patch, options)} />
 
       <div className="fx-row flex-wrap gap-2 border-t border-border-base pt-3">
         <button type="button" onClick={() => onRotate(90)} className="es-btn es-btn--secondary es-btn--sm">
@@ -115,7 +120,7 @@ export default function ZonePanel({
   );
 }
 
-function SizeField({ id, label, value, max, onChange }) {
+function SizeField({ id, label, value, min, max, onChange }) {
   return (
     <div className="fx-stack fx-stack--sm gap-1.5">
       <label htmlFor={id} className="text-sm text-ink">{label}</label>
@@ -124,13 +129,13 @@ function SizeField({ id, label, value, max, onChange }) {
         type="number"
         className="es-input"
         value={Math.round(value)}
-        min={MIN_ZONE_SIZE}
+        min={min}
         max={max}
         onChange={(e) => {
           const n = Number(e.target.value);
           // Clamped to what `layoutZones` will accept on the way out, so the
           // field can never hold a number the save would quietly rewrite.
-          if (Number.isFinite(n)) onChange(Math.min(max, Math.max(MIN_ZONE_SIZE, Math.round(n))));
+          if (Number.isFinite(n)) onChange(Math.min(max, Math.max(min, Math.round(n))));
         }}
       />
     </div>
