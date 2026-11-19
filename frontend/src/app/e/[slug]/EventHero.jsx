@@ -25,6 +25,14 @@ import ClampText from './ClampText';
  * ─────────────────────────────────────────────────────────────────────────────
  */
 export default function EventHero({ event, tagline, about, when }) {
+  // The same word as the status section under the header (2026-11-20),
+  // stamped on the poster so it reads at a glance — on a shared link's
+  // preview of the page as much as on the page itself.
+  const stamp = event.isPast ? 'Event ended'
+    : (!event.displayOnly && event.availability?.soldOut) ? 'Sold out' : null;
+  const stampEl = stamp
+    ? <span className={`es-ev-stamp${event.isPast ? ' es-ev-stamp--ended' : ''}`} aria-hidden="true">{stamp}</span>
+    : null;
   return (
     <section className="es-evx-head">
       {event.coverUrl ? (
@@ -45,6 +53,7 @@ export default function EventHero({ event, tagline, about, when }) {
               className="es-ev-poster__img"
             />
           </Zoomable>
+          {stampEl}
           <div className="es-ev-head__actions">
             <EventShare title={event.title} slug={event.slug} />
           </div>
@@ -53,6 +62,7 @@ export default function EventHero({ event, tagline, about, when }) {
         /* No artwork is a normal state — an event may publish without one. */
         <div className="es-ev-poster es-ev-poster--empty es-evx-head__poster">
           <p className="es-ev-poster__fallback fx-break">{event.title}</p>
+          {stampEl}
           <div className="es-ev-head__actions">
             <EventShare title={event.title} slug={event.slug} />
           </div>

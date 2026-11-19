@@ -45,6 +45,10 @@ import NavIcon from '../../components/shell/NavIcon';
  * is no.
  */
 export function ctaFor(event, soldOut, tierId) {
+  // OVER (2026-11-20): before anything else, sold out included — "sold out"
+  // on an event that already happened answers the wrong question. `isPast` is
+  // the API's (discoveryController.isPastRow: its end, or its start, passed).
+  if (event.isPast) return { kind: 'ended', note: 'This event has ended.' };
   if (event.displayOnly) {
     return { kind: 'listing', note: 'This event is listed for information. Tickets are not sold here.' };
   }
@@ -88,7 +92,9 @@ export function EventPurchaseNotice({ event, soldOut, focusTier }) {
           <span>You were sent here for <strong>{focusTier.name}</strong>.</span>
         </p>
       )}
-      {cta.kind !== 'buy' && (
+      {/* Ended and sold out have their own section (EventTicketCard's
+          EventStatusCard); a grey line repeating it would say it twice. */}
+      {cta.kind !== 'buy' && cta.kind !== 'ended' && cta.kind !== 'soldout' && (
         <p className="rounded-(--es-radius-md) bg-bg-sunken px-4 py-3 text-center text-muted" role="status">
           {cta.note}
         </p>

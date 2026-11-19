@@ -236,13 +236,15 @@ export default async function EventPage({ params, searchParams }) {
           ) : (
             <>
               {/* ── 2. Tickets: the ticket-shaped call to buy ────────────── */}
-              <EventTicketCard event={event} cheapest={cheapest} soldOut={soldOut} />
+              <EventTicketCard event={event} cheapest={cheapest} soldOut={soldOut} when={when} />
 
               {/* ── 3. Seated: blocks and prices, and the door to the map.
                     General admission: the ticket types, as before. ─────── */}
-              {seated
+              {/* Not for an event that is over: prices for tickets nobody can
+                  buy are noise under "This event has ended". */}
+              {!event.isPast && (seated
                 ? <EventBlocks event={event} />
-                : <EventTickets event={event} cheapest={cheapest} soldOut={soldOut} />}
+                : <EventTickets event={event} cheapest={cheapest} soldOut={soldOut} />)}
 
               {/* The reasons a buyer might not be able to buy, said in full. */}
               <EventPurchaseNotice event={event} soldOut={soldOut} focusTier={focusTier} />

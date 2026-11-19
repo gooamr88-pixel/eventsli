@@ -7952,15 +7952,39 @@ input.es-lp-filter__control::-webkit-search-cancel-button { display: none; }
    shows a street and no context, and one 400px tall on a phone is most of
    the screen. 4:3 on a phone, wider from `sm`. */
 .es-venue { display: flex; flex-direction: column; gap: 0.75rem; }
+/* A fixed, modest height (owner, 2026-11-20: "the venue appears very
+   large"): 16:9 across the full column made the map ~850px tall on a laptop. */
 .es-venue__map {
   position: relative;
-  aspect-ratio: 4 / 3;
+  height: clamp(13rem, 26vw, 20rem);
   overflow: hidden;
   border: 1px solid var(--es-border);
   border-radius: var(--es-radius-lg);
   background: var(--es-bg-sunken);
 }
-@media (width >= 40rem) { .es-venue__map { aspect-ratio: 16 / 9; } }
+/* Before the map is asked for (VenueMapFrame): a short card, nothing loaded. */
+.es-venue__peek {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.85rem;
+  min-height: 5.5rem;
+  border: 1px dashed var(--es-border-strong);
+  border-radius: var(--es-radius-lg);
+  background:
+    radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--es-text) 12%, transparent) 1px, transparent 0) 0 0 / 14px 14px,
+    var(--es-bg-sunken);
+}
+.es-venue__pin {
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  background: var(--es-accent);
+  color: var(--es-text-on-accent);
+  box-shadow: 0 6px 14px -6px color-mix(in srgb, var(--es-accent) 70%, transparent);
+}
 .es-venue__map iframe {
   display: block;
   width: 100%;
@@ -18226,4 +18250,107 @@ label.es-chip:has(:focus-visible) { outline: 2px solid var(--es-accent); outline
   .es-telfield__name { flex: 1 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: var(--es-text-sm); }
   .es-telfield__code { flex: none; font-size: var(--es-text-sm); font-variant-numeric: tabular-nums; color: var(--es-text-muted); }
   .es-telfield__none { padding: 0.75rem; font-size: var(--es-text-sm); color: var(--es-text-muted); }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   ENDED / SOLD OUT on the event page (owner, 2026-11-20): a clear section
+   where the ticket card would be (EventTicketCard's EventStatusCard), and a
+   stamp across the poster's corner (EventHero).
+   Ended reads in calm night-ink; sold out in the brand coral.
+   ═══════════════════════════════════════════════════════════════════════ */
+@layer components {
+  .es-evstate {
+    --state: var(--es-accent);
+    --state-wash: var(--es-accent-wash);
+    position: relative;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
+    gap: 1rem 1.25rem;
+    overflow: hidden;
+    padding: clamp(1.25rem, 3vw, 2rem);
+    border: 1px solid color-mix(in srgb, var(--state) 22%, var(--es-border));
+    border-radius: 22px;
+    background:
+      linear-gradient(135deg, var(--state-wash), transparent 60%),
+      var(--es-surface);
+    box-shadow: var(--es-shadow-sm);
+  }
+  /* The band down the left edge: the status, before a word is read. */
+  .es-evstate::before {
+    content: "";
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: 0;
+    width: 6px;
+    background: var(--state);
+  }
+  .es-evstate--ended {
+    --state: var(--es-night-900);
+    --state-wash: color-mix(in srgb, var(--es-night-900) 6%, var(--es-surface));
+  }
+  .es-evstate__icon {
+    display: grid;
+    place-items: center;
+    width: 3.5rem;
+    height: 3.5rem;
+    border-radius: 16px;
+    background: var(--state);
+    color: var(--es-surface);
+  }
+  .es-evstate--soldout .es-evstate__icon { color: var(--es-text-on-accent); }
+  .es-evstate__body { display: grid; gap: 0.6rem; min-width: 0; }
+  .es-evstate__label {
+    justify-self: start;
+    margin: 0;
+    padding: 0.25rem 0.7rem;
+    border-radius: 999px;
+    background: var(--state);
+    font-size: var(--es-text-xs);
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--es-surface);
+  }
+  .es-evstate--soldout .es-evstate__label { color: var(--es-text-on-accent); }
+  .es-evstate__title {
+    margin: 0;
+    font-family: var(--es-font-display);
+    font-size: clamp(1.5rem, 1.2rem + 1.2vw, 2.1rem);
+    font-weight: 800;
+    line-height: 1.15;
+    color: var(--es-text);
+  }
+  .es-evstate__text { max-width: 44rem; margin: 0; line-height: 1.6; color: var(--es-text-muted); }
+  .es-evstate__text strong { font-weight: 600; color: var(--es-text); }
+  .es-evstate__actions { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 0.4rem; }
+  .es-evstate__foot { margin: 0.2rem 0 0; font-size: var(--es-text-sm); color: var(--es-text-muted); }
+  .es-evstate__foot a { font-weight: 700; color: var(--es-accent); text-decoration: underline; text-underline-offset: 3px; }
+  @media (width < theme(--breakpoint-sm)) {
+    .es-evstate { grid-template-columns: minmax(0, 1fr); padding-inline-start: 1.4rem; }
+    .es-evstate__icon { width: 3rem; height: 3rem; border-radius: 14px; }
+    .es-evstate__actions .es-btn { flex: 1 1 100%; justify-content: center; }
+  }
+
+  /* The poster stamp: a ribbon across the top-left corner. */
+  .es-ev-stamp {
+    position: absolute;
+    z-index: 2;
+    top: 1.35rem;
+    left: -2.6rem;
+    width: 11rem;
+    padding: 0.4rem 0;
+    transform: rotate(-35deg);
+    background: var(--es-accent);
+    box-shadow: 0 6px 16px -6px rgb(17 16 24 / 0.45);
+    font-family: var(--es-font-display);
+    font-size: 0.8rem;
+    font-weight: 900;
+    letter-spacing: 0.1em;
+    text-align: center;
+    text-transform: uppercase;
+    color: var(--es-text-on-accent);
+    pointer-events: none;
+  }
+  .es-ev-stamp--ended { background: var(--es-night-900); color: #ffffff; }
 }

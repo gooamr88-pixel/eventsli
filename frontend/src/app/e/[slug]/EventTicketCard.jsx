@@ -17,9 +17,12 @@ import { ctaFor } from './EventPurchasePanel';
  * /tickets/find re-sends the tickets — so the pill is a fact, not a slogan.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-export default function EventTicketCard({ event, cheapest = [], soldOut }) {
-  if (event.displayOnly) return null;
+export default function EventTicketCard({ event, cheapest = [], soldOut, when = null }) {
   const cta = ctaFor(event, soldOut);
+  // Over, or every ticket gone (owner, 2026-11-20): a section that says so
+  // plainly and offers the next step, in place of a card inviting a purchase.
+  if (cta.kind === 'ended' || cta.kind === 'soldout') return <EventStatusCard event={event} kind={cta.kind} when={when} />;
+  if (event.displayOnly) return null;
   const from = cheapest.length > 0 ? Math.min(...cheapest) : null;
 
   return (
@@ -69,6 +72,65 @@ export default function EventTicketCard({ event, cheapest = [], soldOut }) {
             </span>
           )}
         </div>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * "THIS EVENT HAS ENDED" / "SOLD OUT" (owner, 2026-11-20): "put a clear,
+ * professional section that tells the visitor".
+ *
+ * Where the ticket card would be, so it is the first thing under the header:
+ * a status label, a plain sentence on what that means, and somewhere to go —
+ * upcoming events, this organizer's other events, and (ended) "Find my
+ * tickets" for the people who were there and want their ticket or receipt.
+ * The poster carries the same word as a stamp (EventHero).
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+function EventStatusCard({ event, kind, when }) {
+  const ended = kind === 'ended';
+  const organizer = event.organizerProfile?.slug ? `/o/${event.organizerProfile.slug}` : null;
+  const where = [event.venue, event.city].filter(Boolean).join(', ');
+  return (
+    <section id="event-tickets" className={`es-evstate es-evstate--${kind}`} aria-labelledby="event-state-title">
+      <span className="es-evstate__icon" aria-hidden="true">
+        <NavIcon name={ended ? 'calendar' : 'ticket'} size={28} />
+      </span>
+      <div className="es-evstate__body">
+        <p className="es-evstate__label">{ended ? 'Event ended' : 'Sold out'}</p>
+        <h2 id="event-state-title" className="es-evstate__title">
+          {ended ? 'This event has ended' : 'Every ticket has been sold'}
+        </h2>
+        <p className="es-evstate__text">
+          {ended ? (
+            <>
+              {when?.date ? <>It took place on <strong>{when.date}</strong>{where ? <> at <strong>{where}</strong></> : null}. </> : null}
+              {event.displayOnly ? 'Thank you to everyone who came.' : 'Tickets are no longer on sale.'}
+            </>
+          ) : (
+            <>
+              Tickets for this event are no longer available. {event.admissionType === 'general' ? 'Tickets' : 'Seats'} sometimes
+              come back when a booking is cancelled, so it is worth checking this page again closer to the date.
+            </>
+          )}
+        </p>
+        <div className="es-evstate__actions">
+          <Link href="/events" className="es-btn es-btn--primary">
+            Browse upcoming events <NavIcon name="arrow" size={18} />
+          </Link>
+          {organizer && (
+            <Link href={organizer} className="es-btn es-btn--secondary">
+              More from {event.organizerProfile?.name || 'the organizer'}
+            </Link>
+          )}
+        </div>
+        {ended && !event.displayOnly && (
+          <p className="es-evstate__foot">
+            Went to this event? <Link href="/tickets/find">Find my tickets</Link> to see your ticket and receipt again.
+          </p>
+        )}
       </div>
     </section>
   );
