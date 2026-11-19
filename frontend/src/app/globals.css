@@ -16812,13 +16812,25 @@ label.es-chip:has(:focus-visible) { outline: 2px solid var(--es-accent); outline
   .es-pay__stripe-name { font-family: var(--es-font-display); font-size: 1.5rem; font-weight: 800; line-height: 1; letter-spacing: -0.02em; }
   .es-pay__stripe-sub { display: inline-flex; align-items: center; gap: 0.35rem; font-size: var(--es-text-xs); font-weight: 600; opacity: 0.95; }
 
+  /* NO TILE ALONE ON A ROW (owner's screenshot, 2026-11-20). `auto-fit`
+     put five tiles two by two on a phone, leaving Google Pay by itself. Now:
+     on a phone, the three cards share a row and the two wallets the next (a
+     six-track grid: cards span 2, wallets span 3); from sm up, all five in
+     one row. The order is BRANDS' — cards first, then wallets. */
   .es-pay__brands {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
-    gap: 0.75rem;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 0.6rem;
     margin: 0;
     padding: 0;
     list-style: none;
+  }
+  .es-pay__brands > .es-pay__brand { grid-column: span 2; }
+  .es-pay__brands > .es-pay__brand:nth-child(n + 4) { grid-column: span 3; }
+  @media (width >= theme(--breakpoint-sm)) {
+    .es-pay__brands { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0.75rem; }
+    .es-pay__brands > .es-pay__brand,
+    .es-pay__brands > .es-pay__brand:nth-child(n + 4) { grid-column: auto; }
   }
   .es-pay__brand {
     display: grid;
@@ -16834,10 +16846,21 @@ label.es-chip:has(:focus-visible) { outline: 2px solid var(--es-accent); outline
   .es-pay__logo { display: inline-flex; width: 60px; height: 60px; margin-block: -10px; }
   .es-pay__logo--mastercard { width: 52px; height: 34px; margin-block: 3px; }
   .es-pay__logo--visa { color: #1a1f71; }
-  .es-pay__logo--americanexpress { color: #2e77bc; }
+  /* A solid square, unlike the other marks: the negative margin that tucks
+     their empty edges in made it touch its own label. */
+  .es-pay__logo--americanexpress { color: #2e77bc; width: 48px; height: 48px; margin-block: 0 2px; }
   .es-pay__logo--applepay, .es-pay__logo--googlepay { color: #000000; }
   /* Fixed ink on the fixed white tile, in both themes (#4a4a55 on white is 8.6:1). */
   .es-pay__name { font-size: var(--es-text-xs); font-weight: 600; text-align: center; color: #4a4a55; }
+  /* Three to a row on a phone: a little smaller, and "American Express" may
+     take two lines rather than squeeze its logo. */
+  @media (width < theme(--breakpoint-sm)) {
+    .es-pay__brand { padding: 0.7rem 0.35rem 0.6rem; gap: 0.35rem; }
+    .es-pay__logo { width: 48px; height: 48px; margin-block: -8px; }
+    .es-pay__logo--mastercard { width: 44px; height: 28px; margin-block: 2px; }
+    .es-pay__logo--americanexpress { width: 38px; height: 38px; margin-block: 0 2px; }
+    .es-pay__name { line-height: 1.25; }
+  }
 
   .es-pay__note {
     max-width: 46rem;
