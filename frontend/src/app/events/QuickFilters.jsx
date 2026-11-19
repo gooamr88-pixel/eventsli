@@ -107,66 +107,68 @@ export default function QuickFilters({ city }) {
     );
   }
 
+  // Rows in the /events sidebar (2026-11-19), drawn as checkboxes: unlike the
+  // categories above, these combine.
   return (
-    <div className="fx-stack fx-stack--sm">
-      <div className="fx-row flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={nearMe}
-          disabled={locating}
-          aria-pressed={Boolean(city)}
-          className={chip(Boolean(city))}
-        >
-          <Pin />
-          {locating ? 'Finding you…' : city || 'Near me'}
-        </button>
-
-        <Link href={withParams(weekendActive ? { from: null, to: null } : weekend)} className={chip(weekendActive)}>
-          <Cal />
-          This weekend
-        </Link>
-
-        {/* Only events sold here (2026-11-15) — the yellow "Tickets on sale"
-            tag on the cards, as a filter. A link, like "This weekend". */}
-        <Link
-          href={withParams({ onSale: onSale ? null : 'true' })}
-          aria-current={onSale ? 'true' : undefined}
-          className={chip(onSale)}
-        >
-          <NavIcon name="ticket" size={16} />
-          Tickets on sale
-        </Link>
-
-        {/* Back, now that `/events/saved` exists to receive it.
-            Only when there is something to show: a "Saved (0)" chip is a
-            control whose only function is to open an empty screen. */}
+    <section className="es-evx-side__group">
+      <h2 className="es-evx-side__heading">Quick filters</h2>
+      <ul className="es-evx-radios">
+        <li>
+          <button
+            type="button"
+            onClick={nearMe}
+            disabled={locating}
+            aria-pressed={Boolean(city)}
+            className={check(Boolean(city))}
+          >
+            <span aria-hidden className="es-evx-radio__box" />
+            {locating ? 'Finding you…' : city ? `Near me: ${city}` : 'Near me'}
+          </button>
+        </li>
+        <li>
+          <Link
+            href={withParams(weekendActive ? { from: null, to: null } : weekend)}
+            aria-current={weekendActive ? 'true' : undefined}
+            className={check(weekendActive)}
+          >
+            <span aria-hidden className="es-evx-radio__box" />
+            This weekend
+          </Link>
+        </li>
+        <li>
+          {/* Only events sold here (2026-11-15). */}
+          <Link
+            href={withParams({ onSale: onSale ? null : 'true' })}
+            aria-current={onSale ? 'true' : undefined}
+            className={check(onSale)}
+          >
+            <span aria-hidden className="es-evx-radio__box" />
+            Tickets on sale
+          </Link>
+        </li>
+        {/* Only when there is something to show. */}
         {savedCount > 0 && (
-          <Link href="/events/saved" className={chip(false)}>
-            <Heart />
-            Saved <span className="es-nums text-subtle">({savedCount})</span>
-          </Link>
+          <li>
+            <Link href="/events/saved" className="es-evx-radio">
+              <NavIcon name="heart" size={18} filled className="es-evx-radio__heart" />
+              Saved <span className="es-nums es-evx-radio__count">({savedCount})</span>
+            </Link>
+          </li>
         )}
+      </ul>
 
-        {city && (
-          <Link href={withParams({ city: null })} className={chip(false)}>
-            Clear city
-          </Link>
-        )}
-      </div>
-
-      {locateError && (
-        <p role="status" className="text-sm text-muted">{locateError}</p>
+      {city && (
+        <Link href={withParams({ city: null })} className="es-evx-side__clear">Clear city</Link>
       )}
-    </div>
+      {locateError && (
+        <p role="status" className="es-evx-side__note">{locateError}</p>
+      )}
+    </section>
   );
 }
 
-function chip(active) {
-  return `fx-row items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors ${
-    active
-      ? 'border-accent bg-accent/10 text-accent'
-      : 'border-border-strong text-ink hover:bg-bg-sunken'
-  }`;
+function check(active) {
+  return `es-evx-radio es-evx-radio--check ${active ? 'is-checked' : ''}`;
 }
 
 /**
@@ -197,22 +199,3 @@ export function weekendRange(now = new Date()) {
   return { from: start.toISOString(), to: end.toISOString() };
 }
 
-const Pin = () => (
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z" /><circle cx="12" cy="10" r="3" />
-  </svg>
-);
-
-const Cal = () => (
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4" />
-  </svg>
-);
-
-/* Filled rather than stroked, matching `SaveEventButton`'s saved state — this
-   chip is about events that are already hearted. */
-const Heart = () => (
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true">
-    <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1L12 21l7.7-7.6 1.1-1a5.5 5.5 0 0 0 0-7.8z" />
-  </svg>
-);

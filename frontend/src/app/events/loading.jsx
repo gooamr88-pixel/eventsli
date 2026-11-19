@@ -29,9 +29,8 @@
  * fresh load the OUTER boundary is the one that flushes. Verified against the
  * server, then removed rather than left in place looking like it helped.
  *
- * The structure still mirrors `page.jsx` band for band — `.es-ev-hero` then
- * `.es-band`, both `fx-section--sm`, inside `.fx-container--xl` — so the
- * arrival swaps the cards in place instead of moving the page.
+ * The structure mirrors `page.jsx`: the sidebar card, then the card grid,
+ * so the arrival swaps the content in place instead of moving the page.
  *
  * `.es-skeleton` collapses to a static grey block under
  * `prefers-reduced-motion` (the global block in `globals.css` zeroes the
@@ -39,55 +38,38 @@
  * ─────────────────────────────────────────────────────────────────────────────
  */
 export default function EventsLoading() {
+  // Mirrors page.jsx (2026-11-19 layout): the sidebar card, then the grid of
+  // poster cards, so the arrival swaps the content in place.
   return (
-    <main>
-      <section className="es-ev-hero fx-section fx-section--sm">
-        <div className="fx-container fx-container--xl">
-          {/* The kicker, the headline and the lede, as blocks that suit either
-              this page's hero or the saved list's page header. */}
-          <div aria-hidden="true" className="es-ev-hero__head fx-stack fx-stack--sm">
-            <span className="es-skeleton es-skeleton--line w-40" />
-            <span className="es-skeleton h-10 w-3/4 max-w-lg" />
-            <span className="es-skeleton es-skeleton--text w-2/3" />
-          </div>
-
-          {/* The search box and the category rail are the same height as the
-              real ones, so the band does not change depth when they arrive. */}
-          <div aria-hidden="true" className="fx-stack fx-stack--sm">
-            <span className="es-skeleton h-12 w-full rounded-(--es-radius-lg)" />
-            <div className="fx-row fx-row--scroll gap-2">
-              <span className="es-skeleton h-8 w-24 rounded-(--es-radius-full)" />
-              <span className="es-skeleton h-8 w-20 rounded-(--es-radius-full)" />
-              <span className="es-skeleton h-8 w-28 rounded-(--es-radius-full)" />
-              <span className="es-skeleton h-8 w-16 rounded-(--es-radius-full)" />
-            </div>
-          </div>
+    <main className="es-evx">
+      <div className="es-evx__layout">
+        <div aria-hidden="true" className="es-evx-side">
+          <span className="es-skeleton h-14 w-full rounded-[10px]" />
+          <span className="es-skeleton es-skeleton--line mt-10 w-1/2" />
+          <span className="es-skeleton mt-4 h-14 w-full rounded-[10px]" />
+          <span className="es-skeleton es-skeleton--line mt-10 w-1/3 max-lg:hidden" />
+          {Array.from({ length: 6 }, (_, i) => (
+            <span key={i} className="es-skeleton es-skeleton--line mt-4 w-2/5 max-lg:hidden" />
+          ))}
         </div>
-      </section>
 
-      <section className="es-band fx-section fx-section--sm">
-        <div className="fx-container fx-container--xl">
-          {/* One announcement for the whole region. Nine cards' worth of empty
-              divs read aloud is noise, which is why the blocks are hidden and
-              the status lives here. */}
-          <div role="status" aria-live="polite" aria-label="Loading events">
-            <ul aria-hidden="true" className="es-ev-results">
-              {Array.from({ length: 6 }, (_, i) => (
-                <li key={i}>
-                  <div className="fx-stack fx-stack--sm">
-                    {/* The cover's aspect ratio, not a fixed height — the real
-                        card's image box is ratio-driven, so a px height here
-                        would shift the grid at exactly one viewport. */}
-                    <span className="es-skeleton aspect-[3/2] w-full rounded-(--es-radius-lg)" />
-                    <span className="es-skeleton es-skeleton--text w-4/5" />
-                    <span className="es-skeleton es-skeleton--line w-2/5" />
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
+        {/* One announcement for the whole region; the blocks are hidden. */}
+        <div role="status" aria-live="polite" aria-label="Loading events">
+          <ul aria-hidden="true" className="es-evx__grid">
+            {Array.from({ length: 6 }, (_, i) => (
+              <li key={i}>
+                <div className="es-evx-card">
+                  <span className="es-skeleton aspect-[16/9] w-full rounded-[8px]" />
+                  <span className="es-skeleton es-skeleton--text mt-6 w-4/5" />
+                  <span className="es-skeleton es-skeleton--line mt-5 w-1/2" />
+                  <span className="es-skeleton es-skeleton--line mt-3 w-3/4" />
+                  <span className="es-skeleton mt-6 h-12 w-48 rounded-[6px]" />
+                </div>
+              </li>
+            ))}
+          </ul>
         </div>
-      </section>
+      </div>
     </main>
   );
 }

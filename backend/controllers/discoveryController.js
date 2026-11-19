@@ -135,7 +135,10 @@ async function listEvents(req, res, next, { phraseSearch = false } = {}) {
      */
     if (req.query.city) {
       const safeCity = safeSearch(req.query.city);
-      if (safeCity) query = query.ilike('city', safeCity);
+      // "City and address" (owner, 2026-11-19): the same exact city match, OR
+      // a street address containing the words, so "Polson St" finds the venue.
+      // A teaser's address is not public yet, so it matches by city only.
+      if (safeCity) query = query.or(`city.ilike.${safeCity},and(coming_soon.eq.false,venue_address.ilike.%${safeCity}%)`);
     }
     if (req.query.from) query = query.gte('starts_at', new Date(req.query.from).toISOString());
     if (req.query.to) query = query.lte('starts_at', new Date(req.query.to).toISOString());
@@ -536,6 +539,8 @@ function shape(e) {
     comingSoon: teaser,
     venue: teaser ? null : e.venue_name,
     city: e.city || null,
+    // The street address, for the /events card (2026-11-19). Hidden on a teaser.
+    venueAddress: teaser ? null : (e.venue_address || null),
     country: e.country,
     timezone: e.timezone,
     startsAt: e.starts_at,

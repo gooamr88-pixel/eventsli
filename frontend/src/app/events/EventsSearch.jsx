@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import NavIcon from '../components/shell/NavIcon';
 
@@ -40,7 +41,7 @@ import NavIcon from '../components/shell/NavIcon';
  */
 const DEBOUNCE_MS = 350;
 
-export default function EventsSearch({ q, city, from, category }) {
+export default function EventsSearch({ q, city, from, category, categories = [], children }) {
   const router = useRouter();
 
   const [what, setWhat] = useState(q);
@@ -110,63 +111,112 @@ export default function EventsSearch({ q, city, from, category }) {
     return () => clearTimeout(timer);
   }, [typed, shown, router]);
 
+  /**
+   * THE SIDEBAR (owner's reference, 2026-11-19): "Search event name", then
+   * "City and address", then the categories as a radio list, then the date and
+   * the quick filters. Below lg everything after the city box folds behind a
+   * "Filters" toggle, so a phone reaches the first event without scrolling past
+   * fifteen categories. From lg up it is always open.
+   */
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  // Named on the toggle only when a real category is picked, not "All".
+  const activeLabel = categories.find((c) => c.active && c.slug)?.label;
+
   return (
-    <form action="/events" method="get" role="search" className="es-ev-search">
+    <form action="/events" method="get" role="search" className="es-evx-side" aria-label="Find events">
       {category && <input type="hidden" name="category" value={category} />}
 
-      <label className="es-ev-search__field es-ev-search__field--q" htmlFor="ev-q">
-        <span aria-hidden className="es-ev-search__icon"><NavIcon name="search" size={19} /></span>
-        <span className="sr-only">Event, artist or venue</span>
+      <label className="es-evx-field" htmlFor="ev-q">
+        <NavIcon name="search" size={22} className="es-evx-field__icon" />
+        <span className="sr-only">Search event name</span>
         <input
           id="ev-q"
           type="search"
           name={what ? 'q' : undefined}
           value={what}
           onChange={(e) => setWhat(e.target.value)}
-          placeholder="Event, artist or venue"
+          placeholder="Search event name"
           autoComplete="off"
-          className="es-ev-search__input"
+          className="es-evx-field__input"
         />
       </label>
 
-      <label className="es-ev-search__field" htmlFor="ev-city">
-        <span aria-hidden className="es-ev-search__icon"><NavIcon name="pin" size={18} /></span>
-        <span className="sr-only">City</span>
-        <input
-          id="ev-city"
-          type="text"
-          name={where ? 'city' : undefined}
-          value={where}
-          onChange={(e) => setWhere(e.target.value)}
-          placeholder="Any city"
-          autoComplete="address-level2"
-          className="es-ev-search__input"
-        />
-      </label>
-
-      <label className="es-ev-search__field" htmlFor="ev-from">
-        <span aria-hidden className="es-ev-search__icon"><NavIcon name="calendar" size={18} /></span>
-        <span className="sr-only">On or after</span>
-        <span className="es-ev-search__date">
-          {!when && <span aria-hidden className="es-ev-search__hint">Any date</span>}
+      <section className="es-evx-side__group">
+        <h2 className="es-evx-side__heading"><label htmlFor="ev-city">City and address</label></h2>
+        <div className="es-evx-field">
+          <NavIcon name="pin" size={20} className="es-evx-field__icon es-evx-field__icon--accent" />
           <input
-            id="ev-from"
-            type="date"
-            name={when ? 'from' : undefined}
-            value={when}
-            onChange={(e) => setWhen(e.target.value)}
-            className={`es-ev-search__input es-ev-search__input--date ${when ? '' : 'is-blank'}`}
+            id="ev-city"
+            type="text"
+            name={where ? 'city' : undefined}
+            value={where}
+            onChange={(e) => setWhere(e.target.value)}
+            placeholder="Enter city or address"
+            autoComplete="address-level2"
+            className="es-evx-field__input"
           />
-        </span>
-      </label>
+        </div>
+      </section>
 
-      {/* Kept. Without JavaScript it is the only way to search, and with it
-          somebody who has typed and wants the answer NOW should not have to
-          wait out a debounce they cannot see. */}
-      <button type="submit" className="es-ev-search__submit">
-        <NavIcon name="search" size={18} />
-        Search
+      <button
+        type="button"
+        className="es-evx-side__toggle"
+        aria-expanded={filtersOpen}
+        aria-controls="ev-filters"
+        onClick={() => setFiltersOpen((o) => !o)}
+      >
+        <NavIcon name="filter" size={18} />
+        Filters
+        {activeLabel && <span className="es-evx-side__toggle-note">{activeLabel}</span>}
+        <NavIcon name="arrow" size={16} className={`es-evx-side__chev ${filtersOpen ? 'is-open' : ''}`} />
       </button>
+
+      <div id="ev-filters" className={`es-evx-side__more ${filtersOpen ? 'is-open' : ''}`}>
+        {/* Links, not inputs: every category is a URL, so a filtered view is
+            shareable and works before (and without) JavaScript. Drawn as
+            radios because only one applies at a time. */}
+        <section className="es-evx-side__group">
+          <h2 className="es-evx-side__heading">Category</h2>
+          <ul className="es-evx-radios">
+            {categories.map((c) => (
+              <li key={c.slug || 'all'}>
+                <Link
+                  href={c.href}
+                  aria-current={c.active ? 'page' : undefined}
+                  className={`es-evx-radio ${c.active ? 'is-checked' : ''}`}
+                >
+                  <span aria-hidden className="es-evx-radio__dot" />
+                  {c.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section className="es-evx-side__group">
+          <h2 className="es-evx-side__heading"><label htmlFor="ev-from">Date</label></h2>
+          <div className="es-evx-field">
+            <NavIcon name="calendar" size={20} className="es-evx-field__icon es-evx-field__icon--accent" />
+            <span className="es-ev-search__date">
+              {!when && <span aria-hidden className="es-ev-search__hint">Any date</span>}
+              <input
+                id="ev-from"
+                type="date"
+                name={when ? 'from' : undefined}
+                value={when}
+                onChange={(e) => setWhen(e.target.value)}
+                className={`es-evx-field__input es-ev-search__input--date ${when ? '' : 'is-blank'}`}
+              />
+            </span>
+          </div>
+        </section>
+
+        {children}
+      </div>
+
+      {/* Without JavaScript this is the only way to search; with it, Enter
+          applies the boxes now instead of after the typing pause. */}
+      <button type="submit" className="sr-only">Search</button>
     </form>
   );
 }

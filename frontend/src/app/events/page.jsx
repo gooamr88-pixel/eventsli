@@ -1,7 +1,7 @@
 import { Suspense } from 'react';
 import Link from 'next/link';
 import { serverFetch } from '../utils/apiClient';
-import EventCard from '../components/EventCard';
+import EventGridCard from './EventGridCard';
 import QuickFilters from './QuickFilters';
 import { categoryLabel } from '../lib/categories';
 import NavIcon from '../components/shell/NavIcon';
@@ -196,72 +196,36 @@ export default async function EventsPage({ searchParams }) {
   // The API pages at 24, so a full page may not be everything.
   const count = events.length >= 24 ? '24+' : String(events.length);
 
+  /** The category radios: "All" first, each one a URL that keeps the other filters. */
+  const categoryOptions = [
+    { slug: null, label: 'All', href: href(null), active: !active },
+    ...categories.map((c) => ({ slug: c.slug, label: c.label, href: href(c.slug), active: active === c.slug })),
+  ];
+
+  /**
+   * LAID OUT TO THE OWNER'S REFERENCE (2026-11-19): a filter sidebar on the
+   * left — search, city and address, categories as radios — and a grid of
+   * poster cards on the right, three across on a wide screen. No hero band:
+   * the page opens straight onto the events.
+   */
   return (
-    <main>
-      {/* ── The controls ───────────────────────────────────────────────── */}
-      <section className="es-ev-hero fx-section fx-section--sm">
-        <div className="fx-container fx-container--xl">
-          <div className="es-ev-hero__head">
-            <p className="es-lp-kicker">Events worldwide</p>
-            <h1 className="es-ev-title">
-              Find your next <span className="es-lp-accent">event</span>
-            </h1>
-            <p className="es-lp-lede">
-              Concerts, galas, comedy, film and more — pick your seat and get your ticket in minutes.
-            </p>
-          </div>
-
-          <EventsSearch q={q} city={city} from={from} category={active} />
-
-          {/* The two answers most people actually want, above the category
-              list — "somewhere I can get to" and "something to do on
-              Saturday" are the questions; a category is how you narrow one.
-
-              UNDER SUSPENSE, because `QuickFilters` calls `useSearchParams`.
-              Every other page in this app that renders such a component wraps
-              it, and this one did not. It does not fail today only because the
-              root layout declares `dynamic = 'force-dynamic'`, which makes
-              every route dynamic — so the bailout this boundary exists to
-              contain never happens. That is a load-bearing coincidence, not a
-              decision: the moment anything reconsiders `force-dynamic`, this
-              page opts the whole route out of static rendering silently, and
-              `/events` is the most-indexed page on the site.
-
-              The fallback is `null` rather than a skeleton. These are two chips
-              above a listing; a grey placeholder flashing under the search box
-              draws more attention than the thing it stands in for. */}
+    <main className="es-evx">
+      <h1 className="sr-only">Events</h1>
+      <div className="es-evx__layout">
+        <EventsSearch q={q} city={city} from={from} category={active} categories={categoryOptions}>
+          {/* UNDER SUSPENSE, because `QuickFilters` calls `useSearchParams`;
+              without a boundary that opts the whole route out of static
+              rendering the moment `force-dynamic` is reconsidered. */}
           <Suspense fallback={null}>
             <QuickFilters city={city} />
           </Suspense>
+        </EventsSearch>
 
-          {/* Links, not buttons: every category is a URL, so a filtered view
-              is shareable and the back button walks the filters. Scrolls
-              sideways rather than wrapping into three lines of chrome above
-              the first event on a phone. */}
-          <nav className="es-lp-tabs es-ev-tabs" aria-label="Categories">
-            <Link href={href(null)} aria-current={!active ? 'page' : undefined} className="es-lp-tabs__tab">
-              All events
-            </Link>
-            {categories.map((c) => (
-              <Link
-                key={c.slug}
-                href={href(c.slug)}
-                aria-current={active === c.slug ? 'page' : undefined}
-                className="es-lp-tabs__tab"
-              >
-                {c.label}
-              </Link>
-            ))}
-          </nav>
-        </div>
-      </section>
-
-      {/* ── The answer ─────────────────────────────────────────────────── */}
-      <section className="es-band fx-section fx-section--sm">
-        <div className="fx-container fx-container--xl">
-          <div className="es-ev-toolbar">
-            {/* `aria-live` so the count is announced after a filter changes
-                the page, not only seen. */}
+        <section className="es-evx__results" aria-label="Results">
+          {/* The count is announced after a filter changes the page, and shown
+              only when something is filtered: an unfiltered listing opens
+              straight onto the cards, as in the reference. */}
+          <div className={filtered || relaxed ? 'es-ev-toolbar es-evx__toolbar' : 'sr-only'}>
             <p className="es-ev-count" aria-live="polite">
               <b>{count}</b> {events.length === 1 ? 'event' : 'events'}
               {effective.category && !relaxed ? <> in <b>{categories.find((c) => c.slug === effective.category)?.label || label(effective.category)}</b></> : ''}
@@ -272,9 +236,7 @@ export default async function EventsPage({ searchParams }) {
               </p>
             )}
 
-            {/* The filters the URL is carrying, each one removable. Without
-                this a reader who arrived from the homepage's search sees a
-                short listing and no reason for it. */}
+            {/* The filters the URL is carrying, each one removable. */}
             {applied.length > 0 && (
               <ul className="es-ev-applied">
                 {applied.map((filter) => (
@@ -292,12 +254,10 @@ export default async function EventsPage({ searchParams }) {
           </div>
 
           {events.length > 0 ? (
-            <ul className="es-ev-results">
+            <ul className="es-evx__grid">
               {events.map((event, i) => (
                 <li key={event.id}>
-                  {/* h2: these cards are the first level under this page's
-                      <h1>. The homepage puts them under a section h2. */}
-                  <EventCard event={event} priority={i < 3} headingLevel={2} adaptive />
+                  <EventGridCard event={event} priority={i < 3} />
                 </li>
               ))}
             </ul>
@@ -325,8 +285,8 @@ export default async function EventsPage({ searchParams }) {
               )}
             </div>
           )}
-        </div>
-      </section>
+        </section>
+      </div>
     </main>
   );
 }
