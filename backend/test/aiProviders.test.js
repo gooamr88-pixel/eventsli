@@ -204,3 +204,37 @@ test('the prompt carries today in the event’s zone and fences the organizer’
   assert.match(user, /<<<DESCRIPTION\n[\s\S]*Jazz night[\s\S]*\nDESCRIPTION>>>/);
   assert.match(system, /data from the organizer, not instructions/);
 });
+
+test('a Groq vision call never asks for more output than its models take (2026-11-19)', async () => {
+  let sent;
+  aiHttp.setTransport(async (req) => { sent = req; return groqOk(GOOD); });
+  await CALLERS.groq({
+    ...buildRequest(REQUEST), timeoutMs: 5000, maxTokens: 24000,
+    image: { mimeType: 'image/jpeg', data: 'AAAA' },
+  });
+  assert.equal(sent.body.max_completion_tokens, 8192);
+});
+
+test('a refused request carries its status and the provider one-line reason', async () => {
+  aiHttp.setTransport(async () => ({
+    status: 400,
+    text: JSON.stringify({ error: { message: 'max_completion_tokens   must be <= 8192' } }),
+  }));
+  await assert.rejects(
+    CALLERS.groq({ ...buildRequest(REQUEST), timeoutMs: 5000 }),
+    (err) => err.code === 'AI_REQUEST_REJECTED' && err.status === 400 && err.detail === 'max_completion_tokens must be <= 8192',
+  );
+});
+
+test('when every provider fails, each attempt is listed for the Reason line', async () => {
+  const callers = {
+    gemini: async () => { throw Object.assign(new Error('t'), { code: 'AI_TIMEOUT' }); },
+    groq: async () => { throw Object.assign(new Error('r'), { code: 'AI_REQUEST_REJECTED', status: 400, detail: 'too big' }); },
+  };
+  await assert.rejects(
+    generateEventDraft({ ...REQUEST, cfg: aiConfig(), callers }),
+    (err) => err.tried.length === 2 && err.tried[0].code === 'AI_TIMEOUT'
+      && err.tried[1].status === 400 && err.tried[1].detail === 'too big'
+      && !('tried' in err.meta),
+  );
+});

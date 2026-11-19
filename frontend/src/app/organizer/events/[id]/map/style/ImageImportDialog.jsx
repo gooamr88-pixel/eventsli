@@ -174,7 +174,7 @@ export default function ImageImportDialog({ eventId, replacing, blocked = null, 
                 {/* Why every AI provider failed (the API's own code, e.g.
                     AI_TIMEOUT or AI_REQUEST_REJECTED): "did not answer in
                     time" is said for all of them, so support needs this. */}
-                {error.meta?.reason && <span className="block text-xs text-subtle">Reason: {error.meta.reason}</span>}
+                {error.meta?.reason && <span className="fx-break block text-xs text-subtle">Reason: {error.meta.reason}</span>}
               </p>
             )}
             {visionOff && <p className="es-ai-later"><NavIcon name="info" size={15} /> Reading pictures is switched off right now.</p>}

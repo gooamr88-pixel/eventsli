@@ -26,6 +26,9 @@ const FAILURES = Object.freeze([
   'AI_BLOCKED', 'AI_TRUNCATED', 'AI_EMPTY', 'AI_BAD_JSON',
 ]);
 
+/** The most output a Groq vision call asks for (see `groq` below). */
+const GROQ_VISION_MAX_TOKENS = 8192;
+
 /** A model id goes into a URL path. Only the characters model ids use. */
 const SAFE_MODEL = /^[A-Za-z0-9._/-]{1,80}$/;
 
@@ -38,7 +41,17 @@ function httpFailure(provider, res) {
   );
   if (res.status === 429) return aiError('AI_RATE_LIMITED', 'The provider is rate limiting us.', { retryAfter: res.retryAfter });
   if (res.status === 401 || res.status === 403) return aiError('AI_AUTH', 'The provider rejected our key.');
-  if (res.status >= 400 && res.status < 500) return aiError('AI_REQUEST_REJECTED', 'The provider rejected the request.');
+  // A 4xx is about the REQUEST, so its one-line reason ("max tokens too
+  // large", "schema has too many states", "API key not valid") is what an
+  // operator needs, and is carried on the error (never in stored metadata)
+  // for the organizer-facing "Reason:" line (2026-11-19). Never the key: it
+  // travels in a header and providers do not echo it.
+  if (res.status >= 400 && res.status < 500) {
+    return aiError('AI_REQUEST_REJECTED', 'The provider rejected the request.', {
+      status: res.status,
+      detail: upstream ? String(upstream).replace(/\s+/g, ' ').trim().slice(0, 160) : null,
+    });
+  }
   // The status rides along: a 503 "high demand" is worth one quick retry of
   // the same provider (`eventDraftService`), a 500 is not.
   return aiError('AI_UPSTREAM', 'The provider failed.', { status: res.status });
@@ -146,7 +159,10 @@ async function groq({ system, user, jsonSchema, timeoutMs, image = null, maxToke
       messages: groqVisionMessages({ system, user, jsonSchema, image }),
       response_format: { type: 'json_object' },
       temperature: 0.2,
-      max_completion_tokens: maxTokens || 6144,
+      // Capped: Groq's vision models take far fewer output tokens than a
+      // floor plan asks for (24,000), and asking for more is a 400 before the
+      // model even looks (2026-11-19, the map reader's "AI_REQUEST_REJECTED").
+      max_completion_tokens: Math.min(maxTokens || 6144, GROQ_VISION_MAX_TOKENS),
       // Copying a poster's words into a form needs no reasoning, and thinking
       // first is seconds the fallback does not have. Qwen 3.8 accepts "none";
       // `hidden` keeps any reasoning out of the content (JSON mode refuses

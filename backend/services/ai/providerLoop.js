@@ -92,7 +92,10 @@ async function runProviders({
       };
     } catch (err) {
       last = err;
-      tried.push({ provider: name, ok: false, code: err.code || 'AI_ERROR', ms: Date.now() - at });
+      tried.push({
+        provider: name, ok: false, code: err.code || 'AI_ERROR', ms: Date.now() - at,
+        ...(err.status ? { status: err.status } : {}), ...(err.detail ? { detail: err.detail } : {}),
+      });
       if (final.includes(err.code)) {
         logger.info({ provider: name, code: err.code, label }, 'ai generation: a final answer about the input');
         throw aiError(err.code, err.message, {
@@ -117,6 +120,9 @@ async function runProviders({
       latency_ms: elapsed(),
       failure_code: last?.code || 'AI_NO_PROVIDER',
     },
+    // Every attempt, not just the last: the organizer's "Reason:" line names
+    // each provider's failure (2026-11-19). Kept out of `meta`, which is stored.
+    tried: tried.filter((t) => !t.ok),
   });
 }
 

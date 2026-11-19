@@ -136,6 +136,13 @@ const UNAVAILABLE = {
   message: 'Our AI services did not answer in time. This did not use any of your daily drafts.',
 };
 
+function failureSummary(err) {
+  const tried = Array.isArray(err.tried) ? err.tried : [];
+  if (tried.length === 0) return err.meta?.failure_code || null;
+  return tried.map((t) => `${t.provider}: ${t.code}${t.status ? ` ${t.status}` : ''}${t.detail ? ` (${t.detail})` : ''}`)
+    .join(' · ').slice(0, 500);
+}
+
 async function spend(req, res, { cfg, organizerId, feature, answers = {} }, work) {
   // Every generation is recorded against an organization. A super admin can
   // reach any event, but without an organization of their own there is
@@ -192,11 +199,12 @@ async function spend(req, res, { cfg, organizerId, feature, answers = {} }, work
     await quota.finish(reservation.id, 'released', err.meta || { failure_code: err.code || 'SERVER_ERROR' })
       .catch((e) => logger.error({ err: e.message }, 'ai: could not release a reservation'));
     const known = { AI_UNAVAILABLE: UNAVAILABLE, ...answers }[err.code];
-    // Why every provider failed (AI_TIMEOUT, AI_REQUEST_REJECTED, AI_TRUNCATED,
-    // AI_OUTPUT_INVALID…): one of our own codes, never the provider's text. The
-    // message reads "did not answer in time" for all of them, and without this
-    // a rejected request could not be told from a slow one (2026-11-19).
-    const reason = err.code === 'AI_UNAVAILABLE' ? err.meta?.failure_code || null : null;
+    // Why every provider failed, provider by provider: our code, the HTTP
+    // status, and for a refused request the provider's one-line reason
+    // ("gemini: AI_TIMEOUT · groq: AI_REQUEST_REJECTED 400 (max tokens …)").
+    // The message reads "did not answer in time" for all of them, and without
+    // this a rejected request could not be told from a slow one (2026-11-19).
+    const reason = err.code === 'AI_UNAVAILABLE' ? failureSummary(err) : null;
     if (known) {
       return sendFail(res, {
         status: known.status, error: err.code, message: known.message, ...(reason ? { meta: { reason } } : {}),
