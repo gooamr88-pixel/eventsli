@@ -23,6 +23,15 @@ export const CONSENT_TEXT = Object.freeze({
     'Send me Eventsli news and offers by text.',
 });
 
+/**
+ * The opt-in confirmation text, as sent when someone newly agrees to texts
+ * about their tickets: optInConfirmation({ transactional: true }) in
+ * backend/services/sms/consentText.js. Quoted on /sms-terms and submitted to
+ * carriers; test/smsTerms.test.jsx fails if it drifts from the backend.
+ */
+export const OPT_IN_CONFIRMATION =
+  'Eventsli: You are signed up for ticket and event alerts. Msg frequency varies. Msg & data rates may apply. Reply HELP for help, STOP to opt out.';
+
 export function consentText(version, vars = {}) {
   const text = CONSENT_TEXT[version] || '';
   return text.replace(/\{(\w+)\}/g, (_, k) => String(vars[k] ?? '').trim() || 'the organizer');

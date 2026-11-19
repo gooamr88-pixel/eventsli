@@ -27,7 +27,7 @@
  * the cross-border and retention sections especially.
  */
 import PageHeader from '../components/marketing/PageHeader';
-import { CONTACT_EMAIL } from '../lib/siteRoutes';
+import { CONTACT_EMAIL, LEGAL_ENTITY } from '../lib/siteRoutes';
 
 export const metadata = {
   title: 'Privacy',
@@ -175,7 +175,8 @@ export default function PrivacyPage() {
 
         <Section id="who" title="Who we are">
           <p className="max-w-[62ch] text-muted">
-            Eventsli is a Canadian business that runs eventsli.com, where people buy tickets and organizers sell them.
+            Eventsli is a Canadian business, operated by {LEGAL_ENTITY}, that runs eventsli.com, where people buy
+            tickets and organizers sell them.
             It also makes the Eventsli Check-in app, which organizers and their door teams use to check guests in.
             This policy covers everyone who uses either: visitors, ticket buyers, organizers and their door teams. We follow
             Canada&rsquo;s privacy law (PIPEDA), Quebec&rsquo;s privacy law, and the privacy laws of the US states where

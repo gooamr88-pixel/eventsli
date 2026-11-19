@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { CONTACT_EMAIL, FOOTER_GROUPS, SOCIAL_LINKS } from '../lib/siteRoutes';
+import { CONTACT_EMAIL, FOOTER_GROUPS, LEGAL_ENTITY, SOCIAL_LINKS } from '../lib/siteRoutes';
 import { inAppShell } from './SiteHeader';
 import Logo from './brand/Logo';
 
@@ -99,6 +99,7 @@ export default function SiteFooter() {
                 mismatch is the correct behaviour: the client's year is right. */}
             <p suppressHydrationWarning>
               © {new Date().getFullYear()} Eventsli. All rights reserved.
+              {' '}Eventsli is operated by {LEGAL_ENTITY}
             </p>
             <a href={`mailto:${CONTACT_EMAIL}`} className="es-site-foot__mail">{CONTACT_EMAIL}</a>
           </div>

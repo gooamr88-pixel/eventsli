@@ -26,9 +26,12 @@ const HOUR = 3_600_000;
  *   double_opt_in  the "reply YES" request IS the consent step, started by the person
  *   console_test   an admin testing a number from the console (rate limited, audited)
  *   keyword_reply  the answer to the person's own HELP text
+ *   optin_confirmation  "you are signed up", sent the moment the person opts
+ *                  in. Exempt because opting in to news only records marketing
+ *                  consent, not transactional.
  * Neither bypasses suppression: a STOP still stops them.
  */
-const CONSENT_EXEMPT = new Set(['double_opt_in', 'console_test', 'keyword_reply', 'stop_confirmation']);
+const CONSENT_EXEMPT = new Set(['double_opt_in', 'console_test', 'keyword_reply', 'stop_confirmation', 'optin_confirmation']);
 
 /**
  * The only texts a suppressed number may still receive, both answers to the

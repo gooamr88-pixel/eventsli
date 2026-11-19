@@ -175,3 +175,9 @@ export const TAGLINE = 'DISCOVER - BOOK - ENJOY';
 /** The one address that exists. Everything else would be a promise the mailbox
  *  cannot keep. */
 export const CONTACT_EMAIL = 'info@eventsli.com';
+
+/** The registered company behind the Eventsli brand, spelled as the federal
+ *  registry spells it. Carriers (toll-free SMS verification) and payment
+ *  providers check that the site names it, so the footer, /privacy and
+ *  /sms-terms all read it from here. */
+export const LEGAL_ENTITY = '16941460 CANADA CORP.';

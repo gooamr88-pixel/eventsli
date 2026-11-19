@@ -3,7 +3,9 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { render, screen } from '@testing-library/react';
 import SmsTermsPage from '../src/app/sms-terms/page';
-import { CONSENT_TEXT, consentText } from '../src/app/lib/smsConsentText';
+import { createRequire } from 'node:module';
+import { CONSENT_TEXT, consentText, OPT_IN_CONFIRMATION } from '../src/app/lib/smsConsentText';
+import { LEGAL_ENTITY } from '../src/app/lib/siteRoutes';
 
 /**
  * /sms-terms is the public opt-in link a carrier registration points at. It
@@ -41,5 +43,26 @@ describe('text message terms', () => {
     const { container } = render(<SmsTermsPage />);
     expect(container.textContent).toContain('Message and data rates may apply');
     expect(container.querySelector('a[href="/privacy"]')).not.toBeNull();
+  });
+
+  // The five disclosures the toll-free verification review (Nov 2026) asked for, by name.
+  test('carries every disclosure a carrier reviewer checks for', () => {
+    const { container } = render(<SmsTermsPage />);
+    const text = container.textContent;
+    expect(text).toContain('Reply HELP for help');
+    expect(text).toContain('Message frequency varies');
+    expect(container.querySelector('a[href="/privacy"]').textContent).toBe('Privacy Policy');
+    expect(container.querySelector('a[href="/terms"]').textContent).toBe('Terms of Service');
+    expect(text).toMatch(/Customer care: info@eventsli\.com/);
+    expect(container.querySelector('a[href="mailto:info@eventsli.com"]')).not.toBeNull();
+    expect(text).toContain(LEGAL_ENTITY);
+  });
+
+  test('quotes the opt-in confirmation exactly as the server sends it', () => {
+    const backend = createRequire(import.meta.url)('../../backend/services/sms/consentText.js');
+    expect(OPT_IN_CONFIRMATION).toBe(backend.optInConfirmation({ transactional: true }));
+    const { container } = render(<SmsTermsPage />);
+    expect(container.textContent).toContain(OPT_IN_CONFIRMATION);
+    expect(OPT_IN_CONFIRMATION).not.toMatch(/\[|\]|Example/);
   });
 });

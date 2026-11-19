@@ -11,6 +11,7 @@
  *     wording the checkout no longer shows;
  *   - the sample messages are the templates in backend/services/sms/notifications.js;
  *   - the keywords are backend/services/sms/keywords.js;
+ *   - the opt-in confirmation is optInConfirmation() in backend/services/sms/consentText.js;
  *   - frequency and quiet hours are the category defaults in the SMS migration
  *     (marketing: one a day at most, held overnight, opt-out line always added).
  * When any of those change, this page changes in the same commit and UPDATED moves.
@@ -19,15 +20,15 @@
  */
 import Link from 'next/link';
 import PageHeader from '../components/marketing/PageHeader';
-import { CONTACT_EMAIL } from '../lib/siteRoutes';
-import { consentText } from '../lib/smsConsentText';
+import { CONTACT_EMAIL, LEGAL_ENTITY } from '../lib/siteRoutes';
+import { consentText, OPT_IN_CONFIRMATION } from '../lib/smsConsentText';
 
 export const metadata = {
   title: 'Text message terms',
   description: 'What texts Eventsli sends, how you agree to them, how often they come, and how to stop them.',
 };
 
-const UPDATED = '13 November 2026';
+const UPDATED = '19 November 2026';
 
 const WHAT = [
   ['Ticket confirmations', 'One text when your order is confirmed, saying which event and how many tickets. Only if you agreed to texts about your tickets.'],
@@ -93,10 +94,29 @@ export default function SmsTermsPage() {
       <article className="es-mk-doc fx-stack">
         <p className="text-sm text-subtle">Last updated {UPDATED}</p>
 
+        {/* The disclosures a carrier reviewer looks for, together and first:
+            program, frequency, rates, HELP, STOP, customer care, and links to
+            the privacy policy and terms. Each is also explained below. */}
+        <section aria-labelledby="summary-h" className="fx-stack fx-stack--sm rounded-lg border border-border-base bg-surface p-4">
+          <h2 id="summary-h" className="text-lg">At a glance</h2>
+          <ul className="max-w-[62ch] list-disc fx-stack fx-stack--sm gap-1 pl-5 text-muted">
+            <li>Program: Eventsli ticket and event alerts, plus news and offers only if you ask for them. Sent by Eventsli, operated by {LEGAL_ENTITY}</li>
+            <li>Message frequency varies.</li>
+            <li>Message and data rates may apply.</li>
+            <li>Reply <Keyword>HELP</Keyword> for help.</li>
+            <li>Reply <Keyword>STOP</Keyword> to cancel at any time.</li>
+            <li>Customer care: {mail}, or our <Link href="/contact" className={linkClass}>contact page</Link>.</li>
+            <li>
+              Read our <Link href="/privacy" className={linkClass}>Privacy Policy</Link>,
+              our <Link href="/terms" className={linkClass}>Terms of Service</Link> and these SMS Terms.
+            </li>
+          </ul>
+        </section>
+
         <Section id="program" title="The program">
           <p className="max-w-[62ch] text-muted">
             Eventsli text messages are sent by Eventsli, the Canadian business that runs eventsli.com, where people buy
-            tickets to events and organizers sell them. We text you only about tickets you bought, events you are going
+            tickets to events and organizers sell them. Eventsli is operated by {LEGAL_ENTITY} We text you only about tickets you bought, events you are going
             to and your account, plus news and offers if you separately asked for them.
           </p>
         </Section>
@@ -130,9 +150,19 @@ export default function SmsTermsPage() {
             carrier ever ask. You can also turn each kind of text on or off yourself
             under <Link href="/account/messages" className={linkClass}>Account &rarr; Text messages</Link>.
           </p>
+          <h3 className="text-base text-ink">The text that confirms you are signed up</h3>
+          <p className="max-w-[62ch] text-muted">
+            As soon as you agree to texts about your tickets, we send you this message:
+          </p>
+          <p className="max-w-[62ch] rounded-lg border border-border-base bg-surface px-3 py-2 text-sm text-muted">{OPT_IN_CONFIRMATION}</p>
+          <p className="max-w-[62ch] text-muted">
+            If you also asked for news and offers, the same text says so, for example &ldquo;You are signed up for
+            ticket and event alerts, plus news and offers from Eventsli.&rdquo;
+          </p>
         </Section>
 
         <Section id="often" title="How often">
+          <p className="max-w-[62ch] text-muted">Message frequency varies.</p>
           <ul className="max-w-[62ch] list-disc fx-stack fx-stack--sm gap-1 pl-5 text-muted">
             <li>Texts about your tickets depend on what you buy: usually a confirmation and a reminder for each event, plus a text if it changes or is cancelled.</li>
             <li>News and offers: message frequency varies.</li>
@@ -155,7 +185,8 @@ export default function SmsTermsPage() {
 
         <Section id="help" title="Help">
           <p className="max-w-[62ch] text-muted">
-            Reply <Keyword>HELP</Keyword> to any text from us for help, or write to {mail}.
+            Reply <Keyword>HELP</Keyword> for help to any text from us. You can also reach our customer care team
+            at {mail} or through our <Link href="/contact" className={linkClass}>contact page</Link>.
           </p>
         </Section>
 
@@ -178,13 +209,15 @@ export default function SmsTermsPage() {
 
         <Section id="changes" title="Changes">
           <p className="max-w-[62ch] text-muted">
-            If these terms change, we update this page and the date at the top.
+            If these terms change, we update this page and the date at the top. These SMS Terms are part of
+            our <Link href="/terms" className={linkClass}>Terms of Service</Link>, and
+            our <Link href="/privacy" className={linkClass}>Privacy Policy</Link> explains how we handle your number.
           </p>
         </Section>
 
         <Section id="contact" title="Contact">
           <p className="max-w-[62ch] text-muted">
-            Questions about our texts: {mail}.
+            Customer care for our texts: {mail}. Eventsli is operated by {LEGAL_ENTITY}
           </p>
         </Section>
       </article>

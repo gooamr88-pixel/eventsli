@@ -2,7 +2,7 @@ const { supabase } = require('../../config/supabase');
 const config = require('./config');
 const phone = require('./phone');
 const queue = require('./queue');
-const { render } = require('./consentText');
+const { render, optInConfirmation } = require('./consentText');
 const { readUnsubscribeToken } = require('./webhookAuth');
 
 /**
@@ -63,6 +63,32 @@ async function sendDoubleOptIn(cfg, parsed, { userId = null, sender = 'Eventsli'
   });
 }
 
+/** This number's consent statuses before a form changes them, keyed `kind:scope`. */
+async function statusesFor(e164) {
+  const { data } = await supabase.from('sms_consents').select('kind, scope, status').eq('phone_e164', e164);
+  return new Map((data || []).map((r) => [`${r.kind}:${r.scope}`, r.status]));
+}
+
+/**
+ * "You are signed up", once per form, for what that form NEWLY opted the number
+ * in to (see optInConfirmation). A save that changes nothing sends nothing;
+ * the date in the key stops a double submit from texting twice.
+ */
+async function sendOptInConfirmation(cfg, parsed, { transactional = false, senders = [], userId = null }) {
+  const body = optInConfirmation({ transactional, senders, brand: cfg.settings?.brand_name || 'Eventsli' });
+  if (!body) return { queued: false };
+  const what = [transactional ? 't' : '', ...senders].join('|');
+  return queue.enqueue({
+    category: 'participant',
+    e164: parsed.e164,
+    country: parsed.country,
+    body,
+    idempotencyKey: `optin:${parsed.e164}:${what}:${new Date().toISOString().slice(0, 10)}`,
+    userId,
+    metadata: { purpose: 'optin_confirmation', consentExempt: 'optin_confirmation' },
+  });
+}
+
 /**
  * Records the consents a person gave on one form. `choices` keys:
  * transactional, marketingPlatform, marketingOrganizer (with organizerId).
@@ -74,10 +100,14 @@ async function recordChoices({ parsed, choices, source, versions, vars = {}, use
   const at = new Date().toISOString();
   const evidence = (version) => ({ version, text: render(version, vars), source, at, ...extraEvidence });
   const recorded = [];
+  const before = await statusesFor(parsed.e164);
+  const isNew = (kind, scope) => before.get(`${kind}:${scope}`) !== 'opted_in';
+  const confirm = { transactional: false, senders: [] };
 
   if (choices.transactional === true) {
     await setConsent({ e164: parsed.e164, kind: 'transactional', status: 'opted_in', source, evidence: evidence(versions.transactional), userId });
     recorded.push('transactional');
+    if (isNew('transactional', 'platform')) confirm.transactional = true;
   }
   const doubleOptIns = [];
   if (choices.marketingPlatform === true) {
@@ -85,14 +115,17 @@ async function recordChoices({ parsed, choices, source, versions, vars = {}, use
     await setConsent({ e164: parsed.e164, kind: 'marketing', scope: 'platform', status, source, evidence: evidence(versions.marketingPlatform), userId });
     recorded.push(`marketing:platform:${status}`);
     if (status === 'pending') doubleOptIns.push('Eventsli');
+    else if (isNew('marketing', 'platform')) confirm.senders.push('Eventsli');
   }
   if (choices.marketingOrganizer === true && organizerId) {
     const status = await marketingStatus(cfg, parsed.country);
     await setConsent({ e164: parsed.e164, kind: 'marketing', scope: organizerId, status, source, evidence: evidence(versions.marketingOrganizer), userId });
     recorded.push(`marketing:organizer:${status}`);
     if (status === 'pending') doubleOptIns.push(vars.organizer || 'the organizer');
+    else if (isNew('marketing', organizerId)) confirm.senders.push(vars.organizer || 'the organizer');
   }
   for (const who of doubleOptIns) await sendDoubleOptIn(cfg, parsed, { userId, sender: who });
+  await sendOptInConfirmation(cfg, parsed, { ...confirm, userId });
   return recorded;
 }
 
@@ -243,6 +276,7 @@ async function updatePreferences({ userId, rawPhone, transactional, marketing, o
   const at = new Date().toISOString();
   const ev = (version) => ({ version, text: render(version), source: 'account', at, ipHash });
   const result = { transactional: null, marketing: null, confirmationSent: false };
+  const confirm = { transactional: false, senders: [] };
 
   const samePhone = current.phoneE164 === parsed.e164;
   if (typeof transactional === 'boolean') {
@@ -252,6 +286,7 @@ async function updatePreferences({ userId, rawPhone, transactional, marketing, o
     // withdraw something, so the history holds real decisions, not saves.
     if (had !== status && (transactional || had)) {
       await setConsent({ e164: parsed.e164, kind: 'transactional', status, source: 'account', evidence: ev('account.transactional.v1'), userId });
+      if (status === 'opted_in') confirm.transactional = true;
     }
     result.transactional = status;
   }
@@ -262,9 +297,11 @@ async function updatePreferences({ userId, rawPhone, transactional, marketing, o
     if (was !== status && (marketing || was)) {
       await setConsent({ e164: parsed.e164, kind: 'marketing', scope: 'platform', status, source: 'account', evidence: ev('account.marketing.v1'), userId });
       if (status === 'pending') result.confirmationSent = (await sendDoubleOptIn(cfg, parsed, { userId })).queued;
+      if (status === 'opted_in') confirm.senders.push('Eventsli');
     }
     result.marketing = status;
   }
+  await sendOptInConfirmation(cfg, parsed, { ...confirm, userId });
   // Organizer marketing can only be WITHDRAWN here; opting in to an organizer happens at their checkout.
   for (const o of organizers) {
     if (o?.marketing === false && SCOPE.test(String(o.organizerId)) && o.organizerId !== 'platform') {

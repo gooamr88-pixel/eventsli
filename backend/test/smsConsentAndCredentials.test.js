@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 
 const credentials = require('../services/sms/credentials');
 const { evaluate } = require('../services/sms/policy');
-const { render, CONSENT_TEXT } = require('../services/sms/consentText');
+const { render, CONSENT_TEXT, optInConfirmation } = require('../services/sms/consentText');
 const twilio = require('../services/sms/providers/twilio');
 const vonage = require('../services/sms/providers/vonage');
 const { compose } = require('../services/sms/compose');
@@ -159,7 +159,7 @@ describe('transactional and marketing consent are separate answers', () => {
   });
 
   test('the double opt-in request and console tests are exempt — but never from a STOP', () => {
-    for (const purpose of ['double_opt_in', 'console_test']) {
+    for (const purpose of ['double_opt_in', 'console_test', 'optin_confirmation']) {
       const msg = { traffic_class: 'transactional', metadata: { consentExempt: purpose } };
       assert.deepEqual(t({ msg }), { action: 'send' }, purpose);
       assert.equal(t({ msg, suppression: { scope: 'all' } }).reason, 'suppressed');
@@ -187,6 +187,7 @@ describe('what a suppressed number may still receive', () => {
     assert.deepEqual(run('keyword_reply'), { action: 'send' });
     assert.equal(run('console_test').reason, 'suppressed');
     assert.equal(run('double_opt_in').reason, 'suppressed');
+    assert.equal(run('optin_confirmation').reason, 'suppressed');
     assert.equal(run(undefined).reason, 'suppressed');
   });
   test('the exemption never applies to marketing traffic', () => {
@@ -215,6 +216,26 @@ describe('consent wording', () => {
     assert.match(render('checkout.marketing_organizer.v1', {}), /from the organizer by text/);
     for (const v of Object.keys(CONSENT_TEXT).filter((k) => !k.startsWith('account.'))) assert.match(CONSENT_TEXT[v], /Reply STOP/, v);
     assert.throws(() => render('nope.v9'), /unknown consent text/);
+  });
+
+  test('the opt-in confirmation carries every carrier disclosure and fits one GSM-7 segment', () => {
+    const plain = optInConfirmation({ transactional: true });
+    assert.equal(plain, 'Eventsli: You are signed up for ticket and event alerts. Msg frequency varies. Msg & data rates may apply. Reply HELP for help, STOP to opt out.');
+    assert.ok(plain.length <= 160, `${plain.length} chars`);
+    // Only characters from the GSM-7 basic set: a curly quote would make it UCS-2 (70 a segment).
+    assert.match(plain, /^[A-Za-z0-9 .,:&'!?()\-]+$/);
+    for (const needed of [/Msg frequency varies/, /Msg & data rates may apply/, /Reply HELP for help/, /STOP to opt out/]) assert.match(plain, needed);
+  });
+
+  test('one confirmation names everything newly agreed to; nothing new sends nothing', () => {
+    assert.equal(optInConfirmation({}), null);
+    assert.match(optInConfirmation({ senders: ['Eventsli'] }), /signed up for news and offers from Eventsli\./);
+    assert.match(optInConfirmation({ transactional: true, senders: ['Eventsli', 'Jazz Club', 'Jazz Club'] }),
+      /ticket and event alerts, plus news and offers from Eventsli and Jazz Club\./);
+    const long = optInConfirmation({ senders: ['The Extremely Long Organizer Name Festival Company'] });
+    assert.match(long, /from The Extremely Long Organizer\. Msg/);
+    assert.match(optInConfirmation({ senders: ['A'.repeat(50)] }), new RegExp(`from ${'A'.repeat(30)}\\. Msg`));
+    assert.match(optInConfirmation({ transactional: true, brand: 'Acme' }), /^Acme: /);
   });
 
   test('an organizer campaign opens with the organizer’s name', () => {
