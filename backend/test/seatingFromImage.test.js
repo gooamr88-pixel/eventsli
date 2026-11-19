@@ -33,18 +33,53 @@ test('a good answer comes back clamped and typed', () => {
   assert.equal(plan.walls.length, 1, 'a wall with no length is dropped');
 });
 
-test('round tables count all the way round; seatless shapes are not tables', () => {
+test('round tables count all the way round; an unnamed seatless shape is not a table', () => {
   const plan = validateMap({
     isSeatingMap: true,
     tables: [
       table({ shape: 'round', top: 3, right: 3, bottom: 2, left: 2, around: 0 }),
-      table({ label: 'X', top: 0, bottom: 0 }),
+      table({ label: '', top: 0, bottom: 0 }),
     ],
     areas: [],
   });
   assert.equal(plan.tables.length, 1);
   assert.equal(plan.tables[0].around, 10);
   assert.deepEqual(plan.tables[0].sides, [0, 0, 0, 0]);
+});
+
+test('a capacity printed on the table ("8p") is its seat count when no chairs are drawn (2026-11-19)', () => {
+  const plan = validateMap({
+    isSeatingMap: true,
+    tables: [
+      // The owner's plan: boxes named T7 / T8 with "8p" / "14p", no chairs.
+      table({ label: 'T7', shape: 'rect', top: 0, right: 0, bottom: 0, left: 0, around: 0, capacity: 8 }),
+      table({ label: 'T13', shape: 'round', top: 0, right: 0, bottom: 0, left: 0, around: 0, capacity: 6 }),
+      // Drawn chairs that disagree with the printed number: the number wins.
+      table({ label: 'T8', shape: 'rect', top: 3, right: 0, bottom: 3, left: 0, around: 0, capacity: 14 }),
+      // Drawn chairs that agree keep their spread.
+      table({ label: 'T9', shape: 'rect', top: 5, right: 2, bottom: 5, left: 2, around: 0, capacity: 14 }),
+    ],
+    areas: [],
+  });
+  const by = Object.fromEntries(plan.tables.map((t) => [t.label, t]));
+  assert.equal(by.T7.capacity, 8);
+  assert.deepEqual(by.T7.sides, [0, 0, 0, 0]);
+  assert.equal(by.T13.around, 6);
+  assert.equal(by.T8.capacity, 14);
+  assert.deepEqual(by.T8.sides, [0, 0, 0, 0]);
+  assert.deepEqual(by.T9.sides, [5, 2, 5, 2]);
+  assert.equal(by.T9.capacity, 0);
+});
+
+test('a NAMED table with no readable seat count is kept at 4 seats and marked, not dropped', () => {
+  const plan = validateMap({
+    isSeatingMap: true,
+    tables: [table({ label: 'T60', top: 0, right: 0, bottom: 0, left: 0, around: 0, capacity: 0 })],
+    areas: [],
+  });
+  assert.equal(plan.tables.length, 1);
+  assert.equal(plan.tables[0].capacity, 4);
+  assert.equal(plan.tables[0].guessed, true);
 });
 
 test('unknown shapes, kinds and markup are refused or neutralised', () => {

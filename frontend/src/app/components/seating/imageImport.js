@@ -48,15 +48,21 @@ function tableShape(t) {
   const shape = SHAPES.includes(t.shape) ? t.shape : 'rect';
   const tall = t.h > t.w * 1.25;
   const allowed = SHAPE_SIDES[shape];
+  const drawnSides = (t.sides || [0, 0, 0, 0]).reduce((a, b) => a + b, 0);
   if (!allowed) {
     // Round, oval, high-top, half-moon and rows: one count all the way round.
-    const seatCount = Math.max(1, Math.min(60, t.around || t.sides.reduce((a, b) => a + b, 0)));
+    const seatCount = Math.max(1, Math.min(60, t.around || drawnSides || t.capacity || 0));
     const rotation = (shape === 'oval' || shape === 'row') && tall ? 90 : 0;
     return { shape, rotation, seatCount, sides: null };
   }
   let rotation = 0;
   if (shape === 'd_shape' || shape === 'rounded_end') rotation = CURVE_ROTATION[t.curve] ?? (tall ? 90 : 0);
   else if (shape !== 'square' && shape !== 'u_shape' && tall) rotation = 90;
+  // A capacity printed on the table and no chairs drawn (2026-11-19): that
+  // many seats, spread the shape's own way (sides: null).
+  if (drawnSides === 0) {
+    return { shape, rotation, seatCount: Math.max(1, Math.min(60, t.capacity || 4)), sides: null };
+  }
   const local = sidesForRotation(t.sides, rotation);
   // A side this shape cannot seat (a U-shape's open bottom) gives its seats to the top.
   for (let i = 0; i < 4; i += 1) {
@@ -130,7 +136,12 @@ export function planToMap(plan) {
   // Units per picture pixel: the median of (our table's long side ÷ the drawn one's).
   const ratios = shaped.map(({ t, s }) => {
     const body = tableBody(s.shape, s.seatCount, s.sides ? { sides: s.sides } : null);
-    const ours = Math.max(body.width, body.height);
+    // A box drawn with no chairs (a printed "8p") stands for the table AND its
+    // guests, so it is matched to our table with its seats; a drawn table
+    // with chairs outside it is matched to our table alone (2026-11-19).
+    const chairless = !s.sides && !t.around && !(t.sides || []).some(Boolean);
+    const f = chairless ? footprint(s) : null;
+    const ours = chairless ? Math.max(f.hw, f.hh) * 2 : Math.max(body.width, body.height);
     const drawn = Math.max(px(t.w, imgW), px(t.h, imgH));
     return drawn > 2 ? ours / drawn : null;
   }).filter((r) => r && Number.isFinite(r));
@@ -139,7 +150,13 @@ export function planToMap(plan) {
   // a drawing: rows drawn close together would then overlap. So the scale
   // grows until no two tables' seats collide — but never past 1.6× the size
   // match, so one mis-measured table cannot blow the whole room up.
-  let k = Math.max(base, Math.min(base * 1.6, clearance(shaped, imgW, imgH)));
+  // A plan that draws no chairs (capacities printed, 2026-11-19) draws its
+  // tables as thin boxes — a "14p" box three times as long as it is deep —
+  // where ours, with a chair on both long sides, is nearly twice as deep, so
+  // its rows need more room: up to 3.2×. Positions keep the picture's layout.
+  const chairlessPlan = shaped.length > 0
+    && shaped.filter(({ t }) => !t.around && !(t.sides || []).some(Boolean)).length * 2 > shaped.length;
+  let k = Math.max(base, Math.min(base * (chairlessPlan ? 3.2 : 1.6), clearance(shaped, imgW, imgH)));
   // The world has to be at least the default room and at most a stadium.
   k = Math.max(k, 1000 / imgW, 700 / imgH);
   k = Math.min(k, 10000 / imgW, 10000 / imgH);
@@ -236,6 +253,8 @@ export function planToMap(plan) {
       walls: (plan.walls || []).length,
       doors: (plan.doors || []).length,
       cut: (plan.tables || []).length > MAX_TABLES ? (plan.tables.length - MAX_TABLES) : 0,
+      // Named tables with no seat count readable: given 4 seats, to check.
+      guessed: shaped.filter(({ t }) => t.guessed).map(({ t }) => t.label).filter(Boolean),
     },
   };
 }

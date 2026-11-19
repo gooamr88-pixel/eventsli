@@ -51,6 +51,7 @@ function mapSchema() {
       bottom: s.integer({ description: 'Seats along the bottom side.' }),
       left: s.integer({ description: 'Seats along the left side.' }),
       around: s.integer({ description: 'For round, oval, high_top and half_moon tables: all the seats around it. 0 otherwise.' }),
+      capacity: s.integer({ description: 'The number of guests PRINTED on or beside the table (8p, 10 pax, 12 seats, (6)). 0 when no number is printed.' }),
       curve: s.nullable(s.string({ enum: [...SIDES], description: 'For d_shape and rounded_end: the side that is curved.' })),
       fill: hex('Its fill colour, if different from most tables.'),
     }), { maxItems: LIMITS.tables }),
@@ -88,10 +89,12 @@ const SYSTEM = `You copy seating maps for Eventsli, a ticketing platform. You ar
 
 COORDINATES are percentages of the WHOLE PICTURE: x and w of its width, y and h of its height, 0 to 100, measured from the top-left corner. Give the CENTRE of each thing, and its width and height as drawn.
 
-TABLES are the shapes guests sit at. List EVERY one, even when there are hundreds — never summarise or skip a row.
-- label: the name printed on it, exactly (S01, T12, VIP 3). Empty string when it has none.
+TABLES are the shapes guests sit at. List EVERY one, even when there are hundreds — never summarise or skip a row. Many plans draw no chairs at all: a table is then just a box or circle with a name (T1, S12, VIP 3) and often a capacity printed under it (8p, 10 pax). Those are tables too. Before answering, go through the picture row by row and make sure every table name you can read is in your list once — a typical event plan has 20 to 100 tables. Decorations, photos, logos, titles and legends are not tables.
+- label: the name printed on it, exactly (S01, T12, VIP 3, T5A). Empty string when it has none.
+- capacity: the number of guests printed on the table ("8p" is 8, "14p" is 14, "10 pax" is 10). This is the most reliable seat count when it is there. 0 when nothing is printed.
 - shape: rect for rectangles, square for squares, round for circles, oval for ovals, pill for rectangles with both ends rounded, rounded_end for one end rounded, d_shape for a booth with one flat side and one curved side (a half circle on a rectangle), hexagon, u_shape, half_moon for a half circle with seats only on the curve, high_top for a small round standing table, row for a line of chairs with no table.
-- top, right, bottom, left: COUNT the seat dots or chairs on each side of the table as you see it in the picture. Count carefully; seats are usually small circles just outside the table edge. For round, oval, high_top and half_moon tables put the total in "around" and 0 on the four sides. For a row, put the chairs in "around".
+- top, right, bottom, left: when chairs or seat dots ARE drawn, COUNT them on each side of the table as you see it in the picture; seats are usually small circles just outside the table edge. When no chairs are drawn, put 0 on every side and give the capacity instead. For round, oval, high_top and half_moon tables put the drawn total in "around" and 0 on the four sides. For a row, put the chairs in "around".
+- shape: judge it from the outline. A box with rounded corners is still rect (or square when its sides are equal); use pill only when both short ends are fully round.
 - curve: for d_shape and rounded_end, which side is curved, as you see it. null otherwise.
 - fill: only when this table's colour differs from most tables.
 
@@ -178,22 +181,43 @@ function validateMap(raw) {
     const shape = SHAPES.includes(t?.shape) ? t.shape : 'rect';
     let sides = ['top', 'right', 'bottom', 'left'].map((k) => int(t?.[k], 0, LIMITS.seatsPerSide));
     let around = int(t?.around, 0, LIMITS.seats);
+    const label = text(t?.label, 40);
+    // The number printed on the table ("8p") beats a count of drawn dots: a
+    // plan that prints capacities usually draws no chairs at all, and the
+    // model's counts then mean nothing (2026-11-19: 5 of ~45 tables read,
+    // because the rest had no dots and were dropped as furniture).
+    const capacity = int(t?.capacity, 0, LIMITS.seats);
+    const drawn = AROUND.has(shape) ? (around || sides.reduce((a, b) => a + b, 0)) : sides.reduce((a, b) => a + b, 0);
+    if (capacity && drawn !== capacity) { sides = [0, 0, 0, 0]; around = 0; }
     if (AROUND.has(shape)) {
-      if (!around) around = sides.reduce((a, b) => a + b, 0);
+      if (!around) around = sides.reduce((a, b) => a + b, 0) || capacity;
       sides = [0, 0, 0, 0];
     } else around = 0;
-    const total = around || sides.reduce((a, b) => a + b, 0);
-    if (total < 1) continue;                       // a shape with no seats is furniture, not a table
+    let total = around || sides.reduce((a, b) => a + b, 0) || capacity;
+    // A NAMED table with no seat count is still a table: kept at 4 seats and
+    // marked, so the review says to check it rather than losing it. Only an
+    // unnamed shape with no seats is furniture.
+    let guessed = false;
+    if (total < 1) {
+      if (!label) continue;
+      total = 4;
+      guessed = true;
+    }
     if (total > LIMITS.seats) {                    // the database's ceiling: scale the sides down
       const k = LIMITS.seats / total;
       sides = sides.map((n) => Math.floor(n * k));
     }
+    const sideTotal = sides.reduce((a, b) => a + b, 0);
     tables.push({
-      label: text(t.label, 40),
+      label,
       shape,
       ...box(t),
       sides,
       around: Math.min(around, LIMITS.seats),
+      // Seats with no drawn spread (a printed capacity, or a guess): the map
+      // spreads them the shape's own way.
+      capacity: sideTotal || around ? 0 : Math.min(total, LIMITS.seats),
+      ...(guessed ? { guessed: true } : {}),
       curve: SIDES.includes(t?.curve) ? t.curve : null,
       fill: colour(t?.fill),
     });

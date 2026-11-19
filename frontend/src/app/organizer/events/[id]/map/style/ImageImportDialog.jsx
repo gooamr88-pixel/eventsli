@@ -192,6 +192,7 @@ export default function ImageImportDialog({ eventId, replacing, blocked = null, 
                 Read {r.tables} table{r.tables === 1 ? '' : 's'} with {r.seats.toLocaleString('en')} seats,
                 {' '}{r.areas} area{r.areas === 1 ? '' : 's'}, {r.walls} wall{r.walls === 1 ? '' : 's'} and {r.doors} door{r.doors === 1 ? '' : 's'}.
                 {r.cut ? ` ${r.cut} more tables were left out: a map holds 400.` : ''}
+                {r.guessed?.length ? ` No seat count could be read for ${r.guessed.slice(0, 6).join(', ')}${r.guessed.length > 6 ? ` and ${r.guessed.length - 6} more` : ''}: they have 4 seats, so check them.` : ''}
                 {' '}Compare the two, then fix anything by hand after applying — ticket types are yours to assign.
               </p>
             )}
