@@ -235,18 +235,20 @@ function validateMap(raw) {
 }
 
 /**
- * This feature's own clock. The poster reader's (13 s, then 8 s) answered
- * "Our AI services did not answer in time" on a real map (2026-11-19): a
- * poster is a few hundred words out, a floor plan is every table's position,
- * size and seats — thousands of numbers. So the primary gets 40 s and the
- * whole loop ends by 53 s, under production nginx's `proxy_read_timeout 60s`
- * (docs/DEPLOY.md) with room for the reservation's database round trips.
- * The browser waits 65 s for this one call (ImageImportDialog).
+ * This feature's own clock. A floor plan is every table's position, size and
+ * seats — thousands of numbers — and on 2026-11-19 Gemini, busy twice and
+ * then answering, did not finish in the ~30 s a 53 s request had left.
+ *
+ * So the reading runs as a BACKGROUND JOB (controllers/aiController
+ * `spendInBackground`, services/ai/backgroundJobs.js) and is no longer held to
+ * production nginx's 60 s. Its ceiling is now the reservation's: `config.STALE`
+ * (2 minutes) is when an unfinished reservation stops counting, so the whole
+ * loop ends by 112 s. Busy providers (Gemini 503, Groq behind Cloudflare 522,
+ * both seen live) are retried up to three times, 2/4/6 s apart, in the first
+ * 40 s; the primary then still has its full minute and more.
  */
-// Busy providers (Gemini 503, Groq behind Cloudflare 522 — both seen live on
-// 2026-11-19) are retried up to three times, 2/4/6 s apart, in the first 30 s.
 const MAP_CLOCK = Object.freeze({
-  primary: 40_000, fallback: 12_000, lastStart: 41_000, total: 53_000, overloadRetries: 3, retryBefore: 30_000,
+  primary: 85_000, fallback: 25_000, lastStart: 88_000, total: 112_000, overloadRetries: 3, retryBefore: 40_000,
 });
 
 /** Same allowance, providers and fallback as every other AI feature; the

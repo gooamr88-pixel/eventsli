@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { post } from '../../../../../utils/apiClient';
+import { get, post } from '../../../../../utils/apiClient';
 import { messageFor, describeError } from '../../../../../utils/errors';
 import { useModal } from '../../../../../hooks/useModal';
 import { useAiQuota } from '../../../../../hooks/useAiQuota';
@@ -66,18 +66,52 @@ export default function ImageImportDialog({ eventId, replacing, blocked = null, 
     try { setPicture(await preparePoster(file)); } catch (err) { setError(err); }
   }
 
+  // Seconds since the reading started, shown while it runs; and whether the
+  // dialog is still open, so a poll never lands on an unmounted dialog.
+  const [seconds, setSeconds] = useState(0);
+  const alive = useRef(true);
+  useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
+
+  /**
+   * THE READING RUNS IN THE BACKGROUND (2026-11-19). The upload answers at
+   * once with a job id; the result is fetched every 3 s, for up to 2.5
+   * minutes (the server's own ceiling is under 2). A whole floor plan took
+   * Gemini past the 60 s production allows a single request. A brief network
+   * drop does not end the wait: three in a row do.
+   */
+  async function waitForJob(jobId) {
+    const started = Date.now();
+    let misses = 0;
+    while (alive.current && Date.now() - started < 150_000) {
+      await new Promise((r) => { setTimeout(r, 3_000); });
+      if (!alive.current) return null;
+      setSeconds(Math.round((Date.now() - started) / 1000));
+      try {
+        const job = await get(`/ai/events/${eventId}/seating-plan/jobs/${jobId}`, { noRedirect: true });
+        misses = 0;
+        if (job.status === 'done') return job;
+      } catch (err) {
+        if (err?.code !== 'NETWORK' || (misses += 1) >= 3) throw err;
+      }
+    }
+    if (!alive.current) return null;
+    throw Object.assign(new Error('The map is taking too long to read. Try again in a few minutes. Unfinished readings never use a daily draft.'), { code: 'AI_UNAVAILABLE' });
+  }
+
   async function read() {
     if (!picture || busy || exhausted) return;
     setBusy(true);
+    setSeconds(0);
     setError(null);
     try {
-      const data = await post(`/ai/events/${eventId}/seating-plan/from-image`, {
+      const started = await post(`/ai/events/${eventId}/seating-plan/from-image`, {
         requestId: crypto.randomUUID(),
         image: { mimeType: 'image/jpeg', data: picture.dataUrl },
         ...(notes.trim() ? { notes: notes.trim() } : {}),
-      // A whole floor plan is a long answer: the server allows the AI 53 s
-      // (seatingFromImage.MAP_CLOCK), so the browser outwaits it.
-      }, { noRedirect: true, timeoutMs: 65_000 });
+      }, { noRedirect: true });
+      // A server from before the background job answers with the plan itself.
+      const data = started.jobId ? await waitForJob(started.jobId) : started;
+      if (!data) return;
       setPlan(data.plan);
       setMadeAt(new Date().toISOString());
       writeKept(key, { plan: data.plan });
@@ -86,7 +120,7 @@ export default function ImageImportDialog({ eventId, replacing, blocked = null, 
       setError(err);
       if (err?.code === 'AI_QUOTA_EXHAUSTED') setQuota((q) => ({ ...(q || {}), remaining: 0 }));
     } finally {
-      setBusy(false);
+      if (alive.current) setBusy(false);
     }
   }
 
@@ -147,7 +181,7 @@ export default function ImageImportDialog({ eventId, replacing, blocked = null, 
                   />
                 ) : (
                   <div className="es-imgimport__empty">
-                    {busy ? <><span className="es-ai-spin" aria-hidden="true" /> Measuring the tables and counting seats… This can take up to a minute for a large room.</> : 'The map appears here once the picture is read.'}
+                    {busy ? <><span className="es-ai-spin" aria-hidden="true" /> Measuring the tables and counting seats… {seconds > 0 ? `${seconds}s. ` : ''}A large room can take up to two minutes. Keep this window open.</> : 'The map appears here once the picture is read.'}
                   </div>
                 )}
               </div>

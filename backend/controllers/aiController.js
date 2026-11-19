@@ -6,6 +6,7 @@ const { redact } = require('../services/ai/redact');
 const { readPosterImage } = require('../services/ai/posterImage');
 const { generateSeatingPlan } = require('../services/ai/seatingDesigner');
 const { readSeatingMap } = require('../services/ai/seatingFromImage');
+const { startJob, getJob } = require('../services/ai/backgroundJobs');
 const { generateLaunchKit } = require('../services/ai/launchKit');
 const { eventUrl } = require('../services/shareLinks');
 const { supabase } = require('../config/supabase');
@@ -150,15 +151,19 @@ function failureSummary(err) {
     .join(' · ').slice(0, 500);
 }
 
-async function spend(req, res, { cfg, organizerId, feature, answers = {} }, work) {
+/**
+ * Reserves one generation from the daily allowance. Returns `{ reservation }`,
+ * or `{ sent }` when it already answered the request with a refusal.
+ */
+async function reserve(req, res, { cfg, organizerId, feature }) {
   // Every generation is recorded against an organization. A super admin can
   // reach any event, but without an organization of their own there is
   // nowhere to record it (and it must never land on the event's organizer).
   if (!organizerId) {
-    return sendFail(res, {
+    return { sent: sendFail(res, {
       status: 403, error: 'ORGANIZER_SETUP_REQUIRED',
       message: 'Set up your organization before using AI.',
-    });
+    }) };
   }
   let reservation;
   try {
@@ -171,7 +176,7 @@ async function spend(req, res, { cfg, organizerId, feature, answers = {} }, work
     // said once in the log and as "off" to the organizer — not a 500 (I-023).
     if (/ai_generations_feature|check constraint/i.test(err.message)) {
       logger.error({ feature }, `AI: database NOT ready for "${feature}" — apply the latest supabase migration`);
-      return sendFail(res, { status: 503, error: 'AI_DISABLED', message: 'This AI feature is not set up yet. Try again later.' });
+      return { sent: sendFail(res, { status: 503, error: 'AI_DISABLED', message: 'This AI feature is not set up yet. Try again later.' }) };
     }
     throw err;
   }
@@ -179,25 +184,34 @@ async function spend(req, res, { cfg, organizerId, feature, answers = {} }, work
   if (!reservation?.ok) {
     const r = reservation || {};
     if (r.reason === 'LIMIT') {
-      return sendFail(res, {
+      return { sent: sendFail(res, {
         status: 429, error: 'AI_QUOTA_EXHAUSTED',
         message: 'You have used both of today’s AI drafts.',
         meta: { nextAvailableAt: r.next_available_at || null, limit: cfg.limit },
-      });
+      }) };
     }
     if (r.reason === 'IN_PROGRESS') {
-      return sendFail(res, { status: 409, error: 'AI_GENERATION_IN_PROGRESS', message: 'This is still being written.' });
+      return { sent: sendFail(res, { status: 409, error: 'AI_GENERATION_IN_PROGRESS', message: 'This is still being written.' }) };
     }
     if (r.reason === 'DUPLICATE') {
-      return sendFail(res, { status: 409, error: 'AI_GENERATION_DUPLICATE', message: 'That request was already answered.' });
+      return { sent: sendFail(res, { status: 409, error: 'AI_GENERATION_DUPLICATE', message: 'That request was already answered.' }) };
     }
     if (r.reason === 'GLOBAL_CAP') {
       logger.warn('ai: the platform-wide daily cap was reached');
-      return sendFail(res, { status: 503, error: 'AI_DISABLED', message: 'AI is busy today. Try again tomorrow.' });
+      return { sent: sendFail(res, { status: 503, error: 'AI_DISABLED', message: 'AI is busy today. Try again tomorrow.' }) };
     }
     throw new Error(`ai_reserve_generation refused: ${r.reason || 'no answer'}`);
   }
 
+  return { reservation };
+}
+
+/**
+ * Runs `work` against a reservation and settles it: succeeded and charged,
+ * or released at no cost. Returns `{ ok: true, body }` or `{ ok: false,
+ * status, error, message, meta }` for a known failure; throws anything else.
+ */
+async function settle({ reservation, cfg, organizerId, answers = {} }, work) {
   let outcome;
   try {
     outcome = await work();
@@ -216,16 +230,45 @@ async function spend(req, res, { cfg, organizerId, feature, answers = {} }, work
       // Every provider up but busy (503, 522, a rate limit): say so, rather
       // than "did not answer in time", which reads as our fault and as final.
       const message = err.code === 'AI_UNAVAILABLE' && allBusy(err) ? BUSY_MESSAGE : known.message;
-      return sendFail(res, {
-        status: known.status, error: err.code, message, ...(reason ? { meta: { reason } } : {}),
-      });
+      return { ok: false, status: known.status, error: err.code, message, ...(reason ? { meta: { reason } } : {}) };
     }
     throw err;
   }
 
   await quota.finish(reservation.id, 'succeeded', outcome.meta);
   const after = await quota.status({ organizerId, cfg });
-  return sendOk(res, { generationId: reservation.id, ...outcome.body, quota: quotaShape(after, cfg) });
+  return { ok: true, body: { generationId: reservation.id, ...outcome.body, quota: quotaShape(after, cfg) } };
+}
+
+const sendOutcome = (res, o) => (o.ok
+  ? sendOk(res, o.body)
+  : sendFail(res, { status: o.status, error: o.error, message: o.message, meta: o.meta }));
+
+async function spend(req, res, opts, work) {
+  const { reservation, sent } = await reserve(req, res, opts);
+  if (sent) return sent;
+  return sendOutcome(res, await settle({ ...opts, reservation }, work));
+}
+
+/**
+ * `spend`, without holding the request open (2026-11-19): answers 202 with a
+ * job id at once and runs `work` in the background (backgroundJobs.js). The
+ * browser polls `GET …/jobs/:jobId`. For the seating-map reader, which can
+ * take Gemini more than the 60 s production nginx allows a request.
+ */
+async function spendInBackground(req, res, opts, work) {
+  const { reservation, sent } = await reserve(req, res, opts);
+  if (sent) return sent;
+  const jobId = reservation.id;
+  startJob(jobId, { organizerId: opts.organizerId, eventId: req.params.eventId }, async () => {
+    try {
+      return await settle({ ...opts, reservation }, work);
+    } catch (err) {
+      logger.error({ err, jobId }, 'ai: a background job failed');
+      return { ok: false, status: 500, error: 'INTERNAL_ERROR', message: 'Something went wrong while reading the map. Try again.' };
+    }
+  });
+  return sendOk(res, { jobId, status: 'running' }, { status: 202 });
 }
 
 /** The refusals every organizer AI request shares, before anything costs. Returns a sent response or null. */
@@ -415,7 +458,9 @@ async function createSeatingPlanFromImage(req, res, next) {
     const image = readPosterImage(req.body.image, { noun: 'seating map' });   // VALIDATION_ERROR → 400
     const { text } = redact(String(req.body.notes || '').trim());
 
-    return await spend(req, res, {
+    // In the background (2026-11-19): a whole floor plan took Gemini past the
+    // 60 s production nginx allows one request. The page polls the job.
+    return await spendInBackground(req, res, {
       cfg, organizerId: req.user.access.organizerId, feature: 'seating_designer',
       answers: {
         AI_NOT_A_MAP: {
@@ -431,6 +476,28 @@ async function createSeatingPlanFromImage(req, res, next) {
     if (err.code === 'VALIDATION_ERROR') return sendFail(res, { status: 400, error: 'VALIDATION_ERROR', message: err.message });
     return next(err);
   }
+}
+
+// ─── GET /ai/events/:eventId/seating-plan/jobs/:jobId ──────────────────────
+/**
+ * A background map reading: still running (200 `{ status: 'running' }`),
+ * done (the same body the request used to answer with, plus `status`), or
+ * failed (the same error it used to answer with). Only the organization and
+ * event that started it can see it; anything else is "not found", including
+ * a job lost to a server restart.
+ */
+function getSeatingPlanJob(req, res) {
+  const job = getJob(req.params.jobId, { organizerId: req.user.access.organizerId, eventId: req.params.eventId });
+  if (!job) {
+    return sendFail(res, {
+      status: 404, error: 'NOT_FOUND',
+      message: 'That map reading is no longer available. Upload the picture again. Unfinished readings never use a daily draft.',
+    });
+  }
+  if (job.state === 'running') return sendOk(res, { status: 'running', seconds: Math.round((Date.now() - job.startedAt) / 1000) });
+  const o = job.outcome;
+  if (o.ok) return sendOk(res, { status: 'done', ...o.body });
+  return sendFail(res, { status: o.status, error: o.error, message: o.message, meta: o.meta });
 }
 
 // ─── POST /ai/events/:eventId/launch-kit ───────────────────────────────────
@@ -492,5 +559,6 @@ const createEventDraft = (req, res, next) => runDraft(req, res, next, { fromImag
 const createEventDraftFromImage = (req, res, next) => runDraft(req, res, next, { fromImage: true });
 
 module.exports = {
-  getQuota, createEventDraft, createEventDraftFromImage, createSeatingPlan, createSeatingPlanFromImage, createLaunchKit,
+  getQuota, createEventDraft, createEventDraftFromImage, createSeatingPlan, createSeatingPlanFromImage, getSeatingPlanJob,
+  createLaunchKit,
 };

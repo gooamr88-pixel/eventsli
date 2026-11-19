@@ -127,6 +127,14 @@ router.post(
   ai.createSeatingPlanFromImage,
 );
 
+// Its result (2026-11-19): the reading runs in the background, and the page
+// asks every few seconds. No limiter: polling is cheap and owner-checked.
+router.get(
+  '/events/:eventId/seating-plan/jobs/:jobId',
+  verifyEventOwner,
+  ai.getSeatingPlanJob,
+);
+
 router.post(
   '/events/:eventId/launch-kit',
   draftLimiter,

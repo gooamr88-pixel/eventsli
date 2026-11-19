@@ -85,15 +85,40 @@ test('the route exists, behind the owner check', () => {
   assert.ok(layer && layer.route.methods.post);
 });
 
-test('the map reader has a long clock, still inside nginx (2026-11-19)', () => {
+test('the map reader has a long clock, inside the reservation lifetime (2026-11-19)', () => {
   const { MAP_CLOCK } = require('../services/ai/seatingFromImage');
-  const { VISION_TIMEOUTS } = require('../services/ai/config');
-  // The poster clock timed out on a real map.
-  assert.ok(MAP_CLOCK.primary > VISION_TIMEOUTS.primary * 2);
-  // Production nginx proxy_read_timeout is 60 s (docs/DEPLOY.md); the loop,
-  // plus the database round trips, must finish before it.
-  assert.ok(MAP_CLOCK.total <= 55_000);
+  const { VISION_TIMEOUTS, STALE } = require('../services/ai/config');
+  // The poster clock, and then a 53 s one, timed out on a real map.
+  assert.ok(MAP_CLOCK.primary >= 60_000);
+  assert.ok(MAP_CLOCK.primary > VISION_TIMEOUTS.primary * 4);
+  // It runs as a background job, so nginx's 60 s no longer binds it; a
+  // reservation older than STALE stops counting, so the loop ends before it.
+  assert.equal(STALE, '2 minutes');
+  assert.ok(MAP_CLOCK.total < 120_000 - 5_000);
   assert.ok(MAP_CLOCK.lastStart < MAP_CLOCK.total);
+});
+
+test('a background job is seen only by its own organization and event, and reports its outcome', async () => {
+  const jobs = require('../services/ai/backgroundJobs');
+  jobs._reset();
+  let finish;
+  jobs.startJob('j1', { organizerId: 'o1', eventId: 'e1' }, () => new Promise((r) => { finish = r; }));
+  assert.equal(jobs.getJob('j1', { organizerId: 'o1', eventId: 'e1' }).state, 'running');
+  assert.equal(jobs.getJob('j1', { organizerId: 'o2', eventId: 'e1' }), null);
+  assert.equal(jobs.getJob('j1', { organizerId: 'o1', eventId: 'e2' }), null);
+  await new Promise((r) => { setImmediate(r); });
+  finish({ ok: true, body: { plan: { tables: [] } } });
+  await new Promise((r) => { setImmediate(r); });
+  const done = jobs.getJob('j1', { organizerId: 'o1', eventId: 'e1' });
+  assert.equal(done.state, 'done');
+  assert.deepEqual(done.outcome.body, { plan: { tables: [] } });
+
+  jobs.startJob('j2', { organizerId: 'o1', eventId: 'e1' }, async () => { throw new Error('boom'); });
+  await new Promise((r) => { setImmediate(r); });
+  await new Promise((r) => { setImmediate(r); });
+  const failed = jobs.getJob('j2', { organizerId: 'o1', eventId: 'e1' });
+  assert.equal(failed.state, 'failed');
+  assert.equal(failed.outcome.error, 'INTERNAL_ERROR');
 });
 
 test('the Gemini schema carries no item limits, which Gemini refuses as too many states (2026-11-19)', () => {
