@@ -1,4 +1,5 @@
 const { sendOk, sendFail, ERROR_STATUS } = require('../utils/responseEnvelope');
+const { hashIp } = require('../utils/crypto');
 const { writeAudit } = require('../services/auditService');
 const svc = require('../services/demo/demoService');
 const admin = require('../services/demo/demoAdmin');
@@ -31,7 +32,7 @@ const book = wrap(async (req, res) => {
   // The hidden "website" field: people never see it, form-filling bots do.
   // They get a believable answer and nothing is booked or sent.
   if (req.body.website) return sendOk(res, { booking: null, token: null }, { status: 201 });
-  const result = await svc.createBooking(req.body);
+  const result = await svc.createBooking(req.body, { ipHash: req.ip ? hashIp(req.ip) : null });
   if (result.code) return refuse(res, result);
   return sendOk(res, result, { status: 201 });
 });

@@ -1,6 +1,8 @@
 'use client';
 
 import Field, { SelectField, TextareaField } from '../forms/Field';
+import PhoneField from '../forms/PhoneField';
+import SmsConsentFields from '../forms/SmsConsentFields';
 
 /**
  * The details form, built from the admin's settings (2026-11-19): name and
@@ -24,9 +26,19 @@ export default function DemoForm({ settings, values, onChange, onSubmit, busy, e
       <Field label="Email" name="email" type="email" inputMode="email" autoComplete="email" required maxLength={254}
         value={values.email} onChange={set('email')} hint="Your confirmation and the call details go here." />
       {shown('phone') && (
-        <Field label={f.phone.label} name="phone" type="tel" inputMode="tel" autoComplete="tel"
-          required={req('phone')} optional={!req('phone')} maxLength={20} pattern="[0-9+\-\(\) ]{7,20}"
-          value={values.phone} onChange={set('phone')} />
+        <>
+          {/* Flag + calling code (2026-11-19); the value arrives as "+20 100 …". */}
+          <PhoneField label={f.phone.label} name="phone" required={req('phone')} optional={!req('phone')}
+            value={values.phone}
+            // Clearing the number clears the text choices: hidden boxes must
+            // never come back already ticked.
+            onChange={(phone) => onChange({ ...values, phone, sms: phone.replace(/\D/g, '').length >= 7 ? values.sms : {} })} />
+          {/* "If the visitor puts his number, make him approve receiving"
+              (owner, 2026-11-19): two separate, unticked boxes, shown once a
+              number is typed, with the carriers' disclosures. */}
+          <SmsConsentFields mode="demo" value={values.sms} onChange={(sms) => onChange({ ...values, sms })}
+            phone={values.phone} onPhone={(phone) => onChange({ ...values, phone })} />
+        </>
       )}
       {shown('company') && (
         <Field label={f.company.label} name="company" required={req('company')} optional={!req('company')} maxLength={200}

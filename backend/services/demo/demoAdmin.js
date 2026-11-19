@@ -176,9 +176,41 @@ async function sendReminders({ now = Date.now() } = {}) {
     if (!claimed) continue;
     const l = svc.links(row.id);
     await emails.sendReminder({ booking: svc.shape(row), settings, manageUrl: l.manageUrl });
+    // …and by text, to those who ticked "texts about my demo" (2026-11-19).
+    // Queued like every other participant text: consent, quiet hours and
+    // STOP are checked again when it is sent.
+    if (row.sms_transactional && row.sms_e164) await queueReminderText(row, settings, l.manageUrl);
     sent += 1;
   }
   return { sent };
 }
 
-module.exports = { VIEWS, list, get, hosts, update, cancel, reschedule, sendReminders };
+/** "Eventsli: reminder - your demo is Mon, Nov 23, 5:30 PM (your time). …" GSM-7 only, one segment. */
+function reminderText(row, settings, manageUrl) {
+  const zone = row.booker_timezone || settings.timezone;
+  let when;
+  try {
+    when = new Intl.DateTimeFormat('en-US', {
+      timeZone: zone, weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+    }).format(new Date(row.starts_at));
+  } catch {
+    when = new Date(row.starts_at).toUTCString();
+  }
+  const link = manageUrl ? ` Change it: ${manageUrl}` : '';
+  const base = `Eventsli: reminder - your demo is ${when}.`;
+  const tail = ' Reply STOP to opt out.';
+  return (base.length + link.length + tail.length <= 160) ? `${base}${link}${tail}` : `${base}${tail}`;
+}
+
+async function queueReminderText(row, settings, manageUrl) {
+  const queue = require('../sms/queue');
+  return queue.enqueue({
+    category: 'participant',
+    to: row.sms_e164,
+    body: reminderText(row, settings, manageUrl),
+    idempotencyKey: `demo:${row.id}:reminder:${new Date(row.starts_at).toISOString()}`,
+    metadata: { purpose: 'demo_reminder', demoBookingId: row.id, expiresAt: new Date(row.starts_at).toISOString() },
+  });
+}
+
+module.exports = { VIEWS, list, get, hosts, update, cancel, reschedule, sendReminders, reminderText };

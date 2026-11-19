@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { rememberWatchToken } from '../../verify-email/useVerificationWatch';
 import { post } from '../../../utils/apiClient';
 import Field from '../../../components/forms/Field';
+import PhoneField from '../../../components/forms/PhoneField';
 import SmsConsentFields, { smsPayload } from '../../../components/forms/SmsConsentFields';
 import FormError from '../../../components/forms/FormError';
 import SubmitButton from '../../../components/forms/SubmitButton';
@@ -122,12 +123,10 @@ export default function OrganizerSignupForm() {
           hint="The company, club or collective running the events."
           value={form.organizationName} onChange={set('organizationName')}
         />
-        <Field
-          label="Mobile number" type="tel" name="phone" autoComplete="tel" required
-          inputMode="tel" minLength={7} maxLength={20}
-          placeholder="+1 416 555 0123"
+        <PhoneField
+          label="Mobile number" name="phone" required
           hint="Only used by Eventsli to reach you about your events."
-          value={form.phone} onChange={set('phone')}
+          value={form.phone} onChange={(phone) => setForm((f) => ({ ...f, phone }))}
         />
         <SmsConsentFields mode="registration" value={sms} onChange={setSms} phone={form.phone} />
         <Field

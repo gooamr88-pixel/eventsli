@@ -70,7 +70,7 @@ describe('the consent fields', () => {
     expect(smsPayload({ transactional: true }, '')).toEqual({});
   });
 
-  test('a box cannot stay ticked once the number is cleared, and the field checks its format', () => {
+  test('a box cannot stay ticked once the number is cleared, and the number is sent international', () => {
     render(<Harness initialPhone="+1 416 555 0199" />);
     fireEvent.click(screen.getByLabelText(/ticket confirmation/));
     fireEvent.change(screen.getByLabelText(/Mobile number/), { target: { value: '' } });
@@ -80,11 +80,12 @@ describe('the consent fields', () => {
     // was cleared with the number, never silently carried over.
     fireEvent.change(screen.getByLabelText(/Mobile number/), { target: { value: '+1 416 555 0199' } });
     expect(screen.getByLabelText(/ticket confirmation/)).not.toBeChecked();
-    // Compiled the way browsers compile `pattern`: anchored, with the v flag.
-    const source = screen.getByLabelText(/Mobile number/).getAttribute('pattern');
-    const pattern = new RegExp('^(?:' + source + ')' + '$', 'v');
-    expect(pattern.test('+1 (416) 555-0199')).toBe(true);
-    expect(pattern.test('call me')).toBe(false);
+    // The flag picker (2026-11-19): a pasted "+1 …" picks the country, and the
+    // box keeps only the national number; letters never reach the value.
+    expect(screen.getByLabelText(/Mobile number/)).toHaveValue('416 555 0199');
+    expect(screen.getByRole('button', { name: /Country: Canada, \+1/ })).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(/Mobile number/), { target: { value: 'call me' } });
+    expect(screen.getByTestId('payload').textContent).toBe('{}');
   });
 
   test('no organizer, no organizer box; registration asks two questions', () => {

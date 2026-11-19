@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import NavIcon from '../shell/NavIcon';
 import { get, post, PUBLIC_API_URL } from '../../utils/apiClient';
+import { smsPayload } from '../forms/SmsConsentFields';
 import { describeError } from '../../utils/errors';
 import {
   browserZone, dayHeading, googleCalendarUrl, groupByDate, monthRange, shiftMonth, spanLabel, zoneLabel,
@@ -30,7 +31,7 @@ import TimezoneSelect from './TimezoneSelect';
  */
 const noSubscribe = () => () => {};
 const monthKey = (v) => `${v.year}-${String(v.month).padStart(2, '0')}`;
-const EMPTY = { name: '', email: '', phone: '', company: '', topic: '', message: '', answers: {}, website: '' };
+const EMPTY = { name: '', email: '', phone: '', company: '', topic: '', message: '', answers: {}, website: '', sms: {} };
 
 export default function DemoBooker({ settings, today, initialMonth, horizonDate, mode = 'book', booking = null, token = null, onRescheduled }) {
   const detected = useSyncExternalStore(noSubscribe, () => browserZone(settings.timezone), () => settings.timezone);
@@ -106,7 +107,8 @@ export default function DemoBooker({ settings, today, initialMonth, horizonDate,
         onRescheduled?.(data.booking);
         return;
       }
-      const data = await post('/public/demo/bookings', { ...values, startsAt: chosen, timezone: zone }, { noRedirect: true });
+      const { sms, ...details } = values;
+      const data = await post('/public/demo/bookings', { ...details, ...smsPayload(sms, values.phone), startsAt: chosen, timezone: zone }, { noRedirect: true });
       setDone(data);
       setStep('done');
     } catch (err) {

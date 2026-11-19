@@ -8,6 +8,7 @@ import { setAuthUser } from '../../hooks/useAuth';
 import { safeNext } from '../login/LoginForm';
 import { rememberWatchToken } from '../verify-email/useVerificationWatch';
 import Field from '../../components/forms/Field';
+import PhoneField from '../../components/forms/PhoneField';
 import SmsConsentFields, { smsPayload } from '../../components/forms/SmsConsentFields';
 import FormError from '../../components/forms/FormError';
 import SubmitButton from '../../components/forms/SubmitButton';
@@ -126,11 +127,11 @@ export default function RegisterForm() {
           confirm={form.confirmPassword}
           onConfirmChange={(e) => setForm((f) => ({ ...f, confirmPassword: e.target.value }))}
         />
-        <Field
-          label="Phone" type="tel" name="phone" autoComplete="tel"
-          hint="Optional. Only shared with the organizer of an event you buy from."
+        <PhoneField
+          label="Phone" name="phone" optional
+          hint="Only shared with the organizer of an event you buy from."
           value={form.phone}
-          onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+          onChange={(phone) => setForm((f) => ({ ...f, phone }))}
         />
         <SmsConsentFields mode="registration" value={sms} onChange={setSms} phone={form.phone} />
 

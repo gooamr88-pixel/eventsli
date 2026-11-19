@@ -1,11 +1,12 @@
 'use client';
 
-import Field from './Field';
+import PhoneField from './PhoneField';
 import { consentText } from '../../lib/smsConsentText';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
- * Text message consent, on the checkout and on both sign-up forms.
+ * Text message consent, on the checkout, both sign-up forms and the demo
+ * booking (`mode="demo"`, 2026-11-19: texts about the demo, Eventsli news).
  *
  * SEPARATE BOXES, NEVER PRE-TICKED. "Texts about my tickets" and "offers"
  * are different answers, and so are offers from the organizer and offers
@@ -21,7 +22,7 @@ import { consentText } from '../../lib/smsConsentText';
  * ─────────────────────────────────────────────────────────────────────────────
  */
 export default function SmsConsentFields({
-  mode, value, onChange, phone = '', onPhone, showPhone = false, organizerName = null, phoneError = null,
+  mode, value, onChange, phone = '', onPhone, showPhone = false, organizerName = null, phoneError = null, defaultCountry = null,
 }) {
   const set = (key) => (e) => onChange({ ...value, [key]: e.target.checked });
   const digits = (v) => String(v || '').replace(/[^0-9]/g, '').length;
@@ -31,18 +32,23 @@ export default function SmsConsentFields({
   // could tick were noise on every order. The wording, the separate boxes and
   // the unticked default are unchanged — they appear the moment they can be
   // used. The sign-up forms keep showing them.
-  const revealOnPhone = mode === 'checkout';
+  // The demo booking too (2026-11-19): its own phone field comes first.
+  const revealOnPhone = mode === 'checkout' || mode === 'demo';
   const showBoxes = !revealOnPhone || hasPhone;
   // Clearing the number clears the choices: hidden boxes must not come back
   // already ticked when a number is typed again.
-  const changePhone = (e) => {
-    const next = e.target.value;
+  const changePhone = (next) => {
     onPhone(next);
     if (digits(next) < 7 && Object.values(value || {}).some(Boolean)) {
       onChange(Object.fromEntries(Object.keys(value).map((k) => [k, false])));
     }
   };
-  const boxes = mode === 'checkout'
+  const boxes = mode === 'demo'
+    ? [
+      ['transactional', 'demo.transactional.v1'],
+      ['marketingPlatform', 'demo.marketing.v1'],
+    ]
+    : mode === 'checkout'
     ? [
       ['transactional', 'checkout.transactional.v1'],
       ...(organizerName ? [['marketingOrganizer', 'checkout.marketing_organizer.v1']] : []),
@@ -57,25 +63,17 @@ export default function SmsConsentFields({
     <fieldset className="fx-stack fx-stack--sm">
       <legend className="mb-1 text-sm font-medium text-ink">Text messages <span className="font-normal text-subtle">(optional)</span></legend>
       {showPhone && (
-        <Field
+        // The country picker (flag + calling code, 2026-11-19) makes the value
+        // international — "+20 100 …" — so the API never has to guess a region.
+        <PhoneField
           label="Mobile number"
           name="phone"
-          type="tel"
           optional
-          autoComplete="tel"
-          inputMode="tel"
-          hint={hasPhone
-            ? 'Include the country code if it is not this event’s country.'
-            : 'Only if you want texts about your tickets — the choices appear when you add a number.'}
-          // The same shape the API accepts, so a typo is caught here rather than
-          // refusing the whole checkout after the button is pressed.
-          // Parentheses escaped: browsers compile `pattern` with the v flag,
-          // where a bare ( or ) in a class is invalid and the check is dropped.
-          pattern="[0-9+\-\(\) ]{7,20}"
-          maxLength={20}
+          hint={hasPhone ? null : 'Only if you want texts about your tickets — the choices appear when you add a number.'}
           error={phoneError}
           value={phone}
           onChange={changePhone}
+          defaultCountry={defaultCountry}
         />
       )}
       {showBoxes && boxes.map(([key, version]) => (
@@ -98,9 +96,6 @@ export default function SmsConsentFields({
         Details in our <a href="/sms-terms" target="_blank" rel="noopener" className="text-accent underline">text message terms</a>
         {' '}and <a href="/privacy" target="_blank" rel="noopener" className="text-accent underline">privacy policy</a>.
       </p>
-      {hasPhone && mode === 'registration' && Object.values(value).some(Boolean) && (
-        <p className="text-xs text-subtle">Enter the number with its country code, starting with + (for example +1 416 555 0199).</p>
-      )}
     </fieldset>
   );
 }

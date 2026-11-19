@@ -223,6 +223,38 @@ async function recordRegistrationConsent({ userId, parsedChoices, ipHash }) {
   });
 }
 
+// ─── Book a demo (2026-11-19) ──────────────────────────────────────────────
+
+/**
+ * The demo form's boxes: texts about the demo, Eventsli news. The number comes
+ * from the form's country picker already international ("+20 100 …"). Throws a
+ * user-facing message when a box is ticked without a number we can text.
+ */
+async function parseDemoChoices(body) {
+  const sms = body?.sms && typeof body.sms === 'object' ? body.sms : {};
+  const choices = { transactional: sms.transactional === true, marketingPlatform: sms.marketingPlatform === true };
+  if (!choices.transactional && !choices.marketingPlatform) return null;
+  const cfg = await config.load();
+  const parsed = phone.normalize(body.phone, { matcher: cfg.matcher });
+  if (!parsed) {
+    const err = new Error('Enter a mobile number we can text, or untick the text message options.');
+    err.code = 'VALIDATION_ERROR';
+    throw err;
+  }
+  return { choices, parsed };
+}
+
+async function recordDemoConsent({ parsedChoices, bookingId, ipHash = null }) {
+  if (!parsedChoices) return [];
+  return recordChoices({
+    parsed: parsedChoices.parsed,
+    choices: parsedChoices.choices,
+    source: 'demo',
+    versions: { transactional: 'demo.transactional.v1', marketingPlatform: 'demo.marketing.v1' },
+    extraEvidence: { demoBookingId: bookingId, ipHash },
+  });
+}
+
 // ─── A person's own preferences ────────────────────────────────────────────
 
 async function preferencesFor(userId) {
@@ -371,5 +403,6 @@ async function importConsents({ phones, scope = 'platform', defaultCountry = nul
 module.exports = {
   setConsent, recordChoices, parseCheckoutChoices, captureCheckoutIntent, applyCheckoutConsent,
   parseRegistrationChoices, recordRegistrationConsent, preferencesFor, updatePreferences,
+  parseDemoChoices, recordDemoConsent,
   unsubscribeByToken, importConsents,
 };

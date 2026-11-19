@@ -25,6 +25,11 @@ const CONSENT_TEXT = Object.freeze({
     'Text me important notices about my account, my tickets and my events. Msg & data rates may apply. Reply STOP to opt out.',
   'registration.marketing.v1':
     'Send me Eventsli news and offers by text. Msg frequency varies. Msg & data rates may apply. Reply STOP to opt out.',
+  // Book a demo (2026-11-19): asked once a phone number is entered.
+  'demo.transactional.v1':
+    'Text me reminders and changes about my Eventsli demo. Msg & data rates may apply. Reply STOP to opt out.',
+  'demo.marketing.v1':
+    'Send me Eventsli news and offers by text. Msg frequency varies. Msg & data rates may apply. Reply STOP to opt out.',
   'account.transactional.v1':
     'Text me about my tickets and events: confirmations, reminders and changes.',
   'account.marketing.v1':

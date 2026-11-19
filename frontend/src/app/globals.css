@@ -18144,3 +18144,63 @@ label.es-chip:has(:focus-visible) { outline: 2px solid var(--es-accent); outline
     .es-qset__row > .es-qset__select { grid-column: 1 / -1; width: 100%; }
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   THE PHONE FIELD (owner, 2026-11-19): a flag + calling code that opens a
+   searchable country list, and the number beside it — one box, as the
+   reference has it. Flags are the site's own SVGs (/flags).
+   ═══════════════════════════════════════════════════════════════════════ */
+@layer components {
+  .es-telfield {
+    position: relative;
+    display: flex;
+    align-items: stretch;
+    min-width: 0;
+    min-height: var(--fx-touch);
+    border: 1px solid var(--es-control-border);
+    border-radius: var(--es-radius-md);
+    background: var(--es-surface);
+    transition: border-color var(--es-transition-fast), box-shadow var(--es-transition-fast);
+  }
+  .es-telfield:focus-within { border-color: var(--es-accent); box-shadow: 0 0 0 4px var(--es-accent-subtle); }
+  .es-telfield[data-invalid] { border-color: var(--es-danger); }
+  .es-telfield__country {
+    display: inline-flex; align-items: center; gap: 0.4rem; flex: none;
+    padding: 0 0.55rem 0 0.75rem; border-right: 1px solid var(--es-border);
+    border-radius: var(--es-radius-md) 0 0 var(--es-radius-md);
+    font-weight: 600; color: var(--es-text); cursor: pointer;
+  }
+  .es-telfield__country:hover { background: var(--es-bg-sunken); }
+  .es-telfield__country:focus-visible { outline: 2px solid var(--es-focus-ring-color); outline-offset: -2px; }
+  .es-telfield__country svg { color: var(--es-text-muted); }
+  .es-telfield__flag { display: block; width: 24px; height: 16px; flex: none; border-radius: 3px; object-fit: cover; box-shadow: 0 0 0 1px rgb(17 16 24 / 0.12); }
+  .es-telfield__dial { font-size: var(--es-text-sm); font-variant-numeric: tabular-nums; }
+  .es-telfield__number {
+    flex: 1 1 auto; min-width: 0; padding: 0 0.75rem;
+    border: 0; border-radius: 0 var(--es-radius-md) var(--es-radius-md) 0;
+    background: transparent; font: inherit; font-size: var(--es-text-base); color: var(--es-text);
+  }
+  .es-telfield__number:focus { outline: none; }
+  .es-telfield__number::placeholder { color: var(--es-text-subtle); }
+
+  .es-telfield__menu {
+    position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 40;
+    min-width: min(20rem, calc(100vw - 2rem));
+    border: 1px solid var(--es-border); border-radius: 14px;
+    background: var(--es-surface); box-shadow: var(--es-shadow-lg, 0 16px 40px rgb(17 16 24 / 0.16));
+    overflow: hidden;
+  }
+  .es-telfield__search { display: flex; align-items: center; gap: 0.5rem; padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--es-border); color: var(--es-text-muted); }
+  .es-telfield__search input { flex: 1; min-width: 0; min-height: 2.25rem; border: 0; background: transparent; font: inherit; color: var(--es-text); }
+  .es-telfield__search input:focus { outline: none; }
+  .es-telfield__list { max-height: 17rem; margin: 0; padding: 0.3rem; overflow-y: auto; list-style: none; overscroll-behavior: contain; }
+  .es-telfield__option {
+    display: flex; align-items: center; gap: 0.65rem; width: 100%; min-height: 2.6rem;
+    padding: 0.35rem 0.6rem; border-radius: 9px; text-align: left; color: var(--es-text); cursor: pointer;
+  }
+  .es-telfield__option:hover, .es-telfield__option:focus-visible { background: var(--es-bg-sunken); outline: none; }
+  .es-telfield__option[aria-selected="true"] { background: var(--es-accent-wash); }
+  .es-telfield__name { flex: 1 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: var(--es-text-sm); }
+  .es-telfield__code { flex: none; font-size: var(--es-text-sm); font-variant-numeric: tabular-nums; color: var(--es-text-muted); }
+  .es-telfield__none { padding: 0.75rem; font-size: var(--es-text-sm); color: var(--es-text-muted); }
+}

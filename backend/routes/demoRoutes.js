@@ -55,6 +55,8 @@ const details = [
   body('answers').optional().isObject(),
   body('timezone').optional({ values: 'falsy' }).isString().isLength({ max: 64 }),
   body('website').optional().isString().isLength({ max: 200 }),
+  // Text message choices (2026-11-19), checked in services/sms/consent.js.
+  body('sms').optional().isObject(),
 ];
 
 router.post('/bookings', bookLimiter, ...details, validate, c.book);

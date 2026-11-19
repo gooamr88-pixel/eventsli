@@ -220,6 +220,50 @@ test('the booker\'s link: view, move, calendar file, cancel — and nothing with
   assert.ok((await openTimes()).includes(times[14]), 'the cancelled time is open again');
 });
 
+test('texts: a number with ticked boxes records consent as "demo", with the words shown', async () => {
+  const phone = `+1 416 555 ${String(stamp).slice(-4)}`;
+  const e164 = `+1416555${String(stamp).slice(-4)}`;
+  try {
+    const times = await openTimes();
+    const bad = await call('POST', '/public/demo/bookings', {
+      body: { ...booker('smsbad', times[18]), answers: { size: '100+' }, phone: '12', sms: { transactional: true } },
+    });
+    assert.equal(bad.status, 400, 'a ticked box needs a number we can text');
+
+    const made = await call('POST', '/public/demo/bookings', {
+      body: { ...booker('sms', times[18]), answers: { size: '100+' }, phone, sms: { transactional: true, marketingPlatform: true } },
+    });
+    assert.equal(made.status, 201, JSON.stringify(made.body));
+    const { data: row } = await supabase.from('demo_bookings').select('sms_e164, sms_transactional').eq('id', made.body.data.booking.id).single();
+    assert.deepEqual(row, { sms_e164: e164, sms_transactional: true });
+
+    // Recorded just after the answer; give it a moment.
+    let consents = [];
+    for (let i = 0; i < 20 && consents.length < 2; i += 1) {
+      // eslint-disable-next-line no-await-in-loop
+      consents = (await supabase.from('sms_consents').select('kind, source, evidence').eq('phone_e164', e164)).data || [];
+      // eslint-disable-next-line no-await-in-loop
+      if (consents.length < 2) await new Promise((r) => setTimeout(r, 150));
+    }
+    assert.deepEqual(consents.map((c) => c.kind).sort(), ['marketing', 'transactional']);
+    assert.ok(consents.every((c) => c.source === 'demo'));
+    const tx = consents.find((c) => c.kind === 'transactional');
+    assert.equal(tx.evidence.version, 'demo.transactional.v1');
+    assert.match(tx.evidence.text, /my Eventsli demo/);
+    assert.equal(tx.evidence.demoBookingId, made.body.data.booking.id);
+
+    const none = await call('POST', '/public/demo/bookings', {
+      body: { ...booker('nosms', times[20]), answers: { size: '100+' }, phone: '+1 416 555 0100' },
+    });
+    const { data: quiet } = await supabase.from('demo_bookings').select('sms_e164, sms_transactional').eq('id', none.body.data.booking.id).single();
+    assert.deepEqual(quiet, { sms_e164: null, sms_transactional: false }, 'no box ticked: nothing recorded');
+  } finally {
+    await supabase.from('sms_messages').delete().eq('to_e164', e164).then(() => {}, () => {});
+    await supabase.from('sms_consent_log').delete().eq('phone_e164', e164);
+    await supabase.from('sms_consents').delete().eq('phone_e164', e164);
+  }
+});
+
 test('switched off: no times, and booking refuses', async () => {
   await call('PUT', '/admin/demo/settings', { cookie: superCookie, body: { settings: { ...(await call('GET', '/admin/demo/settings', { cookie: superCookie })).body.data.settings, enabled: false } } });
   assert.deepEqual(await openTimes(), []);

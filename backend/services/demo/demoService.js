@@ -21,7 +21,7 @@ const { tokenFor, tokenMatches } = require('./demoLinks');
 const KEY = 'demo_booking';
 const SELECT = 'id, starts_at, ends_at, status, name, email, phone, company, topic, message, answers, '
   + 'booker_timezone, meeting_link, host_notes, assigned_to, reminder_sent_at, cancelled_at, cancelled_by, '
-  + 'cancel_reason, rescheduled_from, reschedule_count, created_at, updated_at';
+  + 'cancel_reason, rescheduled_from, reschedule_count, created_at, updated_at, sms_e164, sms_transactional';
 
 // ── Settings ─────────────────────────────────────────────────────────────
 
@@ -68,6 +68,9 @@ function shape(row) {
     cancelReason: row.cancel_reason,
     rescheduledFrom: iso(row.rescheduled_from),
     rescheduleCount: row.reschedule_count,
+    // Agreed on the form to texts about the demo (2026-11-19); the number for them.
+    smsOptIn: Boolean(row.sms_transactional),
+    smsNumber: row.sms_e164 || null,
     createdAt: iso(row.created_at),
     updatedAt: iso(row.updated_at),
   };
@@ -222,13 +225,25 @@ async function moveTo(settings, id, startsAt, endsAt) {
   });
 }
 
-async function createBooking(input, { now = Date.now() } = {}) {
+async function createBooking(input, { now = Date.now(), ipHash = null } = {}) {
   const settings = await getSettings();
   if (!settings.enabled) return { code: 'FEATURE_DISABLED', message: 'Demo bookings are closed for now.' };
 
   const checked = checkDetails(input, settings);
   if (checked.code) return checked;
   const v = checked.values;
+
+  // Texts (2026-11-19): the boxes appear once a number is typed. Checked
+  // BEFORE the slot is taken, so a ticked box with an unusable number is a
+  // form error, not a booking with a consent we cannot honour.
+  const smsConsent = require('../sms/consent');
+  let parsedSms = null;
+  try {
+    parsedSms = await smsConsent.parseDemoChoices({ sms: input.sms, phone: v.phone });
+  } catch (err) {
+    if (err.code === 'VALIDATION_ERROR') return { code: 'VALIDATION_ERROR', message: err.message };
+    throw err;
+  }
 
   const t = Date.parse(input.startsAt);
   if (!Number.isFinite(t)) return { code: 'VALIDATION_ERROR', message: 'Choose a time.' };
@@ -255,6 +270,15 @@ async function createBooking(input, { now = Date.now() } = {}) {
     const code = rpcCode(error);
     if (code) return { code };
     throw new Error(`book_demo failed: ${error.message}`);
+  }
+
+  if (parsedSms) {
+    // The number and the yes to demo texts stay on the booking for its
+    // reminder; the consent itself is recorded with the exact words shown.
+    await supabase.from('demo_bookings').update({
+      sms_e164: parsedSms.parsed.e164, sms_transactional: parsedSms.choices.transactional,
+    }).eq('id', id);
+    later('demo SMS consent', () => smsConsent.recordDemoConsent({ parsedChoices: parsedSms, bookingId: id, ipHash }));
   }
 
   const booking = shape(await loadRow(id));

@@ -146,3 +146,18 @@ BEGIN
    WHERE id = p_id;
 END;
 $$;
+
+-- ── Texts about the demo (owner, 2026-11-19) ──────────────────────────────
+-- "In booking, if the visitor puts his number, make him approve receiving."
+-- Once a number is entered the form asks, unticked: texts about the demo,
+-- and Eventsli news. A yes is recorded as consent like any other (source
+-- 'demo', the exact words versioned in services/sms/consentText.js); the
+-- booking keeps the number and whether demo texts were agreed to, for the
+-- reminder text.
+ALTER TABLE demo_bookings ADD COLUMN IF NOT EXISTS sms_e164 TEXT
+  CHECK (sms_e164 IS NULL OR sms_e164 ~ '^\+[1-9][0-9]{6,14}$');
+ALTER TABLE demo_bookings ADD COLUMN IF NOT EXISTS sms_transactional BOOLEAN NOT NULL DEFAULT false;
+
+ALTER TABLE sms_consents DROP CONSTRAINT IF EXISTS sms_consents_source_check;
+ALTER TABLE sms_consents ADD CONSTRAINT sms_consents_source_check
+  CHECK (source = ANY (ARRAY['checkout', 'registration', 'account', 'keyword', 'link', 'admin', 'import', 'demo']));

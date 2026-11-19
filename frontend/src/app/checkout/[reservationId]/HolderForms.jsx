@@ -1,6 +1,7 @@
 'use client';
 
 import NavIcon from '../../components/shell/NavIcon';
+import { PhoneInput } from '../../components/forms/PhoneField';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -69,9 +70,12 @@ export default function HolderForms({ holders, values, onChange, buyer, phone, e
                   value={v.firstName} onChange={set(slot.key, 'firstName')} />
                 <Input id={`${id}-last`} label="Last name" icon="user" maxLength={60}
                   value={v.lastName} onChange={set(slot.key, 'lastName')} />
-                <Input id={`${id}-phone`} label="Phone" icon="phone" type="tel" inputMode="tel" maxLength={20}
-                  pattern="[0-9+\-\(\) ]{7,20}" title="Digits, with the country code — e.g. +20 100 000 0000"
-                  value={v.phone} onChange={set(slot.key, 'phone')} />
+                {/* The flag picker (2026-11-19) in place of the phone icon. */}
+                <div className="es-holders__field">
+                  <label htmlFor={`${id}-phone`}>Phone</label>
+                  <PhoneInput id={`${id}-phone`} placeholder="Optional" value={v.phone || ''} autoComplete="off"
+                    onChange={(phone) => onChange({ ...values, [slot.key]: { ...values[slot.key], phone } })} />
+                </div>
                 <Input id={`${id}-email`} label="Email" icon="mail" type="email" inputMode="email" maxLength={254}
                   value={v.email} onChange={set(slot.key, 'email')} />
               </div>
