@@ -12,6 +12,7 @@ import { tierPalette } from '../../../../../components/venue/venueModel';
 import { keepKey, keptWhen, readKept, writeKept } from '../../../../../utils/localKeep';
 import { QuotaDots } from '../../../new/ai/AiParts';
 import { POSTER_ACCEPT, preparePoster } from '../../../new/ai/posterImage';
+import ReadingProgress from './ReadingProgress';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -66,9 +67,9 @@ export default function ImageImportDialog({ eventId, replacing, blocked = null, 
     try { setPicture(await preparePoster(file)); } catch (err) { setError(err); }
   }
 
-  // Seconds since the reading started, shown while it runs; and whether the
-  // dialog is still open, so a poll never lands on an unmounted dialog.
-  const [seconds, setSeconds] = useState(0);
+  // When the reading started (ReadingProgress counts from it); and whether
+  // the dialog is still open, so a poll never lands on an unmounted dialog.
+  const [startedAt, setStartedAt] = useState(0);
   const alive = useRef(true);
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
 
@@ -85,7 +86,6 @@ export default function ImageImportDialog({ eventId, replacing, blocked = null, 
     while (alive.current && Date.now() - started < 150_000) {
       await new Promise((r) => { setTimeout(r, 3_000); });
       if (!alive.current) return null;
-      setSeconds(Math.round((Date.now() - started) / 1000));
       try {
         const job = await get(`/ai/events/${eventId}/seating-plan/jobs/${jobId}`, { noRedirect: true });
         misses = 0;
@@ -101,7 +101,7 @@ export default function ImageImportDialog({ eventId, replacing, blocked = null, 
   async function read() {
     if (!picture || busy || exhausted) return;
     setBusy(true);
-    setSeconds(0);
+    setStartedAt(Date.now());
     setError(null);
     try {
       const started = await post(`/ai/events/${eventId}/seating-plan/from-image`, {
@@ -142,16 +142,21 @@ export default function ImageImportDialog({ eventId, replacing, blocked = null, 
         ) : (
           <>
             <p className="text-sm text-muted">
-              Upload a floor plan or seating chart — a drawing, a screenshot or a clear photo. AI measures every table,
-              counts the seats on each side, and redraws the areas, walls and doors where they are in the picture.
+              Upload a floor plan or seating chart: a drawing, a screenshot or a clear photo. Your map is rebuilt from it,
+              table by table, and you can check it side by side before applying.
             </p>
 
             <div className="es-imgimport__panes">
               <div className="es-imgimport__pane">
                 <span className="es-imgimport__caption">Your picture</span>
                 {picture ? (
-                  // eslint-disable-next-line @next/next/no-img-element -- a local data: URL, never fetched
-                  <img src={picture.dataUrl} alt="The seating map you chose" className="es-imgimport__img" />
+                  // While it is read, a beam sweeps the picture: the work is
+                  // happening ON it, and this is where the eye already is.
+                  <div className="es-imgimport__frame" data-scanning={busy ? 'true' : undefined}>
+                    {/* eslint-disable-next-line @next/next/no-img-element -- a local data: URL, never fetched */}
+                    <img src={picture.dataUrl} alt="The seating map you chose" className="es-imgimport__img" />
+                    {busy && <span className="es-imgimport__beam" aria-hidden="true" />}
+                  </div>
                 ) : (
                   <button type="button" className="es-imgimport__drop" onClick={() => input.current?.click()} disabled={busy}>
                     <NavIcon name="image" size={28} />
@@ -169,7 +174,9 @@ export default function ImageImportDialog({ eventId, replacing, blocked = null, 
                 <span className="es-imgimport__caption">
                   Rebuilt map{madeAt && plan ? ` · read ${keptWhen(madeAt)}` : ''}
                 </span>
-                {preview ? (
+                {busy ? (
+                  <ReadingProgress startedAt={startedAt} />
+                ) : preview ? (
                   <SeatMapCanvas
                     // A new reading is a new map: framed afresh even if the
                     // last one was zoomed (the map no longer re-frames itself
@@ -180,27 +187,36 @@ export default function ImageImportDialog({ eventId, replacing, blocked = null, 
                     seatFill={preview.seatFill} showcase purchaseMode="seat_only" onSelectSeat={() => {}}
                   />
                 ) : (
-                  <div className="es-imgimport__empty">
-                    {busy ? <><span className="es-ai-spin" aria-hidden="true" /> Measuring the tables and counting seats… {seconds > 0 ? `${seconds}s. ` : ''}A large room can take up to two minutes. Keep this window open.</> : 'The map appears here once the picture is read.'}
-                  </div>
+                  <div className="es-imgimport__empty">The map appears here once the picture is read.</div>
                 )}
               </div>
             </div>
 
-            {r && (
-              <p className="text-sm text-ink" role="status">
-                Read {r.tables} table{r.tables === 1 ? '' : 's'} with {r.seats.toLocaleString('en')} seats,
-                {' '}{r.areas} area{r.areas === 1 ? '' : 's'}, {r.walls} wall{r.walls === 1 ? '' : 's'} and {r.doors} door{r.doors === 1 ? '' : 's'}.
-                {r.cut ? ` ${r.cut} more tables were left out: a map holds 400.` : ''}
-                {r.guessed?.length ? ` No seat count could be read for ${r.guessed.slice(0, 6).join(', ')}${r.guessed.length > 6 ? ` and ${r.guessed.length - 6} more` : ''}: they have 4 seats, so check them.` : ''}
-                {' '}Compare the two, then fix anything by hand after applying — ticket types are yours to assign.
-              </p>
+            {/* The result as figures, not a paragraph of instructions (owner,
+                2026-11-19: "why prompts appear"). */}
+            {r && !busy && (
+              <div className="fx-stack gap-2" role="status">
+                <ul className="es-imgimport__stats" aria-label="What was read">
+                  <li><b className="es-nums">{r.tables}</b> table{r.tables === 1 ? '' : 's'}</li>
+                  <li><b className="es-nums">{r.seats.toLocaleString('en')}</b> seats</li>
+                  <li><b className="es-nums">{r.areas}</b> area{r.areas === 1 ? '' : 's'}</li>
+                  <li><b className="es-nums">{r.walls}</b> wall{r.walls === 1 ? '' : 's'}</li>
+                  {r.doors > 0 && <li><b className="es-nums">{r.doors}</b> door{r.doors === 1 ? '' : 's'}</li>}
+                </ul>
+                {(r.cut > 0 || r.guessed?.length > 0) && (
+                  <p className="es-ai-later">
+                    <NavIcon name="info" size={15} />
+                    {r.cut ? ` ${r.cut} more tables did not fit: a map holds 400.` : ''}
+                    {r.guessed?.length ? ` Check the seats at ${r.guessed.slice(0, 6).join(', ')}${r.guessed.length > 6 ? ` and ${r.guessed.length - 6} more` : ''}: no number was printed, so they have 4.` : ''}
+                  </p>
+                )}
+              </div>
             )}
 
             <label className="fx-stack fx-stack--sm">
-              <span className="text-sm font-medium text-ink">Anything the picture doesn’t show (optional)</span>
+              <span className="text-sm font-medium text-ink">Notes (optional)</span>
               <input className="es-input" maxLength={500} value={notes} disabled={busy}
-                placeholder="e.g. Tables S36–S40 seat 4, the kitchen is staff only" onChange={(e) => setNotes(e.target.value)} />
+                placeholder="Anything the picture doesn’t show" onChange={(e) => setNotes(e.target.value)} />
             </label>
 
             {error && (

@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest';
-import { planToMap } from '../src/app/components/seating/imageImport';
+import { planToMap, encloseRoom } from '../src/app/components/seating/imageImport';
 import { seatPositions, tableBody, toWorld, SEAT_RADIUS } from '../src/app/components/seating/seatingGeometry';
 
 /**
@@ -66,5 +66,47 @@ describe('a plan with printed capacities and no chairs', () => {
       }
     }
     expect(tableBody('rect', 14).width).toBeGreaterThan(0);
+  });
+});
+
+describe('the room encloses what is in it (the Ladies Night reading, 2026-11-19)', () => {
+  // The model's outline stopped at y = 70 %; rows of tables, T60 and the
+  // entrance went on to y = 92 %. A door sat on that bottom wall.
+  const plan = {
+    ...PLAN,
+    tables: [...PLAN.tables, box('T60', 50, 92, 14, 3, 10)],
+    areas: [{ kind: 'entrance', label: 'Entrance', x: 15, y: 90, w: 8, h: 4, shape: 'rect', fill: null, border: 'solid' }],
+    walls: [
+      { x1: 10, y1: 25, x2: 90, y2: 25 },   // top
+      { x1: 90, y1: 25, x2: 90, y2: 70 },   // right
+      { x1: 90, y1: 70, x2: 10, y2: 70 },   // bottom, too high
+      { x1: 10, y1: 70, x2: 10, y2: 25 },   // left
+    ],
+    doors: [{ label: 'Entrance', x: 20, y: 70, size: 6, vertical: false }],
+    texts: [
+      { text: 'Ladies Night', x: 50, y: 8, size: 4 },   // the poster's title
+      { text: 'Dance floor', x: 50, y: 35, size: 2 },
+    ],
+  };
+  const fixed = encloseRoom(plan);
+
+  test('the bottom wall, and the side walls with it, move down past the last row', () => {
+    const bottom = fixed.walls[2];
+    expect(bottom.y1).toBeGreaterThanOrEqual(92 + 1.5);
+    expect(fixed.walls[1].y2).toBe(bottom.y1);
+    expect(fixed.walls[3].y1).toBe(bottom.y1);
+    expect(fixed.walls[0].y1).toBe(25);   // the top was right, and stays
+  });
+
+  test('a door on the moved wall moves with it', () => {
+    expect(fixed.doors[0].y).toBe(fixed.walls[2].y1);
+  });
+
+  test('words outside the room are dropped, words on the floor kept', () => {
+    expect(fixed.texts.map((t) => t.text)).toEqual(['Dance floor']);
+  });
+
+  test('a plan with no outline is left alone', () => {
+    expect(encloseRoom({ ...plan, walls: [] })).toEqual({ ...plan, walls: [] });
   });
 });

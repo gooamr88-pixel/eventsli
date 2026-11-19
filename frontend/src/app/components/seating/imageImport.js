@@ -123,10 +123,55 @@ function labeller() {
 }
 
 /**
+ * THE ROOM ENCLOSES WHAT IS IN IT (2026-11-19). On the owner's "Ladies Night"
+ * plan the model drew the bottom wall level with the middle rows, and the
+ * last four rows, T60 and the entrance came out OUTSIDE the room. The tables'
+ * places are the more reliable reading, so the room's outer walls move out
+ * to enclose every table and area — a wall end on the outline's left, right,
+ * top or bottom edge moves with that edge, and a door on it moves too. Inner
+ * walls are left where they are. Words outside the room (the poster's title,
+ * a caption under the frame) are not part of the floor and are dropped.
+ *
+ * All in the plan's own percentages, before anything is placed. Fewer than
+ * three walls is not a room outline, and is left alone.
+ */
+export function encloseRoom(plan) {
+  const walls = plan.walls || [];
+  if (walls.length < 3) return plan;
+  const inside = [...(plan.tables || []), ...(plan.areas || []).filter((a) => a.kind !== 'decor')];
+  if (inside.length === 0) return plan;
+  const m = 2;      // margin, % of the picture
+  const tol = 1.5;  // how near an end must be to an edge to belong to it
+  const wb = {
+    minX: Math.min(...walls.flatMap((w) => [w.x1, w.x2])), maxX: Math.max(...walls.flatMap((w) => [w.x1, w.x2])),
+    minY: Math.min(...walls.flatMap((w) => [w.y1, w.y2])), maxY: Math.max(...walls.flatMap((w) => [w.y1, w.y2])),
+  };
+  const cb = {
+    minX: Math.min(...inside.map((o) => o.x - o.w / 2)), maxX: Math.max(...inside.map((o) => o.x + o.w / 2)),
+    minY: Math.min(...inside.map((o) => o.y - o.h / 2)), maxY: Math.max(...inside.map((o) => o.y + o.h / 2)),
+  };
+  const clamp = (v) => Math.min(100, Math.max(0, v));
+  const nb = {
+    minX: clamp(Math.min(wb.minX, cb.minX - m)), maxX: clamp(Math.max(wb.maxX, cb.maxX + m)),
+    minY: clamp(Math.min(wb.minY, cb.minY - m)), maxY: clamp(Math.max(wb.maxY, cb.maxY + m)),
+  };
+  const moveX = (x) => (Math.abs(x - wb.minX) <= tol ? nb.minX : Math.abs(x - wb.maxX) <= tol ? nb.maxX : x);
+  const moveY = (y) => (Math.abs(y - wb.minY) <= tol ? nb.minY : Math.abs(y - wb.maxY) <= tol ? nb.maxY : y);
+  const within = (o) => o.x >= nb.minX - m && o.x <= nb.maxX + m && o.y >= nb.minY - m && o.y <= nb.maxY + m;
+  return {
+    ...plan,
+    walls: walls.map((w) => ({ x1: moveX(w.x1), y1: moveY(w.y1), x2: moveX(w.x2), y2: moveY(w.y2) })),
+    doors: (plan.doors || []).map((d) => ({ ...d, x: moveX(d.x), y: moveY(d.y) })),
+    texts: (plan.texts || []).filter(within),
+  };
+}
+
+/**
  * The plan → `{ tables, zones, world, look, report }` for `useMapDraft.loadMap`.
  * `tables` are draft specs (label, shape, seatCount, position, style).
  */
-export function planToMap(plan) {
+export function planToMap(input) {
+  const plan = encloseRoom(input || {});
   const imgW = Math.max(1, Number(plan?.image?.width) || 1600);
   const imgH = Math.max(1, Number(plan?.image?.height) || 1000);
   const px = (pct, side) => (Number(pct) || 0) / 100 * side;

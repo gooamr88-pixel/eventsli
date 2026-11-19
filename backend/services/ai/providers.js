@@ -78,15 +78,22 @@ function parseJson(text) {
  */
 // `maxTokens`: a request's own output budget (a floor plan read from an
 // image lists every table); absent, the budgets are what they always were.
-async function gemini({ system, user, geminiSchema, timeoutMs, image = null, maxTokens = null }) {
+async function gemini({ system, user, geminiSchema, timeoutMs, image = null, maxTokens = null, highDetail = false }) {
   const model = image ? PROVIDERS.gemini.visionModel() : PROVIDERS.gemini.model();
   if (!SAFE_MODEL.test(model)) throw aiError('AI_REQUEST_REJECTED', 'The Gemini model setting is not a model id.');
+  const started = Date.now();
 
-  const res = await postJson({
+  /**
+   * `highDetail` (the seating-map reader, 2026-11-19): the picture at
+   * MEDIA_RESOLUTION_HIGH, so small print ("8p", "T5A") is legible to the
+   * model. A model that does not take the setting answers 400; the call is
+   * then made once more without it, in the time left, rather than failing.
+   */
+  const send = (detail) => postJson({
     url: `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
     // In a header, never the query string: URLs end up in access logs.
     headers: { 'x-goog-api-key': PROVIDERS.gemini.key() },
-    timeoutMs,
+    timeoutMs: Math.max(3_000, timeoutMs - (Date.now() - started)),
     body: {
       systemInstruction: { parts: [{ text: system }] },
       contents: [{
@@ -99,11 +106,22 @@ async function gemini({ system, user, geminiSchema, timeoutMs, image = null, max
         responseMimeType: 'application/json',
         responseSchema: geminiSchema,
         temperature: 0.2,
-        // A poster's transcript is written out before the draft, so it gets room.
         maxOutputTokens: maxTokens || (image ? 6144 : 4096),
+        ...(detail ? { mediaResolution: 'MEDIA_RESOLUTION_HIGH' } : {}),
       },
     },
   });
+
+  let res = await send(Boolean(image && highDetail));
+  if (!res.ok && image && highDetail && res.status === 400 && /media.?resolution/i.test(JSON.stringify(res.json || ''))) {
+    logger.warn({ model }, 'ai: gemini refused mediaResolution; reading at the default detail');
+    res = await send(false);
+  }
+  return geminiAnswer(res, model);
+}
+
+/** Gemini's reply → `{ json, model, usage }`, or the failure as a code. */
+function geminiAnswer(res, model) {
   if (!res.ok) throw httpFailure('gemini', res);
 
   const data = res.json || {};

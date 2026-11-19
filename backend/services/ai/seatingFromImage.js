@@ -26,8 +26,15 @@ const ZONE_SHAPES = Object.freeze(['rect', 'rounded', 'ellipse', 'pill', 'd', 'r
 const SIDES = Object.freeze(['right', 'bottom', 'left', 'top']);
 const ROOM_ZONES = ZONE_KINDS.filter((k) => !['wall', 'door_gap', 'text'].includes(k));
 
-const pct = (description) => s.number({ description });
 const hex = (description) => s.nullable(s.string({ description: `${description} As #rrggbb, or null.` }));
+/**
+ * POSITIONS IN GEMINI'S OWN DETECTION FORMAT (2026-11-19). Asked for centres
+ * and sizes in percent, the model placed tables loosely ("not accurate");
+ * `box_2d` — [ymin, xmin, ymax, xmax], integers 0–1000 — is the format it is
+ * trained to locate objects in. `validateMap` turns it back into the
+ * percentages the browser's `planToMap` reads, so nothing downstream changes.
+ */
+const box2d = (what) => s.array(s.integer(), { description: `${what} as [ymin, xmin, ymax, xmax], each 0–1000 of the picture's height or width.` });
 
 function mapSchema() {
   return s.object({
@@ -42,10 +49,7 @@ function mapSchema() {
     tables: s.array(s.object({
       label: s.string({ description: 'The name printed on it, exactly, e.g. S01. Empty when none.' }),
       shape: s.string({ enum: [...SHAPES] }),
-      x: pct('Centre, % of the picture width from the left.'),
-      y: pct('Centre, % of the picture height from the top.'),
-      w: pct('Width, % of the picture width.'),
-      h: pct('Height, % of the picture height.'),
+      box_2d: box2d('The table outline, without its chairs,'),
       top: s.integer({ description: 'Seats along the top side.' }),
       right: s.integer({ description: 'Seats along the right side.' }),
       bottom: s.integer({ description: 'Seats along the bottom side.' }),
@@ -59,27 +63,22 @@ function mapSchema() {
       kind: s.string({ enum: [...ROOM_ZONES] }),
       label: s.string({ description: 'Its name as printed, e.g. DANCE FLOOR → Dance floor.' }),
       sublabel: s.nullable(s.string({ description: 'Smaller lines under the name, joined with " · ".' })),
-      x: pct('Centre, % of the picture width.'),
-      y: pct('Centre, % of the picture height.'),
-      w: pct('Width, % of the picture width.'),
-      h: pct('Height, % of the picture height.'),
+      box_2d: box2d('Its outline'),
       shape: s.string({ enum: [...ZONE_SHAPES] }),
       fill: hex('Its fill colour.'),
       border: s.string({ enum: ['solid', 'dashed', 'dotted', 'none'] }),
     }), { maxItems: LIMITS.zones }),
     walls: s.array(s.object({
-      x1: pct('Start, % of width.'), y1: pct('Start, % of height.'),
-      x2: pct('End, % of width.'), y2: pct('End, % of height.'),
+      line: s.array(s.integer(), { description: 'The straight wall run as [y1, x1, y2, x2], each 0–1000 of the picture height or width.' }),
     }), { maxItems: LIMITS.walls }),
     doors: s.array(s.object({
       label: s.string({ description: 'e.g. Entrance, Side door.' }),
-      x: pct('Centre of the gap, % of width.'), y: pct('Centre of the gap, % of height.'),
-      size: pct('Length of the gap, % of the picture width.'),
+      box_2d: box2d('The opening'),
       vertical: s.boolean({ description: 'True when the gap is in an up-and-down wall.' }),
     }), { maxItems: LIMITS.doors }),
     texts: s.array(s.object({
-      text: s.string(), x: pct('Centre, % of width.'), y: pct('Centre, % of height.'),
-      size: pct('Letter height, % of the picture height.'),
+      text: s.string(),
+      box_2d: box2d('The words'),
     }), { maxItems: LIMITS.texts }),
     summary: s.string({ description: 'One sentence: how many tables, seats and areas you read.' }),
   });
@@ -87,7 +86,7 @@ function mapSchema() {
 
 const SYSTEM = `You copy seating maps for Eventsli, a ticketing platform. You are given a picture of a floor plan or seating chart. Measure it and answer only with JSON that matches the schema. The platform redraws the map from your numbers, so precision matters more than speed.
 
-COORDINATES are percentages of the WHOLE PICTURE: x and w of its width, y and h of its height, 0 to 100, measured from the top-left corner. Give the CENTRE of each thing, and its width and height as drawn.
+POSITIONS: give every table, area, door and piece of text as box_2d = [ymin, xmin, ymax, xmax], integers from 0 to 1000 of the WHOLE picture's height and width, measured from the top-left corner — the same bounding-box format you use for object detection. Draw each box tightly around the outline as drawn. Walls are a line = [y1, x1, y2, x2] in the same 0–1000 scale.
 
 TABLES are the shapes guests sit at. List EVERY one, even when there are hundreds — never summarise or skip a row. Many plans draw no chairs at all: a table is then just a box or circle with a name (T1, S12, VIP 3) and often a capacity printed under it (8p, 10 pax). Those are tables too. Before answering, go through the picture row by row and make sure every table name you can read is in your list once — a typical event plan has 20 to 100 tables. Decorations, photos, logos, titles and legends are not tables.
 - label: the name printed on it, exactly (S01, T12, VIP 3, T5A). Empty string when it has none.
@@ -102,7 +101,9 @@ AREAS are labelled spaces that are not tables: stage, dance_floor, bar, dj_booth
 
 WALLS are the thick lines around the room. Give each straight run as a segment from one corner to the next. Where a wall has an opening (a door), end the segment at the opening and start a new one after it. DOORS are those openings, with their label (ENTRANCE, SIDE DOOR) when printed.
 
-TEXTS are words printed on the floor that belong to no table or area.
+TEXTS are words printed on the floor, inside the room, that belong to no table or area. The event's title, logos, slogans, legends ("Available table") and captions around or under the plan are NOT texts.
+
+WALLS: when the room is outlined by a frame or border, that outline is the wall, and it goes around EVERY table — check that no table lies outside the walls you give.
 
 COLOURS: give hex colours as they look, e.g. a grey table #8c8c8c, pink #d6006e, teal #00949a. seatColors lists the distinct seat dot colours, most common first.
 
@@ -118,6 +119,9 @@ function buildMapRequest({ notes }) {
   ].join('');
   return {
     system: SYSTEM, user, jsonSchema: toStrictJsonSchema(node), geminiSchema: withoutItemLimits(toGeminiSchema(node)), maxTokens: 24_000,
+    // Read the picture at full detail: a plan's small print ("8p", "T5A") is
+    // where the seat counts and the names come from.
+    highDetail: true,
   };
 }
 
@@ -161,9 +165,24 @@ const colour = (v) => {
   if (/^#[0-9a-f]{3}$/i.test(raw)) return `#${raw.slice(1).split('').map((c) => c + c).join('')}`.toLowerCase();
   return null;
 };
-const box = (o) => ({
-  x: num(o?.x, 0, 100, 50), y: num(o?.y, 0, 100, 50), w: num(o?.w, 0.2, 100, 3), h: num(o?.h, 0.2, 100, 3),
-});
+/** A `box_2d` ([ymin, xmin, ymax, xmax], 0–1000) as `{ x, y, w, h }`, or null. */
+function fromBox2d(b) {
+  if (!Array.isArray(b) || b.length !== 4) return null;
+  const n = b.map((v) => Number(v));
+  if (!n.every(Number.isFinite)) return null;
+  const [y0, x0, y1, x1] = n.map((v) => Math.min(1000, Math.max(0, v)));
+  const top = Math.min(y0, y1); const bottom = Math.max(y0, y1);
+  const left = Math.min(x0, x1); const right = Math.max(x0, x1);
+  return { x: (left + right) / 20, y: (top + bottom) / 20, w: (right - left) / 10, h: (bottom - top) / 10 };
+}
+/** Centre and size in percent of the picture: from `box_2d`, or the older
+ *  x/y/w/h a fallback model may still answer with. */
+const box = (o) => {
+  const b = fromBox2d(o?.box_2d) || o || {};
+  return {
+    x: num(b.x, 0, 100, 50), y: num(b.y, 0, 100, 50), w: num(b.w, 0.2, 100, 3), h: num(b.h, 0.2, 100, 3),
+  };
+};
 const AROUND = new Set(['round', 'oval', 'high_top', 'half_moon', 'row']);
 
 /**
@@ -171,7 +190,7 @@ const AROUND = new Set(['round', 'oval', 'high_top', 'half_moon', 'row']);
  * a picture that is not a seating map (final, not charged), AI_OUTPUT_INVALID
  * when nothing usable is left.
  */
-function validateMap(raw) {
+function validateMap(raw, { aspect = 1 } = {}) {   // aspect: the picture's height ÷ width
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw aiError('AI_OUTPUT_INVALID', 'The answer was not an object.');
   if (raw.isSeatingMap === false) throw aiError('AI_NOT_A_MAP', 'The picture is not a seating map.');
   const list = (v, max) => (Array.isArray(v) ? v.slice(0, max) : []);
@@ -233,18 +252,33 @@ function validateMap(raw) {
     border: ['solid', 'dashed', 'dotted', 'none'].includes(a?.border) ? a.border : 'solid',
   }));
 
-  const walls = list(raw.walls, LIMITS.walls).map((w) => ({
-    x1: num(w?.x1, 0, 100, 0), y1: num(w?.y1, 0, 100, 0), x2: num(w?.x2, 0, 100, 0), y2: num(w?.y2, 0, 100, 0),
-  })).filter((w) => Math.hypot(w.x2 - w.x1, w.y2 - w.y1) >= 0.5);
+  const walls = list(raw.walls, LIMITS.walls).map((w) => {
+    // `line` is [y1, x1, y2, x2] in 0–1000; x1/y1/x2/y2 in percent is the older form.
+    const l = Array.isArray(w?.line) && w.line.length === 4 ? w.line.map(Number) : null;
+    const p = l && l.every(Number.isFinite) ? { x1: l[1] / 10, y1: l[0] / 10, x2: l[3] / 10, y2: l[2] / 10 } : (w || {});
+    return { x1: num(p.x1, 0, 100, 0), y1: num(p.y1, 0, 100, 0), x2: num(p.x2, 0, 100, 0), y2: num(p.y2, 0, 100, 0) };
+  }).filter((w) => Math.hypot(w.x2 - w.x1, w.y2 - w.y1) >= 0.5);
 
-  const doors = list(raw.doors, LIMITS.doors).map((d) => ({
-    label: text(d?.label, 40) || 'Door',
-    x: num(d?.x, 0, 100, 50), y: num(d?.y, 0, 100, 50), size: num(d?.size, 0.5, 50, 5), vertical: d?.vertical === true,
-  }));
+  const doors = list(raw.doors, LIMITS.doors).map((d) => {
+    const b = fromBox2d(d?.box_2d);
+    const vertical = d?.vertical === true;
+    // The gap's length: along the wall it is in. Kept in % of the picture
+    // WIDTH, as `planToMap` reads it.
+    const size = b ? (vertical ? b.h * aspect : b.w) : d?.size;
+    return {
+      label: text(d?.label, 40) || 'Door',
+      x: num(b ? b.x : d?.x, 0, 100, 50), y: num(b ? b.y : d?.y, 0, 100, 50), size: num(size, 0.5, 50, 5), vertical,
+    };
+  });
 
-  const texts = list(raw.texts, LIMITS.texts).map((t) => ({
-    text: text(t?.text, 60), x: num(t?.x, 0, 100, 50), y: num(t?.y, 0, 100, 50), size: num(t?.size, 0.5, 15, 2),
-  })).filter((t) => t.text);
+  const texts = list(raw.texts, LIMITS.texts).map((t) => {
+    const b = fromBox2d(t?.box_2d);
+    return {
+      text: text(t?.text, 60), x: num(b ? b.x : t?.x, 0, 100, 50), y: num(b ? b.y : t?.y, 0, 100, 50),
+      // Letter height ≈ the box's height (one line of words).
+      size: num(b ? b.h : t?.size, 0.5, 15, 2),
+    };
+  }).filter((t) => t.text);
 
   if (tables.length === 0 && areas.length === 0) throw aiError('AI_OUTPUT_INVALID', 'The answer had no tables or areas.');
 
@@ -286,7 +320,9 @@ async function readSeatingMap({ image, notes = '', cfg }) {
     label: 'seating map (image)',
     inputChars: notes.length,
     final: ['AI_NOT_A_MAP'],
-    accept: (answer) => validateMap(answer.json),
+    accept: (answer) => validateMap(answer.json, {
+      aspect: image.width > 0 && image.height > 0 ? image.height / image.width : 1,
+    }),
   });
   return { plan: { ...result, image: { width: image.width, height: image.height } }, meta };
 }

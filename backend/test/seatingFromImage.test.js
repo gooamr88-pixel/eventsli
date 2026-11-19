@@ -190,3 +190,32 @@ test('a busy Gemini is retried several times on the map clock before Groq is ask
     global.setTimeout = realSet;
   }
 });
+
+test('positions arrive as box_2d (0-1000) and become centre and size in percent (2026-11-19)', () => {
+  const plan = validateMap({
+    isSeatingMap: true,
+    tables: [table({ x: undefined, y: undefined, w: undefined, h: undefined, label: 'T7', box_2d: [270, 250, 310, 370], capacity: 8, top: 0, bottom: 0 })],
+    areas: [{ kind: 'stage', label: 'Stage', sublabel: null, box_2d: [240, 400, 290, 600], shape: 'rect', fill: null, border: 'solid' }],
+    walls: [{ line: [100, 50, 100, 950] }],
+    doors: [{ label: 'Entrance', box_2d: [880, 100, 920, 200], vertical: false }],
+    texts: [{ text: 'DANCE FLOOR', box_2d: [330, 420, 350, 580] }],
+  }, { aspect: 0.7 });
+  assert.deepEqual(
+    { x: plan.tables[0].x, y: plan.tables[0].y, w: plan.tables[0].w, h: plan.tables[0].h },
+    { x: 31, y: 29, w: 12, h: 4 },
+  );
+  assert.deepEqual({ x: plan.areas[0].x, y: plan.areas[0].y, w: plan.areas[0].w, h: plan.areas[0].h }, { x: 50, y: 26.5, w: 20, h: 5 });
+  assert.deepEqual(plan.walls[0], { x1: 5, y1: 10, x2: 95, y2: 10 });
+  assert.equal(plan.doors[0].x, 15);
+  assert.equal(plan.doors[0].size, 10);
+  assert.equal(plan.texts[0].y, 34);
+});
+
+test('the map request asks Gemini for its detection format and full picture detail', () => {
+  const req = buildMapRequest({ notes: '' });
+  assert.equal(req.highDetail, true);
+  const t = req.geminiSchema.properties.tables.items.properties;
+  assert.equal(t.box_2d.type, 'ARRAY');
+  assert.equal(t.x, undefined);
+  assert.match(req.system, /box_2d/);
+});

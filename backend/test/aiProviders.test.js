@@ -238,3 +238,18 @@ test('when every provider fails, each attempt is listed for the Reason line', as
       && !('tried' in err.meta),
   );
 });
+
+test('a picture read at high detail asks for it, and retries without it when the model refuses the setting', async () => {
+  const bodies = [];
+  aiHttp.setTransport(async (req) => {
+    bodies.push(req.body);
+    if (bodies.length === 1) return { status: 400, text: JSON.stringify({ error: { message: 'Unknown field mediaResolution' } }) };
+    return geminiOk(GOOD);
+  });
+  const out = await CALLERS.gemini({
+    ...buildRequest(REQUEST), timeoutMs: 5000, highDetail: true, image: { mimeType: 'image/jpeg', data: 'AAAA' },
+  });
+  assert.equal(bodies[0].generationConfig.mediaResolution, 'MEDIA_RESOLUTION_HIGH');
+  assert.equal(bodies[1].generationConfig.mediaResolution, undefined);
+  assert.deepEqual(out.json, GOOD);
+});

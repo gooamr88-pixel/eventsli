@@ -89,7 +89,11 @@ test('the dialog reads a picture, shows the rebuilt map, and applies it', async 
   const file = new File(['x'], 'plan.png', { type: 'image/png' });
   await userEvent.upload(container.querySelector('input[type="file"]'), file);
   await userEvent.click(await screen.findByRole('button', { name: /Read the map/ }));
-  await waitFor(() => expect(screen.getByText(/Read 34 tables with 174 seats/)).toBeTruthy());
+  // The result as figures (2026-11-19), not a sentence of instructions.
+  const stats = await screen.findByRole('list', { name: 'What was read' });
+  expect(stats.textContent).toMatch(/34\s*tables/);
+  expect(stats.textContent).toMatch(/174\s*seats/);
+  expect(screen.queryByText(/Compare the two/)).toBeNull();
   expect(post.mock.calls[0][0]).toBe('/ai/events/ev-1/seating-plan/from-image');
   expect(post.mock.calls[0][1].image).toEqual({ mimeType: 'image/jpeg', data: 'data:image/jpeg;base64,AAAA' });
   await userEvent.click(screen.getByRole('button', { name: 'Apply to my map' }));
