@@ -297,10 +297,13 @@ export default function TicketPicker({ slug, focusTierId }) {
         * soon as somebody started tapping "+" — they were choosing quantities
         * with the number those quantities produce nowhere in view.
         *
-        * `.fx-safe-bottom` clears the home indicator; `bottom-0` is enough
-        * because this is the last block in its own scrolling column.
+        * The bottom padding clears the iPhone home indicator; `bottom-0` is
+        * enough because this is the last block in its own scrolling column.
+        * Not `.fx-safe-bottom` + `p-4`: the utility's padding beat the
+        * component class, so the clearance was zero and Checkout sat under
+        * the home bar (2026-11-19).
         */}
-      <div className="fx-safe-bottom sticky bottom-0 z-(--es-z-sticky) es-plate fx-stack fx-stack--sm bg-surface p-4 shadow-lg lg:static lg:shadow-none">
+      <div className="sticky bottom-0 z-(--es-z-sticky) es-plate fx-stack fx-stack--sm bg-surface px-4 pt-4 pb-[max(1rem,calc(var(--fx-safe-b)_+_0.5rem))] shadow-lg lg:static lg:shadow-none">
         <div className="fx-row fx-row--between items-baseline gap-3">
           <span className="text-ink">
             {chosen} {chosen === 1 ? 'ticket' : 'tickets'}

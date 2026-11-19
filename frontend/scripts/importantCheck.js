@@ -52,6 +52,11 @@ const ALLOWED = [
   },
   {
     file: 'app/globals.css',
+    why: 'iOS Safari focus-zoom floor (pointer: coarse) — a field under 16px zooms the page on tap, so no component may lower it; without this the 14px organizer search and filters zoomed on every iPhone (2026-11-19)',
+    declarations: [/^font-size:\s*max\(16px,\s*1em\)$/],
+  },
+  {
+    file: 'app/globals.css',
     why: 'the devtools overflow handle — never applied by the app',
     declarations: [/^overflow-x:\s*visible$/],
   },

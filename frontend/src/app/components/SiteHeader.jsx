@@ -228,7 +228,7 @@ function SiteNav({ pathname }) {
                 land. Now: plain links read as navigation, one button is the
                 obvious next step, and the theme control is an icon that does
                 not compete with either. */}
-            <nav className="fx-hide-below-md fx-row" aria-label="Main">
+            <nav className="es-site-nav fx-hide-below-lg fx-row" aria-label="Main">
               {links.map((link) => (
                 <NavLink key={link.href} link={link} pathname={pathname} />
               ))}
@@ -254,7 +254,7 @@ function SiteNav({ pathname }) {
             {/* THE THEME CONTROL WAS HERE and is gone with the theme itself —
                 see globals.css. The wrapper stays because the burger needs a
                 flex parent to sit in on a phone. */}
-            <div className="fx-row md:hidden">
+            <div className="fx-row lg:hidden">
             {/* On a phone the cart sits beside the menu, not inside it: a buyer
                 checking what they hold should not have to open a panel. */}
             <CartButton />
@@ -267,10 +267,10 @@ function SiteNav({ pathname }) {
                 pressing it did anything. */}
             <button
               type="button"
-              // `md:hidden`, a utility, not `.fx-only-below-md`: that is a
+              // `lg:hidden`, a utility, not `.fx-only-below-md`: that is a
               // component-layer rule earlier in the file than `.es-btn`, whose
               // `display: inline-flex` won — so the burger showed on desktops.
-              className="es-btn es-btn--ghost fx-touch--icon md:hidden"
+              className="es-btn es-btn--ghost fx-touch--icon lg:hidden"
               aria-expanded={menuOpen}
               aria-controls="site-menu"
               aria-label={menuOpen ? 'Close the menu' : 'Open the menu'}
@@ -293,7 +293,7 @@ function SiteNav({ pathname }) {
         <nav
           id="site-menu"
           aria-label="Main"
-          className="border-t border-border-base bg-surface md:hidden"
+          className="border-t border-border-base bg-surface lg:hidden"
         >
           <div className="fx-gutter">
             <ul className="fx-stack fx-stack--sm py-3">

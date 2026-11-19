@@ -1000,6 +1000,14 @@
    file) and the desktop header links ran together with no gap. Hiding only
    where it should hide leaves every other class's display alone. */
 @media (width < 48rem) { .fx-hide-below-md { display: none; } }
+/* Same, for things that need a laptop's width: the site header's full link
+   row (six links, cart, sign out, the button) wrapped onto a second line at
+   768px and dropped "Create event" over the page below it. */
+@media (width < 64rem) { .fx-hide-below-lg { display: none; } }
+/* From 1024 to 1280 the row is logo 166 + links 762 + gap 15 against 942px
+   of room: 1px short, so the links wrapped under the logo. Tighter link
+   spacing there buys ~50px; from xl the normal gap returns. */
+@media (64rem <= width < 80rem) { .es-site-nav { gap: 0.5rem; } }
 
 /* ── .fx-sticky-actions — a bar that survives scrolling ─────────────────
    The seat picker and the checkout both end in a decision the person has
@@ -2200,6 +2208,12 @@ body:has(.es-buybar) { padding-block-end: calc(5.5rem + var(--fx-safe-b)); }
 .es-nav-content {
   min-height: 100dvh;
   padding-bottom: calc(var(--es-nav-bar-h) + var(--fx-safe-b));
+  /* The page-head glow (`.es-page-head::after`, inset -2rem) bleeds past the
+     column edge, and on a phone that edge IS the screen edge: every dashboard
+     and account page laid out 16px wider than the phone, zoomed out, slid
+     sideways and pushed the bottom tab bar half off the screen. `clip`, not
+     `hidden`: it makes no scroll container, so sticky bars keep sticking. */
+  overflow-x: clip;
 }
 @media (width >= 48rem) {
   .es-nav-content {
@@ -2217,6 +2231,11 @@ body:has(.es-buybar) { padding-block-end: calc(5.5rem + var(--fx-safe-b)); }
   .es-nav-content .fx-sticky-actions {
     bottom: calc(var(--es-nav-bar-h) + var(--fx-safe-b));
     padding-bottom: var(--fx-gap-sm);
+  }
+  /* The editors' Save bar too: at its own `inset-block-end: 0` it slid under
+     the tab bar, so "Save" was hidden behind Dashboard / Your events. */
+  .es-nav-content .es-savebar {
+    inset-block-end: calc(var(--es-nav-bar-h) + var(--fx-safe-b) + 0.5rem);
   }
 }
 
@@ -2546,6 +2565,9 @@ body:has(.es-buybar) { padding-block-end: calc(5.5rem + var(--fx-safe-b)); }
 .es-nav-bar__tab {
   display: flex;
   flex: 1;
+  /* Without this a flex item never shrinks below its unbreakable label, so
+     the ellipsis below never fires and a long label widens the bar. */
+  min-width: 0;
   flex-direction: column;
   align-items: center;
   justify-content: center;
@@ -6339,6 +6361,10 @@ input.es-lp-filter__control::-webkit-search-cancel-button { display: none; }
     overflow: visible;
     scroll-snap-type: none;
   }
+  /* Four rows of two, as the owner asked. The fetch later grew to 24 for the
+     tablet's paged rail, and on a phone all 24 stacked into a 4,500px wall;
+     "View All Events" sits right above for the rest. */
+  .es-lp-cards.es-lp-rail > li:nth-child(n + 9) { display: none; }
   .es-lp-rail .es-evcard { padding: 6px; border-radius: 14px; }
   .es-lp-rail .es-evcard__media { aspect-ratio: 4 / 5; border-radius: 10px; background: var(--es-night-900); }
   .es-lp-rail .es-evcard__blur {
@@ -7333,6 +7359,57 @@ input.es-lp-filter__control::-webkit-search-cancel-button { display: none; }
 .es-evx-card__cta--muted,
 .es-evx-card:hover .es-evx-card__cta--muted { background: var(--es-bg-sunken); color: var(--es-text); }
 
+/* PHONES: a compact row, not the desktop poster card. One full-width poster
+   card per screen made 30 events an 11,000px scroll, with three cards on view
+   at most. The owner's reference is a desktop listing, and from sm up it
+   stays exactly as it is. Here the poster becomes a square thumbnail on the
+   left (still contain-over-blur, never cropped) and everything else sits
+   beside it, so five or six events fit on a screen. The whole card is still
+   the one link; the "button" is decoration, so it can shrink below 44px. */
+@media (width < theme(--breakpoint-sm)) {
+  .es-evx__grid { gap: 0.75rem; }
+  .es-evx-card {
+    display: grid;
+    grid-template-columns: 7.5rem minmax(0, 1fr);
+    grid-template-rows: auto auto 1fr;
+    grid-template-areas:
+      "media title"
+      "media meta"
+      "media foot";
+    column-gap: 0.9rem;
+    padding: 0.75rem;
+    border-radius: 12px;
+  }
+  .es-evx-card__media {
+    grid-area: media;
+    align-self: start;
+    aspect-ratio: 1;
+  }
+  .es-evx-card__placeholder { padding: 0.5rem; font-size: 0.95rem; }
+  .es-evx-card__title {
+    grid-area: title;
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+  .es-evx-card__meta { grid-area: meta; gap: 0.2rem; margin-top: 0.35rem; }
+  .es-evx-card__line { gap: 0.35rem; font-size: 0.85rem; line-height: 1.35; }
+  .es-evx-card__line > span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .es-evx-card__icon { width: 15px; height: 15px; margin-top: 0.05rem; }
+  .es-evx-card__foot {
+    grid-area: foot;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    align-self: end;
+    gap: 0.4rem;
+    padding-top: 0.6rem;
+  }
+  .es-evx-card__tag { padding: 0.2rem 0.45rem; font-size: 0.75rem; }
+  .es-evx-card__cta { min-height: 2rem; padding: 0.35rem 0.7rem; font-size: 0.85rem; font-weight: 600; }
+}
+
 /* Results */
 .es-ev-toolbar {
   display: flex;
@@ -7930,6 +8007,10 @@ input.es-lp-filter__control::-webkit-search-cancel-button { display: none; }
    map looked like a box somebody had dropped on the page. */
 .es-seatbar {
   padding: 0.875rem;
+  /* The `padding` above is later in this layer than `.fx-safe-bottom`, so it
+     wiped the home-indicator clearance and on an iPhone (toolbar collapsed,
+     or added to the home screen) "Continue" sat under the home bar. */
+  padding-bottom: max(0.875rem, calc(var(--fx-safe-b) + 0.5rem));
   border: 1px solid var(--es-border);
   border-block-end: 0;
   border-start-start-radius: var(--es-radius-xl);
@@ -8956,9 +9037,17 @@ a { color: inherit; text-decoration: none; }
    16px. It is not a preference and there is no opt-out: the viewport
    scales, the layout jumps, and the buyer has to pinch back out to see
    the field they just tapped. On a checkout form that is the difference
-   between a sale and a bounce. */
+   between a sale and a bounce.
+
+   `!important`, and it is the point (2026-11-19, owner: "terrible on
+   iPhones"). This rule is in `@layer base`, the weakest layer, so ANY class
+   that set a smaller size beat it: the organizer's "Search your events" and
+   the Your Events dropdowns were 14px and zoomed the page on every tap.
+   Inside a layer the order flips for important declarations — base's
+   `!important` outranks every normal rule anywhere — so no component can
+   undo the floor again. Touch screens only; desktops keep the sizes. */
 @media (pointer: coarse) {
-  input, select, textarea { font-size: max(16px, 1em); }
+  input, select, textarea { font-size: max(16px, 1em) !important; }
 }
 
 /* WCAG 2.3.3. Not `animation: none` — a zero-length animation still
