@@ -44,6 +44,11 @@ function lightRenderer() {
 export default function VenueScene3D({
   model, scene, labels = [], title = '', buildKey, colorKey, colorFor,
   mode = 'orbit', eye = null, onPick, onHover, onFallback, controlsRef, className = '', ariaLabel = 'Venue in 3D',
+  // The small preview beside the editor (owner, 2026-11-19: "not clear on
+  // the side"): no glow pass, which blurs detail at that size; no table
+  // numbers, which crowd it; a higher, closer camera that shows the layout;
+  // and fog pushed back so the far tables are not faded.
+  compact = false,
 }) {
   const hostRef = useRef(null);
   const stateRef = useRef(null);
@@ -129,7 +134,7 @@ export default function VenueScene3D({
       // page, and the renderer then applies tone mapping and colour itself.
       let composer = null;
       let bloom = null;
-      if (!light) {
+      if (!light && !compact) {
         composer = new EffectComposer(renderer);
         composer.addPass(new RenderPass(scene3, camera));
         bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.6, 0.5, 0.9);
@@ -141,6 +146,14 @@ export default function VenueScene3D({
       controls.dampingFactor = 0.08;
       controls.maxPolarAngle = Math.PI * 0.47;
       controls.screenSpacePanning = false;
+      if (compact) {
+        // The side preview turns with a drag and nothing else: the wheel and
+        // a one-finger swipe scroll the page past it, as on the 2D maps
+        // (usePanZoom, 2026-11-19). "Open 3D" is the full, zoomable view.
+        controls.enableZoom = false;
+        controls.enablePan = false;
+        renderer.domElement.style.touchAction = 'pan-x pan-y';
+      }
 
       const st = {
         THREE, renderer, composer, bloom, light, scene: scene3, camera, controls, room: null, model: null,
@@ -325,8 +338,10 @@ export default function VenueScene3D({
     if (st.room) { st.scene.remove(st.room.group); disposeTree(st.room.group); }
     const style = MOOD_STYLE[scene.mood] || MOOD_STYLE.concert;
     st.scene.background = new THREE.Color(style.background);
-    st.scene.fog = new THREE.Fog(style.fog, model.radius * 2.2, model.radius * 5);
-    st.room = buildRoom(THREE, model, scene, { title, labels });
+    st.scene.fog = compact
+      ? new THREE.Fog(style.fog, model.radius * 4, model.radius * 8)
+      : new THREE.Fog(style.fog, model.radius * 2.2, model.radius * 5);
+    st.room = buildRoom(THREE, model, scene, { title, labels, tableNumbers: !compact });
     st.scene.environmentIntensity = style.env ?? 0.6;
     if (st.bloom) st.bloom.strength = style.bloom ?? 0.5;
     st.model = model;
@@ -340,10 +355,17 @@ export default function VenueScene3D({
     // the room's width rather than cropping the side sections.
     const narrow = Math.max(1, 1.3 / (st.camera.aspect || 1));
     const dist = Math.max(14, model.radius * 0.95) * narrow;
-    st.home = {
-      position: new THREE.Vector3(back.x * dist, Math.max(11, model.radius * 1.0 + model.topRise) * narrow, back.z * dist),
-      target: new THREE.Vector3(model.focus.x * 0.25, model.topRise * 0.3, model.focus.z * 0.25),
-    };
+    st.home = compact
+      // About 64° down onto the middle of the room, far enough for the whole
+      // room to fit a 50° lens: the layout reads like the 2D map beside it.
+      ? {
+        position: new THREE.Vector3(back.x * Math.max(6, model.radius * 0.9) * narrow, (Math.max(12, model.radius * 1.9) + model.topRise) * narrow, back.z * Math.max(6, model.radius * 0.9) * narrow),
+        target: new THREE.Vector3(0, model.topRise * 0.3, 0),
+      }
+      : {
+        position: new THREE.Vector3(back.x * dist, Math.max(11, model.radius * 1.0 + model.topRise) * narrow, back.z * dist),
+        target: new THREE.Vector3(model.focus.x * 0.25, model.topRise * 0.3, model.focus.z * 0.25),
+      };
     st.controls.minDistance = 4;
     st.controls.maxDistance = model.radius * 4 + 30;
     // Framed once. A rebuild from a settings slider (the rake, the lighting)

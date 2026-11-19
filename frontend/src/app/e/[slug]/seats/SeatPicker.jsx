@@ -181,18 +181,15 @@ export default function SeatPicker({ slug, currency, purchaseMode, maxPerOrder, 
   const [pickedTiers, setPickedTiers] = useState(() => new Set());
   const [showTaken, setShowTaken] = useState(true);
   /**
-   * TICKING A CATEGORY TAKES YOU TO ITS SEATS (owner, 2026-11-17). It used to
-   * only dim every other seat, which left the buyer hunting for the bright
-   * ones. Now the map glides to the tables holding the ticked categories'
-   * seats (switching to 2D if needed); unticking the last one shows the whole
-   * room again. The dimming stays, and dimmed seats can still be chosen.
+   * Ticking a category brightens its seats and dims the rest. It does NOT move
+   * the map or scroll the page any more (owner, 2026-11-19: a map that moves
+   * by itself is annoying); "Show these seats" on the map takes the buyer
+   * there when they ask. The 2026-11-17 version glided there on every tick.
    */
-  const [frameRequest, setFrameRequest] = useState(null);
   const togglePickedTier = (id) => {
     const next = new Set(pickedTiers);
     if (next.has(id)) next.delete(id); else next.add(id);
     setPickedTiers(next);
-    setFrameRequest((f) => ({ key: (f?.key || 0) + 1, tierIds: next }));
   };
   const priceGuide = useMemo(() => {
     const byTier = new Map();
@@ -521,7 +518,6 @@ export default function SeatPicker({ slug, currency, purchaseMode, maxPerOrder, 
           selectedTableIds={selectedTableIds}
           highlightTierIds={highlightTierIds}
           hideTaken={!showTaken}
-          frameRequest={frameRequest}
           showVenueInfo={false}
           purchaseMode={purchaseMode}
           currency={currency}

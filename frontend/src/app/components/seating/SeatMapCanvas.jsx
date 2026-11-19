@@ -7,6 +7,7 @@ import {
 import { usePanZoom } from './usePanZoom';
 import { useBadgeScale } from './useBadgeScale';
 import ZoneShape from './ZoneShape';
+import MapGestureHint from './MapGestureHint';
 import { SectionPlates, SectionBadges } from './MapOverlays';
 import { paintOrder, zoneLabel } from './venueZones';
 import { formatMoney } from '../../utils/money';
@@ -114,7 +115,7 @@ export default function SeatMapCanvas({
     [highlightTierIds, highlightTierId],
   );
   const {
-    svgRef, view, fit, frameTo, zoomIn, zoomOut, wasDragged, handlers,
+    svgRef, view, fit, frameTo, zoomIn, zoomOut, wasDragged, handlers, hint, touchAction,
   } = usePanZoom(bounds);
 
   /**
@@ -124,14 +125,18 @@ export default function SeatMapCanvas({
    * tables holding seats of those types; a new `key` is a new request, and no
    * tier ids frames the whole room again.
    */
-  useEffect(() => {
-    if (!frameRequest) return;
-    const ids = frameRequest.tierIds;
+  const frameTiers = (ids) => {
     if (!ids || ids.size === 0) { frameTo(bounds); return; }
     const holding = new Set(seats.filter((s) => ids.has(s.tierId) && s.tableId).map((s) => s.tableId));
     const target = tables.filter((t) => holding.has(t.id));
     if (target.length === 0) return;
     frameTo(contentBounds(target, [], world));
+  };
+  /** The "Show these seats" button: the highlighted ticket types' seats. */
+  const showFocused = () => frameTiers(focusTiers);
+  useEffect(() => {
+    if (!frameRequest) return;
+    frameTiers(frameRequest.tierIds);
     // Only a new request moves the map — not every re-render of the seats.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [frameRequest?.key]);
@@ -190,10 +195,10 @@ export default function SeatMapCanvas({
         ref={svgRef}
         viewBox={`${view.x} ${view.y} ${view.width} ${view.height}`}
         className="block h-full w-full select-none rounded-(--es-radius-lg) border border-border-base bg-bg-sunken"
-        // `touch-action: none` is what stops the browser scrolling the page
-        // instead of panning the map. Without it a one-finger drag on a phone
-        // scrolls past the map and the seats are unreachable.
-        style={{ touchAction: 'none', overscrollBehavior: 'contain', cursor: 'grab', ...(look?.floor ? { background: look.floor } : {}) }}
+        // `pan-x pan-y` (usePanZoom, cooperative touch, 2026-11-19): one
+        // finger scrolls the page and taps seats, two fingers move the map.
+        // It was `none`, and a swipe over the map trapped the page.
+        style={{ touchAction, cursor: 'grab', ...(look?.floor ? { background: look.floor } : {}) }}
         role="group"
         aria-label="Seat map"
         {...handlers}
@@ -232,6 +237,16 @@ export default function SeatMapCanvas({
           />
         ))}
       </svg>
+      <MapGestureHint hint={hint} />
+
+      {/* "Show these seats" (2026-11-19). Ticking a ticket category used to
+          glide the map there by itself (2026-11-17); the owner found a map
+          that moves on its own annoying. It moves when this is pressed. */}
+      {focusTiers && (
+        <button type="button" className="es-mapfocus" onClick={() => showFocused()}>
+          Show these seats
+        </button>
+      )}
 
       {/* TOP corner, not bottom. On the buyer's page the selection bar is
           sticky at the bottom of the screen and covered zoom-out and fit —
@@ -252,7 +267,10 @@ export default function SeatMapCanvas({
       {/* How to move around, said once. Nothing on the map said it could be
           zoomed, and a phone opened it too small to choose from. */}
       <p className="text-xs text-subtle">
-        Pinch or use + and − to zoom, and drag to move around.
+        {canPickTables && tables.some((t) => t.canBookWhole) && (
+          <>Tap a table to book the whole table{canPickSeats ? ', or tap seats to book them one by one' : ''}. </>
+        )}
+        Use + and − to zoom. Drag with the mouse, or with two fingers on a phone, to move around.
         {/* For screen readers only (2026-11-10): drawn, the zones are on the
             map for everyone else, and as visible text they were a run-on
             sentence of twenty names under every map. */}
@@ -298,6 +316,12 @@ function Table({
   // single seat sells individually the whole-table option closes, and the API
   // says so with `canBookWhole` rather than leaving it to be inferred.
   const wholeTableAvailable = canPickTables && table.canBookWhole;
+  // Written under the name when the table can be booked whole and is big
+  // enough to hold a second line (a high-top is not).
+  const wholePrice = wholeTableAvailable && currency && table.priceCents !== null && table.priceCents !== undefined
+    && body.width >= 44 && body.height >= 36
+    ? (table.priceCents === 0 ? 'Free' : formatMoney(table.priceCents, currency))
+    : null;
 
   // A key press is never a drag, so it skips that guard. The flag is left set
   // by the last pointer gesture, and sharing the click path made Enter on a
@@ -375,13 +399,20 @@ function Table({
         <text
           // Upright whatever way the table is turned, as on a printed plan.
           transform={`translate(0 ${body.labelY || 0}) rotate(${-pos.rotation})`}
-          y={4}
+          y={wholePrice ? -1 : 4}
           textAnchor="middle"
           className={paint.label || paint.fill ? undefined : 'fill-ink'}
           fill={paint.label || inkOn(paint.fill) || undefined}
           style={{ fontSize: shape === 'high_top' ? 11 : 14, fontWeight: font.fontWeight, fontFamily: font.fontFamily, pointerEvents: 'none' }}
         >
           {table.label}
+          {/* THE WHOLE-TABLE PRICE, written on the table (owner, 2026-11-19:
+              "how to sell whole table … and write whole table"). It was only
+              in a hover tooltip, which a phone never shows, so nothing on the
+              map said a table could be booked whole or what it cost. */}
+          {wholePrice && (
+            <tspan x={0} dy={13} style={{ fontSize: 9.5, fontWeight: 700 }}>{wholePrice}</tspan>
+          )}
         </text>
       )}
     </g>

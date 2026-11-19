@@ -168,6 +168,7 @@ export default function TablePanel({
           onChange={(e) => set({ password: e.target.value })}
         />
       )}
+      {table.isPrivate && <InviteLink table={table} />}
 
       {/* THE ROTATE BUTTON IS NOT A DUPLICATE OF THE CANVAS HANDLE.
           The handle is a drag, which a keyboard cannot perform and a trackpad
@@ -256,6 +257,42 @@ function PriceField({ tableKey, priceCents, onCommit, label = 'Whole-table price
         if (cents !== null) onCommit(cents);
       }}
     />
+  );
+}
+
+/**
+ * The private table's invitation link (owner, 2026-11-19: "how to set
+ * password?"). The panel said "send them the invitation link" and nothing
+ * showed one: it is the seat page with `?table=<id>`, which opens the
+ * password prompt for exactly this table (SeatPicker, useTableAccess). A
+ * table gets its id when the map is saved, so before that this says so.
+ */
+function InviteLink({ table }) {
+  const slug = useEventContext()?.event?.slug;
+  const [copied, setCopied] = useState(false);
+  if (!table.id || !slug) {
+    return <p className="text-xs text-subtle">Save the map, then the invitation link for this table appears here.</p>;
+  }
+  const path = `/e/${slug}/seats?table=${encodeURIComponent(table.id)}`;
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}${path}`);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch { /* clipboard blocked: the link is on screen to copy by hand */ }
+  };
+  return (
+    <div className="fx-stack gap-1.5">
+      <span className="text-sm text-ink">Invitation link</span>
+      <div className="fx-row items-center gap-2">
+        <code className="fx-min0 fx-break flex-1 rounded-(--es-radius-md) bg-bg-sunken px-2 py-1.5 text-xs">{path}</code>
+        <button type="button" className="es-btn es-btn--secondary es-btn--sm" onClick={copy}>{copied ? 'Copied' : 'Copy'}</button>
+      </div>
+      <p className="text-xs text-subtle">
+        Send this link and the password to the table&apos;s guests. The link opens the seat page and asks for the
+        password. The table works only after the map is saved{table.hasPassword ? '' : ' with a password'}.
+      </p>
+    </div>
   );
 }
 

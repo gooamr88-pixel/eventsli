@@ -90,7 +90,10 @@ export default function MapEditor({ eventId }) {
     setFramedWorld(world);
     setFrame(frameFor(tables, zones, world));
   }
-  const panzoom = usePanZoom(frame, { wheelMode: 'pan' });
+  // Touch stays direct (one finger drags tables); the frame changes only on
+  // load, Fit and a venue resize, so it is always followed. A bare wheel
+  // scrolls the page except in full screen (usePanZoom, 2026-11-19).
+  const panzoom = usePanZoom(frame, { wheelMode: 'pan', touch: 'direct', follow: 'always' });
   const fitRoom = () => {
     const next = frameFor(tables, zones, world);
     // The same frame again does not re-trigger the hook, so ask it directly.

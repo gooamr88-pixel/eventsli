@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { clampView } from './seatingGeometry';
 
 /**
@@ -34,9 +34,41 @@ import { clampView } from './seatingGeometry';
  * around", making it re-zoom instead means the only way to reach the far corner
  * is to hold a key and drag with the other hand.
  */
-export function usePanZoom(bounds, { wheelMode = 'zoom' } = {}) {
+/**
+ * THE MAP STAYS STILL UNLESS IT IS ASKED TO MOVE (owner, 2026-11-19: "no
+ * moving when creating an event or browsing seats, it's annoying").
+ *
+ * • A bare WHEEL scrolls the page and never touches the map — scrolling past
+ *   a map used to zoom it on the way, while the page scrolled too (React's
+ *   wheel listener is passive, so it could never stop the page). Ctrl/⌘ +
+ *   wheel, which is also what a trackpad pinch sends, zooms. The editor in
+ *   full screen, where there is no page to scroll, still pans on the wheel.
+ * • `touch: 'cooperative'` (the buyer's maps): ONE finger scrolls the page
+ *   and taps seats; TWO fingers move and zoom the map — Google Maps' rule for
+ *   a map inside a page, down to the same `touch-action: pan-x pan-y`. A
+ *   one-finger swipe that starts on the map used to trap the page.
+ *   `'direct'` (the editor) keeps one-finger dragging, which moves tables.
+ * • `follow: 'untilMoved'`: the map re-frames when its content changes only
+ *   until the person has moved it themselves. After that it never jumps.
+ *   The editor passes `'always'`: its frame changes only on load, Fit and a
+ *   venue resize, each of which is a request to re-frame.
+ *
+ * `hint` ('wheel' | 'touch' | null) is what to tell someone whose gesture
+ * went to the page instead of the map; `MapGestureHint` shows it.
+ */
+export function usePanZoom(bounds, { wheelMode = 'zoom', touch = 'cooperative', follow = 'untilMoved' } = {}) {
   const svgRef = useRef(null);
   const [view, setView] = useState(() => ({ ...bounds }));
+  // Whether the person has moved the map since it was last framed.
+  const [userMoved, setUserMoved] = useState(false);
+  const [hint, setHint] = useState(null);
+  const hintTimer = useRef(0);
+  const flashHint = useCallback((kind) => {
+    setHint(kind);
+    clearTimeout(hintTimer.current);
+    hintTimer.current = setTimeout(() => setHint(null), 1800);
+  }, []);
+  useEffect(() => () => clearTimeout(hintTimer.current), []);
 
   // The gesture in progress. A ref, not state: these change on every
   // pointermove and re-rendering the whole map per frame drops the frame rate
@@ -44,8 +76,9 @@ export function usePanZoom(bounds, { wheelMode = 'zoom' } = {}) {
   const gesture = useRef(null);
   const moved = useRef(false);
 
-  /** Frames the content. Called by the "fit" control. */
-  const fit = useCallback(() => setView({ ...bounds }), [bounds]);
+  /** Frames the content. Called by the "fit" control; the map follows its
+   *  content again afterwards. */
+  const fit = useCallback(() => { setView({ ...bounds }); setUserMoved(false); }, [bounds]);
 
   /**
    * Re-frame when the content changes shape — a map arriving after its loading
@@ -81,7 +114,8 @@ export function usePanZoom(bounds, { wheelMode = 'zoom' } = {}) {
   const [seenBounds, setSeenBounds] = useState(boundsKey);
   if (boundsKey !== seenBounds) {
     setSeenBounds(boundsKey);
-    setView({ ...bounds });
+    // Not once the person has placed the view themselves: see `follow`.
+    if (follow === 'always' || !userMoved) setView({ ...bounds });
   }
 
   /** Screen pixels → world units, through the CURRENT viewBox. */
@@ -144,26 +178,42 @@ export function usePanZoom(bounds, { wheelMode = 'zoom' } = {}) {
     });
   }, [bounds]);
 
-  const onWheel = useCallback((e) => {
-    // Not preventDefault'd here — React attaches wheel listeners passively, so
-    // the call would warn and do nothing. The SVG carries `touch-action: none`
-    // and `overscroll-behavior: contain` instead, which stops the page
-    // scrolling underneath without fighting the browser for the event.
-    if (wheelMode === 'pan' && !e.ctrlKey && !e.metaKey) {
+  /**
+   * The wheel, as a NATIVE non-passive listener: React's `onWheel` is passive,
+   * so it could zoom the map but never stop the page scrolling at the same
+   * time — both moved. Now exactly one thing moves: the map when asked
+   * (Ctrl/⌘, a pinch, or the editor in full screen), otherwise the page.
+   */
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return undefined;
+    const onWheel = (e) => {
       // `deltaMode` is lines on a real mouse wheel in Firefox and pages on some
       // configurations; treating either as pixels makes one notch move a
       // fraction of what it should and the map feel stuck.
-      const unit = e.deltaMode === 1 ? 18 : e.deltaMode === 2 ? (svgRef.current?.getBoundingClientRect().height || 400) : 1;
-      // Shift-scroll goes sideways, the way it does in every document — and it
-      // is the only horizontal gesture a plain wheel-mouse has.
-      const dx = (e.shiftKey ? e.deltaY : e.deltaX) * unit;
-      const dy = (e.shiftKey ? 0 : e.deltaY) * unit;
-      panByScreen(-dx, -dy);
-      return;
-    }
-    const factor = e.deltaY > 0 ? 1.12 : 1 / 1.12;
-    zoomAt(factor, e.clientX, e.clientY);
-  }, [zoomAt, panByScreen, wheelMode]);
+      const unit = e.deltaMode === 1 ? 18 : e.deltaMode === 2 ? (svg.getBoundingClientRect().height || 400) : 1;
+      const zoomKey = e.ctrlKey || e.metaKey;   // a trackpad pinch arrives as Ctrl+wheel
+      const fullscreen = typeof document !== 'undefined' && document.fullscreenElement?.contains(svg);
+      if (wheelMode === 'pan' && fullscreen && !zoomKey) {
+        e.preventDefault();
+        // Shift-scroll goes sideways, the way it does in every document.
+        const dx = (e.shiftKey ? e.deltaY : e.deltaX) * unit;
+        const dy = (e.shiftKey ? 0 : e.deltaY) * unit;
+        panByScreen(-dx, -dy);
+        setUserMoved(true);
+        return;
+      }
+      if (!zoomKey) { flashHint('wheel'); return; }   // the page scrolls
+      e.preventDefault();                                // and not the browser's own zoom
+      // Proportional, so a mouse notch (~100) is a step and a trackpad pinch
+      // (a stream of small deltas) is smooth rather than a rocket.
+      const delta = Math.max(-100, Math.min(100, e.deltaY * unit));
+      zoomAt(Math.exp(delta * 0.0025), e.clientX, e.clientY);
+      setUserMoved(true);
+    };
+    svg.addEventListener('wheel', onWheel, { passive: false });
+    return () => svg.removeEventListener('wheel', onWheel);
+  }, [zoomAt, panByScreen, wheelMode, flashHint]);
 
   const onPointerDown = useCallback((e) => {
     const svg = svgRef.current;
@@ -203,7 +253,9 @@ export function usePanZoom(bounds, { wheelMode = 'zoom' } = {}) {
 
     g.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
-    // Pinch.
+    // Two fingers: pinch to zoom, and move together to pan — with one-finger
+    // swipes going to the page (cooperative touch), this is how a phone moves
+    // the map at all.
     if (g.pointers.size === 2 && g.pinchStart) {
       const span = spanOf(g.pointers);
       if (span.distance > 0 && g.pinchStart.distance > 0) {
@@ -213,7 +265,9 @@ export function usePanZoom(bounds, { wheelMode = 'zoom' } = {}) {
         // gesture's start, then the start is reset — accumulating drifts,
         // because each frame's rounding compounds over a long pinch.
         zoomAt(factor, span.x, span.y);
+        panByScreen(g.pinchStart.x - span.x, g.pinchStart.y - span.y);
         g.pinchStart = span;
+        setUserMoved(true);
       }
       return;
     }
@@ -239,17 +293,23 @@ export function usePanZoom(bounds, { wheelMode = 'zoom' } = {}) {
     }
     if (!moved.current) return;
 
+    setUserMoved(true);
     setView(clampView({
       x: g.start.x - dx,
       y: g.start.y - dy,
       width: g.start.width,
       height: g.start.height,
     }, bounds));
-  }, [bounds, zoomAt]);
+  }, [bounds, zoomAt, panByScreen]);
 
   const endPointer = useCallback((e) => {
     const g = gesture.current;
     if (!g) return;
+    // One finger the browser took for scrolling the page (cooperative touch):
+    // say how the map does move, rather than leaving it seemingly stuck.
+    if (e.type === 'pointercancel' && e.pointerType === 'touch' && touch === 'cooperative' && g.pointers.size === 1) {
+      flashHint('touch');
+    }
     g.pointers.delete(e.pointerId);
     // Only a pointer a drag captured is released; releasing one that was never
     // captured throws in some engines.
@@ -265,7 +325,7 @@ export function usePanZoom(bounds, { wheelMode = 'zoom' } = {}) {
       g.start = { ...view };
       g.pinchStart = null;
     }
-  }, [view]);
+  }, [view, touch, flashHint]);
 
   /**
    * True when the gesture that just ended was a drag, so a click handler can
@@ -274,8 +334,8 @@ export function usePanZoom(bounds, { wheelMode = 'zoom' } = {}) {
    */
   const wasDragged = useCallback(() => moved.current, []);
 
-  const zoomIn = useCallback(() => zoomAt(1 / 1.35, centreOf(svgRef).x, centreOf(svgRef).y), [zoomAt]);
-  const zoomOut = useCallback(() => zoomAt(1.35, centreOf(svgRef).x, centreOf(svgRef).y), [zoomAt]);
+  const zoomIn = useCallback(() => { zoomAt(1 / 1.35, centreOf(svgRef).x, centreOf(svgRef).y); setUserMoved(true); }, [zoomAt]);
+  const zoomOut = useCallback(() => { zoomAt(1.35, centreOf(svgRef).x, centreOf(svgRef).y); setUserMoved(true); }, [zoomAt]);
 
   /**
    * GLIDES the view to a box (world units) — "take me to these seats"
@@ -322,8 +382,10 @@ export function usePanZoom(bounds, { wheelMode = 'zoom' } = {}) {
     panByScreen,
     wasDragged,
     toWorldPoint,
+    hint,
+    // The CSS touch-action the map's <svg> must carry for `touch`.
+    touchAction: touch === 'cooperative' ? 'pan-x pan-y' : 'none',
     handlers: {
-      onWheel,
       onPointerDown,
       onPointerMove,
       onPointerUp: endPointer,

@@ -137,6 +137,10 @@ export default function ImageImportDialog({ eventId, replacing, blocked = null, 
                 </span>
                 {preview ? (
                   <SeatMapCanvas
+                    // A new reading is a new map: framed afresh even if the
+                    // last one was zoomed (the map no longer re-frames itself
+                    // once moved).
+                    key={madeAt || 'kept'}
                     className="h-[24rem]"
                     tables={preview.tables} seats={preview.seats} zones={map.zones} world={map.world} look={map.look}
                     seatFill={preview.seatFill} showcase purchaseMode="seat_only" onSelectSeat={() => {}}
@@ -164,7 +168,15 @@ export default function ImageImportDialog({ eventId, replacing, blocked = null, 
                 placeholder="e.g. Tables S36–S40 seat 4, the kitchen is staff only" onChange={(e) => setNotes(e.target.value)} />
             </label>
 
-            {error && <p role="alert" className="text-sm text-danger">{describeError(error).title}. {messageFor(error)}</p>}
+            {error && (
+              <p role="alert" className="text-sm text-danger">
+                {describeError(error).title}. {messageFor(error)}
+                {/* Why every AI provider failed (the API's own code, e.g.
+                    AI_TIMEOUT or AI_REQUEST_REJECTED): "did not answer in
+                    time" is said for all of them, so support needs this. */}
+                {error.meta?.reason && <span className="block text-xs text-subtle">Reason: {error.meta.reason}</span>}
+              </p>
+            )}
             {visionOff && <p className="es-ai-later"><NavIcon name="info" size={15} /> Reading pictures is switched off right now.</p>}
             {replacing && plan && (
               <p className="es-ai-later"><NavIcon name="info" size={15} /> Applying replaces the tables and areas on your map. Undo brings them back, and nothing is saved until Save map.</p>

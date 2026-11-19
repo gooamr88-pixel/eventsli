@@ -44,7 +44,7 @@ export default function Preview3DCard({ tables, zones, world, scene, tiers, onOp
       </div>
       <div className="es-preview3d__view">
         <VenueScene3D
-          className="h-full w-full" model={model} scene={scene} buildKey={model} colorKey={colorFor}
+          className="h-full w-full" compact model={model} scene={scene} buildKey={model} colorKey={colorFor}
           colorFor={colorFor} ariaLabel="A small 3D preview of the room"
         />
       </div>

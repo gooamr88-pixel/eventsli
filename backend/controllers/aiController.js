@@ -192,7 +192,16 @@ async function spend(req, res, { cfg, organizerId, feature, answers = {} }, work
     await quota.finish(reservation.id, 'released', err.meta || { failure_code: err.code || 'SERVER_ERROR' })
       .catch((e) => logger.error({ err: e.message }, 'ai: could not release a reservation'));
     const known = { AI_UNAVAILABLE: UNAVAILABLE, ...answers }[err.code];
-    if (known) return sendFail(res, { status: known.status, error: err.code, message: known.message });
+    // Why every provider failed (AI_TIMEOUT, AI_REQUEST_REJECTED, AI_TRUNCATED,
+    // AI_OUTPUT_INVALID…): one of our own codes, never the provider's text. The
+    // message reads "did not answer in time" for all of them, and without this
+    // a rejected request could not be told from a slow one (2026-11-19).
+    const reason = err.code === 'AI_UNAVAILABLE' ? err.meta?.failure_code || null : null;
+    if (known) {
+      return sendFail(res, {
+        status: known.status, error: err.code, message: known.message, ...(reason ? { meta: { reason } } : {}),
+      });
+    }
     throw err;
   }
 

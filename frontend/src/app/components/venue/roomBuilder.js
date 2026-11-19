@@ -168,7 +168,7 @@ function floorTexture(THREE, style) {
  * Builds the room. Returns the group to add to a scene, the two seat meshes
  * (for picking and colouring) and whatever needs animating.
  */
-export function buildRoom(THREE, model, scene, { title, labels = [] } = {}) {
+export function buildRoom(THREE, model, scene, { title, labels = [], tableNumbers: withNumbers = true } = {}) {
   const style = MOOD_STYLE[scene.mood] || MOOD_STYLE.concert;
   const group = new THREE.Group();
   const animated = [];
@@ -311,7 +311,8 @@ export function buildRoom(THREE, model, scene, { title, labels = [] } = {}) {
   // field of identical tables, and "table 12" could not be found in it. One
   // small plate floating over each table, sized to the table, depth-tested so
   // a near table's number is not painted over by a far one's.
-  const tableNumbers = model.bodies.filter((b) => b.label).map((b) => {
+  // Off in the editor's small preview, where they crowd the picture.
+  const tableNumbers = (withNumbers ? model.bodies : []).filter((b) => b.label).map((b) => {
     const plate = makeLabel(THREE, String(b.label), {
       height: Math.min(0.7, Math.max(0.36, Math.min(b.w, b.d) * 0.32)),
       depthTest: true,

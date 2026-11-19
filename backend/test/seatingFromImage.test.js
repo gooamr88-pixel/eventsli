@@ -95,3 +95,13 @@ test('the map reader has a long clock, still inside nginx (2026-11-19)', () => {
   assert.ok(MAP_CLOCK.total <= 55_000);
   assert.ok(MAP_CLOCK.lastStart < MAP_CLOCK.total);
 });
+
+test('the Gemini schema carries no item limits, which Gemini refuses as too many states (2026-11-19)', () => {
+  const { geminiSchema, jsonSchema } = buildMapRequest({ notes: '' });
+  assert.equal(JSON.stringify(geminiSchema).includes('maxItems'), false);
+  // The tables list is still a list of objects with its fields.
+  assert.equal(geminiSchema.properties.tables.type, 'ARRAY');
+  assert.ok(geminiSchema.properties.tables.items.properties.label);
+  // The OpenAI-style schema (Groq) is untouched.
+  assert.ok(JSON.stringify(jsonSchema).length > 0);
+});

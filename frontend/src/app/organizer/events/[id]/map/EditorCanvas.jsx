@@ -7,6 +7,7 @@ import {
 import { paintOrder, zoneBox } from '../../../../components/seating/venueZones';
 import ZoneShape from '../../../../components/seating/ZoneShape';
 import EditableTable from './EditableTable';
+import MapGestureHint from '../../../../components/seating/MapGestureHint';
 import { tierPalette } from '../../../../components/venue/venueModel';
 import SelectionHandles from './SelectionHandles';
 import { SNAP_WORLD } from './useCanvasInteraction';
@@ -124,7 +125,7 @@ export default function EditorCanvas({
         ref={svgRef}
         viewBox={`${view.x} ${view.y} ${view.width} ${view.height}`}
         className="block h-full w-full select-none rounded-(--es-radius-lg) border border-border-base bg-bg-sunken"
-        style={{ touchAction: 'none', overscrollBehavior: 'contain', cursor }}
+        style={{ touchAction: panzoom.touchAction, cursor }}
         role="application"
         aria-label="Seating map editor"
         {...handlers}
@@ -278,9 +279,12 @@ export default function EditorCanvas({
 
       {/* A pill on the surface rather than loose text, so it reads as help
           and not as part of the plan. */}
+      {/* 2026-11-19: a bare scroll no longer moves the map (it scrolls the
+          page), except in full screen. */}
       <p className="es-mapcanvas__hint">
-        Scroll to move · Ctrl+scroll to zoom · drag the floor to select · Space to pan
+        Ctrl+scroll to zoom · Move tool or Space+drag to pan · drag the floor to select
       </p>
+      <MapGestureHint hint={panzoom.hint} />
     </div>
   );
 }
