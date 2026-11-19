@@ -1,7 +1,7 @@
 'use client';
 
 import {
-  SEAT_RADIUS, tableBody, seatPositions, toWorld, normaliseShape, worldOf,
+  SEAT_RADIUS, tableBody, seatPositions, toWorld, normaliseShape, worldOf, tableScale,
 } from '../../../../../components/seating/seatingGeometry';
 import TableBodyShape from '../../../../../components/seating/TableBodyShape';
 import { paintOrder, zoneBox, zoneLabel } from '../../../../../components/seating/venueZones';
@@ -146,10 +146,13 @@ function PlanTable({ table, showSeats, showSold, world }) {
   const layout = seatPositions(shape, table.seatCount, table.style);
   const sold = showSold ? (Number(table.soldSeats) || 0) : 0;
 
-  const numeral = clamp(Math.min(body.width, body.height || 40) / 2.4, 11, 30);
+  // The organizer's table size (tableScale). The numeral's floor is divided by
+  // it, so a small table still prints a number door staff can read.
+  const size = tableScale(table.style);
+  const numeral = clamp(Math.min(body.width, body.height || 40) / 2.4, 11 / size, 30);
 
   return (
-    <g transform={`translate(${pos.x} ${pos.y}) rotate(${pos.rotation})`}>
+    <g transform={`translate(${pos.x} ${pos.y}) rotate(${pos.rotation}) scale(${size})`}>
       {/* Shape only, never the organizer's colours: this page meets a mono laser. */}
       <TableBodyShape body={body} fill="#ffffff" stroke={INK} strokeWidth={1.4} />
 

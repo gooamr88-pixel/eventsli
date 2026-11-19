@@ -4,7 +4,7 @@ import { useId } from 'react';
 import NavIcon from '../../../../components/shell/NavIcon';
 import { RadioCards } from '../WizardParts';
 import { ADMISSION_TYPES, PURCHASE_MODES } from '../wizardModel';
-import { TIER_KINDS, newTier, priceToCents } from './aiDraftModel';
+import { newTier, priceToCents, tierKindFor, tierKindsFor } from './aiDraftModel';
 
 /**
  * Ticket types, as the AI suggested them and as the organizer fixes them.
@@ -59,8 +59,8 @@ function TierRow({ tier, index, total, admissionType, currency, update, remove, 
       <div className="es-ai-tierform__more">
         <label className="es-ai-field">
           <span className="text-xs text-subtle">Type</span>
-          <select className="es-input es-input--sm" value={tier.kind} onChange={(e) => update({ kind: e.target.value })}>
-            {TIER_KINDS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+          <select className="es-input es-input--sm" value={tierKindFor(tier.kind, admissionType)} onChange={(e) => update({ kind: e.target.value })}>
+            {tierKindsFor(admissionType).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
           </select>
         </label>
         {admissionType === 'general' && (

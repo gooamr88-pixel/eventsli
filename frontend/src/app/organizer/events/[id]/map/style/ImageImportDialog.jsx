@@ -75,7 +75,9 @@ export default function ImageImportDialog({ eventId, replacing, blocked = null, 
         requestId: crypto.randomUUID(),
         image: { mimeType: 'image/jpeg', data: picture.dataUrl },
         ...(notes.trim() ? { notes: notes.trim() } : {}),
-      }, { noRedirect: true });
+      // A whole floor plan is a long answer: the server allows the AI 53 s
+      // (seatingFromImage.MAP_CLOCK), so the browser outwaits it.
+      }, { noRedirect: true, timeoutMs: 65_000 });
       setPlan(data.plan);
       setMadeAt(new Date().toISOString());
       writeKept(key, { plan: data.plan });
@@ -141,7 +143,7 @@ export default function ImageImportDialog({ eventId, replacing, blocked = null, 
                   />
                 ) : (
                   <div className="es-imgimport__empty">
-                    {busy ? <><span className="es-ai-spin" aria-hidden="true" /> Measuring the tables and counting seats…</> : 'The map appears here once the picture is read.'}
+                    {busy ? <><span className="es-ai-spin" aria-hidden="true" /> Measuring the tables and counting seats… This can take up to a minute for a large room.</> : 'The map appears here once the picture is read.'}
                   </div>
                 )}
               </div>

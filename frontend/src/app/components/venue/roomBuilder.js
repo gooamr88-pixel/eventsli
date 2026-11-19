@@ -31,7 +31,7 @@ export const MOOD_STYLE = Object.freeze({
 });
 
 /** A sprite of text on a rounded plate: section badges, zone names, STAGE. */
-export function makeLabel(THREE, text, { bg = 'rgba(17,16,24,0.82)', fg = '#ffffff', height = 1.4, weight = 700 } = {}) {
+export function makeLabel(THREE, text, { bg = 'rgba(17,16,24,0.82)', fg = '#ffffff', height = 1.4, weight = 700, depthTest = false } = {}) {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
   const px = 64;
@@ -53,10 +53,11 @@ export function makeLabel(THREE, text, { bg = 'rgba(17,16,24,0.82)', fg = '#ffff
   ctx.fillText(text, canvas.width / 2, canvas.height / 2 + 2);
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
-  // No depth test: a label names a place and must not vanish behind the
-  // seats it names, which is what made the 2D map's badges worth copying.
+  // No depth test by default: a label names a place and must not vanish
+  // behind the seats it names, which is what made the 2D map's badges worth
+  // copying. Table numbers opt in, since there are hundreds of them.
   // Tinted just under white so the bloom pass (threshold 0.9) leaves text crisp.
-  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, color: 0xdedede, depthWrite: false, depthTest: false, transparent: true }));
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, color: 0xdedede, depthWrite: false, depthTest, transparent: true }));
   sprite.scale.set(height * (canvas.width / canvas.height), height, 1);
   sprite.renderOrder = 10;
   return sprite;
@@ -282,10 +283,11 @@ export function buildRoom(THREE, model, scene, { title, labels = [] } = {}) {
   const q = new THREE.Quaternion();
   const up = new THREE.Vector3(0, 1, 0);
   const one = new THREE.Vector3(1, 1, 1);
+  const sized = new THREE.Vector3();
   const white = new THREE.Color(0xffffff);
   model.seats.forEach((s, i) => {
     q.setFromAxisAngle(up, s.yaw);
-    m.compose(new THREE.Vector3(s.x, s.y, s.z), q, one);
+    m.compose(new THREE.Vector3(s.x, s.y, s.z), q, s.size ? sized.setScalar(s.size) : one);
     seatMesh.setMatrixAt(i, m);
     backMesh.setMatrixAt(i, m);
     legMesh.setMatrixAt(i, m);
@@ -304,9 +306,24 @@ export function buildRoom(THREE, model, scene, { title, labels = [] } = {}) {
     return sprite;
   });
 
+  // TABLE NUMBERS (2026-11-19: "when you choose 3D we should see table
+  // numbers"). The 2D map names every table; without these the 3D view was a
+  // field of identical tables, and "table 12" could not be found in it. One
+  // small plate floating over each table, sized to the table, depth-tested so
+  // a near table's number is not painted over by a far one's.
+  const tableNumbers = model.bodies.filter((b) => b.label).map((b) => {
+    const plate = makeLabel(THREE, String(b.label), {
+      height: Math.min(0.7, Math.max(0.36, Math.min(b.w, b.d) * 0.32)),
+      depthTest: true,
+    });
+    plate.position.set(b.x, 1.3, b.z);
+    group.add(plate);
+    return plate;
+  });
+
   // Every label hides in the seat view: from a chair, a name floating in
   // front of the stage is in the way of the thing it names.
-  return { group, seatMesh, backMesh, animated, badges: [...badges, ...zoneLabels], style };
+  return { group, seatMesh, backMesh, animated, badges: [...badges, ...zoneLabels, ...tableNumbers], style };
 }
 
 function placeFlat(THREE, mesh, z, y) {

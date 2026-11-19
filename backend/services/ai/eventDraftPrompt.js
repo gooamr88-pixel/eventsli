@@ -80,7 +80,7 @@ WRITING.
 - category: the closest match from the list.
 - description: plain English, at most 900 characters, no markdown, no links, no emoji. Describe only what the organizer wrote. Do not add performers, prices, dates, amenities, food, parking or anything else they did not mention.
 - highlights: up to 5 short phrases, each restating something in the description.
-- tiers: the ticket types the description names or clearly implies. Use only these kinds: standard, general, vip, early_bird, complimentary.
+- tiers: the ticket types the description names or clearly implies. Use only these kinds: standard, general, vip, early_bird, complimentary. Use "general" only when admissionType is "general"; a seat or table ticket is "standard".
 - schedule: the running order the description gives. startsLocal only when the description gives that item's time, with timeEvidence the exact words. location only when stated, with locationEvidence.
 - admissionType: "reserved" when people get assigned or chosen seats or tables, otherwise "general". purchaseMode: "table_only" when only whole tables are sold, "seat_and_table" when both seats and whole tables are, otherwise "seat_only".
 
@@ -189,7 +189,7 @@ WRITING — make the listing good, without adding facts.
 - category: the closest match from the list.
 - description: 2 to 3 short paragraphs of plain English, at most 900 characters, no markdown, links, emoji or hashtags. The first sentence says plainly what the event is. Use only what the poster and note say: the performers, theme, dress code, food, activities and selling points that are printed. You may name the mood the artwork clearly shows ("an elegant evening", "a family day out"), but never add a performer, sponsor, amenity, age rule, food, parking or anything else that is not written. Do not repeat the date, time, address or prices: the page shows those separately.
 - highlights: up to 5 short phrases, each restating a selling point printed on the poster or written in the note.
-- tiers: the ticket types the words name or clearly imply ("Advance $25 / Door $30" is two). Use only these kinds: standard, general, vip, early_bird, complimentary.
+- tiers: the ticket types the words name or clearly imply ("Advance $25 / Door $30" is two). Use only these kinds: standard, general, vip, early_bird, complimentary. Use "general" only when admissionType is "general"; a seat or table ticket is "standard".
 - schedule: the running order the poster gives (doors, sets, speakers, awards). startsLocal only when that item's time is printed, with timeEvidence the exact words. location only when stated, with locationEvidence.
 - admissionType: "reserved" when people get assigned or chosen seats or tables, otherwise "general". purchaseMode: "table_only" when only whole tables are sold, "seat_and_table" when both seats and whole tables are, otherwise "seat_only".
 

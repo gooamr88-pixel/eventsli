@@ -55,6 +55,14 @@ export default function EditorToolbar({
           >
             Select
           </ToolTab>
+          {/* 2026-11-19: choosing several tables needed Ctrl or Shift, which a
+              tablet does not have. With this on, every tap adds or removes. */}
+          <ToolTab
+            active={tool === 'multi'} onClick={() => onToolChange('multi')}
+            title="Pick several (M) — each tap adds a table to the selection or takes it out"
+          >
+            Pick several
+          </ToolTab>
           <ToolTab
             active={tool === 'hand'} onClick={() => onToolChange('hand')}
             title="Move tool (H) — drag anywhere to move around the map"

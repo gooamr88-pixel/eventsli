@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import {
-  SEAT_PITCH, SEAT_RADIUS, tableBody, toWorld, toPercent, worldOf, screenScale,
+  tableReach, toWorld, toPercent, worldOf, screenScale,
 } from '../../../../components/seating/seatingGeometry';
 import { paintOrder, zoneBox } from '../../../../components/seating/venueZones';
 import ZoneShape from '../../../../components/seating/ZoneShape';
@@ -97,8 +97,7 @@ export default function EditorCanvas({
     return {
       tables: tables.filter((t) => {
         const { x, y } = toWorld(t.position, world);
-        const body = tableBody(t.shape, t.seatCount, t.style);
-        const reach = Math.max(body.width, body.height) / 2 + SEAT_PITCH + SEAT_RADIUS;
+        const reach = tableReach(t);
         return x + reach >= left && x - reach <= right && y + reach >= top && y - reach <= bottom;
       }),
       zones: paintOrder(zones).filter((z) => {

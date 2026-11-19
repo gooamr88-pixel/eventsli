@@ -84,3 +84,14 @@ test('the route exists, behind the owner check', () => {
   const layer = router.stack.find((l) => l.route?.path === '/events/:eventId/seating-plan/from-image');
   assert.ok(layer && layer.route.methods.post);
 });
+
+test('the map reader has a long clock, still inside nginx (2026-11-19)', () => {
+  const { MAP_CLOCK } = require('../services/ai/seatingFromImage');
+  const { VISION_TIMEOUTS } = require('../services/ai/config');
+  // The poster clock timed out on a real map.
+  assert.ok(MAP_CLOCK.primary > VISION_TIMEOUTS.primary * 2);
+  // Production nginx proxy_read_timeout is 60 s (docs/DEPLOY.md); the loop,
+  // plus the database round trips, must finish before it.
+  assert.ok(MAP_CLOCK.total <= 55_000);
+  assert.ok(MAP_CLOCK.lastStart < MAP_CLOCK.total);
+});

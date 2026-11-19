@@ -41,6 +41,16 @@ export const TIER_KINDS = [
   ['early_bird', 'Early bird'], ['complimentary', 'Complimentary'],
 ];
 
+/**
+ * "General admission" as a ticket's kind contradicts a reserved-seating event
+ * (a "Table" ticket labelled General admission under "Reserved seating"), so
+ * on a seat map it is offered, shown and saved as Standard.
+ */
+export const tierKindsFor = (admissionType) =>
+  (admissionType === 'reserved' ? TIER_KINDS.filter(([k]) => k !== 'general') : TIER_KINDS);
+export const tierKindFor = (kind, admissionType) =>
+  (admissionType === 'reserved' && kind === 'general' ? 'standard' : kind);
+
 let counter = 0;
 const key = (prefix) => `${prefix}-${Date.now().toString(36)}-${(counter += 1)}`;
 
@@ -263,7 +273,7 @@ export function savePlan(form, choices = [], poster = null) {
     label: t.name.trim(),
     body: {
       name: t.name.trim(),
-      kind: t.kind,
+      kind: tierKindFor(t.kind, form.admissionType),
       priceCents: t.free ? 0 : priceToCents(t.price, form.currency),
       sortOrder: i,
       ...(t.description.trim() ? { description: t.description.trim() } : {}),

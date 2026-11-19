@@ -5,7 +5,8 @@
  * Three things, all in `venue_maps.layout_json`, none of them stock:
  *
  *   layout.tableStyles = { "<table label, lower case>": { sides, fill,
- *                          labelColor, stroke, strokeWidth, radius, seatColor } }
+ *                          labelColor, stroke, strokeWidth, radius, seatColor,
+ *                          scale } }
  *   layout.look        = { preset, floor, wall, table, label, seat, font }
  *   zone fields        = shape, fill, fillOpacity, strokeWidth, strokeStyle,
  *                        sublabel, textSize, showIcon, textColor (layoutZones.js)
@@ -65,6 +66,10 @@ export function cleanTableStyle(raw) {
   if (sw !== null) out.strokeWidth = sw;
   const radius = num(raw.radius, 0, 26);
   if (radius !== null) out.radius = Math.round(radius);
+  // The table's drawn size (seatingGeometry.tableScale). 1 is the default and
+  // is left out, so resetting the size leaves no trace in the blob.
+  const scale = num(raw.scale, 0.5, 1.5);
+  if (scale !== null && Math.round(scale * 100) !== 100) out.scale = Math.round(scale * 100) / 100;
   return Object.keys(out).length ? out : null;
 }
 

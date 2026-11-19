@@ -406,9 +406,12 @@ function tiersFrom(raw, { text, listingType, admissionType, currency }) {
     // the map decides how many exist.
     const qty = admissionType === 'general'
       ? quantityFact(t.quantity, t.quantityEvidence, text) : { quantity: null, evidence: null };
+    // "General admission" as the kind of a seat or table ticket contradicts
+    // the seat map it is sold from.
+    const kind = TIER_KINDS.includes(t.kind) && !(t.kind === 'general' && admissionType === 'reserved') ? t.kind : 'standard';
     out.push({
       name,
-      kind: TIER_KINDS.includes(t.kind) ? t.kind : 'standard',
+      kind,
       description: scrubCopy(t.description, text, MAX.tierDescription),
       quantity: qty.quantity,
       quantityEvidence: qty.evidence,

@@ -232,6 +232,34 @@ export function tableBody(shape, seatCount, style = null) {
 }
 
 /**
+ * How big the organizer drew this table, as a factor of its natural size
+ * (2026-11-19: "make them smaller to fit more tables"). The whole table —
+ * body, seats, name — scales together, so a smaller table is the same table
+ * drawn smaller and never a ring of overlapping seats.
+ *
+ * NOT folded into `tableBody` / `seatPositions`: they stay in natural units,
+ * and every renderer applies this one factor around them (an SVG `scale()`,
+ * or a multiply in the 3D model). Folding it in would shrink the positions
+ * but leave each renderer's SEAT_RADIUS full size, which is the overlap.
+ */
+export const TABLE_SCALE = Object.freeze({ min: 0.5, max: 1.5 });
+
+export function tableScale(style) {
+  const v = Number(style?.scale);
+  if (!Number.isFinite(v) || v <= 0) return 1;
+  return clamp(v, TABLE_SCALE.min, TABLE_SCALE.max);
+}
+
+/** How far a table's seats reach from its centre, at its drawn size: what a
+ *  frame, a box-select and a bounds check need. */
+export function tableReach(table) {
+  const body = tableBody(table.shape, table.seatCount, table.style);
+  // The seats sit outside the body, so the reach is the body plus a seat and
+  // its pitch — measured, not guessed, or labels clip on the edges.
+  return (Math.max(body.width, body.height) / 2 + SEAT_PITCH + SEAT_RADIUS) * tableScale(table.style);
+}
+
+/**
  * Where each seat sits, relative to the table's centre, before rotation.
  *
  * Returns `{ x, y, angle }` per seat, in world units, in seat-number order —
@@ -421,10 +449,7 @@ function extent(tables, zones, world) {
 
   for (const t of (hasTables ? tables : [])) {
     const { x, y } = toWorld(t.position, world);
-    const body = tableBody(t.shape, t.seatCount, t.style);
-    // The seats sit outside the body, so the extent is the body plus a seat
-    // and its pitch — measured, not guessed, or labels clip on the edges.
-    const reach = Math.max(body.width, body.height) / 2 + SEAT_PITCH + SEAT_RADIUS;
+    const reach = tableReach(t);
     minX = Math.min(minX, x - reach);
     minY = Math.min(minY, y - reach);
     maxX = Math.max(maxX, x + reach);

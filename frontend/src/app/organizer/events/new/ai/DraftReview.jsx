@@ -5,7 +5,7 @@ import { minorUnits } from '../../../../lib/markets';
 import { categoryLabel } from '../../../../lib/categories';
 import { toIso, formatEventTime } from '../../../../lib/eventTime';
 import { AiStepper, ActionBar } from './AiParts';
-import { priceToCents, laterNeeds, sectionState, TIER_KINDS } from './aiDraftModel';
+import { priceToCents, laterNeeds, sectionState, TIER_KINDS, tierKindFor } from './aiDraftModel';
 import { dateOnlyRange, formatDateOnly } from '../../../../lib/dateOnly';
 import { monthRange, formatYm } from '../../../../lib/comingSoon';
 
@@ -277,7 +277,7 @@ export default function DraftReview({
                         <li key={t.key}>
                           <div>
                             <p className="es-ai-tiers__name">{t.name}</p>
-                            <p className="es-ai-fact__sub">{t.description || TIER_KINDS.find(([k]) => k === t.kind)?.[1]}{t.quantity ? ` · ${t.quantity} available` : ''}</p>
+                            <p className="es-ai-fact__sub">{t.description || TIER_KINDS.find(([k]) => k === tierKindFor(t.kind, form.admissionType))?.[1]}{t.quantity ? ` · ${t.quantity} available` : ''}</p>
                           </div>
                           <span className="es-ai-price es-nums">{cents === 0 ? 'Free' : money(cents, form.currency)}</span>
                         </li>

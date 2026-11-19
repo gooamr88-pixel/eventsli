@@ -203,6 +203,9 @@ function cleanTableStyle(raw) {
   if (sw !== undefined) out.strokeWidth = sw;
   const radius = bounded(raw.radius, 0, 26);
   if (radius !== undefined) out.radius = Math.round(radius);
+  // The table's drawn size, 50%–150% (seatingGeometry.tableScale); 1 is left out.
+  const scale = bounded(raw.scale, 0.5, 1.5);
+  if (scale !== undefined && Math.round(scale * 100) !== 100) out.scale = Math.round(scale * 100) / 100;
   return Object.keys(out).length ? out : undefined;
 }
 

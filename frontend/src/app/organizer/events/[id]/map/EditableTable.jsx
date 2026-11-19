@@ -2,7 +2,7 @@
 
 import React from 'react';
 import {
-  SEAT_RADIUS, tableBody, seatPositions, toWorld, normaliseShape,
+  SEAT_RADIUS, tableBody, seatPositions, toWorld, normaliseShape, tableScale,
 } from '../../../../components/seating/seatingGeometry';
 import TableBodyShape from '../../../../components/seating/TableBodyShape';
 import { inkOn, lookFont, tablePaint } from '../../../../components/seating/mapStyle';
@@ -35,8 +35,12 @@ const EditableTable = React.memo(function EditableTable({
   const shape = normaliseShape(table.shape);
   const body = tableBody(shape, table.seatCount, table.style);
   const layout = seatPositions(shape, table.seatCount, table.style);
+  // The table's own size (tableScale) is applied as an SVG scale around
+  // everything below, so a line meant to be N screen pixels divides by it too.
+  const size = tableScale(table.style);
+  const drawn = scale * size;
 
-  const inv = (n) => n / Math.max(scale, 0.0001);
+  const inv = (n) => n / Math.max(drawn, 0.0001);
   // The table's own colours, then its category's, then the map's look.
   const paint = tablePaint(table, look, { fill: colour });
   const fill = paint.fill || 'var(--es-surface)';
@@ -47,7 +51,7 @@ const EditableTable = React.memo(function EditableTable({
 
   return (
     <g
-      transform={`translate(${pos.x} ${pos.y}) rotate(${pos.rotation})`}
+      transform={`translate(${pos.x} ${pos.y}) rotate(${pos.rotation}) scale(${size})`}
       data-table-key={keyOf(table)}
       onPointerDown={onPointerDown}
       onKeyDown={onKeyDown}
@@ -117,7 +121,7 @@ const EditableTable = React.memo(function EditableTable({
         <SelectionHandles
           width={body.width}
           height={body.height || SEAT_RADIUS * 2}
-          scale={scale}
+          scale={drawn}
           resizable={false}
           onRotateStart={onRotateStart}
         />

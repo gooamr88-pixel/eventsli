@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import NewTierInline, { NEW_TIER } from './NewTierInline';
+import { RangeField } from './style/StyleFields';
+import { TABLE_SCALE } from '../../../../components/seating/seatingGeometry';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -30,9 +32,21 @@ import NewTierInline, { NEW_TIER } from './NewTierInline';
  * fastest way to price a whole section. Zones have no seats, so they are left
  * out of it.
  */
-export default function SelectionPanel({ tableCount, zoneCount, onRotate, onDuplicate, onRemove, onClear, tiers = [], onAssign = null, onTierCreated = null }) {
+/**
+ * `categories` + `onAssignCategory` and `sizes` + `onResize` (2026-11-19, the
+ * owner: "select more than one table to choose categories", "make them
+ * smaller to fit more tables"): the same one-step edit for a table's
+ * category and its drawn size.
+ */
+export default function SelectionPanel({
+  tableCount, zoneCount, onRotate, onDuplicate, onRemove, onClear, tiers = [], onAssign = null, onTierCreated = null,
+  categories = [], onAssignCategory = null, sizes = [], onResize = null,
+}) {
   const total = tableCount + zoneCount;
   const [creatingTier, setCreatingTier] = useState(false);
+  // The slider shows the selection's size when they all share one, else 100%.
+  const sharedSize = sizes.length && sizes.every((s) => s === sizes[0]) ? sizes[0] : 1;
+  const these = tableCount === 1 ? 'this table' : `these ${tableCount} tables`;
 
   return (
     <aside className="fx-stack fx-stack--sm es-dcard">
@@ -44,7 +58,7 @@ export default function SelectionPanel({ tableCount, zoneCount, onRotate, onDupl
 
       {onAssign && tableCount > 0 && (
         <label className="fx-stack fx-stack--sm gap-1">
-          <span className="text-sm font-semibold text-ink">Ticket type for {tableCount === 1 ? 'this table' : `these ${tableCount} tables`}</span>
+          <span className="text-sm font-semibold text-ink">Ticket type for {these}</span>
           <select
             className="es-input" defaultValue=""
             onChange={(e) => {
@@ -68,6 +82,41 @@ export default function SelectionPanel({ tableCount, zoneCount, onRotate, onDupl
         />
       )}
 
+      {onAssignCategory && tableCount > 0 && (
+        <label className="fx-stack fx-stack--sm gap-1">
+          <span className="text-sm font-semibold text-ink">Category for {these}</span>
+          <select
+            className="es-input" defaultValue="" disabled={categories.length === 0}
+            onChange={(e) => {
+              const v = e.target.value;
+              e.target.value = '';
+              if (v) onAssignCategory(v === 'none' ? null : v);
+            }}
+          >
+            <option value="" disabled>{categories.length ? 'Assign to category…' : 'No categories yet'}</option>
+            {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            {categories.length > 0 && <option value="none">No category</option>}
+          </select>
+          {categories.length === 0 && (
+            <span className="text-xs text-subtle">Create categories on the event&apos;s Tables page, then come back to assign them.</span>
+          )}
+        </label>
+      )}
+
+      {onResize && tableCount > 0 && (
+        <div className="fx-stack gap-1">
+          <RangeField
+            label="Table size" min={TABLE_SCALE.min * 100} max={TABLE_SCALE.max * 100} step={5}
+            value={Math.round(sharedSize * 100)}
+            format={(v) => `${v}%`}
+            onChange={(v) => onResize(v / 100)}
+          />
+          <span className="text-xs text-subtle">
+            Resizes {these} together. Smaller tables fit more in the room.
+          </span>
+        </div>
+      )}
+
       <div className="fx-row flex-wrap gap-2">
         <button type="button" onClick={() => onRotate(90)} className="es-btn es-btn--secondary es-btn--sm">
           Rotate all 90°
@@ -85,7 +134,7 @@ export default function SelectionPanel({ tableCount, zoneCount, onRotate, onDupl
 
       <p className="text-xs text-subtle">
         Rotating turns each element about its own centre, so the arrangement keeps its shape.
-        Ctrl-click one on the map to drop it out of the selection.
+        With Pick several on, tap one on the map to drop it out of the selection (or Ctrl-click it).
       </p>
 
       <p className="text-xs text-subtle">

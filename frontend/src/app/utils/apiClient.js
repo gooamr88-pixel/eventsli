@@ -93,9 +93,11 @@ const AUTH_PATHS = ['/login', '/register', '/forgot-password', '/reset-password'
  * @param {boolean} [options.raw]      resolve the whole envelope, not `data`
  * @param {boolean} [options.noRedirect] never bounce to /login on a 401
  * @param {string}  [options.cookie]   forwarded session, for server components
+ * @param {number}  [options.timeoutMs] a longer wait for the one call that
+ *   needs it (reading a seating map from a picture); everything else keeps 30s
  */
 export async function apiFetch(path, options = {}) {
-  const { raw = false, noRedirect = false, cookie, headers: extraHeaders, ...init } = options;
+  const { raw = false, noRedirect = false, cookie, headers: extraHeaders, timeoutMs = TIMEOUT_MS, ...init } = options;
 
   const headers = { ...extraHeaders };
   if (!(init.body instanceof FormData) && init.body && !headers['Content-Type']) {
@@ -109,7 +111,7 @@ export async function apiFetch(path, options = {}) {
   if (cookie) headers.cookie = cookie;
 
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   let response;
   try {

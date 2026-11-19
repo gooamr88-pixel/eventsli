@@ -124,6 +124,22 @@ and teal seats, D-shape booths, a dashed kitchen) as organizer options.
 - Without the migration, saved looks read as none and saving one says the
   feature is off; everything else works.
 
+**Table size, multi-select and 3D numbers (2026-11-19).**
+
+- *Table size* (50%–150%) is `layout.tableStyles[label].scale`, set in the
+  table panel or for a whole selection. The geometry functions stay in
+  natural units. Each view applies `seatingGeometry.tableScale` around them:
+  an SVG `scale()` on the buyer map, the editor and the print pack, and a
+  multiply in `sceneModel`. Framing, culling and box-select use `tableReach`.
+  100% is never stored. No migration.
+- *Pick several* (key M) is a third canvas tool. Each tap adds a table to the
+  selection or removes it, so a tablet doesn't need Ctrl or Shift. The
+  multi-select panel sets the ticket type, category and size of every
+  selected table as one undo step.
+- *Table numbers in 3D*: `roomBuilder` puts a numbered plate over every table
+  body, in both the organizer and buyer 3D views. The numbers are hidden in
+  the 360° seat view, like the other labels.
+
 ## Import from a picture (2026-11-19)
 
 Venue Builder → Add to layout → **Import from a picture**: the organizer uploads

@@ -10215,6 +10215,12 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
 @media (width < 24rem) {
   .es-ai-tierform__row, .es-ai-tierform__more, .es-ai-schedrow { grid-template-columns: minmax(0, 1fr); }
 }
+/* The drawer is 32rem wide whatever the screen, so the choice grid's
+   viewport breakpoint does not apply here: three cards across left about
+   60px for words and wrapped every description one word per line. Three
+   options read as a list instead. */
+.es-ai-sheet .es-choice-grid--3 { grid-template-columns: minmax(0, 1fr); gap: 0.5rem; }
+.es-ai-sheet .es-choice-grid--3 .es-choice { padding-block: 0.75rem; }
 
 /* ── Save ────────────────────────────────────────────────────────────── */
 .es-ai-group { display: flex; flex-direction: column; gap: 0.5rem; }

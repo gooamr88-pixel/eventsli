@@ -167,9 +167,24 @@ export default function MapEditor({ eventId }) {
     selection.clear();
   };
 
-  /** One ticket type for every selected table — the side panel's assignment. */
+  /** One ticket type for every selected table — the side panel's assignment.
+   *  One undo step for the lot, not one per table. */
   const assignTier = (tierId) => {
-    for (const key of selection.selection.tables) draft.updateTable(key, { tierId });
+    draft.updateTables([...selection.selection.tables], () => ({ tierId }));
+  };
+
+  /** One category for every selected table (2026-11-19). */
+  const assignCategory = (categoryId) => {
+    draft.updateTables([...selection.selection.tables], () => ({ categoryId }));
+  };
+
+  /** One size for every selected table. A slider drag is one undo step. */
+  const resizeSelected = (scale) => {
+    draft.updateTables([...selection.selection.tables], (t) => {
+      const { scale: _old, ...rest } = t.style || {};
+      const style = scale === 1 ? rest : { ...rest, scale };
+      return { style: Object.keys(style).length ? style : null };
+    }, { mergeKey: `resize:${[...selection.selection.tables].sort().join(',')}` });
   };
 
   const rotateSelected = (degrees) => {
@@ -393,7 +408,8 @@ export default function MapEditor({ eventId }) {
         <EditorSidePanel
           sole={sole} selection={selection} draft={draft} tables={tables} tiers={tiers} world={world}
           categories={categories} purchaseMode={purchaseMode} onTierCreated={io.addTier}
-          onAssignTier={assignTier} onRotate={rotateSelected} onDuplicate={duplicateSelected}
+          onAssignTier={assignTier} onAssignCategory={assignCategory} onResizeSelected={resizeSelected}
+          onRotate={rotateSelected} onDuplicate={duplicateSelected}
           onRemoveSelected={removeSelected}
           onAdd={addFrom}
           wallTool={wallTool}

@@ -170,6 +170,7 @@ export function useEditorKeys({
         const k = e.key.toLowerCase();
         if (k === 'v') { e.preventDefault(); tool('select'); return; }
         if (k === 'h') { e.preventDefault(); tool('hand'); return; }
+        if (k === 'm') { e.preventDefault(); tool('multi'); return; }
       }
 
       if (e.key === 'Delete' || e.key === 'Backspace') {

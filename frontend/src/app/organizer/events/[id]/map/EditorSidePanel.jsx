@@ -8,6 +8,7 @@ import WallToolPanel from './style/WallToolPanel';
 import MapLookCard from './style/MapLookCard';
 import { countUnpriced } from './MapChrome';
 import { keyOf } from './useMapDraft';
+import { tableScale } from '../../../../components/seating/seatingGeometry';
 
 /**
  * The panel beside the canvas, which shows what the selection is: several
@@ -17,16 +18,21 @@ import { keyOf } from './useMapDraft';
  */
 export default function EditorSidePanel({
   sole, selection, draft, tables, tiers, world, categories, purchaseMode, onTierCreated,
-  onAssignTier, onRotate, onDuplicate, onRemoveSelected, onAdd, wallTool = null, onApplyLook,
+  onAssignTier, onAssignCategory, onResizeSelected, onRotate, onDuplicate, onRemoveSelected, onAdd, wallTool = null, onApplyLook,
 }) {
   // Drawing walls: the tool's own options, whatever is selected.
   if (wallTool?.active) return <WallToolPanel tool={wallTool} />;
   if (selection.count > 1) {
+    const picked = tables.filter((t) => selection.selection.tables.has(keyOf(t)));
     return (
       <SelectionPanel
         tableCount={selection.selection.tables.size}
         zoneCount={selection.selection.zones.size}
         tiers={tiers}
+        categories={categories}
+        onAssignCategory={onAssignCategory}
+        sizes={picked.map((t) => tableScale(t.style))}
+        onResize={onResizeSelected}
         onAssign={onAssignTier}
         onTierCreated={onTierCreated}
         onRotate={onRotate}

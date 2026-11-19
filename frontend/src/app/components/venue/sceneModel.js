@@ -1,5 +1,5 @@
 import {
-  METRES_PER_UNIT, seatPositions, tableBody, toWorld, normaliseShape, worldOf,
+  METRES_PER_UNIT, seatPositions, tableBody, tableScale, toWorld, normaliseShape, worldOf,
 } from '../seating/seatingGeometry';
 import { zoneBox } from '../seating/venueZones';
 
@@ -91,9 +91,12 @@ export function buildSceneModel({
     // rows. A round table on a slope is not a room anyone has sat in.
     const elev = isRow ? Math.max(0, distances[ti] - nearest - FLAT_FLOOR) * slope : 0;
     const list = seatsByTable.get(t.id) || [];
+    // The organizer's table size, as the 2D map applies it: the whole table
+    // and its chairs, scaled about the table's centre.
+    const size = tableScale(t.style);
 
     seatPositions(shape, t.seatCount, t.style).forEach((pt, i) => {
-      const r = rotate(pt.x, pt.y, pos.rotation);
+      const r = rotate(pt.x * size, pt.y * size, pos.rotation);
       const s = toScene(pos.x + r.x, pos.y + r.y);
       const target = isRow ? focus : centre;
       const seat = list[i];
@@ -107,6 +110,9 @@ export function buildSceneModel({
         y: elev,
         z: s.z,
         yaw: Math.atan2(-(target.x - s.x), -(target.z - s.z)),
+        // Chair size, in step with the table: a full-size chair at a
+        // half-size table would sit on its neighbours.
+        ...(size !== 1 ? { size } : {}),
       });
       radius = Math.max(radius, Math.hypot(s.x, s.z));
     });
@@ -116,13 +122,13 @@ export function buildSceneModel({
       if (elev > 0.02) {
         risers.push({
           x: centre.x, z: centre.z, h: elev,
-          w: body.width * k + 0.3, d: ROW_DEPTH, rot: -rad(pos.rotation),
+          w: body.width * size * k + 0.3, d: ROW_DEPTH * size, rot: -rad(pos.rotation),
         });
       }
     } else {
       bodies.push({
         id: t.id, label: t.label, kind: body.kind, x: centre.x, z: centre.z,
-        w: body.width * k, d: body.height * k, rot: -rad(pos.rotation),
+        w: body.width * size * k, d: body.height * size * k, rot: -rad(pos.rotation),
       });
     }
   });

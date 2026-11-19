@@ -215,14 +215,25 @@ function validateMap(raw) {
   };
 }
 
+/**
+ * This feature's own clock. The poster reader's (13 s, then 8 s) answered
+ * "Our AI services did not answer in time" on a real map (2026-11-19): a
+ * poster is a few hundred words out, a floor plan is every table's position,
+ * size and seats — thousands of numbers. So the primary gets 40 s and the
+ * whole loop ends by 53 s, under production nginx's `proxy_read_timeout 60s`
+ * (docs/DEPLOY.md) with room for the reservation's database round trips.
+ * The browser waits 65 s for this one call (ImageImportDialog).
+ */
+const MAP_CLOCK = Object.freeze({ primary: 40_000, fallback: 12_000, lastStart: 41_000, total: 53_000 });
+
 /** Same allowance, providers and fallback as every other AI feature; the
- *  vision models, with the poster reader's clock. */
+ *  vision models, with a clock sized for a long answer. */
 async function readSeatingMap({ image, notes = '', cfg }) {
   const { result, meta } = await runProviders({
     request: buildMapRequest({ notes }),
     image,
     order: cfg.visionOrder,
-    clock: cfg.visionTimeouts,
+    clock: MAP_CLOCK,
     label: 'seating map (image)',
     inputChars: notes.length,
     final: ['AI_NOT_A_MAP'],
@@ -231,4 +242,4 @@ async function readSeatingMap({ image, notes = '', cfg }) {
   return { plan: { ...result, image: { width: image.width, height: image.height } }, meta };
 }
 
-module.exports = { readSeatingMap, validateMap, buildMapRequest, mapSchema, LIMITS };
+module.exports = { readSeatingMap, validateMap, buildMapRequest, mapSchema, LIMITS, MAP_CLOCK };

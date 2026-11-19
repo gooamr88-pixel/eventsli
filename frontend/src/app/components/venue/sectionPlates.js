@@ -1,4 +1,4 @@
-import { seatPositions, toWorld, worldOf, SEAT_RADIUS } from '../seating/seatingGeometry';
+import { seatPositions, tableScale, toWorld, worldOf, SEAT_RADIUS } from '../seating/seatingGeometry';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -18,9 +18,10 @@ const PAD = SEAT_RADIUS * 1.9;
 export function seatPoints(table, world = worldOf(null)) {
   const p = toWorld(table.position, world);
   const r = (p.rotation * Math.PI) / 180;
+  const s = tableScale(table.style);
   return seatPositions(table.shape, table.seatCount, table.style).map((pt) => ({
-    x: p.x + pt.x * Math.cos(r) - pt.y * Math.sin(r),
-    y: p.y + pt.x * Math.sin(r) + pt.y * Math.cos(r),
+    x: p.x + (pt.x * Math.cos(r) - pt.y * Math.sin(r)) * s,
+    y: p.y + (pt.x * Math.sin(r) + pt.y * Math.cos(r)) * s,
   }));
 }
 

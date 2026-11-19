@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo } from 'react';
 import {
-  worldOf, SEAT_RADIUS, tableBody, seatPositions, toWorld, contentBounds, normaliseShape,
+  worldOf, SEAT_RADIUS, tableBody, seatPositions, toWorld, contentBounds, normaliseShape, tableScale,
 } from './seatingGeometry';
 import { usePanZoom } from './usePanZoom';
 import { useBadgeScale } from './useBadgeScale';
@@ -313,7 +313,9 @@ function Table({
   };
 
   return (
-    <g transform={`translate(${pos.x} ${pos.y}) rotate(${pos.rotation})`}>
+    // scale(): the organizer's table size (tableScale) — seats, body and name
+    // shrink or grow together, and the hit areas with them.
+    <g transform={`translate(${pos.x} ${pos.y}) rotate(${pos.rotation}) scale(${tableScale(table.style)})`}>
       {body.kind !== 'none' && (
         <TableBody
           body={body}

@@ -60,3 +60,10 @@ test('saved looks are cleaned, named, de-duplicated and capped', () => {
   assert.equal(list[1].name, 'My look');
   assert.match(list[1].id, /^look_/);
 });
+
+test('a table size is kept in range and 100% is not stored (2026-11-19)', () => {
+  const out = sanitizeLayout('e1', {
+    tableStyles: { A: { scale: 0.6 }, B: { scale: 0.01 }, C: { scale: 1 }, D: { scale: 'huge' } },
+  });
+  assert.deepEqual(out.tableStyles, { a: { scale: 0.6 }, b: { scale: 0.5 } });
+});

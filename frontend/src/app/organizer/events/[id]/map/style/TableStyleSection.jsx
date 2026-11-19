@@ -1,6 +1,6 @@
 'use client';
 
-import { SHAPES, sideCounts } from '../../../../../components/seating/seatingGeometry';
+import { SHAPES, TABLE_SCALE, sideCounts, tableScale } from '../../../../../components/seating/seatingGeometry';
 import { SHAPE_SIDES, sideLabel } from '../../../../../components/seating/tableSides';
 import { SHAPE_NAMES, SHAPE_HINTS } from '../shapeNames';
 import ShapeArt from './ShapeArt';
@@ -69,6 +69,21 @@ export default function TableStyleSection({ table, onChange, sold = 0 }) {
             <span>{SHAPE_NAMES[s] || s}</span>
           </button>
         ))}
+      </div>
+
+      {/* 2026-11-19: "resize the tables, make them smaller to fit more". The
+          whole table and its seats, on every view (seatingGeometry.tableScale). */}
+      <div className="fx-stack gap-1">
+        <RangeField
+          label="Table size" min={TABLE_SCALE.min * 100} max={TABLE_SCALE.max * 100} step={5}
+          value={Math.round(tableScale(style) * 100)}
+          format={(v) => `${v}%`}
+          onChange={(v) => setStyle({ scale: v === 100 ? null : v / 100 })}
+        />
+        <p className="text-xs text-subtle">
+          Smaller tables fit more in the room. Seats shrink with the table.
+          {style.scale ? <> <button type="button" className="es-linkbtn" onClick={() => setStyle({ scale: null })}>Normal size</button></> : null}
+        </p>
       </div>
 
       {sided && (

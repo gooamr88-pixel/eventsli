@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  SEAT_PITCH, SEAT_RADIUS, tableBody, toWorld,
+  tableReach, toWorld,
 } from '../../../../components/seating/seatingGeometry';
 import { zoneBox } from '../../../../components/seating/venueZones';
 import { keyOf } from './useMapDraft';
@@ -150,7 +150,9 @@ export function useCanvasInteraction({
 
     const sel = latest.current.selection;
 
-    if (e.ctrlKey || e.metaKey || e.shiftKey) {
+    // The Pick several tool is the same toggle without a key to hold: a
+    // tablet has no Ctrl.
+    if (e.ctrlKey || e.metaKey || e.shiftKey || toolRef.current === 'multi') {
       sel.toggle(kind, id);
       return;
     }
@@ -165,7 +167,7 @@ export function useCanvasInteraction({
         : { tables: new Set([id]), zones: new Set() });
 
     beginMove(e, active);
-  }, [beginMove]);
+  }, [beginMove, toolRef]);
 
   /**
    * Pressing the background: a marquee, or a pan.
@@ -194,8 +196,11 @@ export function useCanvasInteraction({
       rect: { x0: x, y0: y, x1: x, y1: y },
       // Shift ADDS to the selection instead of replacing it, so a room can be
       // swept up in several passes around the furniture in between.
-      additive: e.shiftKey,
+      additive: e.shiftKey || toolRef.current === 'multi',
       moved: false,
+      // A stray tap on the floor while picking must not throw away the
+      // tables already picked.
+      keepOnTap: toolRef.current === 'multi',
     };
     pointer.current = { x: e.clientX, y: e.clientY };
     setMarquee(gesture.current.rect);
@@ -334,7 +339,7 @@ export function useCanvasInteraction({
         // A marquee that never moved is a click on the background, which means
         // "deselect" — the most-used way out of a selection, and one that must
         // not be swallowed by the marquee machinery.
-        if (!g.moved) { sel.clear(); return; }
+        if (!g.moved) { if (!g.keepOnTap) sel.clear(); return; }
         const hit = hitTest(g.rect, latest.current.view, latest.current.svgRef.current, d);
         if (g.additive) sel.extend(hit.tables, hit.zones);
         else sel.replace(hit.tables, hit.zones);
@@ -415,10 +420,9 @@ function hitTest(rect, view, svg, draft) {
   const tables = [];
   for (const t of draft.tables) {
     const { x, y } = toWorld(t.position, draft.world);
-    const body = tableBody(t.shape, t.seatCount);
     // The seats sit outside the body, and a marquee drawn around the seats of a
-    // table has obviously selected that table.
-    const reach = Math.max(body.width, body.height) / 2 + SEAT_PITCH + SEAT_RADIUS;
+    // table has obviously selected that table. At the table's drawn size.
+    const reach = tableReach(t);
     if (x + reach >= left && x - reach <= right && y + reach >= top && y - reach <= bottom) {
       tables.push(keyOf(t));
     }
