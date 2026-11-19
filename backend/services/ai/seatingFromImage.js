@@ -243,7 +243,11 @@ function validateMap(raw) {
  * (docs/DEPLOY.md) with room for the reservation's database round trips.
  * The browser waits 65 s for this one call (ImageImportDialog).
  */
-const MAP_CLOCK = Object.freeze({ primary: 40_000, fallback: 12_000, lastStart: 41_000, total: 53_000 });
+// Busy providers (Gemini 503, Groq behind Cloudflare 522 — both seen live on
+// 2026-11-19) are retried up to three times, 2/4/6 s apart, in the first 30 s.
+const MAP_CLOCK = Object.freeze({
+  primary: 40_000, fallback: 12_000, lastStart: 41_000, total: 53_000, overloadRetries: 3, retryBefore: 30_000,
+});
 
 /** Same allowance, providers and fallback as every other AI feature; the
  *  vision models, with a clock sized for a long answer. */

@@ -105,3 +105,28 @@ test('the Gemini schema carries no item limits, which Gemini refuses as too many
   // The OpenAI-style schema (Groq) is untouched.
   assert.ok(JSON.stringify(jsonSchema).length > 0);
 });
+
+test('a busy Gemini is retried several times on the map clock before Groq is asked (2026-11-19)', async () => {
+  const { runProviders } = require('../services/ai/providerLoop');
+  const { MAP_CLOCK } = require('../services/ai/seatingFromImage');
+  const busy = () => Object.assign(new Error('busy'), { code: 'AI_UPSTREAM', status: 503 });
+  let geminiCalls = 0;
+  const callers = {
+    gemini: async () => { geminiCalls += 1; if (geminiCalls < 3) throw busy(); return { json: { ok: true }, model: 'g' }; },
+    groq: async () => { throw new Error('groq must not be needed'); },
+  };
+  // Waits shortened: the rule under test is the count, not the seconds.
+  const clock = { ...MAP_CLOCK };
+  const realSet = global.setTimeout;
+  global.setTimeout = (fn) => realSet(fn, 0);
+  try {
+    const { result, meta } = await runProviders({
+      request: {}, order: ['gemini', 'groq'], clock, callers, accept: (a) => a.json, label: 't',
+    });
+    assert.deepEqual(result, { ok: true });
+    assert.equal(geminiCalls, 3);
+    assert.equal(meta.provider, 'gemini');
+  } finally {
+    global.setTimeout = realSet;
+  }
+});

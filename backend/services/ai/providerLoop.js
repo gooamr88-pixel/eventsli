@@ -36,7 +36,14 @@ const logger = require('../../utils/logger');
 const OVERLOAD_RETRY = Object.freeze({ before: 5_000, wait: 1_000, minTimeout: 3_000 });
 
 const sleep = (ms) => new Promise((resolve) => { setTimeout(resolve, ms); });
-const overloaded = (err) => err?.code === 'AI_UPSTREAM' && err.status === 503;
+/**
+ * A provider that is up but busy or briefly unreachable: Google's 503 "high
+ * demand", a 502/504 from its gateway, and Cloudflare's 522/524 in front of
+ * Groq (the seating-map reader met both on 2026-11-19). Worth trying the same
+ * provider again; a 500 is a fault and is not.
+ */
+const RETRYABLE = new Set([502, 503, 504, 522, 524]);
+const overloaded = (err) => err?.code === 'AI_UPSTREAM' && RETRYABLE.has(err.status);
 
 /**
  * @param {object}   o
@@ -65,15 +72,25 @@ async function runProviders({
     const at = Date.now();
     try {
       let answer;
-      try {
-        answer = await call({ ...request, image, timeoutMs: deadline(i) });
-      } catch (err) {
-        if (!overloaded(err) || elapsed() > OVERLOAD_RETRY.before) throw err;
-        tried.push({ provider: name, ok: false, code: 'AI_OVERLOADED', ms: Date.now() - at });
-        await sleep(OVERLOAD_RETRY.wait);
-        // Leave the next provider its start: finish before `lastStart`.
-        const room = clock.lastStart - elapsed() - OVERLOAD_RETRY.wait;
-        answer = await call({ ...request, image, timeoutMs: Math.max(OVERLOAD_RETRY.minTimeout, Math.min(deadline(i), room)) });
+      // How many busy-retries this provider gets, and until when: one, in the
+      // first 5 s, unless the caller's clock allows more (the seating-map
+      // reader, with ~50 s, waits 2 s, 4 s, 6 s between up to three).
+      const retries = clock.overloadRetries ?? 1;
+      const before = clock.retryBefore ?? OVERLOAD_RETRY.before;
+      for (let attempt = 0; ; attempt += 1) {
+        try {
+          answer = attempt === 0
+            ? await call({ ...request, image, timeoutMs: deadline(i) })
+            : await call({ ...request, image, timeoutMs: Math.max(OVERLOAD_RETRY.minTimeout, Math.min(deadline(i), clock.lastStart - elapsed())) });
+          break;
+        } catch (err) {
+          const wait = clock.overloadRetries ? 2_000 * (attempt + 1) : OVERLOAD_RETRY.wait;
+          // Leave the next provider its start: never retry past `lastStart`.
+          const room = clock.lastStart - elapsed() - wait;
+          if (!overloaded(err) || attempt >= retries || elapsed() > before || room < OVERLOAD_RETRY.minTimeout) throw err;
+          tried.push({ provider: name, ok: false, code: 'AI_OVERLOADED', ms: Date.now() - at, status: err.status });
+          await sleep(wait);
+        }
       }
       const result = accept(answer);
       tried.push({ provider: name, ok: true, ms: Date.now() - at });

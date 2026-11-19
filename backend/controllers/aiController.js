@@ -136,6 +136,13 @@ const UNAVAILABLE = {
   message: 'Our AI services did not answer in time. This did not use any of your daily drafts.',
 };
 
+const BUSY_MESSAGE = 'Our AI providers are busy right now. Wait a few minutes and try again. This did not use any of your daily drafts.';
+const BUSY_CODES = new Set(['AI_UPSTREAM', 'AI_OVERLOADED', 'AI_RATE_LIMITED']);
+function allBusy(err) {
+  const tried = Array.isArray(err.tried) ? err.tried : [];
+  return tried.length > 0 && tried.every((t) => BUSY_CODES.has(t.code) && (t.code !== 'AI_UPSTREAM' || t.status !== 500));
+}
+
 function failureSummary(err) {
   const tried = Array.isArray(err.tried) ? err.tried : [];
   if (tried.length === 0) return err.meta?.failure_code || null;
@@ -206,8 +213,11 @@ async function spend(req, res, { cfg, organizerId, feature, answers = {} }, work
     // this a rejected request could not be told from a slow one (2026-11-19).
     const reason = err.code === 'AI_UNAVAILABLE' ? failureSummary(err) : null;
     if (known) {
+      // Every provider up but busy (503, 522, a rate limit): say so, rather
+      // than "did not answer in time", which reads as our fault and as final.
+      const message = err.code === 'AI_UNAVAILABLE' && allBusy(err) ? BUSY_MESSAGE : known.message;
       return sendFail(res, {
-        status: known.status, error: err.code, message: known.message, ...(reason ? { meta: { reason } } : {}),
+        status: known.status, error: err.code, message, ...(reason ? { meta: { reason } } : {}),
       });
     }
     throw err;
