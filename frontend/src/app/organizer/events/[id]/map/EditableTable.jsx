@@ -2,7 +2,7 @@
 
 import React from 'react';
 import {
-  SEAT_RADIUS, tableBody, seatPositions, toWorld, normaliseShape, tableScale,
+  SEAT_RADIUS, tableBody, seatPositions, toWorld, normaliseShape, tableScale, tableLabelSize,
 } from '../../../../components/seating/seatingGeometry';
 import TableBodyShape from '../../../../components/seating/TableBodyShape';
 import { inkOn, lookFont, tablePaint } from '../../../../components/seating/mapStyle';
@@ -98,7 +98,7 @@ const EditableTable = React.memo(function EditableTable({
           y={4} textAnchor="middle"
           className={paint.label || paint.fill ? 'es-layer-label' : 'fill-ink es-layer-label'}
           fill={paint.label || inkOn(paint.fill) || undefined}
-          style={{ fontSize: shape === 'high_top' ? 11 : 14, fontWeight: font.fontWeight, fontFamily: font.fontFamily, pointerEvents: 'none' }}
+          style={{ fontSize: tableLabelSize(shape, body, table.style), fontWeight: font.fontWeight, fontFamily: font.fontFamily, pointerEvents: 'none' }}
         >
           {table.label}
         </text>

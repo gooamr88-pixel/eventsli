@@ -1,6 +1,7 @@
 import { describe, test, expect } from 'vitest';
 import { planToMap, encloseRoom } from '../src/app/components/seating/imageImport';
-import { seatPositions, tableBody, toWorld, SEAT_RADIUS } from '../src/app/components/seating/seatingGeometry';
+import { LADIES_NIGHT_PLAN } from './fixtures/ladiesNightPlan';
+import { seatPositions, tableBody, toWorld, SEAT_RADIUS, tableScale, contentBounds } from '../src/app/components/seating/seatingGeometry';
 
 /**
  * Plans that PRINT each table's capacity and draw no chairs (2026-11-19, the
@@ -108,5 +109,50 @@ describe('the room encloses what is in it (the Ladies Night reading, 2026-11-19)
 
   test('a plan with no outline is left alone', () => {
     expect(encloseRoom({ ...plan, walls: [] })).toEqual({ ...plan, walls: [] });
+  });
+});
+
+describe('the Ladies Night plan rebuilds like the picture (2026-11-19: "very terrible, not real seats")', () => {
+  const map = planToMap(LADIES_NIGHT_PLAN);
+  const seatsOf = (t) => {
+    const p = toWorld(t.position, map.world);
+    const r = (p.rotation * Math.PI) / 180;
+    const k = tableScale(t.style);
+    return seatPositions(t.shape, t.seatCount, t.style).map((s) => ({
+      t: t.label,
+      x: p.x + (s.x * Math.cos(r) - s.y * Math.sin(r)) * k,
+      y: p.y + (s.x * Math.sin(r) + s.y * Math.cos(r)) * k,
+      r: SEAT_RADIUS * k,
+    }));
+  };
+
+  test('every table arrives, with its printed seats, outlined and named in a readable colour', () => {
+    expect(map.tables).toHaveLength(LADIES_NIGHT_PLAN.tables.length);
+    expect(map.report.seats).toBe(LADIES_NIGHT_PLAN.tables.reduce((n, t) => n + t.capacity, 0));
+    for (const t of map.tables) {
+      expect(t.style.stroke).toBe('#c9a24a');
+      expect(t.style.labelColor).toBe('#ffffff');
+    }
+  });
+
+  test('tables are sized to their boxes instead of the room being spread: no seats overlap', () => {
+    const pts = map.tables.flatMap(seatsOf);
+    for (let i = 0; i < pts.length; i += 1) {
+      for (let j = i + 1; j < pts.length; j += 1) {
+        if (pts[i].t === pts[j].t) continue;
+        expect(Math.hypot(pts[i].x - pts[j].x, pts[i].y - pts[j].y), `${pts[i].t} / ${pts[j].t}`)
+          .toBeGreaterThan(pts[i].r + pts[j].r - 1);
+      }
+    }
+  });
+
+  test('the room fills the frame: the walls are the edge of what is drawn', () => {
+    const b = contentBounds(map.tables, map.zones, map.world);
+    const walls = map.zones.filter((z) => z.kind === 'wall');
+    const wallXs = walls.map((z) => (z.x / 100) * map.world.width);
+    const span = Math.max(...wallXs) - Math.min(...wallXs);
+    // Before: a wall reached half its length in every direction, and the
+    // frame was about twice the room.
+    expect(b.width).toBeLessThan(span * 1.15);
   });
 });

@@ -44,6 +44,7 @@ function mapSchema() {
       wall: hex('The colour of the wall lines.'),
       label: hex('The colour of most text.'),
       table: hex('The colour most tables are filled with.'),
+      tableBorder: hex('The colour of the outline drawn round most tables (e.g. a gold border), or null when they have none.'),
     }),
     seatColors: s.array(s.string({ description: 'A seat dot colour as #rrggbb.' }), { maxItems: 4 }),
     tables: s.array(s.object({
@@ -105,7 +106,7 @@ TEXTS are words printed on the floor, inside the room, that belong to no table o
 
 WALLS: when the room is outlined by a frame or border, that outline is the wall, and it goes around EVERY table — check that no table lies outside the walls you give.
 
-COLOURS: give hex colours as they look, e.g. a grey table #8c8c8c, pink #d6006e, teal #00949a. seatColors lists the distinct seat dot colours, most common first.
+COLOURS: give hex colours as they look, e.g. a grey table #8c8c8c, pink #d6006e, teal #00949a. room.table is the tables' fill, room.tableBorder the outline round them (a gold frame is about #c9a24a), room.wall the room's border. seatColors lists the distinct seat dot colours, most common first.
 
 isSeatingMap is false when the picture is not a floor plan or seating chart; then every list is empty.
 
@@ -285,6 +286,7 @@ function validateMap(raw, { aspect = 1 } = {}) {   // aspect: the picture's heig
   return {
     room: {
       floor: colour(raw.room?.floor), wall: colour(raw.room?.wall), label: colour(raw.room?.label), table: colour(raw.room?.table),
+      tableBorder: colour(raw.room?.tableBorder),
     },
     seatColors: list(raw.seatColors, 4).map(colour).filter(Boolean),
     tables, areas, walls, doors, texts,

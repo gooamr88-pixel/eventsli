@@ -24,7 +24,7 @@ test('a good answer comes back clamped and typed', () => {
     texts: [{ text: 'Side door', x: 2, y: 37, size: 1.4 }],
     summary: 'Two tables.',
   });
-  assert.deepEqual(plan.room, { floor: '#fffcf2', wall: null, label: '#10303d', table: '#888888' });
+  assert.deepEqual(plan.room, { floor: '#fffcf2', wall: null, label: '#10303d', table: '#888888', tableBorder: null });
   assert.deepEqual(plan.seatColors, ['#d6006e', '#00949a']);
   assert.equal(plan.tables[1].x, 100, 'kept inside the picture');
   assert.equal(plan.tables[1].y, 0);

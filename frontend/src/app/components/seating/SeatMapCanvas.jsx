@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo } from 'react';
 import {
-  worldOf, SEAT_RADIUS, tableBody, seatPositions, toWorld, contentBounds, normaliseShape, tableScale,
+  worldOf, SEAT_RADIUS, tableBody, seatPositions, toWorld, contentBounds, normaliseShape, tableScale, tableLabelSize,
 } from './seatingGeometry';
 import { usePanZoom } from './usePanZoom';
 import { useBadgeScale } from './useBadgeScale';
@@ -403,7 +403,7 @@ function Table({
           textAnchor="middle"
           className={paint.label || paint.fill ? undefined : 'fill-ink'}
           fill={paint.label || inkOn(paint.fill) || undefined}
-          style={{ fontSize: shape === 'high_top' ? 11 : 14, fontWeight: font.fontWeight, fontFamily: font.fontFamily, pointerEvents: 'none' }}
+          style={{ fontSize: tableLabelSize(shape, body, table.style), fontWeight: font.fontWeight, fontFamily: font.fontFamily, pointerEvents: 'none' }}
         >
           {table.label}
           {/* THE WHOLE-TABLE PRICE, written on the table (owner, 2026-11-19:

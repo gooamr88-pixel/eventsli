@@ -21,11 +21,11 @@
  * ─────────────────────────────────────────────────────────────────────────────
  */
 import {
-  SHAPES, SEAT_RADIUS, makeWorld, seatPositions, tableBody, toPercent, worldScale,
+  SHAPES, SEAT_RADIUS, TABLE_SCALE, makeWorld, seatPositions, tableBody, toPercent, worldScale,
 } from './seatingGeometry';
 import { SHAPE_SIDES } from './tableSides';
 import { readZones, writeZones } from './layoutZones';
-import { cleanLook, cleanHex } from './mapStyle';
+import { cleanLook, cleanHex, inkOn } from './mapStyle';
 import { MAX_ZONES } from './venueZones';
 
 const MAX_TABLES = 400;
@@ -108,6 +108,32 @@ function clearance(shaped, imgW, imgH) {
   return need;
 }
 
+/**
+ * A chairless plan's scale: units per picture pixel `k`, and each table's own
+ * size factor so that the table WITH its seats fits inside its drawn box.
+ *
+ * `need` is, per table, the units-per-pixel at which it exactly fits its box
+ * at size 1. `k` is the median of those, so a typical table is drawn at its
+ * natural size; then each table is sized `k / need` (50–150 %, the editor's
+ * own range, seatingGeometry.TABLE_SCALE). If even the smallest size leaves
+ * some tables too big for their boxes, `k` grows just enough for them — never
+ * past twice the median, so one mis-read box cannot blow the room up.
+ */
+function fitScales(shaped, imgW, imgH) {
+  const needs = shaped.map(({ t, s }) => {
+    const f = footprint(s);
+    const bw = Math.max(2, (Number(t.w) || 0) / 100 * imgW);
+    const bh = Math.max(2, (Number(t.h) || 0) / 100 * imgH);
+    return Math.max((f.hw * 2) / bw, (f.hh * 2) / bh);
+  });
+  const mid = median(needs) || 1;
+  const k = Math.min(mid * 2, Math.max(mid, ...needs.map((n) => n * TABLE_SCALE.min)));
+  return { k, needs };
+}
+
+/** Each table's size at the final scale `k` (after the world's own limits). */
+const scalesAt = (needs, k) => needs.map((n) => Math.min(TABLE_SCALE.max, Math.max(TABLE_SCALE.min, k / n)));
+
 /** Unique, non-empty labels, as the API requires. */
 function labeller() {
   const taken = new Set();
@@ -160,6 +186,9 @@ export function encloseRoom(plan) {
   const within = (o) => o.x >= nb.minX - m && o.x <= nb.maxX + m && o.y >= nb.minY - m && o.y <= nb.maxY + m;
   return {
     ...plan,
+    // Decorations outside the room (flowers, photos round a poster) go with
+    // the words outside it; every other area is inside by construction.
+    areas: (plan.areas || []).filter((a) => a.kind !== 'decor' || within(a)),
     walls: walls.map((w) => ({ x1: moveX(w.x1), y1: moveY(w.y1), x2: moveX(w.x2), y2: moveY(w.y2) })),
     doors: (plan.doors || []).map((d) => ({ ...d, x: moveX(d.x), y: moveY(d.y) })),
     texts: (plan.texts || []).filter(within),
@@ -201,21 +230,37 @@ export function planToMap(input) {
   // its rows need more room: up to 3.2×. Positions keep the picture's layout.
   const chairlessPlan = shaped.length > 0
     && shaped.filter(({ t }) => !t.around && !(t.sides || []).some(Boolean)).length * 2 > shaped.length;
-  let k = Math.max(base, Math.min(base * (chairlessPlan ? 3.2 : 1.6), clearance(shaped, imgW, imgH)));
+  // A CHAIRLESS plan is not spread at all (2026-11-19, the owner on the 3.2×
+  // version: "very terrible, not real seats"): the room shrank every table to
+  // a speck. Each table is instead SIZED to fit the box it fills in the
+  // picture (`fitScales`), so the room keeps the picture's proportions and the
+  // boxes, which do not overlap in the picture, keep the seats apart.
+  const fit = chairlessPlan ? fitScales(shaped, imgW, imgH) : null;
+  let k = fit ? fit.k : Math.max(base, Math.min(base * 1.6, clearance(shaped, imgW, imgH)));
   // The world has to be at least the default room and at most a stadium.
   k = Math.max(k, 1000 / imgW, 700 / imgH);
   k = Math.min(k, 10000 / imgW, 10000 / imgH);
   const world = makeWorld(Math.round(imgW * k), Math.round(imgH * k));
+  const fitted = fit ? scalesAt(fit.needs, k) : null;
   const at = (x, y) => toPercent(px(x, imgW) * k, px(y, imgH) * k, world);
   const units = (pctW, side) => px(pctW, side) * k;
 
   const room = plan.room || {};
   const label = labeller();
-  const tables = shaped.map(({ t, s }) => {
+  // The tables' outline colour, as printed (gold round dark teal on the
+  // owner's plan), and a name colour that reads on the table's own fill: the
+  // map's label colour is for the floor, and was dark on dark tables.
+  const border = cleanHex(room.tableBorder);
+  const tableFill = cleanHex(room.table);
+  const tables = shaped.map(({ t, s }, i) => {
     const style = {};
     if (s.sides) style.sides = s.sides;
     const fill = cleanHex(t.fill);
-    if (fill && fill !== cleanHex(room.table)) style.fill = fill;
+    if (fill && fill !== tableFill) style.fill = fill;
+    if (!style.fill && tableFill) style.labelColor = inkOn(tableFill);
+    if (border) { style.stroke = border; style.strokeWidth = 2.5; }
+    const scale = fitted ? fitted[i] : 1;
+    if (Math.abs(scale - 1) >= 0.03) style.scale = Math.round(scale * 100) / 100;
     return {
       label: label(t.label),
       shape: s.shape,
@@ -225,7 +270,9 @@ export function planToMap(input) {
     };
   });
 
-  const thick = Math.min(20, Math.max(4, 6 * worldScale(world)));
+  // Walls a room's border can be seen as at the whole-room view: about 0.7 %
+  // of its width (they were a hairline at 4–6 units in a large world).
+  const thick = Math.min(24, Math.max(6, world.width * 0.007, 6 * worldScale(world)));
   const zones = [];
   for (const a of plan.areas || []) {
     zones.push({

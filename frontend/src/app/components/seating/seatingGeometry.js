@@ -250,6 +250,23 @@ export function tableScale(style) {
   return clamp(v, TABLE_SCALE.min, TABLE_SCALE.max);
 }
 
+/**
+ * The font size of a table's name, in the table's own (unscaled) units.
+ *
+ * Names are drawn inside the table's `scale()`, so a half-size table used to
+ * get a half-size name — "T8" on a row of small tables was unreadable
+ * (2026-11-19, an imported plan where every table was sized to its box). The
+ * name now keeps its normal size on screen when the table body has room for
+ * it, and shrinks only as far as the body forces.
+ */
+export function tableLabelSize(shape, body, style) {
+  const base = shape === 'high_top' ? 11 : 14;
+  const size = tableScale(style);
+  if (size >= 1 || body.kind === 'none') return base;
+  const room = Math.max(base, Math.min(body.width, body.height) * 0.5);
+  return Math.min(base / size, room);
+}
+
 /** How far a table's seats reach from its centre, at its drawn size: what a
  *  frame, a box-select and a bounds check need. */
 export function tableReach(table) {
@@ -457,18 +474,25 @@ function extent(tables, zones, world) {
   }
 
   for (const z of (hasZones ? zones : [])) {
-    // A rotated zone's corners swing outside its own box. Using the diagonal
-    // as the reach is generous rather than exact — the alternative is four
-    // trig calls per zone per frame to save a few units of padding.
+    // The zone's own box, turned: its true axis-aligned extent. It used to
+    // reach max(w, h) / 2 in EVERY direction, which for a wall — 2,000 units
+    // long and 12 deep — framed the map 1,000 units above and below it: a
+    // walled room opened as a small picture in a sea of floor (2026-11-19,
+    // the owner's imported plan; true of every map with Draw walls). Two trig
+    // calls per zone, and the caller memoizes the result.
     const w = Math.max(0, Number(z.w) || 0);
     const h = Math.max(0, Number(z.h) || 0);
     const cx = (Number(z.x) || 0) / 100 * world.width;
     const cy = (Number(z.y) || 0) / 100 * world.height;
-    const reach = (Number(z.rotation) ? Math.hypot(w, h) : Math.max(w, h)) / 2;
-    minX = Math.min(minX, cx - reach);
-    minY = Math.min(minY, cy - reach);
-    maxX = Math.max(maxX, cx + reach);
-    maxY = Math.max(maxY, cy + reach);
+    const r = ((Number(z.rotation) || 0) * Math.PI) / 180;
+    const c = Math.abs(Math.cos(r));
+    const s = Math.abs(Math.sin(r));
+    const halfW = (w * c + h * s) / 2;
+    const halfH = (w * s + h * c) / 2;
+    minX = Math.min(minX, cx - halfW);
+    minY = Math.min(minY, cy - halfH);
+    maxX = Math.max(maxX, cx + halfW);
+    maxY = Math.max(maxY, cy + halfH);
   }
 
   return { minX, minY, maxX, maxY };
