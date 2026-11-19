@@ -237,6 +237,8 @@ app.use('/api/v1/places', require('./routes/placesRoutes'));
 // Eventsli AI — read-only drafts; every write still goes through /events.
 // Off unless AI_ENABLED is set and a provider key exists (services/ai/config.js).
 app.use('/api/v1/ai', require('./routes/aiRoutes'));
+// Book a demo (2026-11-19): its own router, ahead of the general public one.
+app.use('/api/v1/public/demo', require('./routes/demoRoutes'));
 app.use('/api/v1/public', require('./routes/publicRoutes'));
 app.use('/api/v1/tickets', require('./routes/ticketRoutes'));
 app.use('/api/v1/payments', require('./routes/paymentRoutes'));

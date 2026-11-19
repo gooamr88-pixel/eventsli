@@ -87,8 +87,8 @@ export default function AddonPicker({ reservationId, headers, quote, organizerNa
                 <img src={a.imageUrl} alt="" className="es-addons__img" loading="lazy" decoding="async" />
               )}
               <div className="fx-min0 es-addons__body">
-                <p className="es-addons__name fx-break">{a.name}</p>
-                {a.description && <p className="es-addons__desc fx-break">{a.description}</p>}
+                <p className="es-addons__name">{a.name}</p>
+                {a.description && <p className="es-addons__desc">{a.description}</p>}
                 <p className="es-addons__price es-nums">
                   {a.priceCents === 0 ? 'Free' : formatMoney(a.priceCents, quote.currency)}
                   <span> each</span>

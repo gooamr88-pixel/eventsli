@@ -10,6 +10,7 @@ const logger = require('../utils/logger');
 const accessTokens = require('../services/accessTokens');
 const signatures = require('../services/signatureService');
 const addonService = require('../services/addonService');
+const holderSvc = require('../services/ticketHolders');
 // Ticket delivery and retrieval live in one place; three callers need them and
 // a second copy would drift.
 const ticketCtrl = require('./ticketController');
@@ -79,6 +80,9 @@ async function quote(req, res, next) {
     return sendOk(res, {
       ...pricing.publicBreakdown(q),
       tickets: await ticketLines(q.items),
+      // Per-ticket holder forms (2026-11-19): the event's rule and one slot
+      // per ticket — empty for a one-ticket order or when the event asks none.
+      holders: await holderSvc.forCheckout(q),
       // The add-ons this event offers (2026-11-17), with what is left — for
       // the checkout's "Make it special" step. What the hold already carries
       // is `addons` in the breakdown above.
@@ -264,6 +268,11 @@ async function createSession(req, res, next) {
     const sig = readSignature(req, res);
     if (!sig) return undefined;
 
+    // Who each ticket is for (2026-11-19): checked and saved on the hold
+    // before any money moves; the database names each ticket as it is issued.
+    const held = await holderSvc.save(q, req.body.holders, buyer);
+    if (held.code) return sendFail(res, { status: 400, error: held.code, message: held.message, meta: held.meta });
+
     // The organizer chose how this event is paid for. An event that takes only
     // manual payment has no card checkout, whatever the buyer's page sends.
     // Read on its own and FAIL OPEN on a read error: this column is new, and a
@@ -380,6 +389,11 @@ async function createOffline(req, res, next) {
         throw Object.assign(new Error('Paying the organizer offline is not available yet.'), { code: 'FEATURE_DISABLED' });
       }
     });
+
+    // Who each ticket is for (2026-11-19): checked and saved on the hold
+    // before any money moves; the database names each ticket as it is issued.
+    const held = await holderSvc.save(q, req.body.holders, buyer);
+    if (held.code) return sendFail(res, { status: 400, error: held.code, message: held.message, meta: held.meta });
 
     const terms = require('../services/termsService');
     const current = await terms.currentVersion('buyer');
@@ -805,6 +819,11 @@ async function claimFree(req, res, next) {
     // …and signed under them. See readSignature.
     const sig = readSignature(req, res);
     if (!sig) return undefined;
+
+    // Who each ticket is for (2026-11-19): checked and saved on the hold
+    // before any money moves; the database names each ticket as it is issued.
+    const held = await holderSvc.save(q, req.body.holders, buyer);
+    if (held.code) return sendFail(res, { status: 400, error: held.code, message: held.message, meta: held.meta });
 
     // Same failure mode as the paid path: a claim we cannot evidence the terms
     // for does not happen.

@@ -162,6 +162,10 @@ const ERROR_STATUS = {
   // details are incomplete, so no invoice was issued. meta lists the fields.
   BILLING_DETAILS_INCOMPLETE: 422,
 
+  // Book a demo (2026-11-19): the time was taken between choosing it and
+  // pressing Book, or is no longer open. The page goes back to the times.
+  DEMO_SLOT_TAKEN: 409,
+
   // generic
   VALIDATION_ERROR: 400,
   RATE_LIMITED: 429,

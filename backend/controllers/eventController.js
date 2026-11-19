@@ -39,7 +39,7 @@ const SELECT = `
   city, venue_place_id,
   commission_pct, commission_tax_pct, payment_fee_mode, payment_fee_pct,
   payment_fee_fixed_cents, fee_bearer, event_tax_pct,
-  max_tickets_per_order, allow_ticket_transfer,
+  max_tickets_per_order, allow_ticket_transfer, holder_details,
   rejection_reason, reviewed_at, cancelled_at, cancelled_reason,
   suspended_at, suspended_reason, terms_accepted_id, created_at, updated_at,
   accepts_stripe, accepts_manual, offline_payment_hours, archived_at, archived_from,
@@ -163,6 +163,7 @@ async function create(req, res, next) {
           ? { max_tickets_per_order: Number(req.body.maxTicketsPerOrder) } : {}),
         ...(req.body.allowTicketTransfer !== undefined
           ? { allow_ticket_transfer: req.body.allowTicketTransfer === true || req.body.allowTicketTransfer === 'true' } : {}),
+        ...(req.body.holderDetails !== undefined ? { holder_details: req.body.holderDetails } : {}),
         ...financials,
         ...payments,
         // A coming-soon teaser (20261124090000): published with a title, a city,
@@ -739,6 +740,8 @@ function shape(e, { currentTermsId = null } = {}) {
     rules: {
       maxTicketsPerOrder: e.max_tickets_per_order,
       allowTicketTransfer: e.allow_ticket_transfer,
+      // Per-ticket holder forms at checkout (2026-11-19). 'required' before the migration.
+      holderDetails: e.holder_details || 'required',
     },
     payments: {
       acceptsStripe: !!e.accepts_stripe,

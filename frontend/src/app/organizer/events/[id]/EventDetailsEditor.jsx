@@ -94,6 +94,8 @@ function fromEvent(event) {
     feeBearer: event.fees?.feeBearer || 'buyer',
     maxTicketsPerOrder: String(event.rules?.maxTicketsPerOrder ?? ''),
     allowTicketTransfer: Boolean(event.rules?.allowTicketTransfer),
+    // Per-ticket holder forms at checkout (2026-11-19).
+    holderDetails: event.rules?.holderDetails || 'required',
     acceptsStripe: Boolean(event.payments?.acceptsStripe),
     acceptsManual: Boolean(event.payments?.acceptsManual),
     // Phase 2: hours a buyer has to pay offline; blank = the platform's.

@@ -22,6 +22,8 @@ import NavIcon from '../../components/shell/NavIcon';
 import SignatureDialog from './SignatureDialog';
 import PayOptions, { usePayOptions } from './PayOptions';
 import AddonPicker from './AddonPicker';
+import { cardFeeNote } from '../../lib/cardFee';
+import HolderForms, { holderPayload } from './HolderForms';
 
 /**
  * The last screen before Stripe.
@@ -51,8 +53,13 @@ export default function CheckoutClient({ reservationId }) {
   const [promoError, setPromoError] = useState(null);
   const [busy, setBusy] = useState(null);
   const [buyer, setBuyer] = useState({ name: '', email: '' });
-  // The three agreements beside the button (owner's reference, 2026-11-15).
-  const [checks, setChecks] = useState({ terms: false, refund: false, entry: false });
+  // ONE agreement beside the button (owner, 2026-11-19: "reduce them as
+  // possible"). It was three boxes, from the 2026-11-15 reference; the API
+  // only ever received one `acceptTerms`, so nothing it records changed.
+  const [agreed, setAgreed] = useState(false);
+  // Who each ticket is for (2026-11-19), keyed by the quote's holder slots.
+  const [holderValues, setHolderValues] = useState({});
+  const [holderError, setHolderError] = useState(null);
   // Optional texts: a number, and separate transactional / marketing boxes.
   const [phone, setPhone] = useState('');
 
@@ -222,10 +229,12 @@ export default function CheckoutClient({ reservationId }) {
       const body = {
         email: buyer.email || undefined,
         name: buyer.name || undefined,
-        acceptTerms: checks.terms && checks.refund && checks.entry,
+        acceptTerms: agreed,
         signature,
         ...(smsPayload(sms, phone).sms ? { phone: phone.trim(), ...smsPayload(sms, phone) } : {}),
+        ...(quote.holders?.slots?.length ? { holders: holderPayload(quote.holders, holderValues) } : {}),
       };
+      setHolderError(null);
 
       if (free) {
         const result = await post(
@@ -280,6 +289,12 @@ export default function CheckoutClient({ reservationId }) {
     } catch (err) {
       if (String(err?.code || '').startsWith('SIGNATURE_')) {
         setSignError(err);
+      } else if (err?.meta?.key) {
+        // A ticket holder's details were refused: say so on that ticket's card.
+        setSigning(false);
+        setHolderError({ key: err.meta.key, message: err.message });
+        const i = (quote.holders?.slots || []).findIndex((x) => x.key === err.meta.key);
+        document.getElementById(`holder-${i}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       } else {
         setSigning(false);
         setError(err);
@@ -337,10 +352,13 @@ export default function CheckoutClient({ reservationId }) {
   const free = Number(quote.totalCents) === 0;
   const ev = quote.event || {};
   const when = ev.startsAt ? formatEventTime(ev.startsAt, ev.timezone) : null;
-  const until = ev.endsAt ? formatEventTime(ev.endsAt, ev.timezone) : null;
+  // Ending the same day: the time alone. "Feb 13, 2027, 7:00 PM EST – Feb 13,
+  // 2027, 11:59 PM EST" wrapped to three lines on a phone to say one date twice.
+  const sameDay = ev.startsAt && ev.endsAt
+    && formatEventTime(ev.startsAt, ev.timezone, { time: false }) === formatEventTime(ev.endsAt, ev.timezone, { time: false });
+  const until = ev.endsAt ? formatEventTime(ev.endsAt, ev.timezone, { date: !sameDay }) : null;
   const tickets = quote.tickets || [];
-  const allChecked = checks.terms && checks.refund && checks.entry;
-  const tick = (key) => (e) => setChecks((c) => ({ ...c, [key]: e.target.checked }));
+  const allChecked = agreed;
 
   return (
     /**
@@ -370,7 +388,7 @@ export default function CheckoutClient({ reservationId }) {
             <h2 id="co-summary" className="es-co__h2">Order summary</h2>
             <p className="es-co__sub">Review your selections and check the total cost.</p>
 
-            <div className="es-co__event">
+            <div className={`es-co__event ${ev.coverUrl ? 'es-co__event--poster' : ''}`}>
               {ev.coverUrl && (
                 // eslint-disable-next-line @next/next/no-img-element -- the event's poster, straight from storage
                 <img src={ev.coverUrl} alt="" className="es-co__poster" />
@@ -385,8 +403,8 @@ export default function CheckoutClient({ reservationId }) {
                     <li><NavIcon name="calendar" size={16} />{when}{until ? ` – ${until}` : ''}</li>
                   )}
                   {ev.venue && <li><NavIcon name="building" size={16} />{ev.venue}</li>}
-                  {(ev.venueAddress || ev.city) && <li><NavIcon name="pin" size={16} />{ev.venueAddress || ev.city}</li>}
-                  {ev.organizerName && <li><NavIcon name="tag" size={16} /><span><b>Organized by:</b> {ev.organizerName}</span></li>}
+                  {(ev.venueAddress || ev.city) && <li className="es-co__fact--addr"><NavIcon name="pin" size={16} />{ev.venueAddress || ev.city}</li>}
+                  {ev.organizerName && <li className="es-co__fact--org"><NavIcon name="tag" size={16} /><span><b>Organized by:</b> {ev.organizerName}</span></li>}
                 </ul>
                 {ev.slug && (
                   <p className="es-co__more"><b>Event details:</b> <Link href={`/e/${ev.slug}`}>See more</Link></p>
@@ -399,7 +417,7 @@ export default function CheckoutClient({ reservationId }) {
                 {tickets.map((t) => (
                   <li key={t.key} className="es-co__line">
                     <span aria-hidden className="es-co__line-icon"><NavIcon name="ticket" size={18} /></span>
-                    <span className="es-co__line-name fx-min0 fx-break">{t.name}</span>
+                    <span className="es-co__line-name fx-min0">{t.name}</span>
                     <span className="es-co__line-price es-nums">{formatMoney(t.unitPriceCents, quote.currency)}</span>
                     <span className="es-co__line-qty es-nums" aria-label={`Quantity ${t.quantity}`}>× {t.quantity}</span>
                   </li>
@@ -456,6 +474,10 @@ export default function CheckoutClient({ reservationId }) {
             <SmsConsentFields mode="checkout" value={sms} onChange={setSms} phone={phone} onPhone={setPhone} showPhone
               organizerName={ev.organizerName} />
           </section>
+
+          {/* Who each ticket is for — two tickets and up, as the event asks (2026-11-19). */}
+          <HolderForms holders={quote.holders} values={holderValues} onChange={setHolderValues}
+            buyer={buyer} phone={phone} error={holderError} />
         </div>
 
         <aside className="es-co__side">
@@ -473,6 +495,8 @@ export default function CheckoutClient({ reservationId }) {
               methodId={methodId}
               onMethod={setMethodId}
               timezone={ev.timezone}
+              cardTotalCents={quote.totalCents}
+              currency={quote.currency}
             />
 
             {!free && (
@@ -481,6 +505,10 @@ export default function CheckoutClient({ reservationId }) {
                   <div key={line.label}>
                     <dt>{line.label}</dt>
                     <dd className="es-nums">{formatMoney(line.amountCents, quote.currency)}</dd>
+                    {/* What the card processing fee is, and the rate it came from (2026-11-19). */}
+                    {line.basis && cardFeeNote(line.basis, quote.currency) && (
+                      <dd className="es-co__fee-note">{cardFeeNote(line.basis, quote.currency)}</dd>
+                    )}
                   </div>
                 ))}
               </dl>
@@ -523,26 +551,18 @@ export default function CheckoutClient({ reservationId }) {
             </div>
 
             {/* BRD §02 — the terms are accepted before buying, and the API
-                records the acceptance against the version shown. The three
-                statements are the reference's; all three are required, and
-                `acceptTerms` is sent only when every one is ticked. */}
+                records the acceptance against the version shown. One box now
+                carries all three statements the reference had as three: the
+                terms, no refunds from Eventsli, and one entry per e-ticket.
+                Every word is still in front of the buyer; only the taps went. */}
             <div className="es-co__agree">
               <label>
-                <input type="checkbox" required checked={checks.terms} onChange={tick('terms')} />
+                <input type="checkbox" required checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
                 <span>
-                  By proceeding you accept the <Link href="/terms">Terms &amp; conditions</Link>, the{' '}
-                  <Link href="/privacy">Privacy policy</Link> and the purchase agreement.
-                </span>
-              </label>
-              <label>
-                <input type="checkbox" required checked={checks.refund} onChange={tick('refund')} />
-                <span>I accept that tickets are non-refundable; any refund is between me and the organizer.</span>
-              </label>
-              <label>
-                <input type="checkbox" required checked={checks.entry} onChange={tick('entry')} />
-                <span>
-                  Entry requires the electronic ticket sent by email (with its QR code, and seat number if
-                  applicable). Each ticket is valid for one entry only.
+                  I accept the <Link href="/terms">Terms &amp; conditions</Link>, the{' '}
+                  <Link href="/privacy">Privacy policy</Link> and the purchase agreement: tickets are
+                  non-refundable (any refund is between me and the organizer), and each ticket is valid for
+                  one entry with the e-ticket emailed to me.
                 </span>
               </label>
             </div>

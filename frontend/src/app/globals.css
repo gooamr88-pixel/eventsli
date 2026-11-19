@@ -16016,6 +16016,9 @@ label.es-chip:has(:focus-visible) { outline: 2px solid var(--es-accent); outline
 .es-co__breakdown { display: grid; gap: 0.55rem; margin: 0; }
 .es-co__breakdown > div { display: flex; justify-content: space-between; gap: 1rem; color: var(--es-text-muted); }
 .es-co__breakdown dd { margin: 0; color: var(--es-text); }
+/* The note under "Card processing fee": its own full-width row in the group. */
+.es-co__breakdown > div:has(> .es-co__fee-note) { flex-wrap: wrap; row-gap: 0.15rem; }
+.es-co__breakdown .es-co__fee-note { flex-basis: 100%; font-size: var(--es-text-xs); line-height: 1.4; color: var(--es-text-subtle); }
 .es-co__promo { display: grid; gap: 0.4rem; }
 .es-co__promo-row { display: flex; gap: 0.5rem; }
 .es-co__promo-row .es-input { flex: 1; min-width: 0; }
@@ -16078,6 +16081,104 @@ label.es-chip:has(:focus-visible) { outline: 2px solid var(--es-accent); outline
 .es-co__secure { display: flex; align-items: center; justify-content: center; gap: 0.4rem; margin: 0; font-size: var(--es-text-xs); text-align: center; color: var(--es-text-subtle); }
 .es-co__release { justify-self: center; font-size: var(--es-text-sm); color: var(--es-text-muted); text-decoration: underline; cursor: pointer; }
 .es-co__release:hover { color: var(--es-danger); }
+
+/* "How will you pay?" — two choice cards (PayOptions, 2026-11-19). The
+   section is the total card's first block, so a rule under it separates the
+   choice from the money. */
+.es-paychoice { display: grid; gap: 0.75rem; min-width: 0; margin: 0; padding: 0 0 1rem; border: 0; border-bottom: 1px solid var(--es-border); }
+.es-paychoice > legend { float: left; width: 100%; margin-bottom: 0.75rem; padding: 0; }
+.es-paychoice__options { display: grid; gap: 0.6rem; clear: both; }
+.es-paychoice__opt {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border: 1.5px solid var(--es-border);
+  border-radius: 14px;
+  background: var(--es-surface);
+  cursor: pointer;
+  transition: border-color var(--es-duration-fast) var(--es-ease-default), background-color var(--es-duration-fast) var(--es-ease-default);
+}
+.es-paychoice__opt:hover { border-color: var(--es-border-strong); }
+.es-paychoice__opt.is-on { border-color: var(--es-accent); background: color-mix(in srgb, var(--es-accent-wash) 60%, var(--es-surface)); }
+.es-paychoice__opt:has(.es-paychoice__radio:focus-visible) { outline: 2px solid var(--es-focus-ring-color); outline-offset: 2px; }
+.es-paychoice__radio { width: 20px; height: 20px; margin: 0; accent-color: var(--es-accent); cursor: pointer; }
+.es-paychoice__radio:focus-visible { outline: none; }
+.es-paychoice__icon {
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 10px;
+  background: var(--es-bg-sunken);
+  color: var(--es-text);
+}
+.es-paychoice__opt.is-on .es-paychoice__icon { background: var(--es-surface); color: var(--es-accent); }
+.es-paychoice__body { display: grid; gap: 0.15rem; min-width: 0; }
+.es-paychoice__head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0.1rem 0.75rem; }
+.es-paychoice__head b { font-weight: 700; line-height: 1.3; color: var(--es-text); }
+.es-paychoice__amount { font-weight: 800; color: var(--es-text); }
+.es-paychoice__note { font-size: var(--es-text-sm); line-height: 1.4; color: var(--es-text-muted); }
+.es-paychoice__method { display: grid; gap: 0.4rem; font-size: var(--es-text-sm); font-weight: 600; color: var(--es-text); }
+.es-paychoice__method small { font-size: var(--es-text-xs); font-weight: 400; color: var(--es-text-subtle); }
+/* Phones: the radio and the words. The icon tile is decoration, and at
+   320-390px it cost the explanation a quarter of its width. */
+@media (width < theme(--breakpoint-sm)) {
+  .es-paychoice__opt { grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: 0.7rem; padding: 0.8rem 0.85rem; }
+  .es-paychoice__icon { display: none; }
+  .es-paychoice__radio { margin-top: 0.1rem; }
+  .es-co__submit { padding: 0.5rem 1.25rem; text-align: center; line-height: 1.25; }
+}
+
+/* Names wrap between words, never inside one. They were `.fx-break`
+   (`anywhere`), and in a row with the price and the "× 1" beside it a phone
+   split "Orchestra" into "Orches / tra" (owner's screenshot, 2026-11-19). */
+.es-co__line-name { overflow-wrap: break-word; }
+
+/* ── PHONES: the same checkout, less of it at once (owner, 2026-11-19: "very
+   complex"). The desktop stays the reference layout. Here the summary is a
+   compact row — a square poster beside the title, the date and the venue —
+   with no card inside the card; the street address, the organizer and the
+   breadcrumb trail (all on the event page, one tap away via "See more")
+   drop out; and each ticket is two lines, the name across the row and the
+   price under it, so a name never fights the price for width. */
+@media (width < theme(--breakpoint-sm)) {
+  .es-co { gap: 1rem; }
+  .es-co__crumbs { display: none; }
+  .es-co__title { margin: 0; font-size: 1.6rem; }
+  .es-co__grid, .es-co__main, .es-co__side { gap: 1rem; }
+
+  .es-co__summary { gap: 0.85rem; padding: 1rem; border-radius: 16px; }
+  .es-co__summary > .es-co__sub { display: none; }
+  .es-co__h2 { font-size: 1.25rem; }
+
+  .es-co__event--poster { grid-template-columns: 4.5rem minmax(0, 1fr); gap: 0.85rem; align-items: start; }
+  .es-co__event--poster .es-co__poster { aspect-ratio: 1; border-radius: 12px; box-shadow: none; }
+  .es-co__event-info { gap: 0.4rem; padding: 0; border: 0; background: none; }
+  .es-co__event-title { font-size: 1.05rem; }
+  .es-co__event-title svg { display: none; }
+  .es-co__facts { gap: 0.25rem; }
+  .es-co__facts li { gap: 0.4rem; font-size: 0.875rem; line-height: 1.35; }
+  /* Through the list's class: `.es-co__facts li` (class + element) outranks
+     a lone class and kept them showing. */
+  .es-co__facts .es-co__fact--addr, .es-co__facts .es-co__fact--org { display: none; }
+  .es-co__more { font-size: 0.875rem; }
+
+  .es-co__line {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas: "icon name qty" "icon price qty";
+    column-gap: 0.75rem;
+    row-gap: 0.1rem;
+    padding: 0.65rem 0.75rem;
+  }
+  .es-co__line-icon { grid-area: icon; }
+  .es-co__line-name { grid-area: name; line-height: 1.3; }
+  .es-co__line-price { grid-area: price; font-size: 0.9rem; font-weight: 600; color: var(--es-text-muted); }
+  .es-co__line-qty { grid-area: qty; }
+
+  .es-co__card, .es-co__total { padding: 1rem; border-radius: 16px; }
+}
 
 }   /* end @layer components — checkout */
 
@@ -17046,10 +17147,19 @@ label.es-chip:has(:focus-visible) { outline: 2px solid var(--es-accent); outline
   /* The add-on picture: a square beside its name, cropped to fill. */
   .es-addons__img { flex: none; width: 76px; height: 76px; border-radius: 12px; object-fit: cover; background: var(--es-bg-sunken); }
   @media (width >= theme(--breakpoint-md)) { .es-addons__img { width: 92px; height: 92px; } }
+  /* Phones: a smaller picture and a narrower text basis, so the picture stays
+     beside its name instead of wrapping onto a row of its own at 320-375px. */
+  @media (width < theme(--breakpoint-sm)) {
+    .es-addons__item { padding: 0.75rem; gap: 0.6rem 0.75rem; }
+    .es-addons__img { width: 56px; height: 56px; border-radius: 10px; }
+    .es-addons__item > .fx-min0 { flex-basis: 8rem; }
+  }
   .es-addonlist__img { width: 44px; height: 44px; border-radius: 10px; object-fit: cover; }
   .es-addons__item.is-on { border-color: var(--es-highlight); background: var(--es-highlight-wash); }
-  .es-addons__name { margin: 0; font-weight: 700; color: var(--es-text); }
-  .es-addons__desc { margin: 0.15rem 0 0; font-size: var(--es-text-sm); color: var(--es-text-muted); }
+  /* `break-word`, not `.fx-break`'s `anywhere`: wrap between words, split
+     one only if it alone is wider than the line. */
+  .es-addons__name { margin: 0; font-weight: 700; color: var(--es-text); overflow-wrap: break-word; }
+  .es-addons__desc { margin: 0.15rem 0 0; font-size: var(--es-text-sm); color: var(--es-text-muted); overflow-wrap: break-word; }
   .es-addons__price { margin: 0.3rem 0 0; font-weight: 700; color: var(--es-text); }
   .es-addons__price span { font-weight: 500; color: var(--es-text-muted); }
   .es-addons__price em { font-style: normal; font-weight: 600; color: var(--es-accent); }
@@ -17732,5 +17842,305 @@ label.es-chip:has(:focus-visible) { outline: 2px solid var(--es-accent); outline
   @media (prefers-reduced-motion: reduce) {
     .es-imgimport__beam, .es-readprog__orb, .es-readprog__fill::after, .es-readprog__steps li[data-state="now"] .es-readprog__dot { animation: none; }
     .es-imgimport__beam { transform: none; opacity: 0.6; }
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   BOOK A DEMO (owner, 2026-11-19) — the public /demo page, the booker's
+   "change or cancel" page and the console's Demo bookings. The reference's
+   layout (pitch left, booking card right; month → times → details) in our
+   brand: coral for what you act on, yellow wash for what is chosen.
+   ═══════════════════════════════════════════════════════════════════════ */
+@layer components {
+  .es-demo {
+    display: grid;
+    gap: 2rem;
+    align-items: start;
+    padding-block: clamp(1.5rem, 4vw, 3.5rem);
+  }
+  @media (width >= theme(--breakpoint-lg)) {
+    .es-demo { grid-template-columns: minmax(0, 1fr) minmax(0, 34rem); gap: 3.5rem; }
+    .es-demo__pitch { position: sticky; top: calc(var(--es-header-h, 4rem) + 2rem); padding-top: 3rem; }
+  }
+  .es-demo__title {
+    display: inline-block;
+    margin: 0;
+    padding-bottom: 0.2em;
+    border-bottom: 6px solid var(--es-brand-coral);
+    font-family: var(--es-font-display);
+    font-size: clamp(2.1rem, 1.5rem + 2.4vw, 3.4rem);
+    font-weight: 800;
+    line-height: 1.1;
+    color: var(--es-text);
+  }
+  .es-demo__intro { max-width: 36rem; margin: 1.25rem 0 0; font-size: clamp(1.05rem, 1rem + 0.35vw, 1.3rem); line-height: 1.6; color: var(--es-text-muted); }
+  .es-demo__contact-title { margin: 2rem 0 0.9rem; font-family: var(--es-font-display); font-size: 1.35rem; font-weight: 800; color: var(--es-text); }
+  .es-demo__contact { display: grid; gap: 0.75rem; max-width: 24rem; margin: 0; padding: 0; list-style: none; }
+  .es-demo__contact a {
+    display: flex; align-items: center; gap: 0.75rem;
+    min-height: 3.5rem; padding: 0.75rem 1.1rem;
+    border: 1.5px solid var(--es-border-strong); border-radius: 14px;
+    font-size: 1.1rem; font-weight: 700; color: var(--es-text); overflow-wrap: anywhere;
+    transition: border-color var(--es-duration-fast) var(--es-ease-default);
+  }
+  .es-demo__contact a:hover { border-color: var(--es-accent); color: var(--es-accent); }
+  .es-demo__contact svg { flex: none; color: var(--es-accent); }
+
+  /* The card */
+  .es-demo-card {
+    position: relative;
+    display: grid;
+    gap: 1rem;
+    padding: clamp(1.1rem, 3vw, 1.75rem);
+    border: 1px solid var(--es-border);
+    border-radius: 20px;
+    background: var(--es-surface);
+    box-shadow: var(--es-shadow-md);
+  }
+  .es-demo-card__title { margin: 0; font-family: var(--es-font-display); font-size: 1.5rem; font-weight: 800; color: var(--es-text); }
+  .es-demo-card__back + .es-demo-card__title { padding-inline: 3rem; text-align: center; }
+  .es-demo-card__back + .es-demo-card__title + .es-demo-card__sub { margin-top: -0.75rem; text-align: center; }
+  .es-demo-card__sub { margin: 0; color: var(--es-text-muted); }
+  .es-demo-card__sub a { font-weight: 700; color: var(--es-accent); }
+  .es-demo-card__back {
+    position: absolute; top: clamp(1rem, 3vw, 1.6rem); left: clamp(1rem, 3vw, 1.6rem);
+    display: grid; place-items: center; width: 2.6rem; height: 2.6rem;
+    border: 1px solid var(--es-border); border-radius: 50%; background: var(--es-surface); color: var(--es-accent);
+  }
+  .es-demo-card__back:hover { background: var(--es-accent-wash); }
+  .es-demo-card__notice { margin: 0; padding: 0.7rem 0.9rem; border-radius: 10px; background: color-mix(in srgb, var(--es-warning) 12%, var(--es-surface)); font-size: var(--es-text-sm); color: var(--es-text); }
+  .es-demo-card__notice--ok { background: var(--es-accent-wash); }
+
+  .es-demo-summary {
+    display: grid; gap: 0.55rem; margin: 0; padding: 0.9rem 1rem;
+    border: 1px solid var(--es-border); border-radius: 14px; list-style: none;
+    font-size: var(--es-text-sm); color: var(--es-text-muted);
+  }
+  .es-demo-summary li { display: flex; align-items: flex-start; gap: 0.6rem; min-width: 0; overflow-wrap: anywhere; }
+  .es-demo-summary svg { flex: none; margin-top: 0.05rem; color: var(--es-text); }
+
+  /* The month */
+  .es-demo-cal__head { display: flex; align-items: center; justify-content: center; gap: 1rem; margin-bottom: 0.5rem; }
+  .es-demo-cal__title { min-width: 10rem; margin: 0; font-weight: 700; text-align: center; color: var(--es-text); }
+  .es-demo-cal__nav {
+    display: grid; place-items: center; width: 2.5rem; height: 2.5rem; border-radius: 50%;
+    background: var(--es-accent-wash); color: var(--es-accent);
+  }
+  .es-demo-cal__nav:disabled { background: none; color: var(--es-text-subtle); opacity: 0.5; cursor: default; }
+  .es-demo-cal__grid { width: 100%; border-collapse: separate; border-spacing: 0 0.3rem; table-layout: fixed; }
+  .es-demo-cal__grid th { padding: 0.4rem 0; font-size: var(--es-text-xs); font-weight: 600; color: var(--es-text-muted); }
+  .es-demo-cal__grid td { padding: 0; text-align: center; }
+  .es-demo-cal__day {
+    display: inline-grid; place-items: center;
+    width: min(2.75rem, 100%); aspect-ratio: 1;
+    border-radius: 50%; font-size: 0.95rem; color: var(--es-text-subtle);
+  }
+  .es-demo-cal__day.is-open { background: var(--es-accent-wash); font-weight: 800; color: var(--es-accent); cursor: pointer; }
+  .es-demo-cal__day.is-open:hover { background: color-mix(in srgb, var(--es-accent) 18%, var(--es-surface)); }
+  .es-demo-cal__day.is-on { background: var(--es-accent); color: var(--es-text-on-accent); }
+  .es-demo-cal__day.is-today { box-shadow: inset 0 0 0 1.5px var(--es-border-strong); }
+  .es-demo-cal__none { margin: 0.5rem 0 0; font-size: var(--es-text-sm); text-align: center; color: var(--es-text-muted); }
+
+  .es-demo-tz { display: grid; gap: 0.35rem; }
+  .es-demo-tz__label { font-size: var(--es-text-sm); font-weight: 600; color: var(--es-text); }
+  .es-demo-tz__box { position: relative; display: flex; align-items: center; }
+  .es-demo-tz__box svg { position: absolute; left: 0.85rem; color: var(--es-text-muted); pointer-events: none; }
+  .es-demo-tz__box select {
+    width: 100%; min-height: 3rem; padding: 0 2.25rem 0 2.6rem;
+    border: 1.5px solid var(--es-control-border); border-radius: 12px; background: var(--es-surface);
+    font: inherit; font-size: var(--es-text-sm); color: var(--es-text);
+  }
+
+  /* A day's times */
+  .es-demo-times__head { margin: 0 0 0.6rem; font-weight: 700; text-align: center; color: var(--es-text); }
+  .es-demo-times__head span { font-weight: 500; color: var(--es-text-muted); }
+  .es-demo-times__list { display: grid; gap: 0.55rem; max-height: 26rem; margin: 0; padding: 0.1rem; overflow-y: auto; list-style: none; overscroll-behavior: contain; }
+  .es-demo-times__list li { display: grid; gap: 0.55rem; }
+  .es-demo-times__list li.is-on { grid-template-columns: 1fr 1fr; }
+  .es-demo-times__slot, .es-demo-times__go {
+    min-height: 3.1rem; border-radius: 12px; font-weight: 700;
+    /* All three together: the text turning white before the fill turned dark
+       showed a blank button for a frame. */
+    transition: background-color var(--es-duration-fast) var(--es-ease-default),
+      color var(--es-duration-fast) var(--es-ease-default), border-color var(--es-duration-fast) var(--es-ease-default);
+  }
+  .es-demo-times__slot { border: 1.5px solid var(--es-accent); background: var(--es-surface); color: var(--es-accent); }
+  .es-demo-times__slot:hover { background: var(--es-accent-wash); }
+  .is-on > .es-demo-times__slot { border-color: var(--es-text); background: var(--es-text); color: var(--es-surface); }
+  .es-demo-times__go { background: var(--es-accent); color: var(--es-text-on-accent); }
+  .es-demo-times__go:hover { background: var(--es-accent-hover); }
+
+  /* The details */
+  .es-demo-form { display: grid; gap: 1rem; }
+  .es-demo-form__trap { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
+  .es-demo-form__error { margin: 0; font-size: var(--es-text-sm); font-weight: 600; color: var(--es-danger); }
+  .es-demo-form__submit { width: 100%; min-height: 3.25rem; font-size: var(--es-text-md); }
+  .es-demo-form__legal { margin: 0; font-size: var(--es-text-xs); text-align: center; color: var(--es-text-subtle); }
+  .es-demo-form__legal a { text-decoration: underline; }
+
+  /* Booked */
+  .es-demo-done { justify-items: center; text-align: center; }
+  .es-demo-done__mark { display: grid; place-items: center; width: 3.5rem; height: 3.5rem; border-radius: 50%; background: var(--es-highlight); color: var(--es-text-on-highlight); }
+  .es-demo-done__when { margin: 0; font-size: 1.1rem; font-weight: 700; color: var(--es-text); }
+  .es-demo-done__zone { margin: -0.6rem 0 0; font-size: var(--es-text-sm); color: var(--es-text-muted); }
+  .es-demo-done__msg, .es-demo-done__note { margin: 0; max-width: 28rem; color: var(--es-text-muted); }
+  .es-demo-done__note { font-size: var(--es-text-sm); }
+  .es-demo-done__actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.6rem; }
+  .es-demo-done__manage { font-size: var(--es-text-sm); font-weight: 700; color: var(--es-accent); text-decoration: underline; }
+
+  /* The booker's own page */
+  .es-demo-manage { display: grid; gap: 1rem; padding-block: clamp(1.5rem, 4vw, 3rem); }
+  .es-demo-manage__back { justify-self: start; }
+  .es-demo-manage__status { justify-self: start; margin: 0; padding: 0.2rem 0.65rem; border-radius: 999px; background: var(--es-accent-wash); font-size: var(--es-text-xs); font-weight: 700; color: var(--es-accent); }
+  .es-demo-manage__status--cancelled { background: color-mix(in srgb, var(--es-danger) 12%, var(--es-surface)); color: var(--es-danger); }
+  .es-demo-manage__status--completed, .es-demo-manage__status--no_show { background: var(--es-bg-sunken); color: var(--es-text-muted); }
+  .es-demo-manage__join { justify-self: start; }
+  .es-demo-manage__change { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+  .es-demo-manage__cancel { display: grid; gap: 0.6rem; padding: 1rem; border-radius: 14px; background: var(--es-bg-sunken); }
+  .es-demo-manage__cancel label { font-size: var(--es-text-sm); font-weight: 600; color: var(--es-text); }
+  .es-demo-manage__cancel label span { font-weight: 400; color: var(--es-text-muted); }
+
+  /* The console */
+  .es-demo-admin__filters { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem; }
+  .es-demo-admin__list { display: grid; gap: 0.6rem; margin: 0; padding: 0; list-style: none; }
+  .es-demo-admin__row {
+    display: grid; gap: 0.4rem 1rem; width: 100%; padding: 0.9rem 1rem;
+    border: 1px solid var(--es-border); border-radius: 14px; background: var(--es-surface); text-align: left;
+    transition: border-color var(--es-duration-fast) var(--es-ease-default);
+  }
+  .es-demo-admin__row:hover { border-color: var(--es-accent); }
+  @media (width >= theme(--breakpoint-md)) {
+    .es-demo-admin__row { grid-template-columns: minmax(0, 15rem) minmax(0, 1fr) auto; align-items: center; }
+  }
+  .es-demo-admin__when { display: flex; align-items: flex-start; gap: 0.5rem; font-size: var(--es-text-sm); font-weight: 600; color: var(--es-text); }
+  .es-demo-admin__when svg { flex: none; color: var(--es-accent); }
+  .es-demo-admin__who { display: grid; min-width: 0; }
+  .es-demo-admin__who b { color: var(--es-text); }
+  .es-demo-admin__who span { overflow: hidden; font-size: var(--es-text-sm); white-space: nowrap; text-overflow: ellipsis; color: var(--es-text-muted); }
+  .es-demo-admin__meta { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+  .es-demo-admin__host { font-size: var(--es-text-xs); color: var(--es-text-muted); }
+
+  .es-demo-admin__dialog { display: grid; gap: 1.1rem; }
+  .es-demo-admin__top { display: grid; gap: 0.3rem; justify-items: start; }
+  .es-demo-admin__big { margin: 0.2rem 0 0; font-size: 1.15rem; font-weight: 700; color: var(--es-text); }
+  .es-demo-admin__small { margin: 0; font-size: var(--es-text-sm); color: var(--es-text-muted); }
+  .es-demo-admin__facts { display: grid; gap: 0; margin: 0; border-top: 1px solid var(--es-border); }
+  .es-demo-admin__facts > div { display: grid; gap: 0.15rem; padding: 0.6rem 0; border-bottom: 1px solid var(--es-border); }
+  @media (width >= theme(--breakpoint-sm)) { .es-demo-admin__facts > div { grid-template-columns: 11rem minmax(0, 1fr); gap: 1rem; } }
+  .es-demo-admin__facts dt { font-size: var(--es-text-sm); color: var(--es-text-muted); }
+  .es-demo-admin__facts dd { margin: 0; color: var(--es-text); }
+  .es-demo-admin__facts a { color: var(--es-accent); }
+  .es-demo-admin__actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .es-demo-admin__panel { display: grid; gap: 0.6rem; padding: 1rem; border-radius: 14px; background: var(--es-bg-sunken); }
+  .es-demo-admin__label { margin: 0; font-size: var(--es-text-sm); font-weight: 600; color: var(--es-text); }
+  .es-demo-admin__label span { font-weight: 400; color: var(--es-text-muted); }
+  .es-demo-admin__gap { margin-top: 1.25rem; margin-bottom: 0.5rem; }
+  .es-demo-admin__check { display: flex; align-items: flex-start; gap: 0.6rem; font-size: var(--es-text-sm); color: var(--es-text); cursor: pointer; }
+  .es-demo-admin__check input { width: 18px; height: 18px; flex: none; margin-top: 0.1rem; accent-color: var(--es-accent); }
+  .es-demo-admin__switch { padding: 0.8rem 1rem; border-radius: 12px; background: var(--es-accent-wash); }
+  .es-demo-admin__fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
+  .es-demo-admin__two, .es-demo-admin__three { display: grid; gap: 1rem; }
+  @media (width >= theme(--breakpoint-md)) {
+    .es-demo-admin__two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .es-demo-admin__three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  }
+  .es-demo-admin__savebar {
+    position: sticky; bottom: 0; z-index: 5;
+    display: flex; flex-wrap: wrap; gap: 0.6rem; padding: 0.9rem 0;
+    border-top: 1px solid var(--es-border); background: var(--es-bg);
+  }
+  @media (width < 48rem) {
+    .es-nav-content .es-demo-admin__savebar { bottom: calc(var(--es-nav-bar-h) + var(--fx-safe-b)); }
+  }
+
+  .es-demo-hours { display: grid; gap: 0.5rem; }
+  .es-demo-hours__day { display: grid; gap: 0.5rem; padding: 0.6rem 0; border-bottom: 1px solid var(--es-border); }
+  @media (width >= theme(--breakpoint-sm)) { .es-demo-hours__day { grid-template-columns: 9rem minmax(0, 1fr); align-items: start; } }
+  .es-demo-hours__toggle { display: flex; align-items: center; gap: 0.6rem; min-height: 2.75rem; font-weight: 600; color: var(--es-text); cursor: pointer; }
+  .es-demo-hours__toggle input { width: 18px; height: 18px; accent-color: var(--es-accent); }
+  .es-demo-hours__windows { display: grid; gap: 0.4rem; }
+  .es-demo-hours__closed { display: flex; align-items: center; min-height: 2.75rem; font-size: var(--es-text-sm); color: var(--es-text-subtle); }
+  .es-demo-hours__window { display: flex; align-items: center; gap: 0.4rem; }
+  .es-demo-hours__window .es-input { width: auto; min-width: 0; flex: 1 1 7rem; max-width: 9rem; }
+  .es-demo-hours__add { justify-self: start; align-self: flex-start; }
+
+  .es-demo-chips { display: grid; gap: 0.6rem; }
+  .es-demo-chips__add { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .es-demo-chips__add .es-input { flex: 1 1 12rem; min-width: 0; }
+  .es-demo-chips__list { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0; padding: 0; list-style: none; }
+  .es-demo-chips__list li {
+    display: inline-flex; align-items: center; gap: 0.35rem; max-width: 100%;
+    padding: 0.3rem 0.4rem 0.3rem 0.75rem; border-radius: 999px;
+    background: var(--es-highlight-wash); font-size: var(--es-text-sm); color: var(--es-text); overflow-wrap: anywhere;
+  }
+  .es-demo-chips__list button { display: grid; place-items: center; width: 1.75rem; height: 1.75rem; flex: none; border-radius: 50%; color: var(--es-text-muted); }
+  .es-demo-chips__list button:hover { background: var(--es-surface); color: var(--es-danger); }
+
+  .es-demo-fields { display: grid; gap: 0.6rem; }
+  .es-demo-fields__row { display: grid; gap: 0.4rem; }
+  @media (width >= theme(--breakpoint-md)) { .es-demo-fields__row { grid-template-columns: 12rem 9rem minmax(0, 1fr); align-items: center; } }
+  .es-demo-fields__name { font-size: var(--es-text-sm); font-weight: 600; color: var(--es-text); }
+  .es-demo-question { display: grid; gap: 0.5rem; padding: 0.75rem; border: 1px solid var(--es-border); border-radius: 12px; }
+  @media (width >= theme(--breakpoint-md)) {
+    .es-demo-question { grid-template-columns: minmax(0, 1fr) 11rem auto auto; align-items: center; }
+    .es-demo-question__options { grid-column: 1 / -1; }
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   WHO EACH TICKET IS FOR (owner's reference, 2026-11-19) — a card per
+   ticket at checkout (HolderForms), and the event's setting for it in the
+   organizer's Quick settings.
+   ═══════════════════════════════════════════════════════════════════════ */
+@layer components {
+  /* Compact, as the reference: a one-line head, then two fields a row. */
+  .es-holders__list { display: grid; gap: 0.75rem; margin: 0; padding: 0; list-style: none; counter-reset: none; }
+  .es-holders__card {
+    display: grid;
+    gap: 0.75rem;
+    padding: 0.9rem;
+    border: 1px solid var(--es-border);
+    border-radius: 14px;
+    background: var(--es-surface);
+    scroll-margin-top: calc(var(--es-header-h, 4rem) + 1rem);
+  }
+  @media (width >= theme(--breakpoint-sm)) { .es-holders__card { padding: 1rem 1.15rem 1.15rem; } }
+  .es-holders__card.is-wrong { border-color: var(--es-danger); box-shadow: 0 0 0 3px color-mix(in srgb, var(--es-danger) 15%, transparent); }
+  .es-holders__head { display: flex; align-items: center; gap: 0.6rem; min-width: 0; }
+  .es-holders__icon {
+    display: grid; place-items: center; flex: none; width: 2rem; height: 2rem;
+    border-radius: 9px; background: var(--es-night-900); color: var(--es-highlight);
+  }
+  .es-holders__title {
+    flex: 1 1 auto; min-width: 0; margin: 0;
+    overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+    font-weight: 700; color: var(--es-text);
+  }
+  .es-holders__title span { font-weight: 500; color: var(--es-text-muted); }
+  .es-holders__mine {
+    flex: none; padding: 0.3rem 0.65rem; border-radius: 999px;
+    background: var(--es-accent-wash); font-size: var(--es-text-xs); font-weight: 700; color: var(--es-accent); cursor: pointer;
+  }
+  .es-holders__error { margin: 0; font-size: var(--es-text-sm); font-weight: 600; color: var(--es-danger); }
+  .es-holders__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.65rem 0.75rem; }
+  /* On a phone the names share a row; phone and email each take the width. */
+  @media (width < theme(--breakpoint-sm)) {
+    .es-holders__grid > .es-holders__field:nth-child(n + 3) { grid-column: 1 / -1; }
+  }
+  .es-holders__field { display: grid; gap: 0.3rem; min-width: 0; }
+  .es-holders__field label { font-size: var(--es-text-sm); font-weight: 600; color: var(--es-text); }
+  .es-holders__field label i { font-style: normal; color: var(--es-accent); }
+  .es-holders__field .es-input { min-height: 2.75rem; }
+  .es-holders__box { position: relative; display: block; min-width: 0; }
+  .es-holders__glyph { position: absolute; top: 50%; left: 0.8rem; transform: translateY(-50%); color: var(--es-text-subtle); pointer-events: none; }
+  .es-holders__box:focus-within .es-holders__glyph { color: var(--es-accent); }
+  .es-holders__box .es-input { width: 100%; padding-left: 2.5rem; }
+  .es-holders__note { margin: 0; font-size: var(--es-text-xs); color: var(--es-text-subtle); }
+
+  /* The organizer's choice, a select at the end of a Quick settings row. */
+  .es-qset__select { width: auto; min-width: 11rem; max-width: 100%; min-height: 2.5rem; font-size: var(--es-text-sm); }
+  @media (width < theme(--breakpoint-sm)) {
+    .es-qset__row:has(> .es-qset__select) { grid-template-columns: auto minmax(0, 1fr); }
+    .es-qset__row > .es-qset__select { grid-column: 1 / -1; width: 100%; }
   }
 }

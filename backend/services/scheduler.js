@@ -189,6 +189,8 @@ const JOBS = [
   { name: 'coming-soon-notices', everyMs: 5 * 60_000, run: () => withLeaderLock('coming-soon-notices', () => require('./comingSoonService').sendOnSaleNotices()), immediate: false },
   // Daily. Does nothing unless SCAN_RETENTION_MODE is report or delete
   // (services/scanRetention.js); off by default.
+  // Book a demo (2026-11-19): the reminder email, settings.reminderHours before.
+  { name: 'demo-reminders', everyMs: 10 * 60_000, run: () => withLeaderLock('demo-reminders', () => require('./demo/demoAdmin').sendReminders()), immediate: false },
   { name: 'scan-retention', everyMs: 24 * 3_600_000, run: () => require('./scanRetention').scheduled(withLeaderLock), immediate: false },
   // SMS: dispatch, campaigns, reminders, reconciliation — services/sms/jobs.js.
   ...require('./sms/jobs').jobs(withLeaderLock),

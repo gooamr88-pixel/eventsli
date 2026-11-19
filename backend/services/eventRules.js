@@ -64,6 +64,8 @@ const ORGANIZER_EDITABLE = Object.freeze({
   feeBearer: 'fee_bearer',                      // BRD §04
   maxTicketsPerOrder: 'max_tickets_per_order',  // BRD §11
   allowTicketTransfer: 'allow_ticket_transfer', // BRD §10
+  // Per-ticket holder names at checkout (2026-11-19): required | optional | off.
+  holderDetails: 'holder_details',
   // Which of the organizer's payment methods this event takes. Checked against
   // what the organizer has actually set up in the controller, and again before
   // submitting — see paymentReadiness.
@@ -217,6 +219,8 @@ const TRANSITION_ACTOR = Object.freeze({
  */
 const LIVE_EDITABLE = Object.freeze([
   'description', 'max_tickets_per_order', 'allow_ticket_transfer',
+  // What the checkout asks per ticket changes no price and no term already agreed.
+  'holder_details',
   // Adding a way to pay changes nothing a buyer already agreed to, and an
   // organizer whose Stripe account is restricted mid-sale needs to switch.
   'accepts_stripe', 'accepts_manual', 'offline_payment_hours',

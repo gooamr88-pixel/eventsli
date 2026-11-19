@@ -24,7 +24,24 @@ export default function SmsConsentFields({
   mode, value, onChange, phone = '', onPhone, showPhone = false, organizerName = null, phoneError = null,
 }) {
   const set = (key) => (e) => onChange({ ...value, [key]: e.target.checked });
-  const hasPhone = String(phone || '').replace(/[^0-9]/g, '').length >= 7;
+  const digits = (v) => String(v || '').replace(/[^0-9]/g, '').length;
+  const hasPhone = digits(phone) >= 7;
+  // THE CHECKOUT SHOWS THE CHOICES ONLY ONCE THERE IS A NUMBER (owner,
+  // 2026-11-19: too many things to approve). Three greyed-out boxes nobody
+  // could tick were noise on every order. The wording, the separate boxes and
+  // the unticked default are unchanged — they appear the moment they can be
+  // used. The sign-up forms keep showing them.
+  const revealOnPhone = mode === 'checkout';
+  const showBoxes = !revealOnPhone || hasPhone;
+  // Clearing the number clears the choices: hidden boxes must not come back
+  // already ticked when a number is typed again.
+  const changePhone = (e) => {
+    const next = e.target.value;
+    onPhone(next);
+    if (digits(next) < 7 && Object.values(value || {}).some(Boolean)) {
+      onChange(Object.fromEntries(Object.keys(value).map((k) => [k, false])));
+    }
+  };
   const boxes = mode === 'checkout'
     ? [
       ['transactional', 'checkout.transactional.v1'],
@@ -47,7 +64,9 @@ export default function SmsConsentFields({
           optional
           autoComplete="tel"
           inputMode="tel"
-          hint="Only needed if you want texts. Include the country code if it is not this event’s country."
+          hint={hasPhone
+            ? 'Include the country code if it is not this event’s country.'
+            : 'Only if you want texts about your tickets — the choices appear when you add a number.'}
           // The same shape the API accepts, so a typo is caught here rather than
           // refusing the whole checkout after the button is pressed.
           // Parentheses escaped: browsers compile `pattern` with the v flag,
@@ -56,10 +75,10 @@ export default function SmsConsentFields({
           maxLength={20}
           error={phoneError}
           value={phone}
-          onChange={(e) => onPhone(e.target.value)}
+          onChange={changePhone}
         />
       )}
-      {boxes.map(([key, version]) => (
+      {showBoxes && boxes.map(([key, version]) => (
         <label key={key} className="flex items-start gap-2.5 text-sm text-muted">
           <input
             type="checkbox"
@@ -73,7 +92,7 @@ export default function SmsConsentFields({
           <span>{consentText(version, { organizer: organizerName })}</span>
         </label>
       ))}
-      {!hasPhone && <p className="text-xs text-subtle">Add a mobile number to choose text messages.</p>}
+      {!hasPhone && !revealOnPhone && <p className="text-xs text-subtle">Add a mobile number to choose text messages.</p>}
       {/* A new tab: leaving the checkout would cost the person their held seats. */}
       <p className="text-xs text-subtle">
         Details in our <a href="/sms-terms" target="_blank" rel="noopener" className="text-accent underline">text message terms</a>

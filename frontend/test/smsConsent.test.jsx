@@ -37,16 +37,27 @@ function Harness({ mode = 'checkout', organizerName = 'Jazz Club', initialPhone 
 }
 
 describe('the consent fields', () => {
-  test('checkout: three separate boxes, none ticked, all disabled until a number is typed', () => {
+  test('checkout: no boxes until a number is typed, then three separate ones, none ticked', () => {
+    // Owner, 2026-11-19: fewer things to approve. Boxes nobody could tick were
+    // shown greyed out on every order; now they appear when they can be used.
     render(<Harness />);
+    expect(screen.queryAllByRole('checkbox')).toHaveLength(0);
+    // The terms link stays in view: it is part of the disclosure.
+    expect(screen.getByRole('link', { name: /text message terms/ })).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(/Mobile number/), { target: { value: '+1 416 555 0199' } });
     const boxes = screen.getAllByRole('checkbox');
     expect(boxes).toHaveLength(3);
     for (const b of boxes) {
       expect(b).not.toBeChecked();
-      expect(b).toBeDisabled();
+      expect(b).toBeEnabled();
     }
-    fireEvent.change(screen.getByLabelText(/Mobile number/), { target: { value: '+1 416 555 0199' } });
-    for (const b of screen.getAllByRole('checkbox')) expect(b).toBeEnabled();
+  });
+
+  test('registration still shows its boxes before a number, disabled', () => {
+    render(<Harness mode="registration" />);
+    const boxes = screen.getAllByRole('checkbox');
+    expect(boxes).toHaveLength(2);
+    for (const b of boxes) expect(b).toBeDisabled();
   });
 
   test('only the ticked boxes are sent, and only with a number', () => {
@@ -63,8 +74,12 @@ describe('the consent fields', () => {
     render(<Harness initialPhone="+1 416 555 0199" />);
     fireEvent.click(screen.getByLabelText(/ticket confirmation/));
     fireEvent.change(screen.getByLabelText(/Mobile number/), { target: { value: '' } });
-    expect(screen.getByLabelText(/ticket confirmation/)).not.toBeChecked();
+    expect(screen.queryByLabelText(/ticket confirmation/)).toBeNull();
     expect(screen.getByTestId('payload').textContent).toBe('{}');
+    // Typing a number again brings the boxes back UNticked: the earlier tick
+    // was cleared with the number, never silently carried over.
+    fireEvent.change(screen.getByLabelText(/Mobile number/), { target: { value: '+1 416 555 0199' } });
+    expect(screen.getByLabelText(/ticket confirmation/)).not.toBeChecked();
     // Compiled the way browsers compile `pattern`: anchored, with the v flag.
     const source = screen.getByLabelText(/Mobile number/).getAttribute('pattern');
     const pattern = new RegExp('^(?:' + source + ')' + '$', 'v');

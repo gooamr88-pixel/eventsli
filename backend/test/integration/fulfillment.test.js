@@ -157,17 +157,21 @@ test('a whole table quotes at the table price and admits everyone on it', async 
   await supabase.rpc('release_reservation', { p_reservation_id: held.data.reservation_id });
 });
 
-test('the buyer only sees the service fee when they are paying it', async () => {
+test('the buyer only sees the card processing fee when they are paying it', async () => {
   const held = await holdSeats([seatIds[0]]);
   const q = await pricing.quoteReservation(held.data.reservation_id);
   const buyerPays = pricing.publicBreakdown(q);
-  assert.ok(buyerPays.lines.some((l) => l.label === 'Service fee'));
+  const feeLine = buyerPays.lines.find((l) => l.label === 'Card processing fee');
+  assert.ok(feeLine);
+  // The rate the note under the line quotes: what the fee was worked out from.
+  assert.equal(typeof feeLine.basis?.pct, 'number');
+  assert.equal(typeof feeLine.basis?.fixedCents, 'number');
 
   await supabase.from('events').update({ fee_bearer: 'organizer' }).eq('id', ids.event);
   const q2 = await pricing.quoteReservation(held.data.reservation_id);
   const orgPays = pricing.publicBreakdown(q2);
-  assert.equal(orgPays.lines.some((l) => l.label === 'Service fee'), false,
-    'a zero "Service fee" line on the receipt only raises questions');
+  assert.equal(orgPays.lines.some((l) => l.label === 'Card processing fee'), false,
+    'a zero fee line on the receipt only raises questions');
   assert.ok(orgPays.totalCents < buyerPays.totalCents);
 
   await supabase.from('events').update({ fee_bearer: 'buyer' }).eq('id', ids.event);

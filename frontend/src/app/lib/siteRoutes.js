@@ -30,6 +30,8 @@ export const PUBLIC_PAGES = [
   { path: '/why-us', changeFrequency: 'monthly', priority: 0.7 },
   { path: '/trust', changeFrequency: 'monthly', priority: 0.6 },
   { path: '/contact', changeFrequency: 'yearly', priority: 0.5 },
+  // Book a demo (2026-11-19): for organizers weighing the platform.
+  { path: '/demo', changeFrequency: 'monthly', priority: 0.6 },
   { path: '/tickets/find', changeFrequency: 'yearly', priority: 0.4 },
   { path: '/terms', changeFrequency: 'yearly', priority: 0.3 },
   { path: '/terms/organizer', changeFrequency: 'yearly', priority: 0.3 },
@@ -89,6 +91,9 @@ export const PRIVATE_PREFIXES = [
   '/api',
   // The SMS unsubscribe link: one person's opt-out, meaningless to a crawler.
   '/sms',
+  // A booked demo's "change or cancel" page: the URL carries the booker's
+  // link token, a bearer credential like a ticket's (2026-11-19).
+  '/demo/booking',
 ];
 
 export function isPrivatePath(path) {
@@ -118,6 +123,7 @@ export const FOOTER_GROUPS = [
     links: [
       { path: '/why-us', label: 'Why Eventsli' },
       { path: '/how-it-works', label: 'Selling with us' },
+      { path: '/demo', label: 'Book a demo' },
       { path: '/trust', label: 'Security and trust' },
     ],
   },

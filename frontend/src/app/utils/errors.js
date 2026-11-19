@@ -221,6 +221,9 @@ export const ERRORS = Object.freeze(Object.fromEntries([
     'Something in the form needs fixing.'),
   E('RATE_LIMITED', 'Too many attempts',
     'Wait a moment before trying again.', 'retry'),
+  // Book a demo (2026-11-19).
+  E('DEMO_SLOT_TAKEN', 'That time was just taken',
+    'Someone booked it a moment ago, or it is no longer open. Pick another time — nothing was booked.', 'retry'),
   E('CONFLICT', 'That cannot be done right now',
     'Something changed while you were working. Reload and try again.', 'retry'),
   E('NOT_FOUND', 'Not found',

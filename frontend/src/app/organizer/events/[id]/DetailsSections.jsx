@@ -358,6 +358,20 @@ export function QuickSettings({ f }) {
       <div className="es-qset">
         <Switch icon="refresh" label="Allow ticket transfers" detail="Once per ticket. The old QR code stops working."
           checked={form.allowTicketTransfer} onChange={(v) => setForm((x) => ({ ...x, allowTicketTransfer: v }))} />
+        {/* Who each ticket is for (2026-11-19): asked at checkout on orders of two or more. */}
+        <div className="es-qset__row">
+          <NavIcon name="users" size={20} />
+          <span className="es-qset__text">
+            <b id="qset-holders">Name on each ticket</b>
+            <small>On orders of two or more tickets, ask who each ticket is for. One-ticket orders use the buyer&rsquo;s name.</small>
+          </span>
+          <select className="es-input es-qset__select" aria-labelledby="qset-holders" value={form.holderDetails}
+            onChange={(e) => setForm((x) => ({ ...x, holderDetails: e.target.value }))}>
+            <option value="required">First name required</option>
+            <option value="optional">Ask, but optional</option>
+            <option value="off">Don&rsquo;t ask</option>
+          </select>
+        </div>
         {free ? (
           <div className="es-qset__row">
             <NavIcon name="ticket" size={20} />

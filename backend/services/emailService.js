@@ -116,7 +116,12 @@ const { escapeHtml, money } = T;
  * The QR images come from OUR domain, never a public QR generator: the token
  * in that URL is the credential that opens the door.
  */
-async function sendTickets({ to, buyerName, event, tickets, order, organizerEmail, accessToken }) {
+/**
+ * `forHolder` (2026-11-19): the copy a named ticket holder gets — only their
+ * own tickets, no order total and no link to the whole order. `forHolder.from`
+ * is the buyer's name, for "Ana booked this ticket for you".
+ */
+async function sendTickets({ to, buyerName, event, tickets, order, organizerEmail, accessToken, forHolder = null }) {
   const site = T.siteUrl();
   const one = tickets.length === 1;
   const when = T.whenText(event.starts_at ?? event.startsAt, event.timezone, { withZone: false });
@@ -130,9 +135,13 @@ async function sendTickets({ to, buyerName, event, tickets, order, organizerEmai
       // The date in the preview line, because that is what somebody scanning
       // an inbox a month later is looking for.
       preheader: when ? `${event.title} · ${when}` : event.title,
-      reason: 'You are receiving this because you booked tickets on Eventsli. Keep it — it is how you get back to them.',
+      reason: forHolder
+        ? 'You are receiving this because a ticket on Eventsli was booked in your name. Keep it — the code in it is your entry.'
+        : 'You are receiving this because you booked tickets on Eventsli. Keep it — it is how you get back to them.',
       body: `
-        ${T.p(`Hi ${escapeHtml(buyerName || 'there')}, here ${one ? 'is your ticket' : `are your ${tickets.length} tickets`}.`)}
+        ${forHolder
+    ? T.p(`Hi ${escapeHtml(buyerName || 'there')}, ${forHolder.from ? escapeHtml(forHolder.from) : 'someone'} booked ${one ? 'this ticket' : `these ${tickets.length} tickets`} for you.`)
+    : T.p(`Hi ${escapeHtml(buyerName || 'there')}, here ${one ? 'is your ticket' : `are your ${tickets.length} tickets`}.`)}
         ${T.eventCard(event)}
         ${tickets.map((t, i) => T.ticketCard(t, {
     index: i, total: tickets.length, event, free: Number(order.buyer_total_cents) === 0,
@@ -140,7 +149,7 @@ async function sendTickets({ to, buyerName, event, tickets, order, organizerEmai
         ${T.note('info', `
           <strong>At the door:</strong> show ${one ? 'this code' : 'these codes'} on your phone.
           Each one is scanned once. Turn your screen brightness up — it is read by a camera.`)}
-        ${T.facts([
+        ${forHolder ? '' : T.facts([
     ['Paid', money(order.buyer_total_cents, order.currency)],
     [one ? 'Ticket' : 'Tickets', String(tickets.length)],
   ])}

@@ -461,6 +461,8 @@ router.post(
   // BRD §21 — required, and only a real JSON `true` counts. `optional()` here
   // let a checkout without the buyer's agreement through for as long as the
   // page happened to send it.
+  // Per-ticket holders (2026-11-19); each one checked in services/ticketHolders.js.
+  body('holders').optional().isArray({ max: 500 }),
   body('acceptTerms').custom((v) => v === true)
     .withMessage('Accept the terms to continue to payment.'),
   // Signed under the terms (2026-11-15). Only the shape here; the points are
@@ -496,6 +498,8 @@ router.post(
   body('sms.transactional').optional().isBoolean({ strict: true }),
   body('sms.marketingPlatform').optional().isBoolean({ strict: true }),
   body('sms.marketingOrganizer').optional().isBoolean({ strict: true }),
+  // Per-ticket holders (2026-11-19); each one checked in services/ticketHolders.js.
+  body('holders').optional().isArray({ max: 500 }),
   body('acceptTerms').custom((v) => v === true).withMessage('Accept the terms to continue.'),
   body('signature').isObject().withMessage('Sign to continue — draw your signature, or type your name.'),
   validate,
@@ -540,6 +544,8 @@ router.post(
    * `!== true` re-check unable to disagree. Two endpoints recording the same
    * consent should not accept two different things.
    */
+  // Per-ticket holders (2026-11-19); each one checked in services/ticketHolders.js.
+  body('holders').optional().isArray({ max: 500 }),
   body('acceptTerms').custom((v) => v === true)
     .withMessage('Accept the terms to claim your tickets.'),
   body('signature').isObject().withMessage('Sign to continue — draw your signature, or type your name.'),

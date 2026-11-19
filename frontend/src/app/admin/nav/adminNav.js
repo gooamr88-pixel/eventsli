@@ -31,6 +31,14 @@ export function adminNavGroups() {
       ],
     },
     {
+      // Book a demo (2026-11-19): the bookings from /demo, and its settings.
+      id: 'sales',
+      label: 'Sales',
+      items: [
+        { key: 'demo', label: 'Demo bookings', icon: 'calendarPlus', href: '/admin/demo' },
+      ],
+    },
+    {
       id: 'money',
       label: 'Money',
       items: [

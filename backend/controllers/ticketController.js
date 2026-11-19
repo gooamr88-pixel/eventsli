@@ -238,8 +238,26 @@ async function resend(req, res, next) {
 
     for (const order of orders || []) {
       // eslint-disable-next-line no-await-in-loop
-      await sendTicketEmail(order.id).catch((e) =>
+      await sendTicketEmail(order.id, { holders: false }).catch((e) =>
         logger.error({ err: e.message, orderId: order.id }, 'ticket resend failed'));
+    }
+
+    // A named holder (2026-11-19) finds THEIR tickets by their own address:
+    // only the tickets in their name, never the rest of the order.
+    const { data: held } = await supabase
+      .from('tickets')
+      .select('order_id, orders!inner ( status, guest_email )')
+      .eq('attendee_email', addr)
+      .eq('orders.status', 'paid')
+      .order('created_at', { ascending: false })
+      .limit(50);
+    const heldOrders = [...new Set((held || [])
+      .filter((t) => String(t.orders?.guest_email || '').toLowerCase() !== addr)
+      .map((t) => t.order_id))].slice(0, 5);
+    for (const orderId of heldOrders) {
+      // eslint-disable-next-line no-await-in-loop
+      await sendHolderEmails(orderId, { only: addr }).catch((e) =>
+        logger.error({ err: e.message, orderId }, 'holder ticket resend failed'));
     }
 
     return sendOk(res, {
@@ -289,15 +307,15 @@ async function orderPayload(orderId) {
  * it — fulfilment, the resend endpoint, and any future admin re-send — and a
  * second copy would drift.
  */
-async function sendTicketEmail(orderId) {
-  /**
-   * The event's DATE, ZONE and VENUE are selected for the email, not for this
-   * function's own logic.
-   *
-   * The ticket email named the event and nothing else — so the one message a
-   * buyer is told to keep did not say when the event was or where. Somebody
-   * searching their inbox a month later found a title and a QR code.
-   */
+/**
+ * The order, its buyer's address and its organizer, as the ticket emails need
+ * them. Null when the order is gone or has no address to send to.
+ *
+ * The event's DATE, ZONE and VENUE are selected for the email, not for this
+ * function's own logic: the ticket email used to name the event and nothing
+ * else, so a buyer searching their inbox a month later found a title and a QR.
+ */
+async function loadForEmail(orderId) {
   const { data: order } = await supabase
     .from('orders')
     .select(`id, currency, buyer_total_cents, guest_name, guest_email, user_id,
@@ -305,23 +323,34 @@ async function sendTicketEmail(orderId) {
              profiles!orders_user_id_fkey ( email )`)
     .eq('id', orderId)
     .maybeSingle();
-
   const to = order?.guest_email || order?.profiles?.email;
-  if (!order || !to) return { sent: false, reason: 'no_recipient' };
+  if (!order || !to) return null;
 
-  // `display_name` as well as the email: the buyer's ticket says who is putting
-  // the event on, which is who they will be dealing with at the door.
+  // `display_name` as well as the email: the ticket says who is putting the
+  // event on, which is who they will be dealing with at the door.
   const { data: org } = await supabase
     .from('organizers')
     .select('display_name, profiles!organizers_owner_user_id_fkey ( email )')
     .eq('id', order.events.organizer_id)
     .maybeSingle();
+  return { order, to, org };
+}
+
+/**
+ * Sends the tickets for one order: the buyer gets all of them; then, unless
+ * `holders` is false (a resend the buyer asked for), each named holder with
+ * an email of their own gets their own (2026-11-19).
+ */
+async function sendTicketEmail(orderId, { holders = true } = {}) {
+  const loaded = await loadForEmail(orderId);
+  if (!loaded) return { sent: false, reason: 'no_recipient' };
+  const { order, to, org } = loaded;
 
   // The confirmation TEXT, beside the email. Keyed by order, so the resend
   // button or a retried webhook never texts twice; best-effort, never throws.
   require('../services/sms/notifications').ticketConfirmation(orderId);
 
-  return email.sendTickets({
+  const result = await email.sendTickets({
     to,
     buyerName: order.guest_name,
     event: { ...order.events, organizerName: org?.display_name || null },
@@ -334,9 +363,67 @@ async function sendTicketEmail(orderId) {
     // to reach someone who can actually answer.
     organizerEmail: org?.profiles?.email,
   });
+
+  if (holders) {
+    await sendHolderEmails(orderId, { loaded }).catch((e) =>
+      logger.error({ err: e.message, orderId }, 'holder ticket emails failed'));
+  }
+  return result;
+}
+
+/**
+ * Each named holder's own tickets, to their own address (2026-11-19). Only
+ * their tickets — each carries its own QR — and no link to the whole order,
+ * which would show everyone else's. A holder whose address is the buyer's is
+ * skipped: the buyer already has every ticket. `only` limits it to one
+ * address (a holder asking "Find my tickets").
+ */
+async function sendHolderEmails(orderId, { loaded = null, only = null } = {}) {
+  const ctx = loaded || await loadForEmail(orderId);
+  if (!ctx) return { sent: 0 };
+  const { order, to, org } = ctx;
+  const buyer = String(to).toLowerCase();
+
+  const { data: named, error } = await supabase
+    .from('tickets')
+    .select('id, attendee_name, attendee_email')
+    .eq('order_id', orderId)
+    .eq('status', 'valid')
+    .not('attendee_email', 'is', null);
+  if (error) throw new Error(`holder tickets read failed: ${error.message}`);
+
+  const byAddress = new Map();
+  for (const t of named || []) {
+    const addr = String(t.attendee_email).toLowerCase();
+    if (addr === buyer || (only && addr !== only)) continue;
+    const entry = byAddress.get(addr) || { name: t.attendee_name, ids: new Set() };
+    entry.ids.add(t.id);
+    byAddress.set(addr, entry);
+  }
+  if (byAddress.size === 0) return { sent: 0 };
+
+  const all = await tickets.forOrder(orderId);
+  let sent = 0;
+  for (const [addr, { name, ids }] of byAddress) {
+    const mine = all.filter((t) => ids.has(t.id));
+    if (mine.length === 0) continue;
+    // eslint-disable-next-line no-await-in-loop
+    const r = await email.sendTickets({
+      to: addr,
+      buyerName: name,
+      event: { ...order.events, organizerName: org?.display_name || null },
+      tickets: mine,
+      order,
+      accessToken: null,
+      organizerEmail: org?.profiles?.email,
+      forHolder: { from: order.guest_name || null },
+    });
+    if (r?.sent) sent += 1;
+  }
+  return { sent };
 }
 
 module.exports = {
-  mine, byToken, qrImage, resend, orderPayload, sendTicketEmail,
+  mine, byToken, qrImage, resend, orderPayload, sendTicketEmail, sendHolderEmails,
   SESSION_TICKET_WINDOW_MINUTES,
 };

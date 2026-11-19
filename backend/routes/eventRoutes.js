@@ -61,6 +61,7 @@ router.post(
   body('maxTicketsPerOrder').optional().isInt({ min: 1, max: 100 })
     .withMessage('Tickets per order must be between 1 and 100.'),
   body('allowTicketTransfer').optional().isBoolean(),
+  body('holderDetails').optional().isIn(['required', 'optional', 'off']),
   // Against the categories the database holds, never a literal array. They are
   // rows now, editable from the admin console, so a copy here would start
   // refusing a category the moment somebody added one.
@@ -182,6 +183,7 @@ router.patch(
   body('city').optional({ values: 'null' }).isString().trim().isLength({ max: 120 }),
   body('maxTicketsPerOrder').optional().isInt({ min: 1, max: 100 }),
   body('allowTicketTransfer').optional().isBoolean(),
+  body('holderDetails').optional().isIn(['required', 'optional', 'off']),
   body('acceptsStripe').optional().isBoolean(),
   body('acceptsManual').optional().isBoolean(),
   body('offlinePaymentHours').optional({ values: 'null' }).isInt({ min: 1, max: 336 })

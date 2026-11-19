@@ -161,8 +161,20 @@ async function quoteReservation(reservationId, { chargeModel = CHARGE_MODEL.DIRE
     chargeModel: offline ? CHARGE_MODEL.DESTINATION : chargeModel,
   });
 
+  // WHAT THE PAYMENT FEE WAS WORKED OUT FROM, for the note under the buyer's
+  // "Card processing fee" line (owner, 2026-11-19). Auto mode recovers
+  // Stripe's own cost, so the note quotes Stripe's rate; manual mode uses the
+  // rate an admin set, so the note quotes that instead. Never one for the other.
+  const manualFee = offline || event.payment_fee_mode === 'manual';
+  const paymentFeeBasis = offline ? null : {
+    mode: manualFee ? 'manual' : 'auto',
+    pct: manualFee ? Number(event.payment_fee_pct) : Number(stripe.pct),
+    fixedCents: manualFee ? Number(event.payment_fee_fixed_cents) : Number(stripe.fixedCents),
+  };
+
   return {
     breakdown: { ...breakdown, quantity: admits },
+    paymentFeeBasis,
     ticketSubtotalCents,
     addons,
     event,
@@ -194,8 +206,19 @@ function publicBreakdown(q) {
   if (b.eventTaxCents > 0) lines.push({ label: 'Tax', amountCents: b.eventTaxCents });
   // Shown only when the buyer is the one paying it. When the organizer absorbs
   // it, putting it on the buyer's receipt as a zero would just raise questions.
+  //
+  // "Card processing fee", not "Service fee" (owner, 2026-11-19): it is the
+  // card payment's cost, and the buyer asked what it was. `basis` carries the
+  // rate it was worked out from, for the note under the line. The rate is not
+  // printed AS the amount: in auto mode Stripe takes its percentage of the
+  // whole payment, fee included, so the fee is slightly more than that
+  // percentage of the tickets, and "2.9%" beside it would not add up.
   if (b.feeBearer === FEE_BEARER.BUYER && b.paymentFeeCents > 0) {
-    lines.push({ label: 'Service fee', amountCents: b.paymentFeeCents });
+    lines.push({
+      label: 'Card processing fee',
+      amountCents: b.paymentFeeCents,
+      ...(q.paymentFeeBasis ? { basis: q.paymentFeeBasis } : {}),
+    });
   }
 
   /**
