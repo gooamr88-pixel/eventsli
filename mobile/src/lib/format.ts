@@ -29,6 +29,33 @@ export function eventTime(iso: string | null | undefined, timeZone?: string | nu
   }));
 }
 
+/**
+ * When an event runs, as two lines: the day(s), then the hours. One day:
+ * "Nov 20, 2026" / "7:00 PM – 11:00 PM". Over several days the first line
+ * becomes the span ("Nov 20 – Dec 4, 2026") and the second says which day each
+ * time belongs to — a festival read as "12:18 AM – 2:18 AM" looked two hours
+ * long (2026-11-20).
+ */
+export function eventSpan(
+  startsAt: string | null | undefined,
+  endsAt: string | null | undefined,
+  timeZone?: string | null,
+): { date: string; time: string } {
+  const start = eventDate(startsAt, timeZone);
+  const end = endsAt ? eventDate(endsAt, timeZone) : '';
+  if (!startsAt || !endsAt || !end || start === end) {
+    return { date: start, time: endsAt ? `${eventTime(startsAt, timeZone)} – ${eventTime(endsAt, timeZone)}` : eventTime(startsAt, timeZone) };
+  }
+  const zone = timeZone ? { timeZone } : {};
+  const part = (iso: string, opts: Intl.DateTimeFormatOptions) => safe(() => new Date(iso).toLocaleDateString('en-US', { ...opts, ...zone }));
+  const sameYear = part(startsAt, { year: 'numeric' }) === part(endsAt, { year: 'numeric' });
+  const date = sameYear
+    ? `${part(startsAt, { month: 'short', day: 'numeric' })} – ${end}`
+    : `${start} – ${end}`;
+  const short = (iso: string) => `${part(iso, { month: 'short', day: 'numeric' })}, ${eventTime(iso, timeZone)}`;
+  return { date, time: `${short(startsAt)} – ${short(endsAt)}` };
+}
+
 /** "Nov 15, 2026 • 6:00 PM", in the event's zone. */
 export function eventWhen(iso: string | null | undefined, timeZone?: string | null): string {
   if (!iso) return '';

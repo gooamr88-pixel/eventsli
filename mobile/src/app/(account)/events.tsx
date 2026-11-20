@@ -8,7 +8,7 @@ import { isAuthError, messageFor } from '@/api/client';
 import { assignments, openDoor } from '@/api/endpoints';
 import type { EventCard } from '@/api/types';
 import { useSession } from '@/auth/session';
-import { count, eventDate, eventPhase, eventTime, percent } from '@/lib/format';
+import { count, eventPhase, eventSpan, percent } from '@/lib/format';
 import { Button } from '@/ui/Button';
 import { ShareBar } from '@/ui/charts';
 import { dialog, Sheet } from '@/ui/Dialog';
@@ -178,7 +178,7 @@ function EventRow({ event, first, onPress }: { event: EventCard; first: boolean;
         <Text variant="label" numberOfLines={1}>{event.title}</Text>
         <View style={styles.meta}>
           <Icon name="calendar" size={15} color={colors.muted} />
-          <Text variant="small" color={colors.muted} numberOfLines={1}>{eventDate(event.startsAt, event.timezone)}</Text>
+          <Text variant="small" color={colors.muted} numberOfLines={1}>{eventSpan(event.startsAt, event.endsAt, event.timezone).date}</Text>
         </View>
         {(event.city || event.venue) && (
           <View style={styles.meta}>
@@ -207,7 +207,7 @@ function EventTile({ event, width, onPress }: { event: EventCard; width: number;
         <Text variant="label" numberOfLines={2}>{event.title}</Text>
         <View style={styles.meta}>
           <Icon name="calendar" size={15} color={colors.muted} />
-          <Text variant="small" color={colors.muted} numberOfLines={1} style={styles.shrink}>{eventDate(event.startsAt, event.timezone)}</Text>
+          <Text variant="small" color={colors.muted} numberOfLines={1} style={styles.shrink}>{eventSpan(event.startsAt, event.endsAt, event.timezone).date}</Text>
         </View>
         {(event.city || event.venue) && (
           <View style={styles.meta}>
@@ -246,8 +246,8 @@ function EventPreview({ event, busy, onOpen, onClose }: { event: EventCard; busy
 
       <View>
         <FactRow icon="calendar">
-          <Text variant="body" weight="medium">{eventDate(event.startsAt, event.timezone)}</Text>
-          <Text variant="small" color={colors.muted}>{eventTime(event.startsAt, event.timezone)} – {eventTime(event.endsAt, event.timezone)}</Text>
+          <Text variant="body" weight="medium">{eventSpan(event.startsAt, event.endsAt, event.timezone).date}</Text>
+          <Text variant="small" color={colors.muted}>{eventSpan(event.startsAt, event.endsAt, event.timezone).time}</Text>
         </FactRow>
         {(event.venue || event.city) && (
           <FactRow icon="pin">

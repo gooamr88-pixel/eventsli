@@ -17,14 +17,19 @@
  *   · an organizer account (default appreview@eventsli.com), email verified,
  *     with a fresh random password printed ONCE and stored nowhere;
  *   · its organizer profile, "Eventsli App Review";
- *   · one event, "App Review Demo", on now and for --days days, with a General
- *     Admission and a VIP ticket type, both FREE;
- *   · 20 free tickets for 14 guests, issued through the same database
+ *   · six events, so the app looks the way an organizer's does (EVENTS below):
+ *     the main one, "Annual Gala Night", on now and for --days days (the one
+ *     the reviewer uses); a second one live today; three coming up; one that
+ *     ended yesterday. Each has a cover (review-covers/, uploaded to the
+ *     event-media bucket as an organizer's would be) and a General Admission
+ *     and a VIP ticket type, both FREE;
+ *   · free tickets for named guests, issued through the same database
  *     functions a free checkout uses, every order on the review account — so
  *     the account's "My tickets" page on eventsli.com shows every QR code, to
  *     scan from a second screen;
- *   · a shared door device, "Main Door", and 9 tickets already checked in at
- *     it over the last 90 minutes, so the dashboard and analytics have numbers;
+ *   · at the live and past events, a shared door device and some tickets
+ *     already checked in, spread over time, so dashboards and analytics have
+ *     numbers;
  *   · door settings: offline check-in on, names included, guest list shared.
  *
  * HIDDEN FROM THE PUBLIC: the event is published only while its tickets are
@@ -38,14 +43,15 @@
  *
  * WHAT `remove` CANNOT DELETE: each free order wrote one 0.00 sale line to the
  * money ledger, and the ledger refuses deletes by design (append-only,
- * 20260829233000). Those lines pin their orders, the event, the organizer and
+ * 20260829233000). Those lines pin their orders, the events, the organizer and
  * the account in place. So `remove` deletes everything else — tickets, scans,
- * devices, seats, ticket types, sessions — and RETIRES the rest: orders
- * cancelled, event cancelled and renamed "[removed] …", the account renamed to
+ * devices, seats, ticket types, covers, sessions — and RETIRES the rest: orders
+ * cancelled, events cancelled and renamed "[removed] …", the account renamed to
  * an address that cannot receive mail, its password erased. Nothing of it can
  * sign in, be found on the site, or count as a sale.
  * ─────────────────────────────────────────────────────────────────────────────
  */
+const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const readline = require('node:readline');
@@ -57,7 +63,6 @@ const { hashPassword } = require('../utils/crypto');
 
 const MARK = {
   org: 'Eventsli App Review',
-  title: 'App Review Demo',
   slug: 'app-review-demo-',
   retired: 'retired.review.invalid',
 };
@@ -164,6 +169,12 @@ async function check() {
       problems.push(`${mod.slice(3)}.js: ${e.message}`);
     }
   }
+  // Covers: optional. Without the bucket the events get the app's plain header.
+  const bucket = await supabase.storage.from('event-media').list('', { limit: 1 });
+  if (bucket.error) console.log(`Note     : covers will be skipped — the event-media bucket answered: ${bucket.error.message}`);
+  for (const key of ['gala', 'concert', 'tech', 'food', 'comedy', 'art']) {
+    if (!fs.existsSync(path.join(__dirname, 'review-covers', `${key}.jpg`))) problems.push(`review-covers/${key}.jpg is missing`);
+  }
   const found = await find();
   if (found.profile && !found.mine) problems.push(`${email} is already someone's account (not made by this script). Use --email with another address.`);
   if (found.mine) console.log(`Found    : the review account already exists, with ${found.events.length} event(s). Run status, or remove first.`);
@@ -178,6 +189,51 @@ async function check() {
 }
 
 // ═══ create ══════════════════════════════════════════════════════════════════
+const ZONE = 'America/Toronto';
+const BUCKET = 'event-media';
+const COVERS = path.join(__dirname, 'review-covers');
+
+/** UTC ms of `hour`:00 in Toronto, `days` from today there. Follows DST. */
+function torontoAt(days, hour) {
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: ZONE }); // YYYY-MM-DD
+  const [y, m, d] = today.split('-').map(Number);
+  const guess = Date.UTC(y, m - 1, d + days, hour);
+  // The zone's offset at that moment: what its wall clock reads, minus UTC.
+  const wall = new Date(new Date(guess).toLocaleString('en-US', { timeZone: ZONE }));
+  const asUtc = new Date(new Date(guess).toLocaleString('en-US', { timeZone: 'UTC' }));
+  return guess - (wall - asUtc);
+}
+
+/**
+ * The account's events. `start`/`end` are UTC ms; `checkIns` tickets are
+ * already in, spread from `from` to `to`. The FIRST is the reviewer's.
+ */
+function plan(days) {
+  const now = Date.now();
+  return [
+    { key: 'gala', title: 'Annual Gala Night', venue: 'Grand Hall', address: '100 Front Street West', city: 'Toronto',
+      start: now - 2 * H, end: torontoAt(days, 23), ga: 14, vip: 6, door: 'Main Door', checkIns: 9, from: now - 90 * MIN, to: now - 10 * MIN },
+    { key: 'concert', title: 'Summer Music Night', venue: 'Harbour Stage', address: '235 Queens Quay West', city: 'Toronto',
+      start: now - 1 * H, end: now + 4 * H, ga: 22, vip: 6, door: 'North Gate', checkIns: 14, from: now - 55 * MIN, to: now - 3 * MIN },
+    { key: 'tech', title: 'Tech Summit 2026', venue: 'Metro Convention Centre', address: '255 Front Street West', city: 'Toronto',
+      start: torontoAt(3, 9), end: torontoAt(3, 17), ga: 14, vip: 4 },
+    { key: 'food', title: 'Food & Wine Festival', venue: 'Distillery District', address: '55 Mill Street', city: 'Toronto',
+      start: torontoAt(9, 12), end: torontoAt(10, 22), ga: 10, vip: 4 },
+    { key: 'comedy', title: 'Comedy Night Live', venue: 'The Laugh Lounge', address: '1234 Rue Sainte-Catherine', city: 'Montreal',
+      start: torontoAt(16, 20), end: torontoAt(16, 23), ga: 8, vip: 2 },
+    { key: 'art', title: 'Modern Art Expo', venue: 'Gallery 21', address: '21 Sussex Drive', city: 'Ottawa',
+      start: torontoAt(-1, 10), end: torontoAt(-1, 18), ga: 10, vip: 2, door: 'Front Desk', checkIns: 10, past: true },
+  ];
+}
+
+const GUESTS = [
+  'John Smith', 'Sara Ahmed', 'Ahmed Ali', 'Emily Chen', 'Michael Brown', 'Olivia Martin', 'Daniel Garcia',
+  'Priya Patel', 'Lucas Tremblay', 'Chloé Roy', 'Noah Wilson', 'Ava Thompson', 'Mia Johnson', 'Omar Hassan',
+  'Sofia Rossi', 'Liam Murphy', 'Yuki Tanaka', 'Fatima Khan', 'Ethan Clarke', 'Grace Lee', 'Mateo López',
+  'Hannah Fischer', 'Benjamin Wright', 'Layla Haddad', 'Jacob Nguyen', 'Isabelle Gagnon', 'Ryan O’Neill',
+  'Amara Okafor', 'David Kim', 'Zoe Campbell',
+];
+
 async function create() {
   const days = Math.max(1, Math.min(60, Number(arg('days', 14)) || 14));
   const existing = await find();
@@ -187,13 +243,15 @@ async function create() {
     return;
   }
   if (existing.mine) {
-    console.error(`The review account already exists. Run "status" to see it, or "remove" first to start over.`);
+    console.error('The review account already exists. Run "status" to see it, or "remove" first to start over.');
     process.exitCode = 1;
     return;
   }
 
+  const events = plan(days);
+  const total = events.reduce((n, e) => n + e.ga + e.vip, 0);
   console.log(`Database : ${target()}`);
-  console.log(`Creates  : the account ${email}, the organizer "${MARK.org}", and the hidden event "${MARK.title}" (${days} days), with 20 free tickets.`);
+  console.log(`Creates  : the account ${email}, the organizer "${MARK.org}", and ${events.length} hidden events with ${total} free tickets.`);
   if (!(await confirm('Write this to the database?'))) { console.log('Nothing changed.'); return; }
 
   // Loaded here: older checkouts on the server have them too, and `check`
@@ -204,6 +262,8 @@ async function create() {
   const { CHARGE_MODEL } = require('../utils/money');
 
   const password = newPassword();
+  const made = [];
+  let coverTrouble = null;
   try {
     const terms = must(await supabase.from('terms_versions').select('id').eq('audience', 'organizer').eq('is_current', true).single(), 'current organizer terms');
     const owner = must(await supabase.from('profiles').insert({
@@ -218,99 +278,119 @@ async function create() {
       owner_user_id: owner.id, display_name: MARK.org, country: 'CA', stripe_account_id: null,
     }).select('id').single(), 'organizer');
 
-    // On sale, in the future, while the tickets are issued; moved afterwards.
-    const ev = must(await supabase.from('events').insert({
-      organizer_id: org.id, slug: `${MARK.slug}${Date.now().toString(36)}`, title: MARK.title,
-      country: 'CA', timezone: 'America/Toronto', currency: 'CAD', status: 'published',
-      terms_accepted_id: terms.id, purchase_mode: 'seat_only',
-      venue_name: 'Demo Hall', venue_address: '100 Demo Street', city: 'Toronto',
-      cover_url: `${SITE}/og-default.png`, cover_path: 'app-review/og-default.png',
-      starts_at: iso(2 * D), ends_at: iso(2 * D + 6 * H),
-    }).select('id, slug').single(), 'event');
+    let guest = 0;
+    for (const spec of events) {
+      // In order, one event at a time: each step needs the one before it.
+      /* eslint-disable no-await-in-loop */
+      // On sale, a month out, while its tickets are issued; moved afterwards.
+      const ev = must(await supabase.from('events').insert({
+        organizer_id: org.id, slug: `${MARK.slug}${spec.key}-${Date.now().toString(36)}`, title: spec.title,
+        country: 'CA', timezone: ZONE, currency: 'CAD', status: 'published',
+        terms_accepted_id: terms.id, purchase_mode: 'seat_only',
+        venue_name: spec.venue, venue_address: spec.address, city: spec.city,
+        starts_at: iso(30 * D), ends_at: iso(30 * D + 6 * H),
+      }).select('id').single(), `event ${spec.title}`);
 
-    const map = must(await supabase.from('venue_maps').insert({ event_id: ev.id, layout_json: {} }).select('id').single(), 'venue map');
-    const tiers = {};
-    for (const name of ['General Admission', 'VIP']) {
-      tiers[name] = must(await supabase.from('ticket_tiers').insert({ event_id: ev.id, name, price_cents: 0 }).select('id').single(), `ticket type ${name}`).id;
+      // The cover, stored where an organizer's upload goes. A deployment
+      // without the bucket gets the app's plain header instead.
+      if (!coverTrouble) {
+        const coverPath = `events/${ev.id}/cover-${crypto.randomBytes(8).toString('hex')}.jpg`;
+        const up = await supabase.storage.from(BUCKET).upload(coverPath, fs.readFileSync(path.join(COVERS, `${spec.key}.jpg`)), { contentType: 'image/jpeg' });
+        if (up.error) {
+          coverTrouble = up.error.message;
+        } else {
+          const url = supabase.storage.from(BUCKET).getPublicUrl(coverPath).data.publicUrl;
+          must(await supabase.from('events').update({ cover_url: url, cover_path: coverPath }).eq('id', ev.id), 'cover');
+        }
+      }
+
+      const map = must(await supabase.from('venue_maps').insert({ event_id: ev.id, layout_json: {} }).select('id').single(), 'venue map');
+      const tiers = {};
+      for (const name of ['General Admission', 'VIP']) {
+        tiers[name] = must(await supabase.from('ticket_tiers').insert({ event_id: ev.id, name, price_cents: 0 }).select('id').single(), `ticket type ${name}`).id;
+      }
+      const rows = [];
+      for (let i = 0; i < spec.ga; i += 1) {
+        rows.push({ venue_map_id: map.id, tier_id: tiers['General Admission'], section_key: 'Floor', row_label: String.fromCharCode(65 + Math.floor(i / 10)), seat_number: String((i % 10) + 1) });
+      }
+      for (let i = 0; i < spec.vip; i += 1) {
+        rows.push({ venue_map_id: map.id, tier_id: tiers.VIP, section_key: 'VIP', row_label: 'V', seat_number: String(i + 1) });
+      }
+      const seats = must(await supabase.from('seats').insert(rows).select('id, tier_id'), 'seats');
+      const free = {
+        ga: seats.filter((s) => s.tier_id === tiers['General Admission']).map((s) => s.id),
+        vip: seats.filter((s) => s.tier_id === tiers.VIP).map((s) => s.id),
+      };
+
+      // Guests take 1–3 tickets each, VIPs one, until the seats run out.
+      const issued = [];
+      for (let n = 0; free.vip.length || free.ga.length; n += 1) {
+        const name = GUESTS[guest % GUESTS.length];
+        guest += 1;
+        const vip = free.vip.length && n % 2 === 1 ? 1 : 0;
+        const ga = vip ? 0 : Math.min(free.ga.length, 1 + (n % 3));
+        const seatIds = [...free.ga.splice(0, ga), ...free.vip.splice(0, vip || (free.ga.length ? 0 : 1))];
+        if (!seatIds.length) continue;
+        const held = await supabase.rpc('hold_seats', { p_event_id: ev.id, p_user_id: owner.id, p_seat_ids: seatIds, p_ttl_minutes: 35 });
+        if (held.error || !held.data?.reservation_id) throw new Error(`hold for ${name}: ${held.error?.message || JSON.stringify(held.data)}`);
+        // As the free checkout quotes it (checkoutController): DESTINATION, or
+        // fulfill_checkout demands an organizer Stripe account. No money moves.
+        const q = await pricing.quoteReservation(held.data.reservation_id, { chargeModel: CHARGE_MODEL.DESTINATION });
+        const filled = await supabase.rpc('fulfill_checkout', {
+          p_reservation_id: held.data.reservation_id, p_channel: 'free', p_breakdown: q.breakdown,
+          p_buyer: { user_id: owner.id, name, email, phone: null },
+          p_stripe: {},
+        });
+        if (filled.error || !filled.data?.order_id) throw new Error(`tickets for ${name}: ${filled.error?.message || JSON.stringify(filled.data)}`);
+        issued.push(...await ticketSvc.forOrder(filled.data.order_id));
+      }
+
+      // Its real times, and the door settings.
+      must(await supabase.from('events').update({ starts_at: new Date(spec.start).toISOString(), ends_at: new Date(spec.end).toISOString() }).eq('id', ev.id), 'event times');
+      must(await supabase.from('event_gate_settings').upsert({
+        event_id: ev.id, door_team_can_view_guests: true, offline_admission: true, offline_show_names: true,
+        updated_by: owner.id,
+      }), 'door settings');
+
+      // Arrivals: every other ticket, spread across the window.
+      let pin = null;
+      if (spec.checkIns) {
+        pin = String(crypto.randomInt(100000, 1000000));
+        const device = await scanSvc.registerDevice({ eventId: ev.id, label: spec.door, pin });
+        const from = spec.from ?? spec.start + 10 * MIN;
+        const to = spec.to ?? Math.min(spec.end, spec.start + 3 * H);
+        const early = issued.filter((_, i) => i % 2 === 0).concat(issued.filter((_, i) => i % 2 === 1)).slice(0, spec.checkIns);
+        for (const [i, t] of early.entries()) {
+          const at = from + ((to - from) * i) / Math.max(1, early.length - 1);
+          const r = await supabase.rpc('check_in_ticket_v2', {
+            p_event_id: ev.id, p_ticket_id: t.id, p_qr_version: 0, p_device_id: device.id,
+            p_client_scan_id: `app-review-${crypto.randomUUID()}`, p_occurred_at: new Date(at).toISOString(),
+            p_method: 'scan', p_offline_admitted: false,
+          });
+          if (r.error || r.data?.result !== 'admitted') throw new Error(`check-in at ${spec.title}: ${r.error?.message || JSON.stringify(r.data)}`);
+        }
+      }
+
+      // Hidden from the site. A finished event is closed as the site closes one.
+      must(await supabase.from('events').update({ status: spec.past ? 'completed' : 'archived' }).eq('id', ev.id), 'hide the event');
+      made.push({ ...spec, tickets: issued.length, pin });
+      /* eslint-enable no-await-in-loop */
     }
-    const rows = [];
-    for (let i = 0; i < 30; i += 1) {
-      rows.push({ venue_map_id: map.id, tier_id: tiers['General Admission'], section_key: 'Floor', row_label: String.fromCharCode(65 + Math.floor(i / 10)), seat_number: String((i % 10) + 1) });
-    }
-    for (let i = 0; i < 10; i += 1) {
-      rows.push({ venue_map_id: map.id, tier_id: tiers.VIP, section_key: 'VIP', row_label: 'V', seat_number: String(i + 1) });
-    }
-    const seats = must(await supabase.from('seats').insert(rows).select('id, tier_id'), 'seats');
-    const free = {
-      ga: seats.filter((s) => s.tier_id === tiers['General Admission']).map((s) => s.id),
-      vip: seats.filter((s) => s.tier_id === tiers.VIP).map((s) => s.id),
-    };
 
-    /** A free claim, through the functions the free checkout uses. */
-    const claim = async (name, { ga = 0, vip = 0 }) => {
-      const seatIds = [...free.ga.splice(0, ga), ...free.vip.splice(0, vip)];
-      const held = await supabase.rpc('hold_seats', { p_event_id: ev.id, p_user_id: owner.id, p_seat_ids: seatIds, p_ttl_minutes: 35 });
-      if (held.error || !held.data?.reservation_id) throw new Error(`hold for ${name}: ${held.error?.message || JSON.stringify(held.data)}`);
-      // As the free checkout quotes it (checkoutController): DESTINATION, or
-      // fulfill_checkout demands an organizer Stripe account. No money moves.
-      const q = await pricing.quoteReservation(held.data.reservation_id, { chargeModel: CHARGE_MODEL.DESTINATION });
-      const filled = await supabase.rpc('fulfill_checkout', {
-        p_reservation_id: held.data.reservation_id, p_channel: 'free', p_breakdown: q.breakdown,
-        p_buyer: { user_id: owner.id, name, email, phone: null },
-        p_stripe: {},
-      });
-      if (filled.error || !filled.data?.order_id) throw new Error(`tickets for ${name}: ${filled.error?.message || JSON.stringify(filled.data)}`);
-      return ticketSvc.forOrder(filled.data.order_id);
-    };
-
-    const guests = [
-      ['John Smith', { ga: 2 }], ['Sara Ahmed', { vip: 1 }], ['Ahmed Ali', { ga: 2 }],
-      ['Emily Chen', { ga: 1 }], ['Michael Brown', { ga: 3 }], ['Olivia Martin', { vip: 1 }],
-      ['Daniel Garcia', { ga: 2 }], ['Priya Patel', { vip: 1 }], ['Lucas Tremblay', { ga: 2 }],
-      ['Chloé Roy', { ga: 1 }], ['Noah Wilson', { ga: 1 }], ['Ava Thompson', { vip: 1 }],
-      ['Mia Johnson', { ga: 1 }], ['Omar Hassan', { vip: 1 }],
-    ];
-    const issued = [];
-    for (const [name, counts] of guests) {
-      // In order: each claim takes the next free seats.
-      // eslint-disable-next-line no-await-in-loop
-      issued.push(...await claim(name, counts));
-    }
-
-    // Doors open: on now, for the review window. Then hidden from the site.
-    must(await supabase.from('events').update({ starts_at: iso(-2 * H), ends_at: iso(days * D) }).eq('id', ev.id), 'event times');
-    must(await supabase.from('event_gate_settings').upsert({
-      event_id: ev.id, door_team_can_view_guests: true, offline_admission: true, offline_show_names: true,
-      updated_by: owner.id,
-    }), 'door settings');
-
-    const pin = String(crypto.randomInt(100000, 1000000));
-    const device = await scanSvc.registerDevice({ eventId: ev.id, label: 'Main Door', pin });
-
-    // Nine already in, spread over the last 90 minutes, for the dashboard and
-    // the arrivals chart. The rest are left to scan.
-    const early = issued.filter((_, i) => i % 2 === 0).slice(0, 9);
-    for (const [i, t] of early.entries()) {
-      // eslint-disable-next-line no-await-in-loop
-      const r = await supabase.rpc('check_in_ticket_v2', {
-        p_event_id: ev.id, p_ticket_id: t.id, p_qr_version: 0, p_device_id: device.id,
-        p_client_scan_id: `app-review-${crypto.randomUUID()}`, p_occurred_at: iso(-(90 - i * 10) * MIN),
-        p_method: 'scan', p_offline_admitted: false,
-      });
-      if (r.error || r.data?.result !== 'admitted') throw new Error(`check-in: ${r.error?.message || JSON.stringify(r.data)}`);
-    }
-
-    must(await supabase.from('events').update({ status: 'archived' }).eq('id', ev.id), 'hide the event');
-
+    const when = (ms) => new Date(ms).toLocaleString('en-US', { timeZone: ZONE, month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
     console.log('\nThe review account is ready.\n');
     console.log(`  Sign in      : ${email}`);
     console.log(`  Password     : ${password}`);
     console.log('                 Shown this once and stored nowhere. Copy it now.');
     console.log(`                 Lost it? node scripts/review-account.js password --email ${email}`);
-    console.log(`  Event        : ${MARK.title} — on now until ${new Date(Date.now() + days * D).toDateString()}, hidden from the site`);
-    console.log(`  Tickets      : ${issued.length} free, ${early.length} already checked in at Main Door`);
     console.log(`  QR codes     : sign in at ${SITE} with the account above → My tickets`);
-    console.log(`  Door device  : Main Door, PIN ${pin}`);
+    console.log('  Events       : all hidden from the site (Toronto time)');
+    for (const e of made) {
+      const state = e.past ? 'ended' : e.start <= Date.now() ? 'live now' : 'upcoming';
+      const door = e.pin ? ` · ${e.checkIns} checked in · ${e.door} PIN ${e.pin}` : '';
+      console.log(`    ${e.title.padEnd(22)} ${state.padEnd(9)} ${when(e.start)} – ${when(e.end)} · ${e.tickets} tickets${door}`);
+    }
+    if (coverTrouble) console.log(`\n  Covers       : not uploaded (${coverTrouble}); the app shows a plain header instead.`);
   } catch (e) {
     console.error(`\nStopped: ${e.message}`);
     console.error('Cleaning up what was made...');
@@ -363,6 +443,11 @@ async function remove({ quiet = false, force = false } = {}) {
   const tolerate = async (q) => { await q; }; // tables an older schema may not have
   let retired = 0;
   for (const ev of events) {
+    // Its cover, and anything else under the event's storage folder.
+    const stored = await supabase.storage.from('event-media').list(`events/${ev.id}`);
+    if (!stored.error && stored.data?.length) {
+      await supabase.storage.from('event-media').remove(stored.data.map((o) => `events/${ev.id}/${o.name}`));
+    }
     await tolerate(supabase.from('scans').delete().eq('event_id', ev.id));
     await tolerate(supabase.from('event_staff').delete().eq('event_id', ev.id));
     await tolerate(supabase.from('scanner_access').delete().eq('event_id', ev.id));
@@ -385,7 +470,7 @@ async function remove({ quiet = false, force = false } = {}) {
     await tolerate(supabase.from('ticket_tiers').delete().eq('event_id', ev.id));
     const del = await supabase.from('events').delete().eq('id', ev.id);
     if (del.error) {
-      must(await supabase.from('events').update({ status: 'cancelled', title: `[removed] ${MARK.title}` }).eq('id', ev.id), 'retire event');
+      must(await supabase.from('events').update({ status: 'cancelled', title: `[removed] ${ev.title}` }).eq('id', ev.id), 'retire event');
     }
   }
 

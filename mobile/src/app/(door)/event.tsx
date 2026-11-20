@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { analytics } from '@/api/endpoints';
 import { useSession } from '@/auth/session';
 import { useGateStatus, useMe } from '@/gate/useDoor';
-import { count, eventDate, eventPhase, eventTime, percent } from '@/lib/format';
+import { count, eventPhase, eventSpan, percent } from '@/lib/format';
 import { roleLabel } from '@/screens/Settings';
 import { Button } from '@/ui/Button';
 import { Ring, ShareBar } from '@/ui/charts';
@@ -85,10 +85,8 @@ export default function EventDetails() {
           {event && (
             <Card style={styles.card}>
               <FactRow icon="calendar" iconColor={colors.accent}>
-                <Text variant="body" weight="semibold">{eventDate(event.startsAt, event.timezone)}</Text>
-                <Text variant="small" color={colors.muted}>
-                  {eventTime(event.startsAt, event.timezone)} – {eventTime(event.endsAt, event.timezone)}
-                </Text>
+                <Text variant="body" weight="semibold">{eventSpan(event.startsAt, event.endsAt, event.timezone).date}</Text>
+                <Text variant="small" color={colors.muted}>{eventSpan(event.startsAt, event.endsAt, event.timezone).time}</Text>
                 <Text variant="caption" color={colors.subtle}>
                   {event.timezone.replace(/_/g, ' ')}{phase && phase.phase !== 'ended' && phase.phase !== 'live' ? ` · ${phase.label.toLowerCase()}` : ''}
                 </Text>

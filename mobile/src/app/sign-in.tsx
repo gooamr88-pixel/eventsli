@@ -104,7 +104,7 @@ export default function SignIn() {
             <View style={styles.intro}>
               {/* The concert behind the title, bleeding off the right edge. */}
               <View pointerEvents="none" style={[styles.scene, { width: art * 0.62, top: -art * 0.2 }]}>
-                <ConcertScene width={art * 0.62} />
+                <ConcertScene width={art * 0.62} fadeRight={tablet} />
               </View>
               <Text style={[styles.title, { fontSize: titleSize, lineHeight: titleSize * 1.2 }]} accessibilityRole="header">
                 {'Sign in to\n'}
@@ -196,7 +196,10 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   scroll: { flexGrow: 1, paddingTop: space.xl, gap: space.xl },
   column: { gap: space.xl },
-  columnTablet: { width: '100%', maxWidth: MAX_WIDTH.form, alignSelf: 'center', paddingTop: space.xxl },
+  // iPad: centred both ways. With the footer's own `marginTop: 'auto'`, the
+  // free height splits evenly above and below the column, instead of all of
+  // it pooling under the form (the empty half-screen of 2026-11-20).
+  columnTablet: { width: '100%', maxWidth: MAX_WIDTH.form, alignSelf: 'center', marginTop: 'auto', paddingTop: space.xxl },
   brand: { alignItems: 'center', gap: space.lg, marginTop: space.lg, paddingHorizontal: space.xl },
   lockup: { flexDirection: 'row', alignItems: 'center', gap: space.lg },
   // A faint yellow edge around the mark, as the mockup's tile has.

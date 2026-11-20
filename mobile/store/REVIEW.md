@@ -10,8 +10,8 @@ design, so this is made on the live site, by the owner.
 
 **One command does all of it (2026-11-20):** on the server, from `backend/`,
 `node scripts/review-account.js check`, then `create`, and `remove` after
-approval. It makes the steps below — account, hidden event, 20 free tickets,
-9 already checked in — and prints the password once. Read the comment at the
+approval. It makes the steps below — account, six hidden events with real
+photo covers, free tickets, some already checked in — and prints the password once. Read the comment at the
 top of the script for what `remove` has to keep (the 0.00 ledger lines).
 Tested end to end on the local database, 2026-11-20.
 
@@ -31,15 +31,17 @@ By hand, the same thing:
 ## Notes for the reviewer (paste into App Review Information)
 
 > Eventsli Check-in is the door app for organizers who sell tickets on
-> eventsli.com. It is a business tool: it has no sign-up, and people sign in
-> with an existing Eventsli account.
+> eventsli.com. The developer operates eventsli.com; this is our own account
+> system. It is a business tool: it has no sign-up, and people sign in with an
+> existing Eventsli account (email and password).
 >
-> Sign in with: appreview@eventsli.com / (password)
+> Sign in with the account above. Its main demo event, "Annual Gala Night", is on now.
 >
-> 1. Choose "App Review Demo" and tap Continue.
-> 2. Tap Scan Tickets and scan a ticket from the attached PDF, shown on another
->    screen. It is admitted; scanning it again shows "Already checked in".
-> 3. Attendees lists the guests; Analytics shows arrivals.
+> 1. Tap "Annual Gala Night", then Start Check-in.
+> 2. To get tickets to scan: on another screen, sign in at https://eventsli.com
+>    with the same account and open My tickets. Scan one: "Check-in Successful".
+>    Scan it again: "Already checked in".
+> 3. Find Guest lists the guests; Analytics shows arrivals; Logs shows every scan.
 > 4. Turn on airplane mode and scan another ticket: the phone checks it itself
 >    and uploads it when the connection returns.
 >

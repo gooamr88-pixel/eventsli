@@ -125,8 +125,12 @@ const LIGHTS = [74, 112, 150, 188].map((x) => ({ x, y: TRUSS.at(x) + RAIL.gap + 
  * The mockup's concert photo, drawn: stage lights on a truss shining down into
  * a haze, and a crowd with hands up — light greys, fading out to the left so
  * the title in front of it stays easy to read.
+ *
+ * On a phone it bleeds off the screen's right edge. On an iPad it sits inside
+ * a centred column, where that edge would be a hard line in the middle of the
+ * page, so `fadeRight` melts it into the page there too.
  */
-export function ConcertScene({ width }: { width: number }) {
+export function ConcertScene({ width, fadeRight = false }: { width: number; fadeRight?: boolean }) {
   return (
     <Svg width={width} height={(width * H) / W} viewBox={`0 0 ${W} ${H}`} accessible={false}>
       <Defs>
@@ -158,6 +162,10 @@ export function ConcertScene({ width }: { width: number }) {
           <Stop offset="0.68" stopColor={colors.bg} stopOpacity={0} />
           <Stop offset="0.94" stopColor={colors.bg} stopOpacity={1} />
         </LinearGradient>
+        <LinearGradient id="meltRight" x1="0" y1="0" x2="1" y2="0">
+          <Stop offset="0.6" stopColor={colors.bg} stopOpacity={0} />
+          <Stop offset="0.98" stopColor={colors.bg} stopOpacity={1} />
+        </LinearGradient>
       </Defs>
 
       <Path d={`M0 0H${W}V${H}H0Z`} fill="url(#haze)" />
@@ -177,6 +185,7 @@ export function ConcertScene({ width }: { width: number }) {
       <Path d={FRONT.bodies + FRONT.hands} fill="url(#people)" />
       <Path d={FRONT.arms} fill="none" stroke="url(#people)" strokeWidth={3.6} strokeLinecap="round" />
       <Path d={`M0 0H${W}V${H}H0Z`} fill="url(#melt)" />
+      {fadeRight && <Path d={`M0 0H${W}V${H}H0Z`} fill="url(#meltRight)" />}
     </Svg>
   );
 }

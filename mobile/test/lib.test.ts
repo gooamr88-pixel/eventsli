@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 
 import { base64ToBase64Url, bytesToBase64Url, bytesToHex, decodeBase64Url } from '../src/lib/base64';
-import { ago, duration, eventPhase, eventWhen, hoursUntil, initials, percent } from '../src/lib/format';
+import { ago, duration, eventPhase, eventSpan, eventWhen, hoursUntil, initials, percent } from '../src/lib/format';
 import { compareVersions, needsUpdate } from '../src/lib/version';
 
 describe('base64url', () => {
@@ -92,5 +92,28 @@ describe('people and shares', () => {
     expect(percent(1, 3)).toBe(33);
     expect(percent(5, 4)).toBe(100);
     expect(percent(0, 0)).toBe(0);
+  });
+});
+
+describe('event span', () => {
+  const TZ = 'America/Toronto';
+  test('one day: the date, then both times', () => {
+    expect(eventSpan('2026-11-20T23:00:00Z', '2026-11-21T03:00:00Z', TZ)).toEqual({
+      date: 'Nov 20, 2026', time: '6:00 PM – 10:00 PM',
+    });
+  });
+
+  test('several days: the span, and each time with its day', () => {
+    expect(eventSpan('2026-11-20T05:18:00Z', '2026-12-04T07:18:00Z', TZ)).toEqual({
+      date: 'Nov 20 – Dec 4, 2026', time: 'Nov 20, 12:18 AM – Dec 4, 2:18 AM',
+    });
+  });
+
+  test('across a new year: both years', () => {
+    expect(eventSpan('2026-12-31T20:00:00Z', '2027-01-01T08:00:00Z', TZ).date).toBe('Dec 31, 2026 – Jan 1, 2027');
+  });
+
+  test('no end: the start time alone', () => {
+    expect(eventSpan('2026-11-20T23:00:00Z', null, TZ)).toEqual({ date: 'Nov 20, 2026', time: '6:00 PM' });
   });
 });
