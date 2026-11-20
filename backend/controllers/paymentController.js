@@ -1,6 +1,8 @@
 const { supabase } = require('../config/supabase');
 const stripeSvc = require('../services/stripeService');
 const { fulfillFromSession } = require('./checkoutController');
+const sponsorships = require('../services/sponsorPortalService');
+const vendors = require('../services/vendorPortalService');
 const logger = require('../utils/logger');
 
 // The event stopped selling while the buyer was paying (BRD §17). The money was
@@ -277,6 +279,32 @@ async function webhook(req, res) {
         if (session.payment_status !== 'paid') {
           await mark(event.id, null);
           return res.status(200).json({ received: true, skipped: 'not paid' });
+        }
+        // A sponsorship instalment (2026-11-20), also a direct charge on the
+        // organizer's account. Recorded against the session and account we
+        // opened it with (sponsorship_record_payment); never a ticket order.
+        if (sponsorships.isSponsorshipSession(session)) {
+          const paid = await sponsorships.fulfilFromSession(session, { account: event.account || null });
+          if (!paid.ok) {
+            await mark(event.id, paid.message || paid.error);
+            logger.error({ stripeEventId: event.id, sessionId: session.id, error: paid.error, account: event.account || null },
+              paid.permanent ? 'SPONSORSHIP PAYMENT NOT RECORDED — needs review' : 'sponsorship payment not recorded yet — Stripe will retry');
+            return res.status(paid.permanent ? 200 : 500).json({ received: true, error: paid.error });
+          }
+          await mark(event.id, null);
+          return res.status(200).json({ received: true, sponsorship: paid.alreadyPaid ? 'already recorded' : 'recorded' });
+        }
+        // A vendor's booth fee (2026-11-20), the same way.
+        if (vendors.isVendorSession(session)) {
+          const paid = await vendors.fulfilFromSession(session, { account: event.account || null });
+          if (!paid.ok) {
+            await mark(event.id, paid.message || paid.error);
+            logger.error({ stripeEventId: event.id, sessionId: session.id, error: paid.error, account: event.account || null },
+              paid.permanent ? 'VENDOR PAYMENT NOT RECORDED — needs review' : 'vendor payment not recorded yet — Stripe will retry');
+            return res.status(paid.permanent ? 200 : 500).json({ received: true, error: paid.error });
+          }
+          await mark(event.id, null);
+          return res.status(200).json({ received: true, vendor: paid.alreadyPaid ? 'already recorded' : 'recorded' });
         }
         // An organizer's own sale outside Eventsli (T-079). Nothing to fulfil,
         // and retrying cannot change that: acknowledged, and kept off the

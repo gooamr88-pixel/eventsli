@@ -42,6 +42,7 @@ const PURE_MODULES = [
   'utils/settingsSchema.js',     // what each platform setting may hold
   'utils/mapLimit.js',           // bounded concurrency for the offline sync
   'utils/pinLockout.js',         // door PIN lockout rules
+  'utils/gateAuth.js',           // where a door token travels: Bearer or the gate cookie
   'utils/search.js',             // search text made safe for PostgREST
   'utils/embed.js',              // to-one embed unwrapping
   'utils/payouts.js',            // whether an organizer can be paid

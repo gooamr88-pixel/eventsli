@@ -30,8 +30,9 @@ const TIERS = [
   { level: 'partner', label: 'Partners', one: 'Partner' },
 ];
 
-export default function EventSponsorsSection({ sponsors = [] }) {
-  if (sponsors.length === 0) return null;
+export default function EventSponsorsSection({ sponsors = [], sponsorUrl = null }) {
+  // `sponsorUrl`: the organizer's public sponsor page is open (2026-11-20).
+  if (sponsors.length === 0 && !sponsorUrl) return null;
   const headline = sponsors.filter((s) => s.level === 'headline');
   const tiers = TIERS
     .map((t) => ({ ...t, list: sponsors.filter((s) => s.level === t.level) }))
@@ -51,7 +52,12 @@ export default function EventSponsorsSection({ sponsors = [] }) {
         <h2 id="event-sponsors-title" className="es-evsp__title">
           Event <span className="es-lp-accent">sponsors</span>
         </h2>
-        <p className="es-evsp__lede">The brands making this event happen, chosen by its organizer.</p>
+        <p className="es-evsp__lede">{sponsors.length ? 'The brands making this event happen, chosen by its organizer.' : 'This event is looking for sponsors.'}</p>
+        {sponsorUrl && (
+          <a href={sponsorUrl} className="es-btn es-btn--secondary es-evsp__become">
+            <NavIcon name="handshake" size={18} />Become a sponsor
+          </a>
+        )}
       </div>
 
       {headline.map((s) => <Featured key={s.id} sponsor={s} />)}

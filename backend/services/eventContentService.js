@@ -241,13 +241,29 @@ async function reorder(name, eventId, ids) {
 
 /** Everything a public event page needs, in one round trip. */
 async function publicBundle(eventId) {
-  const [gallery, sponsors, policies, schedule] = await Promise.all([
+  const [gallery, sponsors, policies, schedule, sponsorshipOpen, vendorsOpen, vendors] = await Promise.all([
     list('media', eventId),
     list('sponsors', eventId),
     list('policies', eventId),
     list('schedule', eventId),
+    // Whether the page shows "Become a sponsor" (2026-11-20). Fail-soft: a
+    // database without the sponsorship tables yet must not take the event
+    // page down with it, so any error reads as "not open".
+    supabase.from('sponsorship_programs').select('is_open').eq('event_id', eventId).maybeSingle()
+      .then(({ data, error }) => !error && !!data?.is_open, () => false),
+    // The vendor page (2026-11-20), the same fail-soft way: open or not, and
+    // the booked vendors the public directory lists.
+    supabase.from('vendor_programs').select('is_open').eq('event_id', eventId).maybeSingle()
+      .then(({ data, error }) => !error && !!data?.is_open, () => false),
+    supabase.from('vendor_applications')
+      .select('id, business_name, category, logo_url, booth_label')
+      .eq('event_id', eventId).eq('stage', 'confirmed').eq('listed', true).not('paid_at', 'is', null)
+      .order('business_name').limit(60)
+      .then(({ data, error }) => (error ? [] : (data || []).map((v) => ({
+        id: v.id, name: v.business_name, category: v.category, logoUrl: v.logo_url, booth: v.booth_label,
+      }))), () => []),
   ]);
-  return { gallery, sponsors, policies, schedule };
+  return { gallery, sponsors, policies, schedule, sponsorshipOpen, vendorsOpen, vendors };
 }
 
 module.exports = {

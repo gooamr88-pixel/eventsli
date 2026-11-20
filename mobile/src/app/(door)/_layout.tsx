@@ -49,6 +49,15 @@ export default function DoorLayout() {
     for (const err of [me.error, status.error]) if (err) exit(err);
   }, [me.error, status.error, exit]);
 
+  // The gate's state from every status poll goes straight into the offline
+  // list: the server holds this phone to what it was told (audit H1), so an
+  // offline decision must not run on the list's older copy of it.
+  const gateLocked = status.data?.gate?.locked;
+  const gateReason = status.data?.gate?.reason ?? null;
+  useEffect(() => {
+    if (typeof gateLocked === 'boolean') useOfflineList.getState().setGate(gateLocked, gateReason).catch(() => undefined);
+  }, [gateLocked, gateReason]);
+
   useEffect(() => {
     if (!door) return undefined;
     let alive = true;

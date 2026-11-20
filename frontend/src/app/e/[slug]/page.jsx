@@ -5,6 +5,7 @@ import EventGallery from './EventGallery';
 import EventTabs from './EventTabs';
 import EventHero from './EventHero';
 import EventSponsorsSection from './EventSponsorsSection';
+import EventVendorsSection from './EventVendorsSection';
 import EventTickets, { EventMarks } from './EventTickets';
 import EventTicketCard from './EventTicketCard';
 import EventBlocks from './EventBlocks';
@@ -307,7 +308,8 @@ export default async function EventPage({ params, searchParams }) {
           />
 
           {/* ── 5. The event's sponsors, and the questions guests ask ───────── */}
-          <EventSponsorsSection sponsors={event.sponsors} />
+          <EventSponsorsSection sponsors={event.sponsors} sponsorUrl={event.sponsorshipOpen ? `/e/${event.slug}/sponsor` : null} />
+          <EventVendorsSection vendors={event.vendors || []} slug={event.slug} open={!!event.vendorsOpen} />
           <EventFaq event={event} />
 
           {/* ── 6. Somewhere else to go ──────────────────────────────────── */}

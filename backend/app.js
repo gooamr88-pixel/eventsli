@@ -229,6 +229,18 @@ app.use('/api/v1/auth', require('./routes/authRoutes'));
 // Organizer SMS campaigns: mounted before the organizer router so its paths win.
 app.use('/api/v1/organizer/sms', require('./routes/organizerSmsRoutes'));
 app.use('/api/v1/organizer', require('./routes/organizerRoutes'));
+// Sponsorships (2026-11-20): the organizer's pipeline, the sponsor portal and
+// the public "Become a sponsor" page — routes/sponsorshipRoutes.js.
+const sponsorshipRoutes = require('./routes/sponsorshipRoutes');
+app.use('/api/v1/events/:eventId/sponsorship', sponsorshipRoutes.organizer);
+app.use('/api/v1/partner/sponsorships', sponsorshipRoutes.partner);
+app.use('/api/v1/public/events/:slug/sponsorship', sponsorshipRoutes.publicRouter);
+// Vendors (2026-11-20): applications, booth types, the vendor portal and the
+// public vendor page — routes/vendorRoutes.js.
+const vendorRoutes = require('./routes/vendorRoutes');
+app.use('/api/v1/events/:eventId/vendors', vendorRoutes.organizer);
+app.use('/api/v1/partner/vendors', vendorRoutes.vendor);
+app.use('/api/v1/public/events/:slug/vendors', vendorRoutes.publicRouter);
 app.use('/api/v1/events', require('./routes/eventRoutes'));
 // Venue search for the create-event wizard. Proxied rather than called from
 // the browser so the Places key stays server-side and the CSP does not have to

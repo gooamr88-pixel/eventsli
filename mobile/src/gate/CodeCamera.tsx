@@ -16,6 +16,8 @@ type Props = {
   torch?: boolean;
   facing?: 'back' | 'front';
   frameSize?: number;
+  /** What else the door can do when the camera will not start, e.g. "find the guest by name". */
+  onCameraFailedHint?: string;
 };
 
 /** Whether the person has asked their phone for less motion, kept current. */
@@ -38,8 +40,12 @@ function useReduceMotion(): boolean {
  * Native decoding (ML Kit on Android, AVFoundation on iOS) through expo-camera,
  * QR codes only — nothing else at a door is ours.
  */
-export function CodeCamera({ onCode, paused = false, torch = false, facing = 'back', frameSize = 250 }: Props) {
+export function CodeCamera({
+  onCode, paused = false, torch = false, facing = 'back', frameSize = 250, onCameraFailedHint,
+}: Props) {
   const [permission, requestPermission] = useCameraPermissions();
+  const [mountError, setMountError] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
   const last = useRef<{ token: string; at: number } | null>(null);
   const [line] = useState(() => new Animated.Value(0));
 
@@ -79,6 +85,22 @@ export function CodeCamera({ onCode, paused = false, torch = false, facing = 'ba
     );
   }
 
+  // The preview could not start (another app holds the camera, a hardware
+  // fault). Said on screen with a way to try again, not left as a black frame
+  // the person at the door can only stare at (audit 2026-11-20).
+  if (mountError) {
+    return (
+      <View style={[styles.fill, styles.ask]}>
+        <Text variant="title" color={colors.white} align="center">The camera did not start</Text>
+        <Text color={colors.onDark} align="center">
+          Close any other app using the camera, then try again. If it still does not start, restart the phone
+          {onCameraFailedHint ? `, or ${onCameraFailedHint}` : ''}.
+        </Text>
+        <Button label="Try again" onPress={() => { setMountError(null); setAttempt((n) => n + 1); }} />
+      </View>
+    );
+  }
+
   function handle(result: BarcodeScanningResult) {
     if (paused || !result?.data) return;
     const now = Date.now();
@@ -91,6 +113,8 @@ export function CodeCamera({ onCode, paused = false, torch = false, facing = 'ba
   return (
     <View style={styles.fill}>
       <CameraView
+        key={attempt}
+        onMountError={(e) => setMountError(e?.message || 'unknown')}
         style={StyleSheet.absoluteFill}
         facing={facing}
         enableTorch={torch && facing === 'back'}

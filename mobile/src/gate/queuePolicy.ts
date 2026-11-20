@@ -50,10 +50,13 @@ export type ScanRecord = {
 export const BATCH_SIZE = 100;
 
 /**
- * An upload answered 'error' means the server could not decide (its database
- * did not answer), not that it refused. The scan stays queued and goes again —
- * an admission made offline must not be lost to a busy minute — but only this
- * many times, so one row that can never be decided cannot hold the queue.
+ * An upload answered 'error' is not a refusal. Two kinds:
+ *   unavailable  the server's database did not answer. Sent again for as long
+ *                as it takes, and never counted: an admission made offline
+ *                must not be lost to a busy minute.
+ *   otherwise    an answer that cannot change (a scan id already used for
+ *                another ticket). Sent again only this many times, so one row
+ *                that can never be decided cannot hold the queue.
  */
 export const MAX_ATTEMPTS = 5;
 
@@ -92,6 +95,13 @@ export function applyResults(
     const answer = byId.get(r.clientScanId);
     if (!answer) {
       if (r.state === 'sending') changed.push({ ...r, state: 'queued' });
+      continue;
+    }
+    // The server's database did not answer: not an attempt at all. Counting
+    // these let a 75-second outage settle offline admissions as 'error', and
+    // they never reached the server (audit 2026-11-20).
+    if (answer.result === 'error' && answer.unavailable) {
+      changed.push({ ...r, state: 'queued', message: answer.message || null });
       continue;
     }
     if (answer.result === 'error' && r.attempts + 1 < MAX_ATTEMPTS) {

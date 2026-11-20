@@ -97,6 +97,10 @@ export function accountNavGroups({ upcoming = null, canSell = false } = {}) {
           badge: upcoming && upcoming > 0 ? upcoming : null,
         },
         { key: 'orders', label: 'Orders', icon: 'receipt', href: '/account/orders' },
+        // Sponsorship proposals sent to this address, to sign and pay (2026-11-20).
+        { key: 'sponsorships', label: 'Sponsorships', icon: 'handshake', href: '/account/sponsorships' },
+        // Vendor applications and booked spaces (2026-11-20).
+        { key: 'vendors', label: 'Vendor bookings', icon: 'store', href: '/account/vendors' },
       ],
     },
     {

@@ -8,6 +8,7 @@ import { useSession } from '@/auth/session';
 import { CodeCamera } from '@/gate/CodeCamera';
 import { pairingDeviceId } from '@/gate/qrToken';
 import { Button } from '@/ui/Button';
+import { dialog } from '@/ui/Dialog';
 import { Field } from '@/ui/Field';
 import { Card, Header, Screen } from '@/ui/layout';
 import { Text } from '@/ui/Text';
@@ -45,6 +46,15 @@ export default function DevicePin() {
       const door = await pinLogin(id, pin);
       // The session moves the tablet to the dashboard (see src/app/_layout.tsx).
       await setDoor(door, 'pin');
+      // A PIN under six digits is being retired (2026-11-20): said while it
+      // still works, not first discovered when it stops at a door.
+      if (door.pinNeedsReset) {
+        dialog.alert(
+          'This PIN will stop working',
+          'This device\'s PIN is shorter than 6 digits and is being retired. Ask the organizer to set a new 6 to 12 digit PIN on the Devices page.',
+          { tone: 'warning', icon: 'lock' },
+        );
+      }
     } catch (err) {
       setError(err instanceof ApiError && err.status === 401
         ? 'That device ID or PIN is not right. After 10 wrong PINs the device waits 15 minutes.'

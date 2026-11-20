@@ -36,6 +36,8 @@ export type DoorToken = {
   token: string;
   device: { id: string; label: string; eventId: string; staff?: boolean };
   event?: { id: string; title: string };
+  /** The PIN that signed in is under six digits and being retired (PIN sign-in only). */
+  pinNeedsReset?: boolean;
 };
 
 export type Role = 'owner' | 'staff' | 'pin';
@@ -117,6 +119,8 @@ export type ScanAnswer = {
   method?: 'scan' | 'manual' | 'offline';
   first_scan?: { at: string; device: string | null; staff: string | null };
   reason?: string;
+  /** In an upload: the server could not reach its database, so this is not an answer yet. */
+  unavailable?: boolean;
 };
 
 export type RecentScan = {
@@ -195,6 +199,12 @@ export type ManifestRow = {
   seat: string | null;
   table: string | null;
   holder: string | null;
+  /**
+   * Whether an older (HS256) code can exist for this ticket. False: every code
+   * it ever had was ES256-signed, so an HS256 code for it is not ours. Absent
+   * from servers before 20261202120000: treated as true.
+   */
+  legacy?: boolean;
 };
 
 export type ManifestPage = {

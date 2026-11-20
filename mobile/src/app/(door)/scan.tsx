@@ -8,10 +8,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSession } from '@/auth/session';
 import { CodeCamera } from '@/gate/CodeCamera';
 import { signal } from '@/gate/feedback';
-import { useOfflineList } from '@/gate/offlineList';
+import { listIsOld, useOfflineList } from '@/gate/offlineList';
 import { describeScan, screenResult } from '@/gate/outcomes';
 import { pendingCount, useScanLog } from '@/gate/scanLog';
 import { useDoorExit, useMe } from '@/gate/useDoor';
+import { ago } from '@/lib/format';
 import { measureScan } from '@/lib/monitoring';
 import { dialog } from '@/ui/Dialog';
 import { Icon, type IconName } from '@/ui/Icon';
@@ -40,6 +41,11 @@ export default function Scan() {
   const held = pendingCount(records);
   const offline = net.isConnected === false;
   const listReady = useOfflineList((s) => s.complete && !s.off);
+  // How old the list this phone decides from is. Shown while offline, so a
+  // list from hours ago is not mistaken for a current one (audit 2026-11-20).
+  const listSyncedAt = useOfflineList((s) => s.syncedAt);
+  // Older than 2 h: still used, but said plainly (owner, 2026-11-20).
+  const listOld = listIsOld(listSyncedAt);
   // On an iPad the frame grows with the window (a ticket is held further from
   // a tablet on a stand), up to 380 pt, and the controls stay in a centred
   // column instead of the two far corners of a 13-inch screen.
@@ -78,7 +84,15 @@ export default function Scan() {
   return (
     <View style={styles.screen}>
       {/* Mounted only while this screen is in front: one camera at a time. */}
-      {focused ? <CodeCamera onCode={onCode} torch={torch} facing={facing} frameSize={frame} /> : <View style={styles.screen} />}
+      {focused ? (
+        <CodeCamera
+          onCode={onCode}
+          torch={torch}
+          facing={facing}
+          frameSize={frame}
+          onCameraFailedHint={me.data?.permissions.manualCheckIn ? 'find the guest by name below' : 'sign this door in on another phone'}
+        />
+      ) : <View style={styles.screen} />}
 
       <SafeAreaView style={styles.top} edges={['top']} pointerEvents="box-none">
         <View style={[styles.pad, column]}>
@@ -99,10 +113,17 @@ export default function Scan() {
           {(offline || held > 0) && (
             <View style={styles.badges}>
               {offline && (
-                <View style={[styles.badge, { backgroundColor: 'rgba(245,158,11,0.92)' }]}>
-                  <Icon name="offline" size={15} color={colors.white} />
+                <View
+                  accessibilityRole="alert"
+                  style={[styles.badge, { backgroundColor: listReady && listOld ? 'rgba(185,28,28,0.92)' : 'rgba(245,158,11,0.92)' }]}
+                >
+                  <Icon name={listReady && listOld ? 'alert' : 'offline'} size={15} color={colors.white} />
                   <Text variant="caption" weight="semibold" color={colors.white}>
-                    {listReady ? 'Offline — checking on this phone' : 'Offline — check-ins are saved'}
+                    {!listReady
+                      ? 'Offline — check-ins are saved'
+                      : listOld
+                        ? `Offline — guest list is old (updated ${ago(listSyncedAt)}). Changes since may be missed`
+                        : `Offline — checking on this phone${listSyncedAt ? ` · list updated ${ago(listSyncedAt)}` : ''}`}
                   </Text>
                 </View>
               )}

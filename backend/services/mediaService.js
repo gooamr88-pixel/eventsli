@@ -48,7 +48,7 @@ const MAX_BYTES = 5 * 1024 * 1024;
  * 360° view) belong to the Venue Studio; see services/venueStudio.js. `tier`
  * is a ticket type's details photo; see services/ticketDetails.js.
  */
-const KINDS = Object.freeze(['cover', 'logo', 'gallery', 'sponsor', 'venue', 'panorama', 'tier', 'addon']);
+const KINDS = Object.freeze(['cover', 'logo', 'gallery', 'sponsor', 'venue', 'panorama', 'tier', 'addon', 'vendor']);
 
 /** The signed URL's lifetime. Long enough for a slow phone on hotel wifi. */
 const UPLOAD_TTL_SECONDS = 600;

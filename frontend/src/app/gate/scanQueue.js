@@ -18,7 +18,7 @@
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
-import { prunable } from './queuePolicy';
+import { prunable, stored } from './queuePolicy';
 
 const DB_NAME = 'eventsli-gate';
 const DB_VERSION = 1;
@@ -89,7 +89,8 @@ export async function writeMany(records) {
   if (!records.length) return;
   const db = await openDb();
   const store = tx(db, 'readwrite');
-  await Promise.all(records.map((r) => wrap(store.put(r))));
+  // A settled row is written without its ticket code (queuePolicy.stored).
+  await Promise.all(records.map((r) => wrap(store.put(stored(r)))));
 }
 
 export async function writeOne(record) {

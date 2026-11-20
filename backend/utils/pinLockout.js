@@ -23,4 +23,30 @@ function isPinLocked(device, now = new Date()) {
   return Number.isFinite(until) && until > now.getTime();
 }
 
-module.exports = { MAX_PIN_FAILURES, PIN_LOCK_MINUTES, NEW_PIN_PATTERN, isPinLocked };
+/**
+ * PINs shorter than six digits (from before NEW_PIN_PATTERN) are being retired
+ * (owner, 2026-11-20). A four-digit PIN falls to about ten days of guessing even
+ * with the lockout. Until SHORT_PIN_CUTOFF they still sign in, and the
+ * organizer's Devices page asks for a new one; from that date they are refused
+ * until the organizer sets one. Unset: never refused, only flagged.
+ *
+ * Only known at sign-in (a PIN is stored hashed), so a device is flagged the
+ * first time it signs in with a short one — and refused only AFTER the right
+ * PIN, so the refusal tells nobody who is guessing anything.
+ */
+const isShortPin = (pin) => String(pin || '').length < 6;
+
+function shortPinCutoff(env = process.env) {
+  const t = Date.parse(String(env.SHORT_PIN_CUTOFF || ''));
+  return Number.isFinite(t) ? t : null;
+}
+
+function shortPinRefused(pin, now = Date.now(), env = process.env) {
+  const cutoff = shortPinCutoff(env);
+  return isShortPin(pin) && cutoff !== null && now >= cutoff;
+}
+
+module.exports = {
+  MAX_PIN_FAILURES, PIN_LOCK_MINUTES, NEW_PIN_PATTERN, isPinLocked,
+  isShortPin, shortPinCutoff, shortPinRefused,
+};

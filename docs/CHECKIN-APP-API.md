@@ -90,9 +90,29 @@ The refusals are the same as on the website:
 1. Scan the pairing QR on the organizer's Devices page. It contains
    `eventsli-checkin://pair?device=<deviceId>`.
 2. Send `POST /scan/login { deviceId, pin }`.
-3. The response is `{ token, device: { id, label, eventId } }`.
+3. The response is `{ token, device: { id, label, eventId }, pinNeedsReset? }`.
 
 The QR never contains the PIN.
+
+**PINs under six digits are being retired** (owner, 2026-11-20). New PINs are
+6–12 digits. An older, shorter PIN still signs in and the answer carries
+`pinNeedsReset: true`; the app says so, and the organizer's Devices page marks
+the device "PIN too short" and opens **Change PIN**
+(`PATCH /events/:eventId/scan-devices/:deviceId/pin { pin }`). From
+`SHORT_PIN_CUTOFF` (backend env), the right short PIN is refused with 403
+`FORBIDDEN` and a message saying why; a wrong PIN still gets the one 401
+sentence every failure gets.
+
+**The web gate** signs in with `session: 'cookie'` (on `/scan/login` and
+`/scan/staff-login`). The token is then set as an httpOnly, `SameSite=Strict`
+cookie (`eventsli_gate`, path `/api/v1/scan`) and left out of the answer, which
+carries `session: 'cookie'` and `expiresAt` instead. Every request it carries
+must also send `X-Eventsli-Gate: 1`, or the cookie is ignored. `POST
+/scan/logout` clears it. The app never asks for this and keeps the Bearer
+token.
+
+Requests to the door's routes without a token this server signed are limited
+to 60 a minute per IP (the door's own limit is per device, after sign-in).
 
 ## 2. Choosing an event
 
@@ -122,7 +142,7 @@ response is `{ token, device, event }`, and `token` is the door token.
 |---|---|
 | `GET /scan/me` | `{ device: { id, label, kind }, role, event: {…, coverUrl, city}, permissions, settings, gate, stats }` |
 | `POST /scan/verify { qr, clientScanId?, occurredAt? }` | A scan answer (see below) |
-| `POST /scan/sync { scans: [{ qr, clientScanId, occurredAt, method?, offlineVerdict? }] }` | `{ results: [answer + clientScanId], summary: { total, admitted, replayed, conflicts } }` |
+| `POST /scan/sync { scans: [{ qr, clientScanId, occurredAt, method?, offlineVerdict?, scannedByDeviceId? }] }` | `{ results: [answer + clientScanId], summary: { total, admitted, replayed, conflicts } }`. Every item is validated (since 2026-11-20): `qr` a string of at most 4,000 characters, `clientScanId` at most 100, `occurredAt` ISO 8601, `method` one of `scan`/`manual`/`offline`. One malformed item is a 400 for the whole upload |
 | `POST /scan/undo { ticketId }` | `{ ok, result: 'undone', ticket_id }`. Returns 404 if the ticket is not for this event, 409 if it was never scanned |
 | `GET /scan/status` | `{ gate: { locked, reason?, override? }, stats: { issued, admitted, pending, void } }`. Poll every 10 s while the dashboard is visible |
 | `GET /scan/recent?limit=20&before=ISO&kind=admitted\|all` | `[{ id, result, method, conflict, at, ticketId, holder, tier, device, staff }]`, newest first |
@@ -155,8 +175,13 @@ exceptions:
 - When the database did not answer, `/scan/verify` and `/scan/manual-check-in`
   return **503 `SCAN_UNAVAILABLE`**. That is not a decision: hold the scan, or
   decide it offline. In a `/scan/sync` upload, the same case is a row with
-  `result: 'error'`; send that scan again later with the same `clientScanId`.
-  The app stops after 5 tries.
+  `result: 'error'` and `unavailable: true`; send that scan again later with
+  the same `clientScanId`, for as long as it takes, and do not count it as a
+  try. Any other `error` row (a scan id already used for another ticket) is
+  sent again at most 5 times, then settled. The database's own error text is
+  never in an answer.
+- A `clientScanId` answers as a replay only for the ticket it was first used
+  with. Reused for another ticket, the answer is `result: 'error'`.
 
 | `result` | Tone | Meaning |
 |---|---|---|
@@ -215,6 +240,7 @@ not scan.
 | `CHECKIN_APP_IOS_URL`, `CHECKIN_APP_ANDROID_URL`, `CHECKIN_APP_SUPPORT_URL` | Store and support links |
 | `QR_SIGNING_KEY`, `QR_SIGNING_KID` | The QR v2 signing key (section 7). Optional; a key that is set but unreadable stops the API at boot |
 | `QR_SIGNING_RETIRED_KEYS` | Optional JSON `{"kid": "public PEM"}`: older keys whose codes are still valid |
+| `SHORT_PIN_CUTOFF` | Optional ISO date. From then, a door PIN under six digits no longer signs in until the organizer sets a new one. Unset: such devices are only flagged |
 
 ## 7. Offline admission
 
@@ -230,7 +256,14 @@ instead of holding every scan. The organizer can switch this off per event
 - **Legacy codes** (HS256 with `QR_JWT_SECRET`, already in buyers' inboxes)
   keep working online. A phone cannot check their signature, so offline the
   organizer's `legacyQrOffline` decides: `allow` admits them on a list match,
-  `hold` holds them.
+  `hold` holds them. Either way, a legacy code is **refused** for a ticket
+  whose list row says `legacy: false`: every code that ticket ever had was
+  ES256-signed, so an HS256 one is a forgery (audit 2026-11-20).
+- **`legacy` per ticket:** at boot the API records in `platform_settings`
+  (`qr_v2_since`) when it started signing every code with the key, and deletes
+  it when it boots without one. A ticket created after that time, and not
+  transferred before it, has never had an HS256 code. With nothing recorded,
+  every row says `legacy: true`, as before.
 - A buyer's ticket page shows a v2 code as soon as the key is configured,
   because codes are minted when a ticket is read.
 - Without `QR_SIGNING_KEY`, codes stay legacy.
@@ -253,7 +286,7 @@ Call with no cursor the first time. Then keep calling with the returned
 
 ```json
 {
-  "rows": [{ "ticketId", "v", "status": "valid|scanned|void", "scannedAt", "tier", "seat", "table", "holder" }],
+  "rows": [{ "ticketId", "v", "status": "valid|scanned|void", "scannedAt", "legacy", "tier", "seat", "table", "holder" }],
   "cursor": "…", "done": true, "reset": false, "names": false,
   "event": { "status", "startsAt", "endsAt" }, "gateLocked": false,
   "legacyQrOffline": "allow|hold", "serverTime": "…"
@@ -290,7 +323,8 @@ The app checks in the same order as `check_in_ticket_v2`:
 
 | Result on the phone | What happens next |
 |---|---|
-| An offline **admission** | Queued and uploaded through `/scan/sync` with `method: 'offline'` and `offlineVerdict: 'admitted'`. If another door admitted the ticket first, the server flags the upload as a `conflict` |
+| An offline **admission** | Queued and uploaded through `/scan/sync` with `method: 'offline'` and `offlineVerdict: 'admitted'`. If another door admitted the ticket first, the server flags the upload as a `conflict`. If the code turns out not to be ours, the answer is `invalid` and the server logs it on the ticket the code names as a `conflict` with `result: 'invalid'` |
+| An offline admission while the **gate is shut** | Recorded only if the phone made it before the server TOLD this device the gate was shut (`scan_devices.gate_lock_seen_at`). The status poll, `/scan/me`, the list, and a `scanner_locked` answer all tell it; an answer saying the gate is open clears it. After that, the upload is answered `scanner_locked`. The app applies every status poll's gate state to its list at once |
 | A **refusal** | Final, and never uploaded: the server must not later admit someone the door turned away |
 | A ticket **not on the list** (bought after the last refresh), or a `kid` the phone does not have | Held, and uploaded for the server to decide |
 

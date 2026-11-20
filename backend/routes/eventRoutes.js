@@ -361,6 +361,16 @@ router.patch(
   validate,
   scan.updateDevice,
 );
+// A new PIN for a shared tablet: how a short (pre-6-digit) PIN is retired.
+router.patch(
+  '/:eventId/scan-devices/:deviceId/pin',
+  verifyEventOwner,
+  param('deviceId').isUUID(),
+  body('pin').isString().matches(NEW_PIN_PATTERN)
+    .withMessage('Set a PIN of 6 to 12 digits.'),
+  validate,
+  scan.setPin,
+);
 
 router.get(
   '/:eventId/scan-devices/:deviceId/pairing.png',

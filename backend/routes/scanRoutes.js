@@ -2,10 +2,31 @@ const express = require('express');
 const { makeLimiter } = require('../middleware/rateLimit');
 const { body } = require('express-validator');
 const validate = require('../middleware/validate');
-const { requireDevice } = require('../middleware/deviceAuth');
+const { requireDevice: checkDevice } = require('../middleware/deviceAuth');
+const { hasSignedToken } = require('../utils/gateAuth');
 const c = require('../controllers/scanController');
 
 const router = express.Router();
+
+/**
+ * Requests to the door's routes WITHOUT a token this server signed (audit
+ * 2026-11-20). The door's routes skip the site-wide per-IP limit (a venue's
+ * tablets share one address, utils/gateRoutes.js) and are limited per DEVICE,
+ * after authentication — which left a request with no token, or a forged
+ * one, limited by nothing. Those are now limited per IP. A request with a
+ * valid signature is never counted here: the check is a signature check, no
+ * database, so a busy door pays nothing for it.
+ */
+const unauthenticatedLimiter = makeLimiter({
+  windowMs: 60 * 1000,
+  max: 60,
+  name: 'gate-unauthenticated',
+  skip: hasSignedToken,
+  message: 'Too many requests without a valid sign-in. Sign this scanner in again.',
+});
+
+// Every door route below: the limit above, then the device itself.
+const requireDevice = [unauthenticatedLimiter, checkDevice];
 
 // A device PIN is short by necessity — door staff type it on a tablet between
 // guests. Without a tight limit it is brute-forceable in minutes, and the
@@ -23,9 +44,14 @@ router.post(
   loginLimiter,
   body('deviceId').isUUID().withMessage('Enter the device id.'),
   body('pin').isString().isLength({ min: 4, max: 32 }).withMessage('Enter the PIN.'),
+  // The web gate: the token as an httpOnly cookie, not in the answer.
+  body('session').optional().isIn(['cookie']),
   validate,
   c.deviceLogin,
 );
+
+// The web gate's sign-out: clears its cookie. Under the site-wide IP limit.
+router.post('/logout', c.gateLogout);
 
 /**
  * The door's limit is PER DEVICE, not per IP.
@@ -65,6 +91,18 @@ router.post(
   requireDevice,
   gateLimiter,
   body('scans').isArray({ max: 500 }).withMessage('Send the queued scans.'),
+  // Every queued scan is checked too. Unchecked, a malformed time reached the
+  // database, came back as its raw error text, and the row was retried as if
+  // the server had been busy — forever (audit 2026-11-20).
+  body('scans.*').isObject().withMessage('Each queued scan must be an object.'),
+  body('scans.*.qr').isString().isLength({ max: 4000 }).withMessage('Each queued scan needs its code.'),
+  body('scans.*.clientScanId').optional({ values: 'null' }).isString().isLength({ max: 100 }),
+  body('scans.*.occurredAt').optional({ values: 'null' }).isISO8601().withMessage('A queued scan has an unreadable time.'),
+  body('scans.*.method').optional({ values: 'null' }).isIn(['scan', 'manual', 'offline']),
+  body('scans.*.offlineVerdict').optional({ values: 'null' }).isString().isLength({ max: 20 }),
+  // Not a UUID check: an id that is not one of this event's devices is ignored
+  // (scanService.sameEventDevices), and the scan stays with the uploader.
+  body('scans.*.scannedByDeviceId').optional({ values: 'null' }).isString().isLength({ max: 100 }),
   validate,
   c.sync,
 );
@@ -202,6 +240,7 @@ router.post(
   staffLoginLimiter,
   requireAuth,
   body('eventId').isUUID().withMessage('Choose the event you are scanning.'),
+  body('session').optional().isIn(['cookie']),
   validate,
   staff.staffLogin,
 );

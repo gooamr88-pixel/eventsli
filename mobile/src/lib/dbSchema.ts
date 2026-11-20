@@ -19,7 +19,7 @@ export type SchemaDb = {
   getAllAsync<T>(sql: string): Promise<T[]>;
 };
 
-export const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 6;
 
 const BASE = `
   CREATE TABLE IF NOT EXISTS scans (
@@ -109,6 +109,19 @@ export async function migrate(db: SchemaDb): Promise<void> {
     if (!cols.some((c) => c.name === 'device_id')) {
       await db.execAsync('ALTER TABLE scans ADD COLUMN device_id TEXT');
     }
+    await db.execAsync('PRAGMA user_version = 5');
+  }
+  if (version < 6) {
+    // Whether an older (HS256) code can exist for each ticket on the list
+    // (audit 2026-11-20, H2). Rows already on the phone say 1 (it can), which
+    // is how they were treated before. The list's cursor is dropped so the
+    // next pull starts over and every row gets the server's real answer; the
+    // list on the phone stays usable until that pull replaces it.
+    const cols = await db.getAllAsync<{ name: string }>('PRAGMA table_info(ticket_list)');
+    if (!cols.some((c) => c.name === 'legacy')) {
+      await db.execAsync('ALTER TABLE ticket_list ADD COLUMN legacy INTEGER NOT NULL DEFAULT 1');
+    }
+    await db.execAsync('UPDATE ticket_list_meta SET cursor = NULL');
     await db.execAsync(`PRAGMA user_version = ${SCHEMA_VERSION}`);
   }
 }

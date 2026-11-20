@@ -1,6 +1,6 @@
 import { describe, test, expect } from 'vitest';
 import {
-  BATCH_SIZE, applyResults, counts, isPending, newScan, nextBatch, priorScan, prunable, toWire,
+  BATCH_SIZE, MAX_ATTEMPTS, applyResults, counts, isPending, newScan, nextBatch, priorScan, prunable, stored, toWire,
 } from '../src/app/gate/queuePolicy';
 
 /**
@@ -121,6 +121,38 @@ describe('queue policy', () => {
     expect(resolved).toEqual([sent[0].clientScanId]);
     expect(stranded).toEqual([sent[1].clientScanId]);
     expect(records[1].state).toBe('queued');
+  });
+
+  // Audit 2026-11-20: 'error' used to settle the scan, so a database hiccup
+  // during an upload lost every scan in the batch for good.
+  test('"the database did not answer" is not an answer: queued again, and never counted', () => {
+    const sent = [queued(1, { state: 'sending', attempts: MAX_ATTEMPTS - 1 })];
+    const { records, resolved, stranded } = applyResults(sent, [
+      { clientScanId: sent[0].clientScanId, result: 'error', unavailable: true, message: 'busy' },
+    ]);
+    expect(resolved).toEqual([]);
+    expect(stranded).toEqual([sent[0].clientScanId]);
+    expect(records[0]).toMatchObject({ state: 'queued', attempts: MAX_ATTEMPTS - 1, result: null });
+    expect(nextBatch(records)).toHaveLength(1);
+  });
+
+  test('any other error goes again, then settles after MAX_ATTEMPTS so it cannot hold the queue', () => {
+    let records = [queued(1, { state: 'sending' })];
+    const answer = [{ clientScanId: records[0].clientScanId, result: 'error', message: 'That scan id was already used.' }];
+    for (let i = 1; i < MAX_ATTEMPTS; i += 1) {
+      ({ records } = applyResults(records, answer));
+      expect(records[0]).toMatchObject({ state: 'queued', attempts: i });
+    }
+    ({ records } = applyResults(records, answer));
+    expect(records[0]).toMatchObject({ state: 'done', result: 'error' });
+  });
+
+  test('a settled scan is stored without its code; a pending one keeps it to upload', () => {
+    expect(stored(queued(1)).qr).toBe('qr-1');
+    expect(stored(queued(2, { state: 'sending' })).qr).toBe('qr-2');
+    const settled = queued(3, { state: 'done', result: 'admitted' });
+    expect(stored(settled)).toMatchObject({ qr: '', ticketId: 'ticket-3', result: 'admitted' });
+    expect(settled.qr).toBe('qr-3');
   });
 
   test('a replay is flagged, so the summary does not claim new admissions', () => {

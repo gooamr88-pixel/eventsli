@@ -63,6 +63,8 @@ const MIGRATIONS = [
   ['20261125090000_ticket_addons.sql', tab('reservation_addons')],
   ['20261126090000_addon_images.sql', col('event_addons', 'image_path')],
   ['20261127090000_organizer_public_profile.sql', tab('organizer_messages')],
+  // Sponsorships (2026-11-20): every Sponsors screen and the sponsor portal read these.
+  ['20261202090000_sponsorships.sql', tab('sponsorship_deals')],
 ];
 
 const EXTRA = [

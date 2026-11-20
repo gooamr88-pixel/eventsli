@@ -4,6 +4,8 @@ const scanSvc = require('../services/scanService');
 const { sendOk, sendFail } = require('../utils/responseEnvelope');
 const logger = require('../utils/logger');
 const { hashIp } = require('../utils/crypto');
+const { withGateSession, clearGateCookie } = require('../utils/gateAuth');
+const { DEVICE_TOKEN_DAYS } = require('../services/scanTokens');
 
 // ═══ ORGANIZER — managing the gate ══════════════════════════════════════════
 
@@ -100,7 +102,33 @@ async function deviceLogin(req, res, next) {
         message: 'That device ID or PIN is not right. After 10 wrong PINs a device waits 15 minutes before it can try again.',
       });
     }
-    return sendOk(res, result);
+    if (result.pinTooShort) {
+      // Reached only with the RIGHT PIN (scanService.authenticateDevice).
+      return sendFail(res, {
+        status: 403, error: 'FORBIDDEN',
+        message: 'This device\'s PIN is too short and has been retired. Ask the organizer to set a new 6 to 12 digit PIN on the Devices page.',
+      });
+    }
+    return sendOk(res, withGateSession(req, res, result, DEVICE_TOKEN_DAYS * 86400e3));
+  } catch (err) { return next(err); }
+}
+
+// POST /scan/logout — the web gate's sign-out: the cookie goes. Nothing else to end.
+function gateLogout(req, res) {
+  clearGateCookie(res);
+  return sendOk(res, { signedOut: true });
+}
+
+// PATCH /events/:eventId/scan-devices/:deviceId/pin   { pin }
+async function setPin(req, res, next) {
+  try {
+    const device = await scanSvc.setDevicePin({
+      eventId: req.params.eventId, deviceId: req.params.deviceId, pin: req.body.pin,
+    });
+    if (!device) return sendFail(res, { status: 404, error: 'NOT_FOUND', message: 'No such device.' });
+    logger.info({ eventId: req.params.eventId, deviceId: device.id, by: req.user?.id }, 'device PIN changed');
+    // Echoed once, like a new device's: the organizer has to pass it on.
+    return sendOk(res, { ...device, pin: req.body.pin });
   } catch (err) { return next(err); }
 }
 
@@ -205,7 +233,10 @@ async function undo(req, res, next) {
 // GET /scan/status
 async function status(req, res, next) {
   try {
-    return sendOk(res, await scanSvc.gateStatus(req.device.eventId));
+    const data = await scanSvc.gateStatus(req.device.eventId);
+    // This answer tells the device whether the gate is shut (see noteGateSeen).
+    await scanSvc.noteGateSeen(req.device.deviceId, typeof data.gate?.locked === 'boolean' ? data.gate.locked : undefined);
+    return sendOk(res, data);
   } catch (err) { return next(err); }
 }
 
@@ -319,4 +350,5 @@ async function endOverride(req, res, next) {
 module.exports = {
   createDevice, listDevices, updateDevice, gateStatus, pairingQr,
   deviceLogin, verify, sync, undo, status, override, endOverride, setGateMode,
+  gateLogout, setPin,
 };

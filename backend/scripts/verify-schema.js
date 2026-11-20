@@ -136,6 +136,10 @@ const DEFINITIONS = [
   ['hold_table checks the sale window; hold_seats the per-type limit (20261112090000, S-05/S-06)',
     `SELECT (SELECT prosrc LIKE '%tier_sale_window_closed%' FROM pg_proc WHERE proname = 'hold_table')
         AND (SELECT prosrc LIKE '%max_per_order%' FROM pg_proc WHERE proname = 'hold_seats') AS ok`],
+  ['a shut gate exempts only offline scans made before the device was told; the list flags older codes (20261202120000)',
+    `SELECT (SELECT prosrc LIKE '%gate_lock_seen_at%' FROM pg_proc WHERE proname = 'check_in_ticket_v2')
+        AND EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'note_gate_seen')
+        AND (SELECT count(*) = 1 FROM pg_proc WHERE proname = 'event_door_manifest' AND pronargs = 7) AS ok`],
   ['a door table sale is one receipt line (20261112090000, S-12)',
     `SELECT prosrc LIKE '%CHANGED (S-12)%' AS ok FROM pg_proc WHERE proname = 'record_manual_sale'`],
 ];
@@ -184,6 +188,10 @@ const COLUMNS = [
   // Door PINs lock after repeated failures (20260915140000).
   ['scan_devices', 'failed_pin_count'],
   ['scan_devices', 'pin_locked_until'],
+  // What the device was told about the gate (20261202120000, audit H1).
+  ['scan_devices', 'gate_lock_seen_at'],
+  // Which shared tablets still sign in with a PIN under six digits (20261202120000).
+  ['scan_devices', 'pin_short'],
   // Direct charges: whose charge, and what happened after (20261106090000).
   ['orders', 'charge_model'],
   ['orders', 'stripe_account_id'],

@@ -30,6 +30,18 @@
  *  spending a minute on one request that then fails as a whole. */
 export const BATCH_SIZE = 100;
 
+/** Uploads answered 'error' (other than "unavailable") before the scan settles as one. */
+export const MAX_ATTEMPTS = 5;
+
+/**
+ * What is written to the device for a record. A ticket's code is a bearer
+ * pass, needed only until the server has answered (to upload it): a settled
+ * row keeps the ticket id and the answer, never the code — as the app does.
+ */
+export function stored(record) {
+  return isPending(record) || !record.qr ? record : { ...record, qr: '' };
+}
+
 /** A scan the server has not answered yet. */
 const PENDING = new Set(['queued', 'sending']);
 
@@ -62,9 +74,10 @@ export function toWire(record) {
  *
  * Returns `{ records, resolved, stranded }`:
  *   resolved — ids the server answered, now `done`
- *   stranded — ids that were sent and came back with NOTHING, put back to
- *              `queued`. A silent gap is the one case where rule 1 gets broken
- *              by accident, so it is named rather than ignored.
+ *   stranded — ids that were sent and came back with NOTHING, or with an
+ *              `error` that is not an answer yet, put back to `queued`. A
+ *              silent gap is the one case where rule 1 gets broken by
+ *              accident, so it is named rather than ignored.
  */
 export function applyResults(records, results) {
   const byId = new Map();
@@ -85,6 +98,19 @@ export function applyResults(records, results) {
         return { ...record, state: 'queued' };
       }
       return record;
+    }
+
+    // 'error' is not an answer about the ticket (audit 2026-11-20). Settling
+    // it lost the scan for good. `unavailable` — the server's database did not
+    // answer — goes again however long that lasts; any other error goes again
+    // MAX_ATTEMPTS times, so one row that can never be decided cannot hold the
+    // queue. Neither is `resolved`: the sync loop stops and the timer retries.
+    if (answer.result === 'error') {
+      const attempts = (record.attempts || 0) + (answer.unavailable ? 0 : 1);
+      if (answer.unavailable || attempts < MAX_ATTEMPTS) {
+        stranded.push(record.clientScanId);
+        return { ...record, state: 'queued', attempts, message: answer.message || null };
+      }
     }
 
     resolved.push(record.clientScanId);

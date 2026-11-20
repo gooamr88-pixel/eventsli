@@ -30,6 +30,20 @@ import type { ListContext, ListTicket } from './offlineDecision';
  */
 
 const KEYS_EVERY_MS = 30 * 60e3;
+
+/**
+ * A list not refreshed for this long is OLD (owner, 2026-11-20): the phone still
+ * decides from it — a festival can be without signal all night — but the scan
+ * screen turns its offline badge into a warning, and every answer the phone
+ * gives says the list may miss what changed since (another door, a refund).
+ */
+export const LIST_OLD_MS = 2 * 3600e3;
+
+export function listIsOld(syncedAt: string | null | undefined, now = Date.now()): boolean {
+  if (!syncedAt) return false;
+  const t = Date.parse(syncedAt);
+  return Number.isFinite(t) && now - t > LIST_OLD_MS;
+}
 const KEEP_AFTER_END_MS = 24 * 3600e3;
 /** 2,000 tickets a page: an event of 100,000 is a long first pull, not an endless one. */
 const MAX_PAGES = 50;
@@ -43,7 +57,7 @@ type MetaRow = {
 
 type ListRow = {
   ticket_id: string; v: number; status: string; scanned_at: string | null; tier: string | null;
-  seat: string | null; table_label: string | null; holder: string | null;
+  seat: string | null; table_label: string | null; holder: string | null; legacy?: number | null;
 };
 
 const toTicket = (r: ListRow): ListTicket => ({
@@ -55,6 +69,8 @@ const toTicket = (r: ListRow): ListTicket => ({
   seat: r.seat,
   table: r.table_label,
   holder: r.holder,
+  // Only an explicit 0 says "never had an older code".
+  legacy: r.legacy !== 0,
 });
 
 const parse = <T>(json: string | null, fallback: T): T => {
@@ -87,6 +103,8 @@ type State = {
   find: (ticketId: string) => Promise<ListTicket | null>;
   context: (now?: number) => ListContext | null;
   applyAnswer: (answer: Pick<ScanAnswer, 'result' | 'ticket_id' | 'scanned_at'>) => Promise<void>;
+  /** The gate's state from the status poll (every 10 s), between list pulls. */
+  setGate: (locked: boolean, reason?: string | null) => Promise<void>;
   markKeysStale: () => void;
   wipe: () => Promise<void>;
   wipeAll: () => Promise<void>;
@@ -140,9 +158,9 @@ export const useOfflineList = create<State>((set, get) => {
       for (const r of page.rows as ManifestRow[]) {
         await d.runAsync(
           `INSERT OR REPLACE INTO ticket_list
-             (event_id, ticket_id, v, status, scanned_at, tier, seat, table_label, holder)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [eventId, r.ticketId, r.v, r.status, r.scannedAt, r.tier, r.seat, r.table, r.holder],
+             (event_id, ticket_id, v, status, scanned_at, tier, seat, table_label, holder, legacy)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [eventId, r.ticketId, r.v, r.status, r.scannedAt, r.tier, r.seat, r.table, r.holder, r.legacy === false ? 0 : 1],
         );
       }
       // A reset makes the list incomplete until the run that began it is done.
@@ -263,6 +281,23 @@ export const useOfflineList = create<State>((set, get) => {
         'UPDATE ticket_list SET status = ?, scanned_at = ? WHERE event_id = ? AND ticket_id = ?',
         [status, scannedAt, eventId, ticketId],
       );
+    },
+
+    /**
+     * The server records that this device was TOLD the gate is shut, and from
+     * then on refuses its offline admissions (audit 2026-11-20, H1). So the
+     * phone must act on what it was told at once — not 15 s later at the next
+     * list pull, admitting people offline in between.
+     */
+    async setGate(locked, reason = null) {
+      const s = get();
+      if (!s.eventId) return;
+      const nextReason = locked ? (reason ?? null) : null;
+      if (s.gateLocked === locked && s.gateReason === nextReason) return;
+      set({ gateLocked: locked, gateReason: nextReason });
+      const d = await db();
+      await d.runAsync('UPDATE ticket_list_meta SET gate_locked = ?, gate_reason = ? WHERE event_id = ?',
+        [locked ? 1 : 0, nextReason, s.eventId]);
     },
 
     markKeysStale() {

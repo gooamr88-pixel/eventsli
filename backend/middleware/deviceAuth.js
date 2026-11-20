@@ -1,6 +1,7 @@
 const scanSvc = require('../services/scanService');
 const sessions = require('../services/sessionService');
 const { sendFail } = require('../utils/responseEnvelope');
+const gateAuth = require('../utils/gateAuth');
 
 /**
  * Authenticates a SCANNER, not a person.
@@ -9,10 +10,12 @@ const { sendFail } = require('../utils/responseEnvelope');
  * login means either everyone knows the organizer's password or nobody can
  * scan; a device is its own principal, so a lost tablet is revoked on its own
  * without touching an account.
+ *
+ * The token comes from the app's Bearer header or the web gate's httpOnly
+ * cookie (utils/gateAuth.js).
  */
 async function requireDevice(req, res, next) {
-  const header = req.headers.authorization || '';
-  const token = header.startsWith('Bearer ') ? header.slice(7) : null;
+  const token = gateAuth.tokenFrom(req);
 
   if (!token) {
     return sendFail(res, {

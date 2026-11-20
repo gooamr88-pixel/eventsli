@@ -31,6 +31,8 @@ import { signatureState, toPayload, MAX_TYPED } from './signatureModel';
  */
 export default function SignatureDialog({
   open, onClose, onSign, busy = false, error = null, actionLabel, busyLabel, free = false, defaultName = '',
+  // What signing means, when it is not a checkout (a sponsorship agreement, 2026-11-20).
+  legal = null,
 }) {
   const ref = useRef(null);
   const titleId = useId();
@@ -141,8 +143,7 @@ export default function SignatureDialog({
         </div>
 
         <p className="es-sign__legal">
-          By signing, you confirm the agreements you ticked and {free ? 'claim these tickets' : 'authorise this payment'}.
-          Your signature is kept with your order.
+          {legal || <>By signing, you confirm the agreements you ticked and {free ? 'claim these tickets' : 'authorise this payment'}. Your signature is kept with your order.</>}
         </p>
 
         {error && (

@@ -2,7 +2,9 @@ const { supabase } = require('../config/supabase');
 const { hashPassword, verifyPassword } = require('../utils/crypto');
 const logger = require('../utils/logger');
 const { mapLimit } = require('../utils/mapLimit');
-const { MAX_PIN_FAILURES, PIN_LOCK_MINUTES, isPinLocked } = require('../utils/pinLockout');
+const {
+  MAX_PIN_FAILURES, PIN_LOCK_MINUTES, isPinLocked, isShortPin, shortPinRefused,
+} = require('../utils/pinLockout');
 const { decodeQrToken } = require('./ticketService');
 const scanTokens = require('./scanTokens');
 
@@ -25,7 +27,7 @@ const scanTokens = require('./scanTokens');
 async function registerDevice({ eventId, label, pin }) {
   const { data, error } = await supabase
     .from('scan_devices')
-    .insert({ event_id: eventId, label: String(label).trim(), pin_hash: await hashPassword(pin) })
+    .insert({ event_id: eventId, label: String(label).trim(), pin_hash: await hashPassword(pin), pin_short: false })
     .select('id, label, is_active, created_at')
     .single();
   if (error) throw new Error(error.message);
@@ -37,13 +39,15 @@ async function listDevices(eventId) {
   // scans are recorded, and is managed by removing the person, not the row.
   const { data } = await supabase
     .from('scan_devices')
-    .select('id, label, is_active, last_seen_at, created_at')
+    .select('id, label, is_active, last_seen_at, created_at, pin_short')
     .eq('event_id', eventId)
     .is('staff_id', null)
     .order('created_at');
   return (data || []).map((d) => ({
     id: d.id, label: d.label, isActive: d.is_active,
     lastSeenAt: d.last_seen_at, createdAt: d.created_at,
+    // True once it has signed in with a PIN under six digits: ask for a new one.
+    pinNeedsReset: d.pin_short === true,
   }));
 }
 
@@ -99,14 +103,40 @@ async function authenticateDevice({ deviceId, pin }) {
     return null;
   }
 
+  const short = isShortPin(pin);
   await supabase.from('scan_devices')
-    .update({ last_seen_at: new Date().toISOString(), failed_pin_count: 0, pin_locked_until: null })
+    .update({
+      last_seen_at: new Date().toISOString(), failed_pin_count: 0, pin_locked_until: null,
+      // What the organizer's Devices page reads to ask for a new PIN.
+      pin_short: short,
+    })
     .eq('id', device.id);
+
+  // The right PIN, but one being retired: only whoever knew it learns this.
+  if (shortPinRefused(pin)) return { pinTooShort: true };
 
   return {
     token: scanTokens.signDeviceToken({ deviceId: device.id, eventId: device.event_id }),
     device: { id: device.id, label: device.label, eventId: device.event_id },
+    ...(short ? { pinNeedsReset: true } : {}),
   };
+}
+
+/**
+ * The organizer sets a new PIN (routes/eventRoutes.js, behind verifyEventOwner
+ * and NEW_PIN_PATTERN). A shared tablet's only: a door-team member's device is
+ * reached with their account. Clears a lockout and the short-PIN flag. Tokens
+ * already issued keep working until they expire or the device is revoked.
+ */
+async function setDevicePin({ eventId, deviceId, pin }) {
+  const { data, error } = await supabase
+    .from('scan_devices')
+    .update({ pin_hash: await hashPassword(pin), pin_short: false, failed_pin_count: 0, pin_locked_until: null })
+    .eq('id', deviceId).eq('event_id', eventId).is('staff_id', null)
+    .select('id, label')
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data ? { id: data.id, label: data.label } : null;
 }
 
 /**
@@ -198,6 +228,11 @@ async function scan({
 }) {
   const decoded = decodeQrToken(qr);
   if (!decoded) {
+    // A phone let somebody in, with no signal, on a code that is not ours. The
+    // answer cannot change that; the organizer must at least be able to see it.
+    if (offlineAdmitted === true) {
+      await logForgedOffline({ qr, eventId, deviceId, clientScanId, occurredAt });
+    }
     return { ok: false, result: 'invalid', message: 'That code was not issued by us.' };
   }
 
@@ -222,9 +257,64 @@ async function scan({
 
   // The database did not answer: not a decision. `unavailable` lets the live
   // routes answer 503 (the door holds the scan); in an upload the row says
-  // 'error' and the phone sends it again.
-  if (error) return { ok: false, result: 'error', message: error.message, unavailable: true };
+  // 'error' and the phone sends it again without counting it as an attempt.
+  // The database's own words stay in the log, not in the door's answer.
+  if (error) {
+    logger.warn({ err: error.message, eventId, deviceId }, 'scan: the check-in function did not answer');
+    return { ok: false, result: 'error', message: UNAVAILABLE_MESSAGE, unavailable: true };
+  }
   return withAddons(data, decoded.ticketId);
+}
+
+const UNAVAILABLE_MESSAGE = 'The check-in server could not decide this scan. It is sent again shortly.';
+
+/**
+ * Logged as a refusal and flagged as a conflict on the ticket the code NAMES,
+ * when that ticket is at this event: the organizer then finds it in the door
+ * list's conflicts and in the ticket's history. Nothing else is trusted from
+ * the code (its claims are unverified). Best effort, and idempotent on the
+ * scan id: a re-upload writes nothing new.
+ */
+async function logForgedOffline({ qr, eventId, deviceId, clientScanId, occurredAt }) {
+  try {
+    const parts = String(qr || '').split('.');
+    if (parts.length !== 3) return;
+    const claims = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+    const ticketId = typeof claims?.tid === 'string' && UUID_RE.test(claims.tid) ? claims.tid : null;
+    if (!ticketId) return;
+    const { data: ticket } = await supabase.from('tickets').select('id')
+      .eq('id', ticketId).eq('event_id', eventId).maybeSingle();
+    if (!ticket) return;
+    const when = occurredAt && !Number.isNaN(Date.parse(occurredAt)) ? occurredAt : new Date().toISOString();
+    const { error } = await supabase.from('scans').insert({
+      ticket_id: ticket.id, event_id: eventId, device_id: deviceId, result: 'invalid',
+      occurred_at: when, method: 'offline', conflict: true,
+      client_scan_id: typeof clientScanId === 'string' && clientScanId ? clientScanId : null,
+      detail: 'admitted offline on a code that was not issued by us (forged or altered)',
+    });
+    // 23505: this scan was already logged by an earlier upload.
+    if (error && error.code !== '23505') throw new Error(error.message);
+    logger.warn({ eventId, deviceId, ticketId: ticket.id }, 'scan: a code that is not ours was admitted offline');
+  } catch (err) {
+    logger.warn({ err: err.message, eventId, deviceId }, 'scan: could not log a forged offline admission');
+  }
+}
+
+/**
+ * What this device has been TOLD about the gate (scan_devices.gate_lock_seen_at).
+ * A shut gate only exempts an offline admission the device made before it was
+ * told (check_in_ticket_v2), so every answer that carries the gate's state —
+ * the status poll, `me`, the offline list — records it. Never throws: a
+ * failure here must not turn into a failed status poll at a door.
+ */
+async function noteGateSeen(deviceId, locked) {
+  if (!deviceId || typeof locked !== 'boolean') return;
+  try {
+    const { error } = await supabase.rpc('note_gate_seen', { p_device_id: deviceId, p_locked: locked });
+    if (error) throw new Error(error.message);
+  } catch (err) {
+    logger.warn({ err: err.message, deviceId }, 'gate: could not record what the device was told');
+  }
 }
 
 /**
@@ -252,7 +342,10 @@ async function undo({ ticketId, deviceId, eventId }) {
   const { data, error } = await supabase.rpc('undo_check_in_v2', {
     p_event_id: eventId, p_ticket_id: ticketId, p_device_id: deviceId,
   });
-  if (error) return { ok: false, result: 'error', message: error.message };
+  if (error) {
+    logger.warn({ err: error.message, eventId, deviceId }, 'undo: the check-in function did not answer');
+    return { ok: false, result: 'error', message: 'That could not be undone right now. Try again in a moment.' };
+  }
   return data;
 }
 
@@ -354,7 +447,7 @@ async function gateStatus(eventId) {
 }
 
 module.exports = {
-  registerDevice, listDevices, setDeviceActive,
+  registerDevice, listDevices, setDeviceActive, setDevicePin,
   authenticateDevice, verifyDeviceToken, getActiveDevice, DEVICE_LOOKUP_FAILED,
-  scan, undo, syncBatch, gateStatus,
+  scan, undo, syncBatch, gateStatus, noteGateSeen,
 };

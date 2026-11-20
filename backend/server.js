@@ -47,6 +47,10 @@ const server = app.listen(PORT, () => {
       ));
   }
 
+  // When every ticket code began to be signed with the ES256 key, so a door
+  // with no signal can refuse an HS256 code for a ticket that never had one.
+  require('./services/qrV2Since').record();
+
   // Background jobs. Without these an abandoned checkout holds its seats
   // forever — three DB functions sat correct and uncalled until this existed.
   try {

@@ -118,6 +118,6 @@ test('a phone on schema v4 gains the column and keeps its held scans', async () 
   raw.exec('ALTER TABLE scans DROP COLUMN device_id; PRAGMA user_version = 4;');
   raw.exec("INSERT INTO scans (client_scan_id, event_id, qr, occurred_at, state) VALUES ('held', 'e', 'q', '2026-11-14', 'queued')");
   await migrate(conn as never);
-  expect(raw.prepare('PRAGMA user_version').get()).toEqual({ user_version: 5 });
+  expect(raw.prepare('PRAGMA user_version').get()).toEqual({ user_version: 6 });
   expect(raw.prepare('SELECT client_scan_id, device_id FROM scans').all()).toEqual([{ client_scan_id: 'held', device_id: null }]);
 });

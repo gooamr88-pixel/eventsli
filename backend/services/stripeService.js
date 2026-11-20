@@ -339,6 +339,92 @@ async function refreshAccountStatus(organizerId) {
 }
 
 /**
+ * A sponsorship payment (2026-11-20): one instalment of a signed deal, as a
+ * DIRECT charge on the organizer's account, exactly like a ticket order. The
+ * organizer is the merchant; Eventsli's slice is `application_fee_amount`
+ * alone (the platform's sponsorship fee, which may be zero).
+ *
+ * `sponsorship_installment_id` in the metadata is what the webhook routes on
+ * (controllers/paymentController.js); whether the payment is really ours is
+ * decided by sponsorship_record_payment against the session and account we
+ * recorded when this was opened.
+ */
+async function createSponsorshipSession({
+  installment, deal, event, accountId, origin, feeCents, customerEmail, idempotencyKey,
+}) {
+  if (!idempotencyKey) throw new Error('createSponsorshipSession needs an idempotencyKey');
+  const metadata = {
+    sponsorship_installment_id: installment.id,
+    sponsorship_deal_id: deal.id,
+    event_id: event.id,
+  };
+  return stripe().checkout.sessions.create({
+    mode: 'payment',
+    line_items: [{
+      price_data: {
+        currency: String(deal.currency).toLowerCase(),
+        product_data: {
+          name: `Sponsorship — ${event.title}`.slice(0, 250),
+          description: `${deal.company_name} · ${installment.label}`.slice(0, 500),
+        },
+        unit_amount: Number(installment.amount_cents),
+      },
+      quantity: 1,
+    }],
+    customer_email: customerEmail || undefined,
+    payment_intent_data: {
+      application_fee_amount: feeCents > 0 ? feeCents : undefined,
+      metadata,
+      description: `Sponsorship of ${event.title} by ${deal.company_name}`.slice(0, 1000),
+    },
+    metadata,
+    success_url: `${origin}/account/sponsorships/${deal.id}?paid=${installment.id}`,
+    cancel_url: `${origin}/account/sponsorships/${deal.id}`,
+    // An hour to pay. A new "Pay" expires this one first (sponsorPortal).
+    expires_at: Math.floor(Date.now() / 1000) + 60 * 60,
+    managed_payments: { enabled: false },
+  }, { stripeAccount: accountId, idempotencyKey });
+}
+
+/**
+ * A vendor's booth fee (2026-11-20): a DIRECT charge on the organizer's
+ * account, like tickets and sponsorships. `vendor_application_id` in the
+ * metadata is what the webhook routes on; vendor_record_payment decides
+ * whether it is really ours (the session and account we recorded).
+ */
+async function createVendorSession({
+  app, event, accountId, origin, boothName, feeCents, customerEmail, idempotencyKey,
+}) {
+  if (!idempotencyKey) throw new Error('createVendorSession needs an idempotencyKey');
+  const metadata = { vendor_application_id: app.id, event_id: event.id };
+  return stripe().checkout.sessions.create({
+    mode: 'payment',
+    line_items: [{
+      price_data: {
+        currency: String(app.currency).toLowerCase(),
+        product_data: {
+          name: `Vendor space — ${event.title}`.slice(0, 250),
+          description: `${app.business_name} · ${boothName}${app.booth_label ? ` · Booth ${app.booth_label}` : ''}`.slice(0, 500),
+        },
+        unit_amount: Number(app.amount_cents),
+      },
+      quantity: 1,
+    }],
+    customer_email: customerEmail || undefined,
+    payment_intent_data: {
+      application_fee_amount: feeCents > 0 ? feeCents : undefined,
+      metadata,
+      description: `Vendor space at ${event.title} for ${app.business_name}`.slice(0, 1000),
+    },
+    metadata,
+    success_url: `${origin}/account/vendors/${app.id}?paid=1`,
+    cancel_url: `${origin}/account/vendors/${app.id}`,
+    expires_at: Math.floor(Date.now() / 1000) + 60 * 60,
+    managed_payments: { enabled: false },
+  }, { stripeAccount: accountId, idempotencyKey });
+}
+
+/**
  * Makes an open Checkout Session unpayable. Used when an event stops selling
  * while a buyer is still on Stripe's page (services/openCheckouts.js). Throws
  * for a session that has already completed or expired — the caller logs it.
@@ -371,6 +457,8 @@ module.exports = {
   expireSession,
   organizerCanReceive,
   createCheckoutSession,
+  createSponsorshipSession,
+  createVendorSession,
   constructEvent,
   retrieveSession,
   retrieveCharge,

@@ -19,7 +19,7 @@ import { join } from 'node:path';
 import { ApiError, NetworkError } from '../src/api/client';
 import * as endpoints from '../src/api/endpoints';
 import type { ManifestPage, ManifestRow } from '../src/api/types';
-import { useOfflineList } from '../src/gate/offlineList';
+import { LIST_OLD_MS, listIsOld, useOfflineList } from '../src/gate/offlineList';
 import { DoorAuthError, pendingCount, useScanLog } from '../src/gate/scanLog';
 import { describeScan } from '../src/gate/outcomes';
 import { migrate } from '../src/lib/dbSchema';
@@ -125,12 +125,29 @@ describe('the phone database', () => {
     old.run("INSERT INTO scans (client_scan_id, event_id, qr, occurred_at, state) VALUES ('held-1', 'e', 'q', '2026-11-08T10:00:00Z', 'queued')");
     await migrate(old.db);
     await migrate(old.db); // twice is harmless
-    expect(old.one('PRAGMA user_version')).toEqual({ user_version: 5 });
+    expect(old.one('PRAGMA user_version')).toEqual({ user_version: 6 });
     expect(old.all('PRAGMA table_info(ticket_list_meta)').map((c) => c.name)).toContain('gate_reason');
+    expect(old.all('PRAGMA table_info(ticket_list)').map((c) => c.name)).toContain('legacy');
     expect(old.all('PRAGMA table_info(scans)').map((c) => c.name)).toEqual(expect.arrayContaining(['offline_verdict', 'attempts', 'device_id']));
     expect(old.one("SELECT state FROM scans WHERE client_scan_id = 'held-1'")).toEqual({ state: 'queued' });
     expect(old.all("SELECT name FROM sqlite_master WHERE type = 'table'").map((t) => t.name))
       .toEqual(expect.arrayContaining(['ticket_list', 'ticket_list_meta']));
+  });
+
+  test('v6: a list already on the phone stays usable, and its next pull starts over to learn each ticket\'s codes', async () => {
+    await list().pull(DOOR);
+    expect(list().complete).toBe(true);
+    mockDb.run('PRAGMA user_version = 5');
+    await migrate(mockDb.db);
+    expect(mockDb.one('SELECT cursor, complete FROM ticket_list_meta WHERE event_id = ?', EVENT)).toEqual({ cursor: null, complete: 1 });
+    expect((await list().find(T.a))?.legacy).toBe(true);
+
+    put({ ticketId: T.a, legacy: false });
+    api.manifest.mockClear();
+    await list().pull(DOOR);
+    expect(api.manifest.mock.calls[0][1]).toBeNull();
+    expect((await list().find(T.a))?.legacy).toBe(false);
+    expect((await list().find(T.b))?.legacy).toBe(true);
   });
 });
 
@@ -340,6 +357,37 @@ describe('scanning with no signal', () => {
     expect(await log().submit(legacyCode(T.e), DOOR, { offline: true })).toMatchObject({ state: 'queued', offlineVerdict: 'held' });
   });
 
+  test('an older code for a ticket that never had one is a forgery: refused, and never uploaded (audit H2)', async () => {
+    put({ ticketId: T.e, legacy: false });
+    await list().pull(DOOR);
+    const forged = await log().submit(legacyCode(T.e), DOOR, { offline: true });
+    expect(forged).toMatchObject({ state: 'done', result: 'invalid', offlineVerdict: null });
+    // The ticket's real code still admits; and a ticket that can have an older code still takes one.
+    expect(await log().submit(code(T.e), DOOR, { offline: true })).toMatchObject({ offlineVerdict: 'admitted' });
+    expect(await log().submit(legacyCode(T.b), DOOR, { offline: true })).toMatchObject({ offlineVerdict: 'admitted' });
+    expect(pendingCount(log().records)).toBe(2);
+  });
+
+  test('a status poll that says the gate is shut refuses offline at once, not at the next pull (audit H1)', async () => {
+    await list().setGate(true, 'admin_closed');
+    expect(await log().submit(code(T.b), DOOR, { offline: true })).toMatchObject({ result: 'scanner_locked' });
+    expect(mockDb.one('SELECT gate_locked, gate_reason FROM ticket_list_meta WHERE event_id = ?', EVENT))
+      .toEqual({ gate_locked: 1, gate_reason: 'admin_closed' });
+    await list().setGate(false);
+    expect(await log().submit(code(T.b), DOOR, { offline: true })).toMatchObject({ offlineVerdict: 'admitted' });
+  });
+
+  test('an upload the server\'s database could not answer is never counted as an attempt', async () => {
+    const rec = await log().submit(code(T.a), DOOR, { offline: true });
+    api.sync.mockImplementation(async (_d, scans) => ({
+      results: scans.map((s) => ({ ok: false, result: 'error', unavailable: true, message: 'busy', clientScanId: s.clientScanId })),
+      summary: { total: scans.length, admitted: 0, replayed: 0, conflicts: 0 },
+    }));
+    for (let i = 0; i < 8; i += 1) await log().sync(DOOR);
+    expect(mockDb.one('SELECT state, attempts, offline_verdict FROM scans WHERE client_scan_id = ?', rec!.clientScanId))
+      .toEqual({ state: 'queued', attempts: 0, offline_verdict: 'admitted' });
+  });
+
   test('a code from a key the phone does not have is held, and the keys are fetched again', async () => {
     const { privateKey: next } = generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
     const env2 = { QR_SIGNING_KEY: next.export({ type: 'pkcs8', format: 'pem' }), QR_SIGNING_KID: 'k2' };
@@ -404,5 +452,25 @@ describe('without a list', () => {
     const rec = await log().submit(code(T.a), DOOR, { offline: true });
     expect(rec).toMatchObject({ state: 'queued', result: null, offlineVerdict: null });
     expect(api.verify.mock.calls[0][4]).toBe(4000);
+  });
+});
+
+// ── An old list (owner, 2026-11-20): still used, said plainly after 2 hours ──
+describe('the list\'s age', () => {
+  test('a list is old only after 2 hours without a refresh', () => {
+    const at = Date.parse('2026-11-20T22:00:00Z');
+    expect(LIST_OLD_MS).toBe(2 * 3600e3);
+    expect(listIsOld(null, at)).toBe(false);
+    expect(listIsOld('not a date', at)).toBe(false);
+    expect(listIsOld(new Date(at - LIST_OLD_MS).toISOString(), at)).toBe(false);
+    expect(listIsOld(new Date(at - LIST_OLD_MS - 1000).toISOString(), at)).toBe(true);
+  });
+
+  test('an old list still decides: a festival with no signal all night keeps working', async () => {
+    await list().pull(DOOR);
+    mockDb.run('UPDATE ticket_list_meta SET synced_at = ? WHERE event_id = ?', new Date(Date.now() - 6 * 3600e3).toISOString(), EVENT);
+    await list().load(EVENT);
+    expect(listIsOld(list().syncedAt)).toBe(true);
+    expect(await log().submit(code(T.a), DOOR, { offline: true })).toMatchObject({ offlineVerdict: 'admitted' });
   });
 });

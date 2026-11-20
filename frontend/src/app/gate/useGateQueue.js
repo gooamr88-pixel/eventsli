@@ -6,8 +6,16 @@ import { gatePost, GateAuthError } from './gateSession';
 import { extractToken, offlineVerdict, peekTicket } from './qrToken';
 import * as store from './scanQueue';
 import {
-  BATCH_SIZE, applyResults, counts, newScan, nextBatch, priorScan, toWire,
+  BATCH_SIZE, applyResults, counts, isPending, newScan, nextBatch, priorScan, toWire,
 } from './queuePolicy';
+
+/**
+ * How long a live check may take before the scan is held instead. The site's
+ * default is 30 s — a door stalled for half a minute per guest on bad venue
+ * Wi-Fi (audit 2026-11-20). The app waits 4 s. A held scan is uploaded later
+ * with the same scan id, so a check that did reach the server is not doubled.
+ */
+const VERIFY_TIMEOUT_MS = 6000;
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -65,6 +73,9 @@ export function useGateQueue(session) {
         // Housekeeping, after the screen has what it needs. Pending scans are
         // never pruned at any age — that row is the only copy of an admission
         // that has not reached the server.
+        // Codes left on settled rows by older versions of this page go too.
+        const withCodes = rows.filter((r) => !isPending(r) && r.qr);
+        if (withCodes.length) await store.writeMany(withCodes);
         const dropped = await store.prune(rows);
         if (!cancelled && dropped) {
           const kept = await store.readAll(eventId);
@@ -99,7 +110,7 @@ export function useGateQueue(session) {
   const syncingRef = useRef(false);
 
   const sync = useCallback(async () => {
-    if (syncingRef.current || !session?.token) return null;
+    if (syncingRef.current || !session?.signedInAt) return null;
     if (typeof navigator !== 'undefined' && !navigator.onLine) return null;
     if (!nextBatch(recordsRef.current, 1).length) return null;
 
@@ -160,7 +171,7 @@ export function useGateQueue(session) {
       syncingRef.current = false;
       setSyncing(false);
     }
-  }, [commit, session?.token]);
+  }, [commit, session?.signedInAt]);
 
   /** The callback identity changes with the session; the ref keeps the timer
    *  and the listener from being torn down and rebuilt on every scan. */
@@ -168,7 +179,7 @@ export function useGateQueue(session) {
   useEffect(() => { syncRef.current = sync; });
 
   useEffect(() => {
-    if (!ready || !session?.token) return undefined;
+    if (!ready || !session?.signedInAt) return undefined;
 
     const run = () => { syncRef.current()?.catch?.(() => {}); };
     run();
@@ -179,7 +190,7 @@ export function useGateQueue(session) {
       window.removeEventListener('online', run);
       clearInterval(timer);
     };
-  }, [ready, session?.token]);
+  }, [ready, session?.signedInAt]);
 
   // ── One scan ──────────────────────────────────────────────────────────────
   const submit = useCallback(async (raw) => {
@@ -227,7 +238,7 @@ export function useGateQueue(session) {
 
     let answer;
     try {
-      answer = await gatePost('/scan/verify', toWire(record));
+      answer = await gatePost('/scan/verify', toWire(record), { timeoutMs: VERIFY_TIMEOUT_MS });
     } catch (err) {
       if (err instanceof GateAuthError) throw err;
 

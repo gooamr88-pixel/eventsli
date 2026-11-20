@@ -1,5 +1,6 @@
 const { supabase } = require('../config/supabase');
 const scanSvc = require('./scanService');
+const qrV2Since = require('./qrV2Since');
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -114,6 +115,8 @@ async function me(device) {
     scanSvc.gateStatus(device.eventId),
   ]);
   if (error) throw new Error(error.message);
+  // This answer tells the device whether the gate is shut (scanService.noteGateSeen).
+  if (typeof gate.gate?.locked === 'boolean') await scanSvc.noteGateSeen(device.deviceId, gate.gate.locked);
 
   return {
     device: { id: device.deviceId, label: device.label, kind: device.staffUserId ? 'staff' : 'pin' },
@@ -281,6 +284,9 @@ async function manifest(device, { cursor = null, limit = MANIFEST_PAGE } = {}) {
   const reset = !c || c.n !== perms.offlineNames;
   if (reset) c = { k: 1, s: null, a: null, w: null, n: perms.offlineNames };
 
+  // When every code began to be ES256-signed: per row, whether an older HS256
+  // code can exist for that ticket at all (services/qrV2Since.js).
+  const v2Since = await qrV2Since.since();
   const [list, eventRead, gate] = await Promise.all([
     supabase.rpc('event_door_manifest', {
       p_event_id: device.eventId,
@@ -289,12 +295,16 @@ async function manifest(device, { cursor = null, limit = MANIFEST_PAGE } = {}) {
       p_after_id: c.a ? c.a[1] : null,
       p_limit: limit,
       p_names: perms.offlineNames,
+      p_v2_since: v2Since,
     }),
     supabase.from('events').select('status, starts_at, ends_at').eq('id', device.eventId).maybeSingle(),
     supabase.rpc('scanner_is_locked', { p_event_id: device.eventId }),
   ]);
   if (list.error) throw new Error(`could not read the offline list: ${list.error.message}`);
   if (eventRead.error) throw new Error(eventRead.error.message);
+
+  // The list carries the gate's state: the device has now been told.
+  if (!gate.error) await scanSvc.noteGateSeen(device.deviceId, Boolean(gate.data?.locked));
 
   const rows = list.data?.rows || [];
   // Fixed on the first page of a run and carried through its other pages.

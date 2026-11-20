@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { describeError } from '../utils/errors';
-import { clearSession, gateFetch, GateAuthError, useGateSession } from './gateSession';
+import { gateFetch, GateAuthError, signOutGate, useGateSession } from './gateSession';
 import { useGateQueue } from './useGateQueue';
 import { useScanner } from './useScanner';
 import { clearAll } from './scanQueue';
@@ -42,7 +42,7 @@ export default function GateScanner() {
 
   // ── The gate's state, on a loop ───────────────────────────────────────────
   useEffect(() => {
-    if (!session?.token) return undefined;
+    if (!session?.signedInAt) return undefined;
     let cancelled = false;
 
     const load = async () => {
@@ -59,7 +59,7 @@ export default function GateScanner() {
     load();
     const timer = setInterval(load, STATUS_MS);
     return () => { cancelled = true; clearInterval(timer); };
-  }, [session?.token, queue.admitted]);
+  }, [session?.signedInAt, queue.admitted]);
 
   // ── One code, from the camera or from the keyboard ────────────────────────
   const handleCode = useCallback(async (raw) => {
@@ -130,7 +130,8 @@ export default function GateScanner() {
       // only copy of somebody's admission.
       await clearAll().catch(() => {});
     }
-    clearSession();
+    // The API clears the door cookie; the tablet's own record goes either way.
+    await signOutGate();
     router.replace('/gate/login');
   }
 
@@ -172,6 +173,17 @@ export default function GateScanner() {
         onSync={() => queue.sync().catch(() => {})}
         onSignOut={() => setConfirmSignOut(true)}
       />
+
+      {/* A PIN under six digits is being retired (2026-11-20): the door says so
+          while it still works, so it is not the first anyone hears of it. */}
+      {session.pinNeedsReset && (
+        <div className="fx-container fx-container--sm fx-gutter">
+          <p role="status" className="rounded-(--es-radius-md) bg-bg-sunken p-3 text-sm text-muted">
+            This device&apos;s PIN is too short and will stop working. Ask the organizer to set a new 6 to 12 digit
+            PIN on the Devices page.
+          </p>
+        </div>
+      )}
 
       <div className="fx-container fx-container--sm fx-gutter fx-stack fx-safe-bottom">
         {/* The reader element must exist in the DOM before the engine is told to

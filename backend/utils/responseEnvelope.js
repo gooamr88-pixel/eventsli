@@ -166,6 +166,22 @@ const ERROR_STATUS = {
   // pressing Book, or is no longer open. The page goes back to the times.
   DEMO_SLOT_TAKEN: 409,
 
+  // Sponsorships (20261202090000). Every one is a state the deal is in, said
+  // in words the organizer or the sponsor can act on.
+  SPONSORSHIP_WRONG_STAGE: 409,       // e.g. paying before signing, editing a signed contact
+  SPONSORSHIP_SOLD_OUT: 409,          // the package's last slot was signed by another brand
+  SPONSORSHIP_PROPOSAL_EXPIRED: 410,  // past the reply-by date; the organizer re-sends it
+  SPONSORSHIP_ALREADY_PAID: 409,      // that instalment is recorded as paid
+  SPONSORSHIP_PAYMENT_PENDING: 409,   // a card payment is going through; wait for it
+
+  // Vendors (20261203090000).
+  VENDOR_WRONG_STAGE: 409,          // e.g. paying before accepting, editing an accepted contact
+  VENDOR_SOLD_OUT: 409,             // the last booth of that type was accepted by another vendor
+  VENDOR_OFFER_EXPIRED: 410,        // past the reply-by date; the organizer re-sends it
+  VENDOR_ALREADY_PAID: 409,         // the booth fee is recorded
+  VENDOR_PAYMENT_PENDING: 409,      // a card payment is going through; wait for it
+  VENDOR_APPLICATIONS_CLOSED: 409,  // the program is past its application deadline
+
   // generic
   VALIDATION_ERROR: 400,
   RATE_LIMITED: 429,

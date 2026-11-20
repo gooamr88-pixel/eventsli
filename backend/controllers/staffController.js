@@ -1,4 +1,6 @@
 const staff = require('../services/staffService');
+const { withGateSession } = require('../utils/gateAuth');
+const { STAFF_TOKEN_HOURS } = require('../services/scanTokens');
 const { sendOk, sendFail } = require('../utils/responseEnvelope');
 const logger = require('../utils/logger');
 
@@ -83,7 +85,8 @@ async function staffLogin(req, res, next) {
       });
     }
     logger.info({ eventId: req.body.eventId, userId: req.user.id }, 'door team member signed in to scan');
-    return sendOk(res, session);
+    // The web gate gets its door token as an httpOnly cookie (deviceAuth.withGateSession).
+    return sendOk(res, withGateSession(req, res, session, STAFF_TOKEN_HOURS * 3600e3));
   } catch (err) { return next(err); }
 }
 

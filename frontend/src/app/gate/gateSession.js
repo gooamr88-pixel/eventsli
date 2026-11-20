@@ -20,15 +20,32 @@ import { apiFetch, ApiError } from '../utils/apiClient';
  *     never from the request body, so one venue's tablet cannot scan another
  *     venue's tickets by changing a field.
  *
- * The token is therefore a Bearer credential and has to be readable by this
- * code to be sent, which means localStorage. That is a real trade and it is
- * bounded on purpose: seven days, one event, revocable, and it opens a scanner
- * rather than an account. Nothing here can buy a ticket, read an attendee list,
- * or see money.
+ * THE TOKEN IS NOT HERE (2026-11-20). It used to be a Bearer token in
+ * localStorage, readable by any script that ran on the site. The API now sets
+ * it as an httpOnly cookie scoped to /api/v1/scan (`session: 'cookie'` at sign
+ * in) and this code never sees it. What localStorage keeps is only who this
+ * tablet is — device, label, event, when it signed in — to draw the screen.
+ * Every gate request sends `X-Eventsli-Gate: 1`, without which the API ignores
+ * the cookie: a cross-site page can make the browser send a cookie, not add a
+ * header.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
 const KEY = 'eventsli.gate.device';
+
+/**
+ * A session saved by the version that kept the token here is dropped, token
+ * and all: the tablet signs in once more and gets the cookie. Its queued scans
+ * are in IndexedDB, keyed by event, and upload after that sign-in.
+ */
+function fromStorage(raw) {
+  const parsed = raw ? JSON.parse(raw) : null;
+  if (parsed && typeof parsed === 'object' && 'token' in parsed) {
+    try { localStorage.removeItem(KEY); } catch { /* nothing to do */ }
+    return null;
+  }
+  return parsed;
+}
 
 /** The last value read or written. `useSyncExternalStore` demands a snapshot
  *  that is referentially stable between changes — re-parsing localStorage on
@@ -41,8 +58,7 @@ function load() {
   if (loaded) return current;
   loaded = true;
   try {
-    const raw = localStorage.getItem(KEY);
-    current = raw ? JSON.parse(raw) : null;
+    current = fromStorage(localStorage.getItem(KEY));
   } catch {
     current = null;
   }
@@ -58,7 +74,9 @@ export function readSession() {
   return load();
 }
 
-export function saveSession(session) {
+export function saveSession(input) {
+  // Never a token, whoever calls this.
+  const { token, ...session } = input || {};
   current = session;
   loaded = true;
   try { localStorage.setItem(KEY, JSON.stringify(session)); } catch { /* private mode */ }
@@ -113,17 +131,14 @@ export class GateAuthError extends Error {
  * wrong one here, because a door tablet has no email address and the person
  * holding it cannot sign in as anybody.
  */
-export async function gateFetch(path, { token, ...options } = {}) {
-  const bearer = token || readSession()?.token;
-
+export async function gateFetch(path, options = {}) {
   try {
+    // The door token is the httpOnly cookie apiFetch sends (credentials:
+    // 'include'); this header is what makes the API accept it.
     return await apiFetch(path, {
       ...options,
       noRedirect: true,
-      headers: {
-        ...options.headers,
-        ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}),
-      },
+      headers: { ...options.headers, [GATE_HEADER]: '1' },
     });
   } catch (err) {
     if (err instanceof ApiError && err.status === 401) {
@@ -134,8 +149,18 @@ export async function gateFetch(path, { token, ...options } = {}) {
   }
 }
 
+export const GATE_HEADER = 'X-Eventsli-Gate';
+
 export const gatePost = (path, body, options) =>
   gateFetch(path, { ...options, method: 'POST', body: JSON.stringify(body) });
+
+/** Sign this tablet out: the API clears the cookie. Best effort — offline, the session still goes here. */
+export async function signOutGate() {
+  try {
+    await apiFetch('/scan/logout', { method: 'POST', noRedirect: true, timeoutMs: 5000 });
+  } catch { /* the cookie expires on its own */ }
+  clearSession();
+}
 
 /**
  * Sign the device in.
@@ -148,14 +173,17 @@ export async function signIn({ deviceId, pin }) {
   const data = await apiFetch('/scan/login', {
     method: 'POST',
     noRedirect: true,
-    body: JSON.stringify({ deviceId: String(deviceId).trim(), pin }),
+    // The token comes back as an httpOnly cookie, not in this answer.
+    body: JSON.stringify({ deviceId: String(deviceId).trim(), pin, session: 'cookie' }),
   });
 
   const session = {
-    token: data.token,
     deviceId: data.device.id,
     label: data.device.label,
     eventId: data.device.eventId,
+    expiresAt: data.expiresAt || null,
+    // A PIN under six digits: the organizer is asked to set a new one.
+    pinNeedsReset: Boolean(data.pinNeedsReset),
     signedInAt: new Date().toISOString(),
   };
   saveSession(session);
@@ -183,11 +211,11 @@ export async function signInAsStaff({ eventId }) {
   const data = await apiFetch('/scan/staff-login', {
     method: 'POST',
     noRedirect: true,
-    body: JSON.stringify({ eventId }),
+    body: JSON.stringify({ eventId, session: 'cookie' }),
   });
 
   const session = {
-    token: data.token,
+    expiresAt: data.expiresAt || null,
     deviceId: data.device.id,
     label: data.device.label,
     eventId: data.device.eventId,

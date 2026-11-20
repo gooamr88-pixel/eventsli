@@ -9,7 +9,13 @@
  */
 import { DatabaseSync } from 'node:sqlite';
 
-import { assertEncrypted, cipherVersion, hardenConnection, UnencryptedDatabaseError } from '../src/lib/dbSecurity';
+import { rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import {
+  assertEncrypted, cipherVersion, hardenConnection, isWrongKey, UnencryptedDatabaseError, WrongKeyError,
+} from '../src/lib/dbSecurity';
 import { scrubBreadcrumb, scrubEvent, scrubText } from '../src/lib/monitoring';
 import { prune, storedQr, useScanLog } from '../src/gate/scanLog';
 import { openTestDb, type TestDb } from './helpers/sqlite';
@@ -95,6 +101,30 @@ describe('P-05 — the encrypted database', () => {
   test('a SQLCipher connection passes', async () => {
     const cipher = { execAsync: async () => undefined, getFirstAsync: async <T,>() => ({ cipher_version: '4.6.1 community' }) as T };
     await expect(assertEncrypted(cipher, false)).resolves.toBeUndefined();
+  });
+
+  test('only "this key does not open the file" counts as a wrong key — nothing else deletes the database', () => {
+    // A real one: SQLite reading a file that is not a database, which is how
+    // SQLCipher reports a wrong key.
+    const path = join(tmpdir(), `not-a-db-${process.pid}-${Date.now()}.db`);
+    writeFileSync(path, Buffer.alloc(4096, 7));
+    let wrongKey: unknown;
+    const file = new DatabaseSync(path);
+    try {
+      file.prepare('SELECT count(*) FROM sqlite_master').get();
+    } catch (err) {
+      wrongKey = err;
+    } finally {
+      file.close();
+      rmSync(path, { force: true });
+    }
+    expect(isWrongKey(wrongKey)).toBe(true);
+    expect(isWrongKey({ code: 26 })).toBe(true);
+    for (const other of [new Error('database is locked'), new Error('disk I/O error'), new Error('no such table: ticket_list'),
+      new UnencryptedDatabaseError(), null, undefined]) {
+      expect(isWrongKey(other)).toBe(false);
+    }
+    expect(new WrongKeyError()).toBeInstanceOf(Error);
   });
 
   test('deleted rows are overwritten and temp files stay in memory', async () => {

@@ -204,7 +204,10 @@ test('the first pull is the whole event, with everything a door decides on', asy
   assert.equal(rows.length, 5);
   assert.equal(byId.size, 5, 'no ticket twice');
   const row = byId.get(tickets[0].id);
-  assert.deepEqual(Object.keys(row).sort(), ['holder', 'scannedAt', 'seat', 'status', 'table', 'ticketId', 'tier', 'v'].sort());
+  assert.deepEqual(Object.keys(row).sort(), ['holder', 'legacy', 'scannedAt', 'seat', 'status', 'table', 'ticketId', 'tier', 'v'].sort());
+  // Its value depends on when this server started signing (a local API may
+  // have recorded that); the rule is pinned by the `legacy` test below.
+  assert.equal(typeof row.legacy, 'boolean');
   assert.equal(row.status, 'valid');
   assert.equal(row.v, 0);
   assert.equal(row.tier, 'General Admission');
@@ -213,6 +216,37 @@ test('the first pull is the whole event, with everything a door decides on', asy
   assert.equal(pages.at(-1).event.status, 'published');
   assert.equal(pages.at(-1).gateLocked, false);
   assert.equal(pages.at(-1).legacyQrOffline, 'allow');
+});
+
+// Audit 2026-11-20, H2: a phone with no signal cannot check an HS256 code, so
+// the list says per ticket whether one can exist at all.
+test('the list flags which tickets can have an older code, from when ES256 signing began', async () => {
+  const qrV2Since = require('../../services/qrV2Since');
+  const { data: previous } = await supabase.from('platform_settings').select('value').eq('key', qrV2Since.KEY).maybeSingle();
+  const setSince = async (iso) => {
+    await supabase.from('platform_settings').upsert({ key: qrV2Since.KEY, value: { since: iso } }, { onConflict: 'key' });
+    qrV2Since.forget();
+  };
+  try {
+    // Signing began before these tickets existed: none of them ever had an HS256 code.
+    await setSince(new Date(stamp - 3600e3).toISOString());
+    let { byId } = await pullAll(ownerDevice);
+    assert.equal(byId.get(tickets[0].id).legacy, false);
+
+    // Signing began after: their emails may hold HS256 codes.
+    await setSince(new Date(Date.now() + 3600e3).toISOString());
+    ({ byId } = await pullAll(ownerDevice));
+    assert.equal(byId.get(tickets[0].id).legacy, true);
+
+    // record() at boot keeps the first time, whoever restarts later.
+    await setSince(new Date(stamp - 3600e3).toISOString());
+    await qrV2Since.record(new Date(Date.now() + 86400e3));
+    assert.equal(await qrV2Since.since(), new Date(stamp - 3600e3).toISOString());
+  } finally {
+    if (previous) await supabase.from('platform_settings').upsert({ key: qrV2Since.KEY, value: previous.value }, { onConflict: 'key' });
+    else await supabase.from('platform_settings').delete().eq('key', qrV2Since.KEY);
+    qrV2Since.forget();
+  }
 });
 
 test('pages: a small page size walks every ticket exactly once', async () => {

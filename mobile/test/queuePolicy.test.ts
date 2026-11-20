@@ -67,6 +67,12 @@ describe('an upload the server could not decide', () => {
     expect(next).toMatchObject({ state: 'done', result: 'error' });
   });
 
+  test('"the database did not answer" is never counted: it goes again however long the outage', () => {
+    const r = rec({ state: 'sending', result: 'admitted', offlineVerdict: 'admitted', attempts: MAX_ATTEMPTS - 1 });
+    const [next] = applyResults([r], [{ clientScanId: r.clientScanId, ok: false, result: 'error', unavailable: true }], 'now');
+    expect(next).toMatchObject({ state: 'queued', attempts: MAX_ATTEMPTS - 1, offlineVerdict: 'admitted' });
+  });
+
   test('a decided answer after a retry settles as usual', () => {
     const r = rec({ state: 'sending', attempts: 2 });
     const [next] = applyResults([r], [{ clientScanId: r.clientScanId, ok: true, result: 'admitted' }], 'now');

@@ -54,7 +54,9 @@ const CHOOSE_FIRST = 'Choose an event first';
    is FOR, and the public page shows every one of them for a listing. Without
    it a listing's setup was Overview → Event details → submit, with no way to
    give the page a single picture. */
-const DISPLAY_ONLY_KEYS = new Set(['overview', 'details', 'content', 'share']);
+/* `sponsors` and `vendors` (2026-11-20): selling sponsorship or vendor space
+   is not selling tickets. A listing can have both, shown on its page. */
+const DISPLAY_ONLY_KEYS = new Set(['overview', 'details', 'content', 'share', 'sponsors', 'vendors']);
 
 /**
  * WHAT A GENERAL-ADMISSION EVENT DOES NOT HAVE.
@@ -221,6 +223,10 @@ export function organizerNavGroups({
         // Phase 2: buyers who reserved online and pay the organizer directly.
         item('offline', 'Offline payments', 'coins', '/offline'),
         item('door', 'Door sales', 'cash', '/door'),
+        // Sponsorships (2026-11-20): packages, proposals, signed deals, payments.
+        item('sponsors', 'Sponsors', 'handshake', '/sponsors'),
+        // Vendors (2026-11-20): applications, booth types, booth fees, the vendor door list.
+        item('vendors', 'Vendors', 'store', '/vendors'),
         item('commission', 'Commission', 'percent', '/commission'),
       ],
     },

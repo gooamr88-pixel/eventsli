@@ -22,6 +22,25 @@ export class UnencryptedDatabaseError extends Error {
   }
 }
 
+/** The file cannot be read with this key: the only reason the phone deletes its database. */
+export class WrongKeyError extends Error {
+  constructor() {
+    super('The database cannot be read with this phone\'s key.');
+    this.name = 'WrongKeyError';
+  }
+}
+
+/**
+ * Whether an error from the first read after `PRAGMA key` means the key does
+ * not open the file. SQLCipher reports a wrong key the way SQLite reports a
+ * file that is not a database: SQLITE_NOTADB (26), "file is not a database".
+ */
+export function isWrongKey(err: unknown): boolean {
+  const text = `${(err as { message?: string })?.message ?? ''} ${(err as { code?: unknown })?.code ?? ''}`;
+  return /file is not a database|SQLITE_NOTADB|\bnot a database\b/i.test(text)
+    || (err as { code?: unknown })?.code === 26;
+}
+
 /** The SQLCipher version, or null on a plain SQLite. */
 export async function cipherVersion(conn: Conn): Promise<string | null> {
   try {

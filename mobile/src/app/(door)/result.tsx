@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { messageFor } from '@/api/client';
 import { useSession } from '@/auth/session';
 import { signal } from '@/gate/feedback';
+import { listIsOld, useOfflineList } from '@/gate/offlineList';
 import { admits, describeScan, screenResult } from '@/gate/outcomes';
 import { useScanLog } from '@/gate/scanLog';
 import { useDoorExit } from '@/gate/useDoor';
@@ -78,6 +79,11 @@ export default function Result() {
   const firstAt = a?.first_scan?.at ?? (result === 'duplicate' ? a?.scanned_at : undefined);
   // Refused by this phone with no signal (never uploaded, so never synced).
   const refusedByPhone = record?.method === 'offline' && record.state === 'done' && !record.syncedAt;
+  // Decided by the phone from a list over 2 h old at the moment of the scan
+  // (owner, 2026-11-20): still the answer, said with its caveat.
+  const listSyncedAt = useOfflineList((s) => s.syncedAt);
+  const decidedOnOldList = (result === 'offline_admitted' || refusedByPhone)
+    && Boolean(record?.occurredAt) && listIsOld(listSyncedAt, Date.parse(record!.occurredAt));
 
   const footer = admitted ? (
     <Button label="Scan Next" onPress={() => router.back()} />
@@ -137,6 +143,11 @@ export default function Result() {
         <Note icon="offline">Saved on this phone with no signal. It syncs automatically.</Note>
       )}
       {refusedByPhone && <Note icon="offline">Checked on this phone with no signal.</Note>}
+      {decidedOnOldList && (
+        <Note icon="alert">
+          {`The guest list on this phone was last updated ${doorTime(listSyncedAt)}, over 2 hours before this scan. Changes since then (another door, a refund) may be missed.`}
+        </Note>
+      )}
       {a?.conflict && <Note icon="alert">Two doors let this ticket in while offline. The organizer can see it on the door list.</Note>}
 
       {canUndo && (

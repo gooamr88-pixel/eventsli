@@ -33,6 +33,8 @@ export type ListTicket = {
   seat: string | null;
   table: string | null;
   holder: string | null;
+  /** False when every code this ticket ever had was ES256-signed (see ManifestRow.legacy). */
+  legacy?: boolean;
 };
 
 export type ListContext = {
@@ -84,6 +86,10 @@ export function decideOffline(
   if (ctx.eventStatus && !OPEN.has(ctx.eventStatus)) return { kind: 'refuse', result: 'event_not_open', ticket: null };
 
   if (!ticket) return { kind: 'hold', reason: 'not_on_list' };
+  // An HS256 code cannot be checked here, so it is only trusted for a ticket
+  // that can have one. For a ticket whose codes were all ES256-signed it is a
+  // forgery: anyone can write one from a ticket id (audit 2026-11-20, H2).
+  if (signature === 'legacy' && ticket.legacy === false) return { kind: 'refuse', result: 'invalid', ticket: null };
   if (ticket.status === 'void') return { kind: 'refuse', result: 'void', ticket };
   if (claims.version < ticket.v) return { kind: 'refuse', result: 'transferred', ticket };
   if (admittedHere) return { kind: 'duplicate', ticket, at: admittedHere };

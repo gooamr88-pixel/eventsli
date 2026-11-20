@@ -191,6 +191,8 @@ function DeviceRow({ eventId, device, timezone, onChanged }) {
   const confirm = useConfirm();
   const [busy, setBusy] = useState(false);
   const [pairing, setPairing] = useState(false);
+  const [changingPin, setChangingPin] = useState(device.pinNeedsReset && device.isActive);
+  const [newPin, setNewPin] = useState(null);
 
   async function copyId() {
     try {
@@ -232,6 +234,9 @@ function DeviceRow({ eventId, device, timezone, onChanged }) {
           <p className="fx-break text-ink">
             {device.label}
             {!device.isActive && <span className="es-pill es-pill--danger ml-2">Revoked</span>}
+            {device.isActive && device.pinNeedsReset && !newPin && (
+              <span className="es-pill es-pill--warning ml-2">PIN too short</span>
+            )}
           </p>
           <p className="text-xs text-subtle">{lastUsed ? `Last used ${lastUsed}` : 'Never used'}</p>
         </div>
@@ -259,7 +264,31 @@ function DeviceRow({ eventId, device, timezone, onChanged }) {
             {pairing ? 'Hide pairing code' : 'Pair a phone'}
           </button>
         )}
+        {device.isActive && !changingPin && (
+          <button type="button" onClick={() => setChangingPin(true)} className="es-btn es-btn--ghost es-btn--sm">
+            Change PIN
+          </button>
+        )}
       </div>
+      {newPin && (
+        <Notice tone="info" title="New PIN — shown this once">
+          <p className="font-mono text-2xl text-ink">{newPin}</p>
+          <p>Write it down and give it to the door staff. The old PIN no longer signs this device in.</p>
+          <div>
+            <button type="button" onClick={() => setNewPin(null)} className="es-btn es-btn--secondary es-btn--sm">
+              I have written it down
+            </button>
+          </div>
+        </Notice>
+      )}
+      {changingPin && device.isActive && (
+        <ChangePin
+          eventId={eventId}
+          device={device}
+          onCancel={() => setChangingPin(false)}
+          onChanged={(pin) => { setNewPin(pin); setChangingPin(false); onChanged(); }}
+        />
+      )}
       {/* Scanned with the Eventsli Check-in app instead of typing 36
           characters at a door. It holds the device ID only — the PIN is never
           in it, so a photo of this screen still cannot sign anything in. */}
@@ -280,6 +309,52 @@ function DeviceRow({ eventId, device, timezone, onChanged }) {
         </div>
       )}
     </li>
+  );
+}
+
+/**
+ * A new PIN for a shared tablet. Opened by itself on a device that last signed
+ * in with a PIN under six digits: those are being retired (2026-11-20) and,
+ * from the platform's cutoff date, stop signing in until replaced here.
+ */
+export function ChangePin({ eventId, device, onChanged, onCancel }) {
+  const [pin, setPin] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+
+  async function submit(e) {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      await patch(`/events/${eventId}/scan-devices/${device.id}/pin`, { pin }, { noRedirect: true });
+      onChanged(pin);
+    } catch (err) {
+      setError(err);
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form onSubmit={submit} className="fx-stack fx-stack--sm rounded-(--es-radius-md) bg-bg-sunken p-3">
+      {device.pinNeedsReset && (
+        <p className="text-sm text-muted">
+          This device signs in with a PIN shorter than 6 digits, which is being retired. Set a new one now, so the
+          door is not stopped at the next sign-in.
+        </p>
+      )}
+      <Field
+        label="New PIN" name={`pin-${device.id}`} required inputMode="numeric" pattern="[0-9]{6,12}" minLength={6} maxLength={12}
+        hint="6 to 12 digits, shown only once. Devices already signed in keep scanning."
+        value={pin}
+        onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
+      />
+      <FormError error={error} />
+      <div className="fx-row">
+        <SubmitButton busy={busy} busyLabel="Saving…">Set new PIN</SubmitButton>
+        <button type="button" onClick={onCancel} className="es-btn es-btn--ghost">Cancel</button>
+      </div>
+    </form>
   );
 }
 

@@ -1346,3 +1346,56 @@ so the UTC values stay exact); the four AI test files use its constants.
 7. Smoke test on a test event: draw a map with a section, assign a ticket type made in the editor, block two seats in Preview, Save map; buy a private table with its password; change a ticket type's price after a sale and see it in Admin → Audit as "Changed a price"; rename a table and confirm an existing ticket keeps the old name; scan at the door.
 8. Watch logs for `MAP_STALE`, `SALE_PRICE_IMMUTABLE`, `TICKET_PLACE_IMMUTABLE` and `SEAT_NOT_PRICED` in the first day; any `SALE_PRICE_IMMUTABLE` is a code path trying to rewrite a sale and must be investigated.
 9. Rollback: the API can roll back on its own (the old API works against the new schema). The migration is additive except the dropped price-lock trigger; restoring that trigger is the only schema rollback needed to return to the old price rule.
+
+## Check-in scanner audit and fixes (2026-11-20)
+
+An evidence-based audit of the whole check-in system (the Expo app, the `/gate`
+web app, the `/scan/*` API and the database functions), then the fixes the
+same day. Findings are numbered C-H1.. by severity. The online path was sound:
+single admission under concurrency, event scoping, revocation, replay safety.
+Every problem was on the offline side.
+
+| ID | Sev | Finding | Status |
+|---|---|---|---|
+| C-H1 | **High** | A closed gate could be bypassed: `/scan/sync` with `offlineVerdict: 'admitted'` was exempt from the lock on the phone's word alone. Proven live: `/scan/verify` 403, the same device's sync admitted | Fixed: migration `20261202120000`. The exemption holds only for a scan made before the device was TOLD the gate was shut (`scan_devices.gate_lock_seen_at`, set by a `scanner_locked` answer, the status poll, `/scan/me` and the list; cleared when told it is open). The app applies each status poll's gate state to its list at once. Residual: a deliberately modified client that never asks and backdates can still claim; each such row carries "admitted offline while scanning was switched off" |
+| C-H2 | **High** | Offline, an HS256-shaped code was admitted on a list match without any signature check (default `legacyQrOffline: 'allow'`): a forgery from a ticket id, with any version, so it also beat the transfer check. On upload the server answered `invalid` and logged nothing. Proven with the app's own `decideOffline` and live | Fixed: the list carries `legacy` per ticket (from `platform_settings.qr_v2_since`, recorded at boot by `services/qrV2Since.js`); the phone refuses an HS256 code for a ticket with `legacy: false`; a code that is not ours, admitted offline, is logged on the ticket it names as `invalid` + `conflict` |
+| C-M1 | Medium | The app settled an offline admission as `error` after 5 "database did not answer" uploads (about 75 s of outage): lost from the server's record | Fixed: `unavailable` rows are never counted (`queuePolicy.ts`) |
+| C-M2 | Medium | The web gate settled any `error` upload answer at once | Fixed: same rule, `MAX_ATTEMPTS` for other errors (`queuePolicy.js`) |
+| C-M3 | Medium | `/scan/sync` items were not validated; a bad `occurredAt` returned Postgres's error text and was retried forever | Fixed: every item validated (400); the database's text is logged, never returned (scan and undo) |
+| C-M4 | Medium | Any error opening the phone's database deleted it, unsent admissions included | Fixed: only a wrong key (`isWrongKey`) deletes; anything else is thrown and retried |
+| C-M5 | Medium | A camera that could not start left a black screen; a PIN device with no guest list had no way in | Fixed: `onMountError` screen with Try again and the other way in |
+| C-M6 | Medium | The web gate waited 30 s per live check | Fixed: 6 s, then held (same scan id, so no double count) |
+| C-M7 | Medium | The offline list's age was not shown | Partly fixed: "list updated N ago" on the offline badge. No maximum age is enforced (an owner decision: a festival can be offline for hours) |
+| C-L1 | Low | A scan id replayed the answer of whatever ticket it was first used for | Fixed in `check_in_ticket_v2` |
+| C-L2 | Low | The web gate kept ticket codes on settled rows in IndexedDB | Fixed: stored without the code, as the app does |
+| C-L3 | Low | Unauthenticated gate requests skip the per-IP limit; 4-digit PINs still sign in; the device token is in `localStorage`; the list's 30 s overlap vs a long transaction | Open (low risk, or an owner decision) |
+
+### Verification (local stack, 2026-11-20)
+- Backend unit 712/712; check-in integration 81/81 (5 new: H1, H2, sync
+  validation, replay per ticket, the list's `legacy`); full integration run
+  as below.
+- Mobile jest 271/271 (7 new, including a real "file is not a database" and a
+  camera mount failure), `tsc` (app and tests) and eslint clean.
+- Web gate vitest 44/44 (3 new); full frontend 1094/1094.
+- Not verified: anything on a real device or camera; production.
+
+### Deploy order
+1. Apply `20261202120000_checkin_offline_hardening.sql` (it refuses to run
+   without 20261115090000 and 20261112090000), then `verify-schema.js`.
+2. Deploy the API; its boot records `qr_v2_since` if `QR_SIGNING_KEY` is set.
+3. Ship the app (JS only: an EAS update reaches builds with the same
+   fingerprint). Until then, older apps treat every row as `legacy: true`.
+
+### Owner decisions on the open items, and their fixes (2026-11-20, later)
+
+| Item | Owner decision | Done |
+|---|---|---|
+| C-M7 list age | Warn after 2 h; never block | `LIST_OLD_MS` / `listIsOld` (`offlineList.ts`). The offline badge turns red ("guest list is old … changes since may be missed") and each answer the phone gave from a list over 2 h old says so. The phone keeps deciding |
+| C-L3 short PINs | The organizer must reset | `scan_devices.pin_short` (set at each sign-in, in migration 20261202120000); "PIN too short" + **Change PIN** on the Devices page (`PATCH …/scan-devices/:id/pin`); the app and the web gate tell the door. From `SHORT_PIN_CUTOFF` (env, unset = flag only) the RIGHT short PIN gets 403; a wrong one still gets the uniform 401 |
+| C-L3 web gate token | httpOnly cookie | `utils/gateAuth.js`: `session: 'cookie'` at sign-in sets `eventsli_gate` (httpOnly, SameSite=Strict, path /api/v1/scan) and leaves the token out of the answer; a cookie request must also send `X-Eventsli-Gate: 1`; `POST /scan/logout`. The page stores no token; an older stored session (with one) is dropped, so each tablet signs in once more. The app keeps Bearer |
+| C-L3 unauthenticated requests | (no trade-off) | 60/min per IP on the door's routes for requests without a token this server signed (`gate-unauthenticated`); a signed token is a signature check only, never counted |
+| C-H1 residual (backdating) | Leave as is | Note: it cannot let anyone in who could not already walk in; what it gains is ticket checking while the gate is shut, and every such row is labelled |
+
+Verification: backend unit 728/728 (gateAuth, short-PIN rules); check-in
+integration 83/83 (cookie sign-in end to end, short PIN flag/refusal/reset);
+mobile 273/273; web gate 49/49 + the PIN form (`devicePin.test.jsx`).

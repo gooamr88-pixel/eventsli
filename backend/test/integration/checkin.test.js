@@ -547,3 +547,189 @@ test('an admission a phone already made offline is recorded even after the gate 
     });
   }
 });
+
+// ── Audit 2026-11-20 ────────────────────────────────────────────────────────
+
+/** A ticket nobody has scanned, undoing one if this suite has used them all. */
+async function freshTicket(except = []) {
+  const { data: valid } = await supabase.from('tickets').select('id')
+    .in('id', tickets.map((t) => t.id).filter((id) => !except.includes(id))).eq('status', 'valid').limit(1);
+  if (valid?.length) return tickets.find((t) => t.id === valid[0].id);
+  const spare = tickets.find((t) => !except.includes(t.id));
+  await supabase.rpc('undo_check_in_v2', { p_event_id: ids.event, p_ticket_id: spare.id, p_device_id: deviceId });
+  return spare;
+}
+
+const deviceSeen = async () => (await supabase.from('scan_devices')
+  .select('gate_lock_seen_at').eq('id', deviceId).single()).data.gate_lock_seen_at;
+
+test('H1: a device TOLD the gate is shut cannot claim an offline admission made after that', async () => {
+  await supabase.rpc('set_scanner_mode', {
+    p_event_id: ids.event, p_mode: 'closed', p_until: null, p_reason: 'Audit H1', p_admin_id: null,
+  });
+  try {
+    // The status poll tells the device.
+    const poll = await fetch(`${baseUrl}/scan/status`, { headers: { authorization: `Bearer ${deviceToken}` } });
+    assert.equal(poll.status, 200);
+    const seen = await deviceSeen();
+    assert.ok(seen, 'the status poll records that this device now knows');
+
+    // "Admitted offline" a moment AFTER it was told: refused, not admitted.
+    const ticket = await freshTicket();
+    const after = await gate('/sync', {
+      scans: [{ qr: ticket.qr, clientScanId: `h1-after-${stamp}`, occurredAt: new Date().toISOString(), method: 'offline', offlineVerdict: 'admitted' }],
+    });
+    assert.equal(after.status, 200, JSON.stringify(after.body));
+    assert.equal(after.body.data.results[0].result, 'scanner_locked');
+    const { data: still } = await supabase.from('tickets').select('status').eq('id', ticket.id).single();
+    assert.equal(still.status, 'valid', 'the lock held');
+
+    // One it made BEFORE it was told is still recorded: that person is inside.
+    const before = await gate('/sync', {
+      scans: [{ qr: ticket.qr, clientScanId: `h1-before-${stamp}`, occurredAt: new Date(Date.parse(seen) - 60e3).toISOString(), method: 'offline', offlineVerdict: 'admitted' }],
+    });
+    assert.equal(before.body.data.results[0].result, 'admitted');
+
+    // The time it was first told is kept, not moved by later answers.
+    await gate('/verify', { qr: (await freshTicket([ticket.id])).qr });
+    assert.equal(new Date(await deviceSeen()).toISOString(), new Date(seen).toISOString());
+  } finally {
+    await supabase.rpc('set_scanner_mode', {
+      p_event_id: ids.event, p_mode: 'auto', p_until: null, p_reason: 'Test over, back to invoices', p_admin_id: null,
+    });
+  }
+  // Told it is open again: the device's knowledge is cleared.
+  await fetch(`${baseUrl}/scan/status`, { headers: { authorization: `Bearer ${deviceToken}` } });
+  assert.equal(await deviceSeen(), null);
+});
+
+test('H2: a code that is not ours, admitted offline, is logged on its ticket as a conflict', async () => {
+  const ticket = await freshTicket();
+  const b64u = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
+  const forged = `${b64u({ alg: 'HS256', typ: 'JWT' })}.${b64u({ typ: 'ticket', tid: ticket.id, eid: ids.event, v: 9 })}.AAAA`;
+  const scan = { qr: forged, clientScanId: `h2-forged-${stamp}`, occurredAt: new Date().toISOString(), method: 'offline', offlineVerdict: 'admitted' };
+  const res = await gate('/sync', { scans: [scan] });
+  assert.equal(res.body.data.results[0].result, 'invalid');
+  await gate('/sync', { scans: [scan] });   // a re-upload writes nothing new
+
+  const { data: logged } = await supabase.from('scans').select('result, conflict, method, detail').eq('ticket_id', ticket.id).eq('result', 'invalid');
+  assert.equal(logged.length, 1, JSON.stringify(logged));
+  assert.equal(logged[0].conflict, true);
+  assert.equal(logged[0].method, 'offline');
+  assert.match(logged[0].detail, /not issued by us/);
+  const { data: t } = await supabase.from('tickets').select('status').eq('id', ticket.id).single();
+  assert.equal(t.status, 'valid', 'the forged code admitted nobody on the server');
+
+  // A forged code the phone did NOT admit is refused and not logged.
+  const quiet = await gate('/sync', { scans: [{ ...scan, clientScanId: `h2-quiet-${stamp}`, offlineVerdict: undefined }] });
+  assert.equal(quiet.body.data.results[0].result, 'invalid');
+  const { count } = await supabase.from('scans').select('id', { count: 'exact', head: true }).eq('client_scan_id', `h2-quiet-${stamp}`);
+  assert.equal(count, 0);
+});
+
+test('sync: every queued scan is validated, and a database error is never sent to the door', async () => {
+  const ticket = await freshTicket();
+  const bad = await gate('/sync', { scans: [{ qr: ticket.qr, clientScanId: `bad-time-${stamp}`, occurredAt: 'not-a-date' }] });
+  assert.equal(bad.status, 400, JSON.stringify(bad.body));
+  assert.doesNotMatch(JSON.stringify(bad.body), /timestamp with time zone/);
+
+  for (const scans of [[{ clientScanId: 'no-code' }], ['a string'], [{ qr: ticket.qr, method: 'teleport' }]]) {
+    // eslint-disable-next-line no-await-in-loop
+    const r = await gate('/sync', { scans });
+    assert.equal(r.status, 400, JSON.stringify(scans));
+  }
+  // Still accepted: what the app and the web gate send.
+  const ok = await gate('/sync', { scans: [{ qr: 'junk.junk.junk', clientScanId: `junk-${stamp}`, occurredAt: new Date().toISOString(), method: 'offline', scannedByDeviceId: null }] });
+  assert.equal(ok.status, 200, JSON.stringify(ok.body));
+  assert.equal(ok.body.data.results[0].result, 'invalid');
+});
+
+test('a scan id already spent on one ticket does not answer for another', async () => {
+  const first = await freshTicket();
+  const clientScanId = `reuse-${stamp}`;
+  const a = await gate('/verify', { qr: first.qr, clientScanId });
+  assert.equal(a.body.data.result, 'admitted');
+
+  const second = await freshTicket([first.id]);
+  const b = await gate('/sync', { scans: [{ qr: second.qr, clientScanId, occurredAt: new Date().toISOString() }] });
+  assert.equal(b.body.data.results[0].result, 'error');
+  assert.notEqual(b.body.data.results[0].ticket_id, first.id, 'not the other ticket\'s answer');
+  const { data: t } = await supabase.from('tickets').select('status').eq('id', second.id).single();
+  assert.equal(t.status, 'valid', 'and the ticket shown was never quietly left out');
+});
+
+// ── The web gate's cookie, and retiring short PINs (owner, 2026-11-20) ──────
+
+test('the web gate signs in to an httpOnly cookie: the token is never in the answer', async () => {
+  const device = await scanSvc.registerDevice({ eventId: ids.event, label: 'Cookie door', pin: '914273' });
+  try {
+    const login = await fetch(`${baseUrl}/scan/login`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ deviceId: device.id, pin: '914273', session: 'cookie' }),
+    });
+    const body = await login.json();
+    assert.equal(login.status, 200, JSON.stringify(body));
+    assert.equal(body.data.token, undefined, 'no script on the page can hold it');
+    assert.equal(body.data.session, 'cookie');
+    const setCookie = login.headers.get('set-cookie') || '';
+    assert.match(setCookie, /^eventsli_gate=/);
+    assert.match(setCookie, /HttpOnly/i);
+    assert.match(setCookie, /SameSite=Strict/i);
+    assert.match(setCookie, /Path=\/api\/v1\/scan/);
+    const cookie = setCookie.split(';')[0];
+
+    const status = (headers) => fetch(`${baseUrl}/scan/status`, { headers: { cookie, ...headers } });
+    assert.equal((await status({ 'x-eventsli-gate': '1' })).status, 200);
+    assert.equal((await status({})).status, 401, 'the cookie alone, as a cross-site request would send it, is refused');
+
+    const out = await fetch(`${baseUrl}/scan/logout`, { method: 'POST', headers: { cookie } });
+    assert.equal(out.status, 200);
+    assert.match(out.headers.get('set-cookie') || '', /eventsli_gate=;.*Expires=Thu, 01 Jan 1970/i);
+
+    // The app is untouched: no `session`, the token in the body, no cookie.
+    const app = await fetch(`${baseUrl}/scan/login`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ deviceId: device.id, pin: '914273' }),
+    });
+    assert.ok((await app.json()).data.token);
+    assert.equal(app.headers.get('set-cookie'), null);
+  } finally {
+    await supabase.from('scan_devices').delete().eq('id', device.id);
+  }
+});
+
+test('a PIN under six digits is flagged for the organizer, refused from the cutoff, and retired by a new one', async () => {
+  // Made through the service: the route only accepts 6-12 digits, as for every new device.
+  const device = await scanSvc.registerDevice({ eventId: ids.event, label: 'Old tablet', pin: '4821' });
+  const login = (pin) => fetch(`${baseUrl}/scan/login`, {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ deviceId: device.id, pin }),
+  }).then(async (r) => ({ status: r.status, body: await r.json() }));
+  try {
+    // Before any cutoff: signs in, and is now flagged.
+    const before = await login('4821');
+    assert.equal(before.status, 200);
+    assert.equal(before.body.data.pinNeedsReset, true);
+    assert.equal((await scanSvc.listDevices(ids.event)).find((d) => d.id === device.id).pinNeedsReset, true);
+
+    process.env.SHORT_PIN_CUTOFF = new Date(Date.now() - 60e3).toISOString();
+    const refused = await login('4821');
+    assert.equal(refused.status, 403);
+    assert.match(refused.body.message, /too short/);
+    // A wrong PIN still gets the one sentence every failure gets.
+    const wrong = await login('9999');
+    assert.equal(wrong.status, 401);
+    assert.doesNotMatch(wrong.body.message, /too short/);
+
+    // The organizer sets a new PIN: flag cleared, it signs in.
+    assert.ok(await scanSvc.setDevicePin({ eventId: ids.event, deviceId: device.id, pin: '73519264' }));
+    assert.equal((await scanSvc.listDevices(ids.event)).find((d) => d.id === device.id).pinNeedsReset, false);
+    const after = await login('73519264');
+    assert.equal(after.status, 200);
+    assert.equal(after.body.data.pinNeedsReset, undefined);
+    // Only for a device of THIS event.
+    assert.equal(await scanSvc.setDevicePin({ eventId: crypto.randomUUID(), deviceId: device.id, pin: '11112222' }), null);
+  } finally {
+    delete process.env.SHORT_PIN_CUTOFF;
+    await supabase.from('scan_devices').delete().eq('id', device.id);
+  }
+});
