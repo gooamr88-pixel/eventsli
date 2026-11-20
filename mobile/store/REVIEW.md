@@ -6,7 +6,16 @@ What Apple's and Google's reviewers need, and the review risks we know of.
 
 Reviewers use the store build, which talks to `https://eventsli.com`. The local
 demo (`backend/scripts/demo-checkin.js`) refuses to run against production by
-design, so this is made by hand, on the live site, by the owner:
+design, so this is made on the live site, by the owner.
+
+**One command does all of it (2026-11-20):** on the server, from `backend/`,
+`node scripts/review-account.js check`, then `create`, and `remove` after
+approval. It makes the steps below — account, hidden event, 20 free tickets,
+9 already checked in — and prints the password once. Read the comment at the
+top of the script for what `remove` has to keep (the 0.00 ledger lines).
+Tested end to end on the local database, 2026-11-20.
+
+By hand, the same thing:
 
 1. Create an organizer account, for example `appreview@eventsli.com`, with a
    strong password that is not used anywhere else.
