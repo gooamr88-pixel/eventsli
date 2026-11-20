@@ -7,6 +7,7 @@ import { formatEventTime } from '../../../lib/eventTime';
 import { safeExternalUrl } from '../../../utils/safeUrl';
 import NavIcon from '../../../components/shell/NavIcon';
 import VendorApply from './VendorApply';
+import FloorPlanViewer from '../../../components/vendors/floorPlan/FloorPlanViewer';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -100,6 +101,14 @@ export default async function VendorPage({ params }) {
               </li>
             ))}
           </ul>
+        </section>
+      )}
+
+      {page.floorPlan && (
+        <section id="floor-plan" aria-labelledby="vd-plan" className="fx-stack">
+          <h2 id="vd-plan" className="es-lp-title es-lp-title--bar">Floor plan</h2>
+          <p className="text-muted">Tap a booth to see who is there{page.acceptingApplications ? ', or what is still free' : ''}.</p>
+          <FloorPlanViewer floorPlan={page.floorPlan} currency={event.currency} title={`${event.title} floor plan`} />
         </section>
       )}
 

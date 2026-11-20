@@ -39,6 +39,8 @@ const organizer = {
   recordPayment: run((req) => V.recordOfflinePayment(ev(req), req.params.appId, req.body, actor(req))),
   close: run((req) => V.close(ev(req), req.params.appId, req.body.outcome, req.body.reason, actor(req))),
   doorList: run((req) => V.doorList(ev(req))),
+  getFloorPlan: run((req) => V.getFloorPlan(ev(req))),
+  saveFloorPlan: run((req) => V.saveFloorPlan(ev(req), req.body, actor(req))),
   signLogoUpload: run((req) => V.signLogoUpload(ev(req), req.body.contentType)),
   confirmLogo: run((req) => V.confirmLogo(ev(req), req.body.path)),
 };

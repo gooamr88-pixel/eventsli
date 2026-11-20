@@ -4,6 +4,7 @@ const media = require('./mediaService');
 const emails = require('./vendorEmails');
 const S = require('./sponsorshipService');
 const R = require('./vendorRules');
+const FP = require('./vendorFloorPlan');
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -22,10 +23,10 @@ const R = require('./vendorRules');
 
 const { fail } = R;
 
-const BOOTH_COLUMNS = 'id, event_id, name, description, size_label, price_cents, quantity, staff_passes, includes, is_public, is_active, sort_order';
+const BOOTH_COLUMNS = 'id, event_id, name, description, size_label, price_cents, quantity, staff_passes, includes, color, is_public, is_active, sort_order';
 const APP_COLUMNS = [
   'id', 'event_id', 'company_id', 'stage', 'source', 'business_name', 'contact_name', 'contact_email', 'contact_phone',
-  'website', 'category', 'description', 'answers', 'requested_booth_type_id', 'booth_type_id', 'booth_label',
+  'website', 'category', 'description', 'answers', 'requested_booth_type_id', 'booth_type_id', 'booth_label', 'booth_key',
   'amount_cents', 'currency', 'staff_passes', 'includes', 'terms', 'offer_sent_at', 'offer_expires_at', 'accepted_at',
   'signer_name', 'signer_email', 'signature_method', 'signature_svg', 'signature_sha256', 'paid_cents', 'paid_at',
   'paid_method', 'paid_reference', 'platform_fee_cents', 'staff', 'logo_url', 'logo_path', 'listed', 'closed_at',
@@ -48,6 +49,7 @@ function shapeBooth(b, { taken = 0, offered = 0 } = {}) {
     remaining: b.quantity === null || b.quantity === undefined ? null : Math.max(0, b.quantity - taken),
     staffPasses: b.staff_passes,
     includes: Array.isArray(b.includes) ? b.includes : [],
+    color: b.color || null,
     isPublic: b.is_public,
     isActive: b.is_active,
     sortOrder: b.sort_order,
@@ -70,6 +72,7 @@ function shapeApp(a, { boothNames = new Map(), full = false } = {}) {
     boothTypeId: a.booth_type_id,
     boothName: boothNames.get(a.booth_type_id) || null,
     boothLabel: a.booth_label,
+    boothKey: a.booth_key || null,
     amountCents: Number(a.amount_cents),
     paidCents: Number(a.paid_cents),
     currency: a.currency,
@@ -219,6 +222,7 @@ function boothRow(body, { partial = false } = {}) {
   }
   if (!partial || body.staffPasses !== undefined) row.staff_passes = body.staffPasses === undefined ? 2 : Number(body.staffPasses);
   if (!partial || body.includes !== undefined) row.includes = R.cleanList(body.includes, { what: 'inclusions' });
+  if (body.color !== undefined) row.color = /^#[0-9a-fA-F]{6}$/.test(String(body.color || '')) ? String(body.color).toLowerCase() : null;
   if (body.isPublic !== undefined) row.is_public = body.isPublic === true;
   if (body.isActive !== undefined) row.is_active = body.isActive === true;
   if (body.sortOrder !== undefined) row.sort_order = Number(body.sortOrder);
@@ -377,8 +381,19 @@ async function setWaitlist(eventId, appId, waitlisted, actorId) {
 async function sendOffer(eventId, appId, body, actorId) {
   const app = await loadApp(eventId, appId);
   const event = await S.eventFor(eventId);
+  // A booth picked on the floor plan brings its code and, unless the organizer
+  // chose otherwise, its booth type.
+  let spot = null;
+  if (body.boothKey) {
+    const { plan } = await readFloorPlan(eventId);
+    spot = FP.findBooth(plan, body.boothKey);
+    if (!spot) throw fail('NOT_FOUND', 'That booth is not on the floor plan any more. Reload and choose again.');
+    if (spot.blocked) throw fail('VENDOR_BOOTH_TAKEN', 'That booth is marked unavailable on the floor plan.');
+  }
+  const boothTypeId = body.boothTypeId || spot?.boothTypeId;
+  if (!boothTypeId) throw fail('VALIDATION_ERROR', 'Choose a booth type, or give this booth a type on the floor plan.');
   const { data: booth } = await supabase.from('vendor_booth_types').select(BOOTH_COLUMNS)
-    .eq('id', body.boothTypeId).eq('event_id', eventId).maybeSingle();
+    .eq('id', boothTypeId).eq('event_id', eventId).maybeSingle();
   if (!booth) throw fail('NOT_FOUND', 'Choose a booth type from this event.');
   const amount = body.amountCents === undefined || body.amountCents === null ? Number(booth.price_cents) : Number(body.amountCents);
   if (!Number.isInteger(amount) || amount < 0) throw fail('VALIDATION_ERROR', 'The booth fee must be a whole number of cents.');
@@ -397,11 +412,12 @@ async function sendOffer(eventId, appId, body, actorId) {
     p_booth_type_id: booth.id,
     p_amount_cents: amount,
     p_currency: event.currency,
-    p_booth_label: text(body.boothLabel, 40),
+    p_booth_label: text(body.boothLabel, 40) || (spot ? text(spot.code, 40) : null),
     p_staff_passes: passes,
     p_includes: includes,
     p_terms: terms,
     p_expires_at: expires ? expires.toISOString() : null,
+    p_booth_key: spot ? spot.id : null,
   });
   if (error) throw R.fromDb(error);
 
@@ -481,6 +497,72 @@ async function doorList(eventId) {
   }));
 }
 
+// ── The floor plan ────────────────────────────────────────────────────────
+/** Applications holding a booth on the plan: offered or accepted. */
+async function boothClaims(eventId) {
+  const { data, error } = await supabase.from('vendor_applications')
+    .select('id, booth_key, stage, paid_at, business_name, category, listed')
+    .eq('event_id', eventId).not('booth_key', 'is', null).in('stage', ['offered', 'confirmed']);
+  if (error) throw new Error(error.message);
+  return data || [];
+}
+
+async function readFloorPlan(eventId) {
+  const { data, error } = await supabase.from('vendor_floor_plans').select('plan, version, updated_at').eq('event_id', eventId).maybeSingle();
+  if (error) throw new Error(error.message);
+  const plan = data?.plan && Array.isArray(data.plan.elements) ? data.plan : { ...FP.DEFAULT_SIZE, elements: [] };
+  return { plan, version: data?.version || 0, updatedAt: data?.updated_at || null };
+}
+
+/** The organizer's view: the plan, every booth's state with vendor names, and the booth types. */
+async function getFloorPlan(eventId) {
+  const [{ plan, version, updatedAt }, claims, booths] = await Promise.all([readFloorPlan(eventId), boothClaims(eventId), listBooths(eventId)]);
+  return { plan, version, updatedAt, booths: FP.boothStatuses(plan, claims, { audience: 'organizer' }), boothTypes: booths };
+}
+
+/**
+ * Save the whole plan. `version` is the one the editor loaded: a plan saved
+ * from another tab in between is refused rather than overwritten. A booth an
+ * application still holds cannot be deleted.
+ */
+async function saveFloorPlan(eventId, body, actorId) {
+  const plan = FP.cleanPlan(body.plan);
+  const current = await readFloorPlan(eventId);
+  const stale = 'The floor plan was saved somewhere else since you opened it. Reload it, then make your change again.';
+  if (Number(body.version) !== current.version) throw fail('CONFLICT', stale);
+  const lost = FP.removedClaimedBooths(plan, await boothClaims(eventId));
+  if (lost.length) {
+    const names = lost.slice(0, 5).map((c) => c.business_name).join(', ');
+    const what = lost.length === 1 ? 'a booth' : `${lost.length} booths`;
+    throw fail('CONFLICT', `You removed ${what} offered to or booked by a vendor (${names}). Move the booth instead, or close the offer first.`);
+  }
+  const row = { event_id: eventId, plan, version: current.version + 1, updated_by: actorId || null, updated_at: new Date().toISOString() };
+  const q = current.version === 0
+    ? supabase.from('vendor_floor_plans').insert(row)
+    : supabase.from('vendor_floor_plans').update(row).eq('event_id', eventId).eq('version', current.version);
+  const { data, error } = await q.select('version');
+  if (error) {
+    if (error.code === '23505') throw fail('CONFLICT', stale);
+    throw new Error(error.message);
+  }
+  if (!data?.length) throw fail('CONFLICT', stale);
+  const { data: ev } = await supabase.from('events').select('slug').eq('id', eventId).maybeSingle();
+  await S.revalidateEvent(ev?.slug);
+  return getFloorPlan(eventId);
+}
+
+/** The plan for the public page or a vendor: names only where the audience may see them. */
+async function floorPlanFor(eventId, { audience = 'public', mine = null } = {}) {
+  const { plan } = await readFloorPlan(eventId);
+  if (!FP.boothsOf(plan).length) return null;
+  const [claims, booths] = await Promise.all([boothClaims(eventId), listBooths(eventId)]);
+  return {
+    plan,
+    booths: FP.boothStatuses(plan, claims, { audience, mine }),
+    boothTypes: booths.map((b) => ({ id: b.id, name: b.name, color: b.color, priceCents: b.priceCents, sizeLabel: b.sizeLabel })),
+  };
+}
+
 function signLogoUpload(eventId, contentType) {
   return media.signUpload({ eventId, contentType: String(contentType || '').toLowerCase(), kind: 'vendor' });
 }
@@ -494,5 +576,5 @@ module.exports = {
   notifyPaid, signLogoUpload, confirmLogo, close,
   getProgram, saveProgram, listBooths, createBooth, updateBooth, removeBooth,
   listApplications, getApplication, createApplication, updateApplication, setWaitlist, sendOffer,
-  recordOfflinePayment, doorList,
+  recordOfflinePayment, doorList, getFloorPlan, saveFloorPlan, floorPlanFor,
 };

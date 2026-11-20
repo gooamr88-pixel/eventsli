@@ -246,6 +246,8 @@ export const ERRORS = Object.freeze(Object.fromEntries([
     'The booth fee is already recorded. Reload the page to see the booking as it is now.', 'fix'),
   E('VENDOR_PAYMENT_PENDING', 'Your payment is going through',
     'A card payment for this booth is already being processed. Refresh the page in a minute before trying again.', 'waiting'),
+  E('VENDOR_BOOTH_TAKEN', 'That booth is taken',
+    'Another vendor already has an offer for, or has booked, that booth. Choose a different booth on the floor plan.', 'retry'),
   E('VENDOR_APPLICATIONS_CLOSED', 'Applications have closed',
     'The organizer is no longer taking vendor applications for this event. Contact them directly if you still want a space.', 'fatal'),
   E('CONFLICT', 'That cannot be done right now',

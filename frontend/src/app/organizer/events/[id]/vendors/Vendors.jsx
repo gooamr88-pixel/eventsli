@@ -18,6 +18,7 @@ import { useEventContext } from '../EventContext';
 import Booths from './Booths';
 import VendorProgram from './VendorProgram';
 import DoorList from './DoorList';
+import FloorPlanEditor from './FloorPlanEditor';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -25,6 +26,8 @@ import DoorList from './DoorList';
  *
  *   Applications  every business that applied or was added: New → Waitlist →
  *                 Offer sent → Accepted → Booked, with closed ones apart
+ *   Floor plan    the hall drawn to scale-ish: walls, doors, the stage, and
+ *                 the booths themselves, each with a code and a type
  *   Booths        the spaces sold: price, how many, staff passes, inclusions
  *   Door list     booked vendors and the staff they named, printable
  *   Vendor page   the public page and form: deadline, categories, questions,
@@ -34,7 +37,7 @@ import DoorList from './DoorList';
  * an offer, record the booth fee or close it.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-const VIEWS = [['apps', 'Applications'], ['booths', 'Booths'], ['door', 'Door list'], ['page', 'Vendor page']];
+const VIEWS = [['apps', 'Applications'], ['plan', 'Floor plan'], ['booths', 'Booths'], ['door', 'Door list'], ['page', 'Vendor page']];
 
 export default function Vendors({ eventId }) {
   const event = useEventContext()?.event;
@@ -74,6 +77,7 @@ export default function Vendors({ eventId }) {
       </div>
 
       {view === 'apps' && <Board eventId={eventId} apps={apps} programOpen={!!program.data?.isOpen} onOpenPage={() => setView('page')} />}
+      {view === 'plan' && <FloorPlanEditor eventId={eventId} currency={currency} />}
       {view === 'booths' && <Booths eventId={eventId} currency={currency} state={booths} onChange={() => { booths.reload(); apps.reload(); }} />}
       {view === 'door' && <DoorList eventId={eventId} eventTitle={event?.title} />}
       {view === 'page' && <VendorProgram eventId={eventId} state={program} slug={event?.slug} timezone={event?.timezone} />}

@@ -84,6 +84,8 @@ CREATE TABLE IF NOT EXISTS vendor_booth_types (
   quantity      INT,
   staff_passes  INT NOT NULL DEFAULT 2,
   includes      JSONB NOT NULL DEFAULT '[]'::jsonb,
+  -- The colour its free booths are drawn in on the floor plan.
+  color         TEXT CHECK (color IS NULL OR color ~ '^#[0-9a-fA-F]{6}$'),
   is_public     BOOLEAN NOT NULL DEFAULT true,
   is_active     BOOLEAN NOT NULL DEFAULT true,
   sort_order    INT NOT NULL DEFAULT 0,
@@ -129,6 +131,8 @@ CREATE TABLE IF NOT EXISTS vendor_applications (
   -- off sale, never deleted.
   booth_type_id             UUID REFERENCES vendor_booth_types(id) ON DELETE RESTRICT,
   booth_label               TEXT CHECK (booth_label IS NULL OR char_length(booth_label) <= 40),
+  -- The booth on the floor plan (an element id in vendor_floor_plans.plan).
+  booth_key                 TEXT CHECK (booth_key IS NULL OR char_length(booth_key) <= 40),
   amount_cents              BIGINT NOT NULL DEFAULT 0 CHECK (amount_cents >= 0),
   currency                  TEXT NOT NULL DEFAULT 'CAD' CHECK (currency ~ '^[A-Z]{3}$'),
   staff_passes              INT NOT NULL DEFAULT 0 CHECK (staff_passes BETWEEN 0 AND 50),
@@ -189,8 +193,30 @@ CREATE INDEX IF NOT EXISTS vendor_applications_event_idx ON vendor_applications 
 CREATE INDEX IF NOT EXISTS vendor_applications_email_idx ON vendor_applications (lower(contact_email));
 CREATE INDEX IF NOT EXISTS vendor_applications_company_idx ON vendor_applications (company_id) WHERE company_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS vendor_applications_booth_idx ON vendor_applications (booth_type_id) WHERE booth_type_id IS NOT NULL;
+-- ONE VENDOR PER BOOTH: a booth on the floor plan is offered to, or booked
+-- by, one application at a time. Declined, withdrawn and cancelled ones fall
+-- out of the index and free it.
+CREATE UNIQUE INDEX IF NOT EXISTS vendor_applications_booth_once
+  ON vendor_applications (event_id, booth_key)
+  WHERE booth_key IS NOT NULL AND stage IN ('offered', 'confirmed');
 CREATE UNIQUE INDEX IF NOT EXISTS vendor_applications_session_once
   ON vendor_applications (stripe_session_id) WHERE stripe_session_id IS NOT NULL;
+
+-- ── The floor plan ────────────────────────────────────────────────────────
+-- The vendor map: walls, doors, areas, arrows, labels, decorative tables and
+-- seating, and the BOOTHS, each with a code and a booth type. One JSON
+-- document per event, checked and bounded by the API (vendorFloorPlan.js),
+-- saved with a version so two tabs cannot overwrite each other silently.
+-- Separate from the ticket seating map on purpose: booths are not tickets,
+-- and a general-admission expo needs a floor plan with no seat map at all.
+CREATE TABLE IF NOT EXISTS vendor_floor_plans (
+  event_id    UUID PRIMARY KEY REFERENCES events(id) ON DELETE CASCADE,
+  plan        JSONB NOT NULL DEFAULT '{}'::jsonb,
+  version     INT NOT NULL DEFAULT 1,
+  updated_by  UUID REFERENCES profiles(id) ON DELETE SET NULL,
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT vendor_floor_plan_shape CHECK (jsonb_typeof(plan) = 'object' AND pg_column_size(plan) <= 1500000)
+);
 
 -- ── History ───────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS vendor_application_events (
@@ -208,10 +234,11 @@ ALTER TABLE vendor_programs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE vendor_booth_types ENABLE ROW LEVEL SECURITY;
 ALTER TABLE vendor_applications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE vendor_application_events ENABLE ROW LEVEL SECURITY;
-REVOKE ALL ON vendor_programs, vendor_booth_types, vendor_applications, vendor_application_events
-  FROM PUBLIC, anon, authenticated;
+ALTER TABLE vendor_floor_plans ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON vendor_programs, vendor_booth_types, vendor_applications, vendor_application_events,
+  vendor_floor_plans FROM PUBLIC, anon, authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON vendor_programs, vendor_booth_types, vendor_applications,
-  vendor_application_events TO service_role;
+  vendor_application_events, vendor_floor_plans TO service_role;
 
 
 -- ═══ FUNCTIONS ═════════════════════════════════════════════════════════════
@@ -221,7 +248,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON vendor_programs, vendor_booth_types, ven
 CREATE OR REPLACE FUNCTION vendor_send_offer(
   p_application_id UUID, p_actor UUID, p_booth_type_id UUID, p_amount_cents BIGINT,
   p_currency TEXT, p_booth_label TEXT, p_staff_passes INT, p_includes JSONB,
-  p_terms TEXT, p_expires_at TIMESTAMPTZ
+  p_terms TEXT, p_expires_at TIMESTAMPTZ, p_booth_key TEXT DEFAULT NULL
 ) RETURNS VOID
 LANGUAGE plpgsql
 SECURITY DEFINER SET search_path = public
@@ -243,12 +270,17 @@ BEGIN
          currency = upper(p_currency), booth_label = NULLIF(btrim(p_booth_label), ''),
          staff_passes = GREATEST(0, LEAST(50, COALESCE(p_staff_passes, 0))),
          includes = COALESCE(p_includes, '[]'::jsonb), terms = p_terms,
-         offer_sent_at = now(), offer_expires_at = p_expires_at, updated_at = now()
+         offer_sent_at = now(), offer_expires_at = p_expires_at,
+         booth_key = NULLIF(btrim(p_booth_key), ''), updated_at = now()
    WHERE id = a.id;
 
   INSERT INTO vendor_application_events (application_id, kind, actor_id, detail)
   VALUES (a.id, CASE WHEN a.stage = 'offered' THEN 'offer_revised' ELSE 'offer_sent' END, p_actor,
-          jsonb_build_object('amountCents', p_amount_cents, 'boothTypeId', p_booth_type_id, 'boothLabel', p_booth_label));
+          jsonb_build_object('amountCents', p_amount_cents, 'boothTypeId', p_booth_type_id, 'boothLabel', p_booth_label, 'boothKey', p_booth_key));
+EXCEPTION WHEN unique_violation THEN
+  -- vendor_applications_booth_once: that booth on the floor plan is already
+  -- offered to, or booked by, another vendor.
+  RAISE EXCEPTION 'VENDOR_BOOTH_TAKEN';
 END;
 $$;
 
@@ -387,11 +419,11 @@ BEGIN
 END;
 $$;
 
-REVOKE EXECUTE ON FUNCTION vendor_send_offer(UUID, UUID, UUID, BIGINT, TEXT, TEXT, INT, JSONB, TEXT, TIMESTAMPTZ) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION vendor_send_offer(UUID, UUID, UUID, BIGINT, TEXT, TEXT, INT, JSONB, TEXT, TIMESTAMPTZ, TEXT) FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION vendor_accept(UUID, UUID, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION vendor_record_payment(UUID, TEXT, BIGINT, TEXT, UUID, TEXT, TEXT, TEXT, BIGINT) FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION vendor_close(UUID, UUID, TEXT, TEXT) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION vendor_send_offer(UUID, UUID, UUID, BIGINT, TEXT, TEXT, INT, JSONB, TEXT, TIMESTAMPTZ) TO service_role;
+GRANT EXECUTE ON FUNCTION vendor_send_offer(UUID, UUID, UUID, BIGINT, TEXT, TEXT, INT, JSONB, TEXT, TIMESTAMPTZ, TEXT) TO service_role;
 GRANT EXECUTE ON FUNCTION vendor_accept(UUID, UUID, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) TO service_role;
 GRANT EXECUTE ON FUNCTION vendor_record_payment(UUID, TEXT, BIGINT, TEXT, UUID, TEXT, TEXT, TEXT, BIGINT) TO service_role;
 GRANT EXECUTE ON FUNCTION vendor_close(UUID, UUID, TEXT, TEXT) TO service_role;

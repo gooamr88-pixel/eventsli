@@ -265,6 +265,55 @@ test('cancelling a booking takes it out of the directory; a vendor can withdraw 
   assert.deepEqual(removed.body.data, { removed: false, deactivated: true });
 });
 
+test('the floor plan: booths are picked on it, one vendor per booth, held booths cannot be deleted', async () => {
+  const empty = (await call('GET', O('/floor-plan'), null, tokens.owner)).body.data;
+  assert.equal(empty.version, 0);
+  const plan = {
+    width: 1000, height: 600,
+    elements: [
+      { kind: 'wall', points: [[0, 0], [1000, 0], [1000, 600], [0, 600]], closed: true },
+      { id: 'db1', kind: 'booth', x: 100, y: 50, w: 60, h: 60, code: 'DB1', boothTypeId: stall.id },
+      { id: 'db2', kind: 'booth', x: 160, y: 50, w: 60, h: 60, code: 'DB2', boothTypeId: stall.id },
+      { id: 'x9', kind: 'booth', x: 220, y: 50, w: 60, h: 60, code: 'X9', blocked: true },
+      { kind: 'area', x: 20, y: 200, w: 90, h: 100, text: 'stage', sub: 'Scene' },
+    ],
+  };
+  const saved = await call('PUT', O('/floor-plan'), { plan, version: 0 }, tokens.owner);
+  assert.equal(saved.status, 200, JSON.stringify(saved.body));
+  assert.equal(saved.body.data.version, 1);
+  assert.equal(saved.body.data.booths.db1.status, 'available');
+  assert.equal(saved.body.data.booths.x9.status, 'blocked');
+  const stale = await call('PUT', O('/floor-plan'), { plan, version: 0 }, tokens.owner);
+  assert.equal(stale.status, 409, 'a stale tab cannot overwrite');
+
+  const a1 = (await call('POST', O('/applications'), { businessName: 'Map One', contactEmail: 'map1@eventsli-test.invalid' }, tokens.owner)).body.data.id;
+  const a2 = (await call('POST', O('/applications'), { businessName: 'Map Two', contactEmail: 'map2@eventsli-test.invalid' }, tokens.owner)).body.data.id;
+  const offered = await call('POST', O(`/applications/${a1}/offer`), { boothKey: 'db1', terms: 'T.' }, tokens.owner);
+  assert.equal(offered.status, 200, JSON.stringify(offered.body));
+  assert.equal(offered.body.data.boothLabel, 'DB1', 'the booth code becomes the booth number');
+  assert.equal(offered.body.data.boothTypeId, stall.id, 'and its type the booth type');
+  assert.equal(offered.body.data.boothKey, 'db1');
+
+  const clash = await call('POST', O(`/applications/${a2}/offer`), { boothKey: 'db1', terms: 'T.' }, tokens.owner);
+  assert.equal(clash.status, 409);
+  assert.equal(clash.body.error, 'VENDOR_BOOTH_TAKEN');
+  const blocked = await call('POST', O(`/applications/${a2}/offer`), { boothKey: 'x9', boothTypeId: stall.id, terms: 'T.' }, tokens.owner);
+  assert.equal(blocked.body.error, 'VENDOR_BOOTH_TAKEN');
+
+  const removing = await call('PUT', O('/floor-plan'), { plan: { ...plan, elements: plan.elements.filter((e) => e.id !== 'db1') }, version: 1 }, tokens.owner);
+  assert.equal(removing.status, 409);
+  assert.match(removing.body.message, /Map One/);
+
+  const pub = (await call('GET', `/public/events/${slug}/vendors`)).body.data.floorPlan;
+  assert.equal(pub.booths.db1.status, 'held');
+  assert.equal(pub.booths.db1.vendor, undefined, 'no name in public before the booking is paid');
+
+  // Declining frees the booth for someone else.
+  await call('POST', O(`/applications/${a1}/close`), { outcome: 'rejected' }, tokens.owner);
+  const again = await call('POST', O(`/applications/${a2}/offer`), { boothKey: 'db1', terms: 'T.' }, tokens.owner);
+  assert.equal(again.status, 200, JSON.stringify(again.body));
+});
+
 test('applications close at the deadline', async () => {
   await call('PUT', O('/program'), { applicationsCloseAt: new Date(Date.now() - 60000).toISOString() }, tokens.owner);
   const page = (await call('GET', `/public/events/${slug}/vendors`)).body.data;

@@ -20,6 +20,7 @@ import { Loading, ErrorNotice, Notice } from '../../../components/Feedback';
 import { AgreementText, LogoField } from '../../../components/sponsors/sponsorUi';
 import { VendorStatus } from '../../../components/vendors/vendorUi';
 import SignatureDialog from '../../../checkout/[reservationId]/SignatureDialog';
+import FloorPlanViewer from '../../../components/vendors/floorPlan/FloorPlanViewer';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -129,6 +130,12 @@ export default function VendorBooking({ appId }) {
           )}
 
           {a.stage === 'confirmed' && a.amountCents > 0 && <Payment app={a} tz={tz} onChange={app.reload} />}
+
+          {a.floorPlan && (
+            <Panel icon="map" title="Your booth on the floor plan" description={a.boothLabel ? `Booth ${a.boothLabel}, outlined in red.` : 'Your booth is outlined in red.'}>
+              <FloorPlanViewer floorPlan={a.floorPlan} currency={a.currency} title="Event floor plan" />
+            </Panel>
+          )}
 
           {a.vendorInfo && (
             <Panel icon="info" title="For the day"><div className="es-sp-terms es-sp-terms--compact">{a.vendorInfo}</div></Panel>

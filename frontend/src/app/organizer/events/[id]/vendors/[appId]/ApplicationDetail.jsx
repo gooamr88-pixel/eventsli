@@ -19,6 +19,7 @@ import { Loading, ErrorNotice, Notice } from '../../../../../components/Feedback
 import { AgreementText } from '../../../../../components/sponsors/sponsorUi';
 import { VendorStatus, STARTER_VENDOR_TERMS } from '../../../../../components/vendors/vendorUi';
 import { useEventContext } from '../../EventContext';
+import FloorPlanViewer from '../../../../../components/vendors/floorPlan/FloorPlanViewer';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -182,6 +183,7 @@ const addDays = (n) => new Date(Date.now() + n * 86400e3).toISOString();
 function OfferEditor({ eventId, app, onSent }) {
   const booths = useApi(`/events/${eventId}/vendors/booths`);
   const program = useApi(`/events/${eventId}/vendors/program`);
+  const floor = useApi(`/events/${eventId}/vendors/floor-plan`);
   if (booths.error || program.error) return <ErrorNotice error={booths.error || program.error} onRetry={() => { booths.reload(); program.reload(); }} />;
   if (!booths.data || !program.data) return <Loading variant="card" label="Loading the offer" />;
   if (booths.data.length === 0) {
@@ -191,10 +193,10 @@ function OfferEditor({ eventId, app, onSent }) {
       </Notice>
     );
   }
-  return <OfferForm eventId={eventId} app={app} booths={booths.data} program={program.data} onSent={onSent} />;
+  return <OfferForm eventId={eventId} app={app} booths={booths.data} program={program.data} floor={floor.data} onSent={onSent} />;
 }
 
-function OfferForm({ eventId, app, booths, program, onSent }) {
+function OfferForm({ eventId, app, booths, program, floor, onSent }) {
   const currency = app.currency;
   const byId = (id) => booths.find((b) => b.id === id) || null;
   const first = byId(app.boothTypeId) || byId(app.requestedBoothTypeId) || booths.find((b) => b.isActive) || booths[0];
@@ -207,7 +209,21 @@ function OfferForm({ eventId, app, booths, program, onSent }) {
     includes: (revising ? app.includes : first.includes).join('\n'),
     terms: app.terms || program.defaultTerms || STARTER_VENDOR_TERMS,
     expires: dateInput(app.offerExpiresAt && new Date(app.offerExpiresAt) > new Date() ? app.offerExpiresAt : addDays(7)),
+    boothKey: app.boothKey || '',
   }));
+  const [picking, setPicking] = useState(false);
+  const hasPlan = !!floor?.plan?.elements?.some((e) => e.kind === 'booth');
+  const picked = hasPlan && form.boothKey ? floor.plan.elements.find((e) => e.id === form.boothKey) : null;
+
+  /** A booth chosen on the map brings its code and its type (with that type's fee, passes and inclusions). */
+  function pickBooth(el) {
+    const b = el.boothTypeId ? byId(el.boothTypeId) : null;
+    setForm((f) => ({
+      ...f, boothKey: el.id, boothLabel: el.code || f.boothLabel,
+      ...(b ? { boothTypeId: b.id, fee: centsToInput(b.priceCents, currency), staffPasses: String(b.staffPasses), includes: b.includes.join('\n') } : {}),
+    }));
+    setPicking(false);
+  }
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -230,6 +246,7 @@ function OfferForm({ eventId, app, booths, program, onSent }) {
     try {
       await post(`/events/${eventId}/vendors/applications/${app.id}/offer`, {
         boothTypeId: form.boothTypeId,
+        boothKey: form.boothKey || null,
         amountCents: cents,
         boothLabel: form.boothLabel.trim() || null,
         staffPasses: Number(form.staffPasses) || 0,
@@ -248,6 +265,33 @@ function OfferForm({ eventId, app, booths, program, onSent }) {
   return (
     <Panel icon="send" title={revising ? 'Revise the offer' : 'Offer a space'} description={`It is emailed to ${app.contactEmail}, who signs in with that address to accept and pay.`}>
       <form onSubmit={submit} className="fx-stack fx-stack--sm">
+        {hasPlan && (
+          <div className="es-vd-pick">
+            <div className="fx-row fx-row--between gap-2">
+              <span className="text-sm">
+                <b>Booth on the floor plan:</b>{' '}
+                {picked ? `${picked.code || 'Booth'} ` : 'none chosen '}
+              </span>
+              <span className="fx-row gap-1">
+                <button type="button" className="es-btn es-btn--secondary es-btn--sm" onClick={() => setPicking((v) => !v)}>
+                  <NavIcon name="map" size={16} />{picking ? 'Close the map' : picked ? 'Change booth' : 'Choose on the floor plan'}
+                </button>
+                {picked && <button type="button" className="es-btn es-btn--ghost es-btn--sm" onClick={() => setForm((f) => ({ ...f, boothKey: '' }))}>Remove</button>}
+              </span>
+            </div>
+            {picking && (
+              <FloorPlanViewer
+                floorPlan={floor}
+                currency={currency}
+                pickable
+                pickedKey={form.boothKey || null}
+                canPick={(el, st) => !st || st.status === 'available' || st.applicationId === app.id}
+                onPick={pickBooth}
+                title="Choose a booth"
+              />
+            )}
+          </div>
+        )}
         <div className="fx-grid fx-grid--2">
           <SelectField label="Booth type" name="of-booth" value={form.boothTypeId} onChange={chooseBooth}
             options={booths.filter((b) => b.isActive || b.id === app.boothTypeId).map((b) => [b.id, `${b.name}${b.remaining === 0 ? ' — fully booked' : b.remaining !== null ? ` — ${b.remaining} left` : ''}`])}

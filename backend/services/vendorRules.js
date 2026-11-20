@@ -39,6 +39,7 @@ const DB_CODES = Object.freeze({
   VENDOR_OFFER_EXPIRED: ['VENDOR_OFFER_EXPIRED', 'This offer has expired. Ask the organizer to send it again.'],
   VENDOR_ALREADY_PAID: ['VENDOR_ALREADY_PAID', 'The booth fee has already been recorded.'],
   VENDOR_PAYMENT_MISMATCH: ['FORBIDDEN', 'That payment does not belong to this booking.'],
+  VENDOR_BOOTH_TAKEN: ['VENDOR_BOOTH_TAKEN', 'That booth is already offered to or booked by another vendor. Choose another booth.'],
 });
 
 function fromDb(error) {

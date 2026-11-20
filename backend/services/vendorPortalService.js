@@ -100,15 +100,18 @@ async function listForUser(user) {
 
 async function getForUser(user, appId) {
   const app = await appForUser(user, appId);
-  const [events, names, program] = await Promise.all([
+  const [events, names, program, floorPlan] = await Promise.all([
     P.eventsById([app.event_id]), V.boothNames([app.booth_type_id]), V.readProgram(app.event_id),
+    // Their booth on the map, once they have one.
+    app.booth_key && ['offered', 'confirmed'].includes(app.stage)
+      ? V.floorPlanFor(app.event_id, { audience: 'vendor', mine: app.booth_key }) : null,
   ]);
   let card = null;
   if (app.stage === 'confirmed' && !app.paid_at && Number(app.amount_cents) > 0) {
     const { available, reason } = await P.cardAvailability(await S.eventFor(app.event_id));
     card = { available, reason: reason || null };
   }
-  return shapeForVendor(app, events.get(app.event_id) || null, { boothName: names.get(app.booth_type_id) || null, card, program });
+  return { ...shapeForVendor(app, events.get(app.event_id) || null, { boothName: names.get(app.booth_type_id) || null, card, program }), floorPlan };
 }
 
 /** The vendor accepts the offer by signing its terms. */
@@ -290,8 +293,9 @@ async function publicPage(slug) {
   const program = await V.readProgram(event.id);
   if (!program?.is_open) throw fail('NOT_FOUND', 'This event is not taking vendors right now.');
   const shaped = V.shapeProgram(program);
-  const [booths, events, vendors] = await Promise.all([
+  const [booths, events, vendors, floorPlan] = await Promise.all([
     V.listBooths(event.id, { publicOnly: true }), P.eventsById([event.id]), directory(event.id),
+    V.floorPlanFor(event.id, { audience: 'public' }),
   ]);
   return {
     event: { ...events.get(event.id), currency: event.currency },
@@ -306,6 +310,7 @@ async function publicPage(slug) {
       staffPasses: b.staffPasses, includes: b.includes, remaining: b.remaining, soldOut: b.remaining === 0,
     })),
     vendors,
+    floorPlan,
   };
 }
 

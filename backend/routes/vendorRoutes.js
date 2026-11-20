@@ -58,6 +58,7 @@ const boothRules = (partial) => [
     .withMessage('How many: a whole number, or leave it empty for no limit.'),
   body('staffPasses').optional().isInt({ min: 0, max: 50 }).withMessage('Staff passes: 0 to 50.'),
   body('includes').optional().isArray({ max: 30 }),
+  body('color').optional({ values: 'null' }).matches(/^#[0-9a-fA-F]{6}$/).withMessage('Choose a colour.'),
   body('isPublic').optional().isBoolean({ strict: true }),
   body('isActive').optional().isBoolean({ strict: true }),
   body('sortOrder').optional().isInt({ min: 0, max: 9999 }),
@@ -68,6 +69,17 @@ organizer.patch('/booths/:boothId', uuid('boothId'), ...own, ...boothRules(true)
 organizer.delete('/booths/:boothId', uuid('boothId'), ...own, c.organizer.removeBooth);
 
 organizer.get('/door-list', ...own, c.organizer.doorList);
+// The floor plan (2026-11-20): one JSON document, checked element by element
+// in services/vendorFloorPlan.js; `version` guards against a stale tab.
+organizer.get('/floor-plan', ...own, c.organizer.getFloorPlan);
+organizer.put(
+  '/floor-plan',
+  ...own,
+  body('plan').isObject().withMessage('Send the floor plan.'),
+  body('version').isInt({ min: 0 }),
+  validate,
+  c.organizer.saveFloorPlan,
+);
 organizer.post('/logo-upload', ...own,
   body('contentType').isIn(Object.keys(EXTENSION_FOR)).withMessage('Upload a JPEG, PNG or WebP image.'), validate,
   c.organizer.signLogoUpload);
@@ -110,7 +122,9 @@ organizer.post('/applications/:appId/waitlist', uuid('appId'), ...own, body('wai
 organizer.post(
   '/applications/:appId/offer',
   uuid('appId'), ...own,
-  body('boothTypeId').isUUID().withMessage('Choose a booth type.'),
+  // A booth picked on the floor plan; its type is used when none is chosen.
+  body('boothKey').optional({ values: 'falsy' }).isString().isLength({ max: 40 }),
+  body('boothTypeId').optional({ values: 'falsy' }).isUUID().withMessage('Choose a booth type.'),
   body('amountCents').optional({ values: 'null' }).isInt({ min: 0, max: 10_000_000_000 }).withMessage('Enter the booth fee.'),
   body('boothLabel').optional({ values: 'null' }).isString().isLength({ max: 40 }),
   body('staffPasses').optional({ values: 'null' }).isInt({ min: 0, max: 50 }),

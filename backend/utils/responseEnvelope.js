@@ -180,7 +180,8 @@ const ERROR_STATUS = {
   VENDOR_OFFER_EXPIRED: 410,        // past the reply-by date; the organizer re-sends it
   VENDOR_ALREADY_PAID: 409,         // the booth fee is recorded
   VENDOR_PAYMENT_PENDING: 409,      // a card payment is going through; wait for it
-  VENDOR_APPLICATIONS_CLOSED: 409,  // the program is past its application deadline
+  VENDOR_APPLICATIONS_CLOSED: 409,
+  VENDOR_BOOTH_TAKEN: 409,          // that booth on the floor plan is offered to or booked by another vendor  // the program is past its application deadline
 
   // generic
   VALIDATION_ERROR: 400,

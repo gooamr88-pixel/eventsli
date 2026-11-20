@@ -13,6 +13,7 @@ import FormError from '../../../../components/forms/FormError';
 import SubmitButton from '../../../../components/forms/SubmitButton';
 import NavIcon from '../../../../components/shell/NavIcon';
 import { Loading, ErrorNotice } from '../../../../components/Feedback';
+import { BOOTH_COLORS } from '../../../../components/vendors/floorPlan/floorPlanModel';
 
 /**
  * Booth types (2026-11-20): the spaces vendors are offered. An offer copies
@@ -69,6 +70,7 @@ export default function Booths({ eventId, currency, state, onChange }) {
           {list.map((b) => (
             <li key={b.id} className={`es-sp-package ${b.isActive ? '' : 'is-off'}`}>
               <div className="es-sp-package__head">
+                <span className="es-fp__swatch" style={{ background: b.color || BOOTH_COLORS[list.indexOf(b) % BOOTH_COLORS.length] }} aria-hidden="true" />
                 {b.sizeLabel && <span className="es-pill">{b.sizeLabel}</span>}
                 {!b.isActive && <span className="es-pill">Off sale</span>}
                 {!b.isPublic && <span className="es-pill">Private</span>}
@@ -107,6 +109,7 @@ function BoothForm({ eventId, currency, booth, onDone, onCancel }) {
     description: booth?.description || '',
     includes: (booth?.includes || []).join('\n'),
     isPublic: booth ? booth.isPublic : true,
+    color: booth?.color || '',
   }));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -126,6 +129,7 @@ function BoothForm({ eventId, currency, booth, onDone, onCancel }) {
       name: form.name.trim(), sizeLabel: form.sizeLabel.trim() || null, priceCents: cents, quantity,
       staffPasses: Number(form.staffPasses) || 0, description: form.description.trim() || null,
       includes: form.includes.split('\n').map((x) => x.trim()).filter(Boolean), isPublic: form.isPublic,
+      color: form.color || null,
     };
     try {
       if (booth) await patch(`/events/${eventId}/vendors/booths/${booth.id}`, body, { noRedirect: true });
@@ -153,6 +157,16 @@ function BoothForm({ eventId, currency, booth, onDone, onCancel }) {
         <TextareaField label="Description" name="bt-desc" optional rows={2} maxLength={600} value={form.description} onChange={set('description')} />
         <TextareaField label="What is included" name="bt-includes" optional rows={4} value={form.includes} onChange={set('includes')}
           hint="One per line, e.g. Table and 2 chairs · Power (1 socket) · Water access." />
+        <div className="fx-stack gap-1">
+          <span className="es-label"><span>Colour on the floor plan</span></span>
+          <span className="es-fpe__colors">
+            {BOOTH_COLORS.map((c) => (
+              <button key={c} type="button" className="es-fpe__color" style={{ background: c }} aria-label={`Colour ${c}`} aria-pressed={form.color === c}
+                onClick={() => setForm((f) => ({ ...f, color: c }))} />
+            ))}
+          </span>
+          <span className="text-xs text-subtle">Free booths of this type are drawn in it, as DB1 and DB2 in blue.</span>
+        </div>
         <label className="fx-row items-center gap-2 text-sm">
           <input type="checkbox" checked={form.isPublic} onChange={(e) => setForm((f) => ({ ...f, isPublic: e.target.checked }))} />
           Show on my public vendor page
