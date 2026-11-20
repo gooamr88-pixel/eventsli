@@ -193,6 +193,18 @@ CREATE INDEX IF NOT EXISTS vendor_applications_event_idx ON vendor_applications 
 CREATE INDEX IF NOT EXISTS vendor_applications_email_idx ON vendor_applications (lower(contact_email));
 CREATE INDEX IF NOT EXISTS vendor_applications_company_idx ON vendor_applications (company_id) WHERE company_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS vendor_applications_booth_idx ON vendor_applications (booth_type_id) WHERE booth_type_id IS NOT NULL;
+-- ── Upgrading an earlier run of this file ─────────────────────────────────
+-- The first version of this migration (before the floor plan) created these
+-- tables without the columns below, and CREATE TABLE IF NOT EXISTS does not
+-- add columns to a table that exists. Without these two lines, re-running the
+-- file on such a database fails at the index below with
+-- 'column "booth_key" does not exist' (owner, 2026-11-20). Both are no-ops on
+-- a fresh database, where the CREATE TABLEs above already made them.
+ALTER TABLE vendor_booth_types
+  ADD COLUMN IF NOT EXISTS color TEXT CHECK (color IS NULL OR color ~ '^#[0-9a-fA-F]{6}$');
+ALTER TABLE vendor_applications
+  ADD COLUMN IF NOT EXISTS booth_key TEXT CHECK (booth_key IS NULL OR char_length(booth_key) <= 40);
+
 -- ONE VENDOR PER BOOTH: a booth on the floor plan is offered to, or booked
 -- by, one application at a time. Declined, withdrawn and cancelled ones fall
 -- out of the index and free it.
@@ -245,6 +257,10 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON vendor_programs, vendor_booth_types, ven
 -- Each raises a short code ('VENDOR_SOLD_OUT', …); the API maps it to words.
 
 -- ── Send (or revise) the offer ────────────────────────────────────────────
+-- The earlier run created it without p_booth_key. A different argument list
+-- is a different function to Postgres, so the old one is dropped first —
+-- otherwise both would exist side by side.
+DROP FUNCTION IF EXISTS vendor_send_offer(UUID, UUID, UUID, BIGINT, TEXT, TEXT, INT, JSONB, TEXT, TIMESTAMPTZ);
 CREATE OR REPLACE FUNCTION vendor_send_offer(
   p_application_id UUID, p_actor UUID, p_booth_type_id UUID, p_amount_cents BIGINT,
   p_currency TEXT, p_booth_label TEXT, p_staff_passes INT, p_includes JSONB,
