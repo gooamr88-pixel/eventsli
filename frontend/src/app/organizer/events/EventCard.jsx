@@ -48,6 +48,8 @@ export default function EventCard({ event, now }) {
         <p className="es-ocard__meta">
           <span><NavIcon name="calendar" size={16} />{dateRange(event)}</span>
           {place && <span className="fx-min0"><NavIcon name="pin" size={16} /><span className="fx-truncate">{place}</span></span>}
+          {/* Behind a password (2026-11-22): not listed anywhere on Eventsli. */}
+          {event.privacy?.isPrivate && <span><NavIcon name="lock" size={16} />Private</span>}
         </p>
 
         <div className="es-ocard__stats">

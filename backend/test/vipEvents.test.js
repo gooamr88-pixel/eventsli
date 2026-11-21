@@ -59,7 +59,7 @@ const ev = (n, over = {}) => ({
   id: id(n), slug: `e${n}`, title: `Event ${n}`, status: 'published',
   starts_at: `2026-12-${String(10 + n).padStart(2, '0')}T20:00:00Z`,
   ends_at: `2026-12-${String(10 + n).padStart(2, '0')}T23:00:00Z`,
-  cover_url: `https://cdn.test/${n}.jpg`, vip_rank: null, ...over,
+  cover_url: `https://cdn.test/${n}.jpg`, vip_rank: null, is_private: false, ...over,
 });
 
 test('a save sends the list to the database whole, in order, without duplicates', async () => {
@@ -91,6 +91,7 @@ test('the public read returns the ranked, live events in rank order, badged VIP'
     ev(1, { vip_rank: 2 }), ev(2, { vip_rank: 1 }),
     ev(3, { vip_rank: 3, status: 'draft' }),                        // ranked but not published
     ev(4, { vip_rank: 4, ends_at: '2026-11-01T00:00:00Z' }),        // ranked but over
+    ev(6, { vip_rank: 5, is_private: true }),                       // ranked but private (2026-11-22)
     ev(5),                                                            // not ranked
   ];
   const { events, chosen } = await vip.listPublic({ now: NOW });
@@ -111,4 +112,5 @@ test('the console is told why a ranked event is not on the homepage', () => {
   assert.equal(vip.adminRow(ev(1), NOW).hidden, null);
   assert.equal(vip.adminRow(ev(1, { status: 'cancelled' }), NOW).hidden, 'Not published');
   assert.equal(vip.adminRow(ev(1, { ends_at: '2026-11-01T00:00:00Z' }), NOW).hidden, 'Event has ended');
+  assert.equal(vip.adminRow(ev(1, { is_private: true }), NOW).hidden, 'Private event');
 });

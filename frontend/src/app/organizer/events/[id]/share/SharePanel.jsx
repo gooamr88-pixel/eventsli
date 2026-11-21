@@ -60,6 +60,17 @@ export default function SharePanel({ eventId }) {
         </Notice>
       )}
 
+      {/* Private, behind a password (2026-11-22): a link alone opens a
+          password screen, so the guest needs both. */}
+      {full?.privacy?.isPrivate && (
+        <Notice tone="info" title="This event is private.">
+          <p>
+            Anyone who opens these links or scans these codes is asked for the event password first. Send the
+            password with the link. Change or remove it under Event details.
+          </p>
+        </Notice>
+      )}
+
       <div className="es-sharegrid">
         <div className="fx-stack fx-min0">
           <QrCard

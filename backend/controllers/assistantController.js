@@ -77,7 +77,7 @@ function whenText(e) {
  */
 async function contextEvents(text) {
   const nowIso = new Date().toISOString();
-  const base = () => supabase.from('events').select(SELECT).eq('status', 'published').gte('ends_at', nowIso);
+  const base = () => supabase.from('events').select(SELECT).eq('status', 'published').eq('is_private', false).gte('ends_at', nowIso);
   const words = keywordsOf(text);
   const [matched, soon] = await Promise.all([
     words.length ? base().or(anyWordFilter(words)).order('starts_at').limit(8) : Promise.resolve({ data: [] }),

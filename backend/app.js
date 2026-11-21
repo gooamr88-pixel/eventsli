@@ -234,13 +234,17 @@ app.use('/api/v1/organizer', require('./routes/organizerRoutes'));
 const sponsorshipRoutes = require('./routes/sponsorshipRoutes');
 app.use('/api/v1/events/:eventId/sponsorship', sponsorshipRoutes.organizer);
 app.use('/api/v1/partner/sponsorships', sponsorshipRoutes.partner);
-app.use('/api/v1/public/events/:slug/sponsorship', sponsorshipRoutes.publicRouter);
+// A private event's sponsor and vendor pages are behind its password too
+// (2026-11-22) — they name its date and venue. services/eventAccess.js.
+const eventAccess = require('./services/eventAccess');
+const { optionalAuth: optionalAuthForAccess } = require('./middleware/auth');
+app.use('/api/v1/public/events/:slug/sponsorship', optionalAuthForAccess, eventAccess.gate(), sponsorshipRoutes.publicRouter);
 // Vendors (2026-11-20): applications, booth types, the vendor portal and the
 // public vendor page — routes/vendorRoutes.js.
 const vendorRoutes = require('./routes/vendorRoutes');
 app.use('/api/v1/events/:eventId/vendors', vendorRoutes.organizer);
 app.use('/api/v1/partner/vendors', vendorRoutes.vendor);
-app.use('/api/v1/public/events/:slug/vendors', vendorRoutes.publicRouter);
+app.use('/api/v1/public/events/:slug/vendors', optionalAuthForAccess, eventAccess.gate(), vendorRoutes.publicRouter);
 app.use('/api/v1/events', require('./routes/eventRoutes'));
 // Venue search for the create-event wizard. Proxied rather than called from
 // the browser so the Places key stays server-side and the CSP does not have to

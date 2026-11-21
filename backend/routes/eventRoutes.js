@@ -242,6 +242,21 @@ router.put(
 
 router.delete('/:eventId/logo', verifyEventOwner, cover.clearLogo);
 
+// Private, behind a password (2026-11-22) — controllers/eventPrivacyController.js.
+router.put(
+  '/:eventId/privacy',
+  verifyEventOwner,
+  body('isPrivate').isBoolean({ strict: true }).withMessage('Say whether the event is private.'),
+  // Length is checked against the organizer's own rule in the controller.
+  body('password').optional({ values: 'falsy' }).isString().isLength({ max: 200 }),
+  body('passwordMin').optional({ values: 'null' }).isInt({ min: 1, max: 100 }).toInt()
+    .withMessage('The shortest length is a number from 1 to 100.'),
+  body('passwordMax').optional({ values: 'null' }).isInt({ min: 1, max: 100 }).toInt()
+    .withMessage('The longest length is a number from 1 to 100.'),
+  validate,
+  require('../controllers/eventPrivacyController').update,
+);
+
 // BRD §21 — the confirmation step, before submitting.
 router.post('/:eventId/accept-terms', verifyEventOwner, c.acceptTerms);
 

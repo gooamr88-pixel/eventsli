@@ -46,6 +46,7 @@ async function listPublic({ now = new Date() } = {}) {
     .from('events')
     .select(discovery.SELECT)
     .eq('status', 'published')
+    .eq('is_private', false)
     .gte('ends_at', at)
     .not('vip_rank', 'is', null)
     .order('vip_rank', { ascending: true })
@@ -57,6 +58,7 @@ async function listPublic({ now = new Date() } = {}) {
     .from('events')
     .select(discovery.SELECT)
     .eq('status', 'published')
+    .eq('is_private', false)
     .gte('ends_at', at)
     .not('cover_url', 'is', null)
     .order('starts_at', { ascending: true })
@@ -69,7 +71,7 @@ async function listPublic({ now = new Date() } = {}) {
 async function listAdmin({ now = new Date() } = {}) {
   const { data, error } = await supabase
     .from('events')
-    .select('id, slug, title, status, starts_at, ends_at, timezone, venue_name, city, cover_url, vip_rank')
+    .select('id, slug, title, status, starts_at, ends_at, timezone, venue_name, city, cover_url, vip_rank, is_private')
     .not('vip_rank', 'is', null)
     .order('vip_rank', { ascending: true });
   if (error) throw error;
@@ -92,7 +94,9 @@ function adminRow(e, now = new Date()) {
     vipRank: e.vip_rank,
     // Why a ranked event is not on the homepage right now, in words the
     // console shows beside it. Null when it is live on the slider.
-    hidden: e.status !== 'published' ? 'Not published' : over ? 'Event has ended' : null,
+    hidden: e.status !== 'published' ? 'Not published' : over ? 'Event has ended'
+      // Behind a password (2026-11-22): never on a public listing.
+      : e.is_private === true ? 'Private event' : null,
   };
 }
 

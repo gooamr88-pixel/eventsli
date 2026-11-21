@@ -14,7 +14,8 @@ import { EventBuyBar, EventPurchaseNotice } from './EventPurchasePanel';
 import {
   EventSchedule, VenueMap,
 } from './EventSections';
-import { serverFetch } from '../../utils/apiClient';
+import { loadEventForViewer, privateMetadata } from '../../lib/eventAccess';
+import PrivateEventGate from './PrivateEventGate';
 import {
   seoTitle, seoDescription, seoKeywords, eventJsonLd, breadcrumbJsonLd, eventUrl,
 } from '../../lib/eventSeo';
@@ -44,26 +45,27 @@ import OrganizerContactCard from '../../components/OrganizerContactCard';
  */
 export const revalidate = 60;
 
+/**
+ * `{ event }` — or `{ locked }` for a private event this visitor has not
+ * unlocked (2026-11-22; lib/eventAccess.js). A 404 is `{ event: null }`.
+ *
+ * Every unpublished state — draft, pending, rejected, suspended, cancelled
+ * — returns a byte-identical 404 from the API, so that a distinguishable
+ * answer cannot be used to enumerate slugs or watch an event move through
+ * review. This page keeps that property by not asking why.
+ */
 async function loadEvent(slug) {
-  try {
-    return await serverFetch(`/public/events/${encodeURIComponent(slug)}`, {
-      tags: [`event:${slug}`],
-      revalidate: 60,
-    });
-  } catch (err) {
-    // Every unpublished state — draft, pending, rejected, suspended, cancelled
-    // — returns a byte-identical 404 from the API, so that a distinguishable
-    // answer cannot be used to enumerate slugs or watch an event move through
-    // review. This page keeps that property by not asking why.
-    if (err?.status === 404) return null;
-    throw err;
-  }
+  const { data, locked } = await loadEventForViewer(slug);
+  return { event: data, locked };
 }
 
 export async function generateMetadata({ params }) {
   const { slug } = await params;
-  const event = await loadEvent(slug);
+  const { event, locked } = await loadEvent(slug);
+  // A private event is never indexed, locked or not (2026-11-22).
+  if (locked) return privateMetadata(locked.title);
   if (!event) return { title: 'Event not found' };
+  if (event.isPrivate) return privateMetadata(event.title);
 
   /**
    * SEARCH-SHAPED, FROM THE SAME FIELDS THE PAGE RENDERS — see lib/eventSeo.js
@@ -135,7 +137,8 @@ export async function generateMetadata({ params }) {
 export default async function EventPage({ params, searchParams }) {
   const { slug } = await params;
   const { tier: tierParam } = (await searchParams) || {};
-  const event = await loadEvent(slug);
+  const { event, locked } = await loadEvent(slug);
+  if (locked) return <PrivateEventGate event={locked} />;
   if (!event) notFound();
 
   /**

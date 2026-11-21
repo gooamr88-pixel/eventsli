@@ -12,6 +12,7 @@ const purchasability = require('../services/purchasability');
 const { releaseHold, heldSelection } = require('../services/holdRelease');
 const { placeHold } = require('../services/placeHold');
 const { publicLayout } = require('../services/venueStudio');
+const eventAccess = require('../services/eventAccess');
 
 const TTL_MINUTES = () => parseInt(process.env.RESERVATION_TTL_MINUTES || '35', 10);
 
@@ -118,7 +119,8 @@ async function publicMap(req, res, next) {
     // A failure is a 500 the page can offer to retry; absence is a real answer.
     const { data: event, error: eventError } = await supabase
       .from('events')
-      .select('id, slug, title, status, currency, purchase_mode, admission_type, max_tickets_per_order, starts_at, ends_at, coming_soon')
+      .select('id, slug, title, status, currency, purchase_mode, admission_type, max_tickets_per_order, starts_at, ends_at, coming_soon, '
+        + 'cover_url, logo_url, ' + eventAccess.ACCESS_COLUMNS)
       .eq('slug', req.params.slug)
       .maybeSingle();
     if (eventError) throw new Error(`seat map: event lookup failed: ${eventError.message}`);
@@ -132,6 +134,11 @@ async function publicMap(req, res, next) {
       return sendFail(res, {
         status: 404, error: 'EVENT_NOT_FOUND', message: 'That event is not available.',
       });
+    }
+    // A private event's map is behind its password, like its page (2026-11-22).
+    if (event.is_private) {
+      res.set('Cache-Control', 'private, no-store');
+      if (!eventAccess.canView(req, event)) return sendFail(res, eventAccess.lockedFailure(event));
     }
 
     const { data: map, error: mapError } = await supabase
@@ -278,11 +285,14 @@ function publicEvent(e) {
 async function unlockTable(req, res, next) {
   try {
     const { data: event } = await supabase
-      .from('events').select('id, status').eq('slug', req.params.slug).maybeSingle();
+      .from('events').select('id, slug, title, status, cover_url, logo_url, ' + eventAccess.ACCESS_COLUMNS)
+      .eq('slug', req.params.slug).maybeSingle();
 
     if (!event || event.status !== 'published') {
       return sendFail(res, { status: 404, error: 'EVENT_NOT_FOUND', message: 'That event is not available.' });
     }
+    // The event's own password comes before any table's.
+    if (!eventAccess.canView(req, event)) return sendFail(res, eventAccess.lockedFailure(event));
 
     const ok = await access.verifyTablePassword(req.params.tableId, req.body.password);
     if (!ok) {
@@ -314,12 +324,15 @@ async function hold(req, res, next) {
   try {
     const { data: event } = await supabase
       .from('events')
-      .select('id, status, listing_type, accepts_stripe, accepts_manual, organizer_id, coming_soon')
+      .select('id, slug, title, status, listing_type, accepts_stripe, accepts_manual, coming_soon, cover_url, logo_url, '
+        + eventAccess.ACCESS_COLUMNS)
       .eq('slug', req.params.slug).maybeSingle();
 
     if (!event || event.status !== 'published') {
       return sendFail(res, { status: 404, error: 'EVENT_NOT_FOUND', message: 'That event is not available.' });
     }
+    // Knowing a private event's slug is not a way to buy for it (2026-11-22).
+    if (!eventAccess.canView(req, event)) return sendFail(res, eventAccess.lockedFailure(event));
     if (event.coming_soon) {
       return sendFail(res, {
         status: 403, error: 'TICKETS_NOT_SOLD_ONLINE',

@@ -60,6 +60,9 @@ const ERROR_STATUS = {
   EVENT_NOT_PUBLISHED: 403,
   EVENT_CANCELLED: 410,
   EVENT_SUSPENDED: 403,
+  // A private event (2026-11-22): its password first, then the page.
+  EVENT_PRIVATE: 403,
+  EVENT_PASSWORD_INVALID: 403,
   TERMS_NOT_ACCEPTED: 403,        // BRD §21
   SIGNATURE_REQUIRED: 400,        // the checkout signature (2026-11-15)
   SIGNATURE_INVALID: 400,

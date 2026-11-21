@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { serverFetch } from '../../../utils/apiClient';
+import { loadEventForViewer, privateMetadata } from '../../../lib/eventAccess';
+import PrivateEventGate from '../PrivateEventGate';
 import TicketPicker from './TicketPicker';
 
 /**
@@ -21,9 +22,10 @@ export const revalidate = 60;
 export async function generateMetadata({ params }) {
   const { slug } = await params;
   try {
-    const event = await serverFetch(`/public/events/${encodeURIComponent(slug)}`, {
-      tags: [`event:${slug}`], revalidate: 60,
-    });
+    const { data: event, locked } = await loadEventForViewer(slug);
+    // A private event is never indexed (2026-11-22).
+    if (locked) return privateMetadata(locked.title);
+    if (event?.isPrivate) return privateMetadata(event.title);
     return {
       title: `Tickets · ${event.title}`,
       // Not indexable: the canonical page for this event is /e/[slug], and a
@@ -40,15 +42,11 @@ export default async function TicketsPage({ params, searchParams }) {
   const { slug } = await params;
   const { tier: tierParam } = (await searchParams) || {};
 
-  let event;
-  try {
-    event = await serverFetch(`/public/events/${encodeURIComponent(slug)}`, {
-      tags: [`event:${slug}`], revalidate: 60,
-    });
-  } catch (err) {
-    if (err?.status === 404) notFound();
-    throw err;
-  }
+  // A private event this visitor has not unlocked: its password first
+  // (2026-11-22). Unlocking re-renders this page, not the event page.
+  const { data: event, locked } = await loadEventForViewer(slug);
+  if (locked) return <PrivateEventGate event={locked} />;
+  if (!event) notFound();
 
   // BRD §12 — a listing with nothing behind it has no tickets to choose.
   if (event.displayOnly) notFound();

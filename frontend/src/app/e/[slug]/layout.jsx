@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { serverFetch } from '../../utils/apiClient';
+import { loadEventForViewer } from '../../lib/eventAccess';
 
 /**
  * A MISSING EVENT ANSWERS 404, NOT 200 (2026-10-15).
@@ -13,17 +13,13 @@ import { serverFetch } from '../../utils/apiClient';
  * A layout renders ABOVE that boundary, so its `notFound()` decides the status.
  * Same URL, tag and lifetime as the page's own fetch, so the page reuses this
  * answer rather than asking twice, and approval still drops it through the tag.
+ *
+ * A PRIVATE event (2026-11-22) is not missing: locked or not, each page under
+ * here draws its own password gate (lib/eventAccess.js), so it passes through.
  */
 export default async function EventLayout({ children, params }) {
   const { slug } = await params;
-  try {
-    await serverFetch(`/public/events/${encodeURIComponent(slug)}`, {
-      tags: [`event:${slug}`],
-      revalidate: 60,
-    });
-  } catch (err) {
-    if (err?.status === 404) notFound();
-    throw err;
-  }
+  const { data, locked } = await loadEventForViewer(slug);
+  if (!data && !locked) notFound();
   return children;
 }

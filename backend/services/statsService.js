@@ -61,6 +61,7 @@ async function cityCount() {
     .from('events')
     .select('city')
     .eq('status', 'published')
+    .eq('is_private', false)
     .not('city', 'is', null)
     .limit(5000);
 

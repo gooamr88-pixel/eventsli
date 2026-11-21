@@ -275,7 +275,52 @@ router.post(
   assistant.reply,
 );
 
-router.get('/events/:slug', discovery.eventBySlug);
+// optionalAuth: a private event's own organizer sees it without its password.
+router.get('/events/:slug', optionalAuth, discovery.eventBySlug);
+
+/**
+ * PRIVATE EVENTS (2026-11-22) — the password, checked on the server against a
+ * stretched hash (services/eventAccess.js). A match sets an httpOnly cookie for
+ * this one event, which the page, the seat map and the hold all read.
+ *
+ * Limited per address and event, as table passwords are: an event password is
+ * something a guest is told, so it is guessable without a limit.
+ */
+const eventUnlockLimiter = makeLimiter({
+  windowMs: 10 * 60 * 1000,
+  max: 10,
+  name: 'event-unlock',
+  keyGenerator: (req) => `${req.ip}|${req.params.slug}`,
+  message: 'Too many attempts for this event. Please wait a few minutes.',
+});
+
+router.post(
+  '/events/:slug/unlock',
+  eventUnlockLimiter,
+  param('slug').isString().trim().isLength({ min: 1, max: 200 }),
+  body('password').isString().isLength({ min: 1, max: 200 })
+    .withMessage('Enter the event password.'),
+  validate,
+  async (req, res, next) => {
+    try {
+      const eventAccess = require('../services/eventAccess');
+      const { ok, event } = await eventAccess.verify(req.params.slug, req.body.password);
+      if (!ok) {
+        // One answer for a wrong password and for an event that is not
+        // private or not there, so this is not a way to test slugs.
+        return sendFail(res, {
+          status: 403, error: 'EVENT_PASSWORD_INVALID', message: 'That password does not match.',
+        });
+      }
+      // The key goes ONLY into the httpOnly cookie, never the body, so no
+      // script on the page can read it. (A future client with no cookie jar
+      // would get its own opt-in, sent back in `x-event-access`.)
+      eventAccess.setCookie(res, event, eventAccess.issueToken(event));
+      res.set('Cache-Control', 'private, no-store');
+      return sendOk(res, { unlocked: true, expiresInHours: eventAccess.ACCESS_TTL_HOURS });
+    } catch (err) { return next(err); }
+  },
+);
 
 /**
  * "NOTIFY ME" on a coming-soon event (owner, 2026-11-17). One email, once,
@@ -298,6 +343,7 @@ router.post(
   '/events/:slug/notify',
   notifyLimiter,
   optionalAuth,
+  require('../services/eventAccess').gate(),
   param('slug').isString().trim().isLength({ min: 1, max: 200 }),
   body('email').isString().trim().isLength({ min: 3, max: 254 }).isEmail()
     .withMessage('Enter a valid email address.'),
@@ -319,11 +365,12 @@ router.post(
   },
 );
 
-router.get('/events/:slug/seat-map', c.publicMap);
+router.get('/events/:slug/seat-map', optionalAuth, c.publicMap);
 
 router.post(
   '/events/:slug/tables/:tableId/unlock',
   unlockLimiter,
+  optionalAuth,
   param('tableId').isUUID(),
   body('password').isString().isLength({ min: 1, max: 200 })
     .withMessage('Enter the table password.'),

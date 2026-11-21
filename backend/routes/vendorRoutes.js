@@ -199,6 +199,8 @@ vendor.post(
   body('boothKey').optional({ values: 'falsy' }).isString().isLength({ max: 40 }),
   body('addonIds').optional().isArray({ max: 30 }),
   validate,
+  // A private event's booths are behind its password (2026-11-22).
+  require('../services/eventAccess').gate({ slugFrom: (req) => req.body.slug }),
   c.booking.start,
 );
 vendor.get('/bookings/:appId', uuid('appId'), validate, c.booking.get);

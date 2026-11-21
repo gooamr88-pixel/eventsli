@@ -43,7 +43,8 @@ const SELECT = `
   rejection_reason, reviewed_at, cancelled_at, cancelled_reason,
   suspended_at, suspended_reason, terms_accepted_id, created_at, updated_at,
   accepts_stripe, accepts_manual, offline_payment_hours, archived_at, archived_from,
-  coming_soon, launch_requested_at, sales_opened_at
+  coming_soon, launch_requested_at, sales_opened_at,
+  is_private, access_password_set_at, access_password_min, access_password_max
 `;
 
 // Both moved to services/submissionService.js, where `submit` and its preview
@@ -750,6 +751,15 @@ function shape(e, { currentTermsId = null } = {}) {
     },
     archivedAt: e.archived_at || null,
     archivedFrom: e.archived_from || null,
+    // Private, behind a password (2026-11-22). Never the password or its hash.
+    privacy: {
+      isPrivate: e.is_private === true,
+      hasPassword: Boolean(e.access_password_set_at),
+      passwordSetAt: e.access_password_set_at || null,
+      // The organizer's length rule; null = the default (4 to 100).
+      passwordMin: e.access_password_min ?? null,
+      passwordMax: e.access_password_max ?? null,
+    },
     /**
      * A "coming soon" teaser (20261124090000). `roughMonth` is `'YYYY-MM'`
      * while the dates are still the whole month — the teaser's rough date —

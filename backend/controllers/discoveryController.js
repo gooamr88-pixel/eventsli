@@ -7,6 +7,7 @@ const logger = require('../utils/logger');
 const categoryService = require('../services/categoryService');
 const ticketDetails = require('../services/ticketDetails');
 const purchasability = require('../services/purchasability');
+const eventAccess = require('../services/eventAccess');
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -34,6 +35,7 @@ const SELECT = `
   listing_type, purchase_mode, admission_type, category, cover_url, logo_url,
   highlights, venue_lat, venue_lng, max_tickets_per_order,
   accepts_stripe, accepts_manual, coming_soon, organizer_id,
+  is_private, access_password_set_at, access_password_min, access_password_max,
   updated_at,
   organizers ( display_name, country ),
   event_categories ( label )
@@ -70,7 +72,10 @@ async function listEvents(req, res, next, { phraseSearch = false } = {}) {
     let query = supabase
       .from('events')
       .select(SELECT, { count: 'exact' })
-      .eq('status', 'published');
+      .eq('status', 'published')
+      // A private event (2026-11-22) is never listed — not even by a saved
+      // slug. Its page is reached from the link the organizer sent.
+      .eq('is_private', false);
 
     if (req.query.includePast !== 'true') {
       // Measured on the END, not the start: an event that began an hour ago is
@@ -312,6 +317,16 @@ async function eventBySlug(req, res, next) {
     }
 
     /**
+     * A PRIVATE EVENT ASKS FOR ITS PASSWORD FIRST (2026-11-22). Locked, the
+     * answer is the title, cover and organizer only (eventAccess.lockedTeaser).
+     * Unlocked, it is the full page — per viewer, so never cached by anyone.
+     */
+    if (event.is_private) {
+      res.set('Cache-Control', 'private, no-store');
+      if (!eventAccess.canView(req, event)) return sendFail(res, eventAccess.lockedFailure(event));
+    }
+
+    /**
      * A "COMING SOON" TEASER SHOWS WHAT IT WAS PUBLISHED WITH, and nothing the
      * organizer is still preparing: no ticket types, no prices, no venue, no
      * availability. Those are drafts until sales open, and showing a half-set
@@ -547,6 +562,9 @@ function shape(e) {
     endsAt: e.ends_at,
     // Over (2026-11-18): the card says "Past event" instead of selling it.
     isPast: isPastRow(e),
+    // Only ever true on a page the viewer unlocked (2026-11-22) — listings
+    // leave private events out. The page uses it to keep itself unindexed.
+    isPrivate: e.is_private === true,
     /**
      * When the listing itself last changed, for `<lastmod>` in the sitemap.
      *

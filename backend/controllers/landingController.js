@@ -73,6 +73,7 @@ function upcomingCities() {
     .from('events')
     .select('id, city, country', first ? { count: 'exact' } : undefined)
     .eq('status', 'published')
+    .eq('is_private', false)
     .not('city', 'is', null)
     .gte('ends_at', now)
     .order('id')
@@ -250,6 +251,7 @@ async function eventsNear(req, res, next) {
       .from('events')
       .select(discovery.SELECT, first ? { count: 'exact' } : undefined)
       .eq('status', 'published')
+      .eq('is_private', false)
       .gte('ends_at', now)
       .order('id')
       .range(from, to), { what: 'events' });

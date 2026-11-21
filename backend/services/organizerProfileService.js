@@ -151,7 +151,7 @@ async function bySlug(slug) {
 
   const discovery = require('../controllers/discoveryController');
   const { data: rows, error: evError } = await supabase.from('events').select(discovery.SELECT)
-    .eq('organizer_id', org.id).eq('status', 'published')
+    .eq('organizer_id', org.id).eq('status', 'published').eq('is_private', false)
     .order('starts_at', { ascending: true }).limit(200);
   if (evError) throw new Error(evError.message);
 

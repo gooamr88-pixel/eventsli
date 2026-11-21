@@ -108,6 +108,12 @@ export const ERRORS = Object.freeze(Object.fromEntries([
     'Choose another table, or pick individual seats.', 'retry'),
   E('TABLE_PARTIALLY_SOLD', 'That table is no longer available whole',
     'Some of its seats are already taken. You can still book the seats that are left.', 'retry'),
+  // A private event (2026-11-22). The page shows its own password gate; these
+  // are for anything else that meets the refusal.
+  E('EVENT_PRIVATE', 'This event is private',
+    'Open the event page and enter the password the organizer gave you.'),
+  E('EVENT_PASSWORD_INVALID', 'That did not work',
+    'Check the password with the organizer and try again.', 'retry'),
   E('TABLE_PASSWORD_REQUIRED', 'This table is private',
     'Enter the password the organizer gave you.'),
   E('TABLE_PASSWORD_INVALID', 'That did not work',

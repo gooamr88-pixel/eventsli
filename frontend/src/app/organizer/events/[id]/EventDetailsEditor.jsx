@@ -21,6 +21,7 @@ import { useNowMinute } from '../../../hooks/useNowMinute';
 import { isComingSoon } from '../../../lib/comingSoon';
 import FeeSummary from './FeeSummary';
 import { BasicSection, DescriptionSection, FormatSection, QuickSettings } from './DetailsSections';
+import PrivacyCard from './PrivacyCard';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -400,6 +401,8 @@ export default function EventDetailsEditor({ event, onSaved }) {
             </section>
           )}
           <QuickSettings f={f} />
+          {/* Private, behind a password (2026-11-22). Saves on its own. */}
+          <PrivacyCard event={event} onSaved={onSaved} />
         </div>
       </div>
 

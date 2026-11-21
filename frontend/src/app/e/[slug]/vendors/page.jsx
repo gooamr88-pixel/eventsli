@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { serverFetch } from '../../../utils/apiClient';
+import { loadEventForViewer, privateMetadata } from '../../../lib/eventAccess';
+import PrivateEventGate from '../PrivateEventGate';
 import { formatMoney } from '../../../utils/money';
 import { formatEventTime } from '../../../lib/eventTime';
 import { safeExternalUrl } from '../../../utils/safeUrl';
@@ -28,18 +29,19 @@ import StartBooking from './StartBooking';
  */
 export const revalidate = 60;
 
+/**
+ * The page's data, or `{ locked }` for a private event this visitor has not
+ * unlocked (2026-11-22; lib/eventAccess.js) — the password gate stands here.
+ */
 async function load(slug) {
-  try {
-    return await serverFetch(`/public/events/${encodeURIComponent(slug)}/vendors`, { tags: [`event:${slug}`], revalidate: 60 });
-  } catch (err) {
-    if (err?.status === 404) return null;
-    throw err;
-  }
+  const { data, locked } = await loadEventForViewer(slug, { path: '/vendors' });
+  return { page: data, locked };
 }
 
 export async function generateMetadata({ params }) {
   const { slug } = await params;
-  const page = await load(slug);
+  const { page, locked } = await load(slug);
+  if (locked) return privateMetadata(locked.title);
   if (!page) return { title: 'Vendors', robots: { index: false, follow: false } };
   return {
     title: `Vendors at ${page.event.title}`,
@@ -64,7 +66,8 @@ function facts(booths, currency) {
 
 export default async function VendorPage({ params }) {
   const { slug } = await params;
-  const page = await load(slug);
+  const { page, locked } = await load(slug);
+  if (locked) return <PrivateEventGate event={locked} />;
   if (!page) notFound();
   const { event, booths, vendors } = page;
   const instant = page.bookingMode === 'instant';
