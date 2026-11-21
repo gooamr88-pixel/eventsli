@@ -100,7 +100,7 @@ export function MapBanner({ tables, purchaseMode = 'seat_only', onSelectUnpriced
   if (tables.length > 0 && unpriced === 0) return null;
   const them = unpriced === 1 ? 'it' : 'them';
   const [title, text, tone] = tables.length === 0
-    ? ['Start with the room', 'Add a seating section, table or row — from Add to layout, or the Add button on the map’s toolbar — or double-click the floor to drop a table.', 'info']
+    ? ['Start with the room', 'Add a seating section, table or row — from Add to layout, or the Add button on the map’s toolbar.', 'info']
     : purchaseMode === 'table_only'
       ? ['Price every table', `${unpriced} ${unpriced === 1 ? 'table has' : 'tables have'} no whole-table price yet, so buyers can’t book ${them}.`, 'warning']
       : ['Link seats to ticket types', `${unpriced} ${unpriced === 1 ? 'table has' : 'tables have'} seats with no ticket type yet, so ${unpriced === 1 ? 'they aren’t' : 'those seats aren’t'} on sale. A whole-table price doesn’t price the seats.`, 'warning'];

@@ -19059,7 +19059,7 @@ textarea.es-input--dense { padding-block: 0.5rem; }
    checklist, and the "More shapes" tile. */
 
 /* The starter card, centred on an empty canvas. The wrapper lets presses
-   through to the floor (double-click still drops a table); the card takes them. */
+   through to the floor (panning, box-select); the card takes them. */
 .es-mapstarter { position: absolute; inset: 0; z-index: 1; display: grid; place-items: center; padding: 1rem; pointer-events: none; }
 .es-mapstarter__card {
   width: min(26rem, 100%); padding: 1.25rem; pointer-events: auto;

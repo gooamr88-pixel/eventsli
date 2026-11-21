@@ -28,7 +28,6 @@ const SHORTCUTS = [
   ['V', 'Select'],
   ['M', 'Pick several'],
   ['H', 'Pan around the map'],
-  ['Double-click', 'Drop a table'],
   ['Arrows', 'Nudge the selection'],
   ['Ctrl+D', 'Duplicate'],
   ['Delete', 'Remove'],

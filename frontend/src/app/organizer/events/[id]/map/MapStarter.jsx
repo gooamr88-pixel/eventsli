@@ -9,11 +9,11 @@ import NavIcon from '../../../../components/shell/NavIcon';
  * It used to show a grey line — "Add tables and venue zones, or double-click
  * the floor" — over an empty canvas, and leave the organizer to find out what
  * a "venue zone" is and where adding happens. Now the canvas itself offers the
- * four ways to begin, each named for the event it suits, and the double-click
- * is a footnote for those who already know.
+ * four ways to begin, each named for the event it suits. (The floor no longer
+ * drops a table on a double-click: everything is added on purpose.)
  *
- * The card takes pointer events; the floor around it still does, so a
- * double-click anywhere else drops a table as it always has.
+ * The card takes pointer events; the floor around it still pans and
+ * box-selects as usual.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 export default function MapStarter({ onAdd, ai = false }) {
@@ -38,7 +38,7 @@ export default function MapStarter({ onAdd, ai = false }) {
             </li>
           ))}
         </ul>
-        <p className="es-mapstarter__foot">Or double-click the floor to drop a single table.</p>
+        <p className="es-mapstarter__foot">Everything else — a stage, bars, walls — is in Add to layout.</p>
       </div>
     </div>
   );

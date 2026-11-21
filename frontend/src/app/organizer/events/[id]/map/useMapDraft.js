@@ -236,7 +236,7 @@ export function useMapDraft() {
     return built.map((t) => t.localKey);
   }, [apply]);
 
-  /** The single-table form the "Add table" button and a double-click use. */
+  /** The single-table form the "Add table" button uses. */
   const addTable = useCallback((position) => addTables([{ position }])[0], [addTables]);
 
   const updateTable = useCallback((key, patch, options) => {

@@ -94,7 +94,6 @@ function Harness({ initialTables = [], initialZones = [] }) {
         tables={draft.tables} zones={draft.zones} categories={[]} soldByTable={new Map()}
         selection={selection} panzoom={panzoom} interaction={interaction}
         tool={tool} spacePan={spacePan} snapToGrid={snapToGrid}
-        onAddAt={(position) => draft.addTables([{ position }])}
         onNudge={onElementKeyDown}
       />
       <output data-testid="state">
@@ -142,7 +141,13 @@ describe('the canvas draws both kinds of thing', () => {
 
   test('an empty map says what to do rather than showing blank floor', () => {
     render(<Harness />);
-    expect(screen.getByText(/double-click the floor/i)).toBeInTheDocument();
+    expect(screen.getByText(/Add seating and areas from Add to layout/i)).toBeInTheDocument();
+  });
+
+  test('a double-click on the floor adds nothing (2026-11-21: stray tables)', async () => {
+    render(<Harness initialTables={[table('a', 30, 30)]} />);
+    await userEvent.dblClick(screen.getByRole('application', { name: 'Seating map editor' }));
+    expect(state()).toContain('tables=1');
   });
 });
 

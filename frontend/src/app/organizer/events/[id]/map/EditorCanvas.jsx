@@ -58,7 +58,7 @@ export default function EditorCanvas({
   tiers = null,
   selection, panzoom, interaction,
   tool, spacePan, snapToGrid,
-  onAddAt, onNudge,
+  onNudge,
   // The venue's size (draft.world): every percentage below resolves against it.
   world = worldOf(null),
   // The Layers card (LayersCard.jsx): what is drawn, never what exists.
@@ -153,16 +153,13 @@ export default function EditorCanvas({
         // menu over the map every time.
         onContextMenu={(e) => e.preventDefault()}
         onPointerMove={(e) => { wallTool?.onPointerMove(e); handlers.onPointerMove?.(e); }}
-        onDoubleClick={(e) => {
-          if (wallTool?.active) { wallTool.finish(); return; }
-          const rect = svgRef.current?.getBoundingClientRect();
-          if (!rect) return;
-          onAddAt(toPercent(
-            view.x + ((e.clientX - rect.left) / rect.width) * view.width,
-            view.y + ((e.clientY - rect.top) / rect.height) * view.height,
-            world,
-          ));
-        }}
+        // A double-click finishes a wall being drawn — and does nothing else.
+        // It used to drop a new table wherever the floor was double-clicked
+        // (removed 2026-11-21, the owner: "very terrible"): a quick second
+        // click while selecting or panning put stray tables on the map.
+        // Tables now come only from Add to layout, the Add menu or the
+        // starter card — always on purpose.
+        onDoubleClick={() => { if (wallTool?.active) wallTool.finish(); }}
       >
         <defs>
           {/* The alignment grid, and it appears only while Snap is on. A grid
@@ -188,7 +185,7 @@ export default function EditorCanvas({
             shadow on a dotted surface, the way layout tools draw a page — and
             its edges are still exactly where `toPercent` clamps a drag to.
             Every layer here ignores the pointer, so a press on the floor still
-            reaches the canvas (box-select, double-click to add). */}
+            reaches the canvas (box-select, panning). */}
         <rect
           x={view.x} y={view.y} width={view.width} height={view.height}
           fill="url(#es-map-surface)" style={{ pointerEvents: 'none' }}
@@ -283,7 +280,7 @@ export default function EditorCanvas({
 
       {tables.length === 0 && zones.length === 0 && (emptyState || (
         <p className="pointer-events-none absolute inset-0 grid place-items-center px-6 text-center text-sm text-subtle">
-          Add tables and venue zones, or double-click the floor to drop a table.
+          Add seating and areas from Add to layout.
         </p>
       ))}
 

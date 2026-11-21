@@ -50,10 +50,10 @@ import ImageImportDialog from './style/ImageImportDialog';
  * on this screen rides that one save — tables, zones, the Venue Studio, and
  * the seats blocked in its Preview (useMapPersistence.js).
  *
- * WHICH IS ALSO WHY LEAVING ASKS FIRST (useUnsavedGuard), why a table can be
- * added with a button as well as a double-click (which touch screens do not
- * reliably send), and why Ctrl+Z inside a text field undoes the typing rather
- * than the map.
+ * WHICH IS ALSO WHY LEAVING ASKS FIRST (useUnsavedGuard), and why Ctrl+Z
+ * inside a text field undoes the typing rather than the map. Tables are added
+ * only on purpose — Add to layout, the Add menu, the starter card; the floor's
+ * double-click no longer drops one (2026-11-21).
  *
  * TABLES AND ZONES TAKE DIFFERENT ROADS TO THE SAME SAVE. Tables are stock —
  * rows in `tables`, each generating the seats that holds and tickets point at.
@@ -411,10 +411,6 @@ export default function MapEditor({ eventId }) {
             tool={tool}
             spacePan={spacePan}
             snapToGrid={snapToGrid}
-            onAddAt={(position) => {
-              const [key] = draft.addTables([{ position }]);
-              if (key) selection.selectOnly('table', key);
-            }}
             onNudge={onElementKeyDown}
             layers={layers}
             look={draft.look}
