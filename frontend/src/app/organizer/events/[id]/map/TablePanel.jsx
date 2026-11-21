@@ -1,17 +1,30 @@
 'use client';
 
 import { useState } from 'react';
-import TableStyleSection from './style/TableStyleSection';
+import { ShapePicker, SeatsPerSide, TableAppearance, appearanceSummary } from './style/TableStyleSection';
+import ShapeArt from './style/ShapeArt';
+import NavIcon from '../../../../components/shell/NavIcon';
+import { SHAPE_NAMES } from './shapeNames';
 import { MAX_SEATS_PER_TABLE, keyOf } from './useMapDraft';
 import { toCents } from '../tiers/Tiers';
 import { centsToInput } from '../../../../lib/moneyInput';
-import Field from '../../../../components/forms/Field';
-import { Notice } from '../../../../components/Feedback';
+import { formatMoney } from '../../../../utils/money';
 import { useEventContext } from '../EventContext';
 import NewTierInline, { NEW_TIER } from './NewTierInline';
+import { Inspector, InspectorSection, InspectorAction, InspectorNote } from '../../../../components/inspector/Inspector';
+import { Field, NumberField, SelectField, TextField, Toggle } from '../../../../components/inspector/fields';
 
 /**
- * Everything about one table.
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Everything about one table, in the order an organizer needs it (2026-11-21):
+ *
+ *   TABLE            name, seats, shape — what it is.
+ *   TICKETS & PRICE  what it sells as, and for. Before 2026-11-21 this sat
+ *                    BELOW twelve shape tiles and five colour pickers, so the
+ *                    one section with money in it was the one a reader had
+ *                    to scroll for.
+ *   PRIVATE ACCESS   hidden from the map; the password and invitation link.
+ *   APPEARANCE       size and colours, folded by default.
  *
  * Two properties here have consequences a form cannot undo, and both say so:
  *
@@ -20,211 +33,211 @@ import NewTierInline, { NEW_TIER } from './NewTierInline';
  *
  * A PRIVATE table disappears from the buyer's map entirely — not shown with a
  * lock, omitted. Its guests reach it through an invitation link carrying the
- * table id, and the password gates the purchase as well as the view. An
- * organizer who makes a table private without sending that link has made it
- * unreachable, which is worth saying out loud.
+ * table id, and the password gates the purchase as well as the view.
+ *
+ * WHICH PRICES ARE SHOWN FOLLOWS HOW THE EVENT SELLS (`purchaseMode`). Seats
+ * only: a whole-table price is never charged, so it is not offered. Whole
+ * tables only: the table price is the product and comes first, and a seat
+ * price would never be charged. Both: everything, seat first.
+ * ─────────────────────────────────────────────────────────────────────────────
  */
 export default function TablePanel({
-  table, tiers, categories, onChange, onRotate, onDuplicate, onRemove, onTierCreated,
+  table, tiers, categories, onChange, onRotate, onDuplicate, onRemove, onTierCreated, purchaseMode = 'seat_only',
 }) {
-  // "New ticket type…" open under the picker (NewTierInline). Before the early
-  // return: hooks run on every render.
+  // "New ticket type…" open under the picker (NewTierInline).
   const [creatingTier, setCreatingTier] = useState(false);
-  if (!table) {
-    return (
-      <aside className="fx-stack fx-stack--sm es-card p-5">
-        <p className="text-sm text-muted">Select a table or a zone on the map to edit it.</p>
-        <p className="text-xs text-subtle">
-          Use Add element, or double-click anywhere on the floor to drop a table. Drag the
-          floor to box-select several at once; arrow keys move whatever is selected.
-        </p>
-      </aside>
-    );
-  }
+  const currency = useEventContext()?.event?.currency;
 
   const key = keyOf(table);
   const set = (patch) => onChange(key, patch);
+  const sold = Number(table.soldSeats) || 0;
+  const tier = (tiers || []).find((t) => t.id === table.tierId) || null;
+  const sellsSeats = purchaseMode !== 'table_only';
+  const sellsTables = purchaseMode !== 'seat_only';
+  const hasExtras = (sellsSeats && table.seatPriceCents != null)
+    || (sellsSeats && sellsTables && table.priceCents != null)
+    || !!table.categoryId;
+  const [morePricing, setMorePricing] = useState(hasExtras);
 
-  return (
-    <aside className="fx-stack fx-stack--sm es-card p-5">
-      <div className="fx-row fx-row--between">
-        <h3 className="text-lg">Table {table.label}</h3>
-        <button
-          type="button"
-          onClick={() => onRemove(key)}
-          className="es-btn es-btn--ghost es-btn--sm"
-        >
-          Remove
-        </button>
-      </div>
+  const priceSummary = sellsSeats
+    ? (tier ? `${tier.name}${table.seatPriceCents != null ? ' · own seat price' : ''}` : table.seatPriceCents != null ? 'Seat price set' : 'Not priced')
+    : (table.priceCents != null ? formatMoney(table.priceCents, currency) : 'Not priced');
+  const unpriced = sellsSeats ? !tier && table.seatPriceCents == null : table.priceCents == null;
 
-      <Field
-        label="Name" value={table.label} maxLength={40}
-        hint="Unique across the map — buyers see it on their ticket."
-        onChange={(e) => set({ label: e.target.value })}
-      />
-
-
-      <Field
-        label="Seats" type="number" min={1} max={MAX_SEATS_PER_TABLE}
-        value={table.seatCount}
-        hint="Reducing this removes the highest-numbered seats. Booked ones cannot be removed."
-        onChange={(e) => {
-          const n = Number(e.target.value);
-          // Clamped to the database's own CHECK (1–60), so the field cannot
-          // hold a value the save would be refused for.
-          if (Number.isFinite(n)) {
-            // A typed count goes back to the shape's own spread: seats per
-            // side that no longer add up would be ignored anyway.
-            const { sides, ...rest } = table.style || {};
-            set({
-              seatCount: Math.min(MAX_SEATS_PER_TABLE, Math.max(1, Math.round(n))),
-              ...(sides ? { style: Object.keys(rest).length ? rest : null } : {}),
-            });
-          }
-        }}
-      />
-
-      {/* Shape, seats per side and colours (2026-11-18). */}
-      <TableStyleSection table={table} onChange={set} sold={Number(table.soldSeats) || 0} />
-
-      {/* BRD §25 — a table's price is INDEPENDENT, not the sum of its seats.
-          Ten $50 seats may sell as a $450 table or a $550 one; the organizer
-          decides. Empty means the table cannot be bought whole at all. */}
-      <PriceField
-        tableKey={key}
-        priceCents={table.priceCents}
-        onCommit={(cents) => set({ priceCents: cents })}
-      />
-
-      <Select
-        label="Category" value={table.categoryId || ''}
-        onChange={(v) => set({ categoryId: v || null })}
-        options={[['', 'None'], ...(categories || []).map((c) => [c.id, c.name])]}
-        hint="Colour on the map. It does not affect price."
-      />
-
-      <Select
+  const tierField = (
+    <>
+      <SelectField
         label="Ticket type" value={table.tierId || ''}
         onChange={(v) => {
           if (v === NEW_TIER) { setCreatingTier(true); return; }
           set({ tierId: v || null });
         }}
         options={[['', 'None'], ...(tiers || []).map((t) => [t.id, t.name]), [NEW_TIER, '+ New ticket type…']]}
-        // A seat's price is its seat price, else its ticket type's — the
-        // whole-table price above is NOT part of it (TECH-AUDIT-LOG S-04). A
-        // seat with neither cannot be sold; a live event refuses to save one.
-        hint="What each seat sells as, and for. Seats with no ticket type and no seat price are not on sale."
+        hint={sellsSeats ? 'What each seat sells as, and for.' : 'Shown on each guest’s ticket.'}
       />
       {creatingTier && (
         <NewTierInline
-          onCreated={(tier) => { onTierCreated?.(tier); set({ tierId: tier.id }); setCreatingTier(false); }}
+          onCreated={(created) => { onTierCreated?.(created); set({ tierId: created.id }); setCreatingTier(false); }}
           onCancel={() => setCreatingTier(false)}
         />
       )}
+    </>
+  );
 
-      {/* The per-seat override the API always took and nothing could set
-          (S-04). Optional: empty means the ticket type's price. */}
-      <PriceField
-        tableKey={`${key}:seat`}
-        priceCents={table.seatPriceCents}
-        onCommit={(cents) => set({ seatPriceCents: cents })}
-        label="Seat price (optional)"
-        hint={(currency) => `In ${currency || 'the event currency'}. Overrides the ticket type's price for every seat at this table. Empty uses the ticket type.`}
-      />
+  const wholeTable = (
+    // BRD §25 — a table's price is INDEPENDENT, not the sum of its seats.
+    <PriceField
+      tableKey={key}
+      priceCents={table.priceCents}
+      onCommit={(cents) => set({ priceCents: cents })}
+      label="Whole-table price"
+      hint={sellsSeats ? 'What booking the whole table costs. Empty: sold seat by seat only.' : 'What a buyer pays for the whole table.'}
+    />
+  );
 
-      <label className="fx-row items-start gap-2 text-sm">
-        <input
-          type="checkbox"
+  return (
+    <Inspector
+      label="Table"
+      icon={<ShapeArt shape={table.shape} size={26} />}
+      title={table.label || 'Untitled table'}
+      meta={`${SHAPE_NAMES[table.shape] || 'Table'} · ${table.seatCount} seat${table.seatCount === 1 ? '' : 's'}${sold ? ` · ${sold} sold or held` : ''}`}
+      status={table.status && table.status !== 'available' ? (
+        <InspectorNote tone="warning">This table is {table.status}. Sold seats can’t be removed, and the table can’t be deleted.</InspectorNote>
+      ) : null}
+      actions={(
+        <>
+          <InspectorAction icon="rotate" onClick={() => onRotate?.(90)} disabled={!onRotate} title={`Turn 90° (now ${Math.round(table.position?.rotation || 0)}°)`}>Rotate</InspectorAction>
+          {/* A copy is a new table with a new name, never private and with
+              nothing sold — said in the title so the omissions are not bugs. */}
+          <InspectorAction icon="copy" onClick={onDuplicate} disabled={!onDuplicate} title="Adds a copy beside this one — new name, not private, nothing sold">Duplicate</InspectorAction>
+          <InspectorAction icon="trash" tone="danger" onClick={() => onRemove(key)}>Delete</InspectorAction>
+        </>
+      )}
+    >
+      <InspectorSection id="table-basics" title="Table" summary={`${table.seatCount} seats`}>
+        <TextField
+          label="Name" value={table.label} maxLength={40}
+          hint="Unique on this map. Buyers see it on their ticket."
+          onChange={(label) => set({ label })}
+        />
+        <SeatCountField table={table} onChange={set} sold={sold} />
+        <ShapePicker table={table} onChange={set} />
+        <SeatsPerSide table={table} onChange={set} sold={sold} />
+      </InspectorSection>
+
+      <InspectorSection id="table-price" title="Tickets & price" summary={priceSummary}>
+        {unpriced && (
+          <InspectorNote tone="warning">
+            {sellsSeats ? 'These seats aren’t on sale yet — choose a ticket type.' : 'Not on sale yet — set a whole-table price.'}
+          </InspectorNote>
+        )}
+        {!sellsSeats && wholeTable}
+        {tierField}
+        {/* The ticket type is the one choice most tables need. The rest —
+            an override price, an optional whole-table price, a colour
+            category — wait behind one fold, open by itself when any of them
+            is already set (2026-11-21). */}
+        <button
+          type="button" className="es-insp__sub" aria-expanded={morePricing}
+          onClick={() => setMorePricing((v) => !v)}
+        >
+          <span>More pricing options</span>
+          {hasExtras && <span className="es-insp__subtag">Set</span>}
+          <NavIcon name="chevronDown" size={15} className="es-insp__subchev" />
+        </button>
+        {morePricing && (
+          <div className="es-insp__subbody">
+            {sellsSeats && (
+              // The per-seat override (S-04). Empty means the ticket type's price.
+              <PriceField
+                tableKey={`${key}:seat`}
+                priceCents={table.seatPriceCents}
+                onCommit={(cents) => set({ seatPriceCents: cents })}
+                label="Seat price"
+                optional
+                hint={tier ? `Empty uses ${tier.name}’s price.` : 'Overrides the ticket type for every seat here.'}
+              />
+            )}
+            {sellsSeats && sellsTables && wholeTable}
+            <SelectField
+              label="Category" value={table.categoryId || ''}
+              onChange={(v) => set({ categoryId: v || null })}
+              options={[['', 'None'], ...(categories || []).map((c) => [c.id, c.name])]}
+              hint="A colour on the map. It doesn’t change the price."
+            />
+          </div>
+        )}
+      </InspectorSection>
+
+      <InspectorSection id="table-access" title="Private access" summary={table.isPrivate ? 'Private' : 'Public'} defaultOpen={false} forceOpen={!!table.isPrivate}>
+        <Toggle
+          label="Private table"
+          hint="Hidden from the map. Guests need the invitation link and password."
           checked={!!table.isPrivate}
-          onChange={(e) => set({
-            isPrivate: e.target.checked,
+          onChange={(on) => set({
+            isPrivate: on,
             // Unticking must actually clear the password, not just hide the
             // field — the API reads `isPrivate: false` as the explicit
             // instruction to remove protection.
-            ...(e.target.checked ? {} : { password: '' }),
+            ...(on ? {} : { password: '' }),
           })}
-          className="mt-0.5"
         />
-        <span>
-          <span className="block text-ink">Private table</span>
-          <span className="block text-xs text-subtle">
-            Hidden from the map completely. Guests need an invitation link and the
-            password — send them both, or nobody can reach it.
-          </span>
-        </span>
-      </label>
+        {table.isPrivate && (
+          <TextField
+            label={table.hasPassword ? 'New password' : 'Password'}
+            type="password"
+            value={table.password || ''}
+            maxLength={64}
+            autoComplete="off"
+            hint={table.hasPassword ? 'Leave empty to keep the current one.' : 'Required before the map can be saved.'}
+            onChange={(password) => set({ password })}
+          />
+        )}
+        {table.isPrivate && <InviteLink table={table} />}
+      </InspectorSection>
 
-      {table.isPrivate && (
-        <Field
-          label={table.hasPassword ? 'New password' : 'Password'}
-          type="password"
-          value={table.password || ''}
-          maxLength={64}
-          autoComplete="off"
-          hint={table.hasPassword
-            ? 'Leave empty to keep the current one.'
-            : 'Required before this table can be saved.'}
-          onChange={(e) => set({ password: e.target.value })}
-        />
-      )}
-      {table.isPrivate && <InviteLink table={table} />}
-
-      {/* THE ROTATE BUTTON IS NOT A DUPLICATE OF THE CANVAS HANDLE.
-          The handle is a drag, which a keyboard cannot perform and a trackpad
-          performs badly at a zoomed-out scale. This does the same thing in
-          exact 90° steps, from a control that is already in the tab order —
-          and it is the only rotate a screen-reader user has. */}
-      <div className="fx-row flex-wrap gap-2 border-t border-border-base pt-3">
-        <button
-          type="button"
-          onClick={() => onRotate?.(90)}
-          disabled={!onRotate}
-          className="es-btn es-btn--secondary es-btn--sm"
-        >
-          Rotate 90°
-        </button>
-        <button
-          type="button"
-          onClick={onDuplicate}
-          disabled={!onDuplicate}
-          className="es-btn es-btn--ghost es-btn--sm"
-          // Says what it will NOT copy, because the two omissions are
-          // deliberate and both would otherwise look like bugs: a copy is a new
-          // table with a new name, and it is never private, because a private
-          // table with no password of its own is refused on save and would be
-          // unreachable by anyone if it were not.
-          title="Adds a copy beside this one — new name, no password, nothing sold"
-        >
-          Duplicate
-        </button>
-        <span className="fx-row items-center text-xs text-subtle">
-          Turned {Math.round(table.position?.rotation || 0)}°
-        </span>
-      </div>
-
-      {table.status && table.status !== 'available' && (
-        <Notice tone="warning" title={`This table is ${table.status}.`}>
-          <p>Seats that have sold cannot be removed, and the table cannot be deleted.</p>
-        </Notice>
-      )}
-    </aside>
+      <InspectorSection id="table-look" title="Appearance" summary={appearanceSummary(table)} defaultOpen={false}>
+        <TableAppearance table={table} onChange={set} />
+      </InspectorSection>
+    </Inspector>
   );
 }
 
 /**
- * The whole-table price, typed as money.
- *
- * The input used to be derived straight from `priceCents`, committing only text
- * that already parsed — so "25." was refused, the field snapped back to "25",
- * and 25.50 could never be typed at all. It now keeps the organizer's own text
- * as a draft, commits whenever that text is a valid amount, and says so when it
- * is not. The draft is re-seeded only when a DIFFERENT value arrives — another
- * table selected, or an undo — never by its own commits.
+ * Seats, as a number. Clamped to the database's own CHECK (1–60), so the field
+ * cannot hold a value the save would be refused for; a typed count goes back
+ * to the shape's own spread, since seats per side that no longer add up would
+ * be ignored anyway.
  */
-const WHOLE_TABLE_HINT = (currency) => `In ${currency || 'the event currency'}. Only what booking the WHOLE table costs — it does not price single seats. Leave empty to sell this table only seat by seat.`;
+function SeatCountField({ table, onChange, sold }) {
+  return (
+    <NumberField
+      // Applied when the number is finished (blur or Enter): typed over
+      // live, "12" went through a 1-seat table and lost its seats per side.
+      live={false}
+      label="Seats" min={Math.max(1, sold)} max={MAX_SEATS_PER_TABLE}
+      value={table.seatCount}
+      hint={sold ? `Can’t go below ${sold}: those seats are sold or held.` : 'Fewer seats removes the highest-numbered ones.'}
+      onChange={(n) => {
+        const { sides, ...rest } = table.style || {};
+        onChange({
+          seatCount: n,
+          ...(sides ? { style: Object.keys(rest).length ? rest : null } : {}),
+        });
+      }}
+    />
+  );
+}
 
-function PriceField({ tableKey, priceCents, onCommit, label = 'Whole-table price', hint = WHOLE_TABLE_HINT }) {
+/**
+ * A price, typed as money.
+ *
+ * It keeps the organizer's own text as a draft, commits whenever that text is
+ * a valid amount, and says so when it is not — so "25." is not refused and
+ * 25.50 can be typed. The draft is re-seeded only when a DIFFERENT value
+ * arrives (another table selected, or an undo), never by its own commits.
+ */
+function PriceField({ tableKey, priceCents, onCommit, label, hint, optional = false }) {
   const currency = useEventContext()?.event?.currency;
   const external = centsToInput(priceCents, currency);
   const signature = `${tableKey}:${priceCents ?? ''}`;
@@ -233,45 +246,44 @@ function PriceField({ tableKey, priceCents, onCommit, label = 'Whole-table price
   const [draftFor, setDraftFor] = useState(signature);
   if (signature !== draftFor) {
     setDraftFor(signature);
-    // Kept when it already means this amount ("25.50" and 2550), so a commit
-    // never rewrites what is being typed.
     if (toCents(draft, currency) !== (priceCents ?? null) || (draft === '') !== (priceCents === null || priceCents === undefined)) {
       setDraft(external);
     }
   }
 
   const invalid = draft.trim() !== '' && toCents(draft, currency) === null;
+  const id = `price-${tableKey.replace(/\W+/g, '-')}`;
 
   return (
     <Field
-      label={label}
-      value={draft}
-      inputMode="decimal"
-      hint={hint(currency)}
+      label={label} id={id} hint={hint}
       error={invalid ? 'Enter an amount in this currency, like 25.' : null}
-      onChange={(e) => {
-        const text = e.target.value;
-        setDraft(text);
-        if (text.trim() === '') { onCommit(null); return; }
-        const cents = toCents(text, currency);
-        if (cents !== null) onCommit(cents);
-      }}
-    />
+      aside={<span className="es-field__muted">{optional ? 'Optional · ' : ''}{currency || ''}</span>}
+    >
+      <input
+        id={id} className="es-input es-input--dense" value={draft} inputMode="decimal" aria-invalid={invalid || undefined}
+        onChange={(e) => {
+          const text = e.target.value;
+          setDraft(text);
+          if (text.trim() === '') { onCommit(null); return; }
+          const cents = toCents(text, currency);
+          if (cents !== null) onCommit(cents);
+        }}
+      />
+    </Field>
   );
 }
 
 /**
- * The private table's invitation link (owner, 2026-11-19: "how to set
- * password?"). The panel said "send them the invitation link" and nothing
- * showed one: it is the seat page with `?table=<id>`, which opens the
- * password prompt for exactly this table (SeatPicker, useTableAccess). A
- * table gets its id when the map is saved, so before that this says so.
+ * The private table's invitation link: the seat page with `?table=<id>`,
+ * which opens the password prompt for exactly this table (SeatPicker,
+ * useTableAccess). A table gets its id when the map is saved.
  */
 function InviteLink({ table }) {
   const slug = useEventContext()?.event?.slug;
   const [copied, setCopied] = useState(false);
   if (!table.id || !slug) {
-    return <p className="text-xs text-subtle">Save the map, then the invitation link for this table appears here.</p>;
+    return <InspectorNote>Save the map and this table’s invitation link appears here.</InspectorNote>;
   }
   const path = `/e/${slug}/seats?table=${encodeURIComponent(table.id)}`;
   const copy = async () => {
@@ -282,32 +294,13 @@ function InviteLink({ table }) {
     } catch { /* clipboard blocked: the link is on screen to copy by hand */ }
   };
   return (
-    <div className="fx-stack gap-1.5">
-      <span className="text-sm text-ink">Invitation link</span>
+    <div className="es-field">
+      <span className="es-field__label">Invitation link</span>
       <div className="fx-row items-center gap-2">
         <code className="fx-min0 fx-break flex-1 rounded-(--es-radius-md) bg-bg-sunken px-2 py-1.5 text-xs">{path}</code>
         <button type="button" className="es-btn es-btn--secondary es-btn--sm" onClick={copy}>{copied ? 'Copied' : 'Copy'}</button>
       </div>
-      <p className="text-xs text-subtle">
-        Send this link and the password to the table&apos;s guests. The link opens the seat page and asks for the
-        password. The table works only after the map is saved{table.hasPassword ? '' : ' with a password'}.
-      </p>
-    </div>
-  );
-}
-
-function Select({ label, value, onChange, options, hint }) {
-  const id = `tp-${label.replace(/\W+/g, '-').toLowerCase()}`;
-  return (
-    <div className="fx-stack fx-stack--sm gap-1.5">
-      <label htmlFor={id} className="text-sm text-ink">{label}</label>
-      <select
-        id={id} value={value} onChange={(e) => onChange(e.target.value)}
-        className="es-input"
-      >
-        {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-      </select>
-      {hint && <p className="text-xs text-subtle">{hint}</p>}
+      <p className="es-field__hint">Send it with the password. It works once the map is saved{table.hasPassword ? '' : ' with a password'}.</p>
     </div>
   );
 }

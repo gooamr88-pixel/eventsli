@@ -242,7 +242,7 @@ describe('Select all, narrowed', () => {
 describe('the keyboard', () => {
   test('V and H switch tools', async () => {
     render(<Harness initialTables={[table('a', 30, 30)]} />);
-    const move = screen.getByRole('button', { name: 'Move' });
+    const move = screen.getByRole('button', { name: 'Pan' });
     const select = screen.getByRole('button', { name: 'Select' });
 
     expect(select).toHaveAttribute('aria-pressed', 'true');
@@ -318,6 +318,38 @@ describe('the keyboard', () => {
     expect(screen.getByLabelText('name')).toHaveValue('hv');
     expect(state()).toContain('tables=1');
     expect(screen.getByRole('button', { name: 'Select' })).toHaveAttribute('aria-pressed', 'true');
+  });
+});
+
+describe('keys that belong to the inspector (2026-11-21)', () => {
+  test('Backspace on a switch in the inspector does not delete the selected table', async () => {
+    render(
+      <>
+        <aside className="es-insp"><button type="button" role="switch" aria-checked="false">Private table</button></aside>
+        <Harness initialTables={[table('a', 30, 30), table('b', 60, 60)]} />
+      </>,
+    );
+    await userEvent.click(screen.getByRole('button', { name: /^Table A/ }));
+    screen.getByRole('switch', { name: 'Private table' }).focus();
+    await userEvent.keyboard('{Backspace}{Delete}{ArrowRight}h');
+    expect(state()).toContain('tables=2');
+    expect(state()).toContain('selected=1');
+    expect(screen.getByRole('button', { name: 'Select' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  test('Ctrl+Z from an inspector button still undoes the map', async () => {
+    render(
+      <>
+        <aside className="es-insp"><button type="button">Round</button></aside>
+        <Harness initialTables={[table('a', 30, 30), table('b', 60, 60)]} />
+      </>,
+    );
+    await userEvent.click(screen.getByRole('button', { name: /^Table A/ }));
+    await userEvent.keyboard('{Delete}');
+    expect(state()).toContain('tables=1');
+    screen.getByRole('button', { name: 'Round' }).focus();
+    await userEvent.keyboard('{Control>}z{/Control}');
+    expect(state()).toContain('tables=2');
   });
 });
 

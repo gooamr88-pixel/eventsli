@@ -2,19 +2,35 @@
 
 import { Outline } from '../../../../../components/seating/StyledZoneShape';
 import { ZONE_SHAPES } from '../../../../../components/seating/mapStyle';
-import { ColourField, RangeField, Segmented } from './StyleFields';
+import { ColourField, RangeField, Segmented, TextField, Toggle } from '../../../../../components/inspector/fields';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
- * How one area looks (2026-11-18): its shape, fill, border and words — the
+ * How one area looks (2026-11-18): its shape, colours, border and words — the
  * "Area style" card of the owner's reference. Walls, doors and text show only
  * what applies to them.
  *
- * The zone's existing `color` stays what it always was — the border, icon and
- * the wash when there is no fill — so a map styled before this keeps its look.
+ * The zone's `color` stays what it always was — the outline, icon and the wash
+ * when there is no fill — so a map styled before this keeps its look. It used
+ * to be a separate picker above this section with its own "Use the default"
+ * button; it is now the first colour here, with the same reset as the rest
+ * (2026-11-21). A wall's thickness, which was a number field AND a slider, is
+ * now only the number beside its length (ZonePanel).
  * ─────────────────────────────────────────────────────────────────────────────
  */
 const SHAPE_NAMES = { rect: 'Square corners', rounded: 'Rounded', ellipse: 'Circle or oval', pill: 'Pill', d: 'D-shape', rings: 'Rings' };
+
+/** The words on an area: its second line. Sits with the label in ZonePanel. */
+export function ZoneSublabel({ zone, onChange }) {
+  return (
+    <TextField
+      label="Second line" maxLength={60}
+      value={zone.sublabel || ''} placeholder="Tea and coffee · Drinks"
+      hint="Smaller words under the name. A · starts a new line."
+      onChange={(v) => onChange({ sublabel: v || null }, { mergeKey: `${zone.id}:sublabel` })}
+    />
+  );
+}
 
 export default function ZoneStyleSection({ zone, colour, onChange }) {
   const set = (patch, key) => onChange(patch, { mergeKey: `${zone.id}:${key}` });
@@ -22,39 +38,25 @@ export default function ZoneStyleSection({ zone, colour, onChange }) {
   const isDoor = zone.kind === 'door_gap';
   const isText = zone.kind === 'text';
 
-  if (isWall) {
-    return (
-      <div className="fx-stack fx-stack--sm gap-3 border-t border-border-base pt-3">
-        <h4 className="text-sm font-semibold text-ink">Wall</h4>
-        <RangeField
-          label="Thickness" min={2} max={30} step={1} value={zone.h}
-          onChange={(h) => set({ h }, 'h')}
-        />
-        <p className="text-xs text-subtle">
-          Leave a gap between walls for a door, or lay a Door over a wall — it shows the floor through it, with its name.
-        </p>
-      </div>
-    );
-  }
+  const outline = (
+    <ColourField
+      label={isWall ? 'Wall colour' : 'Outline colour'} value={zone.color || null} fallback={colour}
+      emptyText={isWall ? 'Map look' : 'Default'} onChange={(v) => set({ color: v }, 'color')}
+    />
+  );
+
+  if (isWall) return outline;
 
   if (isDoor) {
     return (
-      <div className="fx-stack fx-stack--sm gap-3 border-t border-border-base pt-3">
-        <h4 className="text-sm font-semibold text-ink">Door</h4>
-        <ColourField id={`zs-text-${zone.id}`} label="Name colour" value={zone.textColor} fallback="#10303d" onChange={(v) => set({ textColor: v }, 'textColor')} />
-        <p className="text-xs text-subtle">
-          Lay it across a wall and turn it to match: it paints the gap in the floor&apos;s colour and puts its name beside it.
-        </p>
-      </div>
+      <ColourField label="Name colour" value={zone.textColor} fallback="#10303d" onChange={(v) => set({ textColor: v }, 'textColor')} emptyText="Map look" />
     );
   }
 
   const shape = zone.shape || (zone.kind === 'decor' ? 'rings' : 'rounded');
 
   return (
-    <div className="fx-stack fx-stack--sm gap-3 border-t border-border-base pt-3">
-      <h4 className="text-sm font-semibold text-ink">{isText ? 'Text style' : 'Area style'}</h4>
-
+    <>
       {!isText && (
         <div role="group" aria-label="Area shape" className="es-shapegrid es-shapegrid--6">
           {ZONE_SHAPES.map((s) => (
@@ -79,8 +81,9 @@ export default function ZoneStyleSection({ zone, colour, onChange }) {
         </div>
       )}
 
+      {!isText && outline}
       <ColourField
-        id={`zs-fill-${zone.id}`} label="Fill" value={zone.fill} fallback={colour}
+        label="Fill" value={zone.fill} fallback={colour}
         emptyText={isText ? 'None' : 'Light wash'} onChange={(v) => set({ fill: v }, 'fill')}
       />
       {zone.fill && (
@@ -97,6 +100,7 @@ export default function ZoneStyleSection({ zone, colour, onChange }) {
             value={zone.strokeStyle || 'solid'}
             options={[['solid', 'Solid'], ['dashed', 'Dashed'], ['dotted', 'Dotted'], ['none', 'None']]}
             onChange={(v) => set({ strokeStyle: v }, 'strokeStyle')}
+            stacked
           />
           {(zone.strokeStyle || 'solid') !== 'none' && (
             <RangeField
@@ -107,45 +111,29 @@ export default function ZoneStyleSection({ zone, colour, onChange }) {
         </>
       )}
 
-      <div className="fx-stack fx-stack--sm gap-1.5">
-        <label htmlFor={`zs-sub-${zone.id}`} className="text-sm text-ink">Second line</label>
-        <input
-          id={`zs-sub-${zone.id}`} className="es-input" maxLength={60}
-          value={zone.sublabel || ''} placeholder="Tea and coffee · Drinks"
-          onChange={(e) => set({ sublabel: e.target.value || null }, 'sublabel')}
-        />
-        <p className="text-xs text-subtle">Smaller words under the name. A · starts a new line.</p>
-      </div>
-
       <Segmented
         label="Text size" value={zone.textSize || 'm'}
         options={[['s', 'S'], ['m', 'M'], ['l', 'L']]}
         onChange={(v) => set({ textSize: v }, 'textSize')}
       />
       <ColourField
-        id={`zs-text-${zone.id}`} label="Text colour" value={zone.textColor} fallback="#10303d"
+        label="Text colour" value={zone.textColor} fallback="#10303d"
         onChange={(v) => set({ textColor: v }, 'textColor')}
       />
       {!isText && (
-        <label className="fx-row items-center justify-between gap-2 text-sm text-ink">
-          Show name
-          <input
-            type="checkbox"
-            checked={zone.showLabel !== false}
-            onChange={(e) => set({ showLabel: e.target.checked ? null : false }, 'showLabel')}
-          />
-        </label>
+        <Toggle
+          label="Show name"
+          checked={zone.showLabel !== false}
+          onChange={(on) => set({ showLabel: on ? null : false }, 'showLabel')}
+        />
       )}
       {!isText && (
-        <label className="fx-row items-center justify-between gap-2 text-sm text-ink">
-          Show icon
-          <input
-            type="checkbox"
-            checked={zone.showIcon ?? (!zone.sublabel && shape !== 'rings')}
-            onChange={(e) => set({ showIcon: e.target.checked }, 'showIcon')}
-          />
-        </label>
+        <Toggle
+          label="Show icon"
+          checked={zone.showIcon ?? (!zone.sublabel && shape !== 'rings')}
+          onChange={(on) => set({ showIcon: on }, 'showIcon')}
+        />
       )}
-    </div>
+    </>
   );
 }

@@ -35,7 +35,7 @@ describe('MapLookCard', () => {
     const onChange = vi.fn();
     render(<MapLookCard look={{ floor: '#fffcf2', seat: '#d6006e' }} onChange={onChange} onApplyToTables={() => {}} tableCount={3} />);
     await waitFor(() => expect(get).toHaveBeenCalled());
-    await userEvent.click(screen.getByRole('button', { name: /Save as my look/ }));
+    await userEvent.click(screen.getByRole('button', { name: /Save look/ }));
     const field = screen.getByLabelText('Name this look');
     await userEvent.clear(field);
     await userEvent.type(field, 'Wedding');

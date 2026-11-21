@@ -7,7 +7,7 @@ import { useEventContext } from '../../EventContext';
 import { VENUE_TYPES, ACCESS_FEATURES, capacityOf } from '../../../../../components/venue/venueModel';
 import { zoneLabel } from '../../../../../components/seating/venueZones';
 import { uploadStudioImage } from './uploadStudioImage';
-import { TextField, NumberField, SelectField } from './fields';
+import { Chips, Field, TextField, NumberField, SelectField } from '../../../../../components/inspector/fields';
 import VenueSizeCard from './VenueSizeCard';
 
 /**
@@ -75,31 +75,20 @@ export default function VenuePanel({
           />
         </div>
 
-        <fieldset className="fx-stack gap-2">
-          <legend className="mb-1 text-sm text-ink">Accessibility</legend>
-          <div className="fx-row gap-2">
-            {ACCESS_FEATURES.map((a) => {
-              const on = venue.access.includes(a.key);
-              return (
-                <label key={a.key} className={`es-chip ${on ? 'es-chip--on' : ''}`}>
-                  <input type="checkbox" className="sr-only" checked={on} onChange={() => toggleAccess(a.key)} />
-                  {on && <NavIcon name="tick" size={14} />}
-                  {a.label}
-                </label>
-              );
-            })}
-          </div>
-        </fieldset>
+        <Chips
+          label="Accessibility"
+          items={ACCESS_FEATURES}
+          isOn={(key) => venue.access.includes(key)}
+          onToggle={toggleAccess}
+        />
 
-        <div className="fx-stack gap-1.5">
-          <label htmlFor="venue-notes" className="text-sm text-ink">Notes for buyers</label>
+        <Field label="Notes for buyers" id="venue-notes" hint={`${600 - venue.notes.length} characters left`}>
           <textarea
-            id="venue-notes" className="es-input" rows={3} maxLength={600} value={venue.notes}
+            id="venue-notes" className="es-input es-input--dense" rows={3} maxLength={600} value={venue.notes}
             onChange={(e) => onChange({ notes: e.target.value })}
             placeholder="Doors open an hour before. Bags are checked at Entrance A. Lifts to every level."
           />
-          <p className="text-xs text-subtle">{600 - venue.notes.length} characters left</p>
-        </div>
+        </Field>
       </section>
 
       <div className="fx-stack">

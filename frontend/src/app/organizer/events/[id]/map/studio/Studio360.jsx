@@ -10,7 +10,7 @@ import { projectSeats, guessSpot } from '../../../../../components/venue/photoSp
 import { VIEW_KINDS, MAX_VIEWS, studioId, tierPalette } from '../../../../../components/venue/venueModel';
 import { keyOf } from '../useMapDraft';
 import { uploadStudioImage, aspectOf } from './uploadStudioImage';
-import { TextField, SelectField, RangeField } from './fields';
+import { TextField, SelectField, RangeField } from '../../../../../components/inspector/fields';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────

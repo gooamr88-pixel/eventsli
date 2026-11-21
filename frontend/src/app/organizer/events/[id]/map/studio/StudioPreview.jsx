@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import VenueExperience from '../../../../../components/venue/VenueExperience';
 import { writeStudio } from '../../../../../components/venue/venueModel';
 import { keyOf } from '../useMapDraft';
-import { Choice } from './fields';
+import { Segmented } from '../../../../../components/inspector/fields';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -102,14 +102,14 @@ export default function StudioPreview({
   return (
     <div className="fx-stack">
       <div className="es-dcard es-previewbar">
-        <Choice
+        <Segmented stacked
           label="Preview as"
           value={mode}
           onChange={switchMode}
           options={[{ key: 'buyer', label: 'Buyer' }, { key: 'holds', label: 'Seat holds' }]}
         />
         {mode === 'buyer' ? (
-          <Choice
+          <Segmented stacked
             label="Screen"
             value={device}
             onChange={setDevice}

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import {
   MAX_WORLD, makeWorld, worldFromMetres, worldMetres, worldOf,
 } from '../../../../../components/seating/seatingGeometry';
-import { NumberField } from './fields';
+import { NumberField, Segmented } from '../../../../../components/inspector/fields';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -70,20 +70,16 @@ export default function VenueSizeCard({ world, onResize }) {
         </p>
       </div>
 
-      <div className="fx-row gap-2" role="group" aria-label="Venue size presets">
-        {VENUE_SIZES.map((p) => {
+      <Segmented
+        stacked
+        label="Presets"
+        value={preset}
+        onChange={(key) => apply(VENUE_SIZES.find((p) => p.key === key).world)}
+        options={VENUE_SIZES.map((p) => {
           const m = worldMetres(p.world);
-          return (
-            <button
-              key={p.key} type="button" title={p.hint} aria-pressed={preset === p.key}
-              className={`es-chip ${preset === p.key ? 'es-chip--on' : ''}`}
-              onClick={() => apply(p.world)}
-            >
-              {p.label} <span className="es-nums text-subtle">{m.width} × {m.depth} m</span>
-            </button>
-          );
+          return { key: p.key, label: p.label, hint: p.hint, sub: `${m.width} × ${m.depth} m` };
         })}
-      </div>
+      />
 
       <form
         className="fx-stack gap-2"

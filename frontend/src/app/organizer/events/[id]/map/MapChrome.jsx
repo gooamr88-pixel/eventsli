@@ -16,7 +16,7 @@ import { MAX_ZONES } from '../../../../components/seating/venueZones';
  * shows the map as SAVED; the "Unsaved changes" chip says when that differs.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-export function MapHeader({ tables, zones, seatTotal, soldTotal, blockedTotal = 0, dirty, saving, canSave, onSave, onExport }) {
+export function MapHeader({ tables, zones, soldTotal, blockedTotal = 0, dirty, saving, canSave, onSave, onExport }) {
   const event = useEventContext()?.event;
   const live = event?.status === 'published' && event?.slug;
   return (
@@ -24,28 +24,22 @@ export function MapHeader({ tables, zones, seatTotal, soldTotal, blockedTotal = 
       <div className="fx-stack fx-stack--sm fx-min0 gap-1">
         {/* The page's <h1>: the event layout's head is the breadcrumb (see layout.jsx). */}
         <h1 className="es-section-title">Seating map</h1>
-        <p className="es-page-head__lede">The Venue Studio: design your room in 2D, see it in 3D, give every seat a 360° view, and preview what buyers get.</p>
-        {/* What the room holds, as figures an organizer plans by — seats, not
-            just tables. The limits appear only when they are close. */}
-        <ul className="es-mapsum" aria-label="This room">
-          <li>
-            <b className="es-nums">{tables.length}</b>
-            {tables.length === 1 ? ' table' : ' tables'}
-            {tables.length >= MAX_TABLES * 0.8 && <span className="text-subtle"> of {MAX_TABLES}</span>}
+        <p className="es-page-head__lede">Design the room, see it in 3D and 360°, and preview what buyers get.</p>
+        {/* STATE, not statistics (2026-11-21). The room's figures are in the
+            bar under the canvas and on the Layout tab; up here is only what
+            changes what the organizer may do next: whether the work is saved,
+            the stock buyers already hold, and a limit coming close. */}
+        <ul className="es-mapsum" aria-label="Map status">
+          <li className={dirty ? 'es-mapsum__dirty' : 'es-mapsum__saved'}>
+            <NavIcon name={dirty ? 'pencil' : 'tick'} size={14} />
+            {saving ? 'Saving…' : dirty ? 'Unsaved changes' : 'All changes saved'}
           </li>
-          <li><b className="es-nums">{seatTotal}</b>{seatTotal === 1 ? ' seat' : ' seats'}</li>
-          {zones.length > 0 && (
-            <li>
-              <b className="es-nums">{zones.length}</b>
-              {zones.length === 1 ? ' zone' : ' zones'}
-              {zones.length >= MAX_ZONES * 0.8 && <span className="text-subtle"> of {MAX_ZONES}</span>}
-            </li>
-          )}
           {/* Buyers' seats and the organizer's own blocks, apart (S-08): only
               the first stop a table being moved, shrunk or removed. */}
           {soldTotal > 0 && <li><b className="es-nums">{soldTotal}</b> sold or held</li>}
           {blockedTotal > 0 && <li><b className="es-nums">{blockedTotal}</b> blocked</li>}
-          {dirty && <li className="es-mapsum__dirty">Unsaved changes</li>}
+          {tables.length >= MAX_TABLES * 0.8 && <li><b className="es-nums">{tables.length}</b> of {MAX_TABLES} tables</li>}
+          {zones.length >= MAX_ZONES * 0.8 && <li><b className="es-nums">{zones.length}</b> of {MAX_ZONES} areas</li>}
         </ul>
       </div>
       <div className="es-page-head__actions">
@@ -88,29 +82,40 @@ export function countUnpriced(tables, purchaseMode = 'seat_only') {
   return tables.filter((t) => !t.tierId && none(t.seatPriceCents)).length;
 }
 
-/** The one piece of advice that is true right now, counted from the draft. */
-export function MapBanner({ tables, purchaseMode = 'seat_only' }) {
+/** The same rule as `countUnpriced`, for one table. */
+export function isUnpriced(table, purchaseMode = 'seat_only') {
+  return countUnpriced([table], purchaseMode) === 1;
+}
+
+/**
+ * The one piece of advice that is true right now, counted from the draft —
+ * and, since 2026-11-21, the button that acts on it: "Select them" selects
+ * exactly the tables that cannot be sold, so the inspector beside the map is
+ * already open on them with the ticket-type picker ready.
+ */
+export function MapBanner({ tables, purchaseMode = 'seat_only', onSelectUnpriced = null }) {
   const unpriced = countUnpriced(tables, purchaseMode);
   // Nothing to fix, nothing to say: the owner's mockup has no card here, and
   // "Every seat has a price" was one on every visit to a finished map.
   if (tables.length > 0 && unpriced === 0) return null;
   const them = unpriced === 1 ? 'it' : 'them';
   const [title, text, tone] = tables.length === 0
-    ? ['Start with the room', 'Add rows of seats, tables and areas from the panel on the right, or double-click the floor to drop a table.', 'info']
-    : unpriced > 0 && purchaseMode === 'table_only'
-      ? ['Price every table', `${unpriced} ${unpriced === 1 ? 'table has' : 'tables have'} no whole-table price yet. Select ${them}, then set one in the panel.`, 'warning']
-      : unpriced > 0
-        ? ['Link seats to ticket types', `${unpriced} ${unpriced === 1 ? 'table has' : 'tables have'} seats with no ticket type yet. Select ${them}, then choose a ticket type in the panel. A whole-table price does not price the seats.`, 'warning']
-        : purchaseMode === 'table_only'
-          ? ['Every table has a price', 'Buyers book whole tables at the price you set on each one.', 'info']
-          : ['Every seat has a price', 'Each seat sells at its table’s ticket type, or at a seat price you set on the table. A whole-table price applies only when a table is booked whole.', 'info'];
+    ? ['Start with the room', 'Add a seating section, table or row — from Add to layout, or the Add button on the map’s toolbar — or double-click the floor to drop a table.', 'info']
+    : purchaseMode === 'table_only'
+      ? ['Price every table', `${unpriced} ${unpriced === 1 ? 'table has' : 'tables have'} no whole-table price yet, so buyers can’t book ${them}.`, 'warning']
+      : ['Link seats to ticket types', `${unpriced} ${unpriced === 1 ? 'table has' : 'tables have'} seats with no ticket type yet, so ${unpriced === 1 ? 'they aren’t' : 'those seats aren’t'} on sale. A whole-table price doesn’t price the seats.`, 'warning'];
   return (
-    <section className="es-payintro" data-tone={tone} aria-labelledby="map-advice">
+    <section className="es-payintro es-mapbanner" data-tone={tone} aria-labelledby="map-advice">
       <span className="es-payintro__icon" aria-hidden="true"><NavIcon name={tone === 'warning' ? 'alert' : 'info'} size={24} /></span>
-      <div className="fx-min0">
+      <div className="fx-min0 flex-1">
         <h2 id="map-advice" className="es-payintro__title">{title}</h2>
         <p className="es-payintro__text">{text}</p>
       </div>
+      {unpriced > 0 && onSelectUnpriced && (
+        <button type="button" className="es-btn es-btn--secondary es-btn--sm" onClick={onSelectUnpriced}>
+          Select {them}
+        </button>
+      )}
     </section>
   );
 }
@@ -135,11 +140,9 @@ export function SaveError({ error, onReload }) {
           Reload the map
         </button>
       )}
-      {/* `messageFor` keeps exactly the preference argued above — the server's
-          sentence wins, because "table 12 has 3 seats sold" is the useful
-          part. It only differs where `error.message` was never worth showing:
-          a dropped connection put "Failed to fetch" here, under a heading
-          about the map, next to a line promising nothing was saved. */}
+      {/* `messageFor` keeps the server's sentence where it is worth showing —
+          "table 12 has 3 seats sold" is the useful part — and replaces only
+          what never was, like a dropped connection's "Failed to fetch". */}
       <p className="text-sm text-muted">{messageFor(error)}</p>
       <p className="mt-1 text-xs text-subtle">
         Nothing was saved — the whole change was rolled back, so the map is exactly as it

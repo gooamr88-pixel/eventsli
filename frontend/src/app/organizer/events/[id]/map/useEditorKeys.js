@@ -50,7 +50,7 @@ const ARROWS = {
 };
 
 export function useEditorKeys({
-  draft, selection, snapToGrid, setTool, panByScreen, onDuplicate, onRemove,
+  draft, selection, snapToGrid, setTool, panByScreen, onDuplicate, onRemove, active = true,
 }) {
   /**
    * Whether the space bar is down, and the fact of it.
@@ -74,7 +74,7 @@ export function useEditorKeys({
    */
   const latest = useRef({});
   useEffect(() => {
-    latest.current = { draft, selection, snapToGrid, setTool, panByScreen, onDuplicate, onRemove };
+    latest.current = { draft, selection, snapToGrid, setTool, panByScreen, onDuplicate, onRemove, active };
   });
 
   /**
@@ -119,7 +119,9 @@ export function useEditorKeys({
 
   useEffect(() => {
     const onKeyDown = (e) => {
-      if (isTyping(e.target) || isTyping(document.activeElement)) return;
+      // Only on the Layout workspace, where the map is: Delete on the Venue
+      // tab removed tables nobody could see, and Ctrl+Z undid them unseen.
+      if (latest.current.active === false || keyBelongsToControl(e)) return;
       const { selection: sel, setTool: tool, panByScreen: pan, onDuplicate: dup, onRemove: rm, draft: d } = latest.current;
 
       // Space: hold to pan. Guarded on repeat, because a held key fires
@@ -230,7 +232,32 @@ export function useEditorKeys({
   return { spacePan, spacePanRef, onElementKeyDown };
 }
 
-/** True where a keystroke belongs to a form control rather than to the map. */
+/**
+ * True where a keystroke belongs to the focused control rather than to the
+ * map (2026-11-21). Text fields always keep their keys. Space and Enter press
+ * the focused button, switch or choice — they used to start a space-pan and
+ * swallow the press. Inside the inspector, a menu or a dialog the bare keys
+ * (Delete, Backspace, arrows, V/H/M) belong to the control: Backspace on the
+ * "Private table" switch deleted the table. Ctrl/⌘ shortcuts still reach the
+ * map from the inspector, so clicking a shape tile and pressing Ctrl+Z undoes
+ * it — except in a dialog, which is its own world.
+ */
+function keyBelongsToControl(e) {
+  const mod = e.ctrlKey || e.metaKey;
+  const activate = e.code === 'Space' || e.key === 'Enter';
+  for (const node of [e.target, document.activeElement]) {
+    if (!node || !node.tagName) continue;
+    if (isTyping(node)) return true;
+    if (!node.closest) continue;
+    if (node.closest('[role="dialog"], [aria-modal="true"], .es-mapmenu')) return true;
+    // Escape still deselects from a panel button; the other bare keys stay there.
+    if (!mod && e.key !== 'Escape' && node.closest('.es-mapeditor__panel, .es-mapeditor__tools, .es-insp')) return true;
+    if (activate && node.closest('button, a, summary, label, [role="switch"], [role="radio"], [role="tab"]')) return true;
+  }
+  return false;
+}
+
+/** True where a keystroke belongs to a text field rather than to the map. */
 function isTyping(node) {
   if (!node || !node.tagName) return false;
   return node.isContentEditable

@@ -11,9 +11,11 @@ import PhoneTools from './PhoneTools';
 import AddElementDialog from './AddElementDialog';
 import EditorSidePanel from './EditorSidePanel';
 import { BuildPalette } from './BuildPanel';
-import LayersCard from './LayersCard';
-import { MapHeader, MapBanner, MapNotices, countUnpriced } from './MapChrome';
+import LayersSection from './LayersCard';
+import { MapHeader, MapBanner, MapNotices, countUnpriced, isUnpriced } from './MapChrome';
 import { useEventContext } from '../EventContext';
+import SelectionJump from './SelectionJump';
+import MapStarter from './MapStarter';
 import { frameFor, sameBox, clamp } from './mapApi';
 import { liveSections } from '../../../../components/venue/venueModel';
 import { writeLook } from '../../../../components/seating/mapStyle';
@@ -24,7 +26,7 @@ import StudioStatsBar from './studio/StudioStatsBar';
 import Preview3DCard from './studio/Preview3DCard';
 import { useStudioDraft } from './studio/useStudioDraft';
 import SeatingPackModal from './print/SeatingPackModal';
-import SeatingDesigner, { DesignBanner } from './SeatingDesigner';
+import SeatingDesigner from './SeatingDesigner';
 import { useAiQuota } from '../../../../hooks/useAiQuota';
 import { useMapDraft, keyOf, MAX_TABLES } from './useMapDraft';
 import { useMapPersistence } from './useMapPersistence';
@@ -121,6 +123,9 @@ export default function MapEditor({ eventId }) {
   const [showPack, setShowPack] = useState(false);
   const [showDesigner, setShowDesigner] = useState(false);
   const { quota: aiQuota } = useAiQuota();
+  // AI is offered (in Add to layout, the Add menu and the empty-map banner)
+  // whenever it is set up — and when it cannot run here, its dialog says why.
+  const aiOn = !!(aiQuota?.enabled || aiQuota?.reason === 'ADMIN_ACCOUNT');
   const [toolsOpen, setToolsOpen] = useState(false);   // phones only — PhoneTools.jsx
   // What the canvas draws (LayersCard.jsx). The map itself is unchanged.
   const [layers, setLayers] = useState({ zones: true, labels: true });
@@ -137,6 +142,7 @@ export default function MapEditor({ eventId }) {
   // toolbar's plain Add element), and the card Full screen enlarges.
   const [addInitial, setAddInitial] = useState(null);
   const canvasCard = useRef(null);
+  const panelRef = useRef(null);
   const toggleFullscreen = () => {
     if (document.fullscreenElement) document.exitFullscreen?.();
     else canvasCard.current?.requestFullscreen?.();
@@ -176,6 +182,12 @@ export default function MapEditor({ eventId }) {
     draft.updateTables([...selection.selection.tables], () => ({ tierId }));
   };
 
+  /** One whole-table price for every selected table (2026-11-21) — what an
+   *  event that sells whole tables needs after "Select these N". */
+  const assignTablePrice = (priceCents) => {
+    draft.updateTables([...selection.selection.tables], () => ({ priceCents }));
+  };
+
   /** One category for every selected table (2026-11-19). */
   const assignCategory = (categoryId) => {
     draft.updateTables([...selection.selection.tables], () => ({ categoryId }));
@@ -202,6 +214,7 @@ export default function MapEditor({ eventId }) {
     panByScreen: panzoom.panByScreen,
     onDuplicate: duplicateSelected,
     onRemove: removeSelected,
+    active: workspace === 'layout',
   });
 
   /** Draw walls (style/useWallTool.jsx): its walls land selected, as one undo step. */
@@ -217,6 +230,7 @@ export default function MapEditor({ eventId }) {
   const addFrom = (initial) => {
     if (initial.family === 'template') { setShowMapTpl(true); return; }
     if (initial.family === 'image') { setShowImport(true); return; }
+    if (initial.family === 'ai') { setShowDesigner(true); return; }
     if (initial.family === 'tool') { selection.clear(); setToolBoth(initial.key); return; }
     if (initial.family === 'section') { setShowSection(true); return; }
     setAddInitial(initial); setShowAdd(true);
@@ -228,6 +242,12 @@ export default function MapEditor({ eventId }) {
       const { fill, labelColor, stroke, strokeWidth, ...rest } = t.style || {};  
       return { style: Object.keys(rest).length ? rest : null };
     });
+  };
+
+  /** "Select them": exactly the tables that cannot be sold yet, so the
+   *  inspector opens on them with the ticket-type picker ready (2026-11-21). */
+  const selectUnpriced = () => {
+    selection.replace(tables.filter((t) => isUnpriced(t, purchaseMode)).map(keyOf), []);
   };
 
   const interaction = useCanvasInteraction({
@@ -294,7 +314,6 @@ export default function MapEditor({ eventId }) {
       <MapHeader
         tables={tables}
         zones={zones}
-        seatTotal={seatTotal}
         soldTotal={soldTotal}
         blockedTotal={blockedTotal}
         dirty={dirty}
@@ -313,7 +332,13 @@ export default function MapEditor({ eventId }) {
         }}
       />
 
-      {workspace === 'layout' && <MapBanner tables={tables} purchaseMode={purchaseMode} />}
+      {/* An empty map is invited ON the canvas (MapStarter: rows, tables, a
+          template, or AI — seen on a phone too, the 2026-11-03 ask), so no
+          banner repeats it up here; once there is seating, this says what
+          still stops it selling. */}
+      {workspace === 'layout' && (tables.length > 0 || zones.length > 0) && (
+        <MapBanner tables={tables} purchaseMode={purchaseMode} onSelectUnpriced={selectUnpriced} />
+      )}
 
       <MapNotices
         problems={saveProblems} saveError={io.saveError} saveNote={io.saveNote}
@@ -328,12 +353,6 @@ export default function MapEditor({ eventId }) {
       />
       {workspace === 'layout' && (<>
 
-      {/* Outside the folded tools, so it is seen on a phone too (2026-11-03:
-          "no AI button" — it was inside the toolbar a phone hides). */}
-      {(aiQuota?.enabled || aiQuota?.reason === 'ADMIN_ACCOUNT') && (
-        <DesignBanner empty={tables.length === 0 && zones.length === 0} onOpen={() => setShowDesigner(true)} />
-      )}
-
       {/* The properties sit beside the map once there is room (2026-10-16):
           a container query puts a fixed 19rem panel to the right whenever the
           editor itself is 52rem wide. */}
@@ -341,11 +360,12 @@ export default function MapEditor({ eventId }) {
       <div className="es-mapeditor__body">
         {/* THE LEFT COLUMN of the owner's Venue Builder mockup (2026-11-10):
             Add to layout, then Layers. Drawn only where the editor is wide
-            enough for three columns; narrower, the add tools stay in the
-            panel on the right (EditorSidePanel → BuildPanel). */}
+            enough for three columns; narrower, the same list is the
+            toolbar's Add menu (BuildPanel.jsx). */}
         <div className="es-mapeditor__tools">
-          <BuildPalette onAdd={addFrom} />
-          <LayersCard layers={layers} onToggle={toggleLayer} />
+          <BuildPalette onAdd={addFrom} ai={aiOn}>
+            <LayersSection layers={layers} onToggle={toggleLayer} />
+          </BuildPalette>
         </div>
         {/* The toolbar sits ON the canvas card, as one surface — and that card
             is what Full screen enlarges, toolbar and all. */}
@@ -365,11 +385,9 @@ export default function MapEditor({ eventId }) {
               canRedo={draft.canRedo}
               onUndo={draft.undo}
               onRedo={draft.redo}
-              onAdd={() => { setAddInitial(null); setShowAdd(true); }}
+              onAdd={addFrom}
+              ai={aiOn}
               onFullscreen={toggleFullscreen}
-              // Shown whenever AI is set up — and when it cannot run here, the dialog
-              // says why, rather than the button silently not being there.
-              onDesign={aiQuota?.enabled || aiQuota?.reason === 'ADMIN_ACCOUNT' ? () => setShowDesigner(true) : null}
               zoom={{
                 // 100 % is the whole venue in view, whatever its size.
                 scale: world.width / Math.max(panzoom.view.width, 1),
@@ -401,24 +419,32 @@ export default function MapEditor({ eventId }) {
             layers={layers}
             look={draft.look}
             wallTool={wallTool}
+            emptyState={<MapStarter onAdd={addFrom} ai={aiOn} />}
           />
         </div>
+        {/* Outside the card, so the zoom pill floating on the canvas's corner
+            never sits on it; a grid cell only where it shows (below 52rem). */}
+        <SelectionJump selection={selection} sole={sole} drawingWalls={wallTool.active} panelRef={panelRef} />
 
-        <div className="es-mapeditor__panel">
-        {/* On top while nothing is selected (the panel's resting state), below the
-            properties once something is — the properties are what the click was for. */}
-        {selection.count === 0 && preview3d}
+        {/* The inspector, then the 3D preview — always in that order, as in
+            the owner's mockup. The preview used to jump above or below the
+            inspector on every click, so the panel moved under the pointer. */}
+        <div ref={panelRef} className="es-mapeditor__panel">
         <EditorSidePanel
           sole={sole} selection={selection} draft={draft} tables={tables} tiers={tiers} world={world}
           categories={categories} purchaseMode={purchaseMode} onTierCreated={io.addTier}
           onAssignTier={assignTier} onAssignCategory={assignCategory} onResizeSelected={resizeSelected}
           onRotate={rotateSelected} onDuplicate={duplicateSelected}
           onRemoveSelected={removeSelected}
-          onAdd={addFrom}
+          onSelectUnpriced={selectUnpriced}
+          onAssignTablePrice={assignTablePrice}
+          layers={layers}
+          onToggleLayer={toggleLayer}
+          dirty={dirty} saving={io.saving} canSave={!io.saving && dirty && saveProblems.length === 0} onSave={io.save} onAdd={addFrom}
           wallTool={wallTool}
           onApplyLook={applyLookToTables}
         />
-        {selection.count > 0 && preview3d}
+        {preview3d}
         </div>
       </div>
       </div>

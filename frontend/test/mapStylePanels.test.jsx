@@ -1,7 +1,7 @@
 import { describe, test, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import TableStyleSection from '../src/app/organizer/events/[id]/map/style/TableStyleSection';
+import { ShapePicker, SeatsPerSide, TableAppearance } from '../src/app/organizer/events/[id]/map/style/TableStyleSection';
 import ZoneStyleSection from '../src/app/organizer/events/[id]/map/style/ZoneStyleSection';
 import WallToolPanel from '../src/app/organizer/events/[id]/map/style/WallToolPanel';
 
@@ -12,7 +12,7 @@ import WallToolPanel from '../src/app/organizer/events/[id]/map/style/WallToolPa
 describe('table style', () => {
   test('seats per side change the seat count with them', async () => {
     const onChange = vi.fn();
-    render(<TableStyleSection table={{ label: 'S04', shape: 'd_shape', seatCount: 3, style: null }} onChange={onChange} />);
+    render(<SeatsPerSide table={{ label: 'S04', shape: 'd_shape', seatCount: 3, style: null }} onChange={onChange} />);
     expect(screen.getByText('Curved side')).toBeTruthy();
     await userEvent.click(screen.getByRole('button', { name: 'One more, Curved side' }));
     expect(onChange).toHaveBeenCalledWith({ seatCount: 4, style: { sides: { top: 0, right: 2, bottom: 0, left: 2 } } });
@@ -20,14 +20,16 @@ describe('table style', () => {
 
   test('a new shape starts from its own seat spread', async () => {
     const onChange = vi.fn();
-    render(<TableStyleSection table={{ label: 'T1', shape: 'rect', seatCount: 6, style: { sides: { top: 3, bottom: 3 }, fill: '#8c8c8c' } }} onChange={onChange} />);
+    render(<ShapePicker table={{ label: 'T1', shape: 'rect', seatCount: 6, style: { sides: { top: 3, bottom: 3 }, fill: '#8c8c8c' } }} onChange={onChange} />);
+    await userEvent.click(screen.getByRole('button', { name: /More shapes/ }));
     await userEvent.click(screen.getByRole('button', { name: /Pill/ }));
     expect(onChange).toHaveBeenCalledWith({ shape: 'pill', style: { fill: '#8c8c8c' } });
   });
 
   test('every shape renders', () => {
     for (const shape of ['round', 'row', 'half_moon', 'high_top', 'u_shape', 'hexagon']) {
-      const { unmount } = render(<TableStyleSection table={{ label: 'T', shape, seatCount: 6, style: null }} onChange={() => {}} />);
+      const t = { label: 'T', shape, seatCount: 6, style: null };
+      const { unmount } = render(<><ShapePicker table={t} onChange={() => {}} /><SeatsPerSide table={t} onChange={() => {}} /><TableAppearance table={t} onChange={() => {}} /></>);
       unmount();
     }
   });

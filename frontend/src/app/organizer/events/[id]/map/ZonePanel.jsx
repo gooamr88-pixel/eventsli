@@ -1,25 +1,26 @@
 'use client';
 
 import { minZoneSize, zoneColor, zoneLabel, zoneMeta } from '../../../../components/seating/venueZones';
-import ZoneStyleSection from './style/ZoneStyleSection';
-import { worldOf } from '../../../../components/seating/seatingGeometry';
+import ZoneStyleSection, { ZoneSublabel } from './style/ZoneStyleSection';
+import { METRES_PER_UNIT, worldOf } from '../../../../components/seating/seatingGeometry';
 import ZonePreview from './ZonePreview';
+import { Inspector, InspectorSection, InspectorAction } from '../../../../components/inspector/Inspector';
+import { NumberField, Pair, TextField } from '../../../../components/inspector/fields';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
- * Everything about one venue zone.
+ * Everything about one venue zone — a stage, a bar, a wall, a door, a word on
+ * the floor.
  *
- * Deliberately short, and it is worth saying why next to `TablePanel`, which is
- * five times its length. A table is stock: its seat count generates rows, its
- * price is money, its privacy locks a purchase, and shrinking it can destroy a
- * seat somebody holds a ticket for. Every field there has a consequence a form
- * cannot undo, and the panel spends its length saying so.
+ * Deliberately calmer than `TablePanel`. A table is stock: its seat count
+ * generates rows, its price is money, and shrinking it can destroy a seat
+ * somebody holds a ticket for. A zone is a labelled shape in a JSON blob;
+ * nothing it can be set to can hurt anyone, and nothing about it is refused by
+ * the API. So it gets plain controls and no warnings.
  *
- * A zone is a labelled rectangle in a JSON blob. Nothing it can be set to can
- * hurt anyone, nothing about it is refused by the API, and it is the one part
- * of this editor where an organizer can experiment freely. So it gets plain
- * controls and no warnings — adding caution here would only make the real
- * warnings next door read as boilerplate.
+ * SIZES ARE IN METRES (2026-11-21), like the Venue size card. They used to be
+ * "map units — the venue is 1000 by 700", a number only the code knew how to
+ * read. Stored as units, as before; converted at the field.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 export default function ZonePanel({
@@ -29,115 +30,75 @@ export default function ZonePanel({
   const colour = zoneColor(zone);
   const min = minZoneSize(zone.kind);
   const set = (patch, options) => onChange(zone.id, patch, options);
+  const isWall = zone.kind === 'wall';
+  // A text label draws a second line too (StyledZoneShape), so it gets the field.
+  const hasWords = !['wall', 'door_gap'].includes(zone.kind);
+  const m = metres;
 
   return (
-    <aside className="fx-stack fx-stack--sm es-card p-5">
-      <div className="fx-row fx-row--between">
-        <div className="fx-row fx-min0 items-center gap-2">
-          <ZonePreview kind={zone.kind} size={20} color={colour} />
-          <h3 className="truncate text-lg">{zoneLabel(zone)}</h3>
-        </div>
-        <button type="button" onClick={() => onRemove(zone.id)} className="es-btn es-btn--ghost es-btn--sm">
-          Remove
-        </button>
-      </div>
-
-      <p className="text-xs text-subtle">
-        {meta.label} · furniture only. Zones are never sold, ticketed or counted as stock.
-      </p>
-
-      <div className="fx-stack fx-stack--sm gap-1.5">
-        <label htmlFor="es-zone-label" className="text-sm text-ink">Label</label>
-        <input
-          id="es-zone-label"
-          className="es-input"
-          value={zone.label || ''}
-          maxLength={40}
-          placeholder={meta.label}
-          // One undo step for a typed name, not one per keystroke — the same
-          // `mergeKey` contract the table panel uses.
-          onChange={(e) => set({ label: e.target.value }, { mergeKey: `${zone.id}:label` })}
-        />
-        <p className="text-xs text-subtle">Shown on the map, on the buyer&apos;s map and in the printed pack.</p>
-      </div>
-
-      <div className="fx-grid" style={{ '--fx-col': '120px', '--fx-gap': '10px' }}>
-        <SizeField
-          id="es-zone-w" label={zone.kind === 'wall' ? 'Length' : 'Width'} value={zone.w} min={min.w} max={world.width}
-          onChange={(w) => set({ w }, { mergeKey: `${zone.id}:w` })}
-        />
-        <SizeField
-          id="es-zone-h" label={zone.kind === 'wall' ? 'Thickness' : 'Height'} value={zone.h} min={min.h} max={world.height}
-          onChange={(h) => set({ h }, { mergeKey: `${zone.id}:h` })}
-        />
-      </div>
-      <p className="text-xs text-subtle">
-        In map units — the venue is {world.width} by {world.height}. Dragging the corner handle does the same thing.
-      </p>
-
-      <div className="fx-stack fx-stack--sm gap-1.5">
-        <label htmlFor="es-zone-colour" className="text-sm text-ink">{zone.kind === 'wall' ? 'Wall colour' : 'Colour'}</label>
-        <div className="fx-row items-center gap-2">
-          <input
-            id="es-zone-colour"
-            type="color"
-            className="h-9 w-12 cursor-pointer rounded-(--es-radius-sm) border border-border-strong bg-surface p-0.5"
-            value={colour}
-            onChange={(e) => set({ color: e.target.value }, { mergeKey: `${zone.id}:color` })}
+    <Inspector
+      label={meta.label}
+      icon={<ZonePreview kind={zone.kind} size={22} color={colour} />}
+      title={zoneLabel(zone)}
+      meta={`${m(zone.w)} × ${m(zone.h)} m · turned ${Math.round(zone.rotation || 0)}° · never sold`}
+      actions={(
+        <>
+          <InspectorAction icon="rotate" onClick={() => onRotate(90)} title="Turn 90°">Rotate</InspectorAction>
+          <InspectorAction icon="copy" onClick={onDuplicate}>Duplicate</InspectorAction>
+          <InspectorAction icon="trash" tone="danger" onClick={() => onRemove(zone.id)}>Delete</InspectorAction>
+        </>
+      )}
+    >
+      <InspectorSection id="zone-basics" title={isWall ? 'Wall' : 'Details'} summary={`${m(zone.w)} × ${m(zone.h)} m`}>
+        {!isWall && (
+          <TextField
+            label={zone.kind === 'text' ? 'Text' : 'Name'} value={zone.label || ''} maxLength={40} placeholder={meta.label}
+            // One undo step for a typed name, not one per keystroke.
+            onChange={(label) => set({ label }, { mergeKey: `${zone.id}:label` })}
           />
-          <button
-            type="button"
-            onClick={() => set({ color: null })}
-            disabled={!zone.color}
-            className="es-btn es-btn--ghost es-btn--sm"
-          >
-            Use the default
-          </button>
-        </div>
-        <p className="text-xs text-subtle">
-          The outline, the icon, and the light wash when there is no fill. Walls and doors follow the map look until you pick one.
-        </p>
-      </div>
+        )}
+        {hasWords && <ZoneSublabel zone={zone} onChange={set} />}
+        <Pair>
+          <MetreField
+            label={isWall ? 'Length' : 'Width'} units={zone.w} min={min.w} max={world.width}
+            onChange={(w) => set({ w }, { mergeKey: `${zone.id}:w` })}
+          />
+          <MetreField
+            label={isWall ? 'Thickness' : 'Depth'} units={zone.h} min={min.h} max={world.height}
+            onChange={(h) => set({ h }, { mergeKey: `${zone.id}:h` })}
+          />
+        </Pair>
+        <button type="button" className="es-linkbtn self-start text-xs" onClick={() => onResetSize(zone.id)}>
+          Reset to the default size
+        </button>
+      </InspectorSection>
 
-      {/* Shape, fill, border and words (2026-11-18). */}
-      <ZoneStyleSection zone={zone} colour={colour} onChange={(patch, options) => onChange(zone.id, patch, options)} />
-
-      <div className="fx-row flex-wrap gap-2 border-t border-border-base pt-3">
-        <button type="button" onClick={() => onRotate(90)} className="es-btn es-btn--secondary es-btn--sm">
-          Rotate 90°
-        </button>
-        <button type="button" onClick={() => onResetSize(zone.id)} className="es-btn es-btn--ghost es-btn--sm">
-          Reset size
-        </button>
-        <button type="button" onClick={onDuplicate} className="es-btn es-btn--ghost es-btn--sm">
-          Duplicate
-        </button>
-      </div>
-      <p className="text-xs text-subtle">
-        Turned {Math.round(zone.rotation || 0)}° · {Math.round(zone.w)}×{Math.round(zone.h)}
-      </p>
-    </aside>
+      <InspectorSection id="zone-look" title="Appearance" summary={zone.fill || zone.color ? 'Own colours' : 'Default colours'}>
+        <ZoneStyleSection zone={zone} colour={colour} onChange={set} />
+      </InspectorSection>
+    </Inspector>
   );
 }
 
-function SizeField({ id, label, value, min, max, onChange }) {
+/** Units as metres: centimetres under 2 m (a wall is a few units thick), else decimetres. */
+function metres(units) {
+  const v = units * METRES_PER_UNIT;
+  return v < 2 ? Math.round(v * 100) / 100 : Math.round(v * 10) / 10;
+}
+
+/**
+ * A size typed in metres and stored in units, clamped to what `layoutZones`
+ * accepts. The shared NumberField does the typing: a size inside the bounds
+ * applies as it is typed, anything else waits for blur and is clamped then —
+ * so "0.4" no longer jumps to the minimum half-way through being typed.
+ */
+function MetreField({ label, units, min, max, onChange }) {
+  const lo = Math.ceil(min * METRES_PER_UNIT * 100) / 100;
+  const hi = Math.floor(max * METRES_PER_UNIT * 100) / 100;
   return (
-    <div className="fx-stack fx-stack--sm gap-1.5">
-      <label htmlFor={id} className="text-sm text-ink">{label}</label>
-      <input
-        id={id}
-        type="number"
-        className="es-input"
-        value={Math.round(value)}
-        min={min}
-        max={max}
-        onChange={(e) => {
-          const n = Number(e.target.value);
-          // Clamped to what `layoutZones` will accept on the way out, so the
-          // field can never hold a number the save would quietly rewrite.
-          if (Number.isFinite(n)) onChange(Math.min(max, Math.max(min, Math.round(n))));
-        }}
-      />
-    </div>
+    <NumberField
+      label={label} value={metres(units)} min={lo} max={hi} step={0.01} suffix="m"
+      onChange={(m) => onChange(Math.min(max, Math.max(min, Math.round(m / METRES_PER_UNIT))))}
+    />
   );
 }

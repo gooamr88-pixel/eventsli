@@ -5,7 +5,8 @@ import VenueScene3D from '../../../../../components/venue/VenueScene3D';
 import { buildSceneModel, eyeFor, stageEye } from '../../../../../components/venue/sceneModel';
 import { MOODS, sectionIndex, seatName, tierPalette } from '../../../../../components/venue/venueModel';
 import { keyOf } from '../useMapDraft';
-import { RangeField, Toggle, Choice } from './fields';
+import { RangeField, Toggle, Segmented } from '../../../../../components/inspector/fields';
+import NavIcon from '../../../../../components/shell/NavIcon';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -86,9 +87,10 @@ export default function Studio3D({ tables, zones, world, scene, onScene, section
               onPick={(entry) => { setEyeSeat(entry.id); setPreset('seat'); }}
             />
           )}
-          <div className="es-venuex__tools">
-            <button type="button" className="es-iconbtn" onClick={() => controls.current?.zoom(1.25)} aria-label="Zoom in">+</button>
-            <button type="button" className="es-iconbtn" onClick={() => controls.current?.zoom(0.8)} aria-label="Zoom out">−</button>
+          {/* The same zoom pill as the 2D canvas, in the same corner. */}
+          <div className="es-maptoolbar__group es-maptoolbar__zoom es-studio-zoom" role="group" aria-label="Zoom">
+            <button type="button" className="es-tbtn es-tbtn--icon" onClick={() => controls.current?.zoom(0.8)} aria-label="Zoom out" title="Zoom out"><NavIcon name="minus" size={17} /></button>
+            <button type="button" className="es-tbtn es-tbtn--icon" onClick={() => controls.current?.zoom(1.25)} aria-label="Zoom in" title="Zoom in"><NavIcon name="plus" size={17} /></button>
           </div>
           {mode === 'eye' && (
             <div className="es-studio-eyebar">
@@ -102,10 +104,11 @@ export default function Studio3D({ tables, zones, world, scene, onScene, section
           )}
         </div>
         <div className="fx-row fx-row--between gap-2">
-          <div className="fx-row gap-2" role="group" aria-label="Camera">
-            <button type="button" className={`es-chip ${preset === 'overview' ? 'es-chip--on' : ''}`} onClick={() => { setEyeSeat(null); setPreset('overview'); controls.current?.reset(); }}>Overview</button>
-            <button type="button" className={`es-chip ${preset === 'stage' ? 'es-chip--on' : ''}`} disabled={!model.hasStage} onClick={() => setPreset('stage')}>From the stage</button>
-          </div>
+          <span className="es-seg" role="group" aria-label="Camera">
+            <button type="button" aria-pressed={preset === 'overview'} onClick={() => { setEyeSeat(null); setPreset('overview'); controls.current?.reset(); }}>Overview</button>
+            <button type="button" aria-pressed={preset === 'stage'} disabled={!model.hasStage} onClick={() => setPreset('stage')}>From the stage</button>
+            {preset === 'seat' && <button type="button" aria-pressed>From a seat</button>}
+          </span>
           <p className="text-xs text-subtle">Tap any seat to sit in it. Drag to turn, scroll to zoom.</p>
         </div>
       </div>
@@ -115,7 +118,7 @@ export default function Studio3D({ tables, zones, world, scene, onScene, section
           <h2 id="scene-settings" className="es-dcard__title">3D settings</h2>
           <p className="es-ovcard__desc">The room is built from your 2D layout. These set how it looks.</p>
         </div>
-        <Choice label="Lighting" value={scene.mood} onChange={(mood) => onScene({ mood })} options={MOODS} />
+        <Segmented stacked label="Lighting" value={scene.mood} onChange={(mood) => onScene({ mood })} options={MOODS} />
         <RangeField
           label="Rake" value={scene.rake} min={0} max={35} onChange={(rake) => onScene({ rake })}
           format={(v) => `${v}°`} hint="How steeply rows rise away from the stage. 0 is a flat floor; arenas are 20–30°."
@@ -128,7 +131,7 @@ export default function Studio3D({ tables, zones, world, scene, onScene, section
         <Toggle label="Enclosed venue" hint="Walls and a lit rim around the room." checked={scene.roof} onChange={(roof) => onScene({ roof })} />
 
         <div className="fx-stack gap-2 border-t border-border-base pt-3">
-          <h3 className="text-sm font-medium text-ink">Seats by ticket type</h3>
+          <h3 className="es-field__label">Colour key</h3>
           <ul className="fx-stack gap-1.5">
             {tiers.filter((t) => counts.get(t.id)).map((t) => (
               <li key={t.id} className="fx-row fx-row--between text-sm">

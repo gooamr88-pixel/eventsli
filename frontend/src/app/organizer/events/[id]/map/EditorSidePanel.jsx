@@ -3,37 +3,36 @@
 import TablePanel from './TablePanel';
 import ZonePanel from './ZonePanel';
 import SelectionPanel from './SelectionPanel';
-import BuildPanel from './BuildPanel';
+import MapPanel from './MapPanel';
 import WallToolPanel from './style/WallToolPanel';
-import MapLookCard from './style/MapLookCard';
 import { countUnpriced } from './MapChrome';
 import { keyOf } from './useMapDraft';
-import { tableScale } from '../../../../components/seating/seatingGeometry';
 
 /**
- * The panel beside the canvas, which shows what the selection is: several
- * things, one zone, one table, or nothing (the build panel). Split out of
- * MapEditor (2026-11-10); the 3D card around it stays there, because it moves
- * above or below this panel depending on whether anything is selected.
+ * The inspector beside the canvas, which shows what the selection is: the wall
+ * tool while it is drawing, several things, one zone, one table, or — with
+ * nothing selected — the whole map. Every one is the same `Inspector` shape
+ * (components/inspector/Inspector.jsx), so moving between them never rearranges the panel.
  */
 export default function EditorSidePanel({
   sole, selection, draft, tables, tiers, world, categories, purchaseMode, onTierCreated,
-  onAssignTier, onAssignCategory, onResizeSelected, onRotate, onDuplicate, onRemoveSelected, onAdd, wallTool = null, onApplyLook,
+  onAssignTier, onAssignCategory, onResizeSelected, onRotate, onDuplicate, onRemoveSelected, wallTool = null, onApplyLook,
+  onSelectUnpriced, onAssignTablePrice = null, layers = null, onToggleLayer = null,
+  dirty = false, saving = false, canSave = false, onSave = null, onAdd = null,
 }) {
-  // Drawing walls: the tool's own options, whatever is selected.
   if (wallTool?.active) return <WallToolPanel tool={wallTool} />;
   if (selection.count > 1) {
-    const picked = tables.filter((t) => selection.selection.tables.has(keyOf(t)));
     return (
       <SelectionPanel
-        tableCount={selection.selection.tables.size}
+        tables={tables.filter((t) => selection.selection.tables.has(keyOf(t)))}
         zoneCount={selection.selection.zones.size}
         tiers={tiers}
         categories={categories}
+        purchaseMode={purchaseMode}
         onAssignCategory={onAssignCategory}
-        sizes={picked.map((t) => tableScale(t.style))}
         onResize={onResizeSelected}
         onAssign={onAssignTier}
+        onAssignTablePrice={onAssignTablePrice}
         onTierCreated={onTierCreated}
         onRotate={onRotate}
         onDuplicate={onDuplicate}
@@ -55,32 +54,39 @@ export default function EditorSidePanel({
       />
     );
   }
-  if (sole?.kind !== 'table') {
+  if (sole?.kind === 'table') {
     return (
-      <>
-        <BuildPanel tableCount={tables.length} unpricedCount={countUnpriced(tables, purchaseMode)} onAdd={onAdd} />
-        {/* The whole map's theme, while nothing is selected (2026-11-18). */}
-        <MapLookCard look={draft.look} onChange={draft.setLook} onApplyToTables={onApplyLook} tableCount={tables.length} />
-      </>
+      <TablePanel
+        // Keyed by table: a half-typed price or an open "New ticket type" form
+        // belongs to the table it was opened on, not to the next one selected.
+        key={keyOf(sole.table)}
+        table={sole.table}
+        tiers={tiers}
+        categories={categories}
+        purchaseMode={purchaseMode}
+        onTierCreated={onTierCreated}
+        // Consecutive edits to the same field of the same table are one undo step.
+        onChange={(key, patch) => draft.updateTable(key, patch, {
+          mergeKey: `${key}:${Object.keys(patch).sort().join(',')}`,
+        })}
+        onRotate={onRotate}
+        onDuplicate={onDuplicate}
+        onRemove={(key) => { draft.removeTable(key); selection.clear(); }}
+      />
     );
   }
   return (
-    <TablePanel
-      // Keyed by table: a half-typed price or an open "New ticket type" form
-      // belongs to the table it was opened on, not to the next one selected.
-      key={keyOf(sole.table)}
-      table={sole.table}
-      tiers={tiers}
-      categories={categories}
-      onTierCreated={onTierCreated}
-      // Consecutive edits to the same field of the same table are one undo
-      // step: typing a name used to be one step per keystroke.
-      onChange={(key, patch) => draft.updateTable(key, patch, {
-        mergeKey: `${key}:${Object.keys(patch).sort().join(',')}`,
-      })}
-      onRotate={onRotate}
-      onDuplicate={onDuplicate}
-      onRemove={(key) => { draft.removeTable(key); selection.clear(); }}
+    <MapPanel
+      tableCount={tables.length}
+      unpricedCount={countUnpriced(tables, purchaseMode)}
+      purchaseMode={purchaseMode}
+      onSelectUnpriced={onSelectUnpriced}
+      look={draft.look}
+      onLookChange={draft.setLook}
+      onApplyLook={onApplyLook}
+      layers={layers}
+      onToggleLayer={onToggleLayer}
+      dirty={dirty} saving={saving} canSave={canSave} onSave={onSave} onAdd={onAdd}
     />
   );
 }

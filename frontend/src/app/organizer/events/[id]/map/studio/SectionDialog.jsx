@@ -7,7 +7,7 @@ import {
 } from '../../../../../components/seating/seatingGeometry';
 import { zoneBox } from '../../../../../components/seating/venueZones';
 import { buildRing, MAX_RING_SECTIONS, MAX_SECTION_ROWS } from './sectionBuilder';
-import { NumberField, TextField, SelectField, RangeField, Choice } from './fields';
+import { NumberField, TextField, SelectField, RangeField, Segmented } from '../../../../../components/inspector/fields';
 import NewTierInline, { NEW_TIER } from '../NewTierInline';
 
 /**
@@ -110,7 +110,7 @@ export default function SectionDialog({
               />
             )}
 
-            <Choice
+            <Segmented stacked
               label="Shape"
               value={stage ? layout : 'straight'}
               onChange={setLayout}

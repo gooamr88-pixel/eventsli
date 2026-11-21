@@ -160,3 +160,35 @@ a floor plan or seating chart and AI redraws it as an editable map.
 - `test/fixtures/referencePlan.js` is the owner's reference plan written out as
   the AI should read it; `imageImport.test.jsx` checks it rebuilds with every
   table, the right turns and no overlapping seats.
+
+## Settings system (2026-11-21)
+
+The seating map's panels and the vendor floor plan's panel share one set of
+controls and one panel shape, in `components/inspector/`:
+
+- `fields.jsx`: every control. Label above for text, numbers and lists; label
+  beside for colours, switches, steppers and segmented choices; yes/no is
+  always a switch; one-of-a-few is always `Segmented`; hints only where a field
+  has a consequence.
+- `Inspector.jsx`: head (icon, name, facts), folding sections that remember
+  whether they are open (per section id, across selections), and a footer of
+  actions pinned to the panel's bottom edge.
+
+| Panel | Sections, in order |
+|---|---|
+| Table | Table (name, seats, shape, seats per side) · Tickets & price · Private access · Appearance (folded) |
+| Area | Details (name, second line, size in metres) · Appearance |
+| Selection | Tickets & price (pickers show the shared value or "Mixed") · Appearance |
+| Whole map | Pricing ("Select these N" picks the unpriced tables) · Map look · Keyboard shortcuts |
+| Floor plan | Whole hall · Tool (Booth / Row options, Finish wall) · Booth · Selection |
+
+Which prices a table offers follows `purchaseMode`: seats only hides the
+whole-table price; whole tables only puts it first and hides the seat price.
+
+"Add to layout" is grouped (Seating, Room, Start from) and shown once: the left
+column where the editor is 70rem wide, the toolbar's Add menu below that. The
+AI designer is a "Start from" item; its banner appears only on an empty map.
+The 3D preview always sits under the inspector. Sticky panels stick under the
+shell's pinned top, whose height AppShell publishes as `--es-shell-top-h`.
+
+**Second pass (same day).** Three columns from a 60rem editor (a 1440px laptop); below that the Add menu and the Map inspector's "Show on the map" stand in. Zoom floats on the canvas corner in both editors, so each toolbar is one row. Bare keys (Delete, Backspace, arrows, Space, letters) belong to a focused inspector control, not the map; Ctrl/⌘ shortcuts still reach the map, and pressing the canvas hands focus back to it. The editor's shortcuts run only on the Layout tab. `NumberField` keeps its own text: in-bounds values apply while typing, everything else on blur or Enter (`live={false}` for Seats and hall size). Floor plan tools hand back to Select after placing, so the inspector opens on what was placed. A bulk whole-table price is offered where the event sells whole tables.

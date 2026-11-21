@@ -5,6 +5,7 @@ import VenueScene3D from '../../../../../components/venue/VenueScene3D';
 import { buildSceneModel } from '../../../../../components/venue/sceneModel';
 import { tierPalette } from '../../../../../components/venue/venueModel';
 import { keyOf } from '../useMapDraft';
+import NavIcon from '../../../../../components/shell/NavIcon';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -37,10 +38,14 @@ export default function Preview3DCard({ tables, zones, world, scene, tiers, onOp
 
   if (tables.length === 0 && zones.length === 0) return null;
   return (
+    // The same head as the inspector above it (2026-11-21): a small label and
+    // a quiet action, not a second large title competing with the panel's.
     <section className="es-dcard es-preview3d" aria-labelledby="preview3d-title">
-      <div className="fx-row fx-row--between">
-        <h2 id="preview3d-title" className="es-dcard__title">Preview (3D)</h2>
-        <button type="button" className="es-btn es-btn--ghost es-btn--sm" onClick={onOpen}>Open 3D</button>
+      <div className="es-preview3d__head">
+        <h2 id="preview3d-title" className="es-preview3d__title">3D preview</h2>
+        <button type="button" className="es-textbtn" onClick={onOpen}>
+          Open 3D <NavIcon name="arrow" size={15} />
+        </button>
       </div>
       <div className="es-preview3d__view">
         <VenueScene3D

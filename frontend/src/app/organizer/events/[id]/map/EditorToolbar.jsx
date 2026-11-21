@@ -6,91 +6,75 @@ import { SHAPES } from '../../../../components/seating/seatingGeometry';
 import { ZONES, ZONE_KINDS } from '../../../../components/seating/venueZones';
 import { SHAPE_NAMES } from './shapeNames';
 import { keyOf } from './useMapDraft';
+import { AddMenu } from './BuildPanel';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
  * The canvas toolbar.
  *
- * Three groups, in the order a hand reaches for them: what to add and how to
- * take it back (Add / Undo / Redo), what the pointer does (Select / Move /
- * Snap), and where you are looking (zoom).
+ * Four groups, in the order a hand reaches for them: add and take back (Add /
+ * Undo / Redo), what the pointer does (Select / Pick several / Move), how
+ * things line up and get chosen (Snap, Select all), and where you are looking
+ * (zoom).
  *
- * THE SELECT / MOVE TOGGLE IS THE POINT OF THIS FILE. Before it, the only ways
- * to move around this canvas were gestures nobody discovers: hold space and
- * drag, or press the middle mouse button. A laptop trackpad has neither in easy
- * reach, so on the machines most organizers actually use, reaching a part of the
- * map that was off-screen meant holding a key with one hand and dragging with
- * the other. A visible tool toggle is what every layout tool converged on, and
- * it removes nothing — space-drag, middle-drag, right-drag, wheel and touch all
- * still pan from either tool. It is a fourth way in, not a replacement.
+ * ICONS WITH NAMES (2026-11-21). It was ten text buttons that wrapped onto two
+ * or three lines in the middle column, styled with their own Tailwind instead
+ * of the product's buttons, plus "Add element" and "Design with AI" — both
+ * already offered by Add to layout. Now every control is one compact button
+ * with an icon, a short word where there is room, and its full name as the
+ * tooltip and the accessible name. Add is a menu of the same grouped list, and
+ * only appears below the width where Add to layout is its own column.
+ *
+ * THE SELECT / MOVE TOGGLE stays the point of this file. Before it, the only
+ * ways to move around this canvas were gestures nobody discovers: hold space
+ * and drag, or press the middle mouse button. A visible tool toggle removes
+ * nothing — space-drag, middle-drag, right-drag, wheel and touch all still pan
+ * from either tool. It is a fourth way in, not a replacement.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 export default function EditorToolbar({
   tables, zones, selection, tool, onToolChange, snapToGrid, onSnapChange,
-  canUndo, canRedo, onUndo, onRedo, onAdd, zoom, onDesign = null, onFullscreen = null,
+  canUndo, canRedo, onUndo, onRedo, onAdd, zoom, onFullscreen = null, ai = false,
 }) {
   return (
-    <div className="es-maptoolbar fx-row fx-row--between flex-wrap gap-2">
-      <div className="fx-row flex-wrap gap-2">
-        <button type="button" onClick={onAdd} className="es-btn es-btn--primary es-btn--sm">
-          Add element
-        </button>
-        {/* Only when AI is on for this organizer and no seat is held or sold
-            (D-015) — MapEditor decides, and passes null otherwise. */}
-        {onDesign && (
-          <button type="button" onClick={onDesign} className="es-btn es-btn--secondary es-btn--sm">
-            Design with AI
-          </button>
-        )}
-        <ToolbarButton onClick={onUndo} disabled={!canUndo} title="Undo (Ctrl+Z)">Undo</ToolbarButton>
-        <ToolbarButton onClick={onRedo} disabled={!canRedo} title="Redo (Ctrl+Shift+Z)">Redo</ToolbarButton>
+    <div className="es-maptoolbar">
+      <div className="es-maptoolbar__group">
+        {/* Only below the width where "Add to layout" is its own column. */}
+        <AddMenu onAdd={onAdd} ai={ai} />
+        <ToolbarButton onClick={onUndo} disabled={!canUndo} label="Undo" title="Undo (Ctrl+Z)" icon="undo" />
+        <ToolbarButton onClick={onRedo} disabled={!canRedo} label="Redo" title="Redo (Ctrl+Shift+Z)" icon="redo" />
+      </div>
+
+      <div role="group" aria-label="Canvas tool" className="es-tseg">
+        <ToolTab active={tool === 'select'} onClick={() => onToolChange('select')} icon="pointer" title="Select (V) — click a table, or drag the floor to box-select">
+          Select
+        </ToolTab>
+        {/* 2026-11-19: choosing several tables needed Ctrl or Shift, which a
+            tablet does not have. With this on, every tap adds or removes. */}
+        <ToolTab active={tool === 'multi'} onClick={() => onToolChange('multi')} icon="multi" title="Pick several (M) — each tap adds a table to the selection or takes it out">
+          Pick several
+        </ToolTab>
+        <ToolTab active={tool === 'hand'} onClick={() => onToolChange('hand')} icon="hand" title="Pan (H) — drag to look around the map. To move a table, use Select and drag it.">
+          Pan
+        </ToolTab>
+      </div>
+
+      <div className="es-maptoolbar__group">
+        <ToolbarButton
+          onClick={() => onSnapChange(!snapToGrid)} pressed={snapToGrid} icon="magnet" label="Snap to grid"
+          title="Snap to grid — line things up as you drag them" text="Snap"
+        />
         <SelectMenu tables={tables} zones={zones} selection={selection} />
       </div>
 
-      <div className="fx-row flex-wrap items-center gap-2">
-        <div role="group" aria-label="Canvas tool" className="fx-row gap-0 overflow-hidden rounded-(--es-radius-md) border border-border-strong">
-          <ToolTab
-            active={tool === 'select'} onClick={() => onToolChange('select')}
-            title="Select tool (V) — drag the floor to box-select"
-          >
-            Select
-          </ToolTab>
-          {/* 2026-11-19: choosing several tables needed Ctrl or Shift, which a
-              tablet does not have. With this on, every tap adds or removes. */}
-          <ToolTab
-            active={tool === 'multi'} onClick={() => onToolChange('multi')}
-            title="Pick several (M) — each tap adds a table to the selection or takes it out"
-          >
-            Pick several
-          </ToolTab>
-          <ToolTab
-            active={tool === 'hand'} onClick={() => onToolChange('hand')}
-            title="Move tool (H) — drag anywhere to move around the map"
-          >
-            Move
-          </ToolTab>
-        </div>
-
-        <ToolbarButton
-          onClick={() => onSnapChange(!snapToGrid)}
-          pressed={snapToGrid}
-          title="Line elements up to a grid as you drag them"
-        >
-          Snap to grid
-        </ToolbarButton>
-
-        {/* The zoom controls are captioned with `label`, not left to their own
-            text. A button whose entire content is the glyph "−" is announced as
-            "minus" — true, and useless to anyone who cannot see which group it
-            is sitting in. `title` alone does not fix it either: it is only used
-            as a name when there is no content, and these have content. */}
-        <div className="fx-row items-center gap-1 border-l border-border-base pl-2">
-          <ToolbarButton onClick={zoom.out} label="Zoom out">−</ToolbarButton>
-          <span className="min-w-12 text-center text-xs tabular-nums text-muted">{Math.round(zoom.scale * 100)}%</span>
-          <ToolbarButton onClick={zoom.in} label="Zoom in">+</ToolbarButton>
-          <ToolbarButton onClick={zoom.fit} label="Frame the whole room">Fit</ToolbarButton>
-          {onFullscreen && <ToolbarButton onClick={onFullscreen} label="Full screen" title="Full screen (Esc to leave)"><NavIcon name="scan" size={16} /></ToolbarButton>}
-        </div>
+      {/* The zoom controls are captioned with `label`, not left to their own
+          content: a button whose content is a glyph is announced as that glyph. */}
+      <div className="es-maptoolbar__group es-maptoolbar__zoom">
+        <ToolbarButton onClick={zoom.out} label="Zoom out" icon="minus" />
+        <span className="es-maptoolbar__pct es-nums">{Math.round(zoom.scale * 100)}%</span>
+        <ToolbarButton onClick={zoom.in} label="Zoom in" icon="plus" />
+        <ToolbarButton onClick={zoom.fit} label="Frame the whole room" title="Fit the whole room in view" text="Fit" />
+        {onFullscreen && <ToolbarButton onClick={onFullscreen} label="Full screen" title="Full screen (Esc to leave)" icon="expand" />}
       </div>
     </div>
   );
@@ -157,24 +141,28 @@ function SelectMenu({ tables, zones, selection }) {
 
   if (selection.count > 0) {
     return (
+      // Short on screen ("3 selected ×") so it fits where "Select all" was and
+      // the toolbar does not wrap the moment something is picked; named in
+      // full for a screen reader.
       <button
-        type="button"
-        onClick={selection.clear}
-        className="rounded-(--es-radius-md) border border-accent bg-accent/10 px-3 py-1.5 text-sm text-accent"
+        type="button" onClick={selection.clear} className="es-tbtn es-tbtn--on"
+        aria-label={`${selection.count} selected · Deselect`} title="Deselect (Esc)"
       >
-        {selection.count} selected · Deselect
+        <span>{selection.count} selected</span>
+        <NavIcon name="close" size={15} />
       </button>
     );
   }
 
   return (
     <div ref={ref} className="relative">
-      <ToolbarButton onClick={() => setOpen((v) => !v)} disabled={total === 0} expanded={open}>
-        Select all ▾
-      </ToolbarButton>
+      <button type="button" className="es-tbtn" onClick={() => setOpen((v) => !v)} disabled={total === 0} aria-expanded={open}>
+        <span>Select all</span>
+        <NavIcon name="chevronDown" size={15} />
+      </button>
 
       {open && (
-        <div className="fx-stack fx-stack--sm absolute left-0 top-full z-20 mt-1.5 w-64 rounded-(--es-radius-md) border border-border-base bg-surface p-3 shadow-lg">
+        <div className="es-mapmenu fx-stack fx-stack--sm">
           <button
             type="button"
             onClick={() => { selection.replace(tables.map(keyOf), zones.map((z) => z.id)); setOpen(false); }}
@@ -187,7 +175,7 @@ function SelectMenu({ tables, zones, selection }) {
           <div className="fx-stack fx-stack--sm gap-1.5 border-t border-border-base pt-2">
             <label className="text-xs text-subtle" htmlFor="es-select-type">Type</label>
             <select
-              id="es-select-type" className="es-input" value={type}
+              id="es-select-type" className="es-input es-input--dense" value={type}
               onChange={(e) => {
                 setType(e.target.value);
                 if (e.target.value === 'zones' || Object.prototype.hasOwnProperty.call(ZONES, e.target.value)) setCapacity('any');
@@ -195,18 +183,18 @@ function SelectMenu({ tables, zones, selection }) {
             >
               <option value="any">Anything</option>
               <option value="tables">All tables</option>
-              <option value="zones">All venue zones</option>
+              <option value="zones">All areas</option>
               <optgroup label="Table shapes">
                 {SHAPES.map((s) => <option key={s} value={s}>{SHAPE_NAMES[s] || s}</option>)}
               </optgroup>
-              <optgroup label="Venue zones">
+              <optgroup label="Areas">
                 {ZONE_KINDS.map((k) => <option key={k} value={k}>{ZONES[k].label}</option>)}
               </optgroup>
             </select>
 
             <label className="text-xs text-subtle" htmlFor="es-select-cap">Seats per table</label>
             <select
-              id="es-select-cap" className="es-input" value={capacity} disabled={zoneTypeChosen}
+              id="es-select-cap" className="es-input es-input--dense" value={capacity} disabled={zoneTypeChosen}
               onChange={(e) => setCapacity(e.target.value)}
             >
               <option value="any">Any number</option>
@@ -228,39 +216,33 @@ function SelectMenu({ tables, zones, selection }) {
   );
 }
 
-function ToolbarButton({ onClick, disabled, title, label, pressed, expanded, children }) {
+/**
+ * A toolbar button: an icon, an optional short word, and a full name for
+ * screen readers and the tooltip. On a narrow canvas the word folds away and
+ * the icon carries it (`.es-tbtn__text`).
+ */
+function ToolbarButton({ onClick, disabled, title, label, pressed, icon = null, text = null }) {
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
       title={title || label}
-      {...(label ? { 'aria-label': label } : {})}
+      aria-label={label}
       {...(pressed === undefined ? {} : { 'aria-pressed': pressed })}
-      {...(expanded === undefined ? {} : { 'aria-expanded': expanded })}
-      className={`rounded-(--es-radius-md) border px-3 py-1.5 text-sm transition-colors disabled:opacity-40 ${
-        pressed
-          ? 'border-accent bg-accent/10 text-accent'
-          : 'border-border-strong text-ink hover:bg-bg-sunken'
-      }`}
+      className={`es-tbtn${icon && !text ? ' es-tbtn--icon' : ''}`}
     >
-      {children}
+      {icon && <NavIcon name={icon} size={17} />}
+      {text && <span className={icon ? 'es-tbtn__text' : undefined}>{text}</span>}
     </button>
   );
 }
 
-function ToolTab({ active, onClick, title, children }) {
+function ToolTab({ active, onClick, title, icon, children }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      title={title}
-      aria-pressed={active}
-      className={`px-3 py-1.5 text-sm transition-colors ${
-        active ? 'bg-accent/10 text-accent' : 'text-muted hover:bg-bg-sunken'
-      }`}
-    >
-      {children}
+    <button type="button" onClick={onClick} title={title} aria-pressed={active}>
+      <NavIcon name={icon} size={17} />
+      <span className="es-tbtn__text">{children}</span>
     </button>
   );
 }

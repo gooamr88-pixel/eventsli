@@ -67,6 +67,8 @@ export default function EditorCanvas({
   look = null,
   // Draw-wall mode (useWallTool): its pointer handler and the wall in progress.
   wallTool = null,
+  // What an empty map shows in place of the one-line hint (MapStarter.jsx).
+  emptyState = null,
   className = '',
 }) {
   const { svgRef, view, handlers } = panzoom;
@@ -120,6 +122,14 @@ export default function EditorCanvas({
       className={`relative ${className}`}
       data-hide-zones={layers.zones ? undefined : 'true'}
       data-hide-labels={layers.labels ? undefined : 'true'}
+      // Pressing the map hands the keyboard back to it. The inspector keeps
+      // bare keys for its own controls (useEditorKeys), and the SVG takes no
+      // focus of its own, so after clicking "Rotate" and then a table, Delete
+      // would otherwise go to the Rotate button.
+      onPointerDownCapture={() => {
+        const el = document.activeElement;
+        if (el instanceof HTMLElement && el.closest('.es-mapeditor__panel, .es-mapeditor__tools, .es-insp')) el.blur();
+      }}
     >
       <svg
         ref={svgRef}
@@ -271,18 +281,18 @@ export default function EditorCanvas({
         />
       )}
 
-      {tables.length === 0 && zones.length === 0 && (
+      {tables.length === 0 && zones.length === 0 && (emptyState || (
         <p className="pointer-events-none absolute inset-0 grid place-items-center px-6 text-center text-sm text-subtle">
           Add tables and venue zones, or double-click the floor to drop a table.
         </p>
-      )}
+      ))}
 
       {/* A pill on the surface rather than loose text, so it reads as help
           and not as part of the plan. */}
       {/* 2026-11-19: a bare scroll no longer moves the map (it scrolls the
           page), except in full screen. */}
       <p className="es-mapcanvas__hint">
-        Ctrl+scroll to zoom · Move tool or Space+drag to pan · drag the floor to select
+        Ctrl + scroll to zoom · Space + drag to pan
       </p>
       <MapGestureHint hint={panzoom.hint} />
     </div>

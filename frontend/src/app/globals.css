@@ -10266,7 +10266,7 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
 .es-mapcanvas { width: 100%; min-width: 0; aspect-ratio: 11 / 8; max-height: 78vh; }
 @media (width >= 48rem) { .es-mapcanvas { min-height: 300px; } }
 
-.es-mapeditor { container-type: inline-size; }
+.es-mapeditor { container: mapeditor / inline-size; }
 .es-mapeditor__body { display: grid; gap: var(--fx-gap); }
 .es-mapeditor__panel { min-width: 0; }
 @container (min-width: 52rem) {
@@ -13678,44 +13678,6 @@ button.es-wizard__steplink:hover .es-wizard__steplabel { text-decoration: underl
 .es-mapcard:fullscreen { display: flex; flex-direction: column; padding: 1rem; border-radius: 0; background: var(--es-surface); }
 .es-mapcard:fullscreen .es-mapcanvas { flex: 1; max-height: none; aspect-ratio: auto; }
 
-.es-mapbuild { gap: 1rem; }
-.es-mapbuild__list { display: flex; flex-direction: column; gap: 0.5rem; }
-.es-mapbuild__item {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 0.75rem;
-  width: 100%;
-  min-height: 3.5rem;
-  padding: 0.625rem 0.75rem;
-  border: 1px solid var(--es-border);
-  border-radius: 0.75rem;
-  background: var(--es-surface);
-  font: inherit;
-  text-align: start;
-  color: var(--es-text-muted);
-  cursor: pointer;
-}
-.es-mapbuild__item:hover { border-color: var(--es-accent-edge); background: color-mix(in srgb, var(--es-accent-wash) 45%, var(--es-surface)); color: var(--es-accent); }
-.es-mapbuild__item:first-child { border-color: var(--es-accent-edge); background: color-mix(in srgb, var(--es-accent-wash) 45%, var(--es-surface)); }
-.es-mapbuild__icon { display: inline-flex; color: var(--es-accent); }
-.es-mapbuild__item b { display: block; font-size: var(--es-text-sm); font-weight: 700; color: var(--es-text); }
-.es-mapbuild__item small { display: block; font-size: var(--es-text-xs); color: var(--es-text-muted); }
-.es-mapbuild__assign { display: flex; flex-direction: column; gap: 0.5rem; padding-top: 1rem; border-top: 1px solid var(--es-border); }
-.es-mapbuild__h { margin: 0; font-size: var(--es-text-md); font-weight: 700; color: var(--es-text); }
-.es-mapbuild__hint {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  min-height: 2.75rem;
-  padding: 0.5rem 0.875rem;
-  border: 1px solid var(--es-border);
-  border-radius: 0.625rem;
-  font-size: var(--es-text-sm);
-  color: var(--es-text);
-}
-.es-mapbuild__hint svg { color: var(--es-text-muted); }
-
 }   /* end @layer components — seating map, 2026-11 */
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -14504,11 +14466,7 @@ label.es-chip:has(:focus-visible) { outline: 2px solid var(--es-accent); outline
 .es-statsbar__bar span { display: block; height: 100%; }
 
 .es-preview3d { display: flex; flex-direction: column; gap: 0.75rem; }
-.es-preview3d:first-child { margin-bottom: var(--fx-gap, 1rem); }
-.es-preview3d:not(:first-child) { margin-top: var(--fx-gap, 1rem); }
 .es-previewbar { display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem 2rem; }
-.es-previewbar fieldset { display: block; }
-.es-previewbar legend { float: left; margin: 0.5rem 0.75rem 0 0; }
 /* 16rem (was 13): at 13 the room was a strip too thin to read (2026-11-19). */
 .es-preview3d__view { height: 16rem; overflow: hidden; border-radius: var(--es-radius-md); background: #0d0c12; }
 }   /* end @layer components — Venue Studio stats */
@@ -14644,7 +14602,7 @@ label.es-chip:has(:focus-visible) { outline: 2px solid var(--es-accent); outline
 
 /* The head: title and description on the left, the actions on the right of
    the same row, as in the mockup — not wrapped under a long description. */
-@media (width >= theme(--breakpoint-lg)) {
+@media (width >= theme(--breakpoint-xl)) {
   .es-maphead { flex-wrap: nowrap; align-items: flex-start; }
   .es-maphead > .fx-stack { flex: 1 1 auto; }
   .es-maphead .es-page-head__actions { flex: none; }
@@ -14668,8 +14626,6 @@ label.es-chip:has(:focus-visible) { outline: 2px solid var(--es-accent); outline
     top: 1rem;
     min-width: 0;
   }
-  /* The add tools now live on the left; the right is for what is selected. */
-  .es-mapeditor__panel .es-mapbuild { display: none; }
 }
 
 /* ── Add to layout: one line per item ──────────────────────────────────── */
@@ -14693,32 +14649,10 @@ label.es-chip:has(:focus-visible) { outline: 2px solid var(--es-accent); outline
 }
 .es-mappalette__item:hover { background: var(--es-accent-wash); }
 .es-mappalette__item svg { flex: none; color: var(--es-text-muted); }
-.es-mappalette__list li + li { border-top: 1px solid var(--es-border); }
-.es-mappalette__list li:first-child .es-mappalette__item { background: var(--es-accent-wash); font-weight: 600; }
 
 /* ── Layers ────────────────────────────────────────────────────────────── */
 .es-maplayers { gap: 0.5rem; }
 .es-maplayers__list { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
-.es-maplayers__row { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; padding: 0.5rem 0.25rem; }
-.es-maplayers__row + .es-maplayers__row { border-top: 1px solid var(--es-border); }
-.es-maplayers__row b { display: block; font-size: var(--es-text-sm); font-weight: 600; color: var(--es-text); }
-.es-maplayers__row small { display: block; font-size: var(--es-text-xs); color: var(--es-text-muted); }
-.es-maplayers__eye {
-  display: grid;
-  flex: none;
-  place-items: center;
-  width: 2.25rem;
-  height: 2.25rem;
-  border: 0;
-  border-radius: var(--es-radius-md);
-  background: transparent;
-  color: var(--es-accent);
-  cursor: pointer;
-}
-.es-maplayers__eye[aria-pressed="false"] { color: var(--es-text-muted); }
-.es-maplayers__eye:hover { background: var(--es-bg-sunken); }
-.es-maplayers__lock { display: grid; place-items: center; width: 2.25rem; color: var(--es-text-muted); }
-
 /* What a layer switch hides: drawn only, never removed. */
 [data-hide-zones="true"] .es-layer-zones { display: none; }
 [data-hide-labels="true"] .es-layer-label { display: none; }
@@ -17711,13 +17645,8 @@ label.es-chip:has(:focus-visible) { outline: 2px solid var(--es-accent); outline
   .es-stepper button:disabled { color: var(--es-text-subtle); cursor: not-allowed; }
   .es-stepper span { min-width: 2rem; padding: 0 0.25rem; border-inline: 1px solid var(--es-border); font-size: var(--es-text-sm); text-align: center; }
 
-  .es-seg { display: inline-flex; border: 1px solid var(--es-border-strong); border-radius: var(--es-radius-sm); overflow: hidden; }
-  .es-seg button { padding: 0.3rem 0.6rem; border: 0; background: var(--es-surface); color: var(--es-text); font: inherit; font-size: var(--es-text-xs); cursor: pointer; }
-  .es-seg button + button { border-inline-start: 1px solid var(--es-border); }
-  .es-seg button[aria-pressed="true"] { background: var(--es-black); color: #ffffff; }
 
   .es-colourswatch { width: 2.5rem; height: 1.9rem; padding: 0.125rem; border: 1px solid var(--es-border-strong); border-radius: var(--es-radius-sm); background: var(--es-surface); cursor: pointer; }
-  .es-stylerange { width: 7rem; accent-color: var(--es-brand-coral); }
   .es-linkbtn { padding: 0; border: 0; background: none; color: var(--es-accent); font: inherit; text-decoration: underline; cursor: pointer; }
 
   .es-lookgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(4.75rem, 1fr)); gap: 0.4rem; margin: 0; padding: 0; list-style: none; }
@@ -18653,24 +18582,20 @@ label.es-chip:has(:focus-visible) { outline: 2px solid var(--es-accent); outline
     padding: 0.5rem; border: 1px solid var(--es-border); border-radius: var(--es-radius-lg); background: var(--es-surface);
     position: sticky; top: 0.5rem; z-index: 3;
   }
+  /* The tool labels fold to icons (still named) when the bar is narrow. */
+  .es-fpe { container: mapcard / inline-size; }
+  @container mapcard (max-width: 60rem) {
+    .es-fpe__tools .es-tbtn__text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+    .es-fpe__tools button { width: 2.25rem; padding: 0; }
+  }
+  .es-fpe__panel { min-width: 0; }
+  @media (width >= theme(--breakpoint-lg)) {
+    .es-fpe__panel { position: sticky; top: 4.5rem; max-height: calc(100dvh - 5.5rem); overflow-y: auto; }
+  }
   .es-fpe__tools { display: flex; flex-wrap: wrap; gap: 0.25rem; }
-  .es-fpe__tool {
-    display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.4rem 0.6rem; border: 1px solid transparent;
-    border-radius: var(--es-radius-md); background: none; font: inherit; font-size: var(--es-text-sm); font-weight: 600; color: var(--es-text-muted); cursor: pointer;
-  }
-  .es-fpe__tool:hover { background: var(--es-bg-sunken); color: var(--es-text); }
-  .es-fpe__tool[aria-pressed='true'] { border-color: var(--es-accent); background: var(--es-accent-wash); color: var(--es-accent); }
-  .es-fpe__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; }
-  .es-fpe__rowform {
-    display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0.6rem; padding: 0.6rem 0.75rem;
-    border-radius: var(--es-radius-md); background: var(--es-bg-sunken); font-size: var(--es-text-xs); color: var(--es-text-muted);
-  }
-  .es-fpe__rowform label { display: grid; gap: 0.2rem; }
-  .es-fpe__rowform .es-input { width: 7rem; }
-  .es-fpe__presets { display: flex; flex-wrap: wrap; gap: 0.25rem; }
   .es-fpe__body { display: grid; gap: 0.75rem; align-items: start; }
   @media (width >= theme(--breakpoint-lg)) {
-    .es-fpe__body { grid-template-columns: minmax(0, 1fr) 17rem; }
+    .es-fpe__body { grid-template-columns: minmax(0, 1fr) 18rem; }
   }
   .es-fpe__canvas {
     position: relative; height: min(72vh, 46rem); min-height: 22rem; overflow: hidden;
@@ -18686,12 +18611,6 @@ label.es-chip:has(:focus-visible) { outline: 2px solid var(--es-accent); outline
     max-width: calc(100% - 1.5rem); margin: 0; padding: 0.45rem 0.85rem; border-radius: var(--es-radius-full);
     background: rgb(17 16 24 / 0.85); color: #ffffff; font-size: var(--es-text-sm);
   }
-  .es-fpe__panel {
-    display: grid; gap: 0.5rem; padding: 0.9rem; border: 1px solid var(--es-border); border-radius: var(--es-radius-lg); background: var(--es-surface);
-  }
-  .es-fpe__panel-title { margin: 0; font-family: var(--es-font-display); font-weight: 800; }
-  .es-fpe__field { display: grid; gap: 0.25rem; font-size: var(--es-text-xs); color: var(--es-text-muted); }
-  .es-fpe__grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; }
   .es-fpe__colors { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; }
   .es-fpe__color { width: 1.6rem; height: 1.6rem; border: 2px solid #ffffff; border-radius: 50%; box-shadow: 0 0 0 1px var(--es-border-strong); cursor: pointer; }
   .es-fpe__color[aria-pressed='true'] { box-shadow: 0 0 0 2px var(--es-text); }
@@ -18699,3 +18618,493 @@ label.es-chip:has(:focus-visible) { outline: 2px solid var(--es-accent); outline
   .es-fpe__types { display: grid; gap: 0.35rem; margin: 0; padding: 0; list-style: none; font-size: var(--es-text-sm); }
   .es-fpe__types li { display: flex; align-items: center; gap: 0.45rem; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   THE SEATING MAP'S SETTINGS SYSTEM (2026-11-21) — map/ui/fields.jsx and
+   map/ui/Inspector.jsx. One set of controls and one panel shape for the
+   whole Venue Studio: the inspector beside the map (table, area, selection,
+   wall tool, whole map), the Venue / 3D / 360° / Preview workspaces and the
+   toolbar. Every "chosen" state is the same: coral edge on a coral wash.
+   ═══════════════════════════════════════════════════════════════════════════ */
+@layer components {
+
+/* ── fields ──────────────────────────────────────────────────────────────── */
+.es-field { display: flex; flex-direction: column; gap: 0.375rem; min-width: 0; margin: 0; padding: 0; border: 0; }
+.es-field__head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; }
+.es-field__label { font-size: var(--es-text-sm); font-weight: 600; color: var(--es-text); }
+legend.es-field__label { margin-bottom: 0.375rem; padding: 0; }
+.es-field__hint { margin: 0; font-size: var(--es-text-xs); line-height: 1.45; color: var(--es-text-subtle); }
+.es-field__error { margin: 0; font-size: var(--es-text-xs); font-weight: 600; color: var(--es-danger); }
+.es-field__value { font-size: var(--es-text-sm); font-weight: 600; color: var(--es-text-muted); }
+.es-field__muted { font-size: var(--es-text-xs); color: var(--es-text-subtle); white-space: nowrap; }
+
+/* A shorter input for dense panels — on a fine pointer only. A finger keeps
+   the 44px floor and the 16px type that stops iOS zooming on focus. */
+@media (pointer: fine) {
+  .es-input--dense { min-height: 2.375rem; font-size: var(--es-text-sm); }
+}
+textarea.es-input--dense { padding-block: 0.5rem; }
+
+/* Label beside the control. */
+.es-frow { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; min-height: 2.25rem; }
+.es-frow__text { display: flex; flex-direction: column; gap: 0.125rem; min-width: 0; }
+.es-frow__text .es-field__label { font-weight: 500; }
+.es-frow__control { display: inline-flex; flex: none; align-items: center; gap: 0.375rem; }
+.es-frow--toggle { align-items: flex-start; }
+.es-frow--toggle .es-switch { margin-top: 0.0625rem; }
+
+/* The product's switch, without its own label and touch padding — the row
+   around it carries the label. */
+.es-switch--bare { min-height: 0; padding: 0; border-radius: var(--es-radius-full); }
+
+.es-fpair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.625rem; }
+
+/* A small icon button inside a field row (reset a colour). */
+.es-fbtn {
+  display: grid; place-items: center; width: 1.875rem; height: 1.875rem; padding: 0;
+  border: 0; border-radius: var(--es-radius-sm); background: transparent; color: var(--es-text-muted); cursor: pointer;
+}
+.es-fbtn:hover:not(:disabled) { background: var(--es-bg-sunken); color: var(--es-text); }
+.es-fbtn:disabled { opacity: 0.35; cursor: default; }
+.es-fbtn:focus-visible { outline: 2px solid var(--es-accent); outline-offset: 1px; }
+
+.es-colourswatch { width: 2.25rem; height: 1.875rem; }
+.es-range { display: block; height: 1.25rem; accent-color: var(--es-brand-coral); cursor: pointer; }
+
+/* One of a few — the same chosen state as every tile in the editor. */
+.es-seg {
+  display: inline-flex; padding: 0.1875rem; gap: 0.125rem;
+  border: 1px solid var(--es-border); border-radius: var(--es-radius-md); background: var(--es-bg-sunken);
+}
+.es-seg button {
+  display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.0625rem;
+  min-width: 2.25rem; min-height: 1.875rem; padding: 0.25rem 0.625rem;
+  border: 1px solid transparent; border-radius: calc(var(--es-radius-md) - 0.1875rem);
+  background: transparent; color: var(--es-text-muted); font: inherit; font-size: var(--es-text-xs); font-weight: 600;
+  line-height: 1.2; cursor: pointer; transition: background-color var(--es-transition-fast), color var(--es-transition-fast);
+}
+.es-seg button:hover:not(:disabled) { color: var(--es-text); }
+.es-seg button[aria-pressed="true"] { border-color: var(--es-accent-edge); background: var(--es-surface); color: var(--es-text); box-shadow: var(--es-shadow-xs); }
+.es-seg button:disabled { opacity: 0.45; cursor: not-allowed; }
+.es-seg button:focus-visible { outline: 2px solid var(--es-accent); outline-offset: 1px; }
+.es-seg button small { font-size: 0.6875rem; font-weight: 500; color: var(--es-text-subtle); }
+.es-seg--fill { display: flex; flex-wrap: wrap; }
+.es-seg--fill button { flex: 1 1 0; min-height: 2.25rem; font-size: var(--es-text-sm); }
+
+.es-chips { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+
+.es-stepper button { width: 1.875rem; height: 1.875rem; }
+
+/* ── the inspector ───────────────────────────────────────────────────────── */
+.es-insp { gap: 0; padding: 0; overflow: clip; }
+.es-insp__head { display: flex; align-items: flex-start; gap: 0.75rem; padding: 1rem 1rem 0.875rem; border-bottom: 1px solid var(--es-border); }
+.es-insp__icon {
+  display: grid; flex: none; place-items: center; width: 2.5rem; height: 2.5rem;
+  border-radius: var(--es-radius-md); background: var(--es-accent-wash); color: var(--es-accent);
+}
+.es-insp__eyebrow { margin: 0; font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--es-text-subtle); }
+.es-insp__title { margin: 0; overflow: hidden; font-size: var(--es-text-lg); font-weight: 700; line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; color: var(--es-text); }
+.es-insp__meta { margin: 0.125rem 0 0; font-size: var(--es-text-xs); line-height: 1.45; color: var(--es-text-muted); }
+.es-insp > .es-insp__note { margin: 0.75rem 1rem 0; }
+.es-insp__body { display: flex; flex-direction: column; padding: 0 1rem; }
+.es-insp__body:last-child { padding-bottom: 0.75rem; }
+.es-insp__body > :not(.es-insp__sec) { margin-top: 0.875rem; }
+.es-insp__body > :not(.es-insp__sec):last-child { margin-bottom: 0.25rem; }
+
+.es-insp__sec + .es-insp__sec,
+.es-insp__body > :not(.es-insp__sec) + .es-insp__sec { border-top: 1px solid var(--es-border); }
+.es-insp__sec + :not(.es-insp__sec) { padding-top: 0.875rem; border-top: 1px solid var(--es-border); }
+.es-insp__sechead { margin: 0; }
+.es-insp__toggle {
+  display: flex; align-items: center; gap: 0.5rem; width: 100%; min-height: 2.875rem; padding: 0;
+  border: 0; background: none; color: var(--es-text); font: inherit; text-align: start; cursor: pointer;
+}
+.es-insp__toggle:focus-visible { outline: 2px solid var(--es-accent); outline-offset: 2px; border-radius: var(--es-radius-sm); }
+.es-insp__sectitle { flex: none; font-size: var(--es-text-sm); font-weight: 700; }
+.es-insp__summary { flex: 1; min-width: 0; overflow: hidden; font-size: var(--es-text-xs); text-align: end; text-overflow: ellipsis; white-space: nowrap; color: var(--es-text-subtle); }
+.es-insp__chev { flex: none; margin-inline-start: auto; color: var(--es-text-muted); transition: transform var(--es-transition-fast); }
+.es-insp__summary + .es-insp__chev { margin-inline-start: 0; }
+.es-insp__sec[data-open="true"] .es-insp__chev { transform: rotate(180deg); }
+.es-insp__secbody { display: flex; flex-direction: column; gap: 0.875rem; padding-bottom: 1rem; }
+.es-insp__secbody[hidden] { display: none; }
+
+/* The footer: the same actions in the same place on every panel, pinned to
+   the bottom of the scrolling side panel so Delete is never a scroll away. */
+.es-insp__actions {
+  position: sticky; bottom: 0; z-index: 1;
+  display: flex; flex-wrap: wrap; gap: 0.25rem; padding: 0.5rem 0.625rem;
+  border-top: 1px solid var(--es-border); background: color-mix(in srgb, var(--es-surface) 94%, transparent);
+  backdrop-filter: blur(6px);
+}
+.es-insp__act {
+  display: inline-flex; flex: 1 1 auto; align-items: center; justify-content: center; gap: 0.375rem;
+  min-height: 2.25rem; padding: 0.25rem 0.625rem; border: 1px solid transparent; border-radius: var(--es-radius-md);
+  background: transparent; color: var(--es-text); font: inherit; font-size: var(--es-text-sm); font-weight: 600; cursor: pointer;
+}
+.es-insp__act svg { color: var(--es-text-muted); }
+.es-insp__act:hover:not(:disabled) { background: var(--es-bg-sunken); }
+.es-insp__act:disabled { opacity: 0.45; cursor: not-allowed; }
+.es-insp__act:focus-visible { outline: 2px solid var(--es-accent); outline-offset: 1px; }
+.es-insp__act--danger, .es-insp__act--danger svg { color: var(--es-danger-fill); }
+.es-insp__act--danger:hover:not(:disabled) { background: color-mix(in srgb, var(--es-danger-fill) 9%, var(--es-surface)); }
+.es-insp__act--primary { background: var(--es-accent); color: var(--es-text-on-accent); }
+.es-insp__act--primary svg { color: currentColor; }
+.es-insp__act--primary:hover:not(:disabled) { background: var(--es-accent-hover); }
+@media (pointer: coarse) { .es-insp__act { min-height: var(--fx-touch); } }
+
+.es-insp__note { margin: 0; font-size: var(--es-text-xs); line-height: 1.5; color: var(--es-text-subtle); }
+.es-insp__note--warning {
+  padding: 0.5rem 0.75rem; border-radius: var(--es-radius-md);
+  background: color-mix(in srgb, var(--es-amber-700) 9%, var(--es-surface)); color: var(--es-text);
+}
+.es-insp__stat {
+  display: flex; align-items: center; gap: 0.5rem; padding: 0.625rem 0.75rem;
+  border-radius: var(--es-radius-md); background: var(--es-bg-sunken); font-size: var(--es-text-sm); color: var(--es-text);
+}
+.es-insp__stat svg { flex: none; }
+.es-insp__stat[data-tone="warning"] { background: color-mix(in srgb, var(--es-amber-700) 9%, var(--es-surface)); }
+.es-insp__stat[data-tone="warning"] svg { color: var(--es-warning); }
+.es-insp__stat[data-tone="ok"] svg { color: var(--es-success); }
+
+/* A fold inside a section (Map look → Custom colours). */
+.es-insp__sub {
+  display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 2.25rem; padding: 0 0.75rem;
+  border: 1px solid var(--es-border); border-radius: var(--es-radius-md); background: var(--es-surface);
+  color: var(--es-text); font: inherit; font-size: var(--es-text-sm); font-weight: 600; cursor: pointer;
+}
+.es-insp__sub:hover { background: var(--es-bg-sunken); }
+.es-insp__sub[aria-expanded="true"] { border-radius: var(--es-radius-md) var(--es-radius-md) 0 0; }
+.es-insp__subbody { display: flex; flex-direction: column; gap: 0.5rem; margin-top: -0.875rem; padding: 0.75rem; border: 1px solid var(--es-border); border-top: 0; border-radius: 0 0 var(--es-radius-md) var(--es-radius-md); }
+
+/* Keys and what they do. */
+.es-keys { display: grid; gap: 0.375rem; margin: 0; }
+.es-keys > div { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; font-size: var(--es-text-xs); }
+.es-keys dt { flex: none; }
+.es-keys dd { margin: 0; text-align: end; color: var(--es-text-muted); }
+.es-keys kbd {
+  display: inline-block; padding: 0.125rem 0.4375rem; border: 1px solid var(--es-border-strong); border-bottom-width: 2px;
+  border-radius: var(--es-radius-sm); background: var(--es-surface); font-family: inherit; font-size: 0.6875rem; font-weight: 600; color: var(--es-text);
+}
+
+.es-sides { align-items: flex-start; }
+.es-sides__art { width: 5.75rem; height: 5.75rem; }
+.es-sides__list { display: flex; flex: 1; flex-direction: column; gap: 0.25rem; min-width: 0; }
+.es-sides__list .es-frow { min-height: 2rem; }
+.es-sides__list .es-field__label { font-weight: 500; }
+
+/* ── the side panel: the inspector, then the 3D preview, never reordered ─── */
+.es-mapeditor__panel { display: flex; flex-direction: column; gap: var(--fx-gap, 1rem); }
+
+/* ── Add to layout, grouped ──────────────────────────────────────────────── */
+.es-mappalette { gap: 0.25rem; }
+.es-mappalette__group + .es-mappalette__group { margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--es-border); }
+.es-mappalette__h { margin: 0.25rem 0 0.125rem; padding-inline: 0.625rem; font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--es-text-subtle); }
+.es-mappalette__item { min-height: 2.25rem; }
+.es-mappalette__item:hover svg { color: var(--es-accent); }
+.es-mappalette__item:focus-visible { outline: 2px solid var(--es-accent); outline-offset: -2px; }
+.es-mappalette__item--rich { align-items: flex-start; padding-block: 0.5rem; }
+.es-mappalette__item--rich svg { margin-top: 0.125rem; }
+.es-mappalette__item--rich b { display: block; font-weight: 600; color: var(--es-text); }
+.es-mappalette__item--rich small { display: block; font-size: var(--es-text-xs); line-height: 1.4; color: var(--es-text-muted); }
+
+.es-maplayers__list { gap: 0.625rem; }
+
+/* ── the toolbar ─────────────────────────────────────────────────────────── */
+.es-mapcard { container: mapcard / inline-size; }
+.es-maptoolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; }
+.es-maptoolbar__group { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem; }
+.es-maptoolbar__zoom { margin-inline-start: auto; }
+.es-maptoolbar__pct { min-width: 2.75rem; font-size: var(--es-text-xs); font-weight: 600; text-align: center; color: var(--es-text-muted); }
+
+.es-tbtn, .es-tseg button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.375rem;
+  min-height: 2.25rem; padding: 0 0.6875rem; border: 1px solid var(--es-border-strong); border-radius: var(--es-radius-md);
+  background: var(--es-surface); color: var(--es-text); font: inherit; font-size: var(--es-text-sm); font-weight: 500;
+  white-space: nowrap; cursor: pointer; transition: background-color var(--es-transition-fast), border-color var(--es-transition-fast);
+}
+.es-tbtn svg, .es-tseg button svg { flex: none; color: var(--es-text-muted); }
+.es-tbtn:hover:not(:disabled) { background: var(--es-bg-sunken); }
+.es-tbtn:disabled { opacity: 0.4; cursor: not-allowed; }
+.es-tbtn:focus-visible, .es-tseg button:focus-visible { outline: 2px solid var(--es-accent); outline-offset: 1px; }
+.es-tbtn--icon { width: 2.25rem; padding: 0; }
+.es-tbtn[aria-pressed="true"], .es-tbtn--on { border-color: var(--es-accent-edge); background: var(--es-accent-wash); color: var(--es-text); }
+.es-tbtn[aria-pressed="true"] svg, .es-tbtn--on svg { color: var(--es-accent); }
+.es-tbtn--primary { border-color: var(--es-accent); background: var(--es-accent); color: var(--es-text-on-accent); font-weight: 600; }
+.es-tbtn--primary svg { color: currentColor; }
+.es-tbtn--primary:hover:not(:disabled) { background: var(--es-accent-hover); }
+@media (pointer: coarse) {
+  .es-tbtn, .es-tseg button { min-height: var(--fx-touch); }
+  .es-tbtn--icon { width: var(--fx-touch); }
+}
+
+/* The canvas tool: one segmented control. */
+.es-tseg { display: inline-flex; padding: 0.1875rem; gap: 0.125rem; border: 1px solid var(--es-border); border-radius: var(--es-radius-md); background: var(--es-bg-sunken); }
+.es-tseg button { min-height: 1.875rem; border-color: transparent; background: transparent; color: var(--es-text-muted); }
+.es-tseg button:hover { color: var(--es-text); }
+.es-tseg button[aria-pressed="true"] { border-color: var(--es-accent-edge); background: var(--es-surface); color: var(--es-text); box-shadow: var(--es-shadow-xs); }
+.es-tseg button[aria-pressed="true"] svg { color: var(--es-accent); }
+
+/* A narrow canvas keeps the icons and folds the words (still named). */
+@container mapcard (max-width: 46rem) {
+  .es-tbtn__text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .es-tseg button { width: 2.25rem; padding: 0; }
+}
+
+/* Menus hanging off the toolbar: Select all, Add. */
+.es-mapmenu {
+  position: absolute; inset-inline-start: 0; top: calc(100% + 0.375rem); z-index: 30;
+  width: 16rem; padding: 0.625rem; border: 1px solid var(--es-border); border-radius: var(--es-radius-lg);
+  background: var(--es-surface); box-shadow: var(--es-shadow-lg);
+}
+.es-mapmenu--add { width: min(20rem, calc(100vw - 2rem)); max-height: min(34rem, 70dvh); overflow-y: auto; padding: 0.375rem; }
+
+/* "Table T4 selected · Edit details": only where the inspector is below. */
+.es-mapjump {
+  display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
+  padding: 0.375rem 0.375rem 0.375rem 0.875rem; border-radius: var(--es-radius-md);
+  background: var(--es-accent-wash); font-size: var(--es-text-sm); font-weight: 600; color: var(--es-text);
+}
+@container mapeditor (min-width: 52rem) { .es-mapjump { display: none; } }
+.es-mapcard:fullscreen .es-mapjump { display: none; }
+
+/* ── head and banner ─────────────────────────────────────────────────────── */
+.es-mapsum li svg { align-self: center; }
+.es-mapsum__saved.es-mapsum__saved { color: var(--es-text-muted); }
+.es-mapsum__saved svg { color: var(--es-success); }
+.es-mapbanner .es-btn { justify-self: start; }
+@media (width >= theme(--breakpoint-md)) {
+  .es-mapbanner { grid-template-columns: auto minmax(0, 1fr) auto; }
+}
+
+/* Preview workspace's bar: the shared stacked choice, label beside. */
+.es-previewbar .es-field { flex-direction: row; align-items: center; gap: 0.75rem; }
+
+}   /* end @layer components — seating map settings system */
+
+/* 2026-11-21, second pass: the footer as an icon-over-label bar, so Rotate,
+   Duplicate, Delete (and Deselect) share one line at 18rem; and the facts
+   grid the vendor floor plan uses for its booth counts. */
+@layer components {
+.es-insp__actions { flex-wrap: nowrap; gap: 0.125rem; padding: 0.375rem; }
+.es-insp__act { flex: 1 1 0; flex-direction: column; gap: 0.125rem; min-width: 0; min-height: 3rem; padding: 0.25rem; font-size: var(--es-text-xs); }
+.es-insp__act span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.es-insp__act--primary { flex-direction: row; gap: 0.375rem; flex-grow: 2; font-size: var(--es-text-sm); }
+.es-insp__facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; margin: 0; }
+.es-insp__facts div { padding: 0.5rem 0.625rem; border-radius: var(--es-radius-md); background: var(--es-bg-sunken); }
+.es-insp__facts dt { font-size: var(--es-text-xs); color: var(--es-text-muted); }
+.es-insp__facts dd { margin: 0; font-size: var(--es-text-lg); font-weight: 700; color: var(--es-text); }
+
+/* Sticky panels stick BELOW the shell's pinned top (AppShell publishes its
+   height as --es-shell-top-h); at top: 1rem they slid under it. */
+@container mapeditor (min-width: 52rem) {
+  .es-mapeditor__panel { top: calc(var(--es-shell-top-h, 0px) + 1rem); max-height: calc(100dvh - var(--es-shell-top-h, 0px) - 2rem); }
+}
+@container mapeditor (min-width: 70rem) {
+  .es-mapeditor__tools { top: calc(var(--es-shell-top-h, 0px) + 1rem); }
+}
+@media (width >= theme(--breakpoint-lg)) {
+  .es-studio-split--wide > aside { top: calc(var(--es-shell-top-h, 0px) + 1rem); max-height: calc(100dvh - var(--es-shell-top-h, 0px) - 2rem); }
+  .es-fpe__panel { top: calc(var(--es-shell-top-h, 0px) + 4.75rem); max-height: calc(100dvh - var(--es-shell-top-h, 0px) - 5.75rem); }
+}
+.es-fpe__bar { top: calc(var(--es-shell-top-h, 0px) + 0.5rem); }
+
+/* Third pass. The owner's three columns from 60rem of editor, not 70: at
+   70 a 1440px laptop (a 66rem editor) never saw "Add to layout" or Layers.
+   The palette is one short line per item, so 11.5rem holds it. Below 60rem
+   the Add menu and the Map inspector's "Show on the map" section stand in. */
+@container mapeditor (min-width: 60rem) {
+  .es-mapeditor__body { grid-template-columns: 11.5rem minmax(0, 1fr) 17.5rem; }
+  .es-mapeditor__tools {
+    display: flex; flex-direction: column; gap: var(--fx-gap); min-width: 0;
+    position: sticky; top: calc(var(--es-shell-top-h, 0px) + 1rem);
+  }
+  .es-mapadd { display: none; }
+  .es-insp__sec--narrow { display: none; }
+}
+@container mapeditor (min-width: 80rem) {
+  .es-mapeditor__body { grid-template-columns: 13.5rem minmax(0, 1fr) 18rem; }
+}
+.es-maptoolbar { gap: 0.5rem; }
+.es-mappalette { padding-inline: 0.75rem; }
+.es-mappalette .es-dcard__title { padding-inline: 0.25rem; font-size: var(--es-text-md); }
+.es-mappalette__item { padding-inline: 0.5rem; gap: 0.625rem; }
+.es-maplayers { padding-inline: 1rem; }
+.es-maplayers .es-dcard__title { font-size: var(--es-text-md); }
+
+/* The zoom controls float on the canvas's lower-right corner — the "− 100% +"
+   pill of the owner's buyer map — so the toolbar above is one row even in the
+   three-column middle. */
+.es-mapcard { position: relative; }
+.es-mapcard .es-maptoolbar__zoom, .es-fpe__canvas .es-maptoolbar__zoom {
+  position: absolute; z-index: 2; inset-inline-end: 1.25rem; inset-block-end: 1.25rem;
+  gap: 0.125rem; margin: 0; padding: 0.25rem;
+  border: 1px solid var(--es-border); border-radius: var(--es-radius-lg);
+  background: color-mix(in srgb, var(--es-surface) 94%, transparent); box-shadow: var(--es-shadow-md, var(--es-shadow-sm));
+  backdrop-filter: blur(6px);
+}
+.es-maptoolbar__zoom .es-tbtn { border-color: transparent; background: transparent; }
+.es-maptoolbar__zoom .es-tbtn:hover { background: var(--es-bg-sunken); }
+.es-fpe__canvas .es-maptoolbar__zoom { inset-inline-end: 0.75rem; inset-block-end: 0.75rem; }
+.es-fpe__save { margin-inline-start: auto; }
+.es-fpe__tools button { gap: 0.3125rem; padding-inline: 0.5rem; font-size: var(--es-text-xs); font-weight: 600; }
+.es-mapcard:fullscreen .es-maptoolbar__zoom { inset-inline-end: 1.75rem; inset-block-end: 1.75rem; }
+/* The canvas's own help pill sits bottom-left; keep it clear of the zoom pill. */
+.es-mapcard .es-mapcanvas__hint { max-width: calc(100% - 17rem); }
+/* A narrow canvas drops the help pill: the same keys are in the Map
+   inspector, and MapGestureHint still answers a bare wheel. */
+@container mapcard (max-width: 40rem) { .es-mapcanvas__hint { display: none; } }
+.es-mapjump { margin-top: calc(var(--fx-gap, 1rem) * -0.5); }
+
+/* Fifth pass — the review's findings. */
+/* The card above the panel in paint order, so its menus (Add, Select all),
+   which can hang past the card on a narrow editor, are never painted over by
+   the inspector's sticky footer further down. */
+.es-mapcard { z-index: 3; }
+/* Full screen shows only the card, so its Add menu shows whatever the width. */
+.es-mapcard:fullscreen .es-mapadd { display: block; }
+/* "Edit details" and "Options" scroll the panel to just below the pinned top. */
+.es-mapeditor__panel, .es-fpe__panel { scroll-margin-top: calc(var(--es-shell-top-h, 0px) + 0.75rem); }
+/* The footer clears the phone's tab bar, not the window's edge. */
+@media (width < 48rem) {
+  .es-insp__actions { bottom: calc(var(--es-nav-bar-h, 60px) + var(--fx-safe-b, 0px)); }
+}
+/* The floor plan's jump bar shows only where its panel is under the canvas. */
+.es-fpe__jump { margin-top: 0; }
+@media (width >= theme(--breakpoint-lg)) { .es-fpe__jump { display: none; } }
+/* Its hint pill: full width on a narrow canvas, at the top so the zoom pill
+   keeps the corner; clear of the zoom pill only where there is room. */
+.es-fpe__hint { max-width: calc(100% - 1.5rem); flex-wrap: wrap; justify-content: center; }
+@container mapcard (min-width: 40rem) { .es-fpe__hint { max-width: calc(100% - 22rem); } }
+@container mapcard (max-width: 40rem) { .es-fpe__hint { top: 0.75rem; bottom: auto; } }
+/* The floor plan panel sticks under its own toolbar, whatever its height
+   (FloorPlanEditor publishes --es-fpe-bar-h). */
+@media (width >= theme(--breakpoint-lg)) {
+  .es-fpe__panel {
+    top: calc(var(--es-shell-top-h, 0px) + var(--es-fpe-bar-h, 3.5rem) + 1.25rem);
+    max-height: calc(100dvh - var(--es-shell-top-h, 0px) - var(--es-fpe-bar-h, 3.5rem) - 2.25rem);
+  }
+}
+
+/* Sixth pass — design polish from screenshots of every workspace. */
+
+/* The left column: one card, "Add to layout" then Layers, one type scale. */
+.es-mappalette__title { margin: 0 0 0.25rem; padding-inline: 0.25rem; font-size: var(--es-text-md); font-weight: 700; letter-spacing: -0.01em; color: var(--es-text); }
+.es-mappalette .es-maplayers { padding: 0.5rem 0.5rem 0.125rem; }
+.es-mappalette .es-maplayers .es-mappalette__h { padding-inline: 0.125rem; }
+.es-mappalette .es-maplayers__list { gap: 0.375rem; margin-top: 0.25rem; }
+.es-mappalette .es-maplayers .es-frow { min-height: 2rem; }
+
+/* Table shapes: three across, so every name reads in full. */
+.es-shapegrid:not(.es-shapegrid--6) { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.375rem; }
+.es-shapegrid:not(.es-shapegrid--6) .es-shapegrid__tile { align-content: center; min-height: 3.5rem; font-size: 0.6875rem; }
+.es-shapegrid:not(.es-shapegrid--6) .es-shapegrid__tile span { overflow: visible; white-space: normal; text-overflow: clip; line-height: 1.15; }
+
+/* Looks: three equal tiles a row, every tile the same height. */
+.es-lookgrid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.375rem; }
+.es-lookgrid__item { display: grid; }
+.es-lookgrid__tile { align-content: start; height: 100%; font-size: 0.6875rem; }
+.es-lookgrid__tile > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* A fold inside a section reads as a quiet row with a chevron, not a box. */
+.es-insp__sub {
+  justify-content: flex-start; gap: 0.5rem; min-height: 2rem; padding: 0;
+  border: 0; border-radius: 0; background: none; font-weight: 600;
+}
+.es-insp__sub:hover { background: none; color: var(--es-accent); }
+.es-insp__sub[aria-expanded="true"] { border-radius: 0; }
+.es-insp__sub:focus-visible { outline: 2px solid var(--es-accent); outline-offset: 2px; border-radius: var(--es-radius-sm); }
+.es-insp__subchev { margin-inline-start: auto; color: var(--es-text-muted); transition: transform var(--es-transition-fast); }
+.es-insp__sub[aria-expanded="true"] .es-insp__subchev { transform: rotate(180deg); }
+.es-insp__subtag {
+  padding: 0.0625rem 0.4375rem; border-radius: var(--es-radius-full);
+  background: var(--es-accent-wash); color: var(--es-accent); font-size: 0.6875rem; font-weight: 700;
+}
+.es-insp__subbody { gap: 0.375rem; margin-top: -0.5rem; padding: 0.125rem 0 0.25rem 0.75rem; border: 0; border-inline-start: 2px solid var(--es-border); border-radius: 0; }
+
+/* A quiet text action (Use this look on every table, Open 3D). */
+.es-textbtn {
+  display: inline-flex; align-items: center; align-self: flex-start; gap: 0.375rem; padding: 0.25rem 0;
+  border: 0; background: none; color: var(--es-accent); font: inherit; font-size: var(--es-text-sm); font-weight: 600; cursor: pointer;
+}
+.es-textbtn:hover:not(:disabled) { text-decoration: underline; text-underline-offset: 3px; }
+.es-textbtn:disabled { color: var(--es-text-subtle); cursor: not-allowed; }
+.es-textbtn:focus-visible { outline: 2px solid var(--es-accent); outline-offset: 2px; border-radius: var(--es-radius-sm); }
+
+/* The 3D preview card: the inspector's head scale, not a second big title. */
+.es-preview3d { gap: 0.625rem; padding: 0.875rem 1rem 1rem; }
+.es-preview3d__head { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
+.es-preview3d__title { margin: 0; font-size: var(--es-text-md); font-weight: 700; color: var(--es-text); }
+
+/* "All changes saved": a state, the same chip as the seating map's head. */
+.es-savedchip {
+  display: inline-flex; align-items: center; gap: 0.375rem; min-height: 2.25rem; padding: 0 0.875rem;
+  border: 1px solid var(--es-border); border-radius: var(--es-radius-full); background: var(--es-surface);
+  font-size: var(--es-text-sm); color: var(--es-text-muted); white-space: nowrap;
+}
+.es-savedchip svg { color: var(--es-success); }
+
+/* The 3D view's zoom pill, top-right (the seat bar takes the bottom edge). */
+.es-studio-zoom {
+  position: absolute; z-index: 2; inset-inline-end: 0.75rem; inset-block-start: 0.75rem;
+  gap: 0.125rem; margin: 0; padding: 0.25rem;
+  border: 1px solid var(--es-border); border-radius: var(--es-radius-lg);
+  background: color-mix(in srgb, var(--es-surface) 94%, transparent); box-shadow: var(--es-shadow-md);
+}
+
+/* Segmented choices never squeeze a label onto two lines ("Seat holds"). */
+.es-seg--fill button { flex: 1 1 auto; white-space: nowrap; }
+.es-seg button small { white-space: nowrap; }
+
+/* Seventh pass — "make them easy": the empty-map starter, the getting-started
+   checklist, and the "More shapes" tile. */
+
+/* The starter card, centred on an empty canvas. The wrapper lets presses
+   through to the floor (double-click still drops a table); the card takes them. */
+.es-mapstarter { position: absolute; inset: 0; z-index: 1; display: grid; place-items: center; padding: 1rem; pointer-events: none; }
+.es-mapstarter__card {
+  width: min(26rem, 100%); padding: 1.25rem; pointer-events: auto;
+  border: 1px solid var(--es-border); border-radius: var(--es-radius-xl, 1rem); background: var(--es-surface); box-shadow: var(--es-shadow-lg);
+}
+.es-mapstarter__title { margin: 0; font-size: var(--es-text-lg); font-weight: 700; color: var(--es-text); }
+.es-mapstarter__lede { margin: 0.25rem 0 0.875rem; font-size: var(--es-text-sm); color: var(--es-text-muted); }
+.es-mapstarter__list { display: grid; grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr)); gap: 0.5rem; margin: 0; padding: 0; list-style: none; }
+.es-mapstarter__choice {
+  display: flex; align-items: center; gap: 0.75rem; width: 100%; height: 100%; padding: 0.75rem;
+  border: 1px solid var(--es-border); border-radius: var(--es-radius-lg); background: var(--es-surface);
+  color: var(--es-text); font: inherit; text-align: start; cursor: pointer;
+  transition: border-color var(--es-transition-fast), background-color var(--es-transition-fast);
+}
+.es-mapstarter__choice:hover { border-color: var(--es-accent-edge); background: var(--es-accent-wash); }
+.es-mapstarter__choice:focus-visible { outline: 2px solid var(--es-accent); outline-offset: 2px; }
+.es-mapstarter__choice b { display: block; font-size: var(--es-text-sm); font-weight: 700; }
+.es-mapstarter__choice small { display: block; font-size: var(--es-text-xs); color: var(--es-text-muted); }
+.es-mapstarter__icon { display: grid; flex: none; place-items: center; width: 2.25rem; height: 2.25rem; border-radius: var(--es-radius-md); background: var(--es-accent-wash); color: var(--es-accent); }
+.es-mapstarter__foot { margin: 0.875rem 0 0; font-size: var(--es-text-xs); text-align: center; color: var(--es-text-subtle); }
+
+/* The checklist: a rail of numbers that turn into ticks. */
+.es-checklist { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
+.es-checklist__step { position: relative; display: flex; gap: 0.75rem; padding-bottom: 0.875rem; }
+.es-checklist__step:last-child { padding-bottom: 0; }
+.es-checklist__step:not(:last-child)::before {
+  content: ''; position: absolute; inset-inline-start: 0.6875rem; top: 1.625rem; bottom: 0.125rem;
+  width: 2px; border-radius: 1px; background: var(--es-border);
+}
+.es-checklist__step[data-state="done"]:not(:last-child)::before { background: color-mix(in srgb, var(--es-success) 45%, var(--es-border)); }
+.es-checklist__mark {
+  position: relative; z-index: 1; display: grid; flex: none; place-items: center; width: 1.375rem; height: 1.375rem;
+  border: 1.5px solid var(--es-border-strong); border-radius: var(--es-radius-full); background: var(--es-surface);
+  font-size: 0.6875rem; font-weight: 700; color: var(--es-text-muted);
+}
+.es-checklist__step[data-state="current"] .es-checklist__mark { border-color: var(--es-accent); background: var(--es-accent); color: var(--es-text-on-accent); }
+.es-checklist__step[data-state="done"] .es-checklist__mark { border-color: var(--es-success); background: var(--es-success); color: #ffffff; }
+.es-checklist__body { display: flex; flex-direction: column; align-items: flex-start; gap: 0.25rem; min-width: 0; padding-top: 0.0625rem; }
+.es-checklist__title { margin: 0; font-size: var(--es-text-sm); font-weight: 600; color: var(--es-text); }
+.es-checklist__step[data-state="done"] .es-checklist__title { color: var(--es-text-muted); }
+.es-checklist__step[data-state="todo"] .es-checklist__title { color: var(--es-text-muted); }
+.es-checklist__detail { margin: 0; font-size: var(--es-text-xs); line-height: 1.45; color: var(--es-text-subtle); }
+.es-checklist__body .es-btn { margin-top: 0.375rem; }
+
+/* "More shapes": a dashed tile at the end of the common five. */
+.es-shapegrid__tile--more { border-style: dashed; color: var(--es-text-muted); }
+.es-shapegrid__plus { display: grid; place-items: center; height: 24px; font-size: var(--es-text-sm); font-weight: 700; color: var(--es-accent); }
+}   /* end @layer components — settings system, second pass */

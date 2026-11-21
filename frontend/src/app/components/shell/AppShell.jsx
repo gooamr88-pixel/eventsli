@@ -100,6 +100,26 @@ export default function AppShell({
   const navRef = useRef(null);
   const menuRef = useRef(null);
   const wasOpen = useRef(false);
+  const shellTopRef = useRef(null);
+
+  /**
+   * THE PINNED TOP'S HEIGHT, AS `--es-shell-top-h` (2026-11-21). Anything else
+   * that sticks — the seating map's side panels, the floor plan's inspector —
+   * has to stick BELOW it, and its height is not a constant: the app bar
+   * hides at `lg`, the event bar exists only inside an event, and a notch
+   * adds padding. The editors' panels used `top: 1rem` and slid 120px under
+   * it, hiding the inspector's own heading. Measured, not guessed.
+   */
+  useEffect(() => {
+    const el = shellTopRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return undefined;
+    const root = document.documentElement;
+    const publish = () => root.style.setProperty('--es-shell-top-h', `${Math.round(el.getBoundingClientRect().height)}px`);
+    publish();
+    const ro = new ResizeObserver(publish);
+    ro.observe(el);
+    return () => { ro.disconnect(); root.style.removeProperty('--es-shell-top-h'); };
+  }, []);
 
   const [lastPath, setLastPath] = useState(pathname);
   if (pathname !== lastPath) {
@@ -229,7 +249,7 @@ export default function AppShell({
         {/* ONE STICKY GROUP, not two stickies guessing at each other's height.
             The app bar disappears at `lg`, so above that this is the context
             bar alone, pinned to the top of the window on its own. */}
-        <div className="es-shell-top">
+        <div className="es-shell-top" ref={shellTopRef}>
           {/* `topbar`: the desktop's bar (search, alerts, account), shown from
               `lg` — exactly where the app bar below stops. Optional; a
               workspace without one keeps the context bar alone up here. */}

@@ -4,13 +4,18 @@ import { useEffect, useState } from 'react';
 import { get, put } from '../../../../../utils/apiClient';
 import { describeError } from '../../../../../utils/errors';
 import { LOOK_PRESETS, cleanLook, presetLook } from '../../../../../components/seating/mapStyle';
-import { ColourField, Segmented } from './StyleFields';
+import { ColourField, Segmented } from '../../../../../components/inspector/fields';
+import NavIcon from '../../../../../components/shell/NavIcon';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
  * Map look (2026-11-18): the whole map's theme — floor, walls, tables, labels,
  * the two seat colours and the label font — from a preset, from one of the
  * organizer's saved looks, or colour by colour.
+ *
+ * Since 2026-11-21 it is a section of the Map inspector rather than a card of
+ * its own, and the seven colour-by-colour fields fold under "Custom colours":
+ * most organizers pick a look, and the fields were a wall of pickers under it.
  *
  * The look is part of the map's draft (one undo step, saved with Save map).
  * Saved looks belong to the organizer's account (`/organizer/map-looks`), so a
@@ -24,8 +29,8 @@ const FIELDS = [
   ['wall', 'Walls', '#0e3a4a'],
   ['table', 'Tables', '#eaeaea'],
   ['label', 'Names', '#111018'],
-  ['seat', 'Seats (first ticket type)', '#ff414b'],
-  ['accent', 'Seats (second ticket type)', '#ffcc00'],
+  ['seat', 'Seats, first ticket type', '#ff414b'],
+  ['accent', 'Seats, second ticket type', '#ffcc00'],
 ];
 
 export default function MapLookCard({ look, onChange, onApplyToTables, tableCount = 0 }) {
@@ -34,6 +39,9 @@ export default function MapLookCard({ look, onChange, onApplyToTables, tableCoun
   const [busy, setBusy] = useState(false);
   // The name being typed for a new saved look, or null when not saving.
   const [naming, setNaming] = useState(null);
+  // Open from the start when the look was edited colour by colour; after that
+  // the reader's own clicks decide (it used to be stuck open once edited).
+  const [custom, setCustom] = useState(() => !!look && !look.name);
 
   useEffect(() => {
     let cancelled = false;
@@ -51,7 +59,7 @@ export default function MapLookCard({ look, onChange, onApplyToTables, tableCoun
   const set = (key, value) => onChange((current) => cleanLook({ ...(current || {}), [key]: value || undefined, name: undefined }));
 
   const startSave = () => {
-    if (!cleanLook(look)) { setNote('Pick a preset or a colour first.'); return; }
+    if (!cleanLook(look)) { setNote('Pick a look or a colour first.'); return; }
     setNote(null);
     setNaming(look?.name && !LOOK_PRESETS.some((p) => p.name === look.name) ? look.name : 'My look');
   };
@@ -89,20 +97,23 @@ export default function MapLookCard({ look, onChange, onApplyToTables, tableCoun
   };
 
   const activeName = look?.name || null;
+  // A look edited colour by colour has no name; say so instead of showing no tile chosen.
+  const customised = !!look && !activeName;
 
   return (
-    <section className="es-dcard fx-stack fx-stack--sm gap-3" aria-labelledby="map-look">
-      <div>
-        <h2 id="map-look" className="es-dcard__title">Map look</h2>
-        <p className="es-ovcard__desc">The whole map&apos;s colours. Tables and areas you colour yourself keep their own.</p>
-      </div>
-
+    <>
       <ul className="es-lookgrid" aria-label="Looks">
+        <li className="es-lookgrid__item">
+          <button type="button" className="es-lookgrid__tile" aria-pressed={!look} onClick={() => onChange(null)}>
+            <LookSwatch look={{}} />
+            <span className="fx-truncate">Plain</span>
+          </button>
+        </li>
         {[...LOOK_PRESETS.map((p) => ({ ...presetLook(p), id: p.id, preset: true })), ...saved].map((l) => (
           <li key={l.id} className="es-lookgrid__item">
             <button
               type="button"
-              className="es-lookgrid__tile"
+              className="es-lookgrid__tile" title={l.name}
               aria-pressed={activeName === l.name}
               onClick={() => onChange(cleanLook(l))}
             >
@@ -117,38 +128,48 @@ export default function MapLookCard({ look, onChange, onApplyToTables, tableCoun
         <li className="es-lookgrid__item">
           <button type="button" className="es-lookgrid__tile es-lookgrid__tile--add" onClick={startSave} disabled={busy}>
             <span className="es-lookgrid__plus" aria-hidden="true">+</span>
-            <span>Save as my look</span>
+            <span>Save look</span>
           </button>
         </li>
       </ul>
       {naming !== null && (
         <form className="fx-row items-center gap-2" onSubmit={saveLook}>
           <label htmlFor="look-name" className="sr-only">Name this look</label>
-          <input id="look-name" className="es-input fx-min0 flex-1" maxLength={40} value={naming} onChange={(e) => setNaming(e.target.value)} autoFocus />
+          <input id="look-name" className="es-input es-input--dense fx-min0 flex-1" maxLength={40} value={naming} onChange={(e) => setNaming(e.target.value)} autoFocus />
           <button type="submit" className="es-btn es-btn--primary es-btn--sm" disabled={busy || !naming.trim()}>Save</button>
           <button type="button" className="es-btn es-btn--ghost es-btn--sm" onClick={() => setNaming(null)}>Cancel</button>
         </form>
       )}
-      {note && <p className="text-xs text-subtle" role="status">{note}</p>}
+      {note && <p className="es-field__hint" role="status">{note}</p>}
 
-      {FIELDS.map(([key, label, fallback]) => (
-        <ColourField key={key} id={`look-${key}`} label={label} value={look?.[key] || null} fallback={fallback} onChange={(v) => set(key, v)} />
-      ))}
-      <Segmented
-        label="Name font" value={look?.font || 'sans'}
-        options={[['sans', 'Plain'], ['bold', 'Bold'], ['serif', 'Serif']]}
-        onChange={(v) => set('font', v)}
-      />
+      <button
+        type="button" className="es-insp__sub" aria-expanded={custom} onClick={() => setCustom((v) => !v)}
+      >
+        <span>Custom colours</span>
+        {customised && <span className="es-insp__subtag">Edited</span>}
+        <NavIcon name="chevronDown" size={15} className="es-insp__subchev" />
+      </button>
+      {custom && (
+        <div className="es-insp__subbody">
+          {FIELDS.map(([key, label, fallback]) => (
+            <ColourField key={key} label={label} value={look?.[key] || null} fallback={fallback} onChange={(v) => set(key, v)} />
+          ))}
+          <Segmented
+            label="Name font" value={look?.font || 'sans'}
+            options={[['sans', 'Plain'], ['bold', 'Bold'], ['serif', 'Serif']]}
+            onChange={(v) => set('font', v)}
+          />
+        </div>
+      )}
 
-      <div className="fx-row flex-wrap gap-2 border-t border-border-base pt-3">
-        <button type="button" className="es-btn es-btn--secondary es-btn--sm" disabled={!tableCount} onClick={onApplyToTables}>
-          Apply to all tables
-        </button>
-        <button type="button" className="es-btn es-btn--ghost es-btn--sm" disabled={!look} onClick={() => onChange(null)}>
-          Plain map
-        </button>
-      </div>
-    </section>
+      {/* A quiet text action, not a second big button under the tiles. */}
+      <button
+        type="button" className="es-textbtn" disabled={!tableCount} onClick={onApplyToTables}
+        title="Clears the colours set on single tables, so this look shows everywhere"
+      >
+        <NavIcon name="refresh" size={15} />Use this look on every table
+      </button>
+    </>
   );
 }
 

@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { put } from '../../../../utils/apiClient';
 import { describeError, messageFor } from '../../../../utils/errors';
-import { formatMoney } from '../../../../utils/money';
 import { useApi } from '../../../../hooks/useApi';
 import { useToast } from '../../../../components/ui/Toast';
 import { usePanZoom } from '../../../../components/seating/usePanZoom';
@@ -11,8 +10,9 @@ import NavIcon from '../../../../components/shell/NavIcon';
 import { Loading, ErrorNotice } from '../../../../components/Feedback';
 import { Booth, Decor, FloorPlanDefs, paintOrder } from '../../../../components/vendors/floorPlan/FloorPlanShapes';
 import {
-  AREA_COLORS, INK, makeElement, makeRow, moveBy, nextCode, newId, starterPlan, typeColor,
+  INK, makeElement, makeRow, moveBy, nextCode, newId, starterPlan,
 } from '../../../../components/vendors/floorPlan/floorPlanModel';
+import { PlanPanel, ToolPanel, ItemPanel, MultiPanel } from './FloorPlanPanels';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -36,17 +36,18 @@ import {
  * second tab cannot silently overwrite the first.
  * ─────────────────────────────────────────────────────────────────────────────
  */
+// [key, full name (tooltip, panel title), icon, short name on the button].
 const TOOLS = [
-  ['select', 'Select', 'pointer'],
-  ['booth', 'Booth', 'grid'],
-  ['row', 'Row of booths', 'layers'],
-  ['wall', 'Wall', 'pencil'],
-  ['door', 'Door', 'door'],
-  ['area', 'Area', 'image'],
-  ['label', 'Label', 'tag'],
-  ['arrow', 'Arrow', 'arrow'],
-  ['table', 'Round table', 'users'],
-  ['seats', 'Theatre seats', 'masks'],
+  ['select', 'Select', 'pointer', 'Select'],
+  ['booth', 'Booth', 'grid', 'Booth'],
+  ['row', 'Row of booths', 'layers', 'Row'],
+  ['wall', 'Wall', 'pencil', 'Wall'],
+  ['door', 'Door', 'door', 'Door'],
+  ['area', 'Area', 'image', 'Area'],
+  ['label', 'Label', 'tag', 'Label'],
+  ['arrow', 'Arrow', 'arrow', 'Arrow'],
+  ['table', 'Round table', 'users', 'Table'],
+  ['seats', 'Theatre seats', 'masks', 'Seats'],
 ];
 const SNAP = 5;
 const snap = (v, on) => (on ? Math.round(v / SNAP) * SNAP : Math.round(v));
@@ -67,6 +68,7 @@ function Editor({ eventId, currency, loaded, onSaved }) {
   // A brand-new plan starts from the hall outline, which is not saved yet.
   const [dirty, setDirty] = useState(!loaded.plan.elements.length);
   const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
   const [tool, setTool] = useState('select');
   const [selected, setSelected] = useState([]);
   const [snapOn, setSnapOn] = useState(true);
@@ -84,7 +86,7 @@ function Editor({ eventId, currency, loaded, onSaved }) {
   const commit = useCallback((next, { record = true } = {}) => {
     setPlan((cur) => {
       const value = typeof next === 'function' ? next(cur) : next;
-      if (record) { past.current.push(cur); if (past.current.length > 100) past.current.shift(); future.current = []; }
+      if (record) { past.current.push(cur); if (past.current.length > 100) past.current.shift(); future.current = []; setCanRedo(false); }
       return value;
     });
     if (record) setCanUndo(true);
@@ -95,6 +97,7 @@ function Editor({ eventId, currency, loaded, onSaved }) {
     if (!prev) return;
     setPlan((cur) => { future.current.push(cur); return prev; });
     setCanUndo(past.current.length > 0);
+    setCanRedo(true);
     setDirty(true);
   }, []);
   const redo = useCallback(() => {
@@ -102,6 +105,7 @@ function Editor({ eventId, currency, loaded, onSaved }) {
     if (!next) return;
     setPlan((cur) => { past.current.push(cur); return next; });
     setCanUndo(true);
+    setCanRedo(future.current.length > 0);
     setDirty(true);
   }, []);
 
@@ -131,13 +135,24 @@ function Editor({ eventId, currency, loaded, onSaved }) {
   // ── Keys ──
   useEffect(() => {
     function onKey(ev) {
-      const t = ev.target;
-      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+      const t = ev.target && ev.target.closest ? ev.target : null;
+      // Text fields and dialogs keep every key.
+      if (t?.closest('input, textarea, select, [contenteditable="true"], [role="dialog"], [aria-modal="true"]')) return;
       const mod = ev.ctrlKey || ev.metaKey;
+      // Enter finishes a wall being drawn — even with the Wall button still
+      // focused, whose own Enter would re-pick the tool and drop the corners.
+      if (ev.key === 'Enter' && draftWall) { ev.preventDefault(); finishWall(false); return; }
+      // Keys pressed elsewhere on the Vendors page are not the plan's
+      // (2026-11-21): Backspace on a sidebar link must not delete a booth.
+      if (t && t !== document.body && !t.closest('.es-fpe')) return;
+      // Space and Enter press the focused button or switch.
+      if ((ev.code === 'Space' || ev.key === 'Enter') && t?.closest('button, a, [role="switch"]')) return;
+      // In the side panel the bare keys belong to its controls: Backspace on
+      // "Available to book" used to delete the booth, R rotated it.
+      if (!mod && ev.key !== 'Escape' && t?.closest('.es-fpe__panel')) return;
       if (mod && ev.key.toLowerCase() === 'z') { ev.preventDefault(); if (ev.shiftKey) redo(); else undo(); return; }
       if (mod && ev.key.toLowerCase() === 'd') { ev.preventDefault(); duplicate(); return; }
       if (ev.key === 'Escape') { setTool('select'); setDraftWall(null); setArrowStart(null); setSelected([]); return; }
-      if (ev.key === 'Enter' && draftWall) { finishWall(false); return; }
       if (!selected.length) return;
       if (ev.key === 'Delete' || ev.key === 'Backspace') { ev.preventDefault(); removeSelected(); return; }
       const step = ev.shiftKey ? 10 : 1;
@@ -200,19 +215,26 @@ function Editor({ eventId, currency, loaded, onSaved }) {
     const at = { x: snap(raw.x, snapOn), y: snap(raw.y, snapOn) };
     // A click on an item with Select was its selection (startDrag); it is not a click on the floor.
     if (tool === 'select' && ev.target.closest?.('.es-fpe__item')) return;
+    // EVERY TOOL HANDS BACK TO SELECT once it has placed something
+    // (2026-11-21), as the seating map's Draw walls does: what was just added
+    // is selected, so the inspector beside it is already on it — a row's
+    // codes to renumber, a booth's type, a wall's "Closed outline". The tool's
+    // options are kept for the next time it is picked.
     switch (tool) {
       case 'select': setSelected([]); return;
       case 'booth': {
         const prefix = rowForm.prefix || '';
         add([makeElement('booth', at, { code: prefix ? `${prefix}${nextCode(plan.elements, prefix)}` : '', boothTypeId: rowForm.boothTypeId || null })]);
+        setTool('select');
         return;
       }
       case 'row': {
         const prefix = rowForm.prefix || '';
         add(makeRow({
-          at, count: rowForm.count, w: Number(rowForm.w) || 60, h: Number(rowForm.h) || 60, direction: rowForm.direction,
+          at, count: Number(rowForm.count) || 1, w: Number(rowForm.w) || 60, h: Number(rowForm.h) || 60, direction: rowForm.direction,
           prefix, start: prefix ? nextCode(plan.elements, prefix) : 1, boothTypeId: rowForm.boothTypeId || null,
         }));
+        setTool('select');
         return;
       }
       case 'wall': {
@@ -226,6 +248,7 @@ function Editor({ eventId, currency, loaded, onSaved }) {
         if (!arrowStart) { setArrowStart(at); return; }
         add([makeElement('arrow', at, { x1: arrowStart.x, y1: arrowStart.y, x2: at.x, y2: at.y })]);
         setArrowStart(null);
+        setTool('select');
         return;
       }
       default:
@@ -234,7 +257,10 @@ function Editor({ eventId, currency, loaded, onSaved }) {
     }
   }
   function finishWall(closed) {
-    if (draftWall && draftWall.length >= 2) add([{ id: newId('wall'), kind: 'wall', points: draftWall, closed }]);
+    if (draftWall && draftWall.length >= 2) {
+      add([{ id: newId('wall'), kind: 'wall', points: draftWall, closed }]);
+      setTool('select');
+    }
     setDraftWall(null);
   }
 
@@ -254,70 +280,76 @@ function Editor({ eventId, currency, loaded, onSaved }) {
 
   const ordered = useMemo(() => paintOrder(plan.elements), [plan.elements]);
   const sel = plan.elements.filter((e) => selected.includes(e.id));
-  const boothCount = plan.elements.filter((e) => e.kind === 'booth').length;
   const hintText = {
     booth: 'Click the floor to place a booth.',
     row: 'Click where the first booth of the row goes.',
-    wall: draftWall ? 'Click the next corner. Click the first corner to close the room, or press Finish.' : 'Click the first corner of the wall.',
+    wall: draftWall ? 'Click the next corner. Click the first corner again to close the room.' : 'Click the first corner of the wall.',
     arrow: arrowStart ? 'Click where the arrow points to.' : 'Click where the arrow starts.',
     door: 'Click a wall to place a door.', area: 'Click to place an area — a stage, a bar, a restaurant.',
     label: 'Click to place a label.', table: 'Click to place a round table.', seats: 'Click where the stage is; the seats face it.',
   }[tool];
 
+  const pickTool = (key) => { setTool(key); setDraftWall(null); setArrowStart(null); };
+  const panelRef = useRef(null);
+  const rootRef = useRef(null);
+  const barRef = useRef(null);
+  // The toolbar's real height, for the panel that sticks under it: one row
+  // on a laptop, two on a narrower screen.
+  useEffect(() => {
+    const bar = barRef.current;
+    const root = rootRef.current;
+    if (!bar || !root || typeof ResizeObserver === 'undefined') return undefined;
+    const publish = () => root.style.setProperty('--es-fpe-bar-h', `${Math.round(bar.getBoundingClientRect().height)}px`);
+    publish();
+    const ro = new ResizeObserver(publish);
+    ro.observe(bar);
+    return () => ro.disconnect();
+  }, []);
+  const toolMeta = TOOLS.find(([key]) => key === tool);
+
   return (
-    <div className="es-fpe">
-      <div className="es-fpe__bar" role="toolbar" aria-label="Floor plan tools">
-        <div className="es-fpe__tools">
-          {TOOLS.map(([key, label, icon]) => (
-            <button key={key} type="button" className="es-fpe__tool" aria-pressed={tool === key} title={label}
-              onClick={() => { setTool(key); setDraftWall(null); setArrowStart(null); }}>
-              <NavIcon name={icon} size={18} /><span>{label}</span>
+    <div className="es-fpe" ref={rootRef}>
+      {/* The same toolbar buttons as the seating map (2026-11-21): the tools
+          as one segmented control, then undo / redo, snap, zoom, and Save. */}
+      <div ref={barRef} className="es-maptoolbar es-fpe__bar" role="toolbar" aria-label="Floor plan tools">
+        <div role="group" aria-label="Tool" className="es-tseg es-fpe__tools">
+          {TOOLS.map(([key, label, icon, short]) => (
+            <button key={key} type="button" aria-pressed={tool === key} aria-label={label} title={label} onClick={() => pickTool(key)}>
+              <NavIcon name={icon} size={17} /><span className="es-tbtn__text">{short}</span>
             </button>
           ))}
         </div>
-        <div className="es-fpe__actions">
-          <button type="button" className="es-btn es-btn--ghost es-btn--sm" onClick={undo} disabled={!canUndo} aria-label="Undo"><NavIcon name="undo" size={16} /></button>
-          <button type="button" className="es-btn es-btn--ghost es-btn--sm" onClick={pz.zoomOut} aria-label="Zoom out">−</button>
-          <button type="button" className="es-btn es-btn--ghost es-btn--sm" onClick={pz.zoomIn} aria-label="Zoom in"><NavIcon name="plus" size={16} /></button>
-          <button type="button" className="es-btn es-btn--ghost es-btn--sm" onClick={pz.fit}>Fit</button>
-          <label className="fx-row items-center gap-1 text-sm"><input type="checkbox" checked={snapOn} onChange={(e) => setSnapOn(e.target.checked)} />Snap</label>
-          <button type="button" className="es-btn es-btn--primary es-btn--sm" onClick={save} disabled={saving || !dirty}>
-            {saving ? 'Saving…' : dirty ? 'Save floor plan' : 'Saved'}
+        <div className="es-maptoolbar__group">
+          <button type="button" className="es-tbtn es-tbtn--icon" onClick={undo} disabled={!canUndo} aria-label="Undo" title="Undo (Ctrl+Z)"><NavIcon name="undo" size={17} /></button>
+          <button type="button" className="es-tbtn es-tbtn--icon" onClick={redo} disabled={!canRedo} aria-label="Redo" title="Redo (Ctrl+Shift+Z)"><NavIcon name="redo" size={17} /></button>
+          <button type="button" className="es-tbtn es-tbtn--icon" aria-pressed={snapOn} aria-label="Snap to grid" title="Snap to grid" onClick={() => setSnapOn((v) => !v)}>
+            <NavIcon name="magnet" size={17} />
           </button>
+        </div>
+        {/* Saved is a STATE, not a disabled button: a pale coral "Saved" read
+            as an error. The coral button appears only when there is work to
+            keep — the seating map's header does the same. */}
+        <div className="es-maptoolbar__group es-fpe__save">
+          {dirty || saving ? (
+            <button type="button" className="es-btn es-btn--primary es-btn--sm" onClick={save} disabled={saving}>
+              <NavIcon name="tick" size={16} />{saving ? 'Saving…' : 'Save floor plan'}
+            </button>
+          ) : (
+            <span className="es-savedchip" role="status" title="All changes saved"><NavIcon name="tick" size={14} />Saved</span>
+          )}
         </div>
       </div>
 
-      {(tool === 'row' || tool === 'booth') && (
-        <div className="es-fpe__rowform">
-          {tool === 'row' && (
-            <>
-              <label>Booths<input className="es-input es-input--sm" type="number" min={1} max={60} value={rowForm.count} onChange={(e) => setRowForm((f) => ({ ...f, count: e.target.value }))} /></label>
-              <label>Direction
-                <select className="es-input es-input--sm" value={rowForm.direction} onChange={(e) => setRowForm((f) => ({ ...f, direction: e.target.value }))}>
-                  <option value="right">Across</option><option value="down">Down</option>
-                </select>
-              </label>
-            </>
-          )}
-          <label>Width<input className="es-input es-input--sm" type="number" min={8} max={400} value={rowForm.w} onChange={(e) => setRowForm((f) => ({ ...f, w: e.target.value }))} /></label>
-          <label>Depth<input className="es-input es-input--sm" type="number" min={8} max={400} value={rowForm.h} onChange={(e) => setRowForm((f) => ({ ...f, h: e.target.value }))} /></label>
-          <label>Code prefix<input className="es-input es-input--sm" maxLength={6} value={rowForm.prefix} onChange={(e) => setRowForm((f) => ({ ...f, prefix: e.target.value }))} placeholder="DB" /></label>
-          <label>Booth type
-            <select className="es-input es-input--sm" value={rowForm.boothTypeId} onChange={(e) => setRowForm((f) => ({ ...f, boothTypeId: e.target.value }))}>
-              <option value="">None yet</option>
-              {boothTypes.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-            </select>
-          </label>
-          <span className="es-fpe__presets" aria-label="Size presets">
-            {[[60, 60, 'Square'], [90, 60, 'Wide'], [45, 18, 'Corridor table'], [120, 60, 'Double']].map(([w, h, name]) => (
-              <button key={name} type="button" className="es-btn es-btn--ghost es-btn--sm" onClick={() => setRowForm((f) => ({ ...f, w, h }))}>{name}</button>
-            ))}
-          </span>
-        </div>
-      )}
-
       <div className="es-fpe__body">
-        <div className="es-fpe__canvas" data-tool={tool}>
+        <div
+          className="es-fpe__canvas" data-tool={tool}
+          // Pressing the plan hands the keyboard back to it (the panel keeps
+          // bare keys for its own controls, and the SVG takes no focus).
+          onPointerDownCapture={() => {
+            const el = document.activeElement;
+            if (el instanceof HTMLElement && el.closest('.es-fpe__panel')) el.blur();
+          }}
+        >
           <svg
             ref={pz.svgRef}
             viewBox={`${pz.view.x} ${pz.view.y} ${pz.view.width} ${pz.view.height}`}
@@ -352,16 +384,57 @@ function Editor({ eventId, currency, loaded, onSaved }) {
           {hintText && (
             <p className="es-fpe__hint" role="status">
               {hintText}
-              {tool === 'wall' && draftWall?.length >= 2 && <button type="button" className="es-btn es-btn--secondary es-btn--sm" onClick={() => finishWall(false)}>Finish</button>}
+              {/* Here as well as in the panel: on a tablet the panel is below
+                  the canvas, and a tap cannot double-click or press Enter. */}
+              {tool === 'wall' && draftWall?.length >= 2 && (
+                <button type="button" className="es-btn es-btn--secondary es-btn--sm" onClick={() => finishWall(false)}>Finish wall</button>
+              )}
             </p>
           )}
+          {/* The zoom pill on the canvas's corner, as on the seating map. */}
+          <div className="es-maptoolbar__group es-maptoolbar__zoom" role="group" aria-label="Zoom">
+            <button type="button" className="es-tbtn es-tbtn--icon" onClick={pz.zoomOut} aria-label="Zoom out" title="Zoom out"><NavIcon name="minus" size={17} /></button>
+            <button type="button" className="es-tbtn es-tbtn--icon" onClick={pz.zoomIn} aria-label="Zoom in" title="Zoom in"><NavIcon name="plus" size={17} /></button>
+            <button type="button" className="es-tbtn" onClick={pz.fit} aria-label="Fit the hall in view" title="Fit the hall in view">Fit</button>
+          </div>
         </div>
 
-        <aside className="es-fpe__panel" aria-label="Properties">
-          {sel.length === 0 && <PlanPanel plan={plan} commit={commit} boothCount={boothCount} boothTypes={boothTypes} currency={currency} states={states} />}
-          {sel.length === 1 && <ItemPanel e={sel[0]} update={(fn) => update([sel[0].id], fn)} boothTypes={boothTypes} state={states[sel[0].id]} onDelete={removeSelected} onDuplicate={duplicate} />}
-          {sel.length > 1 && <MultiPanel items={sel} update={(fn) => update(selected, fn)} boothTypes={boothTypes} onDelete={removeSelected} onDuplicate={duplicate} />}
-        </aside>
+        {/* Below `lg` the panel is under the canvas: say what it holds, with a
+            way down to it (`.es-fpe__jump` is hidden where they sit side by side). */}
+        {(tool !== 'select' || sel.length > 0) && (
+          <div className="es-mapjump es-fpe__jump">
+            <span className="fx-min0 fx-truncate">
+              {tool !== 'select' ? `${toolMeta[1]} — options below` : sel.length === 1 ? 'Item selected' : `${sel.length} selected`}
+            </span>
+            <button type="button" className="es-btn es-btn--secondary es-btn--sm" onClick={() => panelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>
+              {tool !== 'select' ? 'Options' : 'Edit details'} <NavIcon name="arrowDown" size={16} />
+            </button>
+          </div>
+        )}
+
+        {/* One inspector at a time, in the same order of precedence as the
+            seating map: the tool being used, then the selection, then the hall. */}
+        <div ref={panelRef} className="es-fpe__panel">
+          {tool !== 'select' ? (
+            <ToolPanel
+              tool={tool} label={toolMeta[1]} icon={toolMeta[2]} hint={hintText}
+              rowForm={rowForm} setRowForm={setRowForm} boothTypes={boothTypes}
+              draftWall={draftWall} onFinishWall={() => finishWall(false)} onDone={() => pickTool('select')}
+            />
+          ) : sel.length === 1 ? (
+            <ItemPanel
+              key={sel[0].id} e={sel[0]} update={(fn) => update([sel[0].id], fn)} boothTypes={boothTypes} state={states[sel[0].id]}
+              onDelete={removeSelected} onDuplicate={duplicate} rotatable={ROTATABLE.has(sel[0].kind)}
+            />
+          ) : sel.length > 1 ? (
+            <MultiPanel items={sel} update={(fn) => update(selected, fn)} boothTypes={boothTypes} onDelete={removeSelected} onDuplicate={duplicate} isHeld={held} />
+          ) : (
+            <PlanPanel
+              plan={plan} commit={commit} boothTypes={boothTypes} currency={currency} states={states}
+              dirty={dirty} saving={saving} onSave={save} onPickTool={pickTool} onSelect={setSelected}
+            />
+          )}
+        </div>
       </div>
     </div>
   );
@@ -390,186 +463,4 @@ function SelectionBox({ e }) {
     [x, y, w, h] = [e.x - s, e.y - s, s * 2, s * 2];
   }
   return <rect x={x - 4} y={y - 4} width={w + 8} height={h + 8} fill="none" stroke={INK.selected} strokeDasharray="5 3" strokeWidth={1.5} style={{ vectorEffect: 'non-scaling-stroke' }} pointerEvents="none" />;
-}
-
-// ── Panels ────────────────────────────────────────────────────────────────
-function Num({ label, value, onChange, min, max, step = 1 }) {
-  return (
-    <label className="es-fpe__field">{label}
-      <input className="es-input es-input--sm" type="number" min={min} max={max} step={step} value={Math.round(value * 10) / 10}
-        onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) onChange(n); }} />
-    </label>
-  );
-}
-function Text({ label, value, onChange, max = 40, placeholder }) {
-  return (
-    <label className="es-fpe__field">{label}
-      <input className="es-input es-input--sm" maxLength={max} value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} />
-    </label>
-  );
-}
-function Colors({ label, value, palette, onChange }) {
-  return (
-    <div className="es-fpe__field">{label}
-      <span className="es-fpe__colors">
-        {palette.map((c) => (
-          <button key={c} type="button" className="es-fpe__color" style={{ background: c }} aria-label={c} aria-pressed={value === c} onClick={() => onChange(c)} />
-        ))}
-        <input type="color" value={value} onChange={(e) => onChange(e.target.value)} aria-label="Custom colour" />
-      </span>
-    </div>
-  );
-}
-
-function PlanPanel({ plan, commit, boothCount, boothTypes, currency, states }) {
-  const sold = Object.values(states).filter((s) => s.status === 'sold').length;
-  return (
-    <div className="fx-stack fx-stack--sm">
-      <p className="es-fpe__panel-title">Floor plan</p>
-      <p className="text-sm text-muted">{boothCount} booths{sold ? ` · ${sold} sold` : ''}. Click an item to edit it, or pick a tool above.</p>
-      <div className="es-fpe__grid2">
-        <Num label="Hall width" value={plan.width} min={200} max={20000} onChange={(n) => commit((p) => ({ ...p, width: n }))} />
-        <Num label="Hall depth" value={plan.height} min={200} max={20000} onChange={(n) => commit((p) => ({ ...p, height: n }))} />
-      </div>
-      <p className="es-fpe__panel-title mt-2">Booth colours</p>
-      {boothTypes.length === 0
-        ? <p className="text-sm text-muted">Add booth types in the Booths tab; free booths are drawn in their type’s colour.</p>
-        : (
-          <ul className="es-fpe__types">
-            {boothTypes.map((t) => (
-              <li key={t.id}><span className="es-fp__swatch" style={{ background: typeColor(boothTypes, t.id) }} />{t.name}<span className="text-subtle"> · {t.priceCents ? formatMoney(t.priceCents, currency) : 'Free'}</span></li>
-            ))}
-          </ul>
-        )}
-      <p className="text-xs text-subtle">Tip: draw the room with Wall, add rows with Row of booths, then label the stage, entrances and walkways.</p>
-    </div>
-  );
-}
-
-function ItemPanel({ e, update, boothTypes, state, onDelete, onDuplicate }) {
-  const set = (patch) => update((x) => ({ ...x, ...patch }));
-  const heldBy = state?.vendor?.name;
-  return (
-    <div className="fx-stack fx-stack--sm">
-      <p className="es-fpe__panel-title">{{ booth: 'Booth', wall: 'Wall', door: 'Door', area: 'Area', label: 'Label', arrow: 'Arrow', table: 'Round table', seats: 'Theatre seats' }[e.kind]}</p>
-      {e.kind === 'booth' && (
-        <>
-          {state && state.status !== 'available' && (
-            <p className="text-sm">{state.status === 'sold' ? 'Booked' : state.status === 'held' ? 'Offered' : 'Unavailable'}{heldBy ? ` — ${heldBy}` : ''}</p>
-          )}
-          <Text label="Code" value={e.code} max={12} placeholder="DB1" onChange={(v) => set({ code: v })} />
-          <label className="es-fpe__field">Booth type
-            <select className="es-input es-input--sm" value={e.boothTypeId || ''} onChange={(ev) => set({ boothTypeId: ev.target.value || null })}>
-              <option value="">None</option>
-              {boothTypes.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-            </select>
-          </label>
-          <div className="es-fpe__grid2">
-            <Num label="Width" value={e.w} min={8} max={2000} onChange={(n) => set({ w: n })} />
-            <Num label="Depth" value={e.h} min={8} max={2000} onChange={(n) => set({ h: n })} />
-            <Num label="Rotation°" value={e.r} min={-360} max={360} step={15} onChange={(n) => set({ r: n })} />
-          </div>
-          <label className="fx-row items-center gap-2 text-sm">
-            <input type="checkbox" checked={e.blocked} disabled={!!state && ['sold', 'held'].includes(state.status)} onChange={(ev) => set({ blocked: ev.target.checked })} />
-            Unavailable (not for sale)
-          </label>
-        </>
-      )}
-      {e.kind === 'area' && (
-        <>
-          <Text label="Title" value={e.text} placeholder="stage" onChange={(v) => set({ text: v })} />
-          <Text label="Subtitle" value={e.sub} placeholder="Scene" onChange={(v) => set({ sub: v })} />
-          <div className="es-fpe__grid2">
-            <Num label="Width" value={e.w} min={10} max={5000} onChange={(n) => set({ w: n })} />
-            <Num label="Depth" value={e.h} min={10} max={5000} onChange={(n) => set({ h: n })} />
-            <Num label="Rotation°" value={e.r} min={-360} max={360} step={15} onChange={(n) => set({ r: n })} />
-          </div>
-          <Colors label="Colour" value={e.fill} palette={AREA_COLORS} onChange={(c) => set({ fill: c })} />
-        </>
-      )}
-      {e.kind === 'label' && (
-        <>
-          <Text label="Text" value={e.text} max={60} onChange={(v) => set({ text: v })} />
-          <div className="es-fpe__grid2">
-            <Num label="Size" value={e.size} min={8} max={160} onChange={(n) => set({ size: n })} />
-            <Num label="Rotation°" value={e.r} min={-360} max={360} step={15} onChange={(n) => set({ r: n })} />
-          </div>
-          <Colors label="Colour" value={e.color} palette={[INK.label, INK.wall, '#111018', '#16a34a', '#d61f2c']} onChange={(c) => set({ color: c })} />
-        </>
-      )}
-      {e.kind === 'door' && (
-        <>
-          <div className="es-fpe__grid2">
-            <Num label="Width" value={e.size} min={10} max={400} onChange={(n) => set({ size: n })} />
-            <Num label="Rotation°" value={e.r} min={-360} max={360} step={90} onChange={(n) => set({ r: n })} />
-          </div>
-          <label className="fx-row items-center gap-2 text-sm"><input type="checkbox" checked={e.double} onChange={(ev) => set({ double: ev.target.checked })} />Double door</label>
-        </>
-      )}
-      {e.kind === 'table' && (
-        <div className="es-fpe__grid2">
-          <Num label="Size" value={e.size} min={10} max={200} onChange={(n) => set({ size: n })} />
-          <Num label="Chairs" value={e.seats} min={0} max={16} onChange={(n) => set({ seats: Math.round(n) })} />
-        </div>
-      )}
-      {e.kind === 'seats' && (
-        <div className="es-fpe__grid2">
-          <Num label="Rows" value={e.rows} min={1} max={20} onChange={(n) => set({ rows: Math.round(n) })} />
-          <Num label="Distance" value={e.radius} min={20} max={3000} onChange={(n) => set({ radius: n })} />
-          <Num label="Arc width°" value={e.spread} min={10} max={300} step={10} onChange={(n) => set({ spread: n })} />
-          <Num label="Facing°" value={e.r} min={-360} max={360} step={15} onChange={(n) => set({ r: n })} />
-        </div>
-      )}
-      {e.kind === 'arrow' && (
-        <Colors label="Colour" value={e.color} palette={[INK.wall, INK.label, '#111018', '#16a34a']} onChange={(c) => set({ color: c })} />
-      )}
-      {e.kind === 'wall' && (
-        <label className="fx-row items-center gap-2 text-sm"><input type="checkbox" checked={e.closed} onChange={(ev) => set({ closed: ev.target.checked })} />Closed outline</label>
-      )}
-      <div className="fx-row gap-1 mt-2">
-        <button type="button" className="es-btn es-btn--ghost es-btn--sm" onClick={onDuplicate}><NavIcon name="copy" size={16} />Duplicate</button>
-        <button type="button" className="es-btn es-btn--ghost es-btn--sm text-danger" onClick={onDelete}><NavIcon name="trash" size={16} />Delete</button>
-      </div>
-    </div>
-  );
-}
-
-function MultiPanel({ items, update, boothTypes, onDelete, onDuplicate }) {
-  const booths = items.filter((e) => e.kind === 'booth');
-  const [prefix, setPrefix] = useState('');
-  const [start, setStart] = useState(1);
-  function renumber() {
-    // In reading order: top to bottom, then left to right.
-    const order = [...booths].sort((a, b) => (Math.abs(a.y - b.y) > 4 ? a.y - b.y : a.x - b.x)).map((b) => b.id);
-    update((e) => (e.kind === 'booth' ? { ...e, code: `${prefix}${Number(start) + order.indexOf(e.id)}` } : e));
-  }
-  return (
-    <div className="fx-stack fx-stack--sm">
-      <p className="es-fpe__panel-title">{items.length} items selected</p>
-      {booths.length > 0 && (
-        <>
-          <label className="es-fpe__field">Booth type for all {booths.length} booths
-            <select className="es-input es-input--sm" defaultValue="" onChange={(ev) => update((e) => (e.kind === 'booth' ? { ...e, boothTypeId: ev.target.value || null } : e))}>
-              <option value="" disabled>Choose…</option>
-              <option value="">None</option>
-              {boothTypes.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-            </select>
-          </label>
-          <div className="es-fpe__grid2">
-            <Text label="Code prefix" value={prefix} max={6} placeholder="A" onChange={setPrefix} />
-            <Num label="Start at" value={start} min={0} max={9999} onChange={setStart} />
-          </div>
-          <button type="button" className="es-btn es-btn--secondary es-btn--sm" onClick={renumber}>Renumber booths</button>
-          <div className="fx-row gap-1">
-            <button type="button" className="es-btn es-btn--ghost es-btn--sm" onClick={() => update((e) => (e.kind === 'booth' ? { ...e, blocked: true } : e))}>Mark unavailable</button>
-            <button type="button" className="es-btn es-btn--ghost es-btn--sm" onClick={() => update((e) => (e.kind === 'booth' ? { ...e, blocked: false } : e))}>Mark available</button>
-          </div>
-        </>
-      )}
-      <div className="fx-row gap-1 mt-2">
-        <button type="button" className="es-btn es-btn--ghost es-btn--sm" onClick={onDuplicate}><NavIcon name="copy" size={16} />Duplicate</button>
-        <button type="button" className="es-btn es-btn--ghost es-btn--sm text-danger" onClick={onDelete}><NavIcon name="trash" size={16} />Delete</button>
-      </div>
-    </div>
-  );
 }
