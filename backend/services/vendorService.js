@@ -23,7 +23,7 @@ const FP = require('./vendorFloorPlan');
 
 const { fail } = R;
 
-const BOOTH_COLUMNS = 'id, event_id, name, description, size_label, price_cents, quantity, staff_passes, includes, color, is_public, is_active, sort_order';
+const BOOTH_COLUMNS = 'id, event_id, name, description, size_label, price_cents, quantity, staff_passes, includes, color, is_public, is_active, sort_order, image_url, image_path';
 const APP_COLUMNS = [
   'id', 'event_id', 'company_id', 'stage', 'source', 'business_name', 'contact_name', 'contact_email', 'contact_phone',
   'website', 'category', 'description', 'answers', 'requested_booth_type_id', 'booth_type_id', 'booth_label', 'booth_key',
@@ -31,12 +31,14 @@ const APP_COLUMNS = [
   'signer_name', 'signer_email', 'signature_method', 'signature_svg', 'signature_sha256', 'paid_cents', 'paid_at',
   'paid_method', 'paid_reference', 'platform_fee_cents', 'staff', 'logo_url', 'logo_path', 'listed', 'closed_at',
   'close_reason', 'notes', 'created_at', 'updated_at',
+  // The booking flow (20261204090000).
+  'addons', 'address', 'city', 'postal_code', 'socials', 'documents', 'hold_expires_at',
 ].join(', ');
 
 const text = (v, max) => (v === null || v === undefined || String(v).trim() === '' ? null : String(v).trim().slice(0, max));
 
 // ── Shapes ────────────────────────────────────────────────────────────────
-function shapeBooth(b, { taken = 0, offered = 0 } = {}) {
+function shapeBooth(b, { taken = 0, offered = 0, held = 0 } = {}) {
   return {
     id: b.id,
     name: b.name,
@@ -46,7 +48,12 @@ function shapeBooth(b, { taken = 0, offered = 0 } = {}) {
     quantity: b.quantity ?? null,
     taken,
     offered,
-    remaining: b.quantity === null || b.quantity === undefined ? null : Math.max(0, b.quantity - taken),
+    // Reservations being paid for right now (instant booking): they count
+    // against what is left until they are paid or run out.
+    held,
+    remaining: b.quantity === null || b.quantity === undefined ? null : Math.max(0, b.quantity - taken - held),
+    imageUrl: b.image_url || null,
+    imagePath: b.image_path || null,
     staffPasses: b.staff_passes,
     includes: Array.isArray(b.includes) ? b.includes : [],
     color: b.color || null,
@@ -108,6 +115,13 @@ function shapeApp(a, { boothNames = new Map(), full = false } = {}) {
     listed: a.listed,
     closeReason: a.close_reason,
     notes: a.notes,
+    addons: Array.isArray(a.addons) ? a.addons : [],
+    address: a.address || null,
+    city: a.city || null,
+    postalCode: a.postal_code || null,
+    socials: a.socials && typeof a.socials === 'object' ? a.socials : {},
+    // The storage key stays on the server; a file opens through a signed link.
+    documents: (Array.isArray(a.documents) ? a.documents : []).map(({ path, ...d }) => ({ ...d, uploaded: !!path })),
   };
 }
 
@@ -149,7 +163,18 @@ function shapeProgram(p) {
     defaultTerms: p?.default_terms || null,
     paymentInstructions: p?.payment_instructions || null,
     vendorInfo: p?.vendor_info || null,
+    bookingMode: p?.booking_mode === 'instant' ? 'instant' : 'apply',
+    holdMinutes: Number(p?.hold_minutes) || 20,
+    documents: Array.isArray(p?.documents) ? p.documents : [],
+    highlights: Array.isArray(p?.highlights) ? p.highlights : [],
+    photos: Array.isArray(p?.photos) ? p.photos : [],
   };
+}
+
+/** An image the organizer uploaded for this event's vendors (booth photo, page photo). */
+function ownImage(eventId, path) {
+  if (!R.ownVendorLogo(eventId, path)) throw fail('VALIDATION_ERROR', 'That image does not belong to this event.');
+  return { url: media.publicUrl(path), path };
 }
 
 async function readProgram(eventId) {
@@ -178,6 +203,21 @@ async function saveProgram(eventId, body) {
   if (body.defaultTerms !== undefined) row.default_terms = text(body.defaultTerms, 20000);
   if (body.paymentInstructions !== undefined) row.payment_instructions = text(body.paymentInstructions, 2000);
   if (body.vendorInfo !== undefined) row.vendor_info = text(body.vendorInfo, 4000);
+  if (body.bookingMode !== undefined) {
+    if (!R.BOOKING_MODES.includes(body.bookingMode)) throw fail('VALIDATION_ERROR', 'Choose how vendors book.');
+    row.booking_mode = body.bookingMode;
+  }
+  if (body.holdMinutes !== undefined) {
+    const m = Number(body.holdMinutes);
+    if (!Number.isInteger(m) || m < 10 || m > 60) throw fail('VALIDATION_ERROR', 'Hold a booth for 10 to 60 minutes.');
+    row.hold_minutes = m;
+  }
+  if (body.documents !== undefined) row.documents = R.cleanDocumentSpec(body.documents);
+  if (body.highlights !== undefined) row.highlights = R.cleanHighlights(body.highlights);
+  if (body.photos !== undefined) {
+    if (!Array.isArray(body.photos) || body.photos.length > 3) throw fail('VALIDATION_ERROR', 'Up to 3 photos.');
+    row.photos = body.photos.map((p) => ownImage(eventId, typeof p === 'string' ? p : p?.path));
+  }
   const { data, error } = await supabase.from('vendor_programs').upsert(row, { onConflict: 'event_id' }).select('*').single();
   if (error) throw new Error(error.message);
   if (body.isOpen !== undefined) {
@@ -191,15 +231,19 @@ async function saveProgram(eventId, body) {
 async function boothCounts(ids) {
   const taken = new Map();
   const offered = new Map();
-  if (!ids.length) return { taken, offered };
-  const { data, error } = await supabase.from('vendor_applications').select('booth_type_id, stage')
-    .in('booth_type_id', ids).in('stage', ['confirmed', 'offered']);
+  const held = new Map();
+  if (!ids.length) return { taken, offered, held };
+  const { data, error } = await supabase.from('vendor_applications').select('booth_type_id, stage, hold_expires_at')
+    .in('booth_type_id', ids).in('stage', ['confirmed', 'offered', 'held']);
   if (error) throw new Error(error.message);
+  const now = Date.now();
   for (const a of data || []) {
-    const m = a.stage === 'confirmed' ? taken : offered;
+    // A hold past its time counts for nothing, whether or not it has been marked.
+    if (a.stage === 'held' && !(a.hold_expires_at && new Date(a.hold_expires_at).getTime() > now)) continue;
+    const m = a.stage === 'confirmed' ? taken : a.stage === 'held' ? held : offered;
     m.set(a.booth_type_id, (m.get(a.booth_type_id) || 0) + 1);
   }
-  return { taken, offered };
+  return { taken, offered, held };
 }
 
 async function listBooths(eventId, { publicOnly = false } = {}) {
@@ -207,11 +251,11 @@ async function listBooths(eventId, { publicOnly = false } = {}) {
   if (publicOnly) q = q.eq('is_public', true).eq('is_active', true);
   const { data, error } = await q.order('sort_order').order('price_cents', { ascending: false });
   if (error) throw new Error(error.message);
-  const { taken, offered } = await boothCounts((data || []).map((b) => b.id));
-  return (data || []).map((b) => shapeBooth(b, { taken: taken.get(b.id) || 0, offered: offered.get(b.id) || 0 }));
+  const { taken, offered, held } = await boothCounts((data || []).map((b) => b.id));
+  return (data || []).map((b) => shapeBooth(b, { taken: taken.get(b.id) || 0, offered: offered.get(b.id) || 0, held: held.get(b.id) || 0 }));
 }
 
-function boothRow(body, { partial = false } = {}) {
+function boothRow(body, { partial = false, eventId = null } = {}) {
   const row = {};
   if (!partial || body.name !== undefined) row.name = String(body.name || '').trim();
   if (!partial || body.description !== undefined) row.description = text(body.description, 600);
@@ -226,18 +270,25 @@ function boothRow(body, { partial = false } = {}) {
   if (body.isPublic !== undefined) row.is_public = body.isPublic === true;
   if (body.isActive !== undefined) row.is_active = body.isActive === true;
   if (body.sortOrder !== undefined) row.sort_order = Number(body.sortOrder);
+  if (body.imagePath !== undefined) {
+    if (!body.imagePath) Object.assign(row, { image_url: null, image_path: null });
+    else {
+      const img = ownImage(eventId, body.imagePath);
+      Object.assign(row, { image_url: img.url, image_path: img.path });
+    }
+  }
   return row;
 }
 
 async function createBooth(eventId, body) {
   const { data, error } = await supabase.from('vendor_booth_types')
-    .insert({ event_id: eventId, ...boothRow(body) }).select(BOOTH_COLUMNS).single();
+    .insert({ event_id: eventId, ...boothRow(body, { eventId }) }).select(BOOTH_COLUMNS).single();
   if (error) throw new Error(error.message);
   return shapeBooth(data);
 }
 
 async function updateBooth(eventId, boothId, body) {
-  const row = boothRow(body, { partial: true });
+  const row = boothRow(body, { partial: true, eventId });
   const { taken } = await boothCounts([boothId]);
   const confirmed = taken.get(boothId) || 0;
   if (row.quantity !== undefined && row.quantity !== null && row.quantity < confirmed) {
@@ -271,7 +322,10 @@ async function removeBooth(eventId, boothId) {
 // ── Applications ──────────────────────────────────────────────────────────
 async function listApplications(eventId) {
   const { data, error } = await supabase.from('vendor_applications').select(APP_COLUMNS)
-    .eq('event_id', eventId).order('updated_at', { ascending: false });
+    .eq('event_id', eventId)
+    // Drafts, reservations in progress and lapsed ones are the vendor's, not applications.
+    .not('stage', 'in', '(draft,held,expired)')
+    .order('updated_at', { ascending: false });
   if (error) throw new Error(error.message);
   const apps = data || [];
   const names = await boothNames(apps.flatMap((a) => [a.booth_type_id, a.requested_booth_type_id]));
@@ -395,7 +449,9 @@ async function sendOffer(eventId, appId, body, actorId) {
   const { data: booth } = await supabase.from('vendor_booth_types').select(BOOTH_COLUMNS)
     .eq('id', boothTypeId).eq('event_id', eventId).maybeSingle();
   if (!booth) throw fail('NOT_FOUND', 'Choose a booth type from this event.');
-  const amount = body.amountCents === undefined || body.amountCents === null ? Number(booth.price_cents) : Number(body.amountCents);
+  // The add-ons the vendor asked for join the booth fee unless the organizer sets the amount.
+  const amount = body.amountCents === undefined || body.amountCents === null
+    ? Number(booth.price_cents) + R.addonsTotal(app.addons) : Number(body.amountCents);
   if (!Number.isInteger(amount) || amount < 0) throw fail('VALIDATION_ERROR', 'The booth fee must be a whole number of cents.');
   const expires = body.expiresAt ? new Date(body.expiresAt) : null;
   if (expires && (Number.isNaN(expires.getTime()) || expires.getTime() <= Date.now())) {
@@ -501,10 +557,12 @@ async function doorList(eventId) {
 /** Applications holding a booth on the plan: offered or accepted. */
 async function boothClaims(eventId) {
   const { data, error } = await supabase.from('vendor_applications')
-    .select('id, booth_key, stage, paid_at, business_name, category, listed')
-    .eq('event_id', eventId).not('booth_key', 'is', null).in('stage', ['offered', 'confirmed']);
+    .select('id, booth_key, stage, paid_at, business_name, category, listed, hold_expires_at')
+    .eq('event_id', eventId).not('booth_key', 'is', null).in('stage', ['offered', 'held', 'confirmed']);
   if (error) throw new Error(error.message);
-  return data || [];
+  const now = Date.now();
+  // A reservation claims its booth only while its hold lasts.
+  return (data || []).filter((c) => c.stage !== 'held' || (c.hold_expires_at && new Date(c.hold_expires_at).getTime() > now));
 }
 
 async function readFloorPlan(eventId) {

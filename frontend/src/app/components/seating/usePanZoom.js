@@ -56,6 +56,12 @@ import { clampView } from './seatingGeometry';
  * `hint` ('wheel' | 'touch' | null) is what to tell someone whose gesture
  * went to the page instead of the map; `MapGestureHint` shows it.
  */
+/** How many times a page visit shows "Use Ctrl + scroll to zoom" at all. */
+const MAX_HINTS_PER_VISIT = 3;
+let hintsShown = 0;
+/** For tests, which share one module across many maps. */
+export function resetGestureHints() { hintsShown = 0; }
+
 export function usePanZoom(bounds, { wheelMode = 'zoom', touch = 'cooperative', follow = 'untilMoved' } = {}) {
   const svgRef = useRef(null);
   const [view, setView] = useState(() => ({ ...bounds }));
@@ -64,9 +70,19 @@ export function usePanZoom(bounds, { wheelMode = 'zoom', touch = 'cooperative', 
   const [hint, setHint] = useState(null);
   const hintTimer = useRef(0);
   const flashHint = useCallback((kind) => {
+    // The same hint is still up: just keep it there a little longer.
+    if (hintTimer.current) {
+      clearTimeout(hintTimer.current);
+      hintTimer.current = setTimeout(() => { setHint(null); hintTimer.current = 0; }, 1800);
+      return;
+    }
+    // Told often enough (2026-11-21): after a few showings in a visit the
+    // reader knows, and a hint that flashes on every page scroll past the map
+    // turns from help into noise.
+    if (hintsShown >= MAX_HINTS_PER_VISIT) return;
+    hintsShown += 1;
     setHint(kind);
-    clearTimeout(hintTimer.current);
-    hintTimer.current = setTimeout(() => setHint(null), 1800);
+    hintTimer.current = setTimeout(() => { setHint(null); hintTimer.current = 0; }, 1800);
   }, []);
   useEffect(() => () => clearTimeout(hintTimer.current), []);
 

@@ -49,11 +49,13 @@ export const BUILD_GROUPS = [
     title: 'Room',
     items: [
       { key: 'stage', icon: 'flag', title: 'Stage', text: 'Where everyone looks. Not for sale.', initial: { family: 'zone', key: 'stage' } },
-      { key: 'area', icon: 'map', title: 'Area', text: 'A labelled space — standing area, bar, walkway, screen.', initial: { family: 'zone', key: 'custom' } },
       { key: 'wall', icon: 'pencil', title: 'Draw walls', text: 'Click the room’s corners. Leave gaps where the doors are.', initial: { family: 'tool', key: 'wall' } },
       { key: 'door', icon: 'door', title: 'Door', text: 'A named gap in a wall — Entrance, Side door.', initial: { family: 'zone', key: 'door_gap' } },
       { key: 'text', icon: 'fileText', title: 'Text label', text: 'Words anywhere on the floor.', initial: { family: 'zone', key: 'text' } },
       { key: 'decor', icon: 'target', title: 'Decoration', text: 'A fountain, tree or centrepiece, drawn in rings.', initial: { family: 'zone', key: 'decor' } },
+      // The whole catalogue (2026-11-21): bars, buffets, podium, runway,
+      // sound desk, first aid, exits, lifts, pillars… with a search.
+      { key: 'elements', icon: 'grid', title: 'More elements…', text: 'Bar, buffet, podium, sound desk, first aid, exits and 40 more.', initial: { family: 'zone', key: 'custom', pick: true } },
     ],
   },
   {

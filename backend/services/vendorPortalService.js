@@ -86,7 +86,8 @@ async function listForUser(user) {
     if (r.error) throw new Error(r.error.message);
     for (const a of r.data || []) if (P.mayAccess(user, a, companies)) byId.set(a.id, a);
   }
-  const apps = [...byId.values()].sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+  // A lapsed reservation is nobody's business; a draft or a live hold is shown so it can be finished.
+  const apps = [...byId.values()].filter((a) => a.stage !== 'expired').sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
   const [events, names] = await Promise.all([P.eventsById(apps.map((a) => a.event_id)), V.boothNames(apps.map((a) => a.booth_type_id))]);
   return apps.map((a) => {
     const s = shapeForVendor(a, events.get(a.event_id) || null, { boothName: names.get(a.booth_type_id) || null });
@@ -293,9 +294,11 @@ async function publicPage(slug) {
   const program = await V.readProgram(event.id);
   if (!program?.is_open) throw fail('NOT_FOUND', 'This event is not taking vendors right now.');
   const shaped = V.shapeProgram(program);
-  const [booths, events, vendors, floorPlan] = await Promise.all([
+  const [booths, events, vendors, floorPlan, addons] = await Promise.all([
     V.listBooths(event.id, { publicOnly: true }), P.eventsById([event.id]), directory(event.id),
     V.floorPlanFor(event.id, { audience: 'public' }),
+    // Late-bound: the booking service requires this module.
+    require('./vendorBookingService').listAddons(event.id, { activeOnly: true }),
   ]);
   return {
     event: { ...events.get(event.id), currency: event.currency },
@@ -308,7 +311,15 @@ async function publicPage(slug) {
     booths: booths.map((b) => ({
       id: b.id, name: b.name, description: b.description, sizeLabel: b.sizeLabel, priceCents: b.priceCents,
       staffPasses: b.staffPasses, includes: b.includes, remaining: b.remaining, soldOut: b.remaining === 0,
+      imageUrl: b.imageUrl,
     })),
+    // The booking flow (2026-11-21).
+    bookingMode: shaped.bookingMode,
+    holdMinutes: shaped.holdMinutes,
+    documents: shaped.documents.map((d) => ({ id: d.id, label: d.label, required: d.required })),
+    highlights: shaped.highlights,
+    photos: shaped.photos.map((p) => p.url),
+    addons: addons.map(({ id, kind, name, description, priceCents }) => ({ id, kind, name, description, priceCents })),
     vendors,
     floorPlan,
   };
@@ -360,5 +371,5 @@ async function apply(slug, body) {
 
 module.exports = {
   listForUser, getForUser, accept, withdraw, updateProfile, signLogoUpload, confirmLogo, startCardPayment,
-  isVendorSession, fulfilFromSession, publicPage, apply, directory,
+  isVendorSession, fulfilFromSession, publicPage, apply, directory, vendorFeeBps,
 };

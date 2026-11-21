@@ -1,4 +1,3 @@
-import { Suspense } from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { serverFetch } from '../../../utils/apiClient';
@@ -6,18 +5,25 @@ import { formatMoney } from '../../../utils/money';
 import { formatEventTime } from '../../../lib/eventTime';
 import { safeExternalUrl } from '../../../utils/safeUrl';
 import NavIcon from '../../../components/shell/NavIcon';
-import VendorApply from './VendorApply';
 import FloorPlanViewer from '../../../components/vendors/floorPlan/FloorPlanViewer';
+import VendorShowcase from '../../../components/vendors/booking/VendorShowcase';
+import BoothCard from '../../../components/vendors/booking/BoothCard';
+import StartBooking from './StartBooking';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
- * THE EVENT'S VENDOR PAGE (2026-11-20) — "Become a vendor", and the list of
- * vendors who will be there.
+ * THE EVENT'S VENDOR PAGE (2026-11-20; rebuilt to the owner's reference
+ * 2026-11-21).
  *
- * Exists while the organizer has it switched on. Before the deadline it shows
- * the spaces and the application form; after it, the form closes and the page
- * stays up as the vendor directory. Applying is not booking: the organizer
- * reviews, offers a space, and the vendor accepts and pays from their account.
+ *   the invitation   headline, photos, the organizer's numbers, two buttons
+ *   booths           a card per booth type, each opening its booth page —
+ *                    where add-ons are chosen and the booking starts
+ *   floor plan       who is where, and what is still free
+ *   vendors          the businesses already booked
+ *
+ * How a booking ends is the organizer's choice (program.bookingMode):
+ * "instant" reserves and pays, "apply" sends an application to review. The
+ * steps before that are the same, so this page only changes its words.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 export const revalidate = 60;
@@ -37,8 +43,23 @@ export async function generateMetadata({ params }) {
   if (!page) return { title: 'Vendors', robots: { index: false, follow: false } };
   return {
     title: `Vendors at ${page.event.title}`,
-    description: page.intro?.slice(0, 160) || `Vendor spaces and vendors at ${page.event.title}.`,
+    description: page.intro?.slice(0, 160) || `Booths, add-ons and vendors at ${page.event.title}.`,
   };
+}
+
+/** What we know for certain, for the numbers card when the organizer set none. */
+function facts(booths, currency) {
+  const open = booths.filter((b) => !b.soldOut);
+  const out = [];
+  if (booths.length) out.push({ value: String(booths.length), label: booths.length === 1 ? 'kind of booth to choose from.' : 'kinds of booth to choose from.' });
+  const left = open.every((b) => b.remaining !== null) ? open.reduce((s, b) => s + b.remaining, 0) : null;
+  if (left !== null && booths.length) out.push({ value: String(left), label: left === 1 ? 'space still available.' : 'spaces still available.' });
+  const prices = open.map((b) => b.priceCents);
+  if (prices.length) {
+    const low = Math.min(...prices);
+    out.push({ value: low === 0 ? 'Free' : formatMoney(low, currency), label: low === 0 ? 'spaces are available.' : 'is where booths start.' });
+  }
+  return out.slice(0, 2);
 }
 
 export default async function VendorPage({ params }) {
@@ -46,75 +67,81 @@ export default async function VendorPage({ params }) {
   const page = await load(slug);
   if (!page) notFound();
   const { event, booths, vendors } = page;
+  const instant = page.bookingMode === 'instant';
   const where = [event.venueName, event.city].filter(Boolean).join(', ');
+  const photos = page.photos?.length ? page.photos : [event.coverUrl, ...booths.map((b) => b.imageUrl)].filter(Boolean).slice(0, 3);
+  const open = page.acceptingApplications;
 
   return (
-    <main className="es-sppub fx-container fx-container--lg">
-      <Link href={`/e/${event.slug}`} className="es-sp-back"><NavIcon name="arrow" size={16} />Back to the event</Link>
+    <main className="es-vb-page fx-container fx-container--lg">
+      <nav aria-label="Breadcrumb" className="es-co__crumbs">
+        <Link href="/events">Events</Link>
+        <span aria-hidden>/</span>
+        <Link href={`/e/${event.slug}`} className="fx-truncate">{event.title}</Link>
+        <span aria-hidden>/</span>
+        <span aria-current="page" className="es-co__crumbs-here">Vendors</span>
+      </nav>
 
-      <header className="es-sppub__hero">
-        {event.coverUrl && (
-          // eslint-disable-next-line @next/next/no-img-element -- the event's poster, from storage
-          <img src={event.coverUrl} alt="" className="es-sppub__cover" />
+      <VendorShowcase
+        as="h1"
+        id="vb-title"
+        headline={page.headline}
+        intro={page.intro}
+        photos={photos}
+        highlights={page.highlights || []}
+        facts={facts(booths, event.currency)}
+        secondary={vendors.length ? { href: '#vendor-list', label: 'Meet the vendors' } : open ? { href: '#booths', label: 'Become a vendor' } : null}
+        primary={open && booths.length ? { href: '#booths', label: instant ? 'Reserve your booth' : 'Apply for a booth' } : null}
+      />
+
+      <p className="es-vb-eventline">
+        <span><NavIcon name="calendar" size={16} />{formatEventTime(event.startsAt, event.timezone)}</span>
+        {where && <span><NavIcon name="pin" size={16} />{where}</span>}
+        {event.organizerName && <span><NavIcon name="tag" size={16} />By {event.organizerName}</span>}
+        {open && page.applicationsCloseAt && (
+          <span><NavIcon name="clock" size={16} />{instant ? 'Booking' : 'Applications'} close {formatEventTime(page.applicationsCloseAt, event.timezone, { time: false })}</span>
         )}
-        <div className="fx-min0">
-          <p className="es-sppub__eyebrow"><NavIcon name="store" size={16} />Vendors</p>
-          <h1 className="es-sppub__title">{page.headline || `Be a vendor at ${event.title}`}</h1>
-          <p className="es-sppub__event">
-            <b>{event.title}</b>
-            <span>{formatEventTime(event.startsAt, event.timezone)}</span>
-            {where && <span>{where}</span>}
-            {event.organizerName && <span>By {event.organizerName}</span>}
-          </p>
-          {page.intro && <p className="es-sppub__intro">{page.intro}</p>}
-          <div className="fx-row gap-2">
-            {page.acceptingApplications
-              ? <a href="#vendor-apply" className="es-btn es-btn--primary es-btn--lg">Apply for a space</a>
-              : <span className="es-pill">Applications closed</span>}
-            {vendors.length > 0 && <a href="#vendor-list" className="es-btn es-btn--secondary es-btn--lg">See the vendors</a>}
-          </div>
-          {page.acceptingApplications && page.applicationsCloseAt && (
-            <p className="text-sm text-muted mt-2">Applications close {formatEventTime(page.applicationsCloseAt, event.timezone, { time: false })}.</p>
-          )}
-        </div>
-      </header>
+        {!open && <span className="es-pill">{instant ? 'Booking closed' : 'Applications closed'}</span>}
+      </p>
 
-      {page.acceptingApplications && booths.length > 0 && (
-        <section aria-labelledby="vd-spaces" className="fx-stack">
-          <h2 id="vd-spaces" className="es-lp-title es-lp-title--bar">Spaces</h2>
-          <ul className="es-sp-packages es-sp-packages--public">
-            {booths.map((b) => (
-              <li key={b.id} className={`es-sp-package ${b.soldOut ? 'is-off' : ''}`}>
-                <div className="es-sp-package__head">
-                  {b.sizeLabel && <span className="es-pill">{b.sizeLabel}</span>}
-                  {b.soldOut
-                    ? <span className="es-pill">Fully booked</span>
-                    : b.remaining !== null && b.remaining <= 3 && <span className="es-pill es-pill--warning">{b.remaining} left</span>}
-                </div>
-                <h3 className="es-sp-package__name">{b.name}</h3>
-                <p className="es-sp-package__price es-nums">{b.priceCents === 0 ? 'Free' : formatMoney(b.priceCents, event.currency)}</p>
-                {b.description && <p className="text-sm text-muted">{b.description}</p>}
-                <ul className="es-sp-benefits">
-                  <li><NavIcon name="users" size={16} />{b.staffPasses} staff {b.staffPasses === 1 ? 'pass' : 'passes'}</li>
-                  {b.includes.map((x) => <li key={x}><NavIcon name="check" size={16} />{x}</li>)}
-                </ul>
-              </li>
-            ))}
+      {open && booths.length > 0 && (
+        <section id="booths" aria-labelledby="vb-booths" className="es-vb-section">
+          <div className="es-vb-section__head">
+            <h2 id="vb-booths" className="es-vb-h2">Booths</h2>
+            <p className="es-vb-sub">
+              {instant
+                ? `Choose a booth, add what you need, and reserve it — it is held for you for ${page.holdMinutes || 20} minutes while you finish.`
+                : 'Choose a booth and add what you need, then send your application. The organizer reviews it and replies by email.'}
+            </p>
+          </div>
+          <ul className="es-vb-booths">
+            {booths.map((b) => <BoothCard key={b.id} booth={b} slug={event.slug} currency={event.currency} />)}
           </ul>
         </section>
       )}
 
+      {open && !instant && (
+        <div className="es-vb-nobooth">
+          <p><b>Not sure which booth?</b> Apply without choosing one — the organizer will offer the right space.</p>
+          <StartBooking slug={event.slug} label="Apply without a booth" className="es-btn es-btn--secondary" />
+        </div>
+      )}
+
       {page.floorPlan && (
-        <section id="floor-plan" aria-labelledby="vd-plan" className="fx-stack">
-          <h2 id="vd-plan" className="es-lp-title es-lp-title--bar">Floor plan</h2>
-          <p className="text-muted">Tap a booth to see who is there{page.acceptingApplications ? ', or what is still free' : ''}.</p>
+        <section id="floor-plan" aria-labelledby="vd-plan" className="es-vb-section">
+          <div className="es-vb-section__head">
+            <h2 id="vd-plan" className="es-vb-h2">Floor plan</h2>
+            <p className="es-vb-sub">Tap a booth to see who is there{open ? ', or what is still free' : ''}.</p>
+          </div>
           <FloorPlanViewer floorPlan={page.floorPlan} currency={event.currency} title={`${event.title} floor plan`} />
         </section>
       )}
 
       {vendors.length > 0 && (
-        <section id="vendor-list" aria-labelledby="vd-list" className="fx-stack">
-          <h2 id="vd-list" className="es-lp-title es-lp-title--bar">Vendors at this event</h2>
+        <section id="vendor-list" aria-labelledby="vd-list" className="es-vb-section">
+          <div className="es-vb-section__head">
+            <h2 id="vd-list" className="es-vb-h2">Vendors at this event</h2>
+          </div>
           <ul className="es-vd-directory">
             {vendors.map((v) => {
               const link = safeExternalUrl(v.website);
@@ -134,26 +161,6 @@ export default async function VendorPage({ params }) {
               );
             })}
           </ul>
-        </section>
-      )}
-
-      {page.acceptingApplications && (
-        <section id="vendor-apply" aria-labelledby="vd-apply" className="es-sppub__inquiry">
-          <div className="fx-min0">
-            <h2 id="vd-apply" className="es-lp-title es-lp-title--bar">Apply for a space</h2>
-            <p className="text-muted">
-              Tell {event.organizerName || 'the organizer'} about your business. If they offer you a space you will get an
-              email to accept it and pay the booth fee on Eventsli.
-            </p>
-          </div>
-          <Suspense fallback={null}>
-            <VendorApply
-              slug={event.slug}
-              categories={page.categories}
-              questions={page.questions}
-              booths={booths.filter((b) => !b.soldOut).map((b) => ({ id: b.id, name: b.name }))}
-            />
-          </Suspense>
         </section>
       )}
     </main>

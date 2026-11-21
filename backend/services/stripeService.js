@@ -393,23 +393,31 @@ async function createSponsorshipSession({
  * whether it is really ours (the session and account we recorded).
  */
 async function createVendorSession({
-  app, event, accountId, origin, boothName, feeCents, customerEmail, idempotencyKey,
+  app, event, accountId, origin, boothName, feeCents, customerEmail, idempotencyKey, successUrl = null, cancelUrl = null,
 }) {
   if (!idempotencyKey) throw new Error('createVendorSession needs an idempotencyKey');
   const metadata = { vendor_application_id: app.id, event_id: event.id };
+  const currency = String(app.currency).toLowerCase();
+  const total = Number(app.amount_cents);
+  // Add-ons (2026-11-21) as their own lines when they fit inside the total; an
+  // organizer's own offer amount can be lower than their sum, and then it is
+  // one line. Either way the lines add up to amount_cents, which is what the
+  // webhook checks the session against.
+  const addons = (Array.isArray(app.addons) ? app.addons : []).filter((a) => Number(a.priceCents) > 0);
+  const addonCents = addons.reduce((s, a) => s + Number(a.priceCents), 0);
+  const itemise = addons.length > 0 && addonCents < total;
+  const line = (name, description, amount) => ({
+    price_data: { currency, product_data: { name: name.slice(0, 250), ...(description ? { description: description.slice(0, 500) } : {}) }, unit_amount: amount },
+    quantity: 1,
+  });
   return stripe().checkout.sessions.create({
     mode: 'payment',
-    line_items: [{
-      price_data: {
-        currency: String(app.currency).toLowerCase(),
-        product_data: {
-          name: `Vendor space — ${event.title}`.slice(0, 250),
-          description: `${app.business_name} · ${boothName}${app.booth_label ? ` · Booth ${app.booth_label}` : ''}`.slice(0, 500),
-        },
-        unit_amount: Number(app.amount_cents),
-      },
-      quantity: 1,
-    }],
+    line_items: [
+      line(`Vendor space — ${event.title}`,
+        `${app.business_name} · ${boothName}${app.booth_label ? ` · Booth ${app.booth_label}` : ''}`,
+        itemise ? total - addonCents : total),
+      ...(itemise ? addons.map((a) => line(`Add-on: ${a.name}`, null, Number(a.priceCents))) : []),
+    ],
     customer_email: customerEmail || undefined,
     payment_intent_data: {
       application_fee_amount: feeCents > 0 ? feeCents : undefined,
@@ -417,8 +425,8 @@ async function createVendorSession({
       description: `Vendor space at ${event.title} for ${app.business_name}`.slice(0, 1000),
     },
     metadata,
-    success_url: `${origin}/account/vendors/${app.id}?paid=1`,
-    cancel_url: `${origin}/account/vendors/${app.id}`,
+    success_url: successUrl || `${origin}/account/vendors/${app.id}?paid=1`,
+    cancel_url: cancelUrl || `${origin}/account/vendors/${app.id}`,
     expires_at: Math.floor(Date.now() / 1000) + 60 * 60,
     managed_payments: { enabled: false },
   }, { stripeAccount: accountId, idempotencyKey });

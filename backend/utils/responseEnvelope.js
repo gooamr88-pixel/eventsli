@@ -182,6 +182,7 @@ const ERROR_STATUS = {
   VENDOR_PAYMENT_PENDING: 409,      // a card payment is going through; wait for it
   VENDOR_APPLICATIONS_CLOSED: 409,
   VENDOR_BOOTH_TAKEN: 409,          // that booth on the floor plan is offered to or booked by another vendor  // the program is past its application deadline
+  VENDOR_HOLD_EXPIRED: 410,         // a reserved booth's hold ran out (20261204090000); choose it again
 
   // generic
   VALIDATION_ERROR: 400,

@@ -21,6 +21,7 @@ import { AgreementText, LogoField } from '../../../components/sponsors/sponsorUi
 import { VendorStatus } from '../../../components/vendors/vendorUi';
 import SignatureDialog from '../../../checkout/[reservationId]/SignatureDialog';
 import FloorPlanViewer from '../../../components/vendors/floorPlan/FloorPlanViewer';
+import VendorExtras from './VendorExtras';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -42,7 +43,11 @@ export default function VendorBooking({ appId }) {
   const toast = useToast();
   const confirm = useConfirm();
   const app = useApi(`/partner/vendors/${appId}`);
-  const returning = Boolean(useSearchParams().get('paid'));
+  const params = useSearchParams();
+  const returning = Boolean(params.get('paid'));
+  // Arriving from the booking flow (2026-11-21).
+  const justBooked = Boolean(params.get('booked'));
+  const justSent = Boolean(params.get('sent'));
   useEffect(() => {
     if (!returning) return undefined;
     let n = 0;
@@ -101,7 +106,21 @@ export default function VendorBooking({ appId }) {
       {returning && a.paidAt && (
         <Notice tone="info" icon="check" title="Booth fee received. You are booked in!"><p>A receipt is on its way to your email. Add your staff below so they are on the door list.</p></Notice>
       )}
-      {(a.stage === 'submitted' || a.stage === 'waitlisted') && (
+      {justBooked && a.stage === 'confirmed' && (
+        <Notice tone="info" icon="check" title={a.paidAt ? 'You are booked in!' : 'Your booth is booked.'}>
+          <p>{a.paidAt ? 'A confirmation is on its way to your email.' : `Pay the booth fee to ${a.event?.organizerName || 'the organizer'} using the payment details below.`} Add your staff so they are on the door list.</p>
+        </Notice>
+      )}
+      {justSent && a.stage === 'submitted' && (
+        <Notice tone="info" icon="check" title="Application sent."><p>{a.event?.organizerName || 'The organizer'} will review it and reply by email.</p></Notice>
+      )}
+      {['draft', 'held'].includes(a.stage) && a.event?.slug && (
+        <Notice tone="warning" title={a.stage === 'held' ? 'Your booth is held — finish booking it.' : 'This application has not been sent.'}
+          action={<Link className="es-btn es-btn--primary es-btn--sm" href={`/e/${a.event.slug}/vendors/book/${a.id}`}>{a.stage === 'held' ? 'Finish booking' : 'Finish and send'}</Link>}>
+          <p>{a.stage === 'held' ? 'It is kept for a limited time while you add your details and pay.' : 'Add your business details, then send it to the organizer.'}</p>
+        </Notice>
+      )}
+      {(a.stage === 'submitted' || a.stage === 'waitlisted') && !justSent && (
         <Notice tone="info" title={a.stage === 'waitlisted' ? 'You are on the waitlist.' : 'Your application is with the organizer.'}>
           <p>If they offer you a space you will get an email, and it will appear here to accept.</p>
         </Notice>
@@ -117,6 +136,7 @@ export default function VendorBooking({ appId }) {
 
       <div className="es-sp-dealgrid">
         <div className="fx-stack fx-min0">
+          <VendorExtras appId={appId} />
           {['offered', 'confirmed'].includes(a.stage) && (
             <Panel icon="store" title="Your space" description={a.stage === 'offered' && a.offerExpiresAt ? `Reply by ${formatEventTime(a.offerExpiresAt, tz, { time: false })}.` : null}>
               <dl className="es-sp-facts">

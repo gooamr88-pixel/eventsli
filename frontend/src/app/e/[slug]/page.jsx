@@ -309,7 +309,7 @@ export default async function EventPage({ params, searchParams }) {
 
           {/* ── 5. The event's sponsors, and the questions guests ask ───────── */}
           <EventSponsorsSection sponsors={event.sponsors} sponsorUrl={event.sponsorshipOpen ? `/e/${event.slug}/sponsor` : null} />
-          <EventVendorsSection vendors={event.vendors || []} slug={event.slug} open={!!event.vendorsOpen} />
+          <EventVendorsSection vendors={event.vendors || []} slug={event.slug} open={!!event.vendorsOpen} showcase={event.vendorShowcase || null} coverUrl={event.coverUrl || null} />
           <EventFaq event={event} />
 
           {/* ── 6. Somewhere else to go ──────────────────────────────────── */}

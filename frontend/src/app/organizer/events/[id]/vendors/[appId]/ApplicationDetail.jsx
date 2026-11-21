@@ -20,6 +20,7 @@ import { AgreementText } from '../../../../../components/sponsors/sponsorUi';
 import { VendorStatus, STARTER_VENDOR_TERMS } from '../../../../../components/vendors/vendorUi';
 import { useEventContext } from '../../EventContext';
 import FloorPlanViewer from '../../../../../components/vendors/floorPlan/FloorPlanViewer';
+import { AddonsAndDocuments, BusinessFacts } from './ApplicationExtras';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -139,6 +140,8 @@ export default function ApplicationDetail({ eventId, appId }) {
             )}
           </Panel>
 
+          <AddonsAndDocuments eventId={eventId} app={a} onChange={app.reload} />
+
           {open && <OfferEditor eventId={eventId} app={a} onSent={() => { toast.success('Offer sent.'); app.reload(); }} />}
 
           {(a.stage === 'confirmed' || a.acceptedAt) && (
@@ -169,6 +172,7 @@ export default function ApplicationDetail({ eventId, appId }) {
               {a.website && <div><dt>Website</dt><dd className="fx-break"><a href={a.website} target="_blank" rel="noreferrer noopener">{a.website.replace(/^https?:\/\//, '')}</a></dd></div>}
             </dl>
           </Panel>
+          <BusinessFacts app={a} />
           <NotesPanel eventId={eventId} app={a} onSaved={app.reload} />
         </div>
       </div>
@@ -201,9 +205,11 @@ function OfferForm({ eventId, app, booths, program, floor, onSent }) {
   const byId = (id) => booths.find((b) => b.id === id) || null;
   const first = byId(app.boothTypeId) || byId(app.requestedBoothTypeId) || booths.find((b) => b.isActive) || booths[0];
   const revising = app.stage === 'offered';
+  // The add-ons the vendor chose join the booth fee (2026-11-21); the organizer can still change the amount.
+  const extra = (app.addons || []).reduce((s, x) => s + x.priceCents, 0);
   const [form, setForm] = useState(() => ({
     boothTypeId: first.id,
-    fee: centsToInput(revising ? app.amountCents : first.priceCents, currency),
+    fee: centsToInput(revising ? app.amountCents : first.priceCents + extra, currency),
     boothLabel: app.boothLabel || '',
     staffPasses: String(revising ? app.staffPasses : first.staffPasses),
     includes: (revising ? app.includes : first.includes).join('\n'),
@@ -220,7 +226,7 @@ function OfferForm({ eventId, app, booths, program, floor, onSent }) {
     const b = el.boothTypeId ? byId(el.boothTypeId) : null;
     setForm((f) => ({
       ...f, boothKey: el.id, boothLabel: el.code || f.boothLabel,
-      ...(b ? { boothTypeId: b.id, fee: centsToInput(b.priceCents, currency), staffPasses: String(b.staffPasses), includes: b.includes.join('\n') } : {}),
+      ...(b ? { boothTypeId: b.id, fee: centsToInput(b.priceCents + extra, currency), staffPasses: String(b.staffPasses), includes: b.includes.join('\n') } : {}),
     }));
     setPicking(false);
   }
@@ -234,7 +240,7 @@ function OfferForm({ eventId, app, booths, program, floor, onSent }) {
     const b = byId(e.target.value);
     setForm((f) => ({
       ...f, boothTypeId: e.target.value,
-      ...(b ? { fee: centsToInput(b.priceCents, currency), staffPasses: String(b.staffPasses), includes: b.includes.join('\n') } : {}),
+      ...(b ? { fee: centsToInput(b.priceCents + extra, currency), staffPasses: String(b.staffPasses), includes: b.includes.join('\n') } : {}),
     }));
   }
 

@@ -16,7 +16,9 @@ import { MapHeader, MapBanner, MapNotices, countUnpriced, isUnpriced } from './M
 import { useEventContext } from '../EventContext';
 import SelectionJump from './SelectionJump';
 import MapStarter from './MapStarter';
-import { frameFor, sameBox, clamp } from './mapApi';
+import { frameFor, sameBox, clamp, freeSpot } from './mapApi';
+import { zoneMeta } from '../../../../components/seating/venueZones';
+import { tableReach } from '../../../../components/seating/seatingGeometry';
 import { liveSections } from '../../../../components/venue/venueModel';
 import { writeLook } from '../../../../components/seating/mapStyle';
 import StudioTabs from './studio/StudioTabs';
@@ -233,6 +235,26 @@ export default function MapEditor({ eventId }) {
     if (initial.family === 'ai') { setShowDesigner(true); return; }
     if (initial.family === 'tool') { selection.clear(); setToolBoth(initial.key); return; }
     if (initial.family === 'section') { setShowSection(true); return; }
+    // ONE THING, NO FORM (2026-11-21). A stage, an area, a door, a word on the
+    // floor, a decoration or a single seat has nothing to count or number,
+    // so it appears at once — in the middle of the view, at the nearest free
+    // spot (mapApi.freeSpot) — selected, with its settings beside it. Tables
+    // and rows keep the Add dialog: how many, in what arrangement, numbered
+    // from where.
+    if (initial.family === 'zone' && !initial.pick) {
+      const meta = zoneMeta(initial.key);
+      const position = freeSpot(panzoom.view, { w: meta.w, h: meta.h }, tables, zones, world);
+      const ids = draft.addZones([{ kind: initial.key, position }]);
+      if (ids.length) selection.replace([], ids);
+      return;
+    }
+    if (initial.family === 'table' && initial.seatCount === 1) {
+      const reach = tableReach({ shape: initial.key, seatCount: 1, style: null });
+      const position = freeSpot(panzoom.view, { w: reach * 2, h: reach * 2 }, tables, zones, world);
+      const keys = draft.addTables([{ shape: initial.key, seatCount: 1, position }]);
+      if (keys.length) selection.replace(keys, []);
+      return;
+    }
     setAddInitial(initial); setShowAdd(true);
   };
 
@@ -286,13 +308,18 @@ export default function MapEditor({ eventId }) {
   // Why a whole-map replacement (a template's map, a picture) is refused.
   const replaceBlocked = soldTotal > 0 ? `${soldTotal} seat${soldTotal === 1 ? ' is' : 's are'} already held or sold on this map, so it can’t be replaced. Edit the map by hand instead.` : null;
 
-  /** Where a newly added element lands: the top-left of what is on screen,
-   *  inset a little, so a section built after panning appears where the
-   *  organizer is looking rather than in the middle of the world. */
+  /** Where the dialogs BUILD a new group before it is placed: the top-left of
+   *  what is on screen. `placeAt` then moves the finished group to the
+   *  nearest free spot in view (mapApi.freeSpot, 2026-11-21) — so a section
+   *  lands in the middle of the room, clear of the seats already there. */
   const addOrigin = useMemo(() => ({
     x: clamp(((panzoom.view.x + panzoom.view.width * 0.12) / world.width) * 100, 0, 96),
     y: clamp(((panzoom.view.y + panzoom.view.height * 0.14) / world.height) * 100, 0, 94),
   }), [panzoom.view, world]);
+  const placeAt = useCallback(
+    (size) => freeSpot(panzoom.view, size, tables, zones, world),
+    [panzoom.view, tables, zones, world],
+  );
 
   if (io.loading) return <Loading variant="card" />;
 
@@ -451,6 +478,7 @@ export default function MapEditor({ eventId }) {
       {showSection && (
         <SectionDialog
           origin={addOrigin}
+          placeAt={placeAt}
           world={world}
           zones={zones}
           tables={tables}
@@ -499,6 +527,7 @@ export default function MapEditor({ eventId }) {
         <AddElementDialog
           initial={addInitial}
           origin={addOrigin}
+          placeAt={placeAt}
           world={world}
           roomForTables={Math.max(0, MAX_TABLES - tables.length)}
           onClose={() => setShowAdd(false)}

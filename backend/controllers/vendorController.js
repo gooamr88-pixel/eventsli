@@ -1,5 +1,6 @@
 const V = require('../services/vendorService');
 const portal = require('../services/vendorPortalService');
+const booking = require('../services/vendorBookingService');
 const { frontendOrigin } = require('../utils/frontendOrigin');
 const { sendOk, sendFail, ERROR_STATUS } = require('../utils/responseEnvelope');
 
@@ -43,6 +44,12 @@ const organizer = {
   saveFloorPlan: run((req) => V.saveFloorPlan(ev(req), req.body, actor(req))),
   signLogoUpload: run((req) => V.signLogoUpload(ev(req), req.body.contentType)),
   confirmLogo: run((req) => V.confirmLogo(ev(req), req.body.path)),
+  listAddons: run((req) => booking.listAddons(ev(req))),
+  createAddon: run((req) => booking.createAddon(ev(req), req.body), { status: 201 }),
+  updateAddon: run((req) => booking.updateAddon(ev(req), req.params.addonId, req.body)),
+  removeAddon: run((req) => booking.removeAddon(ev(req), req.params.addonId)),
+  documentUrl: run((req) => booking.organizerDocumentUrl(ev(req), req.params.appId, req.params.docId)),
+  reviewDocument: run((req) => booking.reviewDocument(ev(req), req.params.appId, req.params.docId, req.body, actor(req))),
 };
 
 const vendor = {
@@ -56,9 +63,23 @@ const vendor = {
   pay: run((req) => portal.startCardPayment(req.user, req.params.appId, frontendOrigin(req.headers.origin))),
 };
 
+/** The booking flow (2026-11-21). */
+const bookingFlow = {
+  start: run((req) => booking.start(req.user, req.body.slug, req.body), { status: 201 }),
+  get: run((req) => booking.getBooking(req.user, req.params.appId)),
+  save: run((req) => booking.saveDetails(req.user, req.params.appId, req.body)),
+  signDocument: run((req) => booking.signDocument(req.user, req.params.appId, req.params.docId, req.body.contentType)),
+  confirmDocument: run((req) => booking.confirmDocument(req.user, req.params.appId, req.params.docId, req.body)),
+  removeDocument: run((req) => booking.removeDocument(req.user, req.params.appId, req.params.docId)),
+  documentUrl: run((req) => booking.vendorDocumentUrl(req.user, req.params.appId, req.params.docId)),
+  submit: run((req) => booking.submit(req.user, req.params.appId)),
+  release: run((req) => booking.release(req.user, req.params.appId)),
+  checkout: run((req) => booking.checkout(req.user, req.params.appId, req.body, req, frontendOrigin(req.headers.origin))),
+};
+
 const publicPage = {
   page: run((req) => portal.publicPage(req.params.slug)),
   apply: run((req) => portal.apply(req.params.slug, req.body), { status: 201 }),
 };
 
-module.exports = { organizer, vendor, publicPage };
+module.exports = { organizer, vendor, publicPage, booking: bookingFlow };

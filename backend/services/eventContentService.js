@@ -241,7 +241,7 @@ async function reorder(name, eventId, ids) {
 
 /** Everything a public event page needs, in one round trip. */
 async function publicBundle(eventId) {
-  const [gallery, sponsors, policies, schedule, sponsorshipOpen, vendorsOpen, vendors] = await Promise.all([
+  const [gallery, sponsors, policies, schedule, sponsorshipOpen, vendorProgram, vendors] = await Promise.all([
     list('media', eventId),
     list('sponsors', eventId),
     list('policies', eventId),
@@ -253,8 +253,10 @@ async function publicBundle(eventId) {
       .then(({ data, error }) => !error && !!data?.is_open, () => false),
     // The vendor page (2026-11-20), the same fail-soft way: open or not, and
     // the booked vendors the public directory lists.
-    supabase.from('vendor_programs').select('is_open').eq('event_id', eventId).maybeSingle()
-      .then(({ data, error }) => !error && !!data?.is_open, () => false),
+    // `*` rather than named columns: a database without the booking columns
+    // (20261204090000) still answers, and the showcase falls back to defaults.
+    supabase.from('vendor_programs').select('*').eq('event_id', eventId).maybeSingle()
+      .then(({ data, error }) => (!error && data?.is_open ? data : null), () => null),
     supabase.from('vendor_applications')
       .select('id, business_name, category, logo_url, booth_label')
       .eq('event_id', eventId).eq('stage', 'confirmed').eq('listed', true).not('paid_at', 'is', null)
@@ -263,7 +265,17 @@ async function publicBundle(eventId) {
         id: v.id, name: v.business_name, category: v.category, logoUrl: v.logo_url, booth: v.booth_label,
       }))), () => []),
   ]);
-  return { gallery, sponsors, policies, schedule, sponsorshipOpen, vendorsOpen, vendors };
+  const vendorsOpen = !!vendorProgram;
+  // The event page's vendor section (2026-11-21): the organizer's own words,
+  // numbers and photos for "Become a vendor". Never stats we invent.
+  const vendorShowcase = vendorProgram ? {
+    headline: vendorProgram.headline || null,
+    intro: vendorProgram.intro ? String(vendorProgram.intro).slice(0, 400) : null,
+    highlights: Array.isArray(vendorProgram.highlights) ? vendorProgram.highlights : [],
+    photos: (Array.isArray(vendorProgram.photos) ? vendorProgram.photos : []).map((p) => p?.url).filter(Boolean),
+    bookingMode: vendorProgram.booking_mode === 'instant' ? 'instant' : 'apply',
+  } : null;
+  return { gallery, sponsors, policies, schedule, sponsorshipOpen, vendorsOpen, vendorShowcase, vendors };
 }
 
 module.exports = {

@@ -70,3 +70,49 @@ test('an expired offer, a logo, and database codes', () => {
   assert.equal(R.fromDb({ message: 'VENDOR_NOT_CONFIRMED' }).code, 'VENDOR_WRONG_STAGE');
   assert.equal(R.fromDb({ message: 'boom' }).code, undefined);
 });
+
+// ── Booking (2026-11-21) ──────────────────────────────────────────────────
+test('document requests keep stable ids and need names', () => {
+  assert.deepEqual(R.cleanDocumentSpec([{ id: 'ins', label: ' Insurance ', required: true }, { label: 'Menu', hint: 'PDF is fine' }]), [
+    { id: 'ins', label: 'Insurance', hint: null, required: true },
+    { id: 'd2', label: 'Menu', hint: 'PDF is fine', required: false },
+  ]);
+  assert.throws(() => R.cleanDocumentSpec([{ label: '' }]), /needs a name/);
+  assert.throws(() => R.cleanDocumentSpec(Array.from({ length: 9 }, (_, i) => ({ label: `D${i}` }))), /at most 8/);
+});
+
+test('socials keep handles and http links, and refuse anything else', () => {
+  assert.deepEqual(R.cleanSocials({ instagram: '@my.bakery', x: 'https://x.com/bake', facebook: '', other: 'x' }),
+    { instagram: 'my.bakery', x: 'https://x.com/bake' });
+  assert.throws(() => R.cleanSocials({ linkedin: 'javascript:alert(1)' }), /page name or a full link/);
+});
+
+test('add-ons are picked from the active list, at the stored price', () => {
+  const available = [
+    { id: 'a', name: 'Chair', kind: 'booth', price_cents: 500, is_active: true },
+    { id: 'b', name: 'Old', kind: 'booth', price_cents: 100, is_active: false },
+  ];
+  const picked = R.pickAddons(available, ['a', 'a']);
+  assert.deepEqual(picked, [{ id: 'a', name: 'Chair', kind: 'booth', priceCents: 500 }]);
+  assert.equal(R.addonsTotal(picked), 500);
+  assert.throws(() => R.pickAddons(available, ['b']), /no longer offered/);
+});
+
+test('a document path must be this booking’s own, for this document', () => {
+  const ev = '11111111-1111-1111-1111-111111111111';
+  const app = '22222222-2222-2222-2222-222222222222';
+  assert.equal(R.ownDocumentPath(ev, app, 'ins', `vendor-docs/${ev}/${app}/ins-0123456789abcdef.pdf`), true);
+  assert.equal(R.ownDocumentPath(ev, app, 'menu', `vendor-docs/${ev}/${app}/ins-0123456789abcdef.pdf`), false);
+  assert.equal(R.ownDocumentPath(ev, app, 'ins', `vendor-docs/${ev}/other/ins-0123456789abcdef.pdf`), false);
+  assert.equal(R.ownDocumentPath(ev, app, 'ins', `vendor-docs/${ev}/${app}/ins-0123456789abcdef.exe`), false);
+});
+
+test('missing documents: required ones absent or rejected', () => {
+  const spec = [{ id: 'a', label: 'A', required: true }, { id: 'b', label: 'B', required: true }, { id: 'c', label: 'C', required: false }];
+  assert.deepEqual(R.missingDocuments(spec, [{ id: 'a', status: 'pending' }, { id: 'b', status: 'rejected' }]).map((d) => d.id), ['b']);
+});
+
+test('highlights drop empty rows and stop at three', () => {
+  assert.deepEqual(R.cleanHighlights([{ value: '80%', label: 'sell out' }, { value: '', label: 'x' }]), [{ value: '80%', label: 'sell out' }]);
+  assert.throws(() => R.cleanHighlights(Array.from({ length: 4 }, () => ({ value: '1', label: 'x' }))), /At most 3/);
+});

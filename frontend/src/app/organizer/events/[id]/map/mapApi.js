@@ -1,4 +1,7 @@
-import { contentBounds, worldOf } from '../../../../components/seating/seatingGeometry';
+import {
+  contentBounds, worldOf, toWorld, toPercent, tableBody, tableScale, seatPositions, SEAT_RADIUS,
+} from '../../../../components/seating/seatingGeometry';
+import { zoneBox } from '../../../../components/seating/venueZones';
 
 /**
  * The editor's conversions to and from the map API, and the frame it opens on.
@@ -85,4 +88,89 @@ export function frameFor(tables, zones, world = worldOf(null)) {
 
 export function sameBox(a, b) {
   return a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height;
+}
+
+/**
+ * WHERE A NEW THING LANDS (2026-11-21): in the middle of what the organizer
+ * is looking at, at the nearest spot where it covers nothing already drawn.
+ *
+ * It used to land at the view's top-left corner, inset a little, on top of
+ * whatever was there — so a stage could appear half under a row of seats in
+ * a corner the eye was not on. Candidates spiral out from the view's centre
+ * in steps of the item's own size; the first that overlaps no table (with its
+ * seats) and no area wins, kept inside the venue. If the view is full, the
+ * centre — visible, and selected, so it can be dragged where it belongs.
+ *
+ * Returns a position in percentages of the world, as zones store it.
+ */
+/**
+ * A table's real footprint on the floor: its body and every seat, turned by
+ * its rotation and scaled by its size — as a box in world units. (`tableReach`
+ * is a radius, which counts a 22-seat row as a 560-unit square and left no
+ * room anywhere for a new stage.)
+ */
+function tableFootprint(t, world) {
+  const p = toWorld(t.position, world);
+  const k = tableScale(t.style);
+  const body = tableBody(t.shape, t.seatCount, t.style);
+  const pts = [
+    [-body.width / 2, -body.height / 2], [body.width / 2, body.height / 2],
+    ...seatPositions(t.shape, t.seatCount, t.style).flatMap((s) => [
+      [s.x - SEAT_RADIUS, s.y - SEAT_RADIUS], [s.x + SEAT_RADIUS, s.y + SEAT_RADIUS],
+    ]),
+  ];
+  const xs = pts.map((q) => q[0]);
+  const ys = pts.map((q) => q[1]);
+  const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
+  const a = (p.rotation * Math.PI) / 180;
+  const c = Math.abs(Math.cos(a));
+  const s = Math.abs(Math.sin(a));
+  const w = (x1 - x0) * k;
+  const h = (y1 - y0) * k;
+  const halfW = (w * c + h * s) / 2;
+  const halfH = (w * s + h * c) / 2;
+  // The centre of the unrotated box, turned with the table.
+  const mx = ((x0 + x1) / 2) * k;
+  const my = ((y0 + y1) / 2) * k;
+  const cx = p.x + mx * Math.cos(a) - my * Math.sin(a);
+  const cy = p.y + mx * Math.sin(a) + my * Math.cos(a);
+  return { x0: cx - halfW, y0: cy - halfH, x1: cx + halfW, y1: cy + halfH };
+}
+
+export function freeSpot(view, size, tables, zones, world = worldOf(null)) {
+  const gap = 12;
+  const boxes = [
+    ...tables.map((t) => tableFootprint(t, world)),
+    ...zones.map((z) => {
+      const b = zoneBox(z, world);
+      return { x0: b.x, y0: b.y, x1: b.right, y1: b.bottom };
+    }),
+  ];
+  const fits = (cx, cy) => {
+    const a = { x0: cx - size.w / 2 - gap, y0: cy - size.h / 2 - gap, x1: cx + size.w / 2 + gap, y1: cy + size.h / 2 + gap };
+    if (a.x0 + gap < 0 || a.y0 + gap < 0 || a.x1 - gap > world.width || a.y1 - gap > world.height) return false;
+    return !boxes.some((b) => a.x0 < b.x1 && a.x1 > b.x0 && a.y0 < b.y1 && a.y1 > b.y0);
+  };
+  const cx = clamp(view.x + view.width / 2, size.w / 2, world.width - size.w / 2);
+  const cy = clamp(view.y + view.height / 2, size.h / 2, world.height - size.h / 2);
+  // Half-size steps find the gaps between rows; on screen first, then
+  // anywhere in the venue, nearest the view's centre either way.
+  const stepX = Math.max(20, size.w / 2);
+  const stepY = Math.max(20, size.h / 2);
+  const onScreen = (x, y) => x >= view.x && x <= view.x + view.width && y >= view.y && y <= view.y + view.height;
+  for (const pass of ['screen', 'venue']) {
+    const rings = pass === 'screen' ? 24 : 60;
+    for (let ring = 0; ring <= rings; ring += 1) {
+      for (let dy = -ring; dy <= ring; dy += 1) {
+        for (let dx = -ring; dx <= ring; dx += 1) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== ring) continue;   // this ring only
+          const x = cx + dx * stepX;
+          const y = cy + dy * stepY;
+          if (pass === 'screen' && !onScreen(x, y)) continue;
+          if (fits(x, y)) return toPercent(x, y, world);
+        }
+      }
+    }
+  }
+  return toPercent(cx, cy, world);
 }

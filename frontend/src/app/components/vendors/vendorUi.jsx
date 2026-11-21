@@ -6,6 +6,9 @@
 
 /** An application's status (backend vendorRules.status) → words and a pill. */
 export const VENDOR_STATUS = Object.freeze({
+  draft: { label: 'Draft', pill: '' },
+  held: { label: 'Reserving', pill: 'es-pill--warning' },
+  expired: { label: 'Released', pill: '' },
   submitted: { label: 'New', pill: 'es-pill--warning' },
   waitlisted: { label: 'Waitlist', pill: '' },
   offered: { label: 'Offer sent', pill: 'es-pill--warning' },
@@ -18,6 +21,9 @@ export const VENDOR_STATUS = Object.freeze({
 
 /** The vendor's own view says the same states in their words. */
 export const VENDOR_SELF_STATUS = Object.freeze({
+  draft: { label: 'Not sent yet', pill: 'es-pill--warning' },
+  held: { label: 'Booth held · finish booking', pill: 'es-pill--warning' },
+  expired: { label: 'Released', pill: '' },
   submitted: { label: 'Application sent', pill: '' },
   waitlisted: { label: 'On the waitlist', pill: '' },
   offered: { label: 'Offer to accept', pill: 'es-pill--warning' },

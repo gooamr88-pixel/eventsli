@@ -1,6 +1,6 @@
 import { describe, test, expect } from 'vitest';
 import {
-  ZONES, ZONE_KINDS, MIN_ZONE_SIZE, MAX_ZONES, minZoneSize, zoneMeta, zoneBox, zoneColor, zoneLabel,
+  ZONES, ZONE_KINDS, ZONE_GROUPS, MIN_ZONE_SIZE, MAX_ZONES, minZoneSize, zoneMeta, zoneBox, zoneColor, zoneLabel,
 } from '../src/app/components/seating/venueZones';
 import { ZONE_ICONS, iconPaths } from '../src/app/components/seating/zoneIcons';
 import { readZones, writeZones, makeZone, newZoneId } from '../src/app/components/seating/layoutZones';
@@ -24,6 +24,19 @@ describe('the catalogue is complete', () => {
       const { icon } = ZONES[kind];
       expect(icon, `${kind} has no icon`).toBeTruthy();
       expect(iconPaths(icon).length, `${kind}'s icon "${icon}" has no paths`).toBeGreaterThan(0);
+    }
+  });
+
+  test('every kind sits in exactly one group of the Add dialog (2026-11-21)', () => {
+    const seen = ZONE_GROUPS.flatMap((g) => g.kinds);
+    expect(new Set(seen).size, 'a kind is in two groups').toBe(seen.length);
+    expect([...seen].sort()).toEqual([...ZONE_KINDS].sort());
+  });
+
+  test('every glyph is a list of valid-looking path strings', () => {
+    for (const [name, paths] of Object.entries(ZONE_ICONS)) {
+      expect(paths.length, name).toBeGreaterThan(0);
+      for (const d of paths) expect(d, name).toMatch(/^M[-\d.\s]/);
     }
   });
 

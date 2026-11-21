@@ -1,7 +1,9 @@
-import { describe, test, expect } from 'vitest';
+import { describe, test, expect, beforeEach, vi } from 'vitest';
 import { render, fireEvent, act } from '@testing-library/react';
 import { useEffect, useState } from 'react';
-import { usePanZoom } from '../src/app/components/seating/usePanZoom';
+import { usePanZoom, resetGestureHints } from '../src/app/components/seating/usePanZoom';
+
+beforeEach(() => resetGestureHints());
 
 /**
  * "No moving when creating an event or browsing seats, it's annoying" (owner,
@@ -43,6 +45,24 @@ describe('the map stays still unless asked', () => {
     expect(api.view).toEqual(before);
     expect(e.defaultPrevented).toBe(false);   // the page scrolls
     expect(api.hint).toBe('wheel');
+  });
+
+  test('the hint stops showing after a few times in one visit (2026-11-21)', async () => {
+    vi.useFakeTimers();
+    try {
+      const svg = mount();
+      const wheel = () => act(() => { svg.dispatchEvent(new WheelEvent('wheel', { deltaY: 100, clientX: 250, clientY: 175, bubbles: true, cancelable: true })); });
+      for (let i = 0; i < 3; i += 1) {
+        wheel();
+        expect(api.hint).toBe('wheel');
+        act(() => { vi.advanceTimersByTime(2000); });
+        expect(api.hint).toBe(null);
+      }
+      wheel();
+      expect(api.hint).toBe(null);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   test('Ctrl + wheel (and a trackpad pinch) zooms, and the page does not', () => {

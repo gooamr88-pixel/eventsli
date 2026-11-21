@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useModal } from '../../../../hooks/useModal';
-import { SHAPES, tableBody, unitsToPercent, worldOf } from '../../../../components/seating/seatingGeometry';
-import { ZONES, ZONE_KINDS, zoneMeta } from '../../../../components/seating/venueZones';
+import { SHAPES, tableBody, tableReach, unitsToPercent, worldOf } from '../../../../components/seating/seatingGeometry';
+import { ZONES, ZONE_GROUPS, zoneMeta } from '../../../../components/seating/venueZones';
 import { SHAPE_NAMES, SHAPE_HINTS } from './shapeNames';
 import ShapeArt from './style/ShapeArt';
 import { MAX_SEATS_PER_TABLE } from './draftRules';
@@ -37,7 +37,7 @@ const GRID_MAX = 12;
 // `initial` presets the kind (and seat count) — the side panel's "Row",
 // "Table", "Stage"… open the dialog already on that choice.
 export default function AddElementDialog({
-  origin, roomForTables, onAdd, onClose, initial = null, world = worldOf(null),
+  origin, roomForTables, onAdd, onClose, initial = null, world = worldOf(null), placeAt = null,
 }) {
   const [kind, setKind] = useState(() => (initial ? { family: initial.family, key: initial.key } : { family: 'table', key: 'round' }));
   const [seatCount, setSeatCount] = useState(initial?.seatCount ?? 10);
@@ -49,6 +49,11 @@ export default function AddElementDialog({
   const [rows, setRows] = useState(3);
   const [gap, setGap] = useState(28);
   const [startNumber, setStartNumber] = useState('');
+  const [query, setQuery] = useState('');
+  // Opened to pick a venue element (Add to layout → More elements): those
+  // come first, and the search has the focus.
+  const elementsFirst = initial?.family === 'zone';
+  const searchRef = useRef(null);
 
   const dialogRef = useRef(null);
   const isTable = kind.family === 'table';
@@ -65,7 +70,10 @@ export default function AddElementDialog({
    * from in a layout effect, and anything moving focus before that capture
    * gets recorded as the opener by mistake.
    */
-  useEffect(() => { dialogRef.current?.focus(); }, []);
+  useEffect(() => {
+    if (initial?.pick) searchRef.current?.focus();
+    else dialogRef.current?.focus();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   /**
    * Escape, the Tab trap, the scroll lock and focus restoration. See
@@ -137,9 +145,57 @@ export default function AddElementDialog({
       }
     }
 
+    // The whole group lands centred on the nearest free spot in view
+    // (2026-11-21, `placeAt` = mapApi.freeSpot) instead of hanging from the
+    // view's top-left corner over whatever was already there.
+    if (placeAt && specs.length) {
+      const reach = isTable ? tableReach({ shape: kind.key, seatCount, style: null }) : Math.max(size.width, size.height) / 2;
+      const xs = specs.map((s) => (s.position.x / 100) * world.width);
+      const ys = specs.map((s) => (s.position.y / 100) * world.height);
+      const box = { x0: Math.min(...xs) - reach, x1: Math.max(...xs) + reach, y0: Math.min(...ys) - reach, y1: Math.max(...ys) + reach };
+      const target = placeAt({ w: box.x1 - box.x0, h: box.y1 - box.y0 });
+      const dx = target.x - (((box.x0 + box.x1) / 2) / world.width) * 100;
+      const dy = target.y - (((box.y0 + box.y1) / 2) / world.height) * 100;
+      for (const s of specs) {
+        s.position = { x: clamp(s.position.x + dx, 0, 100), y: clamp(s.position.y + dy, 0, 100) };
+      }
+    }
+
     onAdd(isTable ? { tables: specs } : { zones: specs });
     onClose();
   }
+
+  // The search narrows both lists; the venue elements come in their groups.
+  const q = query.trim().toLowerCase();
+  const matches = (text) => !q || String(text).toLowerCase().includes(q);
+  const tableShapes = SHAPES.filter((s) => matches(SHAPE_NAMES[s] || s) || (q && matches(SHAPE_HINTS[s] || '')));
+  const zoneGroups = ZONE_GROUPS
+    .map((g) => ({ ...g, kinds: g.kinds.filter((k) => ZONES[k] && (matches(ZONES[k].label) || matches(g.label))) }))
+    .filter((g) => g.kinds.length > 0);
+  const zonesBlock = zoneGroups.length > 0 && (
+    <fieldset className="fx-stack fx-stack--sm">
+      <legend className="es-addgroup__h">Venue elements</legend>
+      <p className="text-xs text-subtle">
+        Drawn on the map, never sold or ticketed. Sizes and colours are in the panel once it is added.
+      </p>
+      {zoneGroups.map((g) => (
+        <div key={g.key} className="es-addgroup">
+          <p className="es-addgroup__sub">{g.label}</p>
+          <div className="es-addgrid">
+            {g.kinds.map((k) => (
+              <Tile
+                key={k}
+                active={!isTable && kind.key === k}
+                onClick={() => setKind({ family: 'zone', key: k })}
+                art={<ZonePreview kind={k} size={26} />}
+                label={ZONES[k].label}
+              />
+            ))}
+          </div>
+        </div>
+      ))}
+    </fieldset>
+  );
 
   return (
     /**
@@ -172,39 +228,45 @@ export default function AddElementDialog({
       >
         <h2 id="es-add-title" className="text-lg">Add to the map</h2>
 
-        <fieldset className="fx-stack fx-stack--sm">
-          <legend className="text-xs uppercase tracking-wide text-subtle">Tables</legend>
-          <div className="fx-grid" style={{ '--fx-col': '104px', '--fx-gap': '8px' }}>
-            {SHAPES.map((s) => (
-              <Tile
-                key={s}
-                active={isTable && kind.key === s}
-                onClick={() => setKind({ family: 'table', key: s })}
-                title={SHAPE_HINTS[s]}
-                art={<ShapeArt shape={s} />}
-                label={SHAPE_NAMES[s] || s}
-              />
-            ))}
-          </div>
-        </fieldset>
+        {/* Nearly fifty elements (2026-11-21): a search first, then the
+            groups. Typing "aid" finds First aid without reading the list. */}
+        <div className="es-addsearch">
+          <label htmlFor="es-add-search" className="sr-only">Find an element</label>
+          <input
+            id="es-add-search" ref={searchRef} type="search" className="es-input es-input--dense"
+            placeholder="Find an element — bar, podium, first aid, round table…"
+            value={query} onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
+          />
+        </div>
 
-        <fieldset className="fx-stack fx-stack--sm">
-          <legend className="text-xs uppercase tracking-wide text-subtle">Venue zones</legend>
-          <p className="text-xs text-subtle">
-            Furniture, not stock — zones are drawn on the map and never sold or ticketed.
+        {elementsFirst && zonesBlock}
+        {tableShapes.length > 0 && (
+          <fieldset className="fx-stack fx-stack--sm">
+            <legend className="es-addgroup__h">Tables</legend>
+            <div className="es-addgrid">
+              {tableShapes.map((s) => (
+                <Tile
+                  key={s}
+                  active={isTable && kind.key === s}
+                  onClick={() => setKind({ family: 'table', key: s })}
+                  title={SHAPE_HINTS[s]}
+                  art={<ShapeArt shape={s} />}
+                  label={SHAPE_NAMES[s] || s}
+                />
+              ))}
+            </div>
+          </fieldset>
+        )}
+        {!elementsFirst && zonesBlock}
+        {tableShapes.length === 0 && zoneGroups.length === 0 && (
+          <p className="text-sm text-muted">
+            Nothing called “{query.trim()}”.{' '}
+            <button type="button" className="es-linkbtn" onClick={() => { setKind({ family: 'zone', key: 'custom' }); setLabel(query.trim().slice(0, 40)); setQuery(''); }}>
+              Add a custom area named “{query.trim().slice(0, 40)}”
+            </button>
           </p>
-          <div className="fx-grid" style={{ '--fx-col': '104px', '--fx-gap': '8px' }}>
-            {ZONE_KINDS.map((k) => (
-              <Tile
-                key={k}
-                active={!isTable && kind.key === k}
-                onClick={() => setKind({ family: 'zone', key: k })}
-                art={<ZonePreview kind={k} size={26} />}
-                label={ZONES[k].label}
-              />
-            ))}
-          </div>
-        </fieldset>
+        )}
 
         <div className="fx-stack fx-stack--sm border-t border-border-base pt-4">
           {isTable ? (

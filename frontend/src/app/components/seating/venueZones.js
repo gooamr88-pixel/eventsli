@@ -82,7 +82,53 @@ export const ZONES = Object.freeze({
   door_gap:     { label: 'Door',         w: 60,  h: 10,  icon: 'door',       color: '#0e3a4a', min: { w: 12, h: 2 } },
   text:         { label: 'Text label',   w: 150, h: 26,  icon: 'text',       color: '#10303d', min: { w: 20, h: 10 } },
   decor:        { label: 'Decorative feature', w: 96, h: 96, icon: 'decor',  color: '#946e58' },
+  // The professional set (2026-11-21, the owner: "add more amazing
+  // professional elements"): what conference, concert, festival, fashion and
+  // expo floor plans show beyond a gala's — production positions, guest
+  // services, safety and the building's own fixtures. Still scenery, all of
+  // it: none is ever sold or ticketed.
+  podium:       { label: 'Podium',          w: 40,  h: 34,  icon: 'podium',    color: '#3f5175' },
+  runway:       { label: 'Runway',          w: 54,  h: 220, icon: 'runway',    color: '#5a5580' },
+  backstage:    { label: 'Backstage',       w: 150, h: 70,  icon: 'curtain',   color: '#4a4560' },
+  green_room:   { label: 'Green room',      w: 80,  h: 60,  icon: 'star',      color: '#4f6b54' },
+  sound_desk:   { label: 'Sound & lights desk', w: 70, h: 44, icon: 'mixer',   color: '#35597f' },
+  speaker:      { label: 'Speaker stack',   w: 26,  h: 26,  icon: 'speaker',   color: '#3a3f4a' },
+  camera_platform: { label: 'Camera platform', w: 44, h: 40, icon: 'video',    color: '#45658f' },
+  box_office:   { label: 'Box office',      w: 72,  h: 36,  icon: 'ticket',    color: '#8a5568' },
+  merch:        { label: 'Merch stand',     w: 72,  h: 40,  icon: 'shirt',     color: '#6a5f85' },
+  vip_area:     { label: 'VIP area',        w: 130, h: 90,  icon: 'crown',     color: '#8a6a2f' },
+  exhibit:      { label: 'Exhibitor stand', w: 60,  h: 60,  icon: 'stand',     color: '#4d6b5f' },
+  food_truck:   { label: 'Food truck',      w: 90,  h: 40,  icon: 'truck',     color: '#86603a' },
+  coffee:       { label: 'Coffee & tea',    w: 64,  h: 34,  icon: 'cup',       color: '#7a5a48' },
+  water:        { label: 'Water station',   w: 40,  h: 32,  icon: 'drop',      color: '#2f6f8f' },
+  kitchen:      { label: 'Kitchen',         w: 120, h: 70,  icon: 'chef',      color: '#64564a' },
+  info_desk:    { label: 'Information',     w: 56,  h: 36,  icon: 'info',      color: '#2f5fa8' },
+  first_aid:    { label: 'First aid',       w: 54,  h: 40,  icon: 'aid',       color: '#a23b3b' },
+  security:     { label: 'Security',        w: 54,  h: 36,  icon: 'shield',    color: '#3a4a5f' },
+  emergency_exit: { label: 'Emergency exit', w: 60, h: 28,  icon: 'exit',      color: '#2e7d4f' },
+  lift:         { label: 'Lift',            w: 40,  h: 40,  icon: 'lift',      color: '#5f6670' },
+  stairs:       { label: 'Stairs',          w: 60,  h: 44,  icon: 'stairs',    color: '#5f6670' },
+  pillar:       { label: 'Pillar',          w: 22,  h: 22,  icon: 'pillar',    color: '#55595f', min: { w: 10, h: 10 } },
+  plants:       { label: 'Plants',          w: 40,  h: 40,  icon: 'plant',     color: '#3f7a4a' },
+  kids_area:    { label: 'Kids’ area',      w: 100, h: 80,  icon: 'balloon',   color: '#8a5f9a' },
+  charging:     { label: 'Charging point',  w: 40,  h: 32,  icon: 'bolt',      color: '#8a7a2f' },
+  smoking:      { label: 'Smoking area',    w: 90,  h: 60,  icon: 'smoke',     color: '#6b6b6b' },
 });
+
+/**
+ * The Add dialog's groups, in the order a plan is thought through: what
+ * happens, who serves whom, what keeps it running, what keeps people safe,
+ * and the building itself. Every kind is in exactly one group
+ * (`venueZones.test.js` holds that).
+ */
+export const ZONE_GROUPS = Object.freeze([
+  { key: 'show', label: 'Stage & show', kinds: ['stage', 'podium', 'runway', 'screen', 'dance_floor', 'dj_booth', 'backstage', 'green_room'] },
+  { key: 'production', label: 'Production', kinds: ['sound_desk', 'speaker', 'camera_platform', 'barrier'] },
+  { key: 'food', label: 'Food & drink', kinds: ['bar', 'buffet', 'food_truck', 'coffee', 'water', 'cake_table', 'kitchen'] },
+  { key: 'guests', label: 'Guests & services', kinds: ['entrance', 'box_office', 'welcome_desk', 'info_desk', 'coat_check', 'restroom', 'merch', 'photo_booth', 'gift_table', 'lounge', 'vip_area', 'exhibit', 'kids_area', 'charging'] },
+  { key: 'safety', label: 'Safety & access', kinds: ['first_aid', 'security', 'emergency_exit', 'accessible', 'lift', 'stairs', 'smoking'] },
+  { key: 'space', label: 'Spaces & structure', kinds: ['standing', 'aisle', 'custom', 'pillar', 'plants', 'decor', 'wall', 'door_gap', 'text'] },
+]);
 
 /** The kinds that are the room itself rather than furniture in it: drawn
  *  without the furniture's wash, icon or capitals (ZoneShape). */

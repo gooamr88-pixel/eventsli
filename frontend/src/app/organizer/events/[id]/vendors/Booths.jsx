@@ -14,6 +14,7 @@ import SubmitButton from '../../../../components/forms/SubmitButton';
 import NavIcon from '../../../../components/shell/NavIcon';
 import { Loading, ErrorNotice } from '../../../../components/Feedback';
 import { BOOTH_COLORS } from '../../../../components/vendors/floorPlan/floorPlanModel';
+import ImageField from '../../../../components/vendors/booking/ImageField';
 
 /**
  * Booth types (2026-11-20): the spaces vendors are offered. An offer copies
@@ -69,6 +70,10 @@ export default function Booths({ eventId, currency, state, onChange }) {
         <ul className="es-sp-packages">
           {list.map((b) => (
             <li key={b.id} className={`es-sp-package ${b.isActive ? '' : 'is-off'}`}>
+              {b.imageUrl && (
+                // eslint-disable-next-line @next/next/no-img-element -- the booth's photo, from storage
+                <img src={b.imageUrl} alt="" className="es-vb-booththumb" />
+              )}
               <div className="es-sp-package__head">
                 <span className="es-fp__swatch" style={{ background: b.color || BOOTH_COLORS[list.indexOf(b) % BOOTH_COLORS.length] }} aria-hidden="true" />
                 {b.sizeLabel && <span className="es-pill">{b.sizeLabel}</span>}
@@ -85,6 +90,7 @@ export default function Booths({ eventId, currency, state, onChange }) {
               <p className="es-sp-package__stock text-sm">
                 {b.quantity === null ? `${b.taken} booked · no limit` : `${b.taken} of ${b.quantity} booked`}
                 {b.offered > 0 && ` · ${b.offered} offered`}
+                {b.held > 0 && ` · ${b.held} being reserved`}
               </p>
               <div className="fx-row gap-1 mt-auto">
                 <button type="button" className="es-btn es-btn--ghost es-btn--sm" onClick={() => setEditing(b)}>Edit</button>
@@ -111,6 +117,7 @@ function BoothForm({ eventId, currency, booth, onDone, onCancel }) {
     isPublic: booth ? booth.isPublic : true,
     color: booth?.color || '',
   }));
+  const [image, setImage] = useState(booth?.imageUrl ? { url: booth.imageUrl, path: booth.imagePath } : null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -130,6 +137,7 @@ function BoothForm({ eventId, currency, booth, onDone, onCancel }) {
       staffPasses: Number(form.staffPasses) || 0, description: form.description.trim() || null,
       includes: form.includes.split('\n').map((x) => x.trim()).filter(Boolean), isPublic: form.isPublic,
       color: form.color || null,
+      imagePath: image?.path || null,
     };
     try {
       if (booth) await patch(`/events/${eventId}/vendors/booths/${booth.id}`, body, { noRedirect: true });
@@ -154,6 +162,8 @@ function BoothForm({ eventId, currency, booth, onDone, onCancel }) {
           <Field label="Staff passes" name="bt-passes" type="number" min={0} max={50} required value={form.staffPasses} onChange={set('staffPasses')}
             hint="People the vendor can name for the door list." />
         </div>
+        <ImageField base={`/events/${eventId}/vendors`} label="Booth photo" value={image} onChange={setImage} wide
+          hint="Shown on the booth's card and page. A photo of the space, or one like it." />
         <TextareaField label="Description" name="bt-desc" optional rows={2} maxLength={600} value={form.description} onChange={set('description')} />
         <TextareaField label="What is included" name="bt-includes" optional rows={4} value={form.includes} onChange={set('includes')}
           hint="One per line, e.g. Table and 2 chairs · Power (1 socket) · Water access." />

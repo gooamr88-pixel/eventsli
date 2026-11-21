@@ -28,11 +28,14 @@ export default function MyVendorBookings() {
       ) : (
         <ul className="es-sp-mine">
           {data.map((a) => {
-            const action = a.status === 'offered' && !a.expired ? 'Review and accept'
+            // A draft or a booth being reserved is finished on the event's booking page (2026-11-21).
+            const unfinished = ['draft', 'held'].includes(a.stage) && a.event?.slug;
+            const action = unfinished ? (a.stage === 'held' ? 'Finish booking' : 'Finish application')
+              : a.status === 'offered' && !a.expired ? 'Review and accept'
               : a.status === 'confirmed' && a.amountCents > 0 ? 'Pay booth fee' : 'Open';
             return (
               <li key={a.id}>
-                <Link href={`/account/vendors/${a.id}`} className="es-sp-mine__item">
+                <Link href={unfinished ? `/e/${a.event.slug}/vendors/book/${a.id}` : `/account/vendors/${a.id}`} className="es-sp-mine__item">
                   {a.event?.coverUrl
                     // eslint-disable-next-line @next/next/no-img-element -- the event's poster
                     ? <img src={a.event.coverUrl} alt="" className="es-sp-mine__cover" />

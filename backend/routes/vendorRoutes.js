@@ -43,6 +43,12 @@ organizer.put(
   body('defaultTerms').optional({ values: 'null' }).isString().isLength({ max: 20000 }),
   body('paymentInstructions').optional({ values: 'null' }).isString().isLength({ max: 2000 }),
   body('vendorInfo').optional({ values: 'null' }).isString().isLength({ max: 4000 }),
+  // The booking flow (2026-11-21).
+  body('bookingMode').optional().isIn(['apply', 'instant']).withMessage('Choose how vendors book.'),
+  body('holdMinutes').optional().isInt({ min: 10, max: 60 }).withMessage('Hold a booth for 10 to 60 minutes.'),
+  body('documents').optional().isArray({ max: 8 }).withMessage('Ask for at most 8 documents.'),
+  body('highlights').optional().isArray({ max: 3 }).withMessage('At most 3 highlights.'),
+  body('photos').optional().isArray({ max: 3 }).withMessage('Up to 3 photos.'),
   validate,
   c.organizer.saveProgram,
 );
@@ -62,11 +68,26 @@ const boothRules = (partial) => [
   body('isPublic').optional().isBoolean({ strict: true }),
   body('isActive').optional().isBoolean({ strict: true }),
   body('sortOrder').optional().isInt({ min: 0, max: 9999 }),
+  body('imagePath').optional({ values: 'null' }).isString().isLength({ max: 300 }),
 ];
 organizer.get('/booths', ...own, c.organizer.listBooths);
 organizer.post('/booths', ...own, ...boothRules(false), validate, c.organizer.createBooth);
 organizer.patch('/booths/:boothId', uuid('boothId'), ...own, ...boothRules(true), validate, c.organizer.updateBooth);
 organizer.delete('/booths/:boothId', uuid('boothId'), ...own, c.organizer.removeBooth);
+
+// Add-ons (2026-11-21): booth extras and marketing, priced on top of the booth.
+const addonRules = (partial) => [
+  body('name')[partial ? 'optional' : 'exists']().isString().trim().isLength({ min: 1, max: 80 }).withMessage('Name the add-on, e.g. Extra chair.'),
+  body('kind').optional().isIn(['booth', 'marketing']),
+  body('description').optional({ values: 'null' }).isString().isLength({ max: 300 }),
+  body('priceCents')[partial ? 'optional' : 'exists']().isInt({ min: 0, max: 10_000_000_000 }).withMessage('The price must be a whole number of cents.'),
+  body('isActive').optional().isBoolean({ strict: true }),
+  body('sortOrder').optional().isInt({ min: 0, max: 9999 }),
+];
+organizer.get('/addons', ...own, c.organizer.listAddons);
+organizer.post('/addons', ...own, ...addonRules(false), validate, c.organizer.createAddon);
+organizer.patch('/addons/:addonId', uuid('addonId'), ...own, ...addonRules(true), validate, c.organizer.updateAddon);
+organizer.delete('/addons/:addonId', uuid('addonId'), ...own, c.organizer.removeAddon);
 
 organizer.get('/door-list', ...own, c.organizer.doorList);
 // The floor plan (2026-11-20): one JSON document, checked element by element
@@ -142,6 +163,17 @@ organizer.post(
   validate,
   c.organizer.recordPayment,
 );
+// Documents a vendor uploaded (2026-11-21): a five-minute link, and a review.
+const docId = () => param('docId').matches(/^[a-z0-9_-]{1,24}$/i).withMessage('Not found.');
+organizer.get('/applications/:appId/documents/:docId', uuid('appId'), docId(), ...own, c.organizer.documentUrl);
+organizer.post(
+  '/applications/:appId/documents/:docId/review',
+  uuid('appId'), docId(), ...own,
+  body('status').isIn(['approved', 'rejected', 'pending']).withMessage('Approve or reject the document.'),
+  body('note').optional({ values: 'null' }).isString().isLength({ max: 300 }),
+  validate,
+  c.organizer.reviewDocument,
+);
 organizer.post(
   '/applications/:appId/close',
   uuid('appId'), ...own,
@@ -155,6 +187,60 @@ organizer.post(
 const vendor = express.Router();
 vendor.use(requireAuth);
 vendor.get('/', c.vendor.list);
+
+// The booking flow (2026-11-21): start from a booth, fill the details, then
+// send (apply) or sign and pay (instant). services/vendorBookingService.js.
+const bookingLimiter = makeLimiter({ windowMs: 15 * 60 * 1000, max: 30, name: 'vendor-book', message: 'Too many attempts. Please wait a few minutes.' });
+vendor.post(
+  '/bookings',
+  bookingLimiter,
+  body('slug').isString().isLength({ min: 1, max: 200 }),
+  body('boothTypeId').optional({ values: 'falsy' }).isUUID(),
+  body('boothKey').optional({ values: 'falsy' }).isString().isLength({ max: 40 }),
+  body('addonIds').optional().isArray({ max: 30 }),
+  validate,
+  c.booking.start,
+);
+vendor.get('/bookings/:appId', uuid('appId'), validate, c.booking.get);
+vendor.patch(
+  '/bookings/:appId',
+  uuid('appId'),
+  body('businessName').optional().isString().isLength({ max: 120 }),
+  body('contactName').optional({ values: 'null' }).isString().isLength({ max: 120 }),
+  body('contactPhone').optional({ values: 'null' }).isString().isLength({ max: 30 }),
+  http('website'),
+  body('category').optional({ values: 'null' }).isString().isLength({ max: 60 }),
+  body('description').optional({ values: 'null' }).isString().isLength({ max: 1000 }),
+  body('address').optional({ values: 'null' }).isString().isLength({ max: 200 }),
+  body('city').optional({ values: 'null' }).isString().isLength({ max: 80 }),
+  body('postalCode').optional({ values: 'null' }).isString().isLength({ max: 20 }),
+  body('socials').optional().isObject(),
+  body('answers').optional().isObject(),
+  body('logoPath').optional({ values: 'null' }).isString().isLength({ max: 300 }),
+  validate,
+  c.booking.save,
+);
+const vDocId = () => param('docId').matches(/^[a-z0-9_-]{1,24}$/i).withMessage('Not found.');
+vendor.post('/bookings/:appId/documents/:docId/upload', uuid('appId'), vDocId(),
+  body('contentType').isIn(['image/jpeg', 'image/png', 'image/webp', 'application/pdf']).withMessage('Upload a PDF, or a JPEG, PNG or WebP image.'),
+  validate, c.booking.signDocument);
+vendor.post('/bookings/:appId/documents/:docId', uuid('appId'), vDocId(),
+  body('path').isString().isLength({ min: 1, max: 300 }), body('fileName').optional().isString().isLength({ max: 255 }),
+  validate, c.booking.confirmDocument);
+vendor.delete('/bookings/:appId/documents/:docId', uuid('appId'), vDocId(), validate, c.booking.removeDocument);
+vendor.get('/bookings/:appId/documents/:docId', uuid('appId'), vDocId(), validate, c.booking.documentUrl);
+vendor.post('/bookings/:appId/submit', bookingLimiter, uuid('appId'), validate, c.booking.submit);
+vendor.post('/bookings/:appId/release', uuid('appId'), validate, c.booking.release);
+vendor.post(
+  '/bookings/:appId/checkout',
+  makeLimiter({ windowMs: 15 * 60 * 1000, max: 20, name: 'vendor-checkout', message: 'Too many attempts. Please wait a few minutes.' }),
+  uuid('appId'),
+  body('signerName').optional().isString().isLength({ max: 120 }),
+  body('accept').optional().isBoolean({ strict: true }),
+  body('method').optional().isIn(['card', 'offline']),
+  validate,
+  c.booking.checkout,
+);
 vendor.get('/:appId', uuid('appId'), validate, c.vendor.get);
 vendor.post(
   '/:appId/accept',

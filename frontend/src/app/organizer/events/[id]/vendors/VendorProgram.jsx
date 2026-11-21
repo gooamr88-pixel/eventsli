@@ -10,6 +10,7 @@ import SubmitButton from '../../../../components/forms/SubmitButton';
 import NavIcon from '../../../../components/shell/NavIcon';
 import { Loading, ErrorNotice } from '../../../../components/Feedback';
 import { STARTER_VENDOR_TERMS } from '../../../../components/vendors/vendorUi';
+import VendorBookingSettings from './VendorBookingSettings';
 
 /**
  * The public vendor page and its application form (2026-11-20): on/off, a
@@ -39,6 +40,14 @@ function ProgramForm({ eventId, program, slug, onSaved }) {
     vendorInfo: program.vendorInfo || '',
   }));
   const [questions, setQuestions] = useState(() => program.questions.map((q) => ({ ...q })));
+  // How vendors book, what they upload, and the page's numbers and photos (2026-11-21).
+  const [booking, setBooking] = useState(() => ({
+    bookingMode: program.bookingMode || 'apply',
+    holdMinutes: String(program.holdMinutes || 20),
+    documents: (program.documents || []).map((d) => ({ ...d, hint: d.hint || '' })),
+    highlights: (program.highlights || []).map((h) => ({ ...h })),
+    photos: program.photos || [],
+  }));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -61,6 +70,11 @@ function ProgramForm({ eventId, program, slug, onSaved }) {
         defaultTerms: form.defaultTerms.trim() || null,
         paymentInstructions: form.paymentInstructions.trim() || null,
         vendorInfo: form.vendorInfo.trim() || null,
+        bookingMode: booking.bookingMode,
+        holdMinutes: Number(booking.holdMinutes) || 20,
+        documents: booking.documents.filter((d) => d.label.trim()).map((d) => ({ ...d, label: d.label.trim(), hint: d.hint.trim() || null })),
+        highlights: booking.highlights.filter((h) => h.value.trim() && h.label.trim()),
+        photos: booking.photos.map((p) => p.path),
       }, { noRedirect: true });
       toast.success(form.isOpen ? 'Saved. Your vendor page is live.' : 'Saved. Your vendor page is off.');
       onSaved();
@@ -83,7 +97,8 @@ function ProgramForm({ eventId, program, slug, onSaved }) {
             </span>
           </label>
           <div className="fx-grid fx-grid--2">
-            <Field label="Headline" name="vp-headline" optional maxLength={120} value={form.headline} onChange={set('headline')} placeholder="Sell at our market" />
+            <Field label="Headline" name="vp-headline" optional maxLength={120} value={form.headline} onChange={set('headline')} placeholder="Innovate. *Present.* Connect."
+              hint="Put *stars* around a word to highlight it in yellow." />
             <Field label="Applications close" name="vp-close" type="date" optional value={form.closeDate} onChange={set('closeDate')}
               hint="The page stays up as a vendor list; the form closes at the end of this day." />
           </div>
@@ -97,6 +112,8 @@ function ProgramForm({ eventId, program, slug, onSaved }) {
           </div>
         </div>
       </Panel>
+
+      <VendorBookingSettings eventId={eventId} value={booking} onChange={setBooking} />
 
       <Panel icon="list" title="Your questions" description="Asked on the application form, after the business details. Up to 10.">
         <div className="fx-stack fx-stack--sm">

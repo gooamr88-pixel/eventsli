@@ -19,6 +19,7 @@ import Booths from './Booths';
 import VendorProgram from './VendorProgram';
 import DoorList from './DoorList';
 import FloorPlanEditor from './FloorPlanEditor';
+import Addons from './Addons';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -29,6 +30,7 @@ import FloorPlanEditor from './FloorPlanEditor';
  *   Floor plan    the hall drawn to scale-ish: walls, doors, the stage, and
  *                 the booths themselves, each with a code and a type
  *   Booths        the spaces sold: price, how many, staff passes, inclusions
+ *   Add-ons       extras on top of a booth: booth and marketing (2026-11-21)
  *   Door list     booked vendors and the staff they named, printable
  *   Vendor page   the public page and form: deadline, categories, questions,
  *                 the terms vendors sign, how to pay offline, info for the day
@@ -37,7 +39,7 @@ import FloorPlanEditor from './FloorPlanEditor';
  * an offer, record the booth fee or close it.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-const VIEWS = [['apps', 'Applications'], ['plan', 'Floor plan'], ['booths', 'Booths'], ['door', 'Door list'], ['page', 'Vendor page']];
+const VIEWS = [['apps', 'Applications'], ['plan', 'Floor plan'], ['booths', 'Booths'], ['addons', 'Add-ons'], ['door', 'Door list'], ['page', 'Vendor page']];
 
 export default function Vendors({ eventId }) {
   const event = useEventContext()?.event;
@@ -79,6 +81,7 @@ export default function Vendors({ eventId }) {
       {view === 'apps' && <Board eventId={eventId} apps={apps} programOpen={!!program.data?.isOpen} onOpenPage={() => setView('page')} />}
       {view === 'plan' && <FloorPlanEditor eventId={eventId} currency={currency} />}
       {view === 'booths' && <Booths eventId={eventId} currency={currency} state={booths} onChange={() => { booths.reload(); apps.reload(); }} />}
+      {view === 'addons' && <Addons eventId={eventId} currency={currency} />}
       {view === 'door' && <DoorList eventId={eventId} eventTitle={event?.title} />}
       {view === 'page' && <VendorProgram eventId={eventId} state={program} slug={event?.slug} timezone={event?.timezone} />}
     </div>

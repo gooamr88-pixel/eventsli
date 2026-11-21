@@ -24,7 +24,12 @@ const { s, toStrictJsonSchema, toGeminiSchema } = require('./schema');
 const { runProviders } = require('./providerLoop');
 const { aiError } = require('./aiHttp');
 
-/** Mirrors `seatingGeometry.SHAPES` and `venueZones.ZONE_KINDS` — a frontend test holds them equal. */
+/**
+ * Mirrors `seatingGeometry.SHAPES` and `venueZones.ZONE_KINDS` — a frontend
+ * test holds them equal (it reads the arrays as JSON, so no comments inside
+ * them). ZONE_KINDS gained the professional set on 2026-11-21: podium,
+ * runway … smoking.
+ */
 const SHAPES = Object.freeze([
   'round', 'oval', 'rect', 'square', 'row',
   'd_shape', 'rounded_end', 'pill', 'hexagon', 'u_shape', 'half_moon', 'high_top',
@@ -34,6 +39,10 @@ const ZONE_KINDS = Object.freeze([
   'cake_table', 'photo_booth', 'welcome_desk', 'buffet', 'lounge',
   'screen', 'standing', 'aisle', 'accessible', 'barrier', 'custom',
   'wall', 'door_gap', 'text', 'decor',
+  'podium', 'runway', 'backstage', 'green_room', 'sound_desk', 'speaker', 'camera_platform',
+  'box_office', 'merch', 'vip_area', 'exhibit', 'food_truck', 'coffee', 'water', 'kitchen',
+  'info_desk', 'first_aid', 'security', 'emergency_exit', 'lift', 'stairs', 'pillar', 'plants',
+  'kids_area', 'charging', 'smoking',
 ]);
 const AREAS = Object.freeze(['front', 'middle', 'back', 'left', 'right', 'anywhere']);
 const POSITIONS = Object.freeze([
