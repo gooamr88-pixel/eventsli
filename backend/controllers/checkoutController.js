@@ -802,10 +802,16 @@ async function claimFree(req, res, next) {
       email: (req.body.email || req.user?.email || '').trim().toLowerCase(),
       phone: (req.body.phone || '').trim(),
     };
-    if (!buyer.email) {
+    /**
+     * A NAME IS ENOUGH FOR FREE TICKETS (owner, 2026-11-22: "Name only"). The
+     * claim answers with the tickets themselves, so the buyer has them on the
+     * screen; an email, when given, is where a copy goes. The order is still
+     * identified — by that name (orders.buyer_identified, 20261207090000).
+     */
+    if (!buyer.email && !buyer.userId && !buyer.name) {
       return sendFail(res, {
         status: 400, error: 'VALIDATION_ERROR',
-        message: 'Enter an email address — your tickets are sent there.',
+        message: 'Enter your first name.',
       });
     }
 

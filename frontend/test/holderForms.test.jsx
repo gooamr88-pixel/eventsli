@@ -60,6 +60,18 @@ describe('HolderForms', () => {
     expect(screen.getAllByLabelText(/First name/)[1]).toHaveValue('');
   });
 
+  test('free order (lead): only the lead guest\'s first name is required', () => {
+    render(
+      <HolderForms holders={{ mode: 'optional', slots }} values={{}} onChange={() => {}}
+        buyer={{}} error={null} lead />,
+    );
+    expect(screen.getByText('Lead guest')).toBeInTheDocument();
+    expect(screen.getAllByLabelText(/First name/)[0]).toBeRequired();
+    expect(screen.getAllByLabelText(/Last name/)[0]).not.toBeRequired();
+    expect(screen.getAllByLabelText(/^Email/)[0]).not.toBeRequired();
+    expect(screen.getAllByLabelText(/First name/)[1]).not.toBeRequired();
+  });
+
   test('the payload: one entry per ticket, in order, blanks left out', () => {
     expect(holderPayload({ slots }, { 'seat:b': { firstName: ' Omar ', email: '' } })).toEqual([
       { key: 'seat:a', firstName: undefined, lastName: undefined, phone: undefined, email: undefined },

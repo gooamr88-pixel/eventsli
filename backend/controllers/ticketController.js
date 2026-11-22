@@ -323,8 +323,10 @@ async function loadForEmail(orderId) {
              profiles!orders_user_id_fkey ( email )`)
     .eq('id', orderId)
     .maybeSingle();
-  const to = order?.guest_email || order?.profiles?.email;
-  if (!order || !to) return null;
+  // `to` may be null: a free order can carry a name alone (owner, 2026-11-22),
+  // and its holders who gave an email still get their own tickets.
+  if (!order) return null;
+  const to = order.guest_email || order.profiles?.email || null;
 
   // `display_name` as well as the email: the ticket says who is putting the
   // event on, which is who they will be dealing with at the door.
@@ -345,6 +347,15 @@ async function sendTicketEmail(orderId, { holders = true } = {}) {
   const loaded = await loadForEmail(orderId);
   if (!loaded) return { sent: false, reason: 'no_recipient' };
   const { order, to, org } = loaded;
+  if (!to) {
+    // No buyer address (a free order booked on a name alone): nothing to send
+    // the buyer, but a holder who gave an email still gets their tickets.
+    if (holders) {
+      await sendHolderEmails(orderId, { loaded }).catch((e) =>
+        logger.error({ err: e.message, orderId }, 'holder ticket emails failed'));
+    }
+    return { sent: false, reason: 'no_recipient' };
+  }
 
   // The confirmation TEXT, beside the email. Keyed by order, so the resend
   // button or a retried webhook never texts twice; best-effort, never throws.
@@ -382,7 +393,7 @@ async function sendHolderEmails(orderId, { loaded = null, only = null } = {}) {
   const ctx = loaded || await loadForEmail(orderId);
   if (!ctx) return { sent: 0 };
   const { order, to, org } = ctx;
-  const buyer = String(to).toLowerCase();
+  const buyer = String(to || '').toLowerCase();
 
   const { data: named, error } = await supabase
     .from('tickets')

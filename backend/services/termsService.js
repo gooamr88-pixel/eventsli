@@ -44,7 +44,9 @@ async function currentVersion(audience) {
  * row — which is the honest record: they were shown the terms twice.
  */
 async function accept({ userId = null, email = null, reservationId = null, termsId, eventId = null, req }) {
-  if (!userId && !email) {
+  // A free order may carry a name alone (2026-11-22): its acceptance is then
+  // tied to the hold it was given on (20261207090000).
+  if (!userId && !email && !reservationId) {
     throw new Error('could not record acceptance: nobody to record it against');
   }
   const { data, error } = await supabase

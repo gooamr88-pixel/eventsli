@@ -1,6 +1,6 @@
 import Image from 'next/image';
 import { safeExternalUrl } from '../../utils/safeUrl';
-import VenueMapFrame from './VenueMapFrame';
+import VenueCard from './VenueCard';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -130,57 +130,10 @@ export function EventPolicies({ items = [] }) {
 }
 
 /**
- * Where the venue is.
- *
- * A STATIC LINK, NOT AN EMBEDDED MAP. An embed loads a third party's scripts
- * and cookies into the page for every visitor, needs an API key that would sit
- * in the client, and is the heaviest thing on an otherwise light page — all to
- * show a pin that most readers will open in their own maps app anyway. This
- * hands them straight to that app, with the venue name as the search so the
- * destination reads as a place rather than as two numbers.
+ * Where the venue is — the "Getting there" card (VenueCard.jsx, 2026-11-22).
+ * A name or an address is enough; the pin only adds the live map.
  */
-export function VenueMap({ venue, address, location }) {
-  /**
-   * A NAME OR AN ADDRESS IS ENOUGH — coordinates are not required.
-   *
-   * This returned `null` unless the organizer had pinned the venue on a map,
-   * which meant an event with "MTELUS, 59 Rue Sainte-Catherine E" and no pin
-   * showed no venue section at all, and the tab holding it disappeared with it.
-   * Most organizers type an address and never open the map picker, so the
-   * second thing every buyer checks was missing from most events.
-   *
-   * The link does not need the pin either: Maps resolves a text query at least
-   * as well as a coordinate, and usually better — a pin dropped by hand lands
-   * in the car park, the name lands on the building.
-   */
-  const text = `${venue || ''} ${address || ''}`.trim();
-  if (!text && !location) return null;
-
-  const query = encodeURIComponent(text || `${location.lat},${location.lng}`);
-  const href = `https://www.google.com/maps/search/?api=1&query=${query}`;
-
-  return (
-    <section className="es-venue" aria-labelledby="event-map">
-      <h2 id="event-map" className="text-lg">Getting there</h2>
-
-      <VenueMapFrame location={location} venue={venue} />
-
-      <div className="es-venue__foot">
-        <p className="es-venue__address fx-break">
-          {venue && <span className="es-venue__name">{venue}</span>}
-          {address && <span className="text-muted">{address}</span>}
-        </p>
-        <a
-          href={href}
-          target="_blank"
-          rel="noreferrer noopener"
-          className="es-btn es-btn--secondary es-btn--sm"
-        >
-          Open in Maps
-          <span className="sr-only"> (opens in a new tab)</span>
-        </a>
-      </div>
-    </section>
-  );
+export function VenueMap({ venue, address, city, country, location }) {
+  if (!venue && !address && !location) return null;
+  return <VenueCard venue={venue} address={address} city={city} country={country} location={location} />;
 }
-

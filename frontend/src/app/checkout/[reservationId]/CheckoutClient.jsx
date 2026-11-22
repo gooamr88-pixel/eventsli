@@ -370,8 +370,8 @@ export default function CheckoutClient({ reservationId }) {
 
   /**
    * FREE: TICKET HOLDERS ONLY (owner, 2026-11-22). No "Your details" card —
-   * one card per ticket, ticket 1 the lead guest whose name and email are
-   * required and sent as the buyer's. A one-ticket order (or an event that
+   * one card per ticket, ticket 1 the lead guest, sent as the buyer. Only the
+   * first name is required ("Name only", same day); the email is optional. A one-ticket order (or an event that
    * asks no names) has no holder slots from the API, so it gets the lead
    * card alone; the API then names that ticket from the buyer, as before.
    */
@@ -617,7 +617,7 @@ export default function CheckoutClient({ reservationId }) {
                   I accept the <Link href="/terms">Terms &amp; conditions</Link>, the{' '}
                   <Link href="/privacy">Privacy policy</Link> and the purchase agreement: tickets are
                   non-refundable (any refund is between me and the organizer), and each ticket is valid for
-                  one entry with the e-ticket emailed to me.
+                  one entry with the e-ticket{free ? '' : ' emailed to me'}.
                 </span>
               </label>
             </div>
@@ -651,7 +651,7 @@ export default function CheckoutClient({ reservationId }) {
             <p className="es-co__secure">
               <NavIcon name="pencil" size={16} />
               {free
-                ? 'You will sign to confirm, and your tickets are emailed straight away.'
+                ? 'You will sign to confirm, and your tickets appear straight away.'
                 : offlineMode
                   ? 'You will sign to confirm. You pay the organizer directly — Eventsli never takes this payment.'
                   : 'You will sign to confirm, then finish on Stripe, our payment processor. Your card details never reach us.'}

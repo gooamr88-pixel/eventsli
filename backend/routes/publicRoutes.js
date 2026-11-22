@@ -580,10 +580,11 @@ router.post(
   optionalAuth,
   param('reservationId').isUUID(),
   // A name on every booking (owner, 2026-11-22): the door list and the
-  // organizer's orders need to know who is coming.
-  body('name').isString().withMessage('Enter your full name.').trim()
-    .isLength({ min: 2, max: 120 }).withMessage('Enter your full name.'),
-  body('email').optional().isEmail().normalizeEmail(),
+  // organizer's orders need to know who is coming. On a free claim the first
+  // name alone is enough, and the email is optional ("Name only").
+  body('name').isString().withMessage('Enter your first name.').trim()
+    .isLength({ min: 1, max: 120 }).withMessage('Enter your first name.'),
+  body('email').optional({ values: 'falsy' }).isEmail().normalizeEmail(),
   body('phone').optional().isString().trim().isLength({ max: 30 }),
   // SMS choices, each its own boolean: transactional and marketing consent
   // are separate answers (services/sms/consent.js).

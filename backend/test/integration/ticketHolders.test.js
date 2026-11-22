@@ -155,6 +155,30 @@ test('one ticket: no form, named after the buyer', async () => {
   assert.equal(t.attendee_name, 'Ana Buyer');
 });
 
+test('free: a first name alone books, no email (owner, 2026-11-22: "Name only")', async () => {
+  const ev = await makeEvent('nameonly', 'optional');
+  const h = await hold(ev, [{ tierId: ev.floor, quantity: 2 }]);
+  const { holders } = await quote(h);
+  const r = await claim(h, {
+    email: '', name: 'Fadi', signature: { method: 'typed', name: 'Fadi' },
+    holders: [{ key: holders.slots[0].key, firstName: 'Fadi' }],
+  });
+  assert.equal(r.status, 201, JSON.stringify(r.body));
+  assert.equal(r.body.data.email, null);
+  assert.equal(r.body.data.tickets.length, 2);
+  const { data: order } = await supabase.from('orders')
+    .select('guest_name, guest_email, channel').eq('id', r.body.data.orderId).single();
+  assert.deepEqual(order, { guest_name: 'Fadi', guest_email: null, channel: 'free' });
+});
+
+test('free: no name and no email is refused', async () => {
+  const ev = await makeEvent('noname', 'optional');
+  const h = await hold(ev, [{ tierId: ev.floor, quantity: 1 }]);
+  const r = await claim(h, { email: '', name: '' });
+  assert.equal(r.status, 400);
+  assert.equal(r.body.error, 'VALIDATION_ERROR');
+});
+
 test('optional asks without requiring; off asks nothing', async () => {
   const opt = await makeEvent('optional', 'optional');
   const h1 = await hold(opt, [{ tierId: opt.floor, quantity: 2 }]);

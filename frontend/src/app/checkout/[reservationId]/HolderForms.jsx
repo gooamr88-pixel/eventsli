@@ -24,8 +24,9 @@ export default function HolderForms({ holders, values, onChange, buyer, phone, e
   const required = holders.mode === 'required';
   /* `lead` — a FREE order (owner, 2026-11-22: "no need to contact info, just
      ticket holder info"). There is no "Your details" card: ticket 1 is the
-     lead guest, whose full name and email are required (the tickets and the
-     confirmation go there), and the page sends them as the buyer's. */
+     lead guest, and the page sends their details as the buyer's. Only the
+     first name is required (owner, same day: "Name only") — the tickets show
+     on screen once booked, and go to the email too when one is given. */
   const set = (key, field) => (e) => onChange({ ...values, [key]: { ...values[key], [field]: e.target.value } });
 
   function fillFromBuyer(key) {
@@ -50,7 +51,7 @@ export default function HolderForms({ holders, values, onChange, buyer, phone, e
       </h2>
       <p className="es-co__sub">
         {lead
-          ? 'No account needed. The tickets are emailed to the lead guest on ticket 1.'
+          ? 'No account needed — just a first name. Your tickets appear as soon as you book.'
           : required ? 'A first name for each ticket, printed on it and shown at the door.' : 'Optional — a name is printed on each ticket.'}
       </p>
       <ol className="es-holders__list">
@@ -74,9 +75,9 @@ export default function HolderForms({ holders, values, onChange, buyer, phone, e
                 <div className="es-holders__grid">
                   <Input id={`${id}-first`} label="First name" icon="user" required maxLength={60} autoComplete="given-name"
                     value={v.firstName} onChange={set(slot.key, 'firstName')} />
-                  <Input id={`${id}-last`} label="Last name" icon="user" required maxLength={60} autoComplete="family-name"
+                  <Input id={`${id}-last`} label="Last name" icon="user" maxLength={60} autoComplete="family-name"
                     value={v.lastName} onChange={set(slot.key, 'lastName')} />
-                  <Input id={`${id}-email`} label="Email" icon="mail" type="email" inputMode="email" required maxLength={254}
+                  <Input id={`${id}-email`} label="Email" icon="mail" type="email" inputMode="email" maxLength={254}
                     autoComplete="email" value={v.email} onChange={set(slot.key, 'email')} />
                   <div className="es-holders__field">
                     <label htmlFor={`${id}-phone`}>Phone</label>
@@ -84,7 +85,7 @@ export default function HolderForms({ holders, values, onChange, buyer, phone, e
                       onChange={(p) => onChange({ ...values, [slot.key]: { ...values[slot.key], phone: p } })} />
                   </div>
                 </div>
-                <p className="es-holders__hint"><NavIcon name="mail" size={15} />Your tickets and confirmation are sent to this email — check it for typos.</p>
+                <p className="es-holders__hint"><NavIcon name="mail" size={15} />Add an email to get a copy of your tickets — otherwise save them after booking.</p>
               </li>
             );
           }

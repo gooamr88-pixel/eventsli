@@ -111,7 +111,12 @@ export default function OrderConfirmation({
             Thank you! Your free {tickets.length === 1 ? 'ticket is' : 'tickets are'} below
             {email ? <> and on the way to <b className="fx-break">{email}</b></> : null}.
           </p>
-        ) : (
+        ) : null}
+        {free && !email && (
+          // Booked on a name alone (2026-11-22): this screen is the only copy.
+          <p className="es-ordx__sub">No email was given, so download or print them now — we cannot send them again.</p>
+        )}
+        {free ? null : (
           <p className="es-ordx__lede">
             Thank you for your payment of <b className="es-nums">{formatMoney(totalCents, currency)}</b>.
             {' '}Your transaction will appear on your statement under{' '}
@@ -205,7 +210,7 @@ export default function OrderConfirmation({
           {event?.slug ? 'Back to the event' : 'Browse more events'}
         </Link>
       </nav>
-      <p className="es-ordx__keep">Keep the email — its link opens your tickets on any device.</p>
+      {(!free || email) && <p className="es-ordx__keep">Keep the email — its link opens your tickets on any device.</p>}
     </div>
   );
 }

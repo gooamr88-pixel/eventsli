@@ -312,6 +312,8 @@ export default async function EventPage({ params, searchParams }) {
                   <VenueMap
                     venue={event.venue}
                     address={event.venueAddress}
+                    city={event.city}
+                    country={event.country}
                     location={event.venueLocation}
                   />
                 ),
