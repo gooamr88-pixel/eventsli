@@ -297,6 +297,8 @@ const eventUnlockLimiter = makeLimiter({
 router.post(
   '/events/:slug/unlock',
   eventUnlockLimiter,
+  // Who is unlocking, so a signed-in guest is not asked again on another device.
+  optionalAuth,
   param('slug').isString().trim().isLength({ min: 1, max: 200 }),
   body('password').isString().isLength({ min: 1, max: 200 })
     .withMessage('Enter the event password.'),
@@ -316,6 +318,7 @@ router.post(
       // script on the page can read it. (A future client with no cookie jar
       // would get its own opt-in, sent back in `x-event-access`.)
       eventAccess.setCookie(res, event, eventAccess.issueToken(event));
+      await eventAccess.rememberUnlock(req, event);
       res.set('Cache-Control', 'private, no-store');
       return sendOk(res, { unlocked: true, expiresInHours: eventAccess.ACCESS_TTL_HOURS });
     } catch (err) { return next(err); }

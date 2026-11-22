@@ -122,6 +122,75 @@ function canView(req, event) {
   return tokenValid(raw, event);
 }
 
+/**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * `canView`, plus what only the database knows about a SIGNED-IN visitor
+ * (owner, 2026-11-22: "all if I have session or permission, or ask again").
+ * The places that gate an event call this one.
+ *
+ * A session alone is not permission — every account would see every private
+ * event. A session WITH permission is let in without the password:
+ *
+ *   · the organizer and admins (`canView`, as before);
+ *   · the event's door team (`event_staff`, not revoked);
+ *   · a ticket holder: a paid order on this account, or — only when the
+ *     account's email is VERIFIED — an order or ticket sent to that email. An
+ *     unverified address could be anyone's, so it proves nothing;
+ *   · an account that unlocked this event before (`event_access_grants`),
+ *     on any device, while the password has not changed since.
+ *
+ * Anyone else is asked for the password. Any read error answers no: a private
+ * event fails closed.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+async function allowed(req, event) {
+  if (canView(req, event)) return true;
+  const userId = req?.user?.id;
+  if (!userId || !event?.id) return false;
+  try {
+    const one = (q) => q.limit(1).then(({ data, error }) => {
+      if (error) throw new Error(error.message);
+      return (data || []).length > 0;
+    });
+    const [grant, staff, ordered, profile] = await Promise.all([
+      supabase.from('event_access_grants').select('password_set_at')
+        .eq('user_id', userId).eq('event_id', event.id).maybeSingle(),
+      one(supabase.from('event_staff').select('id').eq('event_id', event.id).eq('user_id', userId).is('revoked_at', null)),
+      one(supabase.from('orders').select('id').eq('event_id', event.id).eq('user_id', userId).eq('status', 'paid')),
+      supabase.from('profiles').select('email, email_verified_at').eq('id', userId).maybeSingle(),
+    ]);
+    if (grant.error) throw new Error(grant.error.message);
+    if (grant.data && versionOf({ access_password_set_at: grant.data.password_set_at }) === versionOf(event)) return true;
+    if (staff || ordered) return true;
+
+    const email = String(profile.data?.email || '').trim().toLowerCase();
+    if (!email || !profile.data?.email_verified_at) return false;
+    const [byGuestEmail, byTicket] = await Promise.all([
+      one(supabase.from('orders').select('id').eq('event_id', event.id).eq('status', 'paid').eq('guest_email', email)),
+      one(supabase.from('tickets').select('id').eq('event_id', event.id).neq('status', 'void').eq('attendee_email', email)),
+    ]);
+    return byGuestEmail || byTicket;
+  } catch (err) {
+    require('../utils/logger').warn({ err: err.message, eventId: event.id }, 'private event: permission check failed, asking for the password');
+    return false;
+  }
+}
+
+/**
+ * An unlock made while signed in is remembered on the account, so the same
+ * person is not asked again on another device. Never fatal: the cookie has
+ * already been set, and this is a convenience on top of it.
+ */
+async function rememberUnlock(req, event) {
+  const userId = req?.user?.id;
+  if (!userId || !event?.id) return;
+  const { error } = await supabase.from('event_access_grants').upsert(
+    { user_id: userId, event_id: event.id, password_set_at: event.access_password_set_at || null },
+    { onConflict: 'user_id,event_id' },
+  );
+  if (error) require('../utils/logger').warn({ err: error.message, eventId: event.id }, 'private event: unlock not remembered on the account');
+}
+
 /** The columns `canView` needs — add these to any event read that gates on it. */
 const ACCESS_COLUMNS = 'is_private, access_password_set_at, organizer_id, access_password_min, access_password_max';
 
@@ -221,7 +290,7 @@ function gate({ slugFrom = (req) => req.params.slug } = {}) {
       if (error) throw new Error(error.message);
       if (!event || event.status !== 'published' || !event.is_private) return next();
       res.set('Cache-Control', 'private, no-store');
-      if (canView(req, event)) return next();
+      if (await allowed(req, event)) return next();
       const { sendFail } = require('../utils/responseEnvelope');
       return sendFail(res, lockedFailure(event));
     } catch (err) { return next(err); }
@@ -245,6 +314,8 @@ module.exports = {
   issueToken,
   tokenValid,
   canView,
+  allowed,
+  rememberUnlock,
   lockedTeaser,
   lockedFailure,
   verify,

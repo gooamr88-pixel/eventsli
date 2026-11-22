@@ -65,6 +65,10 @@ const MIGRATIONS = [
   ['20261127090000_organizer_public_profile.sql', tab('organizer_messages')],
   // Sponsorships (2026-11-20): every Sponsors screen and the sponsor portal read these.
   ['20261202090000_sponsorships.sql', tab('sponsorship_deals')],
+  // Private events (2026-11-22): every public listing filters on is_private,
+  // and the permission check reads the account grants.
+  ['20261205090000_private_events.sql', col('events', 'is_private')],
+  ['20261206090000_event_access_grants.sql', tab('event_access_grants')],
 ];
 
 const EXTRA = [

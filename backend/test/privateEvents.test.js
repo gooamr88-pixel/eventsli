@@ -21,10 +21,17 @@ function stub(rel, exports) {
 
 // The `events` row the stubbed query answers with, swapped per test.
 let row = null;
-function query() {
+// Every other table's rows, per test — a table listed here "matches" (the
+// stub ignores filters; each test states which permission exists).
+let tables = {};
+const upserts = [];
+function query(table) {
+  const rows = () => tables[table] || [];
   const chain = {
-    select: () => chain, eq: () => chain,
-    maybeSingle: () => Promise.resolve({ data: row, error: null }),
+    select: () => chain, eq: () => chain, is: () => chain, neq: () => chain,
+    maybeSingle: () => Promise.resolve({ data: table === 'events' ? row : (rows()[0] ?? null), error: null }),
+    limit: () => Promise.resolve({ data: rows(), error: null }),
+    upsert: (value) => { upserts.push({ table, value }); return Promise.resolve({ error: null }); },
   };
   return chain;
 }
@@ -96,6 +103,55 @@ test('its own organizer and an admin see it without the password', () => {
   assert.equal(access.canView(reqWith({ user: { access: { organizerId: ORG_ID } } }), privateEvent()), true);
   assert.equal(access.canView(reqWith({ user: { access: { isAdmin: true } } }), privateEvent()), true);
   assert.equal(access.canView(reqWith({ user: { access: { organizerId: 'someone-else' } } }), privateEvent()), false);
+});
+
+// ── A session with permission (owner, 2026-11-22) ────────────────────────────
+
+const signedIn = { id: '44444444-4444-4444-8444-444444444444', access: { organizerId: null } };
+
+test('a session alone is not permission: a signed-in stranger is asked', async () => {
+  tables = { profiles: [{ email: 'guest@example.test', email_verified_at: '2026-11-01T00:00:00Z' }] };
+  assert.equal(await access.allowed(reqWith({ user: signedIn }), privateEvent()), false);
+  assert.equal(await access.allowed(reqWith(), privateEvent()), false);
+});
+
+test('the door team, and a paid order on the account, let a signed-in visitor in', async () => {
+  tables = { event_staff: [{ id: 's1' }] };
+  assert.equal(await access.allowed(reqWith({ user: signedIn }), privateEvent()), true);
+  tables = { orders: [{ id: 'o1' }] };
+  assert.equal(await access.allowed(reqWith({ user: signedIn }), privateEvent()), true);
+});
+
+test('a ticket sent to the email counts only when the email is verified', async () => {
+  tables = { tickets: [{ id: 't1' }], profiles: [{ email: 'guest@example.test', email_verified_at: null }] };
+  assert.equal(await access.allowed(reqWith({ user: signedIn }), privateEvent()), false);
+  tables = { tickets: [{ id: 't1' }], profiles: [{ email: 'guest@example.test', email_verified_at: '2026-11-01T00:00:00Z' }] };
+  assert.equal(await access.allowed(reqWith({ user: signedIn }), privateEvent()), true);
+});
+
+test('an unlock on the account opens it on any device, until the password changes', async () => {
+  tables = { event_access_grants: [{ password_set_at: SET_AT }] };
+  assert.equal(await access.allowed(reqWith({ user: signedIn }), privateEvent()), true);
+  assert.equal(await access.allowed(reqWith({ user: signedIn }), privateEvent({ access_password_set_at: '2026-12-01T00:00:00Z' })), false);
+});
+
+test('unlocking while signed in is remembered on the account; a guest is not written down', async () => {
+  upserts.length = 0;
+  await access.rememberUnlock(reqWith({ user: signedIn }), privateEvent());
+  await access.rememberUnlock(reqWith(), privateEvent());
+  assert.equal(upserts.length, 1);
+  assert.deepEqual(upserts[0], {
+    table: 'event_access_grants',
+    value: { user_id: signedIn.id, event_id: EVENT_ID, password_set_at: SET_AT },
+  });
+  tables = {};
+});
+
+test('a failed permission read asks for the password rather than letting anyone in', async () => {
+  const saved = tables;
+  tables = new Proxy({}, { get: () => { throw new Error('db down'); } });
+  assert.equal(await access.allowed(reqWith({ user: signedIn }), privateEvent()), false);
+  tables = saved;
 });
 
 // ── What a locked visitor is told ────────────────────────────────────────────
