@@ -54,6 +54,17 @@ const config = [
        * and the build, then took down the Venue Builder on first render.
        */
       'no-undef': 'error',
+
+      /**
+       * A name used ABOVE the line that declares it, in the same function, is
+       * also a crash ("Cannot access 'x' before initialization") that lint,
+       * the tests and the build all let through. It took down the seating map
+       * on the live site on 2026-11-23: `layers` was read one line before its
+       * `useState`. `variables: false` leaves alone a constant read inside a
+       * function that only runs later (the common, safe case: a lookup table
+       * declared at the foot of a file) and flags exactly the same-scope use.
+       */
+      'no-use-before-define': ['error', { functions: false, classes: false, variables: false, allowNamedExports: true }],
     },
   },
 

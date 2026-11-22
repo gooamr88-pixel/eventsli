@@ -122,7 +122,6 @@ export default function MapEditor({ eventId }) {
   const booths = zones.filter((z) => z.kind === BOOTH_KIND);
   const offerImport = !!io.boothImport && booths.length === 0;
   const vendorsOn = !!io.vendor && !offerImport;
-  const shownLayers = io.vendor ? layers : { zones: layers.zones, labels: layers.labels };
   const [showBoothRow, setShowBoothRow] = useState(false);
   const purchaseMode = eventInfo.purchaseMode;
 
@@ -150,6 +149,8 @@ export default function MapEditor({ eventId }) {
   // What the canvas draws (LayersCard.jsx). The map itself is unchanged.
   const [layers, setLayers] = useState({ zones: true, labels: true, booths: true });
   const toggleLayer = useCallback((key) => setLayers((l) => ({ ...l, [key]: !l[key] })), []);
+  // The Layers list offers "Vendor booths" only where the event has a vendor floor plan.
+  const shownLayers = io.vendor ? layers : { zones: layers.zones, labels: layers.labels };
 
   const [tool, setTool] = useState('select');
   const [snapToGrid, setSnapToGrid] = useState(false);

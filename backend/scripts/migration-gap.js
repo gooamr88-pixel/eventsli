@@ -63,12 +63,28 @@ const MIGRATIONS = [
   ['20261125090000_ticket_addons.sql', tab('reservation_addons')],
   ['20261126090000_addon_images.sql', col('event_addons', 'image_path')],
   ['20261127090000_organizer_public_profile.sql', tab('organizer_messages')],
+  ['20261128090000_organizer_map_looks.sql', col('organizers', 'map_looks')],
+  ['20261129090000_event_templates.sql', tab('event_templates')],
+  ['20261130090000_demo_bookings.sql', tab('demo_bookings')],
+  // Names on tickets: the checkout quote reads reservation_holders.
+  ['20261201090000_ticket_holders.sql', tab('reservation_holders')],
   // Sponsorships (2026-11-20): every Sponsors screen and the sponsor portal read these.
   ['20261202090000_sponsorships.sql', tab('sponsorship_deals')],
+  ['20261202120000_checkin_offline_hardening.sql', col('scan_devices', 'gate_lock_seen_at')],
+  // Vendors: every Vendors screen, the public vendor page and the floor plan.
+  ['20261203090000_vendors.sql', tab('vendor_floor_plans')],
+  ['20261204090000_vendor_booking.sql', col('vendor_programs', 'booking_mode')],
   // Private events (2026-11-22): every public listing filters on is_private,
   // and the permission check reads the account grants.
   ['20261205090000_private_events.sql', col('events', 'is_private')],
   ['20261206090000_event_access_grants.sql', tab('event_access_grants')],
+  ['20261207090000_free_orders_name_only.sql', con('purchase_signature_identifies_signer')],
+  // 2026-11-22/23. The event API, ticket emails and checkout select these
+  // columns, and the order list joins event_hosts: without them those fail.
+  ['20261208090000_event_address_details.sql', col('events', 'venue_postal_code')],
+  ['20261209090000_private_event_preview.sql', col('events', 'locked_preview')],
+  ['20261210090000_guest_of_hosts.sql', tab('event_hosts')],
+  ['20261211090000_organizer_sale_emails.sql', col('organizers', 'sale_email_mode')],
 ];
 
 const EXTRA = [
