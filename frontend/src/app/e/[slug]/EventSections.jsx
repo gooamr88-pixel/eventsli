@@ -133,7 +133,12 @@ export function EventPolicies({ items = [] }) {
  * Where the venue is — the "Getting there" card (VenueCard.jsx, 2026-11-22).
  * A name or an address is enough; the pin only adds the live map.
  */
-export function VenueMap({ venue, address, city, country, location }) {
+export function VenueMap({ venue, address, mapAddress = null, directions = null, city, country, location }) {
   if (!venue && !address && !location) return null;
-  return <VenueCard venue={venue} address={address} city={city} country={country} location={location} />;
+  return (
+    <VenueCard
+      venue={venue} address={address} mapAddress={mapAddress} directions={directions}
+      city={city} country={country} location={location}
+    />
+  );
 }

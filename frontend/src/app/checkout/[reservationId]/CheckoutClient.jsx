@@ -24,6 +24,9 @@ import PayOptions, { usePayOptions } from './PayOptions';
 import ExtrasAdded from './ExtrasAdded';
 import { cardFeeNote } from '../../lib/cardFee';
 import HolderForms, { holderPayload } from './HolderForms';
+import { addressLine } from '../../lib/venueAddress';
+import GuestOfField from './GuestOfField';
+import { pickFromCode, recalledGuestOf } from '../../lib/guestOf';
 
 /**
  * The last screen before Stripe.
@@ -60,6 +63,10 @@ export default function CheckoutClient({ reservationId }) {
   // Who each ticket is for (2026-11-19), keyed by the quote's holder slots.
   const [holderValues, setHolderValues] = useState({});
   const [holderError, setHolderError] = useState(null);
+  // Whose guest (2026-11-23): undefined until the buyer answers, so a host's
+  // own link can pick them first (see `guestOfId` below); null = no answer.
+  const [guestOfChoice, setGuestOfChoice] = useState(undefined);
+  const [guestOfError, setGuestOfError] = useState(null);
   // A free order's lead-guest card starts from what is known (account, or the
   // last checkout in this tab) — once, never over anything typed.
   const [leadSeeded, setLeadSeeded] = useState(false);
@@ -214,10 +221,22 @@ export default function CheckoutClient({ reservationId }) {
    * browser has already checked the email and the three agreements by then,
    * because they are `required` in this form.
    */
+  // The host picked: the buyer's own answer, else the one their link named.
+  const guestOfId = guestOfChoice !== undefined
+    ? guestOfChoice
+    : pickFromCode(quote?.guestOf, recalledGuestOf(quote?.event?.slug || reservation?.slug));
+
   function askToSign(e) {
     e.preventDefault();
     setError(null);
     setSignError(null);
+    // "Whose guest are you?" when the organizer requires it — said on the
+    // question itself, before the signature is asked for.
+    if (quote?.guestOf?.mode === 'required' && !guestOfId) {
+      setGuestOfError(`Answer “${quote.guestOf.question}” to continue.`);
+      document.getElementById('co-guestof')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
     setSigning(true);
   }
 
@@ -237,6 +256,7 @@ export default function CheckoutClient({ reservationId }) {
         acceptTerms: agreed,
         signature,
         ...(!free && smsPayload(sms, phone).sms ? { phone: phone.trim(), ...smsPayload(sms, phone) } : {}),        ...(quote.holders?.slots?.length ? { holders: holderPayload(quote.holders, holderValues) } : {}),
+        ...(quote.guestOf ? { guestOfHostId: guestOfId || null } : {}),
       };
       setHolderError(null);
 
@@ -293,6 +313,10 @@ export default function CheckoutClient({ reservationId }) {
     } catch (err) {
       if (String(err?.code || '').startsWith('SIGNATURE_')) {
         setSignError(err);
+      } else if (err?.meta?.field === 'guestOf') {
+        setSigning(false);
+        setGuestOfError(err.message);
+        document.getElementById('co-guestof')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       } else if (err?.meta?.key) {
         // A ticket holder's details were refused: say so on that ticket's card.
         setSigning(false);
@@ -436,8 +460,8 @@ export default function CheckoutClient({ reservationId }) {
                 <p className="es-co__event-title fx-break">{ev.title}</p>
                 <ul className="es-co__facts">
                   {when && <li><NavIcon name="calendar" size={15} /><span>{when}{until ? ` – ${until}` : ''}</span></li>}
-                  {(ev.venue || ev.venueAddress || ev.city) && (
-                    <li><NavIcon name="pin" size={15} /><span>{[ev.venue, ev.venueAddress || ev.city].filter(Boolean).join(' · ')}</span></li>
+                  {(ev.venue || addressLine(ev)) && (
+                    <li><NavIcon name="pin" size={15} /><span>{[ev.venue, addressLine(ev)].filter(Boolean).join(' · ')}</span></li>
                   )}
                   {ev.organizerName && <li><NavIcon name="user" size={15} /><span>By {ev.organizerName}</span></li>}
                 </ul>
@@ -530,6 +554,13 @@ export default function CheckoutClient({ reservationId }) {
 
           {/* Who each ticket is for — two tickets and up, as the event asks
               (2026-11-19); on a free order, always, with the lead guest first. */}
+          {/* Whose guest (2026-11-23): the organizer's hosts, when they ask. */}
+          <GuestOfField
+            guestOf={quote.guestOf} value={guestOfId}
+            onChange={(id) => { setGuestOfChoice(id); setGuestOfError(null); }}
+            error={guestOfError}
+          />
+
           <HolderForms holders={free ? { mode: quote.holders?.mode || 'optional', slots: holderSlots } : quote.holders}
             values={holderValues} onChange={setHolderValues}
             buyer={buyer} phone={phone} error={holderError} lead={free} />

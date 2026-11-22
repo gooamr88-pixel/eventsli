@@ -229,6 +229,10 @@ async function confirm({ offlineId, organizerId, actorId, amountCents, reference
   if (!result.duplicate && result.order_id) {
     require('../controllers/ticketController').sendTicketEmail(result.order_id).catch((e) =>
       logger.error({ err: e.message, orderId: result.order_id }, 'offline ticket email failed'));
+    // The host the buyer named at checkout (2026-11-23); never throws.
+    require('./guestOfService').notifyHost(result.order_id);
+    // …and the organizer's sale email, if they want one per order.
+    require('./saleNoticeService').notifyOrganizer(result.order_id);
   }
   return result;
 }

@@ -29,6 +29,24 @@ function isTimeZone(value) {
   }
 }
 
+/**
+ * The rest of an address (2026-11-22): apartment/unit, province/state, postal
+ * code, directions. Every one optional; a blank one is stored as null (the
+ * columns refuse an empty string, so `IS NULL` keeps meaning "not given").
+ */
+function addressDetailRules() {
+  const text = (field, max, message) => body(field).optional()
+    .customSanitizer((v) => (typeof v === 'string' ? (v.trim() || null) : v))
+    .custom((v) => v === undefined || v === null || (typeof v === 'string' && v.length <= max))
+    .withMessage(message);
+  return [
+    text('venueAddressLine2', 120, 'Apartment, suite or floor is at most 120 characters.'),
+    text('venueRegion', 120, 'A province or state is at most 120 characters.'),
+    text('venuePostalCode', 20, 'A postal code is at most 20 characters.'),
+    text('venueDirections', 500, 'Directions are at most 500 characters.'),
+  ];
+}
+
 const dateRules = [
   body('startsAt').isISO8601().withMessage('Enter a valid start date and time.'),
   body('endsAt').isISO8601().withMessage('Enter a valid end date and time.')
@@ -86,6 +104,7 @@ router.post(
     .withMessage('A venue name is at most 200 characters.'),
   body('venueAddress').optional({ values: 'falsy' }).isString().trim().isLength({ min: 1, max: 300 })
     .withMessage('An address is at most 300 characters.'),
+  ...addressDetailRules(),
   /**
    * Set by venue search when the organizer picked a suggestion; absent when
    * they typed the venue themselves. Opaque upstream token, so the rule is a
@@ -181,6 +200,7 @@ router.patch(
   }),
   body('category').optional().custom(categoryService.assertKnownSlug),
   body('city').optional({ values: 'null' }).isString().trim().isLength({ max: 120 }),
+  ...addressDetailRules(),
   body('maxTicketsPerOrder').optional().isInt({ min: 1, max: 100 }),
   body('allowTicketTransfer').optional().isBoolean(),
   body('holderDetails').optional().isIn(['required', 'optional', 'off']),
@@ -253,6 +273,10 @@ router.put(
     .withMessage('The shortest length is a number from 1 to 100.'),
   body('passwordMax').optional({ values: 'null' }).isInt({ min: 1, max: 100 }).toInt()
     .withMessage('The longest length is a number from 1 to 100.'),
+  // What a locked visitor sees (2026-11-22).
+  body('lockedPreview').optional().isIn(['blur', 'card']).withMessage('Choose a blurred preview or the password card.'),
+  body('lockedReveal').optional().isArray({ max: 5 }),
+  body('lockedReveal.*').isIn(['title', 'organizer', 'cover', 'date', 'city']).withMessage('That detail cannot be shown.'),
   validate,
   require('../controllers/eventPrivacyController').update,
 );
@@ -752,6 +776,31 @@ router.patch(
 
 router.delete('/:eventId/table-categories/:categoryId', verifyEventOwner, requireEditableEvent,
   param('categoryId').isUUID(), validate, categories.remove);
+
+// ─── Whose guest: hosts (2026-11-23) — controllers/guestOfController.js ───────
+const hostsCtrl = require('../controllers/guestOfController');
+router.get('/:eventId/hosts', verifyEventOwner, hostsCtrl.overview);
+router.put(
+  '/:eventId/hosts/settings',
+  verifyEventOwner,
+  body('mode').optional().isIn(['off', 'optional', 'required']).withMessage('Choose off, optional or required.'),
+  body('question').optional({ values: 'null' }).isString().isLength({ max: 120 }).withMessage('The question is at most 120 characters.'),
+  validate,
+  hostsCtrl.saveSettings,
+);
+const hostRules = (partial) => [
+  (partial ? body('name').optional() : body('name')).isString().trim().isLength({ min: 1, max: 80 })
+    .withMessage('Give the host a name of up to 80 characters.'),
+  body('email').optional({ values: 'null' }).isString().trim().isLength({ max: 254 }),
+  body('notify').optional().isBoolean({ strict: true }),
+  body('active').optional().isBoolean({ strict: true }),
+  body('sortOrder').optional().isInt({ min: 0, max: 1000 }).toInt(),
+];
+router.post('/:eventId/hosts', verifyEventOwner, ...hostRules(false), validate, hostsCtrl.create);
+router.patch('/:eventId/hosts/:hostId', verifyEventOwner, param('hostId').isUUID(), ...hostRules(true), validate, hostsCtrl.update);
+router.delete('/:eventId/hosts/:hostId', verifyEventOwner, param('hostId').isUUID(), validate, hostsCtrl.remove);
+router.post('/:eventId/hosts/:hostId/reset-link', verifyEventOwner, param('hostId').isUUID(), validate, hostsCtrl.resetLink);
+router.get('/:eventId/hosts/:hostId/guests', verifyEventOwner, param('hostId').isUUID(), validate, hostsCtrl.guests);
 
 // ─── Sales and the door list ───────────────────────────────────────────────
 // `/manual-sales` filters channel = 'manual', so until these existed an

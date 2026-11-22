@@ -6,6 +6,14 @@ const FP = require('../services/vendorFloorPlan');
 
 const TYPE = '11111111-1111-1111-1111-111111111111';
 
+test('a plan drawn on the seat map keeps that flag; nothing else can set it', () => {
+  const linked = FP.cleanPlan({ width: 1000, height: 700, onSeatMap: true, elements: [{ id: 'z_1', kind: 'booth', x: 1, y: 2, w: 60, h: 60, code: 'A1' }] });
+  assert.equal(linked.onSeatMap, true);
+  assert.equal(linked.elements[0].id, 'z_1');
+  assert.equal('onSeatMap' in FP.cleanPlan({ elements: [], onSeatMap: 'yes' }), false);
+  assert.equal('onSeatMap' in FP.cleanPlan({ elements: [] }), false);
+});
+
 test('a plan is rebuilt from known kinds, bounded numbers and short strings', () => {
   const plan = FP.cleanPlan({
     width: 99999,

@@ -2,6 +2,7 @@ import { formatEventTime } from '../lib/eventTime';
 import { ticketFacts } from '../components/TicketStub';
 import Logo from '../components/brand/Logo';
 import NavIcon from '../components/shell/NavIcon';
+import { addressLine } from '../lib/venueAddress';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -52,8 +53,11 @@ export default function PrintableTicket({ ticket, event, qrSrc, free = false, ho
               <div key={label}><dt>{label}:</dt><dd className="es-nums fx-break">{value}</dd></div>
             ))}
             {event?.venue && <div><dt>Location:</dt><dd className="fx-break">{event.venue}</dd></div>}
-            {event?.venueAddress && (
-              <div className="es-ptk__wide"><dt>Address:</dt><dd className="fx-break">{event.venueAddress}</dd></div>
+            {addressLine(event) && (
+              <div className="es-ptk__wide"><dt>Address:</dt><dd className="fx-break">{addressLine(event)}</dd></div>
+            )}
+            {event?.venueDirections && (
+              <div className="es-ptk__wide"><dt>Getting in:</dt><dd className="fx-break">{event.venueDirections}</dd></div>
             )}
           </dl>
 

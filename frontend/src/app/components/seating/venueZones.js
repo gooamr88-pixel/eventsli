@@ -165,8 +165,26 @@ export const DEFAULT_ZONE_KIND = 'custom';
  * down rather than losing one rectangle.
  */
 export function zoneMeta(kind) {
+  if (kind === BOOTH_KIND) return BOOTH_META;
   return ZONES[kind] || ZONES[DEFAULT_ZONE_KIND];
 }
+
+/**
+ * A VENDOR BOOTH on the venue map (2026-11-22, the owner: "merge the seating
+ * map of the event and the seating map of vendors"). Deliberately NOT in
+ * `ZONES`: a booth is stock — vendors are offered and sold it — and it lives
+ * in `vendor_floor_plans`, never in `layout_json`. The editor carries booths
+ * as zones of this kind so they move, turn, resize, undo and select exactly
+ * like the room around them; the save splits them back out (boothZones.js).
+ * `readZones` drops the kind and `writeZones` skips it, so a booth can never
+ * land in the seat map's blob or reach the AI's catalogue.
+ *
+ * Sized 3 m × 3 m — the standard expo booth — in world units.
+ */
+export const BOOTH_KIND = 'booth';
+export const BOOTH_META = Object.freeze({
+  label: 'Vendor booth', w: 131, h: 131, icon: 'stand', color: '#4d6b5f', min: { w: 8, h: 8 },
+});
 
 /** The smallest a zone may be dragged. Below this the label and icon have
  *  nowhere to go and the handle covers the whole shape, so it cannot be

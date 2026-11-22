@@ -220,6 +220,8 @@ export function organizerNavGroups({
       items: [
         item('share', 'Share & QR', 'qr', '/share'),
         item('orders', 'Orders', 'receipt', '/orders'),
+        // Whose guest each buyer is, and their hosts (2026-11-23).
+        item('guests', 'Hosts & guests', 'users', '/guests'),
         // Phase 2: buyers who reserved online and pay the organizer directly.
         item('offline', 'Offline payments', 'coins', '/offline'),
         item('door', 'Door sales', 'cash', '/door'),

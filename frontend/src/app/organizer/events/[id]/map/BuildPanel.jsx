@@ -59,6 +59,18 @@ export const BUILD_GROUPS = [
     ],
   },
   {
+    // VENDOR BOOTHS (2026-11-22): the booths vendors are offered and book,
+    // drawn on this same map (boothZones.js). Shown only when the event's
+    // vendor floor plan could be read — the save writes both.
+    key: 'vendors',
+    title: 'Vendor booths',
+    needsVendors: true,
+    items: [
+      { key: 'booth', icon: 'store', title: 'Booth', text: 'One 3 × 3 m booth, numbered after the last.', initial: { family: 'booth' } },
+      { key: 'boothRow', icon: 'layers', title: 'Row of booths', text: 'Touching booths in a line — A1, A2, A3…', initial: { family: 'boothRow' } },
+    ],
+  },
+  {
     key: 'start',
     title: 'Start from',
     items: [
@@ -75,16 +87,17 @@ export const BUILD_GROUPS = [
 export const BUILD_ITEMS = BUILD_GROUPS.flatMap((g) => g.items);
 
 const visible = (group, ai) => group.items.filter((it) => !it.needsAi || ai);
+const shown = (vendors) => BUILD_GROUPS.filter((g) => !g.needsVendors || vendors);
 
 /**
  * "Add to layout", the LEFT column of the owner's Venue Builder mockup
  * (2026-11-10): always in view, one line per item, grouped.
  */
-export function BuildPalette({ onAdd, ai = false, children = null }) {
+export function BuildPalette({ onAdd, ai = false, vendors = false, children = null }) {
   return (
     <section className="es-dcard es-mappalette" aria-labelledby="map-palette">
       <h2 id="map-palette" className="es-mappalette__title">Add to layout</h2>
-      {BUILD_GROUPS.map((g) => (
+      {shown(vendors).map((g) => (
         <div key={g.key} className="es-mappalette__group">
           <h3 className="es-mappalette__h">{g.title}</h3>
           <ul className="es-mappalette__list">
@@ -111,7 +124,7 @@ export function BuildPalette({ onAdd, ai = false, children = null }) {
  * column. A menu of buttons (not role="menu": each is an ordinary action, and
  * Tab moves through them as it does everywhere else in the editor).
  */
-export function AddMenu({ onAdd, ai = false }) {
+export function AddMenu({ onAdd, ai = false, vendors = false }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -134,7 +147,7 @@ export function AddMenu({ onAdd, ai = false }) {
       </button>
       {open && (
         <div className="es-mapmenu es-mapmenu--add">
-          {BUILD_GROUPS.map((g) => (
+          {shown(vendors).map((g) => (
             <div key={g.key} className="es-mappalette__group">
               <p className="es-mappalette__h">{g.title}</p>
               <ul className="es-mappalette__list">

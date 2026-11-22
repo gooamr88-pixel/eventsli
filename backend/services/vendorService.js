@@ -5,6 +5,8 @@ const emails = require('./vendorEmails');
 const S = require('./sponsorshipService');
 const R = require('./vendorRules');
 const FP = require('./vendorFloorPlan');
+const { fetchAll } = require('../utils/fetchAll');
+const { publicLayout } = require('./venueStudio');
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -572,10 +574,68 @@ async function readFloorPlan(eventId) {
   return { plan, version: data?.version || 0, updatedAt: data?.updated_at || null };
 }
 
-/** The organizer's view: the plan, every booth's state with vendor names, and the booth types. */
+/**
+ * THE SEAT MAP UNDER THE BOOTHS (2026-11-22). A reserved-seating event's booths
+ * are drawn on its venue map (`plan.onSeatMap`), so whoever looks at them —
+ * the public vendor page, a vendor's booking, the organizer's booth picker —
+ * sees the room they stand in: the map's world, its zones (stage, walls,
+ * doors) and its tables. Never prices, seats or who bought them.
+ *
+ * `null` for an event with no seat map: general admission and listing-only
+ * events cannot have one (save_venue_map refuses), and their floor plan
+ * stands alone. Private tables are left out unless `includePrivate` (the
+ * organizer), and their styles with them — a style is keyed by the table's name.
+ */
+async function seatMapContext(eventId, { includePrivate = false } = {}) {
+  const { data: event, error: eventError } = await supabase.from('events')
+    .select('admission_type, listing_type').eq('id', eventId).maybeSingle();
+  if (eventError) throw new Error(eventError.message);
+  if (!event || !hasSeatMap(event)) return null;
+  const { data: map, error: mapError } = await supabase.from('venue_maps')
+    .select('id, layout_json').eq('event_id', eventId).maybeSingle();
+  if (mapError) throw new Error(mapError.message);
+  if (!map) return { world: null, zones: [], look: null, tableStyles: null, tables: [] };
+  const tables = await fetchAll(({ from, to }, first) => supabase.from('tables')
+    .select('id, label, seat_count, shape, position_x, position_y, rotation, is_private', first ? { count: 'exact' } : undefined)
+    .eq('venue_map_id', map.id).order('id').range(from, to), { what: 'tables' });
+  const visible = includePrivate ? tables : tables.filter((t) => !t.is_private);
+  const layout = publicLayout(map.layout_json || {}, visible.map((t) => t.label)) || {};
+  return {
+    world: layout.world || null,
+    zones: Array.isArray(layout.zones) ? layout.zones : [],
+    look: layout.look || null,
+    tableStyles: layout.tableStyles || null,
+    tables: visible.map((t) => ({
+      label: t.label,
+      seatCount: t.seat_count,
+      shape: t.shape,
+      position: { x: Number(t.position_x), y: Number(t.position_y), rotation: Number(t.rotation) || 0 },
+    })),
+  };
+}
+
+/** True for an event that may have a seat map (the rule save_venue_map applies). */
+function hasSeatMap(event) {
+  return event.admission_type !== 'general' && event.listing_type !== 'display_only';
+}
+
+/**
+ * The organizer's view: the plan, every booth's state with vendor names, and
+ * the booth types. `seatMap` says whether this event's booths belong on its
+ * venue map (a reserved-seating event) — the Floor plan tab then sends the
+ * organizer there — and `venue` is that map, when the booths are on it.
+ */
 async function getFloorPlan(eventId) {
-  const [{ plan, version, updatedAt }, claims, booths] = await Promise.all([readFloorPlan(eventId), boothClaims(eventId), listBooths(eventId)]);
-  return { plan, version, updatedAt, booths: FP.boothStatuses(plan, claims, { audience: 'organizer' }), boothTypes: booths };
+  const [{ plan, version, updatedAt }, claims, booths, event] = await Promise.all([
+    readFloorPlan(eventId), boothClaims(eventId), listBooths(eventId),
+    supabase.from('events').select('admission_type, listing_type').eq('id', eventId).maybeSingle()
+      .then(({ data, error }) => { if (error) throw new Error(error.message); return data; }),
+  ]);
+  const seatMap = !!event && hasSeatMap(event);
+  const venue = seatMap && plan.onSeatMap ? await seatMapContext(eventId, { includePrivate: true }) : null;
+  return {
+    plan, version, updatedAt, booths: FP.boothStatuses(plan, claims, { audience: 'organizer' }), boothTypes: booths, seatMap, venue,
+  };
 }
 
 /**
@@ -585,6 +645,14 @@ async function getFloorPlan(eventId) {
  */
 async function saveFloorPlan(eventId, body, actorId) {
   const plan = FP.cleanPlan(body.plan);
+  if (plan.onSeatMap) {
+    const { data: ev, error: evError } = await supabase.from('events')
+      .select('admission_type, listing_type').eq('id', eventId).maybeSingle();
+    if (evError) throw new Error(evError.message);
+    if (!ev || !hasSeatMap(ev)) {
+      throw fail('VALIDATION_ERROR', 'This event has no seat map (it is general admission), so its booths are drawn on the floor plan instead.');
+    }
+  }
   const current = await readFloorPlan(eventId);
   const stale = 'The floor plan was saved somewhere else since you opened it. Reload it, then make your change again.';
   if (Number(body.version) !== current.version) throw fail('CONFLICT', stale);
@@ -610,14 +678,19 @@ async function saveFloorPlan(eventId, body, actorId) {
 }
 
 /** The plan for the public page or a vendor: names only where the audience may see them. */
-async function floorPlanFor(eventId, { audience = 'public', mine = null } = {}) {
+async function floorPlanFor(eventId, { audience = 'public', mine = null, withVenue = true } = {}) {
   const { plan } = await readFloorPlan(eventId);
   if (!FP.boothsOf(plan).length) return null;
-  const [claims, booths] = await Promise.all([boothClaims(eventId), listBooths(eventId)]);
+  const [claims, booths, venue] = await Promise.all([
+    boothClaims(eventId), listBooths(eventId),
+    // Booths on the seat map are shown in their room (seatMapContext).
+    withVenue && plan.onSeatMap ? seatMapContext(eventId) : null,
+  ]);
   return {
     plan,
     booths: FP.boothStatuses(plan, claims, { audience, mine }),
     boothTypes: booths.map((b) => ({ id: b.id, name: b.name, color: b.color, priceCents: b.priceCents, sizeLabel: b.sizeLabel })),
+    ...(venue ? { venue } : {}),
   };
 }
 
@@ -634,5 +707,5 @@ module.exports = {
   notifyPaid, signLogoUpload, confirmLogo, close,
   getProgram, saveProgram, listBooths, createBooth, updateBooth, removeBooth,
   listApplications, getApplication, createApplication, updateApplication, setWaitlist, sendOffer,
-  recordOfflinePayment, doorList, getFloorPlan, saveFloorPlan, floorPlanFor,
+  recordOfflinePayment, doorList, getFloorPlan, saveFloorPlan, floorPlanFor, seatMapContext,
 };

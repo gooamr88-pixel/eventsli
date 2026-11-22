@@ -15,7 +15,7 @@ const NS = { vectorEffect: 'non-scaling-stroke' };
 const rot = (r, cx, cy) => (r ? `rotate(${r} ${cx} ${cy})` : undefined);
 
 /** The pink SOLD rosette: a scalloped badge with a white ring and the word. */
-function SoldBadge({ cx, cy, r }) {
+export function SoldBadge({ cx, cy, r }) {
   const points = [];
   const n = 18;
   for (let i = 0; i < n * 2; i += 1) {
@@ -33,7 +33,7 @@ function SoldBadge({ cx, cy, r }) {
 }
 
 /** Unavailable: a pink "no entry" circle with its slash. */
-function BlockedMark({ cx, cy, r }) {
+export function BlockedMark({ cx, cy, r }) {
   const d = r * 0.7071;
   return (
     <g aria-hidden="true" stroke={INK.pink} strokeWidth={r * 0.13} fill="none" strokeLinecap="round">

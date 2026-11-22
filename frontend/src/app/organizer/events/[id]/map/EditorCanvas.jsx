@@ -6,6 +6,8 @@ import {
 } from '../../../../components/seating/seatingGeometry';
 import { paintOrder, zoneBox } from '../../../../components/seating/venueZones';
 import ZoneShape from '../../../../components/seating/ZoneShape';
+import BoothShape, { BoothDefs } from '../../../../components/seating/BoothShape';
+import { boothColor } from '../../../../components/seating/boothZones';
 import EditableTable from './EditableTable';
 import MapGestureHint from '../../../../components/seating/MapGestureHint';
 import { tierPalette } from '../../../../components/venue/venueModel';
@@ -62,7 +64,10 @@ export default function EditorCanvas({
   // The venue's size (draft.world): every percentage below resolves against it.
   world = worldOf(null),
   // The Layers card (LayersCard.jsx): what is drawn, never what exists.
-  layers = { zones: true, labels: true },
+  layers = { zones: true, labels: true, booths: true },
+  // Vendor booths on this map (boothZones.js): each one's status and the
+  // booth types, so a booth shows its colour and who holds it.
+  boothInfo = null,
   // The map's look (mapStyle.js): floor, walls, tables and labels.
   look = null,
   // Draw-wall mode (useWallTool): its pointer handler and the wall in progress.
@@ -103,11 +108,13 @@ export default function EditorCanvas({
         const reach = tableReach(t);
         return x + reach >= left && x - reach <= right && y + reach >= top && y - reach <= bottom;
       }),
-      zones: paintOrder(zones).filter((z) => {
-        const b = zoneBox(z, world);
-        return b.right >= left && b.x <= right && b.bottom >= top && b.y <= bottom;
-      }),
+      zones: paintOrder(zones.filter((z) => z.kind !== 'booth')).filter(onScreen),
+      booths: zones.filter((z) => z.kind === 'booth').filter(onScreen),
     };
+    function onScreen(z) {
+      const b = zoneBox(z, world);
+      return b.right >= left && b.x <= right && b.bottom >= top && b.y <= bottom;
+    }
   }, [tables, zones, view, world]);
 
   const soleZone = selection.selection.zones.size === 1 && selection.selection.tables.size === 0
@@ -122,6 +129,7 @@ export default function EditorCanvas({
       className={`relative ${className}`}
       data-hide-zones={layers.zones ? undefined : 'true'}
       data-hide-labels={layers.labels ? undefined : 'true'}
+      data-hide-booths={layers.booths === false ? 'true' : undefined}
       // Pressing the map hands the keyboard back to it. The inspector keeps
       // bare keys for its own controls (useEditorKeys), and the SVG takes no
       // focus of its own, so after clicking "Rotate" and then a table, Delete
@@ -161,6 +169,7 @@ export default function EditorCanvas({
         // starter card — always on purpose.
         onDoubleClick={() => { if (wallTool?.active) wallTool.finish(); }}
       >
+        <BoothDefs />
         <defs>
           {/* The alignment grid, and it appears only while Snap is on. A grid
               drawn all the time is decoration that competes with the layout;
@@ -234,6 +243,36 @@ export default function EditorCanvas({
               />
             )}
           </ZoneShape>
+        ))}
+        </g>
+
+        {/* VENDOR BOOTHS (2026-11-22): on the floor with the areas, under the
+            seats, on a layer of their own so "Areas" can be hidden without
+            hiding the stock vendors are sold. */}
+        <g className="es-layer-booths">
+        {visible.booths.map((zone) => (
+          <BoothShape
+            key={zone.id}
+            zone={zone}
+            world={world}
+            state={boothInfo?.states?.[zone.id] || null}
+            color={boothColor(boothInfo?.boothTypes || [], zone.boothTypeId)}
+            selected={selection.has('zone', zone.id)}
+            interactive
+            onPointerDown={(e) => interaction.onElementPointerDown(e, 'zone', zone.id)}
+            onKeyDown={(e) => onNudge(e, 'zone', zone.id)}
+          >
+            {soleZone === zone.id && (
+              <SelectionHandles
+                width={zoneBox(zone, world).w}
+                height={zoneBox(zone, world).h}
+                scale={scale}
+                resizable
+                onRotateStart={(e) => interaction.onRotateStart(e, 'zone', zone.id)}
+                onResizeStart={(e) => interaction.onResizeStart(e, zone.id)}
+              />
+            )}
+          </BoothShape>
         ))}
         </g>
 

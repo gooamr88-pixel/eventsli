@@ -1,3 +1,4 @@
+import { addressLine, mapQueryAddress } from '../../lib/venueAddress';
 import { notFound } from 'next/navigation';
 import { jsonLdScript } from '../../utils/jsonLd';
 import NavIcon from '../../components/shell/NavIcon';
@@ -18,6 +19,7 @@ import {
 } from './EventSections';
 import { loadEventForViewer, privateMetadata } from '../../lib/eventAccess';
 import PrivateEventGate from './PrivateEventGate';
+import GuestOfCapture from './GuestOfCapture';
 import {
   seoTitle, seoDescription, seoKeywords, eventJsonLd, breadcrumbJsonLd, eventUrl,
 } from '../../lib/eventSeo';
@@ -211,6 +213,8 @@ export default async function EventPage({ params, searchParams }) {
     <main className="fx-section fx-section--xs es-buyer">
       {/* Counts this view for the organizer's "Event views". Renders nothing. */}
       <VisitBeacon path={`/e/${event.slug || slug}`} />
+      {/* A host's own link (?guestof=…) picks them at checkout. Renders nothing. */}
+      <GuestOfCapture slug={event.slug || slug} />
       {/* JSON-LD so the event is eligible for a rich result. Built from the
           same values rendered below — a second, hand-written copy is one that
           goes stale the first time a date changes.
@@ -308,10 +312,14 @@ export default async function EventPage({ params, searchParams }) {
                 // The address alone earns this tab: it is the second thing
                 // anybody checks, and on a well-known venue there is no pin to
                 // add to it.
-                content: (event.venue || event.venueLocation) && (
+                content: (event.venue || addressLine(event) || event.venueLocation) && (
                   <VenueMap
                     venue={event.venue}
-                    address={event.venueAddress}
+                    // The whole address — a flat's unit included — and how
+                    // to find the door (2026-11-22, lib/venueAddress.js).
+                    address={addressLine(event)}
+                    mapAddress={mapQueryAddress(event)}
+                    directions={event.venueDirections || null}
                     city={event.city}
                     country={event.country}
                     location={event.venueLocation}

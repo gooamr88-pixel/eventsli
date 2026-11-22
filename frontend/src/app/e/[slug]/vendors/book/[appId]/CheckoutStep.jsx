@@ -10,6 +10,7 @@ import Field from '../../../../../components/forms/Field';
 import FormError from '../../../../../components/forms/FormError';
 import NavIcon from '../../../../../components/shell/NavIcon';
 import SignatureDialog from '../../../../../checkout/[reservationId]/SignatureDialog';
+import { addressLine } from '../../../../../lib/venueAddress';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -94,7 +95,7 @@ export default function CheckoutStep({ booking, expired, onBack, onRelease, rele
                 <ul className="es-co__facts">
                   {when && <li><NavIcon name="calendar" size={16} />{when}</li>}
                   {ev.venue && <li><NavIcon name="building" size={16} />{ev.venue}</li>}
-                  {(ev.venueAddress || ev.city) && <li className="es-co__fact--addr"><NavIcon name="pin" size={16} />{ev.venueAddress || ev.city}</li>}
+                  {addressLine(ev) && <li className="es-co__fact--addr"><NavIcon name="pin" size={16} />{addressLine(ev)}</li>}
                   {ev.organizerName && <li className="es-co__fact--org"><NavIcon name="tag" size={16} /><span><b>Organized by:</b> {ev.organizerName}</span></li>}
                 </ul>
                 <p className="es-co__more"><b>Venue:</b> {ev.venue || ev.city} <Link href={`/e/${ev.slug}`}>See more</Link></p>

@@ -26,12 +26,14 @@ function range(event) {
   return { start, end };
 }
 
+import { addressLine } from './venueAddress';
+
 /** 20270314T230000Z */
 const stamp = (d) => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
 
 function place(event) {
   const venue = typeof event?.venue === 'string' ? event.venue : event?.venue?.name;
-  const address = event?.venueAddress || event?.venue?.address || null;
+  const address = addressLine(event);
   return [venue, address].filter(Boolean).join(', ');
 }
 

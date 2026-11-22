@@ -33,6 +33,12 @@ const ORGANIZER_EDITABLE = Object.freeze({
   description: 'description',
   venueName: 'venue_name',
   venueAddress: 'venue_address',
+  // The rest of the address (2026-11-22, migration 20261208090000). All
+  // optional: the venue may be a home, or still to be announced.
+  venueAddressLine2: 'venue_address_line2',
+  venueRegion: 'venue_region',
+  venuePostalCode: 'venue_postal_code',
+  venueDirections: 'venue_directions',
   city: 'city',
   country: 'country',
   timezone: 'timezone',
@@ -229,6 +235,10 @@ const LIVE_EDITABLE = Object.freeze([
   // correcting "doors at 7" on a live listing is exactly the kind of fix that
   // must not need a review queue.
   'highlights', 'venue_lat', 'venue_lng',
+  // Finishing an address the reviewer already saw — the province, the postal
+  // code, "ring 12 at the side door" — moves nobody's event (2026-11-22).
+  // The street and the unit do, so they stay reviewed.
+  'venue_region', 'venue_postal_code', 'venue_directions',
 ]);
 
 /**

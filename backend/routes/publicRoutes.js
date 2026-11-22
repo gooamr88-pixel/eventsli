@@ -342,6 +342,22 @@ const notifyLimiter = makeLimiter({
   message: 'Too many sign-ups from here. Please try again later.',
 });
 
+// A host's guest list, by the private link in their emails (2026-11-23).
+router.get(
+  '/host-guests/:token',
+  param('token').isString().isLength({ min: 10, max: 2000 }),
+  validate,
+  require('../controllers/guestOfController').publicList,
+);
+
+// A private event's cover, blurred, for its locked page (2026-11-22).
+router.get(
+  '/events/:slug/locked-cover',
+  param('slug').isString().trim().isLength({ min: 1, max: 200 }),
+  validate,
+  require('../controllers/lockedCoverController').show,
+);
+
 router.post(
   '/events/:slug/notify',
   notifyLimiter,

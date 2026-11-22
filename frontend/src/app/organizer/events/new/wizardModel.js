@@ -47,7 +47,7 @@ export const STEP_TEXT_DISPLAY = {
 
 export const STEP_TEXT = {
   basics: ['The basics', 'What the event is called and what it is about.'],
-  when: ['When and where', 'Times are local to the venue.'],
+  when: ['When and where', 'Times are local to the venue. Only the city is required — add the venue now or later.'],
   tickets: ['How tickets sell', 'You add ticket types and the seat map right after this.'],
   payment: ['How buyers pay', 'Choose from the payment methods you have set up.'],
   review: ['Check and create', 'It is saved as a private draft. Nothing is public until you publish it.'],
@@ -100,7 +100,10 @@ export const STEP_FIELDS = {
  * to create the row at all, so a draft without them cannot exist.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-export const SUBMIT_ONLY_FIELDS = ['venueName', 'venueAddress', 'city'];
+// Since 2026-11-22 only the city is required at submit: the venue may be a
+// home whose details come later, or still to be announced (the owner: "all
+// optional if the place is unknown").
+export const SUBMIT_ONLY_FIELDS = ['city'];
 
 /** What still has to be true before this step can be left. */
 export function blockingFields(step) {
@@ -160,6 +163,8 @@ export function initialForm(type, organizer, { ignoreDraft = false } = {}) {
     title: '', category: 'other', description: '',
     country, timezone: defaultTimeZone(country, browserZone()),
     startsAt: '', endsAt: '', firstDay: '', lastDay: '', venueName: '', venueAddress: '', city: '',
+    // The rest of the address (2026-11-22), every one optional.
+    venueAddressLine2: '', venueRegion: '', venuePostalCode: '', venueDirections: '',
     /**
      * WRITTEN BY VENUE SEARCH, NEVER TYPED.
      *
@@ -236,10 +241,9 @@ export function problemsFor({ form, startIso, endIso, choices, type = 'ticketed'
      */
     // Optional for a listing: a festival across a city, or "venue to be
     // announced", is still worth listing. The city is what makes it findable.
-    venueName: !listing && form.venueName.trim().length < 2
-      ? 'Add the venue name before you submit this event.' : null,
-    venueAddress: !listing && form.venueAddress.trim().length < 4
-      ? 'Add the street address before you submit this event.' : null,
+    // THE VENUE IS OPTIONAL FOR EVERY EVENT (2026-11-22): a home, or a place
+    // still to be announced, is a real answer. The page says "Venue to be
+    // announced" until there is one.
     city: form.city.trim().length < 2
       ? 'Add the city — it is how buyers find this event near them.' : null,
     /**

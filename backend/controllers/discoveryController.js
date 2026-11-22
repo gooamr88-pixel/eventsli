@@ -1,4 +1,5 @@
 const { supabase } = require('../config/supabase');
+const { addressFields } = require('../utils/venueAddress');
 const eventContent = require('../services/eventContentService');
 const { parsePagination, applyPagination, buildMeta } = require('../middleware/pagination');
 const { sendOk, sendFail } = require('../utils/responseEnvelope');
@@ -31,6 +32,7 @@ const eventAccess = require('../services/eventAccess');
 
 const SELECT = `
   id, slug, title, description, venue_name, venue_address, city,
+  venue_address_line2, venue_region, venue_postal_code, venue_directions,
   country, timezone, starts_at, ends_at, currency,
   listing_type, purchase_mode, admission_type, category, cover_url, logo_url,
   highlights, venue_lat, venue_lng, max_tickets_per_order,
@@ -340,6 +342,7 @@ async function eventBySlug(req, res, next) {
         purchasable: false,
         description: event.description,
         venueAddress: null,
+        venueAddressLine2: null, venueRegion: null, venuePostalCode: null, venueDirections: null, venueAddressFull: null,
         tiers: [],
         availability: null,
         organizerProfile: await require('../services/organizerProfileService').linkFor(event.organizer_id),
@@ -563,6 +566,10 @@ function shape(e) {
     city: e.city || null,
     // The street address, for the /events card (2026-11-19). Hidden on a teaser.
     venueAddress: teaser ? null : (e.venue_address || null),
+    // The rest of the address (2026-11-22, all optional). Hidden on a teaser.
+    ...(teaser
+      ? { venueAddressLine2: null, venueRegion: null, venuePostalCode: null, venueDirections: null, venueAddressFull: null }
+      : addressFields(e)),
     country: e.country,
     timezone: e.timezone,
     startsAt: e.starts_at,

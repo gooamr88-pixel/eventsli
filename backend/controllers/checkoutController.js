@@ -1,4 +1,5 @@
 const { supabase } = require('../config/supabase');
+const { addressLine, addressParts } = require('../utils/venueAddress');
 const { hashIp } = require('../utils/crypto');
 const pricing = require('../services/pricingService');
 const { CHARGE_MODEL } = require('../utils/money');
@@ -11,6 +12,10 @@ const accessTokens = require('../services/accessTokens');
 const signatures = require('../services/signatureService');
 const addonService = require('../services/addonService');
 const holderSvc = require('../services/ticketHolders');
+// Whose guest the buyer is (2026-11-23): asked at checkout, the host emailed.
+const guestOf = require('../services/guestOfService');
+// The organizer's sale email (2026-11-23); once per order, never throws.
+const saleNotice = require('../services/saleNoticeService');
 // Ticket delivery and retrieval live in one place; three callers need them and
 // a second copy would drift.
 const ticketCtrl = require('./ticketController');
@@ -83,6 +88,9 @@ async function quote(req, res, next) {
       // Per-ticket holder forms (2026-11-19): the event's rule and one slot
       // per ticket — empty for a one-ticket order or when the event asks none.
       holders: await holderSvc.forCheckout(q),
+      // "Whose guest are you?" (2026-11-23): the hosts to choose from, the
+      // organizer's wording, and whether an answer is required. Null: not asked.
+      guestOf: await guestOf.forCheckout(q.event.id),
       // The add-ons this event offers (2026-11-17), with what is left — for
       // the checkout's "Make it special" step. What the hold already carries
       // is `addons` in the breakdown above.
@@ -273,6 +281,10 @@ async function createSession(req, res, next) {
     const held = await holderSvc.save(q, req.body.holders, buyer);
     if (held.code) return sendFail(res, { status: 400, error: held.code, message: held.message, meta: held.meta });
 
+    // Whose guest they are (2026-11-23), saved on the hold with the holders.
+    const chose = await guestOf.saveChoice(q, req.body.guestOfHostId || null);
+    if (chose.code) return sendFail(res, { status: 400, error: chose.code, message: chose.message, meta: chose.meta });
+
     // The organizer chose how this event is paid for. An event that takes only
     // manual payment has no card checkout, whatever the buyer's page sends.
     // Read on its own and FAIL OPEN on a read error: this column is new, and a
@@ -395,6 +407,10 @@ async function createOffline(req, res, next) {
     const held = await holderSvc.save(q, req.body.holders, buyer);
     if (held.code) return sendFail(res, { status: 400, error: held.code, message: held.message, meta: held.meta });
 
+    // Whose guest they are (2026-11-23), saved on the hold with the holders.
+    const chose = await guestOf.saveChoice(q, req.body.guestOfHostId || null);
+    if (chose.code) return sendFail(res, { status: 400, error: chose.code, message: chose.message, meta: chose.meta });
+
     const terms = require('../services/termsService');
     const current = await terms.currentVersion('buyer');
     const acceptance = await terms.accept({
@@ -502,7 +518,7 @@ async function checkoutResult(req, res, next) {
     const { data: order } = await supabase
       .from('orders')
       .select(`id, currency, buyer_total_cents, quantity, guest_email, created_at, paid_at,
-               events ( id, title, slug, starts_at, ends_at, timezone, venue_name, venue_address, city, organizer_id,
+               events ( id, title, slug, starts_at, ends_at, timezone, venue_name, venue_address, city, venue_address_line2, venue_region, venue_postal_code, venue_directions, organizer_id,
                         organizers ( display_name ) )`)
       .eq('id', orderId).single();
 
@@ -578,7 +594,10 @@ function confirmationEvent(e) {
     endsAt: e.ends_at,
     timezone: e.timezone,
     venue: e.venue_name,
-    venueAddress: e.venue_address || e.city || null,
+    // One line with every part given (utils/venueAddress), then the door.
+    venueAddress: addressLine(e),
+    venueAddressFull: addressLine(e),
+    venueDirections: addressParts(e).directions,
     organizerName: organizer?.display_name || null,
   };
 }
@@ -736,6 +755,9 @@ async function fulfillFromSession(session, { account = null } = {}) {
     // because this path only runs after a real Stripe fulfilment.
     ticketCtrl.sendTicketEmail(result.order_id).catch((e) =>
       logger.error({ err: e.message, orderId: result.order_id }, 'ticket email failed'));
+    // The host the buyer named hears about it — once per order; never throws.
+    guestOf.notifyHost(result.order_id);
+    saleNotice.notifyOrganizer(result.order_id);
   }
   return result;
 }
@@ -831,6 +853,10 @@ async function claimFree(req, res, next) {
     const held = await holderSvc.save(q, req.body.holders, buyer);
     if (held.code) return sendFail(res, { status: 400, error: held.code, message: held.message, meta: held.meta });
 
+    // Whose guest they are (2026-11-23), saved on the hold with the holders.
+    const chose = await guestOf.saveChoice(q, req.body.guestOfHostId || null);
+    if (chose.code) return sendFail(res, { status: 400, error: chose.code, message: chose.message, meta: chose.meta });
+
     // Same failure mode as the paid path: a claim we cannot evidence the terms
     // for does not happen.
     const terms = require('../services/termsService');
@@ -894,6 +920,8 @@ async function claimFree(req, res, next) {
     if (!result.already_fulfilled) {
       ticketCtrl.sendTicketEmail(result.order_id).catch((e) =>
         logger.error({ err: e.message, orderId: result.order_id }, 'ticket email failed'));
+      guestOf.notifyHost(result.order_id);
+      saleNotice.notifyOrganizer(result.order_id);
     }
 
     /**
@@ -906,7 +934,7 @@ async function claimFree(req, res, next) {
     let confirmation = { event: null, tickets: [] };
     try {
       const { data: row } = await supabase.from('events')
-        .select('id, title, slug, starts_at, ends_at, timezone, venue_name, venue_address, city, organizer_id, organizers ( display_name )')
+        .select('id, title, slug, starts_at, ends_at, timezone, venue_name, venue_address, city, venue_address_line2, venue_region, venue_postal_code, venue_directions, organizer_id, organizers ( display_name )')
         .eq('id', q.event.id).maybeSingle();
       confirmation = { event: await withOrganizer(confirmationEvent(row), row?.organizer_id), tickets: await tickets.forOrder(result.order_id) };
     } catch (e) {

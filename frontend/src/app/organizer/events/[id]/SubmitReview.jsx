@@ -12,6 +12,7 @@ import NavIcon from '../../../components/shell/NavIcon';
 import MoneyLines from './MoneyLines';
 import { isDateOnly, formatDateOnly } from '../../../lib/dateOnly';
 import { formatYm } from '../../../lib/comingSoon';
+import { addressLine } from '../../../lib/venueAddress';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -179,9 +180,11 @@ export default function SubmitReview({ eventId, onClose, onConfirm, busy = false
                 <Facts rows={[
                   // Optional on a display-only listing (submissionService.js).
                   // A teaser shows only its city; the venue comes before sales open.
-                  ['Venue', teaser ? 'Added before tickets go on sale' : event.venueName || (event.listingType === 'display_only' ? 'Not given' : <Missing>No venue name</Missing>)],
-                  ['Address', teaser ? 'Added before tickets go on sale' : event.venueAddress || (event.listingType === 'display_only' ? 'Not given' : <Missing>No street address</Missing>)],
+                  // Optional for every event since 2026-11-22 — only the city is needed.
+                  ['Venue', teaser ? 'Added before tickets go on sale' : event.venueName || 'To be announced'],
+                  ['Address', teaser ? 'Added before tickets go on sale' : addressLine({ ...event, city: null, venueAddressFull: null }) || 'Not given'],
                   ['City', event.city || <Missing>No city</Missing>],
+                  ...(event.venueDirections && !teaser ? [['Getting in', event.venueDirections]] : []),
                   ['Country', event.country || 'Not set'],
                 ]} />
                 <p className="text-xs text-subtle">

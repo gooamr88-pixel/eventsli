@@ -26,7 +26,7 @@
  * and there is nothing to merge against afterwards.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-import { MAX_ZONES, ZONES, minZoneSize, zoneMeta } from './venueZones';
+import { BOOTH_KIND, MAX_ZONES, ZONES, minZoneSize, zoneMeta } from './venueZones';
 import { cleanZoneStyle } from './mapStyle';
 import { worldOf } from './seatingGeometry';
 
@@ -95,7 +95,9 @@ export function writeZones(layout, zones) {
   const world = worldOf(layout);
   return {
     ...(layout && typeof layout === 'object' ? layout : {}),
-    zones: (zones || []).slice(0, MAX_ZONES).map((z) => ({
+    // Vendor booths ride in the editor's zone list but are saved to the
+    // vendor floor plan (boothZones.js), never into this blob.
+    zones: (zones || []).filter((z) => z?.kind !== BOOTH_KIND).slice(0, MAX_ZONES).map((z) => ({
       id: z.id,
       kind: z.kind,
       ...(String(z.label || '').trim() ? { label: String(z.label).trim().slice(0, 40) } : {}),
@@ -121,7 +123,7 @@ export function makeZone(kind, position, overrides = {}) {
   const meta = zoneMeta(kind);
   return {
     id: newZoneId(),
-    kind: Object.prototype.hasOwnProperty.call(ZONES, kind) ? kind : 'custom',
+    kind: Object.prototype.hasOwnProperty.call(ZONES, kind) || kind === BOOTH_KIND ? kind : 'custom',
     label: '',
     x: clamp(num(position?.x, 50), 0, 100),
     y: clamp(num(position?.y, 50), 0, 100),

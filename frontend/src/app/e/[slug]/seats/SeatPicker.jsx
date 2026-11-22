@@ -6,6 +6,8 @@ import Link from 'next/link';
 import VenueExperience from '../../../components/venue/VenueExperience';
 import { readStudio, sectionIndex, tierPalette } from '../../../components/venue/venueModel';
 import { readZones } from '../../../components/seating/layoutZones';
+import { boothsToZones } from '../../../components/seating/boothZones';
+import { worldOf } from '../../../components/seating/seatingGeometry';
 import UnlockTableDialog from './UnlockTableDialog';
 import { get } from '../../../utils/apiClient';
 import { describeError, isSelectionLost } from '../../../utils/errors';
@@ -142,7 +144,17 @@ export default function SeatPicker({
    * the editor. This is the buyer's page, and a malformed zone that reached a
    * renderer would take down the map somebody is trying to buy from.
    */
-  const zones = useMemo(() => readZones(map?.map?.layout), [map]);
+  const zones = useMemo(() => {
+    const base = readZones(map?.map?.layout);
+    // Vendor booths drawn on this map (2026-11-22, boothZones.js): where the
+    // stands are, beside the seats — scenery to a buyer, never selectable.
+    const vb = map?.vendorBooths;
+    if (!vb?.plan) return base;
+    const booths = boothsToZones(vb.plan, worldOf(map?.map?.layout), {
+      withState: { states: vb.booths || {}, boothTypes: vb.boothTypes || [] },
+    });
+    return [...base, ...booths];
+  }, [map]);
 
   // Section names and ticket-type colours: the same ones every view draws.
   const sections = useMemo(() => sectionIndex(readStudio(map?.map?.layout).sections), [map]);

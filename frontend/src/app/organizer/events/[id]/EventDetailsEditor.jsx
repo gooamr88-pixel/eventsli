@@ -54,6 +54,9 @@ import PrivacyCard from './PrivacyCard';
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
+/** The text parts of the venue and its address, sent trimmed or as null. */
+const ADDRESS_KEYS = ['venueName', 'venueAddress', 'venueAddressLine2', 'city', 'venueRegion', 'venuePostalCode', 'venueDirections'];
+
 function fromEvent(event) {
   return {
     title: event.title || '',
@@ -61,6 +64,11 @@ function fromEvent(event) {
     description: event.description || '',
     venueName: event.venue?.name || '',
     venueAddress: event.venue?.address || '',
+    // The rest of the address (2026-11-22), every one optional.
+    venueAddressLine2: event.venueAddressLine2 || '',
+    venueRegion: event.venueRegion || '',
+    venuePostalCode: event.venuePostalCode || '',
+    venueDirections: event.venueDirections || '',
     city: event.city || '',
     /**
      * WHERE THE VENUE ACTUALLY IS — three fields this form did not have.
@@ -170,6 +178,9 @@ export default function EventDetailsEditor({ event, onSaved }) {
       venueName: place.name || f.venueName,
       venueAddress: place.address || f.venueAddress,
       city: place.city || f.city,
+      // Filled only where still empty, so a typed postal code survives a re-pick.
+      venueRegion: f.venueRegion || place.region || '',
+      venuePostalCode: f.venuePostalCode || place.postalCode || '',
       venuePlaceId: place.placeId || '',
       // Both or neither, always — `venue_coords_together` refuses half a pin.
       venueLat: place.lat === null || place.lat === undefined ? '' : String(place.lat),
@@ -213,9 +224,9 @@ export default function EventDetailsEditor({ event, onSaved }) {
   const venueOptional = ['draft', 'rejected'].includes(event.status) || teaser;
   // A display-only listing needs only the city (submissionService.js).
   const listing = form.listingType === 'display_only';
-  const venueMissing = listing
-    ? !form.city.trim()
-    : !form.venueName.trim() || !form.venueAddress.trim() || !form.city.trim();
+  // Only the city, for every event since 2026-11-22: the venue may be a home
+  // whose details come later, or still to be announced.
+  const venueMissing = !form.city.trim();
   /** The message a missing part gets: a refusal, or a reminder. */
   const venueNote = (value, refusal) => {
     if (value.trim()) return {};
@@ -260,7 +271,7 @@ export default function EventDetailsEditor({ event, onSaved }) {
     for (const key of changedKeys) {
       if (key === 'startsAt' || key === 'endsAt' || key === 'timezone') continue;
       if (key === 'maxTicketsPerOrder') body.maxTicketsPerOrder = perOrder;
-      else if (key === 'venueName' || key === 'venueAddress' || key === 'city') body[key] = form[key].trim() || null;
+      else if (ADDRESS_KEYS.includes(key)) body[key] = form[key].trim() || null;
       /**
        * THE PIN TRAVELS AS A NUMBER OR AS NULL, never as "".
        *

@@ -34,13 +34,13 @@ import { AddMenu } from './BuildPanel';
  */
 export default function EditorToolbar({
   tables, zones, selection, tool, onToolChange, snapToGrid, onSnapChange,
-  canUndo, canRedo, onUndo, onRedo, onAdd, zoom, onFullscreen = null, ai = false,
+  canUndo, canRedo, onUndo, onRedo, onAdd, zoom, onFullscreen = null, ai = false, vendors = false,
 }) {
   return (
     <div className="es-maptoolbar">
       <div className="es-maptoolbar__group">
         {/* Only below the width where "Add to layout" is its own column. */}
-        <AddMenu onAdd={onAdd} ai={ai} />
+        <AddMenu onAdd={onAdd} ai={ai} vendors={vendors} />
         <ToolbarButton onClick={onUndo} disabled={!canUndo} label="Undo" title="Undo (Ctrl+Z)" icon="undo" />
         <ToolbarButton onClick={onRedo} disabled={!canRedo} label="Redo" title="Redo (Ctrl+Shift+Z)" icon="redo" />
       </div>
@@ -116,7 +116,7 @@ function SelectMenu({ tables, zones, selection }) {
     [tables],
   );
 
-  const zoneTypeChosen = type === 'zones' || Object.prototype.hasOwnProperty.call(ZONES, type);
+  const zoneTypeChosen = type === 'zones' || type === 'booth' || Object.prototype.hasOwnProperty.call(ZONES, type);
 
   const matched = useMemo(() => {
     const capOk = (t) => capacity === 'any' || Number(t.seatCount) === Number(capacity);
@@ -131,7 +131,7 @@ function SelectMenu({ tables, zones, selection }) {
       // zones OUT of the result rather than selecting every zone alongside the
       // 10-seaters — which would make "select the 10-seaters" also grab the bar.
       zones: wantZones && capacity === 'any'
-        ? zones.filter((z) => type === 'any' || type === 'zones' || z.kind === type).map((z) => z.id)
+        ? zones.filter((z) => type === 'any' || (type === 'zones' ? z.kind !== 'booth' : z.kind === type)).map((z) => z.id)
         : [],
     };
   }, [tables, zones, type, capacity, zoneTypeChosen]);
@@ -178,12 +178,13 @@ function SelectMenu({ tables, zones, selection }) {
               id="es-select-type" className="es-input es-input--dense" value={type}
               onChange={(e) => {
                 setType(e.target.value);
-                if (e.target.value === 'zones' || Object.prototype.hasOwnProperty.call(ZONES, e.target.value)) setCapacity('any');
+                if (e.target.value === 'zones' || e.target.value === 'booth' || Object.prototype.hasOwnProperty.call(ZONES, e.target.value)) setCapacity('any');
               }}
             >
               <option value="any">Anything</option>
               <option value="tables">All tables</option>
               <option value="zones">All areas</option>
+              {zones.some((z) => z.kind === 'booth') && <option value="booth">All vendor booths</option>}
               <optgroup label="Table shapes">
                 {SHAPES.map((s) => <option key={s} value={s}>{SHAPE_NAMES[s] || s}</option>)}
               </optgroup>

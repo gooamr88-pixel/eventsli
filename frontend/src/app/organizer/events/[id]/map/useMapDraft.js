@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { makeZone, newZoneId } from '../../../../components/seating/layoutZones';
-import { minZoneSize, zoneLabel, zoneMeta } from '../../../../components/seating/venueZones';
+import { BOOTH_KIND, minZoneSize, zoneLabel, zoneMeta } from '../../../../components/seating/venueZones';
+import { codePrefix, nextBoothNumber } from '../../../../components/seating/boothZones';
 import { moveToWorld, worldOf } from '../../../../components/seating/seatingGeometry';
 import {
   MAX_SEATS_PER_TABLE, MAX_TABLES, mapProblems, numberedLabel, buildTables,
@@ -407,6 +408,14 @@ export function useMapDraft() {
     const zoneCopies = [];
     for (const z of current.zones) {
       if (!selection.zones.has(z.id)) continue;
+      if (z.kind === BOOTH_KIND) {
+        // A booth copy takes the next code in its series (A7 → A8) and starts
+        // free: being unavailable is a decision about that one booth.
+        const prefix = codePrefix(z.label);
+        const label = `${prefix}${nextBoothNumber([...current.zones, ...zoneCopies], prefix)}`.slice(0, 12);
+        zoneCopies.push({ ...z, id: newZoneId(), label, blocked: false, x: clamp(z.x + ox, 0, 100), y: clamp(z.y + oy, 0, 100) });
+        continue;
+      }
       const label = numberedLabel(zoneLabel(z), takenZones);
       takenZones.add(label.toLowerCase());
       zoneCopies.push({

@@ -1,3 +1,4 @@
+import { addressLine, addressParts } from '../lib/venueAddress';
 import Link from 'next/link';
 import Image from 'next/image';
 import NavIcon from '../components/shell/NavIcon';
@@ -40,7 +41,8 @@ export function gridWhen(event) {
 
 /** The street address when the organizer gave one, else venue + city. */
 export function gridPlace(event) {
-  return event.venueAddress
+  // The full address when there is a street; a city alone reads better with the venue.
+  return (addressParts(event).street ? addressLine(event) : null)
     || [event.venue, event.city].filter(Boolean).join(', ')
     || '';
 }

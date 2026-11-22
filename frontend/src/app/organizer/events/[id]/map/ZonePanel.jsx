@@ -81,7 +81,7 @@ export default function ZonePanel({
 }
 
 /** Units as metres: centimetres under 2 m (a wall is a few units thick), else decimetres. */
-function metres(units) {
+export function metres(units) {
   const v = units * METRES_PER_UNIT;
   return v < 2 ? Math.round(v * 100) / 100 : Math.round(v * 10) / 10;
 }
@@ -92,7 +92,7 @@ function metres(units) {
  * applies as it is typed, anything else waits for blur and is clamped then —
  * so "0.4" no longer jumps to the minimum half-way through being typed.
  */
-function MetreField({ label, units, min, max, onChange }) {
+export function MetreField({ label, units, min, max, onChange }) {
   const lo = Math.ceil(min * METRES_PER_UNIT * 100) / 100;
   const hi = Math.floor(max * METRES_PER_UNIT * 100) / 100;
   return (

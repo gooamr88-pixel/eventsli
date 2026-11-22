@@ -19,13 +19,15 @@ import { Toggle } from '../../../../components/inspector/fields';
  */
 const LAYERS = [
   { key: 'zones', label: 'Areas', hint: 'Stage, bars, walls, doors' },
+  // Shown only where the event has vendors on this map (2026-11-22).
+  { key: 'booths', label: 'Vendor booths', hint: 'The booths vendors book' },
   { key: 'labels', label: 'Names', hint: 'Table and row names' },
 ];
 
 export function LayerToggles({ layers, onToggle, compact = false }) {
   return (
     <>
-      {LAYERS.map((l) => (
+      {LAYERS.filter((l) => l.key in layers).map((l) => (
         <Toggle
           key={l.key} label={compact ? l.label : `Show ${l.label.toLowerCase()}`} hint={compact ? null : l.hint}
           checked={!!layers[l.key]} onChange={() => onToggle(l.key)}

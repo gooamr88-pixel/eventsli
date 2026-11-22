@@ -1,3 +1,4 @@
+import { VENUE_TBA, addressLine, hasVenue } from '../../lib/venueAddress';
 import Image from 'next/image';
 import NavIcon from '../../components/shell/NavIcon';
 import { Zoomable } from '../../components/Lightbox';
@@ -83,7 +84,11 @@ export default function EventHero({ event, tagline, about, when }) {
           {event.venue && <Fact icon="pin">{event.venue}</Fact>}
           {/* A coming-soon teaser is announced with its city alone. */}
           {!event.venue && event.comingSoon && event.city && <Fact icon="pin">{event.city}</Fact>}
-          {event.venueAddress && <Fact icon="building">{event.venueAddress}</Fact>}
+          {/* No venue yet (2026-11-22): said plainly, with the city it is in. */}
+          {!event.comingSoon && !hasVenue(event) && (
+            <Fact icon="pin">{[VENUE_TBA, event.city].filter(Boolean).join(' · ')}</Fact>
+          )}
+          {addressLine(event) && hasVenue(event) && <Fact icon="building">{addressLine(event)}</Fact>}
           {event.organizer?.name && (
             <Fact icon="tag">
               Presented by <a href="#event-organizer" className="es-evx-facts__link">{event.organizer.name}</a>

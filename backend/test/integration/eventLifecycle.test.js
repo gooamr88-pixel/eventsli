@@ -154,6 +154,38 @@ test('a US event is priced in USD', async () => {
   assert.equal(res.body.data.currency, 'USD');
 });
 
+test('a venue to be announced, or a home with a unit and postal code: all optional but the city', async () => {
+  // 2026-11-22, the owner: "the address may be somewhere like a home … all
+  // optional if the place is unknown". Only the city is required to submit.
+  const res = await organizer('POST', '/events', {
+    title: 'Living Room Concert', country: 'CA', city: 'Toronto', timezone: 'America/Toronto',
+    venueAddressLine2: '  Apt 4B  ', venueRegion: 'ON', venuePostalCode: 'M4K 1N2', venueDirections: 'Ring buzzer 12',
+    startsAt: new Date(Date.now() + 35 * 86400e3).toISOString(),
+    endsAt: new Date(Date.now() + 35 * 86400e3 + 3600e3).toISOString(),
+  });
+  assert.equal(res.status, 201, JSON.stringify(res.body));
+  const id = res.body.data.id;
+  cleanup.events.push(id);
+  assert.equal(res.body.data.venueAddressLine2, 'Apt 4B', 'trimmed');
+  assert.equal(res.body.data.venuePostalCode, 'M4K 1N2');
+  assert.equal(res.body.data.venueAddressFull, 'Apt 4B, Toronto, ON M4K 1N2');
+
+  // A blank clears a part rather than storing an empty string.
+  const cleared = await organizer('PATCH', `/events/${id}`, { venuePostalCode: '   ', acceptsManual: true });
+  assert.equal(cleared.status, 200, JSON.stringify(cleared.body));
+  const { data: row } = await supabase.from('events').select('venue_postal_code, venue_region').eq('id', id).single();
+  assert.equal(row.venue_postal_code, null);
+  assert.equal(row.venue_region, 'ON');
+  const tooLong = await organizer('PATCH', `/events/${id}`, { venuePostalCode: 'X'.repeat(21) });
+  assert.equal(tooLong.status, 400);
+
+  // No venue name, no street: it can still go to review.
+  await organizer('POST', `/events/${id}/accept-terms`);
+  const submitted = await organizer('POST', `/events/${id}/submit`);
+  assert.equal(submitted.status, 200, JSON.stringify(submitted.body));
+  assert.equal(submitted.body.data.status, 'pending_review');
+});
+
 test('an unsupported country is refused rather than defaulted', async () => {
   // Russia is under comprehensive sanctions: not in the markets table at all.
   const res = await organizer('POST', '/events', {

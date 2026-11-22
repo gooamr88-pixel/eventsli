@@ -172,13 +172,9 @@ function describe({ event, tiers, tables, hasMap, counts, readiness, currentTerm
     {
       key: 'details',
       label: 'Where it happens',
-      // The venue, not the title: a draft cannot exist without a title, and
-      // the venue is what is actually missing on nearly every one of these.
-      done: Boolean(
-        String(event.venue_name || '').trim()
-        && String(event.venue_address || '').trim()
-        && String(event.city || '').trim(),
-      ),
+      // The city: a draft cannot exist without a title, and since 2026-11-22
+      // the venue itself may stay "to be announced" — only the city is needed.
+      done: Boolean(String(event.city || '').trim()),
       href: `${base}#details`,
     },
     ...(needs.tickets ? [{

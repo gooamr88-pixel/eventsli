@@ -192,7 +192,29 @@ async function rememberUnlock(req, event) {
 }
 
 /** The columns `canView` needs — add these to any event read that gates on it. */
-const ACCESS_COLUMNS = 'is_private, access_password_set_at, organizer_id, access_password_min, access_password_max';
+const ACCESS_COLUMNS = 'is_private, access_password_set_at, organizer_id, access_password_min, access_password_max, locked_preview, locked_reveal';
+
+/**
+ * WHAT THE ORGANIZER LETS A LOCKED VISITOR READ (2026-11-22, the owner: "blur
+ * all details and images of a private event until it is unlocked — and the
+ * organizer decides"). Migration 20261209090000.
+ *
+ * Anything not revealed is NEVER SENT. The blurred page a visitor sees is drawn
+ * over placeholders, and the cover over a tiny copy made here (lockedCover),
+ * so there is nothing under the blur to recover with a browser's inspector.
+ */
+const REVEAL_KEYS = Object.freeze(['title', 'organizer', 'cover', 'date', 'city']);
+const DEFAULT_REVEAL = Object.freeze(['title', 'organizer']);
+const PREVIEWS = Object.freeze(['blur', 'card']);
+
+/** A reveal list as stored: known keys, once each, in a fixed order. */
+function cleanReveal(list) {
+  const wanted = new Set(Array.isArray(list) ? list : DEFAULT_REVEAL);
+  return REVEAL_KEYS.filter((k) => wanted.has(k));
+}
+
+/** Everything a teaser can need, for a locked answer whose row lacks some of it. */
+const TEASER_COLUMNS = `id, slug, title, cover_url, logo_url, starts_at, timezone, city, ${'locked_preview, locked_reveal, access_password_min, access_password_max'}, organizers ( display_name )`;
 
 /**
  * What a locked page may show: enough for the person who was sent the link to
@@ -201,12 +223,23 @@ const ACCESS_COLUMNS = 'is_private, access_password_set_at, organizer_id, access
  */
 function lockedTeaser(event) {
   const organizer = Array.isArray(event.organizers) ? event.organizers[0] : event.organizers;
+  const reveal = new Set(cleanReveal(event.locked_reveal));
+  const show = (key, value) => (reveal.has(key) ? value ?? null : null);
   return {
     slug: event.slug,
-    title: event.title,
-    coverUrl: event.cover_url || null,
-    logoUrl: event.logo_url || null,
-    organizer: organizer ? { name: organizer.display_name } : null,
+    // How the page looks before the password, and what it may say (2026-11-22).
+    preview: PREVIEWS.includes(event.locked_preview) ? event.locked_preview : 'blur',
+    reveal: [...reveal],
+    title: show('title', event.title),
+    coverUrl: show('cover', event.cover_url),
+    // A hidden cover is drawn blurred from a tiny copy (GET …/locked-cover),
+    // never from the original.
+    blurredCover: !reveal.has('cover') && Boolean(event.cover_url),
+    logoUrl: show('organizer', event.logo_url),
+    organizer: reveal.has('organizer') && organizer ? { name: organizer.display_name } : null,
+    startsAt: show('date', event.starts_at),
+    timezone: show('date', event.timezone),
+    city: show('city', event.city),
     // The organizer's length rule, stated on the password screen — only when
     // they set one (the owner chose to show guests the range, 2026-11-22).
     passwordRule: event.access_password_min != null || event.access_password_max != null
@@ -241,13 +274,33 @@ function lockedFailure(event) {
  * the 403 already carries.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-function sendLocked(req, res, event) {
+async function sendLocked(req, res, partial) {
   const { sendOk, sendFail } = require('../utils/responseEnvelope');
+  const event = await teaserRow(partial);
   const refusal = lockedFailure(event);
   if (req?.query?.locked === 'ok') {
     return sendOk(res, { locked: true, code: refusal.error, message: refusal.message, event: refusal.meta.event });
   }
   return sendFail(res, refusal);
+}
+
+/**
+ * The row a teaser is built from. Callers select different columns for their
+ * own work; rather than every one of them knowing the teaser's needs, a row
+ * missing any of them is read once more, by id. Never fails the refusal: on a
+ * read error the row it was given is used.
+ */
+async function teaserRow(event) {
+  const complete = ['starts_at', 'timezone', 'city', 'organizers', 'locked_reveal', 'locked_preview']
+    .every((k) => event && k in event);
+  if (complete || !event?.id) return event;
+  try {
+    const { data, error } = await supabase.from('events').select(TEASER_COLUMNS).eq('id', event.id).maybeSingle();
+    if (error || !data) return event;
+    return { ...event, ...data };
+  } catch {
+    return event;
+  }
 }
 
 /**
@@ -310,7 +363,7 @@ function gate({ slugFrom = (req) => req.params.slug } = {}) {
       if (!slug) return next();
       const { data: event, error } = await supabase
         .from('events')
-        .select(`id, slug, title, status, cover_url, logo_url, ${ACCESS_COLUMNS}, organizers ( display_name )`)
+        .select(`id, slug, title, status, cover_url, logo_url, starts_at, timezone, city, ${ACCESS_COLUMNS}, organizers ( display_name )`)
         .eq('slug', String(slug))
         .maybeSingle();
       if (error) throw new Error(error.message);
@@ -323,6 +376,11 @@ function gate({ slugFrom = (req) => req.params.slug } = {}) {
 }
 
 module.exports = {
+  REVEAL_KEYS,
+  DEFAULT_REVEAL,
+  PREVIEWS,
+  cleanReveal,
+  lockedTeaser,
   TOKEN_TYPE,
   ACCESS_TTL_HOURS,
   ACCESS_COLUMNS,

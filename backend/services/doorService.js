@@ -1,4 +1,5 @@
 const { supabase } = require('../config/supabase');
+const { addressLine } = require('../utils/venueAddress');
 const scanSvc = require('./scanService');
 const qrV2Since = require('./qrV2Since');
 
@@ -109,7 +110,7 @@ async function me(device) {
   const [settings, { data: event, error }, gate] = await Promise.all([
     getSettings(device.eventId),
     supabase.from('events')
-      .select('id, title, slug, status, starts_at, ends_at, timezone, venue_name, venue_address, city, cover_url')
+      .select('id, title, slug, status, starts_at, ends_at, timezone, venue_name, venue_address, city, venue_address_line2, venue_region, venue_postal_code, venue_directions, cover_url')
       .eq('id', device.eventId)
       .maybeSingle(),
     scanSvc.gateStatus(device.eventId),
@@ -132,6 +133,7 @@ async function me(device) {
       venue: event.venue_name,
       address: event.venue_address,
       city: event.city,
+      addressFull: addressLine(event),
       coverUrl: event.cover_url,
     },
     permissions: permissionsFor(device, settings),

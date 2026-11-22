@@ -24,6 +24,11 @@
  *   seats  { id, kind, x, y, rows, radius, spread, r }               décor
  *
  * Only booths are sold. Everything else is drawing.
+ *
+ * `onSeatMap: true` (2026-11-22) marks a reserved-seating event's plan whose
+ * booths are drawn ON its venue map: the venue map editor owns the drawing,
+ * the plan holds the booths in the map's world, and viewers get the seat map's
+ * room and tables with it (vendorService.seatMapContext).
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
@@ -123,7 +128,11 @@ function cleanPlan(input) {
         break;
     }
   }
-  return { width, height, elements };
+  // ON THE SEAT MAP (2026-11-22): the booths are drawn on the event's venue map,
+  // in its world (the plan's width and height are that world's). The venue
+  // map editor writes such a plan — booths only — and every viewer draws the
+  // seat map's room and tables underneath it.
+  return input.onSeatMap === true ? { width, height, onSeatMap: true, elements } : { width, height, elements };
 }
 
 const boothsOf = (plan) => (plan?.elements || []).filter((e) => e.kind === 'booth');

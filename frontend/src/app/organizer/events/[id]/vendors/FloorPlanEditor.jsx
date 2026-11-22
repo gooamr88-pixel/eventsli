@@ -13,6 +13,9 @@ import {
   INK, makeElement, makeRow, moveBy, nextCode, newId, starterPlan,
 } from '../../../../components/vendors/floorPlan/floorPlanModel';
 import { PlanPanel, ToolPanel, ItemPanel, MultiPanel } from './FloorPlanPanels';
+import Link from 'next/link';
+import FloorPlanViewer from '../../../../components/vendors/floorPlan/FloorPlanViewer';
+import { planBooths } from '../../../../components/seating/boothZones';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -34,6 +37,13 @@ import { PlanPanel, ToolPanel, ItemPanel, MultiPanel } from './FloorPlanPanels';
  * public sees them, and cannot be deleted: the save says which vendor holds
  * them. Saving sends the whole plan with the version it was loaded at, so a
  * second tab cannot silently overwrite the first.
+ *
+ * RESERVED-SEATING EVENTS DRAW THEIR BOOTHS ON THE VENUE MAP (2026-11-22, the
+ * owner: "merge the seating map of the event and the seating map of
+ * vendors"). For them this tab shows the merged map and sends the organizer
+ * to the venue map editor, where booths sit beside the seats in one drawing
+ * of the hall. This editor stays for general-admission expos, which have no
+ * seat map to draw on.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 // [key, full name (tooltip, panel title), icon, short name on the button].
@@ -57,7 +67,40 @@ export default function FloorPlanEditor({ eventId, currency }) {
   const api = useApi(`/events/${eventId}/vendors/floor-plan`);
   if (api.error) return <ErrorNotice error={api.error} onRetry={api.reload} />;
   if (!api.data) return <Loading variant="card" label="Loading the floor plan" />;
+  if (api.data.seatMap) return <OnTheVenueMap eventId={eventId} currency={currency} loaded={api.data} />;
   return <Editor key={api.data.version} eventId={eventId} currency={currency} loaded={api.data} onSaved={api.reload} />;
+}
+
+/** A reserved-seating event: its booths live on the venue map, with the seats. */
+function OnTheVenueMap({ eventId, currency, loaded }) {
+  const count = planBooths(loaded.plan).length;
+  const linked = !!loaded.plan.onSeatMap;
+  return (
+    <div className="fx-stack">
+      <section className="es-boothimport" aria-labelledby="fp-venue-title">
+        <div className="fx-min0">
+          <h3 id="fp-venue-title" className="es-boothimport__title">Booths are drawn on your venue map</h3>
+          <p className="es-boothimport__text">
+            {linked || count === 0
+              ? 'This event has reserved seating, so its booths sit on the same map as the seats: one drawing of the hall for buyers and vendors. Add, number and move booths in the venue map, under Add to layout › Vendor booths.'
+              : `Your ${count} booth${count === 1 ? ' is' : 's are'} still on a separate floor plan. Open the venue map and choose “Bring them onto this map” to place them beside the seats.`}
+          </p>
+        </div>
+        <Link className="es-btn es-btn--primary" href={`/organizer/events/${eventId}/map`}>
+          <NavIcon name="map" size={18} />Edit booths on the venue map
+        </Link>
+      </section>
+      {count > 0 ? (
+        <FloorPlanViewer
+          floorPlan={{ plan: loaded.plan, booths: loaded.booths, boothTypes: loaded.boothTypes, venue: loaded.venue }}
+          currency={currency}
+          title={linked ? 'Booths on the venue map' : 'Separate floor plan'}
+        />
+      ) : (
+        <p className="text-sm text-muted">No booths yet. Booth types you make under Booths can be given to booths on the map.</p>
+      )}
+    </div>
+  );
 }
 
 function Editor({ eventId, currency, loaded, onSaved }) {

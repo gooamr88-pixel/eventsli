@@ -62,8 +62,8 @@ describe('what the organizer must give', () => {
     const p = problemsFor({ form: listing({ firstDay: '2099-05-16' }), choices: [], type: 'display_only' });
     expect(p.startsAt).toBeNull();
     expect(p.endsAt).toBeNull();
-    expect(p.venueName).toBeNull();
-    expect(p.venueAddress).toBeNull();
+    expect(p.venueName ?? null).toBeNull();
+    expect(p.venueAddress ?? null).toBeNull();
     expect(p.city).toMatch(/city/);
   });
 
@@ -75,10 +75,13 @@ describe('what the organizer must give', () => {
     expect(problemsFor({ form: listing(), choices: [], type: 'display_only' }).startsAt).toMatch(/Choose the date/);
   });
 
-  test('a ticketed event still needs its times and its venue', () => {
+  test('a ticketed event still needs its times; its venue may be announced later', () => {
     const p = problemsFor({ form: { ...listing(), firstDay: '2026-05-16' }, choices: [], type: 'ticketed' });
     expect(p.startsAt).toMatch(/when it starts/);
-    expect(p.venueName).toMatch(/venue name/);
+    // 2026-11-22: only the city is required — the venue may be a home or TBA.
+    expect(p.venueName ?? null).toBeNull();
+    expect(p.venueAddress ?? null).toBeNull();
+    expect(p.city).toMatch(/city/);
   });
 
   test('an AI-drafted listing saves as whole days', () => {

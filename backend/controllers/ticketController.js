@@ -1,4 +1,5 @@
 const { supabase } = require('../config/supabase');
+const { addressLine, addressParts } = require('../utils/venueAddress');
 const tickets = require('../services/ticketService');
 const access = require('../services/accessTokens');
 const email = require('../services/emailService');
@@ -272,7 +273,7 @@ async function resend(req, res, next) {
 async function orderPayload(orderId) {
   const { data: order } = await supabase
     .from('orders')
-    .select('id, currency, buyer_total_cents, quantity, guest_email, created_at, paid_at, events ( id, title, slug, starts_at, ends_at, timezone, venue_name, venue_address, status, organizer_id )')
+    .select('id, currency, buyer_total_cents, quantity, guest_email, created_at, paid_at, events ( id, title, slug, starts_at, ends_at, timezone, venue_name, venue_address, city, venue_address_line2, venue_region, venue_postal_code, venue_directions, status, organizer_id )')
     .eq('id', orderId)
     .maybeSingle();
 
@@ -288,7 +289,8 @@ async function orderPayload(orderId) {
       startsAt: order.events.starts_at,
       endsAt: order.events.ends_at,
       timezone: order.events.timezone,
-      venue: { name: order.events.venue_name, address: order.events.venue_address },
+      // The whole address — "Apt 4B" included — and how to find the door.
+      venue: { name: order.events.venue_name, address: addressLine(order.events), directions: addressParts(order.events).directions },
       cancelled: order.events.status === 'cancelled',
     },
     // Who to contact, and their public page (2026-11-18). Null when unknown.
@@ -319,7 +321,7 @@ async function loadForEmail(orderId) {
   const { data: order } = await supabase
     .from('orders')
     .select(`id, currency, buyer_total_cents, guest_name, guest_email, user_id,
-             events ( id, title, slug, organizer_id, starts_at, timezone, venue_name, venue_address, city ),
+             events ( id, title, slug, organizer_id, starts_at, timezone, venue_name, venue_address, city, venue_address_line2, venue_region, venue_postal_code, venue_directions ),
              profiles!orders_user_id_fkey ( email )`)
     .eq('id', orderId)
     .maybeSingle();

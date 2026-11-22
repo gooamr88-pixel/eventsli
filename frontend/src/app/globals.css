@@ -14784,6 +14784,7 @@ label.es-chip:has(:focus-visible) { outline: 2px solid var(--es-accent); outline
 .es-maplayers__list { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
 /* What a layer switch hides: drawn only, never removed. */
 [data-hide-zones="true"] .es-layer-zones { display: none; }
+[data-hide-booths="true"] .es-layer-booths { display: none; }
 [data-hide-labels="true"] .es-layer-label { display: none; }
 
 /* ── the five workspaces as the mockup's steps: arrows between them ────── */
@@ -18835,6 +18836,24 @@ textarea.es-input--dense { padding-block: 0.5rem; }
 .es-insp__title { margin: 0; overflow: hidden; font-size: var(--es-text-lg); font-weight: 700; line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; color: var(--es-text); }
 .es-insp__meta { margin: 0.125rem 0 0; font-size: var(--es-text-xs); line-height: 1.45; color: var(--es-text-muted); }
 .es-insp > .es-insp__note { margin: 0.75rem 1rem 0; }
+/* A vendor booth's inspector (2026-11-22): its colour chip and who holds it. */
+.es-boothchip { width: 1.25rem; height: 1.25rem; border: 1.5px solid #1d1d1f; border-radius: 4px; }
+.es-insp__status {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.5rem; margin: 0.75rem 1rem 0;
+  padding: 0.5rem 0.75rem; border-radius: var(--es-radius-md); background: var(--es-bg-sunken);
+  font-size: var(--es-text-sm); color: var(--es-text);
+}
+.es-insp__status[data-tone="accent"] { background: var(--es-accent-wash); }
+.es-insp__status[data-tone="success"] b { color: var(--es-success); }
+.es-insp__status .es-linkbtn { margin-left: auto; }
+/* The venue map's offer to bring a separate vendor floor plan's booths onto it. */
+.es-boothimport {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem 1rem;
+  padding: 0.875rem 1rem; border: 1px solid var(--es-border); border-radius: var(--es-radius-lg);
+  background: var(--es-accent-wash);
+}
+.es-boothimport__title { margin: 0; font-size: var(--es-text-base); font-weight: 700; color: var(--es-text); }
+.es-boothimport__text { margin: 0.25rem 0 0; max-width: 46rem; font-size: var(--es-text-sm); color: var(--es-text-muted); }
 .es-insp__body { display: flex; flex-direction: column; padding: 0 1rem; }
 .es-insp__body:last-child { padding-bottom: 0.75rem; }
 .es-insp__body > :not(.es-insp__sec) { margin-top: 0.875rem; }
@@ -19755,6 +19774,42 @@ button.es-vb-doc__tile:focus-visible { outline: 3px solid var(--es-accent); outl
   .es-privacy-rule__row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0.5rem; }
   .es-privacy-rule__field { display: flex; flex-direction: column; gap: 0.25rem; width: 5.5rem; }
   .es-privacy-rule__to, .es-privacy-rule__unit { padding-bottom: 0.75rem; }
+
+  /* Before the password (2026-11-22): blurred page or plain box, and what stays readable. */
+  .es-privacy-look { display: flex; flex-direction: column; gap: 0.625rem; margin: 0; padding: 0; border: 0; min-width: 0; }
+  .es-privacy-look__choices { display: grid; gap: 0.5rem; }
+  @media (width >= theme(--breakpoint-sm)) {
+    .es-privacy-look__choices { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  .es-privacy-look__choice {
+    position: relative; display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem;
+    border: 1.5px solid var(--es-border); border-radius: var(--es-radius-md);
+    background: var(--es-surface); cursor: pointer;
+  }
+  .es-privacy-look__choice[data-on="true"] { border-color: var(--es-accent); background: var(--es-accent-wash); }
+  .es-privacy-look__choice:has(input:focus-visible) { outline: 2px solid var(--es-accent); outline-offset: 2px; }
+  .es-privacy-look__choice input { position: absolute; opacity: 0; pointer-events: none; }
+  .es-privacy-look__choice b { display: block; font-size: var(--es-text-sm); color: var(--es-text); }
+  .es-privacy-look__choice small { display: block; font-size: var(--es-text-xs); line-height: 1.4; color: var(--es-text-muted); }
+  /* A tiny drawing of each choice: bars behind a box, or a box alone. */
+  .es-privacy-look__art {
+    position: relative; flex: none; width: 3.25rem; height: 2.5rem; overflow: hidden;
+    border-radius: 0.5rem; background: var(--es-bg-sunken);
+  }
+  .es-privacy-look__art span { position: absolute; left: 0.3rem; right: 0.3rem; height: 0.3rem; border-radius: 999px; background: var(--es-border-strong); }
+  .es-privacy-look__art span:nth-child(1) { top: 0.4rem; }
+  .es-privacy-look__art span:nth-child(2) { top: 1.05rem; }
+  .es-privacy-look__art span:nth-child(3) { top: 1.7rem; right: 1rem; }
+  .es-privacy-look__art[data-kind="blur"] span { filter: blur(1.5px); background: var(--es-text-muted); }
+  .es-privacy-look__art[data-kind="card"] span { display: none; }
+  .es-privacy-look__art::after {
+    content: ""; position: absolute; inset: 0.55rem 0.85rem; border-radius: 0.3rem;
+    background: var(--es-surface); box-shadow: 0 1px 4px rgb(17 16 24 / 0.25);
+  }
+  .es-privacy-look__sub { margin-top: 0.25rem; }
+  .es-privacy-look__reveal { display: flex; flex-wrap: wrap; gap: 0.375rem 1rem; }
+  .es-privacy-look__check { display: inline-flex; align-items: center; gap: 0.5rem; font-size: var(--es-text-sm); color: var(--es-text); }
+  .es-privacy-look__check input { width: 1.05rem; height: 1.05rem; accent-color: var(--es-accent); }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -20213,4 +20268,202 @@ button.es-vb-doc__tile:focus-visible { outline: 3px solid var(--es-accent); outl
     .es-co__event { grid-template-columns: 4.5rem minmax(0, 1fr); }
     .es-co__poster { width: 4.5rem; height: 4.5rem; }
   }
+}
+
+/* ── Private event, blurred preview (2026-11-22) ─────────────────────────
+   e/[slug]/BlurredEventPreview.jsx: the event page's shape, in placeholder
+   bars, blurred behind the password card. The organizer chooses it
+   (PrivacyCard › Before the password). No real text is under the blur. */
+@layer components {
+  .es-pgate-page[data-preview="blur"] {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    min-height: 100dvh;
+  }
+  .es-pgate-front { position: relative; z-index: 1; }
+
+  .es-pblur {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+    pointer-events: none;
+    user-select: none;
+    filter: blur(14px) saturate(1.1);
+    transform: scale(1.06);
+  }
+  /* A veil, so the card reads on any cover. */
+  .es-pblur::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: color-mix(in srgb, var(--es-bg-sunken) 55%, transparent);
+  }
+  .es-pblur__cover {
+    position: relative;
+    height: 22rem;
+    overflow: hidden;
+    background: var(--es-brand-coral, #ff414b);
+  }
+  .es-pblur__cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    filter: blur(6px);
+    transform: scale(1.15);
+  }
+  .es-pblur__wash {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(60% 80% at 20% 30%, #ffcc00 0, transparent 60%),
+      radial-gradient(50% 70% at 80% 60%, #d61f2c 0, transparent 65%),
+      linear-gradient(135deg, #3b1f4a, #b58aa8);
+  }
+  .es-pblur__page {
+    max-width: 72rem;
+    margin: -4rem auto 0;
+    padding: 2rem 1.5rem;
+    border-radius: 1.5rem;
+    background: var(--es-surface);
+  }
+  .es-pblur__head { display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 2rem; }
+  .es-pblur__bar {
+    display: block;
+    height: 0.9rem;
+    margin-bottom: 0.7rem;
+    border-radius: 999px;
+    background: var(--es-border-strong);
+  }
+  .es-pblur__bar--title { width: 70%; height: 2.25rem; background: var(--es-text-muted); }
+  .es-pblur__bar--short { width: 42%; }
+  .es-pblur__facts { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 0.5rem; }
+  .es-pblur__chip { width: 9rem; height: 2rem; border-radius: 999px; background: var(--es-accent-wash); }
+  .es-pblur__cols { display: grid; gap: 2rem; }
+  @media (width >= theme(--breakpoint-md)) {
+    .es-pblur__cols { grid-template-columns: minmax(0, 1fr) 20rem; }
+  }
+  .es-pblur__gallery { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem; margin-top: 1.5rem; }
+  .es-pblur__tile { aspect-ratio: 4 / 3; border-radius: 1rem; background: linear-gradient(135deg, #b58aa8, #ffcc00); }
+  .es-pblur__aside {
+    display: flex; flex-direction: column; gap: 0.75rem;
+    padding: 1.25rem; border: 1px solid var(--es-border); border-radius: 1.25rem;
+  }
+  .es-pblur__ticket { height: 4rem; border-radius: 0.875rem; background: var(--es-bg-sunken); }
+  .es-pblur__button { height: 3rem; border-radius: 999px; background: var(--es-accent); }
+
+  /* The card's own hero, when the cover is the 24-pixel copy. */
+  .es-pgate__img--blur { filter: blur(10px) saturate(1.15); transform: scale(1.2); }
+
+  /* The date and the city, when the organizer shows them. */
+  .es-pgate__facts {
+    display: flex; flex-wrap: wrap; gap: 0.375rem 1rem;
+    margin: 0; padding: 0; list-style: none;
+    font-size: var(--es-text-sm); color: var(--es-text-muted);
+  }
+  .es-pgate__facts li { display: inline-flex; align-items: center; gap: 0.375rem; }
+
+  @media (prefers-reduced-transparency: reduce) {
+    .es-pblur { filter: blur(20px); }
+  }
+}
+
+/* ── Whose guest, at checkout (2026-11-23) ───────────────────────────────
+   checkout/[reservationId]/GuestOfField.jsx: the organizer's hosts as large
+   choices. The host picked is emailed when the booking is confirmed. */
+@layer components {
+  .es-guestof { display: grid; gap: 0.5rem; margin-top: 0.75rem; }
+  @media (width >= theme(--breakpoint-sm)) {
+    .es-guestof { grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr)); }
+  }
+  .es-guestof__choice {
+    position: relative; display: flex; align-items: center; gap: 0.75rem;
+    min-height: 3.25rem; padding: 0.75rem 1rem;
+    border: 1.5px solid var(--es-border); border-radius: var(--es-radius-md);
+    background: var(--es-surface); cursor: pointer;
+    font-weight: 600; color: var(--es-text);
+  }
+  .es-guestof__choice:hover { border-color: var(--es-border-strong); }
+  .es-guestof__choice[data-on="true"] { border-color: var(--es-accent); background: var(--es-accent-wash); }
+  .es-guestof__choice:has(input:focus-visible) { outline: 2px solid var(--es-accent); outline-offset: 2px; }
+  .es-guestof__choice input { position: absolute; opacity: 0; pointer-events: none; }
+  .es-guestof__choice--none { font-weight: 500; color: var(--es-text-muted); }
+  .es-guestof__dot {
+    flex: none; width: 1.125rem; height: 1.125rem; border-radius: 999px;
+    border: 2px solid var(--es-border-strong); background: var(--es-surface);
+  }
+  .es-guestof__choice[data-on="true"] .es-guestof__dot { border-color: var(--es-accent); box-shadow: inset 0 0 0 3px var(--es-surface); background: var(--es-accent); }
+  .es-guestof__name { min-width: 0; overflow-wrap: anywhere; }
+  .es-co__optional { margin-left: 0.5rem; font-size: var(--es-text-xs); font-weight: 500; color: var(--es-text-subtle); }
+  .es-co__error { margin: 0.5rem 0 0; font-size: var(--es-text-sm); color: var(--es-danger); }
+}
+
+/* ── Hosts & guests, organizer (2026-11-23) ──────────────────────────────
+   organizer/events/[id]/guests/HostGuests.jsx. */
+@layer components {
+  .es-hostrow {
+    display: flex; flex-direction: column; gap: 0.75rem; padding: 1rem;
+    border: 1px solid var(--es-border); border-radius: var(--es-radius-lg); background: var(--es-surface);
+  }
+  .es-hostrow[data-off="true"] { background: var(--es-bg-sunken); }
+  .es-hostrow__head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 0.75rem 1.5rem; }
+  .es-hostrow__name { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin: 0; font-size: var(--es-text-lg); font-weight: 700; color: var(--es-text); overflow-wrap: anywhere; }
+  .es-hostrow__meta { margin: 0.125rem 0 0; font-size: var(--es-text-sm); color: var(--es-text-muted); overflow-wrap: anywhere; }
+  .es-hostrow__edit { display: flex; flex-direction: column; gap: 0.5rem; flex: 1 1 18rem; min-width: 0; }
+  .es-hostrow__stats { display: flex; gap: 1.25rem; margin: 0; }
+  .es-hostrow__stats div { display: flex; flex-direction: column; align-items: flex-end; }
+  .es-hostrow__stats dt { font-size: var(--es-text-xs); color: var(--es-text-subtle); }
+  .es-hostrow__stats dd { margin: 0; font-size: var(--es-text-lg); font-weight: 700; color: var(--es-text); }
+  .es-hostrow__actions { display: flex; flex-wrap: wrap; gap: 0.375rem; }
+  .es-hostadd {
+    display: flex; flex-direction: column; gap: 0.625rem; padding: 1rem;
+    border: 1.5px dashed var(--es-border-strong); border-radius: var(--es-radius-lg);
+  }
+  .es-hostadd__title { margin: 0; font-size: var(--es-text-base); font-weight: 700; color: var(--es-text); }
+  .es-hostadd__fields { display: grid; gap: 0.625rem; }
+  @media (width >= theme(--breakpoint-sm)) {
+    .es-hostadd__fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+}
+
+/* ── A host's own guest list (2026-11-23): guests/[token]/page.jsx ─────── */
+@layer components {
+  .es-hostlist__head { display: flex; flex-direction: column; gap: 0.25rem; }
+  .es-hostlist__eyebrow { display: inline-flex; align-items: center; gap: 0.375rem; margin: 0; font-size: var(--es-text-xs); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--es-accent); }
+  .es-hostlist__title { margin: 0; overflow-wrap: anywhere; }
+  .es-hostlist__totals { display: flex; gap: 1rem; margin: 0; }
+  .es-hostlist__totals div { flex: 1 1 0; padding: 0.875rem 1rem; border: 1px solid var(--es-border); border-radius: var(--es-radius-lg); background: var(--es-surface); }
+  .es-hostlist__totals dt { font-size: var(--es-text-xs); color: var(--es-text-subtle); }
+  .es-hostlist__totals dd { margin: 0; font-size: var(--es-text-2xl, 1.5rem); font-weight: 700; color: var(--es-text); }
+  .es-hostlist__list { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; border: 1px solid var(--es-border); border-radius: var(--es-radius-lg); background: var(--es-surface); }
+  .es-hostlist__row { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0.25rem 1rem; padding: 0.75rem 1rem; }
+  .es-hostlist__row + .es-hostlist__row { border-top: 1px solid var(--es-border); }
+  .es-hostlist__name { font-weight: 600; color: var(--es-text); overflow-wrap: anywhere; }
+  .es-hostlist__meta { font-size: var(--es-text-sm); color: var(--es-text-muted); }
+}
+
+/* ── Sale emails, organizer settings (2026-11-23): organizer/profile/SaleEmails.jsx ── */
+@layer components {
+  .es-salemail__modes { display: grid; gap: 0.5rem; }
+  @media (width >= theme(--breakpoint-md)) {
+    .es-salemail__modes { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  }
+  .es-salemail__mode {
+    position: relative; display: flex; gap: 0.75rem; padding: 0.875rem 1rem;
+    border: 1.5px solid var(--es-border); border-radius: var(--es-radius-md); background: var(--es-surface); cursor: pointer;
+  }
+  .es-salemail__mode[data-on="true"] { border-color: var(--es-accent); background: var(--es-accent-wash); }
+  .es-salemail__mode:has(input:focus-visible) { outline: 2px solid var(--es-accent); outline-offset: 2px; }
+  .es-salemail__mode input { position: absolute; opacity: 0; pointer-events: none; }
+  .es-salemail__mode b { display: block; color: var(--es-text); }
+  .es-salemail__mode small { display: block; margin-top: 0.125rem; font-size: var(--es-text-xs); line-height: 1.45; color: var(--es-text-muted); }
+  .es-salemail__who { display: flex; flex-direction: column; gap: 0.5rem; margin: 0; padding: 0; border: 0; min-width: 0; }
+  .es-salemail__check { display: inline-flex; align-items: center; gap: 0.5rem; font-size: var(--es-text-sm); color: var(--es-text); overflow-wrap: anywhere; }
+  .es-salemail__check input { width: 1.05rem; height: 1.05rem; accent-color: var(--es-accent); }
+  .es-salemail__list { display: flex; flex-direction: column; gap: 0.25rem; margin: 0; padding: 0; list-style: none; }
+  .es-salemail__list li { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.375rem 0.625rem; border-radius: var(--es-radius-sm, 0.375rem); background: var(--es-bg-sunken); font-size: var(--es-text-sm); }
+  .es-salemail__add { display: flex; gap: 0.5rem; }
+  .es-salemail__add .es-input { flex: 1 1 auto; min-width: 0; }
 }

@@ -7,6 +7,7 @@ import {
 import { usePanZoom } from './usePanZoom';
 import { useBadgeScale } from './useBadgeScale';
 import ZoneShape from './ZoneShape';
+import { BoothDefs } from './BoothShape';
 import MapGestureHint from './MapGestureHint';
 import { SectionPlates, SectionBadges } from './MapOverlays';
 import { paintOrder, zoneLabel } from './venueZones';
@@ -155,8 +156,14 @@ export default function SeatMapCanvas({
   const zoneSummary = useMemo(() => {
     if (zones.length === 0) return null;
     // Walls are the room's outline, not something to find; a hidden name is hidden.
-    const named = zones.filter((z) => z.kind !== 'wall' && z.showLabel !== false);
-    return named.length ? named.map(zoneLabel).join(', ') : null;
+    // Vendor booths are counted, not read out one code at a time.
+    const named = zones.filter((z) => z.kind !== 'wall' && z.kind !== 'booth' && z.showLabel !== false);
+    const booths = zones.filter((z) => z.kind === 'booth').length;
+    const parts = [
+      ...named.map(zoneLabel),
+      ...(booths ? [`${booths} vendor booth${booths === 1 ? '' : 's'}`] : []),
+    ];
+    return parts.length ? parts.join(', ') : null;
   }, [zones]);
 
   /**
@@ -205,6 +212,7 @@ export default function SeatMapCanvas({
       >
         {/* ZONES FIRST. SVG has no z-index — paint order is the only thing
             keeping a dance floor from covering the seats around it. */}
+        <BoothDefs />
         <SectionPlates plates={plates} />
         {paintOrder(zones).map((zone) => <ZoneShape key={zone.id} zone={zone} showcase={showcase} world={world} look={look} />)}
 

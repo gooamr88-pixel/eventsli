@@ -47,7 +47,8 @@ const ORDER_SELECT = `
   commission_cents, commission_tax_cents, buyer_total_cents, organizer_net_cents,
   guest_name, guest_email, manual_method, manual_note,
   created_at, paid_at, reservation_id,
-  profiles!orders_user_id_fkey ( full_name, email )
+  profiles!orders_user_id_fkey ( full_name, email ),
+  event_hosts ( id, name )
 `;
 
 // ─── GET /events/:eventId/orders ────────────────────────────────────────────
@@ -220,6 +221,8 @@ function shapeOrder(o) {
       email: account?.email || o.guest_email || null,
       hasAccount: !!account,
     },
+    // Whose guest they said they are at checkout (2026-11-23), or null.
+    guestOf: o.event_hosts ? { id: o.event_hosts.id, name: o.event_hosts.name } : null,
     subtotalCents: Number(o.subtotal_cents),
     discountCents: Number(o.discount_cents),
     taxCents: Number(o.event_tax_cents),

@@ -40,6 +40,9 @@ import { useStepSave } from '../BuildStep';
 import { useWallTool } from './style/useWallTool';
 import MapTemplateDialog from './style/MapTemplateDialog';
 import ImageImportDialog from './style/ImageImportDialog';
+import BoothRowDialog from './BoothRowDialog';
+import { BOOTH_KIND, BOOTH_META } from '../../../../components/seating/venueZones';
+import { MAX_BOOTHS, codePrefix, nextBoothNumber } from '../../../../components/seating/boothZones';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -67,6 +70,13 @@ import ImageImportDialog from './style/ImageImportDialog';
  * because they are needed outside it: the toolbar drives the zoom, the keyboard
  * pans, and the print pack needs the same zone list the canvas is drawing. The
  * round trips are useMapPersistence; the side panel is EditorSidePanel.
+ *
+ * VENDOR BOOTHS ARE ON THIS MAP TOO (2026-11-22, the owner: "merge the seating
+ * map of the event and the seating map of vendors"). One drawing of the hall:
+ * booths are added from "Vendor booths" in Add to layout, carried as zones of
+ * kind `booth`, and saved to the vendor floor plan by the same Save
+ * (boothZones.js, useMapPersistence.js). A separate plan drawn earlier is
+ * offered once, as "Bring them onto this map".
  * ─────────────────────────────────────────────────────────────────────────────
  */
 export default function MapEditor({ eventId }) {
@@ -106,6 +116,14 @@ export default function MapEditor({ eventId }) {
 
   const io = useMapPersistence({ eventId, draft, studioDraft, selection, onFrame: setFrame });
   const { tiers, categories, layout, eventTitle, eventInfo } = io;
+
+  // Vendor booths (boothZones.js): editable here once the floor plan was read
+  // and any separate plan's booths have been brought onto this map.
+  const booths = zones.filter((z) => z.kind === BOOTH_KIND);
+  const offerImport = !!io.boothImport && booths.length === 0;
+  const vendorsOn = !!io.vendor && !offerImport;
+  const shownLayers = io.vendor ? layers : { zones: layers.zones, labels: layers.labels };
+  const [showBoothRow, setShowBoothRow] = useState(false);
   const purchaseMode = eventInfo.purchaseMode;
 
   /**
@@ -130,7 +148,7 @@ export default function MapEditor({ eventId }) {
   const aiOn = !!(aiQuota?.enabled || aiQuota?.reason === 'ADMIN_ACCOUNT');
   const [toolsOpen, setToolsOpen] = useState(false);   // phones only — PhoneTools.jsx
   // What the canvas draws (LayersCard.jsx). The map itself is unchanged.
-  const [layers, setLayers] = useState({ zones: true, labels: true });
+  const [layers, setLayers] = useState({ zones: true, labels: true, booths: true });
   const toggleLayer = useCallback((key) => setLayers((l) => ({ ...l, [key]: !l[key] })), []);
 
   const [tool, setTool] = useState('select');
@@ -235,6 +253,22 @@ export default function MapEditor({ eventId }) {
     if (initial.family === 'ai') { setShowDesigner(true); return; }
     if (initial.family === 'tool') { selection.clear(); setToolBoth(initial.key); return; }
     if (initial.family === 'section') { setShowSection(true); return; }
+    if (initial.family === 'boothRow') { setShowBoothRow(true); return; }
+    // One booth, at once (like a stage): numbered after the last booth added,
+    // in its series and of its type, so clicking Booth five times lays a run.
+    if (initial.family === 'booth') {
+      if (booths.length >= MAX_BOOTHS) return;
+      const last = booths[booths.length - 1] || null;
+      const prefix = last ? codePrefix(last.label) : 'A';
+      const position = freeSpot(panzoom.view, { w: BOOTH_META.w, h: BOOTH_META.h }, tables, zones, world);
+      const ids = draft.addZones([{
+        kind: BOOTH_KIND,
+        position,
+        overrides: { label: `${prefix}${nextBoothNumber(zones, prefix)}`.slice(0, 12), boothTypeId: last?.boothTypeId || null, blocked: false },
+      }]);
+      if (ids.length) selection.replace([], ids);
+      return;
+    }
     // ONE THING, NO FORM (2026-11-21). A stage, an area, a door, a word on the
     // floor, a decoration or a single seat has nothing to count or number,
     // so it appears at once — in the middle of the view, at the nearest free
@@ -340,7 +374,7 @@ export default function MapEditor({ eventId }) {
     <div className="fx-stack">
       <MapHeader
         tables={tables}
-        zones={zones}
+        zones={zones.filter((z) => z.kind !== BOOTH_KIND)}
         soldTotal={soldTotal}
         blockedTotal={blockedTotal}
         dirty={dirty}
@@ -372,6 +406,28 @@ export default function MapEditor({ eventId }) {
         lookupFailed={io.lookupFailed} dirty={dirty} onReload={io.reload}
       />
 
+      {/* A vendor floor plan drawn before booths lived on this map. */}
+      {workspace === 'layout' && offerImport && (
+        <section className="es-boothimport" aria-labelledby="booth-import-title">
+          <div className="fx-min0">
+            <h3 id="booth-import-title" className="es-boothimport__title">
+              Your {io.boothImport.count} vendor booth{io.boothImport.count === 1 ? ' is' : 's are'} on a separate floor plan
+            </h3>
+            <p className="es-boothimport__text">
+              Bring {io.boothImport.count === 1 ? 'it' : 'them'} onto this map to sell seats and booths from one drawing of the hall.
+              They arrive selected, so you can drag them into place before you save
+              {io.boothImport.extras > 0 ? '. The old plan’s walls and labels stay behind — this map draws the room.' : '.'}
+            </p>
+          </div>
+          <button
+            type="button" className="es-btn es-btn--primary"
+            onClick={() => { const ids = io.importBooths(); if (ids.length) selection.replace([], ids); }}
+          >
+            Bring them onto this map
+          </button>
+        </section>
+      )}
+
       <div id="studio-panel" role="tabpanel" aria-labelledby={`studio-tab-${workspace}`} className="fx-stack">
       <StudioWorkspace
         workspace={workspace} eventId={eventId} tables={tables} zones={zones} layout={previewLayout}
@@ -390,8 +446,8 @@ export default function MapEditor({ eventId }) {
             enough for three columns; narrower, the same list is the
             toolbar's Add menu (BuildPanel.jsx). */}
         <div className="es-mapeditor__tools">
-          <BuildPalette onAdd={addFrom} ai={aiOn}>
-            <LayersSection layers={layers} onToggle={toggleLayer} />
+          <BuildPalette onAdd={addFrom} ai={aiOn} vendors={vendorsOn}>
+            <LayersSection layers={shownLayers} onToggle={toggleLayer} />
           </BuildPalette>
         </div>
         {/* The toolbar sits ON the canvas card, as one surface — and that card
@@ -414,6 +470,7 @@ export default function MapEditor({ eventId }) {
               onRedo={draft.redo}
               onAdd={addFrom}
               ai={aiOn}
+              vendors={vendorsOn}
               onFullscreen={toggleFullscreen}
               zoom={{
                 // 100 % is the whole venue in view, whatever its size.
@@ -440,6 +497,7 @@ export default function MapEditor({ eventId }) {
             snapToGrid={snapToGrid}
             onNudge={onElementKeyDown}
             layers={layers}
+            boothInfo={io.boothInfo}
             look={draft.look}
             wallTool={wallTool}
             emptyState={<MapStarter onAdd={addFrom} ai={aiOn} />}
@@ -461,8 +519,10 @@ export default function MapEditor({ eventId }) {
           onRemoveSelected={removeSelected}
           onSelectUnpriced={selectUnpriced}
           onAssignTablePrice={assignTablePrice}
-          layers={layers}
+          layers={shownLayers}
           onToggleLayer={toggleLayer}
+          eventId={eventId}
+          boothInfo={io.boothInfo}
           dirty={dirty} saving={io.saving} canSave={!io.saving && dirty && saveProblems.length === 0} onSave={io.save} onAdd={addFrom}
           wallTool={wallTool}
           onApplyLook={applyLookToTables}
@@ -491,6 +551,18 @@ export default function MapEditor({ eventId }) {
             selection.replace(keys, []);
             studioDraft.edit('sections', [...studio.sections, ...added]);
           }}
+        />
+      )}
+
+      {showBoothRow && (
+        <BoothRowDialog
+          zones={zones}
+          boothTypes={io.boothInfo?.boothTypes || []}
+          world={world}
+          placeAt={placeAt}
+          roomForBooths={Math.max(0, MAX_BOOTHS - booths.length)}
+          onClose={() => setShowBoothRow(false)}
+          onAdd={(specs) => { const ids = draft.addZones(specs); if (ids.length) selection.replace([], ids); }}
         />
       )}
 

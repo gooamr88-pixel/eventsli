@@ -1,7 +1,8 @@
 'use client';
 
 import { worldOf } from './seatingGeometry';
-import { ROOM_KINDS, zoneBox, zoneColor, zoneInk, zoneLabel, zoneMeta } from './venueZones';
+import { BOOTH_KIND, ROOM_KINDS, zoneBox, zoneColor, zoneInk, zoneLabel, zoneMeta } from './venueZones';
+import BoothShape from './BoothShape';
 import { isStyledZone } from './mapStyle';
 import StyledZoneShape from './StyledZoneShape';
 import { iconPaths, ZONE_ICON_VIEWBOX } from './zoneIcons';
@@ -46,6 +47,18 @@ export default function ZoneShape({
   // label colours. Only styled zones and the room kinds read it.
   look = null,
 }) {
+  // A vendor booth on the venue map (boothZones.js) draws as a booth, never as
+  // an area. Wherever a zone list reaches a renderer, booths in it read right.
+  if (zone.kind === BOOTH_KIND) {
+    return (
+      <BoothShape
+        zone={zone} world={world} selected={selected} interactive={interactive}
+        onPointerDown={onPointerDown} onKeyDown={onKeyDown} audience={showcase ? 'buyer' : 'organizer'}
+      >
+        {children}
+      </BoothShape>
+    );
+  }
   const box = zoneBox(zone, world);
   // The organizer's own design wins everywhere, buyer's map included
   // (StyledZoneShape.jsx). Unstyled furniture keeps its stock look below.

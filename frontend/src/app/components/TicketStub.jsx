@@ -53,6 +53,10 @@ export default function TicketStub({ ticket, qrSrc, timeZone = null, prominent =
   const zone = event?.timezone || timeZone;
   const when = event?.startsAt ? formatEventTime(event.startsAt, zone) : null;
   const venue = typeof event?.venue === 'string' ? event.venue : event?.venue?.name || null;
+  // The full address and how to find the door (2026-11-22): a home has a unit
+  // number, and a guest standing outside needs it on the ticket.
+  const address = (typeof event?.venue === 'object' ? event?.venue?.address : null) || event?.venueAddressFull || null;
+  const directions = (typeof event?.venue === 'object' ? event?.venue?.directions : null) || event?.venueDirections || null;
   const facts = ticketFacts(ticket);
 
   return (
@@ -77,6 +81,12 @@ export default function TicketStub({ ticket, qrSrc, timeZone = null, prominent =
           )}
           {venue && (
             <p className="es-tkt__line"><NavIcon name="pin" size={16} /><span className="fx-break">{venue}</span></p>
+          )}
+          {address && (
+            <p className="es-tkt__line"><NavIcon name="building" size={16} /><span className="fx-break">{address}</span></p>
+          )}
+          {directions && (
+            <p className="es-tkt__line"><NavIcon name="door" size={16} /><span className="fx-break">{directions}</span></p>
           )}
 
           <dl className="es-tkt__facts">

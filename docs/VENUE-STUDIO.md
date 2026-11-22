@@ -192,3 +192,38 @@ The 3D preview always sits under the inspector. Sticky panels stick under the
 shell's pinned top, whose height AppShell publishes as `--es-shell-top-h`.
 
 **Second pass (same day).** Three columns from a 60rem editor (a 1440px laptop); below that the Add menu and the Map inspector's "Show on the map" stand in. Zoom floats on the canvas corner in both editors, so each toolbar is one row. Bare keys (Delete, Backspace, arrows, Space, letters) belong to a focused inspector control, not the map; Ctrl/⌘ shortcuts still reach the map, and pressing the canvas hands focus back to it. The editor's shortcuts run only on the Layout tab. `NumberField` keeps its own text: in-bounds values apply while typing, everything else on blur or Enter (`live={false}` for Seats and hall size). Floor plan tools hand back to Select after placing, so the inspector opens on what was placed. A bulk whole-table price is offered where the event sells whole tables.
+
+## Vendor booths on the venue map (2026-11-22)
+
+The owner asked to merge the event's seating map and the vendors' floor plan.
+A reserved-seating event now has **one drawing of the hall**: seats and vendor
+booths are added, moved and saved in the same venue map editor.
+
+- **Storage stays split.** Seats are `tables`/`seats`; booths stay in
+  `vendor_floor_plans.plan`, because offers and bookings point at a booth's id
+  (`vendor_applications.booth_key`). A plan drawn on the map carries
+  `onSeatMap: true` and is saved in the map's world (plan width/height = world).
+  Booths are never written into `layout_json` (`writeZones` skips them,
+  `readZones` drops them). No migration.
+- **Editor.** Booths ride in the draft as zones of kind `booth`
+  (`venueZones.BOOTH_KIND`, `BOOTH_META` 3 x 3 m; not in `ZONES`, so the AI and
+  the Add dialog never see them). The booth code is the zone's `label`.
+  `components/seating/boothZones.js` converts plan <-> zones. Add to layout has a
+  **Vendor booths** group (Booth, Row of booths); `BoothPanel.jsx` is the
+  inspector (code, booth type, unavailable, size; a booth a vendor holds names
+  them and cannot be deleted); a Selection can set one booth type for many; the
+  Layers card gets **Vendor booths**; Select-by-type has "All vendor booths".
+- **Save** (`useMapPersistence`): booths first, `PUT /events/:id/vendors/floor-plan`
+  (it refuses to drop a held booth, which stops the whole save), then the map.
+  Booths are sent only when they changed. A separate plan with booths is offered
+  once as **Bring them onto this map** (booths only; its walls and labels stay
+  behind).
+- **Everyone sees the same hall.** `GET /public/events/:slug/seat-map` returns
+  `vendorBooths` (buyers see booths, with vendor names once booked, paid and
+  listed). Vendor views (public vendor page, vendor booking, the organizer's
+  booth picker) get `venue` = `vendorService.seatMapContext` (world, zones, look,
+  tables; private tables only for the organizer) and draw it under the booths
+  (`VenueUnderlay.jsx`).
+- **General admission** events have no seat map, so they keep the standalone
+  floor plan editor; the API refuses `onSeatMap` for them. Vendors > Floor plan
+  shows reserved events the merged map and a link to the venue map editor.

@@ -322,3 +322,52 @@ test('applications close at the deadline', async () => {
   assert.equal(res.status, 409);
   assert.equal(res.body.error, 'VENDOR_APPLICATIONS_CLOSED');
 });
+
+test('booths on the seat map: one drawing for a reserved event; never for general admission', async () => {
+  const current = (await call('GET', O('/floor-plan'), null, tokens.owner)).body.data;
+  assert.equal(current.seatMap, false, 'a general-admission event has no seat map');
+  const booths = current.plan.elements.filter((e) => e.kind === 'booth');
+  const linked = { width: 1000, height: 700, onSeatMap: true, elements: booths };
+  const refused = await call('PUT', O('/floor-plan'), { plan: linked, version: current.version }, tokens.owner);
+  assert.equal(refused.status, 400, JSON.stringify(refused.body));
+  assert.equal(refused.body.error, 'VALIDATION_ERROR');
+
+  // Reserved seating, with a seat map: a stage, a table, and a private table.
+  await supabase.from('events').update({ admission_type: 'reserved' }).eq('id', ids.event);
+  const { data: map, error: mapError } = await supabase.from('venue_maps').insert({
+    event_id: ids.event,
+    layout_json: { world: { width: 1000, height: 700 }, zones: [{ id: 'z_stage', kind: 'stage', x: 50, y: 10, w: 144, h: 60, rotation: 0 }] },
+  }).select('id').single();
+  assert.ifError(mapError);
+  const { error: tableError } = await supabase.from('tables').insert([
+    { venue_map_id: map.id, label: 'T1', seat_count: 8, shape: 'round', position_x: 30, position_y: 50, is_private: false, password_hash: null },
+    { venue_map_id: map.id, label: 'VIP', seat_count: 6, shape: 'round', position_x: 70, position_y: 50, is_private: true, password_hash: 'x' },
+  ]);
+  assert.ifError(tableError);
+
+  const before = (await call('GET', O('/floor-plan'), null, tokens.owner)).body.data;
+  assert.equal(before.seatMap, true);
+  assert.equal(before.venue, null, 'the separate plan is not on the map until it is saved there');
+
+  const saved = await call('PUT', O('/floor-plan'), { plan: linked, version: before.version }, tokens.owner);
+  assert.equal(saved.status, 200, JSON.stringify(saved.body));
+  const plan = saved.body.data;
+  assert.equal(plan.plan.onSeatMap, true);
+  assert.equal(plan.plan.elements.length, booths.length, 'only booths: the walls and the old stage are gone');
+  assert.equal(plan.booths.db1.status, 'held', 'the offer still points at its booth');
+  assert.deepEqual(plan.venue.tables.map((t) => t.label).sort(), ['T1', 'VIP'], 'the organizer sees every table');
+  assert.equal(plan.venue.zones[0].kind, 'stage');
+
+  const pub = (await call('GET', `/public/events/${slug}/vendors`)).body.data.floorPlan;
+  assert.deepEqual(pub.venue.tables.map((t) => t.label), ['T1'], 'a private table is not shown to the public');
+  assert.equal(pub.venue.tables[0].seatCount, 8);
+  assert.equal(pub.booths.db1.vendor, undefined);
+
+  const seatMap = await call('GET', `/public/events/${slug}/seat-map`);
+  assert.equal(seatMap.status, 200, JSON.stringify(seatMap.body));
+  const vb = seatMap.body.data.vendorBooths;
+  assert.equal(vb.plan.onSeatMap, true, 'buyers see the booths on their seat map');
+  assert.equal(vb.booths.db1.status, 'held');
+  assert.equal(vb.venue, undefined, 'the seat map does not repeat itself');
+  assert.equal(JSON.stringify(seatMap.body.data.map.layout).includes('db1'), false, 'no booth is written into the seat map');
+});

@@ -1,4 +1,5 @@
 const { supabase } = require('../config/supabase');
+const { addressFields } = require('../utils/venueAddress');
 const {
   describeOrder, FEE_BEARER, PAYMENT_FEE_MODE, CHARGE_MODEL,
 } = require('../utils/money');
@@ -316,10 +317,13 @@ async function submissionBlockers({ event, userId, launch = false }) {
   // a door, so there is no "where do I go with my ticket" to answer — and a
   // city-wide festival or a venue still to be announced is still worth
   // listing. The city stays required: it is what makes the listing findable.
-  const listing = event.listing_type === 'display_only';
+  //
+  // THE VENUE ITSELF IS OPTIONAL (2026-11-22, the owner: "all optional if the
+  // place is unknown"). A ticketed event may go on sale with its venue to be
+  // announced, or at a private home whose details the organizer adds later;
+  // the page says "Venue to be announced" until there is one. The city is
+  // still required, for every event: without it the event is in no "near me".
   const missing = [
-    !listing && !String(event.venue_name || '').trim() && 'a venue name',
-    !listing && !String(event.venue_address || '').trim() && 'a street address',
     !String(event.city || '').trim() && 'a city',
   ].filter(Boolean);
 
@@ -327,7 +331,7 @@ async function submissionBlockers({ event, userId, launch = false }) {
     blockers.push({
       status: 400,
       error: 'VALIDATION_ERROR',
-      message: `Add ${missing.join(', ')} before submitting — buyers need to know where to go, and the city is what puts this event in “events near me”.`,
+      message: `Add ${missing.join(', ')} before submitting — the city is what puts this event in “events near me”.`,
       meta: { missing },
     });
   }
@@ -490,6 +494,7 @@ async function preview({ eventId, userId }) {
     // is the one it is handed.
     .select(`id, slug, title, description, status, listing_type, admission_type, purchase_mode, category,
              venue_name, venue_address, city, country, venue_lat, venue_lng,
+             venue_address_line2, venue_region, venue_postal_code, venue_directions,
              starts_at, ends_at, timezone, currency, cover_url,
              max_tickets_per_order, allow_ticket_transfer,
              commission_pct, commission_tax_pct, event_tax_pct,
@@ -574,6 +579,7 @@ async function preview({ eventId, userId }) {
       category: event.category,
       venueName: event.venue_name,
       venueAddress: event.venue_address,
+      ...addressFields(event),
       city: event.city,
       country: event.country,
       hasCoordinates: event.venue_lat !== null && event.venue_lng !== null,

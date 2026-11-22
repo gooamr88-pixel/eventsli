@@ -178,6 +178,22 @@ router.put(
 );
 
 router.get('/payment-methods', ...methods, c.listPaymentMethods);
+
+// Sale emails (2026-11-23): every order, a daily summary, or off; and to whom.
+// Open to a suspended organizer too — it changes what they are told, nothing else.
+const saleEmails = require('../controllers/saleEmailsController');
+const settingsAccess = [requireAuth, requireRole('organizer'), requireOrganizerProfile];
+router.get('/sale-emails', ...settingsAccess, saleEmails.get);
+router.put(
+  '/sale-emails',
+  ...settingsAccess,
+  body('mode').optional().isIn(['each', 'daily', 'off']).withMessage('Choose every sale, a daily summary, or off.'),
+  body('toOwner').optional().isBoolean({ strict: true }),
+  body('recipients').optional().isArray({ max: 5 }).withMessage('Add at most 5 extra addresses.'),
+  body('recipients.*').isString().isLength({ max: 254 }),
+  validate,
+  saleEmails.save,
+);
 router.post('/payment-methods', ...methods, ...methodRules(false), validate, c.createPaymentMethod);
 router.patch(
   '/payment-methods/:methodId',

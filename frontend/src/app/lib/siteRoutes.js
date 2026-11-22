@@ -94,6 +94,9 @@ export const PRIVATE_PREFIXES = [
   // A booked demo's "change or cancel" page: the URL carries the booker's
   // link token, a bearer credential like a ticket's (2026-11-19).
   '/demo/booking',
+  // A host's own guest list (2026-11-23): the URL carries their private,
+  // signed link — one person's view, and a credential like a ticket's.
+  '/guests',
 ];
 
 export function isPrivatePath(path) {

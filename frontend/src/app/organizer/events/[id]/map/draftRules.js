@@ -18,7 +18,8 @@
  * ─────────────────────────────────────────────────────────────────────────────
  */
 import { SHAPES } from '../../../../components/seating/seatingGeometry';
-import { MAX_ZONES } from '../../../../components/seating/venueZones';
+import { BOOTH_KIND, MAX_ZONES } from '../../../../components/seating/venueZones';
+import { MAX_BOOTHS } from '../../../../components/seating/boothZones';
 
 /** The API's own ceilings (`venueService.js`), mirrored. */
 export const MAX_TABLES = 400;
@@ -56,7 +57,14 @@ export function mapProblems(tables, zones) {
     out.push('A private table needs a password before it can be saved.');
   }
   if (tables.length > MAX_TABLES) out.push(`A map holds at most ${MAX_TABLES} tables.`);
-  if ((zones?.length || 0) > MAX_ZONES) out.push(`A map holds at most ${MAX_ZONES} venue zones.`);
+  // Vendor booths are counted apart: they are saved to the vendor floor plan,
+  // whose own ceiling is far higher than the seat map blob's (boothZones.js).
+  const booths = (zones || []).filter((z) => z.kind === BOOTH_KIND).length;
+  if ((zones?.length || 0) - booths > MAX_ZONES) out.push(`A map holds at most ${MAX_ZONES} venue zones.`);
+  if (booths > MAX_BOOTHS) out.push(`A map holds at most ${MAX_BOOTHS} vendor booths.`);
+  if ((zones || []).some((z) => z.kind === BOOTH_KIND && String(z.label || '').trim().length > 12)) {
+    out.push('A booth code can be at most 12 characters.');
+  }
 
   return out;
 }

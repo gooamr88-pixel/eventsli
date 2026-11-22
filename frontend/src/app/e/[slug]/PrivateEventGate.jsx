@@ -5,6 +5,9 @@ import { useRouter } from 'next/navigation';
 import { post } from '../../utils/apiClient';
 import { describeError } from '../../utils/errors';
 import NavIcon from '../../components/shell/NavIcon';
+import { PUBLIC_API_URL } from '../../utils/apiClient';
+import { formatEventTime } from '../../lib/eventTime';
+import BlurredEventPreview from './BlurredEventPreview';
 import {
   GateScene, TicketLock, HeroWave, CornerSwoosh, LockGlyph, ShieldGlyph, EyeGlyph,
 } from './PrivateGateArt';
@@ -27,6 +30,13 @@ import {
  *
  * Every refusal is the same "does not match": the API does not say whether the
  * event is private, unpublished or absent, and nor does this.
+ *
+ * WHAT IT SHOWS IS THE ORGANIZER'S CHOICE (2026-11-22, the owner: "blur all
+ * details and images until it is unlocked — the organizer decides"):
+ * `event.preview` is 'blur' (the event page, blurred, behind this card —
+ * BlurredEventPreview) or 'card' (this card alone), and only the details in
+ * `event.reveal` arrive at all (title, host, cover, date, city). A hidden
+ * cover comes as a 24-pixel copy from the API (`/locked-cover`), blurred here.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 export default function PrivateEventGate({ event }) {
@@ -46,6 +56,11 @@ export default function PrivateEventGate({ event }) {
   const [refreshing, startRefresh] = useTransition();
 
   const rule = event.passwordRule || null;
+  const blurredSrc = event.blurredCover
+    ? `${PUBLIC_API_URL}/public/events/${encodeURIComponent(event.slug)}/locked-cover` : null;
+  const [blurFailed, setBlurFailed] = useState(false);
+  const when = event.startsAt ? formatEventTime(event.startsAt, event.timezone) : null;
+  const blurPage = event.preview !== 'card';
   const range = rule ? (rule.min === rule.max ? `exactly ${rule.min} characters` : `${rule.min}–${rule.max} characters`) : null;
 
   async function submit(e) {
@@ -81,14 +96,19 @@ export default function PrivateEventGate({ event }) {
   const working = busy || refreshing;
 
   return (
-    <main className="es-pgate-page">
-      <div className="fx-gutter">
+    <main className="es-pgate-page" data-preview={blurPage ? 'blur' : 'card'}>
+      {blurPage && <BlurredEventPreview coverSrc={event.coverUrl || (blurFailed ? null : blurredSrc)} />}
+      <div className="fx-gutter es-pgate-front">
         <article className="es-pgate" aria-labelledby={`${ids}-title`}>
           <div className="es-pgate__hero">
             {event.coverUrl ? (
-              // The organizer's own poster; the title below names the event.
+              // The organizer's own poster, shown because they chose to.
               // eslint-disable-next-line @next/next/no-img-element
               <img className="es-pgate__img" src={event.coverUrl} alt="" />
+            ) : blurredSrc && !blurFailed ? (
+              // A 24-pixel copy, stretched and blurred: colours, no detail.
+              // eslint-disable-next-line @next/next/no-img-element
+              <img className="es-pgate__img es-pgate__img--blur" src={blurredSrc} alt="" onError={() => setBlurFailed(true)} />
             ) : <GateScene />}
             <CornerSwoosh corner="tl" />
             <TicketLock />
@@ -100,6 +120,13 @@ export default function PrivateEventGate({ event }) {
             <h1 id={`${ids}-title`} className="es-pgate__title">{event.title || 'Private event'}</h1>
             {event.organizer?.name && (
               <p className="es-pgate__host">Hosted by <span>{event.organizer.name}</span></p>
+            )}
+            {/* The date and city, only when the organizer chose to show them. */}
+            {(when || event.city) && (
+              <ul className="es-pgate__facts">
+                {when && <li><NavIcon name="calendar" size={16} />{when}</li>}
+                {event.city && <li><NavIcon name="pin" size={16} />{event.city}</li>}
+              </ul>
             )}
 
             <hr className="es-pgate__rule" />

@@ -1,5 +1,6 @@
 const crypto = require('node:crypto');
 const { supabase } = require('../config/supabase');
+const { addressLine } = require('../utils/venueAddress');
 const logger = require('../utils/logger');
 const { hashIp } = require('../utils/crypto');
 const signatures = require('./signatureService');
@@ -112,14 +113,14 @@ async function eventBySlug(slug) {
 
 async function eventCard(eventId) {
   const { data, error } = await supabase.from('events')
-    .select('id, title, slug, starts_at, ends_at, timezone, venue_name, venue_address, city, cover_url, currency, organizer_id')
+    .select('id, title, slug, starts_at, ends_at, timezone, venue_name, venue_address, city, venue_address_line2, venue_region, venue_postal_code, venue_directions, cover_url, currency, organizer_id')
     .eq('id', eventId).maybeSingle();
   if (error) throw new Error(error.message);
   if (!data) throw fail('EVENT_NOT_FOUND', 'That event does not exist.');
   const { data: org } = await supabase.from('organizers').select('display_name').eq('id', data.organizer_id).maybeSingle();
   return {
     id: data.id, title: data.title, slug: data.slug, startsAt: data.starts_at, endsAt: data.ends_at, timezone: data.timezone,
-    venue: data.venue_name, venueAddress: data.venue_address, city: data.city, coverUrl: data.cover_url || null,
+    venue: data.venue_name, venueAddress: data.venue_address, city: data.city, venueAddressFull: addressLine(data), coverUrl: data.cover_url || null,
     currency: data.currency, organizerName: org?.display_name || null,
   };
 }
@@ -231,7 +232,7 @@ async function start(user, slug, body) {
 
   let spot = null;
   if (body.boothKey) {
-    const plan = await V.floorPlanFor(event.id, { audience: 'public' });
+    const plan = await V.floorPlanFor(event.id, { audience: 'public', withVenue: false });
     const el = plan?.plan?.elements?.find((e) => e.id === body.boothKey && e.kind === 'booth');
     if (!el) throw fail('NOT_FOUND', 'That booth is not on the floor plan any more. Reload and choose again.');
     if (booth && el.boothTypeId && el.boothTypeId !== booth.id) throw fail('VALIDATION_ERROR', 'That spot is a different kind of booth.');

@@ -1,6 +1,7 @@
 import { isDateOnly, formatDateOnly, dateOnlyDays } from './dateOnly';
 import { isComingSoon, formatMonth, comingSoonLabel } from './comingSoon';
 import { minorUnits } from './markets';
+import { addressLine, addressParts } from './venueAddress';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -277,7 +278,9 @@ export function eventJsonLd(event, { origin = siteOrigin(), now = new Date() } =
   ].filter(Boolean);
   const venue = squash(event.venue);
   const city = squash(event.city);
-  const address = squash(event.venueAddress);
+  // The street with its unit, then the parts Google reads apart (2026-11-22).
+  const parts = addressParts(event);
+  const address = squash([parts.street, parts.line2].filter(Boolean).join(', '));
   const tiers = event.displayOnly ? [] : (event.tiers || []).filter((t) => !t.hidden);
 
   const location = venue || city || address ? {
@@ -287,6 +290,8 @@ export function eventJsonLd(event, { origin = siteOrigin(), now = new Date() } =
       '@type': 'PostalAddress',
       ...(address ? { streetAddress: address } : {}),
       ...(city ? { addressLocality: city } : {}),
+      ...(parts.region ? { addressRegion: parts.region } : {}),
+      ...(parts.postalCode ? { postalCode: parts.postalCode } : {}),
       ...(event.country ? { addressCountry: event.country } : {}),
     },
     ...(event.venueLocation ? {
@@ -403,7 +408,7 @@ export function quickAnswers(event) {
     const until = event.endsAt ? fmt(event.endsAt, event.timezone, { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' }) : null;
     out.push({ q: `When is ${name}?`, a: `${name} is on ${day}, from ${from}${until ? ` to ${until}` : ' (local time)'}.` });
   }
-  const address = squash(event.venueAddress);
+  const address = squash(addressLine(event));
   const city = squash(event.city);
   const where = [squash(event.venue), address, city && !says(address, city) ? city : null].filter(Boolean);
   if (where.length) {
@@ -459,6 +464,10 @@ export function toPublicShape(event, tiers = []) {
     description: event.description,
     venue: event.venue?.name ?? event.venue ?? null,
     venueAddress: event.venueAddress ?? event.venue?.address ?? null,
+    venueAddressLine2: event.venueAddressLine2 ?? null,
+    venueRegion: event.venueRegion ?? null,
+    venuePostalCode: event.venuePostalCode ?? null,
+    venueDirections: event.venueDirections ?? null,
     city: event.city,
     country: event.country,
     timezone: event.timezone,

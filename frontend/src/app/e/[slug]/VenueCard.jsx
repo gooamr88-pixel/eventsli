@@ -26,13 +26,16 @@ import NavIcon from '../../components/shell/NavIcon';
  * on the building.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-export default function VenueCard({ venue, address, city, country, location }) {
+export default function VenueCard({ venue, address, mapAddress = null, directions = null, city, country, location }) {
   const [shown, setShown] = useState(false);
   const [copied, setCopied] = useState(false);
 
   const place = [city, regionName(country)].filter(Boolean).join(', ');
   // The address line, with the city added when the address does not already say it.
-  const full = [venue, address, city && !String(address || '').toLowerCase().includes(city.toLowerCase()) ? city : null]
+  // Maps are asked without the unit number (lib/venueAddress.mapQueryAddress):
+  // "Apt 4B" helps the guest at the door and makes a geocoder guess.
+  const where = mapAddress || address;
+  const full = [venue, where, city && !String(where || '').toLowerCase().includes(city.toLowerCase()) ? city : null]
     .filter(Boolean).join(', ');
   const text = full || (location ? `${location.lat},${location.lng}` : '');
   if (!text) return null;
@@ -48,7 +51,10 @@ export default function VenueCard({ venue, address, city, country, location }) {
 
   async function copy() {
     try {
-      await navigator.clipboard.writeText([venue, address, place].filter(Boolean).join(', '));
+      // The city and country, unless the address already says them.
+      const said = String(address || '').toLowerCase();
+      const rest = [city, regionName(country)].filter((p) => p && !said.includes(p.toLowerCase()));
+      await navigator.clipboard.writeText([venue, address, ...rest].filter(Boolean).join(', '));
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
@@ -91,6 +97,14 @@ export default function VenueCard({ venue, address, city, country, location }) {
             <p className="es-vcard__addr fx-break">
               <NavIcon name="pin" size={16} />
               <span>{address}</span>
+            </p>
+          )}
+          {/* "Ring buzzer 12, side door" — what a home or a hidden entrance
+              needs (2026-11-22). */}
+          {directions && (
+            <p className="es-vcard__addr es-vcard__door fx-break">
+              <NavIcon name="door" size={16} />
+              <span><b>Getting in:</b> {directions}</span>
             </p>
           )}
 

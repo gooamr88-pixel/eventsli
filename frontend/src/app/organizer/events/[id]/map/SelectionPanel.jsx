@@ -45,6 +45,8 @@ function shared(tables, read) {
 export default function SelectionPanel({
   tables = [], zoneCount = 0, onRotate, onDuplicate, onRemove, onClear, tiers = [], onAssign = null, onTierCreated = null,
   categories = [], onAssignCategory = null, onResize = null, purchaseMode = 'seat_only', onAssignTablePrice = null,
+  // Vendor booths in the selection (2026-11-22): one booth type for them all.
+  booths = [], boothTypes = [], onAssignBoothType = null,
 }) {
   const tableCount = tables.length;
   const total = tableCount + zoneCount;
@@ -72,6 +74,21 @@ export default function SelectionPanel({
         </>
       )}
     >
+      {booths.length > 0 && onAssignBoothType && (
+        <InspectorSection id="sel-booths" title="Vendor booths" summary={`${booths.length} booth${booths.length === 1 ? '' : 's'}`}>
+          <SelectField
+            label={`Booth type for ${booths.length === 1 ? 'this booth' : `all ${booths.length} booths`}`}
+            value={shared(booths, (z) => z.boothTypeId)}
+            onChange={(v) => { if (v !== MIXED) onAssignBoothType(v || null); }}
+            options={[
+              ...(shared(booths, (z) => z.boothTypeId) === MIXED ? [[MIXED, 'Mixed — choose one for all']] : []),
+              ['', 'No type yet'],
+              ...boothTypes.map((t) => [t.id, t.name]),
+            ]}
+            hint={boothTypes.length ? null : 'Make booth types in Vendors › Booths.'}
+          />
+        </InspectorSection>
+      )}
       {tableCount > 0 && (onAssign || onAssignCategory) && (
         <InspectorSection id="sel-price" title="Tickets & price" summary={unpriced ? `${unpriced} not priced` : 'All priced'}>
           {unpriced > 0 && (

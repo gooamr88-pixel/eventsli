@@ -11,6 +11,7 @@ import FormError from '../../components/forms/FormError';
 import SubmitButton from '../../components/forms/SubmitButton';
 import CreateProfile from '../CreateProfile';
 import BillingDetails from './BillingDetails';
+import SaleEmails from './SaleEmails';
 import PublicProfile from './PublicProfile';
 import { PageHeader } from '../../components/ui/Page';
 import NavIcon from '../../components/shell/NavIcon';
@@ -150,6 +151,8 @@ export default function OrganizerProfile() {
         </section>
       </div>
 
+      {/* Sale emails (2026-11-23): every order, a daily summary, or off. */}
+      <SaleEmails />
       <PublicProfile />
       <BillingDetails organizer={organizer} onSaved={refresh} />
     </div>

@@ -616,6 +616,122 @@ async function sendEventApproved({ to, organizerName, event, url, direct = false
   });
 }
 
+/**
+ * A GUEST BOOKED AS SOMEONE'S GUEST (2026-11-23, the owner: "the guest says
+ * 'I come from the groom', and the groom receives an email"). To the host the
+ * buyer named at checkout: who booked, how many tickets, their running total,
+ * and their own guest-list link. Never the buyer's email, phone or payment.
+ */
+async function sendGuestBooked({ to, hostName, event, guestName, tickets, pending = false, totals, listUrl, replyTo = null }) {
+  const one = tickets === 1;
+  const who = guestName || 'A guest';
+  return send({
+    to,
+    replyTo,
+    subject: `${who} is coming to ${event.title} as your guest`,
+    html: T.layout({
+      title: 'A guest of yours booked',
+      preheader: `${who} · ${tickets} ticket${one ? '' : 's'} · ${event.title}`,
+      reason: `You are receiving this because the organizer of ${escapeHtml(event.title)} listed you as a host, and a guest chose you at checkout.`,
+      body: `
+        ${T.p(`Hi ${escapeHtml(hostName || 'there')},`)}
+        ${T.p(`<b>${escapeHtml(who)}</b> booked <b>${tickets} ticket${one ? '' : 's'}</b> and said they are coming as your guest.${pending ? ' Their payment to the organizer is still to come.' : ''}`)}
+        ${T.eventCard(event)}
+        ${T.facts([
+          ['Your guests so far', `${totals.orders} booking${totals.orders === 1 ? '' : 's'}`],
+          ['Tickets', String(totals.tickets)],
+        ])}
+        ${listUrl ? T.button(listUrl, 'See your guest list') : ''}
+        ${T.p('The link is private to you. The organizer can turn these emails off or give you a new link at any time.', { small: true, color: T.MUTED })}`,
+    }),
+  });
+}
+
+/**
+ * A SALE, TO THE ORGANIZER (2026-11-23, the owner: "the organizer must get an
+ * email when tickets are bought — professionally"). services/saleNoticeService.js.
+ *
+ * The subject says what happened and how much ("New order · 2 tickets ·
+ * CA$90.00 — Gala"); the body leads with the buyer (the organizer's own
+ * customer), then every ticket with its type and seat, the money (paid, any
+ * discount, what the organizer keeps), whose guest they are, and the event's
+ * running totals. Reply-To is the buyer, so the organizer can answer them
+ * straight from their inbox. Never a ticket code.
+ */
+async function sendSaleToOrganizer({ to, organizerName, sale }) {
+  const { event, buyer, lines, currency } = sale;
+  const m = (cents) => money(cents, currency);
+  const n = sale.tickets;
+  const tix = `${n} ticket${n === 1 ? '' : 's'}`;
+  const what = sale.free ? 'New booking' : sale.pending ? 'New reservation' : 'New order';
+  const when = T.whenText(sale.at, event.timezone);
+  const lineRows = lines.map((l) => {
+    const seats = l.seats.length ? ` — ${l.seats.slice(0, 8).join(', ')}${l.seats.length > 8 ? `, +${l.seats.length - 8} more` : ''}` : '';
+    const extras = l.addons.length ? ` · with ${l.addons.join(', ')}` : '';
+    return [`${l.name} × ${l.count}`, `${seats.replace(/^ — /, '')}${extras}`.trim() || ' '];
+  });
+  const progress = sale.progress;
+  const soldLine = progress.capacity ? `${progress.sold} of ${progress.capacity} sold` : `${progress.sold} sold`;
+
+  return send({
+    to,
+    replyTo: buyer.email || undefined,
+    subject: `${what} · ${tix}${sale.free ? '' : ` · ${m(sale.paidCents)}`} — ${event.title}`,
+    html: T.layout({
+      title: `${what}: ${tix}`,
+      preheader: `${buyer.name} · ${tix}${sale.free ? ' · free' : ` · ${m(sale.paidCents)}`} · ${event.title}`,
+      reason: `You are receiving this because you sell tickets on Eventsli and sale emails are on for every order. Change this in Organization › Sale emails.`,
+      body: `
+        ${T.p(`Hi ${escapeHtml(organizerName || 'there')},`)}
+        ${T.p(`<b>${escapeHtml(buyer.name)}</b> ${sale.free ? 'booked' : sale.pending ? 'reserved' : 'bought'} <b>${tix}</b> for <b>${escapeHtml(event.title)}</b>${when ? ` · ${escapeHtml(when)}` : ''}.${sale.pending ? ' Their payment to you is still to come.' : ''}`)}
+        ${T.facts([
+          ['Buyer', buyer.name],
+          ['Email', buyer.email],
+          ['Phone', buyer.phone],
+          ['Guest of', sale.guestOf],
+        ])}
+        ${T.facts(lineRows)}
+        ${T.facts([
+          ['Paid', sale.free ? 'Free' : m(sale.paidCents)],
+          ['Discount', sale.discountCents > 0 ? `−${m(sale.discountCents)}${sale.promo ? ` (code ${sale.promo})` : ''}` : null],
+          ['You keep', sale.free ? null : m(sale.netCents)],
+          ['Payment', sale.free ? 'No payment needed' : sale.channel === 'stripe' ? 'Card' : 'Paid to you directly'],
+        ])}
+        ${T.p(`<b>So far:</b> ${progress.orders} order${progress.orders === 1 ? '' : 's'} · ${escapeHtml(soldLine)}${progress.gross.map((g) => ` · ${escapeHtml(money(g.cents, g.currency))} in sales`).join('')}`, { small: true })}
+        ${T.button(sale.url, 'View orders')}
+        ${T.p('Reply to this email to write to the buyer.', { small: true, color: T.MUTED })}`,
+    }),
+  });
+}
+
+/** The daily summary of sales, to the organizer (2026-11-23). */
+async function sendSalesDigest({ to, organizerName, events, since, until, timeZone }) {
+  const orders = events.reduce((n, e) => n + e.orders, 0);
+  const tickets = events.reduce((n, e) => n + e.tickets, 0);
+  const day = new Intl.DateTimeFormat('en-US', { timeZone, weekday: 'long', month: 'long', day: 'numeric' }).format(new Date(until));
+  const cards = events.map((e) => `
+    ${T.p(`<b>${escapeHtml(e.event.title)}</b>`)}
+    ${T.facts([
+      ['Orders', String(e.orders)],
+      ['Tickets', String(e.tickets)],
+      ...e.money.flatMap((x) => [['Paid', money(x.paidCents, x.currency)], ['You keep', money(x.netCents, x.currency)]]),
+    ])}
+    ${T.p(`<a href="${escapeHtml(e.url)}" style="color:${T.BRAND};font-weight:600">View orders for this event</a>`, { small: true })}`).join('');
+  return send({
+    to,
+    subject: `Your sales: ${tickets} ticket${tickets === 1 ? '' : 's'} across ${events.length} event${events.length === 1 ? '' : 's'} — ${day}`,
+    html: T.layout({
+      title: 'Your daily sales',
+      preheader: `${orders} order${orders === 1 ? '' : 's'} · ${tickets} ticket${tickets === 1 ? '' : 's'} since your last summary`,
+      reason: 'You are receiving this because you chose a daily summary of your sales. Change this in Organization › Sale emails.',
+      body: `
+        ${T.p(`Hi ${escapeHtml(organizerName || 'there')}, here is what sold since your last summary (${escapeHtml(T.whenText(since, timeZone) || '')}).`)}
+        ${T.facts([['Orders', String(orders)], ['Tickets', String(tickets)]])}
+        ${cards}`,
+    }),
+  });
+}
+
 /** BRD §10 — both parties are told when a ticket changes hands. */
 async function sendTicketTransferred({ to, event, direction, counterparty }) {
   const isSender = direction === 'sent';
@@ -874,6 +990,9 @@ module.exports = {
   sendEventRestored,
   sendEventPublishedToAdmins,
   sendTicketTransferred,
+  sendGuestBooked,
+  sendSaleToOrganizer,
+  sendSalesDigest,
   sendVerificationCode,
   sendCancellationRequested,
   sendCancellationDecided,

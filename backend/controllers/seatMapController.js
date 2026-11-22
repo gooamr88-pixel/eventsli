@@ -13,6 +13,7 @@ const { releaseHold, heldSelection } = require('../services/holdRelease');
 const { placeHold } = require('../services/placeHold');
 const { publicLayout } = require('../services/venueStudio');
 const eventAccess = require('../services/eventAccess');
+const vendors = require('../services/vendorService');
 
 const TTL_MINUTES = () => parseInt(process.env.RESERVATION_TTL_MINUTES || '35', 10);
 
@@ -192,6 +193,19 @@ async function publicMap(req, res, next) {
       .eq('event_id', event.id);
     if (tierError) throw new Error(`seat map: tier lookup failed: ${tierError.message}`);
 
+    // VENDOR BOOTHS ON THIS MAP (2026-11-22): a plan drawn on the seat map is
+    // shown to buyers too — where the coffee stand is matters when choosing a
+    // seat. Names only once a vendor is booked, paid and listed (the floor
+    // plan's public audience). A vendor read that fails never costs the buyer
+    // their seat map: it is logged and the booths are left off.
+    let vendorBooths = null;
+    try {
+      const fp = await vendors.floorPlanFor(event.id, { audience: 'public', withVenue: false });
+      if (fp?.plan?.onSeatMap) vendorBooths = { plan: fp.plan, booths: fp.booths, boothTypes: fp.boothTypes };
+    } catch (err) {
+      logger.warn({ err: err.message, eventId: event.id }, 'seat map: vendor booths could not be read');
+    }
+
     const sellability = sellableSeats(seats, tiers || []);
     const seatReason = new Map(visibleSeats.map((s) => [s.id, sellability.reasonFor(s)]));
     const tableClear = new Map();
@@ -258,6 +272,7 @@ async function publicMap(req, res, next) {
       // Private tables the buyer has not unlocked are counted, not listed, so
       // the map can say "3 reserved tables" without naming them.
       hiddenTableCount: tables.length - visible.length,
+      ...(vendorBooths ? { vendorBooths } : {}),
     });
   } catch (err) { return next(err); }
 }

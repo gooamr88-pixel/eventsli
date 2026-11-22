@@ -116,6 +116,12 @@ export default function Orders({ eventId }) {
                 label: 'Channel',
                 render: (o) => <span className="es-pill">{o.channel === 'manual' ? `Door · ${o.manual?.method || 'manual'}` : 'Card'}</span>,
               },
+              // Whose guest the buyer said they are (2026-11-23) — shown once any order has one.
+              ...(rows.some((o) => o.guestOf) ? [{
+                key: 'guestOf',
+                label: 'Guest of',
+                render: (o) => (o.guestOf ? <span className="es-pill">{o.guestOf.name}</span> : <span className="text-subtle">—</span>),
+              }] : []),
               { key: 'tickets', label: 'Tickets', align: 'end', render: (o) => <span className="es-nums">{o.tickets}</span> },
               { key: 'paid', label: 'Paid', align: 'end', render: (o) => <span className="es-nums">{formatMoney(o.buyerPaidCents, o.currency)}</span> },
               { key: 'net', label: 'To you', align: 'end', render: (o) => <span className="es-nums text-muted">{formatMoney(o.organizerNetCents, o.currency)}</span> },

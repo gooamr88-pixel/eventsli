@@ -33,11 +33,32 @@ const DEFAULT_MAX = 100;
 // from offering to save it over their Eventsli login.
 const NO_MANAGER = { autoComplete: 'off', 'data-1p-ignore': 'true', 'data-lpignore': 'true' };
 
+/**
+ * WHAT GUESTS SEE BEFORE THE PASSWORD (2026-11-22, the owner: "blur all
+ * details and images until it is unlocked — the organizer decides").
+ * Anything not ticked here is never sent to them, not merely blurred.
+ */
+const PREVIEWS = [
+  { key: 'blur', title: 'Blurred preview', text: 'Your event page, blurred, behind the password box.' },
+  { key: 'card', title: 'Password box only', text: 'A plain password screen, nothing behind it.' },
+];
+const REVEALS = [
+  { key: 'title', label: 'Event name' },
+  { key: 'organizer', label: 'Your name as host' },
+  { key: 'cover', label: 'Cover image, not blurred' },
+  { key: 'date', label: 'Date and time' },
+  { key: 'city', label: 'City' },
+];
+const DEFAULT_REVEAL = ['title', 'organizer'];
+const sameSet = (a, b) => a.length === b.length && a.every((k) => b.includes(k));
+
 function seed(saved) {
   return {
     isPrivate: Boolean(saved.isPrivate),
     min: String(saved.passwordMin ?? DEFAULT_MIN),
     max: String(saved.passwordMax ?? DEFAULT_MAX),
+    preview: saved.lockedPreview || 'blur',
+    reveal: Array.isArray(saved.lockedReveal) ? saved.lockedReveal : DEFAULT_REVEAL,
   };
 }
 
@@ -53,7 +74,7 @@ export default function PrivacyCard({ event, onSaved }) {
 
   // Re-seeded when the saved setting changes (after a save), during render.
   // Keyed on the privacy itself: a save here does not touch `updatedAt`.
-  const version = `${saved.isPrivate}|${saved.passwordSetAt || ''}|${saved.passwordMin ?? ''}|${saved.passwordMax ?? ''}`;
+  const version = `${saved.isPrivate}|${saved.passwordSetAt || ''}|${saved.passwordMin ?? ''}|${saved.passwordMax ?? ''}|${saved.lockedPreview || ''}|${(saved.lockedReveal || []).join(',')}`;
   const [seen, setSeen] = useState(version);
   if (version !== seen) {
     setSeen(version);
@@ -77,7 +98,12 @@ export default function PrivacyCard({ event, onSaved }) {
     ? (min === max ? `Use exactly ${min} characters.` : `Use ${min} to ${max} characters.`)
     : null;
   const needsPassword = form.isPrivate && (!saved.hasPassword || ruleChanged);
-  const dirty = form.isPrivate !== saved.isPrivate || password.length > 0 || ruleChanged;
+  const previewChanged = form.preview !== (saved.lockedPreview || 'blur')
+    || !sameSet(form.reveal, Array.isArray(saved.lockedReveal) ? saved.lockedReveal : DEFAULT_REVEAL);
+  const dirty = form.isPrivate !== saved.isPrivate || password.length > 0 || ruleChanged || previewChanged;
+  const toggleReveal = (key) => setForm((f) => ({
+    ...f, reveal: f.reveal.includes(key) ? f.reveal.filter((k) => k !== key) : [...f.reveal, key],
+  }));
   const blocked = !dirty || busy || Boolean(ruleProblem) || Boolean(passwordProblem) || (needsPassword && !password);
 
   async function commit() {
@@ -89,6 +115,7 @@ export default function PrivacyCard({ event, onSaved }) {
         isPrivate: form.isPrivate,
         ...(password ? { password } : {}),
         ...(form.isPrivate ? { passwordMin: min, passwordMax: max } : {}),
+        ...(form.isPrivate ? { lockedPreview: form.preview, lockedReveal: form.reveal } : {}),
       };
       const result = await put(`/events/${event.id}/privacy`, body, { noRedirect: true });
       toast.success(result.isPrivate
@@ -185,6 +212,47 @@ export default function PrivacyCard({ event, onSaved }) {
             </div>
             <p id="privacy-rule-help" className={`text-xs ${ruleProblem ? 'text-danger' : 'text-subtle'}`}>
               {ruleProblem || 'Your guests see this range on the password screen.'}
+            </p>
+          </fieldset>
+
+          {/* BEFORE THE PASSWORD (2026-11-22): blurred page or plain box, and
+              which details stay readable. */}
+          <fieldset className="es-privacy-look">
+            <legend className="es-label">Before the password, guests see</legend>
+            <div className="es-privacy-look__choices" role="radiogroup" aria-label="What guests see before the password">
+              {PREVIEWS.map((o) => (
+                <label key={o.key} className="es-privacy-look__choice" data-on={form.preview === o.key ? 'true' : undefined}>
+                  <input
+                    type="radio" name="locked-preview" value={o.key} form={DETACHED}
+                    checked={form.preview === o.key}
+                    onChange={() => setForm((f) => ({ ...f, preview: o.key }))}
+                  />
+                  <span className="es-privacy-look__art" data-kind={o.key} aria-hidden="true">
+                    <span /><span /><span />
+                  </span>
+                  <span className="fx-min0">
+                    <b>{o.title}</b>
+                    <small>{o.text}</small>
+                  </span>
+                </label>
+              ))}
+            </div>
+            <p className="es-label es-privacy-look__sub">Keep these readable</p>
+            <div className="es-privacy-look__reveal">
+              {REVEALS.map((r) => (
+                <label key={r.key} className="es-privacy-look__check">
+                  <input
+                    type="checkbox" form={DETACHED}
+                    checked={form.reveal.includes(r.key)}
+                    onChange={() => toggleReveal(r.key)}
+                  />
+                  <span>{r.label}</span>
+                </label>
+              ))}
+            </div>
+            <p className="text-xs text-subtle">
+              Everything else — the description, venue, tickets, photos — stays hidden until the password is entered.
+              Hidden details are never sent to the guest’s browser, so they cannot be un-blurred.
             </p>
           </fieldset>
 

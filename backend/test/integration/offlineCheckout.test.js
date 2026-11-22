@@ -91,7 +91,14 @@ before(async () => {
   ids.tierId = tier.body.data.id;
   const { data: terms } = await supabase.from('terms_versions').select('id').eq('audience', 'organizer').eq('is_current', true).single();
   const { error } = await supabase.from('events')
-    .update({ status: 'published', accepts_stripe: false, accepts_manual: true, terms_accepted_id: terms.id, commission_pct: 10 })
+    // `holder_details: 'off'`: this suite is about paying offline. Names on
+    // tickets (required by default since 2026-11-19) have their own suite,
+    // ticketHolders.test.js; left on, every reservation here was refused for a
+    // missing first name before the offline flow was reached.
+    .update({
+      status: 'published', accepts_stripe: false, accepts_manual: true, terms_accepted_id: terms.id, commission_pct: 10,
+      holder_details: 'off',
+    })
     .eq('id', ids.eventId);
   assert.ifError(error);
 });

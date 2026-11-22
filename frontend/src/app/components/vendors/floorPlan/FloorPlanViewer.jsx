@@ -7,6 +7,8 @@ import NavIcon from '../../shell/NavIcon';
 import { formatMoney } from '../../../utils/money';
 import { Booth, Decor, FloorPlanDefs, paintOrder } from './FloorPlanShapes';
 import { INK, typeColor } from './floorPlanModel';
+import VenueUnderlay, { venueWorld } from './VenueUnderlay';
+import { alignPlan } from '../../seating/boothZones';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -20,12 +22,18 @@ import { INK, typeColor } from './floorPlanModel';
  *
  * Tapping a booth shows what it is under the map: its code, type, size and
  * price, and — where the audience may see it — the vendor in it.
+ *
+ * ON THE SEAT MAP (2026-11-22): a reserved-seating event's booths are drawn
+ * on its venue map, and `floorPlan.venue` carries that map — the room, its
+ * zones and its tables are drawn first (VenueUnderlay), then the booths.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 export default function FloorPlanViewer({
   floorPlan, currency = 'USD', pickable = false, canPick = null, onPick = null, pickedKey = null, title = 'Floor plan',
 }) {
-  const { plan, booths: states = {}, boothTypes = [] } = floorPlan;
+  const { plan: rawPlan, booths: states = {}, boothTypes = [], venue = null } = floorPlan;
+  // Booths on the seat map are scaled to the venue as it is now (boothZones.alignPlan).
+  const plan = useMemo(() => (venue ? alignPlan(rawPlan, venueWorld(venue)) : rawPlan), [rawPlan, venue]);
   const bounds = useMemo(() => ({ x: 0, y: 0, width: plan.width, height: plan.height }), [plan.width, plan.height]);
   const { svgRef, view, fit, zoomIn, zoomOut, wasDragged, handlers, hint, touchAction } = usePanZoom(bounds);
   const [focus, setFocus] = useState(null);
@@ -64,7 +72,7 @@ export default function FloorPlanViewer({
           {...handlers}
         >
           <FloorPlanDefs />
-          <rect x={0} y={0} width={plan.width} height={plan.height} fill="#ffffff" />
+          {venue ? <VenueUnderlay venue={venue} /> : <rect x={0} y={0} width={plan.width} height={plan.height} fill="#ffffff" />}
           {ordered.map((e) => (e.kind === 'booth' ? (
             <Booth key={e.id} e={e} state={states[e.id]} boothTypes={boothTypes}
               interactive highlight={pickedKey === e.id} selected={focus === e.id && pickedKey !== e.id}

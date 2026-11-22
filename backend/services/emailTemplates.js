@@ -38,6 +38,7 @@
  */
 
 const { minorUnits } = require('../utils/markets');
+const { addressLine, addressParts } = require('../utils/venueAddress');
 
 /**
  * The storefront's palette (frontend `globals.css`), named the same way.
@@ -425,7 +426,10 @@ function ticketCard(ticket, { index, total, event = null, free = false } = {}) {
   const title = event?.title;
   const when = event ? whenText(event.startsAt ?? event.starts_at, event.timezone) : null;
   const venue = event ? (event.venue ?? event.venue_name) : null;
-  const address = event ? (event.venueAddress ?? event.venue_address ?? event.city) : null;
+  // The whole address (utils/venueAddress) — a flat's unit number included —
+  // and, on a line of its own, how to find the door.
+  const address = event ? (event.venueAddressFull || addressLine(event)) : null;
+  const directions = event ? (event.venueDirections ?? addressParts(event).directions) : null;
 
   const line = (name, value, { coral = false } = {}) => (value ? `
         <p style="margin:0 0 6px;font-family:${FONT};font-size:14px;line-height:1.5;color:${MUTED}">
@@ -454,6 +458,7 @@ function ticketCard(ticket, { index, total, event = null, free = false } = {}) {
                   ${line('Includes', (ticket.addons || []).join(', '), { coral: true })}
                   ${line('Location', venue)}
                   ${line('Address', address)}
+                  ${line('Getting in', directions)}
                 </td></tr>
               </table>
               <p style="margin:10px 0 8px;font-family:${FONT};font-size:16px;line-height:1;letter-spacing:8px;color:${BRAND}">&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;</p>

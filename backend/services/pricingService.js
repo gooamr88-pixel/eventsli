@@ -1,4 +1,5 @@
 const { supabase } = require('../config/supabase');
+const { addressLine, addressParts } = require('../utils/venueAddress');
 const {
   describeOrder, FEE_BEARER, PAYMENT_FEE_MODE, CHARGE_MODEL,
 } = require('../utils/money');
@@ -54,7 +55,7 @@ async function quoteReservation(reservationId, { chargeModel = CHARGE_MODEL.DIRE
   const { data: event, error: eventError } = await supabase
     .from('events')
     .select(`id, slug, title, status, currency, organizer_id, venue_name, starts_at, timezone,
-             cover_url, ends_at, venue_address, city,
+             cover_url, ends_at, venue_address, city, venue_address_line2, venue_region, venue_postal_code, venue_directions,
              commission_pct, commission_tax_pct, event_tax_pct,
              payment_fee_mode, payment_fee_pct, payment_fee_fixed_cents, fee_bearer,
              organizers ( display_name )`)
@@ -269,6 +270,8 @@ function publicBreakdown(q) {
       endsAt: q.event.ends_at || null,
       venueAddress: q.event.venue_address || null,
       city: q.event.city || null,
+      venueAddressFull: addressLine(q.event),
+      venueDirections: addressParts(q.event).directions,
     },
   };
 }

@@ -160,11 +160,43 @@ test('the locked answer names the event and nothing behind the password', () => 
   const failure = access.lockedFailure(privateEvent());
   assert.equal(failure.status, 403);
   assert.equal(failure.error, 'EVENT_PRIVATE');
-  assert.deepEqual(Object.keys(failure.meta.event).sort(), ['coverUrl', 'logoUrl', 'organizer', 'passwordRule', 'slug', 'title']);
+  assert.deepEqual(Object.keys(failure.meta.event).sort(), [
+    'blurredCover', 'city', 'coverUrl', 'logoUrl', 'organizer', 'passwordRule', 'preview', 'reveal', 'slug', 'startsAt', 'timezone', 'title',
+  ]);
   assert.equal(failure.meta.event.passwordRule, null, 'no rule shown when the organizer set none');
   const text = JSON.stringify(failure);
   assert.ok(!text.includes('Secret Hall'), 'no venue');
   assert.ok(!text.includes('2027-01-01'), 'no date');
+  // The default (2026-11-22): a blurred page, the name and the host readable,
+  // the cover only as a blurred copy — its address never sent.
+  assert.equal(failure.meta.event.preview, 'blur');
+  assert.equal(failure.meta.event.title, 'The Gala');
+  assert.equal(failure.meta.event.organizer.name, 'Host Co');
+  assert.equal(failure.meta.event.coverUrl, null);
+  assert.equal(failure.meta.event.blurredCover, true);
+  assert.ok(!text.includes('cdn.example'), 'the cover itself is not sent');
+});
+
+test('the organizer decides what stays readable; the rest is never sent', () => {
+  const nothing = access.lockedFailure(privateEvent({ locked_reveal: [], locked_preview: 'card' })).meta.event;
+  assert.equal(nothing.preview, 'card');
+  assert.equal(nothing.title, null);
+  assert.equal(nothing.organizer, null);
+  assert.ok(!JSON.stringify(nothing).includes('The Gala'), 'no name');
+  assert.ok(!JSON.stringify(nothing).includes('Host Co'), 'no host');
+
+  const all = access.lockedFailure(privateEvent({
+    locked_reveal: ['title', 'organizer', 'cover', 'date', 'city'], city: 'Toronto', timezone: 'America/Toronto',
+  })).meta.event;
+  assert.equal(all.coverUrl, 'https://cdn.example/cover.jpg');
+  assert.equal(all.blurredCover, false, 'a shown cover needs no blurred copy');
+  assert.equal(all.startsAt, '2027-01-01T00:00:00Z');
+  assert.equal(all.timezone, 'America/Toronto');
+  assert.equal(all.city, 'Toronto');
+  assert.ok(!JSON.stringify(all).includes('Secret Hall'), 'the venue is never part of the preview');
+
+  assert.deepEqual(access.cleanReveal(['city', 'bogus', 'title', 'city']), ['title', 'city']);
+  assert.deepEqual(access.cleanReveal(undefined), ['title', 'organizer']);
 });
 
 // ── The password ─────────────────────────────────────────────────────────────

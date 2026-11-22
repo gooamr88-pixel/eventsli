@@ -223,6 +223,9 @@ function EventWizard({ type, organizer, template = null }) {
       venueName: place.name || f.venueName,
       venueAddress: place.address || f.venueAddress,
       city: place.city || f.city,
+      // Filled only where still empty, like the address line above.
+      venueRegion: f.venueRegion || place.region || '',
+      venuePostalCode: f.venuePostalCode || place.postalCode || '',
       venuePlaceId: place.placeId || '',
       // Both or neither, always — `venue_coords_together` refuses half a pin.
       venueLat: place.lat === null || place.lat === undefined ? '' : String(place.lat),
@@ -309,6 +312,10 @@ function EventWizard({ type, organizer, template = null }) {
         } : {}),
         ...(form.venueName.trim() ? { venueName: form.venueName.trim() } : {}),
         ...(form.venueAddress.trim() ? { venueAddress: form.venueAddress.trim() } : {}),
+        // The rest of the address (2026-11-22), sent only when given.
+        ...Object.fromEntries(['venueAddressLine2', 'venueRegion', 'venuePostalCode', 'venueDirections']
+          .filter((k) => String(form[k] || '').trim())
+          .map((k) => [k, String(form[k]).trim()])),
         // The column and the API have always accepted it; nothing ever sent
         // one, which is why "near me" could not see a manually entered venue.
         ...(form.city.trim() ? { city: form.city.trim() } : {}),
@@ -441,7 +448,7 @@ function EventWizard({ type, organizer, template = null }) {
                 * ─────────────────────────────────────────────────────────────
                 */}
               <PlaceAutocomplete
-                label={ticketed ? 'Venue name' : 'Venue name (optional)'}
+                label="Venue name (optional)"
                 name="venueName"
                 maxLength={200}
                 country={form.country}
@@ -454,10 +461,17 @@ function EventWizard({ type, organizer, template = null }) {
                 hint={pending('venueName')}
               />
               <Field
-                label={ticketed ? 'Street address' : 'Street address (optional)'} name="venueAddress" maxLength={300} autoComplete="street-address"
+                label="Street address" optional name="venueAddress" maxLength={300} autoComplete="address-line1"
                 placeholder="e.g. 147 Danforth Ave"
-                hint={pending('venueAddress')}
+                hint="Leave the venue blank if it is not decided yet — the page will say “Venue to be announced”."
                 value={form.venueAddress} onChange={set('venueAddress')}
+              />
+              {/* A HOME HAS A UNIT NUMBER (2026-11-22). Apartment, suite,
+                  floor, building — what a guest needs at the door of a flat. */}
+              <Field
+                label="Apartment, suite or floor" optional name="venueAddressLine2" maxLength={120} autoComplete="address-line2"
+                placeholder="e.g. Apt 4B, 2nd floor"
+                value={form.venueAddressLine2} onChange={set('venueAddressLine2')}
               />
               {/* CITY IS ITS OWN FIELD, not the tail of the address line.
                   "Events near me" matches on `events.city`, so a city buried
@@ -469,6 +483,24 @@ function EventWizard({ type, organizer, template = null }) {
                 hint={pending('city')
                   || 'Buyers filter by city, and this is what puts your event in “near me”.'}
                 value={form.city} onChange={set('city')}
+              />
+              <div className="fx-grid fx-grid--2">
+                <Field
+                  label="Province or state" optional name="venueRegion" maxLength={120} autoComplete="address-level1"
+                  placeholder="e.g. Ontario"
+                  value={form.venueRegion} onChange={set('venueRegion')}
+                />
+                <Field
+                  label="Postal code" optional name="venuePostalCode" maxLength={20} autoComplete="postal-code"
+                  placeholder="e.g. M4K 1N2"
+                  value={form.venuePostalCode} onChange={set('venuePostalCode')}
+                />
+              </div>
+              <TextareaField
+                label="How to find the entrance" optional rows={2} maxLength={500} name="venueDirections"
+                placeholder="e.g. Ring buzzer 12. The entrance is at the side of the house."
+                hint="Shown on the event page and on every ticket."
+                value={form.venueDirections} onChange={set('venueDirections')}
               />
               {/* The pin the venue search above fills — now visible, so it can
                   be checked, corrected, or typed in when search cannot find

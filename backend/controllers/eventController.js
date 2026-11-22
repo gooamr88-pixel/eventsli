@@ -1,4 +1,5 @@
 const { supabase } = require('../config/supabase');
+const { addressFields } = require('../utils/venueAddress');
 const { uniqueSlug } = require('../utils/slug');
 const events = require('../services/eventService');
 const terms = require('../services/termsService');
@@ -34,6 +35,7 @@ const { frontendOrigin } = require('../utils/frontendOrigin');
  */
 const SELECT = `
   id, organizer_id, slug, title, description, venue_name, venue_address, country, timezone,
+  venue_address_line2, venue_region, venue_postal_code, venue_directions,
   starts_at, ends_at, status, listing_type, purchase_mode, admission_type, category,
   cover_url, cover_path, logo_url, logo_path, highlights, venue_lat, venue_lng, currency,
   city, venue_place_id,
@@ -44,7 +46,7 @@ const SELECT = `
   suspended_at, suspended_reason, terms_accepted_id, created_at, updated_at,
   accepts_stripe, accepts_manual, offline_payment_hours, archived_at, archived_from,
   coming_soon, launch_requested_at, sales_opened_at,
-  is_private, access_password_set_at, access_password_min, access_password_max
+  is_private, access_password_set_at, access_password_min, access_password_max, locked_preview, locked_reveal
 `;
 
 // Both moved to services/submissionService.js, where `submit` and its preview
@@ -109,6 +111,10 @@ async function create(req, res, next) {
         description: req.body.description ? String(req.body.description) : null,
         venue_name: req.body.venueName || null,
         venue_address: req.body.venueAddress || null,
+        venue_address_line2: req.body.venueAddressLine2 || null,
+        venue_region: req.body.venueRegion || null,
+        venue_postal_code: req.body.venuePostalCode || null,
+        venue_directions: req.body.venueDirections || null,
         city: req.body.city || null,
         /**
          * ─────────────────────────────────────────────────────────────────────
@@ -694,6 +700,7 @@ function shape(e, { currentTermsId = null } = {}) {
     description: e.description,
     venue: { name: e.venue_name, address: e.venue_address },
     venueAddress: e.venue_address,
+    ...addressFields(e),
     // The three fields venue search fills alongside the name, carried back so
     // the wizard and "Manage event" can show what was chosen and re-edit it.
     city: e.city || null,
@@ -759,6 +766,9 @@ function shape(e, { currentTermsId = null } = {}) {
       // The organizer's length rule; null = the default (4 to 100).
       passwordMin: e.access_password_min ?? null,
       passwordMax: e.access_password_max ?? null,
+      // What a locked visitor sees (2026-11-22, migration 20261209090000).
+      lockedPreview: e.locked_preview || 'blur',
+      lockedReveal: Array.isArray(e.locked_reveal) ? e.locked_reveal : ['title', 'organizer'],
     },
     /**
      * A "coming soon" teaser (20261124090000). `roughMonth` is `'YYYY-MM'`

@@ -329,6 +329,13 @@ function cityFrom(components) {
   return null;
 }
 
+/** One address component's text, by type, or null. */
+function componentText(components, type, key) {
+  const hit = (components || []).find((c) => (c.types || []).includes(type));
+  const text = hit?.[key] || hit?.longText || '';
+  return text ? String(text).slice(0, type === 'postal_code' ? 20 : 120) : null;
+}
+
 /**
  * Everything the event row needs, for one chosen place.
  *
@@ -378,6 +385,10 @@ async function details({ placeId, sessionToken }) {
     name: data.displayName?.text || '',
     address: data.shortFormattedAddress || data.formattedAddress || '',
     city: cityFrom(data.addressComponents),
+    // The rest of the address (2026-11-22): the province or state as people
+    // write it ("ON", "CA"), and the postal code. Either may be null.
+    region: componentText(data.addressComponents, 'administrative_area_level_1', 'shortText'),
+    postalCode: componentText(data.addressComponents, 'postal_code', 'longText'),
     // Both or neither — `venue_coords_together` in the schema refuses half a
     // pin, so a place that somehow came back without a location must not
     // contribute one coordinate.

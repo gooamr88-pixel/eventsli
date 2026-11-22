@@ -190,6 +190,8 @@ const JOBS = [
   // Daily. Does nothing unless SCAN_RETENTION_MODE is report or delete
   // (services/scanRetention.js); off by default.
   // Book a demo (2026-11-19): the reminder email, settings.reminderHours before.
+  // The organizers' daily sales summaries, at 8 am their time (2026-11-23).
+  { name: 'sale-digests', everyMs: 60 * 60_000, run: () => withLeaderLock('sale-digests', () => require('./saleNoticeService').sendDigests()), immediate: false },
   { name: 'demo-reminders', everyMs: 10 * 60_000, run: () => withLeaderLock('demo-reminders', () => require('./demo/demoAdmin').sendReminders()), immediate: false },
   { name: 'scan-retention', everyMs: 24 * 3_600_000, run: () => require('./scanRetention').scheduled(withLeaderLock), immediate: false },
   // SMS: dispatch, campaigns, reminders, reconciliation — services/sms/jobs.js.

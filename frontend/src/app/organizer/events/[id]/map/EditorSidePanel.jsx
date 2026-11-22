@@ -2,6 +2,7 @@
 
 import TablePanel from './TablePanel';
 import ZonePanel from './ZonePanel';
+import BoothPanel from './BoothPanel';
 import SelectionPanel from './SelectionPanel';
 import MapPanel from './MapPanel';
 import WallToolPanel from './style/WallToolPanel';
@@ -19,6 +20,8 @@ export default function EditorSidePanel({
   onAssignTier, onAssignCategory, onResizeSelected, onRotate, onDuplicate, onRemoveSelected, wallTool = null, onApplyLook,
   onSelectUnpriced, onAssignTablePrice = null, layers = null, onToggleLayer = null,
   dirty = false, saving = false, canSave = false, onSave = null, onAdd = null,
+  // Vendor booths on this map (boothZones.js): their states and booth types.
+  eventId = null, boothInfo = null,
 }) {
   if (wallTool?.active) return <WallToolPanel tool={wallTool} />;
   if (selection.count > 1) {
@@ -26,6 +29,12 @@ export default function EditorSidePanel({
       <SelectionPanel
         tables={tables.filter((t) => selection.selection.tables.has(keyOf(t)))}
         zoneCount={selection.selection.zones.size}
+        booths={boothInfo ? zonesOf(draft.zones, selection, true) : []}
+        boothTypes={boothInfo?.boothTypes || []}
+        onAssignBoothType={(boothTypeId) => draft.apply((p) => ({
+          ...p,
+          zones: p.zones.map((z) => (z.kind === 'booth' && selection.selection.zones.has(z.id) ? { ...z, boothTypeId } : z)),
+        }))}
         tiers={tiers}
         categories={categories}
         purchaseMode={purchaseMode}
@@ -38,6 +47,21 @@ export default function EditorSidePanel({
         onDuplicate={onDuplicate}
         onRemove={onRemoveSelected}
         onClear={selection.clear}
+      />
+    );
+  }
+  if (sole?.kind === 'zone' && sole.zone.kind === 'booth') {
+    return (
+      <BoothPanel
+        key={sole.zone.id}
+        zone={sole.zone}
+        eventId={eventId}
+        boothInfo={boothInfo}
+        world={world}
+        onChange={draft.updateZone}
+        onRotate={onRotate}
+        onDuplicate={onDuplicate}
+        onRemove={(id) => { draft.removeZone(id); selection.clear(); }}
       />
     );
   }
@@ -89,4 +113,9 @@ export default function EditorSidePanel({
       dirty={dirty} saving={saving} canSave={canSave} onSave={onSave} onAdd={onAdd}
     />
   );
+}
+
+/** The selected zones that are (or are not) vendor booths. */
+function zonesOf(zones, selection, booths) {
+  return zones.filter((z) => selection.selection.zones.has(z.id) && (z.kind === 'booth') === booths);
 }

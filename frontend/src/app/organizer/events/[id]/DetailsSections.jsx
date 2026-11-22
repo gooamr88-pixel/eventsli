@@ -128,14 +128,17 @@ export function BasicSection({ f }) {
                 that could only ever produce an unpinned event. Typing a venue
                 Google has never heard of still works: it is a text input first
                 and a combobox second. */}
-            <PlaceAutocomplete label={listing ? 'Venue (optional)' : 'Venue'} name="venueName" maxLength={200}
-              country={event.country} required={!venueOptional && !listing}
-              {...(listing ? {} : venueNote(form.venueName, 'Add the venue name.'))}
+            {/* ALL OPTIONAL BUT THE CITY (2026-11-22): the venue may be a home, or
+                not decided yet — the page then says "Venue to be announced". */}
+            <PlaceAutocomplete label="Venue (optional)" name="venueName" maxLength={200}
+              country={event.country}
               value={form.venueName} onChange={f.setVenueName} onPlace={f.applyPlace} />
-            <Field label={listing ? 'Address (optional)' : 'Address'} name="venueAddress"
-              required={!venueOptional && !listing} maxLength={300}
-              {...(listing ? {} : venueNote(form.venueAddress, 'Add the street address.'))}
+            <Field label="Street address" optional name="venueAddress" maxLength={300} autoComplete="address-line1"
+              placeholder="e.g. 147 Danforth Ave"
               value={form.venueAddress} onChange={set('venueAddress')} />
+            <Field label="Apartment, suite or floor" optional name="venueAddressLine2" maxLength={120}
+              autoComplete="address-line2" placeholder="e.g. Apt 4B, 2nd floor"
+              value={form.venueAddressLine2} onChange={set('venueAddressLine2')} />
             {/* The field that makes an event findable. "Events near me" matches
                 `events.city` against a local coordinate table, and no organizer
                 form had ever asked for one — so every venue typed by hand was
@@ -145,9 +148,22 @@ export function BasicSection({ f }) {
               hint="Buyers filter by city, and this is what puts your event in “near me”."
               {...venueNote(form.city, 'Add the city.')}
               value={form.city} onChange={set('city')} />
+            <Field label="Province or state" optional name="venueRegion" maxLength={120}
+              autoComplete="address-level1" placeholder="e.g. Ontario"
+              value={form.venueRegion} onChange={set('venueRegion')} />
+            <Field label="Postal code" optional name="venuePostalCode" maxLength={20}
+              autoComplete="postal-code" placeholder="e.g. M4K 1N2"
+              value={form.venuePostalCode} onChange={set('venuePostalCode')} />
             <SelectField label="Time zone" required value={form.timezone} onChange={set('timezone')}
               options={f.zoneOptions} hint={listing ? 'The dates are the venue’s, in this zone.' : 'Both times are local to the venue in this zone.'} />
           </div>
+
+          <TextareaField
+            label="How to find the entrance" optional rows={2} maxLength={500} name="venueDirections"
+            placeholder="e.g. Ring buzzer 12. The entrance is at the side of the house."
+            hint="Shown on the event page and on every ticket."
+            value={form.venueDirections} onChange={set('venueDirections')}
+          />
 
           {/* The pin, shown and editable. Filled by the venue search above when
               a suggestion is picked, and typed by hand when search is

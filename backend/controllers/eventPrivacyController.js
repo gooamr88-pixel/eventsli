@@ -32,7 +32,7 @@ async function update(req, res, next) {
   try {
     const { data: event, error } = await supabase
       .from('events')
-      .select('id, slug, status, is_private, access_password_set_at, access_password_min, access_password_max')
+      .select('id, slug, status, is_private, access_password_set_at, access_password_min, access_password_max, locked_preview, locked_reveal')
       .eq('id', req.params.eventId)
       .single();
     if (error) throw new Error(error.message);
@@ -61,6 +61,10 @@ async function update(req, res, next) {
     const ruleChanged = rule.min !== stored.min || rule.max !== stored.max;
 
     const patch = { is_private: wantPrivate };
+    // What a locked visitor sees (2026-11-22): the blurred page or the card
+    // alone, and which details stay readable. Kept when not sent.
+    if (req.body.lockedPreview !== undefined) patch.locked_preview = req.body.lockedPreview;
+    if (req.body.lockedReveal !== undefined) patch.locked_reveal = eventAccess.cleanReveal(req.body.lockedReveal);
     if (ruleChanged) {
       if (hasPassword && !password) {
         return refuse('Enter the password again, so it can be checked against the new length.');
@@ -86,7 +90,7 @@ async function update(req, res, next) {
 
     const { data: saved, error: saveError } = await supabase
       .from('events').update(patch).eq('id', event.id)
-      .select('id, slug, status, is_private, access_password_set_at, access_password_min, access_password_max')
+      .select('id, slug, status, is_private, access_password_set_at, access_password_min, access_password_max, locked_preview, locked_reveal')
       .single();
     if (saveError) throw new Error(saveError.message);
 
@@ -112,6 +116,8 @@ async function update(req, res, next) {
       passwordSetAt: saved.access_password_set_at || null,
       passwordMin: saved.access_password_min ?? null,
       passwordMax: saved.access_password_max ?? null,
+      lockedPreview: saved.locked_preview || 'blur',
+      lockedReveal: eventAccess.cleanReveal(saved.locked_reveal),
     });
   } catch (err) { return next(err); }
 }
