@@ -69,7 +69,7 @@ export function ctaFor(event, soldOut, tierId) {
     kind: 'buy',
     // The tier travels with the buyer, so the next page can start from it.
     href: `/e/${event.slug}/${general ? 'tickets' : 'seats'}${tierId ? `?tier=${encodeURIComponent(tierId)}` : ''}`,
-    label: free || general ? 'Get tickets' : 'Choose your seats',
+    label: free || general ? 'Book your ticket' : 'Choose your seats',
     free,
   };
 }
@@ -87,7 +87,8 @@ export function EventPurchaseNotice({ event, soldOut, focusTier }) {
 
   return (
     <>
-      {focusTier && (
+      {/* General admission marks the linked type on its own card instead. */}
+      {focusTier && event.admissionType !== 'general' && (
         <p className="es-notice es-notice--info" role="status">
           <span>You were sent here for <strong>{focusTier.name}</strong>.</span>
         </p>
@@ -127,9 +128,13 @@ export function EventBuyBar({ event, soldOut, tierId, cheapest = [] }) {
 
   const from = cheapest.length > 0 ? Math.min(...cheapest) : null;
   const free = cta.free || from === 0;
+  // General admission books on the event page itself (owner, 2026-11-22): the
+  // bar jumps to the booking section and steps aside while it is on screen
+  // (BuyBarWatch), so two sets of buttons never stack.
+  const general = event.admissionType === 'general';
 
   return (
-    <div className="es-buybar" role="region" aria-label="Get tickets">
+    <div className="es-buybar" role="region" aria-label="Book your ticket" data-watch={general ? 'event-tickets' : undefined}>
       <div className="es-buybar__price">
         {from === null ? (
           <span className="text-sm text-muted">Tickets available</span>
@@ -149,7 +154,7 @@ export function EventBuyBar({ event, soldOut, tierId, cheapest = [] }) {
             is a font-dependent glyph at a different weight and baseline on
             every platform — here, inside the one button the whole page exists
             to offer. */}
-        <Link href={cta.href} className="es-btn es-btn--primary">
+        <Link href={general ? '#event-tickets' : cta.href} className="es-btn es-btn--primary">
           {cta.label}
           <NavIcon name="arrow" size={18} />
         </Link>

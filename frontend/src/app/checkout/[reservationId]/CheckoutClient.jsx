@@ -60,6 +60,9 @@ export default function CheckoutClient({ reservationId }) {
   // Who each ticket is for (2026-11-19), keyed by the quote's holder slots.
   const [holderValues, setHolderValues] = useState({});
   const [holderError, setHolderError] = useState(null);
+  // A free order's lead-guest card starts from what is known (account, or the
+  // last checkout in this tab) — once, never over anything typed.
+  const [leadSeeded, setLeadSeeded] = useState(false);
   // Optional texts: a number, and separate transactional / marketing boxes.
   const [phone, setPhone] = useState('');
 
@@ -224,15 +227,16 @@ export default function CheckoutClient({ reservationId }) {
     setSignError(null);
     // Kept for the next event in the cart (2026-11-17): the buyer types their
     // name and email once. This tab only — never across devices or people.
-    rememberBuyer({ name: buyer.name, email: buyer.email, phone });
+    // A free order has no contact card: ticket 1's lead guest is the buyer.
+    const contact = free ? leadContact(quote, holderValues) : { name: buyer.name, email: buyer.email, phone };
+    rememberBuyer(contact);
     try {
       const body = {
-        email: buyer.email || undefined,
-        name: buyer.name || undefined,
+        email: contact.email || undefined,
+        name: contact.name || undefined,
         acceptTerms: agreed,
         signature,
-        ...(smsPayload(sms, phone).sms ? { phone: phone.trim(), ...smsPayload(sms, phone) } : {}),
-        ...(quote.holders?.slots?.length ? { holders: holderPayload(quote.holders, holderValues) } : {}),
+        ...(!free && smsPayload(sms, phone).sms ? { phone: phone.trim(), ...smsPayload(sms, phone) } : {}),        ...(quote.holders?.slots?.length ? { holders: holderPayload(quote.holders, holderValues) } : {}),
       };
       setHolderError(null);
 
@@ -331,7 +335,11 @@ export default function CheckoutClient({ reservationId }) {
 
   // What was held, for how long, and what it costs — before a single field
   // asks for anything. `HoldConfirm` argues the trade-off this step makes.
-  if (!ready) {
+  // Not for a free order or a no-seat-map one (owner, 2026-11-22): there is no
+  // seat to lose and the banner on the form shows the clock, so the extra tap
+  // only slowed the buyer down. A paid seated hold still gets it.
+  const skipHold = Number(quote.totalCents) === 0 || reservation.kind === 'general';
+  if (!ready && !skipHold) {
     return (
       <div className="es-co-narrow">
       <HoldConfirm
@@ -360,6 +368,28 @@ export default function CheckoutClient({ reservationId }) {
   const tickets = quote.tickets || [];
   const allChecked = agreed;
 
+  /**
+   * FREE: TICKET HOLDERS ONLY (owner, 2026-11-22). No "Your details" card —
+   * one card per ticket, ticket 1 the lead guest whose name and email are
+   * required and sent as the buyer's. A one-ticket order (or an event that
+   * asks no names) has no holder slots from the API, so it gets the lead
+   * card alone; the API then names that ticket from the buyer, as before.
+   */
+  const leadKey = leadKeyOf(quote);
+  const holderSlots = free
+    ? ((quote.holders?.slots || []).length ? quote.holders.slots
+      : [{ key: leadKey, title: tickets.reduce((n, t) => n + t.quantity, 0) > 1 ? 'Your tickets' : 'Ticket 1', tierName: tickets.length === 1 ? tickets[0].name : null }])
+    : null;
+  if (free && !leadSeeded && (buyer.name || buyer.email) && !holderValues[leadKey]) {
+    setLeadSeeded(true);
+    const parts = String(buyer.name || '').trim().split(/\s+/).filter(Boolean);
+    setHolderValues((v) => ({
+      ...v,
+      [leadKey]: { firstName: parts[0] || '', lastName: parts.slice(1).join(' '), email: buyer.email || '', phone: phone || '' },
+    }));
+  }
+  const leadName = free ? leadContact(quote, holderValues).name : buyer.name;
+
   return (
     /**
      * ONE FORM around the whole page (owner's reference, 2026-11-15): the
@@ -370,7 +400,7 @@ export default function CheckoutClient({ reservationId }) {
      */
     <>
     <form onSubmit={askToSign} className="es-co">
-      <HoldBar expired={expired} remaining={remaining} noun={noun} />
+      <HoldBar expired={expired} remaining={remaining} totalMs={quote.heldForMs} noun={noun} />
 
       <nav aria-label="Breadcrumb" className="es-co__crumbs">
         <Link href="/events">Events</Link>
@@ -384,61 +414,84 @@ export default function CheckoutClient({ reservationId }) {
       <div className="es-co__grid">
         <div className="es-co__main">
           {/* ── The order summary ─────────────────────────────────────── */}
+          {/* Redone 2026-11-22 (owner: "enhance it more professionally"): one
+              white card — the event as a compact row, then every line of the
+              order (tickets and extras), "Free" where a price is zero. */}
           <section className="es-co__summary" aria-labelledby="co-summary">
-            <h2 id="co-summary" className="es-co__h2">Order summary</h2>
-            <p className="es-co__sub">Review your selections and check the total cost.</p>
+            <div className="es-co__summary-head">
+              <h2 id="co-summary" className="es-co__h2">Order summary</h2>
+              {ev.slug && (
+                <Link href={`/e/${ev.slug}`} className="es-co__edit">Event details</Link>
+              )}
+            </div>
 
-            <div className={`es-co__event ${ev.coverUrl ? 'es-co__event--poster' : ''}`}>
-              {ev.coverUrl && (
+            <div className="es-co__event">
+              {ev.coverUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element -- the event's poster, straight from storage
                 <img src={ev.coverUrl} alt="" className="es-co__poster" />
+              ) : (
+                <span className="es-co__poster es-co__poster--blank" aria-hidden="true"><NavIcon name="ticket" size={28} /></span>
               )}
-              <div className="es-co__event-info">
-                <p className="es-co__event-title fx-break">
-                  <NavIcon name="info" size={18} />
-                  {ev.title}
-                </p>
+              <div className="es-co__event-info fx-min0">
+                <p className="es-co__event-title fx-break">{ev.title}</p>
                 <ul className="es-co__facts">
-                  {when && (
-                    <li><NavIcon name="calendar" size={16} />{when}{until ? ` – ${until}` : ''}</li>
+                  {when && <li><NavIcon name="calendar" size={15} /><span>{when}{until ? ` – ${until}` : ''}</span></li>}
+                  {(ev.venue || ev.venueAddress || ev.city) && (
+                    <li><NavIcon name="pin" size={15} /><span>{[ev.venue, ev.venueAddress || ev.city].filter(Boolean).join(' · ')}</span></li>
                   )}
-                  {ev.venue && <li><NavIcon name="building" size={16} />{ev.venue}</li>}
-                  {(ev.venueAddress || ev.city) && <li className="es-co__fact--addr"><NavIcon name="pin" size={16} />{ev.venueAddress || ev.city}</li>}
-                  {ev.organizerName && <li className="es-co__fact--org"><NavIcon name="tag" size={16} /><span><b>Organized by:</b> {ev.organizerName}</span></li>}
+                  {ev.organizerName && <li><NavIcon name="user" size={15} /><span>By {ev.organizerName}</span></li>}
                 </ul>
-                {ev.slug && (
-                  <p className="es-co__more"><b>Event details:</b> <Link href={`/e/${ev.slug}`}>See more</Link></p>
-                )}
               </div>
             </div>
 
-            {tickets.length > 0 ? (
-              <ul className="es-co__lines" aria-label="Tickets">
+            {tickets.length > 0 || (quote.addons || []).length > 0 ? (
+              <ul className="es-co__lines" aria-label="Your order">
                 {tickets.map((t) => (
                   <li key={t.key} className="es-co__line">
                     <span aria-hidden className="es-co__line-icon"><NavIcon name="ticket" size={18} /></span>
-                    <span className="es-co__line-name fx-min0">{t.name}</span>
-                    <span className="es-co__line-price es-nums">{formatMoney(t.unitPriceCents, quote.currency)}</span>
+                    <span className="es-co__line-name fx-min0">
+                      {t.name}
+                      <small className="es-nums">{priceOrFree(t.unitPriceCents, quote.currency)}{Number(t.unitPriceCents) > 0 ? ' each' : ''}</small>
+                    </span>
                     <span className="es-co__line-qty es-nums" aria-label={`Quantity ${t.quantity}`}>× {t.quantity}</span>
                   </li>
                 ))}
+                {(quote.addons || []).map((a) => (
+                  <li key={a.addonId} className="es-co__line es-co__line--extra">
+                    <span aria-hidden className="es-co__line-icon"><NavIcon name="sparkle" size={18} /></span>
+                    <span className="es-co__line-name fx-min0">
+                      {a.name}
+                      <small className="es-nums">Extra · {priceOrFree(a.unitPriceCents, quote.currency)}{Number(a.unitPriceCents) > 0 ? ' each' : ''}</small>
+                    </span>
+                    <span className="es-co__line-qty es-nums" aria-label={`Quantity ${a.quantity}`}>× {a.quantity}</span>
+                  </li>
+                ))}
               </ul>
-            ) : (
-              <p className="es-co__admits">Admits {quote.admits} {quote.admits === 1 ? 'person' : 'people'}</p>
-            )}
+            ) : null}
+
+            <div className="es-co__summary-foot">
+              <span>Admits {quote.admits} {quote.admits === 1 ? 'person' : 'people'}</span>
+              <b className="es-nums">{priceOrFree(quote.totalCents, quote.currency)}</b>
+            </div>
           </section>
 
-          {/* ── Add-ons, when the event offers any (2026-11-17) ────────── */}
-          <AddonPicker
-            reservationId={reservationId}
-            headers={token(reservation)}
-            quote={quote}
-            organizerName={ev.organizerName}
-            disabled={expired || busy === 'pay'}
-            onChanged={loadQuote}
-          />
+          {/* ── Add-ons for a seated order (2026-11-17). General admission
+                chooses them beside the tickets, before checkout (owner,
+                2026-11-22), and they show as lines above. ─────────────── */}
+          {reservation.kind !== 'general' && (
+            <AddonPicker
+              reservationId={reservationId}
+              headers={token(reservation)}
+              quote={quote}
+              organizerName={ev.organizerName}
+              disabled={expired || busy === 'pay'}
+              onChanged={loadQuote}
+            />
+          )}
 
-          {/* ── Where the tickets go ──────────────────────────────────── */}
+          {/* ── Where the tickets go — a paid order only; a free one asks
+                the ticket holders alone (below). ─────────────────────── */}
+          {!free && (
           <section className="es-co__card" aria-labelledby="co-details">
             <h2 id="co-details" className="es-co__h2 es-co__h2--icon">
               <NavIcon name="user" size={20} />
@@ -449,12 +502,16 @@ export default function CheckoutClient({ reservationId }) {
               No account needed. Signed in? Your account email is filled in — change it to send the tickets elsewhere.
             </p>
             <div className="es-co__fields">
+              {/* Required on every booking (owner, 2026-11-22); the API refuses without it too. */}
               <Field
                 label="Full name"
                 name="name"
                 type="text"
-                optional
+                required
+                minLength={2}
+                maxLength={120}
                 autoComplete="name"
+                hint="The name the organizer sees on the guest list."
                 value={buyer.name}
                 onChange={(e) => setBuyer((b) => ({ ...b, name: e.target.value }))}
               />
@@ -474,10 +531,13 @@ export default function CheckoutClient({ reservationId }) {
             <SmsConsentFields mode="checkout" value={sms} onChange={setSms} phone={phone} onPhone={setPhone} showPhone
               organizerName={ev.organizerName} />
           </section>
+          )}
 
-          {/* Who each ticket is for — two tickets and up, as the event asks (2026-11-19). */}
-          <HolderForms holders={quote.holders} values={holderValues} onChange={setHolderValues}
-            buyer={buyer} phone={phone} error={holderError} />
+          {/* Who each ticket is for — two tickets and up, as the event asks
+              (2026-11-19); on a free order, always, with the lead guest first. */}
+          <HolderForms holders={free ? { mode: quote.holders?.mode || 'optional', slots: holderSlots } : quote.holders}
+            values={holderValues} onChange={setHolderValues}
+            buyer={buyer} phone={phone} error={holderError} lead={free} />
         </div>
 
         <aside className="es-co__side">
@@ -547,7 +607,7 @@ export default function CheckoutClient({ reservationId }) {
 
             <div className="es-co__total-row">
               <span>Total amount</span>
-              <b className="es-nums">{free ? formatMoney(0, quote.currency) : formatMoney(offlineMode ? payOptions.totalCents : quote.totalCents, quote.currency)}</b>
+              <b className="es-nums">{free ? 'Free' : formatMoney(offlineMode ? payOptions.totalCents : quote.totalCents, quote.currency)}</b>
             </div>
 
             {/* BRD §02 — the terms are accepted before buying, and the API
@@ -619,12 +679,33 @@ export default function CheckoutClient({ reservationId }) {
         busy={busy === 'pay'}
         error={signError}
         free={free}
-        defaultName={buyer.name}
+        defaultName={leadName}
         actionLabel={free ? 'Get my free tickets' : offlineMode ? 'Reserve and get payment details' : `Pay ${formatMoney(quote.totalCents, quote.currency)}`}
         busyLabel={free ? 'Getting your tickets…' : offlineMode ? 'Reserving…' : 'Taking you to payment…'}
       />
     </>
   );
+}
+
+/** The key of a free order's lead-guest card: the API's first holder slot, or
+ *  a local one when the API sends none (a one-ticket order). */
+function leadKeyOf(quote) {
+  return quote?.holders?.slots?.[0]?.key || 'lead';
+}
+
+/** A free order's buyer, read from its lead-guest card. */
+function leadContact(quote, values) {
+  const v = values[leadKeyOf(quote)] || {};
+  return {
+    name: [v.firstName, v.lastName].map((s) => String(s || '').trim()).filter(Boolean).join(' '),
+    email: String(v.email || '').trim(),
+    phone: String(v.phone || '').trim(),
+  };
+}
+
+/** A price, or "Free" when it is zero (owner, 2026-11-22: never "$0.00"). */
+function priceOrFree(cents, currency) {
+  return Number(cents) === 0 ? 'Free' : formatMoney(cents, currency);
 }
 
 /** The "FREE" stamp beside a free order — drawn, in the brand coral. */

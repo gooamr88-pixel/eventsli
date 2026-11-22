@@ -91,7 +91,7 @@ export default function HoldConfirm({
       )}
 
       <p className="es-nums text-xl font-medium text-ink">
-        {formatMoney(quote.totalCents, quote.currency)}
+        {Number(quote.totalCents) === 0 ? 'Free' : formatMoney(quote.totalCents, quote.currency)}
       </p>
       <p className="text-sm text-muted">
         Admits {quote.admits} {quote.admits === 1 ? 'person' : 'people'}

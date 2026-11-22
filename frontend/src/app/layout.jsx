@@ -1,5 +1,5 @@
 import { headers } from 'next/headers';
-import { DM_Sans, DM_Mono, Urbanist, Sacramento } from 'next/font/google';
+import { DM_Sans, DM_Mono, Urbanist, Sacramento, Plus_Jakarta_Sans } from 'next/font/google';
 import SiteHeader from './components/SiteHeader';
 import SiteFooter from './components/SiteFooter';
 import PageTransition from './components/PageTransition';
@@ -64,6 +64,23 @@ const dmMono = DM_Mono({
  * Fenced in globals.css to the single `.es-script` rule. See the note on
  * `--es-font-script` for why a decorative face is allowed at all.
  */
+/**
+ * THE BUYER'S FACE, 2026-11-22: Plus Jakarta Sans, on the pages a guest books
+ * on — the event page, the ticket and seat pickers, the checkout and its
+ * confirmation (`.es-buyer` in globals.css). The owner asked for "the most
+ * suitable font" for the buyer experience: it is a geometric sans drawn for
+ * product and commerce screens — open, even letters that stay clear at small
+ * sizes on a phone, and lining tabular figures, so prices, quantities and the
+ * hold countdown line up and do not jitter as they change. Urbanist stays for
+ * the big headings (the logo's face); the rest of the site keeps DM Sans.
+ */
+const jakarta = Plus_Jakarta_Sans({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700', '800'],
+  variable: '--font-jakarta',
+  display: 'swap',
+});
+
 const script = Sacramento({
   subsets: ['latin'],
   weight: ['400'],
@@ -211,7 +228,7 @@ export default async function RootLayout({ children }) {
   await headers();
 
   return (
-    <html lang="en" className={`${dmSans.variable} ${urbanist.variable} ${dmMono.variable} ${script.variable}`}>
+    <html lang="en" className={`${dmSans.variable} ${urbanist.variable} ${dmMono.variable} ${script.variable} ${jakarta.variable}`}>
       <head>
         {/*
           THE HERO IMAGE LIVES ON ANOTHER ORIGIN, and the browser cannot know

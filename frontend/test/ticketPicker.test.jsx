@@ -32,6 +32,12 @@ vi.mock('../src/app/hooks/useApi', () => ({
   useApi: () => ({ data: payload, error: null, loading: false, reload: vi.fn() }),
 }));
 
+const put = vi.fn();
+vi.mock('../src/app/utils/apiClient', async (importOriginal) => ({
+  ...(await importOriginal()),
+  put: (...args) => put(...args),
+}));
+
 const { default: TicketPicker } = await import('../src/app/e/[slug]/tickets/TicketPicker');
 
 const tier = (over = {}) => ({
@@ -202,7 +208,7 @@ describe('continuing', () => {
     await user.click(plus(/one more Standard/i));
     await user.click(plus(/one more Standard/i));
     await user.click(plus(/one more VIP/i));
-    await user.click(screen.getByRole('button', { name: /^checkout$/i }));
+    await user.click(screen.getByRole('button', { name: /^book now$/i }));
 
     await waitFor(() => expect(hold).toHaveBeenCalled());
     const [slug, body] = hold.mock.calls[0];
@@ -226,7 +232,7 @@ describe('continuing', () => {
     await user.click(plus());
     await user.click(minus());
     await user.click(plus());
-    await user.click(screen.getByRole('button', { name: /^checkout$/i }));
+    await user.click(screen.getByRole('button', { name: /^book now$/i }));
 
     await waitFor(() => expect(hold).toHaveBeenCalled());
     expect(hold.mock.calls[0][1].lines).toEqual([{ tierId: 'tier-1', quantity: 1 }]);
@@ -240,7 +246,7 @@ describe('continuing', () => {
     render(<TicketPicker slug="gala" />);
 
     await user.click(plus());
-    await user.click(screen.getByRole('button', { name: /^checkout$/i }));
+    await user.click(screen.getByRole('button', { name: /^book now$/i }));
 
     await waitFor(() => expect(screen.getByText('0 tickets')).toBeInTheDocument());
     expect(push).not.toHaveBeenCalled();
@@ -254,7 +260,7 @@ describe('continuing', () => {
     render(<TicketPicker slug="gala" />);
 
     await user.click(plus());
-    await user.click(screen.getByRole('button', { name: /^checkout$/i }));
+    await user.click(screen.getByRole('button', { name: /^book now$/i }));
 
     await waitFor(() => expect(screen.getByText(/at most 4 tickets/i)).toBeInTheDocument());
   });
@@ -265,5 +271,60 @@ describe('an event with nothing on sale', () => {
     payload = event([]);
     render(<TicketPicker slug="gala" />);
     expect(screen.getByText(/no tickets yet/i)).toBeInTheDocument();
+  });
+});
+
+describe('details and extras on the card, before checkout (2026-11-22)', () => {
+  const photo = { id: 'x1', name: 'Photo with the star', description: null, priceCents: 1500, remaining: null, imageUrl: null };
+
+  test("a type's details show on its card, with no popup to open", () => {
+    payload = event([tier({ details: { included: [{ icon: 'check', title: 'Welcome drink' }], notes: [{ icon: 'info', text: 'Doors at 7' }] } })]);
+    render(<TicketPicker slug="gala" />);
+    expect(screen.getByText('Welcome drink')).toBeInTheDocument();
+    expect(screen.getByText('Doors at 7')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /what.s included/i })).toBeNull();
+  });
+
+  test('extras wait for a ticket, then stop at one per ticket', async () => {
+    payload = { ...event([tier()]), addons: [photo] };
+    const user = userEvent.setup();
+    render(<TicketPicker slug="gala" />);
+    expect(plus(/one more Photo/i)).toBeDisabled();
+
+    await user.click(plus(/one more General/i));
+    await user.click(plus(/one more Photo/i));
+    expect(plus(/one more Photo/i)).toBeDisabled();
+  });
+
+  test('chosen extras go onto the hold before the checkout opens', async () => {
+    hold.mockResolvedValue({ reservationId: 'res-9', reservationToken: 'tok-9' });
+    put.mockResolvedValue({});
+    payload = { ...event([tier()]), addons: [photo] };
+    const user = userEvent.setup();
+    render(<TicketPicker slug="gala" />);
+
+    await user.click(plus(/one more General/i));
+    await user.click(plus(/one more General/i));
+    await user.click(plus(/one more Photo/i));
+    await user.click(screen.getByRole('button', { name: /^book now$/i }));
+
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/checkout/res-9'));
+    expect(put).toHaveBeenCalledWith(
+      '/public/reservations/res-9/addons',
+      { lines: [{ addonId: 'x1', quantity: 1 }] },
+      expect.objectContaining({ headers: { 'x-access-token': 'tok-9' } }),
+    );
+  });
+
+  test('no extras chosen, no extras call', async () => {
+    hold.mockResolvedValue({ reservationId: 'res-1', reservationToken: 't' });
+    put.mockReset();
+    payload = { ...event([tier()]), addons: [photo] };
+    const user = userEvent.setup();
+    render(<TicketPicker slug="gala" />);
+    await user.click(plus(/one more General/i));
+    await user.click(screen.getByRole('button', { name: /^book now$/i }));
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/checkout/res-1'));
+    expect(put).not.toHaveBeenCalled();
   });
 });

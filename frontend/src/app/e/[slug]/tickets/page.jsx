@@ -57,7 +57,7 @@ export default async function TicketsPage({ params, searchParams }) {
   }
 
   return (
-    <main className="fx-section fx-section--xs">
+    <main className="fx-section fx-section--xs es-buyer">
       <div className="fx-container fx-stack">
         <div className="fx-stack fx-stack--sm">
           {/* `.fx-hit` — the way OUT of the purchase step, and on a phone it
@@ -67,10 +67,10 @@ export default async function TicketsPage({ params, searchParams }) {
           <Link href={`/e/${event.slug}`} className="fx-hit text-sm text-muted hover:text-ink">
             ← {event.title}
           </Link>
-          <h1 className="text-xl">How many tickets?</h1>
+          <h1 className="es-book-section__title">Book your ticket</h1>
         </div>
 
-        <TicketPicker slug={event.slug} focusTierId={typeof tierParam === 'string' ? tierParam : null} />
+        <TicketPicker slug={event.slug} event={event} focusTierId={typeof tierParam === 'string' ? tierParam : null} />
       </div>
     </main>
   );

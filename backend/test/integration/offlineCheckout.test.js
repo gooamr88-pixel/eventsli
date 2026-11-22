@@ -185,7 +185,7 @@ test('reserve: instructions, reference and deadline; no order, no tickets; a rep
   ids.awaitingToken = p.accessToken;
 
   const again = await buyer('POST', `/public/reservations/${reservationId}/offline`, {
-    methodId: ids.methodId, email: 'x@eventsli-test.invalid', acceptTerms: true, signature: SIG,
+    methodId: ids.methodId, name: 'Repeat Buyer', email: 'x@eventsli-test.invalid', acceptTerms: true, signature: SIG,
   }, { 'x-access-token': token });
   assert.equal(again.status, 200);
   assert.equal(again.body.data.id, p.id);
@@ -199,7 +199,7 @@ test('reserve: instructions, reference and deadline; no order, no tickets; a rep
 
   // The card checkout is refused on a hold awaiting an offline payment.
   const card = await buyer('POST', `/public/reservations/${reservationId}/checkout`, {
-    email: 'x@eventsli-test.invalid', acceptTerms: true, signature: SIG,
+    name: 'Card Buyer', email: 'x@eventsli-test.invalid', acceptTerms: true, signature: SIG,
   }, { 'x-access-token': token });
   assert.ok([409, 503].includes(card.status), JSON.stringify(card.body));
 

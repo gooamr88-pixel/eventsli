@@ -58,7 +58,7 @@ export default function EventTicketCard({ event, cheapest = [], soldOut, when = 
           </p>
           {cta.kind === 'buy' && (
             <Link href={cta.href} className="es-evx-ticket__btn">
-              {event.admissionType === 'general' ? 'Buy tickets' : 'Book tickets'}
+              Book your ticket
               <NavIcon name="arrow" size={18} />
             </Link>
           )}

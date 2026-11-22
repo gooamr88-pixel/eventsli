@@ -18,10 +18,14 @@ import { PhoneInput } from '../../components/forms/PhoneField';
  * first card from the buyer's own, the usual case for ticket one.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-export default function HolderForms({ holders, values, onChange, buyer, phone, error }) {
+export default function HolderForms({ holders, values, onChange, buyer, phone, error, lead = false }) {
   const slots = holders?.slots || [];
   if (slots.length === 0) return null;
   const required = holders.mode === 'required';
+  /* `lead` — a FREE order (owner, 2026-11-22: "no need to contact info, just
+     ticket holder info"). There is no "Your details" card: ticket 1 is the
+     lead guest, whose full name and email are required (the tickets and the
+     confirmation go there), and the page sends them as the buyer's. */
   const set = (key, field) => (e) => onChange({ ...values, [key]: { ...values[key], [field]: e.target.value } });
 
   function fillFromBuyer(key) {
@@ -45,13 +49,45 @@ export default function HolderForms({ holders, values, onChange, buyer, phone, e
         Who are the tickets for?
       </h2>
       <p className="es-co__sub">
-        {required ? 'A first name for each ticket, printed on it and shown at the door.' : 'Optional — a name is printed on each ticket.'}
+        {lead
+          ? 'No account needed. The tickets are emailed to the lead guest on ticket 1.'
+          : required ? 'A first name for each ticket, printed on it and shown at the door.' : 'Optional — a name is printed on each ticket.'}
       </p>
       <ol className="es-holders__list">
         {slots.map((slot, i) => {
           const v = values[slot.key] || {};
           const wrong = error?.key === slot.key;
           const id = `holder-${i}`;
+          const isLead = lead && i === 0;
+          if (isLead) {
+            return (
+              <li key={slot.key} id={id} className={`es-holders__card es-holders__card--lead${wrong ? ' is-wrong' : ''}`}>
+                <div className="es-holders__head">
+                  <span className="es-holders__icon" aria-hidden><NavIcon name="ticket" size={18} /></span>
+                  <p className="es-holders__title">
+                    {slot.title}
+                    {(slot.place || slot.tierName) && <span> · {slot.place || slot.tierName}</span>}
+                  </p>
+                  <span className="es-holders__badge">Lead guest</span>
+                </div>
+                {wrong && <p role="alert" className="es-holders__error">{error.message}</p>}
+                <div className="es-holders__grid">
+                  <Input id={`${id}-first`} label="First name" icon="user" required maxLength={60} autoComplete="given-name"
+                    value={v.firstName} onChange={set(slot.key, 'firstName')} />
+                  <Input id={`${id}-last`} label="Last name" icon="user" required maxLength={60} autoComplete="family-name"
+                    value={v.lastName} onChange={set(slot.key, 'lastName')} />
+                  <Input id={`${id}-email`} label="Email" icon="mail" type="email" inputMode="email" required maxLength={254}
+                    autoComplete="email" value={v.email} onChange={set(slot.key, 'email')} />
+                  <div className="es-holders__field">
+                    <label htmlFor={`${id}-phone`}>Phone</label>
+                    <PhoneInput id={`${id}-phone`} placeholder="Optional" value={v.phone || ''} autoComplete="tel"
+                      onChange={(p) => onChange({ ...values, [slot.key]: { ...values[slot.key], phone: p } })} />
+                  </div>
+                </div>
+                <p className="es-holders__hint"><NavIcon name="mail" size={15} />Your tickets and confirmation are sent to this email — check it for typos.</p>
+              </li>
+            );
+          }
           return (
             <li key={slot.key} id={id} className={`es-holders__card${wrong ? ' is-wrong' : ''}`}>
               <div className="es-holders__head">
@@ -60,7 +96,7 @@ export default function HolderForms({ holders, values, onChange, buyer, phone, e
                   {slot.title}
                   {(slot.place || slot.tierName) && <span> · {slot.place || slot.tierName}</span>}
                 </p>
-                {i === 0 && (buyer.name || buyer.email) && (
+                {i === 0 && !lead && (buyer.name || buyer.email) && (
                   <button type="button" className="es-holders__mine" onClick={() => fillFromBuyer(slot.key)}>Use my details</button>
                 )}
               </div>
@@ -83,7 +119,7 @@ export default function HolderForms({ holders, values, onChange, buyer, phone, e
           );
         })}
       </ol>
-      <p className="es-holders__note">Add an email and that person gets their own ticket.</p>
+      {slots.length > 1 && <p className="es-holders__note">Add an email and that person gets their own ticket.</p>}
     </section>
   );
 }
@@ -93,7 +129,7 @@ export default function HolderForms({ holders, values, onChange, buyer, phone, e
  * required) over the box, "Optional" or "Required" inside it. No badges —
  * on a phone, four labelled fields per ticket with a pill each was a wall.
  */
-function Input({ id, label, icon, required = false, value, ...props }) {
+function Input({ id, label, icon, required = false, value, autoComplete = 'off', ...props }) {
   return (
     <div className="es-holders__field">
       <label htmlFor={id}>{label}{required && <i aria-hidden="true"> *</i>}</label>
@@ -101,7 +137,7 @@ function Input({ id, label, icon, required = false, value, ...props }) {
           reference has its flag in the phone field. Decorative: the label names it. */}
       <span className="es-holders__box">
         {icon && <NavIcon name={icon} size={18} className="es-holders__glyph" />}
-        <input id={id} className="es-input" autoComplete="off" required={required}
+        <input id={id} className="es-input" autoComplete={autoComplete} required={required}
           placeholder={required ? 'Required' : 'Optional'} value={value || ''} {...props} />
       </span>
     </div>

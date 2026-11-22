@@ -497,7 +497,10 @@ router.post(
   optionalAuth,
   param('reservationId').isUUID(),
   body('email').optional().isEmail().normalizeEmail(),
-  body('name').optional().isString().trim().isLength({ max: 120 }),
+  // A name on every booking (owner, 2026-11-22): the door list and the
+  // organizer's orders need to know who is coming.
+  body('name').isString().withMessage('Enter your full name.').trim()
+    .isLength({ min: 2, max: 120 }).withMessage('Enter your full name.'),
   body('phone').optional().isString().trim().matches(/^[0-9+\-() ]{7,20}$/),
   // SMS choices, each its own boolean: transactional and marketing consent
   // are separate answers (services/sms/consent.js).
@@ -539,7 +542,10 @@ router.post(
   param('reservationId').isUUID(),
   body('methodId').isUUID().withMessage('Choose how you will pay the organizer.'),
   body('email').optional().isEmail().normalizeEmail(),
-  body('name').optional().isString().trim().isLength({ max: 120 }),
+  // A name on every booking (owner, 2026-11-22): the door list and the
+  // organizer's orders need to know who is coming.
+  body('name').isString().withMessage('Enter your full name.').trim()
+    .isLength({ min: 2, max: 120 }).withMessage('Enter your full name.'),
   body('phone').optional().isString().trim().matches(/^[0-9+\-() ]{7,20}$/),
   body('sms').optional().isObject(),
   body('sms.transactional').optional().isBoolean({ strict: true }),
@@ -570,7 +576,10 @@ router.post(
   holdLimiter,
   optionalAuth,
   param('reservationId').isUUID(),
-  body('name').optional().isString().trim().isLength({ max: 120 }),
+  // A name on every booking (owner, 2026-11-22): the door list and the
+  // organizer's orders need to know who is coming.
+  body('name').isString().withMessage('Enter your full name.').trim()
+    .isLength({ min: 2, max: 120 }).withMessage('Enter your full name.'),
   body('email').optional().isEmail().normalizeEmail(),
   body('phone').optional().isString().trim().isLength({ max: 30 }),
   // SMS choices, each its own boolean: transactional and marketing consent

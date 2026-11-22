@@ -347,7 +347,7 @@ async function eventBySlug(req, res, next) {
       });
     }
 
-    const [{ data: tiers }, content, organizerProfile] = await Promise.all([
+    const [{ data: tiers }, content, organizerProfile, addons] = await Promise.all([
       supabase
         .from('ticket_tiers')
         .select('id, name, description, price_cents, quantity, sold_count, kind, '
@@ -357,6 +357,12 @@ async function eventBySlug(req, res, next) {
       eventContent.publicBundle(event.id),
       // The organizer's public page (2026-11-18); null if it cannot be read.
       require('../services/organizerProfileService').linkFor(event.organizer_id),
+      // The add-ons, shown with the tickets BEFORE checkout (owner, 2026-11-22).
+      // Never fatal: a database without the add-ons table still shows the event.
+      require('../services/addonService').listForBuyer(event.id).catch((err) => {
+        logger.warn({ err: err.message, eventId: event.id }, 'public event: add-ons unreadable');
+        return [];
+      }),
     ]);
 
     /**
@@ -393,6 +399,7 @@ async function eventBySlug(req, res, next) {
       tiers: visibleTiers.map((t) => ({ ...publicTier(t), details: ticketDetails.present(event.id, t.details) })),
       availability: await availability(event, tiers || []),
       organizerProfile,
+      addons,
       ...content,
     });
   } catch (err) { return next(err); }

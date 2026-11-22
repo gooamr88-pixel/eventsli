@@ -9,7 +9,7 @@ export const metadata = {
 
 export default function SuccessPage() {
   return (
-    <main className="fx-section fx-section--sm">
+    <main className="fx-section fx-section--sm es-buyer">
       <div className="fx-container fx-container--wide">
         {/* useSearchParams needs a Suspense boundary, or the whole route opts
             out of static rendering and Next says so at build time. */}

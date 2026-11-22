@@ -80,7 +80,7 @@ export default async function SeatsPage({ params, searchParams }) {
   }
 
   return (
-    <main className="fx-section fx-section--xs">
+    <main className="fx-section fx-section--xs es-buyer">
       <div className="fx-container fx-container--wide fx-stack">
         {/* The event, its countdown and the three buying steps; the way back
             to the event page is the steps bar's first item (SeatsHeader.jsx). */}

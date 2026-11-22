@@ -6,11 +6,13 @@ import EventTabs from './EventTabs';
 import EventHero from './EventHero';
 import EventSponsorsSection from './EventSponsorsSection';
 import EventVendorsSection from './EventVendorsSection';
-import EventTickets, { EventMarks } from './EventTickets';
+import { EventMarks } from './EventTickets';
 import EventTicketCard from './EventTicketCard';
 import EventBlocks from './EventBlocks';
 import EventFaq from './EventFaq';
-import { EventBuyBar, EventPurchaseNotice } from './EventPurchasePanel';
+import { EventBuyBar, EventPurchaseNotice, ctaFor } from './EventPurchasePanel';
+import TicketPicker from './tickets/TicketPicker';
+import BuyBarWatch from './BuyBarWatch';
 import {
   EventSchedule, VenueMap,
 } from './EventSections';
@@ -201,9 +203,12 @@ export default async function EventPage({ params, searchParams }) {
       : fmt(ends, { dateStyle: 'medium', timeStyle: 'short' }),
   };
   const seated = !event.displayOnly && event.admissionType !== 'general';
+  // General admission, on sale online: the page itself is the booking step.
+  const bookHere = !seated && !event.displayOnly && (event.tiers || []).length > 0
+    && ctaFor(event, soldOut).kind === 'buy';
 
   return (
-    <main className="fx-section fx-section--xs">
+    <main className="fx-section fx-section--xs es-buyer">
       {/* Counts this view for the organizer's "Event views". Renders nothing. */}
       <VisitBeacon path={`/e/${event.slug || slug}`} />
       {/* JSON-LD so the event is eligible for a rich result. Built from the
@@ -239,16 +244,31 @@ export default async function EventPage({ params, searchParams }) {
             <EventNotifyCard event={event} />
           ) : (
             <>
-              {/* ── 2. Tickets: the ticket-shaped call to buy ────────────── */}
-              <EventTicketCard event={event} cheapest={cheapest} soldOut={soldOut} when={when} />
-
-              {/* ── 3. Seated: blocks and prices, and the door to the map.
-                    General admission: the ticket types, as before. ─────── */}
-              {/* Not for an event that is over: prices for tickets nobody can
-                  buy are noise under "This event has ended". */}
-              {!event.isPast && (seated
-                ? <EventBlocks event={event} />
-                : <EventTickets event={event} cheapest={cheapest} soldOut={soldOut} />)}
+              {bookHere ? (
+                /* ── 2. General admission on sale: booked right here (owner,
+                      2026-11-22) — ticket cards with their details, the
+                      quantity, the extras, Add to cart and Book now. ─────── */
+                <section id="event-tickets" className="es-book-section" aria-labelledby="event-book-title">
+                  <header className="es-book-section__head">
+                    <p className="es-book-section__eyebrow"><NavIcon name="ticket" size={16} />Tickets</p>
+                    <h2 id="event-book-title" className="es-book-section__title">Book your ticket</h2>
+                    <ul className="es-book-section__perks">
+                      <li><NavIcon name="tick" size={15} />Instant confirmation</li>
+                      <li><NavIcon name="tick" size={15} />No account needed</li>
+                      <li><NavIcon name="tick" size={15} />E-tickets by email</li>
+                    </ul>
+                  </header>
+                  <TicketPicker slug={event.slug} event={event} focusTierId={focusTier?.id || null} />
+                </section>
+              ) : (
+                <>
+                  {/* ── 2. Tickets: the ticket-shaped call to buy ────────── */}
+                  <EventTicketCard event={event} cheapest={cheapest} soldOut={soldOut} when={when} />
+                  {/* ── 3. Seated: blocks and prices, and the door to the map.
+                        Not for an event that is over. ───────────────────── */}
+                  {!event.isPast && seated && <EventBlocks event={event} />}
+                </>
+              )}
 
               {/* The reasons a buyer might not be able to buy, said in full. */}
               <EventPurchaseNotice event={event} soldOut={soldOut} focusTier={focusTier} />
@@ -327,6 +347,7 @@ export default async function EventPage({ params, searchParams }) {
 
       {/* Fixed to the bottom at every width — the sticky side panel it replaced
           only ever existed on a desktop, and this page is now one column. */}
+      {bookHere && <BuyBarWatch />}
       {!teaser && (
         <EventBuyBar
           event={event}

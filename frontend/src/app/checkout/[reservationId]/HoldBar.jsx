@@ -4,21 +4,20 @@ import NavIcon from '../../components/shell/NavIcon';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
- * The banner across the top of the checkout: "Your cart will expire in 18 min
- * 30 sec" (owner's reference, 2026-11-15).
+ * The hold banner across the top of the checkout (redone 2026-11-22, owner:
+ * "enhance it more professionally").
  *
- * Minutes and seconds as WORDS with the numbers in the accent, rather than a
- * "17:59" clock: a buyer typing an email reads it in a glance without parsing
- * a time. It warms as the hold runs down — amber under five minutes, red
- * under one — and says plainly when the hold is gone.
+ * What is held and why the clock matters on the left; the time as a clock
+ * face (mm:ss) in its own pill on the right, so it reads in a glance. It warms
+ * as the hold runs down — amber under five minutes, red under one — and says
+ * plainly when the hold is gone. A thin bar under it empties with the time.
  *
- * `remaining` arrives from the page (useCountdown) rather than being computed
- * here: reading Date.now() during render is impure, and the value already
- * exists on the same one-second beat.
+ * `remaining` (and `totalMs`) arrive from the page (useCountdown): reading
+ * Date.now() during render is impure, and the value already ticks there.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 export default function HoldBar({
-  expired, remaining,
+  expired, remaining, totalMs = null,
   /* What is on hold, in words — `heldNoun(reservation)`. */
   noun = { one: 'seat', many: 'seats', they: 'they' },
 }) {
@@ -28,18 +27,34 @@ export default function HoldBar({
   const tone = expired ? 'expired' : urgent ? 'urgent' : warning ? 'warning' : 'calm';
   const min = Math.floor(remaining / 60_000);
   const sec = Math.floor((remaining % 60_000) / 1000);
+  const left = totalMs ? Math.max(0, Math.min(1, remaining / totalMs)) : null;
+  const is = noun.they === 'it' ? 'is' : 'are';
 
   return (
-    <p className={`es-co-timer es-co-timer--${tone}`} role="timer" aria-live={urgent ? 'polite' : 'off'}>
-      <NavIcon name="clock" size={20} />
-      {expired ? (
-        <span>Your {noun.many} {noun.they === 'it' ? 'has' : 'have'} been released</span>
-      ) : (
-        <span>
-          Your cart will expire in{' '}
-          <b className="es-nums">{min}</b> min <b className="es-nums">{String(sec).padStart(2, '0')}</b> sec
+    <div className={`es-co-timer es-co-timer--${tone}`} role="timer" aria-live={urgent ? 'polite' : 'off'}>
+      <span className="es-co-timer__icon" aria-hidden="true"><NavIcon name={expired ? 'clock' : 'lock'} size={20} /></span>
+      <div className="es-co-timer__text fx-min0">
+        {expired ? (
+          <>
+            <b>Your {noun.many} {noun.they === 'it' ? 'has' : 'have'} been released</b>
+            <span>The hold ran out. Nothing was charged.</span>
+          </>
+        ) : (
+          <>
+            <b>Your {noun.many} {is} held for you</b>
+            <span>Complete your booking before the timer ends.</span>
+          </>
+        )}
+      </div>
+      {!expired && (
+        <span className="es-co-timer__clock es-nums">
+          <span className="sr-only">Time left: {min} minutes {sec} seconds</span>
+          <span aria-hidden="true">{String(min).padStart(2, '0')}:{String(sec).padStart(2, '0')}</span>
         </span>
       )}
-    </p>
+      {left !== null && !expired && (
+        <span className="es-co-timer__track" aria-hidden="true"><span style={{ transform: `scaleX(${left})` }} /></span>
+      )}
+    </div>
   );
 }

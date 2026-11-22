@@ -32,7 +32,7 @@ describe('the status section', () => {
     expect(screen.getByRole('link', { name: /Browse upcoming events/ })).toHaveAttribute('href', '/events');
     expect(screen.getByRole('link', { name: 'More from Acme Live' })).toHaveAttribute('href', '/o/acme');
     expect(screen.getByRole('link', { name: 'Find my tickets' })).toHaveAttribute('href', '/tickets/find');
-    expect(screen.queryByRole('link', { name: /Buy tickets|Book tickets/ })).toBeNull();
+    expect(screen.queryByRole('link', { name: /Buy tickets|Book tickets|Book your ticket/ })).toBeNull();
   });
 
   test('sold out: says so, with the right noun for the event', () => {

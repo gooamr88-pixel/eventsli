@@ -138,7 +138,7 @@ describe('add-on pictures', () => {
   test('the buyer sees the organizer\'s picture beside the add-on', () => {
     const q = quote({ addonsOffered: [{ id: 'p', name: 'Photo with the headliner', priceCents: 2000, remaining: 5, imageUrl: 'https://cdn.test/addon-1.jpg' }] });
     const { container } = render(<AddonPicker reservationId="r1" headers={HEADERS} quote={q} organizerName="X" onChanged={vi.fn()} />);
-    expect(container.querySelector('img.es-addons__img')?.getAttribute('src')).toBe('https://cdn.test/addon-1.jpg');
+    expect(container.querySelector('img.es-extra__img')?.getAttribute('src')).toBe('https://cdn.test/addon-1.jpg');
   });
 
   test('removing a picture sends imagePath: null', async () => {

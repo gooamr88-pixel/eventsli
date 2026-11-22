@@ -45,7 +45,7 @@ describe('ctaFor — where each kind of event sends the buyer', () => {
     expect(cta.href).toBe('/e/an-evening-on-the-waterfront/tickets');
     // "Choose your seats" on an event with no seats is a promise the next page
     // cannot keep.
-    expect(cta.label).toBe('Get tickets');
+    expect(cta.label).toBe('Book your ticket');
   });
 
   test('a display-only listing offers no way in at all', () => {
@@ -69,7 +69,7 @@ describe('ctaFor — free events', () => {
   test('every tier at zero drops the language of buying', () => {
     const cta = ctaFor({ ...base, tiers: [{ id: 't1', priceCents: 0 }] }, false);
     expect(cta.free).toBe(true);
-    expect(cta.label).toBe('Get tickets');
+    expect(cta.label).toBe('Book your ticket');
     // Still the seat map: free and reserved is a real combination, and a free
     // event with a drawn room still needs a seat chosen.
     expect(cta.href).toBe('/e/an-evening-on-the-waterfront/seats');

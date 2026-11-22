@@ -99,7 +99,7 @@ test('dark: the checkout gets card only, and reserving offline is refused with n
   assert.deepEqual(opts.body.data, { card: true, available: false });
 
   const off = await buyer('POST', `/public/reservations/${rid}/offline`, {
-    methodId: ids.methodId, email: 'dark-buyer@eventsli-test.invalid', acceptTerms: true, signature: { method: 'typed', name: 'Dark Buyer' },
+    methodId: ids.methodId, name: 'Dark Buyer', email: 'dark-buyer@eventsli-test.invalid', acceptTerms: true, signature: { method: 'typed', name: 'Dark Buyer' },
   }, token);
   assert.equal(off.status, 503, JSON.stringify(off.body));
   assert.equal(off.body.error, 'FEATURE_DISABLED');
