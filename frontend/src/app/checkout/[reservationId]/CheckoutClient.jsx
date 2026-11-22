@@ -21,7 +21,7 @@ import { Loading } from '../../components/Feedback';
 import NavIcon from '../../components/shell/NavIcon';
 import SignatureDialog from './SignatureDialog';
 import PayOptions, { usePayOptions } from './PayOptions';
-import AddonPicker from './AddonPicker';
+import ExtrasAdded from './ExtrasAdded';
 import { cardFeeNote } from '../../lib/cardFee';
 import HolderForms, { holderPayload } from './HolderForms';
 
@@ -475,19 +475,14 @@ export default function CheckoutClient({ reservationId }) {
             </div>
           </section>
 
-          {/* ── Add-ons for a seated order (2026-11-17). General admission
-                chooses them beside the tickets, before checkout (owner,
-                2026-11-22), and they show as lines above. ─────────────── */}
-          {reservation.kind !== 'general' && (
-            <AddonPicker
-              reservationId={reservationId}
-              headers={token(reservation)}
-              quote={quote}
-              organizerName={ev.organizerName}
-              disabled={expired || busy === 'pay'}
-              onChanged={loadQuote}
-            />
-          )}
+          {/* ── Extras: chosen with the tickets before checkout (owner,
+                2026-11-22); here the buyer is told plainly whether they
+                added any, with the way back to change them. ──────────── */}
+          <ExtrasAdded
+            quote={quote}
+            organizerName={ev.organizerName}
+            backHref={ev.slug ? (reservation.kind === 'general' ? `/e/${ev.slug}#event-tickets` : `/e/${ev.slug}/seats`) : null}
+          />
 
           {/* ── Where the tickets go — a paid order only; a free one asks
                 the ticket holders alone (below). ─────────────────────── */}

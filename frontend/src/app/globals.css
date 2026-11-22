@@ -20039,6 +20039,21 @@ button.es-vb-doc__tile:focus-visible { outline: 3px solid var(--es-accent); outl
   .es-co__summary-foot { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; font-size: 0.9rem; color: var(--es-text-muted); }
   .es-co__summary-foot b { font-size: 1.25rem; font-weight: 800; color: var(--es-text); }
 
+  /* ── Checkout: whether extras were added (owner, 2026-11-22) ─────── */
+  .es-co-extras { display: grid; gap: 0.75rem; padding: clamp(1rem, 2.5vw, 1.25rem); border: 1.5px solid var(--es-border); border-radius: 18px; background: var(--es-surface); }
+  .es-co-extras--none { grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 0.85rem; background: var(--es-bg-sunken); }
+  .es-co-extras--added { border-color: color-mix(in srgb, var(--es-success) 45%, var(--es-border)); background: color-mix(in srgb, var(--es-success) 6%, var(--es-surface)); }
+  .es-co-extras__head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 0.85rem; }
+  .es-co-extras__icon { display: grid; flex: none; place-items: center; width: 2.5rem; height: 2.5rem; border-radius: 12px; background: var(--es-highlight); color: var(--es-text-on-highlight); }
+  .es-co-extras__icon--ok { border-radius: var(--es-radius-full); background: var(--es-success); color: #ffffff; }
+  .es-co-extras__title { margin: 0; font-family: var(--es-font-sans); font-size: 1.05rem; font-weight: 800; color: var(--es-text); }
+  .es-co-extras__sub { margin: 0.1rem 0 0; font-size: 0.85rem; color: var(--es-text-muted); }
+  .es-co-extras__link { font-size: 0.875rem; font-weight: 700; color: var(--es-accent); text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; }
+  .es-co-extras__list { display: grid; gap: 0.4rem; margin: 0; padding: 0; list-style: none; }
+  .es-co-extras__list li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 0.75rem; padding: 0.6rem 0.75rem; border-radius: 12px; background: var(--es-surface); border: 1px solid var(--es-border); font-size: 0.925rem; color: var(--es-text); }
+  .es-co-extras__price { font-size: 0.85rem; font-weight: 600; color: var(--es-text-muted); }
+  .es-co-extras__note { display: flex; align-items: flex-start; gap: 0.45rem; margin: 0; font-size: 0.78rem; line-height: 1.45; color: var(--es-text-muted); }
+  .es-co-extras__note svg { flex: none; margin-top: 0.1em; }
   /* ── A free order: the lead guest on ticket 1 ─────────────────────── */
   .es-holders__card--lead { border-color: var(--es-accent-edge); background: color-mix(in srgb, var(--es-accent-wash) 45%, var(--es-surface)); }
   .es-holders__badge { margin-left: auto; padding: 0.2rem 0.6rem; border-radius: var(--es-radius-full); background: var(--es-highlight); color: var(--es-text-on-highlight); font-size: 0.7rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; white-space: nowrap; }

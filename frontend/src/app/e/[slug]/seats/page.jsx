@@ -102,6 +102,9 @@ export default async function SeatsPage({ params, searchParams }) {
             purchaseMode={event.purchaseMode}
             maxPerOrder={event.maxTicketsPerOrder}
             payments={event.payments}
+            // The add-ons, chosen with the seats before checkout (2026-11-22).
+            addons={event.addons || []}
+            organizerName={event.organizer?.name || null}
           />
         </Suspense>
       </div>

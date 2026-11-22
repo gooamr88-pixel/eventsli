@@ -70,7 +70,7 @@ export function TicketCategories({ tiers, palette, currency, picked, onToggle, s
 
 export function Basket({
   seats, tableLabel, nameFor, tierOf, currency, subtotal, count, busy, onRemove, onClear, onContinue, error, payments,
-  onAddToCart = null, inCart = false, cartCount = 0,
+  onAddToCart = null, inCart = false, cartCount = 0, extrasCount = 0, extrasCents = 0,
 }) {
   const empty = count === 0;
   return (
@@ -126,7 +126,11 @@ export function Basket({
       )}
 
       <dl className="es-basket__sum">
-        <div><dt>Tickets ({count})</dt><dd className="es-nums">{subtotal === null ? '—' : formatMoney(subtotal, currency)}</dd></div>
+        <div><dt>Tickets ({count})</dt><dd className="es-nums">{subtotal === null ? '—' : subtotal === 0 ? 'Free' : formatMoney(subtotal, currency)}</dd></div>
+        {/* The extras chosen under the map (2026-11-22). */}
+        {extrasCount > 0 && (
+          <div><dt>Extras ({extrasCount})</dt><dd className="es-nums">{extrasCents === 0 ? 'Free' : formatMoney(extrasCents, currency)}</dd></div>
+        )}
         <div className="es-basket__fees"><dt>Fees and tax</dt><dd>At checkout</dd></div>
       </dl>
 

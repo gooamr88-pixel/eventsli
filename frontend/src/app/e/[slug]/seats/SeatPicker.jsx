@@ -13,6 +13,8 @@ import { useReservation, TABLE_ACCESS_HEADER } from '../../../hooks/useReservati
 import { useTableAccess } from './useTableAccess';
 import SeatMapSkeleton, { MAP_FRAME, MAP_BOX } from './SeatMapSkeleton';
 import SelectionBar from './SelectionBar';
+import ExtrasList from '../tickets/ExtrasList';
+import { useExtras, attachExtras } from '../tickets/useExtras';
 import { TicketCategories, Basket, CategoryChips, TrustCard } from './SeatSidePanels';
 import VenueInfoCard from '../../../components/venue/VenueInfoCard';
 import TierDetailsDialog, { hasDetails } from '../../../components/tickets/TierDetailsDialog';
@@ -30,7 +32,9 @@ import { useToast } from '../../../components/ui/Toast';
  * the quote after the hold, with tax and fees the client is in no position to
  * compute.
  */
-export default function SeatPicker({ slug, currency, purchaseMode, maxPerOrder, payments = null }) {
+export default function SeatPicker({
+  slug, currency, purchaseMode, maxPerOrder, payments = null, addons = [], organizerName = null,
+}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { hold } = useReservation();
@@ -288,6 +292,9 @@ export default function SeatPicker({ slug, currency, purchaseMode, maxPerOrder, 
   }, [selectedSeats, selectedTable, seatById]);
 
   const count = selectedTable ? (selectedTable.seatCount || 1) : selectedSeats.length;
+  // The add-ons, chosen with the seats before checkout (owner, 2026-11-22).
+  const extras = useExtras(addons, count);
+  const total = subtotal === null ? null : subtotal + extras.cents;
 
   /**
    * HOLD, INTO THE CART — then stay (`cart`) or go straight to paying (`checkout`).
@@ -308,6 +315,7 @@ export default function SeatPicker({ slug, currency, purchaseMode, maxPerOrder, 
         ? { tableId: selectedTable.id, tableToken: accessHeader }
         : { seatIds: selectedSeats.map((s) => s.id), tableToken: accessHeader },
       { replaces: cartItem ? { reservationId: cartItem.reservationId, reservationToken: cartItem.reservationToken } : null });
+      await attachExtras(reservation, extras.lines);
 
       if (mode === 'cart') {
         toast.success(cartItem ? 'Your cart is updated. The seats are held for you.' : 'Added to your cart. The seats are held for you.', {
@@ -540,6 +548,21 @@ export default function SeatPicker({ slug, currency, purchaseMode, maxPerOrder, 
           </p>
         )}
 
+        {extras.rows.length > 0 && (
+          <div className="es-seatpage__narrow">
+            <ExtrasList
+              rows={extras.rows}
+              currency={currency}
+              organizerName={organizerName}
+              tickets={count}
+              disabled={count === 0 || busy}
+              onSet={extras.set}
+              lockedHint={count === 0 ? 'Choose your seats first, then add extras to them.' : null}
+              headingId="seat-extras"
+            />
+          </div>
+        )}
+
         <div className="es-seatpage__narrow">
           {actionError && <ErrorNote error={actionError} />}
         </div>
@@ -553,6 +576,8 @@ export default function SeatPicker({ slug, currency, purchaseMode, maxPerOrder, 
           tierOf={tierOf}
           currency={currency}
           subtotal={subtotal}
+          extrasCount={extras.count}
+          extrasCents={extras.cents}
           count={count}
           busy={busy}
           onRemove={toggleSeat}
@@ -573,7 +598,7 @@ export default function SeatPicker({ slug, currency, purchaseMode, maxPerOrder, 
       <div className="es-seatpage__bar">
         <SelectionBar
           count={count}
-          subtotal={subtotal}
+          subtotal={total}
           currency={currency}
           label={selectedTable ? `Table ${selectedTable.label}` : null}
           // The seats themselves, so each can be listed with its price and taken

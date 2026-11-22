@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { describeError, isSelectionLost, messageFor } from '../../../utils/errors';
 import { formatMoney } from '../../../utils/money';
-import { put } from '../../../utils/apiClient';
+import { useExtras, attachExtras } from './useExtras';
 import { useApi } from '../../../hooks/useApi';
 import { useReservation } from '../../../hooks/useReservation';
 import { Loading, Empty, ErrorNotice, Notice } from '../../../components/Feedback';
@@ -46,7 +46,6 @@ export default function TicketPicker({ slug, event: given = null, focusTierId = 
   const event = given || fetched.data;
   const reload = given ? () => router.refresh() : fetched.reload;
   const [counts, setCounts] = useState({});
-  const [extras, setExtras] = useState({});
   const [busy, setBusy] = useState(null);
   const [actionError, setActionError] = useState(null);
   const toast = useToast();
@@ -72,14 +71,11 @@ export default function TicketPicker({ slug, event: given = null, focusTierId = 
     ? null : tier.remaining + (heldQty[tier.id] || 0));
 
   const tiers = useMemo(() => event?.tiers || [], [event]);
-  const addons = useMemo(() => (Array.isArray(event?.addons) ? event.addons : []), [event]);
   const maxPerOrder = event?.maxTicketsPerOrder || 10;
   const chosen = Object.values(counts).reduce((n, q) => n + q, 0);
-  // Extras never outnumber tickets: stepping tickets down trims them on read.
-  const extraQty = (id) => Math.min(extras[id] || 0, chosen);
-  const extrasChosen = addons.reduce((n, a) => n + extraQty(a.id), 0);
-  const subtotal = tiers.reduce((sum, t) => sum + (counts[t.id] || 0) * t.priceCents, 0)
-    + addons.reduce((sum, a) => sum + extraQty(a.id) * a.priceCents, 0);
+  const extras = useExtras(event?.addons, chosen);
+  const extrasChosen = extras.count;
+  const subtotal = tiers.reduce((sum, t) => sum + (counts[t.id] || 0) * t.priceCents, 0) + extras.cents;
   const everythingFree = tiers.length > 0 && tiers.every((t) => t.priceCents === 0);
 
   if (!event && fetched.loading) return <Loading variant="card" label="Loading tickets" />;
@@ -112,7 +108,7 @@ export default function TicketPicker({ slug, event: given = null, focusTierId = 
 
   function setExtra(id, quantity) {
     setActionError(null);
-    setExtras((x) => ({ ...x, [id]: Math.max(0, Math.min(quantity, chosen)) }));
+    extras.set(id, quantity);
   }
 
   /** Holds the tickets (and the extras) — then stays (`cart`) or goes to pay. */
@@ -129,16 +125,7 @@ export default function TicketPicker({ slug, event: given = null, focusTierId = 
         replaces: cartItem ? { reservationId: cartItem.reservationId, reservationToken: cartItem.reservationToken } : null,
       });
 
-      const addonLines = addons
-        .map((a) => ({ addonId: a.id, quantity: extraQty(a.id) }))
-        .filter((l) => l.quantity > 0);
-      if (addonLines.length > 0) {
-        await put(
-          `/public/reservations/${reservation.reservationId}/addons`,
-          { lines: addonLines },
-          { headers: { 'x-access-token': reservation.reservationToken }, noRedirect: true },
-        );
-      }
+      await attachExtras(reservation, extras.lines);
 
       if (mode === 'cart') {
         toast.success(cartItem ? 'Your cart is updated. The tickets are held for you.' : 'Added to your cart. The tickets are held for you.', {
@@ -164,17 +151,6 @@ export default function TicketPicker({ slug, event: given = null, focusTierId = 
     }
   }
 
-  const extraRows = addons.map((a) => {
-    const mine = extraQty(a.id);
-    const left = a.remaining === null || a.remaining === undefined ? null : a.remaining;
-    return {
-      ...a,
-      mine,
-      ceiling: left === null ? chosen : Math.min(chosen, left),
-      soldOut: left === 0,
-      note: left !== null && left > 0 && left <= 10 ? `only ${left} left` : null,
-    };
-  });
   const figure = chosen === 0 && !everythingFree
     ? null
     : subtotal === 0 ? 'Free' : formatMoney(subtotal, event.currency);
@@ -199,7 +175,7 @@ export default function TicketPicker({ slug, event: given = null, focusTierId = 
       </ul>
 
       <ExtrasList
-        rows={extraRows}
+        rows={extras.rows}
         currency={event.currency}
         organizerName={event.organizer?.name}
         tickets={chosen}

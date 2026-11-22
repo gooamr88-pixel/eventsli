@@ -12,77 +12,65 @@ vi.mock('../src/app/organizer/events/[id]/EventContext', () => ({ useEventContex
 
 import { put, post, patch } from '../src/app/utils/apiClient';
 import AddonsPanel from '../src/app/organizer/events/[id]/tiers/AddonsPanel';
-import AddonPicker from '../src/app/checkout/[reservationId]/AddonPicker';
+import ExtrasList from '../src/app/e/[slug]/tickets/ExtrasList';
+import { useExtras, attachExtras } from '../src/app/e/[slug]/tickets/useExtras';
 import { ticketFacts } from '../src/app/components/TicketStub';
+import ExtrasAdded from '../src/app/checkout/[reservationId]/ExtrasAdded';
 
 /**
- * Ticket add-ons (2026-11-17) in the browser: the checkout's "Make it
- * special" card sends the whole choice with the hold's token, stops at one
- * per ticket and at the organizer's stock, and says the organizer delivers
- * them. The ticket lists what it includes.
+ * Ticket add-ons (2026-11-17) in the browser. Since 2026-11-22 "Make it
+ * special" is chosen with the tickets, before checkout: it stops at one per
+ * ticket and at the organizer's stock, says the organizer delivers them, and
+ * the choice goes onto the hold with its token. The ticket lists what it
+ * includes.
  */
 
-const HEADERS = { 'x-access-token': 'tok' };
-const quote = (over = {}) => ({
-  currency: 'CAD',
-  admits: 2,
-  addons: [],
-  addonsOffered: [
-    { id: 'p', name: 'Photo with the headliner', description: 'After the show', priceCents: 2000, remaining: 5 },
-    { id: 's', name: 'Signed poster', description: null, priceCents: 1500, remaining: 0 },
-  ],
-  ...over,
-});
+const offered = [
+  { id: 'p', name: 'Photo with the headliner', description: 'After the show', priceCents: 2000, remaining: 5 },
+  { id: 's', name: 'Signed poster', description: null, priceCents: 1500, remaining: 0 },
+];
 
-function renderPicker(q, onChanged = vi.fn(async () => {})) {
-  render(<AddonPicker reservationId="r1" headers={HEADERS} quote={q} organizerName="Northlight Live" onChanged={onChanged} />);
-  return onChanged;
+/** The extras as the ticket picker and the seat page draw them (2026-11-22). */
+function Extras({ addons = offered, tickets = 2 }) {
+  const extras = useExtras(addons, tickets);
+  return <ExtrasList rows={extras.rows} currency="CAD" organizerName="Northlight Live" tickets={tickets} onSet={extras.set} />;
 }
 
 beforeEach(() => { vi.clearAllMocks(); put.mockResolvedValue({}); });
 
-describe('AddonPicker', () => {
+describe('Make it special — chosen with the tickets, before checkout', () => {
   test('renders nothing when the event offers no add-ons', () => {
-    const { container } = render(<AddonPicker reservationId="r1" headers={HEADERS} quote={quote({ addonsOffered: [] })} onChanged={vi.fn()} />);
+    const { container } = render(<Extras addons={[]} />);
     expect(container).toBeEmptyDOMElement();
   });
 
-  test('adding one sends the whole choice with the hold token, then reloads the quote', async () => {
-    const onChanged = renderPicker(quote({ addons: [{ addonId: 's', quantity: 1, name: 'Signed poster', unitPriceCents: 1500 }] }));
+  test('stops at one per ticket on the order', async () => {
+    render(<Extras tickets={1} />);
     await userEvent.click(screen.getByRole('button', { name: 'One more Photo with the headliner' }));
-    await waitFor(() => expect(onChanged).toHaveBeenCalled());
-    expect(put).toHaveBeenCalledWith(
-      '/public/reservations/r1/addons',
-      { lines: [{ addonId: 's', quantity: 1 }, { addonId: 'p', quantity: 1 }] },
-      { headers: HEADERS, noRedirect: true },
-    );
-  });
-
-  test('stops at one per ticket on the order', () => {
-    renderPicker(quote({ addons: [{ addonId: 'p', quantity: 2, name: 'Photo with the headliner', unitPriceCents: 2000 }] }));
     expect(screen.getByRole('button', { name: 'One more Photo with the headliner' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'One fewer Photo with the headliner' })).toBeEnabled();
   });
 
-  test('stops at the organizer\'s stock, and says sold out when none are left', () => {
-    renderPicker(quote({ addonsOffered: [{ id: 'p', name: 'Photo', priceCents: 2000, remaining: 0 }, { id: 's', name: 'Signed poster', priceCents: 1500, remaining: 0 }],
-      addons: [{ addonId: 'p', quantity: 1, name: 'Photo', unitPriceCents: 2000 }] }));
-    // Its own one counts as available to it; nobody else's.
-    expect(screen.getByRole('button', { name: 'One more Photo' })).toBeDisabled();
+  test('says sold out when the organizer has none left', () => {
+    render(<Extras />);
     expect(screen.getByText('Sold out')).toBeInTheDocument();
   });
 
   test('says the organizer alone is responsible for delivering add-ons', () => {
-    renderPicker(quote());
+    render(<Extras />);
     expect(screen.getByText(/Northlight Live, who alone is responsible/)).toBeInTheDocument();
   });
 
-  test('a refusal is explained and the quote is reloaded to show what is left', async () => {
-    put.mockRejectedValueOnce(Object.assign(new Error('x'), { code: 'ADDON_SOLD_OUT' }));
-    const onChanged = renderPicker(quote());
-    await userEvent.click(screen.getByRole('button', { name: 'One more Photo with the headliner' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('That extra is gone');
-    expect(onChanged).toHaveBeenCalled();
+  test('the choice goes onto the hold with its token; nothing chosen, nothing sent', async () => {
+    await attachExtras({ reservationId: 'r1', reservationToken: 'tok' }, [{ addonId: 'p', quantity: 1 }]);
+    expect(put).toHaveBeenCalledWith(
+      '/public/reservations/r1/addons',
+      { lines: [{ addonId: 'p', quantity: 1 }] },
+      { headers: { 'x-access-token': 'tok' }, noRedirect: true },
+    );
+    put.mockClear();
+    await attachExtras({ reservationId: 'r1', reservationToken: 'tok' }, []);
+    expect(put).not.toHaveBeenCalled();
   });
 });
 
@@ -136,8 +124,7 @@ describe('AddonsPanel (organizer)', () => {
 
 describe('add-on pictures', () => {
   test('the buyer sees the organizer\'s picture beside the add-on', () => {
-    const q = quote({ addonsOffered: [{ id: 'p', name: 'Photo with the headliner', priceCents: 2000, remaining: 5, imageUrl: 'https://cdn.test/addon-1.jpg' }] });
-    const { container } = render(<AddonPicker reservationId="r1" headers={HEADERS} quote={q} organizerName="X" onChanged={vi.fn()} />);
+    const { container } = render(<Extras addons={[{ id: 'p', name: 'Photo with the headliner', priceCents: 2000, remaining: 5, imageUrl: 'https://cdn.test/addon-1.jpg' }]} />);
     expect(container.querySelector('img.es-extra__img')?.getAttribute('src')).toBe('https://cdn.test/addon-1.jpg');
   });
 
@@ -150,5 +137,30 @@ describe('add-on pictures', () => {
     await userEvent.click(within(form).getByRole('button', { name: 'Remove' }));
     await userEvent.click(screen.getByRole('button', { name: 'Save add-on' }));
     await waitFor(() => expect(patch).toHaveBeenCalledWith('/events/e1/addons/a1', { imagePath: null }, { noRedirect: true }));
+  });
+});
+
+describe('the checkout says whether extras were added (2026-11-22)', () => {
+  const base = { currency: 'CAD', addonsOffered: offered, addons: [] };
+
+  test('added: names each extra with its quantity and price, and who delivers it', () => {
+    render(<ExtrasAdded quote={{ ...base, addons: [{ addonId: 'p', name: 'Photo with the headliner', quantity: 2, unitPriceCents: 2000 }] }}
+      organizerName="Northlight Live" backHref="/e/gala/seats" />);
+    expect(screen.getByRole('heading', { name: 'Extras added to your order' })).toBeInTheDocument();
+    expect(screen.getByText('Photo with the headliner')).toBeInTheDocument();
+    expect(screen.getByText('× 2')).toBeInTheDocument();
+    expect(screen.getByText(/Northlight Live, who alone is responsible/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Change' })).toHaveAttribute('href', '/e/gala/seats');
+  });
+
+  test('none added on an event that offers some: says so, with the way back', () => {
+    render(<ExtrasAdded quote={base} backHref="/e/gala#event-tickets" />);
+    expect(screen.getByRole('heading', { name: 'No extras added' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Add extras' })).toHaveAttribute('href', '/e/gala#event-tickets');
+  });
+
+  test('an event with no add-ons shows nothing', () => {
+    const { container } = render(<ExtrasAdded quote={{ currency: 'CAD', addons: [], addonsOffered: [] }} />);
+    expect(container).toBeEmptyDOMElement();
   });
 });
