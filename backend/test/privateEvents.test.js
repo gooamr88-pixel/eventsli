@@ -277,6 +277,20 @@ test('the guard refuses a locked private event and lets the rest through', async
   });
 });
 
+test("the website's cached read gets the lock as a 200, so its cache cannot keep an old public copy", async () => {
+  // Next's data cache stores only 200s: with a 403, a page cached while the
+  // event was public stayed cached after it went private (2026-11-22).
+  await withApp(async (base) => {
+    row = privateEvent();
+    const res = await fetch(`${base}/api/v1/public/events/gala/vendors?locked=ok`);
+    assert.equal(res.status, 200);
+    const { data } = await res.json();
+    assert.equal(data.locked, true);
+    assert.equal(data.code, 'EVENT_PRIVATE');
+    assert.deepEqual(data.event, access.lockedFailure(privateEvent()).meta.event, 'the teaser and nothing more');
+  });
+});
+
 // ── Every public listing leaves private events out ───────────────────────────
 
 test('every public listing of events filters out private ones', () => {

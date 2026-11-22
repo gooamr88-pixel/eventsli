@@ -20199,6 +20199,13 @@ button.es-vb-doc__tile:focus-visible { outline: 3px solid var(--es-accent); outl
     .es-book__bar { gap: 0.6rem; padding: 0.8rem 0.85rem max(0.8rem, calc(var(--fx-safe-b) + 0.4rem)); }
     .es-book__total { font-size: 1.3rem; }
     .es-book__btn { min-height: 3rem; }
+    /* Stacked on a phone (owner's 360px screenshot, 2026-11-22): side by side,
+       "Update cart" and "Choose your tickets" ran into each other in ~230px.
+       Book now on top, full width; the cart under it, quieter. */
+    .es-book__actions { grid-template-columns: minmax(0, 1fr); gap: 0.5rem; }
+    .es-book__btn--main { order: -1; }
+    .es-book__btn--ghost { min-height: 2.75rem; border-width: 1px; border-color: var(--es-border-strong); font-size: 0.9rem; }
+    .es-book__meta { gap: 0.25rem 0.75rem; font-size: 0.75rem; }
     .es-co-timer { padding: 0.7rem 0.8rem; gap: 0.65rem; }
     .es-co-timer__icon { width: 2.25rem; height: 2.25rem; }
     .es-co-timer__text span { display: none; }
