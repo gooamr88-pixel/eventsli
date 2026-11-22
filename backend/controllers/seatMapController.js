@@ -138,7 +138,7 @@ async function publicMap(req, res, next) {
     // A private event's map is behind its password, like its page (2026-11-22).
     if (event.is_private) {
       res.set('Cache-Control', 'private, no-store');
-      if (!(await eventAccess.allowed(req, event))) return sendFail(res, eventAccess.lockedFailure(event));
+      if (!(await eventAccess.allowed(req, event))) return eventAccess.sendLocked(req, res, event);
     }
 
     const { data: map, error: mapError } = await supabase
@@ -292,7 +292,7 @@ async function unlockTable(req, res, next) {
       return sendFail(res, { status: 404, error: 'EVENT_NOT_FOUND', message: 'That event is not available.' });
     }
     // The event's own password comes before any table's.
-    if (!(await eventAccess.allowed(req, event))) return sendFail(res, eventAccess.lockedFailure(event));
+    if (!(await eventAccess.allowed(req, event))) return eventAccess.sendLocked(req, res, event);
 
     const ok = await access.verifyTablePassword(req.params.tableId, req.body.password);
     if (!ok) {
@@ -332,7 +332,7 @@ async function hold(req, res, next) {
       return sendFail(res, { status: 404, error: 'EVENT_NOT_FOUND', message: 'That event is not available.' });
     }
     // Knowing a private event's slug is not a way to buy for it (2026-11-22).
-    if (!(await eventAccess.allowed(req, event))) return sendFail(res, eventAccess.lockedFailure(event));
+    if (!(await eventAccess.allowed(req, event))) return eventAccess.sendLocked(req, res, event);
     if (event.coming_soon) {
       return sendFail(res, {
         status: 403, error: 'TICKETS_NOT_SOLD_ONLINE',

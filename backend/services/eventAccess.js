@@ -225,6 +225,32 @@ function lockedFailure(event) {
 }
 
 /**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * SENDS THE REFUSAL — as a 200 when the website's cached read asks for it
+ * (`?locked=ok`), the 403 above for everyone else.
+ *
+ * Why (found 2026-11-22: a new extra showed on the checkout and never on the
+ * event page): the website reads an event page through Next's data cache,
+ * which stores only status-200 answers. A page cached while the event was
+ * PUBLIC was then refreshed after it went private; the refresh got a 403,
+ * which Next does not store, so the old public copy stayed — served to
+ * everyone, without the password, and frozen (no new extras, no edits) until
+ * an on-demand revalidation happened to land. A 200 "locked" answer is
+ * stored like any other, so the cached copy turns into the lock within a
+ * minute even if that revalidation never arrives. It carries only the teaser
+ * the 403 already carries.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+function sendLocked(req, res, event) {
+  const { sendOk, sendFail } = require('../utils/responseEnvelope');
+  const refusal = lockedFailure(event);
+  if (req?.query?.locked === 'ok') {
+    return sendOk(res, { locked: true, code: refusal.error, message: refusal.message, event: refusal.meta.event });
+  }
+  return sendFail(res, refusal);
+}
+
+/**
  * Check a password for an event, by slug. Plain false for every failure:
  * wrong password, not private, not published, not found.
  */
@@ -291,8 +317,7 @@ function gate({ slugFrom = (req) => req.params.slug } = {}) {
       if (!event || event.status !== 'published' || !event.is_private) return next();
       res.set('Cache-Control', 'private, no-store');
       if (await allowed(req, event)) return next();
-      const { sendFail } = require('../utils/responseEnvelope');
-      return sendFail(res, lockedFailure(event));
+      return sendLocked(req, res, event);
     } catch (err) { return next(err); }
   };
 }
@@ -318,6 +343,7 @@ module.exports = {
   rememberUnlock,
   lockedTeaser,
   lockedFailure,
+  sendLocked,
   verify,
   hashNew,
   setCookie,

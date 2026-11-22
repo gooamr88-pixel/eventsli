@@ -21,9 +21,18 @@ import { serverFetch } from '../utils/apiClient';
  */
 export async function loadEventForViewer(slug, { path = '', revalidate = 60, tags } = {}) {
   const url = `/public/events/${encodeURIComponent(slug)}${path}`;
+  /**
+   * `?locked=ok`: the API answers a private event's cached read with a 200
+   * `{ locked: true }` instead of a 403 (backend eventAccess.sendLocked).
+   * Next's data cache stores only 200s, so with a 403 a page cached while the
+   * event was public stayed cached once it went private — shown to everyone
+   * without the password, and frozen: a new extra never appeared (2026-11-22).
+   * A 200 replaces it within a minute. The new URL is also a new cache key,
+   * so every copy cached the old way is dropped on deploy.
+   */
   try {
-    const data = await serverFetch(url, { tags: tags || [`event:${slug}`], revalidate });
-    return { data };
+    const data = await serverFetch(`${url}?locked=ok`, { tags: tags || [`event:${slug}`], revalidate });
+    if (!data?.locked) return { data };
   } catch (err) {
     if (err?.status === 404) return { data: null };
     if (err?.code !== 'EVENT_PRIVATE') throw err;

@@ -323,7 +323,7 @@ async function eventBySlug(req, res, next) {
      */
     if (event.is_private) {
       res.set('Cache-Control', 'private, no-store');
-      if (!(await eventAccess.allowed(req, event))) return sendFail(res, eventAccess.lockedFailure(event));
+      if (!(await eventAccess.allowed(req, event))) return eventAccess.sendLocked(req, res, event);
     }
 
     /**
