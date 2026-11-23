@@ -214,8 +214,64 @@ async function namesForTickets(ticketIds) {
   return map;
 }
 
+/**
+ * What each order bought on top of its tickets, for the organizer's Orders
+ * list (2026-11-23): `Map<orderId, [{ addonId, name, quantity, unitPriceCents, amountCents }]>`.
+ *
+ * A paid order's add-ons live on its tickets (`ticket_addons`, one row per
+ * ticket per add-on), so they are counted from there. An order that never got
+ * tickets — unfinished, failed — has only its hold's choice
+ * (`reservation_addons`), which is what the buyer was about to pay for.
+ *
+ * @param {{ id: string, reservation_id?: string|null }[]} orders
+ */
+async function forOrders(orders) {
+  const map = new Map();
+  if (!orders?.length) return map;
+  const nameOf = (r) => (Array.isArray(r.event_addons) ? r.event_addons[0] : r.event_addons) || {};
+  const add = (orderId, r, quantity) => {
+    const a = nameOf(r);
+    const lines = map.get(orderId) || [];
+    let line = lines.find((l) => l.addonId === r.addon_id && l.unitPriceCents === Number(r.unit_price_cents));
+    if (!line) {
+      line = { addonId: r.addon_id, name: a.name || 'Add-on', quantity: 0, unitPriceCents: Number(r.unit_price_cents), amountCents: 0, sortOrder: a.sort_order ?? 0 };
+      lines.push(line);
+    }
+    line.quantity += quantity;
+    line.amountCents = line.quantity * line.unitPriceCents;
+    map.set(orderId, lines);
+  };
+
+  const { data: onTickets, error } = await supabase.from('ticket_addons')
+    .select('order_id, addon_id, unit_price_cents, event_addons ( name, sort_order )')
+    .in('order_id', orders.map((o) => o.id));
+  if (error) throw new Error(`order add-ons lookup failed: ${error.message}`);
+  for (const r of onTickets || []) add(r.order_id, r, 1);
+
+  // Orders with nothing on tickets fall back to their hold's choice.
+  const byHold = new Map();
+  for (const o of orders) {
+    if (!map.has(o.id) && o.reservation_id) byHold.set(o.reservation_id, [...(byHold.get(o.reservation_id) || []), o.id]);
+  }
+  if (byHold.size) {
+    const { data: held, error: heldError } = await supabase.from('reservation_addons')
+      .select('reservation_id, addon_id, quantity, unit_price_cents, event_addons ( name, sort_order )')
+      .in('reservation_id', [...byHold.keys()]);
+    if (heldError) throw new Error(`order hold add-ons lookup failed: ${heldError.message}`);
+    for (const r of held || []) {
+      for (const orderId of byHold.get(r.reservation_id) || []) add(orderId, r, Number(r.quantity));
+    }
+  }
+
+  for (const [orderId, lines] of map) {
+    map.set(orderId, lines.sort((x, y) => x.sortOrder - y.sortOrder || x.name.localeCompare(y.name))
+      .map(({ sortOrder, ...line }) => line));
+  }
+  return map;
+}
+
 module.exports = {
   ownAddonImage,
   listForOrganizer, listForBuyer, create, update, remove,
-  forReservation, setForReservation, namesForTickets, fail,
+  forReservation, setForReservation, namesForTickets, forOrders, fail,
 };

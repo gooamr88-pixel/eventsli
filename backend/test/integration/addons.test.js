@@ -184,6 +184,28 @@ test('paying attaches the add-ons to the order\'s tickets, and the ticket says s
   const tickets = await ticketService.forOrder(orderId);
   const all = tickets.flatMap((t) => t.addons);
   assert.deepEqual(all.sort(), ['Photo with the headliner', 'Photo with the headliner', 'Signed poster'].sort());
+  holds.paidOrderId = orderId;
+});
+
+test('the organizer\'s Orders list says what each order added: paid from its tickets, unfinished from its hold', async () => {
+  // An unfinished order: nothing on tickets yet, only the hold's choice.
+  holds.c = await hold(1);
+  const set = await choose(holds.c, [{ addonId: addon.poster, quantity: 1 }]);
+  assert.equal(set.status, 200, JSON.stringify(set.body));
+  const unfinished = { id: '00000000-0000-4000-8000-000000000001', reservation_id: holds.c.id };
+
+  const map = await addonService.forOrders([
+    { id: holds.paidOrderId, reservation_id: holds.a.id },
+    unfinished,
+    { id: '00000000-0000-4000-8000-000000000002', reservation_id: null },
+  ]);
+  assert.deepEqual(map.get(holds.paidOrderId).map(({ name, quantity, unitPriceCents, amountCents }) => ({ name, quantity, unitPriceCents, amountCents })), [
+    { name: 'Photo with the headliner', quantity: 2, unitPriceCents: 2000, amountCents: 4000 },
+    { name: 'Signed poster', quantity: 1, unitPriceCents: 1500, amountCents: 1500 },
+  ]);
+  assert.deepEqual(map.get(unfinished.id).map((l) => [l.name, l.quantity]), [['Signed poster', 1]]);
+  assert.equal(map.has('00000000-0000-4000-8000-000000000002'), false, 'an order with no add-ons gets none');
+  assert.equal((await addonService.forOrders([])).size, 0);
 });
 
 test('the organizer: price fixed once sold, stock not below sold, removal only takes it off sale', async () => {

@@ -25,7 +25,7 @@ const order = (over = {}) => ({
 });
 
 const rows = [
-  order(),
+  order({ addons: [{ addonId: 'p', name: 'Photo with the star', quantity: 2, unitPriceCents: 2000, amountCents: 4000 }] }),
   order({
     id: 'ffff0000-0000-4000-8000-000000000000', channel: 'manual', tickets: 1,
     buyer: { name: '=HYPERLINK("http://x")', email: null, hasAccount: false },
@@ -108,6 +108,9 @@ describe('the Excel workbook', () => {
     // A formula-looking name stays text.
     expect(ws.getRow(6).getCell(col('Buyer')).value).toBe('=HYPERLINK("http://x")');
     expect(ws.getRow(6).getCell(col('Discount')).value).toBe(-10);
+    // Add-ons in words; an order without any leaves the cell empty.
+    expect(ws.getRow(5).getCell(col('Add-ons')).value).toBe('2 × Photo with the star');
+    expect(ws.getRow(6).getCell(col('Add-ons')).value || '').toBe('');
 
     // Totals: one row per currency, SUMIFS with a cached result.
     const cad = ws.getRow(9).getCell(col('Buyer paid')).value;

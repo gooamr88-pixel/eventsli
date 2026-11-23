@@ -4,6 +4,7 @@ const { sendOk, sendFail } = require('../utils/responseEnvelope');
 const { safeSearch } = require('../utils/search');
 const signatures = require('../services/signatureService');
 const orderContact = require('../services/orderContactService');
+const addonService = require('../services/addonService');
 const { writeAudit } = require('../services/auditService');
 const logger = require('../utils/logger');
 
@@ -113,6 +114,19 @@ async function orders(req, res, next) {
       rows.forEach((row, i) => { row.signed = signed.has(data[i].reservation_id); });
     } catch (err) {
       logger.warn({ err: err.message, eventId: req.params.eventId }, 'could not read order signatures');
+    }
+
+    /**
+     * What each order bought on top of its tickets (add-ons, 2026-11-23) — the
+     * organizer delivers them, so they must see who paid for which. Fail soft
+     * for the same reason as the signatures: rows show without them instead.
+     */
+    rows.forEach((row) => { row.addons = []; });
+    try {
+      const addons = await addonService.forOrders(data || []);
+      rows.forEach((row) => { row.addons = addons.get(row.id) || []; });
+    } catch (err) {
+      logger.warn({ err: err.message, eventId: req.params.eventId }, 'could not read order add-ons');
     }
 
     return sendOk(res, rows, {

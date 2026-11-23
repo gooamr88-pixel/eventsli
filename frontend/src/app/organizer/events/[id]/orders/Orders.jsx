@@ -202,6 +202,21 @@ export default function Orders({ eventId }) {
                 render: (o) => (o.guestOf ? <span className="es-pill">{o.guestOf.name}</span> : <span className="text-subtle">—</span>),
               }] : []),
               { key: 'tickets', label: 'Tickets', align: 'end', render: (o) => <span className="es-nums">{o.tickets}</span> },
+              // What the buyer added on top of the tickets (2026-11-23) — the
+              // organizer delivers these, so each order says which it paid for.
+              ...(rows.some((o) => o.addons?.length) ? [{
+                key: 'addons',
+                label: 'Add-ons',
+                render: (o) => (o.addons?.length ? (
+                  <span className="fx-row flex-wrap gap-1">
+                    {o.addons.map((a) => (
+                      <span key={`${a.addonId}-${a.unitPriceCents}`} className="es-pill" dir="auto">
+                        <span className="es-nums">{a.quantity}</span>&nbsp;×&nbsp;{a.name}
+                      </span>
+                    ))}
+                  </span>
+                ) : <span className="text-subtle">—</span>),
+              }] : []),
               { key: 'paid', label: 'Paid', align: 'end', render: (o) => <span className="es-nums">{formatMoney(o.buyerPaidCents, o.currency)}</span> },
               { key: 'net', label: 'To you', align: 'end', render: (o) => <span className="es-nums text-muted">{formatMoney(o.organizerNetCents, o.currency)}</span> },
               {

@@ -17184,7 +17184,11 @@ label.es-chip:has(:focus-visible) { outline: 2px solid var(--es-accent); outline
   .es-cartitem__cover { display: block; overflow: hidden; aspect-ratio: 4 / 5; align-self: start; border-radius: 12px; background: var(--es-bg-sunken); }
   .es-cartitem__cover img { width: 100%; height: 100%; object-fit: cover; }
   .es-cartitem__nocover { display: grid; place-items: center; width: 100%; height: 100%; color: var(--es-text-subtle); }
-  .es-cartitem__body { display: grid; gap: 0.75rem; min-width: 0; }
+  /* minmax(0, 1fr), as on the group: an implicit column grows to its widest
+     child's min-content, and the top row (title + date + venue, timer beside
+     them) is wider than a phone's body column — which pushed the lines, the
+     total and the button past the card's border (2026-11-23). */
+  .es-cartitem__body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.75rem; min-width: 0; }
   .es-cartitem__top { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem; }
   .es-cartitem__title { margin: 0; font-family: var(--es-font-display); font-size: 1.125rem; font-weight: 800; line-height: 1.25; }
   .es-cartitem__title a { color: var(--es-text); }
@@ -17205,6 +17209,21 @@ label.es-chip:has(:focus-visible) { outline: 2px solid var(--es-accent); outline
   .es-cartitem__go { margin-inline-start: auto; }
   @media (width < 40rem) {
     .es-cartitem__go { flex: 1 1 100%; justify-content: center; }
+
+    /* PHONES: only the title sits beside the cover. Beside a 4.5rem cover
+       the body is ~150px wide at 320px — room for a title, not for a title,
+       a timer, two price columns and three buttons. So the body's parts join
+       the card's own grid: the title block beside the cover, and the lines,
+       the total and the buttons across the card's full width under both. */
+    .es-cartitem__body { display: contents; }
+    .es-cartitem__top { grid-column: 2; min-width: 0; flex-wrap: wrap; gap: 0.375rem; }
+    .es-cartitem__top > .fx-min0 { flex: 1 1 100%; }
+    /* The timer above the title, not squeezed beside it. */
+    .es-cartitem__top > .es-holdtimer { order: -1; }
+    .es-cartitem__lines,
+    .es-cartitem__sum,
+    .es-cartitem__actions { grid-column: 1 / -1; min-width: 0; }
+    .es-cartitem__actions .es-btn--ghost { flex: 1 1 0; justify-content: center; }
   }
 
   /* The hold timer. */

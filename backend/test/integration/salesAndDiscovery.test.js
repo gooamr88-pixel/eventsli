@@ -202,6 +202,9 @@ test('the order list shows online sales, which manual-sales never did', async ()
   assert.equal(online.channel, 'stripe');
   assert.equal(online.tickets, 3);
   assert.equal(online.buyer.email, BUYER);
+  // Every row carries its add-ons, an empty list when it bought none.
+  assert.ok(res.body.data.every((o) => Array.isArray(o.addons)), 'each order has an addons list');
+  assert.deepEqual(online.addons, []);
 });
 
 test('the totals cover the whole filtered set, not the page', async () => {

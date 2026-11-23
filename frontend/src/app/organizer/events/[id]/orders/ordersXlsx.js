@@ -1,7 +1,7 @@
 import { currencySymbol, minorUnits } from '../../../../lib/markets';
 import {
   fetchAllOrders, summarize, describeFilters, eventLine, channelText, orderRef, toUnits, fileBase, saveBlob,
-  STATUS_LABELS,
+  addonsText, STATUS_LABELS,
 } from './ordersExport';
 
 /**
@@ -82,6 +82,7 @@ function orderColumns(rows, timezone) {
     { key: 'status', header: 'Status', width: 12, value: (o) => STATUS_LABELS[o.status] || o.status },
     ...(any((o) => o.guestOf) ? [{ key: 'guestOf', header: 'Guest of', width: 18, value: (o) => o.guestOf?.name || '' }] : []),
     { key: 'tickets', header: 'Tickets', width: 9, type: 'int', sum: true, value: (o) => Number(o.tickets) || 0 },
+    ...(any((o) => o.addons?.length) ? [{ key: 'addons', header: 'Add-ons', width: 30, value: addonsText }] : []),
     { key: 'currency', header: 'Currency', width: 10, value: (o) => o.currency },
     { key: 'subtotal', header: 'Ticket sales', width: 14, type: 'money', sum: true, value: (o) => o.subtotalCents },
     ...(any((o) => o.discountCents) ? [{ key: 'discount', header: 'Discount', width: 13, type: 'money', sum: true, value: (o) => -Math.abs(o.discountCents || 0) }] : []),

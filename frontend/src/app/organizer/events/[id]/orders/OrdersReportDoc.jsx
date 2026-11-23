@@ -1,6 +1,6 @@
 import Logo from '../../../../components/brand/Logo';
 import { formatMoney } from '../../../../utils/money';
-import { channelText, describeFilters, eventLine, orderRef, orderWhen } from './ordersExport';
+import { addonsText, channelText, describeFilters, eventLine, orderRef, orderWhen } from './ordersExport';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -77,6 +77,7 @@ export default function OrdersReportDoc({ event, rows, summary, filters, generat
                 <td>
                   <span className="es-orep-buyer" dir="auto">{o.buyer?.name || 'No name given'}</span>
                   {o.buyer?.email && <span className="es-orep-email">{o.buyer.email}</span>}
+                  {o.addons?.length > 0 && <span className="es-orep-addons" dir="auto">+ {addonsText(o)}</span>}
                 </td>
                 <td><span className={`es-orep-pill ${o.channel === 'manual' ? 'is-door' : ''}`}>{channelText(o)}</span></td>
                 {hasGuests && (

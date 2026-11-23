@@ -53,6 +53,13 @@ export function channelText(order) {
   return `Door · ${METHOD_LABELS[m] || typed.charAt(0).toUpperCase() + typed.slice(1)}`;
 }
 
+/** "2 × Photo with the star, 1 × Meet & greet" — an order's add-ons in one line, or ''. */
+export function addonsText(order) {
+  return (order?.addons || [])
+    .map((a) => `${Number(a.quantity) || 1} × ${a.name}`)
+    .join(', ');
+}
+
 /** A short, readable order number: the first eight characters of its id. */
 export const orderRef = (order) => String(order.id || '').slice(0, 8).toUpperCase();
 

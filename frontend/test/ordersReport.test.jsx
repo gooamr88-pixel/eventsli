@@ -66,6 +66,17 @@ describe('the sales report document', () => {
     expect(body.querySelector('tr.is-total').textContent).toMatch(/Total · 2 orders/);
   });
 
+  it('notes an order\'s add-ons under the buyer, and nothing for an order without', () => {
+    renderDoc([
+      order({ addons: [{ addonId: 'p', name: 'Photo with the star', quantity: 2, unitPriceCents: 2000, amountCents: 4000 }] }),
+      rows[1],
+    ]);
+    const lines = document.querySelectorAll('.es-orep-addons');
+    expect(lines).toHaveLength(1);
+    expect(lines[0].textContent).toBe('+ 2 × Photo with the star');
+    expect(lines[0]).toHaveAttribute('dir', 'auto');
+  });
+
   it('says so when nothing matches', () => {
     renderDoc([]);
     expect(screen.getByText('No orders match these filters.')).toBeInTheDocument();

@@ -109,7 +109,8 @@ function OrganizerGroup({ group, now, onRemove, refresh }) {
           <NavIcon name="store" size={18} />
           Sold by <b>{group.organizer.name}</b>
         </span>
-        <span className="es-cartgroup__total es-nums">{formatMoney(group.totalCents, group.currency)}</span>
+        {/* "Free", as each event's own total says — not "$0.00" above "Free". */}
+        <span className="es-cartgroup__total es-nums">{group.totalCents === 0 ? 'Free' : formatMoney(group.totalCents, group.currency)}</span>
       </div>
       {many && (
         <p className="es-cartgroup__note">

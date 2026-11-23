@@ -139,6 +139,7 @@ export function reportCss({ box, footer }) {
     .es-orep-table .is-net { font-weight: 700; color: #b5121e; }
     .es-orep-buyer { font-weight: 700; color: #15141c; overflow-wrap: anywhere; }
     .es-orep-email { display: block; color: #6b6a7a; font-size: 2.5mm; overflow-wrap: anywhere; }
+    .es-orep-addons { display: block; margin-top: 0.4mm; color: #b5121e; font-size: 2.5mm; font-weight: 600; overflow-wrap: anywhere; }
     .es-orep-pill {
       display: inline-block; padding: 0.4mm 2mm; border-radius: 99mm; font-size: 2.3mm; font-weight: 700;
       white-space: nowrap; background: #fff1f2; color: #b5121e;
