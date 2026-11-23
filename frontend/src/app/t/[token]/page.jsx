@@ -62,8 +62,11 @@ export default async function TicketPage({ params }) {
     order = await serverFetch(`/public/t/${encodeURIComponent(token)}`, { cache: 'no-store' });
   } catch (err) {
     // A bad signature, an expired token and an order that never existed all
-    // arrive the same way, and this page keeps them that way.
-    if (err?.status === 404 || err?.status === 401) notFound();
+    // arrive the same way, and this page keeps them that way. So does a 400:
+    // the API's validator rejects a token shorter than 20 characters before
+    // the signature is checked — a link cut short in an email client — and
+    // that crashed this page into the site-wide error screen (2026-11-23).
+    if (err?.status === 404 || err?.status === 401 || err?.status === 400) notFound();
     throw err;
   }
 

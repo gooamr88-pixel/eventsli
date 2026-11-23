@@ -3,6 +3,7 @@
 import { useId, useRef, useState } from 'react';
 import { post } from '../../utils/apiClient';
 import { messageFor } from '../../utils/errors';
+import { LEVELS, levelLabel } from './sponsorLevels';
 import NavIcon from '../shell/NavIcon';
 
 /**
@@ -34,14 +35,8 @@ export const SPONSOR_STATUS = Object.freeze({
   cancelled: { label: 'Cancelled', pill: 'es-pill--danger' },
 });
 
-export const LEVELS = Object.freeze([
-  ['headline', 'Headline'],
-  ['gold', 'Gold'],
-  ['silver', 'Silver'],
-  ['bronze', 'Bronze'],
-  ['partner', 'Partner'],
-]);
-export const levelLabel = (level) => (LEVELS.find(([v]) => v === level) || [null, 'Partner'])[1];
+// In a plain module so server components can call them too (sponsorLevels.js).
+export { LEVELS, levelLabel };
 
 export function StatusPill({ status, sponsor = false, expired = false }) {
   if (expired) return <span className="es-pill es-pill--danger">Expired</span>;

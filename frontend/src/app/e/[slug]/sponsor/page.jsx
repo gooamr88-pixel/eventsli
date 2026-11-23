@@ -6,7 +6,8 @@ import PrivateEventGate from '../PrivateEventGate';
 import { formatMoney } from '../../../utils/money';
 import { formatEventTime } from '../../../lib/eventTime';
 import NavIcon from '../../../components/shell/NavIcon';
-import { levelLabel } from '../../../components/sponsors/sponsorUi';
+// Not from sponsorUi: that is a client module, and this page calls it on the server.
+import { levelLabel } from '../../../components/sponsors/sponsorLevels';
 import SponsorInquiry from './SponsorInquiry';
 
 /**
