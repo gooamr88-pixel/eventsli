@@ -101,6 +101,22 @@ export default function EditContactSheet({ eventId, order, event, onClose, onSav
         <div className="es-ai-sheet__body">
           <dl className="es-deflist">
             <div className="es-deflist__row"><dt className="text-muted">Tickets</dt><dd className="es-nums">{order.tickets}</dd></div>
+            {/* What the buyer added on top (2026-11-23) — shown, not editable. */}
+            {order.addons?.length > 0 && (
+              <div className="es-deflist__row">
+                <dt className="text-muted">Add-ons</dt>
+                <dd>
+                  <ul className="fx-stack fx-stack--sm gap-0.5" aria-label="Add-ons on this order">
+                    {order.addons.map((a) => (
+                      <li key={`${a.addonId}-${a.unitPriceCents}`} dir="auto">
+                        <span className="es-nums">{a.quantity}</span> × {a.name}
+                        <span className="text-muted es-nums"> · {formatMoney(a.amountCents, order.currency)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </dd>
+              </div>
+            )}
             <div className="es-deflist__row"><dt className="text-muted">Paid</dt><dd className="es-nums">{formatMoney(order.buyerPaidCents, order.currency)}</dd></div>
             <div className="es-deflist__row"><dt className="text-muted">When</dt><dd>{orderWhen(order, event?.timezone)}</dd></div>
           </dl>

@@ -71,6 +71,23 @@ describe('editing a buyer’s details', () => {
     expect(screen.getByText(/not paid, so there are no tickets to send/)).toBeInTheDocument();
   });
 
+  it('lists the order’s add-ons with their amounts, and no row when there are none', () => {
+    setup(order({ addons: [
+      { addonId: 'p', name: 'Photo with the star', quantity: 2, unitPriceCents: 2000, amountCents: 4000 },
+      { addonId: 's', name: 'Signed poster', quantity: 1, unitPriceCents: 1500, amountCents: 1500 },
+    ] }));
+    const list = screen.getByRole('list', { name: 'Add-ons on this order' });
+    const items = list.querySelectorAll('li');
+    expect(items).toHaveLength(2);
+    expect(items[0].textContent).toMatch(/2 × Photo with the star · .*40\.00/);
+    expect(items[1].textContent).toMatch(/1 × Signed poster · .*15\.00/);
+  });
+
+  it('shows no add-ons row for an order without any', () => {
+    setup(order({ addons: [] }));
+    expect(screen.queryByText('Add-ons')).toBeNull();
+  });
+
   it('says an account buyer keeps their account', () => {
     setup(order({ buyer: { name: 'Omar', email: 'o@acct.com', hasAccount: true } }));
     expect(screen.getByText(/their account stays as it is/)).toBeInTheDocument();
