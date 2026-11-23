@@ -345,6 +345,11 @@ export default function EventDetailsEditor({ event, onSaved }) {
     { key: 'basic', label: 'Basic details', icon: 'info' },
     { key: 'description', label: 'Description', icon: 'fileText' },
     ...(ticketed ? [{ key: 'format', label: 'Tickets & format', icon: 'ticket' }] : []),
+    // Its own tab since 2026-11-23. It sat in the side column, and once the
+    // event was private its options made that column far taller than the
+    // form beside it — scrolled down, the page was a blank left half next
+    // to one card. Here it gets the wide column, and the side stays short.
+    { key: 'privacy', label: event.privacy?.isPrivate ? 'Privacy · On' : 'Privacy', icon: 'lock' },
   ];
   const shown = tabs.some((t) => t.key === tab) ? tab : 'basic';
   const f = {
@@ -393,6 +398,8 @@ export default function EventDetailsEditor({ event, onSaved }) {
           {shown === 'basic' && <BasicSection f={f} />}
           {shown === 'description' && <DescriptionSection f={f} />}
           {shown === 'format' && <FormatSection f={f} />}
+          {/* Saves on its own, with its own button (PrivacyCard). */}
+          {shown === 'privacy' && <PrivacyCard event={event} onSaved={onSaved} />}
           <FormError error={error} />
         </div>
         <div className="fx-stack fx-min0">
@@ -412,8 +419,6 @@ export default function EventDetailsEditor({ event, onSaved }) {
             </section>
           )}
           <QuickSettings f={f} />
-          {/* Private, behind a password (2026-11-22). Saves on its own. */}
-          <PrivacyCard event={event} onSaved={onSaved} />
         </div>
       </div>
 

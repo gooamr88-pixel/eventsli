@@ -41,12 +41,12 @@ const MAP = {
   tables: [{ id: 't1', label: 'T1', seatCount: 8, shape: 'round', position: { x: 30, y: 50, rotation: 0 }, status: 'available' }],
 };
 
-function answer({ map = MAP, floorPlan = null } = {}) {
+function answer({ map = MAP, floorPlan = null, admissionType = 'reserved' } = {}) {
   responses.clear();
   responses.set('/events/e1/venue-map', map);
   responses.set('/events/e1/tiers', []);
   responses.set('/events/e1/table-categories', []);
-  responses.set('/events/e1', { title: 'Gala', currency: 'CAD', purchaseMode: 'seat_only' });
+  responses.set('/events/e1', { title: 'Gala', currency: 'CAD', purchaseMode: 'seat_only', admissionType });
   if (floorPlan) responses.set('/events/e1/vendors/floor-plan', floorPlan);
 }
 
@@ -56,7 +56,7 @@ describe('the seating map screen', () => {
   test('opens with no vendor floor plan (the read fails)', async () => {
     answer();
     render(<MapEditor eventId="e1" />);
-    expect(await screen.findByRole('application', { name: 'Seating map editor' })).toBeInTheDocument();
+    expect(await screen.findByRole('application', { name: 'Event map editor' })).toBeInTheDocument();
   });
 
   test('opens with booths already on the map', async () => {
@@ -68,7 +68,7 @@ describe('the seating map screen', () => {
       },
     });
     render(<MapEditor eventId="e1" />);
-    expect(await screen.findByRole('application', { name: 'Seating map editor' })).toBeInTheDocument();
+    expect(await screen.findByRole('application', { name: 'Event map editor' })).toBeInTheDocument();
     expect(await screen.findByRole('button', { name: /Booth A1, available/ })).toBeInTheDocument();
   });
 
@@ -87,6 +87,27 @@ describe('the seating map screen', () => {
   test('opens on an empty event (no map yet)', async () => {
     answer({ map: null });
     render(<MapEditor eventId="e1" />);
-    expect(await screen.findByRole('application', { name: 'Seating map editor' })).toBeInTheDocument();
+    expect(await screen.findByRole('application', { name: 'Event map editor' })).toBeInTheDocument();
+  });
+
+  // The event map (2026-11-23): a general-admission event draws its room and
+  // booths, and is offered nothing that sells seats.
+  test('general admission: the room and booths, no seating tools', async () => {
+    answer({ map: null, admissionType: 'general' });
+    render(<MapEditor eventId="e1" />);
+    expect(await screen.findByRole('heading', { name: 'Event map' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /A stage/ })).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'Stage' }).length).toBeGreaterThan(0);
+    for (const seatTool of ['Seating section', 'Table', 'Row', 'Single seat', 'A template']) {
+      expect(screen.queryByRole('button', { name: seatTool })).toBeNull();
+    }
+    expect(screen.queryByRole('button', { name: /Rows of seats/ })).toBeNull();
+  });
+
+  test('reserved seating keeps every seating tool', async () => {
+    answer({ map: null });
+    render(<MapEditor eventId="e1" />);
+    expect(await screen.findByRole('button', { name: /Rows of seats/ })).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'Seating section' }).length).toBeGreaterThan(0);
   });
 });

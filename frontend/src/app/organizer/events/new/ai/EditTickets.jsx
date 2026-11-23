@@ -139,7 +139,7 @@ export default function EditTickets({ form, set, errorFor }) {
         <span className="text-accent"><NavIcon name="info" size={18} /></span>
         <span className="fx-min0 flex-1">
           {form.admissionType === 'reserved'
-            ? 'How many of each comes from the seating map, which you draw after saving.'
+            ? 'How many of each comes from the event map, which you draw after saving.'
             : 'Leave “How many” empty for no limit.'}
         </span>
       </p>

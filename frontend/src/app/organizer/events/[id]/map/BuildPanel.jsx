@@ -35,6 +35,10 @@ export const BUILD_GROUPS = [
   {
     key: 'seating',
     title: 'Seating',
+    // A general-admission event's map sells nothing (2026-11-23, the event
+    // map): no seats, so neither this group nor Start from, whose templates,
+    // pictures and AI all draw seats.
+    needsSeating: true,
     items: [
       // The Venue Studio's builder: many rows at once, named as a section,
       // fanned toward the stage if asked (studio/SectionDialog.jsx).
@@ -73,6 +77,7 @@ export const BUILD_GROUPS = [
   {
     key: 'start',
     title: 'Start from',
+    needsSeating: true,
     items: [
       { key: 'template', icon: 'copy', title: 'A template', text: 'One of your saved maps, or an Eventsli one. Replaces this map.', initial: { family: 'template' } },
       // A picture of a seating map, read by AI and redrawn (2026-11-19).
@@ -87,17 +92,17 @@ export const BUILD_GROUPS = [
 export const BUILD_ITEMS = BUILD_GROUPS.flatMap((g) => g.items);
 
 const visible = (group, ai) => group.items.filter((it) => !it.needsAi || ai);
-const shown = (vendors) => BUILD_GROUPS.filter((g) => !g.needsVendors || vendors);
+const shown = (vendors, seating = true) => BUILD_GROUPS.filter((g) => (!g.needsVendors || vendors) && (!g.needsSeating || seating));
 
 /**
  * "Add to layout", the LEFT column of the owner's Venue Builder mockup
  * (2026-11-10): always in view, one line per item, grouped.
  */
-export function BuildPalette({ onAdd, ai = false, vendors = false, children = null }) {
+export function BuildPalette({ onAdd, ai = false, vendors = false, seating = true, children = null }) {
   return (
     <section className="es-dcard es-mappalette" aria-labelledby="map-palette">
       <h2 id="map-palette" className="es-mappalette__title">Add to layout</h2>
-      {shown(vendors).map((g) => (
+      {shown(vendors, seating).map((g) => (
         <div key={g.key} className="es-mappalette__group">
           <h3 className="es-mappalette__h">{g.title}</h3>
           <ul className="es-mappalette__list">
@@ -124,7 +129,7 @@ export function BuildPalette({ onAdd, ai = false, vendors = false, children = nu
  * column. A menu of buttons (not role="menu": each is an ordinary action, and
  * Tab moves through them as it does everywhere else in the editor).
  */
-export function AddMenu({ onAdd, ai = false, vendors = false }) {
+export function AddMenu({ onAdd, ai = false, vendors = false, seating = true }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -147,7 +152,7 @@ export function AddMenu({ onAdd, ai = false, vendors = false }) {
       </button>
       {open && (
         <div className="es-mapmenu es-mapmenu--add">
-          {shown(vendors).map((g) => (
+          {shown(vendors, seating).map((g) => (
             <div key={g.key} className="es-mappalette__group">
               <p className="es-mappalette__h">{g.title}</p>
               <ul className="es-mappalette__list">

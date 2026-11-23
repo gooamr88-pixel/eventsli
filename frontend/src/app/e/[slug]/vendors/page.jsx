@@ -136,7 +136,15 @@ export default async function VendorPage({ params }) {
             <h2 id="vd-plan" className="es-vb-h2">Floor plan</h2>
             <p className="es-vb-sub">Tap a booth to see who is there{open ? ', or what is still free' : ''}.</p>
           </div>
-          <FloorPlanViewer floorPlan={page.floorPlan} currency={event.currency} title={`${event.title} floor plan`} />
+          <FloorPlanViewer
+            floorPlan={page.floorPlan} currency={event.currency} title={`${event.title} floor plan`}
+            // Tap a free booth → book that very spot (BoothDetail, ?spot=).
+            book={open ? {
+              href: `/e/${event.slug}/vendors/booths`,
+              label: instant ? 'Reserve this booth' : 'Apply for this booth',
+              types: booths.filter((b) => !b.soldOut).map((b) => b.id),
+            } : null}
+          />
         </section>
       )}
 

@@ -34,7 +34,7 @@ function Option({ name, value, current, onChange, icon, title, desc }) {
 
 /** "add a cover, draw the seating map, then publish." — minus what is done. */
 function nextSteps(hasCover, needsMap) {
-  const steps = [!hasCover && 'add a cover', needsMap && 'draw the seating map'].filter(Boolean);
+  const steps = [!hasCover && 'add a cover', needsMap && 'draw the event map'].filter(Boolean);
   return steps.length ? `${steps.join(', ')}, then publish.` : 'publish.';
 }
 

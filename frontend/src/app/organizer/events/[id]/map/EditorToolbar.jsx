@@ -34,13 +34,13 @@ import { AddMenu } from './BuildPanel';
  */
 export default function EditorToolbar({
   tables, zones, selection, tool, onToolChange, snapToGrid, onSnapChange,
-  canUndo, canRedo, onUndo, onRedo, onAdd, zoom, onFullscreen = null, ai = false, vendors = false,
+  canUndo, canRedo, onUndo, onRedo, onAdd, zoom, onFullscreen = null, ai = false, vendors = false, seating = true,
 }) {
   return (
     <div className="es-maptoolbar">
       <div className="es-maptoolbar__group">
         {/* Only below the width where "Add to layout" is its own column. */}
-        <AddMenu onAdd={onAdd} ai={ai} vendors={vendors} />
+        <AddMenu onAdd={onAdd} ai={ai} vendors={vendors} seating={seating} />
         <ToolbarButton onClick={onUndo} disabled={!canUndo} label="Undo" title="Undo (Ctrl+Z)" icon="undo" />
         <ToolbarButton onClick={onRedo} disabled={!canRedo} label="Redo" title="Redo (Ctrl+Shift+Z)" icon="redo" />
       </div>

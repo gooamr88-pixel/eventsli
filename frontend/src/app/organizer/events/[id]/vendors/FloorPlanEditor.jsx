@@ -71,7 +71,7 @@ export default function FloorPlanEditor({ eventId, currency }) {
   return <Editor key={api.data.version} eventId={eventId} currency={currency} loaded={api.data} onSaved={api.reload} />;
 }
 
-/** A reserved-seating event: its booths live on the venue map, with the seats. */
+/** Its booths live on the event map, with everything else in the room (every ticketed event since 2026-11-23). */
 function OnTheVenueMap({ eventId, currency, loaded }) {
   const count = planBooths(loaded.plan).length;
   const linked = !!loaded.plan.onSeatMap;
@@ -79,22 +79,22 @@ function OnTheVenueMap({ eventId, currency, loaded }) {
     <div className="fx-stack">
       <section className="es-boothimport" aria-labelledby="fp-venue-title">
         <div className="fx-min0">
-          <h3 id="fp-venue-title" className="es-boothimport__title">Booths are drawn on your venue map</h3>
+          <h3 id="fp-venue-title" className="es-boothimport__title">Booths are drawn on your event map</h3>
           <p className="es-boothimport__text">
             {linked || count === 0
-              ? 'This event has reserved seating, so its booths sit on the same map as the seats: one drawing of the hall for buyers and vendors. Add, number and move booths in the venue map, under Add to layout › Vendor booths.'
-              : `Your ${count} booth${count === 1 ? ' is' : 's are'} still on a separate floor plan. Open the venue map and choose “Bring them onto this map” to place them beside the seats.`}
+              ? 'Your booths sit on the event map with everything else in the room: one drawing of the hall for guests and vendors. Add, number and move booths in the event map, under Add to layout › Vendor booths.'
+              : `Your ${count} booth${count === 1 ? ' is' : 's are'} still on a separate floor plan. Open the event map and choose “Bring them onto this map” to place them in the room.`}
           </p>
         </div>
         <Link className="es-btn es-btn--primary" href={`/organizer/events/${eventId}/map`}>
-          <NavIcon name="map" size={18} />Edit booths on the venue map
+          <NavIcon name="map" size={18} />Edit booths on the event map
         </Link>
       </section>
       {count > 0 ? (
         <FloorPlanViewer
           floorPlan={{ plan: loaded.plan, booths: loaded.booths, boothTypes: loaded.boothTypes, venue: loaded.venue }}
           currency={currency}
-          title={linked ? 'Booths on the venue map' : 'Separate floor plan'}
+          title={linked ? 'Booths on the event map' : 'Separate floor plan'}
         />
       ) : (
         <p className="text-sm text-muted">No booths yet. Booth types you make under Booths can be given to booths on the map.</p>

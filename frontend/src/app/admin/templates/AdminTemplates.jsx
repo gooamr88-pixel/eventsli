@@ -89,7 +89,7 @@ export default function AdminTemplates() {
       <PageHeader
         eyebrow="Storefront"
         title="Event templates"
-        lede="Ready-made templates every organizer can start events from — ticket types, add-ons and seating map included — and a look at the templates organizers keep for themselves."
+        lede="Ready-made templates every organizer can start events from — ticket types, add-ons and event map included — and a look at the templates organizers keep for themselves."
         actions={canEdit && (
           <button type="button" className="es-btn es-btn--primary" onClick={() => setCreating({ eventId: '' })}>New template from an event</button>
         )}
@@ -113,7 +113,7 @@ export default function AdminTemplates() {
             <Empty
               icon="copy"
               title={scope === 'platform' ? 'No Eventsli templates yet' : 'No organizer templates'}
-              hint={scope === 'platform' ? 'Make one from any event: its ticket types, add-ons and seating map become a template every organizer can use once you publish it.' : 'Templates organizers save for themselves appear here.'}
+              hint={scope === 'platform' ? 'Make one from any event: its ticket types, add-ons and event map become a template every organizer can use once you publish it.' : 'Templates organizers save for themselves appear here.'}
             />
           ) : (
             <div className="es-tplgrid">

@@ -137,8 +137,9 @@ async function saveMap(eventId, payload, { actorId = null } = {}) {
     throw fail('VALIDATION_ERROR', `A map can hold at most ${MAX_TABLES} tables.`);
   }
 
-  // Which events may have a map at all — listing-only (BRD §12), general
-  // admission, cancelled or completed — is decided by `save_venue_map`, inside
+  // Which events may have a map at all — not listing-only (BRD §12), not
+  // cancelled or completed, and for general admission one with no seats
+  // (2026-11-23, the event map) — is decided by `save_venue_map`, inside
   // the transaction. It was a lookup here whose error was ignored, so a failed
   // read let a listing-only event's map through (TECH-AUDIT-LOG S-17).
 

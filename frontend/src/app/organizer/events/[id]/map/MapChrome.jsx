@@ -19,12 +19,19 @@ import { MAX_ZONES } from '../../../../components/seating/venueZones';
 export function MapHeader({ tables, zones, soldTotal, blockedTotal = 0, dirty, saving, canSave, onSave, onExport }) {
   const event = useEventContext()?.event;
   const live = event?.status === 'published' && event?.slug;
+  // General admission has no seat picker: its map is on the event page.
+  const general = event?.admissionType === 'general';
+  const previewHref = general ? `/e/${event?.slug}` : `/e/${event?.slug}/seats`;
   return (
     <div className="es-page-head es-page-head--section es-maphead">
       <div className="fx-stack fx-stack--sm fx-min0 gap-1">
         {/* The page's <h1>: the event layout's head is the breadcrumb (see layout.jsx). */}
-        <h1 className="es-section-title">Seating map</h1>
-        <p className="es-page-head__lede">Design the room, see it in 3D and 360°, and preview what buyers get.</p>
+        <h1 className="es-section-title">Event map</h1>
+        <p className="es-page-head__lede">
+          {general
+            ? 'Draw the room: the stage, bars, entrances and vendor booths. Guests see it on your event page.'
+            : 'Seats, tables, the stage, vendor booths — the whole room. See it in 3D and 360°, and preview what buyers get.'}
+        </p>
         {/* STATE, not statistics (2026-11-21). The room's figures are in the
             bar under the canvas and on the Layout tab; up here is only what
             changes what the organizer may do next: whether the work is saved,
@@ -44,8 +51,8 @@ export function MapHeader({ tables, zones, soldTotal, blockedTotal = 0, dirty, s
       </div>
       <div className="es-page-head__actions">
         {live ? (
-          <a href={`/e/${event.slug}/seats`} target="_blank" rel="noreferrer" className="es-btn es-btn--secondary">
-            <NavIcon name="eye" size={18} />Preview<span className="sr-only"> the buyer&apos;s seat picker (opens in a new tab)</span>
+          <a href={previewHref} target="_blank" rel="noreferrer" className="es-btn es-btn--secondary">
+            <NavIcon name="eye" size={18} />Preview<span className="sr-only">{general ? ' the map on the event page' : ' the buyer’s seat picker'} (opens in a new tab)</span>
           </a>
         ) : (
           <span className="es-btn es-btn--secondary" aria-disabled="true" title="The buyer's seat picker opens once the event is on sale.">

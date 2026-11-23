@@ -581,9 +581,9 @@ async function readFloorPlan(eventId) {
  * sees the room they stand in: the map's world, its zones (stage, walls,
  * doors) and its tables. Never prices, seats or who bought them.
  *
- * `null` for an event with no seat map: general admission and listing-only
- * events cannot have one (save_venue_map refuses), and their floor plan
- * stands alone. Private tables are left out unless `includePrivate` (the
+ * `null` for an event with no map: a listing-only event cannot have one
+ * (save_venue_map refuses), and its floor plan stands alone. A
+ * general-admission event has one since 2026-11-23 — the room without seats. Private tables are left out unless `includePrivate` (the
  * organizer), and their styles with them — a style is keyed by the table's name.
  */
 async function seatMapContext(eventId, { includePrivate = false } = {}) {
@@ -614,9 +614,14 @@ async function seatMapContext(eventId, { includePrivate = false } = {}) {
   };
 }
 
-/** True for an event that may have a seat map (the rule save_venue_map applies). */
+/**
+ * True for an event that may have an event map (the rule save_venue_map
+ * applies). Every ticketed event since 2026-11-23 (migration
+ * 20261212090000): a general-admission event's map has its stage, areas and
+ * vendor booths, and no seats. Only a listing-only event has none.
+ */
 function hasSeatMap(event) {
-  return event.admission_type !== 'general' && event.listing_type !== 'display_only';
+  return event.listing_type !== 'display_only';
 }
 
 /**
@@ -650,7 +655,7 @@ async function saveFloorPlan(eventId, body, actorId) {
       .select('admission_type, listing_type').eq('id', eventId).maybeSingle();
     if (evError) throw new Error(evError.message);
     if (!ev || !hasSeatMap(ev)) {
-      throw fail('VALIDATION_ERROR', 'This event has no seat map (it is general admission), so its booths are drawn on the floor plan instead.');
+      throw fail('VALIDATION_ERROR', 'This event is listed for information only, so it has no event map. Its booths are drawn on the floor plan instead.');
     }
   }
   const current = await readFloorPlan(eventId);

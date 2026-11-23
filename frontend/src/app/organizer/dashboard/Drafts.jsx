@@ -69,7 +69,7 @@ export default function Drafts() {
       tone: 'danger',
       body: (
         <>
-          <p>This draft is deleted for good, with everything on it — ticket types, the seating map, photos and policies.</p>
+          <p>This draft is deleted for good, with everything on it — ticket types, the event map, photos and policies.</p>
           <p>It has never been public and nothing has sold, so nobody else is affected. There is no undo.</p>
         </>
       ),

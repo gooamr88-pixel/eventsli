@@ -228,18 +228,19 @@ describe('organizer destinations', () => {
    * an organizer running a conference ends up building a fictional floor plan
    * because the product implied they had to.
    */
-  test('general admission explains the seat map instead of hiding it, and drops table categories', () => {
+  test('general admission has the event map too, with a hint, and drops table categories', () => {
     const groups = organizerNavGroups({
       eventId: EVENT, listingType: 'ticketed', admissionType: 'general',
     });
     const items = groups.flatMap((g) => g.items);
     const keys = items.map((i) => i.key);
 
-    // S-13: an organizer looking for the map finds it, greyed, with the reason
-    // and where to change it — not nothing at all.
+    // The event map (2026-11-23): live for general admission — the room and
+    // its booths, no seats — with a hint saying so and where to switch.
     const map = items.find((i) => i.key === 'map');
-    expect(map.disabled).toBe(true);
-    expect(map.href).toBeNull();
+    expect(map.label).toBe('Event map');
+    expect(map.disabled).toBe(false);
+    expect(map.href).toBe(`/organizer/events/${EVENT}/map`);
     expect(map.hint).toMatch(/general admission/i);
     expect(map.hint).toMatch(/Event details/);
     expect(keys).not.toContain('tables');
@@ -337,13 +338,13 @@ describe('the build sequence', () => {
     }
   });
 
-  test('general admission keeps the map row as an explanation, and steps walk past it', () => {
+  test('general admission keeps the event map in the build steps', () => {
     const options = { listingType: 'ticketed', admissionType: 'general' };
     expect(buildKeys(options)).toEqual(['overview', 'details', 'tiers', 'map', 'content', 'promos']);
-    // BuildNav walks items WITH an href; the disabled map row has none.
+    // BuildNav walks items WITH an href: the event map is one of them now.
     const walked = organizerNavGroups({ eventId: EVENT, ...options })
       .filter((g) => g.id === 'build').flatMap((g) => g.items).filter((i) => i.href).map((i) => i.key);
-    expect(walked).toEqual(['overview', 'details', 'tiers', 'content', 'promos']);
+    expect(walked).toEqual(['overview', 'details', 'tiers', 'map', 'content', 'promos']);
   });
 
   test('selling and on-the-day screens are not part of it', () => {

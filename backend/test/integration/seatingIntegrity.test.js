@@ -264,15 +264,20 @@ test('S-04: on a live event a save cannot add seats with no price; a whole-table
 
 // ── S-10 ────────────────────────────────────────────────────────────────────
 
-test('S-10: a cancelled or general-admission event has no map to edit', async () => {
+test('S-10: a cancelled event has no map to edit; a general-admission map holds no seats', async () => {
   const cancelled = await makeEvent('s10c', { status: 'cancelled' });
   await assert.rejects(
     () => venue.saveMap(cancelled.id, { layout: {}, tables: [] }),
     (err) => err.code === 'CONFLICT',
   );
+  // The event map (20261212090000): general admission draws its room — a
+  // stage, its booths — and sells nothing on it, so no tables.
   const ga = await makeEvent('s10g', { admission_type: 'general' });
+  const room = { world: { width: 1000, height: 700 }, zones: [{ id: 'z_stage', kind: 'stage', x: 50, y: 10, w: 144, h: 60, rotation: 0 }] };
+  const saved = await venue.saveMap(ga.id, { layout: room, tables: [] });
+  assert.equal(saved.tables, 0);
   await assert.rejects(
-    () => venue.saveMap(ga.id, { layout: {}, tables: [] }),
+    () => venue.saveMap(ga.id, { layout: room, tables: [row({ label: 'Nope' })] }),
     (err) => err.code === 'VALIDATION_ERROR' && /general admission/i.test(err.message),
   );
 });

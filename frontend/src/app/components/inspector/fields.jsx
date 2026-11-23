@@ -103,16 +103,31 @@ export function NumberField({ label, hint, value, onChange, min, max, step = 1, 
     if (!focused && (text === '' || Number(text) !== Number(shown))) setText(shown);
   }
   const decimals = step < 1 ? String(step).split('.')[1]?.length || 1 : 0;
+  const fix = (n) => Number(n.toFixed(decimals));
+  /**
+   * THE BOUNDS, ON THE STEP (2026-11-23). Values here are whole steps counted
+   * from ZERO (0.5, 1, 1.5 …) — that is what the snapping below does. The
+   * browser counts its steps from `min` instead, so a field with min 0.2 and
+   * step 0.5 accepted only 0.2, 0.7 … 2.7, 3.2, and the booth-row dialog
+   * refused a width of exactly 3 m ("the two nearest valid values are 2.7 and
+   * 3.2"). With both ends moved onto the step, the two agree.
+   */
+  const lo = step < 1 ? fix(Math.ceil(min / step - 1e-9) * step) : Math.ceil(min);
+  const hi = step < 1 ? fix(Math.floor(max / step + 1e-9) * step) : Math.floor(max);
+  const onStep = (n) => (step < 1 ? Math.abs(n / step - Math.round(n / step)) < 1e-6 : Number.isInteger(n));
   const clampTo = (v) => {
     const n = Number(v);
-    if (v === '' || !Number.isFinite(n)) return Number(value) || min;
-    const snapped = step < 1 ? Number((Math.round(n / step) * step).toFixed(decimals)) : Math.round(n);
-    return Math.min(max, Math.max(min, snapped));
+    if (v === '' || !Number.isFinite(n)) return Number(value) || lo;
+    const snapped = step < 1 ? fix(Math.round(n / step) * step) : Math.round(n);
+    return Math.min(hi, Math.max(lo, snapped));
   };
-  const inBounds = (t) => t !== '' && Number.isFinite(Number(t)) && Number(t) >= min && Number(t) <= max;
+  const inBounds = (t) => t !== '' && Number.isFinite(Number(t)) && Number(t) >= lo && Number(t) <= hi;
   const commit = () => {
     // Already applied while typing: show what the host kept (it may round).
-    if (live && inBounds(text)) { setText(shown); return; }
+    // Only when what was typed is on the step — "3.3" in a 0.5 field is
+    // snapped to 3.5 here, or the browser marks it invalid and a form
+    // holding the field refuses to submit.
+    if (live && inBounds(text) && onStep(Number(text))) { setText(shown); return; }
     const n = clampTo(text);
     setText(String(n));
     if (n !== Number(value)) onChange(n);
@@ -121,7 +136,7 @@ export function NumberField({ label, hint, value, onChange, min, max, step = 1, 
     <Field label={label} hint={hint} id={id}>
       <span className="es-studio-num">
         <input
-          id={id} type="number" inputMode="decimal" className="es-input es-input--dense" value={text} min={min} max={max} step={step}
+          id={id} type="number" inputMode="decimal" className="es-input es-input--dense" value={text} min={lo} max={hi} step={step}
           onChange={(e) => {
             const t = e.target.value;
             setText(t);

@@ -145,7 +145,7 @@ export default function EditorCanvas({
         className="block h-full w-full select-none rounded-(--es-radius-lg) border border-border-base bg-bg-sunken"
         style={{ touchAction: panzoom.touchAction, cursor }}
         role="application"
-        aria-label="Seating map editor"
+        aria-label="Event map editor"
         {...handlers}
         onPointerDown={(e) => {
           // Drawing a wall takes the press before anything else.

@@ -224,6 +224,31 @@ booths are added, moved and saved in the same venue map editor.
   booth picker) get `venue` = `vendorService.seatMapContext` (world, zones, look,
   tables; private tables only for the organizer) and draw it under the booths
   (`VenueUnderlay.jsx`).
-- **General admission** events have no seat map, so they keep the standalone
-  floor plan editor; the API refuses `onSeatMap` for them. Vendors > Floor plan
-  shows reserved events the merged map and a link to the venue map editor.
+- ~~General admission events have no seat map~~ — superseded 2026-11-23, see
+  "The event map" below. Only **listing-only** events keep the standalone floor
+  plan editor; the API refuses `onSeatMap` for them.
+
+## The event map (2026-11-23)
+
+The owner: "instead of seating map make it event map, include everything", and
+chose one map for every event.
+
+- **Named "Event map" everywhere** — sidebar, page heading, launch checklist,
+  the event's More menu, wizard copy, templates. The route is still `/map`.
+- **General-admission events have one.** Migration `20261212090000` changes one
+  rule in `save_venue_map`: a general-admission map may be saved as long as it
+  carries no seats or tables (`MAP_INVALID` otherwise). `hold_seats` /
+  `hold_table` already refuse seats on such an event. `vendorService.hasSeatMap`
+  is now "not listing-only", so their booths go on the event map too (Vendors ›
+  Floor plan → "Bring them onto this map" moves an existing separate plan).
+- **The editor for general admission** (`seating = false` in MapEditor): the
+  Add-to-layout list drops Seating and Start from (templates, pictures and AI all
+  draw seats); the empty-map starter offers a stage, walls, booths and the
+  element catalogue. The sidebar row is live, with a hint about reserved seating.
+- **Buyers** of a general-admission event see an **Event map** tab on the event
+  page (`EventMapView.jsx`, loaded server-side by `lib/eventMap.js` from the
+  public seat-map endpoint), shown only when something is drawn, with a link to
+  the vendor floor plan while vendors are being taken. Reserved events are
+  unchanged: their map is the seat page.
+- **Deploy order:** apply `20261212090000` before this backend; the old function
+  refuses every general-admission save.

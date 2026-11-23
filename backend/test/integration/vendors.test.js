@@ -323,14 +323,14 @@ test('applications close at the deadline', async () => {
   assert.equal(res.body.error, 'VENDOR_APPLICATIONS_CLOSED');
 });
 
-test('booths on the seat map: one drawing for a reserved event; never for general admission', async () => {
+test('booths on the event map: one drawing for every ticketed event', async () => {
+  // General admission has an event map too since 2026-11-23 (migration
+  // 20261212090000): the room and its booths, no seats. Only a listing-only
+  // event keeps a standalone floor plan.
   const current = (await call('GET', O('/floor-plan'), null, tokens.owner)).body.data;
-  assert.equal(current.seatMap, false, 'a general-admission event has no seat map');
+  assert.equal(current.seatMap, true, 'a general-admission event has an event map');
   const booths = current.plan.elements.filter((e) => e.kind === 'booth');
   const linked = { width: 1000, height: 700, onSeatMap: true, elements: booths };
-  const refused = await call('PUT', O('/floor-plan'), { plan: linked, version: current.version }, tokens.owner);
-  assert.equal(refused.status, 400, JSON.stringify(refused.body));
-  assert.equal(refused.body.error, 'VALIDATION_ERROR');
 
   // Reserved seating, with a seat map: a stage, a table, and a private table.
   await supabase.from('events').update({ admission_type: 'reserved' }).eq('id', ids.event);

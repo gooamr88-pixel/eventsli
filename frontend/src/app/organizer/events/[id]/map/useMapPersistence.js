@@ -62,7 +62,7 @@ export function useMapPersistence({ eventId, draft, studioDraft, selection, onFr
   const [categories, setCategories] = useState([]);
   const [layout, setLayout] = useState({});
   const [eventTitle, setEventTitle] = useState('');
-  const [eventInfo, setEventInfo] = useState({ currency: null, purchaseMode: 'seat_only' });
+  const [eventInfo, setEventInfo] = useState({ currency: null, purchaseMode: 'seat_only', admissionType: null });
   // The vendor floor plan: { version, plan, states, boothTypes, linked, savedPlan },
   // or null where it could not be read (then the map edits no booths).
   const [vendor, setVendor] = useState(null);
@@ -102,6 +102,8 @@ export function useMapPersistence({ eventId, draft, studioDraft, selection, onFr
         setEventInfo({
           currency: event?.currency || event?.event?.currency || null,
           purchaseMode: event?.purchaseMode || event?.event?.purchaseMode || 'seat_only',
+          // General admission draws the room without seats (2026-11-23).
+          admissionType: event?.admissionType || event?.event?.admissionType || null,
         });
         onFrame(frameFor(loadedTables, loadedZones, loadedWorld));
         setLayout(map?.layout || {});

@@ -166,7 +166,8 @@ export default function EventActions({ event, onChanged, primary = false, childr
   const finished = ['cancelled'].includes(event.status);
   const canRequest = CANCELLABLE.includes(event.status)
     || (event.status === 'archived' && event.archivedFrom === 'published');
-  const hasMap = ticketed && event.admissionType !== 'general';
+  // The event map (2026-11-23): every ticketed event, general admission too.
+  const hasMap = ticketed;
   const live = event.status === 'published';
 
   const showMap = hasMap && !archived && !finished;
@@ -206,7 +207,7 @@ export default function EventActions({ event, onChanged, primary = false, childr
           triggerClassName={primary ? 'es-btn es-btn--secondary' : undefined}
           trigger={primary ? <>{working || 'More'}<span aria-hidden className="es-more__chev"><NavIcon name="chevronDown" size={16} /></span></> : undefined}
         >
-          {showMap && <MoreItem href={`${base}/map`} icon="map">Seating map</MoreItem>}
+          {showMap && <MoreItem href={`${base}/map`} icon="map">Event map</MoreItem>}
           {/* Templates (2026-11-19): this event's setup, to start new ones from. */}
           <MoreItem href={`/organizer/templates?from=${event.id}`} icon="copy">Save as template</MoreItem>
           {showArchive && (

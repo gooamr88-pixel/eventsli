@@ -29,8 +29,11 @@ export async function generateMetadata({ params }) {
   return { title: `${booth.name} · ${page.event.title}`, description: booth.description?.slice(0, 160) || `A vendor booth at ${page.event.title}.` };
 }
 
-export default async function BoothPage({ params }) {
+export default async function BoothPage({ params, searchParams }) {
   const { slug, boothId } = await params;
+  // `?spot=` — the booth tapped on the vendor floor plan (FloorPlanViewer's
+  // "Reserve this booth"), chosen on arrival when it is still free.
+  const { spot: spotParam } = (await searchParams) || {};
   const { page, locked } = await load(slug);
   if (locked) return <PrivateEventGate event={locked} />;
   const booth = page?.booths.find((b) => b.id === boothId);
@@ -39,6 +42,9 @@ export default async function BoothPage({ params }) {
   const spots = page.floorPlan
     ? page.floorPlan.plan.elements.filter((e) => e.kind === 'booth' && e.boothTypeId === booth.id).map((e) => e.id)
     : [];
+  const wanted = typeof spotParam === 'string' ? spotParam : null;
+  const initialSpot = wanted && spots.includes(wanted)
+    && (page.floorPlan.booths?.[wanted]?.status || 'available') === 'available' ? wanted : null;
   return (
     <BoothDetail
       event={page.event}
@@ -49,6 +55,7 @@ export default async function BoothPage({ params }) {
       holdMinutes={page.holdMinutes || 20}
       floorPlan={spots.length ? page.floorPlan : null}
       spots={spots}
+      initialSpot={initialSpot}
     />
   );
 }

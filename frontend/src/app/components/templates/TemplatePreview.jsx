@@ -51,8 +51,8 @@ export default function TemplatePreview({ template }) {
       </dl>
 
       {map && (
-        <section className="fx-stack fx-stack--sm gap-2" aria-label="Seating map">
-          <h3 className="text-sm font-semibold text-ink">Seating map</h3>
+        <section className="fx-stack fx-stack--sm gap-2" aria-label="Event map">
+          <h3 className="text-sm font-semibold text-ink">Event map</h3>
           <SeatMapCanvas
             className="h-[22rem]"
             tables={map.tables} seats={map.seats} zones={map.zones} world={map.world} look={map.look}

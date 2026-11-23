@@ -76,7 +76,7 @@ export function TicketSetup({ event, tiers }) {
     },
     seated
       ? {
-        key: 'map', title: 'Seating map', text: 'Draw the room and assign ticket types to seats or tables.',
+        key: 'map', title: 'Event map', text: 'Draw the room and assign ticket types to seats or tables.',
         done: (stats?.seats?.total || 0) > 0, href: `${base}/map`,
       }
       : {

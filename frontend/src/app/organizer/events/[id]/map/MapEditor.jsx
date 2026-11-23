@@ -124,6 +124,14 @@ export default function MapEditor({ eventId }) {
   const vendorsOn = !!io.vendor && !offerImport;
   const [showBoothRow, setShowBoothRow] = useState(false);
   const purchaseMode = eventInfo.purchaseMode;
+  /**
+   * THE EVENT MAP (2026-11-23): every ticketed event has one. A
+   * general-admission event's sells nothing — no seats, no tables — so its
+   * editor offers the room, the furniture and the vendor booths only, and
+   * the server refuses a general-admission map that carries seats.
+   */
+  const ctxAdmission = useEventContext()?.event?.admissionType;
+  const seating = (eventInfo.admissionType || ctxAdmission || 'reserved') !== 'general';
 
   /**
    * S-04: on a live event every seat needs a price, and the server refuses a
@@ -447,7 +455,7 @@ export default function MapEditor({ eventId }) {
             enough for three columns; narrower, the same list is the
             toolbar's Add menu (BuildPanel.jsx). */}
         <div className="es-mapeditor__tools">
-          <BuildPalette onAdd={addFrom} ai={aiOn} vendors={vendorsOn}>
+          <BuildPalette onAdd={addFrom} ai={aiOn} vendors={vendorsOn} seating={seating}>
             <LayersSection layers={shownLayers} onToggle={toggleLayer} />
           </BuildPalette>
         </div>
@@ -472,6 +480,7 @@ export default function MapEditor({ eventId }) {
               onAdd={addFrom}
               ai={aiOn}
               vendors={vendorsOn}
+              seating={seating}
               onFullscreen={toggleFullscreen}
               zoom={{
                 // 100 % is the whole venue in view, whatever its size.
@@ -501,7 +510,7 @@ export default function MapEditor({ eventId }) {
             boothInfo={io.boothInfo}
             look={draft.look}
             wallTool={wallTool}
-            emptyState={<MapStarter onAdd={addFrom} ai={aiOn} />}
+            emptyState={<MapStarter onAdd={addFrom} ai={aiOn} seating={seating} vendors={vendorsOn} />}
           />
         </div>
         {/* Outside the card, so the zoom pill floating on the canvas's corner

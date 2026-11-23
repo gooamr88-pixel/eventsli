@@ -560,8 +560,8 @@ function EventWizard({ type, organizer, template = null }) {
                 <span className="text-accent"><NavIcon name="info" size={18} /></span>
                 <span className="fx-min0 flex-1">
                   {form.admissionType === 'general'
-                    ? 'Ticket types and prices come next, on the event itself. There is no seating map to build.'
-                    : 'Ticket types, prices and the seating map come next, on the event itself.'}
+                    ? 'Ticket types and prices come next, on the event itself. Draw the room — stage, bars, vendor booths — on the event map whenever you like.'
+                    : 'Ticket types, prices and the event map come next, on the event itself.'}
                 </span>
               </p>
             </>

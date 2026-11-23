@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import Link from 'next/link';
 import { usePanZoom } from '../../seating/usePanZoom';
 import MapGestureHint from '../../seating/MapGestureHint';
 import NavIcon from '../../shell/NavIcon';
@@ -30,6 +31,10 @@ import { alignPlan } from '../../seating/boothZones';
  */
 export default function FloorPlanViewer({
   floorPlan, currency = 'USD', pickable = false, canPick = null, onPick = null, pickedKey = null, title = 'Floor plan',
+  // The public vendor page (2026-11-23): tapping a free booth offers to book
+  // it. `book` = { href: '/e/<slug>/vendors/booths', label, types: [ids
+  // open for booking] } — plain data, since the page is a server component.
+  book = null,
 }) {
   const { plan: rawPlan, booths: states = {}, boothTypes = [], venue = null } = floorPlan;
   // Booths on the seat map are scaled to the venue as it is now (boothZones.alignPlan).
@@ -116,6 +121,19 @@ export default function FloorPlanViewer({
                   : focusedState?.status === 'blocked' ? 'Unavailable' : 'Available'}
           </p>
           {pickable && !allowed(focused) && <p className="text-xs text-danger">This booth cannot be chosen.</p>}
+          {book && (focusedState?.status || 'available') === 'available' && (
+            focusedType && book.types.includes(focusedType.id) ? (
+              <Link
+                href={`${book.href}/${focusedType.id}?spot=${encodeURIComponent(focused.id)}`}
+                className="es-btn es-btn--primary es-btn--sm es-fp__book"
+              >
+                {book.label}
+              </Link>
+            ) : (
+              // A booth with no type has no price, so it cannot be sold yet.
+              <p className="text-xs text-muted">Not open for booking yet — ask the organizer about this spot.</p>
+            )
+          )}
         </div>
       )}
     </div>

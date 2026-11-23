@@ -29,7 +29,7 @@ import { useStartBooking } from '../../../../../components/vendors/booking/useSt
  * the server from the database when it starts — that number is the one paid.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-export default function BoothDetail({ event, booth, addons, mode, open, holdMinutes, floorPlan, spots }) {
+export default function BoothDetail({ event, booth, addons, mode, open, holdMinutes, floorPlan, spots, initialSpot = null }) {
   const instant = mode === 'instant';
   const kinds = useMemo(() => [
     { key: 'booth', label: 'Booth Add-Ons', items: addons.filter((a) => a.kind === 'booth') },
@@ -37,7 +37,8 @@ export default function BoothDetail({ event, booth, addons, mode, open, holdMinu
   ].filter((k) => k.items.length), [addons]);
   const [step, setStep] = useState(0);
   const [picked, setPicked] = useState(() => new Set());
-  const [spot, setSpot] = useState(null);
+  // Arriving from a tap on the floor plan (?spot=…), that booth is already chosen.
+  const [spot, setSpot] = useState(initialSpot);
   const { start, busy, error } = useStartBooking(event.slug);
 
   const chosen = addons.filter((a) => picked.has(a.id));
@@ -118,8 +119,12 @@ export default function BoothDetail({ event, booth, addons, mode, open, holdMinu
             currency={event.currency}
             title={`${event.title} floor plan`}
             pickable
-            canPick={(key) => spots.includes(key) && floorPlan.booths[key]?.status === 'available'}
-            onPick={(key) => setSpot((s) => (s === key ? null : key))}
+            // The viewer hands over the BOOTH and its state (FloorPlanViewer's
+            // `canPick(e, state)` / `onPick(e)`). These took a booth id and
+            // compared the whole booth with a list of ids, which never
+            // matched — every spot said "This booth cannot be chosen".
+            canPick={(e, state) => spots.includes(e.id) && (state?.status || 'available') === 'available'}
+            onPick={(e) => setSpot((s) => (s === e.id ? null : e.id))}
             pickedKey={spot}
           />
         </section>

@@ -20,6 +20,8 @@ import {
 import { loadEventForViewer, privateMetadata } from '../../lib/eventAccess';
 import PrivateEventGate from './PrivateEventGate';
 import GuestOfCapture from './GuestOfCapture';
+import EventMapView from './EventMapView';
+import { loadEventMap } from '../../lib/eventMap';
 import {
   seoTitle, seoDescription, seoKeywords, eventJsonLd, breadcrumbJsonLd, eventUrl,
 } from '../../lib/eventSeo';
@@ -205,6 +207,11 @@ export default async function EventPage({ params, searchParams }) {
       : fmt(ends, { dateStyle: 'medium', timeStyle: 'short' }),
   };
   const seated = !event.displayOnly && event.admissionType !== 'general';
+  // A general-admission event's map — the room, its booths — shown on this
+  // page, since there is no seat page to show it (2026-11-23, the event map).
+  const eventMap = !seated && !event.displayOnly && !teaser
+    ? await loadEventMap(event.slug || slug, { isPrivate: !!event.isPrivate })
+    : null;
   // General admission, on sale online: the page itself is the booking step.
   const bookHere = !seated && !event.displayOnly && (event.tiers || []).length > 0
     && ctaFor(event, soldOut).kind === 'buy';
@@ -324,6 +331,13 @@ export default async function EventPage({ params, searchParams }) {
                     country={event.country}
                     location={event.venueLocation}
                   />
+                ),
+              },
+              {
+                key: 'map',
+                label: 'Event map',
+                content: eventMap && (
+                  <EventMapView map={eventMap} slug={event.slug || slug} vendorsOpen={!!event.vendorsOpen} />
                 ),
               },
               {

@@ -1,7 +1,7 @@
 import MapEditor from './MapEditor';
 
 export const metadata = {
-  title: 'Seat map',
+  title: 'Event map',
   robots: { index: false, follow: false },
 };
 

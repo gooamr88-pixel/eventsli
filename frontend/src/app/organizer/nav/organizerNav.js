@@ -208,7 +208,7 @@ export function organizerNavGroups({
          */
         item('details', 'Event details', 'pencil', '/details'),
         item('tiers', 'Ticket types', 'ticket', '/tiers'),
-        item('map', 'Seating map', 'map', '/map'),
+        item('map', 'Event map', 'map', '/map'),
         item('tables', 'Table categories', 'layers', '/tables'),
         item('content', 'Page & branding', 'image', '/content'),
         item('promos', 'Discounts', 'tag', '/promos'),
@@ -288,27 +288,23 @@ export function organizerNavGroups({
   if (displayOnly) return prune(groups, (item) => DISPLAY_ONLY_KEYS.has(item.key));
   if (generalAdmission) {
     /**
-     * THE SEAT MAP IS EXPLAINED, NOT REMOVED (TECH-AUDIT-LOG S-13).
-     *
-     * It used to vanish along with table categories, so an organizer who had
-     * picked general admission at creation — or had it picked for them by an
-     * AI draft — found no seating map anywhere and no reason why. One disabled
-     * row with the reason and where to change it; table categories, which
-     * mean nothing until there is a map, still go. A disabled item has no
-     * href, so Back/Next (`BuildNav`) walks straight past it.
+     * THE EVENT MAP IS FOR EVERY EVENT (2026-11-23). It was the seat map, and
+     * shown here disabled with a reason (TECH-AUDIT-LOG S-13); a
+     * general-admission event now draws its room — stage, bars, entrances,
+     * vendor booths — with no seats, so the row stays live and carries a hint
+     * about what is different. Table categories still go: they price tables,
+     * and this event sells none.
      */
     return prune(groups, (item) => item.key !== 'tables')
       .map((group) => ({
         ...group,
-        items: group.items.map((item) => (item.key === 'map'
-          ? { ...item, href: null, disabled: true, hint: GA_MAP_HINT }
-          : item)),
+        items: group.items.map((item) => (item.key === 'map' ? { ...item, hint: GA_MAP_HINT } : item)),
       }));
   }
   return groups;
 }
 
-const GA_MAP_HINT = 'This event is general admission, so it has no seat map. '
+const GA_MAP_HINT = 'General admission: draw the room and its vendor booths — there are no seats to sell. '
   + 'To sell seats or tables, switch to Reserved seating in Event details — possible until the first ticket sells.';
 
 /** Filters the event-scoped groups and drops any left empty. The account and

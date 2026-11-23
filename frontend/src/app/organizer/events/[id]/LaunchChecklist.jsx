@@ -103,8 +103,8 @@ export function useLaunchSteps(event) {
      */
     ...(needs.seating ? [
       {
-        key: 'map', label: 'Seating map', done: (stats?.seats?.total || 0) > 0, href: `${base}/map`,
-        hint: 'The tables and seats you sell', cta: 'Build the seating map', build: true,
+        key: 'map', label: 'Event map', done: (stats?.seats?.total || 0) > 0, href: `${base}/map`,
+        hint: 'The tables and seats you sell', cta: 'Build the event map', build: true,
       },
     ] : []),
 

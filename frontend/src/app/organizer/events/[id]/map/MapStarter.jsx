@@ -16,8 +16,14 @@ import NavIcon from '../../../../components/shell/NavIcon';
  * box-selects as usual.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-export default function MapStarter({ onAdd, ai = false }) {
-  const choices = [
+export default function MapStarter({ onAdd, ai = false, seating = true, vendors = false }) {
+  // General admission (2026-11-23, the event map): the room, not seats.
+  const choices = !seating ? [
+    { key: 'stage', icon: 'flag', title: 'A stage', text: 'Where everyone looks', initial: { family: 'zone', key: 'stage' } },
+    { key: 'wall', icon: 'pencil', title: 'The walls', text: 'Click the room’s corners', initial: { family: 'tool', key: 'wall' } },
+    ...(vendors ? [{ key: 'boothRow', icon: 'store', title: 'Vendor booths', text: 'A row of booths — A1, A2, A3…', initial: { family: 'boothRow' } }] : []),
+    { key: 'elements', icon: 'grid', title: 'Bars, food, first aid…', text: 'Everything else in the room', initial: { family: 'zone', key: 'custom', pick: true } },
+  ] : [
     { key: 'section', icon: 'grid', title: 'Rows of seats', text: 'Theatre, concert, conference', initial: { family: 'section' } },
     { key: 'table', icon: 'layers', title: 'Tables', text: 'Gala, wedding, dinner', initial: { family: 'table', key: 'round', seatCount: 10 } },
     { key: 'template', icon: 'copy', title: 'A ready-made map', text: 'Yours or an Eventsli template', initial: { family: 'template' } },
@@ -27,7 +33,7 @@ export default function MapStarter({ onAdd, ai = false }) {
     <div className="es-mapstarter">
       <div className="es-mapstarter__card" role="group" aria-labelledby="map-starter-title">
         <h2 id="map-starter-title" className="es-mapstarter__title">How would you like to start?</h2>
-        <p className="es-mapstarter__lede">Pick one — you can add anything else afterwards.</p>
+        <p className="es-mapstarter__lede">{seating ? 'Pick one — you can add anything else afterwards.' : 'This event is general admission: draw the room — guests stand or sit where they like.'}</p>
         <ul className="es-mapstarter__list">
           {choices.map((c) => (
             <li key={c.key}>
@@ -38,7 +44,7 @@ export default function MapStarter({ onAdd, ai = false }) {
             </li>
           ))}
         </ul>
-        <p className="es-mapstarter__foot">Everything else — a stage, bars, walls — is in Add to layout.</p>
+        <p className="es-mapstarter__foot">{seating ? 'Everything else — a stage, bars, walls — is in Add to layout.' : 'Everything else is in Add to layout.'}</p>
       </div>
     </div>
   );
