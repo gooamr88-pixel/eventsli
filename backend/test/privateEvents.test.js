@@ -328,7 +328,9 @@ test("the website's cached read gets the lock as a 200, so its cache cannot keep
 test('every public listing of events filters out private ones', () => {
   const read = (rel) => fs.readFileSync(path.join(root, rel), 'utf8');
   const expectations = [
-    ['controllers/discoveryController.js', 1],    // /events, saved events, the sitemap
+    // /events, saved events, the sitemap — blurred private ones join only on
+    // `?withPrivate=true` (2026-11-23; test/privateListing.test.js).
+    ['controllers/discoveryController.js', 1],
     ['controllers/landingController.js', 2],      // homepage cities and "near you"
     ['controllers/assistantController.js', 1],    // the homepage assistant
     ['services/organizerProfileService.js', 1],   // /o/<slug>

@@ -4,6 +4,7 @@ import { formatMoneyCompact } from '../utils/money';
 import NavIcon from './shell/NavIcon';
 import SaveEventButton from './SaveEventButton';
 import { isDateOnly, formatDateOnly } from '../lib/dateOnly';
+import PrivateCardCover from './PrivateCardCover';
 
 /**
  * One event in a listing. Used by the homepage and by /events, so the two can
@@ -60,7 +61,8 @@ export function eventDateParts(event) {
 export function priceBlock(event) {
   // A coming-soon teaser has no announced price (the API sends none), and an
   // event that is over has nothing left to sell.
-  if (event.comingSoon || event.isPast) return null;
+  // A private event's prices are behind its password (2026-11-23).
+  if (event.isPrivate || event.comingSoon || event.isPast) return null;
   if (event.displayOnly) return { label: 'Listing', value: 'Details' };
   if (event.availability?.soldOut) return { label: 'Tickets', value: 'Sold out' };
 
@@ -94,6 +96,8 @@ export function priceBlock(event) {
  */
 export function saleTag(event) {
   if (event.isPast) return { kind: 'past', label: 'Past event' };
+  // Listed blurred, opened with a password (owner, 2026-11-23).
+  if (event.isPrivate) return { kind: 'private', label: 'Private event' };
   // Announced, not on sale yet (2026-11-17) — coral, never the yellow of "on sale".
   if (event.comingSoon) return { kind: 'soon', label: 'Coming soon' };
   if (event.displayOnly) return { kind: 'info', label: 'Info only' };
@@ -109,6 +113,7 @@ export function saleTag(event) {
 /** What the card's pill says. Decorative — the card's link is the action. */
 export function ctaLabel(event) {
   if (event.isPast) return 'View event';
+  if (event.isPrivate) return 'Enter password';
   if (event.comingSoon) return 'Notify me';
   if (event.displayOnly) return 'Details';
   if (event.availability?.soldOut) return 'View event';
@@ -131,7 +136,10 @@ export function ctaLabel(event) {
 export default function EventCard({ event, priority = false, headingLevel = 3, adaptive = false }) {
   const Heading = headingLevel === 2 ? 'h2' : 'h3';
   const when = eventDateParts(event);
-  const place = [event.venue, event.city].filter(Boolean).join(', ') || event.organizer?.name || '';
+  // A private card names its organizer, never a place (2026-11-23).
+  const place = event.isPrivate
+    ? (event.organizer?.name ? `By ${event.organizer.name}` : '')
+    : [event.venue, event.city].filter(Boolean).join(', ') || event.organizer?.name || '';
   const price = priceBlock(event);
   const tag = saleTag(event);
 
@@ -151,7 +159,7 @@ export default function EventCard({ event, priority = false, headingLevel = 3, a
         {/* THE WHOLE POSTER on a phone (owner, 2026-11-15): the cover is shown
             uncropped (`contain`) over a blurred copy of itself that fills the
             frame. The same src and sizes, so the browser fetches it once. */}
-        {event.coverUrl && (
+        {event.coverUrl && !event.isPrivate && (
           <Image
             src={event.coverUrl}
             alt=""
@@ -162,7 +170,10 @@ export default function EventCard({ event, priority = false, headingLevel = 3, a
             className="es-evcard__blur"
           />
         )}
-        {event.coverUrl ? (
+        {event.isPrivate ? (
+          /* Listed, blurred (owner, 2026-11-23): name, organizer, date only. */
+          <PrivateCardCover event={event} />
+        ) : event.coverUrl ? (
           <Image
             src={event.coverUrl}
             alt=""
@@ -186,6 +197,7 @@ export default function EventCard({ event, priority = false, headingLevel = 3, a
             {tag.kind === 'soon' && <NavIcon name="bell" size={14} />}
             {tag.kind === 'fast' && <NavIcon name="trend" size={14} />}
             {tag.kind === 'past' && <NavIcon name="clock" size={14} />}
+            {tag.kind === 'private' && <NavIcon name="lock" size={14} />}
             {tag.label}
           </span>
         )}

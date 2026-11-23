@@ -64,7 +64,9 @@ async function load() {
   const [events, landing, cities, vip] = await Promise.all([
     // By date, soonest first, 24 at most (owner, 2026-11-18). It was ticketed
     // first (2026-11-17); the owner wants plain date order, like /events.
-    serverFetch('/public/events?limit=24', { tags: ['events:published'], revalidate: 60 })
+    // `withPrivate`: private events whose organizer chose the blurred page are
+    // listed too, as name + organizer + date over a blur (owner, 2026-11-23).
+    serverFetch('/public/events?limit=24&withPrivate=true', { tags: ['events:published'], revalidate: 60 })
       .then((rows) => ({ rows: Array.isArray(rows) ? rows : [], failed: false }))
       .catch(() => ({ rows: [], failed: true })),
 

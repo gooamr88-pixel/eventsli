@@ -20596,3 +20596,33 @@ button.es-vb-doc__tile:focus-visible { outline: 3px solid var(--es-accent); outl
   .es-appstore__big { font-size: 1.25rem; font-weight: 600; letter-spacing: -0.01em; }
   @media (prefers-reduced-motion: reduce) { .es-appstore, .es-appstore:hover { transition: none; transform: none; } }
 }
+
+/* ═══ PRIVATE EVENTS ON LISTINGS, BLURRED (owner, 2026-11-23) ══════════════
+   A private event is listed with its name, organizer and date only. Its
+   artwork is the 24-pixel locked cover stretched and blurred, or a coral
+   wash, with a lock over it (components/PrivateCardCover.jsx). ═════════ */
+@layer components {
+  .es-privcover {
+    position: absolute; inset: 0; display: block; overflow: hidden;
+    background: linear-gradient(135deg, var(--es-coral-100), var(--es-coral-50));
+  }
+  .es-privcover__img {
+    position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+    filter: blur(14px) saturate(1.15); transform: scale(1.25);
+  }
+  .es-privcover__wash {
+    position: absolute; inset: 0;
+    background: radial-gradient(circle at 30% 25%, rgb(255 204 0 / 0.35), transparent 55%),
+      radial-gradient(circle at 75% 80%, rgb(255 65 75 / 0.35), transparent 60%);
+  }
+  .es-privcover__lock {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    display: grid; place-items: center; width: 3.5rem; height: 3.5rem; border-radius: 999px;
+    background: rgb(255 255 255 / 0.92); color: var(--es-coral-600);
+    box-shadow: 0 8px 24px -8px rgb(17 16 24 / 0.45);
+  }
+  .es-evcard__sale--private {
+    background: var(--es-coral-700); color: #ffffff;
+    box-shadow: 0 4px 12px -4px rgb(17 16 24 / 0.3);
+  }
+}

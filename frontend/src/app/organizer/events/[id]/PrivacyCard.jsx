@@ -39,8 +39,11 @@ const NO_MANAGER = { autoComplete: 'off', 'data-1p-ignore': 'true', 'data-lpigno
  * Anything not ticked here is never sent to them, not merely blurred.
  */
 const PREVIEWS = [
-  { key: 'blur', title: 'Blurred preview', text: 'Your event page, blurred, behind the password box.' },
-  { key: 'card', title: 'Password box only', text: 'A plain password screen, nothing behind it.' },
+  // Blurred events are also LISTED on the homepage and /events, blurred, with
+  // only the name, organizer and date (owner, 2026-11-23). A plain password
+  // box keeps the event off every listing.
+  { key: 'blur', title: 'Blurred preview', text: 'Your event page, blurred, behind the password box. Also listed on Eventsli’s events pages, blurred — only the event name, your name and the date show.' },
+  { key: 'card', title: 'Password box only', text: 'A plain password screen, nothing behind it. Not listed anywhere — only people with the link find it.' },
 ];
 const REVEALS = [
   { key: 'title', label: 'Event name' },

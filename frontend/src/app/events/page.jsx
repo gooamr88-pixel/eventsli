@@ -44,6 +44,9 @@ async function load(params) {
   // "Tickets on sale" (2026-11-15): only events sold here.
   if (params.onSale) query.set('onSale', 'true');
   query.set('limit', '24');
+  // Blurred private events (owner, 2026-11-23). The API lists them only when
+  // no filter could match a detail they hide (city, category, price, search).
+  query.set('withPrivate', 'true');
 
   try {
     const [events, categories] = await Promise.all([

@@ -38,6 +38,7 @@ const SELECT = `
   highlights, venue_lat, venue_lng, max_tickets_per_order,
   accepts_stripe, accepts_manual, coming_soon, organizer_id,
   is_private, access_password_set_at, access_password_min, access_password_max,
+  locked_preview, locked_reveal,
   updated_at,
   organizers ( display_name, country ),
   event_categories ( label )
@@ -74,10 +75,28 @@ async function listEvents(req, res, next, { phraseSearch = false } = {}) {
     let query = supabase
       .from('events')
       .select(SELECT, { count: 'exact' })
-      .eq('status', 'published')
-      // A private event (2026-11-22) is never listed — not even by a saved
-      // slug. Its page is reached from the link the organizer sent.
-      .eq('is_private', false);
+      .eq('status', 'published');
+
+    /**
+     * PRIVATE EVENTS ON THE LISTINGS, BLURRED (owner, 2026-11-23): "the point
+     * of the blurry image is to list it on the main events page, but nobody
+     * can see the details — only the organizer name, the date and the event
+     * name". A private event whose organizer chose the blurred page
+     * (`locked_preview = 'blur'`) is listed; one behind the plain password box
+     * ('card') stays off every listing, reached only from the link sent.
+     *
+     * Only when the caller asks (`?withPrivate=true`: the homepage and
+     * /events) and only on a listing no hidden fact could have matched. A
+     * private event under "?city=Toronto", a category, a price or a text
+     * search (which reads the venue and description) would tell anyone its
+     * city, its kind, its price or its words. A date range is fine: the date
+     * is shown. Saved slugs never: a saved private event is reopened by link.
+     */
+    const withPrivate = req.query.withPrivate === 'true'
+      && !PRIVATE_REVEALING_FILTERS.some((key) => req.query[key] !== undefined && req.query[key] !== '');
+    query = withPrivate
+      ? query.or('is_private.eq.false,and(is_private.eq.true,locked_preview.eq.blur)')
+      : query.eq('is_private', false);
 
     if (req.query.includePast !== 'true') {
       // Measured on the END, not the start: an event that began an hour ago is
@@ -224,11 +243,15 @@ async function listEvents(req, res, next, { phraseSearch = false } = {}) {
     if (error) throw new Error(error.message);
 
     const rows = data || [];
-    const [fromPrices, avail] = await Promise.all([lowestTierPrices(rows), listingAvailability(rows)]);
+    // A private row's prices and seats are details behind its password.
+    const open = rows.filter((e) => e.is_private !== true);
+    const [fromPrices, avail] = await Promise.all([lowestTierPrices(open), listingAvailability(open)]);
 
     return sendOk(
       res,
-      rows.map((e) => ({ ...shape(e), fromPriceCents: fromPrices.get(e.id) ?? null, availability: avail.get(e.id) ?? null })),
+      rows.map((e) => (e.is_private === true
+        ? lockedListing(e)
+        : { ...shape(e), fromPriceCents: fromPrices.get(e.id) ?? null, availability: avail.get(e.id) ?? null })),
       { pagination: buildMeta(p, count) },
     );
   } catch (err) { return next(err); }
@@ -550,6 +573,45 @@ function isPastRow(e) {
   return Number.isFinite(t) && t < Date.now();
 }
 
+/** The query parameters that would match a private event on a fact it hides. */
+const PRIVATE_REVEALING_FILTERS = Object.freeze(['q', 'city', 'country', 'category', 'maxPrice', 'onSale', 'slugs']);
+
+/**
+ * A private event as a LISTING shows it (owner, 2026-11-23): its name, its
+ * organizer and its date, over a blurred cover — and nothing else is sent.
+ * Not the venue, the city, the price, the category or the description, so
+ * there is nothing for a browser's inspector to find under the blur.
+ *
+ * The cover follows the event page: blurred from the 24-pixel copy
+ * (`/locked-cover`) unless the organizer chose to show it.
+ */
+function lockedListing(e) {
+  const organizer = Array.isArray(e.organizers) ? e.organizers[0] : e.organizers;
+  const coverShown = eventAccess.cleanReveal(e.locked_reveal).includes('cover');
+  return {
+    id: e.id,
+    slug: e.slug,
+    title: e.title,
+    isPrivate: true,
+    startsAt: e.starts_at,
+    endsAt: e.ends_at,
+    timezone: e.timezone,
+    isPast: isPastRow(e),
+    organizer: organizer ? { name: organizer.display_name } : null,
+    coverUrl: coverShown ? e.cover_url || null : null,
+    blurredCover: !coverShown && Boolean(e.cover_url),
+    comingSoon: false,
+    displayOnly: false,
+    venue: null,
+    city: null,
+    venueAddress: null,
+    category: null,
+    categoryLabel: null,
+    fromPriceCents: null,
+    availability: null,
+  };
+}
+
 function shape(e) {
   const organizer = Array.isArray(e.organizers) ? e.organizers[0] : e.organizers;
   const category = Array.isArray(e.event_categories) ? e.event_categories[0] : e.event_categories;
@@ -576,8 +638,9 @@ function shape(e) {
     endsAt: e.ends_at,
     // Over (2026-11-18): the card says "Past event" instead of selling it.
     isPast: isPastRow(e),
-    // Only ever true on a page the viewer unlocked (2026-11-22) — listings
-    // leave private events out. The page uses it to keep itself unindexed.
+    // Only ever true on a page the viewer unlocked (2026-11-22) — a listing
+    // sends a private event as `lockedListing` instead, never through here.
+    // The page uses it to keep itself unindexed.
     isPrivate: e.is_private === true,
     /**
      * When the listing itself last changed, for `<lastmod>` in the sitemap.
@@ -624,4 +687,4 @@ function shape(e) {
 
 // SELECT, shape and lowestTierPrices are shared with "near you"
 // (landingController.eventsNear), so a nearby card is the same card as a listed one.
-module.exports = { listEvents, eventBySlug, SELECT, shape, lowestTierPrices, listingAvailability };
+module.exports = { listEvents, eventBySlug, SELECT, shape, lockedListing, lowestTierPrices, listingAvailability };

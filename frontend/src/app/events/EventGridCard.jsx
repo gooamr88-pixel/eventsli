@@ -4,6 +4,7 @@ import Image from 'next/image';
 import NavIcon from '../components/shell/NavIcon';
 import { priceBlock, saleTag, ctaLabel } from '../components/EventCard';
 import { isDateOnly, formatDateOnly } from '../lib/dateOnly';
+import PrivateCardCover from '../components/PrivateCardCover';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -41,6 +42,8 @@ export function gridWhen(event) {
 
 /** The street address when the organizer gave one, else venue + city. */
 export function gridPlace(event) {
+  // A private event names its organizer, never a place (2026-11-23).
+  if (event.isPrivate) return event.organizer?.name ? `By ${event.organizer.name}` : '';
   // The full address when there is a street; a city alone reads better with the venue.
   return (addressParts(event).street ? addressLine(event) : null)
     || [event.venue, event.city].filter(Boolean).join(', ')
@@ -55,6 +58,7 @@ const TAG_LABEL = {
   info: 'Info only',
   soon: 'Coming soon',
   past: 'Past event',
+  private: 'Private event',
 };
 
 /** The button: "Tickets From CA$120" whenever a price can be bought. */
@@ -77,7 +81,10 @@ export default function EventGridCard({ event, priority = false }) {
   return (
     <Link href={`/e/${event.slug}`} className={`es-evx-card ${event.isPast ? 'es-evx-card--past' : ''}`}>
       <div className="es-evx-card__media">
-        {event.coverUrl ? (
+        {event.isPrivate ? (
+          /* Listed, blurred (owner, 2026-11-23): name, organizer, date only. */
+          <PrivateCardCover event={event} />
+        ) : event.coverUrl ? (
           <>
             {/* The whole poster, never cropped: shown `contain` over a blurred
                 copy of itself (owner, 2026-11-15). Same src, fetched once. */}
@@ -115,7 +122,7 @@ export default function EventGridCard({ event, priority = false }) {
         )}
         {place && (
           <p className="es-evx-card__line">
-            <NavIcon name="pin" size={18} className="es-evx-card__icon" />
+            <NavIcon name={event.isPrivate ? 'user' : 'pin'} size={18} className="es-evx-card__icon" />
             <span>{place}</span>
           </p>
         )}
