@@ -103,5 +103,8 @@ describe('the root error boundary', () => {
     expect(screen.queryByText(/Sara Ali/)).toBeNull();
     await fireEvent.press(screen.getByText('Try again'));
     expect(retry).toHaveBeenCalled();
-  });
+    // The first require of the root layout loads the whole app shell. Under a
+    // full parallel run on a small CI machine that alone can pass Jest's 5 s
+    // default, which failed CI's "Check-in app" job while it passed locally.
+  }, 30_000);
 });

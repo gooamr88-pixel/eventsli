@@ -1,7 +1,13 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
+const path = require('node:path');
 
-require('./helpers/testEnv');
+// No database: `policy` is a pure function. The Supabase client is replaced
+// before the service loads. This used to load helpers/testEnv — the
+// INTEGRATION helper, which refuses to start without a local SUPABASE_URL —
+// so CI's unit-test job (no database, no .env) failed on this file alone.
+const file = require.resolve(path.join(__dirname, '..', 'config', 'supabase.js'));
+require.cache[file] = { id: file, filename: file, loaded: true, exports: { supabase: {} } };
 const { policy } = require('../services/scanRetention');
 
 // services/scanRetention.js — what SCAN_RETENTION_* in .env turns into.
