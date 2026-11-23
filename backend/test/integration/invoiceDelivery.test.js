@@ -244,9 +244,12 @@ test('a receipt on an overdue invoice reaches the admins and stays in the review
   assert.equal(row.status, 'submitted');
   assert.equal(mailTo(ids.sellerEmail, from).length, 0, 'no second "scanning disabled" email');
 
-  const submitted = await call('GET', '/admin/invoices?status=submitted', null, cookies.admin);
+  // Narrowed to this event: the lists are paged oldest-due first, so other
+  // test files' invoices (running alongside, or left in a local database)
+  // pushed this one off page 1 and failed the test at random.
+  const submitted = await call('GET', `/admin/invoices?status=submitted&eventId=${ids.event}`, null, cookies.admin);
   assert.ok(submitted.body.data.some((i) => i.id === ids.invoice), 'in the receipt queue');
-  const overdue = await call('GET', '/admin/invoices?status=overdue', null, cookies.admin);
+  const overdue = await call('GET', `/admin/invoices?status=overdue&eventId=${ids.event}`, null, cookies.admin);
   assert.ok(overdue.body.data.some((i) => i.id === ids.invoice), 'and still counted as overdue');
 });
 
