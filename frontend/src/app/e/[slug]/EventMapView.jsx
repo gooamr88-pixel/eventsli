@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import SeatMapCanvas from '../../components/seating/SeatMapCanvas';
 import { readZones } from '../../components/seating/layoutZones';
@@ -8,6 +8,7 @@ import { readLook } from '../../components/seating/mapStyle';
 import { worldOf } from '../../components/seating/seatingGeometry';
 import { boothsToZones } from '../../components/seating/boothZones';
 import NavIcon from '../../components/shell/NavIcon';
+import BoothPickCard from '../../components/vendors/BoothPickCard';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -34,6 +35,8 @@ export default function EventMapView({ map, slug, vendorsOpen = false }) {
     })];
   }, [map, world]);
   const hasBooths = zones.some((z) => z.kind === 'booth');
+  // A tapped booth (2026-11-23): what it is, and a way to book it (BoothPickCard).
+  const [picked, setPicked] = useState(null);
 
   return (
     <section id="event-map" aria-labelledby="event-map-title" className="fx-stack fx-stack--sm">
@@ -45,10 +48,17 @@ export default function EventMapView({ map, slug, vendorsOpen = false }) {
         className="h-[22rem] md:h-[28rem]"
         tables={[]} seats={[]} zones={zones} world={world} look={look}
         showcase purchaseMode="seat_only" onSelectSeat={() => {}}
+        onSelectBooth={hasBooths ? setPicked : null}
       />
+      {picked && (
+        <BoothPickCard
+          zone={picked} boothTypes={map.vendorBooths?.boothTypes || []} book={map.vendorBooths?.book || null}
+          slug={slug} currency={map.currency || 'USD'} onClose={() => setPicked(null)}
+        />
+      )}
       {hasBooths && vendorsOpen && (
         <Link href={`/e/${slug}/vendors#floor-plan`} className="fx-row items-center gap-1.5 text-sm text-accent">
-          <NavIcon name="store" size={16} /> Are you a vendor? Choose a booth on the floor plan
+          <NavIcon name="store" size={16} /> Are you a vendor? Tap a booth above, or see every booth
         </Link>
       )}
     </section>

@@ -109,6 +109,9 @@ export default function SeatMapCanvas({
   // The organizer's map look (mapStyle.readLook): floor, table and label
   // colours. Absent: the map's plain default.
   look = null,
+  // Vendor booths become tappable (2026-11-23): the page shows the booth and,
+  // while vendors are being taken, "Reserve this booth". Absent: scenery.
+  onSelectBooth = null,
 }) {
   const bounds = useMemo(() => contentBounds(tables, zones, world), [tables, zones, world]);
   const focusTiers = useMemo(
@@ -214,7 +217,16 @@ export default function SeatMapCanvas({
             keeping a dance floor from covering the seats around it. */}
         <BoothDefs />
         <SectionPlates plates={plates} />
-        {paintOrder(zones).map((zone) => <ZoneShape key={zone.id} zone={zone} showcase={showcase} world={world} look={look} />)}
+        {paintOrder(zones).map((zone) => {
+          const tappable = !!onSelectBooth && zone.kind === 'booth';
+          return (
+            <ZoneShape
+              key={zone.id} zone={zone} showcase={showcase} world={world} look={look}
+              interactive={tappable}
+              onClick={tappable ? () => { if (!wasDragged()) onSelectBooth(zone); } : null}
+            />
+          );
+        })}
 
         {/* SECTION NAMES UNDER THE SEATS (owner, 2026-11-10). Drawn on top, a
             dark pill at each section's centre hid the seats beneath it, and a

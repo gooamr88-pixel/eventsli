@@ -26,7 +26,7 @@ export async function loadEventMap(slug, { isPrivate = false } = {}) {
     const zones = Array.isArray(data.map.layout?.zones) ? data.map.layout.zones : [];
     const booths = data.vendorBooths?.plan?.elements?.filter((e) => e.kind === 'booth') || [];
     if (zones.length === 0 && booths.length === 0) return null;
-    return { layout: data.map.layout, vendorBooths: data.vendorBooths || null };
+    return { layout: data.map.layout, vendorBooths: data.vendorBooths || null, currency: data.event?.currency || null };
   } catch {
     return null;
   }

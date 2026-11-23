@@ -18703,6 +18703,15 @@ label.es-chip:has(:focus-visible) { outline: 2px solid var(--es-accent); outline
   .es-fp__info-title { display: flex; align-items: center; gap: 0.5rem; font-weight: 800; }
   /* "Reserve this booth", under a tapped free booth on the public vendor page. */
   .es-fp__book { justify-self: start; margin-top: 0.5rem; }
+  /* A booth tapped on the buyers' event map (BoothPickCard, 2026-11-23). */
+  .es-boothpick { display: grid; gap: 0.5rem; padding: 0.85rem 1rem; border: 1px solid var(--es-border); border-radius: var(--es-radius-md); background: var(--es-surface); }
+  .es-boothpick p { margin: 0; }
+  .es-boothpick__head { display: flex; align-items: flex-start; gap: 0.75rem; }
+  .es-boothpick__icon { display: grid; place-items: center; flex: none; width: 2.25rem; height: 2.25rem; border-radius: var(--es-radius-md); background: var(--es-accent-wash); color: var(--es-accent); }
+  .es-boothpick__title { font-weight: 800; }
+  .es-boothpick__close { display: grid; place-items: center; flex: none; width: 2rem; height: 2rem; margin-inline-start: auto; border: 0; border-radius: 999px; background: transparent; color: var(--es-text-muted); cursor: pointer; }
+  .es-boothpick__close:hover { background: var(--es-bg-sunken); color: var(--es-text); }
+  .es-boothpick__go { justify-self: start; gap: 0.4rem; }
 
   /* The booth picker inside an offer. */
   .es-vd-pick { display: grid; gap: 0.75rem; padding: 0.85rem; border: 1px dashed var(--es-border-strong); border-radius: var(--es-radius-md); }

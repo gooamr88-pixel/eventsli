@@ -368,6 +368,9 @@ test('booths on the event map: one drawing for every ticketed event', async () =
   const vb = seatMap.body.data.vendorBooths;
   assert.equal(vb.plan.onSeatMap, true, 'buyers see the booths on their seat map');
   assert.equal(vb.booths.db1.status, 'held');
+  // Booking from the map (2026-11-23): whether vendors are being taken, and which types are open.
+  assert.equal(typeof vb.book.open, 'boolean');
+  assert.ok(Array.isArray(vb.book.types));
   assert.equal(vb.venue, undefined, 'the seat map does not repeat itself');
   assert.equal(JSON.stringify(seatMap.body.data.map.layout).includes('db1'), false, 'no booth is written into the seat map');
 });

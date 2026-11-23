@@ -45,6 +45,8 @@ export default function VenueExperience({
   // The buyer's category filter (several at once) and "show unavailable seats".
   highlightTierIds = null, hideTaken = false,
   onSelectSeat, onSelectTable,
+  // A vendor booth tapped on the 2D map (2026-11-23, SeatMapCanvas).
+  onSelectBooth = null,
   frameClassName = '', boxClassName = '',
   // The seat page shows the venue card in its own side column.
   showVenueInfo = true,
@@ -311,6 +313,7 @@ export default function VenueExperience({
           pickAny={pickAny}
           frameRequest={frameRequest}
           look={look}
+          onSelectBooth={onSelectBooth}
         />
       ) : (
         <div className={`relative ${boxClassName}`}>

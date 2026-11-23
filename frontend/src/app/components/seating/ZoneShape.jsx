@@ -39,6 +39,8 @@ export default function ZoneShape({
   world = worldOf(null),
   onPointerDown,
   onKeyDown,
+  // Booths only: a tap on the buyers' map (BoothShape).
+  onClick = null,
   children,
   // The buyer's map: see StageShowcase and the solid tile below. Off for the
   // editor and the printed pack, whose dashed outlines survive a photocopier.
@@ -53,7 +55,7 @@ export default function ZoneShape({
     return (
       <BoothShape
         zone={zone} world={world} selected={selected} interactive={interactive}
-        onPointerDown={onPointerDown} onKeyDown={onKeyDown} audience={showcase ? 'buyer' : 'organizer'}
+        onPointerDown={onPointerDown} onKeyDown={onKeyDown} onClick={onClick} audience={showcase ? 'buyer' : 'organizer'}
       >
         {children}
       </BoothShape>

@@ -615,6 +615,24 @@ async function seatMapContext(eventId, { includePrivate = false } = {}) {
 }
 
 /**
+ * Whether a vendor can book a booth from the buyers' map right now
+ * (2026-11-23): the program is open and still taking vendors, and which booth
+ * types — public, active, not sold out — a tapped booth may be booked as.
+ * The map shows "Reserve this booth" only for those; the booking itself is
+ * checked again by vendorBookingService.start.
+ */
+async function bookingInfo(eventId) {
+  const program = await readProgram(eventId);
+  if (!program?.is_open || !R.applicationsOpen(program)) return { open: false, mode: null, types: [] };
+  const booths = await listBooths(eventId, { publicOnly: true });
+  return {
+    open: true,
+    mode: program.booking_mode === 'instant' ? 'instant' : 'apply',
+    types: booths.filter((b) => b.remaining !== 0).map((b) => b.id),
+  };
+}
+
+/**
  * True for an event that may have an event map (the rule save_venue_map
  * applies). Every ticketed event since 2026-11-23 (migration
  * 20261212090000): a general-admission event's map has its stage, areas and
@@ -712,5 +730,5 @@ module.exports = {
   notifyPaid, signLogoUpload, confirmLogo, close,
   getProgram, saveProgram, listBooths, createBooth, updateBooth, removeBooth,
   listApplications, getApplication, createApplication, updateApplication, setWaitlist, sendOffer,
-  recordOfflinePayment, doorList, getFloorPlan, saveFloorPlan, floorPlanFor, seatMapContext,
+  recordOfflinePayment, doorList, getFloorPlan, saveFloorPlan, floorPlanFor, seatMapContext, bookingInfo,
 };

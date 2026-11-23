@@ -28,6 +28,9 @@ const NS = { vectorEffect: 'non-scaling-stroke' };
 export default function BoothShape({
   zone, world = worldOf(null), state = zone.state || null, color = zone.typeColor || null,
   selected = false, interactive = false, onPointerDown, onKeyDown, children, audience = 'organizer',
+  // A tap on the buyers' map (2026-11-23): the page shows the booth and, while
+  // vendors are being taken, a way to book it. A pointer cursor, not 'move'.
+  onClick = null,
 }) {
   const box = zoneBox(zone, world);
   const w = box.w;
@@ -53,8 +56,9 @@ export default function BoothShape({
       data-zone-id={zone.id}
       data-booth-status={status}
       onPointerDown={interactive ? onPointerDown : undefined}
-      onKeyDown={interactive ? onKeyDown : undefined}
-      style={interactive ? { cursor: 'move' } : { pointerEvents: 'none' }}
+      onClick={interactive && onClick ? onClick : undefined}
+      onKeyDown={interactive ? (onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(e); } } : onKeyDown) : undefined}
+      style={interactive ? { cursor: onClick ? 'pointer' : 'move' } : { pointerEvents: 'none' }}
       {...(interactive
         ? { role: 'button', tabIndex: 0, 'aria-label': `${boothSentence(zone, state)}${selected ? ', selected' : ''}` }
         : { 'aria-hidden': true })}

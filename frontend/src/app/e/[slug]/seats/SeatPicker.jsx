@@ -24,6 +24,7 @@ import { pickSeats } from './pickSeats';
 import { cartItemFor, withMyHolds, selectionFromCart } from './cartSeats';
 import { useCart, refreshCart } from '../../../hooks/useCart';
 import { useToast } from '../../../components/ui/Toast';
+import BoothPickCard from '../../../components/vendors/BoothPickCard';
 
 /**
  * The buyer's half of the seat map: selection, the private-table gate, and the
@@ -55,6 +56,9 @@ export default function SeatPicker({
   const [showAllTiers, setShowAllTiers] = useState(false);
   const [loadError, setLoadError] = useState(null);
   const [selectedSeats, setSelectedSeats] = useState([]);
+  // A vendor booth tapped on the map (2026-11-23): shown under it, with
+  // "Reserve this booth" while the event is taking vendors (BoothPickCard).
+  const [pickedBooth, setPickedBooth] = useState(null);
   const [selectedTable, setSelectedTable] = useState(null);
   const [unlockDismissed, setUnlockDismissed] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -546,7 +550,19 @@ export default function SeatPicker({
           // table is only visible once its key is held — so there is nothing left
           // to unlock at click time.
           onSelectTable={chooseTable}
+          onSelectBooth={map.vendorBooths ? setPickedBooth : null}
         />
+
+        {pickedBooth && map.vendorBooths && (
+          <BoothPickCard
+            zone={pickedBooth}
+            boothTypes={map.vendorBooths.boothTypes || []}
+            book={map.vendorBooths.book || null}
+            slug={map.event?.slug || slug}
+            currency={currency}
+            onClose={() => setPickedBooth(null)}
+          />
+        )}
 
         {map.hiddenTableCount > 0 && (
           /* Counted, never named — listing them would make the map a directory

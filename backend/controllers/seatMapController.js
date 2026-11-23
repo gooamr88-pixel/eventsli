@@ -201,7 +201,12 @@ async function publicMap(req, res, next) {
     let vendorBooths = null;
     try {
       const fp = await vendors.floorPlanFor(event.id, { audience: 'public', withVenue: false });
-      if (fp?.plan?.onSeatMap) vendorBooths = { plan: fp.plan, booths: fp.booths, boothTypes: fp.boothTypes };
+      if (fp?.plan?.onSeatMap) {
+        // `book` (2026-11-23): a vendor taps a booth on this map and books it,
+        // when the event is taking vendors and the booth's type is open.
+        const book = await vendors.bookingInfo(event.id);
+        vendorBooths = { plan: fp.plan, booths: fp.booths, boothTypes: fp.boothTypes, book };
+      }
     } catch (err) {
       logger.warn({ err: err.message, eventId: event.id }, 'seat map: vendor booths could not be read');
     }
