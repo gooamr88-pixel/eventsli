@@ -16,6 +16,7 @@ import NavIcon from '../../../../components/shell/NavIcon';
 import { useToast } from '../../../../components/ui/Toast';
 import { messageFor } from '../../../../utils/errors';
 import OrdersReport from './OrdersReport';
+import EditContactSheet from './EditContactSheet';
 import { downloadOrdersXlsx } from './ordersXlsx';
 
 /**
@@ -51,6 +52,8 @@ export default function Orders({ eventId }) {
   // report does not refetch while it is open.
   const [report, setReport] = useState(null);
   const [exporting, setExporting] = useState(false);
+  // The order whose buyer details are being corrected (EditContactSheet).
+  const [editing, setEditing] = useState(null);
   const [channel, setChannel] = useState('');
   const [status, setStatus] = useState('paid');
   const [search, setSearch] = useState('');
@@ -77,6 +80,22 @@ export default function Orders({ eventId }) {
     } finally {
       setExporting(false);
     }
+  }
+
+  /** After a correction: say what happened, then re-read so totals and search follow. */
+  function contactSaved(result) {
+    setEditing(null);
+    const c = result?.changed || {};
+    if (!c.name && !c.email && !c.phone) {
+      toast.success('Nothing changed.');
+    } else if (result.resent) {
+      toast.success(`Saved. The tickets were sent to ${result.order?.buyer?.email}.`);
+    } else if (c.email && result.resendSkipped) {
+      toast.success('Saved. The order is not paid, so no tickets were sent.');
+    } else {
+      toast.success('Buyer details saved.');
+    }
+    reload();
   }
 
   // Both act on every order under the filters on screen, not just this page.
@@ -110,6 +129,12 @@ export default function Orders({ eventId }) {
       <SectionHeader title="Orders" lede="Every sale on this event, online and at the door." actions={exportActions} />
 
       {report && <OrdersReport eventId={eventId} event={event} filters={report} onClose={() => setReport(null)} />}
+      {editing && (
+        <EditContactSheet
+          eventId={eventId} event={event} order={editing}
+          onClose={() => setEditing(null)} onSaved={contactSaved}
+        />
+      )}
 
       {totals.length > 0 && totals.map(([currency, t]) => (
         <KpiRow key={currency} label={`Sales in ${currency}`}>
@@ -159,6 +184,7 @@ export default function Orders({ eventId }) {
                     <span className="fx-break text-ink">{o.buyer.name || 'No name given'}</span>
                     <span className="fx-break text-sm text-muted">
                       {o.buyer.email || 'No email'}
+                      {o.buyer.phone && ` · ${o.buyer.phone}`}
                       {o.buyer.hasAccount && ' · has an account'}
                     </span>
                   </span>
@@ -183,6 +209,23 @@ export default function Orders({ eventId }) {
                 label: 'When',
                 wide: true,
                 render: (o) => <span className="whitespace-nowrap">{formatEventTime(o.paidAt || o.createdAt, timezone)}</span>,
+              },
+              {
+                key: 'edit',
+                label: 'Edit',
+                hideLabel: true,
+                align: 'end',
+                render: (o) => (
+                  <button
+                    type="button"
+                    className="es-iconbtn"
+                    onClick={() => setEditing(o)}
+                    aria-label={`Edit buyer details for ${o.buyer.name || 'this order'}`}
+                    title="Edit buyer details"
+                  >
+                    <NavIcon name="pencil" size={18} />
+                  </button>
+                ),
               },
             ]}
           />

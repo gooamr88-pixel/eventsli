@@ -3,6 +3,8 @@ const { parsePagination, applyPagination, buildMeta } = require('../middleware/p
 const { sendOk, sendFail } = require('../utils/responseEnvelope');
 const { safeSearch } = require('../utils/search');
 const signatures = require('../services/signatureService');
+const orderContact = require('../services/orderContactService');
+const { writeAudit } = require('../services/auditService');
 const logger = require('../utils/logger');
 
 /**
@@ -45,7 +47,7 @@ const ORDER_SELECT = `
   id, channel, status, currency, quantity,
   subtotal_cents, discount_cents, event_tax_cents,
   commission_cents, commission_tax_cents, buyer_total_cents, organizer_net_cents,
-  guest_name, guest_email, manual_method, manual_note,
+  guest_name, guest_email, guest_phone, manual_method, manual_note,
   created_at, paid_at, reservation_id,
   profiles!orders_user_id_fkey ( full_name, email ),
   event_hosts ( id, name )
@@ -214,11 +216,15 @@ function shapeOrder(o) {
     currency: o.currency,
     tickets: Number(o.quantity),
     buyer: {
-      // The account's details win when there is one: a signed-in buyer's
-      // profile is current, while the guest fields are whatever was typed at
-      // one checkout and are never updated afterwards.
-      name: account?.full_name || o.guest_name || null,
-      email: account?.email || o.guest_email || null,
+      // The ORDER's own contact first, the account's after (changed
+      // 2026-11-23). It used to be the other way round, but the ticket email
+      // (ticketController.loadForEmail) and the door's "who to expect"
+      // (check_in_ticket) both read the order's fields first — so the list
+      // showed one address while the tickets went to another. And it is the
+      // order's contact an organizer can now correct (orderContactService).
+      name: o.guest_name || account?.full_name || null,
+      email: o.guest_email || account?.email || null,
+      phone: o.guest_phone || null,
       hasAccount: !!account,
     },
     // Whose guest they said they are at checkout (2026-11-23), or null.
@@ -307,4 +313,61 @@ async function orderSignature(req, res, next) {
   } catch (err) { return next(err); }
 }
 
-module.exports = { orders, attendees, orderSignature };
+// ─── PATCH /events/:eventId/orders/:orderId/contact ─────────────────────────
+/**
+ * The organizer corrects the buyer's name, email or phone on one order
+ * (2026-11-23; services/orderContactService.js says what it does and does not
+ * touch). With `resend` and a changed email on a PAID order, the tickets go
+ * to the new address — the buyer's copy only: named holders already have
+ * their own and their addresses did not change.
+ *
+ * Audited, before and after: a changed email is a change of who holds the
+ * tickets, and "who moved them, and from where" must have an answer.
+ * Answers with the order as the list shows it, so the row updates in place.
+ */
+async function updateOrderContact(req, res, next) {
+  try {
+    const { eventId, orderId } = req.params;
+    let result;
+    try {
+      result = await orderContact.updateContact(eventId, orderId, req.body);
+    } catch (err) {
+      if (err instanceof orderContact.OrderContactError) {
+        return sendFail(res, { status: err.code === 'NOT_FOUND' ? 404 : 400, error: err.code, message: err.message });
+      }
+      throw err;
+    }
+    const { before, after, changed, ticketsUpdated } = result;
+    const anything = changed.name || changed.email || changed.phone;
+
+    let resent = false;
+    if (anything) {
+      await writeAudit(req, {
+        action: 'order.contact_updated', targetType: 'order', targetId: orderId,
+        payload: { eventId, before, after, changed, ticketsUpdated },
+      });
+    }
+    if (anything && changed.email && after.email && req.body.resend === true && result.order.status === 'paid') {
+      try {
+        // Lazy: ticketController pulls in the email and QR stack.
+        const sent = await require('./ticketController').sendTicketEmail(orderId, { holders: false });
+        resent = sent?.sent !== false;
+      } catch (err) {
+        // The correction stands; the organizer is told the email did not go.
+        logger.error({ err: err.message, orderId }, 'ticket re-send after contact edit failed');
+      }
+    }
+
+    const { data, error } = await supabase.from('orders').select(ORDER_SELECT).eq('id', orderId).maybeSingle();
+    if (error) throw new Error(error.message);
+    return sendOk(res, {
+      order: data ? shapeOrder(data) : null,
+      changed,
+      ticketsUpdated,
+      resent,
+      resendSkipped: anything && changed.email && req.body.resend === true && result.order.status !== 'paid',
+    });
+  } catch (err) { return next(err); }
+}
+
+module.exports = { orders, attendees, orderSignature, updateOrderContact };

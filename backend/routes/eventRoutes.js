@@ -825,6 +825,23 @@ router.get(
   sales.orderSignature,
 );
 
+// The organizer corrects a buyer's name, email or phone on one order
+// (2026-11-23, services/orderContactService.js). Never their account.
+router.patch(
+  '/:eventId/orders/:orderId/contact',
+  verifyEventOwner,
+  param('orderId').isUUID(),
+  body('name').isString().trim().isLength({ min: 1, max: 120 }).withMessage('Enter the buyer’s name, up to 120 characters.'),
+  body('email').optional({ values: 'null' }).isString().trim()
+    .custom((v) => v === '' || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)).withMessage('Enter a valid email address.')
+    .isLength({ max: 254 }),
+  body('phone').optional({ values: 'null' }).isString().trim()
+    .custom((v) => v === '' || /^[0-9+\-() .]{7,30}$/.test(v)).withMessage('Enter a phone number with digits only, like +1 416 555 0100.'),
+  body('resend').optional().isBoolean({ strict: true }),
+  validate,
+  sales.updateOrderContact,
+);
+
 router.get(
   '/:eventId/attendees',
   verifyEventOwner,

@@ -76,6 +76,7 @@ function orderColumns(rows, timezone) {
     { key: 'when', header: `Date (${timezone || 'UTC'})`, width: 19, type: 'date', value: (o) => wallClock(o.paidAt || o.createdAt, timezone) },
     { key: 'name', header: 'Buyer', width: 26, value: (o) => o.buyer?.name || 'No name given' },
     { key: 'email', header: 'Email', width: 32, value: (o) => o.buyer?.email || '' },
+    ...(any((o) => o.buyer?.phone) ? [{ key: 'phone', header: 'Phone', width: 18, value: (o) => o.buyer?.phone || '' }] : []),
     { key: 'account', header: 'Account', width: 10, value: (o) => (o.buyer?.hasAccount ? 'Yes' : 'Guest') },
     { key: 'channel', header: 'Channel', width: 18, value: channelText },
     { key: 'status', header: 'Status', width: 12, value: (o) => STATUS_LABELS[o.status] || o.status },
