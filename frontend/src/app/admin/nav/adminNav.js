@@ -63,6 +63,8 @@ export function adminNavGroups() {
         { key: 'content', label: 'Homepage content', icon: 'layers', href: '/admin/content' },
         // Event templates (2026-11-19): Eventsli's, shared with every organizer.
         { key: 'templates', label: 'Event templates', icon: 'copy', href: '/admin/templates' },
+        // Venue maps (2026-11-24): seating maps of real venues, map only.
+        { key: 'venue-maps', label: 'Venue maps', icon: 'map', href: '/admin/venue-maps' },
       ],
     },
     {

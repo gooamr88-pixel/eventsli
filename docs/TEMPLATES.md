@@ -4,6 +4,9 @@ Organizers save an event's setup as a template and start new events from it.
 Eventsli keeps its own templates, shared with every organizer and managed by
 super admins.
 
+Maps on their own, tied to a real venue (and with no prices or ticket types),
+are the venue map library: see [VENUE-MAPS.md](VENUE-MAPS.md).
+
 ## What a template holds
 
 A snapshot taken by `backend/services/eventTemplateService.js`:

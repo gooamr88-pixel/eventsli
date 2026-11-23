@@ -85,6 +85,8 @@ const MIGRATIONS = [
   ['20261209090000_private_event_preview.sql', col('events', 'locked_preview')],
   ['20261210090000_guest_of_hosts.sql', tab('event_hosts')],
   ['20261211090000_organizer_sale_emails.sql', col('organizers', 'sale_email_mode')],
+  ['20261213090000_attendee_app.sql', tab('user_notifications')],
+  ['20261214090000_venue_map_templates.sql', tab('venue_map_templates')],
 ];
 
 const EXTRA = [

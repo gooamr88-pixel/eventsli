@@ -74,6 +74,8 @@ async function cancelEvent({ eventId, reason, actorId }) {
 
   // Ticket holders are texted (best-effort, once per order; services/sms).
   require('./sms/notifications').eventCancelled(event.id);
+  // …and told in the attendee app, with everyone who saved it (best-effort).
+  require('./attendeeNotifications').eventCancelled(event.id);
 
   logger.info({ eventId: event.id, by: actorId }, 'event cancelled by admin');
   return { ok: true, event: data, from: event.status, openCheckoutsClosed: checkouts.released };

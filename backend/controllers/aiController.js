@@ -558,7 +558,65 @@ async function createLaunchKit(req, res, next) {
 const createEventDraft = (req, res, next) => runDraft(req, res, next, { fromImage: false });
 const createEventDraftFromImage = (req, res, next) => runDraft(req, res, next, { fromImage: true });
 
+// ─── POST /admin/venue-maps/read-image · GET …/read-image/:jobId ────────────
+/**
+ * The venue map library's "from a seating-chart picture" (owner, 2026-11-24):
+ * the same reader as the Venue Builder's import, for a super admin building
+ * Eventsli's library. No event and no organization, so no daily allowance —
+ * super admins have none (config.isUnlimited) — and the job belongs to the
+ * admin who started it. Routed from routes/admin/venueMapRoutes.js, behind
+ * the super-admin guard and its own limiter.
+ */
+const LIBRARY_JOB = 'venue-library';
+
+async function readVenueMapImage(req, res, next) {
+  const cfg = aiConfig(req);
+  try {
+    if (!cfg.enabled || !cfg.poster) {
+      return sendFail(res, { status: 503, error: 'AI_DISABLED', message: 'Reading pictures is not available right now.' });
+    }
+    const image = readPosterImage(req.body.image, { noun: 'seating map' });   // VALIDATION_ERROR → 400
+    const { text } = redact(String(req.body.notes || '').trim());
+    const jobId = req.body.requestId;
+    startJob(jobId, { organizerId: `admin:${req.user.id}`, eventId: LIBRARY_JOB }, async () => {
+      try {
+        const result = await readSeatingMap({ image, notes: text, cfg });
+        return { ok: true, body: { plan: result.plan } };
+      } catch (err) {
+        if (err.code === 'AI_NOT_A_MAP') {
+          return { ok: false, status: 422, error: err.code, message: 'That picture doesn’t look like a seating map. Try the venue’s seating chart with the seats or tables drawn on it.' };
+        }
+        if (err.code === 'AI_UNAVAILABLE') {
+          const reason = failureSummary(err);
+          return {
+            ok: false, status: UNAVAILABLE.status, error: err.code,
+            message: allBusy(err) ? 'Our AI providers are busy right now. Wait a few minutes and try again.' : 'Our AI services did not answer in time. Try again.',
+            ...(reason ? { meta: { reason } } : {}),
+          };
+        }
+        logger.error({ err, jobId }, 'ai: a venue library reading failed');
+        return { ok: false, status: 500, error: 'INTERNAL_ERROR', message: 'Something went wrong while reading the map. Try again.' };
+      }
+    });
+    return sendOk(res, { jobId, status: 'running' }, { status: 202 });
+  } catch (err) {
+    if (err.code === 'VALIDATION_ERROR') return sendFail(res, { status: 400, error: 'VALIDATION_ERROR', message: err.message });
+    return next(err);
+  }
+}
+
+function getVenueMapImageJob(req, res) {
+  const job = getJob(req.params.jobId, { organizerId: `admin:${req.user.id}`, eventId: LIBRARY_JOB });
+  if (!job) {
+    return sendFail(res, { status: 404, error: 'NOT_FOUND', message: 'That map reading is no longer available. Upload the picture again.' });
+  }
+  if (job.state === 'running') return sendOk(res, { status: 'running', seconds: Math.round((Date.now() - job.startedAt) / 1000) });
+  const o = job.outcome;
+  if (o.ok) return sendOk(res, { status: 'done', ...o.body });
+  return sendFail(res, { status: o.status, error: o.error, message: o.message, meta: o.meta });
+}
+
 module.exports = {
   getQuota, createEventDraft, createEventDraftFromImage, createSeatingPlan, createSeatingPlanFromImage, getSeatingPlanJob,
-  createLaunchKit,
+  createLaunchKit, readVenueMapImage, getVenueMapImageJob,
 };

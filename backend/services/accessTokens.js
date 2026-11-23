@@ -161,6 +161,23 @@ function fromRequest(req, headerName = 'x-access-token') {
   return null;
 }
 
+/**
+ * The RESERVATION token off a request — its own header first, then wherever
+ * `fromRequest` looks.
+ *
+ * `fromRequest` reads `Authorization: Bearer` first, which was right while the
+ * only Bearer on these routes WAS the reservation token: the website keeps its
+ * session in a cookie. The attendee app (2026-11-24) has no cookie jar, so its
+ * session rides in the Bearer header — and every hold a signed-in phone tried
+ * to spend was read as the session token and refused as "not yours". The
+ * dedicated header wins; callers that sent the reservation as Bearer still work.
+ */
+function reservationTokenFrom(req) {
+  const explicit = req.headers?.['x-access-token'];
+  if (explicit) return String(explicit);
+  return fromRequest(req);
+}
+
 module.exports = {
   TYPES,
   ORDER_TTL_DAYS,
@@ -175,4 +192,5 @@ module.exports = {
   readReservationToken,
   readVerifyWatchToken,
   fromRequest,
+  reservationTokenFrom,
 };

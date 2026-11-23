@@ -346,6 +346,11 @@ async function loadForEmail(orderId) {
  * an email of their own gets their own (2026-11-19).
  */
 async function sendTicketEmail(orderId, { holders = true } = {}) {
+  // The attendee app's "Your tickets are ready" — whether or not there is an
+  // address to email. Keyed by order, so a resend never notifies twice;
+  // best-effort, never throws.
+  require('../services/attendeeNotifications').ticketsIssued(orderId);
+
   const loaded = await loadForEmail(orderId);
   if (!loaded) return { sent: false, reason: 'no_recipient' };
   const { order, to, org } = loaded;

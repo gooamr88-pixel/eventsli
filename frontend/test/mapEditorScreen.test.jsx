@@ -22,7 +22,7 @@ const get = vi.fn(async (path) => {
 vi.mock('../src/app/utils/apiClient', () => ({ get: (...a) => get(...a), put: vi.fn(), post: vi.fn(), del: vi.fn(), patch: vi.fn() }));
 vi.mock('../src/app/hooks/useAiQuota', () => ({ useAiQuota: () => ({ quota: { enabled: false } }) }));
 vi.mock('../src/app/organizer/events/[id]/EventContext', () => ({ useEventContext: () => ({ event: { status: 'draft' } }) }));
-vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }), usePathname: () => '/organizer/events/e1/map' }));
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }), usePathname: () => '/organizer/events/e1/map', useSearchParams: () => new URLSearchParams() }));
 
 const { default: MapEditor } = await import('../src/app/organizer/events/[id]/map/MapEditor');
 

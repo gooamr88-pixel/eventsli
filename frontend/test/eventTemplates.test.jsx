@@ -51,6 +51,7 @@ beforeEach(() => {
   user = { isSuperAdmin: true };
   get.mockImplementation(async (path) => {
     if (path === '/organizer/templates') return { mine: [mine], eventsli: [shared], enabled: true };
+    if (path.startsWith('/organizer/venue-maps')) return { mine: [], library: [], forVenue: [], enabled: true, venue: null };
     if (path.startsWith('/organizer/templates/')) return full;
     if (path.startsWith('/admin/templates?scope=organizer')) return { templates: [{ ...mine, organizerName: 'Starlight' }], enabled: true };
     if (path.startsWith('/admin/templates?')) return { templates: [{ ...shared, status: 'draft', sourceEventId: 'ev-1' }], enabled: true };
@@ -135,10 +136,13 @@ test('the Venue Builder takes a template’s map, matching ticket types by name'
   const onApply = vi.fn();
   render(
     <MapTemplateDialog
+      eventId="ev-1"
       tiers={[{ id: 'mine-vip', name: 'vip ' }]} categories={[{ id: 'mine-fam', name: 'Family' }]}
       replacing={false} onApply={onApply} onClose={() => {}}
     />,
   );
+  // Event templates are their own tab beside the venue map library (2026-11-24).
+  await userEvent.click(await screen.findByRole('button', { name: /Event templates/ }));
   await userEvent.click(await screen.findByRole('button', { name: /Our gala/ }));
   await userEvent.click(await screen.findByRole('button', { name: 'Use this map' }));
   const spec = onApply.mock.calls[0][0];

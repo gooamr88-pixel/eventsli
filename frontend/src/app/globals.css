@@ -17878,6 +17878,60 @@ label.es-chip:has(:focus-visible) { outline: 2px solid var(--es-accent); outline
   .es-tplstart .fx-min0 { flex: 1; }
 }
 
+/* ── Venue map library (2026-11-24): cards with a drawn sketch of the room,
+   the filters row, the add-a-map steps, and the Venue Builder picker. ───── */
+@layer components {
+  .es-vmthumb { display: block; width: 100%; height: 100%; padding: 0.6rem; background: var(--es-bg-sunken); }
+  .es-vmthumb--empty { display: grid; place-items: center; color: var(--es-text-muted); }
+  .es-vmthumb__zone { fill: color-mix(in srgb, var(--es-text-muted) 14%, transparent); stroke: none; }
+  .es-vmthumb__zone--s { fill: var(--es-text); opacity: 0.82; }
+  .es-vmthumb__zone--w { fill: var(--es-text); opacity: 0.55; }
+  .es-vmthumb__table { fill: var(--es-brand-coral); opacity: 0.88; }
+  .es-vmthumb__row { fill: var(--es-brand-coral); opacity: 0.88; }
+
+  .es-vmcard__media { background: var(--es-bg-sunken); }
+  .es-vmcard__kind { margin: 0; font-size: var(--es-text-xs); font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--es-accent); }
+  .es-vmcard__layout { margin: 0; font-size: var(--es-text-sm); color: var(--es-text-muted); }
+  .es-vmcard--compact .es-tplcard__media { aspect-ratio: 16 / 8; }
+  .es-vmcard--compact .es-tplcard__body { padding: 0.7rem 0.8rem 0.8rem; gap: 0.2rem; }
+  .es-vmcard--compact .es-tplcard__title { font-size: var(--es-text-sm); }
+
+  .es-vmfilters { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; }
+  .es-vmfilters__kind { flex: 0 1 13rem; min-width: 0; }
+  .es-vmfilters__search { flex: 1 1 14rem; min-width: 0; }
+
+  .es-vmsteps { display: flex; flex-wrap: wrap; gap: 0.4rem 1.25rem; margin: 0; padding: 0; list-style: none; font-size: var(--es-text-sm); color: var(--es-text-muted); }
+  .es-vmsteps li { display: flex; align-items: center; gap: 0.45rem; font-weight: 600; }
+  .es-vmsteps li > span { display: grid; place-items: center; width: 1.5rem; height: 1.5rem; border-radius: 50%; border: 1px solid var(--es-border-strong); font-size: var(--es-text-xs); }
+  .es-vmsteps li[data-state="current"] { color: var(--es-text); }
+  .es-vmsteps li[data-state="current"] > span { border-color: var(--es-accent); background: var(--es-accent); color: var(--es-text-on-accent, #ffffff); }
+  .es-vmsteps li[data-state="done"] > span { border-color: transparent; background: var(--es-highlight); color: var(--es-text-on-highlight); }
+
+  .es-vmsource { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr)); gap: 0.6rem; }
+  .es-vmsource__tile { display: flex; align-items: flex-start; gap: 0.7rem; padding: 0.8rem 0.9rem; border: 1px solid var(--es-border); border-radius: var(--es-radius-lg); background: var(--es-surface); color: var(--es-text); font: inherit; text-align: start; cursor: pointer; }
+  .es-vmsource__tile:hover { border-color: var(--es-accent-edge); background: var(--es-accent-wash); }
+  .es-vmsource__tile[aria-checked="true"] { border: 2px solid var(--es-accent); padding: calc(0.8rem - 1px) calc(0.9rem - 1px); background: var(--es-accent-wash); }
+  .es-vmsource__tile b { display: block; font-size: var(--es-text-sm); }
+  .es-vmsource__tile small { display: block; font-size: var(--es-text-xs); color: var(--es-text-muted); }
+  .es-vmsource__tile:focus-visible { outline: 2px solid var(--es-accent); outline-offset: 2px; }
+
+  .es-vmpicture { display: grid; justify-items: start; gap: 0.6rem; padding: 0.9rem; border: 1px dashed var(--es-border-strong); border-radius: var(--es-radius-lg); }
+  .es-vmpinned { display: flex; align-items: center; gap: 0.4rem; margin: 0; font-size: var(--es-text-xs); color: var(--es-text-muted); }
+
+  .es-vmgroups { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0; padding: 0; list-style: none; }
+  .es-vmgroups li { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.2rem 0.6rem; border: 1px solid var(--es-border); border-radius: var(--es-radius-full); font-size: var(--es-text-sm); }
+  .es-vmnote { display: flex; align-items: flex-start; gap: 0.5rem; margin: 0; padding: 0.6rem 0.75rem; border-radius: var(--es-radius-md); background: var(--es-highlight-wash); font-size: var(--es-text-sm); color: var(--es-text); }
+  .es-vmnote svg { flex: none; margin-top: 0.15rem; }
+  .es-vmdone { display: flex; align-items: center; gap: 0.5rem; margin: 0; color: var(--es-text); }
+
+  .es-vmhere { display: grid; gap: 0.6rem; padding: 0.8rem; border-radius: var(--es-radius-lg); background: var(--es-accent-wash); border: 1px solid var(--es-accent-edge); }
+  .es-vmhere__title { display: flex; align-items: center; gap: 0.4rem; margin: 0; font-size: var(--es-text-sm); font-weight: 700; color: var(--es-text); }
+  .es-vmpickgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 13rem), 1fr)); gap: 0.75rem; }
+
+  .es-mapstarter__choice[data-featured="true"] { grid-column: 1 / -1; border-color: var(--es-accent-edge); background: var(--es-accent-wash); }
+  .es-mapstarter__choice[data-featured="true"] .es-mapstarter__icon { background: var(--es-highlight); color: var(--es-text-on-highlight); }
+}
+
 /* ── Import a seating map from a picture (2026-11-19) ───────────────────── */
 @layer components {
   .es-imgimport { gap: 0.9rem; }

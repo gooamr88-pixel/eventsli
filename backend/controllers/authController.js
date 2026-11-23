@@ -482,14 +482,24 @@ async function passwordSignIn(req, res, next, { app = false } = {}) {
 const login = (req, res, next) => passwordSignIn(req, res, next);
 const appLogin = (req, res, next) => passwordSignIn(req, res, next, { app: true });
 
-/** A check-in app session: no cookie, the token in the body, labelled by device. */
+/**
+ * Which native app is signing in. The check-in app has never sent `app`, so its
+ * absence means check-in; the attendee app (2026-11-24) says so, and its
+ * sessions are labelled apart so either app can be signed out alone.
+ */
+const APP_CLIENTS = Object.freeze({ checkin: 'checkin_app', attendee: 'attendee_app' });
+
+/** A native app session: no cookie, the token in the body, labelled by app and device. */
 async function issueAppSession(res, user, req) {
   const s = await sessions.issue(res, {
     userId: user.id, email: user.email, role: user.role, req,
-    cookie: false, client: 'checkin_app',
+    cookie: false, client: APP_CLIENTS[req.body?.app] || APP_CLIENTS.checkin,
     deviceName: req.body?.deviceName || null,
     ttlHours: sessions.APP_SESSION_TTL_HOURS,
   });
+  // The attendee app's inbox opens with a welcome rather than empty. Keyed per
+  // person, so only the first sign-in writes it; best-effort.
+  if (req.body?.app === 'attendee') require('../services/attendeeNotifications').welcome(user.id);
   return { token: s.token, expiresAt: s.expiresAt.toISOString(), user: shapeIdentity(user) };
 }
 

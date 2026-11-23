@@ -211,6 +211,10 @@ router.post(
 // comes back in the body: the app has no cookie jar.
 const deviceNameRule = body('deviceName').optional({ values: 'falsy' })
   .isString().isLength({ max: 80 }).withMessage('That device name is too long.');
+// Which app (authController.APP_CLIENTS). Absent is the check-in app, which
+// predates the field; anything else is refused rather than guessed at.
+const appRule = body('app').optional().isIn(['checkin', 'attendee'])
+  .withMessage('The app sent an invalid sign-in request.');
 
 router.post(
   '/app/login',
@@ -218,6 +222,7 @@ router.post(
   body('email').isEmail().normalizeEmail().withMessage('Enter a valid email address.'),
   body('password').isString().notEmpty().withMessage('Enter your password.'),
   deviceNameRule,
+  appRule,
   validate,
   c.appLogin,
 );
@@ -258,6 +263,7 @@ router.post(
   body('codeVerifier').isString().matches(PKCE_VERIFIER).withMessage('That sign-in has expired. Start again from the app.'),
   body('redirectUri').isString().isLength({ min: 3, max: 200 }),
   deviceNameRule,
+  appRule,
   validate,
   c.appToken,
 );

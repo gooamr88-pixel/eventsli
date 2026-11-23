@@ -23,7 +23,7 @@ const handle = (fn) => async (req, res, next) => {
 };
 
 function ownsReservation(req) {
-  return accessTokens.readReservationToken(accessTokens.fromRequest(req)) === req.params.reservationId;
+  return accessTokens.readReservationToken(accessTokens.reservationTokenFrom(req)) === req.params.reservationId;
 }
 const NOT_YOURS = { status: 403, error: 'FORBIDDEN', message: 'That hold is not yours.' };
 

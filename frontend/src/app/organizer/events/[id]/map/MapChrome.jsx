@@ -16,7 +16,7 @@ import { MAX_ZONES } from '../../../../components/seating/venueZones';
  * shows the map as SAVED; the "Unsaved changes" chip says when that differs.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-export function MapHeader({ tables, zones, soldTotal, blockedTotal = 0, dirty, saving, canSave, onSave, onExport }) {
+export function MapHeader({ tables, zones, soldTotal, blockedTotal = 0, dirty, saving, canSave, onSave, onExport, onSaveTemplate }) {
   const event = useEventContext()?.event;
   const live = event?.status === 'published' && event?.slug;
   // General admission has no seat picker: its map is on the event page.
@@ -62,6 +62,13 @@ export function MapHeader({ tables, zones, soldTotal, blockedTotal = 0, dirty, s
         <button type="button" onClick={onExport} disabled={tables.length === 0 && zones.length === 0} className="es-btn es-btn--secondary es-mapexport">
           <NavIcon name="printer" size={18} />Print / export
         </button>
+        {/* The venue map library (2026-11-24): this room, kept to start any
+            later event's map from. Map only — never prices or ticket types. */}
+        {onSaveTemplate && (
+          <button type="button" onClick={onSaveTemplate} disabled={tables.length === 0 && zones.length === 0} className="es-btn es-btn--secondary es-mapexport">
+            <NavIcon name="copy" size={18} />Save as template
+          </button>
+        )}
         <button type="button" onClick={onSave} disabled={!canSave} className="es-btn es-btn--primary">
           <NavIcon name="tick" size={18} />{saving ? 'Saving…' : 'Save map'}
         </button>

@@ -58,6 +58,10 @@ export default function AdminEventDetail({ eventId }) {
             {user?.isSuperAdmin && (
               <Link href={`/admin/templates?from=${event.id}`} className="es-btn es-btn--secondary es-btn--sm">Make Eventsli template</Link>
             )}
+            {/* The venue map library (2026-11-24): this event's map, as its venue's. */}
+            {user?.isSuperAdmin && seating?.tables > 0 && (
+              <Link href={`/admin/venue-maps?from=${event.id}`} className="es-btn es-btn--secondary es-btn--sm">Add to venue maps</Link>
+            )}
             {event.status === 'published' && (
               <a href={`/e/${event.slug}`} target="_blank" rel="noreferrer" className="es-btn es-btn--secondary es-btn--sm">
                 Public page <span className="sr-only">(opens in a new tab)</span>

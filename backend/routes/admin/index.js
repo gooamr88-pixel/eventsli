@@ -22,6 +22,7 @@ router.use(require('./insightRoutes'));
 router.use(require('./storefrontRoutes'));
 router.use(require('./smsRoutes'));
 router.use(require('./templateRoutes'));
+router.use(require('./venueMapRoutes'));
 router.use(require('./demoRoutes'));
 
 module.exports = router;

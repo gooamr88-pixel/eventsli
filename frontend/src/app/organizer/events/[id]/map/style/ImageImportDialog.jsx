@@ -26,13 +26,21 @@ import ReadingProgress from './ReadingProgress';
  *
  * The result is kept in this browser per event (like the designer's plan): it
  * cost a daily draft, and closing the dialog must not mean paying again.
+ *
+ * `library` (2026-11-24): the venue map library's console reads a venue's
+ * seating chart with the same dialog — `{ start, job(id), applyLabel }`. It
+ * has no event and no daily drafts (a super admin's reading), so the quota
+ * is not shown or checked.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-export default function ImageImportDialog({ eventId, replacing, blocked = null, onApply, onClose }) {
+export default function ImageImportDialog({ eventId, replacing, blocked = null, onApply, onClose, library = null }) {
   const ref = useRef(null);
   const input = useRef(null);
-  const { quota, setQuota } = useAiQuota();
-  const key = keepKey('seating-image', eventId);
+  const { quota: organizerQuota, setQuota } = useAiQuota();
+  const quota = library ? null : organizerQuota;
+  const startPath = library ? library.start : `/ai/events/${eventId}/seating-plan/from-image`;
+  const jobPath = (jobId) => (library ? library.job(jobId) : `/ai/events/${eventId}/seating-plan/jobs/${jobId}`);
+  const key = keepKey('seating-image', library ? 'venue-library' : eventId);
   const [kept] = useState(() => readKept(key, { maxAgeDays: 14 }));
   const [picture, setPicture] = useState(null);
   const [notes, setNotes] = useState('');
@@ -87,7 +95,7 @@ export default function ImageImportDialog({ eventId, replacing, blocked = null, 
       await new Promise((r) => { setTimeout(r, 3_000); });
       if (!alive.current) return null;
       try {
-        const job = await get(`/ai/events/${eventId}/seating-plan/jobs/${jobId}`, { noRedirect: true });
+        const job = await get(jobPath(jobId), { noRedirect: true });
         misses = 0;
         if (job.status === 'done') return job;
       } catch (err) {
@@ -104,7 +112,7 @@ export default function ImageImportDialog({ eventId, replacing, blocked = null, 
     setStartedAt(Date.now());
     setError(null);
     try {
-      const started = await post(`/ai/events/${eventId}/seating-plan/from-image`, {
+      const started = await post(startPath, {
         requestId: crypto.randomUUID(),
         image: { mimeType: 'image/jpeg', data: picture.dataUrl },
         ...(notes.trim() ? { notes: notes.trim() } : {}),
@@ -234,14 +242,14 @@ export default function ImageImportDialog({ eventId, replacing, blocked = null, 
             )}
 
             <div className="fx-row fx-row--between flex-wrap items-center gap-3">
-              {exhausted ? <span className="text-sm text-muted">No AI drafts left today</span> : <QuotaDots quota={quota} />}
+              {library ? <span /> : exhausted ? <span className="text-sm text-muted">No AI drafts left today</span> : <QuotaDots quota={quota} />}
               <div className="fx-row flex-wrap gap-2">
                 <button type="button" className="es-btn es-btn--ghost" onClick={onClose} disabled={busy}>Cancel</button>
                 <button type="button" className="es-btn es-btn--secondary" onClick={read} disabled={!picture || busy || exhausted || visionOff}>
                   {busy ? <><span className="es-ai-spin" aria-hidden="true" /> Reading…</> : <><NavIcon name="sparkle" size={16} /> {plan ? 'Read again' : 'Read the map'}</>}
                 </button>
                 <button type="button" className="es-btn es-btn--primary" disabled={!map || busy} onClick={() => onApply(map)}>
-                  Apply to my map
+                  {library?.applyLabel || 'Apply to my map'}
                 </button>
               </div>
             </div>

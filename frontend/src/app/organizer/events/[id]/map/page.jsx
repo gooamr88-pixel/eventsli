@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import MapEditor from './MapEditor';
 
 export const metadata = {
@@ -7,5 +8,6 @@ export const metadata = {
 
 export default async function MapPage({ params }) {
   const { id } = await params;
-  return <MapEditor eventId={id} />;
+  // Suspense: the editor reads ?venueMap= (useSearchParams).
+  return <Suspense><MapEditor eventId={id} /></Suspense>;
 }

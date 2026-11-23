@@ -18,7 +18,7 @@ const asFailure = (res, err) => sendFail(res, {
  * authority to do it.
  */
 const ownsReservation = (req) =>
-  accessTokens.readReservationToken(accessTokens.fromRequest(req)) === req.params.reservationId;
+  accessTokens.readReservationToken(accessTokens.reservationTokenFrom(req)) === req.params.reservationId;
 
 // ═══ PUBLIC — applying a code at the checkout ═══════════════════════════════
 

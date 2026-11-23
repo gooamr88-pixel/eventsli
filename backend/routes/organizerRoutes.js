@@ -167,6 +167,26 @@ router.patch('/templates/:id', ...methods, param('id').isUUID(), ...templateText
 router.delete('/templates/:id', ...methods, param('id').isUUID(), validate, tpl.remove);
 router.post('/templates/:id/copy', ...methods, param('id').isUUID(), ...templateText(), validate, tpl.copy);
 
+// The venue map library (2026-11-24): the organizer's saved maps and Eventsli's
+// maps of real venues — map only (controllers/venueMapTemplateController.js).
+const vmap = require('../controllers/venueMapTemplateController');
+const VENUE_KINDS = require('../services/venueMapTemplateService').KINDS;
+const venueMapText = () => [
+  body('name').optional({ values: 'falsy' }).isString().trim().isLength({ min: 2, max: 80 })
+    .withMessage('A map name is 2 to 80 characters.'),
+  body('description').optional({ values: 'null' }).isString().isLength({ max: 500 })
+    .withMessage('A description is at most 500 characters.'),
+  body('venueKind').optional().isIn(VENUE_KINDS).withMessage('Choose a kind of venue.'),
+];
+const reads = [requireAuth, requireRole('organizer'), requireOrganizerProfile];
+router.get('/venue-maps', ...reads, query('eventId').optional().isUUID(), validate, vmap.list);
+router.get('/venue-maps/:id', ...reads, param('id').isUUID(), validate, vmap.get);
+router.post('/venue-maps', ...methods, body('eventId').isUUID().withMessage('Choose the event whose map to save.'), ...venueMapText(), validate, vmap.create);
+router.patch('/venue-maps/:id', ...methods, param('id').isUUID(), ...venueMapText(), validate, vmap.update);
+router.delete('/venue-maps/:id', ...methods, param('id').isUUID(), validate, vmap.remove);
+router.post('/venue-maps/:id/copy', ...methods, param('id').isUUID(), ...venueMapText(), validate, vmap.copy);
+router.post('/venue-maps/:id/used', ...methods, param('id').isUUID(), validate, vmap.used);
+
 // Saved seating-map looks (2026-11-18): the Venue Builder's Map look panel.
 router.get('/map-looks', requireAuth, requireRole('organizer'), requireOrganizerProfile, profile.listMapLooks);
 router.put(

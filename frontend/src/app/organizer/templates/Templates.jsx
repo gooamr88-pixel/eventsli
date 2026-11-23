@@ -14,6 +14,7 @@ import TemplateCard from '../../components/templates/TemplateCard';
 import TemplatePreview from '../../components/templates/TemplatePreview';
 import TemplateDialog from '../../components/templates/TemplateDialog';
 import { useOrganizerEvents } from '../nav/OrganizerEvents';
+import VenueMapsTab from './VenueMapsTab';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -26,7 +27,11 @@ import { useOrganizerEvents } from '../nav/OrganizerEvents';
  *   Copy       an Eventsli template into the library, to change and keep
  *   Save       any of their events as a template (also from the event's More)
  *
- * `?from=<eventId>` opens Save on that event; `?tab=eventsli` opens Eventsli's.
+ *   Venue maps (2026-11-24) the venue map library and the organizer's saved
+ *              maps — the map only (VenueMapsTab.jsx)
+ *
+ * `?from=<eventId>` opens Save on that event; `?tab=eventsli` opens Eventsli's,
+ * `?tab=maps` the venue maps.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 export default function Templates() {
@@ -35,13 +40,14 @@ export default function Templates() {
   const confirm = useConfirm();
   const toast = useToast();
   const { data, error, loading, reload } = useApi('/organizer/templates');
-  const [tab, setTab] = useState(params.get('tab') === 'eventsli' ? 'eventsli' : 'mine');
+  const [tab, setTab] = useState(['eventsli', 'maps'].includes(params.get('tab')) ? params.get('tab') : 'mine');
   const [saving, setSaving] = useState(params.get('from') ? { eventId: params.get('from') } : null);
   const [renaming, setRenaming] = useState(null);
   const [preview, setPreview] = useState(null);
 
-  if (loading && !data) return <Loading variant="list" rows={3} label="Loading templates" />;
-  if (error && !data) return <ErrorNotice error={error} onRetry={reload} />;
+  const maps = tab === 'maps';
+  if (!maps && loading && !data) return <Loading variant="list" rows={3} label="Loading templates" />;
+  if (!maps && error && !data) return <ErrorNotice error={error} onRetry={reload} />;
 
   const mine = data?.mine || [];
   const eventsli = data?.eventsli || [];
@@ -92,8 +98,8 @@ export default function Templates() {
       <PageHeader
         eyebrow="Your account"
         title="Templates"
-        lede="Start a new event from one you have run before, or from a ready-made Eventsli template — ticket types, add-ons and seating map included."
-        actions={(
+        lede="Start a new event from one you have run before, or from a ready-made Eventsli template — ticket types, add-ons and seating map included. Or start just the map from a real venue."
+        actions={!maps && (
           <button type="button" className="es-btn es-btn--primary" onClick={() => setSaving({ eventId: '' })}>
             Save an event as a template
           </button>
@@ -111,10 +117,11 @@ export default function Templates() {
         options={[
           { value: 'mine', label: 'Your templates', count: mine.length },
           { value: 'eventsli', label: 'Eventsli templates', count: eventsli.length },
+          { value: 'maps', label: 'Venue maps' },
         ]}
       />
 
-      {list.length === 0 ? (
+      {maps ? <VenueMapsTab /> : list.length === 0 ? (
         tab === 'mine' ? (
           <Empty
             icon="copy"

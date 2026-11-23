@@ -7,6 +7,8 @@ Markets: Canada and the United States.
 eventsli/
 ├── backend/              Express API — the only thing that touches the database
 ├── frontend/             Next.js 16 · React 19 · Tailwind 4 — see docs/FRONTEND-PLAN.md
+├── attendee/             The Eventsli app (iOS / Android, Expo) — see attendee/README.md
+├── mobile/               Eventsli Check-in, the door scanner app (Expo) — see mobile/README.md
 ├── supabase/migrations/  Timestamped migrations. One baseline, then forward only.
 ├── docs/                 Decisions that outlive a commit message
 ├── .github/workflows/    CI: units, integration on a local Supabase, migrations

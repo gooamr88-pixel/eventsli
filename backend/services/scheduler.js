@@ -193,6 +193,9 @@ const JOBS = [
   // The organizers' daily sales summaries, at 8 am their time (2026-11-23).
   { name: 'sale-digests', everyMs: 60 * 60_000, run: () => withLeaderLock('sale-digests', () => require('./saleNoticeService').sendDigests()), immediate: false },
   { name: 'demo-reminders', everyMs: 10 * 60_000, run: () => withLeaderLock('demo-reminders', () => require('./demo/demoAdmin').sendReminders()), immediate: false },
+  // The attendee app's "coming up" reminders (2026-11-24): once per event per
+  // ticket holder, keyed, so the ten-minute cadence never repeats one.
+  { name: 'app-reminders', everyMs: 10 * 60_000, run: () => withLeaderLock('app-reminders', () => require('./attendeeNotifications').eventReminders(), 600), immediate: false },
   { name: 'scan-retention', everyMs: 24 * 3_600_000, run: () => require('./scanRetention').scheduled(withLeaderLock), immediate: false },
   // SMS: dispatch, campaigns, reminders, reconciliation — services/sms/jobs.js.
   ...require('./sms/jobs').jobs(withLeaderLock),

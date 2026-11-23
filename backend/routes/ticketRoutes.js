@@ -66,6 +66,9 @@ router.post(
         email.sendTicketTransferred({ to, event, direction, counterparty })
           .catch((e) => logger.error({ err: e.message }, 'transfer notice failed'));
       }
+      // The new holder's app, when they have an account (best-effort).
+      require('../services/attendeeNotifications')
+        .ticketReceived({ ticketId: req.params.ticketId, toEmail: result.to, fromEmail: result.from });
 
       return sendOk(res, {
         transferred: true,

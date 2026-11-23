@@ -42,7 +42,7 @@ const statusFor = (code) => ERROR_STATUS[code] || 400;
  * ─────────────────────────────────────────────────────────────────────────────
  */
 function ownsReservation(req) {
-  return accessTokens.readReservationToken(accessTokens.fromRequest(req))
+  return accessTokens.readReservationToken(accessTokens.reservationTokenFrom(req))
     === req.params.reservationId;
 }
 

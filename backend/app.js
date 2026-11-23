@@ -257,6 +257,8 @@ app.use('/api/v1/ai', require('./routes/aiRoutes'));
 app.use('/api/v1/public/demo', require('./routes/demoRoutes'));
 app.use('/api/v1/public', require('./routes/publicRoutes'));
 app.use('/api/v1/tickets', require('./routes/ticketRoutes'));
+// The attendee app's saved events, inbox and push devices (2026-11-24).
+app.use('/api/v1/me', require('./routes/meRoutes'));
 app.use('/api/v1/payments', require('./routes/paymentRoutes'));
 app.use('/api/v1/scan', require('./routes/scanRoutes'));
 // The native check-in app's public configuration (minimum version, store links).

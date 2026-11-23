@@ -1,6 +1,7 @@
 'use client';
 
 import NavIcon from '../../../../components/shell/NavIcon';
+import { useApi } from '../../../../hooks/useApi';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -14,9 +15,15 @@ import NavIcon from '../../../../components/shell/NavIcon';
  *
  * The card takes pointer events; the floor around it still pans and
  * box-selects as usual.
+ *
+ * THE VENUE MAP LIBRARY (2026-11-24): when Eventsli (or the organizer) has a
+ * map of the venue this event is at, it is the first choice, by name — the
+ * whole room, ready, instead of drawing it.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-export default function MapStarter({ onAdd, ai = false, seating = true, vendors = false }) {
+export default function MapStarter({ eventId = null, onAdd, ai = false, seating = true, vendors = false }) {
+  const { data: library } = useApi(seating && eventId ? `/organizer/venue-maps?eventId=${eventId}` : null);
+  const ready = library?.forVenue?.[0] || null;
   // General admission (2026-11-23, the event map): the room, not seats.
   const choices = !seating ? [
     { key: 'stage', icon: 'flag', title: 'A stage', text: 'Where everyone looks', initial: { family: 'zone', key: 'stage' } },
@@ -26,7 +33,8 @@ export default function MapStarter({ onAdd, ai = false, seating = true, vendors 
   ] : [
     { key: 'section', icon: 'grid', title: 'Rows of seats', text: 'Theatre, concert, conference', initial: { family: 'section' } },
     { key: 'table', icon: 'layers', title: 'Tables', text: 'Gala, wedding, dinner', initial: { family: 'table', key: 'round', seatCount: 10 } },
-    { key: 'template', icon: 'copy', title: 'A ready-made map', text: 'Yours or an Eventsli template', initial: { family: 'template' } },
+    ...(ready ? [{ key: 'venue', icon: 'pin', title: `The map of ${ready.venue.name}`, text: `${ready.name} · ready to use`, initial: { family: 'template', templateId: ready.id }, featured: true }] : []),
+    { key: 'template', icon: 'copy', title: 'A ready-made map', text: 'Venue library or your saved maps', initial: { family: 'template' } },
     ...(ai ? [{ key: 'ai', icon: 'sparkle', title: 'Describe the room', text: 'AI lays it out for you', initial: { family: 'ai' } }] : []),
   ];
   return (
@@ -37,7 +45,7 @@ export default function MapStarter({ onAdd, ai = false, seating = true, vendors 
         <ul className="es-mapstarter__list">
           {choices.map((c) => (
             <li key={c.key}>
-              <button type="button" className="es-mapstarter__choice" onClick={() => onAdd(c.initial)}>
+              <button type="button" className="es-mapstarter__choice" data-featured={c.featured ? 'true' : undefined} onClick={() => onAdd(c.initial)}>
                 <span className="es-mapstarter__icon" aria-hidden="true"><NavIcon name={c.icon} size={20} /></span>
                 <span className="fx-min0"><b>{c.title}</b><small>{c.text}</small></span>
               </button>

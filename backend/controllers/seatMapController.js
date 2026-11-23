@@ -459,7 +459,7 @@ async function release(req, res, next) {
   try {
     // Releasing is destructive and reaches a stranger's seats. The id alone is
     // not authority to do it — the token proves this caller made the hold.
-    const authorised = accessTokens.readReservationToken(accessTokens.fromRequest(req));
+    const authorised = accessTokens.readReservationToken(accessTokens.reservationTokenFrom(req));
     if (authorised !== req.params.reservationId) {
       return sendFail(res, {
         status: 403, error: 'FORBIDDEN',

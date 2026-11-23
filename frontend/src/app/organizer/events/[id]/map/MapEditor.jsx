@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { describeError } from '../../../../utils/errors';
 import { usePanZoom } from '../../../../components/seating/usePanZoom';
 import { Loading } from '../../../../components/Feedback';
@@ -39,6 +40,7 @@ import { useUnsavedGuard } from './useUnsavedGuard';
 import { useStepSave } from '../BuildStep';
 import { useWallTool } from './style/useWallTool';
 import MapTemplateDialog from './style/MapTemplateDialog';
+import SaveMapTemplateDialog from './style/SaveMapTemplateDialog';
 import ImageImportDialog from './style/ImageImportDialog';
 import BoothRowDialog from './BoothRowDialog';
 import { BOOTH_KIND, BOOTH_META } from '../../../../components/seating/venueZones';
@@ -140,6 +142,7 @@ export default function MapEditor({ eventId }) {
    * the server's rule: selling whole tables only, seats need no price.
    */
   const eventStatus = useEventContext()?.event?.status || null;
+  const eventVenueName = useEventContext()?.event?.venueName || null;
   const liveUnpriced = eventStatus === 'published' && purchaseMode !== 'table_only'
     ? countUnpriced(tables, purchaseMode) : 0;
   const saveProblems = liveUnpriced > 0
@@ -254,10 +257,15 @@ export default function MapEditor({ eventId }) {
   });
 
   /** An Add-to-layout item: a tool (Draw walls), a seating section, or the Add dialog. */
-  const [showMapTpl, setShowMapTpl] = useState(false);
+  // A ready-made map: false, true (the picker), or a venue map's id to open
+  // on (the empty map's suggestion, or Templates → Use in an event, which
+  // arrives as ?venueMap=<id>).
+  const venueMapParam = useSearchParams()?.get('venueMap') || null;
+  const [showMapTpl, setShowMapTpl] = useState(() => venueMapParam || false);
+  const [showSaveTpl, setShowSaveTpl] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const addFrom = (initial) => {
-    if (initial.family === 'template') { setShowMapTpl(true); return; }
+    if (initial.family === 'template') { setShowMapTpl(initial.templateId || true); return; }
     if (initial.family === 'image') { setShowImport(true); return; }
     if (initial.family === 'ai') { setShowDesigner(true); return; }
     if (initial.family === 'tool') { selection.clear(); setToolBoth(initial.key); return; }
@@ -391,6 +399,7 @@ export default function MapEditor({ eventId }) {
         canSave={!io.saving && dirty && saveProblems.length === 0}
         onSave={io.save}
         onExport={() => setShowPack(true)}
+        onSaveTemplate={() => setShowSaveTpl(true)}
       />
 
       <StudioTabs
@@ -510,7 +519,7 @@ export default function MapEditor({ eventId }) {
             boothInfo={io.boothInfo}
             look={draft.look}
             wallTool={wallTool}
-            emptyState={<MapStarter onAdd={addFrom} ai={aiOn} seating={seating} vendors={vendorsOn} />}
+            emptyState={<MapStarter eventId={eventId} onAdd={addFrom} ai={aiOn} seating={seating} vendors={vendorsOn} />}
           />
         </div>
         {/* Outside the card, so the zoom pill floating on the canvas's corner
@@ -592,6 +601,8 @@ export default function MapEditor({ eventId }) {
 
       {showMapTpl && (
         <MapTemplateDialog
+          eventId={eventId}
+          initialId={typeof showMapTpl === 'string' ? showMapTpl : null}
           tiers={tiers}
           categories={categories}
           replacing={tables.length > 0 || zones.length > 0}
@@ -602,6 +613,18 @@ export default function MapEditor({ eventId }) {
             studioDraft.edit('sections', spec.sections || []);
             setShowMapTpl(false);
           }}
+        />
+      )}
+
+      {showSaveTpl && (
+        <SaveMapTemplateDialog
+          eventId={eventId}
+          venueName={eventVenueName}
+          dirty={dirty}
+          saving={io.saving}
+          canSave={!io.saving && dirty && saveProblems.length === 0}
+          onSaveMap={io.save}
+          onClose={() => setShowSaveTpl(false)}
         />
       )}
 

@@ -253,6 +253,11 @@ function SessionList({ sessions, error, onChanged }) {
                     Eventsli Check-in{s.deviceName ? ` · ${s.deviceName}` : ''}
                   </p>
                 )}
+                {s.client === 'attendee_app' && (
+                  <p className="text-sm font-medium text-ink">
+                    Eventsli app{s.deviceName ? ` · ${s.deviceName}` : ''}
+                  </p>
+                )}
                 <p className="line-clamp-2 break-all text-sm text-ink">
                   {/* The user agent, plainly. It is what the API records, and
                       dressing it up as "Chrome on macOS" invents a confidence

@@ -415,6 +415,8 @@ async function update(req, res, next) {
     if (data.status === 'published' && allowed.starts_at && current.starts_at
       && new Date(data.starts_at).getTime() !== new Date(current.starts_at).getTime()) {
       require('../services/sms/notifications').scheduleChanged(req.params.eventId, current.starts_at);
+      // …and told in the attendee app, with everyone who saved it (best-effort).
+      require('../services/attendeeNotifications').eventMoved(req.params.eventId);
     }
 
     // BRD §19 — an admin changing an organizer's event is on the record: what
