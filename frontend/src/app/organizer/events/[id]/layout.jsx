@@ -12,6 +12,8 @@ import { EventProvider } from './EventContext';
 import BuildNav, { BuildProgress } from './BuildNav';
 import { organizerNavGroups } from '../../nav/organizerNav';
 import { BuildStepProvider } from './BuildStep';
+import SectionTabs from './SectionTabs';
+import { sectionTabsFor } from '../../nav/sectionTabs';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -82,6 +84,9 @@ export default function EventLayout({ children }) {
       <BuildStepProvider>
         <div className="fx-stack">
           <EventHeader event={state.event} eventId={id} />
+          {/* Ticket types / Table categories, Orders / Offline / Commission,
+              Door team / Devices: one sidebar row each, tabs here. */}
+          <SectionTabs eventId={id} event={state.event} />
           {children}
           {/* Once, here, rather than in each of the nine build pages — every one
               of them would have to remember, and the one that forgot would be
@@ -99,7 +104,7 @@ const PAGE_HEADS = {
   '': { title: 'Overview', lede: 'A quick summary of your event, its performance, and setup progress.' },
   details: { title: 'Event details', lede: 'Manage your event’s core information, description, and settings.' },
   content: {
-    title: 'Page & branding',
+    title: 'Event page',
     lede: 'Customize how your event looks and feels on the public page.',
     aside: true,
   },
@@ -232,7 +237,10 @@ function EventHeader({ event, eventId }) {
 
 /** The sidebar's name for the section this URL is in, from the same nav model. */
 function sectionLabel(eventId, pathname) {
-  const items = organizerNavGroups({ eventId }).flatMap((g) => g.items)
+  // A tab inside a row (Table categories inside Tickets) is named by its tab.
+  const tab = sectionTabsFor(pathname, eventId)?.tabs.find((t) => t.current);
+  if (tab) return tab.label;
+  const items = organizerNavGroups({ eventId, partners: { sponsors: true, vendors: true } }).flatMap((g) => g.items)
     .filter((i) => i.href && i.href !== `/organizer/events/${eventId}` && pathname.startsWith(i.href));
   return items.sort((a, b) => b.href.length - a.href.length)[0]?.label || null;
 }

@@ -20478,3 +20478,63 @@ button.es-vb-doc__tile:focus-visible { outline: 3px solid var(--es-accent); outl
   .es-salemail__add { display: flex; gap: 0.5rem; }
   .es-salemail__add .es-input { flex: 1 1 auto; min-width: 0; }
 }
+
+/* ── The simpler organizer journey (owner, 2026-11-23) ─────────────────────
+   .es-partners  the overview's "Sponsors & vendors" switch rows
+   .es-setup     the three-step setup Sponsors and Vendors open on
+   .es-plist     the plain list of sponsors / vendors with filter chips */
+@layer components {
+  .es-partners { display: flex; flex-direction: column; gap: 0.5rem; margin: 0; padding: 0; list-style: none; }
+  .es-partners__row {
+    display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 0.875rem;
+    padding: 0.875rem 1rem; border: 1px solid var(--es-border); border-radius: var(--es-radius-md, 0.75rem);
+  }
+  .es-partners__icon {
+    display: inline-flex; align-items: center; justify-content: center; width: 2.5rem; height: 2.5rem;
+    border-radius: 0.75rem; background: var(--es-accent-wash); color: var(--es-accent);
+  }
+  .es-partners__name { display: flex; align-items: center; gap: 0.5rem; font-weight: 700; color: var(--es-text); }
+  .es-partners__pitch { display: block; margin-top: 0.125rem; font-size: var(--es-text-sm); color: var(--es-text-muted); }
+  @media (width < theme(--breakpoint-sm)) {
+    .es-partners__row { grid-template-columns: auto minmax(0, 1fr); }
+    .es-partners__row > :last-child { grid-column: 1 / -1; justify-self: start; }
+  }
+
+  .es-setup { display: flex; flex-direction: column; gap: 0.75rem; margin: 0; padding: 0; list-style: none; }
+  .es-setup__step {
+    display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0.875rem; padding: 1rem;
+    border: 1px solid var(--es-border); border-radius: var(--es-radius-md, 0.75rem); background: var(--es-surface);
+  }
+  .es-setup__step[data-state="current"] { border-color: var(--es-accent); box-shadow: 0 0 0 1px var(--es-accent); }
+  .es-setup__num {
+    display: inline-flex; align-items: center; justify-content: center; width: 2rem; height: 2rem; border-radius: 999px;
+    background: var(--es-bg-sunken); color: var(--es-text); font-weight: 800; font-size: var(--es-text-sm);
+  }
+  .es-setup__step[data-state="current"] .es-setup__num { background: var(--es-accent); color: var(--es-text-on-accent); }
+  .es-setup__step[data-state="done"] .es-setup__num { background: var(--es-accent-wash); color: var(--es-accent); }
+  .es-setup__title { margin: 0; font-family: var(--es-font-display); font-weight: 800; font-size: var(--es-text-base, 1rem); color: var(--es-text); }
+  .es-setup__text { margin: 0.25rem 0 0; font-size: var(--es-text-sm); color: var(--es-text-muted); }
+  .es-setup__act { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.75rem; }
+
+  .es-plist { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; border: 1px solid var(--es-border); border-radius: var(--es-radius-md, 0.75rem); overflow: hidden; }
+  .es-plist > li + li { border-top: 1px solid var(--es-border); }
+  .es-plist__row {
+    display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 0.875rem;
+    padding: 0.875rem 1rem; color: inherit; text-decoration: none;
+  }
+  .es-plist__row:hover { background: var(--es-bg-sunken); }
+  .es-plist__logo { width: 2.5rem; height: 2.5rem; border-radius: 0.625rem; object-fit: contain; background: var(--es-bg-sunken); }
+  .es-plist__initial {
+    display: inline-flex; align-items: center; justify-content: center; width: 2.5rem; height: 2.5rem; border-radius: 0.625rem;
+    background: var(--es-bg-sunken); color: var(--es-text); font-weight: 800;
+  }
+  .es-plist__name { display: block; font-weight: 700; color: var(--es-text); }
+  .es-plist__sub { display: block; font-size: var(--es-text-sm); color: var(--es-text-muted); }
+  .es-plist__end { display: flex; flex-direction: column; align-items: flex-end; gap: 0.25rem; text-align: right; }
+  @media (width < theme(--breakpoint-sm)) {
+    .es-plist__row { grid-template-columns: auto minmax(0, 1fr); }
+    .es-plist__end { grid-column: 2; align-items: flex-start; text-align: left; flex-direction: row; flex-wrap: wrap; }
+  }
+  .es-partner-more { border-top: 1px solid var(--es-border); padding-top: 1rem; }
+  .es-partner-more > summary { cursor: pointer; font-weight: 700; color: var(--es-text); }
+}

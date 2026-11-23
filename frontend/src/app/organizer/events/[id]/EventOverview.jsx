@@ -15,6 +15,7 @@ import { useApi } from '../../../hooks/useApi';
 import { useNowMinute } from '../../../hooks/useNowMinute';
 import { isComingSoon } from '../../../lib/comingSoon';
 import ComingSoonLive from './ComingSoonLive';
+import PartnersCard from './PartnersCard';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -189,6 +190,9 @@ function Overview({ event, refresh }) {
         </div>
         {!finished && <div className="es-ovgrid__side"><SetupProgress event={event} seo={seo} /></div>}
       </div>
+
+      {/* Optional extras, asked here instead of sitting in every sidebar. */}
+      {!finished && <div id="partners" className="scroll-mt-24"><PartnersCard event={event} /></div>}
 
       {/* ─────────────────────────────────────────────────────────────────
           A FINISHED EVENT HAS NO STEPS LEFT, so this is the one thing it

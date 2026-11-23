@@ -143,9 +143,9 @@ export default function SponsorsEditor({ eventId, section }) {
     <ContentCard
       collapsible
       icon="users"
-      title="Sponsors & partners"
-      description="Shown near the bottom of your page, headline level first. The arrows order sponsors within their level."
-      count={items?.length ? `${items.length} ${items.length === 1 ? 'sponsor' : 'sponsors'}` : 'Add sponsors'}
+      title="Logos only"
+      description="Sponsors you arranged yourself, shown on your page with no package or payment here. Headline level first; the arrows order them within a level."
+      count={items?.length ? `${items.length} ${items.length === 1 ? 'sponsor' : 'sponsors'}` : 'Add a logo'}
     >
       <FormError error={error} />
 

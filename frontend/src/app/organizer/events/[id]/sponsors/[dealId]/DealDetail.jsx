@@ -39,7 +39,7 @@ import { STARTER_TERMS } from '../ProgramSettings';
 const METHODS = [['bank_transfer', 'Bank transfer'], ['cheque', 'Cheque'], ['cash', 'Cash'], ['other', 'Other']];
 const METHOD_LABEL = Object.fromEntries([...METHODS, ['card', 'Card (Stripe)']]);
 const HISTORY = {
-  created: 'Lead added',
+  created: 'Sponsor added',
   inquiry: 'Inquiry received from the sponsor page',
   proposal_sent: 'Proposal sent',
   proposal_revised: 'Revised proposal sent',
@@ -92,7 +92,7 @@ export default function DealDetail({ eventId, dealId }) {
   async function reopen() {
     try {
       await post(`/events/${eventId}/sponsorship/deals/${dealId}/reopen`, {}, { noRedirect: true });
-      toast.success('Reopened as a lead.');
+      toast.success('Reopened as new.');
       deal.reload();
     } catch (err) {
       toast.error(messageFor(err), { title: describeError(err).title });

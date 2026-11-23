@@ -23,7 +23,9 @@ export function matches(item, pathname) {
   if (!item?.href || item.disabled) return false;
   const path = pathOf(item.href);
   if (item.exact) return pathname === path;
-  return pathname === path || pathname.startsWith(`${path}/`);
+  const under = (p) => pathname === p || pathname.startsWith(`${p}/`);
+  // `also`: screens that live inside this row (organizerNav.js) light it too.
+  return under(path) || (item.also || []).some((p) => under(pathOf(p)));
 }
 
 /**

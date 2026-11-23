@@ -148,7 +148,7 @@ export function useLaunchSteps(event) {
     },
     {
       key: 'content',
-      label: 'Page & branding',
+      label: 'Event page',
       // "Done" the moment there is anything beyond a cover. Not a bar to clear:
       // it is a prompt, and an organizer who has added one highlight has found
       // the screen, which is all this step is for.

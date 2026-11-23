@@ -15,7 +15,7 @@ import NavIcon from '../shell/NavIcon';
 
 /** A deal's status (backend sponsorshipRules.status) → words and a pill. */
 export const DEAL_STATUS = Object.freeze({
-  lead: { label: 'Lead', pill: '' },
+  lead: { label: 'New', pill: '' },
   proposal: { label: 'Proposal sent', pill: 'es-pill--warning' },
   signed: { label: 'Signed · awaiting payment', pill: 'es-pill--warning' },
   part_paid: { label: 'Part paid', pill: 'es-pill--warning' },

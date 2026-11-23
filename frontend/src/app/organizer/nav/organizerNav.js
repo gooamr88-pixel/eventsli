@@ -85,15 +85,20 @@ const DISPLAY_ONLY_KEYS = new Set(['overview', 'details', 'content', 'share', 's
  * checklist, which has one event's full detail, is where free is handled.
  */
 export function organizerNavGroups({
-  eventId, listingType = null, admissionType = null, eventTitle = null,
+  eventId, listingType = null, admissionType = null, eventTitle = null, partners = null,
 }) {
   const displayOnly = listingType === 'display_only';
   const generalAdmission = admissionType === 'general';
-  const item = (key, label, icon, suffix) => ({
+  const base = eventId ? `/organizer/events/${eventId}` : null;
+  // `also`: screens that live INSIDE this row (Table categories inside
+  // Tickets, Commission inside Orders) light it up too. They are reached from
+  // tabs at the top of the row's own page, not from the sidebar.
+  const item = (key, label, icon, suffix, also = []) => ({
     key,
     label,
     icon,
-    href: eventId ? `/organizer/events/${eventId}${suffix}` : null,
+    href: base ? `${base}${suffix}` : null,
+    also: base ? also.map((s) => `${base}${s}`) : [],
     disabled: !eventId,
     hint: eventId ? null : CHOOSE_FIRST,
   });
@@ -157,79 +162,71 @@ export function organizerNavGroups({
     ];
   }
 
+  /**
+   * ─────────────────────────────────────────────────────────────────────────
+   * FOUR GROUPS, PLAIN NAMES (owner, 2026-11-23: "very complex and terrible").
+   *
+   * With an event open the sidebar was 25 rows. "Sell" alone held eight —
+   * Orders beside Sponsors, Vendors, Commission, Hosts & guests, Offline
+   * payments and Door sales — so the list had to be read top to bottom to
+   * find anything, and two whole systems (sponsors, vendors) looked like one
+   * more small tool every event had to deal with.
+   *
+   *   Set up      what the event IS — and the Back / Save and continue walk
+   *   Sell        what happens once it is on sale
+   *   Partners    sponsors and vendors, only for an event that said yes
+   *   On the day  the door
+   *
+   * Screens that belong to another one moved inside it, reached by tabs at the
+   * top of that page (`SectionTabs`): Table categories inside Tickets;
+   * Offline payments and Commission inside Orders; Scanning devices inside
+   * Door team. Their routes did not change, and `also` keeps the parent row
+   * lit while you are on them.
+   * ─────────────────────────────────────────────────────────────────────────
+   */
   const groups = [
-    // `home` and `account` are the two objects above, not copies of them. They
-    // were written out again here, so adding a destination to the account group
-    // changed it for an organizer with an event open and not for one without.
+    // `home` and `account` are the two objects above, not copies of them.
     home,
     /**
-     * THE BUILD ORDER IS THE ORDER THE LAUNCH CHECKLIST ASKS FOR, and that is
-     * the whole point of listing it this way.
-     *
-     * It used to read Overview → Page & branding → Ticket types → Seat map,
-     * which put the one OPTIONAL screen second, ahead of the two an event
-     * cannot go on sale without. The checklist beside it asked for them in the
-     * other order. Two lists describing one journey, disagreeing — so "what do
-     * I do next" had two answers depending on which the organizer read.
-     *
-     * Required first, in the order they depend on each other (a seating map
-     * needs the tiers that price it; table categories colour the tables on that
-     * map), then the optional pair. `BuildNav` walks this group and only this
-     * group, so Back/Next at the foot of each screen follows this sequence
-     * exactly and ends at Review & submit.
+     * THE SETUP ORDER IS THE ORDER THE LAUNCH CHECKLIST ASKS FOR. Required
+     * first, in the order they depend on each other (tickets are priced in the
+     * event's currency, the map is priced by the tickets), then the page.
+     * `BuildNav` walks this group and only this group, so its "step N of M"
+     * counts only these. Discounts used to be the last step, which made an
+     * optional extra read as required; it is under Sell now.
      */
     {
       id: 'build',
-      label: 'Build the event',
+      label: 'Set up',
       // Which event every group below acts on. `AppShell` prints it under the
       // label; without it a drawer that covers the page named no event at all.
       caption: eventTitle,
-      note: eventId ? null : 'Pick an event above to open these.',
       items: [
         item('overview', 'Overview', 'info', ''),
-        /**
-         * ─────────────────────────────────────────────────────────────────
-         * THE EVENT'S OWN FIELDS, which had no entry here at all.
-         *
-         * Name, dates, venue, capacity, fee bearer, refund rules — the form
-         * was rendered INSIDE the overview, so the longest editor in the
-         * product shared a sidebar row with the summary above it. The row
-         * said "Overview" whichever of the two you were reading, and there
-         * was no way to link anybody to the form: the launch checklist and
-         * the rejection notice both pointed at an `#details` anchor on a
-         * screen that also held a checklist telling you to go there.
-         *
-         * FIRST AFTER THE OVERVIEW, because it is first in fact: a ticket
-         * type is priced in the event's currency and a seat map is drawn for
-         * its venue, so the fields those depend on come before both. That
-         * also makes the Back / Save and continue sequence read as the order
-         * somebody actually builds an event in.
-         * ─────────────────────────────────────────────────────────────────
-         */
+        // The event's own fields: name, dates, venue, capacity, refund rules.
         item('details', 'Event details', 'pencil', '/details'),
-        item('tiers', 'Ticket types', 'ticket', '/tiers'),
+        item('tiers', 'Tickets', 'ticket', '/tiers', ['/tables']),
         item('map', 'Event map', 'map', '/map'),
-        item('tables', 'Table categories', 'layers', '/tables'),
-        item('content', 'Page & branding', 'image', '/content'),
-        item('promos', 'Discounts', 'tag', '/promos'),
+        item('content', 'Event page', 'image', '/content'),
       ],
     },
     {
       id: 'sell',
       label: 'Sell',
       items: [
+        item('orders', 'Orders', 'receipt', '/orders', ['/offline', '/commission']),
         item('share', 'Share & QR', 'qr', '/share'),
-        item('orders', 'Orders', 'receipt', '/orders'),
+        item('promos', 'Discounts', 'tag', '/promos'),
         // Whose guest each buyer is, and their hosts (2026-11-23).
         item('guests', 'Hosts & guests', 'users', '/guests'),
-        // Phase 2: buyers who reserved online and pay the organizer directly.
-        item('offline', 'Offline payments', 'coins', '/offline'),
-        item('door', 'Door sales', 'cash', '/door'),
-        // Sponsorships (2026-11-20): packages, proposals, signed deals, payments.
-        item('sponsors', 'Sponsors', 'handshake', '/sponsors'),
-        // Vendors (2026-11-20): applications, booth types, booth fees, the vendor door list.
-        item('vendors', 'Vendors', 'store', '/vendors'),
-        item('commission', 'Commission', 'percent', '/commission'),
+      ],
+    },
+    {
+      id: 'partners',
+      label: 'Partners',
+      items: [
+        ...(partners?.sponsors ? [item('sponsors', 'Sponsors', 'handshake', '/sponsors')] : []),
+        ...(partners?.vendors ? [item('vendors', 'Vendors', 'store', '/vendors')] : []),
       ],
     },
     {
@@ -237,36 +234,14 @@ export function organizerNavGroups({
       label: 'On the day',
       items: [
         item('attendees', 'Door list', 'users', '/attendees'),
-        item('staff', 'Door team', 'shield', '/staff'),
-        item('devices', 'Scanning devices', 'scan', '/devices'),
+        item('door', 'Door sales', 'cash', '/door'),
+        item('staff', 'Door team', 'shield', '/staff', ['/devices']),
         /**
-         * ─────────────────────────────────────────────────────────────────
-         * THE SCANNER ITSELF, WHICH HAD NO LINK ANYWHERE IN THE PRODUCT.
-         *
-         * `/gate/login` existed, worked, and was reachable only by TYPING IT.
-         * The Door team screen printed the path as monospace text in a list of
-         * instructions — "on the phone they will scan with, they open
-         * /gate/login" — which is a URL an organizer reads out over the phone
-         * to someone standing at a door in the dark. Nothing else in the
-         * sidebar, the dashboard or the event pages pointed at it.
-         *
-         * An organizer can already sign in to it with their own account:
-         * `StaffSignIn` lists the events they may scan and labels their own
-         * "your event". So the whole feature was built, shipped, and hidden
-         * behind knowledge of a path.
-         *
-         * NOT `item()` — the gate is not under `/organizer/events/<id>`. It is
-         * its own principal: a device with a PIN, or a named person on the door
-         * team, scoped to ONE event. Which event that is gets chosen at
-         * sign-in, so this href carries no id and never varies. It sits in this
-         * group all the same, beside the door team and the devices it is the
-         * point of, rather than in the account group where it would read as a
-         * setting.
-         *
-         * `targetBlank` because it is a SHIFT, not a page. Leaving the
-         * dashboard to scan and losing the dashboard is how an organizer ends
-         * up with the door open on their only tab.
-         * ─────────────────────────────────────────────────────────────────
+         * THE SCANNER ITSELF. `/gate/login` was reachable only by typing it.
+         * NOT `item()` — the gate is its own principal (a device with a PIN or
+         * a named door-team member, scoped to one event chosen at sign-in), so
+         * this href carries no id. `targetBlank` because it is a shift, not a
+         * page: leaving the dashboard to scan should not lose the dashboard.
          */
         {
           key: 'scan',
@@ -282,26 +257,39 @@ export function organizerNavGroups({
   ];
 
   // A listing sells nothing, so every selling screen is an empty room. Checked
-  // first because it is the stronger claim: it removes the seat map too, and
-  // asking about admission afterwards would be asking about a map that is
-  // already gone.
+  // first because it is the stronger claim: it removes the map too.
   if (displayOnly) return prune(groups, (item) => DISPLAY_ONLY_KEYS.has(item.key));
+  // Drops the Partners heading when neither is on.
+  const kept = prune(groups, () => true);
   if (generalAdmission) {
     /**
-     * THE EVENT MAP IS FOR EVERY EVENT (2026-11-23). It was the seat map, and
-     * shown here disabled with a reason (TECH-AUDIT-LOG S-13); a
-     * general-admission event now draws its room — stage, bars, entrances,
-     * vendor booths — with no seats, so the row stays live and carries a hint
-     * about what is different. Table categories still go: they price tables,
-     * and this event sells none.
+     * THE EVENT MAP IS FOR EVERY EVENT (2026-11-23). A general-admission event
+     * draws its room — stage, bars, entrances, vendor booths — with no seats,
+     * so the row stays live and carries a hint about what is different.
+     * (Table categories, which only price tables, are hidden on the Tickets
+     * page for it.)
      */
-    return prune(groups, (item) => item.key !== 'tables')
-      .map((group) => ({
-        ...group,
-        items: group.items.map((item) => (item.key === 'map' ? { ...item, hint: GA_MAP_HINT } : item)),
-      }));
+    return kept.map((group) => ({
+      ...group,
+      items: group.items.map((item) => (item.key === 'map' ? { ...item, hint: GA_MAP_HINT } : item)),
+    }));
   }
-  return groups;
+  return kept;
+}
+
+/**
+ * THE SETUP WALK — what `BuildNav` steps through with Back / Save and continue
+ * and counts in "Setup · step N of M". The Set up group, minus what is
+ * optional for this event: a general-admission event's map is a nice-to-have
+ * (a room drawing, no seats to sell), so it stays in the sidebar but is not a
+ * step (owner, 2026-11-23: setup counts only what is required).
+ */
+export function setupSteps({ eventId, listingType = null, admissionType = null }) {
+  return organizerNavGroups({ eventId, listingType, admissionType })
+    .filter((g) => g.id === 'build')
+    .flatMap((g) => g.items)
+    .filter((item) => item.href)
+    .filter((item) => !(item.key === 'map' && admissionType === 'general'));
 }
 
 const GA_MAP_HINT = 'General admission: draw the room and its vendor booths — there are no seats to sell. '
@@ -311,7 +299,7 @@ const GA_MAP_HINT = 'General admission: draw the room and its vendor booths — 
  *  home groups are never touched — they are about the organizer, not the event. */
 function prune(groups, keep) {
   return groups
-    .map((group) => (['build', 'sell', 'day'].includes(group.id)
+    .map((group) => (['build', 'sell', 'partners', 'day'].includes(group.id)
       ? { ...group, items: group.items.filter(keep) }
       : group))
     .filter((group) => group.items.length > 0);

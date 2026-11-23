@@ -1,7 +1,7 @@
 import ContentEditor from './ContentEditor';
 
 export const metadata = {
-  title: 'Page & branding',
+  title: 'Event page',
   robots: { index: false, follow: false },
 };
 

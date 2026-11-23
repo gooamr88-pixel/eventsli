@@ -22,6 +22,7 @@ const aiQuota = require('../services/ai/quotaService');
 const publishing = require('../services/eventPublishing');
 const comingSoon = require('../services/comingSoonService');
 const { frontendOrigin } = require('../utils/frontendOrigin');
+const partnerSwitches = require('../services/partnerSwitches');
 
 /**
  * `city` AND `venue_place_id` WERE BOTH MISSING FROM THIS LIST.
@@ -223,7 +224,14 @@ async function list(req, res, next) {
     ]);
     if (error) throw new Error(error.message);
 
-    return sendOk(res, (data || []).map((e) => shape(e, { currentTermsId })), { pagination: buildMeta(p, count) });
+    // Which events said yes to sponsors / vendors: the sidebar shows those
+    // screens only for them (services/partnerSwitches.js).
+    const partners = await partnerSwitches.partnersOn((data || []).map((e) => e.id));
+    return sendOk(
+      res,
+      (data || []).map((e) => ({ ...shape(e, { currentTermsId }), partners: partners.get(e.id) })),
+      { pagination: buildMeta(p, count) },
+    );
   } catch (err) {
     return next(err);
   }
@@ -246,8 +254,10 @@ async function get(req, res, next) {
     // How many people asked to hear when sales open — a count, never the list.
     const waiting = data.coming_soon || data.sales_opened_at
       ? await comingSoon.waitingCount(data.id) : null;
+    const partners = await partnerSwitches.partnersOn([data.id]);
     return sendOk(res, {
       ...shape(data, { currentTermsId }),
+      partners: partners.get(data.id),
       ...await setup(data),
       notifyCount: waiting,
       cancellationRequest: shapeCancellationRequest(requests?.[0]),
@@ -805,7 +815,28 @@ function shapeCancellationRequest(r) {
   };
 }
 
+/**
+ * PUT / DELETE /events/:eventId/partners/:kind — the overview's "Will this
+ * event have sponsors? vendors?" switch. See services/partnerSwitches.js.
+ */
+function partnerSwitch(on) {
+  return async (req, res, next) => {
+    try {
+      const fn = on ? partnerSwitches.turnOn : partnerSwitches.turnOff;
+      return sendOk(res, await fn(req.params.kind, req.params.eventId));
+    } catch (err) {
+      if (err instanceof partnerSwitches.PartnerSwitchError) {
+        return sendFail(res, { status: err.code === 'CONFLICT' ? 409 : 400, error: err.code, message: err.message });
+      }
+      return next(err);
+    }
+  };
+}
+const turnPartnersOn = partnerSwitch(true);
+const turnPartnersOff = partnerSwitch(false);
+
 module.exports = {
+  turnPartnersOn, turnPartnersOff,
   create, list, get, update, submitForReview, openSales, submissionPreview, acceptTerms, shape,
   shapeCancellationRequest,
   organizerReadiness, SELECT,

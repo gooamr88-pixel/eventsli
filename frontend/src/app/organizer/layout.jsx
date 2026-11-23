@@ -127,7 +127,11 @@ export default function OrganizerLayout({ children }) {
            * apart. The bar's copy is the one that survives: it is visible without
            * opening a drawer, which is the complaint that started all of this.
            */
-          groups={organizerNavGroups({ eventId, listingType, admissionType, eventTitle: current?.title || null })}
+          groups={organizerNavGroups({
+            eventId, listingType, admissionType, eventTitle: current?.title || null,
+            // Sponsors / Vendors appear only for an event that turned them on.
+            partners: current?.partners || null,
+          })}
           // Only an event in the URL changes the bar; a remembered one does not.
           // Its status picks between the setup bar and the selling one.
           tabKeys={organizerTabs({

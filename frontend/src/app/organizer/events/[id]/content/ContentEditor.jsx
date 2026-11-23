@@ -11,8 +11,8 @@ import CoverUpload from '../CoverUpload';
 import { LogoCard, HighlightsCard, MapPinCard } from './BrandingEditor';
 import GalleryEditor from './GalleryEditor';
 import ScheduleEditor from './ScheduleEditor';
-import SponsorsEditor from './SponsorsEditor';
 import PoliciesEditor from './PoliciesEditor';
+import SponsorsPointer from './SponsorsPointer';
 import LivePreview from './LivePreview';
 import { useContentSection } from './useContentSection';
 
@@ -97,7 +97,7 @@ export default function ContentEditor({ eventId }) {
 
   return (
     <div className="es-pb">
-      <nav className="es-dtabs" aria-label="Page & branding sections">
+      <nav className="es-dtabs" aria-label="Event page sections">
         {JUMPS.map((j) => (
           <a
             key={j.id}
@@ -126,7 +126,9 @@ export default function ContentEditor({ eventId }) {
 
           <div id="pb-experience" className="fx-stack es-pb__anchor">
             <ScheduleEditor timezone={event.timezone} section={schedule} />
-            <SponsorsEditor eventId={eventId} section={sponsors} />
+            {/* Sponsors are edited on Sponsors only (2026-11-23): one list,
+                one place. The preview beside this still shows them. */}
+            <SponsorsPointer event={event} count={sponsors.items?.length || 0} />
           </div>
 
           <div id="pb-info" className="fx-stack es-pb__anchor">

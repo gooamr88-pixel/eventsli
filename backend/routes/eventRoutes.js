@@ -161,6 +161,16 @@ router.get('/drafts', drafts.list);
 
 router.get('/:eventId', verifyEventOwner, c.get);
 
+// Sponsors / vendors on or off for this event (services/partnerSwitches.js).
+const partnerKind = [
+  param('eventId').isUUID().withMessage('Not found.'),
+  param('kind').isIn(['sponsors', 'vendors']).withMessage('Not found.'),
+  validate,
+  verifyEventOwner,
+];
+router.put('/:eventId/partners/:kind', ...partnerKind, c.turnPartnersOn);
+router.delete('/:eventId/partners/:kind', ...partnerKind, c.turnPartnersOff);
+
 // A draft is private and has never sold anything, so the organizer may remove
 // it outright. Everything else archives — see the controller.
 router.delete('/:eventId', verifyEventOwner, drafts.remove);

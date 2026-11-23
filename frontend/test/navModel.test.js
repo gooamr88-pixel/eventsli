@@ -5,6 +5,8 @@ import { resolveNav, pickTabs, currentLabel, matches } from '../src/app/componen
 import {
   organizerNavGroups, eventIdFromPath, pathForEvent, ORGANIZER_TABS, organizerTabs,
 } from '../src/app/organizer/nav/organizerNav';
+import { sectionTabsFor } from '../src/app/organizer/nav/sectionTabs';
+import { setupSteps } from '../src/app/organizer/nav/organizerNav';
 import { adminNavGroups, ADMIN_TABS } from '../src/app/admin/nav/adminNav';
 import { accountNavGroups, ACCOUNT_TABS } from '../src/app/account/nav/accountNav';
 
@@ -185,7 +187,8 @@ describe('organizer destinations', () => {
     // href that rots quietly when a route is renamed.
     // `canSell` on, so the conditional destination is covered as well — it is
     // exactly the one nothing else would catch.
-    const items = organizerNavGroups({ eventId: EVENT }).flatMap((g) => g.items)
+    const items = organizerNavGroups({ eventId: EVENT, partners: { sponsors: true, vendors: true } }).flatMap((g) => g.items)
+      .flatMap((i) => [i, ...(i.also || []).map((href) => ({ key: `${i.key} (inside)`, href }))])
       .concat(adminNavGroups().flatMap((g) => g.items))
       .concat(accountNavGroups({ canSell: true }).flatMap((g) => g.items));
     for (const item of items) {
@@ -256,7 +259,9 @@ describe('organizer destinations', () => {
       const keys = organizerNavGroups({ eventId: EVENT, listingType: 'ticketed', admissionType })
         .flatMap((g) => g.items).map((i) => i.key);
       expect(keys, String(admissionType)).toContain('map');
-      expect(keys, String(admissionType)).toContain('tables');
+      // Table categories live inside Tickets now, as a tab.
+      const tabs = sectionTabsFor(`/organizer/events/${EVENT}/tiers`, EVENT, { admissionType }).tabs.map((t) => t.key);
+      expect(tabs, String(admissionType)).toContain('tables');
     }
   });
 
@@ -320,7 +325,7 @@ describe('the build sequence', () => {
 
   test('required screens come before the optional ones, in dependency order', () => {
     expect(buildKeys()).toEqual([
-      'overview', 'details', 'tiers', 'map', 'tables', 'content', 'promos',
+      'overview', 'details', 'tiers', 'map', 'content',
     ]);
   });
 
@@ -340,15 +345,15 @@ describe('the build sequence', () => {
 
   test('general admission keeps the event map in the build steps', () => {
     const options = { listingType: 'ticketed', admissionType: 'general' };
-    expect(buildKeys(options)).toEqual(['overview', 'details', 'tiers', 'map', 'content', 'promos']);
+    expect(buildKeys(options)).toEqual(['overview', 'details', 'tiers', 'map', 'content']);
     // BuildNav walks items WITH an href: the event map is one of them now.
     const walked = organizerNavGroups({ eventId: EVENT, ...options })
       .filter((g) => g.id === 'build').flatMap((g) => g.items).filter((i) => i.href).map((i) => i.key);
-    expect(walked).toEqual(['overview', 'details', 'tiers', 'map', 'content', 'promos']);
+    expect(walked).toEqual(['overview', 'details', 'tiers', 'map', 'content']);
   });
 
   test('selling and on-the-day screens are not part of it', () => {
-    for (const key of ['share', 'orders', 'door', 'commission', 'attendees', 'staff', 'devices']) {
+    for (const key of ['share', 'orders', 'door', 'commission', 'attendees', 'staff', 'devices', 'promos', 'tables', 'sponsors', 'vendors']) {
       expect(buildKeys(), key).not.toContain(key);
     }
   });
@@ -361,5 +366,69 @@ describe('the build sequence', () => {
       expect(item.href, item.key).toMatch(new RegExp(`^/organizer/events/${EVENT}`));
       expect(item.disabled, item.key).toBe(false);
     }
+  });
+});
+
+/**
+ * THE SIMPLER SIDEBAR (owner, 2026-11-23: "very complex and terrible").
+ * 25 rows with an event open became four short groups; screens that belong
+ * to another moved inside it as tabs; sponsors and vendors are opt-in.
+ */
+describe('the simpler organizer sidebar', () => {
+  const groupsOf = (options = {}) => organizerNavGroups({ eventId: EVENT, ...options });
+  const keysOf = (options) => groupsOf(options).flatMap((g) => g.items).map((i) => i.key);
+
+  test('four event groups with plain names, in order', () => {
+    expect(groupsOf({ partners: { sponsors: true, vendors: true } }).map((g) => g.label))
+      .toEqual([null, 'Set up', 'Sell', 'Partners', 'On the day', 'Your account']);
+  });
+
+  test('no event group is longer than five rows', () => {
+    for (const g of groupsOf({ partners: { sponsors: true, vendors: true } })) {
+      expect(g.items.length, g.label).toBeLessThanOrEqual(5);
+    }
+  });
+
+  test('sponsors and vendors are hidden until the event turns them on', () => {
+    expect(keysOf()).not.toContain('sponsors');
+    expect(keysOf()).not.toContain('vendors');
+    expect(groupsOf().map((g) => g.id)).not.toContain('partners');
+    expect(keysOf({ partners: { sponsors: true, vendors: false } })).toContain('sponsors');
+    expect(keysOf({ partners: { sponsors: true, vendors: false } })).not.toContain('vendors');
+    // A listing can have both too.
+    expect(keysOf({ listingType: 'display_only', partners: { sponsors: false, vendors: true } })).toContain('vendors');
+  });
+
+  test('screens moved inside another row are no longer rows of their own', () => {
+    for (const key of ['tables', 'offline', 'commission', 'devices']) {
+      expect(keysOf({ partners: { sponsors: true, vendors: true } }), key).not.toContain(key);
+    }
+  });
+
+  test('…and they light up the row they live in', () => {
+    const lit = (suffix) => activeKeys(resolveNav(groupsOf(), `/organizer/events/${EVENT}${suffix}`));
+    expect(lit('/tables')).toEqual(['tiers']);
+    expect(lit('/offline')).toEqual(['orders']);
+    expect(lit('/commission/invoices/abc')).toEqual(['orders']);
+    expect(lit('/devices')).toEqual(['staff']);
+  });
+
+  test('setup counts only what is required for this event', () => {
+    const walk = (options) => setupSteps({ eventId: EVENT, ...options }).map((i) => i.key);
+    expect(walk({ listingType: 'ticketed', admissionType: 'reserved' })).toEqual(['overview', 'details', 'tiers', 'map', 'content']);
+    // A general-admission map is optional: in the sidebar, not in the walk.
+    expect(walk({ listingType: 'ticketed', admissionType: 'general' })).toEqual(['overview', 'details', 'tiers', 'content']);
+    expect(walk({ listingType: 'display_only' })).toEqual(['overview', 'details', 'content']);
+  });
+
+  test('the tabs on top of each family', () => {
+    const tabs = (suffix, event) => sectionTabsFor(`/organizer/events/${EVENT}${suffix}`, EVENT, event);
+    expect(tabs('/orders').tabs.map((t) => t.key)).toEqual(['orders', 'offline', 'commission']);
+    expect(tabs('/commission/invoices/abc').tabs.find((t) => t.current).key).toBe('commission');
+    expect(tabs('/staff').tabs.map((t) => t.key)).toEqual(['staff', 'devices']);
+    // General admission sells no tables, so Tickets has one tab — and no strip.
+    expect(tabs('/tiers', { admissionType: 'general' })).toBeNull();
+    expect(tabs('/share')).toBeNull();
+    expect(sectionTabsFor('/organizer', null)).toBeNull();
   });
 });

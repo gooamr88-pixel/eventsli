@@ -69,7 +69,7 @@ function ProgramForm({ eventId, program, slug, onSaved }) {
 
   return (
     <form onSubmit={submit} className="fx-stack">
-      <Panel icon="globe" title="Public sponsor page" description="A page where brands see your packages and ask to sponsor. Each inquiry lands in your Leads and in your inbox.">
+      <Panel icon="globe" title="Public sponsor page" description="A page where brands see your packages and ask to sponsor. Each request arrives under Sponsors and in your inbox.">
         <div className="fx-stack fx-stack--sm">
           <label className="es-sp-switch">
             <input type="checkbox" checked={form.isOpen} onChange={(e) => setForm((f) => ({ ...f, isOpen: e.target.checked }))} />

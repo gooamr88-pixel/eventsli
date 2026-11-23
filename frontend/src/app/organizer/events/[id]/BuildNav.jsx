@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import NavIcon from '../../../components/shell/NavIcon';
-import { organizerNavGroups } from '../../nav/organizerNav';
+import { setupSteps } from '../../nav/organizerNav';
 import { useEventContext } from './EventContext';
 import { useRunStepSave } from './BuildStep';
 import { usePathname, useRouter } from 'next/navigation';
@@ -39,14 +39,11 @@ import { usePathname, useRouter } from 'next/navigation';
  */
 /** The build sequence for this event, in the sidebar's order. Overview first. */
 function buildSteps(eventId, event) {
-  return organizerNavGroups({
+  return setupSteps({
     eventId,
     listingType: event.listingType || null,
     admissionType: event.admissionType || null,
-  })
-    .filter((g) => g.id === 'build')
-    .flatMap((g) => g.items)
-    .filter((item) => item.href);
+  });
 }
 
 const PRE_LAUNCH = ['draft', 'rejected', 'pending_review'];
