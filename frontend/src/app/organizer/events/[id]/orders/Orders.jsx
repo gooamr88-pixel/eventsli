@@ -12,6 +12,11 @@ import { Loading, ErrorNotice } from '../../../../components/Feedback';
 import SplitEmpty from '../../../../components/ui/SplitEmpty';
 import { OrderTicketArt } from '../../../../components/ui/Illustrations';
 import { useEventContext } from '../EventContext';
+import NavIcon from '../../../../components/shell/NavIcon';
+import { useToast } from '../../../../components/ui/Toast';
+import { messageFor } from '../../../../utils/errors';
+import OrdersReport from './OrdersReport';
+import { downloadOrdersXlsx } from './ordersXlsx';
 
 /**
  * Every order, both channels.
@@ -39,7 +44,13 @@ const STATUSES = [
 ];
 
 export default function Orders({ eventId }) {
-  const timezone = useEventContext()?.event?.timezone;
+  const event = useEventContext()?.event;
+  const timezone = event?.timezone;
+  const toast = useToast();
+  // The filters as they were when "PDF" was pressed — a snapshot, so the
+  // report does not refetch while it is open.
+  const [report, setReport] = useState(null);
+  const [exporting, setExporting] = useState(false);
   const [channel, setChannel] = useState('');
   const [status, setStatus] = useState('paid');
   const [search, setSearch] = useState('');
@@ -53,10 +64,52 @@ export default function Orders({ eventId }) {
   const rows = data?.data || [];
   const totals = Object.entries(data?.meta?.totals || {});
   const filter = (setter) => (value) => { setter(value); setPage(1); };
+  const hasRows = rows.length > 0;
+
+  /** Every order under the filters on screen, as a styled .xlsx (ordersXlsx.js). */
+  async function downloadExcel() {
+    setExporting(true);
+    try {
+      const count = await downloadOrdersXlsx({ eventId, event, filters: { status, channel, search } });
+      toast.success(`Downloaded ${count} ${count === 1 ? 'order' : 'orders'} to Excel.`);
+    } catch (err) {
+      toast.error(messageFor(err), { title: 'The download did not finish' });
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  // Both act on every order under the filters on screen, not just this page.
+  const exportActions = (
+    <div className="fx-row flex-wrap gap-2" role="group" aria-label="Export orders">
+      <button
+        type="button"
+        className="es-btn es-btn--secondary"
+        onClick={downloadExcel}
+        disabled={exporting || !hasRows}
+        aria-label={exporting ? 'Preparing the Excel file' : 'Download these orders as an Excel file'}
+      >
+        <NavIcon name={exporting ? 'refresh' : 'grid'} size={18} />
+        {exporting ? 'Preparing…' : 'Excel'}
+      </button>
+      <button
+        type="button"
+        className="es-btn es-btn--secondary"
+        onClick={() => setReport({ status, channel, search })}
+        disabled={!hasRows}
+        aria-label="Open a sales report of these orders to save as PDF"
+      >
+        <NavIcon name="printer" size={18} />
+        PDF
+      </button>
+    </div>
+  );
 
   return (
     <div className="fx-stack">
-      <SectionHeader title="Orders" lede="Every sale on this event, online and at the door." />
+      <SectionHeader title="Orders" lede="Every sale on this event, online and at the door." actions={exportActions} />
+
+      {report && <OrdersReport eventId={eventId} event={event} filters={report} onClose={() => setReport(null)} />}
 
       {totals.length > 0 && totals.map(([currency, t]) => (
         <KpiRow key={currency} label={`Sales in ${currency}`}>
