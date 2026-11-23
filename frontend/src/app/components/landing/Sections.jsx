@@ -19,17 +19,17 @@ import DoorShowcase, { ScanMini } from './DoorShowcase';
  * The concept's strip under the event list (2026-11-15): a heading with the
  * coral bar and four tools, each a white card with a coral icon.
  *
- * THE CONCEPT'S FOURTH TILE WAS "VENDORS" — vendor applications and a
- * marketplace — and this product has neither. A tile promising a feature that
- * does not exist is the placeholder that ships, so the fourth tile is the seat
- * map, which is real and is the thing this product does that others do not.
- * Every tile here links to where the claim is explained.
+ * VENDORS IS BACK (owner, 2026-11-23). The concept had it and it was left
+ * out while the product had no vendor system; it has one now — booth types,
+ * applications, booth fees, booths on the event map. Five tiles, each a real
+ * feature, each linking to where the claim is explained.
  */
 const HOST_TOOLS = [
   { name: 'Ticketing', desc: 'Sell tickets online and manage attendees.', icon: 'ticket', href: '/how-it-works' },
   { name: 'QR Check-in', desc: 'Fast and secure entry with QR scanning — even offline.', icon: 'qr', href: '/how-it-works' },
-  { name: 'Sponsors', desc: 'Showcase sponsors on your event page.', icon: 'handshake', href: '/why-us' },
   { name: 'Seat maps', desc: 'Let buyers pick their exact seat or table.', icon: 'map', href: '/why-us' },
+  { name: 'Sponsors', desc: 'Sell sponsorships and show sponsors on your event page.', icon: 'handshake', href: '/why-us' },
+  { name: 'Vendors', desc: 'Rent booths to vendors and collect their fees online.', icon: 'store', href: '/why-us' },
 ];
 
 export function HostTools() {

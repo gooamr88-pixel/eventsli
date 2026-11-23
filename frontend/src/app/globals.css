@@ -6238,8 +6238,11 @@ input.es-lp-filter__control::-webkit-search-cancel-button { display: none; }
 .es-host__title { font-size: clamp(1.375rem, 1.1rem + 1vw, 1.75rem); }
 .es-host__lede { margin: 0.5rem 0 0; font-size: var(--es-text-sm); color: var(--es-text-muted); }
 .es-host__list { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(13rem, 100%), 1fr)); gap: 0.875rem; }
+/* Five tiles at xl (Vendors, 2026-11-23): icon above the words, so each
+   narrower card still reads in two short lines rather than four. */
 @media (width >= theme(--breakpoint-xl)) {
-  .es-host__list { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .es-host__list { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .es-host__tool { flex-direction: column; align-items: flex-start; }
 }
 .es-host__tool {
   display: flex;
@@ -20537,4 +20540,40 @@ button.es-vb-doc__tile:focus-visible { outline: 3px solid var(--es-accent); outl
   }
   .es-partner-more { border-top: 1px solid var(--es-border); padding-top: 1rem; }
   .es-partner-more > summary { cursor: pointer; font-weight: 700; color: var(--es-text); }
+}
+
+/* ── At the door: the real app (owner, 2026-11-23) ─────────────────────────
+   Three App Store screenshots in plain black bezels (the screenshots carry
+   their own status bar and island), the live screen in front; the App Store
+   button under the copy. Phones only show the front one. */
+@layer components {
+  .es-shots { display: flex; align-items: center; justify-content: center; padding-block: 0.5rem; }
+  .es-shot {
+    flex: none; position: relative; padding: 0.3125rem; border-radius: 1.75rem;
+    background: #111018; box-shadow: var(--es-shadow-xl);
+  }
+  .es-shot__img { display: block; width: 100%; height: auto; border-radius: 1.45rem; }
+  .es-shot[data-place="main"] { z-index: 1; width: 13rem; }
+  .es-shot[data-place="side"] { display: none; }
+  @media (width >= theme(--breakpoint-sm)) {
+    .es-shot[data-place="main"] { width: clamp(9rem, 26vw, 12rem); margin-inline: -1.25rem; }
+    .es-shot[data-place="side"] { display: block; width: clamp(7rem, 20vw, 9.5rem); }
+    .es-shot[data-place="side"]:first-child { transform: rotate(-4deg) translateY(0.75rem); }
+    .es-shot[data-place="side"]:last-child { transform: rotate(4deg) translateY(0.75rem); }
+  }
+
+  .es-door__get { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem 1rem; margin-top: 1.5rem; }
+  .es-door__get-note { margin: 0; font-size: var(--es-text-sm); color: var(--es-text-muted); }
+  .es-appstore {
+    display: inline-flex; align-items: center; gap: 0.625rem; padding: 0.4375rem 1.125rem 0.4375rem 0.4375rem;
+    border: 1px solid #000; border-radius: 0.875rem; background: #000; color: #fff; text-decoration: none;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .es-appstore:hover { transform: translateY(-1px); box-shadow: var(--es-shadow-md, 0 6px 18px rgb(0 0 0 / 0.18)); }
+  .es-appstore:focus-visible { outline: 3px solid var(--es-accent); outline-offset: 3px; }
+  .es-appstore__icon { flex: none; border-radius: 0.625rem; }
+  .es-appstore__text { display: flex; flex-direction: column; line-height: 1.1; }
+  .es-appstore__small { font-size: 0.6875rem; letter-spacing: 0.01em; }
+  .es-appstore__big { font-size: 1.25rem; font-weight: 600; letter-spacing: -0.01em; }
+  @media (prefers-reduced-motion: reduce) { .es-appstore, .es-appstore:hover { transition: none; transform: none; } }
 }

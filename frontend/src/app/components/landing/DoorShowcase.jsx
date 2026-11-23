@@ -1,26 +1,28 @@
+import Image from 'next/image';
 import TicketStub from '../TicketStub';
 import NavIcon from '../shell/NavIcon';
-import { LogoMark } from '../brand/Logo';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
- * "Sell and scan at the door", shown rather than told.
+ * "Check-in at the door", shown rather than told.
  *
- * TWO REAL THINGS, NOT A STOCK MOCKUP:
- *   · the buyer's ticket is the actual `TicketStub` the product renders on
- *     /t/[token] and in My tickets, with the same stub, perforation and facts;
- *   · its QR code is a real, scannable code (`brandQr.js`, `demoQr.js`) — point
- *     a phone at the homepage and it opens /how-it-works;
- *   · the phone is the door app (/gate) as it actually reads: the "Gate"
- *     badge, "Welcome in", "Admitted. This ticket is now used.", "Already used
- *     at 19:02", the offline queue — the same words as `gate/scanOutcome.js`,
- *     so the illustration never promises a screen the product does not have.
+ * REAL SCREENS, NOT A DRAWN MOCKUP (owner, 2026-11-23). The phones are the
+ * Eventsli Check-in app's own App Store screenshots — the event's live
+ * check-in screen, a successful scan, and arrivals analytics — resized into
+ * `public/app/` (600px wide, webp). They replaced a hand-drawn gate screen
+ * that described the product but was not it.
  *
- * Decorative to assistive technology (`aria-hidden`): every claim it makes is
- * also in the text beside it, which is what a screen reader gets.
+ * The guest's ticket below them is still the real `TicketStub` the product
+ * renders on /t/[token], and its QR code is a real, scannable code
+ * (`brandQr.js`, `demoQr.js`) that opens /how-it-works.
+ *
+ * The App Store link is the check-in app's listing (`ascAppId` in
+ * mobile/eas.json). Decorative images are `aria-hidden`: every claim they
+ * make is also in the text beside them.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 export const DEMO_QR_SRC = '/eventsli-demo-qr.svg';
+export const APP_STORE_URL = 'https://apps.apple.com/app/eventsli-check-in/id6835016139';
 
 const DEMO_EVENT = {
   title: 'Spring Gala 2026',
@@ -36,10 +38,16 @@ const DEMO_TICKET = {
 };
 
 const FEATURES = [
-  ['users', 'Any phone is a scanner', 'Add your door team by email, or register a tablet with a PIN. Nothing to install.'],
+  ['scan', 'Scan in a second', 'Point the camera at the ticket and get one clear answer — name, ticket type and seat included.'],
   ['shield', 'Keeps working offline', 'No signal at the venue? Scans are kept on the device and uploaded when it returns — no ticket gets in twice.'],
-  ['check', 'One clear answer per scan', '“Welcome in”, “Already used at 19:02” or “Wrong event” — and a mistaken admit can be undone.'],
-  ['chart', 'Arrivals, live', 'Watch check-ins and sales together on your dashboard while the doors are open.'],
+  ['users', 'Your whole door team', 'Add staff by email, or set up a shared door device with a PIN. Every scan says who let them in, and through which door.'],
+  ['chart', 'Arrivals, live', 'Checked in, still to come, arrivals every 15 minutes and by ticket type — while the doors are open.'],
+];
+
+const SHOTS = [
+  { src: '/app/checkin-result.webp', label: 'Check-in successful', place: 'side' },
+  { src: '/app/checkin-dashboard.webp', label: 'Live check-in for an event', place: 'main' },
+  { src: '/app/checkin-analytics.webp', label: 'Arrivals analytics', place: 'side' },
 ];
 
 /** The small version for step 3's card. */
@@ -56,56 +64,17 @@ export function ScanMini() {
   );
 }
 
-function GateScreen() {
+/** "Download on the App Store", with the app's own icon. */
+export function AppStoreButton() {
   return (
-    <div className="es-door__phone">
-      <div className="es-door__screen">
-        <div className="es-door__statusbar es-nums"><span>19:04</span><span className="es-door__notch" /><span>5G ▮▮▮</span></div>
-
-        <div className="es-door__head">
-          <span className="es-door__brand"><LogoMark /> Eventsli</span>
-          <span className="es-door__badge">Gate</span>
-          <span className="es-door__live"><i /> Live</span>
-        </div>
-        <p className="es-door__event">Spring Gala 2026 · Main entrance</p>
-
-        <div className="es-door__count">
-          <p className="es-nums"><b>248</b> / 300 checked in</p>
-          <span className="es-door__bar"><span style={{ width: '83%' }} /></span>
-        </div>
-
-        <div className="es-door__lens">
-          <span className="es-door__corner es-door__corner--tl" />
-          <span className="es-door__corner es-door__corner--tr" />
-          <span className="es-door__corner es-door__corner--bl" />
-          <span className="es-door__corner es-door__corner--br" />
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={DEMO_QR_SRC} alt="" className="es-door__lens-qr" />
-          <span className="es-door__beam" />
-        </div>
-
-        <div className="es-door__result">
-          <div className="es-door__result-top">
-            <span className="es-door__ok"><NavIcon name="check" size={18} /></span>
-            <div className="fx-min0">
-              <p className="es-door__result-title">Welcome in</p>
-              <p className="es-door__result-note">Admitted. This ticket is now used.</p>
-            </div>
-            <span className="es-door__time es-nums">19:04</span>
-          </div>
-          <p className="es-door__result-seat">Orchestra · Row C · Seat 12</p>
-          <p className="es-door__result-who">Premium · Maya Chen</p>
-          <span className="es-door__undo">Let them back out — undo</span>
-        </div>
-
-        <ul className="es-door__log">
-          <li><i className="is-warn" /><span>Already used</span><span className="es-nums">at 19:02</span></li>
-          <li><i className="is-ok" /><span>Welcome in · Row C, Seat 11</span><span className="es-nums">19:01</span></li>
-        </ul>
-
-        <p className="es-door__foot"><NavIcon name="shield" size={13} /> Works offline · nothing waiting to upload</p>
-      </div>
-    </div>
+    <a href={APP_STORE_URL} target="_blank" rel="noreferrer" className="es-appstore">
+      <Image src="/app/checkin-icon.webp" alt="" width={40} height={40} className="es-appstore__icon" />
+      <span className="es-appstore__text">
+        <span className="es-appstore__small">Download on the</span>
+        <span className="es-appstore__big">App Store</span>
+      </span>
+      <span className="sr-only"> — Eventsli Check-in, opens in a new tab</span>
+    </a>
   );
 }
 
@@ -116,8 +85,8 @@ export default function DoorShowcase() {
         <p className="es-lp-kicker">At the door</p>
         <h3 className="es-door__title">Check-in that keeps the line moving</h3>
         <p className="es-door__lede">
-          Every ticket carries its own QR code. Your door team opens Eventsli Gate on any phone, points it at the code,
-          and gets the answer in a second — seat, ticket type and name included.
+          Every ticket carries its own QR code. Your door team opens the Eventsli Check-in app on iPhone or iPad,
+          scans, and gets the answer in a second. No iPhone? Any phone works from the browser.
         </p>
         <ul className="es-door__features">
           {FEATURES.map(([icon, title, text]) => (
@@ -130,16 +99,26 @@ export default function DoorShowcase() {
             </li>
           ))}
         </ul>
+        <div className="es-door__get">
+          <AppStoreButton />
+          <p className="es-door__get-note">For organizers and their door staff · iPhone and iPad</p>
+        </div>
       </div>
 
       <div className="es-door__device" aria-hidden="true">
-        <p className="es-door__label">What your door team sees</p>
-        <GateScreen />
+        <p className="es-door__label">The Eventsli Check-in app</p>
+        <div className="es-shots">
+          {SHOTS.map((shot) => (
+            <div key={shot.src} className="es-shot" data-place={shot.place}>
+              <Image src={shot.src} alt="" width={600} height={1304} sizes="(min-width: 1024px) 220px, 40vw" className="es-shot__img" />
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Full width so the real ticket shows in its real, horizontal form —
           it switches layout at a 40rem container, and squeezed beside the
-          phone it fell back to its narrow stacked one. */}
+          phones it fell back to its narrow stacked one. */}
       <div className="es-door__ticket" aria-hidden="true">
         <p className="es-door__label">What your guest brings — on their phone or printed</p>
         <TicketStub ticket={DEMO_TICKET} event={DEMO_EVENT} qrSrc={DEMO_QR_SRC} />
