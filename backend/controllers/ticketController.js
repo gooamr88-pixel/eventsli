@@ -58,6 +58,9 @@ function eventCard(ev) {
     // Without it, My tickets printed a Toronto show in the reader's own zone.
     timezone: ev.timezone,
     venue: ev.venue_name,
+    city: ev.city || null,
+    // The attendee app draws each ticket on its event's artwork.
+    coverUrl: ev.cover_url || null,
     // BRD §17 — a cancelled event keeps its tickets and says so.
     cancelled: ev.status === 'cancelled',
   };
@@ -86,7 +89,7 @@ async function mine(req, res, next) {
 
     const { data: orders } = await supabase
       .from('orders')
-      .select('id, currency, buyer_total_cents, quantity, created_at, paid_at, guest_email, events ( id, title, slug, starts_at, ends_at, timezone, venue_name, status )')
+      .select('id, currency, buyer_total_cents, quantity, created_at, paid_at, guest_email, events ( id, title, slug, starts_at, ends_at, timezone, venue_name, city, cover_url, status )')
       .eq('status', 'paid')
       .or(`user_id.eq.${req.user.id},guest_email.eq.${quoted}`)
       .order('created_at', { ascending: false })

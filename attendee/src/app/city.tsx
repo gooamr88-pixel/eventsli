@@ -1,59 +1,90 @@
 import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
-import { FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { useState } from 'react';
+import { FlatList, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { messageFor } from '@/api/client';
 import { cities } from '@/api/endpoints';
 import { useSession } from '@/auth/session';
-import { Failed, Header, Loading } from '@/ui/bits';
+import { Failed, Header } from '@/ui/bits';
 import { Icon } from '@/ui/Icon';
+import { Container } from '@/ui/layout';
+import { haptic, RowSkeleton } from '@/ui/motion';
 import { Text } from '@/ui/Text';
-import { colors, space } from '@/ui/theme';
+import { colors, fonts, radius, space } from '@/ui/theme';
 
 /**
  * The city picker behind Home's "Cairo ▾". Only cities that have something on
  * (/public/cities) — a list of every city in the world would mostly lead to
- * empty pages.
+ * empty pages — with a search box for when that list is long.
  */
 export default function CityPicker() {
   const current = useSession((s) => s.city);
   const list = useQuery({ queryKey: ['cities'], queryFn: cities, staleTime: 600_000 });
+  const [text, setText] = useState('');
 
   const choose = (c: { city: string; country: string } | null) => {
+    haptic.select();
     void useSession.getState().setCity(c);
     router.back();
   };
 
+  const needle = text.trim().toLowerCase();
+  const matches = (list.data ?? []).filter((c) => !needle || c.city.toLowerCase().includes(needle) || c.country.toLowerCase().includes(needle));
+
   return (
     <View style={styles.root}>
-      <Header title="Choose a city" back />
-      {list.isLoading ? <Loading /> : list.isError ? (
+      <Header title="Choose a city" backIcon="close" />
+      <Container style={{ paddingVertical: space.md }}>
+        <View style={styles.search}>
+          <Icon name="search" size={20} color={colors.muted} />
+          <TextInput
+            value={text}
+            onChangeText={setText}
+            placeholder="Search cities"
+            placeholderTextColor={colors.placeholder}
+            style={styles.input}
+            accessibilityLabel="Search cities"
+            autoCorrect={false}
+            maxFontSizeMultiplier={1.6}
+          />
+        </View>
+      </Container>
+      {list.isLoading ? (
+        <Container style={{ gap: space.sm }}>{[0, 1, 2, 3].map((i) => <RowSkeleton key={i} />)}</Container>
+      ) : list.isError ? (
         <Failed message={messageFor(list.error)} onRetry={() => { void list.refetch(); }} />
       ) : (
         <FlatList
-          data={[null, ...(list.data ?? [])]}
+          data={needle ? matches : [null, ...matches]}
           keyExtractor={(c) => (c ? `${c.city}|${c.country}` : 'everywhere')}
           contentContainerStyle={{ paddingBottom: space.xxl }}
+          keyboardShouldPersistTaps="handled"
           renderItem={({ item }) => {
             const selected = item ? current?.city === item.city && current?.country === item.country : !current;
             return (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityState={{ selected }}
-                onPress={() => choose(item ? { city: item.city, country: item.country } : null)}
-                style={({ pressed }) => [styles.row, pressed && { backgroundColor: colors.bgSunken }]}
-              >
-                <Icon name={item ? 'pin' : 'globe'} size={20} color={colors.accent} />
-                <View style={{ flex: 1 }}>
-                  <Text variant="label">{item ? item.city : 'Everywhere'}</Text>
-                  <Text variant="caption" color={colors.muted}>
-                    {item ? `${item.country} · ${item.events} event${item.events === 1 ? '' : 's'}` : 'Every city on Eventsli'}
-                  </Text>
-                </View>
-                {selected ? <Icon name="check" size={20} color={colors.accent} /> : null}
-              </Pressable>
+              <Container>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
+                  onPress={() => choose(item ? { city: item.city, country: item.country } : null)}
+                  style={({ pressed }) => [styles.row, selected && styles.rowOn, pressed && { backgroundColor: colors.bgSunken }]}
+                >
+                  <View style={[styles.icon, selected && { backgroundColor: colors.accent }]}>
+                    <Icon name={item ? 'pin' : 'globe'} size={20} color={selected ? colors.white : colors.accent} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text variant="label" weight="semibold">{item ? item.city : 'Everywhere'}</Text>
+                    <Text variant="caption" color={colors.muted}>
+                      {item ? `${item.country} · ${item.events} event${item.events === 1 ? '' : 's'}` : 'Every city on Eventsli'}
+                    </Text>
+                  </View>
+                  {selected ? <Icon name="check" size={20} color={colors.accent} strokeWidth={2.4} /> : null}
+                </Pressable>
+              </Container>
             );
           }}
+          ListEmptyComponent={<Text variant="body" color={colors.muted} align="center" style={{ padding: space.xl }}>No city matches “{text.trim()}”.</Text>}
         />
       )}
     </View>
@@ -61,6 +92,13 @@ export default function CityPicker() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.surface },
-  row: { flexDirection: 'row', alignItems: 'center', gap: space.md, paddingHorizontal: space.lg, paddingVertical: space.md, borderBottomWidth: 1, borderBottomColor: colors.border },
+  root: { flex: 1, backgroundColor: colors.bg },
+  search: {
+    flexDirection: 'row', alignItems: 'center', gap: space.sm, minHeight: 50,
+    paddingHorizontal: space.lg, borderRadius: radius.pill, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border,
+  },
+  input: { flex: 1, fontFamily: fonts.regular, fontSize: 16, color: colors.text, paddingVertical: space.sm },
+  row: { flexDirection: 'row', alignItems: 'center', gap: space.md, paddingHorizontal: space.md, paddingVertical: space.md, borderRadius: radius.lg, marginBottom: space.xs },
+  rowOn: { backgroundColor: colors.coral50 },
+  icon: { width: 42, height: 42, borderRadius: 21, backgroundColor: colors.coral50, alignItems: 'center', justifyContent: 'center' },
 });

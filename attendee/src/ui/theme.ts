@@ -100,12 +100,28 @@ export const type = {
   label: { fontFamily: fonts.semibold, fontSize: 16, lineHeight: 22 },
   title: { fontFamily: fonts.display, fontSize: 20, lineHeight: 26 },
   heading: { fontFamily: fonts.display, fontSize: 24, lineHeight: 30 },
+  // Small capitals over a title: CATEGORY, SECTION.
+  overline: { fontFamily: fonts.bold, fontSize: 11, lineHeight: 14, letterSpacing: 1.2 },
   // The big left-aligned screen titles: Explore, My Tickets, Settings.
   screenTitle: { fontFamily: fonts.display, fontSize: 26, lineHeight: 32 },
   display: { fontFamily: fonts.display, fontSize: 32, lineHeight: 38 },
+  // The event page's title over its cover, the welcome headline.
+  hero: { fontFamily: fonts.display, fontSize: 34, lineHeight: 38 },
 } as const;
 
+/**
+ * The brand's gradients: the night stage (welcome, empty covers, the ticket
+ * stub) and the sunset (the Trending glow, the confirmation).
+ */
+export const gradients = {
+  night: ['#111018', '#2a0c1c', '#5c1020'],
+  sunset: ['#d61f2c', '#ff414b', '#ff8a3d'],
+  sun: ['#ffcc00', '#ffd94d'],
+  scrim: ['rgba(17,16,24,0)', 'rgba(17,16,24,0.55)', 'rgba(17,16,24,0.92)'],
+} as const;
 
+/** One timing for every press and reveal, so the app moves as one thing. */
+export const motion = { press: 0.97, fast: 160, normal: 260 } as const;
 
 export const shadow = {
   card: {
@@ -121,5 +137,13 @@ export const shadow = {
     shadowRadius: 16,
     shadowOffset: { width: 0, height: 6 },
     elevation: 4,
+  },
+  // The floating bars: Select Tickets, Continue, the seat selection.
+  float: {
+    shadowColor: '#111018',
+    shadowOpacity: 0.12,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: -4 },
+    elevation: 12,
   },
 } as const;

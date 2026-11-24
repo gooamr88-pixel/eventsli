@@ -1,0 +1,254 @@
+{
+  "createdAt": "2026-11-09T06:47:59.494Z",
+  "site": "http://192.168.1.6:3000",
+  "password": "Demo-Checkin-2026",
+  "accounts": {
+    "organizer": "organizer@demo.eventsli.test",
+    "door": "door@demo.eventsli.test",
+    "outsider": "outsider@demo.eventsli.test"
+  },
+  "device": {
+    "id": "66ee2cea-6eba-40ea-a4e9-1eb6334dfbfe",
+    "label": "North Door (demo)",
+    "pin": "482193",
+    "pairing": "eventsli-checkin://pair?device=66ee2cea-6eba-40ea-a4e9-1eb6334dfbfe"
+  },
+  "events": {
+    "gala": "cc20b118-e7b1-439d-8de0-bd3814c0cef5",
+    "meetup": "01daefa3-0efd-44c5-9e17-eb5b32e84994",
+    "launch": "9d4fa0db-f409-4553-bc77-991174263d46"
+  },
+  "prescanId": "demo-prescan-51263f43-cc98-4950-91b5-f91b4afc0bd7",
+  "tickets": [
+    {
+      "group": "normal",
+      "label": "John Smith · ticket 1 of 2",
+      "expected": "Check-in Successful",
+      "name": "John Smith",
+      "tier": "General Admission",
+      "seat": "Floor A2",
+      "ticketId": "27b27ea1-c449-4370-9d8b-821d9e511ab1",
+      "qr": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImxvY2FsLWRldiJ9.eyJ0eXAiOiJ0aWNrZXQiLCJ0aWQiOiIyN2IyN2VhMS1jNDQ5LTQzNzAtOWQ4Yi04MjFkOWU1MTFhYjEiLCJlaWQiOiJjYzIwYjExOC1lN2IxLTQzOWQtOGRlMC1iZDM4MTRjMGNlZjUifQ.bJJFSuDj4jpFxcpen-Lk5ajao9KiBkLDYFPZPPfUzMD4yoP_7hNKHAg5BYQtDQVWNysh-jOvAPAAyr3_Xrsq3g"
+    },
+    {
+      "group": "normal",
+      "label": "John Smith · ticket 2 of 2",
+      "expected": "Check-in Successful",
+      "name": "John Smith",
+      "tier": "General Admission",
+      "seat": "Floor A1",
+      "ticketId": "35bfe5b1-be48-4a98-81fb-c3d072218962",
+      "qr": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImxvY2FsLWRldiJ9.eyJ0eXAiOiJ0aWNrZXQiLCJ0aWQiOiIzNWJmZTViMS1iZTQ4LTRhOTgtODFmYi1jM2QwNzIyMTg5NjIiLCJlaWQiOiJjYzIwYjExOC1lN2IxLTQzOWQtOGRlMC1iZDM4MTRjMGNlZjUifQ.LTbxLWmzgb_6OqQGzA2k6M_K4KfP9RimjrzeVjhz-WU42t5L3Us8qM8T-C4rvY6wtwKibpg42CHXz5wWamGLzA"
+    },
+    {
+      "group": "normal",
+      "label": "Sara Ahmed · VIP",
+      "expected": "Check-in Successful",
+      "name": "Sara Ahmed",
+      "tier": "VIP",
+      "seat": "VIP V1",
+      "ticketId": "b563ff01-001e-474b-9348-e8e18d5a7797",
+      "qr": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImxvY2FsLWRldiJ9.eyJ0eXAiOiJ0aWNrZXQiLCJ0aWQiOiJiNTYzZmYwMS0wMDFlLTQ3NGItOTM0OC1lOGUxOGQ1YTc3OTciLCJlaWQiOiJjYzIwYjExOC1lN2IxLTQzOWQtOGRlMC1iZDM4MTRjMGNlZjUifQ.e9uGjtAb7-dAPAossrikFvi8F78SOIk3C5iJvFff2SLJ_yGBUQy6f6T8MqJdbfxjGjCe2qhSFNoxFvB5ZMA1CA"
+    },
+    {
+      "group": "normal",
+      "label": "Ahmed Ali · ticket 1 of 2",
+      "expected": "Check-in Successful",
+      "name": "Ahmed Ali",
+      "tier": "General Admission",
+      "seat": "Floor A3",
+      "ticketId": "2f68de5a-c1e8-45cf-b99e-ef218408e26e",
+      "qr": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImxvY2FsLWRldiJ9.eyJ0eXAiOiJ0aWNrZXQiLCJ0aWQiOiIyZjY4ZGU1YS1jMWU4LTQ1Y2YtYjk5ZS1lZjIxODQwOGUyNmUiLCJlaWQiOiJjYzIwYjExOC1lN2IxLTQzOWQtOGRlMC1iZDM4MTRjMGNlZjUifQ.pns-E-LIAp1cL668JcsKFCDv94ntxn7GwZuVRYdQsr_rLxfPDJXur6u6B9b5xGkhU3sAWckt8uZOa0tTBxdiXA"
+    },
+    {
+      "group": "normal",
+      "label": "Ahmed Ali · ticket 2 of 2",
+      "expected": "Check-in Successful",
+      "name": "Ahmed Ali",
+      "tier": "General Admission",
+      "seat": "Floor A4",
+      "ticketId": "c351be4f-8cae-4275-85ad-bd5661627d25",
+      "qr": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImxvY2FsLWRldiJ9.eyJ0eXAiOiJ0aWNrZXQiLCJ0aWQiOiJjMzUxYmU0Zi04Y2FlLTQyNzUtODVhZC1iZDU2NjE2MjdkMjUiLCJlaWQiOiJjYzIwYjExOC1lN2IxLTQzOWQtOGRlMC1iZDM4MTRjMGNlZjUifQ.cG9j2AotHFhzfVgwKKJpIjTgzWU03ZvgCFrn0GgYAotHNQYSDN9To-X1nx2uU8gA7dEczsO6-Wdfbc2NzVV8iw"
+    },
+    {
+      "group": "normal",
+      "label": "Emily Chen",
+      "expected": "Check-in Successful",
+      "name": "Emily Chen",
+      "tier": "General Admission",
+      "seat": "Floor A5",
+      "ticketId": "4ce36444-1a32-4e70-9134-9e01f316aefc",
+      "qr": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImxvY2FsLWRldiJ9.eyJ0eXAiOiJ0aWNrZXQiLCJ0aWQiOiI0Y2UzNjQ0NC0xYTMyLTRlNzAtOTEzNC05ZTAxZjMxNmFlZmMiLCJlaWQiOiJjYzIwYjExOC1lN2IxLTQzOWQtOGRlMC1iZDM4MTRjMGNlZjUifQ.TDGhU0BLTnG0Zd9V3UHkiwrGAdK71CSYhSq81yoaS3lcjtWKaOCkgWhHHK6IC98-fRoCC_dt_LnCvwL-RJ2ibw"
+    },
+    {
+      "group": "normal",
+      "label": "Olivia Martin · VIP",
+      "expected": "Check-in Successful",
+      "name": "Olivia Martin",
+      "tier": "VIP",
+      "seat": "VIP V2",
+      "ticketId": "aee8bd65-c1a7-43a7-acf2-f15f33e581d3",
+      "qr": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImxvY2FsLWRldiJ9.eyJ0eXAiOiJ0aWNrZXQiLCJ0aWQiOiJhZWU4YmQ2NS1jMWE3LTQzYTctYWNmMi1mMTVmMzNlNTgxZDMiLCJlaWQiOiJjYzIwYjExOC1lN2IxLTQzOWQtOGRlMC1iZDM4MTRjMGNlZjUifQ.JyDgzsGV8-rYJ0h9s4jTfiSx1cL8BYmKXinYQ3xn5Svx_XEG3UEyEKEkuwMF5r1HbBWKbqohKcWJomumHAK--A"
+    },
+    {
+      "group": "normal",
+      "label": "Daniel Garcia · ticket 1 of 2",
+      "expected": "Check-in Successful",
+      "name": "Daniel Garcia",
+      "tier": "General Admission",
+      "seat": "Floor A10",
+      "ticketId": "b09924f2-ee1f-4aef-a271-4411f01281d8",
+      "qr": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImxvY2FsLWRldiJ9.eyJ0eXAiOiJ0aWNrZXQiLCJ0aWQiOiJiMDk5MjRmMi1lZTFmLTRhZWYtYTI3MS00NDExZjAxMjgxZDgiLCJlaWQiOiJjYzIwYjExOC1lN2IxLTQzOWQtOGRlMC1iZDM4MTRjMGNlZjUifQ.u3arj3HgjwFWzjC0oD4POQ5qDS8Gxj3OwnoWBinspKXEw4_ZA1OroTX1xyXwl9mnpQZ1PuEMtbBLZYsFb5iTvw"
+    },
+    {
+      "group": "spare",
+      "label": "Daniel Garcia · ticket 2 of 2",
+      "expected": "Check-in Successful",
+      "name": "Daniel Garcia",
+      "tier": "General Admission",
+      "seat": "Floor A9",
+      "ticketId": "f880bddf-6317-48ab-be90-50cf23979c57",
+      "qr": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImxvY2FsLWRldiJ9.eyJ0eXAiOiJ0aWNrZXQiLCJ0aWQiOiJmODgwYmRkZi02MzE3LTQ4YWItYmU5MC01MGNmMjM5NzljNTciLCJlaWQiOiJjYzIwYjExOC1lN2IxLTQzOWQtOGRlMC1iZDM4MTRjMGNlZjUifQ.M2UxJIkxQJpo9yhFWS-J53K3GDPXYCDSip_w03zRoTi3mL53yRt8KdaP9iPu_dxNREDqPhhuLIWfqtdDIZBnoQ"
+    },
+    {
+      "group": "spare",
+      "label": "Lucas Tremblay · ticket 2 of 2",
+      "expected": "Check-in Successful",
+      "name": "Lucas Tremblay",
+      "tier": "General Admission",
+      "seat": "Floor B2",
+      "ticketId": "f8caca9e-b05f-44e7-bc06-3352c5d70186",
+      "qr": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImxvY2FsLWRldiJ9.eyJ0eXAiOiJ0aWNrZXQiLCJ0aWQiOiJmOGNhY2E5ZS1iMDVmLTQ0ZTctYmMwNi0zMzUyYzVkNzAxODYiLCJlaWQiOiJjYzIwYjExOC1lN2IxLTQzOWQtOGRlMC1iZDM4MTRjMGNlZjUifQ.PDKeQ2zK5keq6ykGD_ad9jjgyW28bg2OQbQ4fClry41A5GHLXik-J_xsB83ayTNaCPArsWGCsVF0djq4fv_PeQ"
+    },
+    {
+      "group": "spare",
+      "label": "Chloé Roy",
+      "expected": "Check-in Successful",
+      "name": "Chloé Roy",
+      "tier": "General Admission",
+      "seat": "Floor B3",
+      "ticketId": "69995e73-d754-4047-9894-057a1b911965",
+      "qr": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImxvY2FsLWRldiJ9.eyJ0eXAiOiJ0aWNrZXQiLCJ0aWQiOiI2OTk5NWU3My1kNzU0LTQwNDctOTg5NC0wNTdhMWI5MTE5NjUiLCJlaWQiOiJjYzIwYjExOC1lN2IxLTQzOWQtOGRlMC1iZDM4MTRjMGNlZjUifQ.n4XNsp35CfdjP1IlZ1K4P5M-pmWUNWINvde0yEpq_qtruyj126lYdoBsGy8Pc-51WPdyJRyJSsdlfzuMgXWFtA"
+    },
+    {
+      "group": "offline",
+      "label": "Michael Brown · ticket 1 of 3",
+      "expected": "Airplane mode: Check-in Successful, checked on this phone; uploads when the signal returns",
+      "name": "Michael Brown",
+      "tier": "General Admission",
+      "seat": "Floor A8",
+      "ticketId": "49c79205-ba5f-4999-9da1-a74bbb169ac3",
+      "qr": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImxvY2FsLWRldiJ9.eyJ0eXAiOiJ0aWNrZXQiLCJ0aWQiOiI0OWM3OTIwNS1iYTVmLTQ5OTktOWRhMS1hNzRiYmIxNjlhYzMiLCJlaWQiOiJjYzIwYjExOC1lN2IxLTQzOWQtOGRlMC1iZDM4MTRjMGNlZjUifQ.MFW5TkZ_cpkLmF99snVH4C7mtbNIIKpnzWZZk0TMStd4KFk_dd1ZjmO8xxZff0cHCQ1l9B999pnYs125svf9xg"
+    },
+    {
+      "group": "offline",
+      "label": "Michael Brown · ticket 2 of 3",
+      "expected": "Airplane mode: Check-in Successful, checked on this phone; uploads when the signal returns",
+      "name": "Michael Brown",
+      "tier": "General Admission",
+      "seat": "Floor A6",
+      "ticketId": "6a65800d-ec4e-4e3c-9c09-9f2e0e4c416b",
+      "qr": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImxvY2FsLWRldiJ9.eyJ0eXAiOiJ0aWNrZXQiLCJ0aWQiOiI2YTY1ODAwZC1lYzRlLTRlM2MtOWMwOS05ZjJlMGU0YzQxNmIiLCJlaWQiOiJjYzIwYjExOC1lN2IxLTQzOWQtOGRlMC1iZDM4MTRjMGNlZjUifQ.aVQBP8agBCM0SJr11rbwS_NFqtgftWx3sr3L-CtkZCK57CZOuXjpBQQBW1Zet9FlNLW2PqCnplTLrLdiw206JQ"
+    },
+    {
+      "group": "offline",
+      "label": "Michael Brown · ticket 3 of 3",
+      "expected": "Airplane mode: Check-in Successful, checked on this phone; uploads when the signal returns",
+      "name": "Michael Brown",
+      "tier": "General Admission",
+      "seat": "Floor A7",
+      "ticketId": "cbac331a-3c9c-4f17-92ed-06415e1c482f",
+      "qr": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImxvY2FsLWRldiJ9.eyJ0eXAiOiJ0aWNrZXQiLCJ0aWQiOiJjYmFjMzMxYS0zYzljLTRmMTctOTJlZC0wNjQxNWUxYzQ4MmYiLCJlaWQiOiJjYzIwYjExOC1lN2IxLTQzOWQtOGRlMC1iZDM4MTRjMGNlZjUifQ.FDnsUKN6diyjI50-CRK9AnnzfBwTAd80W2yLF-VUQiHRmMLeEsyPpl0XYpZF4x7Lz7DQotcoIqEcEy6DX0UVwA"
+    },
+    {
+      "group": "legacy",
+      "label": "Zoë Martin · older code (from before QR v2)",
+      "expected": "Check-in Successful. Airplane mode: admitted from the list, or held if the organizer holds older codes",
+      "name": "Zoë Martin",
+      "tier": "General Admission",
+      "seat": "Floor B7",
+      "ticketId": "b3de41d8-8c68-4599-ad22-45ff757c3e13",
+      "qr": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0eXAiOiJ0aWNrZXQiLCJ0aWQiOiJiM2RlNDFkOC04YzY4LTQ1OTktYWQyMi00NWZmNzU3YzNlMTMiLCJlaWQiOiJjYzIwYjExOC1lN2IxLTQzOWQtOGRlMC1iZDM4MTRjMGNlZjUiLCJpYXQiOjE3OTQyMDY4Nzl9.5LjujfI3TOIiwTRHrs8oyPYAslRTj7we78Ta3wO0yCE"
+    },
+    {
+      "group": "manual",
+      "label": "Priya Patel · VIP (find by name, no QR)",
+      "expected": "Check in by hand → Check-in Successful",
+      "name": "Priya Patel",
+      "tier": "VIP",
+      "seat": "VIP V3",
+      "ticketId": "33aec5dd-5ba7-4514-a6c0-03c38053a006",
+      "qr": null
+    },
+    {
+      "group": "refuse",
+      "label": "Noah Wilson · refunded",
+      "expected": "Cancelled ticket",
+      "name": "Noah Wilson",
+      "tier": "General Admission",
+      "seat": "Floor B4",
+      "ticketId": "fb3b5ba3-7bd7-4dce-9064-5ef3968b482a",
+      "qr": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImxvY2FsLWRldiJ9.eyJ0eXAiOiJ0aWNrZXQiLCJ0aWQiOiJmYjNiNWJhMy03YmQ3LTRkY2UtOTA2NC01ZWYzOTY4YjQ4MmEiLCJlaWQiOiJjYzIwYjExOC1lN2IxLTQzOWQtOGRlMC1iZDM4MTRjMGNlZjUifQ.nmjXY7irFjhf_PjW937fmmfdFKDVIbgcfCPGpR4Vl_yK1mA4wLqgZEzOD6b6097HjbmzVk3Afbb-d4eqrwormQ"
+    },
+    {
+      "group": "refuse",
+      "label": "Ava Thompson · order cancelled",
+      "expected": "Cancelled ticket (order cancelled or refunded)",
+      "name": "Ava Thompson",
+      "tier": "General Admission",
+      "seat": "Floor B5",
+      "ticketId": "8fa2f15f-5496-44a4-82b1-80d803e5f15b",
+      "qr": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImxvY2FsLWRldiJ9.eyJ0eXAiOiJ0aWNrZXQiLCJ0aWQiOiI4ZmEyZjE1Zi01NDk2LTQ0YTQtODJiMS04MGQ4MDNlNWYxNWIiLCJlaWQiOiJjYzIwYjExOC1lN2IxLTQzOWQtOGRlMC1iZDM4MTRjMGNlZjUifQ.g_PlKYTp63eUjSKCr3-2HsD7S_a-EQERDznekyYFdpQclY_5tU5xT2nD_V4DcuxbJ49TvkOE7AMrdHhbYXErvw"
+    },
+    {
+      "group": "refuse",
+      "label": "Mia Johnson · OLD code from before the transfer",
+      "expected": "Ticket was given away",
+      "name": "Mia Johnson",
+      "tier": "General Admission",
+      "seat": "Floor B6",
+      "ticketId": "acf4d1bf-bbe2-4f2b-943e-f7adc86c4dbe",
+      "qr": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImxvY2FsLWRldiJ9.eyJ0eXAiOiJ0aWNrZXQiLCJ0aWQiOiJhY2Y0ZDFiZi1iYmUyLTRmMmItOTQzZS1mN2FkYzg2YzRkYmUiLCJlaWQiOiJjYzIwYjExOC1lN2IxLTQzOWQtOGRlMC1iZDM4MTRjMGNlZjUifQ.D2BeYeuIGzoxHCouWMLjhg1wR1rXof4gaUDhq81_wbHMv_yrfi4z2mSshb_VET4Uw1dHOHLHjvo8ntaTnLHivg"
+    },
+    {
+      "group": "normal",
+      "label": "Mia’s friend · NEW code after the transfer",
+      "expected": "Check-in Successful (no name shown)",
+      "name": "(transferred)",
+      "tier": "General Admission",
+      "seat": "Floor B6",
+      "ticketId": "acf4d1bf-bbe2-4f2b-943e-f7adc86c4dbe",
+      "qr": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImxvY2FsLWRldiJ9.eyJ0eXAiOiJ0aWNrZXQiLCJ0aWQiOiJhY2Y0ZDFiZi1iYmUyLTRmMmItOTQzZS1mN2FkYzg2YzRkYmUiLCJlaWQiOiJjYzIwYjExOC1lN2IxLTQzOWQtOGRlMC1iZDM4MTRjMGNlZjUiLCJ2IjoxfQ.fVF_J95qTtpOSnqbH44OOnNAJjnY1S3AtxcSkb8AXqCnCaOblafGjmyo7oxaBEixXEAVNhcsMYfk34vBPkt9XQ"
+    },
+    {
+      "group": "refuse",
+      "label": "Forged code (signature broken)",
+      "expected": "Not an Eventsli ticket",
+      "name": "—",
+      "tier": null,
+      "seat": null,
+      "ticketId": null,
+      "qr": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImxvY2FsLWRldiJ9.eyJ0eXAiOiJ0aWNrZXQiLCJ0aWQiOiIyN2IyN2VhMS1jNDQ5LTQzNzAtOWQ4Yi04MjFkOWU1MTFhYjEiLCJlaWQiOiJjYzIwYjExOC1lN2IxLTQzOWQtOGRlMC1iZDM4MTRjMGNlZjUifQ.bJJFSuDj4jpFxcpen-Lk5ajao9KiBkLDYFPZPPfUzMD4yoP_7hNKHAg5BYQtDQVWNysh-jOvAPAAyrAAAAAAAA"
+    },
+    {
+      "group": "refuse",
+      "label": "Grace Lee · Tech Meetup ticket",
+      "expected": "Wrong event",
+      "name": "Grace Lee",
+      "tier": "General Admission",
+      "seat": "Floor A1",
+      "ticketId": "622085f1-6555-475f-aebf-ad158ce3fc8f",
+      "qr": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImxvY2FsLWRldiJ9.eyJ0eXAiOiJ0aWNrZXQiLCJ0aWQiOiI2MjIwODVmMS02NTU1LTQ3NWYtYWViZi1hZDE1OGNlM2ZjOGYiLCJlaWQiOiIwMWRhZWZhMy0wZWZkLTQ0YzUtOWUxNy1lYjViMzJlODQ5OTQifQ.HsIUBFDCc0DEGfSvUitJqPX_REv0C3A0pa09i_PmUzpgBV_JeJ6WXVJ8bjR29y6DfaTDPdA2GjjHsIQwUGmcNg"
+    },
+    {
+      "group": "refuse",
+      "label": "Lucas Tremblay · already scanned",
+      "expected": "Already checked in (at the North Door)",
+      "name": "Lucas Tremblay",
+      "tier": "General Admission",
+      "seat": "Floor B1",
+      "ticketId": "e5462c2a-602f-4780-bdd0-c46575f08f52",
+      "qr": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImxvY2FsLWRldiJ9.eyJ0eXAiOiJ0aWNrZXQiLCJ0aWQiOiJlNTQ2MmMyYS02MDJmLTQ3ODAtYmRkMC1jNDY1NzVmMDhmNTIiLCJlaWQiOiJjYzIwYjExOC1lN2IxLTQzOWQtOGRlMC1iZDM4MTRjMGNlZjUifQ.dvujxjk8HPaE2qVFEHGncbN2OR0sx3MmzsrXO9l1fWgDN3c3UgBlXtEAep-29QsmF1xDJcaOW0l4ibATxXdu1w"
+    }
+  ]
+}

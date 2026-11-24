@@ -76,13 +76,40 @@ export type Tier = {
   salesStartAt: string | null;
 };
 
+/** addonService.listForBuyer — an extra sold with the tickets (a parking pass, a drink). */
+export type Addon = {
+  id: string; name: string; description: string | null; priceCents: number;
+  /** null: no limit. */
+  remaining: number | null;
+  imageUrl: string | null;
+};
+
+/** organizerProfileService.linkFor */
+export type OrganizerLink = {
+  name: string; slug: string; logoUrl: string | null;
+  contact: { email: string | null; phone: string | null; website: string | null };
+  social: { key: string; label: string; url: string }[];
+};
+
 /** GET /public/events/:slug */
 export type EventDetail = EventCard & {
   description: string | null;
   payments: { card: boolean; manual: boolean };
   purchasable: boolean;
   tiers: Tier[];
-  organizerProfile?: { slug: string; name: string } | null;
+  organizerProfile?: OrganizerLink | null;
+  addons?: Addon[];
+  venueDirections?: string | null;
+};
+
+/** GET /public/organizers/:slug (organizerProfileService.bySlug) */
+export type OrganizerPage = {
+  organizer: Omit<OrganizerLink, 'logoUrl'> & {
+    logoUrl: string | null; description: string | null; country: string | null; memberSince: string | null;
+  };
+  stats: { upcoming: number; past: number };
+  upcoming: EventCard[];
+  past: EventCard[];
 };
 
 /** GET /public/event-categories → labelled */
@@ -106,11 +133,17 @@ export type SeatMap = {
     purchaseMode: string; admissionType: 'reserved' | 'general';
     maxTicketsPerOrder: number | null; startsAt: string; endsAt: string | null;
   };
-  map: { id: string; version: number } | null;
+  /** `layout` is the organizer's drawing (zones, sections, look, world) — read
+   *  only through the website's own readers (src/seating/model.ts). */
+  map: { id: string; version: number; layout?: Record<string, unknown> | null } | null;
   tiers: { id: string; name: string; priceCents: number; onSale: boolean; soldOut: boolean; maxPerOrder: number | null; description: string | null; kind: string }[];
   tables: {
     id: string; label: string; seatCount: number; priceCents: number | null;
     status: string; canBookWhole: boolean; isPrivate: boolean;
+    /** Percent of the map's world, the table's centre; rotation in degrees. */
+    position: { x: number; y: number; rotation: number };
+    shape: string;
+    categoryId?: string | null;
   }[];
   seats: {
     id: string; tableId: string | null; tierId: string | null; section: string | null;
@@ -118,6 +151,8 @@ export type SeatMap = {
     available: boolean; reason?: string;
   }[];
   hiddenTableCount: number;
+  /** Vendor booths drawn on the seat map — scenery to a buyer. */
+  vendorBooths?: { plan: unknown; booths?: Record<string, unknown>; boothTypes?: unknown[] } | null;
 };
 
 /** POST /public/events/:slug/hold (seatMapController.shapeHold) */
@@ -131,11 +166,13 @@ export type Hold = {
   tableLabel: string | null;
 };
 
-/** GET /public/reservations/:id/quote (pricingService.publicBreakdown) */
-export type Quote = {
+/** pricingService.publicBreakdown — the money, as the buyer will be charged. */
+export type Breakdown = {
   currency: string;
   admits: number;
-  lines: { label: string; amountCents: number; addon?: boolean }[];
+  lines: { label: string; amountCents: number; addon?: boolean; basis?: unknown }[];
+  /** The add-ons this hold already carries. */
+  addons?: { addonId: string; name: string; quantity: number; unitPriceCents: number }[];
   totalCents: number;
   expiresAt: string;
   heldForMs: number | null;
@@ -144,6 +181,22 @@ export type Quote = {
     timezone: string | null; coverUrl: string | null; city: string | null;
     organizerName: string | null;
   };
+};
+
+/** One ticket the hold will issue, for its holder form (ticketHolders.slotsFor). */
+export type HolderSlot = { key: string; title: string; place: string | null; tierName: string | null };
+
+/** GET /public/reservations/:id/quote (checkoutController.quote) */
+export type Quote = Breakdown & {
+  /** "VIP × 2 at EGP 1,600" — presentation only; the total is `totalCents`. */
+  tickets?: { key: string; name: string; unitPriceCents: number; quantity: number }[];
+  /** Who each ticket is for. `slots` is empty for one ticket or when not asked. */
+  holders?: { mode: 'required' | 'optional' | 'off'; slots: HolderSlot[] };
+  /** "Whose guest are you?" — null when the event does not ask. */
+  guestOf?: { mode: 'required' | 'optional'; question: string; hosts: { id: string; name: string; code?: string }[] } | null;
+  addonsOffered?: Addon[];
+  /** The organizer's policies marked "show at checkout". */
+  policies?: { id: string; kind: string; title: string; body: string }[];
 };
 
 /** GET /public/checkout/:sessionId */
@@ -176,6 +229,8 @@ export type Order = {
   event: {
     id: string; title: string; slug: string; startsAt: string; endsAt: string | null;
     timezone: string | null; venue: string | null; cancelled: boolean;
+    /** Since 2026-11-24; an older API sends neither. */
+    city?: string | null; coverUrl?: string | null;
   } | null;
   currency: string | null;
   totalCents: number | null;

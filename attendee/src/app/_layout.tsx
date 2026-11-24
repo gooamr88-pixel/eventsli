@@ -70,7 +70,7 @@ export default function RootLayout() {
       <QueryClientProvider client={queryClient}>
         <SafeAreaProvider>
           <StatusBar style="dark" />
-          <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
+          <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg }, animation: 'slide_from_right' }}>
             <Stack.Screen name="index" />
             <Stack.Protected guard={!onboarded && !account}>
               <Stack.Screen name="welcome" options={{ animation: 'fade' }} />
@@ -87,6 +87,7 @@ export default function RootLayout() {
             <Stack.Screen name="checkout/[reservationId]" />
             <Stack.Screen name="checkout/confirmed" options={{ gestureEnabled: false, animation: 'fade' }} />
             <Stack.Screen name="ticket/[orderId]" />
+            <Stack.Screen name="organizer/[slug]" />
             <Stack.Screen name="notifications" />
             <Stack.Screen name="settings" />
             <Stack.Screen name="city" options={{ presentation: 'modal' }} />

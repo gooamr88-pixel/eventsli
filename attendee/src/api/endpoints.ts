@@ -1,7 +1,7 @@
 import { api, request } from './client';
 import type {
-  AppNotification, AppSession, Category, CheckoutResult, City, EventCard, EventDetail,
-  Hold, NearAnswer, Order, Quote, SeatMap,
+  AppNotification, AppSession, Breakdown, Category, CheckoutResult, City, EventCard, EventDetail,
+  Hold, NearAnswer, Order, OrganizerPage, Quote, SeatMap,
 } from './types';
 
 /**
@@ -59,10 +59,16 @@ export const quote = (reservationId: string) =>
   api<Quote>(`/public/reservations/${reservationId}/quote`);
 
 export const applyPromo = (reservationId: string, reservationToken: string, code: string) =>
-  api<unknown>(`/public/reservations/${reservationId}/promo`, { method: 'POST', body: { code }, reservationToken });
+  api<{ code: string; discountCents: number; quote: Breakdown }>(`/public/reservations/${reservationId}/promo`, { method: 'POST', body: { code }, reservationToken });
 
 export const removePromo = (reservationId: string, reservationToken: string) =>
-  api<unknown>(`/public/reservations/${reservationId}/promo`, { method: 'DELETE', reservationToken });
+  api<{ removed: boolean; quote: Breakdown }>(`/public/reservations/${reservationId}/promo`, { method: 'DELETE', reservationToken });
+
+/** The WHOLE add-on choice for the hold; one left out comes off. */
+export const setAddons = (reservationId: string, reservationToken: string, lines: { addonId: string; quantity: number }[]) =>
+  api<Breakdown>(`/public/reservations/${reservationId}/addons`, { method: 'PUT', body: { lines }, reservationToken });
+
+export type HolderInput = { key: string; firstName: string; lastName?: string; phone?: string; email?: string };
 
 export type Buyer = {
   name: string;
@@ -71,7 +77,20 @@ export type Buyer = {
   acceptTerms: true;
   /** signatureService: a typed name is the accessible alternative to drawing. */
   signature: { method: 'typed'; name: string };
+  /** One per HolderSlot, when the quote asks (ticketHolders.save). */
+  holders?: HolderInput[];
+  /** "Whose guest are you?" (guestOfService.saveChoice). */
+  guestOfHostId?: string | null;
 };
+
+// ─── Coming soon, organizers ────────────────────────────────────────────────
+
+/** One email, once, when sales open (comingSoonService). */
+export const notifyWhenOnSale = (slug: string, email: string, token?: string | null) =>
+  api<{ subscribed: boolean }>(`/public/events/${encodeURIComponent(slug)}/notify`, { method: 'POST', body: { email }, token });
+
+export const organizerPage = (slug: string) =>
+  api<OrganizerPage>(`/public/organizers/${encodeURIComponent(slug)}`);
 
 export const startCheckout = (reservationId: string, reservationToken: string, buyer: Buyer, token?: string | null) =>
   api<{ checkoutUrl: string; sessionId: string }>(`/public/reservations/${reservationId}/checkout`, {
@@ -112,6 +131,14 @@ export const logout = (token: string) => api<unknown>('/auth/logout', { method: 
 // ─── Mine (signed in) ───────────────────────────────────────────────────────
 
 export const myTickets = (token: string) => api<Order[]>('/tickets', { token });
+
+/** BRD §10 — a ticket may be passed on once; the old code stops working. */
+export const transferTicket = (token: string, ticketId: string, toEmail: string) =>
+  api<unknown>(`/tickets/${ticketId}/transfer`, { method: 'POST', body: { toEmail }, token });
+
+/** "I lost the email" — sent to the address on the order, never to one typed here. */
+export const resendTickets = (email: string) =>
+  api<unknown>('/public/tickets/resend', { method: 'POST', body: { email } });
 
 export const savedEvents = (token: string, page = 1) =>
   request<EventCard[]>('/me/saved-events', { token, query: { page, limit: 50 } });

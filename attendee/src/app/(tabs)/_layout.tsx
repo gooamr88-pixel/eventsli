@@ -1,38 +1,38 @@
 import { Tabs } from 'expo-router';
 
-import { Icon, type IconName } from '@/ui/Icon';
-import { colors, fonts } from '@/ui/theme';
+import { isUpcoming, useTickets } from '@/hooks/useTickets';
+import { useLayout } from '@/ui/layout';
+import { TabBar } from '@/ui/TabBar';
 
-/** Home, Explore, Saved, Tickets, Profile — the mockup's tab bar, coral when active. */
-const TABS: { name: string; title: string; icon: IconName }[] = [
-  { name: 'index', title: 'Home', icon: 'home' },
-  { name: 'explore', title: 'Explore', icon: 'compass' },
-  { name: 'saved', title: 'Saved', icon: 'heart' },
-  { name: 'tickets', title: 'Tickets', icon: 'ticket' },
-  { name: 'profile', title: 'Profile', icon: 'user' },
-];
+/**
+ * Home, Explore, Saved, Tickets, Profile. The bar itself is ui/TabBar.tsx: the
+ * mockup's bar on a phone, a left rail on a wide screen. Tickets carries a
+ * badge with how many upcoming orders there are, so a ticket bought on the
+ * website is noticed here too.
+ */
+const TABS = [
+  { name: 'index', title: 'Home' },
+  { name: 'explore', title: 'Explore' },
+  { name: 'saved', title: 'Saved' },
+  { name: 'tickets', title: 'Tickets' },
+  { name: 'profile', title: 'Profile' },
+] as const;
 
 export default function TabsLayout() {
+  const { wide } = useLayout();
+  const tickets = useTickets();
+  const upcoming = (tickets.data ?? []).filter((o) => isUpcoming(o)).length;
+
   return (
     <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: colors.accent,
-        tabBarInactiveTintColor: colors.subtle,
-        tabBarLabelStyle: { fontFamily: fonts.medium, fontSize: 11 },
-        tabBarStyle: { backgroundColor: colors.surface, borderTopColor: colors.border },
-      }}
+      tabBar={(props) => <TabBar {...props} />}
+      screenOptions={{ headerShown: false, tabBarPosition: wide ? 'left' : 'bottom' }}
     >
       {TABS.map((t) => (
         <Tabs.Screen
           key={t.name}
           name={t.name}
-          options={{
-            title: t.title,
-            tabBarIcon: ({ color, focused }) => (
-              <Icon name={t.icon} size={23} color={String(color)} fill={focused && t.icon === 'heart' ? String(color) : undefined} />
-            ),
-          }}
+          options={{ title: t.title, tabBarBadge: t.name === 'tickets' && upcoming ? upcoming : undefined }}
         />
       ))}
     </Tabs>

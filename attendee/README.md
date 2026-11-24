@@ -23,20 +23,30 @@ board, 18 frames).
 | Route | Screen | API |
 |---|---|---|
 | `welcome` | Your City. Your Experiences. Get Started / Sign In (first launch only) | — |
-| `(tabs)/index` | Home: logo + inbox bell, city, search, Trending, categories, upcoming in the city | `/public/vip-events`, `/public/event-categories`, `/public/events` |
-| `(tabs)/explore` | Explore: search, category chips and tiles, Near me | `/public/events`, `/public/events/near` |
+| `(tabs)/index` | Home: logo + inbox bell, city, search, Trending carousel, categories, upcoming (posters to swipe, then a list; a grid on a tablet) | `/public/vip-events`, `/public/event-categories`, `/public/events` |
+| `(tabs)/explore` | Explore: search, category chips and tiles, When (today / weekend / week / month), Near me | `/public/events` (`from`/`to`), `/public/events/near` |
 | `(tabs)/saved` | Saved Events | `/me/saved-events` |
-| `(tabs)/tickets` | My Tickets: Upcoming / Past | `/tickets` |
-| `(tabs)/profile` | Profile | — |
-| `event/[slug]` | The event: cover, when/where (opens Maps), About, ticket types, Select Tickets | `/public/events/:slug` |
-| `event/[slug]/seats` | Seating Map (reserved events): by section and row, whole tables | `/public/events/:slug/seat-map`, `/hold` |
+| `(tabs)/tickets` | My Tickets: Upcoming / Past, a paper ticket per order on its event's cover | `/tickets` |
+| `(tabs)/profile` | Profile: who, upcoming / saved / attended, the menu | `/tickets`, `/me/saved-events/ids` |
+| `event/[slug]` | The event: cover, when/where, countdown, About, seat-map preview, ticket types, extras, Getting there, organizer, Select Tickets / Notify me | `/public/events/:slug`, `/seat-map`, `/notify` |
+| `event/[slug]/seats` | Seating Map: the organizer's floor plan to pan, pinch and tap (the website's own geometry, `src/seating`); ticket-type chips; whole tables; a List view for screen readers | `/public/events/:slug/seat-map`, `/hold` |
 | `event/[slug]/tickets` | Select Tickets (general admission): a quantity per type | `/public/events/:slug`, `/hold` |
-| `checkout/[reservationId]` | Checkout: hold countdown, the server's itemised quote, details, terms + typed signature, Pay Now | `/quote`, `/checkout`, `/claim`, `/checkout/:sessionId` |
+| `checkout/[reservationId]` | Checkout: hold ring, the server's itemised quote, add-ons, promo code, details, a name per ticket, "whose guest", policies, terms + typed signature, Pay Now | `/quote`, `/addons`, `/promo`, `/checkout`, `/claim`, `/checkout/:sessionId` |
 | `checkout/confirmed` | Booking Confirmed | — |
-| `ticket/[orderId]` | The tickets of one order, a QR each; Add to Calendar; Share | (from `/tickets`) |
-| `notifications` | The inbox | `/me/notifications` |
-| `settings` | Account, notifications, location, privacy, help, Log Out | `/me/push-devices` |
-| `city` | City picker | `/public/cities` |
+| `ticket/[orderId]` | The tickets of one order, a paper ticket + QR each; Add to Calendar; Directions; Give to someone | (from `/tickets`), `/tickets/:id/transfer` |
+| `organizer/[slug]` | An organizer's page: about, contact, links, upcoming and past events | `/public/organizers/:slug` |
+| `notifications` | The inbox, New and Earlier | `/me/notifications` |
+| `settings` | Account, notifications, location, language, resend my tickets, privacy, help, Log Out | `/me/push-devices`, `/public/tickets/resend` |
+| `city` | City picker with search | `/public/cities` |
+
+**Every screen size.** `src/ui/layout.tsx` sets a centred content column and
+grids whose column count follows the width. A wide screen (tablet sideways, a
+browser) gets the tab bar as a left rail (`src/ui/TabBar.tsx`) and two-column
+event, seat-map and checkout pages.
+
+**The seat map never moves by itself** (owner, 2026-11-19): it opens fitted,
+moves only under the person's fingers or the zoom buttons, and keeps their zoom
+when its box resizes (`keepView`, tested in `test/seating.test.ts`).
 | `sign-in`, `sign-up`, `verify` | Email + password; create account; the 6-digit code | `/auth/app/login`, `/auth/register`, `/auth/verify-email` |
 
 Left out of the mockup on purpose: the star rating and review count (there are

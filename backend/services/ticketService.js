@@ -190,7 +190,7 @@ async function receivedBy(email) {
              ticket_tiers ( name ),
              ticket_addons ( event_addons ( name, sort_order ) ),
              orders!inner ( status ),
-             events ( id, title, slug, starts_at, ends_at, timezone, venue_name, status )`)
+             events ( id, title, slug, starts_at, ends_at, timezone, venue_name, city, cover_url, status )`)
     .eq('attendee_email', address)
     .gt('transfer_count', 0)
     .eq('orders.status', 'paid')
