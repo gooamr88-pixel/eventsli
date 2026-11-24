@@ -252,3 +252,13 @@ chose one map for every event.
   unchanged: their map is the seat page.
 - **Deploy order:** apply `20261212090000` before this backend; the old function
   refuses every general-admission save.
+
+## Private tables, Unavailable tables and the colour rules (2026-11-24)
+
+**Private tables are visible.** The public seat map returns every table. A private table the buyer has not unlocked comes back with `locked: true`, `canBookWhole: false`, no price and no ticket type, and its seats as unavailable with `reason: 'private'` (`seatMapController.publicMap`). The buyer map draws it marked Private with a lock; pressing the table or any chair opens the password prompt (`SeatPicker` → `UnlockTableDialog`). The unlock token re-fetches the map and the table comes back open. The hold still refuses a private table or seat without the token (`placeHold.js`). `hiddenTableCount` is always 0 now; `lockedTableCount` counts locked ones. The vendor floor plan also shows private tables (`isPrivate`).
+
+**Unavailable tables** (sold or reserved outside Eventsli) are not new stock. Marking one blocks every open seat at it through the Preview's seat-hold mechanism (`useStudioDraft.setTablesUnavailable`), and `save_venue_map`'s `p_availability` saves it in the same transaction as the map. No migration is needed. Seats a buyer holds or bought are skipped. The table inspector has an Availability section, and the multi-select inspector has "Mark N unavailable" and "Make available again". A new table must be saved first.
+
+**Bulk private.** The multi-select inspector sets one password on every selected table, or makes them public again. The API hashes each *distinct* password once and shares the hash, so the 50-password cap counts distinct passwords. A saved table switched to private with no password is now refused by name, in the draft rules and in `saveMap`, instead of failing the `private_needs_password` constraint.
+
+**One colour rule** (`mapStyle.js`, "THE MAP'S COLOUR RULES"). A table is painted its own colour, then its category's colour, then its ticket type's colour (only when the map has more than one type), then the look's colour (`venueModel.tableTint` + `tablePaint`). Every chair at a table is black (`CHAIR`). Selected chairs get a coral ring, unavailable or locked chairs are faded, and a light edge keeps chairs visible on dark floors. Seats in a row (no table body) carry the row's colour. The buyer map, the editor canvas, door sales, the 3D/360 views (`studioColours`, per-table cloth colours in `roomBuilder`) and the attendee app all read this one rule. The public map now sends `categories` (with colours) and each table's `tierId`.

@@ -32,9 +32,15 @@ export default function Welcome() {
         <Text style={styles.headline} color={colors.white} accessibilityRole="header">
           Your City.{'\n'}Your Experiences.
         </Text>
-        <Text variant="body" color={colors.onDarkMuted}>
-          Discover amazing events, concerts, and more — and carry your tickets in your pocket.
+        <Text variant="body" color={colors.white} style={{ fontSize: 17, lineHeight: 25 }}>
+          Discover amazing events,{'\n'}concerts, and more.
         </Text>
+        <View style={styles.dots} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+          <View style={[styles.dot, { backgroundColor: colors.accent }]} />
+          <View style={[styles.dot, { backgroundColor: colors.white }]} />
+          <View style={styles.dot} />
+          <View style={styles.dot} />
+        </View>
         <Button label="Get Started" variant="highlight" onPress={() => { void useSession.getState().finishOnboarding(); }} />
         <Button label="Sign In" variant="onDark" onPress={() => router.push('/sign-in')} />
       </View>
@@ -66,5 +72,7 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.night },
   top: { paddingHorizontal: space.xl },
   bottom: { flex: 1, justifyContent: 'flex-end', paddingHorizontal: space.xl, gap: space.lg },
-  headline: { fontFamily: fonts.display, fontSize: 38, lineHeight: 44 },
+  headline: { fontFamily: fonts.display, fontSize: 36, lineHeight: 42, fontStyle: 'italic' },
+  dots: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginVertical: space.md },
+  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.35)' },
 });

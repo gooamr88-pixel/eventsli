@@ -49,6 +49,9 @@ function rotate(px, py, deg) {
  */
 export function buildSceneModel({
   tables = [], seatsByTable = new Map(), zones = [], scene = {}, world = worldOf(null),
+  // `(table) => colour | null`: the table top's colour, the same as on the 2D
+  // map (mapStyle.tablePaint). Absent or null: the scene's cloth.
+  bodyColor = null,
 }) {
   const k = METRES_PER_UNIT;
   const stage = zones.find((z) => z.kind === 'stage');
@@ -105,6 +108,8 @@ export function buildSceneModel({
         seat: seat || null,
         tableId: t.id,
         tableLabel: t.label,
+        // A chair round a table (always black, mapStyle.CHAIR), or a seat in a row.
+        atTable: !isRow,
         number: seat?.number ?? String(i + 1),
         x: s.x,
         y: elev,
@@ -129,6 +134,7 @@ export function buildSceneModel({
       bodies.push({
         id: t.id, label: t.label, kind: body.kind, x: centre.x, z: centre.z,
         w: body.width * size * k, d: body.height * size * k, rot: -rad(pos.rotation),
+        color: bodyColor ? bodyColor(t) || null : null,
       });
     }
   });

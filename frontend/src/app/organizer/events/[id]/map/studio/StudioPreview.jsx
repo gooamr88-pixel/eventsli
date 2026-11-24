@@ -32,7 +32,7 @@ const STATE_COLOR = Object.freeze({
 });
 export default function StudioPreview({
   tables, zones, world, layout, studio, tiers, savedSeats, currency, purchaseMode, eventTitle,
-  holds, onToggleHold, onClearHolds,
+  holds, onToggleHold, onClearHolds, categories = [],
 }) {
   const [mode, setMode] = useState('buyer');
   const [device, setDevice] = useState('desktop');
@@ -148,6 +148,7 @@ export default function StudioPreview({
           zones={zones}
           layout={fullLayout}
           tiers={tiers}
+          categories={categories}
           currency={currency}
           purchaseMode={purchaseMode}
           eventTitle={eventTitle}

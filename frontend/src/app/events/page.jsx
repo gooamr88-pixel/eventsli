@@ -43,18 +43,29 @@ async function load(params) {
   if (Number.isInteger(params.maxPrice)) query.set('maxPrice', String(params.maxPrice));
   // "Tickets on sale" (2026-11-15): only events sold here.
   if (params.onSale) query.set('onSale', 'true');
-  query.set('limit', '24');
+  query.set('limit', String(PAGE_SIZE));
+  /**
+   * PAGES (2026-11-24, "new events not appearing"). The listing asked for
+   * the first 24 soonest events and offered no way past them, so once more
+   * than 24 were on, every event dated after the 24th — which is where a
+   * newly created one usually lands — was on no page of /events at all.
+   */
+  if (params.page > 1) query.set('page', String(params.page));
   // Blurred private events (owner, 2026-11-23). The API lists them only when
   // no filter could match a detail they hide (city, category, price, search).
   query.set('withPrivate', 'true');
 
   try {
-    const [events, categories] = await Promise.all([
-      serverFetch(`/public/events?${query}`, { tags: ['events:published'], revalidate: 60 }),
+    const [body, categories] = await Promise.all([
+      serverFetch(`/public/events?${query}`, { tags: ['events:published'], revalidate: 60, raw: true }),
       serverFetch('/public/event-categories', { tags: ['event-categories'], revalidate: 3600 }),
     ]);
+    const events = body?.data;
     return {
       events: Array.isArray(events) ? events : [],
+      // { page, limit, total, totalPages } — absent from an older API, when
+      // a full page is taken to mean there may be another.
+      pagination: body?.pagination || null,
       // `labelled` carries the name an admin gave the category. The bare
       // `categories` array of slugs is still returned by the API and is the
       // fallback — a deployment where the two disagree renders titlecased
@@ -66,9 +77,12 @@ async function load(params) {
   } catch {
     // An API hiccup costs the listing, not the page. The filters still render,
     // so the visitor has something to do other than reload.
-    return { events: [], categories: [], failed: true };
+    return { events: [], categories: [], pagination: null, failed: true };
   }
 }
+
+/** Events per page, and the API's page size for this listing. */
+const PAGE_SIZE = 24;
 
 /** A calendar date, or an instant (what "This weekend" and smart search send). */
 const DATE_PARAM = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?(Z|[+-]\d{2}:\d{2})?)?$/;
@@ -115,6 +129,7 @@ export default async function EventsPage({ searchParams }) {
   const to = dateParam(params.to);
   const tz = safeTimeZone(params.tz);
   const onSale = params.onSale === 'true';
+  const page = Math.min(Math.max(Number.parseInt(params.page, 10) || 1, 1), 500);
 
   const smart = await understand(q, tz, await liveCategories());
   const effective = {
@@ -127,7 +142,7 @@ export default async function EventsPage({ searchParams }) {
     onSale,
   };
 
-  let { events, categories, failed } = await load({ ...effective, country: params.country });
+  let { events, categories, failed, pagination } = await load({ ...effective, country: params.country, page });
 
   /**
    * NEVER WORSE THAN A PLAIN SEARCH. When what smart search understood finds
@@ -137,8 +152,8 @@ export default async function EventsPage({ searchParams }) {
    */
   let relaxed = false;
   if (smart?.understood.length && events.length === 0 && !failed) {
-    const plain = await load({ q, category: active, city, from, to, onSale, country: params.country });
-    if (plain.events.length > 0) ({ events, categories, failed } = { ...plain, categories: plain.categories.length ? plain.categories : categories });
+    const plain = await load({ q, category: active, city, from, to, onSale, country: params.country, page });
+    if (plain.events.length > 0) ({ events, categories, failed, pagination } = { ...plain, categories: plain.categories.length ? plain.categories : categories });
     relaxed = plain.events.length > 0;
   }
 
@@ -196,8 +211,17 @@ export default async function EventsPage({ searchParams }) {
   }
 
   const filtered = Boolean(q || active || city || from || onSale);
-  // The API pages at 24, so a full page may not be everything.
-  const count = events.length >= 24 ? '24+' : String(events.length);
+  // The whole count when the API says it; a full page otherwise may not be everything.
+  const total = Number.isFinite(pagination?.total) ? pagination.total : null;
+  const count = total !== null ? String(total) : events.length >= PAGE_SIZE ? `${PAGE_SIZE}+` : String(events.length);
+  const totalPages = Number.isFinite(pagination?.totalPages) ? pagination.totalPages : null;
+  const hasNext = totalPages !== null ? page < totalPages : events.length >= PAGE_SIZE;
+  /** This page's URL, every filter kept, on page `n`. */
+  const pageHref = (n) => {
+    const base = href(active);
+    if (n <= 1) return base;
+    return `${base}${base.includes('?') ? '&' : '?'}page=${n}`;
+  };
 
   /** The category radios: "All" first, each one a URL that keeps the other filters. */
   const categoryOptions = [
@@ -257,13 +281,33 @@ export default async function EventsPage({ searchParams }) {
           </div>
 
           {events.length > 0 ? (
-            <ul className="es-evx__grid">
-              {events.map((event, i) => (
-                <li key={event.id}>
-                  <EventGridCard event={event} priority={i < 3} />
-                </li>
-              ))}
-            </ul>
+            <>
+              <ul className="es-evx__grid">
+                {events.map((event, i) => (
+                  <li key={event.id}>
+                    <EventGridCard event={event} priority={page === 1 && i < 3} />
+                  </li>
+                ))}
+              </ul>
+              {(page > 1 || hasNext) && (
+                <nav className="es-evx__pager" aria-label="More events">
+                  {page > 1 ? (
+                    <Link href={pageHref(page - 1)} className="es-lp-btn es-lp-btn--outline" rel="prev">Previous</Link>
+                  ) : <span />}
+                  <span className="text-sm text-muted">
+                    Page {page}{totalPages ? ` of ${totalPages}` : ''}
+                  </span>
+                  {hasNext ? (
+                    <Link href={pageHref(page + 1)} className="es-lp-btn es-lp-btn--outline" rel="next">More events</Link>
+                  ) : <span />}
+                </nav>
+              )}
+            </>
+          ) : page > 1 && !failed ? (
+            <div className="es-empty es-empty--rich">
+              <p className="text-md font-medium text-ink">No more events on this page.</p>
+              <Link href={pageHref(1)} className="es-lp-btn es-lp-btn--outline mt-2">Back to the first page</Link>
+            </div>
           ) : (
             <div className="es-empty es-empty--rich">
               <span aria-hidden className="es-empty__mark">

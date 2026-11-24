@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { readStudio, writeStudio, liveSections, sectionIndex } from '../../../../../components/venue/venueModel';
 
 /**
@@ -60,6 +60,59 @@ export function useStudioDraft() {
   }, []);
   const clearHolds = useCallback(() => setHolds(new Map()), []);
 
+  /**
+   * ─────────────────────────────────────────────────────────────────────────
+   * A WHOLE TABLE UNAVAILABLE (owner, 2026-11-24): "the organizer sold or
+   * reserved it outside Eventsli". Not a new kind of stock: it is every open
+   * seat at the table blocked, through the same blocks the Preview's "Seat
+   * holds" make, saved in the same transaction as the map (save_venue_map's
+   * `p_availability`). So it needs no migration, a buyer who holds a seat
+   * meanwhile keeps it (the save skips and counts it), and the hold
+   * functions already refuse a blocked seat and a table that is not whole.
+   *
+   * `setTablesUnavailable(ids, true)` blocks every open seat at those tables;
+   * `false` releases every blocked one. Either is undone by the other, and
+   * neither touches a seat a buyer holds or bought.
+   * ─────────────────────────────────────────────────────────────────────────
+   */
+  const setTablesUnavailable = useCallback((tableIds, on) => {
+    const ids = new Set(tableIds);
+    setHolds((prev) => {
+      const next = new Map(prev);
+      for (const seat of savedSeats) {
+        if (!ids.has(seat.tableId)) continue;
+        if (seat.status === 'available') {
+          if (on) next.set(seat.id, 'block'); else next.delete(seat.id);
+        } else if (seat.status === 'blocked') {
+          if (on) next.delete(seat.id); else next.set(seat.id, 'release');
+        }
+      }
+      return next;
+    });
+  }, [savedSeats]);
+
+  /**
+   * Each saved table's seats as they will be after the pending blocks and
+   * releases: table id → { total, open, blocked, booked }. A table is
+   * UNAVAILABLE when nothing at it is open and the organizer blocked at
+   * least one seat (a table a buyer bought outright is sold, not this).
+   */
+  const tableStock = useMemo(() => {
+    const out = new Map();
+    for (const seat of savedSeats) {
+      if (!seat.tableId) continue;
+      const change = holds.get(seat.id);
+      const status = change === 'block' ? 'blocked' : change === 'release' ? 'available' : seat.status;
+      const s = out.get(seat.tableId) || { total: 0, open: 0, blocked: 0, booked: 0 };
+      s.total += 1;
+      if (status === 'available') s.open += 1;
+      else if (status === 'blocked') s.blocked += 1;
+      else s.booked += 1;
+      out.set(seat.tableId, s);
+    }
+    return out;
+  }, [savedSeats, holds]);
+
   /** What a save sends, given the layout it is building on and the tables in it. */
   const toLayout = (layout, tables) => writeStudio(layout, { ...studio, sections: liveSections(studio.sections, tables) });
 
@@ -105,6 +158,8 @@ export function useStudioDraft() {
     load,
     toggleHold,
     clearHolds,
+    setTablesUnavailable,
+    tableStock,
     toLayout,
     sectionsFor,
     availability,

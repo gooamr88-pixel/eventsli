@@ -26,7 +26,9 @@ export default function TabsLayout() {
   return (
     <Tabs
       tabBar={(props) => <TabBar {...props} />}
-      screenOptions={{ headerShown: false, tabBarPosition: wide ? 'left' : 'bottom' }}
+      // 'shift': the new tab glides in slightly from its side, so moving
+      // between tabs feels like moving, not a cut.
+      screenOptions={{ headerShown: false, tabBarPosition: wide ? 'left' : 'bottom', animation: 'shift' }}
     >
       {TABS.map((t) => (
         <Tabs.Screen

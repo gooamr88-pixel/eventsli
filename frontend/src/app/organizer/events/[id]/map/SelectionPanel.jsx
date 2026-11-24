@@ -11,6 +11,7 @@ import NewTierInline, { NEW_TIER } from './NewTierInline';
 import { TABLE_SCALE, tableScale } from '../../../../components/seating/seatingGeometry';
 import { Inspector, InspectorSection, InspectorAction, InspectorNote } from '../../../../components/inspector/Inspector';
 import { Field, RangeField, SelectField } from '../../../../components/inspector/fields';
+import { tableAvailability } from './TablePanel';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -27,6 +28,12 @@ import { Field, RangeField, SelectField } from '../../../../components/inspector
  * screen reader announced a change that then vanished. Now each one reads the
  * selection: one shared value is shown as chosen, different values as
  * "Mixed", and choosing sets every selected table as one undo step.
+ *
+ * PRIVATE AND UNAVAILABLE, FOR THE LOT (owner, 2026-11-24): "select multiple
+ * tables and mark all selected tables as Private in one action". One password
+ * for every selected table, or back to public; and "Unavailable" — sold or
+ * reserved outside Eventsli — for every saved table selected. Both ride the
+ * next Save, like every other change here, and Ctrl+Z undoes the privacy.
  *
  * WHY DELETE IS NOT CONFIRMED. Removing a table from the draft is not removing
  * it from the event: the save is a full replace and the API refuses to drop a
@@ -47,6 +54,12 @@ export default function SelectionPanel({
   categories = [], onAssignCategory = null, onResize = null, purchaseMode = 'seat_only', onAssignTablePrice = null,
   // Vendor booths in the selection (2026-11-22): one booth type for them all.
   booths = [], boothTypes = [], onAssignBoothType = null,
+  // Bulk privacy: `(on, password)` makes every selected table private with
+  // that password, or public again (2026-11-24).
+  onSetPrivate = null,
+  // Bulk availability: each table's seats after pending blocks, and the
+  // switch that blocks or releases every selected saved table's seats.
+  stockOf = null, onSetUnavailable = null,
 }) {
   const tableCount = tables.length;
   const total = tableCount + zoneCount;
@@ -136,6 +149,14 @@ export default function SelectionPanel({
         </InspectorSection>
       )}
 
+      {tableCount > 0 && onSetPrivate && (
+        <BulkPrivate key={tables.map(keyOf).join(',')} tables={tables} onApply={onSetPrivate} />
+      )}
+
+      {tableCount > 0 && onSetUnavailable && stockOf && (
+        <BulkAvailability tables={tables} stockOf={stockOf} onApply={onSetUnavailable} />
+      )}
+
       {tableCount > 0 && onResize && (
         <InspectorSection id="sel-look" title="Appearance" summary={`${Math.round(sharedSize * 100)}%`}>
           <RangeField
@@ -191,6 +212,86 @@ function BulkTablePrice({ tables, onApply }) {
         <button type="button" className="es-btn es-btn--secondary es-btn--sm" disabled={!canApply} onClick={apply}>{blank && same && first !== null ? 'Clear' : 'Apply'}</button>
       </span>
     </Field>
+  );
+}
+
+/**
+ * PRIVATE, FOR EVERY SELECTED TABLE. One password for all of them: a table
+ * becoming private needs one (the database refuses a private table without a
+ * hash), and one shared password is what an organizer hands a party that has
+ * booked a block of tables. Already-private tables get the new password too,
+ * so the whole selection opens with the same one.
+ */
+function BulkPrivate({ tables, onApply }) {
+  const [password, setPassword] = useState('');
+  const id = useId();
+  const privateCount = tables.filter((t) => t.isPrivate).length;
+  const all = privateCount === tables.length;
+  const n = tables.length;
+  const summary = all ? 'All private' : privateCount ? `${privateCount} of ${n} private` : 'Public';
+  const typed = password.trim().length > 0;
+  const apply = () => { if (typed) { onApply(true, password); setPassword(''); } };
+  return (
+    <InspectorSection id="sel-private" title="Private access" summary={summary} defaultOpen={privateCount > 0}>
+      <p className="es-field__hint">
+        Private tables stay on the map for everyone, marked Private. Only guests with the password can book them.
+      </p>
+      <Field
+        label={all ? `New password for all ${n}` : `Password for all ${n}`} id={id}
+        hint={all ? 'Leave empty to keep each table’s current password.' : 'One password opens every one of these tables.'}
+      >
+        <span className="fx-row items-center gap-2">
+          <input
+            id={id} type="password" autoComplete="off" maxLength={64}
+            className="es-input es-input--dense fx-min0 flex-1" value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); apply(); } }}
+          />
+          <button type="button" className="es-btn es-btn--secondary es-btn--sm" disabled={!typed} onClick={apply}>
+            {all ? 'Change' : `Make ${n === 2 ? 'both' : `all ${n}`} private`}
+          </button>
+        </span>
+      </Field>
+      {privateCount > 0 && (
+        <button type="button" className="es-textbtn" onClick={() => onApply(false, '')}>
+          Make {privateCount === 1 ? 'it' : privateCount === n ? `all ${n}` : `those ${privateCount}`} public
+        </button>
+      )}
+    </InspectorSection>
+  );
+}
+
+/**
+ * UNAVAILABLE, FOR EVERY SELECTED TABLE — sold or reserved outside Eventsli.
+ * Only saved tables have seats to block; a new one is counted and left out.
+ */
+function BulkAvailability({ tables, stockOf, onApply }) {
+  const states = tables.map((t) => tableAvailability(t, stockOf(t)));
+  const count = (s) => states.filter((x) => x === s).length;
+  const unsaved = count('unsaved');
+  const unavailable = count('unavailable');
+  const markable = states.filter((s) => s === 'available' || s === 'partly').length;
+  const summary = unavailable === tables.length ? 'All unavailable' : unavailable ? `${unavailable} unavailable` : 'On sale';
+  return (
+    <InspectorSection id="sel-availability" title="Availability" summary={summary} defaultOpen={unavailable > 0}>
+      <p className="es-field__hint">
+        Sold or reserved outside Eventsli? Mark the tables unavailable: buyers see them, faded, and can’t book them. Seats already a buyer’s stay theirs.
+      </p>
+      <div className="fx-row flex-wrap gap-2">
+        <button type="button" className="es-btn es-btn--secondary es-btn--sm" disabled={markable === 0} onClick={() => onApply(true)}>
+          Mark {markable === tables.length ? (markable === 2 ? 'both' : `all ${markable}`) : markable} unavailable
+        </button>
+        {unavailable + count('partly') > 0 && (
+          <button type="button" className="es-btn es-btn--ghost es-btn--sm" onClick={() => onApply(false)}>
+            Make available again
+          </button>
+        )}
+      </div>
+      {unsaved > 0 && (
+        <InspectorNote>{unsaved} {unsaved === 1 ? 'table is' : 'tables are'} new — save the map first to mark {unsaved === 1 ? 'it' : 'them'}.</InspectorNote>
+      )}
+      <p className="es-field__hint">Applied when you save the map.</p>
+    </InspectorSection>
   );
 }
 

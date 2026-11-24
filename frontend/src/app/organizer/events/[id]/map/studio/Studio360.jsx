@@ -1,13 +1,15 @@
 'use client';
 
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import NavIcon from '../../../../../components/shell/NavIcon';
 import { messageFor } from '../../../../../utils/errors';
 import VenueScene3D from '../../../../../components/venue/VenueScene3D';
 import PanoramaViewer from '../../../../../components/venue/PanoramaViewer';
 import { buildSceneModel, eyeFor } from '../../../../../components/venue/sceneModel';
 import { projectSeats, guessSpot } from '../../../../../components/venue/photoSpots';
-import { VIEW_KINDS, MAX_VIEWS, studioId, tierPalette } from '../../../../../components/venue/venueModel';
+import {
+  VIEW_KINDS, MAX_VIEWS, studioId, studioColours,
+} from '../../../../../components/venue/venueModel';
 import { keyOf } from '../useMapDraft';
 import { uploadStudioImage, aspectOf } from './uploadStudioImage';
 import { TextField, SelectField, RangeField } from '../../../../../components/inspector/fields';
@@ -27,7 +29,9 @@ import { TextField, SelectField, RangeField } from '../../../../../components/in
  * nobody photographs 8,000 chairs.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-export default function Studio360({ eventId, tables, zones, world, scene, views, onViews, sections, tiers, eventTitle }) {
+export default function Studio360({
+  eventId, tables, zones, world, scene, views, onViews, sections, tiers, eventTitle, categories = [], look = null,
+}) {
   const [selected, setSelected] = useState(views[0]?.id || 'generated');
   const [fromTable, setFromTable] = useState('');
   const [uploading, setUploading] = useState(false);
@@ -36,13 +40,17 @@ export default function Studio360({ eventId, tables, zones, world, scene, views,
   const fileRef = useRef(null);
 
   const plain = useMemo(() => tables.map((t) => ({
-    id: keyOf(t), label: t.label, shape: t.shape, seatCount: t.seatCount, position: t.position, tierId: t.tierId, style: t.style,
+    id: keyOf(t), label: t.label, shape: t.shape, seatCount: t.seatCount, position: t.position, tierId: t.tierId,
+    categoryId: t.categoryId, style: t.style,
   })), [tables]);
-  const model = useMemo(() => buildSceneModel({ tables: plain, zones, scene, world }), [plain, zones, scene, world]);
-  const palette = useMemo(() => tierPalette(tiers, []), [tiers]);
-  const tierOf = useMemo(() => new Map(plain.map((t) => [t.id, t.tierId])), [plain]);
+  // The 2D map's colours (mapStyle.js, THE MAP'S COLOUR RULES).
+  const colours = useMemo(() => studioColours({ tables: plain, tiers, categories, look }), [plain, tiers, categories, look]);
+  const model = useMemo(
+    () => buildSceneModel({ tables: plain, zones, scene, world, bodyColor: colours.bodyColor }),
+    [plain, zones, scene, world, colours],
+  );
   // The function is its own colour key: it changes exactly when the colours do.
-  const colorFor = useCallback((entry) => palette.get(tierOf.get(entry.tableId)) || '#8fa3a8', [palette, tierOf]);
+  const colorFor = colours.colorFor;
   const colorKey = colorFor;
   const buildKey = useMemo(() => ({}), [model, eventTitle]); // eslint-disable-line react-hooks/exhaustive-deps
 

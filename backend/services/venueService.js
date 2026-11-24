@@ -188,11 +188,45 @@ async function saveMap(eventId, payload, { actorId = null } = {}) {
     }
   }
 
-  const newPasswords = incoming.filter((t) => t.password).length;
+  /**
+   * DISTINCT passwords, not tables with one (2026-11-24). "Make all selected
+   * tables private" gives forty tables ONE password; hashing it once and
+   * sharing the hash costs one PBKDF2, so the cap — which exists to bound the
+   * hashing — counts each different password once.
+   */
+  const newPasswords = new Set(incoming.filter((t) => t.password).map((t) => String(t.password))).size;
   if (newPasswords > MAX_NEW_PASSWORDS_PER_SAVE) {
     throw fail('VALIDATION_ERROR',
-      `Set at most ${MAX_NEW_PASSWORDS_PER_SAVE} new table passwords in one save. Save these, then set the rest.`);
+      `Set at most ${MAX_NEW_PASSWORDS_PER_SAVE} different table passwords in one save. Save these, then set the rest.`);
   }
+
+  /**
+   * A SAVED table made private without a password, where it has none stored.
+   * The check above covers only new tables (no id); an existing public table
+   * switched to private reached the database and failed its
+   * `private_needs_password` constraint as a 500. Said here, by name.
+   */
+  const needHash = incoming.filter((t) => t.isPrivate && !t.password && t.id && UUID.test(String(t.id)));
+  if (needHash.length > 0) {
+    const { data: stored, error: storedError } = await supabase
+      .from('tables').select('id, password_hash').in('id', needHash.map((t) => t.id));
+    if (storedError) throw new Error(`could not read the tables' passwords: ${storedError.message}`);
+    const hashed = new Set((stored || []).filter((r) => r.password_hash).map((r) => r.id));
+    const missing = needHash.filter((t) => !hashed.has(t.id));
+    if (missing.length > 0) {
+      throw fail('VALIDATION_ERROR', missing.length === 1
+        ? `"${String(missing[0].label).trim()}" is private, so it needs a password.`
+        : `${missing.length} private tables need a password: ${missing.slice(0, 5).map((t) => String(t.label).trim()).join(', ')}${missing.length > 5 ? '…' : ''}.`);
+    }
+  }
+
+  // One hash per distinct password, shared by every table that uses it.
+  const hashes = new Map();
+  const hashFor = (password) => {
+    const key = String(password);
+    if (!hashes.has(key)) hashes.set(key, hashTablePassword(key));
+    return hashes.get(key);
+  };
 
   /**
    * Hashed HERE, then handed to the database already hashed.
@@ -211,7 +245,7 @@ async function saveMap(eventId, payload, { actorId = null } = {}) {
       // Only when a new password was actually typed. Sending the editor's state
       // back without one must not silently unprotect a table.
       // eslint-disable-next-line no-await-in-loop
-      passwordHash: t.password ? await hashTablePassword(String(t.password)) : null,
+      passwordHash: t.password ? await hashFor(t.password) : null,
       // The explicit way to remove protection, so "absent" and "remove" are
       // different instructions rather than the same one.
       clearPassword: t.isPrivate === false,

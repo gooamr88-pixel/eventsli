@@ -15,6 +15,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { useSession } from '@/auth/session';
+import { lockLeftToRight } from '@/lib/ltr';
 import { listenForPush, registerForPush } from '@/lib/push';
 import { queryClient } from '@/lib/queryClient';
 import { Button } from '@/ui/Button';
@@ -23,6 +24,8 @@ import { Text } from '@/ui/Text';
 import { colors, space } from '@/ui/theme';
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
+// English, left to right, even on an Arabic phone (lib/ltr.ts).
+lockLeftToRight();
 
 /**
  * The app's frame: fonts, the stored session, push, and the routes each state

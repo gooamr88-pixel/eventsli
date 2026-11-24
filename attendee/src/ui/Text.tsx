@@ -16,7 +16,7 @@ type Props = TextProps & {
 export function Text({ variant = 'body', weight, color = colors.text, align, style, ...rest }: Props) {
   return (
     <RNText
-      maxFontSizeMultiplier={1.6}
+      maxFontSizeMultiplier={1.3}
       {...rest}
       style={[
         typeScale[variant],

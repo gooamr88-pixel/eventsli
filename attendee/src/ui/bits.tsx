@@ -1,7 +1,9 @@
 import { router } from 'expo-router';
-import { Children, Fragment, isValidElement, type ReactNode } from 'react';
+import { Children, Fragment, isValidElement, useEffect, useRef, type ReactNode } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
-import Animated, { FadeIn } from 'react-native-reanimated';
+import Animated, {
+  FadeIn, useAnimatedStyle, useReducedMotion, useSharedValue, withSequence, withSpring,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from './Button';
@@ -12,9 +14,9 @@ import { Text } from './Text';
 import { colors, radius, space } from './theme';
 
 /**
- * The small pieces every screen shares: the headers, the section title, a
- * chip, the heart, the stepper, the segmented switch, the settings-style list,
- * a badge, and the three states a list can be in (loading, failed, empty).
+ * The small pieces every screen shares, drawn as the app mockup draws them:
+ * flat and white — no boxes around lists, no borders around cards, soft grey
+ * only for the quiet controls (an unchosen chip, the stepper, the search).
  */
 
 const goBack = () => (router.canGoBack() ? router.back() : router.replace('/'));
@@ -23,10 +25,8 @@ const goBack = () => (router.canGoBack() ? router.back() : router.replace('/'));
 
 type HeaderProps = {
   title?: string;
-  /** A second line under the title: the event a seat map is for. */
   subtitle?: string;
   back?: boolean;
-  /** "close" for a modal (the city picker, sign-in). */
   backIcon?: 'back' | 'close';
   right?: ReactNode;
   /** Draw on whatever is behind (a cover photo) instead of white. */
@@ -35,9 +35,8 @@ type HeaderProps = {
 };
 
 /**
- * The pushed screen's bar: back on the left, the title centred, actions on
- * the right — the mockup's "‹ Seating Map ⎙". The title stays centred however
- * many actions there are, because both sides are the same width.
+ * The mockup's "‹  Seating Map  ⎙": a bare chevron, the title centred in
+ * bold, one action on the right. Over a photo the chevron is white.
  */
 export function Header({ title, subtitle, back = true, backIcon = 'back', right, transparent = false, border = false }: HeaderProps) {
   const insets = useSafeAreaInsets();
@@ -45,7 +44,15 @@ export function Header({ title, subtitle, back = true, backIcon = 'back', right,
     <View style={[styles.header, { paddingTop: insets.top + space.xs }, transparent ? styles.headerClear : styles.headerSolid, border && styles.headerBorder]}>
       <Container style={styles.headerRow}>
         <View style={styles.side}>
-          {back ? <IconButton icon={backIcon === 'close' ? 'close' : 'chevronLeft'} label={backIcon === 'close' ? 'Close' : 'Back'} onPress={goBack} variant={transparent ? 'glass' : 'plain'} /> : null}
+          {back ? (
+            <IconButton
+              icon={backIcon === 'close' ? 'close' : 'chevronLeft'}
+              label={backIcon === 'close' ? 'Close' : 'Back'}
+              onPress={goBack}
+              size={26}
+              variant={transparent ? 'glass' : 'plain'}
+            />
+          ) : null}
         </View>
         <View style={styles.headerTitle}>
           {title ? <Text variant="title" accessibilityRole="header" numberOfLines={1} align="center">{title}</Text> : null}
@@ -57,7 +64,7 @@ export function Header({ title, subtitle, back = true, backIcon = 'back', right,
   );
 }
 
-/** A tab's big left-aligned title — Explore, My Tickets, Saved Events — with its actions. */
+/** A tab's big left-aligned title — "Explore" — with its action. */
 export function ScreenTitle({ title, right, style }: { title: string; right?: ReactNode; style?: ViewStyle }) {
   return (
     <View style={[styles.screenTitle, style]}>
@@ -73,7 +80,7 @@ type IconButtonProps = {
   onPress: () => void;
   color?: string;
   filled?: string;
-  /** plain: bare; soft: a grey disc; glass: a dark disc for use over a photo. */
+  /** plain: bare; soft: a grey disc; glass: a dark disc over a photo; outline: a white disc. */
   variant?: 'plain' | 'soft' | 'glass' | 'outline';
   size?: number;
   disabled?: boolean;
@@ -88,7 +95,7 @@ export function IconButton({ icon, label, onPress, color, filled, variant = 'pla
       accessibilityState={{ disabled }}
       disabled={disabled}
       onPress={onPress}
-      hitSlop={6}
+      hitSlop={8}
       style={({ pressed }) => [
         styles.iconButton,
         variant === 'soft' && styles.iconSoft,
@@ -105,14 +112,15 @@ export function IconButton({ icon, label, onPress, color, filled, variant = 'pla
 
 // ─── Section title ──────────────────────────────────────────────────────────
 
+/** "Explore Categories          See all →" */
 export function Section({ title, action, onAction, style }: { title: string; action?: string; onAction?: () => void; style?: ViewStyle }) {
   return (
     <View style={[styles.section, style]}>
       <Text variant="title" accessibilityRole="header" style={{ flex: 1 }} numberOfLines={1}>{title}</Text>
       {action && onAction ? (
-        <Pressable accessibilityRole="link" onPress={onAction} hitSlop={8} style={styles.sectionAction}>
-          <Text variant="small" weight="semibold" color={colors.accent}>{action}</Text>
-          <Icon name="arrow" size={16} color={colors.accent} />
+        <Pressable accessibilityRole="link" onPress={onAction} hitSlop={10} style={styles.sectionAction}>
+          <Text variant="small" weight="bold">{action}</Text>
+          <Icon name="arrow" size={16} strokeWidth={2.2} />
         </Pressable>
       ) : null}
     </View>
@@ -121,20 +129,19 @@ export function Section({ title, action, onAction, style }: { title: string; act
 
 // ─── Chip ───────────────────────────────────────────────────────────────────
 
+/** The mockup's filter chips: coral when chosen, soft grey when not — no outline. */
 export function Chip({ label, active, onPress, icon, dot }: {
-  label: string; active: boolean; onPress: () => void; icon?: IconName;
-  /** A colour swatch before the label: a ticket type on the seat map. */
-  dot?: string;
+  label: string; active: boolean; onPress: () => void; icon?: IconName; dot?: string;
 }) {
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityState={{ selected: active }}
       onPress={() => { haptic.select(); onPress(); }}
-      style={({ pressed }) => [styles.chip, active ? styles.chipOn : styles.chipOff, pressed && !active && styles.chipPressed]}
+      style={({ pressed }) => [styles.chip, active ? styles.chipOn : styles.chipOff, pressed && !active && { opacity: 0.7 }]}
     >
       {dot ? <View style={[styles.chipDot, { backgroundColor: dot }]} /> : null}
-      {icon ? <Icon name={icon} size={16} color={active ? colors.onAccent : colors.text} /> : null}
+      {icon ? <Icon name={icon} size={15} color={active ? colors.onAccent : colors.text} /> : null}
       <Text variant="small" weight="semibold" color={active ? colors.onAccent : colors.text}>{label}</Text>
     </Pressable>
   );
@@ -142,7 +149,8 @@ export function Chip({ label, active, onPress, icon, dot }: {
 
 // ─── Heart ──────────────────────────────────────────────────────────────────
 
-export function Heart({ saved, onPress, onDark = false, size = 38 }: { saved: boolean; onPress: () => void; onDark?: boolean; size?: number }) {
+/** A white disc with the heart, red when saved — the mockup's event page. It pops when saved. */
+export function Heart({ saved, onPress, onDark = false, size = 40 }: { saved: boolean; onPress: () => void; onDark?: boolean; size?: number }) {
   return (
     <Pressy
       accessibilityRole="button"
@@ -153,19 +161,37 @@ export function Heart({ saved, onPress, onDark = false, size = 38 }: { saved: bo
       scale={0.85}
       style={[styles.heart, { width: size, height: size, borderRadius: size / 2 }, onDark ? styles.heartOnDark : styles.heartOnLight]}
     >
-      <Icon name="heart" size={size * 0.47} color={saved ? colors.coral500 : onDark ? colors.white : colors.text} fill={saved ? colors.coral500 : undefined} />
+      <HeartIcon saved={saved} size={size * 0.5} idle={onDark ? colors.white : colors.text} />
     </Pressy>
+  );
+}
+
+/** The heart glyph, which springs up and settles the moment it turns red. */
+export function HeartIcon({ saved, size, idle = colors.text }: { saved: boolean; size: number; idle?: string }) {
+  const reduce = useReducedMotion();
+  const s = useSharedValue(1);
+  const was = useRef(saved);
+  useEffect(() => {
+    if (saved && !was.current && !reduce) {
+      s.set(withSequence(withSpring(1.35, { damping: 6, stiffness: 400 }), withSpring(1, { damping: 10, stiffness: 300 })));
+    }
+    was.current = saved;
+  }, [saved, reduce, s]);
+  const pop = useAnimatedStyle(() => ({ transform: [{ scale: s.get() }] }));
+  return (
+    <Animated.View style={pop}>
+      <Icon name="heart" size={size} color={saved ? colors.accent : idle} fill={saved ? colors.accent : undefined} />
+    </Animated.View>
   );
 }
 
 // ─── Stepper ────────────────────────────────────────────────────────────────
 
-/** The mockup's "− 1 +": round buttons, the plus in coral while more can be added. */
+/** The mockup's "−  1  +" on a soft grey pill. */
 export function Stepper({ value, min = 0, max, onChange, label }: {
   value: number; min?: number; max: number; onChange: (n: number) => void; label: string;
 }) {
   const change = (n: number) => { haptic.select(); onChange(n); };
-  const canAdd = value < max;
   return (
     <View style={styles.stepper} accessible accessibilityRole="adjustable" accessibilityLabel={label}
       accessibilityValue={{ min, max, now: value, text: String(value) }}
@@ -175,14 +201,14 @@ export function Stepper({ value, min = 0, max, onChange, label }: {
         if (e.nativeEvent.actionName === 'decrement' && value > min) onChange(value - 1);
       }}
     >
-      <Pressable accessibilityElementsHidden importantForAccessibility="no" disabled={value <= min} onPress={() => change(value - 1)} hitSlop={8}
-        style={({ pressed }) => [styles.stepButton, pressed && styles.iconPressed, value <= min && styles.off]}>
-        <Icon name="minus" size={18} />
+      <Pressable accessibilityElementsHidden importantForAccessibility="no" disabled={value <= min} onPress={() => change(value - 1)} hitSlop={10}
+        style={[styles.stepButton, value <= min && styles.off]}>
+        <Icon name="minus" size={18} strokeWidth={2.4} />
       </Pressable>
       <Text variant="label" weight="bold" style={styles.stepValue} align="center">{value}</Text>
-      <Pressable accessibilityElementsHidden importantForAccessibility="no" disabled={!canAdd} onPress={() => change(value + 1)} hitSlop={8}
-        style={({ pressed }) => [styles.stepButton, canAdd && styles.stepAdd, pressed && canAdd && { backgroundColor: colors.accentPressed }, !canAdd && styles.off]}>
-        <Icon name="plus" size={18} color={canAdd ? colors.onAccent : colors.text} />
+      <Pressable accessibilityElementsHidden importantForAccessibility="no" disabled={value >= max} onPress={() => change(value + 1)} hitSlop={10}
+        style={[styles.stepButton, value >= max && styles.off]}>
+        <Icon name="plus" size={18} strokeWidth={2.4} />
       </Pressable>
     </View>
   );
@@ -190,7 +216,7 @@ export function Stepper({ value, min = 0, max, onChange, label }: {
 
 // ─── Segmented switch ───────────────────────────────────────────────────────
 
-/** The mockup's "Upcoming (1) | Past". */
+/** The mockup's "Upcoming (1)   Past": two pills, the chosen one coral. */
 export function Segmented<T extends string>({ options, value, onChange, style }: {
   options: { value: T; label: string }[]; value: T; onChange: (v: T) => void; style?: ViewStyle;
 }) {
@@ -201,8 +227,8 @@ export function Segmented<T extends string>({ options, value, onChange, style }:
         return (
           <Pressable key={o.value} accessibilityRole="tab" accessibilityState={{ selected: on }}
             onPress={() => { if (!on) { haptic.select(); onChange(o.value); } }}
-            style={[styles.segmentItem, on && styles.segmentOn]}>
-            <Text variant="small" weight={on ? 'bold' : 'semibold'} color={on ? colors.onAccent : colors.muted}>{o.label}</Text>
+            style={[styles.segmentItem, on ? styles.segmentOn : styles.segmentOff]}>
+            <Text variant="small" weight="bold" color={on ? colors.onAccent : colors.text}>{o.label}</Text>
           </Pressable>
         );
       })}
@@ -212,33 +238,34 @@ export function Segmented<T extends string>({ options, value, onChange, style }:
 
 // ─── Lists of rows (Settings, Profile) ──────────────────────────────────────
 
+/** Rows separated by hairlines, on white — no box around them. */
 export function ListGroup({ children, title, style }: { children: ReactNode; title?: string; style?: ViewStyle }) {
   const rows = Children.toArray(children).filter(isValidElement);
   return (
-    <View style={[{ gap: space.sm }, style]}>
+    <View style={style}>
       {title ? <Text variant="overline" color={colors.muted} style={styles.groupTitle}>{title.toUpperCase()}</Text> : null}
-      <View style={styles.group}>
-        {rows.map((row, i) => (
-          <Fragment key={row.key ?? i}>
-            {i > 0 ? <View style={styles.rule} /> : null}
-            {row}
-          </Fragment>
-        ))}
-      </View>
+      {rows.map((row, i) => (
+        <Fragment key={row.key ?? i}>
+          {i > 0 ? <View style={styles.rule} /> : null}
+          {row}
+        </Fragment>
+      ))}
     </View>
   );
 }
 
-export function ListRow({ icon, label, detail, onPress, right, danger = false, chevron = true }: {
-  icon: IconName; label: string; detail?: string; onPress?: () => void; right?: ReactNode; danger?: boolean; chevron?: boolean;
+/** "◯  Account Information          Yousef Amr  ›" — an outline icon, the label, a detail, a chevron. */
+export function ListRow({ icon, label, detail, sub, onPress, right, danger = false, chevron = true }: {
+  icon: IconName; label: string; detail?: string; sub?: string; onPress?: () => void; right?: ReactNode; danger?: boolean; chevron?: boolean;
 }) {
-  const ink = danger ? colors.danger : colors.text;
+  const ink = danger ? colors.accent : colors.text;
   const body = (
     <>
-      <View style={[styles.rowIcon, danger && { backgroundColor: colors.dangerSoft }]}>
-        <Icon name={icon} size={19} color={danger ? colors.danger : colors.accent} />
+      <Icon name={icon} size={22} color={ink} />
+      <View style={{ flex: 1 }}>
+        <Text variant="label" weight="medium" color={ink} numberOfLines={1}>{label}</Text>
+        {sub ? <Text variant="caption" color={colors.muted} numberOfLines={1}>{sub}</Text> : null}
       </View>
-      <Text variant="label" weight="medium" color={ink} style={{ flex: 1 }} numberOfLines={1}>{label}</Text>
       {detail ? <Text variant="small" color={colors.muted} numberOfLines={1} style={styles.rowDetail}>{detail}</Text> : null}
       {right}
       {onPress && chevron && !right ? <Icon name="chevronRight" size={18} color={colors.subtle} /> : null}
@@ -247,7 +274,7 @@ export function ListRow({ icon, label, detail, onPress, right, danger = false, c
   if (!onPress) return <View style={styles.row} accessible accessibilityLabel={detail ? `${label}, ${detail}` : label}>{body}</View>;
   return (
     <Pressable accessibilityRole="button" accessibilityLabel={detail ? `${label}, ${detail}` : label} onPress={onPress}
-      style={({ pressed }) => [styles.row, pressed && { backgroundColor: colors.bgSunken }]}>
+      style={({ pressed }) => [styles.row, pressed && { opacity: 0.6 }]}>
       {body}
     </Pressable>
   );
@@ -265,12 +292,13 @@ const TONE: Record<Tone, { bg: string; fg: string }> = {
   glass: { bg: 'rgba(17,16,24,0.55)', fg: colors.white },
 };
 
+/** The mockup's "Trending": a small pill of colour. */
 export function Badge({ label, tone = 'accent', icon }: { label: string; tone?: Tone; icon?: IconName }) {
   const t = TONE[tone];
   return (
     <View style={[styles.badge, { backgroundColor: t.bg }]}>
       {icon ? <Icon name={icon} size={12} color={t.fg} strokeWidth={2.2} /> : null}
-      <Text variant="caption" weight="bold" color={t.fg} style={styles.badgeText}>{label}</Text>
+      <Text variant="caption" weight="bold" color={t.fg}>{label}</Text>
     </View>
   );
 }
@@ -288,10 +316,10 @@ export function Loading({ style }: { style?: StyleProp<ViewStyle> }) {
 export function Failed({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return (
     <Animated.View entering={FadeIn.duration(220)} style={styles.state}>
-      <View style={[styles.emptyIcon, { backgroundColor: colors.bgSunken }]}><Icon name="alert" size={30} color={colors.muted} /></View>
+      <Icon name="alert" size={36} color={colors.muted} />
       <Text variant="title" align="center">Something went wrong</Text>
-      <Text variant="body" color={colors.muted} align="center" style={styles.stateBody}>{message}</Text>
-      {onRetry ? <Button label="Try again" variant="secondary" icon="refresh" onPress={onRetry} /> : null}
+      <Text variant="small" color={colors.muted} align="center" style={styles.stateBody}>{message}</Text>
+      {onRetry ? <Button label="Try again" variant="secondary" onPress={onRetry} style={styles.stateButton} /> : null}
     </Animated.View>
   );
 }
@@ -302,11 +330,9 @@ export function Empty({ icon, title, body, action, onAction, secondary, onSecond
 }) {
   return (
     <Animated.View entering={FadeIn.duration(220)} style={styles.state}>
-      <View style={styles.emptyRing}>
-        <View style={styles.emptyIcon}><Icon name={icon} size={30} color={colors.accent} /></View>
-      </View>
+      <View style={styles.emptyIcon}><Icon name={icon} size={34} color={colors.accent} /></View>
       <Text variant="title" align="center">{title}</Text>
-      {body ? <Text variant="body" color={colors.muted} align="center" style={styles.stateBody}>{body}</Text> : null}
+      {body ? <Text variant="small" color={colors.muted} align="center" style={styles.stateBody}>{body}</Text> : null}
       {action && onAction ? <Button label={action} onPress={onAction} style={styles.stateButton} /> : null}
       {secondary && onSecondary ? <Button label={secondary} variant="ghost" onPress={onSecondary} /> : null}
     </Animated.View>
@@ -315,11 +341,12 @@ export function Empty({ icon, title, body, action, onAction, secondary, onSecond
 
 // ─── Card ───────────────────────────────────────────────────────────────────
 
+/** A soft grey panel, used sparingly (the checkout's summary). */
 export function Card({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
   return <View style={[styles.card, style]}>{children}</View>;
 }
 
-/** A thin rule between blocks of a card. */
+/** A hairline between blocks. */
 export function Divider({ style }: { style?: ViewStyle }) {
   return <View style={[styles.rule, { marginLeft: 0 }, style]} />;
 }
@@ -331,58 +358,50 @@ const styles = StyleSheet.create({
   headerBorder: { borderBottomWidth: 1, borderBottomColor: colors.border },
   headerRow: { flexDirection: 'row', alignItems: 'center', minHeight: 48 },
   headerTitle: { flex: 1, alignItems: 'center', paddingHorizontal: space.xs },
-  side: { width: 88, flexDirection: 'row', alignItems: 'center' },
+  side: { width: 72, flexDirection: 'row', alignItems: 'center' },
   sideRight: { justifyContent: 'flex-end', gap: 2 },
-  screenTitle: { flexDirection: 'row', alignItems: 'center', gap: space.sm, minHeight: 48 },
+  screenTitle: { flexDirection: 'row', alignItems: 'center', gap: space.sm, minHeight: 52 },
 
-  iconButton: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
+  iconButton: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   iconSoft: { backgroundColor: colors.bgSunken },
-  iconGlass: { backgroundColor: 'rgba(17,16,24,0.45)' },
-  iconOutline: { borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
+  iconGlass: { backgroundColor: 'rgba(17,16,24,0.35)' },
+  iconOutline: { backgroundColor: colors.white, shadowColor: '#111018', shadowOpacity: 0.12, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 3 },
   iconPressed: { backgroundColor: colors.bgSunken },
-  iconGlassPressed: { backgroundColor: 'rgba(17,16,24,0.7)' },
+  iconGlassPressed: { backgroundColor: 'rgba(17,16,24,0.6)' },
 
   section: { flexDirection: 'row', alignItems: 'center', gap: space.md, marginBottom: space.md },
   sectionAction: { flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 32 },
 
-  chip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: space.lg, minHeight: 38, borderRadius: radius.pill, borderWidth: 1 },
-  chipOn: { backgroundColor: colors.accent, borderColor: colors.accent },
-  chipOff: { backgroundColor: colors.surface, borderColor: colors.border },
-  chipPressed: { backgroundColor: colors.bgSunken },
-  chipDot: { width: 10, height: 10, borderRadius: 5, borderWidth: 1.5, borderColor: colors.white },
+  chip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: space.lg, minHeight: 36, borderRadius: radius.pill },
+  chipOn: { backgroundColor: colors.accent },
+  chipOff: { backgroundColor: colors.bgSunken },
+  chipDot: { width: 10, height: 10, borderRadius: 5 },
 
   heart: { alignItems: 'center', justifyContent: 'center' },
-  heartOnLight: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
-  heartOnDark: { backgroundColor: 'rgba(17,16,24,0.45)' },
+  heartOnLight: { backgroundColor: colors.white, shadowColor: '#111018', shadowOpacity: 0.14, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 4 },
+  heartOnDark: { backgroundColor: 'rgba(17,16,24,0.35)' },
 
-  stepper: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
-  stepButton: {
-    width: 36, height: 36, borderRadius: 18, borderWidth: 1, borderColor: colors.border,
-    alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface,
-  },
-  stepAdd: { backgroundColor: colors.accent, borderColor: colors.accent },
-  stepValue: { minWidth: 26 },
-  off: { opacity: 0.35 },
+  stepper: { flexDirection: 'row', alignItems: 'center', borderRadius: 12, backgroundColor: colors.bgSunken, paddingHorizontal: 4 },
+  stepButton: { width: 36, height: 38, alignItems: 'center', justifyContent: 'center' },
+  stepValue: { minWidth: 28 },
+  off: { opacity: 0.3 },
 
-  segment: { flexDirection: 'row', padding: 4, borderRadius: radius.pill, backgroundColor: colors.bgSunken },
-  segmentItem: { flex: 1, minHeight: 40, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
+  segment: { flexDirection: 'row', gap: space.md },
+  segmentItem: { flex: 1, minHeight: 44, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
   segmentOn: { backgroundColor: colors.accent },
+  segmentOff: { backgroundColor: colors.bgSunken },
 
-  groupTitle: { marginLeft: space.xs },
-  group: { borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, overflow: 'hidden', backgroundColor: colors.surface },
-  rule: { height: 1, backgroundColor: colors.border, marginLeft: 64 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: space.md, paddingHorizontal: space.lg, minHeight: 58, backgroundColor: colors.surface },
-  rowIcon: { width: 34, height: 34, borderRadius: 10, backgroundColor: colors.coral50, alignItems: 'center', justifyContent: 'center' },
+  groupTitle: { marginTop: space.lg, marginBottom: space.xs },
+  rule: { height: StyleSheet.hairlineWidth * 2, backgroundColor: colors.border, marginLeft: 38 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: space.lg, minHeight: 58, paddingVertical: space.sm },
   rowDetail: { maxWidth: 170 },
 
-  badge: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', paddingHorizontal: space.sm, paddingVertical: 3, borderRadius: radius.pill },
-  badgeText: { fontSize: 11, lineHeight: 14 },
+  badge: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill },
 
   state: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: space.xxl, gap: space.md, minHeight: 260 },
-  stateBody: { maxWidth: 360 },
+  stateBody: { maxWidth: 320 },
   stateButton: { alignSelf: 'stretch', maxWidth: 360, width: '100%', marginTop: space.sm },
-  emptyRing: { padding: 10, borderRadius: 60, backgroundColor: colors.coral50, marginBottom: space.xs },
-  emptyIcon: { width: 68, height: 68, borderRadius: 34, backgroundColor: colors.coral100, alignItems: 'center', justifyContent: 'center' },
+  emptyIcon: { width: 76, height: 76, borderRadius: 38, backgroundColor: colors.coral50, alignItems: 'center', justifyContent: 'center', marginBottom: space.xs },
 
-  card: { backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: space.lg },
+  card: { backgroundColor: colors.bgSunken, borderRadius: radius.lg, padding: space.lg },
 });

@@ -30,15 +30,13 @@ export default function Confirmed() {
   const insets = useSafeAreaInsets();
   const token = useToken();
   const qc = useQueryClient();
-  const { orderId, title, count } = useLocalSearchParams<{ orderId?: string; title?: string; count?: string }>();
+  const { orderId } = useLocalSearchParams<{ orderId?: string }>();
 
   useEffect(() => {
     haptic.success();
     void qc.invalidateQueries({ queryKey: ['tickets'] });
     void qc.invalidateQueries({ queryKey: ['notifications'] });
   }, [qc]);
-
-  const n = Number(count) || 0;
 
   return (
     <View style={[styles.root, { paddingTop: insets.top + space.xxl, paddingBottom: insets.bottom + space.xl }]}>
@@ -50,28 +48,20 @@ export default function Confirmed() {
             ))}
           </Svg>
         </Animated.View>
-        <Animated.View entering={ZoomIn.springify().damping(12)} style={styles.halo}>
-          <View style={styles.tick}><Icon name="tick" size={56} color={colors.white} strokeWidth={2.6} /></View>
+        <Animated.View entering={ZoomIn.springify().damping(12)}>
+          <View style={styles.tick}><Icon name="tick" size={54} color={colors.white} strokeWidth={2.8} /></View>
         </Animated.View>
       </View>
       <Animated.View entering={FadeInDown.delay(200).duration(360)} style={styles.words}>
         <Text variant="display" align="center" accessibilityRole="header">Booking Confirmed!</Text>
-        <Text variant="body" color={colors.muted} align="center">
-          {token ? 'Your tickets are ready. Enjoy the event!' : 'Your tickets are on their way to your email. Enjoy the event!'}
+        <Text variant="title" weight="medium" align="center" style={{ lineHeight: 26 }}>
+          {token ? 'Your tickets are ready.\nEnjoy the event!' : 'Your tickets are on their way\nto your email. Enjoy the event!'}
         </Text>
-        {title ? (
-          <View style={styles.order}>
-            <Icon name="ticket" size={18} color={colors.accent} />
-            <Text variant="small" weight="semibold" style={{ flex: 1 }} numberOfLines={2}>{title}</Text>
-            {n ? <Text variant="small" color={colors.muted}>{n} ticket{n === 1 ? '' : 's'}</Text> : null}
-          </View>
-        ) : null}
       </Animated.View>
       <Animated.View entering={FadeInDown.delay(320).duration(360)} style={styles.actions}>
         {token ? (
           <Button
             label="View My Tickets"
-            icon="qr"
             onPress={() => {
               router.replace('/(tabs)/tickets');
               if (orderId) router.push({ pathname: '/ticket/[orderId]', params: { orderId } });

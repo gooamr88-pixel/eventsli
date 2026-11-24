@@ -23,7 +23,8 @@ import { Field, NumberField, SelectField, TextField, Toggle } from '../../../../
  *                    BELOW twelve shape tiles and five colour pickers, so the
  *                    one section with money in it was the one a reader had
  *                    to scroll for.
- *   PRIVATE ACCESS   hidden from the map; the password and invitation link.
+ *   AVAILABILITY     "Unavailable": sold or reserved outside Eventsli.
+ *   PRIVATE ACCESS   behind a password; the password and invitation link.
  *   APPEARANCE       size and colours, folded by default.
  *
  * Two properties here have consequences a form cannot undo, and both say so:
@@ -31,9 +32,15 @@ import { Field, NumberField, SelectField, TextField, Toggle } from '../../../../
  * SHRINKING the seat count deletes the seats above the new number, and the API
  * refuses if any of them are booked. Growing is always safe.
  *
- * A PRIVATE table disappears from the buyer's map entirely — not shown with a
- * lock, omitted. Its guests reach it through an invitation link carrying the
- * table id, and the password gates the purchase as well as the view.
+ * A PRIVATE table is on the buyer's map for everyone, marked Private with a
+ * lock (owner, 2026-11-24 — until then it was omitted entirely). Pressing it
+ * asks for the password, and the password gates the purchase: the hold
+ * refuses the table and its seats without it. The invitation link still opens
+ * the password prompt for exactly this table.
+ *
+ * AN UNAVAILABLE table (2026-11-24) is every open seat at it blocked — the
+ * Preview's seat holds, applied to the whole table and saved with the map.
+ * Buyers see it, faded, and cannot choose anything at it.
  *
  * WHICH PRICES ARE SHOWN FOLLOWS HOW THE EVENT SELLS (`purchaseMode`). Seats
  * only: a whole-table price is never charged, so it is not offered. Whole
@@ -43,6 +50,9 @@ import { Field, NumberField, SelectField, TextField, Toggle } from '../../../../
  */
 export default function TablePanel({
   table, tiers, categories, onChange, onRotate, onDuplicate, onRemove, onTierCreated, purchaseMode = 'seat_only',
+  // This table's seats after pending blocks ({ total, open, blocked, booked },
+  // useStudioDraft.tableStock) and the switch that blocks or releases them.
+  stock = null, onSetUnavailable = null,
 }) {
   // "New ticket type…" open under the picker (NewTierInline).
   const [creatingTier, setCreatingTier] = useState(false);
@@ -101,8 +111,8 @@ export default function TablePanel({
       icon={<ShapeArt shape={table.shape} size={26} />}
       title={table.label || 'Untitled table'}
       meta={`${SHAPE_NAMES[table.shape] || 'Table'} · ${table.seatCount} seat${table.seatCount === 1 ? '' : 's'}${sold ? ` · ${sold} sold or held` : ''}`}
-      status={table.status && table.status !== 'available' ? (
-        <InspectorNote tone="warning">This table is {table.status}. Sold seats can’t be removed, and the table can’t be deleted.</InspectorNote>
+      status={sold > 0 ? (
+        <InspectorNote tone="warning">{sold} of these seats {sold === 1 ? 'is' : 'are'} sold or held. They can’t be removed, and the table can’t be deleted.</InspectorNote>
       ) : null}
       actions={(
         <>
@@ -169,10 +179,12 @@ export default function TablePanel({
         )}
       </InspectorSection>
 
+      <AvailabilitySection table={table} stock={stock} onSetUnavailable={onSetUnavailable} />
+
       <InspectorSection id="table-access" title="Private access" summary={table.isPrivate ? 'Private' : 'Public'} defaultOpen={false} forceOpen={!!table.isPrivate}>
         <Toggle
           label="Private table"
-          hint="Hidden from the map. Guests need the invitation link and password."
+          hint="Everyone sees it on the map, marked Private. Only guests with the password can book it."
           checked={!!table.isPrivate}
           onChange={(on) => set({
             isPrivate: on,
@@ -201,6 +213,62 @@ export default function TablePanel({
       </InspectorSection>
     </Inspector>
   );
+}
+
+/**
+ * AVAILABILITY (owner, 2026-11-24): "mark an entire table as Unavailable when
+ * the organizer has sold or reserved it outside Eventsli". One switch; the
+ * seats it blocks are saved with the map (useStudioDraft.setTablesUnavailable).
+ */
+function AvailabilitySection({ table, stock, onSetUnavailable }) {
+  const state = tableAvailability(table, stock);
+  const summary = { unsaved: 'Save first', unavailable: 'Unavailable', partly: 'Some blocked', sold: 'Sold', available: 'On sale' }[state];
+  return (
+    <InspectorSection
+      id="table-availability" title="Availability" summary={summary}
+      defaultOpen={false} forceOpen={state === 'unavailable' || state === 'partly'}
+    >
+      {state === 'unsaved' ? (
+        <InspectorNote>Save the map first: a new table has no seats to mark yet.</InspectorNote>
+      ) : (
+        <>
+          <Toggle
+            label="Unavailable"
+            hint="Sold or reserved outside Eventsli. Buyers see the table, faded, and can’t book it or any seat at it."
+            checked={state === 'unavailable'}
+            disabled={!onSetUnavailable || state === 'sold'}
+            onChange={(on) => onSetUnavailable?.(on)}
+          />
+          {state === 'partly' && (
+            <InspectorNote>
+              {stock.blocked} of {stock.total} seats are blocked. Switch on to block the other {stock.open} too.
+            </InspectorNote>
+          )}
+          {stock?.booked > 0 && state !== 'sold' && (
+            <InspectorNote>
+              {stock.booked} {stock.booked === 1 ? 'seat is' : 'seats are'} already a buyer’s and stay theirs.
+            </InspectorNote>
+          )}
+          {state === 'sold' && <InspectorNote>Every seat here is sold or held on Eventsli.</InspectorNote>}
+          <p className="es-field__hint">Applied when you save the map.</p>
+        </>
+      )}
+    </InspectorSection>
+  );
+}
+
+/**
+ * Where a table stands, from its seats after pending changes:
+ * 'unsaved' (no seat rows yet), 'sold' (every seat a buyer's), 'unavailable'
+ * (nothing open, at least one blocked), 'partly' (some blocked, some open) or
+ * 'available'.
+ */
+export function tableAvailability(table, stock) {
+  if (!table?.id || !stock || stock.total === 0) return 'unsaved';
+  if (stock.open === 0 && stock.blocked === 0) return 'sold';
+  if (stock.open === 0) return 'unavailable';
+  if (stock.blocked > 0) return 'partly';
+  return 'available';
 }
 
 /**

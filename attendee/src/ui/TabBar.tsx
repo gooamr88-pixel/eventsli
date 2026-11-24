@@ -6,7 +6,7 @@ import { useLayout } from './layout';
 import { Logo } from './Logo';
 import { haptic } from './motion';
 import { Text } from './Text';
-import { colors, radius, shadow, space } from './theme';
+import { colors, radius, space } from './theme';
 
 /** Home, Explore, Saved, Tickets, Profile — the mockup's tab bar. */
 export const TAB_ICONS: Record<string, IconName> = {
@@ -71,7 +71,7 @@ export function TabBar({ state, descriptors, emitter, navigateToTab, insets }: B
   }
 
   return (
-    <View style={[styles.bar, shadow.float, { paddingBottom: Math.max(insets.bottom, space.sm) }]} accessibilityRole="tablist">
+    <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, space.sm) }]} accessibilityRole="tablist">
       {items.map((it) => (
         <Pressable
           key={it.key}
@@ -82,8 +82,8 @@ export function TabBar({ state, descriptors, emitter, navigateToTab, insets }: B
           style={styles.item}
           hitSlop={4}
         >
-          <View style={[styles.pill, it.focused && styles.pillOn]}>
-            <Icon name={it.icon} size={22} color={it.focused ? colors.accent : colors.subtle} fill={it.focused && it.icon === 'heart' ? colors.accent : undefined} strokeWidth={it.focused ? 2.1 : 1.8} />
+          <View style={styles.pill}>
+            <Icon name={it.icon} size={24} color={it.focused ? colors.accent : colors.subtle} fill={it.focused && it.icon === 'heart' ? colors.accent : undefined} strokeWidth={it.focused ? 2.3 : 1.7} />
             {it.badge ? <View style={styles.dot} /> : null}
           </View>
           <Text variant="caption" weight={it.focused ? 'bold' : 'medium'} color={it.focused ? colors.accent : colors.subtle} style={styles.label} numberOfLines={1}>
@@ -96,17 +96,17 @@ export function TabBar({ state, descriptors, emitter, navigateToTab, insets }: B
 }
 
 const styles = StyleSheet.create({
+  // Flat and white with a hairline on top, as the mockup's bar.
   bar: {
     flexDirection: 'row',
     backgroundColor: colors.surface,
     paddingTop: space.sm,
     paddingHorizontal: space.xs,
-    borderTopLeftRadius: radius.xl,
-    borderTopRightRadius: radius.xl,
+    borderTopWidth: StyleSheet.hairlineWidth * 2,
+    borderTopColor: colors.border,
   },
   item: { flex: 1, alignItems: 'center', gap: 2, minHeight: 48 },
-  pill: { width: 56, height: 32, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
-  pillOn: { backgroundColor: colors.coral50 },
+  pill: { width: 48, height: 28, alignItems: 'center', justifyContent: 'center' },
   dot: { position: 'absolute', top: 4, right: 14, width: 8, height: 8, borderRadius: 4, backgroundColor: colors.coral500, borderWidth: 1.5, borderColor: colors.surface },
   label: { fontSize: 11 },
   rail: {

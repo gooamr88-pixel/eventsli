@@ -31,14 +31,15 @@ export const colors = {
   highlight: '#ffcc00',
   onHighlight: '#111018',
 
-  // The sheet's off-white ground, white cards on top.
-  bg: '#f8f8f8',
-  bgSunken: '#f1f1f3',
+  // WHITE, as every frame of the app mockup is (2026-11-24: the grey ground,
+  // boxed cards and borders read as "crowded" and "cheap"). Soft grey only
+  // fills the quiet controls — the search box, an unchosen chip, a stepper.
+  bg: '#ffffff',
+  bgSunken: '#f4f4f6',
   surface: '#ffffff',
-  border: '#eaeaea',
-  // The sign-in mockup's soft pill fields.
-  field: '#f6f6f8',
-  fieldBorder: '#e3e3e8',
+  border: '#efeff2',
+  field: '#f4f4f6',
+  fieldBorder: '#f4f4f6',
   // The pale coral behind an accent icon or chip (was the mint wash).
   wash: '#fff1f2',
   borderStrong: '#b8b8c0',
@@ -80,9 +81,10 @@ export const colors = {
 /** As on the site: DM Sans to read, Urbanist for titles (2026-11-15).
  *  Names match the loaded font assets. */
 export const fonts = {
-  display: 'Urbanist_900Black',
-  // A lighter Urbanist for the sign-in welcome, as the mockup sets it.
-  displayBold: 'Urbanist_700Bold',
+  // DM Sans Bold for every title (2026-11-24, to the app mockup); Urbanist
+  // Black was far heavier than anything on it. The logo keeps Urbanist as paths.
+  display: 'DMSans_700Bold',
+  displayBold: 'DMSans_700Bold',
   regular: 'DMSans_400Regular',
   medium: 'DMSans_500Medium',
   semibold: 'DMSans_600SemiBold',
@@ -91,22 +93,28 @@ export const fonts = {
 } as const;
 
 export const space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32 } as const;
-export const radius = { sm: 8, md: 12, lg: 16, xl: 22, pill: 999 } as const;
+export const radius = { sm: 8, md: 12, lg: 16, xl: 20, pill: 999 } as const;
 
+/**
+ * The type scale, measured off the app mockup at phone size. Every title is
+ * DM SANS BOLD, as the mockup sets it — Urbanist Black (900) was far heavier
+ * than any word on the board and was the first thing the owner called out
+ * ("fonts", 2026-11-24). Urbanist stays only in the logo, which is paths.
+ */
 export const type = {
   caption: { fontFamily: fonts.regular, fontSize: 12, lineHeight: 16 },
   small: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 20 },
-  body: { fontFamily: fonts.regular, fontSize: 16, lineHeight: 22 },
-  label: { fontFamily: fonts.semibold, fontSize: 16, lineHeight: 22 },
-  title: { fontFamily: fonts.display, fontSize: 20, lineHeight: 26 },
-  heading: { fontFamily: fonts.display, fontSize: 24, lineHeight: 30 },
-  // Small capitals over a title: CATEGORY, SECTION.
-  overline: { fontFamily: fonts.bold, fontSize: 11, lineHeight: 14, letterSpacing: 1.2 },
-  // The big left-aligned screen titles: Explore, My Tickets, Settings.
-  screenTitle: { fontFamily: fonts.display, fontSize: 26, lineHeight: 32 },
-  display: { fontFamily: fonts.display, fontSize: 32, lineHeight: 38 },
-  // The event page's title over its cover, the welcome headline.
-  hero: { fontFamily: fonts.display, fontSize: 34, lineHeight: 38 },
+  body: { fontFamily: fonts.regular, fontSize: 15, lineHeight: 22 },
+  label: { fontFamily: fonts.semibold, fontSize: 15, lineHeight: 21 },
+  // A section ("Explore Categories", "About the Event") and a centred header.
+  title: { fontFamily: fonts.bold, fontSize: 18, lineHeight: 24 },
+  // An event's name on its page and on the Trending banner.
+  heading: { fontFamily: fonts.bold, fontSize: 22, lineHeight: 28 },
+  overline: { fontFamily: fonts.bold, fontSize: 11, lineHeight: 14, letterSpacing: 1 },
+  // A tab's own title: Explore.
+  screenTitle: { fontFamily: fonts.bold, fontSize: 26, lineHeight: 32 },
+  display: { fontFamily: fonts.bold, fontSize: 28, lineHeight: 34 },
+  hero: { fontFamily: fonts.bold, fontSize: 32, lineHeight: 38 },
 } as const;
 
 /**

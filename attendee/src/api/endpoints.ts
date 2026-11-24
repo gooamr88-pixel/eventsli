@@ -20,6 +20,8 @@ export type EventQuery = {
   page?: number;
   limit?: number;
   ticketedFirst?: boolean;
+  /** Minor units; 0 = free events only. */
+  maxPrice?: number;
 };
 
 export const listEvents = (query: EventQuery, token?: string | null) =>

@@ -583,8 +583,8 @@ async function readFloorPlan(eventId) {
  *
  * `null` for an event with no map: a listing-only event cannot have one
  * (save_venue_map refuses), and its floor plan stands alone. A
- * general-admission event has one since 2026-11-23 — the room without seats. Private tables are left out unless `includePrivate` (the
- * organizer), and their styles with them — a style is keyed by the table's name.
+ * general-admission event has one since 2026-11-23 — the room without seats. Private tables are drawn
+ * for everyone, flagged `isPrivate` (2026-11-24); they were left out of the public plan before.
  */
 async function seatMapContext(eventId, { includePrivate = false } = {}) {
   const { data: event, error: eventError } = await supabase.from('events')
@@ -598,7 +598,12 @@ async function seatMapContext(eventId, { includePrivate = false } = {}) {
   const tables = await fetchAll(({ from, to }, first) => supabase.from('tables')
     .select('id, label, seat_count, shape, position_x, position_y, rotation, is_private', first ? { count: 'exact' } : undefined)
     .eq('venue_map_id', map.id).order('id').range(from, to), { what: 'tables' });
-  const visible = includePrivate ? tables : tables.filter((t) => !t.is_private);
+  // PRIVATE TABLES ARE SHOWN, MARKED (owner, 2026-11-24): on every map a
+  // private table stays visible as Private — here, scenery with no price or
+  // stock in it. `includePrivate` is kept for its callers; it no longer
+  // changes what is drawn.
+  void includePrivate;
+  const visible = tables;
   const layout = publicLayout(map.layout_json || {}, visible.map((t) => t.label)) || {};
   return {
     world: layout.world || null,
@@ -609,6 +614,7 @@ async function seatMapContext(eventId, { includePrivate = false } = {}) {
       label: t.label,
       seatCount: t.seat_count,
       shape: t.shape,
+      ...(t.is_private ? { isPrivate: true } : {}),
       position: { x: Number(t.position_x), y: Number(t.position_y), rotation: Number(t.rotation) || 0 },
     })),
   };

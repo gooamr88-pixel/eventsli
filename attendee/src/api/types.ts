@@ -100,6 +100,11 @@ export type EventDetail = EventCard & {
   organizerProfile?: OrganizerLink | null;
   addons?: Addon[];
   venueDirections?: string | null;
+  // eventContentService.publicBundle — what the organizer added to the page.
+  gallery?: { id: string; kind: string; url: string; caption: string | null }[];
+  schedule?: { id: string; startsAt: string | null; endsAt: string | null; title: string; description: string | null; location: string | null }[];
+  sponsors?: { id: string; name: string; logoUrl: string | null; linkUrl: string | null; level: string | null }[];
+  policies?: { id: string; kind: string; title: string; body: string }[];
 };
 
 /** GET /public/organizers/:slug (organizerProfileService.bySlug) */
@@ -140,10 +145,14 @@ export type SeatMap = {
   tables: {
     id: string; label: string; seatCount: number; priceCents: number | null;
     status: string; canBookWhole: boolean; isPrivate: boolean;
+    /** Private and not unlocked (2026-11-24): drawn, marked Private, not for sale. */
+    locked?: boolean;
     /** Percent of the map's world, the table's centre; rotation in degrees. */
     position: { x: number; y: number; rotation: number };
     shape: string;
     categoryId?: string | null;
+    /** The table's ticket type: with several on the map, its colour. */
+    tierId?: string | null;
   }[];
   seats: {
     id: string; tableId: string | null; tierId: string | null; section: string | null;
@@ -151,6 +160,10 @@ export type SeatMap = {
     available: boolean; reason?: string;
   }[];
   hiddenTableCount: number;
+  /** Private tables on the map this buyer has not unlocked. */
+  lockedTableCount?: number;
+  /** The event's table categories: a table in one is painted its colour. */
+  categories?: { id: string; name: string; color: string | null }[];
   /** Vendor booths drawn on the seat map — scenery to a buyer. */
   vendorBooths?: { plan: unknown; booths?: Record<string, unknown>; boothTypes?: unknown[] } | null;
 };

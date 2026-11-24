@@ -4,7 +4,8 @@ import { useState } from 'react';
 import { FlatList, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { messageFor } from '@/api/client';
-import { cities } from '@/api/endpoints';
+import { cities, eventsNear } from '@/api/endpoints';
+import { approximatePosition } from '@/lib/location';
 import { useSession } from '@/auth/session';
 import { Failed, Header } from '@/ui/bits';
 import { Icon } from '@/ui/Icon';
@@ -29,6 +30,32 @@ export default function CityPicker() {
     router.back();
   };
 
+  // "Use my current location": the nearest city that has something on.
+  const [locating, setLocating] = useState(false);
+  const [locNote, setLocNote] = useState<string | null>(null);
+  async function locateMe() {
+    setLocNote(null);
+    setLocating(true);
+    try {
+      const p = await approximatePosition();
+      if (p === 'denied') { setLocNote('Location is off for Eventsli. Turn it on in Settings.'); return; }
+      if (!p) { setLocNote('We could not find where you are just now. Try again.'); return; }
+      const answer = await eventsNear(p.lat, p.lng);
+      // Only a city actually near: on a phone in Cairo the "nearest" city with
+      // events can be Toronto, 9,000 km off (seen on production, 2026-11-24).
+      const place = answer.nearest ?? answer.places[0];
+      if (!place || place.distanceKm > Math.max(answer.radiusKm, 150)) {
+        setLocNote('No events near you yet. Choose a city below, or Everywhere.');
+        return;
+      }
+      choose({ city: place.city, country: place.country });
+    } catch {
+      setLocNote('We could not find where you are just now. Try again.');
+    } finally {
+      setLocating(false);
+    }
+  }
+
   const needle = text.trim().toLowerCase();
   const matches = (list.data ?? []).filter((c) => !needle || c.city.toLowerCase().includes(needle) || c.country.toLowerCase().includes(needle));
 
@@ -46,9 +73,17 @@ export default function CityPicker() {
             style={styles.input}
             accessibilityLabel="Search cities"
             autoCorrect={false}
-            maxFontSizeMultiplier={1.6}
+            maxFontSizeMultiplier={1.4}
           />
         </View>
+        <Pressable accessibilityRole="button" accessibilityState={{ busy: locating }} onPress={() => { void locateMe(); }} style={({ pressed }) => [styles.mine, pressed && { opacity: 0.7 }]}>
+          <View style={[styles.icon, { backgroundColor: colors.accent }]}><Icon name="locate" size={20} color={colors.white} strokeWidth={2.2} /></View>
+          <View style={{ flex: 1 }}>
+            <Text variant="label" weight="bold" color={colors.accent}>{locating ? 'Finding you…' : 'Use my current location'}</Text>
+            <Text variant="caption" color={colors.muted}>The nearest city with events</Text>
+          </View>
+        </Pressable>
+        {locNote ? <Text variant="small" color={colors.warning}>{locNote}</Text> : null}
       </Container>
       {list.isLoading ? (
         <Container style={{ gap: space.sm }}>{[0, 1, 2, 3].map((i) => <RowSkeleton key={i} />)}</Container>
@@ -99,6 +134,7 @@ const styles = StyleSheet.create({
   },
   input: { flex: 1, fontFamily: fonts.regular, fontSize: 16, color: colors.text, paddingVertical: space.sm },
   row: { flexDirection: 'row', alignItems: 'center', gap: space.md, paddingHorizontal: space.md, paddingVertical: space.md, borderRadius: radius.lg, marginBottom: space.xs },
+  mine: { flexDirection: 'row', alignItems: 'center', gap: space.md, paddingHorizontal: space.md, paddingVertical: space.md, marginTop: space.sm },
   rowOn: { backgroundColor: colors.coral50 },
   icon: { width: 42, height: 42, borderRadius: 21, backgroundColor: colors.coral50, alignItems: 'center', justifyContent: 'center' },
 });

@@ -271,6 +271,78 @@ test('no password material reaches the organizer payload', async () => {
   assert.equal(map.includes('the-back-room'), false);
 });
 
+// ── 2026-11-24: bulk private, and whole tables marked Unavailable ──────────
+
+test('a SAVED public table made private with no password is refused by name, not by the constraint', async () => {
+  const map = await venue.getMapForOrganizer(ids.event);
+  const vip = map.tables.find((t) => t.label === 'VIP');
+  await assert.rejects(
+    venue.saveMap(ids.event, {
+      layout: {},
+      tables: [
+        table({ id: ids.tableA, label: 'A', seatCount: 7 }),
+        table({ id: vip.id, label: 'VIP', seatCount: 8, isPrivate: true }),
+      ],
+    }),
+    (err) => err.code === 'VALIDATION_ERROR' && /VIP/.test(err.message) && /password/.test(err.message),
+  );
+});
+
+test('many tables made private with ONE password share one hash and all open with it', async () => {
+  const map = await venue.getMapForOrganizer(ids.event);
+  const vip = map.tables.find((t) => t.label === 'VIP');
+  await venue.saveMap(ids.event, {
+    layout: {},
+    tables: [
+      table({ id: ids.tableA, label: 'A', seatCount: 7, isPrivate: true, password: 'block-of-two' }),
+      table({ id: vip.id, label: 'VIP', seatCount: 8, isPrivate: true, password: 'block-of-two' }),
+    ],
+  });
+  const { data: rows } = await supabase.from('tables')
+    .select('id, is_private, password_hash').in('id', [ids.tableA, vip.id]);
+  assert.ok(rows.every((r) => r.is_private && r.password_hash));
+  assert.equal(rows[0].password_hash, rows[1].password_hash, 'hashed once, shared');
+  assert.equal(await verifyTablePassword(ids.tableA, 'block-of-two'), true);
+  assert.equal(await verifyTablePassword(vip.id, 'block-of-two'), true);
+
+  // Back to public for the tests below.
+  await venue.saveMap(ids.event, {
+    layout: {},
+    tables: [
+      table({ id: ids.tableA, label: 'A', seatCount: 7 }),
+      table({ id: vip.id, label: 'VIP', seatCount: 8 }),
+    ],
+  });
+});
+
+test('a whole table marked Unavailable: its seats blocked with the save, and released again', async () => {
+  const map = await venue.getMapForOrganizer(ids.event);
+  const vip = map.tables.find((t) => t.label === 'VIP');
+  const keep = [table({ id: ids.tableA, label: 'A', seatCount: 7 }), table({ id: vip.id, label: 'VIP', seatCount: 8 })];
+  const open = vip.seats.filter((s) => s.status === 'available').map((s) => s.id);
+  assert.equal(open.length, 8);
+
+  const res = await venue.saveMap(ids.event, { layout: {}, tables: keep, availability: { block: open, release: [] } });
+  assert.equal(res.availability.blocked, 8);
+
+  const { data: seats } = await supabase.from('seats').select('status').eq('table_id', vip.id);
+  assert.ok(seats.every((s) => s.status === 'blocked'), 'every seat at the table is off sale');
+  const { data: tb } = await supabase.from('tables').select('status').eq('id', vip.id).single();
+  assert.notEqual(tb.status, 'available', 'and the table cannot be booked whole');
+
+  // The buyer's map shows it, with nothing at it to choose.
+  const pub = await supabase.rpc('hold_seats', {
+    p_event_id: ids.event, p_user_id: null, p_seat_ids: [open[0]], p_ttl_minutes: 5,
+  });
+  assert.equal(pub.data?.ok, false, 'a blocked seat cannot be held');
+
+  await venue.saveMap(ids.event, { layout: {}, tables: keep, availability: { block: [], release: open } });
+  const { data: back } = await supabase.from('seats').select('status').eq('table_id', vip.id);
+  assert.ok(back.every((s) => s.status === 'available'));
+  const { data: tb2 } = await supabase.from('tables').select('status').eq('id', vip.id).single();
+  assert.equal(tb2.status, 'available', 'released, the table is whole again');
+});
+
 // ── Another event's stock ───────────────────────────────────────────────────
 //
 // Table ids are public — every published seat map carries them — so an id in

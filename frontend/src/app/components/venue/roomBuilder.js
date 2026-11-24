@@ -249,7 +249,10 @@ export function buildRoom(THREE, model, scene, { title, labels = [], tableNumber
   }
 
   // ── table bodies ─────────────────────────────────────────────────────────
-  const cloth = new THREE.MeshStandardMaterial({ color: style.cloth, roughness: 0.8 });
+  // White, tinted per table: each instance carries its table's colour (the 2D
+  // map's, sceneModel `bodyColor`) or the scene's cloth.
+  const cloth = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.8 });
+  const clothTint = new THREE.Color();
   const round = model.bodies.filter((b) => b.kind === 'ellipse');
   const square = model.bodies.filter((b) => b.kind !== 'ellipse');
   const placeBodies = (list, geometry) => {
@@ -262,6 +265,7 @@ export function buildRoom(THREE, model, scene, { title, labels = [], tableNumber
       q.setFromAxisAngle(up, b.rot);
       m.compose(new THREE.Vector3(b.x, 0.37, b.z), q, new THREE.Vector3(b.w, 0.74, b.d));
       mesh.setMatrixAt(i, m);
+      mesh.setColorAt(i, clothTint.set(b.color || style.cloth));
     });
     group.add(mesh);
   };

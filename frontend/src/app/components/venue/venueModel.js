@@ -25,6 +25,7 @@
  * out of its section and is named by its own label again: degraded, not broken.
  * ─────────────────────────────────────────────────────────────────────────────
  */
+import { tablePaint, CHAIR } from '../seating/mapStyle';
 
 export const VENUE_TYPES = Object.freeze([
   { key: 'arena', label: 'Arena or stadium' },
@@ -210,6 +211,53 @@ export function tierPalette(tiers, seats, look = null) {
   // the dearest ticket type takes the first, the next the second.
   const colours = [look?.seat, look?.accent, ...TIER_COLORS].filter(Boolean);
   return new Map(ordered.map((t, i) => [t.id, colours[i % colours.length]]));
+}
+
+/**
+ * A TABLE'S ASSIGNED COLOUR (mapStyle.js, THE MAP'S COLOUR RULES): its
+ * category's colour, else its ticket type's when the map sells more than one
+ * type. Returns `(table) => colour | null`; the table's own colour and the
+ * map's look are applied around it by `tablePaint`.
+ *
+ * Every view builds it from the same inputs, so the editor, the buyer's map
+ * and the 3D room paint a table alike. A table's ticket type is its own
+ * `tierId` (the editor, the public map) or, from an older payload, its first
+ * seat's.
+ */
+export function tableTint({ tiers = [], seats = [], tables = [], categories = [], look = null } = {}) {
+  const palette = tierPalette(tiers, seats, look);
+  const byCategory = new Map((categories || []).map((c) => [c.id, c.color || null]));
+  const seatTier = new Map();
+  for (const s of seats || []) {
+    if (s.tableId && s.tierId && !seatTier.has(s.tableId)) seatTier.set(s.tableId, s.tierId);
+  }
+  const tierOf = (t) => t?.tierId || seatTier.get(t?.id) || null;
+  const manyTypes = new Set((tables || []).map(tierOf).filter(Boolean)).size > 1;
+  return (table) => {
+    const category = table?.categoryId ? byCategory.get(table.categoryId) : null;
+    if (category) return category;
+    const tier = tierOf(table);
+    return manyTypes && tier ? palette.get(tier) || null : null;
+  };
+}
+
+/**
+ * The editor's 3D and 360° colours (Studio3D, Studio360, the 3D preview card),
+ * by the same rules as the 2D map: table tops in their assigned colour, chairs
+ * at tables black, a row's seats in the row's colour. One helper, so the three
+ * editor views stop carrying three copies of a ticket-type-only rule.
+ */
+export function studioColours({ tables = [], tiers = [], categories = [], look = null } = {}) {
+  const tint = tableTint({ tiers, tables, categories, look });
+  const paints = new Map(tables.map((t) => [t.id, tablePaint(t, look, { fill: tint(t) })]));
+  return {
+    bodyColor: (t) => paints.get(t.id)?.fill || null,
+    colorFor: (entry) => {
+      if (entry.atTable) return CHAIR;
+      const p = paints.get(entry.tableId);
+      return p?.seat || p?.tint || look?.seat || '#8fa3a8';
+    },
+  };
 }
 
 /** Total seats on the map plus the venue's declared standing room. */

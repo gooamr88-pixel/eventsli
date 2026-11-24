@@ -10,13 +10,15 @@ const app = require('../../app');
 /**
  * BRD §27 — password-protected tables, end to end.
  *
- * The property that matters is NOT "the UI hides it". It is that a protected
- * table is absent from the bytes on the wire. A `locked: true` flag hides a
- * table from the rendered page and from nobody else — its label, price and
- * seat count sit in the JSON, one DevTools panel away from someone who was
- * never given the password.
+ * THE RULE CHANGED (owner, 2026-11-24): "private tables should remain visible
+ * to everyone on the seating map, clearly marked as Private; users must enter
+ * the correct password before they can select, reserve, or access them".
+ * Until then a private table was absent from the payload.
  *
- * So these tests read the raw response and assert the table is not in it.
+ * So the properties these tests hold are now: a private table is on the map,
+ * `locked`, with nothing at it choosable and NO price on the wire until the
+ * password is entered; the hold refuses it without the token; and one token
+ * opens one table.
  */
 
 let server; let baseUrl;
@@ -123,31 +125,37 @@ const call = async (method, path, body, headers = {}) => {
 
 // ── The privacy guarantee ───────────────────────────────────────────────────
 
-test('a private table is absent from the raw public payload', async () => {
+test('a private table is on the public map, marked locked, with no price on the wire', async () => {
   const res = await call('GET', `/public/events/${ids.slug}/seat-map`);
   assert.equal(res.status, 200);
 
-  // Read the BYTES, not the parsed shape. This is the assertion that a
-  // `locked: true` flag would fail.
-  assert.equal(res.text.includes('VIP Family Table'), false, 'the label leaked');
-  assert.equal(res.text.includes(privateTableId), false, 'the id leaked');
-  assert.equal(res.text.includes('90000'), false, 'the price leaked');
+  const vip = res.body.data.tables.find((t) => t.id === privateTableId);
+  assert.ok(vip, 'the private table is drawn for everyone');
+  assert.equal(vip.label, 'VIP Family Table');
+  assert.equal(vip.isPrivate, true);
+  assert.equal(vip.locked, true);
+  assert.equal(vip.canBookWhole, false);
+  assert.equal(vip.priceCents, null);
+  // Read the BYTES: what it costs is behind the password.
+  assert.equal(res.text.includes('90000'), false, 'the whole-table price leaked');
+  assert.equal(res.body.data.lockedTableCount, 1);
+  assert.equal(res.body.data.hiddenTableCount, 0);
 
-  const labels = res.body.data.tables.map((t) => t.label);
-  assert.deepEqual(labels, ['Open Table']);
+  const open = res.body.data.tables.find((t) => t.id === publicTableId);
+  assert.equal(open.locked, false);
 });
 
-test('its seats are hidden with it', async () => {
+test('its seats are drawn but none can be chosen, and carry no price or type', async () => {
   const res = await call('GET', `/public/events/${ids.slug}/seat-map`);
-  for (const id of privateSeatIds) {
-    assert.equal(res.text.includes(id), false, 'a seat of a hidden table leaked its table');
+  const locked = res.body.data.seats.filter((s) => privateSeatIds.includes(s.id));
+  assert.equal(locked.length, 6);
+  for (const s of locked) {
+    assert.equal(s.available, false);
+    assert.equal(s.reason, 'private');
+    assert.equal(s.priceCents, null);
+    assert.equal(s.tierId, null);
   }
-  assert.equal(res.body.data.seats.length, 4, 'only the open table\'s seats');
-});
-
-test('the map says how many are hidden without naming them', async () => {
-  const res = await call('GET', `/public/events/${ids.slug}/seat-map`);
-  assert.equal(res.body.data.hiddenTableCount, 1);
+  assert.equal(res.body.data.seats.length, 10, 'both tables\' seats');
 });
 
 test('a wrong password reveals nothing', async () => {
@@ -189,10 +197,12 @@ test('the right password returns a token, and the table appears', async () => {
   const res = await call('GET', `/public/events/${ids.slug}/seat-map`, null, {
     'x-table-access': token,
   });
-  const labels = res.body.data.tables.map((t) => t.label).sort();
-  assert.deepEqual(labels, ['Open Table', 'VIP Family Table']);
-  assert.equal(res.body.data.hiddenTableCount, 0);
-  assert.equal(res.body.data.seats.length, 10, 'now both tables\' seats');
+  const vip = res.body.data.tables.find((t) => t.id === privateTableId);
+  assert.equal(vip.locked, false, 'unlocked for the key holder');
+  assert.equal(vip.priceCents, 90000);
+  const seats = res.body.data.seats.filter((s) => privateSeatIds.includes(s.id));
+  assert.ok(seats.every((s) => s.available && s.priceCents === 5000), 'its seats can be chosen now');
+  assert.equal(res.body.data.lockedTableCount, 0);
 });
 
 test('a token unlocks ONE table, not every private table', async () => {
@@ -208,9 +218,9 @@ test('a token unlocks ONE table, not every private table', async () => {
   const res = await call('GET', `/public/events/${ids.slug}/seat-map`, null, {
     'x-table-access': unlock.body.data.token,
   });
-  const labels = res.body.data.tables.map((t) => t.label);
-  assert.ok(labels.includes('VIP Family Table'));
-  assert.equal(labels.includes('Second Private'), false, 'one password must not open the rest');
+  const byLabel = new Map(res.body.data.tables.map((t) => [t.label, t]));
+  assert.equal(byLabel.get('VIP Family Table').locked, false);
+  assert.equal(byLabel.get('Second Private').locked, true, 'one password must not open the rest');
 
   await supabase.from('tables').delete().eq('id', other.id);
 });
@@ -239,7 +249,8 @@ test('a session cookie cannot be replayed as a table key', async () => {
   const res = await call('GET', `/public/events/${ids.slug}/seat-map`, null, {
     'x-table-access': sessionToken,
   });
-  assert.equal(res.text.includes('VIP Family Table'), false, 'a session token must not unlock a table');
+  const vip = res.body.data.tables.find((t) => t.id === privateTableId);
+  assert.equal(vip.locked, true, 'a session token must not unlock a table');
 
   if (p) {
     await supabase.from('sessions').delete().eq('user_id', p.id);
@@ -253,7 +264,7 @@ test('garbage tokens are ignored, not fatal', async () => {
       'x-table-access': junk,
     });
     assert.equal(res.status, 200, `"${junk}" should degrade to the locked view, not error`);
-    assert.equal(res.text.includes('VIP Family Table'), false);
+    assert.equal(res.body.data.tables.find((t) => t.id === privateTableId).locked, true);
   }
 });
 

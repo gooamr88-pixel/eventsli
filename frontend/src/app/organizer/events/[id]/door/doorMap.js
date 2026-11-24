@@ -1,5 +1,5 @@
 import { worldOf } from '../../../../components/seating/seatingGeometry';
-import { withTableStyles } from '../../../../components/seating/mapStyle';
+import { withTableStyles, readLook } from '../../../../components/seating/mapStyle';
 
 /**
  * The organizer's own map, in the shape the buyer's SeatMapCanvas draws.
@@ -41,6 +41,8 @@ export function toSaleMap(map, tiers, purchaseMode) {
     position: t.position,
     shape: t.shape,
     categoryId: t.categoryId,
+    // Its ticket type, for its colour (venueModel.tableTint).
+    tierId: t.tierId || null,
   })), map?.layout);
 
   const seats = [
@@ -49,5 +51,8 @@ export function toSaleMap(map, tiers, purchaseMode) {
   ];
 
   // The venue's size: table positions are percentages of it.
-  return { tables, seats, world: worldOf(map?.layout), hasMap: tables.length > 0 || seats.length > 0 };
+  // The look, so the door's map is painted as the buyer's is.
+  return {
+    tables, seats, world: worldOf(map?.layout), look: readLook(map?.layout), hasMap: tables.length > 0 || seats.length > 0,
+  };
 }

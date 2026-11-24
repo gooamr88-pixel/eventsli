@@ -170,18 +170,57 @@ export function lookFont(look) {
 }
 
 /**
- * What a table is painted in: its own style first, then the map's look, then
- * `fallback` (the editor passes its category colour; the buyer's map none).
+ * ─────────────────────────────────────────────────────────────────────────────
+ * THE MAP'S COLOUR RULES (owner, 2026-11-24: "all chairs surrounding tables
+ * must always remain black; tables must display their correct assigned
+ * colours"). One rule, read by every view — the buyer's map, the editor, the
+ * door map, the previews and the 3D room — so they can no longer disagree:
+ *
+ *   A TABLE is painted in, first to last:
+ *     1. its own colour (Appearance › Table colour),
+ *     2. its CATEGORY's colour (the event's table categories),
+ *     3. its TICKET TYPE's colour, when the map sells more than one type
+ *        (the colour the ticket categories beside the map show),
+ *     4. the map look's table colour,
+ *     5. the plain surface.
+ *   Before this the editor painted (1, 2, 4) and the buyer's map (1, 4): the
+ *   category colours an organizer chose never reached a buyer, and a table's
+ *   ticket type showed only on its chairs, in a different colour per view.
+ *
+ *   A CHAIR AT A TABLE is always black (`CHAIR`). Its state is said by how it
+ *   is drawn, never by recolouring it: selected = a coral ring, unavailable or
+ *   private = faded. A thin light edge keeps a black chair visible on a dark
+ *   floor.
+ *
+ *   A SEAT IN A ROW (no table body: theatre rows, sections) has no table to
+ *   carry the colour, so the seat does: its own seat colour, then the
+ *   category's or ticket type's, then the look's seat colour.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+export const CHAIR = '#111018';
+/** The light edge round every chair, so black reads on a dark floor too. */
+export const CHAIR_EDGE = '#ffffff';
+/** How faded an unavailable (or still locked) chair is drawn. */
+export const CHAIR_FADED_OPACITY = 0.28;
+
+/**
+ * What a table is painted in: its own style first, then `fallback.fill` (its
+ * category's or ticket type's colour — `tableTint` in venueModel.js), then the
+ * map's look. See THE MAP'S COLOUR RULES above.
  */
 export function tablePaint(table, look, fallback = {}) {
   const s = table?.style || {};
+  const assigned = s.fill || cleanHex(fallback.fill) || null;
   return {
-    fill: s.fill || fallback.fill || look?.table || null,
+    fill: assigned || look?.table || null,
     stroke: s.stroke || null,
     strokeWidth: s.strokeWidth ?? null,
-    // A table with its own fill gets a name readable on that fill.
-    label: s.labelColor || (s.fill ? inkOn(s.fill) : look?.label) || null,
+    // An assigned colour gets a name readable on it; the look's own table
+    // colour keeps the look's label colour.
+    label: s.labelColor || (assigned ? inkOn(assigned) : look?.label) || null,
     seat: s.seatColor || null,
+    // The category's or ticket type's colour, for a row's seats (no body).
+    tint: cleanHex(fallback.fill) || null,
   };
 }
 

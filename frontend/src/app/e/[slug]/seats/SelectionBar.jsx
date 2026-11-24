@@ -178,19 +178,21 @@ export function Legend() {
        information on the screen that is carried by colour alone, so it is the
        last thing that should have been set at the smallest size in the app. */
     <ul className="fx-row fx-row--gap text-sm text-muted">
-      <Swatch color="var(--es-seat-available)">Available</Swatch>
-      <Swatch color="var(--es-seat-selected)">Selected</Swatch>
-      <Swatch color="var(--es-seat-sold)">Taken</Swatch>
+      {/* Chairs are black on the map (mapStyle.js, THE MAP'S COLOUR RULES);
+          the key shows their states, as the map draws them. */}
+      <Swatch color="#111018">Available</Swatch>
+      <Swatch color="#111018" extra={{ boxShadow: '0 0 0 2px var(--es-surface), 0 0 0 3.5px var(--es-accent)' }}>Selected</Swatch>
+      <Swatch color="#111018" extra={{ opacity: 0.28 }}>Taken</Swatch>
     </ul>
   );
 }
 
-function Swatch({ color, children }) {
+function Swatch({ color, extra = null, children }) {
   return (
     <li className="fx-row gap-2">
       <span
         className="inline-block size-3.5 rounded-full"
-        style={{ background: color }}
+        style={{ background: color, ...extra }}
       />
       {children}
     </li>

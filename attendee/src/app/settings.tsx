@@ -3,7 +3,7 @@ import * as Notifications from 'expo-notifications';
 import { router } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useEffect, useState } from 'react';
-import { Alert, Linking, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { Alert, Linking, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 
 import { messageFor } from '@/api/client';
 import { resendTickets } from '@/api/endpoints';
@@ -64,16 +64,12 @@ export default function Settings() {
   return (
     <View style={styles.root}>
       <Header title="Settings" />
-      <ScrollView contentContainerStyle={{ paddingVertical: space.lg }}>
+      <ScrollView contentContainerStyle={{ paddingVertical: space.sm }}>
         <Container style={{ gap: space.xl }}>
-          {account ? (
-            <ListGroup title="Account">
-              <ListRow icon="user" label="Account Information" detail={account.user.email} onPress={() => { void WebBrowser.openBrowserAsync(`${SITE}/account`); }} />
-              <ListRow icon="key" label="Change password" onPress={() => { void WebBrowser.openBrowserAsync(`${SITE}/forgot-password`); }} />
-            </ListGroup>
-          ) : null}
-
-          <ListGroup title="Preferences">
+          <ListGroup>
+            {account ? (
+              <ListRow icon="user" label="Account Information" sub={account.user.fullName || account.user.email} onPress={() => { void WebBrowser.openBrowserAsync(`${SITE}/account`); }} />
+            ) : null}
             <ListRow
               icon="bell"
               label="Notifications"
@@ -81,7 +77,7 @@ export default function Settings() {
                 <Switch
                   value={Boolean(pushOn)}
                   onValueChange={() => { haptic.select(); void togglePush(); }}
-                  trackColor={{ true: colors.accent, false: colors.border }}
+                  trackColor={{ true: colors.night, false: colors.borderStrong }}
                   thumbColor={colors.white}
                   accessibilityLabel="Push notifications"
                 />
@@ -89,20 +85,16 @@ export default function Settings() {
             />
             <ListRow icon="pin" label="Location" detail={city ? `${city.city}, ${city.country}` : 'Everywhere'} onPress={() => router.push('/city')} />
             <ListRow icon="globe" label="Language" detail="English" />
-          </ListGroup>
-
-          <ListGroup title="Support">
             <ListRow icon="mail" label="Resend my tickets" onPress={() => setResendOpen(true)} />
-            <ListRow icon="shield" label="Privacy & Security" onPress={() => { void WebBrowser.openBrowserAsync(`${SITE}/privacy`); }} />
-            <ListRow icon="fileText" label="Terms of Service" onPress={() => { void WebBrowser.openBrowserAsync(`${SITE}/terms`); }} />
+            <ListRow icon="lock" label="Privacy & Security" onPress={() => { void WebBrowser.openBrowserAsync(`${SITE}/privacy`); }} />
             <ListRow icon="help" label="Help & Support" onPress={() => { void WebBrowser.openBrowserAsync(`${SITE}/contact`); }} />
-            <ListRow icon="info" label="About Eventsli" detail={`Version ${Application.nativeApplicationVersion ?? '1.0.0'}`} onPress={() => { void WebBrowser.openBrowserAsync(SITE); }} />
+            <ListRow icon="info" label="About Eventsli" detail={`v${Application.nativeApplicationVersion ?? '1.0.0'}`} onPress={() => { void WebBrowser.openBrowserAsync(SITE); }} />
           </ListGroup>
 
           {account ? (
-            <ListGroup>
-              <ListRow icon="signOut" label="Log Out" danger chevron={false} onPress={logOut} />
-            </ListGroup>
+            <Pressable accessibilityRole="button" onPress={logOut} style={styles.logout} hitSlop={8}>
+              <Text variant="label" weight="bold" color={colors.accent}>Log Out</Text>
+            </Pressable>
           ) : (
             <Button label="Sign In" onPress={() => router.push('/sign-in')} />
           )}
@@ -165,4 +157,5 @@ function ResendSheet({ visible, onClose, defaultEmail }: { visible: boolean; onC
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   sent: { alignItems: 'center', gap: space.md, paddingVertical: space.md },
+  logout: { alignSelf: 'center', minHeight: 48, justifyContent: 'center', paddingHorizontal: space.xl },
 });

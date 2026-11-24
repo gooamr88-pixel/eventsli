@@ -13,10 +13,11 @@ import SeatCard, { ViewStrip, priceText } from './SeatCard';
 import VenueInfoCard from './VenueInfoCard';
 import { sectionPlates } from './sectionPlates';
 import {
-  readStudio, liveSections, sectionIndex, seatName, tierPalette,
+  readStudio, liveSections, sectionIndex, seatName, tierPalette, tableTint,
 } from './venueModel';
 import { buildSceneModel, eyeFor, stageEye, bestSeat } from './sceneModel';
-import { readLook, withTableStyles } from '../seating/mapStyle';
+import { readLook, withTableStyles, tablePaint, CHAIR } from '../seating/mapStyle';
+import { LockBadge } from '../seating/SeatMapCanvas';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -55,6 +56,12 @@ export default function VenueExperience({
   paint = null, pickAny = false, seatAction = null,
   // { key, tierIds }: take the buyer to these ticket types' seats (2026-11-17).
   frameRequest = null,
+  // The event's table categories ({ id, name, color }): a table in one is
+  // painted its colour in every view (mapStyle.js, THE MAP'S COLOUR RULES).
+  categories = [],
+  // A private table not yet unlocked was pressed: the page asks for its
+  // password (2026-11-24). Absent: private tables are scenery.
+  onLockedTable = null,
 }) {
   const [view, setView] = useState('2d');
   /**
@@ -115,6 +122,17 @@ export default function VenueExperience({
   // Colour by ticket type only when there is more than one on this map; a
   // single-type room keeps the map's own seat colour.
   const usePalette = useMemo(() => new Set(seats.map((s) => s.tierId).filter(Boolean)).size > 1, [seats]);
+  // Each table's assigned colour — its category's, else its ticket type's —
+  // the one rule the editor uses too (venueModel.tableTint).
+  const tint = useMemo(
+    () => tableTint({ tiers, seats, tables, categories, look }),
+    [tiers, seats, tables, categories, look],
+  );
+  // Tables drawn as rows (no body) and what each table is painted, for 3D.
+  const tablePaints = useMemo(
+    () => new Map(tables.map((t) => [t.id, tablePaint(t, look, { fill: tint(t) })])),
+    [tables, look, tint],
+  );
 
   const seatsByTable = useMemo(() => {
     const map = new Map();
@@ -131,8 +149,12 @@ export default function VenueExperience({
   // "Use the 2D map" when a 3D or 360° view cannot draw on this device.
   const toMap = () => { setView('2d'); setHover(null); setPickId(null); setGoTo(null); };
   const model = useMemo(
-    () => (in3d ? buildSceneModel({ tables, seatsByTable, zones, scene: studio.scene, world }) : null),
-    [in3d, tables, seatsByTable, zones, studio.scene, world],
+    () => (in3d ? buildSceneModel({
+      tables, seatsByTable, zones, scene: studio.scene, world,
+      // The table tops in 3D take the same colour as on the 2D map.
+      bodyColor: (t) => tablePaints.get(t.id)?.fill || null,
+    }) : null),
+    [in3d, tables, seatsByTable, zones, studio.scene, world, tablePaints],
   );
 
   const labels3d = useMemo(() => {
@@ -167,15 +189,23 @@ export default function VenueExperience({
   }, world), [sections, tables, seatsByTable, usePalette, palette, world]);
 
   const dark = studio.scene.mood !== 'daylight';
+  /**
+   * A chair's colour in 3D and 360°, by THE MAP'S COLOUR RULES (mapStyle.js):
+   * a chair at a table is black; a seat in a row takes its row's colour. The
+   * selected seat is the accent here — 3D has no ring to draw — and a seat
+   * nobody can choose is grey, as before.
+   */
   const colorFor = useCallback((entry) => {
     const s = entry.seat;
     if (!s) return dark ? '#3d3c48' : '#bdbdc5';
-    if (selectedSeatIds.has(s.id)) return '#ffffff';
+    if (selectedSeatIds.has(s.id)) return '#ff414b';
     if (paint) return paint(s);
     if (!s.available) return hideTaken ? (dark ? '#1f1e28' : '#dcdce1') : (dark ? '#3d3c48' : '#bdbdc5');
     if (focusTiers && !focusTiers.has(s.tierId)) return dark ? '#34333f' : '#d4d4da';
-    return (usePalette && palette.get(s.tierId)) || '#17a2a6';
-  }, [selectedSeatIds, paint, focusTiers, hideTaken, usePalette, palette, dark]);
+    if (entry.atTable) return CHAIR;
+    const p = tablePaints.get(entry.tableId);
+    return p?.seat || p?.tint || (usePalette && palette.get(s.tierId)) || look?.seat || '#17a2a6';
+  }, [selectedSeatIds, paint, focusTiers, hideTaken, usePalette, palette, dark, tablePaints, look]);
   const colorKey = useMemo(() => ({}), [colorFor, seats]); // eslint-disable-line react-hooks/exhaustive-deps
   const buildKey = useMemo(() => ({}), [model, labels3d, eventTitle]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -314,6 +344,8 @@ export default function VenueExperience({
           frameRequest={frameRequest}
           look={look}
           onSelectBooth={onSelectBooth}
+          tableTint={tint}
+          onLockedTable={onLockedTable}
         />
       ) : (
         <div className={`relative ${boxClassName}`}>
@@ -439,21 +471,41 @@ export default function VenueExperience({
         </div>
       )}
 
-      {!paint && <MapLegend accessible={zones.some((z) => z.kind === 'accessible')} />}
+      {!paint && (
+        <MapLegend
+          accessible={zones.some((z) => z.kind === 'accessible')}
+          locked={tables.some((t) => t.locked)}
+          categories={categories.filter((c) => c.color && tables.some((t) => t.categoryId === c.id))}
+        />
+      )}
 
       {showVenueInfo && <VenueInfoCard venue={studio.venue} tables={tables} zones={zones} />}
     </div>
   );
 }
 
-/** What the colours mean, in the frame, under every view. */
-function MapLegend({ accessible }) {
+/**
+ * What the colours mean, in the frame, under every view. Chairs are black
+ * (THE MAP'S COLOUR RULES), so the key says what a chair's ring and fade
+ * mean; the table colours are the ticket categories beside the map and, when
+ * the organizer uses them, the table categories listed here.
+ */
+function MapLegend({ accessible, locked = false, categories = [] }) {
   return (
     <ul className="es-maplegend" aria-label="Map key">
       <li><span className="es-maplegend__dot es-maplegend__dot--selected" aria-hidden="true" />Selected</li>
       <li><span className="es-maplegend__dot es-maplegend__dot--open" aria-hidden="true" />Available</li>
       <li><span className="es-maplegend__dot es-maplegend__dot--taken" aria-hidden="true" />Unavailable</li>
+      {locked && (
+        <li>
+          <svg className="es-maplegend__lock" viewBox="-10 -10 20 20" aria-hidden="true"><LockBadge /></svg>
+          Private — needs a password
+        </li>
+      )}
       {accessible && <li><span className="es-maplegend__dot es-maplegend__dot--access" aria-hidden="true" />Accessible seating</li>}
+      {categories.map((c) => (
+        <li key={c.id}><span className="es-maplegend__swatch" style={{ background: c.color }} aria-hidden="true" />{c.name}</li>
+      ))}
     </ul>
   );
 }

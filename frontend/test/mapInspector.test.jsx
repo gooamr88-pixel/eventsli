@@ -26,13 +26,14 @@ const sectionTitles = () => screen.getAllByRole('heading', { level: 3 }).map((h)
 beforeEach(() => { window.localStorage.clear(); forgetSections(); });
 
 describe('the table inspector', () => {
-  test('sections run basics → tickets → access → appearance, and appearance starts folded', () => {
+  test('sections run basics → tickets → availability → access → appearance, and appearance starts folded', () => {
     withEvent(<TablePanel table={table()} tiers={tiers} categories={[]} onChange={() => {}} onRemove={() => {}} />);
     const titles = sectionTitles();
     expect(titles[0]).toMatch(/^Table/);
     expect(titles[1]).toMatch(/^Tickets & price/);
-    expect(titles[2]).toMatch(/^Private access/);
-    expect(titles[3]).toMatch(/^Appearance/);
+    expect(titles[2]).toMatch(/^Availability/);
+    expect(titles[3]).toMatch(/^Private access/);
+    expect(titles[4]).toMatch(/^Appearance/);
     // Pricing is open and reachable; the colours are not in the way.
     expect(screen.getByLabelText('Ticket type')).toBeVisible();
     expect(screen.queryByLabelText('Table colour')).toBeNull();

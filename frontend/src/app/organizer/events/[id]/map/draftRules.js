@@ -51,10 +51,15 @@ export function mapProblems(tables, zones) {
   if (tables.some((t) => !SHAPES.includes(t.shape))) {
     out.push('A table has a shape the map cannot draw.');
   }
-  // A private table with no password and no id has never had one — the API
-  // refuses it, and the message there is less specific than this one.
-  if (tables.some((t) => t.isPrivate && !t.password && !t.id)) {
-    out.push('A private table needs a password before it can be saved.');
+  // A private table with no password typed and none stored has never had one —
+  // the database refuses it (private_needs_password). This was `!t.id`, so a
+  // SAVED public table switched to private without a password got past here
+  // and failed the save with a constraint error instead of this sentence.
+  const noPassword = tables.filter((t) => t.isPrivate && !t.password && !t.hasPassword);
+  if (noPassword.length) {
+    out.push(noPassword.length === 1
+      ? `Private table ${noPassword[0].label || ''} needs a password before it can be saved.`.replace('  ', ' ')
+      : `${noPassword.length} private tables need a password before they can be saved (${noPassword.slice(0, 5).map((t) => t.label).join(', ')}${noPassword.length > 5 ? '…' : ''}).`);
   }
   if (tables.length > MAX_TABLES) out.push(`A map holds at most ${MAX_TABLES} tables.`);
   // Vendor booths are counted apart: they are saved to the vendor floor plan,

@@ -1,9 +1,11 @@
 'use client';
 
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import VenueScene3D from '../../../../../components/venue/VenueScene3D';
 import { buildSceneModel, eyeFor, stageEye } from '../../../../../components/venue/sceneModel';
-import { MOODS, sectionIndex, seatName, tierPalette } from '../../../../../components/venue/venueModel';
+import {
+  MOODS, sectionIndex, seatName, tierPalette, studioColours,
+} from '../../../../../components/venue/venueModel';
 import { keyOf } from '../useMapDraft';
 import { RangeField, Toggle, Segmented } from '../../../../../components/inspector/fields';
 import NavIcon from '../../../../../components/shell/NavIcon';
@@ -20,21 +22,29 @@ import NavIcon from '../../../../../components/shell/NavIcon';
  * and the 3D view can never drift from the map buyers actually choose on.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-export default function Studio3D({ tables, zones, world, scene, onScene, sections, tiers, eventTitle }) {
+export default function Studio3D({
+  tables, zones, world, scene, onScene, sections, tiers, eventTitle, categories = [], look = null,
+}) {
   const [eyeSeat, setEyeSeat] = useState(null);
   const [preset, setPreset] = useState('overview');
   const controls = useRef(null);
 
   const plain = useMemo(() => tables.map((t) => ({
-    id: keyOf(t), label: t.label, shape: t.shape, seatCount: t.seatCount, position: t.position, tierId: t.tierId, style: t.style,
+    id: keyOf(t), label: t.label, shape: t.shape, seatCount: t.seatCount, position: t.position, tierId: t.tierId,
+    categoryId: t.categoryId, style: t.style,
   })), [tables]);
-  const model = useMemo(() => buildSceneModel({ tables: plain, zones, scene, world }), [plain, zones, scene, world]);
+  // The 2D map's colours (mapStyle.js, THE MAP'S COLOUR RULES): table tops in
+  // their assigned colour, chairs at tables black.
+  const colours = useMemo(() => studioColours({ tables: plain, tiers, categories, look }), [plain, tiers, categories, look]);
+  const model = useMemo(
+    () => buildSceneModel({ tables: plain, zones, scene, world, bodyColor: colours.bodyColor }),
+    [plain, zones, scene, world, colours],
+  );
   const index = useMemo(() => sectionIndex(sections), [sections]);
 
-  const tierOf = useMemo(() => new Map(plain.map((t) => [t.id, t.tierId])), [plain]);
-  const palette = useMemo(() => tierPalette(tiers, []), [tiers]);
+  const palette = useMemo(() => tierPalette(tiers, [], look), [tiers, look]);
   // The function is its own colour key: it changes exactly when the colours do.
-  const colorFor = useCallback((entry) => palette.get(tierOf.get(entry.tableId)) || '#8fa3a8', [palette, tierOf]);
+  const colorFor = colours.colorFor;
   const colorKey = colorFor;
 
   const labels = useMemo(() => {

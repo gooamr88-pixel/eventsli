@@ -22,7 +22,10 @@ export default function EditorSidePanel({
   dirty = false, saving = false, canSave = false, onSave = null, onAdd = null,
   // Vendor booths on this map (boothZones.js): their states and booth types.
   eventId = null, boothInfo = null,
+  // Private and Unavailable, for one table or several (2026-11-24).
+  onSetPrivateSelected = null, tableStock = null, onSetUnavailable = null,
 }) {
+  const stockOf = (t) => (t.id && tableStock ? tableStock.get(t.id) || null : null);
   if (wallTool?.active) return <WallToolPanel tool={wallTool} />;
   if (selection.count > 1) {
     return (
@@ -47,6 +50,11 @@ export default function EditorSidePanel({
         onDuplicate={onDuplicate}
         onRemove={onRemoveSelected}
         onClear={selection.clear}
+        onSetPrivate={onSetPrivateSelected}
+        stockOf={tableStock ? stockOf : null}
+        onSetUnavailable={onSetUnavailable ? (on) => onSetUnavailable(
+          tables.filter((t) => t.id && selection.selection.tables.has(keyOf(t))).map((t) => t.id), on,
+        ) : null}
       />
     );
   }
@@ -96,6 +104,8 @@ export default function EditorSidePanel({
         onRotate={onRotate}
         onDuplicate={onDuplicate}
         onRemove={(key) => { draft.removeTable(key); selection.clear(); }}
+        stock={stockOf(sole.table)}
+        onSetUnavailable={onSetUnavailable && sole.table.id ? (on) => onSetUnavailable([sole.table.id], on) : null}
       />
     );
   }

@@ -19,6 +19,7 @@ import { Loading, ErrorNotice, Notice } from '../../../../components/Feedback';
 import { DoorPrinterArt } from '../../../../components/ui/Illustrations';
 import { useEventContext } from '../EventContext';
 import { toSaleMap } from './doorMap';
+import { tableTint } from '../../../../components/venue/venueModel';
 import { DoorSummary, DoorEmpty } from './DoorParts';
 import OrderUndo from '../offline/OrderUndo';
 
@@ -45,6 +46,8 @@ export default function DoorSales({ eventId }) {
   const toast = useToast();
   const [rawMap, setRawMap] = useState(null);
   const [tiers, setTiers] = useState([]);
+  // Table categories, for their colours (mapStyle.js, THE MAP'S COLOUR RULES).
+  const [categories, setCategories] = useState([]);
   const [mapError, setMapError] = useState(null);
   const [mapVersion, setMapVersion] = useState(0);
   const [page, setPage] = useState(1);
@@ -64,13 +67,16 @@ export default function DoorSales({ eventId }) {
     let cancelled = false;
     (async () => {
       try {
-        const [map, tierList] = await Promise.all([
+        const [map, tierList, categoryList] = await Promise.all([
           get(`/events/${eventId}/venue-map`, { cache: 'no-store' }),
           get(`/events/${eventId}/tiers`, { cache: 'no-store' }).catch(() => []),
+          // Only colours: a failed read draws the tables uncoloured.
+          get(`/events/${eventId}/table-categories`, { cache: 'no-store' }).catch(() => []),
         ]);
         if (cancelled) return;
         setRawMap(map || { tables: [], looseSeats: [] });
         setTiers(Array.isArray(tierList) ? tierList : []);
+        setCategories(Array.isArray(categoryList) ? categoryList : []);
         setMapError(null);
       } catch (err) {
         if (!cancelled) setMapError(err);
@@ -82,6 +88,11 @@ export default function DoorSales({ eventId }) {
   const saleMap = useMemo(
     () => (rawMap ? toSaleMap(rawMap, tiers, event?.purchaseMode) : null),
     [rawMap, tiers, event?.purchaseMode],
+  );
+  // The same table colours as the editor and the buyer's map.
+  const tint = useMemo(
+    () => (saleMap ? tableTint({ tiers, seats: saleMap.seats, tables: saleMap.tables, categories, look: saleMap.look }) : null),
+    [saleMap, tiers, categories],
   );
 
   const onSale = event?.status === 'published';
@@ -177,6 +188,8 @@ export default function DoorSales({ eventId }) {
             tables={saleMap.tables}
             seats={saleMap.seats}
             world={saleMap.world}
+            look={saleMap.look}
+            tableTint={tint}
             purchaseMode={event.purchaseMode}
             selectedSeatIds={new Set(selectedSeats.map((s) => s.id))}
             selectedTableIds={new Set(selectedTable ? [selectedTable.id] : [])}

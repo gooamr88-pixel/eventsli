@@ -359,8 +359,10 @@ test('booths on the event map: one drawing for every ticketed event', async () =
   assert.equal(plan.venue.zones[0].kind, 'stage');
 
   const pub = (await call('GET', `/public/events/${slug}/vendors`)).body.data.floorPlan;
-  assert.deepEqual(pub.venue.tables.map((t) => t.label), ['T1'], 'a private table is not shown to the public');
-  assert.equal(pub.venue.tables[0].seatCount, 8);
+  // Private tables stay on every map, marked (owner, 2026-11-24).
+  assert.deepEqual(pub.venue.tables.map((t) => t.label).sort(), ['T1', 'VIP'], 'a private table is shown, marked');
+  assert.equal(pub.venue.tables.find((t) => t.label === 'VIP').isPrivate, true);
+  assert.equal(pub.venue.tables.find((t) => t.label === 'T1').seatCount, 8);
   assert.equal(pub.booths.db1.vendor, undefined);
 
   const seatMap = await call('GET', `/public/events/${slug}/seat-map`);

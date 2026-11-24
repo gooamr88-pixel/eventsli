@@ -35,6 +35,8 @@ export type PlacedSeat = {
   y: number;
   r: number;
   number: string;
+  /** A chair round a table (always black), not a seat in a row. */
+  atTable: boolean;
 };
 
 export type PlacedTable = {
@@ -93,6 +95,9 @@ export function buildModel(data: SeatMap): MapModel | null {
   }
   for (const list of seatsByTable.values()) list.sort(sortSeats);
 
+  // THE MAP'S COLOUR RULES (the website's mapStyle.js): a table is its own
+  // colour, then its category's or ticket type's, then the look's.
+  const tint = venueModel.tableTint({ tiers: data.tiers, seats: data.seats, tables, categories: data.categories ?? [], look });
   const placedTables: PlacedTable[] = [];
   const placedSeats: PlacedSeat[] = [];
   for (const t of tables) {
@@ -103,7 +108,7 @@ export function buildModel(data: SeatMap): MapModel | null {
     placedTables.push({
       table: t, x: pos.x, y: pos.y, rotation: pos.rotation, scale, body,
       labelSize: tableLabelSize(shape, body, t.style),
-      paint: mapStyle.tablePaint(t, look),
+      paint: mapStyle.tablePaint(t, look, { fill: tint(t) }),
     });
     const rad = (pos.rotation * Math.PI) / 180;
     const cos = Math.cos(rad);
@@ -120,6 +125,7 @@ export function buildModel(data: SeatMap): MapModel | null {
         y: pos.y + (p.x * sin + p.y * cos) * scale,
         r: SEAT_RADIUS * scale,
         number: String(seat?.number ?? i + 1),
+        atTable: body.kind !== 'none',
       });
     });
   }

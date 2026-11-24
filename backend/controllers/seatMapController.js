@@ -103,10 +103,19 @@ async function setAvailability(req, res, next) {
 /**
  * GET /public/events/:slug/seat-map
  *
- * What a buyer sees. Three things are deliberately absent:
+ * What a buyer sees.
  *
- *   • private tables they have not unlocked — omitted entirely, not flagged
- *     (see tableAccessService for why a flag is not privacy);
+ * PRIVATE TABLES ARE LISTED, LOCKED (owner, 2026-11-24): "private tables
+ * should remain visible to everyone on the seating map, clearly marked as
+ * Private; users must enter the correct password before they can select,
+ * reserve, or access them". Until then a private table was omitted entirely
+ * and reachable only through an invitation link. Now every table is returned;
+ * one the buyer has not unlocked carries `locked: true`, cannot be booked
+ * whole, and its seats come back unavailable (`reason: 'private'`) with no
+ * price or ticket type — what it costs is behind the password with the rest.
+ * The hold refuses it without the key either way (placeHold.js).
+ *
+ * Still deliberately absent:
  *   • password hashes;
  *   • which reservation is holding a seat — a held seat is just unavailable.
  *     Exposing the reservation id would let someone watch a competitor's
@@ -157,73 +166,84 @@ async function publicMap(req, res, next) {
       event.id,
     );
 
-    const tables = await fetchAll(({ from, to }, first) => supabase
-      .from('tables')
-      .select('id, label, seat_count, price_cents, is_private, status, position_x, position_y, rotation, shape, category_id',
-        first ? { count: 'exact' } : undefined)
-      .eq('venue_map_id', map.id)
-      .order('id')
-      .range(from, to), { what: 'tables' });
+    // The four reads below need only the map, not each other, so they run at
+    // the same time (2026-11-24): one after another they were most of a
+    // 1.6-second answer on production, the attendee app's slowest screen.
+    const [tables, seats, tierResult, vendorBooths, categoryResult] = await Promise.all([
+      fetchAll(({ from, to }, first) => supabase
+        .from('tables')
+        .select('id, label, seat_count, price_cents, is_private, status, position_x, position_y, rotation, shape, category_id, tier_id',
+          first ? { count: 'exact' } : undefined)
+        .eq('venue_map_id', map.id)
+        .order('id')
+        .range(from, to), { what: 'tables' }),
+      // ALL the seats, in pages. One request returned at most 1,000 of them, and a
+      // different 1,000 as holds and sales moved rows — see utils/fetchAll.js.
+      fetchAll(({ from, to }, first) => supabase
+        .from('seats')
+        .select('id, table_id, tier_id, section_key, row_label, seat_number, price_override_cents, status',
+          first ? { count: 'exact' } : undefined)
+        .eq('venue_map_id', map.id)
+        .order('id')
+        .range(from, to), { what: 'seats' }),
+      supabase
+        .from('ticket_tiers')
+        .select('id, name, description, kind, price_cents, quantity, sold_count, sales_start_at, sales_end_at, max_per_order, details')
+        .eq('event_id', event.id),
+      // VENDOR BOOTHS ON THIS MAP (2026-11-22): a plan drawn on the seat map is
+      // shown to buyers too — where the coffee stand is matters when choosing a
+      // seat. Names only once a vendor is booked, paid and listed (the floor
+      // plan's public audience). A vendor read that fails never costs the buyer
+      // their seat map: it is logged and the booths are left off.
+      (async () => {
+        try {
+          const fp = await vendors.floorPlanFor(event.id, { audience: 'public', withVenue: false });
+          if (!fp?.plan?.onSeatMap) return null;
+          // `book` (2026-11-23): a vendor taps a booth on this map and books it,
+          // when the event is taking vendors and the booth's type is open.
+          const book = await vendors.bookingInfo(event.id);
+          return { plan: fp.plan, booths: fp.booths, boothTypes: fp.boothTypes, book };
+        } catch (err) {
+          logger.warn({ err: err.message, eventId: event.id }, 'seat map: vendor booths could not be read');
+          return null;
+        }
+      })(),
+      // The table categories' colours: a table in one is painted its colour
+      // on every map (mapStyle.js, THE MAP'S COLOUR RULES). Scenery, so a
+      // failed read costs the colours, never the map.
+      supabase.from('table_categories').select('id, name, color, sort_order').eq('event_id', event.id)
+        .order('sort_order')
+        .then((r) => r, (err) => ({ data: null, error: err })),
+    ]);
+    const { data: tiers, error: tierError } = tierResult;
+    if (tierError) throw new Error(`seat map: tier lookup failed: ${tierError.message}`);
+    if (categoryResult?.error) {
+      logger.warn({ err: categoryResult.error.message, eventId: event.id }, 'seat map: table categories could not be read');
+    }
 
     // In LABEL order (T1, T2 … T10), not id order. The map draws by position
     // either way, but keyboard and screen-reader users move through tables in
     // array order, and id order is random: T2, T5, T1, T3…
-    const visible = tables
-      .filter((t) => !t.is_private || unlocked.has(t.id))
+    const ordered = [...tables]
       .sort((a, b) => String(a.label).localeCompare(String(b.label), 'en', { numeric: true }));
-    const visibleIds = new Set(visible.map((t) => t.id));
-
-    // ALL the seats, in pages. One request returned at most 1,000 of them, and a
-    // different 1,000 as holds and sales moved rows — see utils/fetchAll.js.
-    const seats = await fetchAll(({ from, to }, first) => supabase
-      .from('seats')
-      .select('id, table_id, tier_id, section_key, row_label, seat_number, price_override_cents, status',
-        first ? { count: 'exact' } : undefined)
-      .eq('venue_map_id', map.id)
-      .order('id')
-      .range(from, to), { what: 'seats' });
-
-    // A seat belonging to a hidden table is hidden with it — otherwise the
-    // table's existence, size and price leak through its seats.
-    const visibleSeats = seats.filter((s) => !s.table_id || visibleIds.has(s.table_id));
-
-    const { data: tiers, error: tierError } = await supabase
-      .from('ticket_tiers')
-      .select('id, name, description, kind, price_cents, quantity, sold_count, sales_start_at, sales_end_at, max_per_order, details')
-      .eq('event_id', event.id);
-    if (tierError) throw new Error(`seat map: tier lookup failed: ${tierError.message}`);
-
-    // VENDOR BOOTHS ON THIS MAP (2026-11-22): a plan drawn on the seat map is
-    // shown to buyers too — where the coffee stand is matters when choosing a
-    // seat. Names only once a vendor is booked, paid and listed (the floor
-    // plan's public audience). A vendor read that fails never costs the buyer
-    // their seat map: it is logged and the booths are left off.
-    let vendorBooths = null;
-    try {
-      const fp = await vendors.floorPlanFor(event.id, { audience: 'public', withVenue: false });
-      if (fp?.plan?.onSeatMap) {
-        // `book` (2026-11-23): a vendor taps a booth on this map and books it,
-        // when the event is taking vendors and the booth's type is open.
-        const book = await vendors.bookingInfo(event.id);
-        vendorBooths = { plan: fp.plan, booths: fp.booths, boothTypes: fp.boothTypes, book };
-      }
-    } catch (err) {
-      logger.warn({ err: err.message, eventId: event.id }, 'seat map: vendor booths could not be read');
-    }
+    // A private table this buyer has not unlocked: shown, marked, not for sale.
+    const isLocked = (t) => t.is_private && !unlocked.has(t.id);
+    const lockedIds = new Set(ordered.filter(isLocked).map((t) => t.id));
 
     const sellability = sellableSeats(seats, tiers || []);
-    const seatReason = new Map(visibleSeats.map((s) => [s.id, sellability.reasonFor(s)]));
+    const seatReason = new Map(seats.map((s) => [
+      s.id, lockedIds.has(s.table_id) ? 'private' : sellability.reasonFor(s),
+    ]));
     const tableClear = new Map();
-    for (const s of visibleSeats) {
+    for (const s of seats) {
       if (!s.table_id) continue;
       tableClear.set(s.table_id, (tableClear.get(s.table_id) ?? true) && seatReason.get(s.id) === null);
     }
 
     return sendOk(res, {
       event: publicEvent(event),
-      // Table styles are keyed by table name, so a hidden table's would name
-      // it: only the visible tables' styles leave the server.
-      map: { id: map.id, layout: publicLayout(map.layout_json, visible.map((t) => t.label)), version: map.version },
+      map: { id: map.id, layout: publicLayout(map.layout_json, ordered.map((t) => t.label)), version: map.version },
+      categories: (categoryResult?.data || []).map((c) => ({ id: c.id, name: c.name, color: c.color || null })),
       tiers: (tiers || []).map((t) => ({
         id: t.id,
         name: t.name,
@@ -237,33 +257,44 @@ async function publicMap(req, res, next) {
         kind: t.kind || 'standard',
         details: ticketDetails.present(event.id, t.details),
       })),
-      tables: visible.map((t) => ({
-        id: t.id,
-        label: t.label,
-        seatCount: t.seat_count,
-        priceCents: t.price_cents,
-        isPrivate: t.is_private,
-        // `partial` is meaningful to a buyer: the table can no longer be booked
-        // whole, but individual seats on it may still be free (BRD §25).
-        status: t.status,
-        // Every seat that comes with the table has to be sellable too: its
-        // ticket type on sale and not sold out (S-07).
-        canBookWhole: t.status === 'available' && t.price_cents !== null
-          && event.purchase_mode !== 'seat_only' && tableClear.get(t.id) === true,
-        position: { x: Number(t.position_x), y: Number(t.position_y), rotation: Number(t.rotation) },
-        shape: t.shape,
-        categoryId: t.category_id,
-      })),
-      seats: visibleSeats.map((s) => {
+      tables: ordered.map((t) => {
+        const locked = lockedIds.has(t.id);
+        return {
+          id: t.id,
+          label: t.label,
+          seatCount: t.seat_count,
+          // What a private table costs is behind its password.
+          priceCents: locked ? null : t.price_cents,
+          isPrivate: t.is_private,
+          // Private and not unlocked by this buyer: drawn, marked, and the
+          // press that would book it asks for the password instead.
+          locked,
+          // `partial` is meaningful to a buyer: the table can no longer be booked
+          // whole, but individual seats on it may still be free (BRD §25).
+          status: t.status,
+          // Every seat that comes with the table has to be sellable too: its
+          // ticket type on sale and not sold out (S-07).
+          canBookWhole: !locked && t.status === 'available' && t.price_cents !== null
+            && event.purchase_mode !== 'seat_only' && tableClear.get(t.id) === true,
+          position: { x: Number(t.position_x), y: Number(t.position_y), rotation: Number(t.rotation) },
+          shape: t.shape,
+          categoryId: t.category_id,
+          // The table's ticket type: with more than one on the map, the
+          // table is painted its colour (venueModel.tableTint).
+          tierId: locked ? null : t.tier_id || null,
+        };
+      }),
+      seats: seats.map((s) => {
         const reason = seatReason.get(s.id);
+        const locked = lockedIds.has(s.table_id);
         return {
           id: s.id,
           tableId: s.table_id,
-          tierId: s.tier_id,
+          tierId: locked ? null : s.tier_id,
           section: s.section_key,
           row: s.row_label,
           number: s.seat_number,
-          priceCents: sellability.priceOf(s),
+          priceCents: locked ? null : sellability.priceOf(s),
           // `available` means "can be chosen now" (S-07). It used to mean only
           // "nobody holds it", so seats with no price, or of a type off sale or
           // sold out, looked free and were refused at the hold — and the refusal
@@ -274,9 +305,10 @@ async function publicMap(req, res, next) {
           ...(reason ? { reason } : {}),
         };
       }),
-      // Private tables the buyer has not unlocked are counted, not listed, so
-      // the map can say "3 reserved tables" without naming them.
-      hiddenTableCount: tables.length - visible.length,
+      // Nothing is hidden any more (2026-11-24): kept, at 0, for clients built
+      // when private tables were counted rather than drawn.
+      hiddenTableCount: 0,
+      lockedTableCount: lockedIds.size,
       ...(vendorBooths ? { vendorBooths } : {}),
     });
   } catch (err) { return next(err); }

@@ -433,8 +433,11 @@ async function update(req, res, next) {
       });
     }
 
-    // A live teaser's page changed: drop the cached copy so buyers see it now.
-    if (data.status === 'published' && data.coming_soon) publishing.refreshPublicPages(data.slug);
+    // A live event's page changed: drop the cached copies — its page, the
+    // listings, the homepage — so buyers see it now. This was teasers only, so
+    // a new date, title or cover on any other live event took up to a minute
+    // to reach the listings, and read as "my changes are not showing".
+    if (data.status === 'published') publishing.refreshPublicPages(data.slug);
 
     const currentTermsId = await currentOrganizerTermsId();
     const meta = {

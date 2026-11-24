@@ -7,15 +7,17 @@ const { hashPassword, verifyPassword } = require('../utils/crypto');
  * Password-protected tables (BRD §27).
  *
  * An organizer marks a table private and sets a password. Only someone given
- * that password may see the table or buy it.
+ * that password may book the table or any seat at it.
  *
- * TWO THINGS MAKE THIS ACTUALLY PRIVATE, and only one of them is the password:
+ * VISIBLE, NOT HIDDEN (owner, 2026-11-24). A private table used to be omitted
+ * from the public seat map entirely. The owner changed the rule: everyone sees
+ * it on the map, marked Private, and the password gates selecting, reserving
+ * and buying it. So the public map returns it with `locked: true` and without
+ * its prices or ticket types (seatMapController.publicMap), and what keeps it
+ * private is what always did the real work:
  *
- *   1. A private table is OMITTED from the public seat map entirely — not
- *      returned with a `locked: true` flag. A flag hides it from the rendered
- *      page and from nobody else: the row is still in the JSON, and its label,
- *      price and seat count are one DevTools panel away. Someone who was not
- *      given the password is not supposed to know the table is there.
+ *   1. The HOLD refuses a private table, or a seat at one, without a token
+ *      for it (placeHold.js) — the server decides, not the page.
  *
  *   2. Verification happens here, on the server, against a stretched hash.
  *      Comparing on the client would mean shipping the answer to be checked.

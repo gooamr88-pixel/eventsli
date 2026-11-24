@@ -46,6 +46,13 @@ const holdLimiter = makeLimiter({
 // matches on the full path, so `/events` and `/events/:slug` cannot shadow it.
 const discovery = require('../controllers/discoveryController');
 
+/**
+ * The public lists every home screen opens with, remembered for 30 seconds:
+ * their answer is the same for everybody (none reads the session or a
+ * cookie), and each costs several database round trips. utils/microCache.js.
+ */
+const publicListCache = require('../utils/microCache').microCache(30_000);
+
 router.get(
   '/events',
   query('q').optional().isString().trim().isLength({ max: 200 }),
@@ -85,6 +92,7 @@ router.get(
   // first second after a restart is worse than a rare unexplained empty page.
   query('category').optional().custom(categoryService.assertKnownSlug),
   validate,
+  publicListCache,
   discovery.listEvents,
 );
 
@@ -95,7 +103,7 @@ router.get(
 // the frontend was deriving "Food & drink" from `food_drink` through a map that
 // was a second copy of this table. `labels` is kept alongside for any caller
 // still reading the old shape.
-router.get('/event-categories', async (req, res, next) => {
+router.get('/event-categories', publicListCache, async (req, res, next) => {
   try {
     const categories = await categoryService.list({ enabledOnly: true });
     return sendOk(res, {
@@ -123,7 +131,7 @@ router.get('/sponsors', async (req, res, next) => {
  * that are published and not over — or, when there are none, the soonest
  * upcoming events with a cover (`chosen: false`). See vipEventsService.
  */
-router.get('/vip-events', async (req, res, next) => {
+router.get('/vip-events', publicListCache, async (req, res, next) => {
   try {
     const vipEvents = require('../services/vipEventsService');
     return sendOk(res, await vipEvents.listPublic());
@@ -159,7 +167,7 @@ router.get('/markets', async (req, res, next) => {
 const landing = require('../controllers/landingController');
 
 router.get('/landing', landing.landing);
-router.get('/cities', landing.cities);
+router.get('/cities', publicListCache, landing.cities);
 
 /**
  * The nearest city that has something on, from a pair of coordinates.

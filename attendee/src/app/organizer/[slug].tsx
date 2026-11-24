@@ -8,6 +8,7 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { ApiError, messageFor } from '@/api/client';
 import { organizerPage } from '@/api/endpoints';
+import { imageUrl } from '@/lib/images';
 import { useSaved } from '@/hooks/useSaved';
 import { Chip, Empty, Failed, Header, IconButton, Segmented } from '@/ui/bits';
 import { Button } from '@/ui/Button';
@@ -69,7 +70,7 @@ export default function OrganizerScreen() {
         <Container style={{ gap: space.xl }}>
           <Animated.View entering={FadeInDown.duration(260)} style={[styles.card, shadow.card]}>
             <View style={styles.banner} />
-            {o.logoUrl ? <Image source={{ uri: o.logoUrl }} style={styles.logo} contentFit="cover" accessible={false} />
+            {o.logoUrl ? <Image source={{ uri: imageUrl(o.logoUrl, 96) ?? undefined }} style={styles.logo} contentFit="cover" accessible={false} />
               : <View style={[styles.logo, styles.initials]}><Text variant="display" color={colors.onHighlight}>{initials}</Text></View>}
             <View style={styles.cardBody}>
               <Text variant="heading" align="center" accessibilityRole="header">{o.name}</Text>

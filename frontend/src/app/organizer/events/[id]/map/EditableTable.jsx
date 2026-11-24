@@ -5,7 +5,10 @@ import {
   SEAT_RADIUS, tableBody, seatPositions, toWorld, normaliseShape, tableScale, tableLabelSize,
 } from '../../../../components/seating/seatingGeometry';
 import TableBodyShape from '../../../../components/seating/TableBodyShape';
-import { inkOn, lookFont, tablePaint } from '../../../../components/seating/mapStyle';
+import {
+  inkOn, lookFont, tablePaint, CHAIR, CHAIR_EDGE, CHAIR_FADED_OPACITY,
+} from '../../../../components/seating/mapStyle';
+import { LockBadge } from '../../../../components/seating/SeatMapCanvas';
 import SelectionHandles from './SelectionHandles';
 import { keyOf } from './useMapDraft';
 
@@ -28,7 +31,7 @@ import { keyOf } from './useMapDraft';
  * ─────────────────────────────────────────────────────────────────────────────
  */
 const EditableTable = React.memo(function EditableTable({
-  table, colour, seatColour, selected, showHandles, scale, sold, world, look = null,
+  table, colour, selected, showHandles, scale, sold, world, look = null, unavailable = false,
   onPointerDown, onKeyDown, onRotateStart,
 }) {
   const pos = toWorld(table.position, world);
@@ -41,13 +44,17 @@ const EditableTable = React.memo(function EditableTable({
   const drawn = scale * size;
 
   const inv = (n) => n / Math.max(drawn, 0.0001);
-  // The table's own colours, then its category's, then the map's look.
+  // THE MAP'S COLOUR RULES (mapStyle.js), exactly as the buyer's map draws
+  // them: the table's own colour, then its category's or ticket type's
+  // (`colour`), then the look's; chairs round a table black; a row's seats in
+  // the row's colour.
   const paint = tablePaint(table, look, { fill: colour });
   const fill = paint.fill || 'var(--es-surface)';
   const stroke = selected ? 'var(--es-accent)' : paint.stroke || (paint.fill ? 'none' : 'var(--es-border-strong)');
   const strokeWidth = selected ? inv(2) : paint.strokeWidth ?? inv(1.2);
   const font = lookFont(look);
-  const seatPaint = paint.seat || seatColour || look?.seat || 'var(--es-seat-available)';
+  const hasBody = body.kind !== 'none';
+  const seatPaint = hasBody ? CHAIR : paint.seat || paint.tint || look?.seat || 'var(--es-seat-available)';
 
   return (
     <g
@@ -58,7 +65,7 @@ const EditableTable = React.memo(function EditableTable({
       style={{ cursor: 'move' }}
       role="button"
       tabIndex={0}
-      aria-label={`Table ${table.label}, ${table.seatCount} seats${selected ? ', selected' : ''}`}
+      aria-label={`Table ${table.label}, ${table.seatCount} seats${table.isPrivate ? ', private' : ''}${unavailable ? ', unavailable' : ''}${selected ? ', selected' : ''}`}
     >
       {/* Drawn UNDER the body so a click near a seat still grabs the table.
           Without it, the gaps between seats are dead space on a round table,
@@ -76,7 +83,7 @@ const EditableTable = React.memo(function EditableTable({
         <SelectedHalo body={body} inv={inv} />
       )}
 
-      <TableBodyShape body={body} fill={fill} stroke={stroke} strokeWidth={strokeWidth} />
+      <TableBodyShape body={body} fill={fill} stroke={stroke} strokeWidth={strokeWidth} opacity={unavailable ? 0.45 : 1} />
 
       {layout.map((point, index) => (
         <circle
@@ -87,8 +94,12 @@ const EditableTable = React.memo(function EditableTable({
           // why a table refuses to be deleted. Finding that out from a red
           // save error, after rearranging the room around it, is the version
           // of this that wastes an afternoon.
-          fill={index < sold ? 'var(--es-seat-sold)' : seatPaint}
-          opacity={0.9}
+          // A chair is always black: a sold one is faded rather than
+          // recoloured; a row's sold seat keeps the sold ink.
+          fill={index < sold && !hasBody ? 'var(--es-seat-sold)' : seatPaint}
+          stroke={hasBody ? CHAIR_EDGE : 'none'}
+          strokeWidth={hasBody ? inv(0.8) : 0}
+          opacity={unavailable || index < sold ? (hasBody ? CHAIR_FADED_OPACITY : 0.6) : 0.95}
         />
       ))}
 
@@ -101,20 +112,24 @@ const EditableTable = React.memo(function EditableTable({
           style={{ fontSize: tableLabelSize(shape, body, table.style), fontWeight: font.fontWeight, fontFamily: font.fontFamily, pointerEvents: 'none' }}
         >
           {table.label}
+          {/* Said on the table, as the buyer's map says it. */}
+          {unavailable && body.width >= 44 && body.height >= 36 && (
+            <tspan x={0} dy={13} style={{ fontSize: 9.5, fontWeight: 700 }}>Unavailable</tspan>
+          )}
         </text>
       )}
 
-      {/* A private table is invisible to buyers until unlocked, and nothing
-          else on the canvas says so. */}
+      {/* A private table shows its lock here exactly as buyers see it on
+          their map (2026-11-24: private tables are listed, behind a
+          password, not hidden). */}
       {table.isPrivate && (
-        <text
-          y={body.kind === 'none' ? 4 : -body.height / 2 - SEAT_RADIUS * 3}
-          textAnchor="middle"
-          style={{ fontSize: 12, pointerEvents: 'none' }}
+        <g
+          transform={`translate(0 ${hasBody ? -(body.height / 2) - SEAT_RADIUS * 2.6 : -SEAT_RADIUS * 2.4}) rotate(${-pos.rotation})`}
+          style={{ pointerEvents: 'none' }}
           aria-hidden="true"
         >
-          🔒
-        </text>
+          <LockBadge />
+        </g>
       )}
 
       {showHandles && (
@@ -133,7 +148,7 @@ const EditableTable = React.memo(function EditableTable({
   // wholesale on every edit and the rest are primitives — so this is the
   // shallow comparison, stated, minus the handler identities that change on
   // every parent render and would defeat the memo entirely.
-  a.table === b.table && a.colour === b.colour && a.seatColour === b.seatColour && a.look === b.look && a.selected === b.selected
+  a.table === b.table && a.colour === b.colour && a.unavailable === b.unavailable && a.look === b.look && a.selected === b.selected
   && a.showHandles === b.showHandles && a.scale === b.scale && a.sold === b.sold && a.world === b.world
 ));
 

@@ -1,16 +1,16 @@
-import { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { memo, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
 import { GestureDetector, usePanGesture, usePinchGesture, useSimultaneousGestures, useTapGesture } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
-import Svg, { Circle, Ellipse, G, Path, Rect, Text as SvgText } from 'react-native-svg';
+import Svg, { Ellipse, G, Path, Rect, Text as SvgText } from 'react-native-svg';
 import { scheduleOnRN } from 'react-native-worklets';
 
 import { money } from '@/lib/format';
 import { Icon } from '@/ui/Icon';
-import { Text } from '@/ui/Text';
 import { colors, fonts, radius, shadow } from '@/ui/theme';
 
 import { clampView, fitView, hitTest, keepView, OPEN_SEAT, SEAT_RADIUS, type Box, type MapModel, type MapSeat, type MapTable, type PlacedTable } from './model';
+import { mapStyle } from './shared';
 import { ZoneShape } from './ZoneShape';
 
 /**
@@ -204,7 +204,8 @@ export function SeatMapView({
   };
 
   // ── the drawing ──
-  const floor = model.look?.floor || '#f4f4f7';
+  // White, as the mockup's map sits on the page; an organizer's own floor colour wins.
+  const floor = model.look?.floor || '#ffffff';
   const scenery = useMemo(() => (
     <>
       {model.plates.map((p) => (
@@ -214,37 +215,91 @@ export function SeatMapView({
     </>
   ), [model, floor]);
 
+  // Each table is its own memoised element, so choosing one table redraws
+  // that table, not the room.
   const tables = useMemo(() => model.tables.map((t) => (
     <TableBody key={t.table.id} t={t} selected={selectedTableId === t.table.id} bookable={canPickTables && t.table.canBookWhole} />
   )), [model, selectedTableId, canPickTables]);
 
-  const seatPaint = useMemo(() => new Map(model.tables.map((t) => [t.table.id, t.paint.seat])), [model]);
-  const seats = useMemo(() => model.seats.map((p, i) => {
-    const s = p.seat;
-    const tableChosen = selectedTableId !== null && p.tableId === selectedTableId;
-    const chosen = tableChosen || Boolean(s && selectedSeatIds?.has(s.id));
-    const open = Boolean(s?.available);
-    const own = seatPaint.get(p.tableId);
-    const fill = chosen ? colors.accent
-      : !open ? TAKEN
-        : own || (model.byTier && s?.tierId ? model.palette.get(s.tierId) : null) || model.look?.seat || OPEN_SEAT;
-    const dim = !chosen && focusTiers && s ? !focusTiers.has(s.tierId ?? '') : false;
-    const opacity = chosen ? 1 : !open ? (hideTaken ? 0.12 : 0.55) : dim ? 0.22 : 1;
-    return (
-      <G key={s?.id ?? `${p.tableId}-${i}`}>
-        {chosen ? <Circle cx={p.x} cy={p.y} r={p.r * 1.6} fill="none" stroke={colors.accent} strokeWidth={1.6} strokeOpacity={0.35} /> : null}
-        <Circle cx={p.x} cy={p.y} r={p.r} fill={fill} opacity={opacity} stroke={chosen ? '#ffffff' : 'none'} strokeWidth={chosen ? 2 : 0} />
-      </G>
-    );
-  }), [model, seatPaint, selectedSeatIds, selectedTableId, focusTiers, hideTaken]);
+  /*
+   * THE SEATS, AS A FEW PATHS — NOT ONE CIRCLE EACH.
+   *
+   * react-native-svg makes every element a native view. A stadium drawn as a
+   * <Circle> per seat was thousands of views, every one of them re-rendered
+   * on each tap — the map the owner called "very slow" (2026-11-24). Here all
+   * seats that look alike (same colour, same opacity) are ONE path of
+   * circles, so a whole room is a handful of elements. The chosen seats are a
+   * separate small layer on top, so a tap redraws only that layer.
+   */
+  // A row's seats take the row's colour; every chair at a table is black, and
+  // a taken one faded rather than recoloured (THE MAP'S COLOUR RULES).
+  const seatPaint = useMemo(() => new Map(model.tables.map((t) => [t.table.id, t.paint.seat || t.paint.tint || null])), [model]);
+  const seatLayer = useMemo(() => {
+    const groups = new Map<string, string[]>();
+    for (const p of model.seats) {
+      const s = p.seat;
+      const open = Boolean(s?.available);
+      const fill = p.atTable ? mapStyle.CHAIR
+        : !open ? TAKEN
+          : seatPaint.get(p.tableId) || (model.byTier && s?.tierId ? model.palette.get(s.tierId) : null) || model.look?.seat || OPEN_SEAT;
+      const dim = focusTiers && s ? !focusTiers.has(s.tierId ?? '') : false;
+      const opacity = !open ? (hideTaken ? 0.1 : p.atTable ? mapStyle.CHAIR_FADED_OPACITY : 0.55) : dim ? 0.22 : 1;
+      const key = `${fill}|${opacity}`;
+      const list = groups.get(key);
+      const d = circlePath(p.x, p.y, p.r);
+      if (list) list.push(d); else groups.set(key, [d]);
+    }
+    return [...groups.entries()].map(([key, parts]) => {
+      const [fill, opacity] = key.split('|');
+      return <Path key={key} d={parts.join('')} fill={fill} fillOpacity={Number(opacity)} />;
+    });
+  }, [model, seatPaint, focusTiers, hideTaken]);
 
-  // Seat numbers, once a seat is drawn at least ~11 pt across — and only for
-  // the seats on screen, so a zoomed-in stadium does not lay out 30,000 labels.
+  const chosenLayer = useMemo(() => {
+    const ring: string[] = [];
+    const dot: string[] = [];
+    // A chosen chair at a table stays black with a coral ring (THE MAP'S
+    // COLOUR RULES); a chosen seat in a row is filled coral as before.
+    const chair: string[] = [];
+    for (const p of model.seats) {
+      const chosen = (selectedTableId !== null && p.tableId === selectedTableId) || Boolean(p.seat && selectedSeatIds?.has(p.seat.id));
+      if (!chosen) continue;
+      ring.push(circlePath(p.x, p.y, p.r * 1.6));
+      (p.atTable ? chair : dot).push(circlePath(p.x, p.y, p.r));
+    }
+    if (!dot.length && !chair.length) return null;
+    return (
+      <>
+        <Path d={ring.join('')} fill="none" stroke={colors.accent} strokeWidth={1.6} strokeOpacity={0.35} />
+        {dot.length ? <Path d={dot.join('')} fill={colors.accent} stroke="#ffffff" strokeWidth={2} /> : null}
+        {chair.length ? <Path d={chair.join('')} fill={mapStyle.CHAIR} stroke={colors.accent} strokeWidth={3} /> : null}
+      </>
+    );
+  }, [model, selectedSeatIds, selectedTableId]);
+
   const pxPerUnit = view && size.w ? size.w / view.width : 0;
+  const inView = (x: number, y: number, pad: number) => Boolean(view)
+    && x > view!.x - pad && x < view!.x + view!.width + pad && y > view!.y - pad && y < view!.y + view!.height + pad;
+
+  // Table and row names, only once they are big enough to read (8 pt) and
+  // only those on screen: fitted, a stadium's hundreds of row labels are
+  // unreadable specks that cost more to lay out than everything else.
+  const labels = useMemo(() => {
+    if (!view) return null;
+    return model.tables
+      .filter((t) => t.body.kind !== 'none' && t.labelSize * t.scale * pxPerUnit >= 8 && inView(t.x, t.y, 60))
+      .map((t) => <TableLabel key={`${t.table.id}-l`} t={t} bookable={canPickTables && t.table.canBookWhole} currency={currency} />);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [model, view, pxPerUnit, canPickTables, currency]);
+
+  // Seat numbers, once a seat is drawn at least ~18 pt across, only for the
+  // seats on screen, and never more than a few hundred at once.
   const numbers = useMemo(() => {
     if (!view || SEAT_RADIUS * pxPerUnit < 9) return null;
     const pad = SEAT_RADIUS * 2;
-    return model.seats.filter((p) => p.x > view.x - pad && p.x < view.x + view.width + pad && p.y > view.y - pad && p.y < view.y + view.height + pad)
+    const visible = model.seats.filter((p) => inView(p.x, p.y, pad));
+    if (visible.length > 400) return null;
+    return visible
       .map((p, i) => {
         const chosen = (selectedTableId !== null && p.tableId === selectedTableId) || Boolean(p.seat && selectedSeatIds?.has(p.seat.id));
         return (
@@ -254,9 +309,8 @@ export function SeatMapView({
           </SvgText>
         );
       });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [model, view, pxPerUnit, selectedSeatIds, selectedTableId]);
-
-  const zoomPct = view ? Math.round((fitView(model.bounds, size.w || 1, size.h || 1).width / view.width) * 100) : 100;
 
   return (
     <View
@@ -272,8 +326,9 @@ export function SeatMapView({
               <Svg width={size.w} height={size.h} viewBox={`${view.x} ${view.y} ${view.width} ${view.height}`}>
                 {scenery}
                 {tables}
-                {seats}
-                {model.tables.map((t) => <TableLabel key={`${t.table.id}-l`} t={t} bookable={canPickTables && t.table.canBookWhole} currency={currency} />)}
+                {seatLayer}
+                {chosenLayer}
+                {labels}
                 {numbers}
               </Svg>
             </Animated.View>
@@ -282,26 +337,36 @@ export function SeatMapView({
       ) : null}
 
       {interactive ? (
+        // The mockup's zoom: + over − in a small white card at the right,
+        // and a "whole map" button above it once the person has zoomed in.
         <View style={styles.controls}>
-          <View style={[styles.pill, shadow.card]}>
-            <Pressable accessibilityRole="button" accessibilityLabel="Zoom out" onPress={() => zoomBy(1 / 1.6)} hitSlop={6} style={styles.ctl}>
-              <Icon name="minus" size={18} />
+          {moved ? (
+            <Pressable accessibilityRole="button" accessibilityLabel="Show the whole map" onPress={fitAll} style={[styles.fit, shadow.raised]} hitSlop={6}>
+              <Icon name="locate" size={18} />
             </Pressable>
-            <Text variant="caption" weight="semibold" style={styles.pct} align="center" accessibilityLiveRegion="polite">{zoomPct}%</Text>
+          ) : null}
+          <View style={[styles.zoom, shadow.raised]}>
             <Pressable accessibilityRole="button" accessibilityLabel="Zoom in" onPress={() => zoomBy(1.6)} hitSlop={6} style={styles.ctl}>
-              <Icon name="plus" size={18} />
+              <Icon name="plus" size={20} strokeWidth={2.2} />
+            </Pressable>
+            <View style={styles.zoomRule} />
+            <Pressable accessibilityRole="button" accessibilityLabel="Zoom out" onPress={() => zoomBy(1 / 1.6)} hitSlop={6} style={styles.ctl}>
+              <Icon name="minus" size={20} strokeWidth={2.2} />
             </Pressable>
           </View>
-          <Pressable accessibilityRole="button" accessibilityLabel="Show the whole map" onPress={fitAll} style={[styles.fit, shadow.card]}>
-            <Icon name="grid" size={18} />
-          </Pressable>
         </View>
       ) : null}
     </View>
   );
 }
 
-function TableBody({ t, selected, bookable }: { t: PlacedTable; selected: boolean; bookable: boolean }) {
+/** A circle as path commands, one decimal — many of them make one <Path>. */
+function circlePath(x: number, y: number, r: number): string {
+  const f = (n: number) => Math.round(n * 10) / 10;
+  return `M${f(x - r)} ${f(y)}a${f(r)} ${f(r)} 0 1 0 ${f(2 * r)} 0a${f(r)} ${f(r)} 0 1 0 ${f(-2 * r)} 0Z`;
+}
+
+const TableBody = memo(function TableBody({ t, selected, bookable }: { t: PlacedTable; selected: boolean; bookable: boolean }) {
   const { body, paint } = t;
   if (body.kind === 'none') return null;
   const fill = selected ? colors.coral50 : paint.fill || '#ffffff';
@@ -315,14 +380,15 @@ function TableBody({ t, selected, bookable }: { t: PlacedTable; selected: boolea
           : <Rect x={-body.width / 2} y={-body.height / 2} width={body.width} height={body.height} rx={body.rx || 0} {...common} />}
     </G>
   );
-}
+});
 
 /** The table's name, upright however the table is turned, and its whole-table price when it can be booked whole. */
-function TableLabel({ t, bookable, currency }: { t: PlacedTable; bookable: boolean; currency: string }) {
+const TableLabel = memo(function TableLabel({ t, bookable, currency }: { t: PlacedTable; bookable: boolean; currency: string }) {
   const { body } = t;
   if (body.kind === 'none') return null;
-  const price = bookable && t.table.priceCents !== null && body.width >= 44 && body.height >= 36
-    ? (t.table.priceCents === 0 ? 'Free' : money(t.table.priceCents, currency)) : null;
+  const price = t.table.locked && body.width >= 44 && body.height >= 36 ? 'Private'
+    : bookable && t.table.priceCents !== null && body.width >= 44 && body.height >= 36
+      ? (t.table.priceCents === 0 ? 'Free' : money(t.table.priceCents, currency)) : null;
   const ink = t.paint.label || '#111018';
   return (
     <G transform={`translate(${t.x} ${t.y}) rotate(${t.rotation}) scale(${t.scale})`}>
@@ -332,13 +398,13 @@ function TableLabel({ t, bookable, currency }: { t: PlacedTable; bookable: boole
       </G>
     </G>
   );
-}
+});
 
 const styles = StyleSheet.create({
   box: { overflow: 'hidden', borderRadius: radius.lg },
-  controls: { position: 'absolute', top: 12, right: 12, flexDirection: 'row', gap: 8 },
-  pill: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: radius.pill, paddingHorizontal: 4 },
-  ctl: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center' },
-  pct: { width: 44 },
-  fit: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
+  controls: { position: 'absolute', right: 10, bottom: 10, alignItems: 'center', gap: 8 },
+  zoom: { backgroundColor: colors.surface, borderRadius: 12, overflow: 'hidden' },
+  zoomRule: { height: 1, marginHorizontal: 8, backgroundColor: colors.border },
+  ctl: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center' },
+  fit: { width: 42, height: 42, borderRadius: 12, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
 });

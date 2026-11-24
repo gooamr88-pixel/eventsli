@@ -24,7 +24,7 @@ type Positioned = { position: { x: number; y: number; rotation?: number }; shape
 type AnyZone = { kind: string } & Record<string, unknown>;
 export type Look = { floor?: string; wall?: string; table?: string; label?: string; seat?: string; accent?: string; font?: string } | null;
 export type Body = { kind: 'ellipse' | 'rect' | 'path' | 'none'; width: number; height: number; rx: number; d?: string; labelY?: number };
-export type Paint = { fill: string | null; stroke: string | null; strokeWidth: number | null; label: string | null; seat: string | null };
+export type Paint = { fill: string | null; stroke: string | null; strokeWidth: number | null; label: string | null; seat: string | null; tint?: string | null };
 type Section = { id: string; name: string; rows: { table: string; row: string }[] };
 
 export const geometry = geometryJs as unknown as {
@@ -48,7 +48,10 @@ export const boothZones = boothZonesJs as unknown as {
 export const mapStyle = mapStyleJs as unknown as {
   readLook(layout: Layout): Look;
   withTableStyles<T>(tables: T[], layout: Layout): (T & { style?: Style })[];
-  tablePaint(table: { style?: Style }, look: Look): Paint;
+  tablePaint(table: { style?: Style }, look: Look, fallback?: { fill?: string | null }): Paint;
+  /** Every chair at a table is this black (THE MAP'S COLOUR RULES). */
+  CHAIR: string;
+  CHAIR_FADED_OPACITY: number;
 };
 
 export const venueZones = venueZonesJs as unknown as {
@@ -71,4 +74,12 @@ export const venueModel = venueModelJs as unknown as {
   liveSections(sections: Section[], tables: { label: string }[]): Section[];
   sectionIndex(sections: Section[]): Map<string, { section: string; row: string }>;
   tierPalette(tiers: { id: string; priceCents: number }[], seats: { tierId: string | null; priceCents: number | null }[], look: Look): Map<string, string>;
+  /** A table's assigned colour: its category's, else its ticket type's (several types only). */
+  tableTint(input: {
+    tiers: { id: string; priceCents: number }[];
+    seats: { tableId: string | null; tierId: string | null; priceCents: number | null }[];
+    tables: { id: string; tierId?: string | null; categoryId?: string | null }[];
+    categories?: { id: string; color: string | null }[];
+    look: Look;
+  }): (table: { id: string; tierId?: string | null; categoryId?: string | null }) => string | null;
 };

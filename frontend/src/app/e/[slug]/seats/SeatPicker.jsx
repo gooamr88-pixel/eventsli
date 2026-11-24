@@ -45,9 +45,11 @@ export default function SeatPicker({
   const { header: accessHeader, add: addTableToken } = useTableAccess(slug);
 
   /**
-   * A private table's id arrives in the invitation link, because the table
-   * itself is absent from the payload until it is unlocked — there is nothing
-   * on the map to click. See useTableAccess.js for the full shape of this.
+   * PRIVATE TABLES ARE ON THE MAP (owner, 2026-11-24), marked Private and
+   * locked until their password is entered. Pressing one — or any of its
+   * chairs — opens the password prompt (`unlockFor`). The organizer's
+   * invitation link (`?table=<id>`) still opens it for that table straight
+   * away. See useTableAccess.js for how the key travels.
    */
   const invitedTableId = searchParams.get('table');
   const tierParam = searchParams.get('tier');
@@ -61,6 +63,8 @@ export default function SeatPicker({
   const [pickedBooth, setPickedBooth] = useState(null);
   const [selectedTable, setSelectedTable] = useState(null);
   const [unlockDismissed, setUnlockDismissed] = useState(false);
+  // A private table the buyer pressed on the map: { id, label }.
+  const [unlockFor, setUnlockFor] = useState(null);
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState(null);
 
@@ -128,11 +132,15 @@ export default function SeatPicker({
   }, [slug, accessHeader]);
 
   // The dialog opens when an invitation link names a table this session has no
-  // key for yet, and stays closed once the map comes back holding it.
-  const invitedTableVisible = Boolean(
-    invitedTableId && map?.tables?.some((t) => t.id === invitedTableId),
-  );
-  const showUnlock = Boolean(invitedTableId) && !invitedTableVisible && !unlockDismissed && Boolean(map);
+  // key for yet, and stays closed once the map comes back with it unlocked.
+  const invitedTable = invitedTableId ? map?.tables?.find((t) => t.id === invitedTableId) || null : null;
+  const invitedUnlocked = Boolean(invitedTable && !invitedTable.locked);
+  const showInvite = Boolean(invitedTableId) && !invitedUnlocked && !unlockDismissed && Boolean(map);
+  // A table pressed on the map wins over the link; it closes once unlocked.
+  const pressedLocked = unlockFor ? map?.tables?.find((t) => t.id === unlockFor.id) : null;
+  const unlockTarget = unlockFor && pressedLocked?.locked !== false
+    ? unlockFor
+    : showInvite ? { id: invitedTableId, label: invitedTable?.label || null } : null;
 
   const seatById = useMemo(
     () => new Map((map?.seats || []).map((s) => [s.id, s])),
@@ -537,6 +545,7 @@ export default function SeatPicker({
           zones={zones}
           layout={map.map?.layout}
           tiers={map.tiers || []}
+          categories={map.categories || []}
           eventTitle={map.event?.title || ''}
           selectedSeatIds={selectedIds}
           selectedTableIds={selectedTableIds}
@@ -546,10 +555,10 @@ export default function SeatPicker({
           purchaseMode={purchaseMode}
           currency={currency}
           onSelectSeat={toggleSeat}
-          // Anything reaching this callback is already visible, and a private
-          // table is only visible once its key is held — so there is nothing left
-          // to unlock at click time.
+          // A locked private table never reaches this: pressing it calls
+          // `onLockedTable` instead, which asks for its password.
           onSelectTable={chooseTable}
+          onLockedTable={(table) => { setActionError(null); setUnlockFor({ id: table.id, label: table.label }); }}
           onSelectBooth={map.vendorBooths ? setPickedBooth : null}
         />
 
@@ -564,14 +573,11 @@ export default function SeatPicker({
           />
         )}
 
+        {/* An older API still counts private tables instead of drawing
+            them; said as before until it is updated. */}
         {map.hiddenTableCount > 0 && (
-          /* Counted, never named — listing them would make the map a directory
-             of which tables are worth guessing a password for. There is
-             deliberately no "unlock" button here: without the table's id, which
-             only the organizer's invitation carries, there is nothing to
-             unlock. Saying so beats a control that cannot work. */
           <p className="text-sm text-subtle">
-            {map.hiddenTableCount} reserved {map.hiddenTableCount === 1 ? 'table' : 'tables'}
+            {map.hiddenTableCount} private {map.hiddenTableCount === 1 ? 'table' : 'tables'}
             {' '}not shown · open your invitation link to see yours
           </p>
         )}
@@ -659,15 +665,22 @@ export default function SeatPicker({
         />
       )}
 
-      {showUnlock && (
+      {unlockTarget && (
         <UnlockTableDialog
+          key={unlockTarget.id}
           slug={slug}
-          tableId={invitedTableId}
-          onClose={() => setUnlockDismissed(true)}
-          // Storing the key re-runs the map fetch, and the table arrives with
-          // it. Nothing is selected here: the buyer should see what they were
-          // invited to before committing to it.
-          onUnlocked={addTableToken}
+          tableId={unlockTarget.id}
+          tableLabel={unlockTarget.label}
+          onClose={() => { if (unlockFor) setUnlockFor(null); else setUnlockDismissed(true); }}
+          // Storing the key re-runs the map fetch, and the table comes back
+          // unlocked — prices, seats and all. Nothing is selected here: the
+          // buyer sees what the password opened before committing to it.
+          onUnlocked={(token) => {
+            addTableToken(token);
+            setUnlockFor(null);
+            setUnlockDismissed(true);
+            toast.success('Choose your seats, or the whole table, on the map.', { title: 'Table unlocked' });
+          }}
         />
       )}
     </div>

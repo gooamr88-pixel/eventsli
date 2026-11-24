@@ -3,7 +3,7 @@ import { ActivityIndicator, StyleSheet, View, type StyleProp, type ViewStyle } f
 import { Icon, type IconName } from './Icon';
 import { haptic, Pressy } from './motion';
 import { Text } from './Text';
-import { colors, radius, space } from './theme';
+import { colors, space } from './theme';
 
 type Variant = 'primary' | 'secondary' | 'highlight' | 'ghost' | 'onDark' | 'dark' | 'soft';
 
@@ -47,7 +47,6 @@ export function Button({
         styles.base,
         size === 'sm' && styles.small,
         { backgroundColor: p.bg, borderColor: p.border },
-        variant === 'primary' && !off && styles.glow,
         off && styles.off,
         style,
       ]}
@@ -63,25 +62,27 @@ export function Button({
 
 const PALETTE: Record<Variant, { bg: string; fg: string; border: string }> = {
   primary: { bg: colors.accent, fg: colors.onAccent, border: colors.accent },
-  secondary: { bg: colors.surface, fg: colors.accent, border: colors.accent },
+  // The mockup's "Back to Home": a coral outline with black words.
+  secondary: { bg: colors.surface, fg: colors.text, border: colors.coral300 },
   highlight: { bg: colors.highlight, fg: colors.onHighlight, border: colors.highlight },
   ghost: { bg: 'transparent', fg: colors.accent, border: 'transparent' },
-  onDark: { bg: 'transparent', fg: colors.white, border: 'rgba(255,255,255,0.35)' },
+  onDark: { bg: 'transparent', fg: colors.white, border: 'transparent' },
   dark: { bg: colors.night, fg: colors.white, border: colors.night },
-  soft: { bg: colors.coral50, fg: colors.accent, border: colors.coral50 },
+  // The mockup's "Add to Calendar" / "Share Ticket": a quiet grey bar.
+  soft: { bg: colors.bgSunken, fg: colors.text, border: colors.bgSunken },
 };
 
+/** Rounded rectangles, as on the mockup — not pills. */
 const styles = StyleSheet.create({
   base: {
-    minHeight: 54,
-    borderRadius: radius.pill,
+    minHeight: 52,
+    borderRadius: 14,
     borderWidth: 1.5,
     paddingHorizontal: space.xl,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  small: { minHeight: 40, paddingHorizontal: space.lg },
-  glow: { shadowColor: colors.accent, shadowOpacity: 0.24, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 3 },
+  small: { minHeight: 42, borderRadius: 12, paddingHorizontal: space.lg },
   off: { opacity: 0.45 },
   row: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
 });

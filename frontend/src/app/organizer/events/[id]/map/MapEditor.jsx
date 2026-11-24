@@ -220,6 +220,17 @@ export default function MapEditor({ eventId }) {
     draft.updateTables([...selection.selection.tables], () => ({ priceCents }));
   };
 
+  /**
+   * Private, or public again, for every selected table (owner, 2026-11-24:
+   * "mark all selected tables as Private in one action"). One undo step. The
+   * password rides the save like a single table's; public clears it.
+   */
+  const setPrivateSelected = (on, password) => {
+    draft.updateTables([...selection.selection.tables], () => (on
+      ? { isPrivate: true, ...(password ? { password } : {}) }
+      : { isPrivate: false, password: '' }));
+  };
+
   /** One category for every selected table (2026-11-19). */
   const assignCategory = (categoryId) => {
     draft.updateTables([...selection.selection.tables], () => ({ categoryId }));
@@ -339,7 +350,12 @@ export default function MapEditor({ eventId }) {
   const sections = liveSections(studio.sections, tables);
   // The Studio's preview shows the draft's look, not the last saved one.
   const previewLayout = useMemo(() => writeLook(layout, draft.look), [layout, draft.look]);
-  const preview3d = <Preview3DCard tables={tables} zones={zones} world={world} scene={studio.scene} tiers={tiers} onOpen={() => setWorkspace('3d')} />;
+  const preview3d = (
+    <Preview3DCard
+      tables={tables} zones={zones} world={world} scene={studio.scene} tiers={tiers}
+      categories={categories} look={draft.look} onOpen={() => setWorkspace('3d')}
+    />
+  );
 
   const sole = soleSelected(selection.selection, tables, zones);
 
@@ -352,6 +368,16 @@ export default function MapEditor({ eventId }) {
     }
     return map;
   }, [tables]);
+
+  /** Tables marked Unavailable (pending blocks included), for the canvas. */
+  const unavailableByTable = useMemo(() => {
+    const map = new Map();
+    for (const t of tables) {
+      const s = t.id ? studioDraft.tableStock.get(t.id) : null;
+      if (s && s.total > 0 && s.open === 0 && s.blocked > 0) map.set(keyOf(t), true);
+    }
+    return map;
+  }, [tables, studioDraft.tableStock]);
 
   const seatTotal = tables.reduce((sum, t) => sum + (Number(t.seatCount) || 0), 0);
   const soldTotal = tables.reduce((sum, t) => sum + (Number(t.soldSeats) || 0), 0);
@@ -451,6 +477,7 @@ export default function MapEditor({ eventId }) {
         workspace={workspace} eventId={eventId} tables={tables} zones={zones} layout={previewLayout}
         world={world} onResizeWorld={draft.resizeWorld}
         sections={sections} tiers={tiers} eventTitle={eventTitle} eventInfo={eventInfo} draft={studioDraft}
+        categories={categories} look={draft.look}
       />
       {workspace === 'layout' && (<>
 
@@ -507,6 +534,7 @@ export default function MapEditor({ eventId }) {
             categories={categories}
             tiers={tiers}
             soldByTable={soldByTable}
+            unavailableByTable={unavailableByTable}
             world={world}
             selection={selection}
             panzoom={panzoom}
@@ -545,6 +573,9 @@ export default function MapEditor({ eventId }) {
           dirty={dirty} saving={io.saving} canSave={!io.saving && dirty && saveProblems.length === 0} onSave={io.save} onAdd={addFrom}
           wallTool={wallTool}
           onApplyLook={applyLookToTables}
+          onSetPrivateSelected={setPrivateSelected}
+          tableStock={studioDraft.tableStock}
+          onSetUnavailable={studioDraft.setTablesUnavailable}
         />
         {preview3d}
         </div>

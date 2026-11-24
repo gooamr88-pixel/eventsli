@@ -10,7 +10,7 @@ import BoothShape, { BoothDefs } from '../../../../components/seating/BoothShape
 import { boothColor } from '../../../../components/seating/boothZones';
 import EditableTable from './EditableTable';
 import MapGestureHint from '../../../../components/seating/MapGestureHint';
-import { tierPalette } from '../../../../components/venue/venueModel';
+import { tableTint } from '../../../../components/venue/venueModel';
 import SelectionHandles from './SelectionHandles';
 import { SNAP_WORLD } from './useCanvasInteraction';
 import { keyOf } from './useMapDraft';
@@ -56,8 +56,11 @@ const CULL_MARGIN = 120;
 
 export default function EditorCanvas({
   tables, zones, categories, soldByTable,
-  // Ticket types, so seats show the colour buyers will see them in.
+  // Ticket types, so tables show the colour buyers will see them in.
   tiers = null,
+  // Table key → true for a table marked Unavailable (sold or reserved
+  // outside Eventsli), drawn faded with the word on it.
+  unavailableByTable = null,
   selection, panzoom, interaction,
   tool, spacePan, snapToGrid,
   onNudge,
@@ -79,14 +82,12 @@ export default function EditorCanvas({
   const { svgRef, view, handlers } = panzoom;
   const scale = screenScale(view);
 
-  const colourOf = useMemo(() => {
-    const map = new Map((categories || []).map((c) => [c.id, c.color]));
-    return (categoryId) => map.get(categoryId) || null;
-  }, [categories]);
-  const seatColourOf = useMemo(() => {
-    const palette = tierPalette(tiers || [], []);
-    return (tierId) => palette.get(tierId) || null;
-  }, [tiers]);
+  // Each table's assigned colour — its category's, else its ticket type's —
+  // by the rule the buyer's map uses (mapStyle.js, THE MAP'S COLOUR RULES).
+  const tintOf = useMemo(
+    () => tableTint({ tiers: tiers || [], tables, categories: categories || [], look }),
+    [tiers, tables, categories, look],
+  );
 
   /**
    * Only what is on screen, plus a margin.
@@ -280,8 +281,8 @@ export default function EditorCanvas({
           <EditableTable
             key={keyOf(table)}
             table={table}
-            colour={colourOf(table.categoryId)}
-            seatColour={seatColourOf(table.tierId)}
+            colour={tintOf(table)}
+            unavailable={!!unavailableByTable?.get(keyOf(table))}
             selected={selection.has('table', keyOf(table))}
             // Handles only when ONE thing is selected. A "select all" that
             // sprouted a rotate grip on every table would bury the map under

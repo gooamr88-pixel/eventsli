@@ -124,14 +124,22 @@ describe('useMapDraft — the refusals, before the round trip', () => {
     }
   });
 
-  test('a NEW private table without a password is refused', () => {
-    // The constraint is `private_needs_password`. A table that already exists
-    // keeps its stored hash, so only a new one is a problem.
+  test('a private table with no password typed and none stored is refused', () => {
+    // The constraint is `private_needs_password`. A table that already has a
+    // stored hash keeps it; a NEW table, or a saved PUBLIC one switched to
+    // private (2026-11-24 — it used to slip through to a constraint error),
+    // needs one typed.
     const { result } = renderHook(() => useMapDraft());
     act(() => { result.current.reset([base({ isPrivate: true })]); });
-    expect(result.current.problems.join(' ')).toMatch(/private table needs a password/);
+    expect(result.current.problems.join(' ')).toMatch(/needs a password/);
 
-    act(() => { result.current.reset([base({ id: 'existing', isPrivate: true })]); });
+    act(() => { result.current.reset([base({ id: 'existing', isPrivate: true, hasPassword: false })]); });
+    expect(result.current.problems.join(' ')).toMatch(/needs a password/);
+
+    act(() => { result.current.reset([base({ id: 'existing', isPrivate: true, hasPassword: true })]); });
+    expect(result.current.problems).toEqual([]);
+
+    act(() => { result.current.reset([base({ id: 'existing', isPrivate: true, password: 'gala' })]); });
     expect(result.current.problems).toEqual([]);
   });
 

@@ -12,6 +12,9 @@ import StudioPreview from './StudioPreview';
  */
 export default function StudioWorkspace({
   workspace, eventId, tables, zones, world, onResizeWorld, layout, sections, tiers, eventTitle, eventInfo, draft,
+  // The table categories and the map look: the 3D and 360° views paint
+  // tables as the 2D map does (mapStyle.js, THE MAP'S COLOUR RULES).
+  categories = [], look = null,
 }) {
   const { studio, edit, savedSeats, holds, toggleHold, clearHolds } = draft;
   if (workspace === 'venue') {
@@ -26,7 +29,7 @@ export default function StudioWorkspace({
     return (
       <Studio3D
         tables={tables} zones={zones} world={world} scene={studio.scene} onScene={(patch) => edit('scene', patch)}
-        sections={sections} tiers={tiers} eventTitle={eventTitle}
+        sections={sections} tiers={tiers} eventTitle={eventTitle} categories={categories} look={look}
       />
     );
   }
@@ -35,7 +38,7 @@ export default function StudioWorkspace({
       <Studio360
         eventId={eventId} tables={tables} zones={zones} world={world} scene={studio.scene}
         views={studio.views} onViews={(views) => edit('views', views)}
-        sections={sections} tiers={tiers} eventTitle={eventTitle}
+        sections={sections} tiers={tiers} eventTitle={eventTitle} categories={categories} look={look}
       />
     );
   }
@@ -45,6 +48,7 @@ export default function StudioWorkspace({
         tables={tables} zones={zones} world={world} layout={layout} studio={studio} tiers={tiers}
         savedSeats={savedSeats} currency={eventInfo.currency} purchaseMode={eventInfo.purchaseMode}
         eventTitle={eventTitle} holds={holds} onToggleHold={toggleHold} onClearHolds={clearHolds}
+        categories={categories}
       />
     );
   }

@@ -7260,6 +7260,16 @@ input.es-lp-filter__control::-webkit-search-cancel-button { display: none; }
 @media (width >= theme(--breakpoint-lg)) {
   .es-evx__grid { gap: 1.25rem; }
 }
+/* Previous · Page n of m · More events — under the grid (2026-11-24). */
+.es-evx__pager {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1.75rem;
+}
+.es-evx__pager > :first-child { justify-self: start; }
+.es-evx__pager > :last-child { justify-self: end; }
 
 /* The card */
 .es-evx-card {
@@ -14559,11 +14569,19 @@ label.es-chip:has(:focus-visible) { outline: 2px solid var(--es-accent); outline
   color: var(--es-text);
 }
 .es-maplegend li { display: inline-flex; align-items: center; gap: 0.5rem; }
+/* Chairs are black on every map (mapStyle.js, THE MAP'S COLOUR RULES): the
+   key shows a chair's states — ring, plain, faded — not a colour per state.
+   `--es-chair` is the same in light and dark; the light edge is what keeps it
+   visible on a dark surface, exactly as on the map. */
+.es-maplegend { --es-chair: #111018; }
 .es-maplegend__dot { width: 0.875rem; height: 0.875rem; border-radius: var(--es-radius-full); }
-.es-maplegend__dot--selected { background: var(--es-seat-selected); box-shadow: 0 0 0 2px var(--es-surface), 0 0 0 3.5px var(--es-accent); }
-.es-maplegend__dot--open { background: conic-gradient(#e5b22f 0 33%, #17a2a6 0 66%, #8b6cf0 0); }
-.es-maplegend__dot--taken { background: var(--es-seat-sold); opacity: 0.6; }
+.es-maplegend__dot--selected { background: var(--es-chair); box-shadow: 0 0 0 2px var(--es-surface), 0 0 0 3.5px var(--es-accent); }
+.es-maplegend__dot--open { background: var(--es-chair); box-shadow: 0 0 0 1px #ffffff; }
+.es-maplegend__dot--taken { background: var(--es-chair); opacity: 0.28; }
 .es-maplegend__dot--access { background: #2f5fa8; border-radius: 0.25rem; }
+.es-maplegend__lock { width: 1.125rem; height: 1.125rem; flex: none; }
+/* A table category's colour: a small table top, square-ish, not a chair dot. */
+.es-maplegend__swatch { width: 1rem; height: 0.75rem; border-radius: 0.25rem; box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.12); }
 
 }   /* end @layer components — the seat page */
 

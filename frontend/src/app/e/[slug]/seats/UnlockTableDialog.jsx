@@ -18,7 +18,9 @@ import { useModal } from '../../../hooks/useModal';
  * gates the PURCHASE as well as the map, which is why it is kept and handed to
  * the hold rather than thrown away once the table appears.
  */
-export default function UnlockTableDialog({ slug, tableId, onClose, onUnlocked }) {
+export default function UnlockTableDialog({
+  slug, tableId, tableLabel = null, onClose, onUnlocked,
+}) {
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -75,14 +77,14 @@ export default function UnlockTableDialog({ slug, tableId, onClose, onUnlocked }
         className="es-backdrop__panel"
       >
         <div>
-          {/* No table name, because we do not have one: the table is absent
-              from the map payload until this succeeds, and the link carries
-              only an id. Naming it would mean asking the API which table it
-              is — the one question it refuses to answer for exactly this
-              reason. */}
-          <h2 id="unlock-title" className="text-lg">You have been given a private table</h2>
+          {/* Named when the buyer pressed it on the map (private tables are
+              drawn, marked Private, since 2026-11-24); an invitation link for
+              a table this map does not know carries only an id. */}
+          <h2 id="unlock-title" className="text-lg">
+            {tableLabel ? `${/table|^vip|[a-z]{3,}/i.test(tableLabel) ? tableLabel : `Table ${tableLabel}`} is private` : 'You have been given a private table'}
+          </h2>
           <p className="mt-1 text-sm text-muted">
-            Enter the password from your invitation to see it.
+            Enter the password the organizer gave you to choose seats at it or book it.
           </p>
         </div>
 
