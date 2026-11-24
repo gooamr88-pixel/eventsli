@@ -6,6 +6,11 @@
  *
  *   node scripts/inspect-event.js adel            # every event whose title or slug matches
  *   node scripts/inspect-event.js adel-ogla-houston
+ *   node scripts/inspect-event.js --email someone@example.com   # every event of that organizer
+ *
+ * Each event's CONTENT is printed in full too — description, highlights,
+ * policies, schedule, gallery — with what is missing marked, so it can be
+ * written up properly (2026-11-24).
  *
  * For each match, oldest first (so "the first one" is #1), it prints what an
  * organizer, a buyer and the listings each see, and flags what usually breaks
@@ -29,9 +34,12 @@ const path = require('node:path');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 const { Client } = require('pg');
 
-const term = process.argv.slice(2).filter((a) => !a.startsWith('--')).join(' ').trim();
-if (!term) {
-  console.error('Usage: node scripts/inspect-event.js <title or slug>');
+const argv = process.argv.slice(2);
+const emailAt = argv.indexOf('--email');
+const email = emailAt >= 0 ? String(argv[emailAt + 1] || '').trim().toLowerCase() : '';
+const term = argv.filter((a, i) => !a.startsWith('--') && i !== emailAt + 1).join(' ').trim();
+if (!term && !email) {
+  console.error('Usage: node scripts/inspect-event.js <title or slug>   |   --email <organizer email>');
   process.exit(1);
 }
 
@@ -89,22 +97,56 @@ const CITY_ZONES = {
 
 async function main() {
   const db = await connect();
-  const like = `%${term.toLowerCase()}%`;
-  const { rows: events } = await db.query(
-    `SELECT e.*, o.display_name AS organizer_name, o.id AS org_id
-       FROM events e JOIN organizers o ON o.id = e.organizer_id
-      WHERE lower(e.title) LIKE $1 OR lower(e.slug) LIKE $1
-      ORDER BY e.created_at`,
-    [like],
-  );
-  if (events.length === 0) {
-    console.log(`No event's title or slug contains "${term}".`);
-    await db.end();
-    return;
+  let events;
+  if (email) {
+    const { rows: people } = await db.query(
+      'SELECT id, full_name, email, role FROM profiles WHERE lower(email) = $1', [email],
+    );
+    if (people.length === 0) {
+      console.log(`No account with the email ${email}.`);
+      await db.end();
+      return;
+    }
+    const p = people[0];
+    const { rows: orgs } = await db.query(
+      'SELECT id, display_name, legal_name, country, description FROM organizers WHERE owner_user_id = $1', [p.id],
+    );
+    console.log(`\nAccount: ${p.full_name || '(no name)'} <${p.email}> · role ${p.role}`);
+    if (orgs.length === 0) console.log('  No organizer profile — they have not set one up, so they have no events.');
+    for (const o of orgs) {
+      console.log(`  Organizer: ${o.display_name} (${o.legal_name || 'no legal name'}) · ${o.country}`);
+      console.log(`  About: ${o.description || '— empty —'}`);
+    }
+    ({ rows: events } = await db.query(
+      `SELECT e.*, o.display_name AS organizer_name, o.id AS org_id
+         FROM events e JOIN organizers o ON o.id = e.organizer_id
+        WHERE o.owner_user_id = $1
+        ORDER BY e.created_at`,
+      [p.id],
+    ));
+    if (events.length === 0) {
+      console.log('  No events yet.');
+      await db.end();
+      return;
+    }
+  } else {
+    const like = `%${term.toLowerCase()}%`;
+    ({ rows: events } = await db.query(
+      `SELECT e.*, o.display_name AS organizer_name, o.id AS org_id
+         FROM events e JOIN organizers o ON o.id = e.organizer_id
+        WHERE lower(e.title) LIKE $1 OR lower(e.slug) LIKE $1
+        ORDER BY e.created_at`,
+      [like],
+    ));
+    if (events.length === 0) {
+      console.log(`No event's title or slug contains "${term}".`);
+      await db.end();
+      return;
+    }
   }
   const { rows: [offlineSetting] } = await db.query("SELECT value FROM platform_settings WHERE key = 'offline_checkout'");
 
-  console.log(`\n${events.length} event(s) match "${term}", oldest first:\n`);
+  console.log(`\n${events.length} event(s)${email ? '' : ` match "${term}"`}, oldest first:\n`);
   for (const [i, e] of events.entries()) {
     const issues = [];
     const say = (mark, text) => { console.log(`${mark} ${text}`); if (mark !== OK) issues.push(text); };
@@ -144,6 +186,36 @@ async function main() {
       }
       if (start < new Date()) say(WARN, 'It has already started (or is in the past).');
     }
+
+    // ── What the event page says (2026-11-24: written up properly) ──
+    console.log('\n  Content');
+    const line = (label, value) => console.log(`    ${label}: ${value === null || value === undefined || value === '' ? '— empty —' : value}`);
+    line('venue', [e.venue_name, e.venue_address, e.venue_address_line2, e.city, e.venue_region, e.venue_postal_code].filter(Boolean).join(', '));
+    line('directions', e.venue_directions);
+    line('category', e.category);
+    line('cover', e.cover_url ? 'yes' : null);
+    line('logo', e.logo_url ? 'yes' : null);
+    const highlights = Array.isArray(e.highlights) ? e.highlights : [];
+    line('highlights', highlights.length ? `${highlights.length}` : null);
+    for (const h of highlights) console.log(`      • ${h}`);
+    console.log(`    description (${String(e.description || '').length} characters):`);
+    console.log(e.description ? String(e.description).split('\n').map((l) => `      | ${l}`).join('\n') : '      — empty —');
+    const { rows: policies } = await db.query(
+      'SELECT kind, title, body, show_at_checkout FROM event_policies WHERE event_id = $1 ORDER BY sort_order', [e.id],
+    );
+    line('policies', policies.length ? `${policies.length}` : null);
+    for (const p of policies) console.log(`      • [${p.kind}] ${p.title}${p.show_at_checkout ? ' (at checkout)' : ''}: ${String(p.body).replace(/\s+/g, ' ').slice(0, 300)}`);
+    const { rows: schedule } = await db.query(
+      'SELECT starts_at, title, description, location FROM event_schedule WHERE event_id = $1 ORDER BY sort_order, starts_at', [e.id],
+    );
+    line('schedule', schedule.length ? `${schedule.length}` : null);
+    for (const s of schedule) console.log(`      • ${s.starts_at ? local(new Date(s.starts_at), zone) : '—'} ${s.title}${s.location ? ` @ ${s.location}` : ''}${s.description ? ` — ${s.description}` : ''}`);
+    const { rows: [media] } = await db.query('SELECT count(*)::int AS n FROM event_media WHERE event_id = $1', [e.id]);
+    line('gallery', media.n ? `${media.n} item(s)` : null);
+    if (!e.description || String(e.description).length < 200) say(WARN, 'The description is missing or very short.');
+    if (!highlights.length) say(WARN, 'No highlights.');
+    if (!policies.some((p) => p.kind === 'refund')) say(WARN, 'No refund policy — buyers ask, and it is shown at checkout when set.');
+    if (!e.cover_url) say(WARN, 'No cover image.');
 
     // ── Who can see it ──
     console.log('\n  Who can see it');
