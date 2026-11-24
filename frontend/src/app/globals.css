@@ -16795,6 +16795,27 @@ label.es-chip:has(:focus-visible) { outline: 2px solid var(--es-accent); outline
     .es-rail .es-lp-cards.es-lp-rail { grid-auto-columns: calc((100% - 3rem) / 3); }
   }
 
+  /* PAGES OF SIX (owner, 2026-11-24: "six events, not three"). CardRail
+     `pageSize`: the scroller's children are whole pages, each a grid of cards
+     — three rows of two on a tablet, two rows of three on a desktop — and one
+     page fills the row. On a phone the first page is the two-column grid. */
+  .es-rail__grid { margin: 0; padding: 0; list-style: none; }
+  @media (width < 48rem) {
+    .es-lp-rail--paged > .es-rail__page,
+    .es-lp-rail--paged .es-rail__grid { display: contents; }
+    .es-lp-cards.es-lp-rail.es-lp-rail--paged > .es-rail__page:nth-child(n + 2) { display: none; }
+  }
+  @media (width >= 48rem) {
+    .es-rail .es-lp-cards.es-lp-rail.es-lp-rail--paged { grid-auto-columns: 100%; gap: 1.5rem; }
+    .es-rail .es-lp-rail--paged > .es-rail__page { display: block; }
+    .es-rail__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5rem; }
+    .es-rail__grid > li { display: block; min-width: 0; }
+  }
+  @media (width >= 64rem) {
+    .es-rail .es-lp-cards.es-lp-rail.es-lp-rail--paged { grid-auto-columns: 100%; }
+    .es-rail__grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  }
+
   .es-rail__nav {
     display: flex;
     align-items: center;

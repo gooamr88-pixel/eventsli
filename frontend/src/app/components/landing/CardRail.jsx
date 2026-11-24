@@ -22,11 +22,21 @@ import NavIcon from '../shell/NavIcon';
  * The cards stay plain links in a plain list: keyboard focus moving into a
  * card off to the side scrolls it into view, and the dots follow the scroll.
  * Smooth scrolling is skipped for anyone who asked for reduced motion.
+ *
+ * PAGES OF SIX (owner, 2026-11-24: "I need six events, not three only").
+ * With `pageSize`, the cards are grouped into pages — two rows of three on a
+ * desktop, three rows of two on a tablet — and the row pages one PAGE at a
+ * time, so six events show at once and the rest are still a dot away. On a
+ * phone the first page is the two-column grid, six cards.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-export default function CardRail({ children, label = 'Events', className = '' }) {
+export default function CardRail({ children, label = 'Events', className = '', pageSize = 0 }) {
   const track = useRef(null);
   const count = Children.count(children);
+  // Grouped: the scroller's children are pages, each `pageSize` cards.
+  const perSlot = pageSize > 1 ? pageSize : 1;
+  const slots = Math.ceil(count / perSlot);
+  const grouped = perSlot > 1 ? chunk(Children.toArray(children), perSlot) : null;
   const [view, setView] = useState({ pages: 1, page: 0, perPage: count || 1 });
 
   const measure = useCallback(() => {
@@ -40,12 +50,14 @@ export default function CardRail({ children, label = 'Events', className = '' })
     }
     const gap = parseFloat(getComputedStyle(el).columnGap) || 0;
     const step = first.getBoundingClientRect().width + gap;
-    const perPage = Math.max(1, Math.round((el.clientWidth + gap) / step));
-    const pages = Math.max(1, Math.ceil(count / perPage));
+    // Scroller children per screen: cards, or whole pages when grouped.
+    const perScreen = Math.max(1, Math.round((el.clientWidth + gap) / step));
+    const pages = Math.max(1, Math.ceil(slots / perScreen));
+    const perPage = perScreen * perSlot;
     const atEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - 2;
-    const page = atEnd ? pages - 1 : Math.min(pages - 1, Math.round(el.scrollLeft / (step * perPage)));
+    const page = atEnd ? pages - 1 : Math.min(pages - 1, Math.round(el.scrollLeft / (step * perScreen)));
     setView((v) => (v.pages === pages && v.page === page && v.perPage === perPage ? v : { pages, page, perPage }));
-  }, [count]);
+  }, [count, slots, perSlot]);
 
   useEffect(() => {
     const el = track.current;
@@ -70,7 +82,7 @@ export default function CardRail({ children, label = 'Events', className = '' })
 
   function goTo(page) {
     const el = track.current;
-    const target = el?.children[Math.min(count - 1, Math.max(0, page) * view.perPage)];
+    const target = el?.children[Math.min(slots - 1, Math.max(0, page) * Math.max(1, Math.round(view.perPage / perSlot)))];
     if (!el || !target) return;
     const reduce = typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     el.scrollTo({ left: target.offsetLeft - el.firstElementChild.offsetLeft, behavior: reduce ? 'auto' : 'smooth' });
@@ -79,8 +91,12 @@ export default function CardRail({ children, label = 'Events', className = '' })
   const { pages, page, perPage } = view;
   return (
     <div className="es-rail">
-      <ul ref={track} className={`es-lp-cards es-lp-rail ${className}`}>
-        {children}
+      <ul ref={track} className={`es-lp-cards es-lp-rail${grouped ? ' es-lp-rail--paged' : ''} ${className}`}>
+        {grouped
+          ? grouped.map((page, i) => (
+            <li key={i} className="es-rail__page"><ul className="es-rail__grid">{page}</ul></li>
+          ))
+          : children}
       </ul>
 
       {pages > 1 && (
@@ -114,4 +130,11 @@ export default function CardRail({ children, label = 'Events', className = '' })
       )}
     </div>
   );
+}
+
+/** `list` in runs of `size`. */
+function chunk(list, size) {
+  const out = [];
+  for (let i = 0; i < list.length; i += size) out.push(list.slice(i, i + size));
+  return out;
 }

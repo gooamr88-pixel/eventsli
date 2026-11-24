@@ -70,3 +70,24 @@ describe('PaymentPlatforms', () => {
     expect(document.body.textContent).not.toMatch(/paypal/i);
   });
 });
+
+/**
+ * Pages of six (owner, 2026-11-24: "I need six events, not three only"):
+ * with `pageSize`, the cards are grouped into pages of six — two rows of three
+ * on a desktop — and the scroller pages one whole page at a time.
+ */
+describe('CardRail with pageSize', () => {
+  it('groups the cards into pages of six, every card still in the page', () => {
+    const { container } = render(<CardRail label="Events" pageSize={6}>{cards(14)}</CardRail>);
+    const pages = container.querySelectorAll('.es-lp-rail--paged > .es-rail__page');
+    expect(pages).toHaveLength(3);
+    expect([...pages].map((p) => p.querySelectorAll('.es-rail__grid > li').length)).toEqual([6, 6, 2]);
+    expect(screen.getByRole('link', { name: 'Event 14' })).toBeInTheDocument();
+  });
+
+  it('without pageSize nothing changes: the cards are the scroller\'s children', () => {
+    const { container } = render(<CardRail label="Events">{cards(4)}</CardRail>);
+    expect(container.querySelector('.es-lp-rail--paged')).toBeNull();
+    expect(container.querySelectorAll('.es-lp-rail > li')).toHaveLength(4);
+  });
+});

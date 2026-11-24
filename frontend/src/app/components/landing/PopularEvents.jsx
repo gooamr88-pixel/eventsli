@@ -100,12 +100,13 @@ export default function PopularEvents({ copy, categories, events, failed }) {
 
         {!current ? (
           <ul className="es-lp-cards" aria-busy="true">
-            {[0, 1, 2].map((n) => <li key={n} className="es-skeleton es-lp-cards__ghost" />)}
+            {[0, 1, 2, 3, 4, 5].map((n) => <li key={n} className="es-skeleton es-lp-cards__ghost" />)}
           </ul>
         ) : current.rows.length > 0 ? (
           /* Paged with dots from a tablet up (CardRail): every fetched event is
              reachable, not just the first six. */
-          <CardRail key={active} label="Events">
+          // Six at a time (owner, 2026-11-24): two rows of three on a desktop.
+          <CardRail key={active} label="Events" pageSize={6}>
             {current.rows.map((event, i) => (
               <li key={event.id}><EventCard event={event} priority={active === '' && i < 2} /></li>
             ))}

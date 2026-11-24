@@ -127,12 +127,20 @@ test('without withPrivate, private events stay off the listing', async () => {
 });
 
 test('a filter that could match a hidden detail keeps private events out', async () => {
-  for (const extra of [{ city: 'Toronto' }, { category: 'wedding' }, { maxPrice: 4000 }, { q: 'garden' }, { country: 'CA' }, { onSale: 'true' }, { slugs: 'sara-and-omar' }]) {
+  for (const extra of [{ city: 'Toronto' }, { category: 'wedding' }, { maxPrice: 4000 }, { q: 'garden' }, { country: 'CA' }, { onSale: 'true' }]) {
     rows = [];
     await list({ withPrivate: 'true', ...extra });
     const f = privacyFilter();
     assert.deepEqual([f.m, ...f.args], ['eq', 'is_private', false], `with ${JSON.stringify(extra)}`);
   }
+});
+
+test('saved events come back private ones included, as locked cards (2026-11-24)', async () => {
+  rows = [secret];
+  const body = await list({ withPrivate: 'true', includePast: 'true', slugs: 'sara-and-omar' });
+  assert.equal(privacyFilter(), undefined, 'no privacy filter on a saved-slugs lookup');
+  assert.equal(body.data[0].isPrivate, true);
+  assert.equal(body.data[0].venue, null, 'still only the locked card');
 });
 
 test('a date range is fine — the date is shown anyway', async () => {

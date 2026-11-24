@@ -66,7 +66,9 @@ export default function SavedEvents() {
         // the thing this person asked to keep, and dropping it silently would
         // read as the save having been lost.
         const data = await get(
-          `/public/events?includePast=true&limit=200&slugs=${encodeURIComponent(joined)}`,
+          // `withPrivate`: a saved private event comes back as its locked card
+          // (2026-11-24) — it was left out, so the page said nothing was saved.
+          `/public/events?includePast=true&withPrivate=true&limit=200&slugs=${encodeURIComponent(joined)}`,
           { cache: 'no-store', noRedirect: true },
         );
         if (!cancelled) setState({ events: Array.isArray(data) ? data : [], error: null });

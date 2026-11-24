@@ -93,7 +93,8 @@ async function listEvents(req, res, next, { phraseSearch = false } = {}) {
      * private event under "?city=Toronto", a category, a price or a text
      * search (which reads the venue and description) would tell anyone its
      * city, its kind, its price or its words. A date range is fine: the date
-     * is shown. Saved slugs never: a saved private event is reopened by link.
+     * is shown. Saved slugs too (2026-11-24): a saved private event comes back
+     * as the same locked card.
      */
     const withPrivate = req.query.withPrivate === 'true'
       && !PRIVATE_REVEALING_FILTERS.some((key) => req.query[key] !== undefined && req.query[key] !== '');
@@ -575,8 +576,15 @@ function isPastRow(e) {
   return Number.isFinite(t) && t < Date.now();
 }
 
-/** The query parameters that would match a private event on a fact it hides. */
-const PRIVATE_REVEALING_FILTERS = Object.freeze(['q', 'city', 'country', 'category', 'maxPrice', 'onSale', 'slugs']);
+/**
+ * The query parameters that would match a private event on a fact it hides.
+ *
+ * NOT `slugs` (2026-11-24): saved events are asked for by the slugs the
+ * visitor saved, and a slug is no hidden fact — the locked card it returns is
+ * the one the homepage already lists. Leaving private events out here showed
+ * "Saved events (2)" over an empty page when both saves were private.
+ */
+const PRIVATE_REVEALING_FILTERS = Object.freeze(['q', 'city', 'country', 'category', 'maxPrice', 'onSale']);
 
 /**
  * A private event as a LISTING shows it (owner, 2026-11-23): its name, its
