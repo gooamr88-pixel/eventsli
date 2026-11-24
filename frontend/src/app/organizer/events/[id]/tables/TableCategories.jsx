@@ -70,6 +70,20 @@ export default function TableCategories({ eventId }) {
         )}
       />
 
+      {/* NOT TICKET TYPES (owner, 2026-11-24: "we have 4 — why does it say
+          2?"). An organizer counted their ticket types here. Said once, plainly,
+          with the one effect a category has that surprises people: its colour
+          wins over the ticket type's on the map. */}
+      <div className="es-catnote" role="note">
+        <span className="es-catnote__icon" aria-hidden="true"><NavIcon name="info" size={18} /></span>
+        <p>
+          <b>Categories are not ticket types.</b> Prices and ticket types (VIP, Gold…) are under{' '}
+          <a href={`/organizer/events/${eventId}/tiers`}>Ticket types</a>. A category only labels tables — and its colour
+          replaces the ticket type&rsquo;s colour on the map for the tables in it. You don&rsquo;t need any: delete a
+          category and its tables keep their ticket type and price.
+        </p>
+      </div>
+
       {categories.length > 0 && (
         <KpiRow label="Categories at a glance">
           <Kpi icon="layers" label="Categories" value={categories.length} />

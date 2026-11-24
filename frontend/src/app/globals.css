@@ -21139,3 +21139,11 @@ button.es-vb-doc__tile:focus-visible { outline: 3px solid var(--es-accent); outl
 .es-ampm__icon { display: grid; place-items: center; flex: none; color: var(--es-warning); }
 .es-ampm__text { flex: 1 1 16rem; margin: 0; font-size: var(--es-text-sm); color: var(--es-text); line-height: 1.5; }
 }
+
+/* "Categories are not ticket types" (TableCategories, 2026-11-24). */
+@layer components {
+.es-catnote { display: flex; gap: 0.6rem; align-items: flex-start; padding: 0.85rem 1rem; border-radius: 14px; border: 1px solid var(--es-border); background: var(--es-bg-sunken); }
+.es-catnote__icon { flex: none; margin-top: 0.1rem; color: var(--es-accent); }
+.es-catnote p { margin: 0; font-size: var(--es-text-sm); line-height: 1.55; color: var(--es-text); }
+.es-catnote a { color: var(--es-accent); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+}
