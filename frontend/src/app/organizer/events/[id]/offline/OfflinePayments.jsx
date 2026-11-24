@@ -41,6 +41,7 @@ const STATUS = {
 const ACTIONS = {
   'offline.reserved': 'Reserved by the buyer',
   'offline.confirmed': 'Marked as paid',
+  'offline.proof_uploaded': 'Receipt uploaded by the buyer',
   'offline.cancelled': 'Reservation cancelled',
   'offline.expired': 'Expired unpaid',
   'order.voided': 'Order voided',
@@ -96,6 +97,15 @@ export default function OfflinePayments({ eventId }) {
                     {p.reference} · {formatMoney(p.amountCents, p.currency)} · {p.method}
                     {p.closeReason ? ` · ${p.closeReason}` : ''}
                   </span>
+                  {/* Who marked it paid, and when (2026-11-24). */}
+                  {p.status === 'paid' && p.confirmedAt && (
+                    <span className="block text-xs text-muted">
+                      Confirmed by {personName(p.confirmedBy)} on {formatEventTime(p.confirmedAt, tz)}
+                    </span>
+                  )}
+                  {p.proof?.url && (
+                    <a href={p.proof.url} target="_blank" rel="noreferrer" className="text-xs text-accent">View the buyer’s receipt<span className="sr-only"> (opens in a new tab)</span></a>
+                  )}
                 </span>
                 <span className="fx-row items-center gap-2">
                   <StatusPill status={p.status} />
@@ -119,7 +129,9 @@ export default function OfflinePayments({ eventId }) {
                 <span className="fx-min0">
                   <span className="text-ink">{ACTIONS[a.action] || a.action}</span>
                   <span className="block text-xs text-subtle">
-                    {a.actorRole}{a.reason ? ` · ${a.reason}` : ''}{a.details?.reference_code ? ` · ${a.details.reference_code}` : ''}
+                    {/* The person, not only the role (2026-11-24): who confirmed it. */}
+                    {a.actor ? `${personName(a.actor)} (${a.actorRole})` : a.actorRole}
+                    {a.reason ? ` · ${a.reason}` : ''}{a.details?.reference_code ? ` · ${a.details.reference_code}` : ''}
                   </span>
                 </span>
                 <span className="text-right text-xs text-muted">
@@ -133,6 +145,13 @@ export default function OfflinePayments({ eventId }) {
       </Panel>
     </div>
   );
+}
+
+/** "Sara Ali (sara@…)", or whatever part is known. */
+function personName(p) {
+  if (!p) return 'someone';
+  if (p.name && p.email) return `${p.name} (${p.email})`;
+  return p.name || p.email || 'someone';
 }
 
 function StatusPill({ status }) {
@@ -200,6 +219,18 @@ function AwaitingRow({ eventId, payment, tz, onDone }) {
             {payment.buyer.email ? ` · ${payment.buyer.email}` : ''}{payment.buyer.phone ? ` · ${payment.buyer.phone}` : ''}
           </p>
           <p className="text-xs text-muted"><NavIcon name="clock" size={12} /> Pay by {formatEventTime(payment.dueAt, tz)}</p>
+          {/* Proof of payment (2026-11-24): the buyer's transfer receipt. */}
+          {payment.proof ? (
+            <p className="mt-1 text-xs">
+              <NavIcon name="receipt" size={12} />{' '}
+              {payment.proof.url
+                ? <a href={payment.proof.url} target="_blank" rel="noreferrer" className="font-medium text-accent">View the receipt<span className="sr-only"> (opens in a new tab)</span></a>
+                : <span className="text-ink">Receipt received</span>}
+              <span className="text-muted"> · sent {formatEventTime(payment.proof.uploadedAt, tz)}</span>
+            </p>
+          ) : (
+            <p className="mt-1 text-xs text-subtle">No receipt uploaded yet.</p>
+          )}
         </div>
         <div className="fx-row gap-1">
           <button type="button" className="es-btn es-btn--primary es-btn--sm" onClick={() => setOpen((o) => !o)}>Mark as paid</button>

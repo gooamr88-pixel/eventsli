@@ -1,3 +1,4 @@
+const crypto = require('node:crypto');
 const { supabase } = require('../config/supabase');
 const pricing = require('./pricingService');
 const accessTokens = require('./accessTokens');
@@ -105,6 +106,8 @@ function publicShape(row, event, organizerName) {
     method: { kind: row.method?.kind, label: row.method?.label, instructions: row.method?.instructions },
     confirmedAt: row.confirmed_at,
     closedAt: row.closed_at,
+    // The buyer's receipt, if they sent one (2026-11-24): when, and its type.
+    proof: row.proof_uploaded_at ? { uploadedAt: row.proof_uploaded_at, contentType: row.proof_content_type } : null,
     orderId: row.status === 'paid' ? row.order_id : null,
     orderToken: row.status === 'paid' && row.order_id ? accessTokens.issueOrderToken(row.order_id) : null,
     event: event ? {
@@ -179,6 +182,99 @@ async function viewForBuyer(id, token) {
   return publicShape(row, row.events, row.organizers?.display_name);
 }
 
+/**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * PROOF OF PAYMENT (owner, 2026-11-24): the buyer uploads a photo or PDF of
+ * their transfer receipt; the organizer sees it beside the reservation before
+ * marking it paid. Two steps, like every upload here: the server signs an
+ * upload into the PRIVATE `payment-proofs` bucket (migration 20261216090000),
+ * the browser PUTs the file, then `attachProof` checks it landed under this
+ * reservation and records it (offline_attach_proof — only while awaited, and
+ * written to payment_audit as `offline.proof_uploaded`). A receipt never has a
+ * public address: only signed links that expire in minutes.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+const PROOF_BUCKET = 'payment-proofs';
+const PROOF_TYPES = Object.freeze({
+  'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/heic': 'heic', 'application/pdf': 'pdf',
+});
+const TYPE_OF_EXT = Object.freeze(Object.fromEntries(Object.entries(PROOF_TYPES).map(([t, e]) => [e, t])));
+const PROOF_LINK_SECONDS = 15 * 60;
+
+function storageFail(error) {
+  // No bucket yet, or no storage service reachable: a configuration gap, said as one.
+  if (/bucket|not found|does not exist|name resolution|fetch failed|ECONNREFUSED/i.test(String(error?.message || ''))) {
+    return fail('STORAGE_NOT_CONFIGURED', 'Receipt uploads are not available on this deployment yet.');
+  }
+  return new Error(`receipt storage: ${error?.message}`);
+}
+
+async function awaitedRow(id, token) {
+  if (accessTokens.readOfflineToken(token) !== id) throw fail('NOT_FOUND', 'That reservation was not found.');
+  const { data, error } = await supabase.from('offline_payments').select('id, status').eq('id', id).maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) throw fail('NOT_FOUND', 'That reservation was not found.');
+  if (data.status !== 'awaiting') throw fail('CONFLICT', 'This reservation is no longer waiting for payment.');
+  return data;
+}
+
+/** Step 1: a signed upload for the receipt. */
+async function signProofUpload(id, token, contentType) {
+  const type = String(contentType || '').toLowerCase();
+  const ext = PROOF_TYPES[type];
+  if (!ext) throw fail('UNSUPPORTED_MEDIA_TYPE', 'Upload a photo (JPEG, PNG, WebP or HEIC) or a PDF of the receipt.');
+  await awaitedRow(id, token);
+  const path = `offline/${id}/proof-${crypto.randomBytes(8).toString('hex')}.${ext}`;
+  const { data, error } = await supabase.storage.from(PROOF_BUCKET).createSignedUploadUrl(path);
+  if (error) throw storageFail(error);
+  return { uploadUrl: data.signedUrl, path, method: 'PUT', contentType: type, maxBytes: 10 * 1024 * 1024 };
+}
+
+/** Step 2: the upload landed under this reservation — record it. */
+async function attachProof(id, token, path) {
+  await awaitedRow(id, token);
+  const dir = `offline/${id}`;
+  if (typeof path !== 'string' || !path.startsWith(`${dir}/`) || path.includes('..') || path.slice(dir.length + 1).includes('/')) {
+    throw fail('VALIDATION_ERROR', 'That file does not belong to this reservation.');
+  }
+  const name = path.slice(dir.length + 1);
+  const contentType = TYPE_OF_EXT[name.split('.').pop()];
+  if (!contentType) throw fail('VALIDATION_ERROR', 'That file does not belong to this reservation.');
+  const { data: found, error } = await supabase.storage.from(PROOF_BUCKET).list(dir, { search: name, limit: 1 });
+  if (error) throw storageFail(error);
+  if (!(found || []).some((o) => o.name === name)) throw fail('NOT_FOUND', 'The receipt did not upload. Try again.');
+
+  const result = await rpc('offline_attach_proof', { p_offline_id: id, p_path: path, p_content_type: contentType });
+  // The receipt it replaced is not kept: one receipt per reservation.
+  if (result.previous_path && result.previous_path !== path) {
+    supabase.storage.from(PROOF_BUCKET).remove([result.previous_path]).catch(() => {});
+  }
+  return viewForBuyer(id, token);
+}
+
+/** Signed, short-lived links to receipts, by storage path. Never throws. */
+async function proofLinks(paths) {
+  const list = [...new Set(paths.filter(Boolean))];
+  if (list.length === 0) return new Map();
+  try {
+    const { data, error } = await supabase.storage.from(PROOF_BUCKET).createSignedUrls(list, PROOF_LINK_SECONDS);
+    if (error) throw error;
+    return new Map((data || []).filter((d) => d.signedUrl).map((d) => [d.path, d.signedUrl]));
+  } catch (err) {
+    logger.warn({ err: err.message }, 'receipt links could not be signed');
+    return new Map();
+  }
+}
+
+/** Who each actor id is — names on the payment history, not "organizer". */
+async function peopleById(ids) {
+  const list = [...new Set(ids.filter(Boolean))];
+  if (list.length === 0) return new Map();
+  const { data, error } = await supabase.from('profiles').select('id, full_name, email').in('id', list);
+  if (error) { logger.warn({ err: error.message }, 'payment history names could not be read'); return new Map(); }
+  return new Map((data || []).map((p) => [p.id, { name: p.full_name || null, email: p.email || null }]));
+}
+
 async function cancelByBuyer(id, token) {
   if (accessTokens.readOfflineToken(token) !== id) throw fail('NOT_FOUND', 'That reservation was not found.');
   return rpc('offline_cancel', { p_offline_id: id, p_actor: null, p_role: 'buyer', p_organizer_id: null, p_reason: 'cancelled by the buyer' });
@@ -195,14 +291,19 @@ async function rpc(fn, args) {
 async function listForEvent(eventId, { status } = {}) {
   let query = supabase
     .from('offline_payments')
-    .select('id, status, reference_code, amount_cents, currency, due_at, created_at, buyer, method, confirmed_at, payment_reference, order_id, closed_at, close_reason')
+    .select('id, status, reference_code, amount_cents, currency, due_at, created_at, buyer, method, confirmed_at, confirmed_by, payment_reference, order_id, closed_at, close_reason, proof_path, proof_content_type, proof_uploaded_at')
     .eq('event_id', eventId)
     .order('created_at', { ascending: false })
     .limit(200);
   if (status) query = query.eq('status', status);
   const { data, error } = await query;
   if (error) throw new Error(error.message);
-  return (data || []).map((r) => ({
+  const rows = data || [];
+  const [links, people] = await Promise.all([
+    proofLinks(rows.map((r) => r.proof_path)),
+    peopleById(rows.map((r) => r.confirmed_by)),
+  ]);
+  return rows.map((r) => ({
     id: r.id,
     status: r.status,
     reference: r.reference_code,
@@ -213,10 +314,16 @@ async function listForEvent(eventId, { status } = {}) {
     buyer: { name: r.buyer?.name || null, email: r.buyer?.email || null, phone: r.buyer?.phone || null },
     method: r.method?.label || null,
     confirmedAt: r.confirmed_at,
+    // WHO marked it paid (2026-11-24), beside when.
+    confirmedBy: r.confirmed_by ? people.get(r.confirmed_by) || { name: null, email: null } : null,
     paymentReference: r.payment_reference,
     orderId: r.order_id,
     closedAt: r.closed_at,
     closeReason: r.close_reason,
+    // The buyer's receipt: a link that expires in 15 minutes.
+    proof: r.proof_uploaded_at ? {
+      uploadedAt: r.proof_uploaded_at, contentType: r.proof_content_type, url: links.get(r.proof_path) || null,
+    } : null,
   }));
 }
 
@@ -262,10 +369,13 @@ async function auditForEvent(eventId) {
     .select('id, created_at, action, order_id, offline_payment_id, amount_cents, currency, actor_id, actor_role, reason, payload')
     .eq('event_id', eventId).order('created_at', { ascending: false }).limit(500);
   if (error) throw new Error(error.message);
+  const people = await peopleById((data || []).map((r) => r.actor_id));
   return (data || []).map((r) => ({
     id: r.id, at: r.created_at, action: r.action, orderId: r.order_id, offlinePaymentId: r.offline_payment_id,
     amountCents: r.amount_cents === null ? null : Number(r.amount_cents), currency: r.currency,
     actorId: r.actor_id, actorRole: r.actor_role, reason: r.reason, details: r.payload,
+    // The person, by name and email (2026-11-24): "who confirmed it".
+    actor: r.actor_id ? people.get(r.actor_id) || null : null,
   }));
 }
 
@@ -282,5 +392,5 @@ async function pendingFor(reservationId) {
 
 module.exports = {
   DEFAULTS, settings, dueAt, methodsFor, optionsForReservation, reserve, viewForBuyer, cancelByBuyer,
-  listForEvent, confirm, cancelByOrganizer, voidOrder, auditForEvent, pendingFor,
+  listForEvent, confirm, cancelByOrganizer, voidOrder, auditForEvent, pendingFor, signProofUpload, attachProof,
 };

@@ -108,7 +108,9 @@ export default function Checkout() {
   const left = Date.parse(qd.expiresAt) - now;
   const free = qd.totalCents === 0;
   const slots = qd.holders?.mode && qd.holders.mode !== 'off' ? qd.holders.slots : [];
-  const holderRequired = qd.holders?.mode === 'required';
+  // 'full' (2026-11-24): the organizer requires first AND last name on every ticket.
+  const holderFull = qd.holders?.mode === 'full';
+  const holderRequired = holderFull || qd.holders?.mode === 'required';
   const promoLine = qd.lines.find((l) => DISCOUNT.test(l.label));
   const promoCode = promoLine ? DISCOUNT.exec(promoLine.label)?.[1] ?? null : null;
   const seatsText = (qd.tickets ?? []).map((t) => `${t.name}${t.quantity > 1 ? ` × ${t.quantity}` : ''}`).join(', ');
@@ -139,6 +141,7 @@ export default function Checkout() {
       return { key: s.key, firstName: h.firstName.trim(), lastName: h.lastName.trim() || undefined };
     });
     if (holderRequired && list.some((h) => !h.firstName)) { setError('Add a first name for every ticket.'); return null; }
+    if (holderFull && list.some((h) => !h.lastName)) { setError('Add a last name for every ticket.'); return null; }
     if (qd.guestOf?.mode === 'required' && !guestOf) { setError(`Answer “${qd.guestOf.question}” to continue.`); return null; }
     if (!agreed) { setError('Accept the terms to continue.'); return null; }
     return {
@@ -259,7 +262,7 @@ export default function Checkout() {
             <View style={{ gap: space.md }}>
               <View style={{ gap: 2 }}>
                 <Text variant="title" accessibilityRole="header">Ticket Holders</Text>
-                <Text variant="small" color={colors.muted}>{holderRequired ? 'A first name for every ticket.' : 'Optional — printed on each ticket.'}</Text>
+                <Text variant="small" color={colors.muted}>{holderFull ? 'First and last name for every ticket.' : holderRequired ? 'A first name for every ticket.' : 'Optional — printed on each ticket.'}</Text>
               </View>
               {slots.map((s, i) => {
                 const h = holders[s.key] ?? { firstName: i === 0 ? name.trim().split(/\s+/)[0] ?? '' : '', lastName: '' };

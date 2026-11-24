@@ -591,6 +591,11 @@ router.post(
 /** The buyer's payment page: instructions, reference, deadline, status. Token-keyed. */
 router.get('/offline-payments/:id', param('id').isUUID(), validate, offlineCtrl.view);
 router.post('/offline-payments/:id/cancel', holdLimiter, param('id').isUUID(), validate, offlineCtrl.cancelByBuyer);
+// Proof of payment (2026-11-24): the buyer's transfer receipt, sign then record.
+router.post('/offline-payments/:id/proof/sign', holdLimiter, param('id').isUUID(),
+  body('contentType').isString().isLength({ max: 60 }), validate, offlineCtrl.signProof);
+router.post('/offline-payments/:id/proof', holdLimiter, param('id').isUUID(),
+  body('path').isString().isLength({ min: 10, max: 200 }), validate, offlineCtrl.attachProof);
 
 /**
  * Claiming free tickets. Same guards as the paid checkout — identify yourself,

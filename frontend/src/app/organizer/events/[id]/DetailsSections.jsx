@@ -381,10 +381,12 @@ export function QuickSettings({ f }) {
           <NavIcon name="users" size={20} />
           <span className="es-qset__text">
             <b id="qset-holders">Name on each ticket</b>
-            <small>On orders of two or more tickets, ask who each ticket is for. One-ticket orders use the buyer&rsquo;s name.</small>
+            <small>On orders of two or more tickets, ask who each ticket is for. One-ticket orders use the buyer&rsquo;s name{form.holderDetails === 'full' ? ', which must then include a last name' : ''}.</small>
           </span>
           <select className="es-input es-qset__select" aria-labelledby="qset-holders" value={form.holderDetails}
             onChange={(e) => setForm((x) => ({ ...x, holderDetails: e.target.value }))}>
+            {/* 2026-11-24: the organizer may require both names on every ticket. */}
+            <option value="full">First and last name required</option>
             <option value="required">First name required</option>
             <option value="optional">Ask, but optional</option>
             <option value="off">Don&rsquo;t ask</option>

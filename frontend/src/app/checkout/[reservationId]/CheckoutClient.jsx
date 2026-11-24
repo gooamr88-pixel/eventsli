@@ -530,7 +530,15 @@ export default function CheckoutClient({ reservationId }) {
                 minLength={2}
                 maxLength={120}
                 autoComplete="name"
-                hint="The name the organizer sees on the guest list."
+                // First AND last name, when the organizer requires both on every
+                // ticket (holder_details 'full', 2026-11-24): a one-ticket order's
+                // ticket is named from this field. The API refuses one word too.
+                {...(quote.holders?.mode === 'full'
+                  ? { pattern: '\\s*\\S+(\\s+\\S+)+\\s*', title: 'Enter your first and last name.' }
+                  : {})}
+                hint={quote.holders?.mode === 'full'
+                  ? 'Your first and last name — this event prints both on every ticket.'
+                  : 'The name the organizer sees on the guest list.'}
                 value={buyer.name}
                 onChange={(e) => setBuyer((b) => ({ ...b, name: e.target.value }))}
               />

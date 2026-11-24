@@ -197,3 +197,44 @@ test('optional asks without requiring; off asks nothing', async () => {
   assert.equal(r2.status, 201);
   assert.ok((await ticketsOf(r2.body.data.orderId)).every((t) => t.attendee_name === null));
 });
+
+// ── First AND last name, the organizer's choice (2026-11-24) ────────────────
+test('full: the quote says so, and a ticket without a last name is refused, naming it', async () => {
+  const ev = await makeEvent('full', 'full');
+  const h = await hold(ev, [{ tierId: ev.floor, quantity: 2 }]);
+  const { holders } = await quote(h);
+  assert.equal(holders.mode, 'full');
+  const r = await claim(h, { holders: [{ key: holders.slots[0].key, firstName: 'Ana', lastName: 'Buyer' }, { key: holders.slots[1].key, firstName: 'Omar' }] });
+  assert.equal(r.status, 400);
+  assert.equal(r.body.error, 'VALIDATION_ERROR');
+  assert.equal(r.body.meta.key, holders.slots[1].key);
+  assert.match(r.body.message, /last name/i);
+  assert.match(r.body.message, /Ticket 2/);
+});
+
+test('full: with both names on every ticket, the tickets carry them', async () => {
+  const ev = await makeEvent('fullok', 'full');
+  const h = await hold(ev, [{ tierId: ev.floor, quantity: 2 }]);
+  const { holders } = await quote(h);
+  const r = await claim(h, { holders: [{ key: holders.slots[0].key, firstName: 'Ana', lastName: 'Buyer' }, { key: holders.slots[1].key, firstName: 'Omar', lastName: 'Saleh' }] });
+  assert.equal(r.status, 201, JSON.stringify(r.body));
+  assert.deepEqual((await ticketsOf(r.body.data.orderId)).map((t) => t.attendee_name).sort(), ['Ana Buyer', 'Omar Saleh']);
+});
+
+test('full: a one-ticket order needs the buyer\'s last name too', async () => {
+  const ev = await makeEvent('fullsingle', 'full');
+  const h = await hold(ev, [{ tierId: ev.floor, quantity: 1 }]);
+  const one = await claim(h, { name: 'Ana', signature: { method: 'typed', name: 'Ana' } });
+  assert.equal(one.status, 400, JSON.stringify(one.body));
+  assert.match(one.body.message, /first and last name/i);
+  const both = await claim(h);
+  assert.equal(both.status, 201, JSON.stringify(both.body));
+  assert.equal((await ticketsOf(both.body.data.orderId))[0].attendee_name, 'Ana Buyer');
+});
+
+test('the organizer can choose it, and nothing outside the four choices', async () => {
+  const ok = await supabase.from('events').update({ holder_details: 'full' }).eq('id', ids.events[0]);
+  assert.ifError(ok.error);
+  const bad = await supabase.from('events').update({ holder_details: 'everything' }).eq('id', ids.events[0]);
+  assert.ok(bad.error, 'the database refuses an unknown choice');
+});

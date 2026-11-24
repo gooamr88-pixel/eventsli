@@ -204,7 +204,7 @@ export type Quote = Breakdown & {
   /** "VIP × 2 at EGP 1,600" — presentation only; the total is `totalCents`. */
   tickets?: { key: string; name: string; unitPriceCents: number; quantity: number }[];
   /** Who each ticket is for. `slots` is empty for one ticket or when not asked. */
-  holders?: { mode: 'required' | 'optional' | 'off'; slots: HolderSlot[] };
+  holders?: { mode: 'full' | 'required' | 'optional' | 'off'; slots: HolderSlot[] };
   /** "Whose guest are you?" — null when the event does not ask. */
   guestOf?: { mode: 'required' | 'optional'; question: string; hosts: { id: string; name: string; code?: string }[] } | null;
   addonsOffered?: Addon[];

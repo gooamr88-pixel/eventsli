@@ -10,6 +10,7 @@ import { formatEventTime } from '../../../lib/eventTime';
 import { useConfirm } from '../../../components/ui/Confirm';
 import NavIcon from '../../../components/shell/NavIcon';
 import { Loading, Notice } from '../../../components/Feedback';
+import ReceiptUpload from './ReceiptUpload';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -133,6 +134,9 @@ export default function OfflinePaymentClient({ id }) {
             <h2 className="es-co__h2 mt-4">How to pay — {payment.method?.label}</h2>
             <p className="fx-break whitespace-pre-line text-ink">{payment.method?.instructions}</p>
           </section>
+
+          {/* Proof of payment (2026-11-24): the transfer receipt, to the organizer. */}
+          <ReceiptUpload id={id} token={token} proof={payment.proof} timezone={tz} onUploaded={setPayment} />
 
           <Notice tone="warning" title="Pay before the deadline.">
             <p>

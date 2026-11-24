@@ -39,6 +39,14 @@ const view = handle(async (req, res) => sendOk(res,
   await offline.viewForBuyer(req.params.id, accessTokens.fromRequest(req))));
 
 // POST /public/offline-payments/:id/cancel
+// POST /public/offline-payments/:id/proof/sign — a signed upload for the receipt.
+const signProof = handle(async (req, res) => sendOk(res,
+  await offline.signProofUpload(req.params.id, accessTokens.fromRequest(req), req.body.contentType)));
+
+// POST /public/offline-payments/:id/proof — the receipt landed; record it.
+const attachProof = handle(async (req, res) => sendOk(res,
+  await offline.attachProof(req.params.id, accessTokens.fromRequest(req), req.body.path)));
+
 const cancelByBuyer = handle(async (req, res) => {
   await offline.cancelByBuyer(req.params.id, accessTokens.fromRequest(req));
   return sendOk(res, await offline.viewForBuyer(req.params.id, accessTokens.fromRequest(req)));
@@ -105,4 +113,6 @@ const voidOrder = handle(async (req, res) => {
 // GET /events/:eventId/payment-audit
 const audit = handle(async (req, res) => sendOk(res, await offline.auditForEvent(req.params.eventId)));
 
-module.exports = { options, view, cancelByBuyer, list, confirm, cancelByOrganizer, voidOrder, audit };
+module.exports = {
+  options, view, cancelByBuyer, list, confirm, cancelByOrganizer, voidOrder, audit, signProof, attachProof,
+};

@@ -6,9 +6,10 @@ const { supabase } = require('../config/supabase');
  *
  * On an order of two or more tickets the checkout asks, per ticket, the
  * holder's first and last name, phone and email. The event decides how
- * strictly (events.holder_details: 'required' — first name on every ticket —
- * 'optional' or 'off'). An order of one ticket asks nothing: the ticket is
- * named from the buyer's own details.
+ * strictly (events.holder_details): 'full' — first AND last name on every
+ * ticket (owner, 2026-11-24) — 'required' — first name — 'optional' or 'off'.
+ * An order of one ticket asks nothing: the ticket is named from the buyer's
+ * own details, and under 'full' that name must hold a last name too.
  *
  * The answers are saved on the reservation (reservation_holders) before any
  * money moves; the database names each ticket as it is issued
@@ -17,7 +18,9 @@ const { supabase } = require('../config/supabase');
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
-const MODES = ['required', 'optional', 'off'];
+const MODES = ['full', 'required', 'optional', 'off'];
+/** Modes that need a first name; 'full' needs the last name as well. */
+const needsFirst = (mode) => mode === 'full' || mode === 'required';
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE = /^[0-9+\-() ]{7,20}$/;
 const str = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
@@ -124,6 +127,14 @@ async function save(q, input, buyer) {
   if (slots.length === 1) {
     // One ticket: the buyer's own. Named only when the buyer gave a name.
     const { first, last } = splitName(buyer?.name);
+    // First and last name on every ticket (2026-11-24): the buyer's own too.
+    if (mode === 'full' && (!first || !last)) {
+      return {
+        code: 'VALIDATION_ERROR',
+        message: 'Add your first and last name — this event prints both on every ticket.',
+        meta: { field: 'name' },
+      };
+    }
     if (first) {
       rows.push({
         slot: slots[0], first_name: first, last_name: last || null,
@@ -140,7 +151,8 @@ async function save(q, input, buyer) {
       const phone = str(h.phone, 30);
       const email = str(h.email, 254).toLowerCase();
       const bad = (message) => ({ code: 'VALIDATION_ERROR', message, meta: { key: slot.key } });
-      if (mode === 'required' && !first) return bad(`Add the first name for ${label}.`);
+      if (needsFirst(mode) && !first) return bad(`Add the first name for ${label}.`);
+      if (mode === 'full' && !last) return bad(`Add the last name for ${label}.`);
       if (phone && !PHONE.test(phone)) return bad(`Check the phone number for ${label}.`);
       if (email && !EMAIL.test(email)) return bad(`Check the email address for ${label}.`);
       if (first || last || phone || email) {

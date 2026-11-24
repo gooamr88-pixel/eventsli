@@ -21,7 +21,9 @@ import { PhoneInput } from '../../components/forms/PhoneField';
 export default function HolderForms({ holders, values, onChange, buyer, phone, error, lead = false }) {
   const slots = holders?.slots || [];
   if (slots.length === 0) return null;
-  const required = holders.mode === 'required';
+  // 'full' (2026-11-24): the organizer requires first AND last name on every ticket.
+  const full = holders.mode === 'full';
+  const required = full || holders.mode === 'required';
   /* `lead` — a FREE order (owner, 2026-11-22: "no need to contact info, just
      ticket holder info"). There is no "Your details" card: ticket 1 is the
      lead guest, and the page sends their details as the buyer's. Only the
@@ -51,8 +53,9 @@ export default function HolderForms({ holders, values, onChange, buyer, phone, e
       </h2>
       <p className="es-co__sub">
         {lead
-          ? 'No account needed — just a first name. Your tickets appear as soon as you book.'
-          : required ? 'A first name for each ticket, printed on it and shown at the door.' : 'Optional — a name is printed on each ticket.'}
+          ? (full ? 'No account needed — just your first and last name. Your tickets appear as soon as you book.' : 'No account needed — just a first name. Your tickets appear as soon as you book.')
+          : full ? 'The first and last name of each guest, printed on their ticket and checked at the door.'
+            : required ? 'A first name for each ticket, printed on it and shown at the door.' : 'Optional — a name is printed on each ticket.'}
       </p>
       <ol className="es-holders__list">
         {slots.map((slot, i) => {
@@ -75,7 +78,7 @@ export default function HolderForms({ holders, values, onChange, buyer, phone, e
                 <div className="es-holders__grid">
                   <Input id={`${id}-first`} label="First name" icon="user" required maxLength={60} autoComplete="given-name"
                     value={v.firstName} onChange={set(slot.key, 'firstName')} />
-                  <Input id={`${id}-last`} label="Last name" icon="user" maxLength={60} autoComplete="family-name"
+                  <Input id={`${id}-last`} label="Last name" icon="user" required={full} maxLength={60} autoComplete="family-name"
                     value={v.lastName} onChange={set(slot.key, 'lastName')} />
                   <Input id={`${id}-email`} label="Email" icon="mail" type="email" inputMode="email" maxLength={254}
                     autoComplete="email" value={v.email} onChange={set(slot.key, 'email')} />
@@ -105,7 +108,7 @@ export default function HolderForms({ holders, values, onChange, buyer, phone, e
               <div className="es-holders__grid">
                 <Input id={`${id}-first`} label="First name" icon="user" required={required} maxLength={60}
                   value={v.firstName} onChange={set(slot.key, 'firstName')} />
-                <Input id={`${id}-last`} label="Last name" icon="user" maxLength={60}
+                <Input id={`${id}-last`} label="Last name" icon="user" required={full} maxLength={60}
                   value={v.lastName} onChange={set(slot.key, 'lastName')} />
                 {/* The flag picker (2026-11-19) in place of the phone icon. */}
                 <div className="es-holders__field">

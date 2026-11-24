@@ -91,6 +91,8 @@ const MIGRATIONS = [
   ['20261212090000_event_map_for_every_event.sql', body('save_venue_map', 'this event is general admission, so its map has no seats or tables')],
   ['20261214090000_venue_map_templates.sql', tab('venue_map_templates')],
   ['20261215090000_event_change_requests.sql', tab('event_change_requests')],
+  ['20261216090000_offline_proof_and_one_ticket_per_seat.sql', col('offline_payments', 'proof_path')],
+  ['20261217090000_holder_full_names.sql', con('events_holder_details_check')],
 ];
 
 const EXTRA = [

@@ -79,3 +79,17 @@ describe('HolderForms', () => {
     ]);
   });
 });
+
+describe('HolderForms — first and last name required (the organizer’s choice, 2026-11-24)', () => {
+  test('full: both names are required on every card, and the page says so', () => {
+    render(<Harness mode="full" />);
+    for (const input of screen.getAllByLabelText(/First name/)) expect(input).toBeRequired();
+    for (const input of screen.getAllByLabelText(/Last name/)) expect(input).toBeRequired();
+    expect(screen.getByText(/first and last name of each guest/i)).toBeInTheDocument();
+  });
+
+  test('required (first name only): the last name stays optional', () => {
+    render(<Harness mode="required" />);
+    for (const input of screen.getAllByLabelText(/Last name/)) expect(input).not.toBeRequired();
+  });
+});
