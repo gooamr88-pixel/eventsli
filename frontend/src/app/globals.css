@@ -21230,3 +21230,7 @@ button.es-vb-doc__tile:focus-visible { outline: 3px solid var(--es-accent); outl
   .es-opay__spacer { display: none; }
 }
 }
+
+@layer components {
+.es-co__pending { justify-items: start; }
+}

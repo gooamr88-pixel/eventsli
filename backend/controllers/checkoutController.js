@@ -98,6 +98,12 @@ async function quote(req, res, next) {
       policies: (policies || []).map((p) => ({
         id: p.id, kind: p.kind, title: p.title, body: p.body,
       })),
+      // The buyer already chose to pay the organizer for this hold: the page
+      // sends them to that payment instead of offering a card that the API
+      // would refuse (2026-11-24). Only to the hold's owner — it carries a link.
+      offlinePending: ownsReservation(req)
+        ? await require('../services/offlineCheckoutService').awaitingFor(req.params.reservationId).catch(() => null)
+        : null,
     });
   } catch (err) {
     if (err.code) {

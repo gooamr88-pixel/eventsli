@@ -86,7 +86,7 @@ before(async () => {
   ids.tierId = tier.body.data.id;
   await venue.saveMap(ids.eventId, {
     layout: {},
-    tables: [{ label: 'T1', seatCount: 6, priceCents: null, tierId: ids.tierId, isPrivate: false, shape: 'round', position: { x: 50, y: 50, rotation: 0 } }],
+    tables: [{ label: 'T1', seatCount: 8, priceCents: null, tierId: ids.tierId, isPrivate: false, shape: 'round', position: { x: 50, y: 50, rotation: 0 } }],
   });
   const map = await venue.getMapForOrganizer(ids.eventId);
   ids.seats = map.tables[0].seats.map((s) => s.id);
@@ -144,7 +144,7 @@ async function reserveSeats(seatIds) {
     acceptTerms: true, signature: SIG,
   }, { 'x-access-token': hold.body.data.reservationToken });
   assert.equal(res.status, 201, JSON.stringify(res.body));
-  return { buyer, reservationId: hold.body.data.reservationId, offlineId: res.body.data.id, token: res.body.data.accessToken };
+  return { buyer, reservationId: hold.body.data.reservationId, offlineId: res.body.data.id, token: res.body.data.accessToken, holdToken: hold.body.data.reservationToken };
 }
 const actions = async (offlineId) => (await supabase.from('payment_audit').select('action, actor_id, actor_role, created_at')
   .eq('offline_payment_id', offlineId).order('created_at')).data;
@@ -206,6 +206,21 @@ test('the buyer\'s last step: "I\'ve sent the payment" is recorded once, logged,
   assert.ok(list.body.data.payments.find((p) => p.id === ids.a.offlineId).buyerSentAt, 'the organizer sees it');
   const { count } = await supabase.from('tickets').select('id', { count: 'exact', head: true }).eq('event_id', ids.eventId);
   assert.equal(count, 0);
+});
+
+// ── Back at the checkout after choosing to pay offline (2026-11-24) ────────
+test('a hold being paid offline: the checkout links to its payment page, and a card payment is refused with the reason', async () => {
+  const c = await reserveSeats([ids.seats[6]]);
+  const h = { 'x-access-token': c.holdToken };
+  const q = await c.buyer('GET', `/public/reservations/${c.reservationId}/quote`, undefined, h);
+  assert.equal(q.status, 200, JSON.stringify(q.body));
+  assert.ok(q.body.data.offlinePending, 'the page is told');
+  assert.ok(q.body.data.offlinePending.url.startsWith(`/checkout/offline/${c.offlineId}?token=`), q.body.data.offlinePending.url);
+  const stranger = await client()('GET', `/public/reservations/${c.reservationId}/quote`);
+  assert.equal(stranger.body?.data?.offlinePending ?? null, null, 'never to someone without the hold');
+  const card = await c.buyer('POST', `/public/reservations/${c.reservationId}/checkout`, { email: 'x@eventsli-test.invalid', name: 'X Y', acceptTerms: true, signature: SIG }, h);
+  assert.ok([409, 503].includes(card.status), `refused, got ${card.status}`);
+  if (card.status === 409) assert.match(card.body.message, /pay the organizer/);
 });
 
 // ── 4. Who confirmed, and when ─────────────────────────────────────────────

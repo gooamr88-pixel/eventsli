@@ -355,6 +355,34 @@ export default function CheckoutClient({ reservationId }) {
   }
   if (!quote) return <div className="es-co-narrow"><Loading variant="card" /></div>;
 
+  /**
+   * ALREADY PAYING THE ORGANIZER (2026-11-24). A buyer who chose an offline
+   * payment and came back here (the back button, the cart) was offered the
+   * card form, and paying was refused with a bare 409. The hold is the
+   * offline reservation's now: say so, and take them to its payment page —
+   * where they can also cancel it to pay by card instead.
+   */
+  if (quote.offlinePending) {
+    const op = quote.offlinePending;
+    return (
+      <div className="es-co-narrow">
+        <section className="es-co__card es-co__pending" aria-labelledby="co-pending">
+          <span className="es-co__details-icon" aria-hidden="true"><NavIcon name="receipt" size={20} /></span>
+          <h1 id="co-pending" className="es-co__h2">You chose to pay the organizer</h1>
+          <p className="es-co__sub">
+            These tickets are reserved for you under reference <b className="es-nums text-ink">{op.reference}</b>
+            {Number.isFinite(op.amountCents) ? <> — <b className="es-nums text-ink">{formatMoney(op.amountCents, op.currency)}</b></> : null}.
+            Open your payment page for the details, to upload your receipt, or to cancel and pay by card instead.
+          </p>
+          <div className="fx-row">
+            <Link href={op.url} className="es-btn es-btn--primary">Open my payment page</Link>
+            {quote.event?.slug && <Link href={`/e/${quote.event.slug}`} className="es-btn es-btn--ghost">Back to the event</Link>}
+          </div>
+        </section>
+      </div>
+    );
+  }
+
   // Said BEFORE the form, not after Pay: without this tab's token every
   // action below is refused, and the buyer would find out last.
   if (!reservation) return <div className="es-co-narrow"><NotThisTab slug={quote.event?.slug} /></div>;

@@ -409,6 +409,28 @@ async function auditForEvent(eventId) {
   }));
 }
 
+/**
+ * The offline payment waiting on this hold, with a fresh link to its page —
+ * for the buyer who comes back to the checkout after choosing to pay the
+ * organizer (2026-11-24: their card payment was refused with a bare 409).
+ * Only ever handed to the holder of the reservation's own token.
+ */
+async function awaitingFor(reservationId) {
+  const { data, error } = await supabase
+    .from('offline_payments').select('id, reference_code, amount_cents, currency, due_at')
+    .eq('reservation_id', reservationId).eq('status', 'awaiting').maybeSingle();
+  if (error) {
+    if (/offline_payments/.test(error.message) && /does not exist/.test(error.message)) return null;
+    throw new Error(error.message);
+  }
+  if (!data) return null;
+  const token = accessTokens.issueOfflineToken(data.id);
+  return {
+    id: data.id, reference: data.reference_code, amountCents: Number(data.amount_cents), currency: data.currency,
+    dueAt: data.due_at, url: `/checkout/offline/${data.id}?token=${encodeURIComponent(token)}`,
+  };
+}
+
 /** Is a card checkout allowed on this hold? Not while an offline payment awaits. */
 async function pendingFor(reservationId) {
   const { data, error } = await supabase.rpc('offline_payment_pending', { p_reservation_id: reservationId });
@@ -422,5 +444,5 @@ async function pendingFor(reservationId) {
 
 module.exports = {
   DEFAULTS, settings, dueAt, methodsFor, optionsForReservation, reserve, viewForBuyer, cancelByBuyer,
-  listForEvent, confirm, cancelByOrganizer, voidOrder, auditForEvent, pendingFor, signProofUpload, attachProof, markSent,
+  listForEvent, confirm, cancelByOrganizer, voidOrder, auditForEvent, pendingFor, awaitingFor, signProofUpload, attachProof, markSent,
 };

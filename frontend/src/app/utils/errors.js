@@ -284,6 +284,13 @@ export const ERRORS = Object.freeze(Object.fromEntries([
 export function describeError(err) {
   const code = err?.code;
   const known = code && ERRORS[code];
+  // A CONFLICT is the API's catch-all refusal, and its own sentence says WHICH
+  // rule — "You chose to pay the organizer… cancel that reservation first".
+  // The generic "something changed, reload" hid that (2026-11-24, a buyer's
+  // card payment refused with no reason on screen).
+  if (known && code === 'CONFLICT' && err?.message && !/^Request failed/.test(err.message)) {
+    return { ...known, recovery: err.message };
+  }
   if (known) return known;
 
   if (code && code !== 'ERROR' && process.env.NODE_ENV !== 'production') {
