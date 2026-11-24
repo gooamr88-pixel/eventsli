@@ -20,6 +20,7 @@ import { Notice } from '../../../components/Feedback';
 import { useNowMinute } from '../../../hooks/useNowMinute';
 import { isComingSoon } from '../../../lib/comingSoon';
 import FeeSummary from './FeeSummary';
+import ChangeRequestBanner from './ChangeRequestBanner';
 import { BasicSection, DescriptionSection, FormatSection, QuickSettings } from './DetailsSections';
 import PrivacyCard from './PrivacyCard';
 
@@ -36,8 +37,13 @@ import PrivacyCard from './PrivacyCard';
  * editConsequence):
  *   • draft, rejected — everything editable;
  *   • under review    — saving withdraws it to draft; it is submitted again;
- *   • on sale / suspended — the approved details are shown as facts; only the
- *     description, the order limit, transfers and payments stay editable;
+ *   • on sale / suspended — everything stays editable (2026-11-24). The
+ *     description, order limit, transfers and payments save at once; a change
+ *     to the title, category, dates or venue is SENT FOR REVIEW and goes live
+ *     when an admin approves it (backend eventChangeRequests.js). How tickets
+ *     work stays shown as facts;
+ *   • an admin (`asAdmin`) edits everything, at once, with a reason that is
+ *     kept on the audit record;
  *   • once a ticket has sold, listing type, purchase mode and who pays the fee
  *     are fixed — the API says so, and its sentence is shown.
  *
@@ -112,7 +118,7 @@ function fromEvent(event) {
   };
 }
 
-export default function EventDetailsEditor({ event, onSaved }) {
+export default function EventDetailsEditor({ event, onSaved, asAdmin = false }) {
   const toast = useToast();
   const { organizer } = useOrganizer();
   // The admin's categories, with the admin's labels (hooks/useCategories).
@@ -136,7 +142,13 @@ export default function EventDetailsEditor({ event, onSaved }) {
   // A live "coming soon" teaser is still being written — nothing on it is on
   // sale, so its details stay editable (backend eventRules.editConsequence).
   const teaser = isComingSoon(event);
-  const live = (event.status === 'published' && !teaser) || event.status === 'suspended';
+  const onSale = (event.status === 'published' && !teaser) || event.status === 'suspended';
+  // How tickets work stays a fact on a live event; an admin may change it.
+  const live = onSale && !asAdmin;
+  // The organizer's changes to approved details wait for an admin.
+  const reviewed = onSale && !asAdmin;
+  // An admin's note for the audit record (eventController.update `reason`).
+  const [reason, setReason] = useState('');
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
 
   /**
@@ -309,15 +321,23 @@ export default function EventDetailsEditor({ event, onSaved }) {
       body.endsAt = toIso(form.endsAt, form.timezone);
     }
 
+    if (asAdmin && reason.trim()) body.reason = reason.trim();
+
     setBusy(true);
     setError(null);
     try {
-      const saved = await patch(`/events/${event.id}`, body, { noRedirect: true });
-      toast.success(event.status === 'pending_review' && saved?.status === 'draft'
-        ? 'Saved. It went back to draft — submit it again when it is ready.'
-        : event.launchRequestedAt && saved && !saved.launchRequestedAt
-          ? 'Saved. Your request to open ticket sales was withdrawn — open sales again when it is ready.'
-          : 'Event details saved.');
+      const envelope = await patch(`/events/${event.id}`, body, { noRedirect: true, raw: true });
+      const saved = envelope?.data;
+      const review = envelope?.meta?.changeRequest;
+      toast.success(review
+        ? `Sent to Eventsli for review: ${review.changes.map((c) => c.label).join(', ')}. Your event stays as it is until it is approved — we will email you.`
+        : event.status === 'pending_review' && saved?.status === 'draft'
+          ? 'Saved. It went back to draft — submit it again when it is ready.'
+          : event.launchRequestedAt && saved && !saved.launchRequestedAt
+            ? 'Saved. Your request to open ticket sales was withdrawn — open sales again when it is ready.'
+            : asAdmin ? 'Event details saved. The change is on the audit record.' : 'Event details saved.',
+      review ? { title: 'Sent for review' } : undefined);
+      if (asAdmin) setReason('');
       onSaved?.();
       return true;
     } catch (err) {
@@ -354,7 +374,7 @@ export default function EventDetailsEditor({ event, onSaved }) {
   const shown = tabs.some((t) => t.key === tab) ? tab : 'basic';
   const f = {
     event, form, set, setForm, live, listing, teaser, venueOptional, venueNote, setVenueName, applyPlace,
-    categories, zoneOptions, organizer, titleInvalid, endsBeforeStart, perOrderInvalid,
+    categories, zoneOptions, organizer, titleInvalid, endsBeforeStart, perOrderInvalid, asAdmin,
   };
 
   return (
@@ -362,6 +382,19 @@ export default function EventDetailsEditor({ event, onSaved }) {
       {event.status === 'pending_review' && (
         <Notice tone="info" title="This event is waiting for review.">
           <p>Saving a change takes it out of the queue and back to draft, so Eventsli reviews what you actually changed. Submit it again afterwards.</p>
+        </Notice>
+      )}
+
+      {/* Where the organizer's last change to a live event stands. */}
+      <ChangeRequestBanner event={event} asAdmin={asAdmin} onChanged={onSaved} />
+
+      {reviewed && (
+        <Notice tone="info" title="Your event is on sale.">
+          <p>
+            Changes to the title, category, dates, venue or city are sent to Eventsli for review, and go live
+            once they are approved — your event stays as it is until then. The description, the order limit,
+            transfers and how buyers pay save straight away.
+          </p>
         </Notice>
       )}
 
@@ -395,7 +428,8 @@ export default function EventDetailsEditor({ event, onSaved }) {
 
       <div className="es-dform__grid">
         <div id="dtab-panel" role="tabpanel" aria-labelledby={`dtab-${shown}`} className="fx-stack fx-min0">
-          {shown === 'basic' && <BasicSection f={f} />}
+          {/* Never facts any more: on sale, its changes go to review. */}
+          {shown === 'basic' && <BasicSection f={{ ...f, live: false }} />}
           {shown === 'description' && <DescriptionSection f={f} />}
           {shown === 'format' && <FormatSection f={f} />}
           {/* Saves on its own, with its own button (PrivacyCard). */}
@@ -421,6 +455,14 @@ export default function EventDetailsEditor({ event, onSaved }) {
           <QuickSettings f={f} />
         </div>
       </div>
+
+      {asAdmin && (
+        <label className="fx-stack gap-1.5 text-sm text-ink">
+          Why are you changing it? (kept on the audit record)
+          <input className="es-input" value={reason} maxLength={1000} onChange={(e) => setReason(e.target.value)}
+            placeholder="For example: the organizer asked us to fix the date" />
+        </label>
+      )}
 
       <div className="es-dform__bar">
         <SubmitButton busy={busy} busyLabel="Saving…" disabled={blocked || changedKeys.length === 0}>

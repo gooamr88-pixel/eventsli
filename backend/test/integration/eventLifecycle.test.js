@@ -358,19 +358,30 @@ test('approval publishes it, and a second approval is refused', async () => {
   assert.equal(again.status, 409, 'two reviewers must not both publish');
 });
 
-test('a live event takes a description change, but not a new date', async () => {
+test('a live event takes a description change at once, and a new date only after review', async () => {
   const note = await organizer('PATCH', `/events/${eventId}`, { description: 'Doors open at 7pm.' });
   assert.equal(note.status, 200, JSON.stringify(note.body));
   assert.equal(note.body.data.status, 'published', 'an operational change keeps it on sale');
 
+  const { data: before } = await supabase.from('events').select('starts_at').eq('id', eventId).single();
+  // 2026-11-24 (owner): "edit event details but after review from us". A
+  // new date used to be refused; it now waits for an admin.
   const moved = await organizer('PATCH', `/events/${eventId}`, {
     startsAt: new Date(Date.now() + 60 * 86400e3).toISOString(),
+    endsAt: new Date(Date.now() + 60 * 86400e3 + 3600e3).toISOString(),
   });
-  assert.equal(moved.status, 409, JSON.stringify(moved.body));
-  assert.deepEqual(moved.body.meta.lockedFields, ['startsAt']);
+  assert.equal(moved.status, 200, JSON.stringify(moved.body));
+  assert.equal(moved.body.meta.changeRequest.status, 'pending');
+  assert.deepEqual(moved.body.meta.changeRequest.changes.map((c) => c.field).sort(), ['endsAt', 'startsAt']);
 
   const { data } = await supabase.from('events').select('status, starts_at').eq('id', eventId).single();
   assert.equal(data.status, 'published');
+  assert.equal(new Date(data.starts_at).getTime(), new Date(before.starts_at).getTime(), 'the date is untouched until approved');
+
+  // Taken back, so the tests below meet the event as it was.
+  const back = await organizer('DELETE', `/events/${eventId}/change-request`);
+  assert.equal(back.status, 200, JSON.stringify(back.body));
+  assert.equal(back.body.data.status, 'withdrawn');
 });
 
 // ── BRD §17 — who may cancel, and who may suspend ───────────────────────────

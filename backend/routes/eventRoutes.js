@@ -175,6 +175,15 @@ router.delete('/:eventId/partners/:kind', ...partnerKind, c.turnPartnersOff);
 // it outright. Everything else archives — see the controller.
 router.delete('/:eventId', verifyEventOwner, drafts.remove);
 
+// A change to a live event waiting for review, taken back (eventChangeRequests.js).
+router.delete(
+  '/:eventId/change-request',
+  param('eventId').isUUID(),
+  validate,
+  verifyEventOwner,
+  c.withdrawChange,
+);
+
 router.patch(
   '/:eventId',
   verifyEventOwner,

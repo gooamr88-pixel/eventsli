@@ -56,6 +56,30 @@ router.post(
   c.cancel,
 );
 
+// ─── Changes to live events, waiting for review (2026-11-24) ───────────────
+const changes = require('../../controllers/admin/changeRequestController');
+router.get(
+  '/change-requests',
+  query('status').optional().isIn(['pending', 'approved', 'rejected', 'withdrawn', 'all']),
+  validate,
+  changes.list,
+);
+router.post(
+  '/change-requests/:requestId/approve',
+  param('requestId').isUUID(),
+  body('note').optional({ values: 'falsy' }).isString().trim().isLength({ max: 2000 }),
+  validate,
+  changes.approve,
+);
+router.post(
+  '/change-requests/:requestId/reject',
+  param('requestId').isUUID(),
+  body('note').isString().trim().isLength({ min: 10, max: 2000 })
+    .withMessage('Tell the organizer why — they will see this.'),
+  validate,
+  changes.reject,
+);
+
 // ─── Cancellation requests from organizers ─────────────────────────────────
 // Listed for any admin; DECIDED by a super admin, because approving one is a
 // cancellation — terminal, and on the organizer's word.

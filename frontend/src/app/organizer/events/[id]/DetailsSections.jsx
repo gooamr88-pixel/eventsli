@@ -347,7 +347,7 @@ function AdmissionChoice({ value, current, onChange, title, detail, icon }) {
  * organizer who expected to set up payment is told why there is nothing to set.
  */
 export function QuickSettings({ f }) {
-  const { event, form, setForm, listing, organizer } = f;
+  const { event, form, setForm, listing, organizer, asAdmin } = f;
   if (listing) {
     return (
       <section className="es-dcard" aria-label="Quick settings">
@@ -365,9 +365,11 @@ export function QuickSettings({ f }) {
     );
   }
   const free = event.needs && !event.needs.payment;
-  const stripeReady = Boolean(organizer?.payments?.stripeReady);
+  // An admin edits on the organizer's behalf; the API checks nothing it would
+  // check for them (eventController.update), so the switches are open.
+  const stripeReady = Boolean(asAdmin || organizer?.payments?.stripeReady);
   const cardAvailable = organizer?.payments?.cardAvailable;
-  const manualReady = organizer?.payments?.manualMethods > 0;
+  const manualReady = Boolean(asAdmin) || organizer?.payments?.manualMethods > 0;
   return (
     <section className="es-dcard" aria-label="Quick settings">
       <CardHead icon="settings" title="Quick settings" lede="Common event configurations." />

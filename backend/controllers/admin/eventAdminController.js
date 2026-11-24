@@ -174,6 +174,9 @@ async function detail(req, res, next) {
         proofSubmittedAt: i.proof_submitted_at,
       })),
       door: { staff: Number(staff.count) || 0, devices: Number(devices.count) || 0 },
+      // The organizer's change waiting for review, if any (2026-11-24). A
+      // failed read costs the panel, never the page.
+      changeRequest: await require('../../services/eventChangeRequests').pendingFor(event.id).catch(() => null),
       tiers: (tiers.data || []).map((t) => ({
         id: t.id,
         name: t.name,

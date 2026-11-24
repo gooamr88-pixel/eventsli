@@ -15,6 +15,7 @@ import StatusPill from '../../../organizer/StatusPill';
 import EventControls from './EventControls';
 import EventRules from './EventRules';
 import FeeEditor from './FeeEditor';
+import ChangeRequestBanner from '../../../organizer/events/[id]/ChangeRequestBanner';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -54,6 +55,10 @@ export default function AdminEventDetail({ eventId }) {
         actions={(
           <>
             <StatusPill status={event.status} />
+            {/* Every detail, edited at once and on the audit record (2026-11-24). */}
+            {!['cancelled', 'completed'].includes(event.status) && (
+              <Link href={`/admin/events/${event.id}/edit`} className="es-btn es-btn--primary es-btn--sm">Edit event details</Link>
+            )}
             {/* Templates (2026-11-19): this event's setup, for every organizer. */}
             {user?.isSuperAdmin && (
               <Link href={`/admin/templates?from=${event.id}`} className="es-btn es-btn--secondary es-btn--sm">Make Eventsli template</Link>
@@ -70,6 +75,9 @@ export default function AdminEventDetail({ eventId }) {
           </>
         )}
       />
+
+      {/* The organizer's change to this live event, waiting for review. */}
+      <ChangeRequestBanner asAdmin request={data.changeRequest} event={event} onChanged={reload} />
 
       {event.status === 'cancelled' && (
         <Notice title="Cancelled">

@@ -488,6 +488,37 @@ async function sendLaunchDeclined({ to, organizerName, event, reason }) {
 }
 
 /**
+ * The organizer's change to a live event was reviewed (2026-11-24,
+ * eventChangeRequests.js): approved — it is live now — or declined, with the
+ * admin's reason. `changes` are the field names, as the organizer saw them.
+ */
+async function sendEventChangeReviewed({ to, organizerName, event, outcome, note = null, changes = [] }) {
+  const site = T.siteUrl();
+  const approved = outcome === 'approved';
+  const list = changes.length ? changes.map((c) => escapeHtml(c)).join(', ') : 'your changes';
+  return send({
+    to,
+    subject: approved ? `Your changes are live — ${event.title}` : `Changes not approved — ${event.title}`,
+    html: T.layout({
+      title: approved ? 'Your changes are live' : 'Your changes were not approved',
+      preheader: approved
+        ? 'Eventsli reviewed the changes to your event and they are now on your event page.'
+        : 'Eventsli reviewed the changes to your event. Your event is still on sale as it was.',
+      reason: 'You are receiving this because you changed an event you sell on Eventsli.',
+      body: `
+        ${T.p(`Hi ${escapeHtml(organizerName || 'there')},`)}
+        ${approved
+    ? T.p(`An Eventsli admin approved your changes (${list}). They are on your event page now.`)
+    : T.p(`An Eventsli admin reviewed your changes (${list}) and did not approve them:`)}
+        ${note ? T.quote(note) : ''}
+        ${T.eventCard(event)}
+        ${approved ? '' : T.note('info', 'Your event is still on sale exactly as it was. You can make a new change from your dashboard.')}
+        ${site && event.id ? T.button(`${site}/organizer/events/${event.id}/details`, 'Open my event') : ''}`,
+    }),
+  });
+}
+
+/**
  * To somebody who asked to be told: the coming-soon event they signed up for
  * is on sale. Sent ONCE (services/comingSoonService.js), and the only email
  * that address ever gets from the list.
@@ -983,6 +1014,7 @@ module.exports = {
   sendGateChanged,
   sendEventRejected,
   sendLaunchDeclined,
+  sendEventChangeReviewed,
   sendComingSoonOnSale,
   sendEventApproved,
   sendEventSuspended,

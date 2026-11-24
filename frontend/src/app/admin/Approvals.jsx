@@ -17,6 +17,7 @@ import { Kpi, KpiRow } from '../components/ui/Kpi';
 import { StackedEmpty } from '../components/ui/SplitEmpty';
 import { ClipboardArt } from '../components/ui/Illustrations';
 import NavIcon from '../components/shell/NavIcon';
+import ChangeRequestBanner from '../organizer/events/[id]/ChangeRequestBanner';
 
 /**
  * The review queue. BRD §16 — an organizer submits, only an admin publishes.
@@ -241,6 +242,40 @@ export default function Approvals() {
           <Pagination pagination={data.pagination} onPage={setPage} />
         </>
       )}
+
+      <ChangeRequestsQueue />
     </div>
+  );
+}
+
+/**
+ * CHANGES TO LIVE EVENTS (2026-11-24). An organizer's change to the title,
+ * dates, venue or category of an event on sale waits here; the event stays as
+ * approved until an admin approves the change (backend eventChangeRequests.js).
+ */
+function ChangeRequestsQueue() {
+  const { data, error, loading, reload } = useApi('/admin/change-requests?limit=25', { raw: true });
+  const rows = data?.data || [];
+  return (
+    <section className="fx-stack fx-stack--sm" aria-labelledby="change-requests-title">
+      <h2 id="change-requests-title" className="text-lg text-ink">
+        Changes to live events{rows.length ? ` · ${(data?.pagination?.total ?? rows.length).toLocaleString()}` : ''}
+      </h2>
+      {error ? (
+        <ErrorNotice error={error} onRetry={reload} />
+      ) : loading && !data ? (
+        <Loading variant="list" rows={2} label="Loading changes" />
+      ) : rows.length === 0 ? (
+        <p className="text-sm text-muted">No changes waiting. When an organizer edits the title, dates, venue or category of an event on sale, it waits here.</p>
+      ) : rows.map((r) => (
+        <div key={r.id} className="fx-stack fx-stack--sm">
+          <p className="text-sm">
+            <Link href={`/admin/events/${r.eventId}`} className="font-medium text-ink hover:text-accent">{r.event?.title || 'Event'}</Link>
+            <span className="text-muted"> · {r.organizer?.name || 'Unknown organizer'} · asked {new Date(r.updatedAt || r.createdAt).toLocaleDateString()}</span>
+          </p>
+          <ChangeRequestBanner asAdmin request={r} event={{ id: r.eventId, timezone: r.event?.timezone }} onChanged={reload} />
+        </div>
+      ))}
+    </section>
   );
 }

@@ -23,6 +23,7 @@ const publishing = require('../services/eventPublishing');
 const comingSoon = require('../services/comingSoonService');
 const { frontendOrigin } = require('../utils/frontendOrigin');
 const partnerSwitches = require('../services/partnerSwitches');
+const changeRequests = require('../services/eventChangeRequests');
 
 /**
  * `city` AND `venue_place_id` WERE BOTH MISSING FROM THIS LIST.
@@ -255,12 +256,19 @@ async function get(req, res, next) {
     const waiting = data.coming_soon || data.sales_opened_at
       ? await comingSoon.waitingCount(data.id) : null;
     const partners = await partnerSwitches.partnersOn([data.id]);
+    // The latest change to a live event sent for review (eventChangeRequests.js).
+    // A failed read costs the banner, never the event page.
+    const changeRequest = await changeRequests.latestFor(data.id).catch((err) => {
+      logger.warn({ err: err.message, eventId: data.id }, 'change request could not be read');
+      return null;
+    });
     return sendOk(res, {
       ...shape(data, { currentTermsId }),
       partners: partners.get(data.id),
       ...await setup(data),
       notifyCount: waiting,
       cancellationRequest: shapeCancellationRequest(requests?.[0]),
+      changeRequest,
       // Whether "Publish" puts it live now or sends it to the approval queue
       // (services/eventPublishing.js) — so the page can say which.
       requiresApproval: await publishing.requiresApproval(),
@@ -307,10 +315,12 @@ async function update(req, res, next) {
 
     // An admin's edit is audited with what each field was, so read those too.
     // The column names come from partitionPatch's allowlist, never the request.
-    const auditColumns = isAdmin ? Object.keys(allowed) : [];
+    // An organizer's edit that goes to review keeps what each field was too,
+    // for the reviewer's before-and-after (eventChangeRequests.js).
+    const auditColumns = Object.keys(allowed);
     const { data: current } = await supabase
       .from('events')
-      .select([...new Set(['status', 'country', 'currency', 'starts_at', 'coming_soon', 'launch_requested_at', ...auditColumns])].join(', '))
+      .select([...new Set(['status', 'slug', 'organizer_id', 'country', 'currency', 'starts_at', 'ends_at', 'coming_soon', 'launch_requested_at', ...auditColumns])].join(', '))
       .eq('id', req.params.eventId).single();
 
     // A cancelled event is a historical record, not a draft (BRD §17).
@@ -347,7 +357,7 @@ async function update(req, res, next) {
     // BRD §16 — the reviewer approves what they saw. See editConsequence.
     const columns = Object.keys(allowed);
     const touchesSaleLocked = !isAdmin && columns.some((c) => events.LOCKED_AFTER_SALE.includes(c));
-    const consequence = events.editConsequence({
+    let consequence = events.editConsequence({
       status: current.status,
       columns,
       isAdmin,
@@ -355,6 +365,37 @@ async function update(req, res, next) {
       comingSoon: current.coming_soon === true,
       launchRequested: Boolean(current.launch_requested_at),
     });
+
+    /**
+     * ─────────────────────────────────────────────────────────────────────
+     * ON SALE: SAVED FOR REVIEW, NOT REFUSED (owner, 2026-11-24: "edit event
+     * details but after review from us"). The reviewed fields come out of
+     * this update and into a change request (eventChangeRequests.js); what
+     * may change on a live event without review still saves now. The public
+     * event stays exactly as approved until an admin approves the request.
+     *
+     * A venue under review takes its map pin with it: a pin applied now for
+     * a venue that is not would put the map on the wrong building.
+     * ─────────────────────────────────────────────────────────────────────
+     */
+    let forReview = null;
+    if (consequence.reason === 'EVENT_ON_SALE') {
+      forReview = {};
+      const venueReviewed = consequence.refused.some((c) => ['venue_name', 'venue_address', 'venue_place_id'].includes(c));
+      const moving = [...consequence.refused, ...(venueReviewed ? ['venue_lat', 'venue_lng'] : [])];
+      for (const c of moving) {
+        if (c in allowed) { forReview[c] = allowed[c]; delete allowed[c]; }
+      }
+      if (forReview.country) forReview.country = String(forReview.country).toUpperCase();
+      // Refused now, not at approval: dates that could never be approved.
+      const startsAt = forReview.starts_at ?? current.starts_at;
+      const endsAt = forReview.ends_at ?? current.ends_at;
+      if (startsAt && endsAt && new Date(endsAt) <= new Date(startsAt)) {
+        return sendFail(res, { status: 400, error: 'VALIDATION_ERROR', message: 'The event has to end after it starts.' });
+      }
+      consequence = { ...consequence, refused: [], reason: null };
+    }
+
     if (consequence.refused.length > 0) {
       const fields = consequence.refused.map(events.apiFieldName);
       const message = {
@@ -439,10 +480,24 @@ async function update(req, res, next) {
     // to reach the listings, and read as "my changes are not showing".
     if (data.status === 'published') publishing.refreshPublicPages(data.slug);
 
+    // The reviewed part of an edit to a live event, kept for an admin.
+    let changeRequest;
+    if (forReview && Object.keys(forReview).length > 0) {
+      changeRequest = await changeRequests.request({
+        eventId: req.params.eventId,
+        organizerId: current.organizer_id,
+        userId: req.user.id,
+        changes: forReview,
+        current,
+      });
+    }
+
     const currentTermsId = await currentOrganizerTermsId();
     const meta = {
       ...(consequence.returnsToDraft ? { returnedToDraft: true } : {}),
       ...(consequence.withdrawsLaunch ? { launchWithdrawn: true } : {}),
+      // `null`: every reviewed field was put back to what is live.
+      ...(changeRequest !== undefined ? { changeRequest } : {}),
     };
     return sendOk(
       res,
@@ -840,8 +895,20 @@ function partnerSwitch(on) {
 const turnPartnersOn = partnerSwitch(true);
 const turnPartnersOff = partnerSwitch(false);
 
+// ─── DELETE /events/:eventId/change-request ─────────────────────────────────
+/** The organizer takes back a change to their live event that is waiting for review. */
+async function withdrawChange(req, res, next) {
+  try {
+    const request = await changeRequests.withdraw(req.params.eventId);
+    return sendOk(res, request);
+  } catch (err) {
+    if (err.code === 'NOT_FOUND') return sendFail(res, { status: 404, error: 'NOT_FOUND', message: err.message });
+    return next(err);
+  }
+}
+
 module.exports = {
-  turnPartnersOn, turnPartnersOff,
+  turnPartnersOn, turnPartnersOff, withdrawChange,
   create, list, get, update, submitForReview, openSales, submissionPreview, acceptTerms, shape,
   shapeCancellationRequest,
   organizerReadiness, SELECT,
