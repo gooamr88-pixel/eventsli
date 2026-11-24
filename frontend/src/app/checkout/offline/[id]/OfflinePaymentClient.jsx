@@ -73,7 +73,7 @@ export default function OfflinePaymentClient({ id }) {
   // The buyer's last step (owner, 2026-11-24: "at the end put a confirm … that
   // ends the payment and booking process"). Asks once if there is no receipt.
   async function markSent() {
-    if (!payment.proof) {
+    if (!payment.proof && !payment.proofRequired) {
       const ok = await confirm({
         title: 'Finish without a receipt?',
         body: <p>A photo or screenshot of your transfer helps the organizer confirm faster. You can still add one after this.</p>,
@@ -185,16 +185,23 @@ export default function OfflinePaymentClient({ id }) {
               <span className={`es-op__num${payment.proof ? ' es-op__num--done' : ''}`} aria-hidden="true">
                 {payment.proof ? <NavIcon name="check" size={16} /> : '3'}
               </span>
-              <ReceiptUpload id={id} token={token} proof={payment.proof} timezone={tz} onUploaded={setPayment} className="es-op__card" />
+              <ReceiptUpload id={id} token={token} proof={payment.proof} timezone={tz} onUploaded={setPayment} className="es-op__card" required={payment.proofRequired} />
             </li>
           </ol>
 
           <section className="es-op__finish" aria-labelledby="op-finish">
             <h2 id="op-finish" className="es-op__h2">Sent the payment?</h2>
             <p>Press this once you have sent <b className="es-nums">{amount}</b>. {org} is told to check, and your tickets are emailed as soon as they confirm.</p>
-            <button type="button" className="es-btn es-btn--primary es-op__finish-btn" disabled={sending} onClick={markSent}>
+            <button
+              type="button" className="es-btn es-btn--primary es-op__finish-btn"
+              disabled={sending || (payment.proofRequired && !payment.proof)} onClick={markSent}
+              aria-describedby={payment.proofRequired && !payment.proof ? 'op-finish-needs' : undefined}
+            >
               <NavIcon name="check" size={20} /> {sending ? 'Sending…' : 'I’ve sent the payment'}
             </button>
+            {payment.proofRequired && !payment.proof && (
+              <p id="op-finish-needs" className="es-op__needs"><NavIcon name="receipt" size={16} /> Upload your receipt in step 3 first — the organizer requires it.</p>
+            )}
             {sendError && <p role="alert" className="es-op__error">{sendError}</p>}
           </section>
 

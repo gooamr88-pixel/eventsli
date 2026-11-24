@@ -15,6 +15,7 @@ import SubmitButton from '../../../../components/forms/SubmitButton';
 import { Loading, ErrorNotice } from '../../../../components/Feedback';
 import NavIcon from '../../../../components/shell/NavIcon';
 import TableCategoriesEmpty from './TableCategoriesEmpty';
+import { NAMED_TIER_COLOURS, namedTierColour } from '../../../../components/venue/venueModel';
 
 /**
  * Table categories. BRD §24 — presentation, not pricing.
@@ -147,6 +148,13 @@ function CategoryForm({ eventId, category, onDone, onCancel }) {
     name: category?.name || '',
     color: category?.color || DEFAULT_COLOR,
   }));
+  // A NEW category named "VIP", "Gold", "VVIP"… takes its default colour as
+  // it is typed (2026-11-24, venueModel.NAMED_TIER_COLOURS), until a colour
+  // is picked by hand.
+  const [colourTouched, setColourTouched] = useState(Boolean(category));
+  const setName = (name) => setForm((f) => ({
+    ...f, name, ...(colourTouched ? {} : { color: namedTierColour(name) || DEFAULT_COLOR }),
+  }));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
@@ -179,7 +187,7 @@ function CategoryForm({ eventId, category, onDone, onCancel }) {
           label="Name" name="name" required maxLength={80} autoFocus
           hint="e.g. Front row"
           value={form.name}
-          onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+          onChange={(e) => setName(e.target.value)}
         />
         <div className="fx-stack fx-stack--sm gap-1.5">
           <label htmlFor="cat-color" className="text-sm text-ink">Colour on the map</label>
@@ -187,10 +195,22 @@ function CategoryForm({ eventId, category, onDone, onCancel }) {
             id="cat-color"
             type="color"
             value={form.color}
-            onChange={(e) => setForm((f) => ({ ...f, color: e.target.value }))}
+            onChange={(e) => { setColourTouched(true); setForm((f) => ({ ...f, color: e.target.value })); }}
             // The column is TEXT(7), so `#RRGGBB` from a native colour input fits exactly.
             className="es-input h-11 w-20 cursor-pointer p-1"
           />
+          {/* The house colours, one tap each. */}
+          <div className="es-swatches" role="group" aria-label="Suggested colours">
+            {NAMED_TIER_COLOURS.map((c) => (
+              <button
+                key={c.key} type="button" className="es-swatch" style={{ '--sw': c.colour }}
+                aria-pressed={form.color.toLowerCase() === c.colour} title={c.label}
+                onClick={() => { setColourTouched(true); setForm((f) => ({ ...f, color: c.colour })); }}
+              >
+                <span aria-hidden="true" />{c.label}
+              </button>
+            ))}
+          </div>
         </div>
         <FormError error={error} />
         <div className="fx-row">

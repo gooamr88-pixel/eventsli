@@ -1,4 +1,4 @@
-import { formatMoney } from '../../../utils/money';
+import { commissionRate, commissionNote, paymentFeeRate } from '../../../lib/fees';
 import NavIcon from '../../../components/shell/NavIcon';
 
 /**
@@ -18,16 +18,15 @@ export default function FeeSummary({ event, compact = false, rich = false }) {
     {
       term: 'Eventsli commission',
       icon: 'percent',
-      value: `${fees.commissionPct}%`,
-      note: compact ? null : 'Of the ticket price. Always borne by you.',
+      // "1.5% + $0.50 per ticket" when there is a fixed part (lib/fees.js).
+      value: commissionRate(fees, event.currency),
+      note: compact ? null : commissionNote(fees, event.currency),
     },
     ...(fees.commissionTaxPct > 0 ? [{ term: 'Tax on commission', icon: 'receipt', value: `${fees.commissionTaxPct}%` }] : []),
     {
       term: 'Payment fee',
       icon: 'card',
-      value: fees.paymentFeeMode === 'auto'
-        ? 'Matched to the card cost'
-        : `${fees.paymentFeePct}% + ${formatMoney(fees.paymentFeeFixedCents, event.currency)}`,
+      value: paymentFeeRate(fees, event.currency),
       note: fees.feeBearer === 'buyer' ? 'Added to the buyer’s total.' : 'Taken from your proceeds.',
     },
     ...(fees.eventTaxPct > 0 ? [{

@@ -41,7 +41,7 @@ const SELECT = `
   starts_at, ends_at, status, listing_type, purchase_mode, admission_type, category,
   cover_url, cover_path, logo_url, logo_path, highlights, venue_lat, venue_lng, currency,
   city, venue_place_id,
-  commission_pct, commission_tax_pct, payment_fee_mode, payment_fee_pct,
+  commission_pct, commission_fixed_cents, commission_tax_pct, payment_fee_mode, payment_fee_pct,
   payment_fee_fixed_cents, fee_bearer, event_tax_pct,
   max_tickets_per_order, allow_ticket_transfer, holder_details,
   rejection_reason, reviewed_at, cancelled_at, cancelled_reason,
@@ -97,7 +97,7 @@ async function create(req, res, next) {
 
     // Throws VALIDATION_ERROR for a country we do not sell into (BRD §07).
     const currency = await events.currencyForCountry(country);
-    const financials = await events.defaultFinancials();
+    const financials = await events.defaultFinancials(currency);
 
     const slug = await uniqueSlug(req.body.title, async (candidate) => {
       const { data } = await supabase.from('events').select('id').eq('slug', candidate).maybeSingle();
@@ -806,15 +806,8 @@ function shape(e, { currentTermsId = null } = {}) {
       : { lat: Number(e.venue_lat), lng: Number(e.venue_lng) },
     currency: e.currency,
     // The organizer must see every amount they will bear (BRD §04, §21).
-    fees: {
-      commissionPct: Number(e.commission_pct),
-      commissionTaxPct: Number(e.commission_tax_pct),
-      paymentFeeMode: e.payment_fee_mode,
-      paymentFeePct: Number(e.payment_fee_pct),
-      paymentFeeFixedCents: e.payment_fee_fixed_cents,
-      feeBearer: e.fee_bearer,
-      eventTaxPct: Number(e.event_tax_pct),
-    },
+    // From the fees file: the same shape the admin's fee screen returns.
+    fees: require('../utils/fees').shapeEventFees(e),
     rules: {
       maxTicketsPerOrder: e.max_tickets_per_order,
       allowTicketTransfer: e.allow_ticket_transfer,

@@ -1,8 +1,11 @@
 const { supabase } = require('../config/supabase');
 const { addressLine, addressParts } = require('../utils/venueAddress');
+// Every fee is worked out in the fees file (2026-11-24); this only gathers
+// what was held and hands it over.
 const {
-  describeOrder, FEE_BEARER, PAYMENT_FEE_MODE, CHARGE_MODEL,
-} = require('../utils/money');
+  CHARGE_MODEL, FEE_BEARER, EVENT_FEE_COLUMNS, feesFromEvent, priceSale,
+} = require('../utils/fees');
+const { stripeCostModel } = require('./feeService');
 const promo = require('./promoService');
 
 /**
@@ -15,14 +18,6 @@ const promo = require('./promoService');
  * look completely ordinary in the logs.
  */
 
-async function stripeCostModel() {
-  const { data } = await supabase
-    .from('platform_settings').select('value').eq('key', 'stripe_cost').maybeSingle();
-  return {
-    pct: Number(data?.value?.pct ?? process.env.STRIPE_FEE_PCT ?? 2.9),
-    fixedCents: Number(data?.value?.fixed_cents ?? process.env.STRIPE_FEE_FIXED_CENTS ?? 30),
-  };
-}
 
 /**
  * @returns {{ breakdown, event, reservation, items }} — or throws with a code.
@@ -56,8 +51,7 @@ async function quoteReservation(reservationId, { chargeModel = CHARGE_MODEL.DIRE
     .from('events')
     .select(`id, slug, title, status, currency, organizer_id, venue_name, starts_at, timezone,
              cover_url, ends_at, venue_address, city, venue_address_line2, venue_region, venue_postal_code, venue_directions,
-             commission_pct, commission_tax_pct, event_tax_pct,
-             payment_fee_mode, payment_fee_pct, payment_fee_fixed_cents, fee_bearer,
+             ${EVENT_FEE_COLUMNS},
              organizers ( display_name )`)
     .eq('id', res.event_id)
     .single();
@@ -117,15 +111,28 @@ async function quoteReservation(reservationId, { chargeModel = CHARGE_MODEL.DIRE
   let admits = items
     .filter((i) => i.seat_id || (!i.table_id && i.tier_id))
     .reduce((n, i) => n + (i.seat_id ? 1 : qtyOf(i)), 0);
+  // Per table, so a free table and a paid one count apart (the fixed
+  // commission is per PAID ticket, 2026-11-24).
+  const seatsAtTable = new Map();
   if (tableIds.length > 0) {
     // The seats THIS hold has, which are the seats the order will issue
     // (fulfill_checkout issues a table's seats by `held_by_reservation`, T-017).
-    const { count, error: countError } = await supabase
-      .from('seats').select('id', { count: 'exact', head: true })
+    const { data: heldSeats, error: countError } = await supabase
+      .from('seats').select('table_id')
       .in('table_id', tableIds).eq('held_by_reservation', reservationId);
     if (countError) throw new Error(`quote: seat count failed: ${countError.message}`);
-    admits += count || 0;
+    for (const s of heldSeats || []) seatsAtTable.set(s.table_id, (seatsAtTable.get(s.table_id) || 0) + 1);
+    admits += (heldSeats || []).length;
   }
+  // THE PAID TICKETS in this order — what the fixed part of the commission is
+  // counted on: a seat is one, a general-admission line its quantity, a whole
+  // table its seats; a line priced at zero is none.
+  const paidTickets = items.reduce((n, i) => {
+    if (!(Number(i.unit_price_cents) > 0)) return n;
+    if (i.seat_id) return n + 1;
+    if (i.table_id) return n + (seatsAtTable.get(i.table_id) || 1);
+    return n + qtyOf(i);
+  }, 0);
 
   // Claimed at HOLD time, not at payment. A code with a use limit is stock the
   // way a seat is: counted only at the charge, ten people at the checkout screen
@@ -135,31 +142,22 @@ async function quoteReservation(reservationId, { chargeModel = CHARGE_MODEL.DIRE
   // OFFLINE (phase 2): the buyer pays the organizer directly, so there is no
   // card cost to recover and no payment fee — priced exactly as a door sale is
   // (manualPaymentService.priceManualSale). Commission and tax are unchanged.
+  const fees = feesFromEvent(event, { channel: offline ? 'offline' : 'card' });
   const stripe = offline ? { pct: 0, fixedCents: 0 } : await stripeCostModel();
 
-  // `quantity` stays 1: the fixed component of the payment fee mirrors Stripe's
-  // per-CHARGE cost, and an order is one charge however many seats it holds.
-  // Passing the seat count here would multiply that fixed fee by the party size.
-  const breakdown = describeOrder({
-    faceCents: subtotalCents,
-    quantity: 1,
-    eventTaxPct: Number(event.event_tax_pct),
-    commissionPct: Number(event.commission_pct),
-    commissionTaxPct: Number(event.commission_tax_pct),
-    paymentFeeMode: offline || event.payment_fee_mode === 'manual'
-      ? PAYMENT_FEE_MODE.MANUAL : PAYMENT_FEE_MODE.AUTO,
-    paymentFeePct: offline ? 0 : Number(event.payment_fee_pct),
-    paymentFeeFixedCents: offline ? 0 : Number(event.payment_fee_fixed_cents),
-    feeBearer: offline || event.fee_bearer === 'organizer' ? FEE_BEARER.ORGANIZER : FEE_BEARER.BUYER,
+  // A card sale is a DIRECT charge on the organizer's own account
+  // (TECH-AUDIT-LOG T-074): our fee is the commission and its tax; Stripe's
+  // fee is the organizer's. DESTINATION only for a legacy session opened by
+  // the previous release on the platform account and paid after this one went
+  // live (checkoutController.fulfillFromSession). Offline: `priceSale` prices
+  // it without a card.
+  const breakdown = priceSale({
+    fees,
+    subtotalCents,
+    paidTickets,
     discountCents: claimed?.discountCents || 0,
     stripe,
-    // A card sale is a DIRECT charge on the organizer's own account
-    // (TECH-AUDIT-LOG T-074): our fee is the commission and its tax; Stripe's
-    // fee is the organizer's. DESTINATION only for a legacy session opened by
-    // the previous release on the platform account and paid after this one
-    // went live (checkoutController.fulfillFromSession). Offline: no card, so
-    // the plain (destination-shaped) breakdown with every card cost at zero.
-    chargeModel: offline ? CHARGE_MODEL.DESTINATION : chargeModel,
+    chargeModel,
   });
 
   // WHAT THE PAYMENT FEE WAS WORKED OUT FROM, for the note under the buyer's
@@ -280,4 +278,5 @@ function fail(code, message) {
   return Object.assign(new Error(message), { code });
 }
 
+// `stripeCostModel` lives in feeService; re-exported for older imports.
 module.exports = { quoteReservation, publicBreakdown, stripeCostModel };

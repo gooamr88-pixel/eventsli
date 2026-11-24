@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { get, patch } from '../../../utils/apiClient';
 import { formatMoney } from '../../../utils/money';
+import { centsToInput, parseMoneyToCents, moneyPlaceholder } from '../../../lib/moneyInput';
+import { commissionRate } from '../../../lib/fees';
 import { useToast } from '../../../components/ui/Toast';
 import { useConfirm } from '../../../components/ui/Confirm';
 import { Panel } from '../../../components/ui/Page';
@@ -29,6 +31,8 @@ import SubmitButton from '../../../components/forms/SubmitButton';
  */
 const fromEvent = (event) => ({
   commissionPct: String(event.fees.commissionPct),
+  // The fixed part, per paid ticket, typed in the event's currency (2026-11-24).
+  commissionFixed: centsToInput(event.fees.commissionFixedCents || 0, event.currency) || '0',
   commissionTaxPct: String(event.fees.commissionTaxPct),
   eventTaxPct: String(event.fees.eventTaxPct),
   paymentFeeMode: event.fees.paymentFeeMode,
@@ -36,8 +40,9 @@ const fromEvent = (event) => ({
   paymentFeeFixedCents: String(event.fees.paymentFeeFixedCents),
 });
 
-const toPayload = (form) => ({
+const toPayload = (form, currency) => ({
   commissionPct: Number(form.commissionPct),
+  commissionFixedCents: parseMoneyToCents(form.commissionFixed, currency) ?? -1,
   commissionTaxPct: Number(form.commissionTaxPct),
   eventTaxPct: Number(form.eventTaxPct),
   paymentFeeMode: form.paymentFeeMode,
@@ -69,13 +74,15 @@ export default function FeeEditor({ event, onSaved }) {
   }
 
   const set = (key) => (e) => { setForm((f) => ({ ...f, [key]: e.target.value })); setPreview(null); };
-  const changed = JSON.stringify(toPayload(form)) !== JSON.stringify(toPayload(fromEvent(event)));
+  const payload = toPayload(form, event.currency);
+  const fixedValid = payload.commissionFixedCents >= 0;
+  const changed = fixedValid && JSON.stringify(payload) !== JSON.stringify(toPayload(fromEvent(event), event.currency));
 
   async function runPreview() {
     setPreviewing(true);
     setError(null);
     try {
-      const query = new URLSearchParams(Object.entries(toPayload(form)).map(([k, v]) => [k, String(v)]));
+      const query = new URLSearchParams(Object.entries(payload).map(([k, v]) => [k, String(v)]));
       setPreview(await get(`/admin/events/${event.id}/fees/preview?${query}`, { cache: 'no-store' }));
     } catch (err) {
       setError(err);
@@ -102,7 +109,7 @@ export default function FeeEditor({ event, onSaved }) {
     setBusy(true);
     setError(null);
     try {
-      const result = await patch(`/admin/events/${event.id}/fees`, { ...toPayload(form), reason: answer.reason }, { noRedirect: true });
+      const result = await patch(`/admin/events/${event.id}/fees`, { ...payload, reason: answer.reason }, { noRedirect: true });
       toast.success(result?.note || 'Fees saved.');
       onSaved();
     } catch (err) {
@@ -118,7 +125,25 @@ export default function FeeEditor({ event, onSaved }) {
     <Panel icon="percent" title="Fees, tax and commission">
       <form onSubmit={save} className="fx-stack fx-stack--sm">
         {PERCENT_FIELDS.map(([key, label, hint]) => (
-          <NumberField key={key} id={`fee-${key}`} label={`${label} (%)`} hint={hint} value={form[key]} onChange={set(key)} max={100} step="0.01" />
+          <div key={key} className="contents">
+            <NumberField id={`fee-${key}`} label={`${label} (%)`} hint={hint} value={form[key]} onChange={set(key)} max={100} step="0.01" />
+            {key === 'commissionPct' && (
+              <div className="fx-stack fx-stack--sm gap-1.5">
+                <label htmlFor="fee-commission-fixed" className="text-sm text-ink">Plus, per paid ticket ({event.currency})</label>
+                <input
+                  id="fee-commission-fixed" inputMode="decimal" className="es-input" required
+                  placeholder={moneyPlaceholder(event.currency)}
+                  value={form.commissionFixed} onChange={set('commissionFixed')}
+                  aria-invalid={fixedValid ? undefined : 'true'} aria-describedby="fee-commission-fixed-hint"
+                />
+                <p id="fee-commission-fixed-hint" className={`text-xs ${fixedValid ? 'text-subtle' : 'text-danger'}`}>
+                  {fixedValid
+                    ? <>Commission on this event: <b className="text-ink">{commissionRate({ commissionPct: Number(form.commissionPct), commissionFixedCents: payload.commissionFixedCents }, event.currency)}</b>. Never on free tickets, and never more than the ticket.</>
+                    : `Enter an amount like ${moneyPlaceholder(event.currency)}.`}
+                </p>
+              </div>
+            )}
+          </div>
         ))}
 
         <fieldset className="fx-stack fx-stack--sm">
@@ -176,6 +201,7 @@ export default function FeeEditor({ event, onSaved }) {
             columns={[
               { key: 'face', label: 'Ticket', primary: true, render: (r) => formatMoney(r.faceCents, currency) },
               { key: 'buyer', label: 'Buyer pays', align: 'end', render: (r) => formatMoney(r.buyerTotalCents, currency) },
+              { key: 'commission', label: 'Commission', align: 'end', render: (r) => formatMoney(r.commissionCents, currency) },
               { key: 'fee', label: 'Payment fee', align: 'end', render: (r) => formatMoney(r.paymentFeeCents, currency) },
               { key: 'card', label: 'Card cost', align: 'end', render: (r) => formatMoney(r.stripeCostCents, currency) },
               {

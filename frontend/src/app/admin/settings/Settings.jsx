@@ -11,6 +11,9 @@ import { PageHeader, Panel } from '../../components/ui/Page';
 import FormError from '../../components/forms/FormError';
 import { Loading, ErrorNotice, Notice } from '../../components/Feedback';
 import MarketSwitches, { marketsDraft, marketsValue } from './MarketSwitches';
+import { formatMoney } from '../../utils/money';
+import { centsToInput, parseMoneyToCents, moneyPlaceholder } from '../../lib/moneyInput';
+import { CURRENCIES } from '../../lib/markets';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -65,6 +68,8 @@ const FORMS = {
     fields: [
       { name: 'default_pct', label: 'Commission', ...percent },
       { name: 'default_tax_pct', label: 'Tax on the commission', ...percent },
+      // 2026-11-24: plus a fixed amount per paid ticket, set per currency.
+      { name: 'fixed_by_currency', label: 'Plus, per paid ticket', type: 'currencyMap' },
     ],
   },
   payment_fee: {
@@ -251,6 +256,9 @@ function SettingCard({ setting, canEdit, onSaved }) {
                   </label>
                 );
               }
+              if (f.type === 'currencyMap') {
+                return <CurrencyAmounts key={f.name} id={id} label={f.label} rows={draft[f.name]} onChange={(rows) => setDraft((d) => ({ ...d, [f.name]: rows }))} />;
+              }
               if (f.type === 'text') {
                 return (
                   <div key={f.name} className="fx-stack fx-stack--sm gap-1.5 md:col-span-2">
@@ -296,6 +304,7 @@ function SettingCard({ setting, canEdit, onSaved }) {
                 <dt className="text-muted">{f.label}</dt>
                 <dd className="es-nums text-ink">
                   {f.type === 'boolean' ? ((base[f.name] ?? f.default) ? 'On' : 'Off')
+                    : f.type === 'currencyMap' ? (Object.entries(base[f.name] || {}).map(([code, c]) => formatMoney(c, code)).join(' · ') || 'None')
                     : f.type === 'text' ? <span className="whitespace-pre-line">{base[f.name] || 'Not set'}</span>
                       : `${String(base[f.name] ?? f.default ?? '—')} ${f.unit}`}
                 </dd>
@@ -337,6 +346,11 @@ function initialDraft(key, base) {
   // A field added after the setting was first saved starts at its default,
   // which is also what the server falls back to — never at a blank or "off".
   return Object.fromEntries(FORMS[key].fields.map((f) => {
+    // Per-currency amounts are edited as rows of { code, amount } in the
+    // currency's own units ("0.50"), and sent back in minor units.
+    if (f.type === 'currencyMap') {
+      return [f.name, Object.entries(base[f.name] || {}).map(([code, c]) => ({ code, amount: centsToInput(c, code) }))];
+    }
     const v = base[f.name] === undefined ? f.default : base[f.name];
     return [f.name, v === undefined ? '' : String(v)];
   }));
@@ -351,6 +365,17 @@ function buildValue(key, base, draft) {
   if (key === 'manual_invoice' && base.min_hours_from_issue !== undefined) value.min_hours_from_issue = base.min_hours_from_issue;
   for (const f of FORMS[key].fields) {
     if (f.type === 'boolean') { value[f.name] = draft[f.name] === 'true'; continue; }
+    if (f.type === 'currencyMap') {
+      const map = {};
+      for (const row of draft[f.name] || []) {
+        if (!row.code && !String(row.amount ?? '').trim()) continue;
+        const cents = parseMoneyToCents(row.amount, row.code);
+        if (!row.code || cents === null || map[row.code] !== undefined) return null;
+        if (cents > 0) map[row.code] = cents;
+      }
+      value[f.name] = map;
+      continue;
+    }
     if (f.type === 'text') {
       const text = String(draft[f.name] ?? '').trim();
       if (text.length > f.maxLength) return null;
@@ -373,4 +398,48 @@ function stable(value) {
     return `{${Object.keys(value).sort().map((k) => `${JSON.stringify(k)}:${stable(value[k])}`).join(',')}}`;
   }
   return JSON.stringify(value);
+}
+
+/**
+ * An amount per currency (2026-11-24: the fixed commission per paid ticket).
+ * One row per currency, in that currency's own units ("0.50"); an empty list
+ * means none. A currency missing here gets no fixed part on its new events.
+ */
+function CurrencyAmounts({ id, label, rows = [], onChange }) {
+  const update = (i, patch) => onChange(rows.map((r, j) => (j === i ? { ...r, ...patch } : r)));
+  const used = new Set(rows.map((r) => r.code));
+  const nextCode = ['USD', 'CAD', 'EUR', 'GBP', 'EGP', ...CURRENCIES].find((c) => !used.has(c)) || 'USD';
+  return (
+    <fieldset className="fx-stack fx-stack--sm gap-1.5 md:col-span-2">
+      <legend className="text-sm text-ink">{label}</legend>
+      <p className="text-xs text-subtle">On top of the percentage, for each paid ticket — set per currency, since 0.50 means something different in each. Never charged on free tickets.</p>
+      {rows.length === 0 && <p className="text-sm text-muted">None — the percentage only.</p>}
+      {rows.map((row, i) => {
+        const cents = parseMoneyToCents(row.amount, row.code);
+        return (
+          <div key={i} className="fx-row items-center gap-2">
+            <select
+              aria-label="Currency" className="es-input w-28" value={row.code}
+              onChange={(e) => update(i, { code: e.target.value })}
+            >
+              {CURRENCIES.map((c) => <option key={c} value={c} disabled={c !== row.code && used.has(c)}>{c}</option>)}
+            </select>
+            <input
+              id={i === 0 ? id : undefined} aria-label={`Amount in ${row.code}`} inputMode="decimal" className="es-input w-32"
+              placeholder={moneyPlaceholder(row.code)} value={row.amount}
+              aria-invalid={cents === null ? 'true' : undefined}
+              onChange={(e) => update(i, { amount: e.target.value })}
+            />
+            <span className="es-nums text-sm text-muted">{cents === null ? '—' : formatMoney(cents, row.code)}</span>
+            <button type="button" className="es-btn es-btn--ghost es-btn--sm" onClick={() => onChange(rows.filter((_, j) => j !== i))} aria-label={`Remove ${row.code}`}>Remove</button>
+          </div>
+        );
+      })}
+      <div>
+        <button type="button" className="es-btn es-btn--secondary es-btn--sm" onClick={() => onChange([...rows, { code: nextCode, amount: centsToInput(0, nextCode) || '0' }])}>
+          Add a currency
+        </button>
+      </div>
+    </fieldset>
+  );
 }

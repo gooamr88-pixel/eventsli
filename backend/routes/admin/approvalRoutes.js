@@ -261,6 +261,8 @@ router.patch(
   '/events/:eventId/fees',
   param('eventId').isUUID(),
   body('commissionPct').optional().isFloat({ min: 0, max: 100 }),
+  // Per paid ticket, in the event's currency's minor units (2026-11-24).
+  body('commissionFixedCents').optional().isInt({ min: 0, max: 100000000 }),
   body('commissionTaxPct').optional().isFloat({ min: 0, max: 100 }),
   body('eventTaxPct').optional().isFloat({ min: 0, max: 100 }),
   body('paymentFeePct').optional().isFloat({ min: 0, max: 100 }),

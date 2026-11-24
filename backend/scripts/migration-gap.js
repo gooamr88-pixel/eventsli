@@ -94,6 +94,7 @@ const MIGRATIONS = [
   ['20261216090000_offline_proof_and_one_ticket_per_seat.sql', col('offline_payments', 'proof_path')],
   ['20261217090000_holder_full_names.sql', con('events_holder_details_check')],
   ['20261218090000_offline_buyer_sent.sql', fn('offline_mark_sent')],
+  ['20261219090000_commission_fixed_and_required_receipts.sql', col('events', 'commission_fixed_cents')],
 ];
 
 const EXTRA = [

@@ -124,6 +124,8 @@ const ORGANIZER_EDITABLE = Object.freeze({
  */
 const ADMIN_EDITABLE = Object.freeze({
   commissionPct: 'commission_pct',
+  // The fixed part, per paid ticket (2026-11-24): admin-only like the percentage.
+  commissionFixedCents: 'commission_fixed_cents',
   commissionTaxPct: 'commission_tax_pct',
   paymentFeeMode: 'payment_fee_mode',
   paymentFeePct: 'payment_fee_pct',
@@ -133,6 +135,7 @@ const ADMIN_EDITABLE = Object.freeze({
   // in the docs, and refusing the "wrong" spelling of a field you ARE allowed
   // to set is a confusing way to find that out.
   commission_pct: 'commission_pct',
+  commission_fixed_cents: 'commission_fixed_cents',
   commission_tax_pct: 'commission_tax_pct',
   payment_fee_mode: 'payment_fee_mode',
   payment_fee_pct: 'payment_fee_pct',

@@ -20,6 +20,8 @@ import { useModal } from '../../../hooks/useModal';
  */
 export default function UnlockTableDialog({
   slug, tableId, tableLabel = null, onClose, onUnlocked,
+  // What pressing Unlock will also do (2026-11-24): "Unlock & choose seat".
+  actionLabel = 'Unlock', lede = null,
 }) {
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
@@ -84,7 +86,7 @@ export default function UnlockTableDialog({
             {tableLabel ? `${/table|^vip|[a-z]{3,}/i.test(tableLabel) ? tableLabel : `Table ${tableLabel}`} is private` : 'You have been given a private table'}
           </h2>
           <p className="mt-1 text-sm text-muted">
-            Enter the password the organizer gave you to choose seats at it or book it.
+            {lede || 'Enter the password the organizer gave you to choose seats at it or book it.'}
           </p>
         </div>
 
@@ -119,7 +121,7 @@ export default function UnlockTableDialog({
               disabled={busy || password.length === 0}
               className="es-btn es-btn--primary"
             >
-              {busy ? 'Checking…' : 'Unlock'}
+              {busy ? 'Checking…' : actionLabel}
             </button>
           </div>
         </form>

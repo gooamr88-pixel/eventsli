@@ -308,8 +308,29 @@ function shapeMethod(m) {
     label: m.label,
     instructions: m.instructions,
     isActive: m.is_active,
+    // The organizer's choice (2026-11-24): a buyer paying this way must
+    // upload a receipt before they can say the payment is sent.
+    requireProof: m.require_proof === true,
     createdAt: m.created_at,
   };
+}
+
+// ─── GET /organizer/fee-terms?country=US&prices=2500,5000 ───────────────────
+/**
+ * WHAT EVENTSLI WILL CHARGE, BEFORE THE EVENT EXISTS (owner, 2026-11-24:
+ * "show the organizer the exact commission before event creation"). The rates
+ * a new event in that country gets, and the commission on one ticket at a few
+ * prices (plus any the organizer typed), from the fees file every sale uses.
+ */
+async function feeTerms(req, res, next) {
+  try {
+    const prices = String(req.query.prices || '').split(',')
+      .map((p) => Number(p)).filter((p) => Number.isInteger(p) && p > 0 && p <= 100_000_000).slice(0, 3);
+    return sendOk(res, await require('../services/feeService').termsFor({ country: req.query.country, prices }));
+  } catch (err) {
+    if (err.code === 'VALIDATION_ERROR') return sendFail(res, { status: 400, error: 'VALIDATION_ERROR', message: err.message });
+    return next(err);
+  }
 }
 
 // ─── GET /organizer/payment-methods ─────────────────────────────────────────
@@ -317,7 +338,7 @@ async function listPaymentMethods(req, res, next) {
   try {
     const { data, error } = await supabase
       .from('organizer_payment_methods')
-      .select('id, kind, label, instructions, is_active, created_at')
+      .select('id, kind, label, instructions, is_active, require_proof, created_at')
       .eq('organizer_id', req.user.access.organizerId)
       .order('created_at', { ascending: true });
     if (error) throw new Error(error.message);
@@ -350,8 +371,9 @@ async function createPaymentMethod(req, res, next) {
         kind: req.body.kind,
         label: String(req.body.label).trim(),
         instructions: String(req.body.instructions).trim(),
+        require_proof: req.body.requireProof === true,
       })
-      .select('id, kind, label, instructions, is_active, created_at')
+      .select('id, kind, label, instructions, is_active, require_proof, created_at')
       .single();
     if (error) throw new Error(error.message);
     return sendOk(res, shapeMethod(data), { status: 201 });
@@ -368,6 +390,7 @@ async function updatePaymentMethod(req, res, next) {
     if (req.body.label !== undefined) patch.label = String(req.body.label).trim();
     if (req.body.instructions !== undefined) patch.instructions = String(req.body.instructions).trim();
     if (req.body.isActive !== undefined) patch.is_active = req.body.isActive === true;
+    if (req.body.requireProof !== undefined) patch.require_proof = req.body.requireProof === true;
     if (Object.keys(patch).length === 0) {
       return sendFail(res, { status: 400, error: 'VALIDATION_ERROR', message: 'Nothing to update.' });
     }
@@ -378,7 +401,7 @@ async function updatePaymentMethod(req, res, next) {
       .update(patch)
       .eq('id', req.params.methodId)
       .eq('organizer_id', req.user.access.organizerId)
-      .select('id, kind, label, instructions, is_active, created_at')
+      .select('id, kind, label, instructions, is_active, require_proof, created_at')
       .maybeSingle();
     if (error) throw new Error(error.message);
     if (!data) {
@@ -525,5 +548,5 @@ async function stripeStatus(req, res, next) {
 module.exports = {
   create, me, update, setupDefaults, startStripeOnboarding, stripeStatus,
   listPaymentMethods, createPaymentMethod, updatePaymentMethod, deletePaymentMethod,
-  isSetupComplete, activeManualMethods,
+  isSetupComplete, activeManualMethods, feeTerms,
 };

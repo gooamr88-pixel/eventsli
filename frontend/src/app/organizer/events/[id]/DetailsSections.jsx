@@ -12,6 +12,7 @@ import { formatEventTime } from '../../../lib/eventTime';
 import { isDateOnly, formatDateOnly } from '../../../lib/dateOnly';
 import DateOnlyFields from '../new/DateOnlyFields';
 import MonthFields from '../new/MonthFields';
+import AmPmCheck from '../../../components/forms/AmPmCheck';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -112,14 +113,18 @@ export function BasicSection({ f }) {
               })}
             />
           ) : (
-            <div className="es-dgrid">
-              <Field label="Start date & time" type="datetime-local" name="startsAt" required
-                value={form.startsAt} onChange={set('startsAt')} />
-              <Field label="End date & time" type="datetime-local" name="endsAt" required
-                min={form.startsAt || undefined}
-                error={f.endsBeforeStart ? 'The event has to end after it starts.' : null}
-                value={form.endsAt} onChange={set('endsAt')} />
-            </div>
+            <>
+              <div className="es-dgrid">
+                <Field label="Start date & time" type="datetime-local" name="startsAt" required
+                  value={form.startsAt} onChange={set('startsAt')} />
+                <Field label="End date & time" type="datetime-local" name="endsAt" required
+                  min={form.startsAt || undefined}
+                  error={f.endsBeforeStart ? 'The event has to end after it starts.' : null}
+                  value={form.endsAt} onChange={set('endsAt')} />
+              </div>
+              {/* "Did you mean PM?" — the Adel event's slip (2026-11-24). */}
+              <AmPmCheck start={form.startsAt} end={form.endsAt} onFix={(v) => setForm((x) => ({ ...x, startsAt: v }))} />
+            </>
           )}
 
           <div className="es-dgrid">
@@ -206,14 +211,17 @@ function TeaserDates({ f }) {
   return (
     <div className="fx-stack fx-stack--sm">
       {exact ? (
-        <div className="es-dgrid">
-          <Field label="Start date & time" type="datetime-local" name="startsAt" required
-            value={form.startsAt} onChange={set('startsAt')} />
-          <Field label="End date & time" type="datetime-local" name="endsAt" required
-            min={form.startsAt || undefined}
-            error={f.endsBeforeStart ? 'The event has to end after it starts.' : null}
-            value={form.endsAt} onChange={set('endsAt')} />
-        </div>
+        <>
+          <div className="es-dgrid">
+            <Field label="Start date & time" type="datetime-local" name="startsAt" required
+              value={form.startsAt} onChange={set('startsAt')} />
+            <Field label="End date & time" type="datetime-local" name="endsAt" required
+              min={form.startsAt || undefined}
+              error={f.endsBeforeStart ? 'The event has to end after it starts.' : null}
+              value={form.endsAt} onChange={set('endsAt')} />
+          </div>
+          <AmPmCheck start={form.startsAt} end={form.endsAt} onFix={(v) => setForm((x) => ({ ...x, startsAt: v }))} />
+        </>
       ) : (
         <MonthFields
           value={partial || month} timezone={form.timezone} onChange={setMonth}

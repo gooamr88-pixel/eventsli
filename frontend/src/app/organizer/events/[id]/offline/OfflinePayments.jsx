@@ -234,7 +234,9 @@ function AwaitingRow({ eventId, payment, tz, onDone }) {
               <span className="text-muted"> · sent {formatEventTime(payment.proof.uploadedAt, tz)}</span>
             </p>
           ) : (
-            <p className="mt-1 text-xs text-subtle">No receipt uploaded yet.</p>
+            <p className={`mt-1 text-xs ${payment.proofRequired ? 'text-danger' : 'text-subtle'}`}>
+              {payment.proofRequired ? 'Receipt required for this method — not uploaded yet.' : 'No receipt uploaded yet.'}
+            </p>
           )}
         </div>
         <div className="fx-row gap-1">

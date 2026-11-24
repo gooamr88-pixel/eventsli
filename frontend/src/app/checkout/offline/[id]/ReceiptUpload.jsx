@@ -20,7 +20,7 @@ import NavIcon from '../../../components/shell/NavIcon';
 const ACCEPT = 'image/jpeg,image/png,image/webp,image/heic,application/pdf';
 const MAX_BYTES = 10 * 1024 * 1024;
 
-export default function ReceiptUpload({ id, token, proof, timezone, onUploaded, className = 'es-co__card' }) {
+export default function ReceiptUpload({ id, token, proof, timezone, onUploaded, className = 'es-co__card', required = false }) {
   const input = useRef(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -54,7 +54,11 @@ export default function ReceiptUpload({ id, token, proof, timezone, onUploaded, 
 
   return (
     <section className={className} aria-labelledby="receipt-title">
-      <h2 id="receipt-title" className="es-co__h2 es-op__h2">Upload your receipt</h2>
+      <h2 id="receipt-title" className="es-co__h2 es-op__h2 fx-row items-center gap-2">
+        Upload your receipt
+        {/* The organizer's choice for this payment method (2026-11-24). */}
+        {required && !proof && <span className="es-pill es-pill--danger">Required</span>}
+      </h2>
       {proof ? (
         <p className="fx-row items-center gap-2 text-sm text-ink">
           <NavIcon name="check" size={16} />
@@ -62,7 +66,9 @@ export default function ReceiptUpload({ id, token, proof, timezone, onUploaded, 
         </p>
       ) : (
         <p className="text-sm text-muted">
-          Paid already? Upload a photo or screenshot of your transfer receipt. It goes only to the organizer, so they can match your payment faster.
+          {required
+            ? 'The organizer needs a photo or screenshot of your transfer receipt before you can finish. It goes only to them.'
+            : 'Paid already? Upload a photo or screenshot of your transfer receipt. It goes only to the organizer, so they can match your payment faster.'}
         </p>
       )}
       <input

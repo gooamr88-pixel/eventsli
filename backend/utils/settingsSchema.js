@@ -23,7 +23,9 @@ const {
  */
 
 const SETTING_DEFAULTS = Object.freeze({
-  commission: { default_pct: 1.5, default_tax_pct: 0 },
+  // fixed_by_currency (2026-11-24): the fixed commission per paid ticket, in
+  // each currency's minor units — { USD: 50 } is $0.50. Empty: none.
+  commission: { default_pct: 1.5, default_tax_pct: 0, fixed_by_currency: {} },
   payment_fee: { default_pct: 2.9, default_fixed_cents: 30 },
   stripe_cost: { pct: 2.9, fixed_cents: 30 },
   currencies: { allowed: ['CAD', 'USD'], by_country: { CA: 'CAD', US: 'USD' }, card: ['CA', 'US'] },
@@ -45,6 +47,10 @@ const SCHEMAS = {
   commission: {
     default_pct: { ...percent, label: 'Commission' },
     default_tax_pct: { ...percent, label: 'Tax on commission' },
+    // A fixed amount per paid ticket, on top of the percentage, per currency
+    // (minor units): the same number means $0.50 in USD and 0.50 EGP in EGP,
+    // so one flat figure for every market would be wrong in all but one.
+    fixed_by_currency: { type: 'currencyMap', min: 0, max: 1_000_000, optional: true, label: 'Fixed commission per ticket' },
   },
   payment_fee: {
     default_pct: { ...percent, label: 'Payment fee' },
@@ -126,6 +132,23 @@ function checkField(name, rule, value, errors) {
     }
     // Empty is "not set": stored as absent rather than as a blank string.
     return text || undefined;
+  }
+  if (rule.type === 'currencyMap') {
+    if (!isPlainObject(value)) {
+      errors.push(`${rule.label} must be a list of currencies and amounts.`);
+      return undefined;
+    }
+    const out = {};
+    for (const [code, amount] of Object.entries(value)) {
+      const cur = String(code).toUpperCase();
+      if (!/^[A-Z]{3}$/.test(cur)) { errors.push(`${rule.label}: "${code}" is not a currency code.`); continue; }
+      if (!Number.isInteger(amount) || amount < rule.min || amount > rule.max) {
+        errors.push(`${rule.label} for ${cur} must be a whole number of minor units between ${rule.min} and ${rule.max}.`);
+        continue;
+      }
+      if (amount > 0) out[cur] = amount;
+    }
+    return out;
   }
   if (rule.type === 'enum') {
     if (!rule.values.includes(value)) errors.push(`${rule.label} must be one of: ${rule.values.join(', ')}.`);

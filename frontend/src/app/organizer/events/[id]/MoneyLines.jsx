@@ -1,6 +1,7 @@
 'use client';
 
 import { formatMoney } from '../../../utils/money';
+import { commissionRate, commissionNote } from '../../../lib/fees';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -77,7 +78,7 @@ export default function MoneyLines({ lines, fees, currency, isFree, listingOnly 
               )}
               <Row term="The buyer pays" cents={line.buyerTotalCents} currency={currency} strong />
 
-              <Row term={`Eventsli commission (${fees.commissionPct}%)`} cents={-line.commissionCents} currency={currency} />
+              <Row term={`Eventsli commission (${commissionRate(fees, currency)})`} cents={-line.commissionCents} currency={currency} />
               {line.commissionTaxCents > 0 && (
                 <Row term={`Tax on commission (${fees.commissionTaxPct}%)`} cents={-line.commissionTaxCents} currency={currency}
                   note="Collected with the commission. Eventsli remits it." />
@@ -111,9 +112,9 @@ export default function MoneyLines({ lines, fees, currency, isFree, listingOnly 
         <div className="es-deflist__row">
           <dt className="fx-min0">
             <span className="block text-ink">Eventsli commission</span>
-            <span className="block text-xs text-subtle">Of the ticket price. Always borne by you.</span>
+            <span className="block text-xs text-subtle">{commissionNote(fees, currency)}</span>
           </dt>
-          <dd className="es-nums text-right text-ink">{fees.commissionPct}%</dd>
+          <dd className="es-nums text-right text-ink">{commissionRate(fees, currency)}</dd>
         </div>
         <div className="es-deflist__row">
           <dt className="fx-min0">

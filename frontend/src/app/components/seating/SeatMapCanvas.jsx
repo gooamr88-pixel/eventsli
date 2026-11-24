@@ -450,13 +450,15 @@ function Table({
             onClick={(e) => {
               e.stopPropagation();
               if (wasDragged()) return;
-              if (opensLock) { onLockedTable(table); return; }
+              // The chair goes with the table, so the page can choose it the
+              // moment the password is right (2026-11-24).
+              if (opensLock) { onLockedTable(table, seat || null); return; }
               if (!pressable) return;
               onSelectSeat?.(seat, table);
             }}
             onPress={(e) => {
               e.stopPropagation();
-              if (opensLock) { onLockedTable(table); return; }
+              if (opensLock) { onLockedTable(table, seat || null); return; }
               if (!pressable) return;
               onSelectSeat?.(seat, table);
             }}

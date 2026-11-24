@@ -1334,6 +1334,7 @@
 .es-pill--accent  { background: var(--es-accent-wash); color: var(--es-accent); }
 .es-pill--danger  { background: color-mix(in srgb, var(--es-danger) 12%, transparent);  color: var(--es-danger); }
 .es-pill--warning { background: color-mix(in srgb, var(--es-warning) 16%, transparent); color: var(--es-text); }
+.es-pill--success { background: color-mix(in srgb, var(--es-success) 12%, transparent); color: var(--es-success); }
 
 /* `--warning` takes `--es-text`, not the warning colour, and that is a
    contrast finding rather than a preference: amber #f59e0b as TEXT is
@@ -5826,8 +5827,13 @@ a.es-sponsor:hover { opacity: 0.7; }
   -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 9%, #000 91%, transparent 100%);
           mask-image: linear-gradient(90deg, transparent 0, #000 9%, #000 91%, transparent 100%);
 }
+/* FAST AND LIGHT (2026-11-24, VipSlider.jsx): only transform and opacity
+   move. The side slides are darkened by a veil (::after) that fades, not by
+   an animated filter that repainted each poster on every move; slides out of
+   view are hidden once faded, and only the three in view keep a GPU layer. */
 .es-vip__slide {
   --es-vip-w: 56%;
+  --es-vip-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
   position: absolute;
   top: 3%;
   left: 50%;
@@ -5839,18 +5845,70 @@ a.es-sponsor:hover { opacity: 0.7; }
   box-shadow: 0 30px 60px -28px rgb(17 16 24 / 0.55), 0 8px 18px -10px rgb(17 16 24 / 0.3);
   transform: translateX(-50%) scale(var(--es-vip-scale, 1));
   transition:
-    transform 450ms cubic-bezier(0.22, 0.61, 0.36, 1),
-    opacity 450ms cubic-bezier(0.22, 0.61, 0.36, 1),
-    filter 450ms cubic-bezier(0.22, 0.61, 0.36, 1);
-  will-change: transform;
+    transform 420ms var(--es-vip-ease),
+    opacity 420ms var(--es-vip-ease),
+    visibility 0s linear 0s;
+  contain: layout paint;
 }
-.es-vip__slide[data-pos='0'] { z-index: 3; }
+.es-vip__slide::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: inherit;
+  background: rgb(10 9 16 / 0.5);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 420ms var(--es-vip-ease);
+}
+.es-vip__slide[data-pos='0'],
 .es-vip__slide[data-pos='-1'],
-.es-vip__slide[data-pos='1'] { z-index: 2; --es-vip-scale: 0.8; filter: brightness(0.62) saturate(0.85); }
+.es-vip__slide[data-pos='1'] { will-change: transform; }
+.es-vip__slide[data-pos='0'] {
+  z-index: 3;
+  /* The current slide: a hairline edge and a warm glow under it. */
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 0.06), 0 34px 60px -26px rgb(214 31 44 / 0.42), 0 10px 22px -12px rgb(17 16 24 / 0.38);
+}
+.es-vip__slide[data-pos='-1'],
+.es-vip__slide[data-pos='1'] { z-index: 2; --es-vip-scale: 0.8; }
+.es-vip__slide[data-pos='-1']::after,
+.es-vip__slide[data-pos='1']::after { opacity: 1; }
 .es-vip__slide[data-pos='-1'] { transform: translateX(calc(-50% - 62%)) scale(0.8); }
 .es-vip__slide[data-pos='1'] { transform: translateX(calc(-50% + 62%)) scale(0.8); }
-.es-vip__slide[data-pos='-2'] { z-index: 1; opacity: 0; transform: translateX(calc(-50% - 120%)) scale(0.66); }
-.es-vip__slide[data-pos='2'] { z-index: 1; opacity: 0; transform: translateX(calc(-50% + 120%)) scale(0.66); }
+.es-vip__slide[data-pos='-2'],
+.es-vip__slide[data-pos='2'] {
+  z-index: 1;
+  opacity: 0;
+  visibility: hidden;
+  /* Hidden only once faded out; shown at once when it comes back. */
+  transition: transform 420ms var(--es-vip-ease), opacity 420ms var(--es-vip-ease), visibility 0s linear 420ms;
+}
+.es-vip__slide[data-pos='-2'] { transform: translateX(calc(-50% - 120%)) scale(0.66); }
+.es-vip__slide[data-pos='2'] { transform: translateX(calc(-50% + 120%)) scale(0.66); }
+@media (prefers-reduced-motion: reduce) {
+  .es-vip__slide, .es-vip__slide::after, .es-vip__media img { transition-duration: 0s; }
+}
+
+/* The date as a ticket stub, top left of the current slide. */
+.es-vip__date {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  z-index: 3;
+  display: grid;
+  justify-items: center;
+  min-width: 52px;
+  padding: 6px 8px 7px;
+  border-radius: 14px;
+  background: rgb(255 255 255 / 0.95);
+  color: var(--es-ink-on-light);
+  box-shadow: 0 10px 22px -10px rgb(17 16 24 / 0.55);
+  line-height: 1;
+  transition: opacity 300ms ease, transform 300ms ease;
+}
+.es-vip__date-m { font-size: 0.6875rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--es-brand-coral, var(--es-accent)); }
+.es-vip__date-d { margin-top: 3px; font-family: var(--es-font-display); font-size: 1.375rem; font-weight: 900; }
+.es-vip__slide:not([data-pos='0']) .es-vip__date { opacity: 0; transform: translateY(-6px); }
 
 .es-vip__media { position: absolute; inset: 0; }
 .es-vip__media img {
@@ -5858,10 +5916,11 @@ a.es-sponsor:hover { opacity: 0.7; }
   max-width: none;
   height: 100%;
   object-fit: cover;
-  transform: scale(1.06);
-  transition: transform 3.5s linear;
+  transform: scale(1.04);
+  transition: transform 1.4s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
-/* A slow push-in on the current slide — the "living poster" feel. */
+/* A short settle on the current slide — the "living poster" feel, over in
+   well under a slide's time on screen (2026-11-24). */
 .es-vip__slide[data-pos='0'] .es-vip__media img { transform: scale(1); }
 /* A private VIP event's blurred cover keeps its overscan, or the blur's soft
    edge shows at the frame (2026-11-24, PrivateCardCover). */
@@ -5892,9 +5951,9 @@ a.es-sponsor:hover { opacity: 0.7; }
   padding: 3.5rem 1.25rem 1.15rem;
   background: linear-gradient(180deg, transparent 0%, rgb(17 16 24 / 0.72) 38%, rgb(17 16 24 / 0.94) 100%);
   color: #ffffff;
-  transition: opacity 500ms ease, transform 500ms ease;
+  transition: opacity 320ms ease 80ms, transform 320ms cubic-bezier(0.2, 0.8, 0.2, 1) 80ms;
 }
-.es-vip__slide:not([data-pos='0']) .es-vip__info { opacity: 0; transform: translateY(12px); }
+.es-vip__slide:not([data-pos='0']) .es-vip__info { opacity: 0; transform: translateY(10px); transition-delay: 0s; }
 .es-vip__badge {
   display: inline-flex;
   align-self: flex-start;
@@ -5964,7 +6023,7 @@ a.es-sponsor:hover { opacity: 0.7; }
 }
 .es-vip__link:focus-visible { outline: 3px solid var(--es-highlight); outline-offset: -3px; }
 
-/* Arrows: white discs over the peeking slides. */
+/* Arrows: dark glass discs over the peeking slides (2026-11-24 refresh). */
 .es-vip__arrow {
   position: absolute;
   top: 50%;
@@ -5974,15 +6033,16 @@ a.es-sponsor:hover { opacity: 0.7; }
   justify-content: center;
   width: 46px;
   height: 46px;
+  border: 1px solid rgb(255 255 255 / 0.22);
   border-radius: 50%;
-  background: #ffffff;
-  color: var(--es-ink-on-light);
+  background: rgb(17 16 24 / 0.72);
+  color: #ffffff;
   box-shadow: 0 10px 24px -8px rgb(17 16 24 / 0.45);
   transform: translateY(-50%);
   cursor: pointer;
   transition: transform var(--es-duration-fast) var(--es-ease-default), background-color var(--es-duration-fast) var(--es-ease-default);
 }
-.es-vip__arrow:hover { background: var(--es-highlight); transform: translateY(-50%) scale(1.06); }
+.es-vip__arrow:hover { background: var(--es-highlight); color: var(--es-text-on-highlight); transform: translateY(-50%) scale(1.06); }
 .es-vip__arrow--prev { left: 6.5%; }
 .es-vip__arrow--next { right: 6.5%; }
 
@@ -5995,6 +6055,9 @@ a.es-sponsor:hover { opacity: 0.7; }
   margin-top: 0.75rem;
 }
 .es-vip__dots { display: flex; align-items: center; gap: 0.4rem; }
+/* "02 / 06" beside the progress bars. */
+.es-vip__count { min-width: 3.6rem; font-size: var(--es-text-xs); font-weight: 600; letter-spacing: 0.04em; color: var(--es-text-subtle); }
+.es-vip__count b { font-size: var(--es-text-sm); font-weight: 900; color: var(--es-text); }
 .es-vip__dot {
   position: relative;
   width: 22px;
@@ -6009,7 +6072,7 @@ a.es-sponsor:hover { opacity: 0.7; }
   background: var(--es-grey-300);
   transition: background-color var(--es-duration-fast) var(--es-ease-default);
 }
-.es-vip__dot[aria-current='true'] { width: 44px; }
+.es-vip__dot[aria-current='true'] { width: 52px; }
 .es-vip__dot[aria-current='true']::before { background: var(--es-grey-200); }
 .es-vip__dot:hover::before { background: var(--es-grey-400); }
 .es-vip__fill {
@@ -6421,7 +6484,9 @@ input.es-lp-filter__control::-webkit-search-cancel-button { display: none; }
     height: 100%;
     object-fit: cover;
     filter: blur(18px) brightness(0.6) saturate(1.1);
-    transform: scale(1.15);
+    /* Its own layer: the blur is drawn once, then moved, not redrawn per frame. */
+    transform: translateZ(0) scale(1.15);
+    transition: none;
   }
   .es-vip__media .es-vip__poster { position: relative; object-fit: contain; transform: none; }
   .es-vip__slide[data-pos='0'] .es-vip__media .es-vip__poster { transform: none; }
@@ -20914,14 +20979,16 @@ button.es-vb-doc__tile:focus-visible { outline: 3px solid var(--es-accent); outl
 .es-op__finish p b { color: var(--es-text); }
 .es-op__finish-btn { width: 100%; max-width: 24rem; min-height: 54px; font-size: var(--es-text-md); font-weight: 800; background: var(--es-success); border-color: var(--es-success); }
 .es-op__finish-btn:hover:not(:disabled) { background: color-mix(in srgb, var(--es-success) 85%, #000); border-color: transparent; }
-.es-op__error { color: var(--es-danger) !important; font-weight: 600; font-size: var(--es-text-sm); }
+.es-op__needs { display: flex; gap: 0.4rem; align-items: center; margin: 0; font-size: var(--es-text-sm); font-weight: 600; color: var(--es-danger); }
+.es-op__finish-btn:disabled { background: var(--es-border-strong); border-color: var(--es-border-strong); cursor: not-allowed; }
+.es-op__finish .es-op__error { color: var(--es-danger); font-weight: 600; font-size: var(--es-text-sm); }
 
 /* Sent: what was paid, by what, when. */
 .es-op__recap { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem; width: 100%; margin: 0; }
 .es-op__recap > div { display: grid; gap: 0.2rem; padding: 0.7rem 0.8rem; border-radius: var(--es-radius-lg); background: var(--es-bg-sunken); text-align: start; min-width: 0; }
 .es-op__recap dt { font-size: var(--es-text-xs); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--es-text-subtle); }
 .es-op__recap dd { margin: 0; font-weight: 700; color: var(--es-text); overflow-wrap: anywhere; font-size: var(--es-text-sm); }
-.es-op__recap-method { color: var(--es-danger) !important; font-weight: 900 !important; }
+.es-op__recap dd.es-op__recap-method { color: var(--es-danger); font-weight: 900; }
 .es-op__note { display: flex; gap: 0.5rem; align-items: flex-start; margin: 0; font-size: var(--es-text-sm); color: var(--es-text-muted); }
 .es-op__note svg { flex: none; margin-top: 0.15rem; }
 
@@ -20943,4 +21010,95 @@ button.es-vb-doc__tile:focus-visible { outline: 3px solid var(--es-accent); outl
   .es-op__recap > div { grid-template-columns: auto minmax(0, 1fr); align-items: baseline; gap: 0.75rem; }
   .es-op__recap dd { text-align: end; }
 }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   WHAT EVENTSLI CHARGES (CommissionPreview.jsx) — the exact commission shown
+   before an event is created (owner, 2026-11-24).
+   ───────────────────────────────────────────────────────────────────────────── */
+@layer components {
+.es-fees {
+  display: grid; gap: 0.9rem; min-width: 0;
+  padding: clamp(1rem, 2.5vw, 1.35rem); border-radius: 18px;
+  border: 1px solid var(--es-border);
+  background:
+    radial-gradient(120% 90% at 100% 0%, color-mix(in srgb, var(--es-accent) 7%, transparent) 0%, transparent 55%),
+    var(--es-surface);
+  box-shadow: var(--es-shadow-sm);
+}
+.es-fees--loading { min-height: 9rem; }
+.es-fees__shimmer {
+  display: block; height: 100%; min-height: 7rem; border-radius: 12px;
+  background: linear-gradient(90deg, var(--es-bg-sunken) 25%, var(--es-border) 50%, var(--es-bg-sunken) 75%);
+  background-size: 200% 100%; animation: es-fees-shimmer 1.2s linear infinite;
+}
+@keyframes es-fees-shimmer { to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .es-fees__shimmer { animation: none; } }
+
+.es-fees__head { display: flex; gap: 0.75rem; align-items: flex-start; }
+.es-fees__icon {
+  display: grid; place-items: center; flex: none; width: 2.5rem; height: 2.5rem; border-radius: 12px;
+  background: var(--es-accent-wash); color: var(--es-accent);
+}
+.es-fees__title { margin: 0; font-family: var(--es-font-display); font-size: var(--es-text-lg); font-weight: 800; color: var(--es-text); }
+.es-fees__sub { margin: 0.15rem 0 0; font-size: var(--es-text-sm); color: var(--es-text-muted); }
+
+.es-fees__rate {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.25rem 0.75rem;
+  padding: 0.85rem 1rem; border-radius: 14px; background: var(--es-bg-sunken);
+}
+.es-fees__rate-label { font-size: var(--es-text-xs); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--es-text-subtle); }
+.es-fees__rate-value { font-family: var(--es-font-display); font-size: clamp(1.35rem, 1.1rem + 1vw, 1.75rem); font-weight: 900; color: var(--es-text); }
+.es-fees__rate-tax { font-size: var(--es-text-sm); color: var(--es-text-muted); }
+
+.es-fees__facts { display: grid; gap: 0.35rem; margin: 0; padding: 0; list-style: none; }
+.es-fees__facts li { display: flex; gap: 0.5rem; align-items: flex-start; font-size: var(--es-text-sm); color: var(--es-text); }
+.es-fees__facts svg { flex: none; margin-top: 0.15rem; color: var(--es-success); }
+
+.es-fees__try { display: grid; gap: 0.4rem; }
+.es-fees__try-label { font-size: var(--es-text-sm); font-weight: 700; color: var(--es-text); }
+.es-fees__try-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem 1rem; }
+.es-fees__try-input {
+  display: inline-flex; align-items: center; gap: 0.35rem; min-height: 46px; padding: 0 0.85rem;
+  border: 1.5px solid var(--es-control-border, var(--es-border-strong)); border-radius: 12px; background: var(--es-surface);
+  color: var(--es-text-muted); font-weight: 700;
+}
+.es-fees__try-input:focus-within { border-color: var(--es-accent); box-shadow: 0 0 0 4px var(--es-accent-subtle); }
+.es-fees__try-input input { width: 7.5rem; border: 0; outline: 0; background: none; font: inherit; font-weight: 700; color: var(--es-text); font-variant-numeric: tabular-nums; }
+.es-fees__tried { flex: 1 1 14rem; margin: 0; font-size: var(--es-text-sm); color: var(--es-text-muted); }
+.es-fees__tried b { color: var(--es-text); }
+.es-fees .es-fees__keep { color: var(--es-success); }
+
+.es-fees__table { width: 100%; border-collapse: collapse; font-size: var(--es-text-sm); }
+.es-fees__table th, .es-fees__table td { padding: 0.5rem 0.25rem; border-top: 1px solid var(--es-border); text-align: end; }
+.es-fees__table thead th { border-top: 0; font-size: var(--es-text-xs); font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--es-text-subtle); }
+.es-fees__table th:first-child { text-align: start; }
+.es-fees__table tbody th { font-weight: 700; color: var(--es-text); }
+.es-fees__table td { color: var(--es-text); font-weight: 600; }
+.es-fees__note { margin: 0; font-size: var(--es-text-xs); color: var(--es-text-subtle); line-height: 1.5; }
+}
+
+/* The house colours under a colour picker (TableCategories, 2026-11-24). */
+@layer components {
+.es-swatches { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.25rem; }
+.es-swatch {
+  display: inline-flex; align-items: center; gap: 0.4rem; min-height: 34px; padding: 0 0.7rem 0 0.4rem;
+  border: 1.5px solid var(--es-border); border-radius: var(--es-radius-full); background: var(--es-surface);
+  font-size: var(--es-text-xs); font-weight: 700; color: var(--es-text); cursor: pointer;
+}
+.es-swatch > span { width: 1.15rem; height: 1.15rem; border-radius: 50%; background: var(--sw); box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.12); }
+.es-swatch:hover { border-color: var(--es-border-strong); }
+.es-swatch[aria-pressed='true'] { border-color: var(--sw); box-shadow: 0 0 0 2px color-mix(in srgb, var(--sw) 30%, transparent); }
+}
+
+/* "Did you mean PM?" under the start and end fields (AmPmCheck, 2026-11-24). */
+@layer components {
+.es-ampm {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem 0.85rem;
+  padding: 0.75rem 0.9rem; border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--es-warning) 35%, transparent);
+  background: color-mix(in srgb, var(--es-warning) 8%, var(--es-surface));
+}
+.es-ampm__icon { display: grid; place-items: center; flex: none; color: var(--es-warning); }
+.es-ampm__text { flex: 1 1 16rem; margin: 0; font-size: var(--es-text-sm); color: var(--es-text); line-height: 1.5; }
 }

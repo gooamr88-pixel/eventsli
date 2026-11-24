@@ -59,11 +59,12 @@ function dueAt({ startsAt, eventHours, setting, now = new Date() }) {
 async function methodsFor(organizerId) {
   const { data, error } = await supabase
     .from('organizer_payment_methods')
-    .select('id, kind, label')
+    .select('id, kind, label, require_proof')
     .eq('organizer_id', organizerId).eq('is_active', true)
     .order('created_at');
   if (error) throw new Error(error.message);
-  return data || [];
+  // `requireProof`: the buyer is told before choosing that a receipt is needed.
+  return (data || []).map(({ require_proof: rp, ...m }) => ({ ...m, requireProof: rp === true }));
 }
 
 /**
@@ -110,6 +111,8 @@ function publicShape(row, event, organizerName) {
     proof: row.proof_uploaded_at ? { uploadedAt: row.proof_uploaded_at, contentType: row.proof_content_type } : null,
     // When the buyer pressed "I've sent the payment" (2026-11-24), if they did.
     sentAt: row.buyer_sent_at || null,
+    // The organizer requires a receipt for this method (frozen at reserving).
+    proofRequired: row.proof_required === true,
     orderId: row.status === 'paid' ? row.order_id : null,
     orderToken: row.status === 'paid' && row.order_id ? accessTokens.issueOrderToken(row.order_id) : null,
     event: event ? {
@@ -315,7 +318,7 @@ async function rpc(fn, args) {
 async function listForEvent(eventId, { status } = {}) {
   let query = supabase
     .from('offline_payments')
-    .select('id, status, reference_code, amount_cents, currency, due_at, created_at, buyer, method, confirmed_at, confirmed_by, payment_reference, order_id, closed_at, close_reason, proof_path, proof_content_type, proof_uploaded_at, buyer_sent_at')
+    .select('id, status, reference_code, amount_cents, currency, due_at, created_at, buyer, method, confirmed_at, confirmed_by, payment_reference, order_id, closed_at, close_reason, proof_path, proof_content_type, proof_uploaded_at, buyer_sent_at, proof_required')
     .eq('event_id', eventId)
     .order('created_at', { ascending: false })
     .limit(200);
@@ -340,6 +343,7 @@ async function listForEvent(eventId, { status } = {}) {
     confirmedAt: r.confirmed_at,
     // The buyer says the money is on its way (2026-11-24).
     buyerSentAt: r.buyer_sent_at || null,
+    proofRequired: r.proof_required === true,
     // WHO marked it paid (2026-11-24), beside when.
     confirmedBy: r.confirmed_by ? people.get(r.confirmed_by) || { name: null, email: null } : null,
     paymentReference: r.payment_reference,

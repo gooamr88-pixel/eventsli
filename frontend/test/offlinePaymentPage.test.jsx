@@ -1,5 +1,6 @@
 import { describe, test, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 
 /**
  * The buyer's "pay the organizer" page (owner, 2026-11-24: "make this page
@@ -8,7 +9,8 @@ import { render, screen } from '@testing-library/react';
 vi.mock('next/navigation', () => ({ useSearchParams: () => new URLSearchParams('token=tok') }));
 const api = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn() }));
 vi.mock('../src/app/utils/apiClient', () => api);
-vi.mock('../src/app/components/ui/Confirm', () => ({ useConfirm: () => vi.fn() }));
+const confirmAnswer = vi.hoisted(() => vi.fn());
+vi.mock('../src/app/components/ui/Confirm', () => ({ useConfirm: () => confirmAnswer }));
 
 const { default: OfflinePaymentClient, timeLeft } = await import('../src/app/checkout/offline/[id]/OfflinePaymentClient');
 
@@ -39,6 +41,51 @@ describe('pay the organizer', () => {
     render(<OfflinePaymentClient id="p1" />);
     expect(await screen.findByRole('heading', { name: /Payment confirmed/ })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Open my tickets/ })).toHaveAttribute('href', '/t/ot1');
+  });
+
+  test('the last step: "I’ve sent the payment" asks once without a receipt, then closes the flow', async () => {
+    api.get.mockResolvedValue(awaiting);
+    api.post.mockResolvedValue({ ...awaiting, sentAt: '2026-11-24T16:40:00Z' });
+    confirmAnswer.mockResolvedValue(true);
+    const user = userEvent.setup();
+    render(<OfflinePaymentClient id="p1" />);
+    await user.click(await screen.findByRole('button', { name: /I’ve sent the payment/ }));
+    expect(confirmAnswer).toHaveBeenCalledWith(expect.objectContaining({ title: 'Finish without a receipt?' }));
+    expect(api.post).toHaveBeenCalledWith('/public/offline-payments/p1/sent?token=tok', undefined, { noRedirect: true });
+    expect(await screen.findByRole('heading', { name: /Payment sent/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /I’ve sent the payment/ })).toBeNull();
+    expect(screen.getByText('ZELLE')).toHaveClass('es-op__recap-method');
+  });
+
+  test('saying no to the question sends nothing', async () => {
+    api.get.mockResolvedValue(awaiting);
+    api.post.mockReset();
+    confirmAnswer.mockResolvedValue(false);
+    const user = userEvent.setup();
+    render(<OfflinePaymentClient id="p1" />);
+    await user.click(await screen.findByRole('button', { name: /I’ve sent the payment/ }));
+    expect(api.post).not.toHaveBeenCalled();
+  });
+
+  test('a receipt the organizer requires: marked Required, and the finish waits for it', async () => {
+    api.get.mockResolvedValue({ ...awaiting, proofRequired: true });
+    render(<OfflinePaymentClient id="p1" />);
+    const finish = await screen.findByRole('button', { name: /I’ve sent the payment/ });
+    expect(finish).toBeDisabled();
+    expect(screen.getByText('Required')).toBeInTheDocument();
+    expect(screen.getByText(/Upload your receipt in step 3 first/)).toBeInTheDocument();
+  });
+
+  test('once the required receipt is there, the finish opens with no question', async () => {
+    api.get.mockResolvedValue({ ...awaiting, proofRequired: true, proof: { uploadedAt: '2026-11-24T10:00:00Z' } });
+    api.post.mockReset();
+    api.post.mockResolvedValue({ ...awaiting, proofRequired: true, sentAt: '2026-11-24T16:40:00Z' });
+    confirmAnswer.mockReset();
+    const user = userEvent.setup();
+    render(<OfflinePaymentClient id="p1" />);
+    await user.click(await screen.findByRole('button', { name: /I’ve sent the payment/ }));
+    expect(confirmAnswer).not.toHaveBeenCalled();
+    expect(api.post).toHaveBeenCalled();
   });
 
   test('the time left reads plainly', () => {

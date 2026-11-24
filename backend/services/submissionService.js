@@ -1,9 +1,9 @@
 const { supabase } = require('../config/supabase');
 const { addressFields } = require('../utils/venueAddress');
 const {
-  describeOrder, FEE_BEARER, PAYMENT_FEE_MODE, CHARGE_MODEL,
-} = require('../utils/money');
-const { stripeCostModel } = require('./pricingService');
+  CHARGE_MODEL, EVENT_FEE_COLUMNS, feesFromEvent, priceSale,
+} = require('../utils/fees');
+const { stripeCostModel } = require('./feeService');
 const { canReceivePayouts } = require('../utils/payouts');
 const rules = require('./eventRules');
 const terms = require('./termsService');
@@ -440,20 +440,11 @@ async function blockersFor({ event, userId }) {
 
 /** One priced line of the preview, from the same function that prices a sale. */
 function priceLine({ label, kind, priceCents, detail, fees, stripe }) {
-  const b = describeOrder({
-    faceCents: Number(priceCents) || 0,
-    quantity: 1,
-    eventTaxPct: fees.eventTaxPct,
-    commissionPct: fees.commissionPct,
-    commissionTaxPct: fees.commissionTaxPct,
-    paymentFeeMode: fees.paymentFeeMode,
-    paymentFeePct: fees.paymentFeePct,
-    paymentFeeFixedCents: fees.paymentFeeFixedCents,
-    feeBearer: fees.feeBearer,
-    stripe,
-    // Priced exactly as a card sale is charged: a direct charge on the
-    // organizer's own account (TECH-AUDIT-LOG T-074).
-    chargeModel: CHARGE_MODEL.DIRECT,
+  const face = Number(priceCents) || 0;
+  // One ticket, priced exactly as a card sale is charged: a direct charge on
+  // the organizer's own account (TECH-AUDIT-LOG T-074), by the fees file.
+  const b = priceSale({
+    fees, subtotalCents: face, paidTickets: face > 0 ? 1 : 0, stripe, chargeModel: CHARGE_MODEL.DIRECT,
   });
 
   return {
@@ -497,8 +488,7 @@ async function preview({ eventId, userId }) {
              venue_address_line2, venue_region, venue_postal_code, venue_directions,
              starts_at, ends_at, timezone, currency, cover_url,
              max_tickets_per_order, allow_ticket_transfer,
-             commission_pct, commission_tax_pct, event_tax_pct,
-             payment_fee_mode, payment_fee_pct, payment_fee_fixed_cents, fee_bearer,
+             ${EVENT_FEE_COLUMNS},
              accepts_stripe, accepts_manual, organizer_id, coming_soon, launch_requested_at`)
     .eq('id', eventId)
     .single();
@@ -516,16 +506,7 @@ async function preview({ eventId, userId }) {
     supabase.from('venue_maps').select('id').eq('event_id', eventId).maybeSingle(),
   ]);
 
-  const fees = {
-    commissionPct: Number(event.commission_pct),
-    commissionTaxPct: Number(event.commission_tax_pct),
-    eventTaxPct: Number(event.event_tax_pct),
-    paymentFeeMode: event.payment_fee_mode === 'manual'
-      ? PAYMENT_FEE_MODE.MANUAL : PAYMENT_FEE_MODE.AUTO,
-    paymentFeePct: Number(event.payment_fee_pct),
-    paymentFeeFixedCents: Number(event.payment_fee_fixed_cents),
-    feeBearer: event.fee_bearer === 'organizer' ? FEE_BEARER.ORGANIZER : FEE_BEARER.BUYER,
-  };
+  const fees = feesFromEvent(event);
 
   const lines = (tiers || []).map((t) => priceLine({
     label: t.name,

@@ -200,6 +200,41 @@ export const TIER_COLORS = Object.freeze([
   '#e5b22f', '#17a2a6', '#8b6cf0', '#2fa36b', '#e0704f', '#4f7fd9', '#c75a86', '#8a9aa6',
 ]);
 
+/**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * THE DEFAULT COLOURS BY NAME (owner, 2026-11-24: "VIP red, Gold gold, Silver
+ * silver, Bronze bronze, and VVIP blue — very professional default colours").
+ *
+ * A ticket type (or table category) whose NAME says what it is gets that
+ * colour on every map, in every view, with no setting to touch: the 2D map,
+ * the 3D room, the editor, the door map, the ticket list beside the map.
+ * Deep, rich tones rather than primaries — a crimson, a sapphire, metallic
+ * golds and silvers — each still readable at seat size on the light floor and
+ * on the dark 3D room. An organizer's own colour (a table's, a category's)
+ * still wins; these are the defaults.
+ *
+ * Order matters: VVIP is tested before VIP. Matched as whole words, in English
+ * and Arabic, so "VIP Table 4", "Gold Circle" and "ذهبي" all match while
+ * "Vipassana" does not.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+export const NAMED_TIER_COLOURS = Object.freeze([
+  { key: 'vvip', label: 'VVIP', colour: '#1f4ed8', test: /(^|[^a-z])(vvip|v\.v\.i\.p\.?|royal|presidential)([^a-z]|$)|في في آي بي|ملكي/i },   // royal sapphire
+  { key: 'vip', label: 'VIP', colour: '#c8102e', test: /(^|[^a-z])(vip|v\.i\.p\.?)([^a-z]|$)|كبار الشخصيات|في آي بي/i },                           // crimson
+  { key: 'diamond', label: 'Diamond', colour: '#2aa7cf', test: /(^|[^a-z])diamond([^a-z]|$)|ماسي|الماس/i },                                       // ice blue
+  { key: 'platinum', label: 'Platinum', colour: '#6f7f99', test: /(^|[^a-z])platinum([^a-z]|$)|بلاتين/i },                                        // platinum slate
+  { key: 'gold', label: 'Gold', colour: '#d4a72c', test: /(^|[^a-z])gold(en)?([^a-z]|$)|ذهب/i },                                                  // metallic gold
+  { key: 'silver', label: 'Silver', colour: '#a3adb9', test: /(^|[^a-z])silver([^a-z]|$)|فض/i },                                                  // brushed silver
+  { key: 'bronze', label: 'Bronze', colour: '#a8683a', test: /(^|[^a-z])bronze([^a-z]|$)|برونز/i },                                              // bronze
+]);
+
+/** The default colour a name asks for ("VIP" → crimson), or null. */
+export function namedTierColour(name) {
+  const text = String(name || '').trim();
+  if (!text) return null;
+  return NAMED_TIER_COLOURS.find((c) => c.test.test(text))?.colour || null;
+}
+
 export function tierPalette(tiers, seats, look = null) {
   const prices = new Map();
   for (const s of seats || []) {
@@ -207,10 +242,14 @@ export function tierPalette(tiers, seats, look = null) {
     prices.set(s.tierId, Math.max(prices.get(s.tierId) ?? -1, Number(s.priceCents) || 0));
   }
   const ordered = [...(tiers || [])].sort((a, b) => (prices.get(b.id) ?? b.priceCents ?? 0) - (prices.get(a.id) ?? a.priceCents ?? 0));
-  // A map look's two seat colours lead the palette (mapStyle.LOOK_PRESETS):
-  // the dearest ticket type takes the first, the next the second.
-  const colours = [look?.seat, look?.accent, ...TIER_COLORS].filter(Boolean);
-  return new Map(ordered.map((t, i) => [t.id, colours[i % colours.length]]));
+  // A NAMED type takes its own colour first (VIP crimson, Gold gold…); the
+  // rest share what is left. A map look's two seat colours lead that rest
+  // (mapStyle.LOOK_PRESETS): the dearest unnamed type takes the first.
+  const named = new Map(ordered.map((t) => [t.id, namedTierColour(t.name)]).filter(([, c]) => c));
+  const taken = new Set(named.values());
+  const colours = [look?.seat, look?.accent, ...TIER_COLORS].filter((c) => c && !taken.has(c));
+  let i = 0;
+  return new Map(ordered.map((t) => [t.id, named.get(t.id) || colours[i++ % colours.length]]));
 }
 
 /**
@@ -233,11 +272,15 @@ export function tableTint({ tiers = [], seats = [], tables = [], categories = []
   }
   const tierOf = (t) => t?.tierId || seatTier.get(t?.id) || null;
   const manyTypes = new Set((tables || []).map(tierOf).filter(Boolean)).size > 1;
+  // A type NAMED for its colour (VIP, Gold, VVIP…) paints its tables even when
+  // it is the only type on the map (2026-11-24): a room of VIP tables is red.
+  const namedTiers = new Set((tiers || []).filter((t) => namedTierColour(t.name)).map((t) => t.id));
   return (table) => {
     const category = table?.categoryId ? byCategory.get(table.categoryId) : null;
     if (category) return category;
     const tier = tierOf(table);
-    return manyTypes && tier ? palette.get(tier) || null : null;
+    if (!tier) return null;
+    return manyTypes || namedTiers.has(tier) ? palette.get(tier) || null : null;
   };
 }
 

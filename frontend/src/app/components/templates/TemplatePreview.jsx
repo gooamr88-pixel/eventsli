@@ -28,7 +28,7 @@ export default function TemplatePreview({ template }) {
       id: `${t.id}-${n}`, tableId: t.id, number: String(n + 1), available: true, tierId: t.tierKey || null,
     })));
     const look = readLook(layout);
-    const palette = tierPalette((data.tiers || []).map((x) => ({ id: x.key, priceCents: x.priceCents })), [], look);
+    const palette = tierPalette((data.tiers || []).map((x) => ({ id: x.key, name: x.name, priceCents: x.priceCents })), [], look);
     return {
       tables, seats, look, zones: readZones(layout), world: worldOf(layout),
       seatFill: (s) => palette.get(s.tierId) || null, palette,

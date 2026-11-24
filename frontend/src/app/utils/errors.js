@@ -166,6 +166,10 @@ export const ERRORS = Object.freeze(Object.fromEntries([
   E('ALREADY_TRANSFERRED', 'This ticket was already transferred',
     'A ticket can only be passed on once.', 'fatal'),
 
+  // ── Offline payments ─────────────────────────────────────────────────────
+  E('RECEIPT_REQUIRED', 'Upload your receipt first',
+    'The organizer needs a photo or screenshot of your payment before you finish.'),
+
   // ── Catalogue ─────────────────────────────────────────────────────────────
   E('DUPLICATE_TIER', 'That name is taken',
     'Another ticket type on this event already uses it.'),

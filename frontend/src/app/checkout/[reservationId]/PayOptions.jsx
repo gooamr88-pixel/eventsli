@@ -102,9 +102,13 @@ export default function PayOptions({ options, mode, onMode, methodId, onMethod, 
           <span>Payment method</span>
           <select className="es-input" required value={methodId || ''} onChange={(e) => onMethod(e.target.value)}>
             <option value="" disabled>Choose how you will pay</option>
-            {options.methods.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
+            {options.methods.map((m) => <option key={m.id} value={m.id}>{m.label}{m.requireProof ? ' — receipt required' : ''}</option>)}
           </select>
-          <small>You will get the organizer&rsquo;s payment details and a reference on the next page and by email.</small>
+          <small>
+            You will get the organizer&rsquo;s payment details and a reference on the next page and by email.
+            {/* The organizer requires a receipt for this method (2026-11-24): said before choosing. */}
+            {options.methods.find((m) => m.id === methodId)?.requireProof && <> After paying, you will upload a photo or screenshot of the receipt.</>}
+          </small>
         </label>
       )}
     </fieldset>

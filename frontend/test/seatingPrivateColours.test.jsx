@@ -114,6 +114,8 @@ describe('the buyer map — private tables', () => {
     // A chair at it asks for the password too, and nothing was chosen.
     await userEvent.click(screen.getAllByRole('button', { name: /private table A1/ })[1]);
     expect(onLockedTable).toHaveBeenCalledTimes(2);
+    // ...and hands over WHICH chair, so it is chosen once unlocked (2026-11-24).
+    expect(onLockedTable).toHaveBeenLastCalledWith(expect.objectContaining({ id: 't1' }), expect.objectContaining({ tableId: 't1' }));
     expect(onSelectSeat).not.toHaveBeenCalled();
     expect(onSelectTable).not.toHaveBeenCalled();
   });

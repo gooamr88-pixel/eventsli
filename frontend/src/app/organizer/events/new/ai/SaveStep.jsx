@@ -7,15 +7,17 @@ import FormError from '../../../../components/forms/FormError';
 import { Notice } from '../../../../components/Feedback';
 import { FEE_BEARERS, PAYMENT_OPTIONS } from '../wizardModel';
 import { AiStepper, ActionBar } from './AiParts';
+import CommissionPreview from '../../../../components/fees/CommissionPreview';
 
 /**
  * STEP 3 — how buyers pay, then save.
  *
  * THE ORGANIZER'S, ALWAYS. Payment channels and who carries the booking fee
  * are money settings (BRD §04); the AI schema has no field for either, and
- * this is the only screen that sets them. Eventsli's own commission and
- * payment fee are not shown as choices because they are not choices — the
- * full breakdown is in the pre-submit dialog on the event, as for any event.
+ * this is the only screen that sets them. Eventsli's own commission is not a
+ * choice, but it is SHOWN here, exactly, before the event is saved (owner,
+ * 2026-11-24: CommissionPreview); the full per-ticket breakdown is in the
+ * pre-submit dialog on the event, as for any event.
  *
  * SAVING MAKES A PRIVATE DRAFT. Never submitted, never published: the
  * organizer submits it later from the event, after the terms, and Eventsli
@@ -119,6 +121,7 @@ export default function SaveStep({
               ))}
             </div>
           </fieldset>
+          <CommissionPreview country={form.country} compact />
           <Field
             label="Most tickets in one order" type="number" name="maxTicketsPerOrder" required min={1} max={100} inputMode="numeric"
             value={form.maxTicketsPerOrder} onChange={(e) => set({ maxTicketsPerOrder: e.target.value })}

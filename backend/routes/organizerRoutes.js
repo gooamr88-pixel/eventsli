@@ -64,6 +64,15 @@ router.post(
 
 router.get('/me', requireAuth, c.me);
 router.get('/setup-defaults', requireAuth, c.setupDefaults);
+// The commission a new event would carry, shown before it is created (2026-11-24).
+router.get(
+  '/fee-terms',
+  requireAuth,
+  query('country').isString().trim().isLength({ min: 2, max: 2 }).withMessage('Choose a country.'),
+  query('prices').optional().isString().isLength({ max: 60 }),
+  validate,
+  c.feeTerms,
+);
 
 // The dashboard home: every event's numbers in one round trip.
 router.get(
@@ -117,6 +126,8 @@ const methodRules = (optional) => {
       .withMessage('Give it a short name buyers recognise, e.g. "Interac e-Transfer".'),
     maybe(body('instructions')).isString().trim().isLength({ min: 5, max: 1000 })
       .withMessage('Tell buyers how to pay, e.g. "Send to pay@yourorg.com with your order number".'),
+    // 2026-11-24: must a buyer paying this way upload a receipt?
+    body('requireProof').optional().isBoolean().withMessage('Say whether a receipt is required.'),
   ];
 };
 

@@ -1,7 +1,9 @@
 const { supabase } = require('../../config/supabase');
 const rules = require('../../services/eventRules');
-const { describeFeeConfig, FEE_BEARER, PAYMENT_FEE_MODE } = require('../../utils/money');
-const { stripeCostModel } = require('../../services/pricingService');
+const {
+  describeFeeConfig, FEE_BEARER, PAYMENT_FEE_MODE, EVENT_FEE_COLUMNS, shapeEventFees,
+} = require('../../utils/fees');
+const { stripeCostModel } = require('../../services/feeService');
 const { sendOk, sendFail } = require('../../utils/responseEnvelope');
 const { writeAudit } = require('../../services/auditService');
 const { EDITABLE_SETTINGS, SETTING_DEFAULTS, validateSetting } = require('../../utils/settingsSchema');
@@ -47,7 +49,7 @@ async function updateEventFees(req, res, next) {
 
     const { data: before } = await supabase
       .from('events')
-      .select('id, title, commission_pct, commission_tax_pct, payment_fee_mode, payment_fee_pct, payment_fee_fixed_cents, event_tax_pct')
+      .select(`id, title, ${EVENT_FEE_COLUMNS}`)
       .eq('id', req.params.eventId)
       .maybeSingle();
 
@@ -59,7 +61,7 @@ async function updateEventFees(req, res, next) {
       .from('events')
       .update({ ...allowed, updated_at: new Date().toISOString() })
       .eq('id', req.params.eventId)
-      .select('id, commission_pct, commission_tax_pct, payment_fee_mode, payment_fee_pct, payment_fee_fixed_cents, event_tax_pct, fee_bearer, currency')
+      .select(`id, currency, ${EVENT_FEE_COLUMNS}`)
       .single();
 
     if (error) throw new Error(error.message);
@@ -103,7 +105,7 @@ async function previewFees(req, res, next) {
   try {
     const { data: event } = await supabase
       .from('events')
-      .select('id, title, currency, commission_pct, commission_tax_pct, payment_fee_mode, payment_fee_pct, payment_fee_fixed_cents, event_tax_pct, fee_bearer')
+      .select(`id, title, currency, ${EVENT_FEE_COLUMNS}`)
       .eq('id', req.params.eventId)
       .maybeSingle();
 
@@ -119,6 +121,7 @@ async function previewFees(req, res, next) {
       paymentFeePct: num(req.query.paymentFeePct, event.payment_fee_pct),
       paymentFeeFixedCents: num(req.query.paymentFeeFixedCents, event.payment_fee_fixed_cents),
       commissionPct: num(req.query.commissionPct, event.commission_pct),
+      commissionFixedCents: Math.max(0, Math.round(num(req.query.commissionFixedCents, event.commission_fixed_cents || 0))),
       commissionTaxPct: num(req.query.commissionTaxPct, event.commission_tax_pct),
       eventTaxPct: num(req.query.eventTaxPct, event.event_tax_pct),
       feeBearer: (req.query.feeBearer || event.fee_bearer) === 'organizer'
@@ -289,17 +292,8 @@ const num = (v, fallback) => (v === undefined || v === '' ? Number(fallback) : N
 const pick = (obj, keys) => Object.fromEntries(keys.map((k) => [k, obj?.[k]]));
 
 function shapeFees(e) {
-  return {
-    id: e.id,
-    currency: e.currency,
-    commissionPct: Number(e.commission_pct),
-    commissionTaxPct: Number(e.commission_tax_pct),
-    paymentFeeMode: e.payment_fee_mode,
-    paymentFeePct: Number(e.payment_fee_pct),
-    paymentFeeFixedCents: e.payment_fee_fixed_cents,
-    eventTaxPct: Number(e.event_tax_pct),
-    feeBearer: e.fee_bearer,
-  };
+  // The fees file's shape, so the admin and the organizer read the same fields.
+  return { id: e.id, currency: e.currency, ...shapeEventFees(e) };
 }
 
 module.exports = { updateEventFees, previewFees, getSettings, updateSettings, auditLog, clearAudit };

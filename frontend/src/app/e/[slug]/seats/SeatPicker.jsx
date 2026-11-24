@@ -65,6 +65,10 @@ export default function SeatPicker({
   const [unlockDismissed, setUnlockDismissed] = useState(false);
   // A private table the buyer pressed on the map: { id, label }.
   const [unlockFor, setUnlockFor] = useState(null);
+  // What the password interrupted (2026-11-24): { tableId, seatId }. Chosen
+  // as soon as the map comes back with that table unlocked — one step, not
+  // "unlock, then find the seat again and tap it".
+  const [pendingPick, setPendingPick] = useState(null);
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState(null);
 
@@ -304,6 +308,23 @@ export default function SeatPicker({
     setSelectedSeats([]);
     setSelectedTable((current) => (current?.id === table.id ? null : table));
   }, []);
+
+  // THE TAP THE PASSWORD INTERRUPTED, finished (2026-11-24). Adjusted during
+  // render, React's way to respond to new data: once the refetched map has
+  // the table unlocked, its tapped seat (or, sold by the table, the table) is
+  // chosen, through the same rules as any tap — limits, details card and all.
+  if (pendingPick && map) {
+    const unlocked = (map.tables || []).find((t) => t.id === pendingPick.tableId);
+    if (!unlocked || !unlocked.locked) {
+      setPendingPick(null);
+      const seat = unlocked && pendingPick.seatId ? (map.seats || []).find((s) => s.id === pendingPick.seatId) : null;
+      if (unlocked && purchaseMode === 'table_only') {
+        if (unlocked.canBookWhole && selectedTable?.id !== unlocked.id) chooseTable(unlocked);
+      } else if (seat?.available && !selectedSeats.some((s) => s.id === seat.id)) {
+        toggleSeat(seat);
+      }
+    }
+  }
 
   const subtotal = useMemo(() => {
     if (selectedTable) return selectedTable.priceCents ?? null;
@@ -558,7 +579,7 @@ export default function SeatPicker({
           // A locked private table never reaches this: pressing it calls
           // `onLockedTable` instead, which asks for its password.
           onSelectTable={chooseTable}
-          onLockedTable={(table) => { setActionError(null); setUnlockFor({ id: table.id, label: table.label }); }}
+          onLockedTable={(table, seat) => { setActionError(null); setUnlockFor({ id: table.id, label: table.label, seatId: seat?.id || null }); }}
           onSelectBooth={map.vendorBooths ? setPickedBooth : null}
         />
 
@@ -671,15 +692,25 @@ export default function SeatPicker({
           slug={slug}
           tableId={unlockTarget.id}
           tableLabel={unlockTarget.label}
+          actionLabel={unlockFor?.seatId ? 'Unlock & choose seat' : purchaseMode === 'table_only' ? 'Unlock & choose table' : 'Unlock'}
+          lede={unlockFor?.seatId ? 'Enter the password the organizer gave you. The seat you tapped is chosen as soon as it opens.' : null}
           onClose={() => { if (unlockFor) setUnlockFor(null); else setUnlockDismissed(true); }}
           // Storing the key re-runs the map fetch, and the table comes back
-          // unlocked — prices, seats and all. Nothing is selected here: the
-          // buyer sees what the password opened before committing to it.
+          // unlocked — prices, seats and all. The seat that was tapped (or,
+          // sold by the table, the table) is then chosen: one step for the
+          // buyer, not two (owner, 2026-11-24).
           onUnlocked={(token) => {
+            const seatId = unlockFor?.seatId || null;
             addTableToken(token);
+            setPendingPick({ tableId: unlockTarget.id, seatId });
             setUnlockFor(null);
             setUnlockDismissed(true);
-            toast.success('Choose your seats, or the whole table, on the map.', { title: 'Table unlocked' });
+            toast.success(
+              seatId || purchaseMode === 'table_only'
+                ? 'It is in your selection. Add more seats, or continue.'
+                : 'Choose your seats, or the whole table, on the map.',
+              { title: 'Table unlocked' },
+            );
           }}
         />
       )}

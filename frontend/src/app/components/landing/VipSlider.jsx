@@ -23,7 +23,16 @@ import { isDateOnly, formatDateOnly } from '../../lib/dateOnly';
  * left or right is one state change and the browser animates every slide at
  * once, on the compositor, with no layout per frame.
  *
- * AUTOPLAY, AND HOW IT STOPS (WCAG 2.2.2): it advances every 3.5s, and pauses
+ * FAST AND LIGHT (owner, 2026-11-24: "speed up the homepage carousel and
+ * refresh its design — it is very slow"). A new slide every 3.2s, and a move
+ * that takes 420ms. Only transform and opacity animate — both on the
+ * compositor. The side slides used to be dimmed with an animated CSS filter
+ * and the phone's backdrop blurred on every slide, which repainted whole
+ * posters on each move; now a dark veil fades in over the side slides, only
+ * the three slides in view keep a layer or a blurred backdrop, and the slides
+ * out of view are hidden once they have faded.
+ *
+ * AUTOPLAY, AND HOW IT STOPS (WCAG 2.2.2): it advances every 3.2s, and pauses
  * while the pointer is over the slider, while focus is inside it, while the tab
  * is hidden, and for good once the visitor presses pause. A visitor whose
  * system asks for reduced motion gets no autoplay at all — the arrows, the
@@ -34,7 +43,7 @@ import { isDateOnly, formatDateOnly } from '../../lib/dateOnly';
  * screen reader hears one event at a time with "2 of 5" beside it.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-const INTERVAL = 3500; // owner, 2026-11-24: "make the slider more fast" (was 5.5s)
+const INTERVAL = 3200; // owner, 2026-11-24: "very slow" (was 5.5s)
 
 export default function VipSlider({ events = [] }) {
   const n = events.length;
@@ -136,6 +145,9 @@ export default function VipSlider({ events = [] }) {
 
       {n > 1 && (
         <div className="es-vip__controls">
+          <span className="es-vip__count es-nums" aria-hidden="true">
+            <b>{String(active + 1).padStart(2, '0')}</b> / {String(n).padStart(2, '0')}
+          </span>
           <div className="es-vip__dots" role="group" aria-label="Choose an event">
             {events.map((event, i) => (
               <button
@@ -176,6 +188,8 @@ export default function VipSlider({ events = [] }) {
 
 function Slide({ event, pos, index, total, eager, onSelect }) {
   const current = pos === 0;
+  // The three slides in view: only they keep a GPU layer and a blurred backdrop.
+  const near = Math.abs(pos) <= 1;
   const when = eventDateParts(event);
   const price = priceBlock(event);
   // No date on a coming-soon teaser (owner, 2026-11-18): not known yet.
@@ -202,7 +216,7 @@ function Slide({ event, pos, index, total, eager, onSelect }) {
         {/* The blurred copy behind the poster: on a phone the poster is shown
             whole (`contain`) and this fills the frame around it. Same src, one
             download. */}
-        {event.coverUrl && (
+        {event.coverUrl && near && (
           // eslint-disable-next-line @next/next/no-img-element -- see below
           <img className="es-vip__blur" src={event.coverUrl} alt="" aria-hidden loading="lazy" decoding="async" draggable={false} />
         )}
@@ -224,6 +238,14 @@ function Slide({ event, pos, index, total, eager, onSelect }) {
         )}
         </>)}
       </div>
+
+      {/* The date as a ticket stub, top left (2026-11-24 refresh). */}
+      {when && !event.comingSoon && (
+        <span className="es-vip__date" aria-hidden="true">
+          <span className="es-vip__date-m">{when.month}</span>
+          <span className="es-vip__date-d">{Number(when.day)}</span>
+        </span>
+      )}
 
       <div className="es-vip__info">
         {event.vip && (

@@ -363,9 +363,30 @@ export default function VenueExperience({
             controlsRef={controls}
             ariaLabel={view === '360' ? `The view from ${activeInfo?.name || 'a seat'}` : 'The venue in 3D. Use the 2D map to choose seats by keyboard.'}
             onPick={(entry) => {
-              setPickId(entry.id);
               setHover(null);
+              const table = tableById.get(entry.tableId);
+              // A PRIVATE TABLE in 3D asks for its password too (2026-11-24),
+              // as on the 2D map; the page then chooses the tapped seat.
+              if (onLockedTable && table?.locked) {
+                setPickId(null);
+                onLockedTable(table, entry.seat || null);
+                return;
+              }
+              setPickId(entry.id);
               if (view === '3d') { setFocusId(entry.id); setShot('auto'); }
+              // ONE TAP CHOOSES (owner, 2026-11-24: "no select then select").
+              // An open seat is added as it is tapped, exactly as on the 2D
+              // map; the card stays open to say so, with Remove and "View from
+              // seat". Tapping a chosen seat only opens its card, so a stray
+              // tap while turning the room never drops one. The organizer's
+              // availability view (`seatAction`) keeps its explicit button.
+              const s = entry.seat;
+              if (seatAction || !s || !s.available || selectedSeatIds.has(s.id)) return;
+              if (purchaseMode === 'table_only') {
+                if (table?.canBookWhole) onSelectTable?.(table);
+                return;
+              }
+              onSelectSeat?.(s, table);
             }}
             onHover={(entry, at) => setHover(entry ? { entry, ...at } : null)}
             onFallback={toMap}

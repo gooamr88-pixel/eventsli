@@ -922,6 +922,7 @@ async function sendOfflineReserved({ to, buyerName, event, organizerName, paymen
     ['Method', payment.method?.label || ''],
   ])}
         ${T.note('info', `<strong>How to pay</strong><br>${instructionsHtml(payment.method?.instructions)}<br><br>Put <strong>${escapeHtml(payment.reference_code)}</strong> in the payment note so the organizer can match it.`)}
+        ${payment.proof_required || payment.method?.require_proof ? T.p('<strong>The organizer requires a receipt.</strong> After paying, open the link below and upload a photo or screenshot of it.') : ''}
         ${T.note('warning', 'If the payment is not confirmed by the deadline, the reservation ends and the seats go back on sale. Eventsli never takes this payment — it goes to the organizer.')}
         ${url ? T.button(url, 'See payment details') : ''}`,
     }),

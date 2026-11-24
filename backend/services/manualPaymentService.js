@@ -1,5 +1,5 @@
 const { supabase } = require('../config/supabase');
-const { describeOrder, FEE_BEARER, PAYMENT_FEE_MODE } = require('../utils/money');
+const { EVENT_FEE_COLUMNS, feesFromEvent, priceSale } = require('../utils/fees');
 const invoices_ = require('./invoiceService');
 
 /**
@@ -25,7 +25,7 @@ const invoices_ = require('./invoiceService');
 async function priceManualSale({ eventId, seatIds, tableId }) {
   const { data: event } = await supabase
     .from('events')
-    .select('id, currency, status, commission_pct, commission_tax_pct, event_tax_pct, coming_soon')
+    .select(`id, currency, status, coming_soon, ${EVENT_FEE_COLUMNS}`)
     .eq('id', eventId)
     .maybeSingle();
 
@@ -37,6 +37,8 @@ async function priceManualSale({ eventId, seatIds, tableId }) {
   }
 
   let subtotalCents = 0;
+  // Tickets with a price: the fixed part of the commission counts these.
+  let paidTickets = 0;
   let seats = [...new Set(seatIds || [])];
 
   /**
@@ -66,6 +68,7 @@ async function priceManualSale({ eventId, seatIds, tableId }) {
     const { data: tableSeats } = await supabase
       .from('seats').select('id').eq('table_id', tableId);
     seats = (tableSeats || []).map((s) => s.id);
+    paidTickets = subtotalCents > 0 ? Math.max(1, seats.length) : 0;
   } else {
     if (!seats.length) throw fail('VALIDATION_ERROR', 'Choose the seats that were sold.');
     const { data: rows, error: seatError } = await supabase
@@ -102,23 +105,17 @@ async function priceManualSale({ eventId, seatIds, tableId }) {
         + 'is fine, no type at all is not.');
     }
 
-    subtotalCents = (rows || []).reduce(
-      (sum, s) => sum + Number(s.price_override_cents ?? s.ticket_tiers.price_cents), 0,
-    );
+    const priceOf = (s) => Number(s.price_override_cents ?? s.ticket_tiers.price_cents);
+    subtotalCents = (rows || []).reduce((sum, s) => sum + priceOf(s), 0);
+    paidTickets = (rows || []).filter((s) => priceOf(s) > 0).length;
   }
 
-  const breakdown = describeOrder({
-    faceCents: subtotalCents,
-    quantity: 1,
-    eventTaxPct: Number(event.event_tax_pct),
-    commissionPct: Number(event.commission_pct),
-    commissionTaxPct: Number(event.commission_tax_pct),
-    // No card was used, so nothing is recovered and nothing is charged.
-    paymentFeeMode: PAYMENT_FEE_MODE.MANUAL,
-    paymentFeePct: 0,
-    paymentFeeFixedCents: 0,
-    feeBearer: FEE_BEARER.ORGANIZER,
-    stripe: { pct: 0, fixedCents: 0 },
+  // No card was used, so nothing is recovered and nothing is charged: the
+  // 'door' channel prices commission and tax only.
+  const breakdown = priceSale({
+    fees: feesFromEvent(event, { channel: 'door' }),
+    subtotalCents,
+    paidTickets,
   });
 
   return { event, breakdown, seatCount: seats.length };

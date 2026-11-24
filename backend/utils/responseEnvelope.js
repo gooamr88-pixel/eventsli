@@ -105,6 +105,9 @@ const ERROR_STATUS = {
   TRANSFER_DISABLED: 403,         // BRD §10
   ALREADY_TRANSFERRED: 409,       // BRD §10 — one transfer only
 
+  // offline payments: the organizer requires a receipt before "I've sent it" (2026-11-24)
+  RECEIPT_REQUIRED: 422,
+
   // media
   UNSUPPORTED_MEDIA_TYPE: 415,
   STORAGE_NOT_CONFIGURED: 503,

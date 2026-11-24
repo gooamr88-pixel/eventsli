@@ -32,6 +32,8 @@ import { useToast } from '../../../components/ui/Toast';
 import { dateOnlyRange } from '../../../lib/dateOnly';
 import { useOpenCountries, openCountryFor } from '../../../hooks/useOpenCountries';
 import { withCurrency, currencyHint } from '../../../lib/markets';
+import CommissionPreview from '../../../components/fees/CommissionPreview';
+import AmPmCheck from '../../../components/forms/AmPmCheck';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -412,18 +414,22 @@ function EventWizard({ type, organizer, template = null }) {
                 />
               </div>
               {ticketed ? (
-                <div className="fx-grid fx-grid--2">
-                  <Field
-                    label="Starts" type="datetime-local" name="startsAt" required
-                    hint={`Local time, ${zoneLabel}.`}
-                    error={shown('startsAt')} value={form.startsAt} onChange={set('startsAt')}
-                  />
-                  <Field
-                    label="Ends" type="datetime-local" name="endsAt" required
-                    min={form.startsAt || undefined}
-                    error={shown('endsAt')} value={form.endsAt} onChange={set('endsAt')}
-                  />
-                </div>
+                <>
+                  <div className="fx-grid fx-grid--2">
+                    <Field
+                      label="Starts" type="datetime-local" name="startsAt" required
+                      hint={`Local time, ${zoneLabel}.`}
+                      error={shown('startsAt')} value={form.startsAt} onChange={set('startsAt')}
+                    />
+                    <Field
+                      label="Ends" type="datetime-local" name="endsAt" required
+                      min={form.startsAt || undefined}
+                      error={shown('endsAt')} value={form.endsAt} onChange={set('endsAt')}
+                    />
+                  </div>
+                  {/* "Did you mean PM?" — the Adel event's slip (2026-11-24). */}
+                  <AmPmCheck start={form.startsAt} end={form.endsAt} onFix={(v) => setForm((f) => ({ ...f, startsAt: v }))} />
+                </>
               ) : (
                 <DateOnlyFields
                   firstDay={form.firstDay} lastDay={form.lastDay} timezone={form.timezone} zoneLabel={zoneLabel}
@@ -540,6 +546,8 @@ function EventWizard({ type, organizer, template = null }) {
                 options={FEE_BEARERS.map(([value, title, desc]) => ({ value, title, desc }))}
                 columns={2}
               />
+              {/* The exact commission, before the event exists (2026-11-24). */}
+              <CommissionPreview country={form.country} />
               <Field
                 label="Most tickets in one order" type="number" name="maxTicketsPerOrder" required
                 min={1} max={100} inputMode="numeric"
@@ -604,7 +612,10 @@ function EventWizard({ type, organizer, template = null }) {
           )}
 
           {step === 'review' && (
-            <Review form={form} ticketed={ticketed} startIso={startIso} endIso={endIso} choices={choices} onEdit={(s) => go(steps.indexOf(s))} />
+            <>
+              <Review form={form} ticketed={ticketed} startIso={startIso} endIso={endIso} choices={choices} onEdit={(s) => go(steps.indexOf(s))} />
+              {ticketed && <CommissionPreview country={form.country} compact />}
+            </>
           )}
         </div>
 

@@ -405,6 +405,7 @@ function ManualSection({ country, offlineCheckout = false, onChanged }) {
                         <span className="font-medium">{m.label}</span>
                         {kindName(m.kind) !== m.label && <span className="text-xs text-subtle">{kindName(m.kind)}</span>}
                         {!m.isActive && <span className="es-optional">Off</span>}
+                        {m.requireProof && <span className="es-pill es-pill--accent"><NavIcon name="receipt" size={12} /> Receipt required</span>}
                       </p>
                       <p className="fx-break whitespace-pre-line text-sm text-muted">{m.instructions}</p>
                     </div>
@@ -449,14 +450,22 @@ function MethodForm({ method = null, country, onCancel, onSaved }) {
     kind: method?.kind || firstKind,
     label: method?.label || KIND_LABEL[firstKind],
     instructions: method?.instructions || '',
+    // The organizer decides (2026-11-24). A new transfer-type method starts
+    // on — a transfer always leaves a receipt — and cash starts off.
+    requireProof: method ? method.requireProof === true : firstKind !== 'cash',
   }));
+  const [proofTouched, setProofTouched] = useState(Boolean(method));
   const [labelTouched, setLabelTouched] = useState(Boolean(method));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
   const setKind = (e) => {
     const kind = e.target.value;
-    setForm((f) => ({ ...f, kind, ...(labelTouched ? {} : { label: kind === 'other' ? '' : KIND_LABEL[kind] }) }));
+    setForm((f) => ({
+      ...f, kind,
+      ...(labelTouched ? {} : { label: kind === 'other' ? '' : KIND_LABEL[kind] }),
+      ...(proofTouched ? {} : { requireProof: kind !== 'cash' }),
+    }));
   };
   const ready = form.label.trim().length >= 2 && form.instructions.trim().length >= 5;
 
@@ -465,7 +474,7 @@ function MethodForm({ method = null, country, onCancel, onSaved }) {
     if (!ready) return;
     setBusy(true);
     setError(null);
-    const body = { kind: form.kind, label: form.label.trim(), instructions: form.instructions.trim() };
+    const body = { kind: form.kind, label: form.label.trim(), instructions: form.instructions.trim(), requireProof: form.requireProof };
     try {
       if (method) await patch(`/organizer/payment-methods/${method.id}`, body, { noRedirect: true });
       else await post('/organizer/payment-methods', body, { noRedirect: true });
@@ -492,6 +501,20 @@ function MethodForm({ method = null, country, onCancel, onSaved }) {
         value={form.instructions}
         onChange={(e) => setForm((f) => ({ ...f, instructions: e.target.value }))}
       />
+      <label className="es-check">
+        <input
+          type="checkbox" className="es-check__box" checked={form.requireProof}
+          onChange={(e) => { setProofTouched(true); setForm((f) => ({ ...f, requireProof: e.target.checked })); }}
+        />
+        <span className="text-sm">
+          <span className="block font-medium text-ink">Buyers must upload a receipt</span>
+          <span className="block text-muted">
+            {form.requireProof
+              ? 'A buyer paying this way uploads a photo or screenshot of the transfer before they can finish. You see it beside the reservation.'
+              : 'Uploading a receipt is optional for buyers paying this way.'}
+          </span>
+        </span>
+      </label>
       <FormError error={error} />
       <div className="fx-row">
         <SubmitButton busy={busy} busyLabel="Saving…" disabled={!ready}>{method ? 'Save' : 'Add method'}</SubmitButton>

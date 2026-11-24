@@ -276,3 +276,57 @@ test('3. an unpaid reservation past its deadline expires on the sweep and its se
   const next = await client()('POST', `/public/events/${ids.slug}/hold`, { seatIds: [ids.seats[2]] });
   assert.equal(next.status, 201, 'someone else can now buy it');
 });
+
+// ── Commission as a percentage plus a fixed amount (2026-11-24) ─────────────
+test('the fixed commission is charged per paid ticket, and shown to the organizer before creating an event', async () => {
+  const { data: before } = await supabase.from('platform_settings').select('value').eq('key', 'commission').maybeSingle();
+  await supabase.from('events').update({ commission_pct: 2, commission_fixed_cents: 50 }).eq('id', ids.eventId);
+  try {
+    const c = await reserveSeats([ids.seats[4], ids.seats[5]]);
+    const { data: pay } = await supabase.from('offline_payments').select('breakdown').eq('id', c.offlineId).single();
+    // two seats at 500.00: 2% of 1,000.00 = 20.00, + 0.50 × 2 = 21.00
+    assert.equal(pay.breakdown.commissionCents, 2000 + 100);
+    assert.equal(pay.breakdown.buyerTotalCents, 100000, 'the buyer never pays the commission');
+
+    await supabase.from('platform_settings').upsert({
+      key: 'commission', value: { ...(before?.value || { default_pct: 1.5, default_tax_pct: 0 }), fixed_by_currency: { EGP: 500 } },
+    }, { onConflict: 'key' });
+    const terms = await ids.org('GET', '/organizer/fee-terms?country=EG&prices=20000');
+    assert.equal(terms.status, 200, JSON.stringify(terms.body));
+    assert.equal(terms.body.data.currency, 'EGP');
+    assert.equal(terms.body.data.commissionFixedCents, 500);
+    const two = terms.body.data.examples.find((e) => e.priceCents === 20000);
+    const pct = terms.body.data.commissionPct;
+    assert.equal(two.commissionCents, Math.round(20000 * pct / 100) + 500, 'the organizer\'s own price is priced exactly');
+  } finally {
+    if (before) await supabase.from('platform_settings').upsert({ key: 'commission', value: before.value }, { onConflict: 'key' });
+    await supabase.from('events').update({ commission_pct: 1.5, commission_fixed_cents: 0 }).eq('id', ids.eventId);
+  }
+});
+
+// ── The organizer decides: a receipt required (2026-11-24) ──────────────────
+test('a method that requires a receipt: the buyer is told, and cannot finish without one', async () => {
+  const set = await ids.org('PATCH', `/organizer/payment-methods/${ids.methodId}`, { requireProof: true });
+  assert.equal(set.status, 200, JSON.stringify(set.body));
+  assert.equal(set.body.data.requireProof, true);
+  try {
+    const c = await reserveSeats([ids.seats[3]]);
+    const q = `?token=${encodeURIComponent(c.token)}`;
+    const view = await c.buyer('GET', `/public/offline-payments/${c.offlineId}${q}`);
+    assert.equal(view.body.data.proofRequired, true, 'frozen onto the reservation');
+
+    const early = await c.buyer('POST', `/public/offline-payments/${c.offlineId}/sent${q}`);
+    assert.equal(early.status, 422);
+    assert.equal(early.body.error, 'RECEIPT_REQUIRED');
+
+    const { data: rec } = await supabase.rpc('offline_attach_proof', {
+      p_offline_id: c.offlineId, p_path: `offline/${c.offlineId}/proof-req.png`, p_content_type: 'image/png',
+    });
+    assert.equal(rec.ok, true);
+    const done = await c.buyer('POST', `/public/offline-payments/${c.offlineId}/sent${q}`);
+    assert.equal(done.status, 200, JSON.stringify(done.body));
+    assert.ok(done.body.data.sentAt);
+  } finally {
+    await ids.org('PATCH', `/organizer/payment-methods/${ids.methodId}`, { requireProof: false });
+  }
+});

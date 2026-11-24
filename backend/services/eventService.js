@@ -37,19 +37,10 @@ async function currencyForCountry(country) {
 }
 
 /** Platform defaults for a new event's money settings (BRD §05, §04, §06). */
-async function defaultFinancials() {
-  const { data } = await supabase
-    .from('platform_settings').select('key, value')
-    .in('key', ['commission', 'payment_fee']);
-
-  const byKey = Object.fromEntries((data || []).map((r) => [r.key, r.value]));
-  return {
-    commission_pct: byKey.commission?.default_pct ?? 1.5,
-    commission_tax_pct: byKey.commission?.default_tax_pct ?? 0,
-    payment_fee_mode: byKey.payment_fee?.default_mode ?? 'auto',
-    payment_fee_pct: byKey.payment_fee?.default_pct ?? 2.9,
-    payment_fee_fixed_cents: byKey.payment_fee?.default_fixed_cents ?? 30,
-  };
+// The rates come from the fees file's settings reader (feeService), with the
+// fixed commission in the event's own currency (2026-11-24).
+async function defaultFinancials(currency = null) {
+  return require('./feeService').defaultFinancials(currency);
 }
 
 /**
