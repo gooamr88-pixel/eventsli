@@ -595,6 +595,9 @@ function lockedListing(e) {
     slug: e.slug,
     title: e.title,
     isPrivate: true,
+    // How the card is drawn (2026-11-24): 'blur' blurred, 'card' — the
+    // password box only — plain, its shown cover sharp.
+    lockedPreview: e.locked_preview === 'card' ? 'card' : 'blur',
     startsAt: e.starts_at,
     endsAt: e.ends_at,
     timezone: e.timezone,

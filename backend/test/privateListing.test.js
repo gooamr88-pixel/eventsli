@@ -80,6 +80,8 @@ test('the homepage and /events ask for every private event — blurred or passwo
   assert.deepEqual(body.data.map((e) => e.slug), ['jazz-night', 'sara-and-omar', 'adel-ogla-houston']);
   const card = body.data[2];
   assert.equal(card.isPrivate, true);
+  assert.equal(card.lockedPreview, 'card', 'drawn plain, not blurred');
+  assert.equal(body.data[1].lockedPreview, 'blur');
   assert.equal(card.city, null, 'still only the locked card');
   assert.equal(card.venue, null);
   assert.equal(card.coverUrl, 'https://cdn/wedding.jpg', 'its cover was chosen to show');

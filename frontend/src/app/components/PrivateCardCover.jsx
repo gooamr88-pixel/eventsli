@@ -22,11 +22,18 @@ import NavIcon from './shell/NavIcon';
  */
 export default function PrivateCardCover({ event }) {
   const [failed, setFailed] = useState(false);
+  /**
+   * "PASSWORD BOX ONLY" IS NOT BLURRED (owner, 2026-11-24: "I chose password,
+   * why is it blurred?"). The blur belongs to the blurred preview. A
+   * password-box event shows the cover it chose to show, sharp, or a plain
+   * card with the lock — never the blurred stand-in.
+   */
+  const plain = event.lockedPreview === 'card';
   const src = event.coverUrl
-    || (event.blurredCover ? `${PUBLIC_API_URL}/public/events/${encodeURIComponent(event.slug)}/locked-cover` : null);
+    || (!plain && event.blurredCover ? `${PUBLIC_API_URL}/public/events/${encodeURIComponent(event.slug)}/locked-cover` : null);
 
   return (
-    <span className="es-privcover" aria-hidden="true">
+    <span className={`es-privcover${plain ? ' es-privcover--card' : ''}`} aria-hidden="true">
       {src && !failed ? (
         // A tiny, blurred copy — Next's optimiser would only enlarge it.
         // eslint-disable-next-line @next/next/no-img-element

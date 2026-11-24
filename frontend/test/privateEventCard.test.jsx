@@ -65,3 +65,28 @@ describe.each([
     expect(container.querySelector('.es-privcover__wash')).not.toBeNull();
   });
 });
+
+/**
+ * "Password box only" is not blurred (owner, 2026-11-24: "I chose password,
+ * why is it blurred?"): its card shows the cover it chose to show, sharp, or a
+ * plain locked card, and never the blurred stand-in.
+ */
+describe('a password-box private event on a listing', () => {
+  it('shows its chosen cover sharp, not blurred', () => {
+    const { container } = render(<EventGridCard event={privateListing({ lockedPreview: 'card', coverUrl: 'https://cdn/adel.jpg', blurredCover: false })} />);
+    expect(container.querySelector('.es-privcover--card')).not.toBeNull();
+    expect(container.querySelector('.es-privcover__img').getAttribute('src')).toBe('https://cdn/adel.jpg');
+  });
+
+  it('with its cover hidden, draws a plain card — never the blurred copy', () => {
+    const { container } = render(<EventGridCard event={privateListing({ lockedPreview: 'card', blurredCover: true })} />);
+    expect(container.querySelector('.es-privcover--card')).not.toBeNull();
+    expect(container.querySelector('.es-privcover__img')).toBeNull();
+  });
+
+  it('a blurred-preview event keeps its blur', () => {
+    const { container } = render(<EventGridCard event={privateListing({ lockedPreview: 'blur' })} />);
+    expect(container.querySelector('.es-privcover--card')).toBeNull();
+    expect(container.querySelector('.es-privcover__img').getAttribute('src')).toMatch(/locked-cover$/);
+  });
+});
