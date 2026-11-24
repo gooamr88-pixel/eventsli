@@ -86,6 +86,9 @@ const DISPLAY_ONLY_KEYS = new Set(['overview', 'details', 'content', 'share', 's
  */
 export function organizerNavGroups({
   eventId, listingType = null, admissionType = null, eventTitle = null, partners = null,
+  // { show, awaiting }: the event takes offline payments, and how many wait
+  // for the organizer to approve (2026-11-24).
+  offline = null,
 }) {
   const displayOnly = listingType === 'display_only';
   const generalAdmission = admissionType === 'general';
@@ -214,7 +217,13 @@ export function organizerNavGroups({
       id: 'sell',
       label: 'Sell',
       items: [
-        item('orders', 'Orders', 'receipt', '/orders', ['/offline', '/commission']),
+        item('orders', 'Orders', 'receipt', '/orders', offline?.show ? ['/commission'] : ['/offline', '/commission']),
+        // OFFLINE PAYMENTS, ITS OWN ROW (owner, 2026-11-24: "where is the
+        // offline payments section where the organizer approves?"). It was a
+        // tab inside Orders, and an organizer with payments waiting could not
+        // find it. Shown for an event that takes offline payments (or has
+        // some), with the number waiting for approval beside it.
+        ...(offline?.show ? [{ ...item('offline', 'Offline payments', 'cash', '/offline'), badge: offline.awaiting > 0 ? offline.awaiting : null }] : []),
         item('share', 'Share & QR', 'qr', '/share'),
         item('promos', 'Discounts', 'tag', '/promos'),
         // Whose guest each buyer is, and their hosts (2026-11-23).

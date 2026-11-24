@@ -227,10 +227,23 @@ async function list(req, res, next) {
 
     // Which events said yes to sponsors / vendors: the sidebar shows those
     // screens only for them (services/partnerSwitches.js).
-    const partners = await partnerSwitches.partnersOn((data || []).map((e) => e.id));
+    const ids = (data || []).map((e) => e.id);
+    const partners = await partnerSwitches.partnersOn(ids);
+    // Offline payments waiting for the organizer to approve, per event: the
+    // sidebar's "Offline payments" row shows the number (owner, 2026-11-24:
+    // "where is the offline payments section where the organizer approves?").
+    const awaiting = new Map();
+    if (ids.length) {
+      const { data: rows, error: awaitingError } = await supabase
+        .from('offline_payments').select('event_id').eq('status', 'awaiting').in('event_id', ids);
+      if (awaitingError) throw new Error(awaitingError.message);
+      for (const r of rows || []) awaiting.set(r.event_id, (awaiting.get(r.event_id) || 0) + 1);
+    }
     return sendOk(
       res,
-      (data || []).map((e) => ({ ...shape(e, { currentTermsId }), partners: partners.get(e.id) })),
+      (data || []).map((e) => ({
+        ...shape(e, { currentTermsId }), partners: partners.get(e.id), offlineAwaiting: awaiting.get(e.id) || 0,
+      })),
       { pagination: buildMeta(p, count) },
     );
   } catch (err) {

@@ -14,6 +14,7 @@ import NavIcon from '../../../../components/shell/NavIcon';
 import { Loading, ErrorNotice, Notice } from '../../../../components/Feedback';
 import { useEventContext } from '../EventContext';
 import OrderUndo from './OrderUndo';
+import { useOrganizerEvents } from '../../../nav/OrganizerEvents';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -54,7 +55,9 @@ export default function OfflinePayments({ eventId }) {
   const event = useEventContext()?.event;
   const list = useApi(`/events/${eventId}/offline-payments`);
   const audit = useApi(`/events/${eventId}/payment-audit`);
-  const reload = () => { list.reload(); audit.reload(); };
+  // The sidebar's count of payments awaiting approval moves with them.
+  const sidebar = useOrganizerEvents();
+  const reload = () => { list.reload(); audit.reload(); sidebar.reload?.(); };
 
   if (list.error) return <ErrorNotice error={list.error} onRetry={list.reload} />;
   if (!list.data) return <Loading variant="list" rows={4} label="Loading offline payments" />;

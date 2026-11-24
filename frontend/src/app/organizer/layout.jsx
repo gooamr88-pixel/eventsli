@@ -131,6 +131,11 @@ export default function OrganizerLayout({ children }) {
             eventId, listingType, admissionType, eventTitle: current?.title || null,
             // Sponsors / Vendors appear only for an event that turned them on.
             partners: current?.partners || null,
+            // Offline payments: its own row, with the number awaiting approval.
+            offline: current ? {
+              show: Boolean(current.payments?.acceptsManual) || current.offlineAwaiting > 0,
+              awaiting: current.offlineAwaiting || 0,
+            } : null,
           })}
           // Only an event in the URL changes the bar; a remembered one does not.
           // Its status picks between the setup bar and the selling one.
