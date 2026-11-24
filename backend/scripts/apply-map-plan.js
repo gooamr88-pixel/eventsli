@@ -33,6 +33,10 @@ require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 const args = process.argv.slice(2);
 const file = args.find((a, i) => !a.startsWith('--') && args[i - 1] !== '--password');
 const commit = args.includes('--commit');
+// --tier-colours: paint each table by its TICKET TYPE (VIP crimson, Gold gold,
+// Silver silver, Bronze bronze — the map's named defaults) instead of the
+// plan's colour groups, so a table never shows one colour and sells another.
+const tierColours = args.includes('--tier-colours');
 const pwAt = args.indexOf('--password');
 const password = pwAt >= 0 ? args[pwAt + 1] : null;
 if (!file) {
@@ -89,8 +93,8 @@ async function main() {
     const sold = (cur?.seats || []).filter((s) => s.status === 'sold' || s.status === 'held').length;
     rows.push({ label, group: p.group, kept: Boolean(cur), tier: tier?.name || (cur?.priceCents ? 'table price' : '—'), isPrivate, sold, seats: p.seats, was: cur?.seatCount });
     styles[norm(label)] = {
-      fill: group.fill,
-      labelColor: group.labelColor,
+      // Without a fill of its own, a table takes its ticket type's colour.
+      ...(tierColours ? {} : { fill: group.fill, labelColor: group.labelColor }),
       ...(group.scale ? { scale: group.scale } : {}),
       ...(p.shape === 'rect' && group.sides ? { sides: group.sides } : {}),
     };
@@ -134,7 +138,7 @@ async function main() {
   for (const r of rows) (byGroup[r.group] ||= []).push(r);
   for (const [g, list] of Object.entries(byGroup)) {
     const tierNames = [...new Set(list.map((r) => r.tier))].join(' / ');
-    console.log(`  ${g.padEnd(5)} ${plan.groups[g].fill}  tables ${list.map((r) => r.label).join(', ')}  → ${tierNames}`);
+    console.log(`  ${g.padEnd(5)} ${tierColours ? 'colour of its ticket type' : plan.groups[g].fill}  tables ${list.map((r) => r.label).join(', ')}  → ${tierNames}`);
   }
   console.log('');
   const kept = rows.filter((r) => r.kept);
