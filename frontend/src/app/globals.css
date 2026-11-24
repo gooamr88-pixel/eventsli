@@ -21177,3 +21177,56 @@ button.es-vb-doc__tile:focus-visible { outline: 3px solid var(--es-accent); outl
 .es-smsc__opt::before { content: "· "; }
 .es-smsc__lede { font-size: var(--es-text-sm); color: var(--es-text-muted); }
 }
+
+/* ── An offline payment awaiting the organizer (OfflinePayments AwaitingRow,
+   redesigned 2026-11-24: "the design is very weak"). Who and how much,
+   large; four facts in a strip; the actions on their own row. ────────── */
+@layer components {
+.es-opay {
+  display: grid; gap: 1rem; min-width: 0;
+  padding: clamp(1rem, 2.2vw, 1.35rem); border: 1px solid var(--es-border); border-radius: 18px;
+  background: var(--es-surface); box-shadow: var(--es-shadow-sm);
+}
+.es-opay[data-ready] { border-color: color-mix(in srgb, var(--es-success) 45%, var(--es-border)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--es-success) 10%, transparent), var(--es-shadow-sm); }
+
+.es-opay__top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem 1.5rem; }
+.es-opay__who { display: flex; align-items: center; gap: 0.8rem; min-width: 0; }
+.es-opay__avatar {
+  display: grid; place-items: center; flex: none; width: 2.75rem; height: 2.75rem; border-radius: 50%;
+  background: var(--es-accent-wash); color: var(--es-accent); font-weight: 800; font-size: 0.95rem; letter-spacing: 0.02em;
+}
+.es-opay__name { margin: 0; font-weight: 700; font-size: var(--es-text-md); color: var(--es-text); overflow-wrap: anywhere; }
+.es-opay__contact { margin: 0.1rem 0 0; font-size: var(--es-text-sm); color: var(--es-text-muted); overflow-wrap: anywhere; }
+.es-opay__amount { display: grid; justify-items: end; gap: 0.15rem; text-align: end; }
+.es-opay__amount b { font-family: var(--es-font-display); font-size: clamp(1.35rem, 1.1rem + 0.9vw, 1.75rem); font-weight: 900; color: var(--es-text); line-height: 1.1; }
+.es-opay__amount > span:last-child { font-size: var(--es-text-sm); font-weight: 600; color: var(--es-text-muted); }
+.es-opay__ready {
+  display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.2rem 0.6rem; border-radius: var(--es-radius-full);
+  background: color-mix(in srgb, var(--es-success) 12%, var(--es-surface)); color: var(--es-success); font-size: var(--es-text-xs); font-weight: 700;
+}
+
+.es-opay__facts {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(min(12rem, 100%), 1fr)); gap: 0.5rem; margin: 0;
+}
+.es-opay__facts > div { display: grid; gap: 0.3rem; align-content: start; padding: 0.7rem 0.85rem; border-radius: 12px; background: var(--es-bg-sunken); min-width: 0; }
+.es-opay__facts dt { font-size: var(--es-text-xs); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--es-text-subtle); }
+.es-opay__facts dd { margin: 0; font-size: var(--es-text-sm); font-weight: 600; color: var(--es-text); overflow-wrap: anywhere; }
+.es-opay__ref { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: var(--es-text-md); letter-spacing: 0.08em; }
+.es-opay__due { display: inline-block; margin-inline-start: 0.35rem; padding: 0.05rem 0.45rem; border-radius: var(--es-radius-full); background: var(--es-surface); font-size: var(--es-text-xs); font-weight: 700; color: var(--es-text-muted); }
+.es-opay__due--soon { color: var(--es-warning); }
+.es-opay__due--late { color: var(--es-danger); }
+.es-opay__chip { display: inline-flex; align-items: center; gap: 0.3rem; font-weight: 600; color: var(--es-text-muted); }
+.es-opay__chip svg { flex: none; }
+.es-opay__chip--ok { color: var(--es-success); }
+.es-opay__chip--bad { color: var(--es-danger); }
+
+.es-opay__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; padding-top: 0.9rem; border-top: 1px solid var(--es-border); }
+.es-opay__spacer { flex: 1 1 auto; }
+.es-opay__confirm { padding: 1rem; border-radius: 14px; background: var(--es-bg-sunken); border: 1px solid var(--es-border); }
+.es-opay__confirm-title { margin: 0; font-weight: 700; color: var(--es-text); }
+@media (width < 40rem) {
+  .es-opay__amount { justify-items: start; text-align: start; width: 100%; }
+  .es-opay__actions .es-btn { flex: 1 1 auto; justify-content: center; }
+  .es-opay__spacer { display: none; }
+}
+}

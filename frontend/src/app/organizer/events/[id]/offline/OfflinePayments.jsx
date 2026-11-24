@@ -15,6 +15,7 @@ import { Loading, ErrorNotice, Notice } from '../../../../components/Feedback';
 import { useEventContext } from '../EventContext';
 import OrderUndo from './OrderUndo';
 import { useOrganizerEvents } from '../../../nav/OrganizerEvents';
+import { useNowMinute } from '../../../../hooks/useNowMinute';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -211,45 +212,79 @@ function AwaitingRow({ eventId, payment, tz, onDone }) {
     }
   }
 
+  /* REDESIGNED (owner, 2026-11-24: "the design is very weak"). Who and how
+     much first, large; then the three facts an organizer checks — the
+     reference, the deadline, what the buyer did — and the receipt; the
+     actions on their own row. "Ready to confirm" once the buyer says sent
+     and the receipt is in. */
+  const name = payment.buyer.name || payment.buyer.email || 'A buyer';
+  const initials = String(name).split(/[\s@.]+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('') || '?';
+  const ready = Boolean(payment.buyerSentAt && payment.proof);
+  const missingReceipt = !payment.proof && payment.proofRequired;
   return (
-    <li className="rounded-(--es-radius-md) border border-border-base p-3">
-      <div className="fx-row fx-row--between gap-2">
-        <div className="fx-min0">
-          <p className="text-ink">
-            <b className="es-nums">{formatMoney(payment.amountCents, payment.currency)}</b> from {payment.buyer.name || payment.buyer.email || 'a buyer'}
-          </p>
-          <p className="text-xs text-subtle">
-            Reference <b className="es-nums text-ink">{payment.reference}</b> · {payment.method}
-            {payment.buyer.email ? ` · ${payment.buyer.email}` : ''}{payment.buyer.phone ? ` · ${payment.buyer.phone}` : ''}
-          </p>
-          <p className="text-xs text-muted"><NavIcon name="clock" size={12} /> Pay by {formatEventTime(payment.dueAt, tz)}</p>
-          {/* The buyer pressed "I've sent the payment" (2026-11-24): check for it. */}
-          {payment.buyerSentAt && (
-            <p className="mt-1"><span className="es-pill es-pill--success">Buyer says sent · {formatEventTime(payment.buyerSentAt, tz)}</span></p>
-          )}
-          {/* Proof of payment (2026-11-24): the buyer's transfer receipt. */}
-          {payment.proof ? (
-            <p className="mt-1 text-xs">
-              <NavIcon name="receipt" size={12} />{' '}
-              {payment.proof.url
-                ? <a href={payment.proof.url} target="_blank" rel="noreferrer" className="font-medium text-accent">View the receipt<span className="sr-only"> (opens in a new tab)</span></a>
-                : <span className="text-ink">Receipt received</span>}
-              <span className="text-muted"> · sent {formatEventTime(payment.proof.uploadedAt, tz)}</span>
+    <li className="es-opay" data-ready={ready ? 'true' : undefined}>
+      <div className="es-opay__top">
+        <div className="es-opay__who">
+          <span className="es-opay__avatar" aria-hidden="true">{initials}</span>
+          <div className="fx-min0">
+            <p className="es-opay__name">{name}</p>
+            <p className="es-opay__contact">
+              {[payment.buyer.email, payment.buyer.phone].filter(Boolean).join(' · ') || 'No contact details'}
             </p>
-          ) : (
-            <p className={`mt-1 text-xs ${payment.proofRequired ? 'text-danger' : 'text-subtle'}`}>
-              {payment.proofRequired ? 'Receipt required for this method — not uploaded yet.' : 'No receipt uploaded yet.'}
-            </p>
-          )}
+          </div>
         </div>
-        <div className="fx-row gap-1">
-          <button type="button" className="es-btn es-btn--primary es-btn--sm" onClick={() => setOpen((o) => !o)}>Mark as paid</button>
-          <button type="button" className="es-btn es-btn--ghost es-btn--sm" onClick={cancel}>Cancel</button>
+        <div className="es-opay__amount">
+          {ready && <span className="es-opay__ready"><NavIcon name="check" size={14} /> Ready to confirm</span>}
+          <b className="es-nums">{formatMoney(payment.amountCents, payment.currency)}</b>
+          <span>via {payment.method || 'offline payment'}</span>
         </div>
       </div>
 
+      <dl className="es-opay__facts">
+        <div>
+          <dt>Reference</dt>
+          <dd className="es-opay__ref es-nums">{payment.reference}</dd>
+        </div>
+        <div>
+          <dt>Pay by</dt>
+          <dd>{formatEventTime(payment.dueAt, tz)} <DueIn dueAt={payment.dueAt} /></dd>
+        </div>
+        <div>
+          <dt>Buyer</dt>
+          {/* The buyer pressed "I've sent the payment" (2026-11-24): check for it. */}
+          <dd>
+            {payment.buyerSentAt
+              ? <span className="es-opay__chip es-opay__chip--ok"><NavIcon name="check" size={13} /> Says sent · {formatEventTime(payment.buyerSentAt, tz)}</span>
+              : <span className="es-opay__chip">Not marked as sent yet</span>}
+          </dd>
+        </div>
+        <div>
+          <dt>Receipt</dt>
+          {/* Proof of payment (2026-11-24): the buyer's transfer receipt. */}
+          <dd>
+            {payment.proof
+              ? <span className="es-opay__chip es-opay__chip--ok"><NavIcon name="receipt" size={13} /> Received · {formatEventTime(payment.proof.uploadedAt, tz)}</span>
+              : <span className={`es-opay__chip${missingReceipt ? ' es-opay__chip--bad' : ''}`}>{missingReceipt ? 'Required — not uploaded yet' : 'None uploaded'}</span>}
+          </dd>
+        </div>
+      </dl>
+
+      <div className="es-opay__actions">
+        {payment.proof?.url && (
+          <a href={payment.proof.url} target="_blank" rel="noreferrer" className="es-btn es-btn--secondary es-btn--sm">
+            <NavIcon name="external" size={16} /> View the receipt<span className="sr-only"> (opens in a new tab)</span>
+          </a>
+        )}
+        <span className="es-opay__spacer" />
+        <button type="button" className="es-btn es-btn--ghost es-btn--sm" onClick={cancel}>Cancel reservation</button>
+        <button type="button" className="es-btn es-btn--primary es-btn--sm" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+          <NavIcon name="check" size={16} /> Mark as paid
+        </button>
+      </div>
+
       {open && (
-        <form onSubmit={markPaid} className="fx-stack fx-stack--sm mt-3 border-t border-border-base pt-3">
+        <form onSubmit={markPaid} className="es-opay__confirm fx-stack fx-stack--sm">
+          <p className="es-opay__confirm-title">Confirm the payment you received</p>
           <div className="fx-grid fx-grid--2">
             <label className="fx-stack fx-stack--sm gap-1.5 text-sm text-ink">
               Amount received ({payment.currency})
@@ -275,4 +310,15 @@ function AwaitingRow({ eventId, payment, tz, onDone }) {
       )}
     </li>
   );
+}
+
+/** "in 2 days", "in 5 h", "overdue" — beside the deadline, to the minute. */
+function DueIn({ dueAt }) {
+  const now = useNowMinute();
+  if (now == null || !dueAt) return null;
+  const mins = Math.floor((new Date(dueAt).getTime() - now) / 60_000);
+  if (mins <= 0) return <span className="es-opay__due es-opay__due--late">overdue</span>;
+  const label = mins >= 1440 ? `in ${Math.floor(mins / 1440)} day${mins >= 2880 ? 's' : ''}`
+    : mins >= 60 ? `in ${Math.floor(mins / 60)} h` : `in ${mins} min`;
+  return <span className={`es-opay__due${mins < 360 ? ' es-opay__due--soon' : ''}`}>{label}</span>;
 }
