@@ -71,13 +71,18 @@ async function list(query) {
 const privacyFilter = () => calls.find((c) => c.table === 'events'
   && ((c.m === 'eq' && c.args[0] === 'is_private') || (c.m === 'or' && String(c.args[0]).includes('is_private'))));
 
-test('the homepage and /events ask for blurred private events, and get them', async () => {
-  rows = [open, secret];
+test('the homepage and /events ask for every private event — blurred or password box — and get them', async () => {
+  // 2026-11-24 (owner): "also with the password only, make it appear".
+  const boxed = { ...secret, id: 'priv-2', slug: 'adel-ogla-houston', locked_preview: 'card', locked_reveal: ['cover', 'date'] };
+  rows = [open, secret, boxed];
   const body = await list({ withPrivate: 'true', limit: '24' });
-  const f = privacyFilter();
-  assert.equal(f.m, 'or');
-  assert.equal(f.args[0], 'is_private.eq.false,and(is_private.eq.true,locked_preview.eq.blur)');
-  assert.deepEqual(body.data.map((e) => e.slug), ['jazz-night', 'sara-and-omar']);
+  assert.equal(privacyFilter(), undefined, 'no privacy filter: public and private alike');
+  assert.deepEqual(body.data.map((e) => e.slug), ['jazz-night', 'sara-and-omar', 'adel-ogla-houston']);
+  const card = body.data[2];
+  assert.equal(card.isPrivate, true);
+  assert.equal(card.city, null, 'still only the locked card');
+  assert.equal(card.venue, null);
+  assert.equal(card.coverUrl, 'https://cdn/wedding.jpg', 'its cover was chosen to show');
 });
 
 test('a listed private event shows its name, organizer and date — nothing else', async () => {
@@ -131,5 +136,5 @@ test('a filter that could match a hidden detail keeps private events out', async
 test('a date range is fine — the date is shown anyway', async () => {
   rows = [];
   await list({ withPrivate: 'true', from: '2026-12-01', to: '2026-12-31' });
-  assert.equal(privacyFilter().m, 'or');
+  assert.equal(privacyFilter(), undefined, 'private events stay in under a date range');
 });

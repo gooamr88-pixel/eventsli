@@ -81,9 +81,12 @@ async function listEvents(req, res, next, { phraseSearch = false } = {}) {
      * PRIVATE EVENTS ON THE LISTINGS, BLURRED (owner, 2026-11-23): "the point
      * of the blurry image is to list it on the main events page, but nobody
      * can see the details — only the organizer name, the date and the event
-     * name". A private event whose organizer chose the blurred page
-     * (`locked_preview = 'blur'`) is listed; one behind the plain password box
-     * ('card') stays off every listing, reached only from the link sent.
+     * name". At first only the blurred page (`locked_preview = 'blur'`) was
+     * listed. EVERY PRIVATE EVENT IS LISTED since 2026-11-24 (owner: "also
+     * with the password only, make it appear"): one behind the plain
+     * password box ('card') shows the same locked card — name, organizer,
+     * date, the cover blurred unless they chose to show it — and nothing
+     * more (`lockedListing`).
      *
      * Only when the caller asks (`?withPrivate=true`: the homepage and
      * /events) and only on a listing no hidden fact could have matched. A
@@ -94,9 +97,8 @@ async function listEvents(req, res, next, { phraseSearch = false } = {}) {
      */
     const withPrivate = req.query.withPrivate === 'true'
       && !PRIVATE_REVEALING_FILTERS.some((key) => req.query[key] !== undefined && req.query[key] !== '');
-    query = withPrivate
-      ? query.or('is_private.eq.false,and(is_private.eq.true,locked_preview.eq.blur)')
-      : query.eq('is_private', false);
+    // Asked for, and safe to: public and private alike. Otherwise public only.
+    if (!withPrivate) query = query.eq('is_private', false);
 
     if (req.query.includePast !== 'true') {
       // Measured on the END, not the start: an event that began an hour ago is

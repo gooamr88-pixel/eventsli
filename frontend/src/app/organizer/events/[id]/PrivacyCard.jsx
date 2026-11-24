@@ -39,11 +39,11 @@ const NO_MANAGER = { autoComplete: 'off', 'data-1p-ignore': 'true', 'data-lpigno
  * Anything not ticked here is never sent to them, not merely blurred.
  */
 const PREVIEWS = [
-  // Blurred events are also LISTED on the homepage and /events, blurred, with
-  // only the name, organizer and date (owner, 2026-11-23). A plain password
-  // box keeps the event off every listing.
-  { key: 'blur', title: 'Blurred preview', text: 'Your event page, blurred, behind the password box. Also listed on Eventsli’s events pages, blurred — only the event name, your name and the date show.' },
-  { key: 'card', title: 'Password box only', text: 'A plain password screen, nothing behind it. Not listed anywhere — only people with the link find it.' },
+  // EVERY private event is LISTED on the homepage and /events as a locked
+  // card — only the name, organizer and date (owner, 2026-11-23 for blurred,
+  // 2026-11-24 for the password box too). This choice is the event PAGE.
+  { key: 'blur', title: 'Blurred preview', text: 'Your event page, blurred, behind the password box.' },
+  { key: 'card', title: 'Password box only', text: 'A plain password screen, nothing behind it.' },
 ];
 const REVEALS = [
   { key: 'title', label: 'Event name' },
@@ -167,7 +167,9 @@ export default function PrivacyCard({ event, onSaved }) {
           <NavIcon name="eye" size={20} />
           <span className="es-qset__text">
             <b id="qset-private">Make this event private</b>
-            <small>Hidden from Eventsli listings, search and your public page. Guests need the password to see details and get tickets.</small>
+            {/* Said exactly (2026-11-24): it used to say "hidden from
+                Eventsli listings", and private events are listed. */}
+            <small>Still listed on Eventsli’s homepage and events page, showing only the name, your name and the date. Guests need the password to see details and get tickets.</small>
           </span>
           <button
             type="button"
