@@ -53,6 +53,9 @@ export default function TablePanel({
   // This table's seats after pending blocks ({ total, open, blocked, booked },
   // useStudioDraft.tableStock) and the switch that blocks or releases them.
   stock = null, onSetUnavailable = null,
+  // An Eventsli library map (2026-11-24): the room only. No prices, privacy
+  // or availability — a colour group instead of the pricing section.
+  library = false,
 }) {
   // "New ticket type…" open under the picker (NewTierInline).
   const [creatingTier, setCreatingTier] = useState(false);
@@ -135,6 +138,16 @@ export default function TablePanel({
         <SeatsPerSide table={table} onChange={set} sold={sold} />
       </InspectorSection>
 
+      {library ? (
+        <InspectorSection id="table-group" title="Colour group" summary={(categories || []).find((c) => c.id === table.categoryId)?.name || 'None'}>
+          <SelectField
+            label="Group" value={table.categoryId || ''}
+            onChange={(v) => set({ categoryId: v || null })}
+            options={[['', 'None'], ...(categories || []).map((c) => [c.id, c.name])]}
+            hint="Zones the room on a printed chart (VIP, Floor…). An event using this map matches it to its own table categories by name."
+          />
+        </InspectorSection>
+      ) : (<>
       <InspectorSection id="table-price" title="Tickets & price" summary={priceSummary}>
         {unpriced && (
           <InspectorNote tone="warning">
@@ -207,6 +220,7 @@ export default function TablePanel({
         )}
         {table.isPrivate && <InviteLink table={table} />}
       </InspectorSection>
+      </>)}
 
       <InspectorSection id="table-look" title="Appearance" summary={appearanceSummary(table)} defaultOpen={false}>
         <TableAppearance table={table} onChange={set} />

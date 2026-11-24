@@ -33,6 +33,7 @@ import SeatingDesigner from './SeatingDesigner';
 import { useAiQuota } from '../../../../hooks/useAiQuota';
 import { useMapDraft, keyOf, MAX_TABLES } from './useMapDraft';
 import { useMapPersistence } from './useMapPersistence';
+import { useTemplatePersistence } from './useTemplatePersistence';
 import { useSelection, soleSelected } from './useSelection';
 import { useCanvasInteraction } from './useCanvasInteraction';
 import { useEditorKeys } from './useEditorKeys';
@@ -81,7 +82,14 @@ import { MAX_BOOTHS, codePrefix, nextBoothNumber } from '../../../../components/
  * offered once, as "Bring them onto this map".
  * ─────────────────────────────────────────────────────────────────────────────
  */
-export default function MapEditor({ eventId }) {
+export default function MapEditor({ eventId = null, templateId = null }) {
+  /**
+   * LIBRARY MODE (2026-11-24): with `templateId` the editor opens an Eventsli
+   * venue map from the library and saves it back there (useTemplatePersistence)
+   * — the room only, so prices, privacy, availability and the "start from"
+   * options that need an event are left out.
+   */
+  const library = Boolean(templateId);
   const draft = useMapDraft();
   const { tables, zones, world, problems } = draft;
 
@@ -116,14 +124,16 @@ export default function MapEditor({ eventId }) {
     if (sameBox(next, frame)) panzoom.fit(); else setFrame(next);
   };
 
-  const io = useMapPersistence({ eventId, draft, studioDraft, selection, onFrame: setFrame });
+  // One of two loaders with the same shape, fixed for the life of the page.
+  const usePersistence = library ? useTemplatePersistence : useMapPersistence;
+  const io = usePersistence({ eventId, templateId, draft, studioDraft, selection, onFrame: setFrame });
   const { tiers, categories, layout, eventTitle, eventInfo } = io;
 
   // Vendor booths (boothZones.js): editable here once the floor plan was read
   // and any separate plan's booths have been brought onto this map.
   const booths = zones.filter((z) => z.kind === BOOTH_KIND);
   const offerImport = !!io.boothImport && booths.length === 0;
-  const vendorsOn = !!io.vendor && !offerImport;
+  const vendorsOn = !library && !!io.vendor && !offerImport;
   const [showBoothRow, setShowBoothRow] = useState(false);
   const purchaseMode = eventInfo.purchaseMode;
   /**
@@ -155,7 +165,7 @@ export default function MapEditor({ eventId }) {
   const { quota: aiQuota } = useAiQuota();
   // AI is offered (in Add to layout, the Add menu and the empty-map banner)
   // whenever it is set up — and when it cannot run here, its dialog says why.
-  const aiOn = !!(aiQuota?.enabled || aiQuota?.reason === 'ADMIN_ACCOUNT');
+  const aiOn = !library && !!(aiQuota?.enabled || aiQuota?.reason === 'ADMIN_ACCOUNT');
   const [toolsOpen, setToolsOpen] = useState(false);   // phones only — PhoneTools.jsx
   // What the canvas draws (LayersCard.jsx). The map itself is unchanged.
   const [layers, setLayers] = useState({ zones: true, labels: true, booths: true });
@@ -276,6 +286,8 @@ export default function MapEditor({ eventId }) {
   const [showSaveTpl, setShowSaveTpl] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const addFrom = (initial) => {
+    // These replace the map from an event's tools; a library map is redrawn here.
+    if (library && ['template', 'image', 'ai'].includes(initial.family)) return;
     if (initial.family === 'template') { setShowMapTpl(initial.templateId || true); return; }
     if (initial.family === 'image') { setShowImport(true); return; }
     if (initial.family === 'ai') { setShowDesigner(true); return; }
@@ -425,7 +437,8 @@ export default function MapEditor({ eventId }) {
         canSave={!io.saving && dirty && saveProblems.length === 0}
         onSave={io.save}
         onExport={() => setShowPack(true)}
-        onSaveTemplate={() => setShowSaveTpl(true)}
+        onSaveTemplate={library ? null : () => setShowSaveTpl(true)}
+        library={library ? { title: eventTitle, backHref: '/admin/venue-maps' } : null}
       />
 
       <StudioTabs
@@ -441,7 +454,7 @@ export default function MapEditor({ eventId }) {
           template, or AI — seen on a phone too, the 2026-11-03 ask), so no
           banner repeats it up here; once there is seating, this says what
           still stops it selling. */}
-      {workspace === 'layout' && (tables.length > 0 || zones.length > 0) && (
+      {workspace === 'layout' && !library && (tables.length > 0 || zones.length > 0) && (
         <MapBanner tables={tables} purchaseMode={purchaseMode} onSelectUnpriced={selectUnpriced} />
       )}
 
@@ -573,9 +586,10 @@ export default function MapEditor({ eventId }) {
           dirty={dirty} saving={io.saving} canSave={!io.saving && dirty && saveProblems.length === 0} onSave={io.save} onAdd={addFrom}
           wallTool={wallTool}
           onApplyLook={applyLookToTables}
-          onSetPrivateSelected={setPrivateSelected}
-          tableStock={studioDraft.tableStock}
-          onSetUnavailable={studioDraft.setTablesUnavailable}
+          onSetPrivateSelected={library ? null : setPrivateSelected}
+          tableStock={library ? null : studioDraft.tableStock}
+          onSetUnavailable={library ? null : studioDraft.setTablesUnavailable}
+          library={library}
         />
         {preview3d}
         </div>

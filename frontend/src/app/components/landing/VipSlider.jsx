@@ -5,6 +5,7 @@ import Link from 'next/link';
 
 import NavIcon from '../shell/NavIcon';
 import { eventDateParts, priceBlock, ctaLabel } from '../EventCard';
+import PrivateCardCover from '../PrivateCardCover';
 import { isDateOnly, formatDateOnly } from '../../lib/dateOnly';
 
 /**
@@ -181,7 +182,10 @@ function Slide({ event, pos, index, total, eager, onSelect }) {
   const date = when && !event.comingSoon
     ? (isDateOnly(event) ? formatDateOnly(event, { style: 'short' }) : `${when.weekday}, ${when.month} ${Number(when.day)} · ${when.time}`)
     : '';
-  const place = [event.venue, event.city].filter(Boolean).join(', ');
+  // A private VIP event (2026-11-24) shows who hosts it, never where.
+  const place = event.isPrivate
+    ? (event.organizer?.name ? `By ${event.organizer.name}` : '')
+    : [event.venue, event.city].filter(Boolean).join(', ');
 
   return (
     <article
@@ -192,6 +196,9 @@ function Slide({ event, pos, index, total, eager, onSelect }) {
       aria-hidden={current ? undefined : true}
     >
       <div className="es-vip__media">
+        {/* A PRIVATE event chosen for the slider (2026-11-24) is its locked
+            card: blurred, or plain with the cover its organizer let show. */}
+        {event.isPrivate ? <PrivateCardCover event={event} /> : (<>
         {/* The blurred copy behind the poster: on a phone the poster is shown
             whole (`contain`) and this fills the frame around it. Same src, one
             download. */}
@@ -215,6 +222,7 @@ function Slide({ event, pos, index, total, eager, onSelect }) {
         ) : (
           <span className="es-vip__placeholder">{event.title}</span>
         )}
+        </>)}
       </div>
 
       <div className="es-vip__info">
@@ -222,6 +230,12 @@ function Slide({ event, pos, index, total, eager, onSelect }) {
           <span className="es-vip__badge">
             <NavIcon name="crown" size={14} />
             VIP
+          </span>
+        )}
+        {event.isPrivate && (
+          <span className="es-vip__badge es-vip__badge--private">
+            <NavIcon name="lock" size={14} />
+            Private event
           </span>
         )}
         <h3 className="es-vip__title">{event.title}</h3>

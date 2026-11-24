@@ -498,7 +498,9 @@ async function createPlatform({ eventId = null, data = null, venue: v = {}, name
 }
 
 /** A new map for an Eventsli template, from an event or picture data (admin). */
-async function replaceMap(id, { eventId = null, data = null }) {
+// `edited` (2026-11-24): the map was changed in the Venue Builder itself, so
+// where it came from — an event, a picture — stays as it was.
+async function replaceMap(id, { eventId = null, data = null, edited = false }) {
   const t = await getAny(id);
   if (t.scope !== 'platform') throw fail('NOT_FOUND', 'That map does not exist.');
   let clean;
@@ -507,8 +509,7 @@ async function replaceMap(id, { eventId = null, data = null }) {
   const { data: row, error } = await supabase.from(TABLE).update({
     data: clean,
     summary: summarize(clean),
-    source: eventId ? 'event' : 'image',
-    source_event_id: eventId || null,
+    ...(edited && !eventId ? {} : { source: eventId ? 'event' : 'image', source_event_id: eventId || null }),
     updated_at: new Date().toISOString(),
   }).eq('id', id).select(CARD).single();
   check(error, 'replace');

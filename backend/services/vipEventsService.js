@@ -33,10 +33,20 @@ class VipEventsError extends Error {
   }
 }
 
-/** The public card shape, plus the lowest price and whether an admin chose it. */
+/**
+ * The public card shape, plus the lowest price and whether an admin chose it.
+ *
+ * A PRIVATE event an admin put on the slider (owner, 2026-11-24: "add ability
+ * to add private events to VIP") is the same locked card the listings show —
+ * its name, organizer and date, the cover as its organizer chose — and no
+ * price: what it costs is behind its password.
+ */
 async function withPrices(rows, vip) {
-  const prices = await discovery.lowestTierPrices(rows);
-  return rows.map((e) => ({ ...discovery.shape(e), fromPriceCents: prices.get(e.id) ?? null, vip }));
+  const open = rows.filter((e) => e.is_private !== true);
+  const prices = await discovery.lowestTierPrices(open);
+  return rows.map((e) => (e.is_private === true
+    ? { ...discovery.lockedListing(e), vip }
+    : { ...discovery.shape(e), fromPriceCents: prices.get(e.id) ?? null, vip }));
 }
 
 /** GET /public/vip-events */
@@ -46,7 +56,7 @@ async function listPublic({ now = new Date() } = {}) {
     .from('events')
     .select(discovery.SELECT)
     .eq('status', 'published')
-    .eq('is_private', false)
+    // Private ones too, when an admin chose them (2026-11-24): drawn locked.
     .gte('ends_at', at)
     .not('vip_rank', 'is', null)
     .order('vip_rank', { ascending: true })
@@ -92,11 +102,11 @@ function adminRow(e, now = new Date()) {
     city: e.city,
     coverUrl: e.cover_url,
     vipRank: e.vip_rank,
+    // Shown on the slider as a locked card (2026-11-24), so the console says so.
+    isPrivate: e.is_private === true,
     // Why a ranked event is not on the homepage right now, in words the
     // console shows beside it. Null when it is live on the slider.
-    hidden: e.status !== 'published' ? 'Not published' : over ? 'Event has ended'
-      // Behind a password (2026-11-22): never on a public listing.
-      : e.is_private === true ? 'Private event' : null,
+    hidden: e.status !== 'published' ? 'Not published' : over ? 'Event has ended' : null,
   };
 }
 

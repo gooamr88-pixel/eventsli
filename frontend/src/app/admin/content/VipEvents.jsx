@@ -107,6 +107,7 @@ export default function VipEvents({ canEdit }) {
                   <p className="fx-truncate font-medium text-ink">{event.title}</p>
                   <p className="fx-truncate text-sm text-muted">{describe(event)}</p>
                 </div>
+                {event.isPrivate && <span className="es-pill">Private · shown locked</span>}
                 {event.hidden && <span className="es-pill">{event.hidden} — not shown</span>}
                 {canEdit && (
                   <div className="fx-row items-center gap-1">
@@ -137,7 +138,12 @@ export default function VipEvents({ canEdit }) {
   );
 }
 
-/** Search the public listing — so only events a buyer can open are offered. */
+/**
+ * Search the published events that are not over — PRIVATE ONES INCLUDED
+ * (owner, 2026-11-24). It searched the public listing, which never returns a
+ * private event for a search, so one could not be chosen. The admin list has
+ * every event; the slider shows a private one as its locked card.
+ */
 function Finder({ chosen, full, onAdd, disabled }) {
   const [q, setQ] = useState('');
   const [state, setState] = useState({ rows: null, failed: false });
@@ -148,7 +154,7 @@ function Finder({ chosen, full, onAdd, disabled }) {
       (async () => {
         try {
           const term = q.trim();
-          const rows = await get(`/public/events?limit=12${term ? `&q=${encodeURIComponent(term)}` : ''}`, { noRedirect: true });
+          const rows = await get(`/admin/events?status=published&when=current&sort=starts_at&order=asc&limit=12${term ? `&q=${encodeURIComponent(term)}` : ''}`, { noRedirect: true });
           if (!cancelled) setState({ rows: Array.isArray(rows) ? rows : [], failed: false });
         } catch {
           if (!cancelled) setState({ rows: [], failed: true });

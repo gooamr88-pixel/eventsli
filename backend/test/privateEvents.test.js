@@ -334,7 +334,9 @@ test('every public listing of events filters out private ones', () => {
     ['controllers/landingController.js', 2],      // homepage cities and "near you"
     ['controllers/assistantController.js', 1],    // the homepage assistant
     ['services/organizerProfileService.js', 1],   // /o/<slug>
-    ['services/vipEventsService.js', 2],          // the VIP slider and its fallback
+    // The automatic fallback only: a private event an ADMIN chose for the
+    // slider is shown as its locked card (2026-11-24, vipEventsService.withPrices).
+    ['services/vipEventsService.js', 1],
     ['services/statsService.js', 1],              // the city count
   ];
   for (const [file, count] of expectations) {

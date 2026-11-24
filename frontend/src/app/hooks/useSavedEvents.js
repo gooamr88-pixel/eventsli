@@ -97,6 +97,16 @@ export function useSavedEvent(slug) {
 }
 
 /**
+ * Keep only these saves (2026-11-24): the saved page drops slugs whose events
+ * are gone — deleted, or never coming back — when the visitor asks it to, so
+ * "Saved events (2)" stops counting events nobody can open.
+ */
+export function keepOnlySaved(slugs) {
+  const keep = new Set(slugs);
+  write(readSaved().filter((s) => keep.has(s)));
+}
+
+/**
  * How many events are saved — for a "Saved (3)" filter chip.
  *
  * A count rather than the list, for the stable-snapshot reason above. A caller

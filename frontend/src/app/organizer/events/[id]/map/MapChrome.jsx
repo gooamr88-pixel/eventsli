@@ -16,7 +16,11 @@ import { MAX_ZONES } from '../../../../components/seating/venueZones';
  * shows the map as SAVED; the "Unsaved changes" chip says when that differs.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-export function MapHeader({ tables, zones, soldTotal, blockedTotal = 0, dirty, saving, canSave, onSave, onExport, onSaveTemplate }) {
+export function MapHeader({
+  tables, zones, soldTotal, blockedTotal = 0, dirty, saving, canSave, onSave, onExport, onSaveTemplate,
+  // Editing an Eventsli library map (2026-11-24): its name, and no buyer preview.
+  library = null,
+}) {
   const event = useEventContext()?.event;
   const live = event?.status === 'published' && event?.slug;
   // General admission has no seat picker: its map is on the event page.
@@ -26,9 +30,9 @@ export function MapHeader({ tables, zones, soldTotal, blockedTotal = 0, dirty, s
     <div className="es-page-head es-page-head--section es-maphead">
       <div className="fx-stack fx-stack--sm fx-min0 gap-1">
         {/* The page's <h1>: the event layout's head is the breadcrumb (see layout.jsx). */}
-        <h1 className="es-section-title">Event map</h1>
+        <h1 className="es-section-title">{library ? library.title : 'Event map'}</h1>
         <p className="es-page-head__lede">
-          {general
+          {library ? 'An Eventsli library map: the room only. Saving updates the library; events that already used it keep their own copy.' : general
             ? 'Draw the room: the stage, bars, entrances and vendor booths. Guests see it on your event page.'
             : 'Seats, tables, the stage, vendor booths — the whole room. See it in 3D and 360°, and preview what buyers get.'}
         </p>
@@ -50,7 +54,11 @@ export function MapHeader({ tables, zones, soldTotal, blockedTotal = 0, dirty, s
         </ul>
       </div>
       <div className="es-page-head__actions">
-        {live ? (
+        {library ? (
+          <a href={library.backHref} className="es-btn es-btn--secondary">
+            <NavIcon name="arrow" size={18} className="rotate-180" />Back to the library
+          </a>
+        ) : live ? (
           <a href={previewHref} target="_blank" rel="noreferrer" className="es-btn es-btn--secondary">
             <NavIcon name="eye" size={18} />Preview<span className="sr-only">{general ? ' the map on the event page' : ' the buyer’s seat picker'} (opens in a new tab)</span>
           </a>

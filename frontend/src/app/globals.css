@@ -5863,6 +5863,10 @@ a.es-sponsor:hover { opacity: 0.7; }
 }
 /* A slow push-in on the current slide — the "living poster" feel. */
 .es-vip__slide[data-pos='0'] .es-vip__media img { transform: scale(1); }
+/* A private VIP event's blurred cover keeps its overscan, or the blur's soft
+   edge shows at the frame (2026-11-24, PrivateCardCover). */
+.es-vip__slide .es-vip__media .es-privcover:not(.es-privcover--card) .es-privcover__img { transform: scale(1.25); }
+.es-vip__badge--private { background: var(--es-coral-700); color: #ffffff; letter-spacing: 0.02em; }
 .es-vip__placeholder {
   display: flex;
   align-items: center;

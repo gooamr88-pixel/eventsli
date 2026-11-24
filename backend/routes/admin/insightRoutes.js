@@ -24,7 +24,7 @@ router.get(
   query('organizerId').optional().isUUID(),
   // `now` — started and not yet ended. A live event matched neither of the
   // other two, so the one an admin most needs to find was in no list.
-  query('when').optional().isIn(['upcoming', 'now', 'past']),
+  query('when').optional().isIn(['upcoming', 'now', 'past', 'current']),
   // The same validator the public listing uses: a real category or a 400.
   query('category').optional().custom(categoryService.assertKnownSlug),
   validate,

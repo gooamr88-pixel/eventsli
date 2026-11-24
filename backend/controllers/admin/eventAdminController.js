@@ -26,7 +26,7 @@ async function list(req, res, next) {
     let query = supabase
       .from('events')
       .select(`id, slug, title, status, country, currency, timezone, starts_at, ends_at,
-               listing_type, category, created_at, updated_at,
+               listing_type, category, created_at, updated_at, cover_url, venue_name, city, is_private,
                organizers ( id, display_name, is_banned ),
                event_categories ( label )`, { count: 'exact' });
 
@@ -38,6 +38,8 @@ async function list(req, res, next) {
     if (req.query.when === 'upcoming') query = query.gt('starts_at', now);
     if (req.query.when === 'now') query = query.lte('starts_at', now).gte('ends_at', now);
     if (req.query.when === 'past') query = query.lt('ends_at', now);
+    // Not over yet — on now or to come (the VIP picker, 2026-11-24).
+    if (req.query.when === 'current') query = query.gte('ends_at', now);
     if (p.q) {
       const safe = safeSearch(p.q);
       if (safe) query = query.ilike('title', `%${safe}%`);
@@ -76,6 +78,10 @@ async function list(req, res, next) {
         updatedAt: e.updated_at,
         organizer: org && { id: org.id, name: org.display_name, isBanned: !!org.is_banned },
         sales: sales[e.id] || { orders: 0, tickets: 0, grossCents: 0 },
+        coverUrl: e.cover_url || null,
+        venue: e.venue_name || null,
+        city: e.city || null,
+        isPrivate: e.is_private === true,
       };
     }), { pagination: buildMeta(p, count) });
   } catch (err) { return next(err); }

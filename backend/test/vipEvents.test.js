@@ -47,6 +47,8 @@ stub('config/supabase.js', {
 stub('controllers/discoveryController.js', {
   SELECT: '*',
   shape: (e) => ({ id: e.id, slug: e.slug, title: e.title }),
+  // The locked card a private event is listed as (discoveryController.lockedListing).
+  lockedListing: (e) => ({ id: e.id, slug: e.slug, title: e.title, isPrivate: true, venue: null, city: null, fromPriceCents: null }),
   // Rows or ids, as the real one takes (rows let it skip coming-soon teasers).
   lowestTierPrices: async (events) => new Map(events.map((e) => [typeof e === 'string' ? e : e.id, 2500])),
 });
@@ -91,13 +93,19 @@ test('the public read returns the ranked, live events in rank order, badged VIP'
     ev(1, { vip_rank: 2 }), ev(2, { vip_rank: 1 }),
     ev(3, { vip_rank: 3, status: 'draft' }),                        // ranked but not published
     ev(4, { vip_rank: 4, ends_at: '2026-11-01T00:00:00Z' }),        // ranked but over
-    ev(6, { vip_rank: 5, is_private: true }),                       // ranked but private (2026-11-22)
+    ev(6, { vip_rank: 5, is_private: true }),                       // ranked and private: shown locked (2026-11-24)
     ev(5),                                                            // not ranked
   ];
   const { events, chosen } = await vip.listPublic({ now: NOW });
   assert.equal(chosen, true);
-  assert.deepEqual(events.map((e) => e.id), [id(2), id(1)]);
-  assert.ok(events.every((e) => e.vip === true && e.fromPriceCents === 2500));
+  assert.deepEqual(events.map((e) => e.id), [id(2), id(1), id(6)]);
+  assert.ok(events.every((e) => e.vip === true));
+  assert.ok(events.slice(0, 2).every((e) => e.fromPriceCents === 2500));
+  // The private one is its locked card: no price, no place.
+  const locked = events[2];
+  assert.equal(locked.isPrivate, true);
+  assert.equal(locked.fromPriceCents, null);
+  assert.equal(locked.venue, null);
 });
 
 test('with nothing ranked, the soonest events with a cover fill in, NOT badged VIP', async () => {
@@ -112,5 +120,7 @@ test('the console is told why a ranked event is not on the homepage', () => {
   assert.equal(vip.adminRow(ev(1), NOW).hidden, null);
   assert.equal(vip.adminRow(ev(1, { status: 'cancelled' }), NOW).hidden, 'Not published');
   assert.equal(vip.adminRow(ev(1, { ends_at: '2026-11-01T00:00:00Z' }), NOW).hidden, 'Event has ended');
-  assert.equal(vip.adminRow(ev(1, { is_private: true }), NOW).hidden, 'Private event');
+  // A private event is on the slider, locked (2026-11-24): not hidden, flagged.
+  assert.equal(vip.adminRow(ev(1, { is_private: true }), NOW).hidden, null);
+  assert.equal(vip.adminRow(ev(1, { is_private: true }), NOW).isPrivate, true);
 });

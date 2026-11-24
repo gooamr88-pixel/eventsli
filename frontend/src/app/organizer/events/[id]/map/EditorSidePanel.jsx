@@ -24,6 +24,8 @@ export default function EditorSidePanel({
   eventId = null, boothInfo = null,
   // Private and Unavailable, for one table or several (2026-11-24).
   onSetPrivateSelected = null, tableStock = null, onSetUnavailable = null,
+  // An Eventsli library map (2026-11-24): the room only — no prices to set.
+  library = false,
 }) {
   const stockOf = (t) => (t.id && tableStock ? tableStock.get(t.id) || null : null);
   if (wallTool?.active) return <WallToolPanel tool={wallTool} />;
@@ -43,8 +45,8 @@ export default function EditorSidePanel({
         purchaseMode={purchaseMode}
         onAssignCategory={onAssignCategory}
         onResize={onResizeSelected}
-        onAssign={onAssignTier}
-        onAssignTablePrice={onAssignTablePrice}
+        onAssign={library ? null : onAssignTier}
+        onAssignTablePrice={library ? null : onAssignTablePrice}
         onTierCreated={onTierCreated}
         onRotate={onRotate}
         onDuplicate={onDuplicate}
@@ -105,6 +107,7 @@ export default function EditorSidePanel({
         onDuplicate={onDuplicate}
         onRemove={(key) => { draft.removeTable(key); selection.clear(); }}
         stock={stockOf(sole.table)}
+        library={library}
         onSetUnavailable={onSetUnavailable && sole.table.id ? (on) => onSetUnavailable([sole.table.id], on) : null}
       />
     );
@@ -112,7 +115,7 @@ export default function EditorSidePanel({
   return (
     <MapPanel
       tableCount={tables.length}
-      unpricedCount={countUnpriced(tables, purchaseMode)}
+      unpricedCount={library ? 0 : countUnpriced(tables, purchaseMode)}
       purchaseMode={purchaseMode}
       onSelectUnpriced={onSelectUnpriced}
       look={draft.look}

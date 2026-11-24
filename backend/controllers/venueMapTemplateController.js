@@ -79,10 +79,12 @@ const adminCreate = wrap(async (req, res) => {
 
 // PUT /admin/venue-maps/:id/map  { eventId | data }
 const adminReplaceMap = wrap(async (req, res) => {
-  const t = await maps.replaceMap(req.params.id, { eventId: req.body.eventId || null, data: req.body.eventId ? null : req.body.data });
+  const t = await maps.replaceMap(req.params.id, {
+    eventId: req.body.eventId || null, data: req.body.eventId ? null : req.body.data, edited: req.body.edited === true,
+  });
   await writeAudit(req, {
     action: 'venue_map.map_replaced', targetType: 'venue_map_template', targetId: t.id,
-    payload: { source: t.source, eventId: req.body.eventId || null },
+    payload: { source: t.source, eventId: req.body.eventId || null, edited: req.body.edited === true },
   });
   return sendOk(res, t);
 });

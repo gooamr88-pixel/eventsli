@@ -51,6 +51,8 @@ export const VERB_GROUPS = [
     'invoice.settled': ['Settled an invoice', 'es-pill--accent'],
     'credit_note.refunded': ['Paid a credit back to an organizer', ''],
     'settings.changed': ['Changed a platform setting', ''],
+    // Never removed by a later clearing (settingsController.clearAudit).
+    'audit.cleared': ['Cleared the audit log', 'es-pill--danger'],
   }],
   ['Storefront', {
     'storefront.content_saved': ['Edited site content', ''],
@@ -163,6 +165,11 @@ function detailLines(action, p) {
         .filter(Boolean).join(' · ')].filter(Boolean);
     case 'invoice.settled':
       return p.alreadySettled ? ['It was already settled'] : [];
+    case 'audit.cleared':
+      return [
+        `${Number(p.deleted || 0).toLocaleString('en')} ${p.deleted === 1 ? 'entry' : 'entries'} removed`,
+        p.scope === 'older' && p.olderThanDays ? `Everything older than ${p.olderThanDays} days` : 'Everything before it',
+      ];
     case 'price.change': {
       // Amounts are minor units in the event's own currency. Entries since
       // 20261121090000 name it; older ones (all CAD or USD) do not, so they

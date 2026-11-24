@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { get } from '../../utils/apiClient';
 import { messageFor } from '../../utils/errors';
-import { useSavedSlugs, useSavedCount } from '../../hooks/useSavedEvents';
+import { useSavedSlugs, useSavedCount, keepOnlySaved } from '../../hooks/useSavedEvents';
 import EventCard from '../../components/EventCard';
 import NavIcon from '../../components/shell/NavIcon';
 import { Loading } from '../../components/Feedback';
@@ -113,7 +113,16 @@ export default function SavedEvents() {
             ? 'Events come off the list when they are no longer listed by their organizer.'
             : 'Tap the heart on any event to keep it here. Saved on this device — no account needed.'}
         </p>
-        <Link href="/events" className="es-btn es-btn--primary es-btn--sm">Browse events</Link>
+        <div className="fx-row flex-wrap justify-center gap-2">
+          <Link href="/events" className="es-btn es-btn--primary es-btn--sm">Browse events</Link>
+          {/* They can never be opened again: clearing them makes the menu's
+              "Saved events (n)" match this page (2026-11-24). */}
+          {savedCount > 0 && (
+            <button type="button" className="es-btn es-btn--secondary es-btn--sm" onClick={() => keepOnlySaved([])}>
+              Clear them from saved
+            </button>
+          )}
+        </div>
       </Shell>
     );
   }
@@ -134,7 +143,10 @@ export default function SavedEvents() {
       {missing > 0 && (
         <p className="text-sm text-subtle" role="status">
           {missing} saved {missing === 1 ? 'event is' : 'events are'} no longer listed and
-          {missing === 1 ? ' is' : ' are'} not shown.
+          {missing === 1 ? ' is' : ' are'} not shown.{' '}
+          <button type="button" className="es-textbtn" onClick={() => keepOnlySaved(events.map((e) => e.slug))}>
+            Clear {missing === 1 ? 'it' : 'them'}
+          </button>
         </p>
       )}
 

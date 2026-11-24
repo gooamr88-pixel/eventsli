@@ -9,6 +9,11 @@ import { Pagination } from '../../components/ui/Filters';
 import DataTable from '../../components/ui/DataTable';
 import { Loading, Empty, ErrorNotice } from '../../components/Feedback';
 import AuditDetail, { VERB_GROUPS, verbOf } from './AuditDetail';
+import ClearAuditDialog from './ClearAuditDialog';
+import { downloadAuditCsv } from './auditCsv';
+import { useAuth } from '../../hooks/useAuth';
+import { useToast } from '../../components/ui/Toast';
+import NavIcon from '../../components/shell/NavIcon';
 
 /**
  * Every administrative act, with its actor, its reason and what it changed.
@@ -17,8 +22,9 @@ import AuditDetail, { VERB_GROUPS, verbOf } from './AuditDetail';
  * why the API writes the reason and the before/after into `admin_audit`, and
  * why this page shows them (AuditDetail) rather than only the verb.
  *
- * Read-only, and there is no delete. A log an administrator can edit is not a
- * log.
+ * Nothing in it can be edited. Since 2026-11-24 a super admin can CLEAR it
+ * (ClearAuditDialog): with a downloaded copy offered first, a reason and
+ * CLEAR typed — and the clearing is itself written here, never removed.
  *
  * The filter lists every verb the backend writes. It used to offer six, with
  * no way to find approvals, rejections, bans, fee or settings changes.
@@ -32,10 +38,44 @@ export default function Audit() {
   if (action) query.set('action', action);
   const { data, error, loading, reload } = useApi(`/admin/audit?${query}`, { raw: true });
   const rows = data?.data || [];
+  const { user } = useAuth();
+  const toast = useToast();
+  const [clearing, setClearing] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
+  async function exportAll() {
+    setExporting(true);
+    try {
+      const n = await downloadAuditCsv();
+      toast.success(`${n.toLocaleString('en')} entries saved as a CSV file.`, { title: 'Audit log downloaded' });
+    } catch {
+      toast.error('The audit log could not be downloaded just now. Try again in a moment.');
+    } finally {
+      setExporting(false);
+    }
+  }
 
   return (
     <div className="fx-stack">
-      <PageHeader eyebrow="Governance" icon="pulse" title="Audit log" lede="Who did what, why, and what it changed. Nothing here can be edited or removed." />
+      <PageHeader
+        eyebrow="Governance" icon="pulse" title="Audit log"
+        lede="Who did what, why, and what it changed. Nothing here can be edited, and every clearing is recorded."
+        actions={(
+          <>
+            <button type="button" className="es-btn es-btn--secondary es-btn--sm" onClick={exportAll} disabled={exporting}>
+              <NavIcon name="download" size={16} />{exporting ? 'Preparing…' : 'Download CSV'}
+            </button>
+            {user?.isSuperAdmin && (
+              <button type="button" className="es-btn es-btn--danger es-btn--sm" onClick={() => setClearing(true)}>
+                <NavIcon name="trash" size={16} />Clear log…
+              </button>
+            )}
+          </>
+        )}
+      />
+      {clearing && (
+        <ClearAuditDialog onClose={() => setClearing(false)} onCleared={() => { setPage(1); reload(); }} />
+      )}
 
       <div className="fx-stack fx-stack--sm gap-1.5 max-w-sm">
         <label htmlFor="audit-action" className="text-sm text-ink">Kind of action</label>

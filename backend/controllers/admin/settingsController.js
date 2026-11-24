@@ -234,6 +234,7 @@ async function auditLog(req, res, next) {
     if (req.query.action) query = query.eq('action', req.query.action);
     // Validated as ISO 8601 by the route.
     if (req.query.since) query = query.gte('created_at', req.query.since);
+    if (req.query.until) query = query.lt('created_at', req.query.until);
 
     const { data, error, count } = await applyPagination(query, p);
     if (error) throw new Error(error.message);
@@ -246,6 +247,41 @@ async function auditLog(req, res, next) {
       payload: r.payload,
       at: r.created_at,
     })), { pagination: buildMeta(p, count) });
+  } catch (err) { return next(err); }
+}
+
+/**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * POST /admin/audit/clear — CLEARING THE AUDIT LOG (owner, 2026-11-24).
+ *
+ * A super admin's, with a reason and the word CLEAR typed (the route checks
+ * both). `scope: 'older'` removes entries older than `days`; `'all'` removes
+ * everything. Two things are never removed, so a clearing cannot erase itself:
+ *
+ *   · earlier `audit.cleared` entries — the history of every clearing;
+ *   · the new one, written right after, naming who cleared what, how many
+ *     entries, up to when, and why.
+ *
+ * The console offers a CSV of what is about to go first; the API does not
+ * keep one.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+async function clearAudit(req, res, next) {
+  try {
+    const scope = req.body.scope === 'older' ? 'older' : 'all';
+    const days = scope === 'older' ? Number(req.body.days) : null;
+    const before = scope === 'older' ? new Date(Date.now() - days * 86_400_000).toISOString() : new Date().toISOString();
+
+    const { error, count } = await supabase.from('admin_audit').delete({ count: 'exact' })
+      .neq('action', 'audit.cleared')
+      .lt('created_at', before);
+    if (error) throw new Error(`audit clear failed: ${error.message}`);
+
+    await writeAudit(req, {
+      action: 'audit.cleared', targetType: 'admin_audit', targetId: null,
+      payload: { deleted: count || 0, scope, olderThanDays: days, before, reason: String(req.body.reason).trim() },
+    });
+    return sendOk(res, { deleted: count || 0, scope, before });
   } catch (err) { return next(err); }
 }
 
@@ -266,4 +302,4 @@ function shapeFees(e) {
   };
 }
 
-module.exports = { updateEventFees, previewFees, getSettings, updateSettings, auditLog };
+module.exports = { updateEventFees, previewFees, getSettings, updateSettings, auditLog, clearAudit };

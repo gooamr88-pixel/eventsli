@@ -65,7 +65,9 @@ const MIGRATIONS = [
   ['20261127090000_organizer_public_profile.sql', tab('organizer_messages')],
   ['20261128090000_organizer_map_looks.sql', col('organizers', 'map_looks')],
   ['20261129090000_event_templates.sql', tab('event_templates')],
-  ['20261130090000_demo_bookings.sql', tab('demo_bookings')],
+  // The SMS columns were added to this file after it first ran (2026-11-24
+  // production 500 on Admin › Demo bookings): check the last thing it adds.
+  ['20261130090000_demo_bookings.sql', col('demo_bookings', 'sms_e164')],
   // Names on tickets: the checkout quote reads reservation_holders.
   ['20261201090000_ticket_holders.sql', tab('reservation_holders')],
   // Sponsorships (2026-11-20): every Sponsors screen and the sponsor portal read these.
@@ -86,7 +88,9 @@ const MIGRATIONS = [
   ['20261210090000_guest_of_hosts.sql', tab('event_hosts')],
   ['20261211090000_organizer_sale_emails.sql', col('organizers', 'sale_email_mode')],
   ['20261213090000_attendee_app.sql', tab('user_notifications')],
+  ['20261212090000_event_map_for_every_event.sql', body('save_venue_map', 'this event is general admission, so its map has no seats or tables')],
   ['20261214090000_venue_map_templates.sql', tab('venue_map_templates')],
+  ['20261215090000_event_change_requests.sql', tab('event_change_requests')],
 ];
 
 const EXTRA = [

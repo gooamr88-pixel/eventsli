@@ -188,7 +188,10 @@ export default function AdminVenueMaps() {
                     <button type="button" className="es-btn es-btn--ghost es-btn--sm" onClick={() => openPreview(t)}>Preview</button>
                     {canEdit && t.scope === 'platform' && (
                       <>
-                        <button type="button" className="es-btn es-btn--secondary es-btn--sm" onClick={() => setEditing(t)}>Edit</button>
+                        {/* The map itself, in the Venue Builder (2026-11-24). "Edit"
+                            beside it is the name, venue and kind. */}
+                        <Link href={`/admin/venue-maps/${t.id}/map`} className="es-btn es-btn--primary es-btn--sm">Edit map</Link>
+                        <button type="button" className="es-btn es-btn--secondary es-btn--sm" onClick={() => setEditing(t)}>Edit details</button>
                         {t.status !== 'published'
                           ? <button type="button" className="es-btn es-btn--primary es-btn--sm" onClick={() => setState(t, 'published')}>Publish</button>
                           : <button type="button" className="es-btn es-btn--ghost es-btn--sm" onClick={() => setState(t, 'hidden')}>Hide</button>}

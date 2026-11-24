@@ -291,4 +291,18 @@ router.patch(
 // `?since=` (an ISO date-time) counts a recent window — see listRules.js.
 router.get('/audit', ...auditListRules, validate, settings.auditLog);
 
+// Clearing the log (2026-11-24): a super admin, a reason, and CLEAR typed.
+// Earlier clearings are never removed, and this one is recorded.
+router.post(
+  '/audit/clear',
+  requireRole('super_admin'),
+  body('scope').isIn(['all', 'older']).withMessage('Choose what to clear.'),
+  body('days').if(body('scope').equals('older')).isInt({ min: 7, max: 3650 }).withMessage('Choose how old the entries must be.'),
+  body('confirm').equals('CLEAR').withMessage('Type CLEAR to confirm.'),
+  body('reason').isString().trim().isLength({ min: 10, max: 500 })
+    .withMessage('Record why the log is being cleared (at least 10 characters).'),
+  validate,
+  settings.clearAudit,
+);
+
 module.exports = router;

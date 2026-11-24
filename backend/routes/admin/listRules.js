@@ -14,6 +14,8 @@ const { query } = require('express-validator');
 // "approved / rejected in the last 30 days" figures read `pagination.total`.
 const auditListRules = [
   query('since').optional().isISO8601().withMessage('since must be an ISO 8601 date.'),
+  // Entries BEFORE this instant — what "Clear log" would remove (2026-11-24).
+  query('until').optional().isISO8601().withMessage('until must be an ISO 8601 date.'),
 ];
 
 // GET /admin/invoices — the filters over the commission invoice list.
