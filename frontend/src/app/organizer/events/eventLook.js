@@ -40,7 +40,13 @@ export function eventLook(event, now) {
   return LOOKS[event.status] || [event.status, 'muted', 'info'];
 }
 
-/** "Nov 15, 2026", or "Nov 1 – Nov 3, 2026" across days, in the event's zone. */
+/**
+ * "Nov 15, 2026", or "Nov 1 – Nov 3, 2026" across days, in the event's zone.
+ *
+ * ONE NIGHT IS ONE DATE (owner, 2026-11-24): a gala from 8:30 PM to 1:00 AM
+ * read "Dec 11 – 12", as if it ran two days. An event that ends before 6 AM
+ * the morning after it starts, within 18 hours, is shown on its start date.
+ */
 export function dateRange(event) {
   // A teaser still on its month shows the month (lib/comingSoon.js).
   if (event.comingSoon && event.roughMonth) return `Coming soon · ${formatYm(event.roughMonth, { style: 'short' })}`;
@@ -54,6 +60,7 @@ export function dateRange(event) {
     fmt = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   }
   if (Number.isNaN(end.getTime()) || fmt.format(start) === fmt.format(end)) return fmt.format(start);
+  if (endsInTheNight(start, end, event.timezone)) return fmt.format(start);
   return fmt.formatRange ? fmt.formatRange(start, end) : `${fmt.format(start)} – ${fmt.format(end)}`;
 }
 
@@ -83,4 +90,17 @@ export function toCard(event, figures) {
     grossCents: f.grossCents ?? null,
     currency: f.currency || event.currency || null,
   };
+}
+
+/** Ends before 6 AM on the day after it starts, and lasts under 18 hours: one night out. */
+function endsInTheNight(start, end, timezone) {
+  const hours = (end - start) / 3600e3;
+  if (!(hours > 0 && hours < 18)) return false;
+  let hour;
+  try {
+    hour = Number(new Intl.DateTimeFormat('en-US', { timeZone: timezone, hour: 'numeric', hourCycle: 'h23' }).format(end));
+  } catch {
+    hour = end.getHours();
+  }
+  return hour < 6;
 }

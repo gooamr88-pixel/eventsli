@@ -27,11 +27,15 @@ function when(event) {
 export function EventHero({ event }) {
   const editable = !['archived', 'cancelled', 'completed'].includes(event.status);
   return (
+    /* THE POSTER, WHOLE (owner, 2026-11-24). Stretched across the card as a
+       background, a portrait flyer showed only a band of its middle — a bow
+       tie, no face, no title. It now sits framed on the right, uncropped,
+       over a blurred and darkened copy of itself that fills the card. */
     <section className="es-ovhero" aria-labelledby="ov-title" data-cover={event.cover?.url ? '' : undefined}>
       {event.cover?.url && (
         // The organizer's own cover, from our storage.
         // eslint-disable-next-line @next/next/no-img-element
-        <img className="es-ovhero__img" src={event.cover.url} alt="" />
+        <img className="es-ovhero__img" src={event.cover.url} alt="" aria-hidden="true" />
       )}
       <div className="es-ovhero__body">
         <StatusPill status={event.status} />
@@ -40,11 +44,15 @@ export function EventHero({ event }) {
           <span><NavIcon name="calendar" size={18} />{when(event)}</span>
           {event.venue?.name && <span><NavIcon name="pin" size={18} />{event.venue.name}</span>}
         </p>
+        {editable && (
+          <Link href={`/organizer/events/${event.id}/content`} className="es-ovhero__cover">
+            <NavIcon name="image" size={16} />{event.cover?.url ? 'Change cover' : 'Add a cover'}
+          </Link>
+        )}
       </div>
-      {editable && (
-        <Link href={`/organizer/events/${event.id}/content`} className="es-ovhero__cover">
-          <NavIcon name="image" size={16} />{event.cover?.url ? 'Change cover' : 'Add a cover'}
-        </Link>
+      {event.cover?.url && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img className="es-ovhero__poster" src={event.cover.url} alt={`${event.title} — cover`} />
       )}
     </section>
   );
