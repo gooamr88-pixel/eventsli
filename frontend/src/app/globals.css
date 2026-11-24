@@ -14435,7 +14435,10 @@ label.es-chip:has(:focus-visible) { outline: 2px solid var(--es-accent); outline
 }
 .es-seathead__title { margin: 0; font-size: clamp(1.25rem, 1rem + 1.1vw, 1.875rem); font-weight: 800; line-height: 1.15; color: var(--es-text); overflow-wrap: anywhere; }
 .es-seathead__meta { display: flex; flex-wrap: wrap; gap: 0.25rem 1.25rem; margin: 0; font-size: var(--es-text-sm); color: var(--es-text-muted); }
-.es-seathead__meta span { display: inline-flex; align-items: center; gap: 0.375rem; }
+.es-seathead__meta span { display: inline-flex; align-items: center; gap: 0.375rem; max-width: 100%; min-width: 0; }
+/* A long venue name wraps onto its own line instead of being cut off (2026-11-24, "A Golden Tree Banc…"). */
+.es-seathead__meta span > svg { flex: none; }
+.es-seathead__meta span { overflow-wrap: anywhere; }
 .es-seathead__tag {
   align-self: flex-start;
   padding: 0.25rem 0.75rem;
@@ -16890,10 +16893,28 @@ label.es-chip:has(:focus-visible) { outline: 2px solid var(--es-accent); outline
      — three rows of two on a tablet, two rows of three on a desktop — and one
      page fills the row. On a phone the first page is the two-column grid. */
   .es-rail__grid { margin: 0; padding: 0; list-style: none; }
+  /* PHONE, PAGED LIKE THE DESKTOP (owner, 2026-11-24: "show the circles that
+     show and move, as on desktop"). It was the first page only, as a fixed
+     grid, with no way to the rest. Now one page of six — three rows of two —
+     at a time, swiped or moved with the round arrows and the dots under it,
+     exactly as on a desktop. */
   @media (width < 48rem) {
-    .es-lp-rail--paged > .es-rail__page,
-    .es-lp-rail--paged .es-rail__grid { display: contents; }
-    .es-lp-cards.es-lp-rail.es-lp-rail--paged > .es-rail__page:nth-child(n + 2) { display: none; }
+    .es-rail .es-lp-cards.es-lp-rail.es-lp-rail--paged {
+      display: grid;
+      grid-auto-flow: column;
+      grid-template-columns: none;
+      grid-auto-columns: 100%;
+      gap: 0.75rem;
+      overflow-x: auto;
+      overscroll-behavior-x: contain;
+      scroll-snap-type: x mandatory;
+      scrollbar-width: none;
+    }
+    .es-rail .es-lp-rail--paged::-webkit-scrollbar { display: none; }
+    .es-rail .es-lp-rail--paged > .es-rail__page { display: block; min-width: 0; scroll-snap-align: start; }
+    .es-rail__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.625rem; }
+    .es-rail__grid > li { display: block; min-width: 0; }
+    .es-rail__nav { margin-top: 1rem; }
   }
   @media (width >= 48rem) {
     .es-rail .es-lp-cards.es-lp-rail.es-lp-rail--paged { grid-auto-columns: 100%; gap: 1.5rem; }
