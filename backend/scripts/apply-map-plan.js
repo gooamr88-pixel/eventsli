@@ -44,6 +44,24 @@ if (!file) {
   process.exit(1);
 }
 
+/**
+ * The house colours by ticket-type name — the same values as the site's
+ * frontend/src/app/components/venue/venueModel.js NAMED_TIER_COLOURS. With
+ * --tier-colours they are written onto each table as ITS OWN colour, so every
+ * table of a type is exactly one colour even when a table category (whose
+ * colour would otherwise win on the map) says something else.
+ */
+const TIER_HEX = [
+  [/(^|[^a-z])(vvip|royal|presidential)([^a-z]|$)/i, '#1f4ed8'],
+  [/(^|[^a-z])vip([^a-z]|$)/i, '#c8102e'],
+  [/(^|[^a-z])diamond([^a-z]|$)/i, '#2aa7cf'],
+  [/(^|[^a-z])platinum([^a-z]|$)/i, '#6f7f99'],
+  [/(^|[^a-z])gold(en)?([^a-z]|$)/i, '#d4a72c'],
+  [/(^|[^a-z])silver([^a-z]|$)/i, '#a3adb9'],
+  [/(^|[^a-z])bronze([^a-z]|$)/i, '#a8683a'],
+];
+const tierHex = (name) => TIER_HEX.find(([re]) => re.test(String(name || '')))?.[1] || null;
+
 const norm = (label) => String(label || '').trim().toLowerCase().replace(/^table\s+/, '');
 const round3 = (n) => Math.round(n * 1000) / 1000;
 
@@ -57,10 +75,12 @@ async function main() {
   if (error) throw new Error(error.message);
   if (!event) throw new Error(`No event with the slug "${plan.slug}".`);
 
-  const [current, { data: tiers }] = await Promise.all([
+  const [current, { data: tiers }, { data: categories }] = await Promise.all([
     venue.getMapForOrganizer(event.id),
     supabase.from('ticket_tiers').select('id, name, price_cents').eq('event_id', event.id).order('sort_order'),
+    supabase.from('table_categories').select('id, name, color').eq('event_id', event.id),
   ]);
+  const categoryById = new Map((categories || []).map((c) => [c.id, c]));
   const existing = new Map((current?.tables || []).map((t) => [norm(t.label), t]));
   const tierName = new Map((tiers || []).map((t) => [t.id, t.name]));
 
@@ -91,10 +111,14 @@ async function main() {
     if (needsPassword && !password) problems.push(`Table ${label} is private and has no password yet — add --password <word>.`);
     if (!tier && !(cur?.priceCents > 0)) problems.push(`Table ${label} (${p.group}) has no ticket type: none of [${(group.tiers || []).join(', ') || 'nothing'}] matches a ticket type on this event.`);
     const sold = (cur?.seats || []).filter((s) => s.status === 'sold' || s.status === 'held').length;
-    rows.push({ label, group: p.group, kept: Boolean(cur), tier: tier?.name || (cur?.priceCents ? 'table price' : '—'), isPrivate, sold, seats: p.seats, was: cur?.seatCount });
+    const category = cur?.categoryId ? categoryById.get(cur.categoryId) : null;
+    const fill = tierColours ? tierHex(tier?.name) : group.fill;
+    rows.push({ label, group: p.group, kept: Boolean(cur), tier: tier?.name || (cur?.priceCents ? 'table price' : '—'), isPrivate, sold, seats: p.seats, was: cur?.seatCount, category, fill });
+    if (tierColours && !fill) problems.push(`Table ${label}: its ticket type "${tier?.name || '—'}" has no house colour (VIP, Gold, Silver, Bronze…) — run without --tier-colours or rename the type.`);
     styles[norm(label)] = {
-      // Without a fill of its own, a table takes its ticket type's colour.
-      ...(tierColours ? {} : { fill: group.fill, labelColor: group.labelColor }),
+      // With --tier-colours: its ticket type's house colour, as the table's own
+      // (the label colour then follows the fill automatically).
+      ...(tierColours ? (fill ? { fill } : {}) : { fill: group.fill, labelColor: group.labelColor }),
       ...(group.scale ? { scale: group.scale } : {}),
       ...(p.shape === 'rect' && group.sides ? { sides: group.sides } : {}),
     };
@@ -138,7 +162,17 @@ async function main() {
   for (const r of rows) (byGroup[r.group] ||= []).push(r);
   for (const [g, list] of Object.entries(byGroup)) {
     const tierNames = [...new Set(list.map((r) => r.tier))].join(' / ');
-    console.log(`  ${g.padEnd(5)} ${tierColours ? 'colour of its ticket type' : plan.groups[g].fill}  tables ${list.map((r) => r.label).join(', ')}  → ${tierNames}`);
+    const fills = [...new Set(list.map((r) => r.fill || '—'))].join(' / ');
+    console.log(`  ${g.padEnd(5)} ${fills}  tables ${list.map((r) => r.label).join(', ')}  → ${tierNames}`);
+  }
+  // A table category's colour wins over the ticket type's on the map, unless
+  // the table has its own colour — said, so a table that looks different is explained.
+  const inCategory = rows.filter((r) => r.category);
+  if (inCategory.length) {
+    const byCat = {};
+    for (const r of inCategory) (byCat[`${r.category.name} (${r.category.color || 'no colour'})`] ||= []).push(r.label);
+    console.log('\n  table categories:');
+    for (const [name, labels] of Object.entries(byCat)) console.log(`    ${name}: tables ${labels.join(', ')}`);
   }
   console.log('');
   const kept = rows.filter((r) => r.kept);
