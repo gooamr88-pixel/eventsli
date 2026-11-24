@@ -100,20 +100,31 @@ export default function PrivateEventGate({ event }) {
       {blurPage && <BlurredEventPreview coverSrc={event.coverUrl || (blurFailed ? null : blurredSrc)} />}
       <div className="fx-gutter es-pgate-front">
         <article className="es-pgate" aria-labelledby={`${ids}-title`}>
-          <div className="es-pgate__hero">
-            {event.coverUrl ? (
-              // The organizer's own poster, shown because they chose to.
-              // eslint-disable-next-line @next/next/no-img-element
-              <img className="es-pgate__img" src={event.coverUrl} alt="" />
-            ) : blurredSrc && !blurFailed ? (
-              // A 24-pixel copy, stretched and blurred: colours, no detail.
-              // eslint-disable-next-line @next/next/no-img-element
-              <img className="es-pgate__img es-pgate__img--blur" src={blurredSrc} alt="" onError={() => setBlurFailed(true)} />
-            ) : <GateScene />}
-            <CornerSwoosh corner="tl" />
-            <TicketLock />
-            <HeroWave />
-          </div>
+          {event.coverUrl ? (
+            /* THE ORGANIZER'S POSTER, WHOLE (owner, 2026-11-24: "image not
+               appear correct"). Cropped to 2:1 under a big lock and a wave,
+               a portrait poster lost its top and its title on a phone. It is
+               shown entire now, over a blurred copy of itself that fills the
+               frame, with a small lock in the corner instead. */
+            <div className="es-pgate__hero es-pgate__hero--poster">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img className="es-pgate__backdrop" src={event.coverUrl} alt="" aria-hidden="true" />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img className="es-pgate__poster" src={event.coverUrl} alt="" />
+              <span className="es-pgate__lockchip" aria-hidden="true"><LockGlyph size={18} /></span>
+            </div>
+          ) : (
+            <div className="es-pgate__hero">
+              {blurredSrc && !blurFailed ? (
+                // A 24-pixel copy, stretched and blurred: colours, no detail.
+                // eslint-disable-next-line @next/next/no-img-element
+                <img className="es-pgate__img es-pgate__img--blur" src={blurredSrc} alt="" onError={() => setBlurFailed(true)} />
+              ) : <GateScene />}
+              <CornerSwoosh corner="tl" />
+              <TicketLock />
+              <HeroWave />
+            </div>
+          )}
 
           <div className="es-pgate__body">
             <p className="es-pgate__badge"><LockGlyph size={16} /> Private event</p>

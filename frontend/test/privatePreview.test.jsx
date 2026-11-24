@@ -50,9 +50,12 @@ describe('the locked page', () => {
     expect(screen.getByText('Toronto')).toBeInTheDocument();
   });
 
-  test('a shown cover is the real one, sharp', () => {
+  test('a shown cover is the real one, sharp — and whole (2026-11-24), with a small lock, not the big one', () => {
     const { container } = render(<PrivateEventGate event={teaser({ coverUrl: 'https://cdn.test/c.jpg', blurredCover: false })} />);
-    expect(container.querySelector('.es-pgate__img:not(.es-pgate__img--blur)')).toHaveAttribute('src', 'https://cdn.test/c.jpg');
+    expect(container.querySelector('.es-pgate__poster')).toHaveAttribute('src', 'https://cdn.test/c.jpg');
+    expect(container.querySelector('.es-pgate__hero--poster')).not.toBeNull();
+    expect(container.querySelector('.es-pgate__lockchip')).not.toBeNull();
+    expect(container.querySelector('.es-pgate__ticket')).toBeNull();
   });
 });
 
