@@ -68,6 +68,22 @@ test('T-074: a DIRECT charge on the organizer\'s account — no transfer, Events
   assert.equal(params.line_items[0].price_data.currency, 'cad');
 });
 
+test('one currency, the one shown: Adaptive Pricing is off, and the event\'s poster, date and venue are on the page', async () => {
+  captured.length = 0;
+  await stripeSvc.createCheckoutSession({
+    ...args(),
+    quote: {
+      ...args().quote,
+      event: { ...args().quote.event, cover_url: 'https://cdn.test/poster.jpg', starts_at: '2026-12-12T02:30:00Z', timezone: 'America/Chicago', venue_name: 'A Golden Tree Banquet' },
+    },
+  });
+  const { params } = captured[0];
+  assert.deepEqual(params.adaptive_pricing, { enabled: false });
+  const product = params.line_items[0].price_data.product_data;
+  assert.deepEqual(product.images, ['https://cdn.test/poster.jpg']);
+  assert.equal(product.description, '2 admissions · Fri, Dec 11, 8:30 PM · A Golden Tree Banquet');
+});
+
 test('the expiry and idempotency key are the caller\'s, never the clock\'s', async () => {
   captured.length = 0;
   await stripeSvc.createCheckoutSession(args());

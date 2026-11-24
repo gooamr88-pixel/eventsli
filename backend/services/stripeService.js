@@ -106,6 +106,18 @@ async function organizerCanReceive(organizerId) {
   }
 }
 
+/** "Fri, Dec 11, 8:30 PM" in the event's own zone, or null. */
+function sessionWhen(event) {
+  if (!event?.starts_at) return null;
+  try {
+    return new Intl.DateTimeFormat('en-US', {
+      timeZone: event.timezone || undefined, weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+    }).format(new Date(event.starts_at));
+  } catch {
+    return null;
+  }
+}
+
 /**
  * The checkout session.
  *
@@ -125,6 +137,11 @@ async function createCheckoutSession({
     throw new Error('createCheckoutSession needs expiresAt and idempotencyKey');
   }
   const b = quote.breakdown;
+  // The event on Stripe's page (2026-11-24): its poster, when and where —
+  // the same every time, so the page reads as this event's, not a bare line.
+  const when = sessionWhen(quote.event);
+  const poster = /^https:\/\//.test(String(quote.event.cover_url || '')) && String(quote.event.cover_url).length < 2000
+    ? [quote.event.cover_url] : undefined;
 
   const session = await stripe().checkout.sessions.create({
     mode: 'payment',
@@ -135,8 +152,13 @@ async function createCheckoutSession({
           name: quote.event.title,
           // Add-ons named on Stripe's page too (2026-11-17): the buyer is
           // paying for them, and "3 admissions" alone would not say so.
-          description: `${quote.admits} ${quote.admits === 1 ? 'admission' : 'admissions'}${
-            (quote.addons || []).length ? ` + ${quote.addons.map((a) => `${a.quantity} × ${a.name}`).join(', ')}` : ''}`,
+          description: [
+            `${quote.admits} ${quote.admits === 1 ? 'admission' : 'admissions'}${
+              (quote.addons || []).length ? ` + ${quote.addons.map((a) => `${a.quantity} × ${a.name}`).join(', ')}` : ''}`,
+            when,
+            quote.event.venue_name || null,
+          ].filter(Boolean).join(' · ').slice(0, 500),
+          ...(poster ? { images: poster } : {}),
         },
         unit_amount: b.buyerTotalCents,
       },
@@ -175,6 +197,12 @@ async function createCheckoutSession({
     // default can never silently change who the merchant is. Accepted under
     // the pinned API version 2025-10-29.clover (checked in test mode).
     managed_payments: { enabled: false },
+    // ONE PRICE, THE ONE SHOWN (owner, 2026-11-24: "it opens that and
+    // sometimes another"). Stripe's Adaptive Pricing offered visitors abroad
+    // their own currency — "$94.06" on a CA$129.04 order — so the page looked
+    // different by where the buyer was, and the charge no longer matched the
+    // receipt Eventsli showed. The buyer pays the event's currency, always.
+    adaptive_pricing: { enabled: false },
   }, {
     // On the ORGANIZER's account: this is what makes it a direct charge.
     stripeAccount: accountId,
@@ -383,6 +411,12 @@ async function createSponsorshipSession({
     // An hour to pay. A new "Pay" expires this one first (sponsorPortal).
     expires_at: Math.floor(Date.now() / 1000) + 60 * 60,
     managed_payments: { enabled: false },
+    // ONE PRICE, THE ONE SHOWN (owner, 2026-11-24: "it opens that and
+    // sometimes another"). Stripe's Adaptive Pricing offered visitors abroad
+    // their own currency — "$94.06" on a CA$129.04 order — so the page looked
+    // different by where the buyer was, and the charge no longer matched the
+    // receipt Eventsli showed. The buyer pays the event's currency, always.
+    adaptive_pricing: { enabled: false },
   }, { stripeAccount: accountId, idempotencyKey });
 }
 
@@ -429,6 +463,12 @@ async function createVendorSession({
     cancel_url: cancelUrl || `${origin}/account/vendors/${app.id}`,
     expires_at: Math.floor(Date.now() / 1000) + 60 * 60,
     managed_payments: { enabled: false },
+    // ONE PRICE, THE ONE SHOWN (owner, 2026-11-24: "it opens that and
+    // sometimes another"). Stripe's Adaptive Pricing offered visitors abroad
+    // their own currency — "$94.06" on a CA$129.04 order — so the page looked
+    // different by where the buyer was, and the charge no longer matched the
+    // receipt Eventsli showed. The buyer pays the event's currency, always.
+    adaptive_pricing: { enabled: false },
   }, { stripeAccount: accountId, idempotencyKey });
 }
 
