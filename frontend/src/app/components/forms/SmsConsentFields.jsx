@@ -1,6 +1,7 @@
 'use client';
 
 import PhoneField from './PhoneField';
+import NavIcon from '../shell/NavIcon';
 import { consentText } from '../../lib/smsConsentText';
 
 /**
@@ -23,6 +24,10 @@ import { consentText } from '../../lib/smsConsentText';
  */
 export default function SmsConsentFields({
   mode, value, onChange, phone = '', onPhone, showPhone = false, organizerName = null, phoneError = null, defaultCountry = null,
+  // The checkout's tidy form (2026-11-24): one heading with one line under
+  // it, and the phone box without a second "Optional" and a second hint.
+  // The consent boxes and their versioned wording are exactly the same.
+  compact = false,
 }) {
   const set = (key) => (e) => onChange({ ...value, [key]: e.target.checked });
   const digits = (v) => String(v || '').replace(/[^0-9]/g, '').length;
@@ -60,16 +65,23 @@ export default function SmsConsentFields({
     ];
 
   return (
-    <fieldset className="fx-stack fx-stack--sm">
-      <legend className="mb-1 text-sm font-medium text-ink">Text messages <span className="font-normal text-subtle">(optional)</span></legend>
+    <fieldset className={`fx-stack fx-stack--sm${compact ? ' es-smsc' : ''}`}>
+      {compact ? (
+        <legend className="es-smsc__legend">
+          <span className="es-smsc__title"><NavIcon name="phone" size={16} /> Text updates <span className="es-smsc__opt">Optional</span></span>
+          <span className="es-smsc__lede">Add your mobile to get your tickets and event updates by text.</span>
+        </legend>
+      ) : (
+        <legend className="mb-1 text-sm font-medium text-ink">Text messages <span className="font-normal text-subtle">(optional)</span></legend>
+      )}
       {showPhone && (
         // The country picker (flag + calling code, 2026-11-19) makes the value
         // international — "+20 100 …" — so the API never has to guess a region.
         <PhoneField
           label="Mobile number"
           name="phone"
-          optional
-          hint={hasPhone ? null : 'Only if you want texts about your tickets — the choices appear when you add a number.'}
+          optional={!compact}
+          hint={hasPhone || compact ? null : 'Only if you want texts about your tickets — the choices appear when you add a number.'}
           error={phoneError}
           value={phone}
           onChange={changePhone}

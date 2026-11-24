@@ -21147,3 +21147,33 @@ button.es-vb-doc__tile:focus-visible { outline: 3px solid var(--es-accent); outl
 .es-catnote p { margin: 0; font-size: var(--es-text-sm); line-height: 1.55; color: var(--es-text); }
 .es-catnote a { color: var(--es-accent); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
 }
+
+/* ── Checkout: "Your details", redesigned (owner, 2026-11-24: "very terrible
+   in design"). A header with an icon tile and one line; the names side by
+   side; the email across the full row; the optional text updates in a block
+   of their own; "Optional" as quiet text rather than a pill. ─────────── */
+@layer components {
+.es-co__details { gap: 1.1rem; }
+.es-co__details-head { display: flex; align-items: center; gap: 0.85rem; }
+.es-co__details-icon {
+  display: grid; place-items: center; flex: none; width: 2.75rem; height: 2.75rem; border-radius: 14px;
+  background: var(--es-accent-wash); color: var(--es-accent);
+}
+.es-co__details-lede { margin: 0.15rem 0 0; font-size: var(--es-text-sm); color: var(--es-text-muted); }
+.es-co__wide { min-width: 0; }
+@media (width >= theme(--breakpoint-md)) { .es-co__wide { grid-column: 1 / -1; } }
+.es-co__details .es-optional {
+  padding: 0; border: 0; background: none; box-shadow: none;
+  font-size: var(--es-text-xs); font-weight: 500; letter-spacing: 0; color: var(--es-text-subtle);
+}
+.es-co__details .es-optional::before { content: "· "; }
+.es-co__sms { padding-top: 1.1rem; border-top: 1px dashed var(--es-border); }
+
+.es-smsc { gap: 0.75rem; min-width: 0; margin: 0; padding: 0; border: 0; }
+.es-smsc__legend { display: grid; gap: 0.2rem; margin-bottom: 0.35rem; padding: 0; }
+.es-smsc__title { display: inline-flex; align-items: center; gap: 0.45rem; font-weight: 700; color: var(--es-text); }
+.es-smsc__title svg { color: var(--es-accent); }
+.es-smsc__opt { font-size: var(--es-text-xs); font-weight: 500; color: var(--es-text-subtle); }
+.es-smsc__opt::before { content: "· "; }
+.es-smsc__lede { font-size: var(--es-text-sm); color: var(--es-text-muted); }
+}

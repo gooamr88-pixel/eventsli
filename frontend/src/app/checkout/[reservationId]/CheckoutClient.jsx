@@ -513,15 +513,20 @@ export default function CheckoutClient({ reservationId }) {
           {/* ── Where the tickets go — a paid order only; a free one asks
                 the ticket holders alone (below). ─────────────────────── */}
           {!free && (
-          <section className="es-co__card" aria-labelledby="co-details">
-            <h2 id="co-details" className="es-co__h2 es-co__h2--icon">
-              <NavIcon name="user" size={20} />
-              Your details
-            </h2>
-            {/* Guest checkout is a first-class path: an email, no account. */}
-            <p className="es-co__sub">
-              No account needed. Signed in? Your account email is filled in — change it to send the tickets elsewhere.
-            </p>
+          /* REDESIGNED (owner, 2026-11-24: "very terrible in design"): a
+             header with one short line, the two names side by side, the email
+             across the full width with its icon, and the optional text
+             updates in a block of their own — instead of a half-width email
+             beside empty space and three loose "Optional" headings. */
+          <section className="es-co__card es-co__details" aria-labelledby="co-details">
+            <div className="es-co__details-head">
+              <span className="es-co__details-icon" aria-hidden="true"><NavIcon name="user" size={20} /></span>
+              <div className="fx-min0">
+                <h2 id="co-details" className="es-co__h2">Your details</h2>
+                {/* Guest checkout is a first-class path: an email, no account. */}
+                <p className="es-co__details-lede">Where we send your tickets. No account needed.</p>
+              </div>
+            </div>
             <div className="es-co__fields">
               {/* FIRST AND LAST NAME, TWO BOXES (owner, 2026-11-24). The first is
                   required on every booking (owner, 2026-11-22); the last too
@@ -552,20 +557,26 @@ export default function CheckoutClient({ reservationId }) {
                 onChange={(e) => setBuyer((b) => withName(b, b.first, e.target.value))}
               />
               {/* Required: the API refuses without one — the tickets go there. */}
-              <Field
-                label="Email address"
-                name="email"
-                type="email"
-                required
-                inputMode="email"
-                autoComplete="email"
-                hint="Your tickets and receipt are sent here — check it for typos."
-                value={buyer.email}
-                onChange={(e) => setBuyer((b) => ({ ...b, email: e.target.value }))}
-              />
+              <div className="es-co__wide">
+                <Field
+                  label="Email address"
+                  name="email"
+                  type="email"
+                  icon="mail"
+                  required
+                  inputMode="email"
+                  autoComplete="email"
+                  placeholder="you@example.com"
+                  hint="Your tickets and receipt arrive here — please check it for typos."
+                  value={buyer.email}
+                  onChange={(e) => setBuyer((b) => ({ ...b, email: e.target.value }))}
+                />
+              </div>
             </div>
-            <SmsConsentFields mode="checkout" value={sms} onChange={setSms} phone={phone} onPhone={setPhone} showPhone
-              organizerName={ev.organizerName} />
+            <div className="es-co__sms">
+              <SmsConsentFields mode="checkout" compact value={sms} onChange={setSms} phone={phone} onPhone={setPhone} showPhone
+                organizerName={ev.organizerName} />
+            </div>
           </section>
           )}
 
