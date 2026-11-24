@@ -23,7 +23,7 @@ import { isDateOnly, formatDateOnly } from '../../lib/dateOnly';
  * left or right is one state change and the browser animates every slide at
  * once, on the compositor, with no layout per frame.
  *
- * AUTOPLAY, AND HOW IT STOPS (WCAG 2.2.2): it advances every 5.5s, and pauses
+ * AUTOPLAY, AND HOW IT STOPS (WCAG 2.2.2): it advances every 3.5s, and pauses
  * while the pointer is over the slider, while focus is inside it, while the tab
  * is hidden, and for good once the visitor presses pause. A visitor whose
  * system asks for reduced motion gets no autoplay at all — the arrows, the
@@ -34,7 +34,7 @@ import { isDateOnly, formatDateOnly } from '../../lib/dateOnly';
  * screen reader hears one event at a time with "2 of 5" beside it.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-const INTERVAL = 5500;
+const INTERVAL = 3500; // owner, 2026-11-24: "make the slider more fast" (was 5.5s)
 
 export default function VipSlider({ events = [] }) {
   const n = events.length;

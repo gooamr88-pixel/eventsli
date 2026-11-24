@@ -42,6 +42,7 @@ const ACTIONS = {
   'offline.reserved': 'Reserved by the buyer',
   'offline.confirmed': 'Marked as paid',
   'offline.proof_uploaded': 'Receipt uploaded by the buyer',
+  'offline.buyer_sent': 'Buyer says the payment was sent',
   'offline.cancelled': 'Reservation cancelled',
   'offline.expired': 'Expired unpaid',
   'order.voided': 'Order voided',
@@ -219,6 +220,10 @@ function AwaitingRow({ eventId, payment, tz, onDone }) {
             {payment.buyer.email ? ` · ${payment.buyer.email}` : ''}{payment.buyer.phone ? ` · ${payment.buyer.phone}` : ''}
           </p>
           <p className="text-xs text-muted"><NavIcon name="clock" size={12} /> Pay by {formatEventTime(payment.dueAt, tz)}</p>
+          {/* The buyer pressed "I've sent the payment" (2026-11-24): check for it. */}
+          {payment.buyerSentAt && (
+            <p className="mt-1"><span className="es-pill es-pill--success">Buyer says sent · {formatEventTime(payment.buyerSentAt, tz)}</span></p>
+          )}
           {/* Proof of payment (2026-11-24): the buyer's transfer receipt. */}
           {payment.proof ? (
             <p className="mt-1 text-xs">

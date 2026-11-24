@@ -187,6 +187,27 @@ test('1. the receipt: only photos or PDFs, only with the buyer\'s link; recorded
   assert.ok((await actions(ids.a.offlineId)).some((a) => a.action === 'offline.proof_uploaded' && a.actor_role === 'buyer'));
 });
 
+// ── "I've sent the payment" (2026-11-24) ───────────────────────────────────
+test('the buyer\'s last step: "I\'ve sent the payment" is recorded once, logged, shown to the organizer — and issues nothing', async () => {
+  const q = `?token=${encodeURIComponent(ids.a.token)}`;
+  const stranger = await client()('POST', `/public/offline-payments/${ids.a.offlineId}/sent`);
+  assert.equal(stranger.status, 404, 'no token, nothing recorded');
+
+  const sent = await ids.a.buyer('POST', `/public/offline-payments/${ids.a.offlineId}/sent${q}`);
+  assert.equal(sent.status, 200, JSON.stringify(sent.body));
+  assert.ok(sent.body.data.sentAt, 'the buyer\'s page knows');
+  assert.equal(sent.body.data.status, 'awaiting', 'still waiting for the organizer — no tickets yet');
+
+  const again = await ids.a.buyer('POST', `/public/offline-payments/${ids.a.offlineId}/sent${q}`);
+  assert.equal(again.body.data.sentAt, sent.body.data.sentAt, 'pressing again changes nothing');
+  assert.equal((await actions(ids.a.offlineId)).filter((a) => a.action === 'offline.buyer_sent').length, 1, 'logged once');
+
+  const list = await ids.org('GET', `/events/${ids.eventId}/offline-payments`);
+  assert.ok(list.body.data.payments.find((p) => p.id === ids.a.offlineId).buyerSentAt, 'the organizer sees it');
+  const { count } = await supabase.from('tickets').select('id', { count: 'exact', head: true }).eq('event_id', ids.eventId);
+  assert.equal(count, 0);
+});
+
 // ── 4. Who confirmed, and when ─────────────────────────────────────────────
 test('4. confirming is logged with the person who did it and the time', async () => {
   const before = Date.now();

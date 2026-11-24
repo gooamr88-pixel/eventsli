@@ -108,6 +108,8 @@ function publicShape(row, event, organizerName) {
     closedAt: row.closed_at,
     // The buyer's receipt, if they sent one (2026-11-24): when, and its type.
     proof: row.proof_uploaded_at ? { uploadedAt: row.proof_uploaded_at, contentType: row.proof_content_type } : null,
+    // When the buyer pressed "I've sent the payment" (2026-11-24), if they did.
+    sentAt: row.buyer_sent_at || null,
     orderId: row.status === 'paid' ? row.order_id : null,
     orderToken: row.status === 'paid' && row.order_id ? accessTokens.issueOrderToken(row.order_id) : null,
     event: event ? {
@@ -275,6 +277,28 @@ async function peopleById(ids) {
   return new Map((data || []).map((p) => [p.id, { name: p.full_name || null, email: p.email || null }]));
 }
 
+/**
+ * "I've sent the payment" (owner, 2026-11-24: "at the end put a confirm …
+ * that ends the payment and booking process"). The buyer's last step: it
+ * records that the money is on its way (offline_mark_sent, migration
+ * 20261218090000) and, the first time only, emails the organizer to check.
+ * It issues nothing — tickets come when the organizer marks it received.
+ */
+async function markSent(id, token) {
+  await awaitedRow(id, token);
+  const result = await rpc('offline_mark_sent', { p_offline_id: id });
+  const row = await loadWithEvent(id);
+  if (result.first && row) {
+    const site = require('./emailTemplates').siteUrl();
+    emailService.sendOfflineBuyerSent({
+      to: row.organizers?.profiles?.email, organizerName: row.organizers?.display_name, event: row.events,
+      payment: row, buyerName: row.buyer?.name, withReceipt: Boolean(row.proof_uploaded_at),
+      url: site && row.events?.id ? `${site}/organizer/events/${row.events.id}/offline` : null,
+    }).catch((e) => logger.error({ err: e.message, offlinePaymentId: id }, 'offline buyer-sent email failed'));
+  }
+  return publicShape(row, row.events, row.organizers?.display_name);
+}
+
 async function cancelByBuyer(id, token) {
   if (accessTokens.readOfflineToken(token) !== id) throw fail('NOT_FOUND', 'That reservation was not found.');
   return rpc('offline_cancel', { p_offline_id: id, p_actor: null, p_role: 'buyer', p_organizer_id: null, p_reason: 'cancelled by the buyer' });
@@ -291,7 +315,7 @@ async function rpc(fn, args) {
 async function listForEvent(eventId, { status } = {}) {
   let query = supabase
     .from('offline_payments')
-    .select('id, status, reference_code, amount_cents, currency, due_at, created_at, buyer, method, confirmed_at, confirmed_by, payment_reference, order_id, closed_at, close_reason, proof_path, proof_content_type, proof_uploaded_at')
+    .select('id, status, reference_code, amount_cents, currency, due_at, created_at, buyer, method, confirmed_at, confirmed_by, payment_reference, order_id, closed_at, close_reason, proof_path, proof_content_type, proof_uploaded_at, buyer_sent_at')
     .eq('event_id', eventId)
     .order('created_at', { ascending: false })
     .limit(200);
@@ -314,6 +338,8 @@ async function listForEvent(eventId, { status } = {}) {
     buyer: { name: r.buyer?.name || null, email: r.buyer?.email || null, phone: r.buyer?.phone || null },
     method: r.method?.label || null,
     confirmedAt: r.confirmed_at,
+    // The buyer says the money is on its way (2026-11-24).
+    buyerSentAt: r.buyer_sent_at || null,
     // WHO marked it paid (2026-11-24), beside when.
     confirmedBy: r.confirmed_by ? people.get(r.confirmed_by) || { name: null, email: null } : null,
     paymentReference: r.payment_reference,
@@ -392,5 +418,5 @@ async function pendingFor(reservationId) {
 
 module.exports = {
   DEFAULTS, settings, dueAt, methodsFor, optionsForReservation, reserve, viewForBuyer, cancelByBuyer,
-  listForEvent, confirm, cancelByOrganizer, voidOrder, auditForEvent, pendingFor, signProofUpload, attachProof,
+  listForEvent, confirm, cancelByOrganizer, voidOrder, auditForEvent, pendingFor, signProofUpload, attachProof, markSent,
 };

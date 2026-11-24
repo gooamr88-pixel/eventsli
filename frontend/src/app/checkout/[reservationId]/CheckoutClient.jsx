@@ -55,7 +55,9 @@ export default function CheckoutClient({ reservationId }) {
   const [promoCode, setPromoCode] = useState('');
   const [promoError, setPromoError] = useState(null);
   const [busy, setBusy] = useState(null);
-  const [buyer, setBuyer] = useState({ name: '', email: '' });
+  // `first` and `last` are the two boxes; `name` is them joined — what the
+  // rest of the checkout and the API read (2026-11-24).
+  const [buyer, setBuyer] = useState({ name: '', first: '', last: '', email: '' });
   // ONE agreement beside the button (owner, 2026-11-19: "reduce them as
   // possible"). It was three boxes, from the 2026-11-15 reference; the API
   // only ever received one `acceptTerms`, so nothing it records changed.
@@ -83,7 +85,7 @@ export default function CheckoutClient({ reservationId }) {
     const kept = recalledBuyer();
     if (!kept) return undefined;
     const t = setTimeout(() => {
-      setBuyer((b) => ({ name: b.name || kept.name || '', email: b.email || kept.email || '' }));
+      setBuyer((b) => ({ ...(b.name ? b : seedName(b, kept.name)), email: b.email || kept.email || '' }));
       if (kept.phone) setPhone((p) => p || kept.phone);
     }, 0);
     return () => clearTimeout(t);
@@ -101,7 +103,7 @@ export default function CheckoutClient({ reservationId }) {
   const [prefilledFor, setPrefilledFor] = useState(null);
   if (user?.email && prefilledFor !== user.id) {
     setPrefilledFor(user.id);
-    setBuyer((b) => ({ ...b, email: b.email || user.email, name: b.name || user.fullName || '' }));
+    setBuyer((b) => ({ ...(b.name ? b : seedName(b, user.fullName)), email: b.email || user.email }));
   }
   // Set once a free claim has issued the tickets. There is no payment step and
   // nothing to wait for, so this page shows the outcome itself.
@@ -521,26 +523,33 @@ export default function CheckoutClient({ reservationId }) {
               No account needed. Signed in? Your account email is filled in — change it to send the tickets elsewhere.
             </p>
             <div className="es-co__fields">
-              {/* Required on every booking (owner, 2026-11-22); the API refuses without it too. */}
+              {/* FIRST AND LAST NAME, TWO BOXES (owner, 2026-11-24). The first is
+                  required on every booking (owner, 2026-11-22); the last too
+                  when the organizer requires both on every ticket
+                  (holder_details 'full') — a one-ticket order's ticket is named
+                  from these. The API still receives one `name` and refuses a
+                  missing last name itself. */}
               <Field
-                label="Full name"
-                name="name"
+                label="First name"
+                name="firstName"
                 type="text"
                 required
-                minLength={2}
-                maxLength={120}
-                autoComplete="name"
-                // First AND last name, when the organizer requires both on every
-                // ticket (holder_details 'full', 2026-11-24): a one-ticket order's
-                // ticket is named from this field. The API refuses one word too.
-                {...(quote.holders?.mode === 'full'
-                  ? { pattern: '\\s*\\S+(\\s+\\S+)+\\s*', title: 'Enter your first and last name.' }
-                  : {})}
-                hint={quote.holders?.mode === 'full'
-                  ? 'Your first and last name — this event prints both on every ticket.'
-                  : 'The name the organizer sees on the guest list.'}
-                value={buyer.name}
-                onChange={(e) => setBuyer((b) => ({ ...b, name: e.target.value }))}
+                maxLength={60}
+                autoComplete="given-name"
+                value={buyer.first}
+                onChange={(e) => setBuyer((b) => withName(b, e.target.value, b.last))}
+              />
+              <Field
+                label="Last name"
+                name="lastName"
+                type="text"
+                required={quote.holders?.mode === 'full'}
+                optional={quote.holders?.mode !== 'full'}
+                maxLength={60}
+                autoComplete="family-name"
+                hint={quote.holders?.mode === 'full' ? 'This event prints your first and last name on the ticket.' : null}
+                value={buyer.last}
+                onChange={(e) => setBuyer((b) => withName(b, b.first, e.target.value))}
               />
               {/* Required: the API refuses without one — the tickets go there. */}
               <Field
@@ -719,6 +728,24 @@ export default function CheckoutClient({ reservationId }) {
       />
     </>
   );
+}
+
+/** A full name split for the two boxes: the first word, then the rest. */
+export function nameParts(full) {
+  const p = String(full || '').trim().split(/\s+/).filter(Boolean);
+  return { first: p[0] || '', last: p.slice(1).join(' ') };
+}
+
+/** The buyer with new first/last boxes, and `name` kept as the two joined. */
+export function withName(b, first, last) {
+  const name = [first, last].map((s) => String(s || '').trim()).filter(Boolean).join(' ');
+  return { ...b, first, last, name };
+}
+
+/** The buyer seeded from a remembered or account full name. */
+function seedName(b, full) {
+  const { first, last } = nameParts(full);
+  return withName(b, first, last);
 }
 
 /** The key of a free order's lead-guest card: the API's first holder slot, or

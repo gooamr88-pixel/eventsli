@@ -20,7 +20,7 @@ import NavIcon from '../../../components/shell/NavIcon';
 const ACCEPT = 'image/jpeg,image/png,image/webp,image/heic,application/pdf';
 const MAX_BYTES = 10 * 1024 * 1024;
 
-export default function ReceiptUpload({ id, token, proof, timezone, onUploaded }) {
+export default function ReceiptUpload({ id, token, proof, timezone, onUploaded, className = 'es-co__card' }) {
   const input = useRef(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -53,8 +53,8 @@ export default function ReceiptUpload({ id, token, proof, timezone, onUploaded }
   }
 
   return (
-    <section className="es-co__card" aria-labelledby="receipt-title">
-      <h2 id="receipt-title" className="es-co__h2">Proof of payment</h2>
+    <section className={className} aria-labelledby="receipt-title">
+      <h2 id="receipt-title" className="es-co__h2 es-op__h2">Upload your receipt</h2>
       {proof ? (
         <p className="fx-row items-center gap-2 text-sm text-ink">
           <NavIcon name="check" size={16} />

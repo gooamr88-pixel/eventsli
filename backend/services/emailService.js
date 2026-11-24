@@ -952,6 +952,30 @@ async function sendOfflineReservedToOrganizer({ to, organizerName, event, paymen
   });
 }
 
+/** The buyer pressed "I've sent the payment" (2026-11-24): go and check, then mark it paid. */
+async function sendOfflineBuyerSent({ to, organizerName, event, payment, buyerName, withReceipt, url }) {
+  return send({
+    to,
+    subject: `Payment sent — check for ${payment.reference_code} — ${event.title}`,
+    html: T.layout({
+      title: 'A buyer says they paid you',
+      preheader: `${money(payment.amount_cents, payment.currency)} by ${payment.method?.label || 'your payment method'}, reference ${payment.reference_code}`,
+      reason: 'You are receiving this because you have an organizer account on Eventsli.',
+      body: `
+        ${T.p(`Hi ${escapeHtml(organizerName || 'there')},`)}
+        ${T.p(`${escapeHtml(buyerName || 'A buyer')} says they sent the payment by <strong>${escapeHtml(payment.method?.label || 'your payment method')}</strong>${withReceipt ? ' and uploaded a receipt' : ''}.`)}
+        ${T.eventCard(event)}
+        ${T.facts([
+    ['Amount', money(payment.amount_cents, payment.currency)],
+    ['Reference', payment.reference_code],
+    ['Deadline', T.whenText(payment.due_at, event.timezone)],
+  ])}
+        ${T.p('Check that the money arrived, then mark this reservation paid — that issues the tickets. Until you do, the buyer has no tickets.')}
+        ${url ? T.button(url, 'Open offline payments') : ''}`,
+    }),
+  });
+}
+
 /** The organizer cancelled an unpaid reservation. */
 async function sendOfflineCancelled({ to, buyerName, event, payment, reason }) {
   return send({
@@ -999,6 +1023,7 @@ async function sendOrganizerMessage({ to, organizerName, event = {}, senderName,
 module.exports = {
   sendOfflineReserved,
   sendOfflineReservedToOrganizer,
+  sendOfflineBuyerSent,
   sendOfflineCancelled,
   loggable,
   configured,

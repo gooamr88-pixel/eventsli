@@ -596,6 +596,8 @@ router.post('/offline-payments/:id/proof/sign', holdLimiter, param('id').isUUID(
   body('contentType').isString().isLength({ max: 60 }), validate, offlineCtrl.signProof);
 router.post('/offline-payments/:id/proof', holdLimiter, param('id').isUUID(),
   body('path').isString().isLength({ min: 10, max: 200 }), validate, offlineCtrl.attachProof);
+// "I've sent the payment" (2026-11-24): the buyer's last step; tells the organizer to check.
+router.post('/offline-payments/:id/sent', holdLimiter, param('id').isUUID(), validate, offlineCtrl.markSent);
 
 /**
  * Claiming free tickets. Same guards as the paid checkout — identify yourself,

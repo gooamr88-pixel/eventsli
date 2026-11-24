@@ -93,6 +93,7 @@ const MIGRATIONS = [
   ['20261215090000_event_change_requests.sql', tab('event_change_requests')],
   ['20261216090000_offline_proof_and_one_ticket_per_seat.sql', col('offline_payments', 'proof_path')],
   ['20261217090000_holder_full_names.sql', con('events_holder_details_check')],
+  ['20261218090000_offline_buyer_sent.sql', fn('offline_mark_sent')],
 ];
 
 const EXTRA = [
