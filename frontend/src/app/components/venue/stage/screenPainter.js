@@ -107,8 +107,11 @@ export function createScreenPainter({ width = 1280, onAsset = null } = {}) {
   // (`onScreen`, filled per frame) and is paused the rest of the time.
   const videos = new Map();
   const onScreen = new Set();
+  // The video whose SOUND belongs on the screen this frame: the current
+  // slide's, drawn last, when the organizer left its sound on.
+  let audible = null;
   /** The video at `url` once it has a frame to show, else null (and it is fetched). */
-  const vid = (url) => {
+  const vid = (url, { sound = false } = {}) => {
     if (!url) return null;
     let e = videos.get(url);
     if (!e) {
@@ -125,6 +128,7 @@ export function createScreenPainter({ width = 1280, onAsset = null } = {}) {
       videos.set(url, e);
     }
     onScreen.add(e);
+    audible = sound && e.ok ? e.v : null;
     return e.ok ? e.v : null;
   };
   const sizeOf = (im) => ({ w: im.videoWidth || im.naturalWidth || im.width, h: im.videoHeight || im.naturalHeight || im.height });
@@ -426,6 +430,7 @@ export function createScreenPainter({ width = 1280, onAsset = null } = {}) {
      */
     paint(now = performance.now(), audio = null) {
       onScreen.clear();
+      audible = null;
       const wall = Date.now();
       const list = playableSlides(state.screen.slides, state.feed, wall);
       const at = slideAt(list.length, state.screen.seconds, elapsed(now));
@@ -483,6 +488,19 @@ export function createScreenPainter({ width = 1280, onAsset = null } = {}) {
 
     /** A video is on the screen: the caller should repaint at full rate. */
     get moving() { return onScreen.size > 0; },
+
+    /** The video element whose sound belongs on the stage now, or null. */
+    get audibleVideo() { return audible; },
+
+    /**
+     * New elements for every video. A media element can join one audio graph
+     * once, ever: after the soundtrack engine is replaced, the old elements
+     * could no longer be heard, so they are swapped for fresh ones.
+     */
+    resetVideos() {
+      for (const e of videos.values()) { e.v.pause?.(); e.v.removeAttribute('src'); e.v.load?.(); }
+      videos.clear();
+    },
 
     dispose() {
       for (const e of videos.values()) { e.v.pause?.(); e.v.removeAttribute('src'); e.v.load?.(); }

@@ -262,7 +262,7 @@ export function slideDrawers(kit) {
 
   /** A clip, full screen and cropped to 16:9 around its focus; silent, looping. */
   function drawVideo(g, slide, k) {
-    const clip = vid(slide.video?.url);
+    const clip = vid(slide.video?.url, { sound: slide.sound !== false });
     if (clip) {
       g.fillStyle = k.pal.bg;
       g.fillRect(0, 0, W, H);

@@ -7,7 +7,7 @@ import {
   SCREEN_ASPECT, SLIDE_KINDS, TRANSITION_MS,
 } from '../src/app/components/venue/stage/screenModel';
 import { createScreenPainter } from '../src/app/components/venue/stage/screenPainter';
-import { PATTERNS, idleBeat } from '../src/app/components/venue/stage/stageSound';
+import { PATTERNS, idleBeat, createStageSound } from '../src/app/components/venue/stage/stageSound';
 import { readStudio } from '../src/app/components/venue/venueModel';
 import { buildSceneModel } from '../src/app/components/venue/sceneModel';
 import { buildRoom } from '../src/app/components/venue/roomBuilder';
@@ -381,7 +381,7 @@ describe('the music', () => {
     expect(soundFor(readScreen({}), 'gala')).toMatchObject({ kind: 'preset', preset: 'lounge' });
     expect(soundFor(readScreen({}), 'concert')).toMatchObject({ kind: 'preset', preset: 'arena' });
     expect(soundFor(readScreen({ sound: { preset: 'cinematic' } }), 'gala').preset).toBe('cinematic');
-    expect(soundFor(readScreen({ sound: { source: 'off' } }), 'gala')).toEqual({ kind: 'off' });
+    expect(soundFor(readScreen({ sound: { source: 'off' } }), 'gala')).toMatchObject({ kind: 'off' });
     const track = readScreen({ sound: { source: 'track', track: { path: 'p', url: 'https://storage.test/t.mp3', name: 'Anthem' } } });
     expect(soundFor(track, 'gala')).toMatchObject({ kind: 'track', name: 'Anthem' });
     // "Your track" with none uploaded yet plays Eventsli music.
@@ -409,6 +409,113 @@ describe('the music', () => {
     expect(videoType('', 'webm')).toBe('video/webm');
     expect(videoType('video/quicktime', 'mov')).toBeNull();
     expect(videoType('image/gif', 'gif')).toBeNull();
+  });
+});
+
+/**
+ * A stand-in Web Audio context: every node connects and every parameter takes
+ * values, and it records what the test needs — media sources made, and the
+ * targets the music bus was sent to (the duck).
+ */
+function fakeAudio() {
+  const log = { sources: 0, targets: [] };
+  const param = () => ({
+    value: 1,
+    setValueAtTime() {}, linearRampToValueAtTime() {}, exponentialRampToValueAtTime() {}, cancelScheduledValues() {},
+    setTargetAtTime(v) { this.value = v; log.targets.push(v); },
+  });
+  const node = () => new Proxy({
+    connect: (x) => x, disconnect() {}, start() {}, stop() {}, getByteFrequencyData() {}, frequencyBinCount: 128,
+  }, {
+    get(t, k) {
+      if (k in t) return t[k];
+      if (k === 'then' || typeof k !== 'string') return undefined;
+      t[k] = param();
+      return t[k];
+    },
+    set(t, k, v) { t[k] = v; return true; },
+  });
+  class Ctx {
+    constructor() { this.currentTime = 0; this.sampleRate = 8000; this.destination = node(); this.listener = node(); }
+    createBuffer(c, len) { return { getChannelData: () => new Float32Array(len) }; }
+    createMediaElementSource() { log.sources += 1; return node(); }
+    resume() { return Promise.resolve(); }
+    suspend() { return Promise.resolve(); }
+    close() { return Promise.resolve(); }
+  }
+  for (const m of ['createGain', 'createAnalyser', 'createPanner', 'createConvolver', 'createDynamicsCompressor', 'createOscillator', 'createBiquadFilter', 'createBufferSource']) {
+    Ctx.prototype[m] = function make() { return node(); };
+  }
+  return { Ctx, log };
+}
+
+describe('a video’s own sound (2026-11-25: "the sound of the video does not work")', () => {
+  test('a video slide plays its sound unless the organizer turns it off', () => {
+    const s = readScreen({ slides: [{ id: 'a', kind: 'video' }, { id: 'b', kind: 'video', sound: false }] });
+    expect(s.slides[0].sound).toBe(true);
+    expect(s.slides[1].sound).toBe(false);
+  });
+
+  test('the painter names the current slide’s video as the one to hear, once it has a frame', () => {
+    const made = [];
+    const create = document.createElement.bind(document);
+    vi.spyOn(document, 'createElement').mockImplementation((tag, ...rest) => {
+      const el = create(tag, ...rest);
+      if (tag === 'video') made.push(el);
+      return el;
+    });
+    const painter = createScreenPainter({ width: 320 });
+    const t0 = performance.now();
+    const clip = { path: 'v', url: 'https://storage.test/v.mp4' };
+    painter.setContent({ screen: readScreen({ slides: [{ id: 'v', kind: 'video', video: clip }] }), feed: null, title: 'x' });
+    painter.paint(t0);
+    expect(painter.audibleVideo).toBeNull();
+    made[0].dispatchEvent(new Event('loadeddata'));
+    painter.paint(t0 + 10);
+    expect(painter.audibleVideo).toBe(made[0]);
+    expect(made[0].muted).toBe(true);
+
+    painter.setContent({ screen: readScreen({ slides: [{ id: 'v', kind: 'video', video: clip, sound: false }] }), feed: null, title: 'x' });
+    painter.paint(t0 + 20);
+    expect(painter.audibleVideo).toBeNull();
+  });
+
+  test('in Showtime the video is heard (once wired, the music ducked), and muted again after', () => {
+    const { Ctx, log } = fakeAudio();
+    const original = window.AudioContext;
+    window.AudioContext = Ctx;
+    try {
+      // No music at all: the engine still exists, for the video.
+      const engine = createStageSound({ sound: { kind: 'off', volume: 0.8 }, roomRadius: 20 });
+      expect(engine).not.toBeNull();
+      expect(engine.hasMusic).toBe(false);
+      expect(engine.name).toBeNull();
+      const v = document.createElement('video');
+      v.muted = true;
+
+      engine.video(v);
+      expect(v.muted).toBe(true); // Showtime is off: nothing is heard
+
+      engine.start();
+      engine.video(v);
+      expect(v.muted).toBe(false);
+      expect(log.sources).toBe(1);
+      expect(log.targets).toContain(0.15); // the music dips
+
+      engine.video(null);
+      expect(v.muted).toBe(true);
+      expect(log.targets[log.targets.length - 1]).toBe(1); // and comes back
+
+      engine.video(v);
+      expect(v.muted).toBe(false);
+      expect(log.sources).toBe(1); // wired once, reused
+
+      engine.stop();
+      expect(v.muted).toBe(true);
+      engine.dispose();
+    } finally {
+      window.AudioContext = original;
+    }
   });
 });
 

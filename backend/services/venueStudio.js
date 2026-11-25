@@ -201,6 +201,8 @@ function cleanSlide(eventId, raw) {
     slide.video = image(eventId, raw.video, ['clip']);
     slide.focus = focus(raw.focus);
     slide.caption = text(raw.caption, 100);
+    // Its own sound plays in Showtime unless the organizer turned it off.
+    slide.sound = raw.sound !== false;
   } else if (raw.kind === 'message') {
     slide.text = text(raw.text, 80);
     slide.sub = text(raw.sub, 80);

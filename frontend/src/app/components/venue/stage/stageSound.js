@@ -288,7 +288,9 @@ function startLoop(ctx, out, preset) {
  * @returns the engine, or null where the browser has no Web Audio
  */
 export function createStageSound({ sound, roomRadius = 20, onTrackFailed = null }) {
-  if (!sound || sound.kind === 'off' || typeof window === 'undefined') return null;
+  // 'off' still gets an engine: no music, but a video slide's own sound
+  // plays through it (2026-11-25, "the sound of the video does not work").
+  if (!sound || typeof window === 'undefined') return null;
   const AC = window.AudioContext || window.webkitAudioContext;
   if (!AC) return null;
   const ctx = new AC();
@@ -332,9 +334,20 @@ export function createStageSound({ sound, roomRadius = 20, onTrackFailed = null 
   let el = null;
   let muted = false;
   let on = false;
-  let name = sound.name || '';
+  let name = sound.kind === 'off' ? null : sound.name || '';
 
-  const playLoop = (preset) => { stopLoop = startLoop(ctx, master, preset); };
+  // THE MUSIC AND THE VIDEOS ARE TWO BUSES into the master, so the music can
+  // dip under a video's own sound (ducking) and come back after it.
+  const musicBus = ctx.createGain();
+  musicBus.connect(master);
+  const videoBus = ctx.createGain();
+  videoBus.connect(master);
+  // A media element can be routed into one audio graph, once: its source node
+  // is kept for as long as this engine lives.
+  const videoSources = new WeakMap();
+  let video = null;
+
+  const playLoop = (preset) => { stopLoop = startLoop(ctx, musicBus, preset); };
 
   if (sound.kind === 'track' && sound.url) {
     el = new Audio();
@@ -343,7 +356,7 @@ export function createStageSound({ sound, roomRadius = 20, onTrackFailed = null 
     el.preload = 'auto';
     el.src = sound.url;
     const src = ctx.createMediaElementSource(el);
-    src.connect(master);
+    src.connect(musicBus);
     const fail = () => {
       if (!el) return;
       el.pause();
@@ -354,9 +367,42 @@ export function createStageSound({ sound, roomRadius = 20, onTrackFailed = null 
     };
     el.addEventListener('error', fail, { once: true });
     el.play().catch(fail);
-  } else {
+  } else if (sound.kind !== 'off') {
     playLoop(sound.preset);
   }
+
+  const duck = (down) => {
+    musicBus.gain.setTargetAtTime(down ? 0.15 : 1, ctx.currentTime, 0.3);
+  };
+  /**
+   * The video on the screen now (an element the painter plays), or null. Its
+   * sound comes from the stage like the music's, while Showtime is on; the
+   * element is muted again the moment it leaves the screen or Showtime ends.
+   */
+  const setVideo = (next) => {
+    const target = on ? next || null : null;
+    if (target === video) return;
+    if (video) video.muted = true;
+    video = null;
+    if (target) {
+      try {
+        if (!videoSources.has(target)) {
+          const src = ctx.createMediaElementSource(target);
+          src.connect(videoBus);
+          videoSources.set(target, src);
+        }
+        target.muted = false;
+        target.volume = 1;
+        // Unmuting may pause a video on a strict browser: try to keep it going,
+        // and fall back to silent rather than frozen.
+        target.play?.()?.catch?.(() => { target.muted = true; target.play?.()?.catch?.(() => {}); });
+        video = target;
+      } catch {
+        video = null;
+      }
+    }
+    duck(Boolean(video));
+  };
 
   const bins = new Uint8Array(analyser.frequencyBinCount);
   const setGain = (to, seconds) => {
@@ -371,6 +417,9 @@ export function createStageSound({ sound, roomRadius = 20, onTrackFailed = null 
   return {
     get name() { return name; },
     get playing() { return on; },
+    /** Showtime has music of its own (not 'off'). */
+    get hasMusic() { return sound.kind !== 'off'; },
+    video: setVideo,
 
     /** In from silence over a second: a show starts, it does not switch on. */
     start() {
@@ -381,6 +430,7 @@ export function createStageSound({ sound, roomRadius = 20, onTrackFailed = null 
     },
     stop() {
       on = false;
+      setVideo(null);
       setGain(0.0001, 0.6);
       setTimeout(() => { if (!on) { el?.pause?.(); ctx.suspend?.(); } }, 700);
     },
@@ -422,6 +472,8 @@ export function createStageSound({ sound, roomRadius = 20, onTrackFailed = null 
       return { level: all / bins.length / 255, bass: Math.max(0, (low / 5 / 255 - 0.3) / 0.7), bins };
     },
     dispose() {
+      if (video) video.muted = true;
+      video = null;
       on = false;
       stopLoop?.();
       if (el) { el.pause(); el.src = ''; el = null; }

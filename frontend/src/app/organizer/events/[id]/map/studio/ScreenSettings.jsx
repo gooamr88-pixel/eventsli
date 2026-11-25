@@ -230,7 +230,7 @@ function QuickAdd({ eventId, full, onSlides }) {
         ref={video} type="file" accept="video/mp4,video/webm" className="sr-only" aria-label="Video for the screen"
         onChange={(e) => run('video', [...(e.target.files || [])].slice(0, 1), videoSlide)}
       />
-      <p className="es-field__hint">Photos: JPEG, PNG or WebP, any shape. Video: MP4 or WebM up to 40 MB, played without sound. Each becomes a slide.</p>
+      <p className="es-field__hint">Photos: JPEG, PNG or WebP, any shape. Video: MP4 or WebM up to 40 MB; its sound plays in Showtime. Each becomes a slide.</p>
       {error && <p role="alert" className="text-sm text-danger">{messageFor(error)}</p>}
     </div>
   );
@@ -269,6 +269,10 @@ function SlideFields({ eventId, slide, onChange }) {
     return (
       <>
         <VideoField eventId={eventId} slide={slide} onChange={onChange} />
+        <Toggle
+          label="Play its sound" checked={slide.sound !== false} onChange={(sound) => onChange({ sound })}
+          hint="In Showtime, from the stage: the music dips while it plays. Outside Showtime videos are always silent."
+        />
         <TextField label="Caption" value={slide.caption || ''} maxLength={100} onChange={(caption) => onChange({ caption })} placeholder="Last year’s show" />
       </>
     );

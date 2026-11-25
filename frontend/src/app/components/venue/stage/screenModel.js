@@ -34,7 +34,7 @@ export const SLIDE_KINDS = Object.freeze([
   { key: 'artist', label: 'Headliner', icon: 'mic', hint: 'A performer’s photo and name, full screen.' },
   { key: 'lineup', label: 'Lineup', icon: 'list', hint: 'The running order from your event’s schedule.' },
   { key: 'photo', label: 'Photo', icon: 'image', hint: 'A poster, a promo or an ad, with a caption.' },
-  { key: 'video', label: 'Video', icon: 'film', hint: 'A clip (MP4 or WebM), playing silently on the screen.' },
+  { key: 'video', label: 'Video', icon: 'film', hint: 'A clip (MP4 or WebM). Its sound plays in Showtime, from the stage.' },
   { key: 'gallery', label: 'Event photos', icon: 'grid', hint: 'The photos from your event page’s gallery, as a photo wall.' },
   { key: 'sponsors', label: 'Sponsors', icon: 'handshake', hint: 'Your event’s sponsors’ logos.' },
   { key: 'message', label: 'Message', icon: 'chat', hint: 'Your words, big: a welcome, a hashtag, a dress code.' },
@@ -137,6 +137,8 @@ function readSlide(raw) {
     slide.caption = text(raw.caption, 100);
     slide.video = readFile(raw.video);
     slide.focus = readFocus(raw.focus);
+    // Its own sound plays in Showtime unless the organizer turns it off.
+    slide.sound = raw.sound !== false;
   } else if (raw.kind === 'message') {
     slide.text = text(raw.text, 80);
     slide.sub = text(raw.sub, 80);
@@ -202,7 +204,7 @@ export function screenSize({ room, maxHeight = Infinity, size = 100, minWidth = 
 /** The music a show plays: a preset key, a track URL, or nothing. */
 export function soundFor(screen, mood) {
   const sound = screen?.sound || DEFAULT_SCREEN.sound;
-  if (sound.source === 'off') return { kind: 'off' };
+  if (sound.source === 'off') return { kind: 'off', volume: sound.volume / 100 };
   if (sound.source === 'track' && sound.track?.url) {
     return { kind: 'track', url: sound.track.url, name: sound.track.name || 'Your track', volume: sound.volume / 100 };
   }

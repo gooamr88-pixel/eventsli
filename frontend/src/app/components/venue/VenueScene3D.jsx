@@ -395,8 +395,9 @@ export default function VenueScene3D({
             if (on) {
               const spec = soundFor(live.current.screen || DEFAULT_SCREEN, live.current.scene?.mood);
               const key = JSON.stringify(spec);
-              if (sh.sound && sh.soundKey !== key) { sh.sound.dispose(); sh.sound = null; }
-              if (!sh.sound && spec.kind !== 'off') {
+              if (sh.sound && sh.soundKey !== key) { sh.sound.dispose(); sh.sound = null; sh.painter.resetVideos(); }
+              // An engine even with no music: a video slide's sound needs one.
+              if (!sh.sound) {
                 sh.sound = createStageSound({
                   sound: spec,
                   roomRadius: st.model?.radius || 20,
@@ -518,6 +519,7 @@ export default function VenueScene3D({
     if (st.show.sound && st.show.soundKey !== JSON.stringify(soundFor(screen || DEFAULT_SCREEN, scene?.mood)) && !st.show.target) {
       st.show.sound.dispose();
       st.show.sound = null;
+      st.show.painter.resetVideos();
     }
     st.invalidate();
   }, [ready, screen, screenFeed, title, scene?.mood]);
@@ -597,7 +599,9 @@ function stepShow(st, t, screen) {
   if (room.screens.length && sh.visible && now >= sh.due) {
     // A video on the screen gets the full rate, as Showtime does.
     sh.due = now + 1000 / sh.fps(sh.k > 0.01 || sh.painter.moving);
-    sh.audio = sh.sound?.playing ? sh.sound.read() : sh.k > 0.01 ? idleBeat(t) : null;
+    // The music (or a video's sound) drives the lights; with neither, an idle beat.
+    const heard = sh.sound?.playing && (sh.sound.hasMusic || sh.painter.audibleVideo);
+    sh.audio = heard ? sh.sound.read() : sh.k > 0.01 ? idleBeat(t) : null;
     sh.painter.paint(now, sh.audio);
     sh.texture.needsUpdate = true;
     if (now >= sh.sampleAt) {
@@ -607,6 +611,9 @@ function stepShow(st, t, screen) {
     }
     changed = true;
   }
+
+  // A video's own sound joins Showtime while its slide is on the screen.
+  if (sh.sound) sh.sound.video(sh.sound.playing ? sh.painter.audibleVideo : null);
 
   if (sh.sound?.playing) {
     // The listener is the camera: the music is where the stage is.

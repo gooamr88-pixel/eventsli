@@ -134,3 +134,8 @@ test('the feed is what the event page already shows, cut to size', () => {
   assert.deepEqual(feed.sponsors, [{ name: 'Acme', logoUrl: 'https://storage.test/a.png', level: 'gold' }]);
   assert.ok(!JSON.stringify(feed).includes('secret'));
 });
+
+test('a video slide keeps its sound switch: on unless turned off', () => {
+  const out = cleanScreen(EVENT, { slides: [{ id: 'a', kind: 'video' }, { id: 'b', kind: 'video', sound: false }, { id: 'c', kind: 'video', sound: 'no' }] });
+  assert.deepEqual(out.slides.map((x) => x.sound), [true, false, true]);
+});

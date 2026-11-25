@@ -24,6 +24,7 @@ export default function ShowtimeBar({ controls, hasSound = true, trackFailed = f
   const [on, setOn] = useState(false);
   const [muted, setMuted] = useState(false);
   const [playing, setPlaying] = useState(null);
+  const [audio, setAudio] = useState(false);
   // The listener's own volume, starting at the organizer's.
   const [volume, setVolume] = useState(startVolume);
 
@@ -34,6 +35,8 @@ export default function ShowtimeBar({ controls, hasSound = true, trackFailed = f
     if (!result) return;
     setOn(next);
     setPlaying(next && result.sound ? result.name : null);
+    // Sound controls whenever there is sound: the music, or a video's own.
+    setAudio(next && result.sound);
     if (next) controls.current?.volume?.(volume / 100);
     if (next && muted) controls.current?.mute?.(true);
   };
@@ -61,23 +64,25 @@ export default function ShowtimeBar({ controls, hasSound = true, trackFailed = f
         <NavIcon name={on ? 'bulb' : 'sparkle'} size={16} />
         <span>{on ? 'Lights up' : 'Showtime'}</span>
       </button>
-      {on && name && (
+      {on && audio && (
         <>
           <button
             type="button" className="es-showtime__mute" aria-pressed={muted}
-            aria-label={muted ? 'Turn the music on' : 'Mute the music'} title={muted ? 'Sound on' : 'Mute'}
+            aria-label={muted ? 'Turn the sound on' : 'Mute the sound'} title={muted ? 'Sound on' : 'Mute'}
             onClick={toggleMute}
           >
             <Speaker muted={muted} />
           </button>
           <input
             type="range" className="es-showtime__vol" min={0} max={100} step={5} value={muted ? 0 : volume}
-            onChange={(e) => changeVolume(Number(e.target.value))} aria-label="Music volume"
+            onChange={(e) => changeVolume(Number(e.target.value))} aria-label="Volume"
           />
-          <span className="es-showtime__now" aria-live="polite">
-            {!muted && <span className="es-showtime__eq" aria-hidden="true"><i /><i /><i /></span>}
-            <span className="fx-truncate">{name}</span>
-          </span>
+          {name && (
+            <span className="es-showtime__now" aria-live="polite">
+              {!muted && <span className="es-showtime__eq" aria-hidden="true"><i /><i /><i /></span>}
+              <span className="fx-truncate">{name}</span>
+            </span>
+          )}
         </>
       )}
     </div>
