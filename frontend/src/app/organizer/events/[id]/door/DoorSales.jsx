@@ -190,7 +190,9 @@ export default function DoorSales({ eventId }) {
             world={saleMap.world}
             look={saleMap.look}
             tableTint={tint}
-            purchaseMode={event.purchaseMode}
+            // At the door, staff pick seats even at a places-at-a-table event:
+            // the ticket still names only the table (migration 20261220090100).
+            purchaseMode={event.purchaseMode === 'table_places' ? 'seat_only' : event.purchaseMode}
             selectedSeatIds={new Set(selectedSeats.map((s) => s.id))}
             selectedTableIds={new Set(selectedTable ? [selectedTable.id] : [])}
             onSelectSeat={(seat) => {

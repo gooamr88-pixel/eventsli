@@ -262,3 +262,32 @@ chose one map for every event.
 **Bulk private.** The multi-select inspector sets one password on every selected table, or makes them public again. The API hashes each *distinct* password once and shares the hash, so the 50-password cap counts distinct passwords. A saved table switched to private with no password is now refused by name, in the draft rules and in `saveMap`, instead of failing the `private_needs_password` constraint.
 
 **One colour rule** (`mapStyle.js`, "THE MAP'S COLOUR RULES"). A table is painted its own colour, then its category's colour, then its ticket type's colour (only when the map has more than one type), then the look's colour (`venueModel.tableTint` + `tablePaint`). Every chair at a table is black (`CHAIR`). Selected chairs get a coral ring, unavailable or locked chairs are faded, and a light edge keeps chairs visible on dark floors. Seats in a row (no table body) carry the row's colour. The buyer map, the editor canvas, door sales, the 3D/360 views (`studioColours`, per-table cloth colours in `roomBuilder`) and the attendee app all read this one rule. The public map now sends `categories` (with colours) and each table's `tierId`.
+
+## The stage screen and Showtime (2026-11-25)
+
+The screen over the stage in 3D and 360° is a show, not a still picture. The code is in `components/venue/stage/`.
+
+**Always landscape.** Every screen is 16:9. `screenModel.screenSize` decides every screen's shape and has no portrait answer. The stage screen is the largest 16:9 that fits under the truss, scaled by the organizer's size (60–100%). Side screens are 16:9 too. A `screen` zone drawn tall on the 2D map turns to run along its longer side. Photos are never stretched: the painter crops them to 16:9 around the organizer's focus point.
+
+**What plays** (`scene.screen` in the layout, read by `screenModel.readScreen` and cleaned by `venueStudio.cleanScreen`):
+
+- Slides, in order, up to 12: title, countdown, headliner (photo, name, line above), lineup, photo (with caption), sponsors, message and music visualizer.
+- Title, countdown, lineup and sponsors fill themselves from the event. The map API's `screenFeed` (`services/screenFeed.js`) carries the cover, logo, times, zone, venue, `event_schedule` and `event_sponsors`. The same feed rides the organizer's `GET /venue-map`.
+- A slide with nothing to show is skipped, never painted empty (`playableSlides`). The settings say why each one is skipped.
+- Look: style (Bold, Elegant, Neon), accent colour, transition (fade, slide, cut), seconds per slide, LED pixel finish, screen size and side screens.
+
+**How it paints.** `screenPainter.js` draws on a 2D canvas, and `screenSlides.js` holds one drawer per slide. All screens in the room share that canvas as one texture. VenueScene3D repaints it on a budget: 30 fps on desktop, 6 on a phone at rest, 24 in Showtime, 4 in the editor's small preview and 1 under reduced motion. It does not repaint when the view is scrolled out of sight. What the screen shows is repainted, never rebuilt; only size and side screens rebuild the room. A tap on a screen goes to the next slide.
+
+**Showtime** (`ShowtimeBar`, top left of every 3D/360° view). It starts only from a tap and the camera never moves (map-stays-still). The house lights dim. Beams swing in the screen's colour on every mood, not only concert. The rim, step lights and truss lamps pulse to the bass, and the screen's colour lights the stage through a point light sampled from the picture.
+
+**Music** (`stageSound.js`) comes in three options:
+
+- Eventsli music: four loops (Arena, Lounge, Cinematic, Chill) synthesized in the browser, so there is nothing to license or download. The default matches the lighting.
+- The organizer's MP3 or M4A, up to 8 MB.
+- None.
+
+The sound is placed at the screen with an HRTF panner, and the listener is the camera. A back seat hears less of the band and more of the room: the reverb is sized to the room and is not distance-faded. A track that fails to play falls back to Eventsli music. Playback pauses in a hidden tab.
+
+**Uploads.** Slide photos are kind `screen` (images). The soundtrack is kind `soundtrack` (`audio/mpeg`, `audio/mp4`; `mediaService.AUDIO_EXTENSION_FOR`, 8 MB). `ownPath` keeps each kind to its own extensions. **Migration `20261221090000`** lets the `event-media` bucket take those two audio types up to 8 MB. Images are still held to 5 MB in `attach`. Until it runs, track uploads fail and everything else works.
+
+Tests: `frontend/test/stageScreen.test.js` (the 16:9 rule through the real room builder, every slide, style and transition painted, the loops, the clock) and `backend/test/stageScreen.test.js` (paths, extensions, clamping, the feed).

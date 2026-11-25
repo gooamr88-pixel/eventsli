@@ -1,4 +1,5 @@
 import { post } from '../../../../../utils/apiClient';
+import { MAX_TRACK_BYTES } from '../../../../../components/venue/stage/screenModel';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -19,6 +20,9 @@ import { post } from '../../../../../utils/apiClient';
 const LIMITS = Object.freeze({
   panorama: { width: 4096, height: 2048, quality: 0.86 },
   venue: { width: 2000, height: 1400, quality: 0.85 },
+  // A stage-screen photo. Kept whole, not cropped: the screen is 16:9 and
+  // shows it cropped around the organizer's focus point, which they can move.
+  screen: { width: 1920, height: 1920, quality: 0.86 },
 });
 
 export async function uploadStudioImage(eventId, file, kind) {
@@ -59,4 +63,37 @@ export async function downscale(file, { width, height, quality }) {
   bitmap.close?.();
   const out = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', quality));
   return out || file;
+}
+
+/**
+ * The stage screen's soundtrack: an MP3 or M4A, up to 8 MB (about four
+ * minutes), uploaded as it is. Browsers name the same file differently
+ * (audio/mp3, audio/x-m4a…), so the type is settled here to the two the
+ * server signs for. Returns { path, url } and the file's name, for the title.
+ */
+export async function uploadStudioAudio(eventId, file) {
+  const ext = (file.name.split('.').pop() || '').toLowerCase();
+  const type = audioType(file.type, ext);
+  if (!type) {
+    throw Object.assign(new Error('Choose an MP3 or M4A file.'), { code: 'VALIDATION_ERROR' });
+  }
+  if (file.size > MAX_TRACK_BYTES) {
+    throw Object.assign(new Error(
+      `That track is ${(file.size / 1048576).toFixed(1)} MB. The limit is 8 MB, about four minutes of music.`,
+    ), { code: 'VALIDATION_ERROR' });
+  }
+  const signed = await post(`/events/${eventId}/venue-map/upload`, { contentType: type, kind: 'soundtrack' }, { noRedirect: true });
+  const uploaded = await fetch(signed.uploadUrl, { method: 'PUT', headers: { 'Content-Type': type }, body: file });
+  if (!uploaded.ok) {
+    throw Object.assign(new Error('The track did not upload. Try again.'), { code: 'CONFLICT' });
+  }
+  const asset = await post(`/events/${eventId}/venue-map/assets`, { path: signed.path }, { noRedirect: true });
+  return { ...asset, name: file.name.replace(/\.[^.]+$/, '').slice(0, 80) };
+}
+
+/** The content type the server signs a track as, or null. */
+export function audioType(mime, ext) {
+  if (/^audio\/(mpeg|mp3)$/.test(mime || '') || (!mime && ext === 'mp3')) return 'audio/mpeg';
+  if (/^audio\/(mp4|x-m4a|m4a|aac)$/.test(mime || '') || (!mime && ext === 'm4a')) return 'audio/mp4';
+  return null;
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { pricesSeats, sellsWholeTables } from '../../../../lib/purchaseModes';
 import { ShapePicker, SeatsPerSide, TableAppearance, appearanceSummary } from './style/TableStyleSection';
 import ShapeArt from './style/ShapeArt';
 import NavIcon from '../../../../components/shell/NavIcon';
@@ -65,8 +66,8 @@ export default function TablePanel({
   const set = (patch) => onChange(key, patch);
   const sold = Number(table.soldSeats) || 0;
   const tier = (tiers || []).find((t) => t.id === table.tierId) || null;
-  const sellsSeats = purchaseMode !== 'table_only';
-  const sellsTables = purchaseMode !== 'seat_only';
+  const sellsSeats = pricesSeats(purchaseMode);
+  const sellsTables = sellsWholeTables(purchaseMode);
   const hasExtras = (sellsSeats && table.seatPriceCents != null)
     || (sellsSeats && sellsTables && table.priceCents != null)
     || !!table.categoryId;

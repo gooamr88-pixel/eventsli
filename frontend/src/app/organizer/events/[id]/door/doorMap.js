@@ -1,4 +1,5 @@
 import { worldOf } from '../../../../components/seating/seatingGeometry';
+import { sellsWholeTables } from '../../../../lib/purchaseModes';
 import { withTableStyles, readLook } from '../../../../components/seating/mapStyle';
 
 /**
@@ -37,7 +38,7 @@ export function toSaleMap(map, tiers, purchaseMode) {
     isPrivate: t.isPrivate,
     status: t.status,
     canBookWhole: t.status === 'available' && t.priceCents !== null && t.priceCents !== undefined
-      && purchaseMode !== 'seat_only',
+      && sellsWholeTables(purchaseMode),
     position: t.position,
     shape: t.shape,
     categoryId: t.categoryId,

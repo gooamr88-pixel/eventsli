@@ -18,6 +18,9 @@ import {
 import { buildSceneModel, eyeFor, stageEye, bestSeat } from './sceneModel';
 import { readLook, withTableStyles, tablePaint, CHAIR } from '../seating/mapStyle';
 import { LockBadge } from '../seating/SeatMapCanvas';
+import { isTablePlaces } from '../../lib/purchaseModes';
+import ShowtimeBar from './stage/ShowtimeBar';
+import { soundFor } from './stage/screenModel';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -62,6 +65,9 @@ export default function VenueExperience({
   // A private table not yet unlocked was pressed: the page asks for its
   // password (2026-11-24). Absent: private tables are scenery.
   onLockedTable = null,
+  // What the stage screen shows (the map API's `screenFeed`): the event's
+  // cover, lineup, sponsors and times. Null: the screen shows the title.
+  screenFeed = null,
 }) {
   const [view, setView] = useState('2d');
   /**
@@ -85,6 +91,8 @@ export default function VenueExperience({
   const [goTo, setGoTo] = useState(null);
   const [shot, setShot] = useState('auto');
   const [hover, setHover] = useState(null);
+  // The organizer's track would not play here; Showtime plays Eventsli music.
+  const [trackFailed, setTrackFailed] = useState(false);
   // After every useState above: this calls their setters, and a `const`
   // setter used before its line is a crash, not a no-op.
   if (goTo && selectedSeatIds.has(goTo.seatId)) {
@@ -146,6 +154,9 @@ export default function VenueExperience({
   }, [seats]);
 
   const in3d = view !== '2d';
+  // A screen to play a show on: the stage's (when screens are on) or one
+  // the organizer placed on the map.
+  const hasScreen = (studio.scene.screens && zones.some((z) => z.kind === 'stage')) || zones.some((z) => z.kind === 'screen');
   // "Use the 2D map" when a 3D or 360° view cannot draw on this device.
   const toMap = () => { setView('2d'); setHover(null); setPickId(null); setGoTo(null); };
   const model = useMemo(
@@ -237,11 +248,21 @@ export default function VenueExperience({
     };
   };
 
+  const placesMode = !pickAny && isTablePlaces(purchaseMode);
+  const freeAt = (tableId) => seats.filter((x) => x.tableId === tableId && x.available).length;
+
   const actionFor = (entry) => {
     const s = entry?.seat;
     if (!s) return { label: 'Not on sale yet', disabled: true };
     const table = tableById.get(entry.tableId);
     if (seatAction) return seatAction(s, table);
+    // Places at a table (2026-11-25): a chair stands for its table.
+    if (placesMode && table) {
+      if (selectedTableIds.has(table.id)) return { label: `Remove table ${table.label}`, tone: 'secondary', onPress: () => onSelectTable?.(table) };
+      return freeAt(table.id) > 0
+        ? { label: `Choose table ${table.label}`, onPress: () => onSelectTable?.(table) }
+        : { label: 'This table is full', disabled: true };
+    }
     if (purchaseMode === 'table_only') {
       return table?.canBookWhole
         ? { label: `Book table ${table.label}`, onPress: () => onSelectTable?.(table) }
@@ -317,7 +338,7 @@ export default function VenueExperience({
             seat to choose it", and this row is worth its height in map. */}
         <p className="hidden text-xs text-subtle sm:block">
           {view === '2d' && (pickAny ? 'Tap a seat to block or release it' : 'Tap a seat to choose it')}
-          {view === '3d' && 'Drag to turn · scroll to zoom · tap a seat'}
+          {view === '3d' && `Drag to turn · scroll to zoom · tap a seat${hasScreen ? ' · tap the screen' : ''}`}
           {view === '360' && (shotPhoto ? photoSpots ? 'Tap a seat in the photo to choose it · drag to look around' : 'A photo from this part of the venue · choose from the seats it shows' : 'Drag to look around · tap a seat to choose it')}
         </p>
       </div>
@@ -381,6 +402,11 @@ export default function VenueExperience({
               // tap while turning the room never drops one. The organizer's
               // availability view (`seatAction`) keeps its explicit button.
               const s = entry.seat;
+              // Places at a table: a tap on any chair chooses its table (once).
+              if (!seatAction && placesMode) {
+                if (table && freeAt(table.id) > 0 && !selectedTableIds.has(table.id)) onSelectTable?.(table);
+                return;
+              }
               if (seatAction || !s || !s.available || selectedSeatIds.has(s.id)) return;
               if (purchaseMode === 'table_only') {
                 if (table?.canBookWhole) onSelectTable?.(table);
@@ -390,7 +416,20 @@ export default function VenueExperience({
             }}
             onHover={(entry, at) => setHover(entry ? { entry, ...at } : null)}
             onFallback={toMap}
+            screen={studio.scene.screen}
+            screenFeed={screenFeed}
+            onTrackFailed={() => setTrackFailed(true)}
           />
+
+          {/* Mounted whenever the room is: over a 360° photo too, so the button
+              always says whether the show is on. */}
+          {hasScreen && (
+            <ShowtimeBar
+              controls={controls}
+              hasSound={soundFor(studio.scene.screen, studio.scene.mood).kind !== 'off'}
+              trackFailed={trackFailed}
+            />
+          )}
 
           {view === '360' && shotPhoto && (
             // A wrapper places it: the viewer's own root is `relative`, which

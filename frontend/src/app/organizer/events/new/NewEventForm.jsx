@@ -537,7 +537,7 @@ function EventWizard({ type, organizer, template = null }) {
                   legend="How do buyers choose their place?" name="purchaseMode" required
                   value={form.purchaseMode} onChange={set('purchaseMode')}
                   options={PURCHASE_MODES.map(([value, title, desc, icon]) => ({ value, title, desc, icon }))}
-                  columns={3}
+                  columns={2}
                 />
               )}
               <RadioCards

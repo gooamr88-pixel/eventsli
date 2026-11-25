@@ -12,6 +12,7 @@ import { TABLE_SCALE, tableScale } from '../../../../components/seating/seatingG
 import { Inspector, InspectorSection, InspectorAction, InspectorNote } from '../../../../components/inspector/Inspector';
 import { Field, RangeField, SelectField } from '../../../../components/inspector/fields';
 import { tableAvailability } from './TablePanel';
+import { sellsWholeTables } from '../../../../lib/purchaseModes';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -109,7 +110,7 @@ export default function SelectionPanel({
               {unpriced} of {tableCount} {purchaseMode === 'table_only' ? 'have no whole-table price yet.' : 'have no ticket type yet.'}
             </InspectorNote>
           )}
-          {onAssignTablePrice && purchaseMode !== 'seat_only' && (
+          {onAssignTablePrice && sellsWholeTables(purchaseMode) && (
             <BulkTablePrice key={tables.map(keyOf).join(',')} tables={tables} onApply={onAssignTablePrice} />
           )}
           {onAssign && (

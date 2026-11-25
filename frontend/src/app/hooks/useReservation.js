@@ -122,9 +122,10 @@ export function useReservation() {
    * the old hold and places this one in a single request. Holds on OTHER
    * events are left alone — that is the cart.
    */
-  const hold = useCallback(async (slug, { seatIds, tableId, tableToken, lines }, { replaces = null } = {}) => {
+  const hold = useCallback(async (slug, { seatIds, tableId, tableToken, lines, tables }, { replaces = null } = {}) => {
     const body = {
-      ...(lines ? { lines } : tableId ? { tableId } : { seatIds }),
+      // `tables`: places at a table (2026-11-25) — [{ tableId, quantity }].
+      ...(tables ? { tables } : lines ? { lines } : tableId ? { tableId } : { seatIds }),
       ...(replaces ? { replaces: replaces.reservationId } : {}),
     };
     /**
@@ -146,7 +147,7 @@ export function useReservation() {
     // API into a bogus token (test/holdHeaders.test.jsx).
     const headers = Object.keys(sent).length ? sent : undefined;
     // WHAT IS BEING HELD, so the checkout can name it. See `heldNoun` below.
-    const kind = lines ? 'general' : tableId ? 'table' : 'seats';
+    const kind = tables ? 'places' : lines ? 'general' : tableId ? 'table' : 'seats';
 
     // `noRedirect`, like every other call on the purchase path. `optionalAuth`
     // cannot answer 401 today, so nothing is broken — but this is the one
@@ -250,7 +251,8 @@ export function useReservation() {
    * by id). From the cart's live data: the token is fresh, the deadline real.
    */
   const select = useCallback((item) => {
-    const kind = item.selection?.lines ? 'general' : item.selection?.tableId ? 'table' : 'seats';
+    const kind = item.lines?.some((l) => l.kind === 'places') ? 'places'
+      : item.selection?.lines ? 'general' : item.selection?.tableId ? 'table' : 'seats';
     commit({
       reservationId: item.reservationId,
       reservationToken: item.reservationToken,
@@ -293,6 +295,8 @@ export function useReservation() {
 const NOUNS = {
   seats:   { one: 'seat',   many: 'seats',   they: 'they' },
   table:   { one: 'table',  many: 'table',   they: 'it' },
+  // Places at a table (2026-11-25): "Your places are reserved".
+  places:  { one: 'place',  many: 'places',  they: 'they' },
   general: { one: 'ticket', many: 'tickets', they: 'they' },
 };
 

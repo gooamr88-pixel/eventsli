@@ -423,19 +423,24 @@ router.post(
   body('lines').optional().isArray({ min: 1, max: 20 }),
   body('lines.*.tierId').optional().isUUID(),
   body('lines.*.quantity').optional().isInt({ min: 1, max: 100 }),
+  // Places at a table (2026-11-25): how many places at each chosen table.
+  // `hold_table_places` chooses the seats; the buyer never names one.
+  body('tables').optional().isArray({ min: 1, max: 20 }),
+  body('tables.*.tableId').optional().isUUID(),
+  body('tables.*.quantity').optional().isInt({ min: 1, max: 100 }),
   // The cart (2026-11-17): the buyer's current hold on this event, replaced by
   // this one — the body is then the COMBINED selection. Proved by the
   // `x-replace-token` header (seatMapController.hold).
   body('replaces').optional().isUUID(),
   body().custom((value) => {
-    const chosen = [value.tableId, value.seatIds, value.lines].filter(Boolean).length;
+    const chosen = [value.tableId, value.seatIds, value.lines, value.tables].filter(Boolean).length;
     if (chosen === 0) {
       throw new Error('Choose seats, a table, or how many tickets you want.');
     }
     if (chosen > 1) {
-      // Three different prices and three different rules; refusing is clearer
-      // than guessing which one they meant.
-      throw new Error('Choose one of seats, a whole table, or a number of tickets.');
+      // Different prices and different rules; refusing is clearer than
+      // guessing which one they meant.
+      throw new Error('Choose one of seats, a whole table, places at a table, or a number of tickets.');
     }
     return true;
   }),

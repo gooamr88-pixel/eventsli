@@ -54,13 +54,21 @@ const num = (v, lo, hi, fallback) => {
   return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : fallback;
 };
 
+/**
+ * The file types each studio upload is signed as (mediaService.signUpload):
+ * the stage screen's soundtrack is audio, everything else an image.
+ */
+const AUDIO_KINDS = Object.freeze(['soundtrack']);
+const extensionsFor = (kind) => (AUDIO_KINDS.includes(kind) ? 'mp3|m4a' : 'jpg|png|webp');
+
 /** True when `path` is an object the studio's upload step signs for THIS event. */
 function ownPath(eventId, path, kinds) {
   if (typeof path !== 'string' || path.length > 300) return false;
   const prefix = `events/${eventId}/`;
   if (!path.startsWith(prefix)) return false;
   const name = path.slice(prefix.length);
-  return new RegExp(`^(${kinds.join('|')})-[0-9a-f]{16}\\.(jpg|png|webp)$`).test(name);
+  // Each kind with its own extensions: a panorama is never an .mp3.
+  return kinds.some((kind) => new RegExp(`^${kind}-[0-9a-f]{16}\\.(${extensionsFor(kind)})$`).test(name));
 }
 
 function image(eventId, raw, kinds) {
@@ -137,14 +145,89 @@ function cleanSections(raw) {
   })).filter((s) => s.id && s.name);
 }
 
-function cleanScene(raw) {
+function cleanScene(eventId, raw) {
   if (!raw || typeof raw !== 'object') return undefined;
+  const screen = cleanScreen(eventId, raw.screen);
   return {
     rake: num(raw.rake, 0, 40, 12),
     stageHeight: num(raw.stageHeight, 0, 4, 1.2),
     mood: ['concert', 'daylight', 'gala'].includes(raw.mood) ? raw.mood : 'concert',
     screens: raw.screens !== false,
     roof: raw.roof !== false,
+    ...(screen ? { screen } : {}),
+  };
+}
+
+/* ── the stage screen (2026-11-25) ─────────────────────────────────────────
+ * What the 3D room's LED wall plays: slides, their look, and Showtime's
+ * music. The frontend reads it the same way (components/venue/stage/
+ * screenModel.js, `readScreen`); this is the server's copy of the rule, so
+ * a hand-made request stores only known words, numbers in range, short text,
+ * and files this event's upload step signed: a slide's photo (`screen-…`)
+ * and the soundtrack (`soundtrack-….mp3|m4a`), each URL derived here.
+ * The screen's SHAPE is never stored: it is always 16:9.
+ */
+const SLIDE_KINDS = Object.freeze(['title', 'countdown', 'artist', 'lineup', 'photo', 'sponsors', 'message', 'visualizer']);
+const MAX_SLIDES = 12;
+const SCREEN_STYLES = Object.freeze(['bold', 'elegant', 'neon']);
+const SCREEN_TRANSITIONS = Object.freeze(['fade', 'slide', 'cut']);
+const SOUND_SOURCES = Object.freeze(['preset', 'track', 'off']);
+const SOUND_PRESETS = Object.freeze(['arena', 'lounge', 'cinematic', 'chill']);
+
+function focus(raw) {
+  return { x: Math.round(num(raw?.x, 0, 100, 50)), y: Math.round(num(raw?.y, 0, 100, 40)) };
+}
+
+function cleanSlide(eventId, raw) {
+  if (!raw || typeof raw !== 'object' || !SLIDE_KINDS.includes(raw.kind)) return null;
+  const id = text(raw.id, 40);
+  if (!id) return null;
+  const slide = { id, kind: raw.kind };
+  if (raw.kind === 'artist' || raw.kind === 'photo') {
+    slide.image = image(eventId, raw.image, ['screen']);
+    slide.focus = focus(raw.focus);
+    if (raw.kind === 'artist') {
+      slide.name = text(raw.name, 60);
+      slide.tagline = text(raw.tagline, 80);
+    } else {
+      slide.caption = text(raw.caption, 100);
+    }
+  } else if (raw.kind === 'message') {
+    slide.text = text(raw.text, 80);
+    slide.sub = text(raw.sub, 80);
+  }
+  return slide;
+}
+
+function cleanScreen(eventId, raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+  const seen = new Set();
+  const slides = [];
+  for (const r of Array.isArray(raw.slides) ? raw.slides : []) {
+    if (slides.length >= MAX_SLIDES) break;
+    const slide = cleanSlide(eventId, r);
+    if (!slide || seen.has(slide.id)) continue;
+    seen.add(slide.id);
+    slides.push(slide);
+  }
+  const sound = raw.sound && typeof raw.sound === 'object' ? raw.sound : {};
+  const track = image(eventId, sound.track, AUDIO_KINDS);
+  return {
+    slides,
+    seconds: Math.round(num(raw.seconds, 4, 20, 8)),
+    transition: SCREEN_TRANSITIONS.includes(raw.transition) ? raw.transition : 'fade',
+    style: SCREEN_STYLES.includes(raw.style) ? raw.style : 'bold',
+    accent: hex(raw.accent) || null,
+    pixels: raw.pixels !== false,
+    size: Math.round(num(raw.size, 60, 100, 100)),
+    sides: raw.sides !== false,
+    sound: {
+      source: SOUND_SOURCES.includes(sound.source) ? sound.source : 'preset',
+      preset: SOUND_PRESETS.includes(sound.preset) ? sound.preset : null,
+      track: track ? { ...track, name: text(sound.track?.name, 80) } : null,
+      volume: Math.round(num(sound.volume, 0, 100, 70)),
+    },
+    react: raw.react !== false,
   };
 }
 
@@ -262,7 +345,7 @@ function sanitizeLayout(eventId, layout) {
   if ('venue' in layout) set('venue', cleanVenue(eventId, layout.venue));
   if ('views' in layout) set('views', cleanViews(eventId, layout.views));
   if ('sections' in layout) set('sections', cleanSections(layout.sections));
-  if ('scene' in layout) set('scene', cleanScene(layout.scene));
+  if ('scene' in layout) set('scene', cleanScene(eventId, layout.scene));
   if ('world' in layout) set('world', cleanWorld(layout.world));
   if ('tableStyles' in layout) set('tableStyles', cleanTableStyles(layout.tableStyles));
   if ('look' in layout) set('look', cleanLook(layout.look));
@@ -275,5 +358,5 @@ function sanitizeLayout(eventId, layout) {
 
 module.exports = {
   sanitizeLayout, publicLayout, cleanLook, ownPath, MAX_LAYOUT_BYTES, MAX_VIEWS, VIEW_KINDS, ACCESS_FEATURES, VENUE_TYPES,
-  DEFAULT_WORLD, MAX_WORLD,
+  DEFAULT_WORLD, MAX_WORLD, cleanScreen, SLIDE_KINDS, MAX_SLIDES, STUDIO_KINDS: Object.freeze(['venue', 'panorama', 'screen', 'soundtrack']),
 };

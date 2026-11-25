@@ -5,7 +5,7 @@
  *   layout = {
  *     world, zones,                       // layoutZones.js, unchanged
  *     venue:    { name, type, standingCapacity, access: [...], notes, photo: { path, url } },
- *     scene:    { rake, stageHeight, mood, screens, roof },   // the 3D view
+ *     scene:    { rake, stageHeight, mood, screens, roof, screen },   // the 3D view; screen: stage/screenModel.js
  *     views:    [ { id, path, url, name, kind, tables: [label…], heading } ],  // 360° photos
  *     sections: [ { id, name, rows: [ { table: label, row } ] } ],
  *   }
@@ -26,6 +26,7 @@
  * ─────────────────────────────────────────────────────────────────────────────
  */
 import { tablePaint, CHAIR } from '../seating/mapStyle';
+import { readScreen, DEFAULT_SCREEN } from './stage/screenModel';
 
 export const VENUE_TYPES = Object.freeze([
   { key: 'arena', label: 'Arena or stadium' },
@@ -60,6 +61,8 @@ export const MOODS = Object.freeze([
 
 export const DEFAULT_SCENE = Object.freeze({
   rake: 12, stageHeight: 1.2, mood: 'concert', screens: true, roof: true,
+  // What the stage screen plays when nothing is saved (stage/screenModel.js).
+  screen: DEFAULT_SCREEN,
 });
 
 export const MAX_VIEWS = 24;
@@ -98,6 +101,8 @@ export function readStudio(layout) {
       mood: hasKey(MOODS, s.mood) ? s.mood : DEFAULT_SCENE.mood,
       screens: s.screens !== false,
       roof: s.roof !== false,
+      // What the stage screen plays (2026-11-25): always complete.
+      screen: readScreen(s.screen),
     },
     views: readViews(layout?.views),
     sections: readSections(layout?.sections),

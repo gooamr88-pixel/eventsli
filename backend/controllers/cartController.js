@@ -97,7 +97,7 @@ async function describe(reservationId) {
     return { gone: r?.state === 'converted' ? 'purchased' : err.code === 'EVENT_NOT_PUBLISHED' ? 'off_sale' : 'expired' };
   }
 
-  const [held, selection] = await Promise.all([linesFor(reservationId, q.items), heldSelection(reservationId)]);
+  const [held, selection] = await Promise.all([linesFor(reservationId, q.items, { tablePlaces: q.event?.purchase_mode === 'table_places' }), heldSelection(reservationId)]);
   // Add-ons chosen at checkout (2026-11-17) are part of the total, so they are listed.
   const lines = [...held, ...(q.addons || []).map((a) => ({
     kind: 'addon', label: a.name, quantity: a.quantity, amountCents: a.amountCents,
@@ -131,7 +131,7 @@ async function describe(reservationId) {
  * What is held, in words: "Premium Orchestra · 3 seats — A-5, A-6, A-7",
  * "Table VIP 3 · 10 seats", "2 × General admission". Grouped by ticket type.
  */
-async function linesFor(reservationId, items) {
+async function linesFor(reservationId, items, { tablePlaces = false } = {}) {
   const seatIds = items.filter((i) => i.seat_id).map((i) => i.seat_id);
   const tableIds = items.filter((i) => i.table_id).map((i) => i.table_id);
   const tierIds = [...new Set(items.map((i) => i.tier_id).filter(Boolean))];
@@ -148,8 +148,29 @@ async function linesFor(reservationId, items) {
     out.push({ kind: 'table', label: `Table ${t.label}`, quantity: 1, seats: Number(t.seat_count) || null, amountCents: priceOf.get(t.id) ?? null });
   }
 
+  /**
+   * PLACES AT A TABLE (2026-11-25): "Table 12 · 3 places", one line per
+   * table and never a seat number — the guests sit anywhere at it.
+   */
+  const byTable = new Map();
+  if (tablePlaces) {
+    for (const s of seats.data || []) {
+      const tbl = Array.isArray(s.tables) ? s.tables[0] : s.tables;
+      if (!tbl?.label) continue;
+      const item = items.find((i) => i.seat_id === s.id);
+      const entry = byTable.get(tbl.label) || { kind: 'places', label: `Table ${tbl.label}`, quantity: 0, tiers: [], amountCents: 0 };
+      entry.quantity += 1;
+      const tier = tierName.get(item?.tier_id || s.tier_id);
+      if (tier && !entry.tiers.includes(tier)) entry.tiers.push(tier);
+      entry.amountCents += priceOf.get(s.id) || 0;
+      byTable.set(tbl.label, entry);
+    }
+    out.push(...byTable.values());
+  }
+
   const bySeatTier = new Map();
   for (const s of seats.data || []) {
+    if (tablePlaces && (Array.isArray(s.tables) ? s.tables[0] : s.tables)?.label) continue;
     const item = items.find((i) => i.seat_id === s.id);
     const key = item?.tier_id || s.tier_id || 'none';
     const tbl = Array.isArray(s.tables) ? s.tables[0] : s.tables;

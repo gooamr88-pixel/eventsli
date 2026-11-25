@@ -14,6 +14,9 @@ const { placeHold } = require('../services/placeHold');
 const { publicLayout } = require('../services/venueStudio');
 const eventAccess = require('../services/eventAccess');
 const vendors = require('../services/vendorService');
+const { screenFeed, screenFeedFor } = require('../services/screenFeed');
+// The modes that sell a table whole (BRD §25). 'table_places' sells places AT a table, never the table.
+const SELLS_WHOLE_TABLES = Object.freeze(['table_only', 'seat_and_table']);
 
 const TTL_MINUTES = () => parseInt(process.env.RESERVATION_TTL_MINUTES || '35', 10);
 
@@ -22,8 +25,13 @@ const TTL_MINUTES = () => parseInt(process.env.RESERVATION_TTL_MINUTES || '35', 
 // GET /events/:eventId/venue-map
 async function getMap(req, res, next) {
   try {
-    const map = await venue.getMapForOrganizer(req.params.eventId);
-    return sendOk(res, map || { tables: [], looseSeats: [], layout: {} });
+    // The stage screen's feed rides along, for the 3D settings' preview: a
+    // read that fails only leaves the screen showing the title.
+    const [map, feed] = await Promise.all([
+      venue.getMapForOrganizer(req.params.eventId),
+      screenFeedFor(req.params.eventId).catch(() => null),
+    ]);
+    return sendOk(res, { ...(map || { tables: [], looseSeats: [], layout: {} }), screenFeed: feed });
   } catch (err) { return next(err); }
 }
 
@@ -77,13 +85,17 @@ async function signAssetUpload(req, res, next) {
  */
 async function confirmAsset(req, res, next) {
   try {
-    const { ownPath } = require('../services/venueStudio');
-    if (!ownPath(req.params.eventId, req.body.path, ['venue', 'panorama'])) {
+    const { ownPath, STUDIO_KINDS } = require('../services/venueStudio');
+    if (!ownPath(req.params.eventId, req.body.path, STUDIO_KINDS)) {
       return sendFail(res, {
-        status: 400, error: 'VALIDATION_ERROR', message: 'That image does not belong to this venue.',
+        status: 400, error: 'VALIDATION_ERROR', message: 'That file does not belong to this venue.',
       });
     }
-    const asset = await media.attach({ eventId: req.params.eventId, path: req.body.path });
+    // A soundtrack may be larger than an image (mediaService.MAX_AUDIO_BYTES).
+    const audio = ownPath(req.params.eventId, req.body.path, ['soundtrack']);
+    const asset = await media.attach({
+      eventId: req.params.eventId, path: req.body.path, ...(audio ? { maxBytes: media.MAX_AUDIO_BYTES } : {}),
+    });
     return sendOk(res, asset);
   } catch (err) { return studioFail(res, err, next); }
 }
@@ -130,7 +142,7 @@ async function publicMap(req, res, next) {
     const { data: event, error: eventError } = await supabase
       .from('events')
       .select('id, slug, title, status, currency, purchase_mode, admission_type, max_tickets_per_order, starts_at, ends_at, coming_soon, '
-        + 'cover_url, logo_url, ' + eventAccess.ACCESS_COLUMNS)
+        + 'cover_url, logo_url, timezone, venue_name, ' + eventAccess.ACCESS_COLUMNS)
       .eq('slug', req.params.slug)
       .maybeSingle();
     if (eventError) throw new Error(`seat map: event lookup failed: ${eventError.message}`);
@@ -169,7 +181,7 @@ async function publicMap(req, res, next) {
     // The four reads below need only the map, not each other, so they run at
     // the same time (2026-11-24): one after another they were most of a
     // 1.6-second answer on production, the attendee app's slowest screen.
-    const [tables, seats, tierResult, vendorBooths, categoryResult] = await Promise.all([
+    const [tables, seats, tierResult, vendorBooths, categoryResult, feed] = await Promise.all([
       fetchAll(({ from, to }, first) => supabase
         .from('tables')
         .select('id, label, seat_count, price_cents, is_private, status, position_x, position_y, rotation, shape, category_id, tier_id',
@@ -214,6 +226,9 @@ async function publicMap(req, res, next) {
       supabase.from('table_categories').select('id, name, color, sort_order').eq('event_id', event.id)
         .order('sort_order')
         .then((r) => r, (err) => ({ data: null, error: err })),
+      // What the stage screen shows in the 3D room (services/screenFeed.js).
+      // It never fails the map: a failed read is an empty lineup.
+      screenFeed(event).catch(() => null),
     ]);
     const { data: tiers, error: tierError } = tierResult;
     if (tierError) throw new Error(`seat map: tier lookup failed: ${tierError.message}`);
@@ -243,6 +258,7 @@ async function publicMap(req, res, next) {
     return sendOk(res, {
       event: publicEvent(event),
       map: { id: map.id, layout: publicLayout(map.layout_json, ordered.map((t) => t.label)), version: map.version },
+      screenFeed: feed,
       categories: (categoryResult?.data || []).map((c) => ({ id: c.id, name: c.name, color: c.color || null })),
       tiers: (tiers || []).map((t) => ({
         id: t.id,
@@ -275,7 +291,7 @@ async function publicMap(req, res, next) {
           // Every seat that comes with the table has to be sellable too: its
           // ticket type on sale and not sold out (S-07).
           canBookWhole: !locked && t.status === 'available' && t.price_cents !== null
-            && event.purchase_mode !== 'seat_only' && tableClear.get(t.id) === true,
+            && SELLS_WHOLE_TABLES.includes(event.purchase_mode) && tableClear.get(t.id) === true,
           position: { x: Number(t.position_x), y: Number(t.position_y), rotation: Number(t.rotation) },
           shape: t.shape,
           categoryId: t.category_id,
@@ -447,12 +463,12 @@ async function hold(req, res, next) {
     }
 
     const userId = req.user?.id || null;   // null is a guest checkout
-    const { seatIds, tableId, lines } = req.body;
+    const { seatIds, tableId, lines, tables } = req.body;
     const place = (selection) => placeHold({
       event, userId, selection, tableAccessHeader: req.headers['x-table-access'], ttlMinutes: TTL_MINUTES(), statusFor,
     });
 
-    const attempt = await place({ seatIds, tableId, lines });
+    const attempt = await place({ seatIds, tableId, lines, tables });
     if (!attempt.ok) {
       let restored = null;
       if (previous?.selection) {

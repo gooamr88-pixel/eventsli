@@ -262,7 +262,7 @@ export default function DraftReview({
                   )}
                   <p className="es-ai-fact__sub">
                     {form.admissionType === 'general' ? 'General admission' : 'Reserved seating'}
-                    {form.admissionType === 'reserved' && ` · ${{ seat_only: 'buyers choose seats', table_only: 'whole tables only', seat_and_table: 'buyers choose a seat or a whole table' }[form.purchaseMode]}`}
+                    {form.admissionType === 'reserved' && ` · ${{ seat_only: 'buyers choose seats', table_only: 'whole tables only', seat_and_table: 'buyers choose a seat or a whole table', table_places: 'buyers book places at a table' }[form.purchaseMode]}`}
                   </p>
                   {form.tiers.length === 0 && <p className="es-ai-later">No ticket types yet. Add them here or on the event after saving.</p>}
                   <ul className="es-ai-tiers">

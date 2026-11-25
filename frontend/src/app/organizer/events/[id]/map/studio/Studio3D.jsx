@@ -9,6 +9,10 @@ import {
 import { keyOf } from '../useMapDraft';
 import { RangeField, Toggle, Segmented } from '../../../../../components/inspector/fields';
 import NavIcon from '../../../../../components/shell/NavIcon';
+import ShowtimeBar from '../../../../../components/venue/stage/ShowtimeBar';
+import { soundFor } from '../../../../../components/venue/stage/screenModel';
+import { InspectorNote } from '../../../../../components/inspector/Inspector';
+import ScreenSettings from './ScreenSettings';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -24,8 +28,14 @@ import NavIcon from '../../../../../components/shell/NavIcon';
  */
 export default function Studio3D({
   tables, zones, world, scene, onScene, sections, tiers, eventTitle, categories = [], look = null,
+  eventId = null, screenFeed = null,
 }) {
   const [eyeSeat, setEyeSeat] = useState(null);
+  const [trackFailed, setTrackFailed] = useState(false);
+  // The room's geometry only: what the stage SCREEN shows is not in it, so
+  // typing a slide's words repaints the screen and never rebuilds the room.
+  const { rake, stageHeight, mood, screens, roof } = scene;
+  const geo = useMemo(() => ({ rake, stageHeight, mood, screens, roof }), [rake, stageHeight, mood, screens, roof]);
   const [preset, setPreset] = useState('overview');
   const controls = useRef(null);
 
@@ -37,8 +47,8 @@ export default function Studio3D({
   // their assigned colour, chairs at tables black.
   const colours = useMemo(() => studioColours({ tables: plain, tiers, categories, look }), [plain, tiers, categories, look]);
   const model = useMemo(
-    () => buildSceneModel({ tables: plain, zones, scene, world, bodyColor: colours.bodyColor }),
-    [plain, zones, scene, world, colours],
+    () => buildSceneModel({ tables: plain, zones, scene: geo, world, bodyColor: colours.bodyColor }),
+    [plain, zones, geo, world, colours],
   );
   const index = useMemo(() => sectionIndex(sections), [sections]);
 
@@ -62,8 +72,9 @@ export default function Studio3D({
   const buildKey = useMemo(() => ({}), [model, labels, eventTitle]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const seat = eyeSeat ? model.seats.find((s) => s.id === eyeSeat) : null;
-  const eye = preset === 'stage' ? stageEye(model, scene) : seat ? eyeFor(seat, model, scene) : null;
+  const eye = preset === 'stage' ? stageEye(model, geo) : seat ? eyeFor(seat, model, geo) : null;
   const mode = eye ? 'eye' : 'orbit';
+  const hasScreen = (scene.screens && zones.some((z) => z.kind === 'stage')) || zones.some((z) => z.kind === 'screen');
 
   const counts = useMemo(() => {
     const m = new Map();
@@ -84,7 +95,7 @@ export default function Studio3D({
             <VenueScene3D
               className="h-full w-full"
               model={model}
-              scene={scene}
+              scene={geo}
               labels={labels}
               title={eventTitle}
               buildKey={buildKey}
@@ -95,7 +106,13 @@ export default function Studio3D({
               controlsRef={controls}
               ariaLabel="Your venue in 3D"
               onPick={(entry) => { setEyeSeat(entry.id); setPreset('seat'); }}
+              screen={scene.screen}
+              screenFeed={screenFeed}
+              onTrackFailed={() => setTrackFailed(true)}
             />
+          )}
+          {hasScreen && (tables.length > 0 || zones.length > 0) && (
+            <ShowtimeBar controls={controls} hasSound={soundFor(scene.screen, scene.mood).kind !== 'off'} trackFailed={trackFailed} />
           )}
           {/* The same zoom pill as the 2D canvas, in the same corner. */}
           <div className="es-maptoolbar__group es-maptoolbar__zoom es-studio-zoom" role="group" aria-label="Zoom">
@@ -137,8 +154,26 @@ export default function Studio3D({
           label="Stage height" value={scene.stageHeight} min={0} max={3} step={0.1}
           onChange={(stageHeight) => onScene({ stageHeight })} format={(v) => `${Number(v).toFixed(1)} m`}
         />
-        <Toggle label="Video screens" hint="Above and beside the stage." checked={scene.screens} onChange={(screens) => onScene({ screens })} />
         <Toggle label="Enclosed venue" hint="Walls and a lit rim around the room." checked={scene.roof} onChange={(roof) => onScene({ roof })} />
+
+        <div className="fx-stack gap-2 border-t border-border-base pt-3">
+          <Toggle
+            label="Stage screen" hint="A landscape LED wall over the stage that plays your show."
+            checked={scene.screens} onChange={(on) => onScene({ screens: on })}
+          />
+          {!model.hasStage && scene.screens && !zones.some((z) => z.kind === 'screen') && (
+            <InspectorNote>Add a stage in Layout and the screen hangs over it.</InspectorNote>
+          )}
+          {trackFailed && (
+            <InspectorNote tone="warning">Your track did not play here, so Showtime played Eventsli music. Try uploading it again as an MP3.</InspectorNote>
+          )}
+          {hasScreen && (
+            <ScreenSettings
+              eventId={eventId} screen={scene.screen} mood={scene.mood} feed={screenFeed} title={eventTitle}
+              onChange={(screen) => { setTrackFailed(false); onScene({ screen }); }}
+            />
+          )}
+        </div>
 
         <div className="fx-stack gap-2 border-t border-border-base pt-3">
           <h3 className="es-field__label">Colour key</h3>

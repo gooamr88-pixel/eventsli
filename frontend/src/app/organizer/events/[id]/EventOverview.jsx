@@ -16,6 +16,7 @@ import { useNowMinute } from '../../../hooks/useNowMinute';
 import { isComingSoon } from '../../../lib/comingSoon';
 import ComingSoonLive from './ComingSoonLive';
 import PartnersCard from './PartnersCard';
+import { PURCHASE_MODE_LABELS } from '../../../lib/purchaseModes';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -242,9 +243,5 @@ function Row({ term, value }) {
 }
 
 function readable(mode) {
-  return {
-    seat_only: 'Individual seats',
-    table_only: 'Whole tables',
-    seat_and_table: 'Seats or whole tables',
-  }[mode] || mode;
+  return PURCHASE_MODE_LABELS[mode] || mode;
 }

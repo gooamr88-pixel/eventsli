@@ -3,6 +3,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { buildRoom, disposeTree, MOOD_STYLE } from './roomBuilder';
 import ViewerProblem from './ViewerProblem';
+import { createScreenPainter } from './stage/screenPainter';
+import { createStageSound, idleBeat } from './stage/stageSound';
+import { DEFAULT_SCREEN, soundFor } from './stage/screenModel';
 
 /** Past this with nothing drawn, the 3D code is not coming: say so. */
 const LOAD_TIMEOUT_MS = 25_000;
@@ -39,11 +42,29 @@ function lightRenderer() {
  * device dropping the GPU context mid-view each show a message
  * (ViewerProblem) with "Try again" and, where the caller passes `onFallback`,
  * "Use the 2D map" — instead of the dark background on its own.
+ *
+ * THE STAGE SCREEN IS A SHOW (2026-11-25, stage/). Every screen in the room
+ * shares one canvas texture that `screenPainter` draws: the organizer's
+ * slides (`screen`, from scene.screen) filled from the event (`screenFeed`).
+ * It repaints on its own budget — 30 fps on a desktop, 10 on a phone, 4 in
+ * the editor's small preview, once a second for reduced motion — and a tap
+ * on a screen moves it to the next slide. SHOWTIME (`controlsRef.showtime`,
+ * from a button: browsers play sound only after a tap) dims the house
+ * lights, swings the beams in the screen's colour, pulses the rim to the
+ * music and plays the soundtrack from the stage (stageSound.js). The CAMERA
+ * NEVER MOVES for any of it (the owner's rule, 2026-11-19): only the room's
+ * lights and the screen do.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 export default function VenueScene3D({
   model, scene, labels = [], title = '', buildKey, colorKey, colorFor,
   mode = 'orbit', eye = null, onPick, onHover, onFallback, controlsRef, className = '', ariaLabel = 'Venue in 3D',
+  // The stage screen's settings (screenModel.readScreen) and what fills it:
+  // { title, startsAt, endsAt, timezone, venueName, coverUrl, logoUrl,
+  //   lineup: [...], sponsors: [...] } from the map API. Either may be null.
+  screen = null, screenFeed = null,
+  // The organizer's track would not play; the Eventsli loop plays instead.
+  onTrackFailed = null,
   // The small preview beside the editor (owner, 2026-11-19: "not clear on
   // the side"): no glow pass, which blurs detail at that size; no table
   // numbers, which crowd it; a higher, closer camera that shows the layout;
@@ -58,11 +79,12 @@ export default function VenueScene3D({
   // Bumped by "Try again": the renderer effect runs from scratch.
   const [attempt, setAttempt] = useState(0);
   const retry = () => { setProblem(null); setReady(false); setAttempt((a) => a + 1); };
+  const screenLayout = { size: screen?.size ?? 100, sides: screen?.sides !== false };
 
   // Latest callbacks, read by handlers bound once. Written in an effect, never
   // during render.
-  const live = useRef({ colorFor, onPick, onHover, mode, eye });
-  useEffect(() => { live.current = { colorFor, onPick, onHover, mode, eye }; });
+  const live = useRef({ colorFor, onPick, onHover, mode, eye, screen, scene, onTrackFailed });
+  useEffect(() => { live.current = { colorFor, onPick, onHover, mode, eye, screen, scene, onTrackFailed }; });
 
   // ── renderer, camera, controls: once ─────────────────────────────────────
   useEffect(() => {
@@ -155,6 +177,19 @@ export default function VenueScene3D({
         renderer.domElement.style.touchAction = 'pan-x pan-y';
       }
 
+      // ── the stage screen's show ──
+      const still = (() => { try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; } })();
+      const painter = createScreenPainter({
+        width: light || compact ? 960 : 1280,
+        // An image or a font arrived: paint again at once.
+        onAsset: () => { if (stateRef.current) { stateRef.current.show.due = 0; stateRef.current.invalidate(); } },
+      });
+      painter.setStill(still);
+      const screenTex = new THREE.CanvasTexture(painter.canvas);
+      screenTex.colorSpace = THREE.SRGBColorSpace;
+      screenTex.anisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy?.() || 1);
+      screenTex.userData.shared = true;
+
       const st = {
         THREE, renderer, composer, bloom, light, scene: scene3, camera, controls, room: null, model: null,
         raycaster: new THREE.Raycaster(), pointer: new THREE.Vector2(),
@@ -164,9 +199,22 @@ export default function VenueScene3D({
         // only — while the room has animated props.
         dirty: true,
         invalidate: () => { st.dirty = true; },
+        show: {
+          painter, texture: screenTex, still, due: 0, sampleAt: 0, audio: null,
+          tint: new THREE.Color(0xffffff), target: 0, k: 0, sound: null, soundKey: '',
+          // Per frame, repaints per second: a phone and the small preview
+          // keep the GPU quiet unless Showtime asks for more.
+          fps: (on) => (still ? 1 : compact ? 4 : on ? (light ? 24 : 30) : (light ? 6 : 24)),
+          // Scrolled out of sight, the screen is not repainted at all.
+          visible: true,
+        },
       };
       stateRef.current = st;
       controls.addEventListener('change', st.invalidate);
+      const seen = typeof IntersectionObserver === 'function'
+        ? new IntersectionObserver(([entry]) => { st.show.visible = entry.isIntersecting; if (entry.isIntersecting) st.invalidate(); })
+        : null;
+      seen?.observe(host);
 
       const resize = () => {
         const w = host.clientWidth || 1;
@@ -193,6 +241,11 @@ export default function VenueScene3D({
         const hit = st.raycaster.intersectObjects([st.room.seatMesh, st.room.backMesh], false)[0];
         return hit ? hit.instanceId : -1;
       };
+      // Whether the last `seatAt` ray also passes through a screen.
+      const onScreen = () => {
+        const screens = st.room?.show?.screens;
+        return Boolean(screens?.length && st.raycaster.intersectObjects(screens, false).length);
+      };
 
       let down = null;
       const onDown = (e) => { down = { x: e.clientX, y: e.clientY, t: performance.now(), yaw: st.look.yaw, pitch: st.look.pitch }; };
@@ -208,9 +261,17 @@ export default function VenueScene3D({
         }
         if (e.buttons) return;
         const i = seatAt(e.clientX, e.clientY);
+        if (i < 0) {
+          // A screen says it can be tapped: it moves to the next slide.
+          const screenHit = onScreen();
+          renderer.domElement.style.cursor = screenHit ? 'pointer' : 'grab';
+          renderer.domElement.title = screenHit ? 'Tap for the next slide' : '';
+        } else {
+          renderer.domElement.title = '';
+        }
         if (i !== st.hovered) {
           st.hovered = i;
-          renderer.domElement.style.cursor = i >= 0 ? 'pointer' : 'grab';
+          if (i >= 0) renderer.domElement.style.cursor = 'pointer';
           const rect = host.getBoundingClientRect();
           live.current.onHover?.(i >= 0 ? st.model.seats[i] : null, { x: e.clientX - rect.left, y: e.clientY - rect.top });
         }
@@ -227,6 +288,10 @@ export default function VenueScene3D({
         if (i >= 0) {
           const rect = host.getBoundingClientRect();
           live.current.onPick?.(st.model.seats[i], { x: e.clientX - rect.left, y: e.clientY - rect.top });
+        } else if (onScreen()) {
+          st.show.painter.skip();
+          st.show.due = 0;
+          st.invalidate();
         }
       };
       const onWheel = (e) => {
@@ -243,6 +308,7 @@ export default function VenueScene3D({
         e.preventDefault();
         if (disposed) return;   // our own cleanup forces a loss too
         renderer.setAnimationLoop(null);
+        st.show.sound?.stop();
         setProblem('lost');
       });
       el.addEventListener('pointerdown', onDown);
@@ -279,17 +345,29 @@ export default function VenueScene3D({
           controls.update();   // fires 'change' (→ invalidate) while damping moves
         }
         const animate = !light && (st.room?.animated?.length || 0) > 0;
-        if (!flying && !st.dirty && !animate) return;
+        const showing = stepShow(st, t, live.current.screen);
+        if (!flying && !st.dirty && !animate && !showing) return;
         st.dirty = false;
         const seated = live.current.mode === 'eye' || st.flight?.then === 'eye';
         for (const b of st.room?.badges || []) b.visible = !seated;
-        if (animate) {
-          for (const p of st.room.animated) {
-            p.rotation.set(0.5 + Math.sin(t * 0.7 + p.userData.phase) * 0.18, p.userData.facing, Math.sin(t * 0.9 + p.userData.phase) * 0.3, 'YXZ');
+        if (animate || st.show.k > 0.001) {
+          // The beams sway; in Showtime they swing faster with the music.
+          const pace = 1 + st.show.k * (0.6 + (st.show.audio?.level || 0) * 1.4);
+          const tt = st.show.still ? 0 : t * pace;
+          for (const { pivot } of st.room?.show?.beams || []) {
+            if (!pivot.visible) continue;
+            pivot.rotation.set(0.5 + Math.sin(tt * 0.7 + pivot.userData.phase) * 0.18, pivot.userData.facing, Math.sin(tt * 0.9 + pivot.userData.phase) * 0.3, 'YXZ');
           }
         }
         draw();
       });
+
+      // A hidden tab plays nothing; it picks up where it was when it is back.
+      const onVisibility = () => {
+        if (document.hidden) st.show.sound?.pause();
+        else if (st.show.target) st.show.sound?.resume();
+      };
+      document.addEventListener('visibilitychange', onVisibility);
 
       if (controlsRef) {
         controlsRef.current = {
@@ -305,6 +383,39 @@ export default function VenueScene3D({
             st.invalidate();
           },
           reset: () => { if (st.home) flyTo(st, st.home.position, st.home.target, 'orbit'); },
+          /**
+           * Lights down, music up — or back. Call it from the tap itself:
+           * the soundtrack is created here, inside the gesture, which is
+           * the only time a browser lets a page start sound. Returns what
+           * is playing, for the button to say.
+           */
+          showtime: (on) => {
+            const sh = st.show;
+            sh.target = on ? 1 : 0;
+            if (on) {
+              const spec = soundFor(live.current.screen || DEFAULT_SCREEN, live.current.scene?.mood);
+              const key = JSON.stringify(spec);
+              if (sh.sound && sh.soundKey !== key) { sh.sound.dispose(); sh.sound = null; }
+              if (!sh.sound && spec.kind !== 'off') {
+                sh.sound = createStageSound({
+                  sound: spec,
+                  roomRadius: st.model?.radius || 20,
+                  onTrackFailed: () => live.current.onTrackFailed?.(),
+                });
+                sh.soundKey = key;
+              }
+              const at = st.room?.show?.anchor;
+              if (at) sh.sound?.place(at.x, at.y, at.z);
+              sh.sound?.start();
+            } else {
+              sh.sound?.stop();
+            }
+            sh.due = 0;
+            st.invalidate();
+            return { name: sh.sound?.name || null, sound: Boolean(sh.sound) };
+          },
+          mute: (muted) => st.show.sound?.setMuted(muted),
+          nextSlide: () => { st.show.painter.skip(); st.show.due = 0; st.invalidate(); },
         };
       }
 
@@ -312,9 +423,15 @@ export default function VenueScene3D({
       cleanup = () => {
         renderer.setAnimationLoop(null);
         ro.disconnect();
+        seen?.disconnect();
+        document.removeEventListener('visibilitychange', onVisibility);
+        st.show.sound?.dispose();
+        st.show.sound = null;
         controls.removeEventListener('change', st.invalidate);
         controls.dispose();
         if (st.room) disposeTree(st.room.group);
+        screenTex.dispose();
+        painter.dispose();
         composer?.dispose?.();
         envMap.dispose();
         pmrem.dispose();
@@ -341,7 +458,15 @@ export default function VenueScene3D({
     st.scene.fog = compact
       ? new THREE.Fog(style.fog, model.radius * 4, model.radius * 8)
       : new THREE.Fog(style.fog, model.radius * 2.2, model.radius * 5);
-    st.room = buildRoom(THREE, model, scene, { title, labels, tableNumbers: !compact });
+    st.room = buildRoom(THREE, model, scene, {
+      title, labels, tableNumbers: !compact,
+      screenTexture: st.show.texture,
+      screenLayout: { size: screenLayout.size, sides: screenLayout.sides },
+    });
+    // The music comes from the new room's screen.
+    const at = st.room.show.anchor;
+    if (at) st.show.sound?.place(at.x, at.y, at.z);
+    st.show.due = 0;
     st.scene.environmentIntensity = style.env ?? 0.6;
     if (st.bloom) st.bloom.strength = style.bloom ?? 0.5;
     st.model = model;
@@ -377,8 +502,24 @@ export default function VenueScene3D({
       st.controls.update();
     }
     recolor(st, live.current.colorFor);
+    // The screen's size and side screens are geometry: a rebuild. What it
+    // SHOWS is not (the effect below), so typing a message never rebuilds.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, buildKey]);
+  }, [ready, buildKey, screenLayout.size, screenLayout.sides]);
+
+  // ── what the screen shows: repainted, never rebuilt ──────────────────────
+  useEffect(() => {
+    const st = stateRef.current;
+    if (!ready || !st) return;
+    st.show.painter.setContent({ screen: screen || DEFAULT_SCREEN, feed: screenFeed, title });
+    st.show.due = 0;
+    // A new soundtrack chosen while one plays: the next Showtime starts it.
+    if (st.show.sound && st.show.soundKey !== JSON.stringify(soundFor(screen || DEFAULT_SCREEN, scene?.mood)) && !st.show.target) {
+      st.show.sound.dispose();
+      st.show.sound = null;
+    }
+    st.invalidate();
+  }, [ready, screen, screenFeed, title, scene?.mood]);
 
   // ── colours only ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -432,6 +573,65 @@ export default function VenueScene3D({
       {!ready && <div className="es-venue3d__loading" aria-hidden="true"><span /></div>}
     </div>
   );
+}
+
+/**
+ * One frame of the stage show: repaint the screen when its budget says so,
+ * ease Showtime in or out, and move the room's lights with it. Returns true
+ * when the frame must be drawn.
+ */
+function stepShow(st, t, screen) {
+  const sh = st.show;
+  const room = st.room?.show;
+  if (!room) return false;
+  const now = performance.now();
+  let changed = false;
+
+  // Showtime eases in over about a second and out a little faster.
+  const before = sh.k;
+  const rate = sh.target > sh.k ? 0.035 : 0.05;
+  sh.k = Math.abs(sh.target - sh.k) < 0.002 ? sh.target : sh.k + (sh.target - sh.k) * rate * (sh.still ? 3 : 1);
+  if (sh.k !== before) changed = true;
+
+  if (room.screens.length && sh.visible && now >= sh.due) {
+    sh.due = now + 1000 / sh.fps(sh.k > 0.01);
+    sh.audio = sh.sound?.playing ? sh.sound.read() : sh.k > 0.01 ? idleBeat(t) : null;
+    sh.painter.paint(now, sh.audio);
+    sh.texture.needsUpdate = true;
+    if (now >= sh.sampleAt) {
+      sh.sampleAt = now + 160;
+      const [r, g, b] = sh.painter.sample();
+      sh.tint.setRGB(r, g, b, st.THREE.SRGBColorSpace);
+    }
+    changed = true;
+  }
+
+  if (sh.sound?.playing) {
+    // The listener is the camera: the music is where the stage is.
+    const fwd = new st.THREE.Vector3();
+    st.camera.getWorldDirection(fwd);
+    sh.sound.listen(st.camera.position, fwd, st.camera.up);
+  }
+
+  const k = sh.k;
+  const react = screen?.react !== false;
+  const level = react ? (sh.audio?.level || 0) : 0.3;
+  const beat = react ? (sh.audio?.bass || 0) : 0;
+  for (const h of room.house) h.light.intensity = h.base * (1 - 0.7 * k);
+  if (room.glow) {
+    // The screen lights the stage a little always, and the room in Showtime.
+    // A brighter, whiter frame throws more.
+    const bright = Math.max(sh.tint.r, sh.tint.g, sh.tint.b);
+    room.glow.color.copy(sh.tint);
+    room.glow.intensity = (6 + k * (30 + beat * 40)) * (0.4 + bright);
+  }
+  for (const p of room.pulse) p.material.color.copy(p.base).multiplyScalar(1 + k * (react ? beat * 2.2 - 0.15 : 0.4));
+  for (const b of room.beams) {
+    b.pivot.visible = b.always || k > 0.02;
+    b.material.opacity = (b.always ? 0.07 : 0) + k * (0.05 + level * 0.2);
+    b.material.color.copy(b.base).lerp(sh.tint, k * 0.75);
+  }
+  return changed || k > 0.001;
 }
 
 function flyTo(st, to, target, then) {

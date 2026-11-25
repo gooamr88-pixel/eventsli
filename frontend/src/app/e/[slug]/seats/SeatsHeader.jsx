@@ -5,6 +5,7 @@ import NavIcon from '../../../components/shell/NavIcon';
 import { useCountdown } from '../../../hooks/useCountdown';
 import { formatEventTime } from '../../../lib/eventTime';
 import EventShare from '../EventShare';
+import { isTablePlaces } from '../../../lib/purchaseModes';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -52,7 +53,7 @@ export default function SeatsHeader({ event }) {
           <NavIcon name="chevronLeft" size={16} />Back to event
         </Link>
         <ol className="es-seatsteps__list" aria-label="Buying steps">
-          <li aria-current="step"><span className="es-nums">1</span><em>Select seats</em></li>
+          <li aria-current="step"><span className="es-nums">1</span><em>{isTablePlaces(event.purchaseMode) ? 'Choose a table' : 'Select seats'}</em></li>
           <li><span className="es-nums">2</span><em>Ticket details</em></li>
           <li><span className="es-nums">3</span><em>Payment</em></li>
         </ol>

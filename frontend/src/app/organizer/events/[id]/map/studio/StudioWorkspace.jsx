@@ -30,6 +30,7 @@ export default function StudioWorkspace({
       <Studio3D
         tables={tables} zones={zones} world={world} scene={studio.scene} onScene={(patch) => edit('scene', patch)}
         sections={sections} tiers={tiers} eventTitle={eventTitle} categories={categories} look={look}
+        eventId={eventId} screenFeed={eventInfo.screenFeed || null}
       />
     );
   }
@@ -39,6 +40,7 @@ export default function StudioWorkspace({
         eventId={eventId} tables={tables} zones={zones} world={world} scene={studio.scene}
         views={studio.views} onViews={(views) => edit('views', views)}
         sections={sections} tiers={tiers} eventTitle={eventTitle} categories={categories} look={look}
+        screenFeed={eventInfo.screenFeed || null}
       />
     );
   }
@@ -48,7 +50,7 @@ export default function StudioWorkspace({
         tables={tables} zones={zones} world={world} layout={layout} studio={studio} tiers={tiers}
         savedSeats={savedSeats} currency={eventInfo.currency} purchaseMode={eventInfo.purchaseMode}
         eventTitle={eventTitle} holds={holds} onToggleHold={toggleHold} onClearHolds={clearHolds}
-        categories={categories}
+        categories={categories} screenFeed={eventInfo.screenFeed || null}
       />
     );
   }

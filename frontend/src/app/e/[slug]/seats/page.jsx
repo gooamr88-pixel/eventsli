@@ -3,6 +3,8 @@ import { Suspense } from 'react';
 import { loadEventForViewer, privateMetadata } from '../../../lib/eventAccess';
 import PrivateEventGate from '../PrivateEventGate';
 import SeatPicker from './SeatPicker';
+import TablePlacesPicker from './TablePlacesPicker';
+import { isTablePlaces } from '../../../lib/purchaseModes';
 import SeatMapSkeleton from './SeatMapSkeleton';
 import SeatsHeader from './SeatsHeader';
 
@@ -26,7 +28,7 @@ export async function generateMetadata({ params }) {
     if (locked) return privateMetadata(locked.title);
     if (event?.isPrivate) return privateMetadata(event.title);
     return {
-      title: `Choose your seats · ${event.title}`,
+      title: `${isTablePlaces(event.purchaseMode) ? 'Choose your table' : 'Choose your seats'} · ${event.title}`,
       // Not indexable: the canonical page for this event is /e/[slug], and a
       // seat picker in search results is a dead end for anyone who lands on it
       // from a query about the event itself.
@@ -96,6 +98,18 @@ export default async function SeatsPage({ params, searchParams }) {
             arrives in, so a boundary that does resolve late looks like the map
             loading rather than like a second, different placeholder. */}
         <Suspense fallback={<SeatMapSkeleton />}>
+          {/* Places at a table (2026-11-25): the buyer chooses a table and how
+              many places; no seat is picked or named (TablePlacesPicker.jsx). */}
+          {isTablePlaces(event.purchaseMode) ? (
+            <TablePlacesPicker
+              slug={event.slug}
+              currency={event.currency}
+              maxPerOrder={event.maxTicketsPerOrder}
+              payments={event.payments}
+              addons={event.addons || []}
+              organizerName={event.organizer?.name || null}
+            />
+          ) : (
           <SeatPicker
             slug={event.slug}
             currency={event.currency}
@@ -106,6 +120,7 @@ export default async function SeatsPage({ params, searchParams }) {
             addons={event.addons || []}
             organizerName={event.organizer?.name || null}
           />
+          )}
         </Suspense>
       </div>
     </main>

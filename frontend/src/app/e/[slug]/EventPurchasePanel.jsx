@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { formatPrice } from '../../utils/money';
 import NavIcon from '../../components/shell/NavIcon';
+import { isTablePlaces } from '../../lib/purchaseModes';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -69,7 +70,7 @@ export function ctaFor(event, soldOut, tierId) {
     kind: 'buy',
     // The tier travels with the buyer, so the next page can start from it.
     href: `/e/${event.slug}/${general ? 'tickets' : 'seats'}${tierId ? `?tier=${encodeURIComponent(tierId)}` : ''}`,
-    label: free || general ? 'Book your ticket' : 'Choose your seats',
+    label: free || general ? 'Book your ticket' : isTablePlaces(event.purchaseMode) ? 'Choose your table' : 'Choose your seats',
     free,
   };
 }

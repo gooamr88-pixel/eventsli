@@ -13,6 +13,7 @@ import { SectionPlates, SectionBadges } from './MapOverlays';
 import { paintOrder, zoneLabel } from './venueZones';
 import { formatMoney } from '../../utils/money';
 import TableBodyShape from './TableBodyShape';
+import { isTablePlaces, pricesSeats, sellsWholeTables } from '../../lib/purchaseModes';
 import {
   inkOn, lookFont, tablePaint, CHAIR, CHAIR_EDGE, CHAIR_FADED_OPACITY,
 } from './mapStyle';
@@ -201,8 +202,16 @@ export default function SeatMapCanvas({
     return map;
   }, [seats]);
 
-  const canPickSeats = purchaseMode !== 'table_only';
-  const canPickTables = purchaseMode !== 'seat_only';
+  /**
+   * PLACES AT A TABLE (2026-11-25): the buyer chooses a TABLE, never a seat.
+   * Pressing a table or any of its chairs chooses the table; the table says
+   * how many places are left ("4 left"), and the places the buyer has taken
+   * are drawn as chosen chairs around it — a picture of their party, not an
+   * assignment (the server chooses the seats, and the ticket names none).
+   */
+  const placesMode = isTablePlaces(purchaseMode);
+  const canPickSeats = !placesMode && pricesSeats(purchaseMode);
+  const canPickTables = sellsWholeTables(purchaseMode);
 
   return (
     // The caption is a SIBLING of the sized box, not a child. Inside it, a box
@@ -256,6 +265,7 @@ export default function SeatMapCanvas({
             hideTaken={hideTaken}
             canPickSeats={canPickSeats}
             canPickTables={canPickTables}
+            placesMode={placesMode}
             onSelectSeat={onSelectSeat}
             onSelectTable={onSelectTable}
             wasDragged={wasDragged}
@@ -299,6 +309,7 @@ export default function SeatMapCanvas({
       {/* How to move around, said once. Nothing on the map said it could be
           zoomed, and a phone opened it too small to choose from. */}
       <p className="text-xs text-subtle">
+        {placesMode && <>Tap a table to choose how many places you need. </>}
         {canPickTables && tables.some((t) => t.canBookWhole) && (
           <>Tap a table to book the whole table{canPickSeats ? ', or tap seats to book them one by one' : ''}. </>
         )}
@@ -334,7 +345,7 @@ function MapButton({ onClick, label, boxed = false, children }) {
 function Table({
   table, seats, selectedSeatIds, isTableSelected, focusTiers, hideTaken,
   canPickSeats, canPickTables, onSelectSeat, onSelectTable, wasDragged, currency, seatFill, pickAny, world, look,
-  tint = null, onLockedTable = null,
+  tint = null, onLockedTable = null, placesMode = false,
 }) {
   const pos = toWorld(table.position, world);
   const shape = normaliseShape(table.shape);
@@ -363,13 +374,22 @@ function Table({
   // single seat sells individually the whole-table option closes, and the API
   // says so with `canBookWhole` rather than leaving it to be inferred.
   const wholeTableAvailable = canPickTables && table.canBookWhole && !locked;
+  // Places at a table: any table with a place left, or the one already chosen.
+  const freePlaces = seats.filter((s) => s.available).length;
+  const placesOpen = placesMode && !locked && !pickAny && (freePlaces > 0 || isTableSelected);
+  const roomy = body.width >= 44 && body.height >= 36;
+  const placesName = placesOpen
+    ? (isTableSelected ? `Table ${table.label}, chosen for your party. Press to give it back`
+      : `Choose table ${table.label}, ${freePlaces} ${freePlaces === 1 ? 'place' : 'places'} left`)
+    : null;
+  const placesLine = placesMode && !locked && roomy ? (freePlaces > 0 ? `${freePlaces} left` : 'Full') : null;
   // Written under the name when the table can be booked whole and is big
   // enough to hold a second line (a high-top is not).
   const wholePrice = wholeTableAvailable && currency && table.priceCents !== null && table.priceCents !== undefined
     && body.width >= 44 && body.height >= 36
     ? (table.priceCents === 0 ? 'Free' : formatMoney(table.priceCents, currency))
     : null;
-  const subline = locked ? 'Private' : wholePrice || (allGone && body.width >= 44 && body.height >= 36 ? 'Unavailable' : null);
+  const subline = locked ? 'Private' : placesLine || wholePrice || (allGone && roomy ? 'Unavailable' : null);
 
   // A key press is never a drag, so it skips that guard. The flag is left set
   // by the last pointer gesture, and sharing the click path made Enter on a
@@ -377,6 +397,7 @@ function Table({
   const pressTable = (e) => {
     e.stopPropagation();
     if (unlockable) { onLockedTable(table); return; }
+    if (placesOpen) { onSelectTable?.(table); return; }
     if (!wholeTableAvailable) return;
     onSelectTable?.(table);
   };
@@ -393,7 +414,7 @@ function Table({
         <TableBody
           body={body}
           selected={isTableSelected}
-          clickable={wholeTableAvailable || unlockable}
+          clickable={wholeTableAvailable || unlockable || placesOpen}
           locked={locked}
           faded={allGone}
           onClick={handleTable}
@@ -402,6 +423,7 @@ function Table({
           label={table.label}
           price={currency && table.priceCents !== null && table.priceCents !== undefined
             ? formatMoney(table.priceCents, currency) : null}
+          placesName={placesName}
         />
       )}
 
@@ -442,23 +464,27 @@ function Table({
             chair={chair}
             fill={fill}
             selected={selected}
-            dimmed={isTableSelected}
+            dimmed={isTableSelected && !placesMode}
             outsideFocus={Boolean(focusTiers && seat && !focusTiers.has(seat.tierId))}
             inFocus={Boolean(focusTiers && seat && focusTiers.has(seat.tierId))}
             faint={hideTaken && !available && !locked}
-            clickable={Boolean((canPickSeats && pressable) || opensLock)}
+            clickable={Boolean((canPickSeats && pressable) || opensLock || placesOpen)}
+            tableTap={placesMode ? (placesName || `Table ${table.label}`) : null}
             onClick={(e) => {
               e.stopPropagation();
               if (wasDragged()) return;
               // The chair goes with the table, so the page can choose it the
               // moment the password is right (2026-11-24).
               if (opensLock) { onLockedTable(table, seat || null); return; }
+              // A chair chooses its table, never itself (places at a table).
+              if (placesOpen) { onSelectTable?.(table); return; }
               if (!pressable) return;
               onSelectSeat?.(seat, table);
             }}
             onPress={(e) => {
               e.stopPropagation();
               if (opensLock) { onLockedTable(table, seat || null); return; }
+              if (placesOpen) { onSelectTable?.(table); return; }
               if (!pressable) return;
               onSelectSeat?.(seat, table);
             }}
@@ -533,6 +559,7 @@ function seatPrice(seat, currency) {
 
 function TableBody({
   body, selected, clickable, locked = false, faded = false, onClick, onPress, label, price, paint = {},
+  placesName = null,
 }) {
   // Selected is the accent, not the old near-black: the chairs round it are
   // black now, and a black table among black chairs was a hole in the map.
@@ -554,7 +581,7 @@ function TableBody({
         tabIndex: 0,
         'aria-label': locked
           ? `Private table ${label}. Enter its password to book it`
-          : `Book table ${label} whole${price ? `, ${price}` : ''}`,
+          : placesName || `Book table ${label} whole${price ? `, ${price}` : ''}`,
         ...(locked ? { 'aria-haspopup': 'dialog' } : { 'aria-pressed': selected }),
         onKeyDown: pressOnKey(onPress),
       }
@@ -562,6 +589,7 @@ function TableBody({
   };
   const tip = locked
     ? <title>{`Table ${label} — private. Enter the password to book it.`}</title>
+    : placesName ? <title>{placesName}</title>
     : clickable ? <title>{`Table ${label} — book the whole table${price ? ` · ${price}` : ''}`}</title> : null;
 
   return <TableBodyShape body={body} {...common}>{tip}</TableBodyShape>;
@@ -569,6 +597,9 @@ function TableBody({
 
 function Seat({
   point, number, tableLabel, price, available, reason = null, chair = false, fill: paint, selected, dimmed, outsideFocus, inFocus, faint, clickable, onClick, onPress,
+  // Places at a table: the chair is pressed to choose its TABLE. It is not a
+  // control of its own (the table is, for a keyboard), and it names no seat.
+  tableTap = null,
 }) {
   // A chair at a table is always black (mapStyle.CHAIR); its state is the
   // ring and the fade. A seat in a row takes `paint` (its own, category,
@@ -611,7 +642,7 @@ function Seat({
          */
         className="es-seat-hit"
         style={{ cursor: clickable ? 'pointer' : 'not-allowed' }}
-        {...(clickable
+        {...(clickable && tableTap ? { 'aria-hidden': true } : clickable
           ? {
             role: 'button',
             tabIndex: 0,
@@ -626,7 +657,8 @@ function Seat({
         {/* The price on hover. Seats of every ticket type look alike, so
             without this a buyer had to select a seat to learn what it cost. */}
         <title>
-          {`Table ${tableLabel} · seat ${number}${available || selected ? (price ? ` · ${price}` : '') : ` · ${UNAVAILABLE[reason] || 'taken'}`}`}
+          {tableTap
+            || `Table ${tableLabel} · seat ${number}${available || selected ? (price ? ` · ${price}` : '') : ` · ${UNAVAILABLE[reason] || 'taken'}`}`}
         </title>
       </circle>
       {/* THE SELECTED SEAT'S HALO, drawn behind the seat rather than on it.

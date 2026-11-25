@@ -1,4 +1,5 @@
 import { zoneMeta } from '../seating/venueZones';
+import { screenSize } from './stage/screenModel';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -63,23 +64,27 @@ export function makeLabel(THREE, text, { bg = 'rgba(17,16,24,0.82)', fg = '#ffff
   return sprite;
 }
 
-/** The big screen's picture: a stage-light gradient and the event's name. */
+/**
+ * The big screen's picture when there is no show to play (the show is
+ * stage/screenPainter.js; this is what a screen shows without one): a
+ * stage-light gradient and the event's name. 16:9, as every screen is.
+ */
 function screenTexture(THREE, title) {
   const canvas = document.createElement('canvas');
   canvas.width = 1024;
-  canvas.height = 400;
+  canvas.height = 576;
   const ctx = canvas.getContext('2d');
-  const g = ctx.createRadialGradient(512, 420, 40, 512, 260, 620);
+  const g = ctx.createRadialGradient(512, 600, 40, 512, 360, 700);
   g.addColorStop(0, '#ffd94d');
   g.addColorStop(0.35, '#ff414b');
   g.addColorStop(1, '#16070b');
   ctx.fillStyle = g;
-  ctx.fillRect(0, 0, 1024, 400);
+  ctx.fillRect(0, 0, 1024, 576);
   for (let i = 0; i < 9; i += 1) {
     ctx.strokeStyle = `rgba(255,230,160,${0.05 + (i % 3) * 0.03})`;
     ctx.lineWidth = 18;
     ctx.beginPath();
-    ctx.moveTo(512, 420);
+    ctx.moveTo(512, 600);
     ctx.lineTo(i * 128, -40);
     ctx.stroke();
   }
@@ -89,7 +94,7 @@ function screenTexture(THREE, title) {
   const name = (title || 'Live').slice(0, 60);
   let size = 72;
   do { ctx.font = `700 ${size}px system-ui, -apple-system, Segoe UI, sans-serif`; size -= 4; } while (size > 28 && ctx.measureText(name).width > 900);
-  ctx.fillText(name, 512, 215);
+  ctx.fillText(name, 512, 305);
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   return texture;
@@ -168,10 +173,22 @@ function floorTexture(THREE, style) {
  * Builds the room. Returns the group to add to a scene, the two seat meshes
  * (for picking and colouring) and whatever needs animating.
  */
-export function buildRoom(THREE, model, scene, { title, labels = [], tableNumbers: withNumbers = true } = {}) {
+export function buildRoom(THREE, model, scene, {
+  title, labels = [], tableNumbers: withNumbers = true,
+  // The stage screen's show (VenueScene3D owns it): one canvas texture every
+  // screen in the room shares, and the main screen's size and side screens.
+  screenTexture: showTexture = null, screenLayout = null,
+} = {}) {
   const style = MOOD_STYLE[scene.mood] || MOOD_STYLE.concert;
   const group = new THREE.Group();
   const animated = [];
+  // What Showtime moves (VenueScene3D): the screens a tap can reach, the
+  // house lights it dims, the glowing strips it pulses, the beams it swings,
+  // the light the screen throws, and where the music comes from.
+  const show = {
+    screens: [], house: [], pulse: [], beams: [], glow: null, anchor: null,
+    texture: showTexture, layout: { size: 100, sides: true, ...(screenLayout || {}) },
+  };
   const R = model.radius;
 
   // ── floor and shell ──────────────────────────────────────────────────────
@@ -198,6 +215,7 @@ export function buildRoom(THREE, model, scene, { title, labels = [], tableNumber
       new THREE.MeshBasicMaterial({ color: style.rim }),
       bulbs,
     );
+    show.pulse.push({ material: lamp.material, base: new THREE.Color(style.rim) });
     const m = new THREE.Matrix4();
     for (let i = 0; i < bulbs; i += 1) {
       const a = (i / bulbs) * Math.PI * 2;
@@ -208,11 +226,12 @@ export function buildRoom(THREE, model, scene, { title, labels = [], tableNumber
   }
 
   // ── lights ───────────────────────────────────────────────────────────────
-  group.add(new THREE.HemisphereLight(style.hemiSky, style.hemiGround, style.hemi));
-  group.add(new THREE.AmbientLight(0xffffff, 0.25));
+  const hemi = new THREE.HemisphereLight(style.hemiSky, style.hemiGround, style.hemi);
+  const ambient = new THREE.AmbientLight(0xffffff, 0.25);
   const sun = new THREE.DirectionalLight(0xffffff, style.sun);
   sun.position.set(R * 0.4, R * 1.2, R * 0.8);
-  group.add(sun);
+  group.add(hemi, ambient, sun);
+  show.house.push({ light: hemi, base: hemi.intensity }, { light: ambient, base: ambient.intensity }, { light: sun, base: sun.intensity });
 
   // ── risers under raised rows: the stands ─────────────────────────────────
   if (model.risers.length) {
@@ -238,6 +257,7 @@ export function buildRoom(THREE, model, scene, { title, labels = [], tableNumber
       new THREE.MeshBasicMaterial({ color: style.rim, transparent: true, opacity: 0.55 }),
       model.risers.length,
     );
+    show.pulse.push({ material: lips.material, base: new THREE.Color(style.rim) });
     model.risers.forEach((r, i) => {
       q.setFromAxisAngle(up, r.rot);
       const fx = -Math.sin(r.rot) * (r.d / 2);
@@ -274,7 +294,7 @@ export function buildRoom(THREE, model, scene, { title, labels = [], tableNumber
 
   // ── zones ────────────────────────────────────────────────────────────────
   const zoneLabels = [];
-  for (const z of model.zones) addZone(THREE, group, z, scene, style, title, animated, zoneLabels);
+  for (const z of model.zones) addZone(THREE, group, z, scene, style, title, animated, zoneLabels, show);
 
   // ── chairs ───────────────────────────────────────────────────────────────
   const { cushion, back, leg } = chairGeometries(THREE, model.seats.length);
@@ -328,7 +348,7 @@ export function buildRoom(THREE, model, scene, { title, labels = [], tableNumber
 
   // Every label hides in the seat view: from a chair, a name floating in
   // front of the stage is in the way of the thing it names.
-  return { group, seatMesh, backMesh, animated, badges: [...badges, ...zoneLabels, ...tableNumbers], style };
+  return { group, seatMesh, backMesh, animated, badges: [...badges, ...zoneLabels, ...tableNumbers], style, show };
 }
 
 function placeFlat(THREE, mesh, z, y) {
@@ -337,7 +357,30 @@ function placeFlat(THREE, mesh, z, y) {
   return mesh;
 }
 
-function addZone(THREE, group, z, scene, style, title, animated, zoneLabels) {
+/**
+ * A screen: the picture on a thin LED cabinet. Unlit and not tone-mapped, so
+ * its colours are the show's own and the bloom pass makes it glow; a hair
+ * under full white, so text on it stays crisp through that glow.
+ */
+function makeScreen(THREE, show, title, w, h, { doubleSided = false } = {}) {
+  const map = show.texture || screenTexture(THREE, title);
+  const panel = new THREE.Mesh(
+    new THREE.PlaneGeometry(w, h),
+    new THREE.MeshBasicMaterial({ map, toneMapped: false, color: 0xe8e8e8, side: doubleSided ? THREE.DoubleSide : THREE.FrontSide }),
+  );
+  panel.userData.screen = true;
+  const cabinet = new THREE.Mesh(
+    new THREE.BoxGeometry(w + 0.24, h + 0.24, 0.18),
+    new THREE.MeshStandardMaterial({ color: 0x0b0c0f, roughness: 0.5, metalness: 0.6 }),
+  );
+  cabinet.position.z = -0.1;
+  const rig = new THREE.Group();
+  rig.add(cabinet, panel);
+  show.screens.push(panel);
+  return rig;
+}
+
+function addZone(THREE, group, z, scene, style, title, animated, zoneLabels, show) {
   const color = new THREE.Color(z.color || zoneMeta(z.kind).color);
   const label = z.label || zoneMeta(z.kind).label;
 
@@ -363,53 +406,72 @@ function addZone(THREE, group, z, scene, style, title, animated, zoneLabels) {
     edge.rotation.y = facing;
     group.add(edge);
 
+    const truss = h + Math.max(6, z.w * 0.35);
     if (scene.screens) {
-      const tex = screenTexture(THREE, title);
-      const sw = z.w * 0.8;
-      const sh = sw * 0.39;
-      const screen = new THREE.Mesh(new THREE.PlaneGeometry(sw, sh), new THREE.MeshBasicMaterial({ map: tex }));
+      // ALWAYS 16:9 (screenModel.screenSize): as wide as the stage allows
+      // and low enough to hang under the truss, scaled by the organizer.
+      const { w: sw, h: sh } = screenSize({ room: z.w * 0.8, maxHeight: truss - h - 1.7, size: show.layout.size });
+      const screen = makeScreen(THREE, show, title, sw, sh);
       screen.position.set(z.x + bx * (z.d / 2 + 0.2), h + sh / 2 + 1.2, z.z + bz * (z.d / 2 + 0.2));
       // A plane's front faces +z; turned by `facing` it faces the room.
       screen.rotation.y = facing;
       group.add(screen);
-      for (const side of [-1, 1]) {
-        const small = new THREE.Mesh(new THREE.PlaneGeometry(sw * 0.3, sh * 0.6), new THREE.MeshBasicMaterial({ map: tex }));
-        const off = (sw / 2 + sw * 0.22) * side;
-        small.position.set(
-          screen.position.x + Math.cos(facing) * off - bx * 1.2,
-          h + sh * 0.6,
-          screen.position.z - Math.sin(facing) * off - bz * 1.2,
-        );
-        small.rotation.y = facing - side * 0.35;
-        group.add(small);
+      show.anchor = { x: screen.position.x, y: screen.position.y, z: screen.position.z };
+
+      // The light the screen throws on the stage and the front rows, tinted
+      // to whatever it is showing (VenueScene3D samples the picture).
+      const glow = new THREE.PointLight(0xffffff, 0, Math.max(18, z.w * 2.2), 1.6);
+      glow.position.set(screen.position.x - bx * 3, screen.position.y - sh * 0.2, screen.position.z - bz * 3);
+      group.add(glow);
+      show.glow = glow;
+
+      if (show.layout.sides) {
+        // Side screens, angled in toward the room: landscape too, for the
+        // seats too far round to read the main one.
+        const side = screenSize({ room: sw * 0.36, size: 100, minWidth: 1.4 });
+        for (const dir of [-1, 1]) {
+          const small = makeScreen(THREE, show, title, side.w, side.h);
+          const off = (sw / 2 + side.w * 0.62) * dir;
+          small.position.set(
+            screen.position.x + Math.cos(facing) * off - bx * 1.2,
+            h + 1.2 + Math.max(side.h / 2, sh * 0.55),
+            screen.position.z - Math.sin(facing) * off - bz * 1.2,
+          );
+          small.rotation.y = facing - dir * 0.35;
+          group.add(small);
+        }
       }
     }
 
-    if (scene.mood === 'concert') {
-      // Light beams: additive cones from a truss above the stage. Fake
-      // volumetrics, but they read as stage lighting at a glance, for free.
-      const truss = h + Math.max(6, z.w * 0.35);
-      for (let i = 0; i < 5; i += 1) {
-        const len = truss + 2;
-        const cone = new THREE.Mesh(
-          new THREE.ConeGeometry(2.2, len, 24, 1, true),
-          new THREE.MeshBasicMaterial({
-            color: i % 2 ? 0x5fe0d6 : 0x8f7dff, transparent: true, opacity: 0.07,
-            blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
-          }),
-        );
-        const t = (i / 4 - 0.5) * z.w * 0.8;
-        const pivot = new THREE.Group();
-        pivot.position.set(z.x + Math.cos(facing) * t, truss, z.z - Math.sin(facing) * t);
-        cone.position.y = -len / 2;
-        pivot.add(cone);
-        pivot.userData.phase = i * 1.3;
-        pivot.userData.facing = facing;
-        group.add(pivot);
-        animated.push(pivot);
-      }
+    // Light beams: additive cones from a truss above the stage. Fake
+    // volumetrics, but they read as stage lighting at a glance, for free.
+    // A concert shows them always; any room shows them in Showtime, when
+    // they take the screen's colour and move to the music.
+    const always = scene.mood === 'concert';
+    for (let i = 0; i < 5; i += 1) {
+      const len = truss + 2;
+      const base = new THREE.Color(i % 2 ? 0x5fe0d6 : 0x8f7dff);
+      const cone = new THREE.Mesh(
+        new THREE.ConeGeometry(2.2, len, 24, 1, true),
+        new THREE.MeshBasicMaterial({
+          color: base.clone(), transparent: true, opacity: always ? 0.07 : 0,
+          blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
+        }),
+      );
+      const t = (i / 4 - 0.5) * z.w * 0.8;
+      const pivot = new THREE.Group();
+      pivot.position.set(z.x + Math.cos(facing) * t, truss, z.z - Math.sin(facing) * t);
+      cone.position.y = -len / 2;
+      pivot.add(cone);
+      pivot.userData.phase = i * 1.3;
+      pivot.userData.facing = facing;
+      pivot.visible = always;
+      group.add(pivot);
+      if (always) animated.push(pivot);
+      show.beams.push({ pivot, material: cone.material, base, always });
     }
 
+    show.pulse.push(...frameLamps(group));
     const sign = makeLabel(THREE, label.toUpperCase(), { height: 0.7 });
     sign.position.set(z.x, h + 0.6, z.z);
     group.add(sign);
@@ -418,11 +480,15 @@ function addZone(THREE, group, z, scene, style, title, animated, zoneLabels) {
   }
 
   if (z.kind === 'screen') {
-    const screen = new THREE.Mesh(
-      new THREE.PlaneGeometry(z.w, Math.max(1.5, z.w * 0.4)),
-      new THREE.MeshBasicMaterial({ map: screenTexture(THREE, title), side: THREE.DoubleSide }),
-    );
-    group.add(placeFlat(THREE, screen, z, 4 + z.w * 0.2));
+    // A screen the organizer placed on the map. 16:9 along the LONGER side
+    // of what they drew: a screen drawn tall on the 2D map turns to face the
+    // other way, it never stands on end.
+    const long = Math.max(z.w, z.d);
+    const { w, h } = screenSize({ room: long, size: 100, minWidth: 1.6 });
+    const screen = makeScreen(THREE, show, title, w, h, { doubleSided: true });
+    group.add(placeFlat(THREE, screen, z, 2.4 + h / 2));
+    if (z.d > z.w) screen.rotation.y += Math.PI / 2;
+    if (!show.anchor) show.anchor = { x: z.x, y: 2.4 + h / 2, z: z.z };
     return;
   }
 
@@ -459,7 +525,8 @@ export function disposeTree(object) {
     const mats = Array.isArray(o.material) ? o.material : [o.material];
     for (const mat of mats) {
       if (!mat) continue;
-      mat.map?.dispose?.();
+      // The show's texture outlives any one room: VenueScene3D frees it.
+      if (!mat.map?.userData?.shared) mat.map?.dispose?.();
       mat.dispose?.();
     }
   });
@@ -506,6 +573,19 @@ function addTruss(THREE, group, z, h, style) {
     m.makeTranslation(x, top - 0.28, hd);
     lamp.setMatrixAt(heads + i, m);
   }
+  lamp.userData.lampHeads = true;
   frame.add(lamp);
   group.add(frame);
+}
+
+/** The truss's lamp heads just added, for Showtime to pulse. */
+function frameLamps(group) {
+  const out = [];
+  group.traverse((o) => {
+    if (o.userData?.lampHeads && !o.userData.claimed) {
+      o.userData.claimed = true;
+      out.push({ material: o.material, base: o.material.color.clone() });
+    }
+  });
+  return out;
 }

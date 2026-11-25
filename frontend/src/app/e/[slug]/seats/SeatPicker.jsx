@@ -567,7 +567,7 @@ export default function SeatPicker({
           layout={map.map?.layout}
           tiers={map.tiers || []}
           categories={map.categories || []}
-          eventTitle={map.event?.title || ''}
+          eventTitle={map.event?.title || ''} screenFeed={map.screenFeed || null}
           selectedSeatIds={selectedIds}
           selectedTableIds={selectedTableIds}
           highlightTierIds={highlightTierIds}

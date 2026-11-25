@@ -188,8 +188,14 @@ function CartItem({ item, now, onRemove, refresh }) {
           {item.lines.map((line, i) => (
             <li key={`${line.label}-${i}`}>
               <span className="fx-min0">
-                <b>{line.kind === 'table' ? line.label : `${line.label} × ${line.quantity}`}</b>
+                <b>{line.kind === 'table' || line.kind === 'places' ? line.label : `${line.label} × ${line.quantity}`}</b>
                 {line.kind === 'table' && line.seats ? <small>{line.seats} seats, booked as one table</small> : null}
+                {line.kind === 'places' ? (
+                  <small>
+                    {line.quantity} {line.quantity === 1 ? 'place' : 'places'}
+                    {line.tiers?.length ? ` · ${line.tiers.join(', ')}` : ''}
+                  </small>
+                ) : null}
                 {line.kind === 'seats' && line.places?.length ? <small>Seats {line.places.join(', ')}</small> : null}
               </span>
               {line.amountCents !== null && line.amountCents !== undefined && (

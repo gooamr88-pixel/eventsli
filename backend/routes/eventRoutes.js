@@ -10,7 +10,7 @@ const seatMap = require('../controllers/seatMapController');
 const scan = require('../controllers/scanController');
 const cover = require('../controllers/mediaController');
 const categoryService = require('../services/categoryService');
-const { EXTENSION_FOR } = require('../services/mediaService');
+const { EXTENSION_FOR, AUDIO_EXTENSION_FOR } = require('../services/mediaService');
 
 const router = express.Router();
 
@@ -72,7 +72,7 @@ router.post(
     .custom(isTimeZone).withMessage('Choose a time zone from the list, e.g. America/Toronto.'),
   ...dateRules,
   body('listingType').optional().isIn(['ticketed', 'display_only']),
-  body('purchaseMode').optional().isIn(['seat_only', 'table_only', 'seat_and_table']),
+  body('purchaseMode').optional().isIn(['seat_only', 'table_only', 'seat_and_table', 'table_places']),
   // Reserved seating or general admission. The field that decides whether this
   // event ever needs a venue map — see eventRules.eventNeeds.
   body('admissionType').optional().isIn(['reserved', 'general']),
@@ -200,7 +200,7 @@ router.patch(
   body('country').optional().isString().trim().isLength({ min: 2, max: 2 }),
   body('feeBearer').optional().isIn(['buyer', 'organizer']),
   body('listingType').optional().isIn(['ticketed', 'display_only']),
-  body('purchaseMode').optional().isIn(['seat_only', 'table_only', 'seat_and_table']),
+  body('purchaseMode').optional().isIn(['seat_only', 'table_only', 'seat_and_table', 'table_places']),
   body('admissionType').optional().isIn(['reserved', 'general']),
   // Content, not terms. The DB bounds the array and each entry
   // (`highlights_bounded`); this is the shape check that keeps a bad request
@@ -357,15 +357,18 @@ router.put(
 );
 
 // ─── Venue Studio ──────────────────────────────────────────────────────────
-// Images for the venue (its photo, 360° panoramas): sign, PUT, confirm — the
-// cover's three steps, under the same bucket and prefix. Nothing is written
-// until the map is saved, and that save keeps paths only (venueStudio.js).
+// Images for the venue (its photo, 360° panoramas, the stage screen's photos)
+// and the stage screen's soundtrack: sign, PUT, confirm — the cover's three
+// steps, under the same bucket and prefix. Nothing is written until the map is
+// saved, and that save keeps paths only (venueStudio.js). Which types go with
+// which kind is mediaService.signUpload's to decide: audio only as a
+// soundtrack, images only as anything else.
 router.post(
   '/:eventId/venue-map/upload',
   verifyEventOwner, requireEditableEvent,
-  body('contentType').isIn(Object.keys(EXTENSION_FOR))
-    .withMessage('Upload a JPEG, PNG or WebP image.'),
-  body('kind').isIn(['venue', 'panorama']).withMessage('Unknown image type.'),
+  body('contentType').isIn([...Object.keys(EXTENSION_FOR), ...Object.keys(AUDIO_EXTENSION_FOR)])
+    .withMessage('Upload a JPEG, PNG or WebP image, or an MP3 or M4A track.'),
+  body('kind').isIn(['venue', 'panorama', 'screen', 'soundtrack']).withMessage('Unknown file type.'),
   validate,
   seatMap.signAssetUpload,
 );

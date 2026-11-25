@@ -21234,3 +21234,70 @@ button.es-vb-doc__tile:focus-visible { outline: 3px solid var(--es-accent); outl
 @layer components {
 .es-co__pending { justify-items: start; }
 }
+
+/* ── Places at a table (2026-11-25): the party card above the map ───────── */
+@layer components {
+  .es-guests__row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem 1rem; }
+  .es-guests__row small { display: block; font-size: var(--es-text-xs); }
+  .es-guests__hint { display: flex; align-items: center; gap: 0.4rem; margin: 0.6rem 0 0; font-size: var(--es-text-sm); color: var(--es-text-muted); }
+  .es-guests__short { margin: 0; font-size: var(--es-text-sm); color: var(--es-text-muted); }
+}
+
+/* ── The stage screen and Showtime (2026-11-25): stage/ in components/venue ─ */
+@layer components {
+  /* Showtime sits in the 3D view's free top-left corner: the zoom tools are
+     top right, the seat card and the 360 strip bottom left. Dark glass, so
+     it reads over a bright daylight room and a dark concert alike. */
+  .es-showtime {
+    position: absolute; z-index: 2; inset-block-start: 0.75rem; inset-inline-start: 0.75rem;
+    display: flex; align-items: center; gap: 0.375rem;
+    max-width: calc(100% - 6rem); padding: 0.25rem;
+    border-radius: var(--es-radius-full);
+    background: rgba(17, 16, 24, 0.72); color: #fff;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.28);
+    backdrop-filter: blur(8px);
+  }
+  .es-showtime__go {
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    min-height: 2.25rem; padding: 0 0.95rem 0 0.75rem;
+    border: 0; border-radius: var(--es-radius-full);
+    background: var(--es-highlight); color: var(--es-text-on-highlight);
+    font: inherit; font-weight: 700; font-size: var(--es-text-sm); cursor: pointer;
+  }
+  .es-showtime__go:focus-visible, .es-showtime__mute:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+  .es-showtime[data-on='true'] .es-showtime__go { background: rgba(255, 255, 255, 0.14); color: #fff; }
+  .es-showtime__mute {
+    display: inline-grid; place-items: center; width: 2.25rem; height: 2.25rem;
+    border: 0; border-radius: var(--es-radius-full); background: transparent; color: #fff; cursor: pointer;
+  }
+  .es-showtime__mute:hover { background: rgba(255, 255, 255, 0.12); }
+  .es-showtime__now {
+    display: inline-flex; align-items: center; gap: 0.45rem; min-width: 0;
+    padding-inline-end: 0.75rem; font-size: var(--es-text-xs); color: rgba(255, 255, 255, 0.85);
+  }
+  .es-showtime__eq { display: inline-flex; align-items: flex-end; gap: 2px; height: 0.8rem; flex: none; }
+  .es-showtime__eq i { display: block; width: 3px; height: 100%; border-radius: 2px; background: var(--es-highlight); transform-origin: bottom; animation: es-eq 0.9s ease-in-out infinite; }
+  .es-showtime__eq i:nth-child(2) { animation-delay: -0.3s; }
+  .es-showtime__eq i:nth-child(3) { animation-delay: -0.6s; }
+  @keyframes es-eq { 0%, 100% { transform: scaleY(0.3); } 50% { transform: scaleY(1); } }
+  @media (prefers-reduced-motion: reduce) { .es-showtime__eq i { animation: none; transform: scaleY(0.6); } }
+
+  /* The flat preview in the 3D settings: always 16:9, a press is the next slide. */
+  .es-screenprev {
+    display: block; width: 100%; aspect-ratio: 16 / 9; padding: 0; overflow: hidden;
+    border: 1px solid var(--es-border); border-radius: var(--es-radius-md);
+    background: #0b0a10; cursor: pointer;
+  }
+  .es-screenprev:focus-visible { outline: 2px solid var(--es-accent); outline-offset: 2px; }
+  .es-screenprev__canvas { display: block; width: 100%; height: 100%; }
+
+  .es-screenset { gap: 0.75rem; }
+  .es-screenset__slides { display: grid; gap: 0.375rem; margin: 0 0 0.75rem; padding: 0; list-style: none; }
+  .es-screenset__slide { border: 1px solid var(--es-border); border-radius: var(--es-radius-md); background: var(--es-surface); }
+  .es-screenset__slide[data-open='true'] { border-color: var(--es-border-strong); }
+  .es-screenset__row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 0.5rem; padding: 0.375rem 0.375rem 0.375rem 0.625rem; color: var(--es-text-muted); }
+  .es-screenset__name { font-size: var(--es-text-sm); font-weight: 600; color: var(--es-text); }
+  .es-screenset__warn { font-size: var(--es-text-xs); color: var(--es-text-muted); }
+  .es-screenset__acts { display: inline-flex; gap: 0.125rem; }
+  .es-screenset__edit { gap: 0.625rem; padding: 0.625rem; border-top: 1px solid var(--es-border); }
+}

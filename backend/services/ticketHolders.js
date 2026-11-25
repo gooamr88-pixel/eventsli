@@ -26,8 +26,10 @@ const PHONE = /^[0-9+\-() ]{7,20}$/;
 const str = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
 const byNumber = (a, b) => String(a.seat_number).localeCompare(String(b.seat_number), undefined, { numeric: true });
 
-function placeLabel(seat, table) {
+function placeLabel(seat, table, { tablePlaces = false } = {}) {
   if (!seat) return null;
+  // Places at a table (2026-11-25): the guest has a table, not a seat.
+  if (tablePlaces && table && !table.section_name) return `Table ${table.label}`;
   if (table && !table.section_name) return `Table ${table.label} · Seat ${seat.seat_number}`;
   const parts = [seat.section_key || table?.section_name, seat.row_label ? `Row ${seat.row_label}` : null, `Seat ${seat.seat_number}`];
   return parts.filter(Boolean).join(' · ');
@@ -64,6 +66,7 @@ async function slotsFor(q) {
     tierIds.length ? supabase.from('ticket_tiers').select('id, name').in('id', tierIds) : { data: [] },
   ]);
   const tableOf = new Map((tables.data || []).map((t) => [t.id, t]));
+  const tablePlaces = seats.length > 0 && (q.event?.purchase_mode ? q.event.purchase_mode === 'table_places' : await isTablePlaces(q.event?.id));
   const tierName = new Map((tiers.data || []).map((t) => [t.id, t.name]));
 
   // Seats in the order they were chosen, a whole table's seats by number.
@@ -74,7 +77,7 @@ async function slotsFor(q) {
     key: `seat:${s.id}`,
     seatId: s.id,
     tierId: s.tier_id || null,
-    place: placeLabel(s, tableOf.get(s.table_id)),
+    place: placeLabel(s, tableOf.get(s.table_id), { tablePlaces }),
     tierName: tierName.get(s.tier_id) || null,
   }));
   for (const item of items.filter((i) => !i.seat_id && !i.table_id)) {
@@ -90,6 +93,13 @@ async function slotsFor(q) {
     }
   }
   return slots.map((s, i) => ({ ...s, title: `Ticket ${i + 1}` }));
+}
+
+/** Does this event book places at a table (no seat numbers)? A failed read says no. */
+async function isTablePlaces(eventId) {
+  if (!eventId) return false;
+  const { data } = await supabase.from('events').select('purchase_mode').eq('id', eventId).maybeSingle();
+  return data?.purchase_mode === 'table_places';
 }
 
 /** The event's setting, defaulting to 'required' if the column is not there yet. */

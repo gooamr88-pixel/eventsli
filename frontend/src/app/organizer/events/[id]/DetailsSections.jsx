@@ -13,6 +13,7 @@ import { isDateOnly, formatDateOnly } from '../../../lib/dateOnly';
 import DateOnlyFields from '../new/DateOnlyFields';
 import MonthFields from '../new/MonthFields';
 import AmPmCheck from '../../../components/forms/AmPmCheck';
+import { PURCHASE_MODE_LABELS } from '../../../lib/purchaseModes';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -51,7 +52,7 @@ function Fact({ term, value }) {
   );
 }
 
-const CHOOSE = { seat_only: 'Individual seats', table_only: 'Whole tables', seat_and_table: 'Seats or whole tables' };
+const CHOOSE = PURCHASE_MODE_LABELS;
 
 export function BasicSection({ f }) {
   const { event, form, set, setForm, live, listing, venueOptional, venueNote, categories } = f;

@@ -49,7 +49,7 @@ async function quoteReservation(reservationId, { chargeModel = CHARGE_MODEL.DIRE
 
   const { data: event, error: eventError } = await supabase
     .from('events')
-    .select(`id, slug, title, status, currency, organizer_id, venue_name, starts_at, timezone,
+    .select(`id, slug, title, status, currency, organizer_id, venue_name, starts_at, timezone, purchase_mode,
              cover_url, ends_at, venue_address, city, venue_address_line2, venue_region, venue_postal_code, venue_directions,
              ${EVENT_FEE_COLUMNS},
              organizers ( display_name )`)

@@ -366,6 +366,7 @@ export default function MapEditor({ eventId = null, templateId = null }) {
     <Preview3DCard
       tables={tables} zones={zones} world={world} scene={studio.scene} tiers={tiers}
       categories={categories} look={draft.look} onOpen={() => setWorkspace('3d')}
+      screenFeed={eventInfo.screenFeed || null}
     />
   );
 

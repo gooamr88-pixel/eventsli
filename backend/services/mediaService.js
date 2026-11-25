@@ -36,8 +36,23 @@ const EXTENSION_FOR = Object.freeze({
   'image/webp': 'webp',
 });
 
-/** 5 MB, matching the bucket's `file_size_limit`. */
+/** 5 MB for an image. The bucket allows 8 MB since 2026-11-25, for audio. */
 const MAX_BYTES = 5 * 1024 * 1024;
+
+/**
+ * THE ONE AUDIO KIND (2026-11-25): the stage screen's soundtrack, which the
+ * 3D room's Showtime plays (services/venueStudio.js, `scene.screen.sound`).
+ * MP3 and M4A, the two every browser plays; up to 8 MB, about four minutes.
+ * Kept apart from EXTENSION_FOR so no image route ever accepts audio. The
+ * bucket must allow these types (migration 20261221090000).
+ */
+const AUDIO_EXTENSION_FOR = Object.freeze({
+  'audio/mpeg': 'mp3',
+  'audio/mp4': 'm4a',
+});
+const AUDIO_KINDS = Object.freeze(['soundtrack']);
+const MAX_AUDIO_BYTES = 8 * 1024 * 1024;
+const maxBytesFor = (kind) => (AUDIO_KINDS.includes(kind) ? MAX_AUDIO_BYTES : MAX_BYTES);
 
 /**
  * The images an event can hold, and the only values that may reach a storage
@@ -48,7 +63,7 @@ const MAX_BYTES = 5 * 1024 * 1024;
  * 360° view) belong to the Venue Studio; see services/venueStudio.js. `tier`
  * is a ticket type's details photo; see services/ticketDetails.js.
  */
-const KINDS = Object.freeze(['cover', 'logo', 'gallery', 'sponsor', 'venue', 'panorama', 'tier', 'addon', 'vendor']);
+const KINDS = Object.freeze(['cover', 'logo', 'gallery', 'sponsor', 'venue', 'panorama', 'tier', 'addon', 'vendor', 'screen', 'soundtrack']);
 
 /** The signed URL's lifetime. Long enough for a slow phone on hotel wifi. */
 const UPLOAD_TTL_SECONDS = 600;
@@ -84,11 +99,12 @@ function storageUnavailable(err) {
  * watches the wrong one keep appearing in shares for days.
  */
 async function signUpload({ eventId, contentType, kind = 'cover', folder = null }) {
-  const ext = EXTENSION_FOR[contentType];
+  const audio = AUDIO_KINDS.includes(kind);
+  const ext = (audio ? AUDIO_EXTENSION_FOR : EXTENSION_FOR)[contentType];
   if (!ext) {
     throw new MediaError(
       'UNSUPPORTED_MEDIA_TYPE',
-      'Upload a JPEG, PNG or WebP image.',
+      audio ? 'Upload an MP3 or M4A file.' : 'Upload a JPEG, PNG or WebP image.',
     );
   }
 
@@ -126,7 +142,7 @@ async function signUpload({ eventId, contentType, kind = 'cover', folder = null 
     uploadUrl: data.signedUrl,
     path,
     expiresIn: UPLOAD_TTL_SECONDS,
-    maxBytes: MAX_BYTES,
+    maxBytes: maxBytesFor(kind),
     // PUT the file to `uploadUrl` with this Content-Type and no other headers.
     // The token is already inside the URL.
     method: 'PUT',
@@ -143,7 +159,7 @@ async function signUpload({ eventId, contentType, kind = 'cover', folder = null 
  * event — pointing their own listing at a competitor's artwork, or at a file
  * they had uploaded under an event they own and then deleted.
  */
-async function attach({ eventId, path, previousPath, folder = null }) {
+async function attach({ eventId, path, previousPath, folder = null, maxBytes = MAX_BYTES }) {
   const dir = folder || `events/${eventId}`;
   const prefix = `${dir}/`;
   if (typeof path !== 'string' || !path.startsWith(prefix) || path.includes('..') || path.slice(prefix.length).includes('/')) {
@@ -178,11 +194,11 @@ async function attach({ eventId, path, previousPath, folder = null }) {
   // this endpoint never sees. Checking here is what turns "the upload silently
   // did nothing" into a sentence.
   const size = Number(object.metadata?.size ?? 0);
-  if (size > MAX_BYTES) {
+  if (size > maxBytes) {
     await remove(path);
     throw new MediaError(
       'VALIDATION_ERROR',
-      `That image is larger than ${Math.round(MAX_BYTES / 1024 / 1024)} MB.`,
+      `That file is larger than ${Math.round(maxBytes / 1024 / 1024)} MB.`,
     );
   }
 
@@ -236,7 +252,9 @@ module.exports = {
   attachOrganizerLogo,
   publicUrl,
   MAX_BYTES,
+  MAX_AUDIO_BYTES,
   EXTENSION_FOR,
+  AUDIO_EXTENSION_FOR,
   KINDS,
   UPLOAD_TTL_SECONDS,
   MediaError,

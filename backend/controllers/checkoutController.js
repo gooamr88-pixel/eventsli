@@ -84,7 +84,7 @@ async function quote(req, res, next) {
 
     return sendOk(res, {
       ...pricing.publicBreakdown(q),
-      tickets: await ticketLines(q.items),
+      tickets: await ticketLines(q.items, { tablePlaces: q.event?.purchase_mode === 'table_places' }),
       // Per-ticket holder forms (2026-11-19): the event's rule and one slot
       // per ticket — empty for a one-ticket order or when the event asks none.
       holders: await holderSvc.forCheckout(q),
@@ -157,7 +157,7 @@ async function setAddons(req, res, next) {
  * breakdown, never a sum of these lines. A failed name lookup costs the names
  * (the line reads "Ticket"), never the checkout.
  */
-async function ticketLines(items = []) {
+async function ticketLines(items = [], { tablePlaces = false } = {}) {
   const tierIds = [...new Set(items.map((i) => i.tier_id).filter(Boolean))];
   const tableIds = [...new Set(items.map((i) => i.table_id).filter(Boolean))];
   const [tiers, tables] = await Promise.all([
@@ -170,6 +170,20 @@ async function ticketLines(items = []) {
   ]);
   const tierName = new Map(tiers.map((t) => [t.id, t.name]));
   const tableLabel = new Map(tables.map((t) => [t.id, t.label]));
+  // Places at a table (2026-11-25): each seat line says which table, never
+  // which seat — "VIP · Table 12 × 3".
+  const seatTable = new Map();
+  if (tablePlaces) {
+    const seatIds = items.filter((i) => i.seat_id).map((i) => i.seat_id);
+    if (seatIds.length) {
+      const rows = await supabase.from('seats').select('id, tables ( label, section_name )').in('id', seatIds)
+        .then((r) => r.data || [], () => []);
+      for (const r of rows) {
+        const tb = Array.isArray(r.tables) ? r.tables[0] : r.tables;
+        if (tb?.label && !tb.section_name) seatTable.set(r.id, tb.label);
+      }
+    }
+  }
 
   const lines = new Map();
   for (const item of items) {
@@ -178,7 +192,8 @@ async function ticketLines(items = []) {
     const wholeTable = item.table_id && !item.seat_id;
     const name = wholeTable
       ? `Table ${tableLabel.get(item.table_id) || ''}`.trim()
-      : tierName.get(item.tier_id) || 'Ticket';
+      : [tierName.get(item.tier_id) || 'Ticket', seatTable.has(item.seat_id) ? `Table ${seatTable.get(item.seat_id)}` : null]
+        .filter(Boolean).join(' · ');
     const unit = Number(item.unit_price_cents) || 0;
     const key = `${name}|${unit}`;
     const line = lines.get(key) || { key, name, unitPriceCents: unit, quantity: 0 };

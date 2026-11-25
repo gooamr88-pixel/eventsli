@@ -118,7 +118,7 @@ export default function EditTickets({ form, set, errorFor }) {
       />
       {form.admissionType === 'reserved' && (
         <RadioCards
-          legend="How do buyers choose their place?" name="ai-purchaseMode" required columns={3}
+          legend="How do buyers choose their place?" name="ai-purchaseMode" required columns={2}
           value={form.purchaseMode} onChange={(e) => set({ purchaseMode: e.target.value })}
           options={PURCHASE_MODES.map(([value, title, desc, icon]) => ({ value, title, desc, icon }))}
         />

@@ -104,6 +104,9 @@ export function useMapPersistence({ eventId, draft, studioDraft, selection, onFr
           purchaseMode: event?.purchaseMode || event?.event?.purchaseMode || 'seat_only',
           // General admission draws the room without seats (2026-11-23).
           admissionType: event?.admissionType || event?.event?.admissionType || null,
+          // What the stage screen shows in 3D: cover, lineup, sponsors, times
+          // (backend services/stageScreen.js). Null on an older API: the title.
+          screenFeed: map?.screenFeed || null,
         });
         onFrame(frameFor(loadedTables, loadedZones, loadedWorld));
         setLayout(map?.layout || {});

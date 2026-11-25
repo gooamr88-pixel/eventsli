@@ -31,6 +31,7 @@ import { TextField, SelectField, RangeField } from '../../../../../components/in
  */
 export default function Studio360({
   eventId, tables, zones, world, scene, views, onViews, sections, tiers, eventTitle, categories = [], look = null,
+  screenFeed = null,
 }) {
   const [selected, setSelected] = useState(views[0]?.id || 'generated');
   const [fromTable, setFromTable] = useState('');
@@ -128,6 +129,7 @@ export default function Studio360({
               className="h-full w-full" model={model} scene={scene} title={eventTitle}
               buildKey={buildKey} colorKey={colorKey} colorFor={colorFor}
               mode="eye" eye={eye} ariaLabel={`The view from ${tableLabel}`}
+              screen={scene.screen} screenFeed={screenFeed}
             />
           )}
         </div>

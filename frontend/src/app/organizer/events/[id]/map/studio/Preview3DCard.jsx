@@ -18,7 +18,7 @@ import NavIcon from '../../../../../components/shell/NavIcon';
  * once it has been still for 450 ms.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-export default function Preview3DCard({ tables, zones, world, scene, tiers, onOpen }) {
+export default function Preview3DCard({ tables, zones, world, scene, tiers, onOpen, screenFeed = null }) {
   const [snapshot, setSnapshot] = useState({ tables, zones });
   useEffect(() => {
     const t = setTimeout(() => setSnapshot({ tables, zones }), 450);
@@ -28,9 +28,13 @@ export default function Preview3DCard({ tables, zones, world, scene, tiers, onOp
   const plain = useMemo(() => snapshot.tables.map((t) => ({
     id: keyOf(t), label: t.label, shape: t.shape, seatCount: t.seatCount, position: t.position, tierId: t.tierId, style: t.style,
   })), [snapshot.tables]);
+  // Geometry only: a change to what the stage screen shows repaints it and
+  // never rebuilds the room.
+  const { rake, stageHeight, mood, screens, roof } = scene;
+  const geo = useMemo(() => ({ rake, stageHeight, mood, screens, roof }), [rake, stageHeight, mood, screens, roof]);
   const model = useMemo(
-    () => buildSceneModel({ tables: plain, zones: snapshot.zones, scene, world }),
-    [plain, snapshot.zones, scene, world],
+    () => buildSceneModel({ tables: plain, zones: snapshot.zones, scene: geo, world }),
+    [plain, snapshot.zones, geo, world],
   );
   const palette = useMemo(() => tierPalette(tiers, []), [tiers]);
   const tierOf = useMemo(() => new Map(plain.map((t) => [t.id, t.tierId])), [plain]);
@@ -49,8 +53,9 @@ export default function Preview3DCard({ tables, zones, world, scene, tiers, onOp
       </div>
       <div className="es-preview3d__view">
         <VenueScene3D
-          className="h-full w-full" compact model={model} scene={scene} buildKey={model} colorKey={colorFor}
+          className="h-full w-full" compact model={model} scene={geo} buildKey={model} colorKey={colorFor}
           colorFor={colorFor} ariaLabel="A small 3D preview of the room"
+          screen={scene.screen} screenFeed={screenFeed}
         />
       </div>
     </section>

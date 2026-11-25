@@ -129,6 +129,8 @@ export const PURCHASE_MODES = [
   ['seat_only', 'Individual seats', 'Buyers pick seats one by one.', 'ticket'],
   ['table_only', 'Whole tables', 'Buyers book a table and get every seat at it.', 'layers'],
   ['seat_and_table', 'Seats or tables', 'Buyers can do either.', 'map'],
+  // 2026-11-25: "4 places at table 12" — the guests sit anywhere at their table.
+  ['table_places', 'Places at a table', 'Buyers choose a table and how many places. No seat numbers.', 'users'],
 ];
 
 export const FEE_BEARERS = [

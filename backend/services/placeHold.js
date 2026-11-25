@@ -18,12 +18,30 @@ const access = require('./tableAccessService');
  * ─────────────────────────────────────────────────────────────────────────────
  */
 async function placeHold({ event, userId, selection, tableAccessHeader = '', ttlMinutes, statusFor }) {
-  const { seatIds, tableId, lines } = selection;
+  const { seatIds, tableId, lines, tables } = selection;
   const unlocked = () => access.unlockedTableIds(String(tableAccessHeader || '').split(',').filter(Boolean), event.id);
 
   let result;
   let rpcError = null;
-  if (Array.isArray(lines)) {
+  if (Array.isArray(tables)) {
+    // PLACES AT A TABLE (2026-11-25): "4 places at table 12". The seats are
+    // chosen inside `hold_table_places`, which then runs every seat-hold rule.
+    // A private table needs its key, exactly as for a seat at one.
+    const ids = tables.map((t) => t.tableId);
+    const privateIds = await privateTables(ids);
+    if (privateIds.length > 0) {
+      const open = unlocked();
+      if (privateIds.some((id) => !open.has(id))) {
+        return { ok: false, fail: { status: 403, error: 'TABLE_PASSWORD_REQUIRED', message: 'That table is private. Unlock it with its password first.' } };
+      }
+    }
+    ({ data: result, error: rpcError } = await supabase.rpc('hold_table_places', {
+      p_event_id: event.id,
+      p_user_id: userId,
+      p_lines: tables.map((t) => ({ tableId: t.tableId, quantity: Number(t.quantity) })),
+      p_ttl_minutes: ttlMinutes,
+    }));
+  } else if (Array.isArray(lines)) {
     // GENERAL ADMISSION — the sale window, per-type caps and the allocation are
     // all enforced inside `hold_general`, under a row lock on the tiers.
     ({ data: result, error: rpcError } = await supabase.rpc('hold_general', {
@@ -76,6 +94,14 @@ async function privateTablesFor(seatIds) {
     .eq('tables.is_private', true);
   if (error) throw new Error(`private table lookup failed: ${error.message}`);
   return [...new Set((data || []).map((s) => s.table_id))];
+}
+
+/** Which of these tables are private. Fails closed: it is a gate. */
+async function privateTables(tableIds) {
+  if (!Array.isArray(tableIds) || tableIds.length === 0) return [];
+  const { data, error } = await supabase.from('tables').select('id').in('id', tableIds).eq('is_private', true);
+  if (error) throw new Error(`private table lookup failed: ${error.message}`);
+  return (data || []).map((t) => t.id);
 }
 
 /** Fails closed, like `privateTablesFor` (TECH-AUDIT-LOG T-015). */
