@@ -21,6 +21,7 @@ import { LockBadge } from '../seating/SeatMapCanvas';
 import { isTablePlaces } from '../../lib/purchaseModes';
 import ShowtimeBar from './stage/ShowtimeBar';
 import { soundFor } from './stage/screenModel';
+import { primeAudio } from './stage/audioUnlock';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -93,6 +94,8 @@ export default function VenueExperience({
   const [hover, setHover] = useState(null);
   // The organizer's track would not play here; Showtime plays Eventsli music.
   const [trackFailed, setTrackFailed] = useState(false);
+  // What Showtime is doing, as the 3D view reports it (it can start itself).
+  const [showStatus, setShowStatus] = useState(null);
   // After every useState above: this calls their setters, and a `const`
   // setter used before its line is a crash, not a no-op.
   if (goTo && selectedSeatIds.has(goTo.seatId)) {
@@ -158,7 +161,7 @@ export default function VenueExperience({
   // the organizer placed on the map.
   const hasScreen = (studio.scene.screens && zones.some((z) => z.kind === 'stage')) || zones.some((z) => z.kind === 'screen');
   // "Use the 2D map" when a 3D or 360° view cannot draw on this device.
-  const toMap = () => { setView('2d'); setHover(null); setPickId(null); setGoTo(null); };
+  const toMap = () => { setView('2d'); setHover(null); setPickId(null); setGoTo(null); setShowStatus(null); };
   const model = useMemo(
     () => (in3d ? buildSceneModel({
       tables, seatsByTable, zones, scene: studio.scene, world,
@@ -333,7 +336,16 @@ export default function VenueExperience({
   return (
     <div ref={frameRef} className={`es-venuex ${frameClassName}`}>
       <div className="fx-row fx-row--between gap-2">
-        <ViewSwitch value={view} onChange={(v) => { setView(v); setHover(null); setPickId(null); setGoTo(null); }} />
+        <ViewSwitch
+          value={view}
+          onChange={(v) => {
+            // This tap is what lets the show's sound start by itself a moment
+            // later, when the room is drawn (audioUnlock.js).
+            if (v !== '2d') primeAudio();
+            else setShowStatus(null);
+            setView(v); setHover(null); setPickId(null); setGoTo(null);
+          }}
+        />
         {/* From `sm`: on a phone the pinned bar below already says "Tap a
             seat to choose it", and this row is worth its height in map. */}
         <p className="hidden text-xs text-subtle sm:block">
@@ -419,6 +431,8 @@ export default function VenueExperience({
             screen={studio.scene.screen}
             screenFeed={screenFeed}
             onTrackFailed={() => setTrackFailed(true)}
+            autoShow={studio.scene.screen.autoplay}
+            onShowtime={setShowStatus}
           />
 
           {/* Mounted whenever the room is: over a 360° photo too, so the button
@@ -426,6 +440,7 @@ export default function VenueExperience({
           {hasScreen && (
             <ShowtimeBar
               controls={controls}
+              status={showStatus}
               hasSound={soundFor(studio.scene.screen, studio.scene.mood).kind !== 'off'}
               trackFailed={trackFailed}
               volume={studio.scene.screen.sound.volume}

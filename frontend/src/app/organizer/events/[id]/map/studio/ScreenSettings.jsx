@@ -138,8 +138,8 @@ export default function ScreenSettings({ eventId, screen, mood, feed, title, onC
         <Toggle label="LED finish" hint="A fine pixel grid, like a real stage wall." checked={screen.pixels} onChange={(pixels) => set({ pixels })} />
         <RangeField
           label="Screen width" value={screen.size} min={SCREEN_WIDTH.min} max={SCREEN_WIDTH.max} step={5}
-          onChange={(size) => set({ size })} format={(v) => `${v}% of the stage`}
-          hint="Past 100% the screen is wider than the stage, like a festival LED wall. It stays 16:9."
+          onChange={(size) => set({ size })} format={(v) => `${v}%`}
+          hint="100% is the stage's width (on a small stage, a size that suits the room). Past 100% it is wider, like a festival LED wall. Always 16:9."
         />
         <Toggle label="Side screens" hint="Two smaller screens either side, for the seats far round." checked={screen.sides} onChange={(sides) => set({ sides })} />
       </InspectorSection>
@@ -170,7 +170,11 @@ export default function ScreenSettings({ eventId, screen, mood, feed, title, onC
           label="Lights follow the music" hint="In Showtime the stage beams, the rim and the screen’s glow pulse with the beat."
           checked={screen.react} onChange={(react) => set({ react })}
         />
-        <InspectorNote>Buyers start it with Showtime in the 3D view. Nothing ever plays by itself.</InspectorNote>
+        <Toggle
+          label="Start Showtime by itself" checked={screen.autoplay}
+          onChange={(autoplay) => set({ autoplay })}
+          hint="When a buyer opens the 3D or 360° view, the lights go down and the music starts. They can stop it with Lights up."
+        />
       </InspectorSection>
     </div>
   );

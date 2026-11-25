@@ -34,6 +34,7 @@ export default function Studio3D({
 }) {
   const [eyeSeat, setEyeSeat] = useState(null);
   const [trackFailed, setTrackFailed] = useState(false);
+  const [showStatus, setShowStatus] = useState(null);
   // The room's geometry only: what the stage SCREEN shows is not in it, so
   // typing a slide's words repaints the screen and never rebuilds the room.
   const { rake, stageHeight, mood, screens, roof } = scene;
@@ -117,11 +118,13 @@ export default function Studio3D({
               screen={scene.screen}
               screenFeed={screenFeed}
               onTrackFailed={() => setTrackFailed(true)}
+              autoShow={scene.screen.autoplay}
+              onShowtime={setShowStatus}
             />
           )}
           {hasScreen && (tables.length > 0 || zones.length > 0) && (
             <ShowtimeBar
-              controls={controls} hasSound={soundFor(scene.screen, scene.mood).kind !== 'off'} trackFailed={trackFailed}
+              controls={controls} status={showStatus} hasSound={soundFor(scene.screen, scene.mood).kind !== 'off'} trackFailed={trackFailed}
               volume={scene.screen.sound.volume}
             />
           )}

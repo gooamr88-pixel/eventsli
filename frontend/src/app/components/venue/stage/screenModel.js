@@ -97,6 +97,8 @@ export const DEFAULT_SCREEN = Object.freeze({
   sound: Object.freeze({ source: 'preset', preset: null, track: null, volume: 85 }),
   // Stage lights, the rim and the screen's glow pulse with the music.
   react: true,
+  // Showtime starts by itself when the 3D view opens (owner, 2026-11-25).
+  autoplay: true,
 });
 
 const HEX = /^#[0-9a-f]{6}$/i;
@@ -179,6 +181,7 @@ export function readScreen(raw) {
       volume: Math.round(num(sound.volume, 0, 100, 85)),
     },
     react: s.react !== false,
+    autoplay: s.autoplay !== false,
   };
 }
 

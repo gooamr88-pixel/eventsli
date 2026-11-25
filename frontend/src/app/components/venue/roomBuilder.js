@@ -190,6 +190,7 @@ export function buildRoom(THREE, model, scene, {
     texture: showTexture, layout: { size: SCREEN_WIDTH.default, sides: true, ...(screenLayout || {}) },
   };
   const R = model.radius;
+  show.roomRadius = R;
 
   // ── floor and shell ──────────────────────────────────────────────────────
   const floor = new THREE.Mesh(
@@ -394,9 +395,15 @@ function addZone(THREE, group, z, scene, style, title, animated, zoneLabels, sho
     // ALWAYS 16:9 (screenModel.screenSize), as wide as the organizer sets it
     // against the stage's width — wider than the stage is allowed, as real
     // LED walls are. The truss rises to clear it rather than capping it.
-    const screenDims = scene.screens ? screenSize({ room: z.w, size: show.layout.size }) : null;
+    // Measured against the stage, or — on a small stage — a width that suits
+    // the room (8 to 24 m), so a narrow stage does not get a postage stamp
+    // (owner's phone screenshot, 2026-11-25).
+    const base = Math.max(z.w, Math.min(24, Math.max(8, (show.roomRadius || 20) * 0.45)));
+    const screenDims = scene.screens ? screenSize({ room: base, size: show.layout.size }) : null;
     const truss = Math.max(h + Math.max(6, z.w * 0.35), screenDims ? h + 1.2 + screenDims.h + 0.8 : 0);
-    addTruss(THREE, group, z, h, style, truss);
+    // The truss frames the screen too: as wide as whichever is wider, so a
+    // big wall on a small stage is a rig, not a thin tower.
+    addTruss(THREE, group, z, h, style, truss, screenDims ? Math.max(z.w, screenDims.w + 1.2) : z.w);
 
     // The back of the stage is the side away from the room's centre.
     const away = Math.hypot(z.x, z.z) || 1;
@@ -538,13 +545,13 @@ export function disposeTree(object) {
  * A lighting truss over the stage: four posts and a frame, with lamp heads
  * along the front beam. What makes a box on the floor read as a stage.
  */
-function addTruss(THREE, group, z, h, style, trussTop = null) {
+function addTruss(THREE, group, z, h, style, trussTop = null, width = z.w) {
   const metal = new THREE.MeshStandardMaterial({ color: 0x2a3236, roughness: 0.4, metalness: 0.85 });
   const top = trussTop ?? h + Math.max(6, z.w * 0.35);
   const frame = new THREE.Group();
   frame.position.set(z.x, 0, z.z);
   frame.rotation.y = z.rot;
-  const hw = z.w / 2;
+  const hw = width / 2;
   const hd = z.d / 2;
   for (const [x, zz] of [[-hw, -hd], [hw, -hd], [-hw, hd], [hw, hd]]) {
     const post = new THREE.Mesh(new THREE.BoxGeometry(0.22, top, 0.22), metal);
@@ -552,7 +559,7 @@ function addTruss(THREE, group, z, h, style, trussTop = null) {
     frame.add(post);
   }
   for (const zz of [-hd, hd]) {
-    const beam = new THREE.Mesh(new THREE.BoxGeometry(z.w + 0.22, 0.26, 0.26), metal);
+    const beam = new THREE.Mesh(new THREE.BoxGeometry(width + 0.22, 0.26, 0.26), metal);
     beam.position.set(0, top, zz);
     frame.add(beam);
   }
@@ -561,7 +568,7 @@ function addTruss(THREE, group, z, h, style, trussTop = null) {
     beam.position.set(x, top, 0);
     frame.add(beam);
   }
-  const heads = Math.max(4, Math.round(z.w / 1.6));
+  const heads = Math.max(4, Math.round(width / 1.6));
   const lamp = new THREE.InstancedMesh(
     new THREE.CylinderGeometry(0.14, 0.2, 0.32, 12),
     new THREE.MeshBasicMaterial({ color: style.rim }),
@@ -569,7 +576,7 @@ function addTruss(THREE, group, z, h, style, trussTop = null) {
   );
   const m = new THREE.Matrix4();
   for (let i = 0; i < heads; i += 1) {
-    const x = -hw + ((i + 0.5) / heads) * z.w;
+    const x = -hw + ((i + 0.5) / heads) * width;
     m.makeTranslation(x, top - 0.28, -hd);
     lamp.setMatrixAt(i, m);
     m.makeTranslation(x, top - 0.28, hd);

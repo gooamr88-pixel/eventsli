@@ -139,3 +139,9 @@ test('a video slide keeps its sound switch: on unless turned off', () => {
   const out = cleanScreen(EVENT, { slides: [{ id: 'a', kind: 'video' }, { id: 'b', kind: 'video', sound: false }, { id: 'c', kind: 'video', sound: 'no' }] });
   assert.deepEqual(out.slides.map((x) => x.sound), [true, false, true]);
 });
+
+test('Showtime starts by itself unless the organizer turned that off', () => {
+  assert.equal(cleanScreen(EVENT, {}).autoplay, true);
+  assert.equal(cleanScreen(EVENT, { autoplay: false }).autoplay, false);
+  assert.equal(cleanScreen(EVENT, { autoplay: 'nope' }).autoplay, true);
+});

@@ -240,6 +240,8 @@ function cleanScreen(eventId, raw) {
       volume: Math.round(num(sound.volume, 0, 100, 85)),
     },
     react: raw.react !== false,
+    // Showtime starts by itself when the 3D view opens.
+    autoplay: raw.autoplay !== false,
   };
 }
 

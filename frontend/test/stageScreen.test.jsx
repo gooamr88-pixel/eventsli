@@ -8,6 +8,9 @@ import {
 } from '../src/app/components/venue/stage/screenModel';
 import { createScreenPainter } from '../src/app/components/venue/stage/screenPainter';
 import { PATTERNS, idleBeat, createStageSound } from '../src/app/components/venue/stage/stageSound';
+import { forgetSharedAudio } from '../src/app/components/venue/stage/audioUnlock';
+import { render, screen as dom, fireEvent } from '@testing-library/react';
+import ShowtimeBar from '../src/app/components/venue/stage/ShowtimeBar';
 import { readStudio } from '../src/app/components/venue/venueModel';
 import { buildSceneModel } from '../src/app/components/venue/sceneModel';
 import { buildRoom } from '../src/app/components/venue/roomBuilder';
@@ -135,10 +138,23 @@ describe('the screen is always landscape', () => {
       const model = buildSceneModel({ tables: rows, zones: [stage], scene: { rake: 0 } });
       const room = buildRoom(THREE, model, { mood: 'concert', screens: true, stageHeight: 1.2 }, { title: 'Live', screenLayout: { size: 150, sides: false } });
       const s = room.show.screens[0];
-      expect(s.geometry.parameters.width).toBeCloseTo(model.zones[0].w * 1.5, 6);
+      const base = Math.max(model.zones[0].w, Math.min(24, Math.max(8, model.radius * 0.45)));
+      expect(s.geometry.parameters.width).toBeCloseTo(base * 1.5, 6);
+      expect(s.geometry.parameters.width).toBeGreaterThan(model.zones[0].w);
       expect(ratio(s)).toBeCloseTo(16 / 9, 6);
       const screenTop = s.parent.position.y + s.geometry.parameters.height / 2;
       for (const b of room.show.beams) expect(b.pivot.position.y).toBeGreaterThan(screenTop);
+    });
+
+    test('a NARROW stage still gets a real screen, not a postage stamp (owner’s phone, 2026-11-25)', () => {
+      const narrow = { ...stage, w: 40, h: 60 };
+      const model = buildSceneModel({ tables: rows, zones: [narrow], scene: { rake: 0 } });
+      expect(model.zones[0].w).toBeLessThan(8);
+      const room = buildRoom(THREE, model, { mood: 'concert', screens: true, stageHeight: 1.2 }, { title: 'Live' });
+      const s = room.show.screens[0];
+      // 80% of at least 8 m, and still landscape.
+      expect(s.geometry.parameters.width).toBeGreaterThanOrEqual(6.4 - 1e-6);
+      expect(ratio(s)).toBeCloseTo(16 / 9, 6);
     });
 
     test('a screen drawn TALL on the 2D map turns instead of standing on end', () => {
@@ -437,10 +453,13 @@ function fakeAudio() {
     set(t, k, v) { t[k] = v; return true; },
   });
   class Ctx {
-    constructor() { this.currentTime = 0; this.sampleRate = 8000; this.destination = node(); this.listener = node(); }
+    constructor() {
+      this.currentTime = 0; this.sampleRate = 8000; this.destination = node(); this.listener = node();
+      this.state = log.startState || 'running';
+    }
     createBuffer(c, len) { return { getChannelData: () => new Float32Array(len) }; }
     createMediaElementSource() { log.sources += 1; return node(); }
-    resume() { return Promise.resolve(); }
+    resume() { if (log.allowResume !== false) this.state = 'running'; return Promise.resolve(); }
     suspend() { return Promise.resolve(); }
     close() { return Promise.resolve(); }
   }
@@ -567,6 +586,7 @@ describe('a video’s own sound (2026-11-25: "the sound of the video does not wo
     window.AudioContext = Ctx;
     try {
       // No music at all: the engine still exists, for the video.
+      forgetSharedAudio();
       const engine = createStageSound({ sound: { kind: 'off', volume: 0.8 }, roomRadius: 20 });
       expect(engine).not.toBeNull();
       expect(engine.hasMusic).toBe(false);
@@ -597,6 +617,76 @@ describe('a video’s own sound (2026-11-25: "the sound of the video does not wo
     } finally {
       window.AudioContext = original;
     }
+  });
+});
+
+describe('Showtime by itself (2026-11-25: "make it play auto")', () => {
+  test('on by default; the organizer can turn it off', () => {
+    expect(readScreen({}).autoplay).toBe(true);
+    expect(readScreen({ autoplay: false }).autoplay).toBe(false);
+  });
+
+  test('sound a browser holds back is reported, and a tap lets it play', async () => {
+    const { Ctx, log } = fakeAudio();
+    const original = window.AudioContext;
+    window.AudioContext = Ctx;
+    try {
+      forgetSharedAudio();
+      log.startState = 'suspended';
+      log.allowResume = false;   // started outside a tap: the browser says no
+      const engine = createStageSound({ sound: { kind: 'preset', preset: 'arena', name: 'Arena', volume: 0.8 }, roomRadius: 20 });
+      expect(engine.blocked).toBe(false); // not playing yet
+      await engine.start();
+      expect(engine.blocked).toBe(true);
+      log.allowResume = true;    // the tap
+      await engine.unlock();
+      expect(engine.blocked).toBe(false);
+      engine.stop();
+      engine.dispose();
+    } finally {
+      window.AudioContext = original;
+      forgetSharedAudio();
+    }
+  });
+
+  test('the page shares one context: a second soundtrack does not make another', () => {
+    const { Ctx } = fakeAudio();
+    const made = vi.fn();
+    class Counting extends Ctx { constructor() { super(); made(); } }
+    const original = window.AudioContext;
+    window.AudioContext = Counting;
+    try {
+      forgetSharedAudio();
+      const a = createStageSound({ sound: { kind: 'off', volume: 0.5 } });
+      a.dispose();
+      const b = createStageSound({ sound: { kind: 'off', volume: 0.5 } });
+      b.dispose();
+      expect(made).toHaveBeenCalledTimes(1);
+    } finally {
+      window.AudioContext = original;
+      forgetSharedAudio();
+    }
+  });
+
+  test('the button shows what the room is doing', () => {
+    const showtime = vi.fn(() => ({ name: 'Arena', sound: true }));
+    const unlock = vi.fn();
+    const controls = { current: { showtime, unlock, volume: vi.fn(), mute: vi.fn() } };
+    const { rerender } = render(<ShowtimeBar controls={controls} status={null} />);
+    fireEvent.click(dom.getByRole('button', { name: /showtime/i }));
+    expect(showtime).toHaveBeenCalledWith(true);
+
+    // Started (by itself or by that tap), with the sound held back.
+    rerender(<ShowtimeBar controls={controls} status={{ on: true, name: 'Arena', sound: true, blocked: true }} />);
+    expect(dom.getByRole('button', { name: /lights up/i })).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(dom.getByRole('button', { name: /tap for sound/i }));
+    expect(unlock).toHaveBeenCalled();
+
+    // Playing: mute and the track's name instead.
+    rerender(<ShowtimeBar controls={controls} status={{ on: true, name: 'Arena', sound: true, blocked: false }} />);
+    expect(dom.queryByRole('button', { name: /tap for sound/i })).toBeNull();
+    expect(dom.getByRole('button', { name: /mute the sound/i })).toBeInTheDocument();
+    expect(dom.getByText('Arena')).toBeInTheDocument();
   });
 });
 

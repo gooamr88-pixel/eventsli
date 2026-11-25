@@ -1,4 +1,6 @@
 import { PATTERNS } from './stageLoops';
+import { sharedAudio } from './audioUnlock';
+import { mtof, noiseBuffer, makeKit } from './stageInstruments';
 /**
  * ─────────────────────────────────────────────────────────────────────────────
  * THE SOUNDTRACK of the 3D room's Showtime (2026-11-25).
@@ -28,26 +30,6 @@ import { PATTERNS } from './stageLoops';
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
-const mtof = (m) => 440 * 2 ** ((m - 69) / 12);
-
-/** One second of white noise, shared by every hat, brush and clap. */
-function noiseBuffer(ctx, seconds = 1, brown = false) {
-  const len = Math.floor(ctx.sampleRate * seconds);
-  const buf = ctx.createBuffer(1, len, ctx.sampleRate);
-  const d = buf.getChannelData(0);
-  let last = 0;
-  for (let i = 0; i < len; i += 1) {
-    const white = Math.random() * 2 - 1;
-    if (brown) {
-      last = (last + 0.02 * white) / 1.02;
-      d[i] = last * 3.5;
-    } else {
-      d[i] = white;
-    }
-  }
-  return buf;
-}
-
 /** A room's tail: decaying stereo noise, longer for a larger room. */
 function impulse(ctx, seconds) {
   const len = Math.floor(ctx.sampleRate * seconds);
@@ -57,156 +39,6 @@ function impulse(ctx, seconds) {
     for (let i = 0; i < len; i += 1) d[i] = (Math.random() * 2 - 1) * (1 - i / len) ** 2.6;
   }
   return buf;
-}
-
-/**
- * The instruments. Each schedules one note at time `t` and cleans up after
- * itself; a stopped node is disconnected, so a long Showtime does not grow.
- */
-function makeKit(ctx, out) {
-  const noise = noiseBuffer(ctx, 1);
-  const done = (node, ...rest) => { node.onended = () => { node.disconnect(); rest.forEach((n) => n.disconnect()); }; };
-
-  const envelope = (t, peak, attack, decay) => {
-    const g = ctx.createGain();
-    g.gain.setValueAtTime(0.0001, t);
-    g.gain.linearRampToValueAtTime(peak, t + attack);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + attack + decay);
-    g.connect(out);
-    return g;
-  };
-
-  const noiseHit = (t, v, decay, type, freq, q = 0.7) => {
-    const src = ctx.createBufferSource();
-    src.buffer = noise;
-    const f = ctx.createBiquadFilter();
-    f.type = type;
-    f.frequency.value = freq;
-    f.Q.value = q;
-    const g = envelope(t, v, 0.002, decay);
-    src.connect(f).connect(g);
-    src.start(t, Math.random() * 0.5);
-    src.stop(t + decay + 0.05);
-    done(src, f, g);
-  };
-
-  return {
-    kick(t, v = 0.9) {
-      const o = ctx.createOscillator();
-      o.type = 'sine';
-      o.frequency.setValueAtTime(140, t);
-      o.frequency.exponentialRampToValueAtTime(42, t + 0.13);
-      const g = envelope(t, v, 0.004, 0.4);
-      o.connect(g);
-      o.start(t);
-      o.stop(t + 0.46);
-      done(o, g);
-    },
-    hat(t, v = 0.15, decay = 0.05) { noiseHit(t, v, decay, 'highpass', 7500); },
-    shaker(t, v = 0.05) { noiseHit(t, v, 0.045, 'highpass', 5200); },
-    clap(t, v = 0.25) { noiseHit(t, v, 0.18, 'bandpass', 1500, 0.8); },
-    brush(t, v = 0.1) { noiseHit(t, v, 0.24, 'bandpass', 2800, 0.5); },
-    bass(m, t, dur, v = 0.3) {
-      const o = ctx.createOscillator();
-      o.type = 'triangle';
-      o.frequency.value = mtof(m);
-      const sub = ctx.createOscillator();
-      sub.type = 'sine';
-      sub.frequency.value = mtof(m);
-      const f = ctx.createBiquadFilter();
-      f.type = 'lowpass';
-      f.frequency.value = 420;
-      const g = envelope(t, v, 0.01, dur);
-      o.connect(f);
-      sub.connect(f);
-      f.connect(g);
-      o.start(t); sub.start(t);
-      o.stop(t + dur + 0.05); sub.stop(t + dur + 0.05);
-      done(o, sub, f, g);
-    },
-    pad(notes, t, dur, v = 0.05, attack = 0.5) {
-      const f = ctx.createBiquadFilter();
-      f.type = 'lowpass';
-      f.frequency.setValueAtTime(700, t);
-      f.frequency.linearRampToValueAtTime(1500, t + dur * 0.5);
-      f.frequency.linearRampToValueAtTime(800, t + dur);
-      f.Q.value = 0.4;
-      const g = ctx.createGain();
-      g.gain.setValueAtTime(0.0001, t);
-      g.gain.linearRampToValueAtTime(v, t + attack);
-      g.gain.setValueAtTime(v, t + Math.max(attack, dur - 0.6));
-      g.gain.exponentialRampToValueAtTime(0.0001, t + dur + 0.9);
-      f.connect(g).connect(out);
-      const oscs = [];
-      for (const m of notes) {
-        for (const detune of [-8, 8]) {
-          const o = ctx.createOscillator();
-          o.type = 'sawtooth';
-          o.frequency.value = mtof(m);
-          o.detune.value = detune;
-          o.connect(f);
-          o.start(t);
-          o.stop(t + dur + 1);
-          oscs.push(o);
-        }
-      }
-      oscs[oscs.length - 1].onended = () => { oscs.forEach((o) => o.disconnect()); f.disconnect(); g.disconnect(); };
-    },
-    keys(notes, t, dur, v = 0.08) {
-      for (const m of notes) {
-        const o = ctx.createOscillator();
-        o.type = 'sine';
-        o.frequency.value = mtof(m);
-        const bell = ctx.createOscillator();
-        bell.type = 'triangle';
-        bell.frequency.value = mtof(m + 12);
-        const bg = ctx.createGain();
-        bg.gain.value = 0.18;
-        const g = envelope(t, v / notes.length * 2, 0.006, dur);
-        o.connect(g);
-        bell.connect(bg).connect(g);
-        o.start(t); bell.start(t);
-        o.stop(t + dur + 0.05); bell.stop(t + dur + 0.05);
-        done(o, bell, bg, g);
-      }
-    },
-    pluck(m, t, v = 0.08) {
-      const o = ctx.createOscillator();
-      o.type = 'triangle';
-      o.frequency.value = mtof(m);
-      const f = ctx.createBiquadFilter();
-      f.type = 'lowpass';
-      f.frequency.setValueAtTime(2600, t);
-      f.frequency.exponentialRampToValueAtTime(500, t + 0.35);
-      const g = envelope(t, v, 0.003, 0.42);
-      o.connect(f).connect(g);
-      o.start(t);
-      o.stop(t + 0.5);
-      done(o, f, g);
-    },
-    boom(t, v = 0.55) {
-      const o = ctx.createOscillator();
-      o.type = 'sine';
-      o.frequency.setValueAtTime(72, t);
-      o.frequency.exponentialRampToValueAtTime(36, t + 0.7);
-      const g = envelope(t, v, 0.01, 1.7);
-      o.connect(g);
-      o.start(t);
-      o.stop(t + 1.8);
-      done(o, g);
-      noiseHit(t, v * 0.25, 0.3, 'lowpass', 220);
-    },
-    shimmer(m, t, v = 0.035) {
-      const o = ctx.createOscillator();
-      o.type = 'sine';
-      o.frequency.value = mtof(m);
-      const g = envelope(t, v, 0.25, 2.6);
-      o.connect(g);
-      o.start(t);
-      o.stop(t + 2.9);
-      done(o, g);
-    },
-  };
 }
 
 // The four loops live in stageLoops.js; re-exported for the tests.
@@ -291,9 +123,10 @@ export function createStageSound({ sound, roomRadius = 20, onTrackFailed = null 
   // 'off' still gets an engine: no music, but a video slide's own sound
   // plays through it (2026-11-25, "the sound of the video does not work").
   if (!sound || typeof window === 'undefined') return null;
-  const AC = window.AudioContext || window.webkitAudioContext;
-  if (!AC) return null;
-  const ctx = new AC();
+  // The page's one context, unlocked by the tap that opened the 3D view
+  // (audioUnlock.js). Never closed here: other soundtracks reuse it.
+  const ctx = sharedAudio();
+  if (!ctx) return null;
   // Full volume is a little over unity: the limiter below keeps it clean.
   const level = (v) => Math.max(0, Math.min(1, v)) * 1.3;
   let volume = level(sound.volume ?? 0.8);
@@ -347,8 +180,32 @@ export function createStageSound({ sound, roomRadius = 20, onTrackFailed = null 
   const videoSources = new WeakMap();
   let video = null;
 
-  const playLoop = (preset) => { stopLoop = startLoop(ctx, musicBus, preset); };
+  // Sources run only while Showtime is on: started by `start`, stopped by
+  // `stop` (the context itself keeps running, see audioUnlock.js).
+  let preset = sound.kind === 'preset' ? sound.preset : null;
+  // The browser refused to play the track without a tap: not a failure, the
+  // next tap plays it (`unlock`).
+  let trackBlocked = false;
+  const playLoop = () => { if (preset && !stopLoop) stopLoop = startLoop(ctx, musicBus, preset); };
+  const halt = () => {
+    stopLoop?.();
+    stopLoop = null;
+    el?.pause?.();
+  };
 
+  const fail = () => {
+    if (!el) return;
+    el.pause();
+    el = null;
+    name = 'Arena · Eventsli music';
+    preset = 'arena';
+    if (on) playLoop();
+    onTrackFailed?.();
+  };
+  const playTrack = () => el?.play?.()?.then?.(
+    () => { trackBlocked = false; },
+    (err) => { if (err?.name === 'NotAllowedError') trackBlocked = true; else fail(); },
+  );
   if (sound.kind === 'track' && sound.url) {
     el = new Audio();
     el.crossOrigin = 'anonymous';
@@ -357,18 +214,7 @@ export function createStageSound({ sound, roomRadius = 20, onTrackFailed = null 
     el.src = sound.url;
     const src = ctx.createMediaElementSource(el);
     src.connect(musicBus);
-    const fail = () => {
-      if (!el) return;
-      el.pause();
-      el = null;
-      name = 'Arena · Eventsli music';
-      playLoop('arena');
-      onTrackFailed?.();
-    };
     el.addEventListener('error', fail, { once: true });
-    el.play().catch(fail);
-  } else if (sound.kind !== 'off') {
-    playLoop(sound.preset);
   }
 
   const duck = (down) => {
@@ -421,18 +267,31 @@ export function createStageSound({ sound, roomRadius = 20, onTrackFailed = null 
     get hasMusic() { return sound.kind !== 'off'; },
     video: setVideo,
 
-    /** In from silence over a second: a show starts, it does not switch on. */
+    /**
+     * In from silence over a second: a show starts, it does not switch on.
+     * Resolves once the browser has said whether sound may play (`blocked`).
+     */
     start() {
       on = true;
-      ctx.resume?.();
-      el?.play?.().catch(() => {});
+      playLoop();
+      playTrack();
       setGain(muted ? 0.0001 : volume, 1.2);
+      return Promise.resolve(ctx.state === 'running' ? null : ctx.resume?.()).catch(() => {});
     },
     stop() {
       on = false;
       setVideo(null);
       setGain(0.0001, 0.6);
-      setTimeout(() => { if (!on) { el?.pause?.(); ctx.suspend?.(); } }, 700);
+      setTimeout(() => { if (!on) halt(); }, 700);
+    },
+    /** The browser is holding the sound back until a tap. */
+    get blocked() { return on && (ctx.state !== 'running' || trackBlocked); },
+    /** Call inside a tap: lets held-back sound play. */
+    unlock() {
+      const waits = [Promise.resolve(ctx.resume?.()).catch(() => {})];
+      if (el && on) waits.push(Promise.resolve(playTrack()));
+      if (video) video.play?.()?.catch?.(() => {});
+      return Promise.all(waits);
     },
     /** The buyer's own volume, 0–1, on top of the organizer's. */
     setVolume(v) {
@@ -444,8 +303,8 @@ export function createStageSound({ sound, roomRadius = 20, onTrackFailed = null 
       if (on) setGain(muted ? 0.0001 : volume, 0.25);
     },
     /** Pause with the page: a hidden tab plays nothing. */
-    pause() { ctx.suspend?.(); el?.pause?.(); },
-    resume() { if (on) { ctx.resume?.(); el?.play?.().catch(() => {}); } },
+    pause() { halt(); },
+    resume() { if (on) { playLoop(); playTrack(); } },
 
     /** Where the music comes from: the screen. */
     place(x, y, z) {
@@ -475,9 +334,12 @@ export function createStageSound({ sound, roomRadius = 20, onTrackFailed = null 
       if (video) video.muted = true;
       video = null;
       on = false;
-      stopLoop?.();
-      if (el) { el.pause(); el.src = ''; el = null; }
-      ctx.close?.().catch?.(() => {});
+      halt();
+      if (el) { el.src = ''; el = null; }
+      // The context is the page's: only this soundtrack's nodes go.
+      for (const n of [master, musicBus, videoBus, analyser, panner, verb, wet, limiter]) {
+        try { n.disconnect(); } catch { /* already */ }
+      }
     },
   };
 }

@@ -21272,6 +21272,25 @@ button.es-vb-doc__tile:focus-visible { outline: 3px solid var(--es-accent); outl
   }
   .es-showtime__mute:hover { background: rgba(255, 255, 255, 0.12); }
   .es-showtime__vol { width: 4.5rem; flex: none; accent-color: var(--es-highlight); cursor: pointer; }
+  /* "Tap for sound": the browser held the music back until a touch. */
+  .es-showtime__unlock {
+    display: inline-flex; align-items: center; gap: 0.35rem; min-height: 2.25rem; padding: 0 0.85rem;
+    border: 0; border-radius: var(--es-radius-full); background: #fff; color: #111018;
+    font: inherit; font-weight: 700; font-size: var(--es-text-sm); cursor: pointer;
+    animation: es-unlock 1.6s ease-in-out infinite;
+  }
+  @keyframes es-unlock { 0%, 100% { box-shadow: 0 0 0 0 rgba(255, 204, 0, 0.7); } 50% { box-shadow: 0 0 0 6px rgba(255, 204, 0, 0); } }
+  @media (prefers-reduced-motion: reduce) { .es-showtime__unlock { animation: none; } }
+
+  /* PHONES (owner screenshot, 2026-11-25: Showtime cut off under the zoom
+     buttons). The map's tools stack down the right edge, so the top row is
+     Showtime's; the volume slider gives way to the phone's own buttons. */
+  @media (width < theme(--breakpoint-sm)) {
+    .es-venuex__tools { flex-direction: column; }
+    .es-showtime { max-width: calc(100% - 4.75rem); }
+    .es-showtime__vol { display: none; }
+    .es-showtime__go { padding-inline: 0.75rem; }
+  }
   .es-screenset__quick { margin-bottom: 0.75rem; }
   .es-showtime__now {
     display: inline-flex; align-items: center; gap: 0.45rem; min-width: 0;

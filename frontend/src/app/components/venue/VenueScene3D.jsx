@@ -65,6 +65,13 @@ export default function VenueScene3D({
   screen = null, screenFeed = null,
   // The organizer's track would not play; the Eventsli loop plays instead.
   onTrackFailed = null,
+  // SHOWTIME BY ITSELF (owner, 2026-11-25: "make it play auto"): starts as
+  // soon as the room is drawn. The tap that opened the view unlocked sound
+  // (audioUnlock.primeAudio); where a browser still holds it back, the state
+  // says `blocked` and the next touch on the view lets it play.
+  autoShow = false,
+  // Showtime's state for the button: { on, name, sound, blocked }.
+  onShowtime = null,
   // The small preview beside the editor (owner, 2026-11-19: "not clear on
   // the side"): no glow pass, which blurs detail at that size; no table
   // numbers, which crowd it; a higher, closer camera that shows the layout;
@@ -83,8 +90,8 @@ export default function VenueScene3D({
 
   // Latest callbacks, read by handlers bound once. Written in an effect, never
   // during render.
-  const live = useRef({ colorFor, onPick, onHover, mode, eye, screen, scene, onTrackFailed });
-  useEffect(() => { live.current = { colorFor, onPick, onHover, mode, eye, screen, scene, onTrackFailed }; });
+  const live = useRef({ colorFor, onPick, onHover, mode, eye, screen, scene, onTrackFailed, autoShow, onShowtime });
+  useEffect(() => { live.current = { colorFor, onPick, onHover, mode, eye, screen, scene, onTrackFailed, autoShow, onShowtime }; });
 
   // ── renderer, camera, controls: once ─────────────────────────────────────
   useEffect(() => {
@@ -248,7 +255,11 @@ export default function VenueScene3D({
       };
 
       let down = null;
-      const onDown = (e) => { down = { x: e.clientX, y: e.clientY, t: performance.now(), yaw: st.look.yaw, pitch: st.look.pitch }; };
+      const onDown = (e) => {
+        down = { x: e.clientX, y: e.clientY, t: performance.now(), yaw: st.look.yaw, pitch: st.look.pitch };
+        // A touch is a tap the browser counts: let held-back sound play.
+        if (st.show.sound?.blocked) st.show.sound.unlock().then(st.reportShow);
+      };
       const onMove = (e) => {
         if (down && live.current.mode === 'eye' && e.buttons) {
           // Grab the world: dragging right turns the view left, as every
@@ -369,6 +380,46 @@ export default function VenueScene3D({
       };
       document.addEventListener('visibilitychange', onVisibility);
 
+      /** Tells the button what Showtime is doing now. */
+      st.reportShow = () => {
+        const sh = st.show;
+        live.current.onShowtime?.({
+          on: sh.target === 1, name: sh.sound?.name || null, sound: Boolean(sh.sound), blocked: Boolean(sh.sound?.blocked),
+        });
+      };
+      /**
+       * Lights down, music up — or back. From a tap (the button) or by
+       * itself when the room is drawn (`autoShow`). Returns what is playing.
+       */
+      st.setShowtime = (on) => {
+        const sh = st.show;
+        sh.target = on ? 1 : 0;
+        if (on) {
+          const spec = soundFor(live.current.screen || DEFAULT_SCREEN, live.current.scene?.mood);
+          const key = JSON.stringify(spec);
+          if (sh.sound && sh.soundKey !== key) { sh.sound.dispose(); sh.sound = null; sh.painter.resetVideos(); }
+          // An engine even with no music: a video slide's sound needs one.
+          if (!sh.sound) {
+            sh.sound = createStageSound({
+              sound: spec,
+              roomRadius: st.model?.radius || 20,
+              onTrackFailed: () => live.current.onTrackFailed?.(),
+            });
+            sh.soundKey = key;
+          }
+          const at = st.room?.show?.anchor;
+          if (at) sh.sound?.place(at.x, at.y, at.z);
+          // Once the browser has answered, say whether the sound is held back.
+          sh.sound?.start()?.then(() => setTimeout(st.reportShow, 250));
+        } else {
+          sh.sound?.stop();
+        }
+        sh.due = 0;
+        st.invalidate();
+        st.reportShow();
+        return { name: sh.sound?.name || null, sound: Boolean(sh.sound) };
+      };
+
       if (controlsRef) {
         controlsRef.current = {
           zoom: (factor) => {
@@ -383,38 +434,10 @@ export default function VenueScene3D({
             st.invalidate();
           },
           reset: () => { if (st.home) flyTo(st, st.home.position, st.home.target, 'orbit'); },
-          /**
-           * Lights down, music up — or back. Call it from the tap itself:
-           * the soundtrack is created here, inside the gesture, which is
-           * the only time a browser lets a page start sound. Returns what
-           * is playing, for the button to say.
-           */
-          showtime: (on) => {
-            const sh = st.show;
-            sh.target = on ? 1 : 0;
-            if (on) {
-              const spec = soundFor(live.current.screen || DEFAULT_SCREEN, live.current.scene?.mood);
-              const key = JSON.stringify(spec);
-              if (sh.sound && sh.soundKey !== key) { sh.sound.dispose(); sh.sound = null; sh.painter.resetVideos(); }
-              // An engine even with no music: a video slide's sound needs one.
-              if (!sh.sound) {
-                sh.sound = createStageSound({
-                  sound: spec,
-                  roomRadius: st.model?.radius || 20,
-                  onTrackFailed: () => live.current.onTrackFailed?.(),
-                });
-                sh.soundKey = key;
-              }
-              const at = st.room?.show?.anchor;
-              if (at) sh.sound?.place(at.x, at.y, at.z);
-              sh.sound?.start();
-            } else {
-              sh.sound?.stop();
-            }
-            sh.due = 0;
-            st.invalidate();
-            return { name: sh.sound?.name || null, sound: Boolean(sh.sound) };
-          },
+          /** Lights down, music up — or back (st.setShowtime). */
+          showtime: (on) => st.setShowtime(on),
+          /** Call inside a tap: lets sound the browser held back play. */
+          unlock: () => st.show.sound?.unlock().then(st.reportShow),
           mute: (muted) => st.show.sound?.setMuted(muted),
           volume: (v) => st.show.sound?.setVolume(v),
           nextSlide: () => { st.show.painter.skip(); st.show.due = 0; st.invalidate(); },
@@ -504,6 +527,12 @@ export default function VenueScene3D({
       st.controls.update();
     }
     recolor(st, live.current.colorFor);
+    // Showtime by itself, once per opening of the view, when there is a
+    // screen to play on.
+    if (live.current.autoShow && !st.autoShown && st.room.show.screens.length) {
+      st.autoShown = true;
+      st.setShowtime(true);
+    }
     // The screen's size and side screens are geometry: a rebuild. What it
     // SHOWS is not (the effect below), so typing a message never rebuilds.
     // eslint-disable-next-line react-hooks/exhaustive-deps

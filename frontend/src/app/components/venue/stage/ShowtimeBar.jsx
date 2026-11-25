@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import NavIcon from '../../shell/NavIcon';
+import { primeAudio } from './audioUnlock';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -12,39 +13,41 @@ import NavIcon from '../../shell/NavIcon';
  * soundtrack plays from the stage — so a buyer who then sits in a seat (360°)
  * hears the show from there. Again: lights up, and the music fades out.
  *
- * Nothing about it is automatic. The music starts only from this tap (the
- * browser allows nothing else, and a seat map that blared on opening would
- * be worse than silent), and the camera never moves (map-stays-still).
+ * It STARTS BY ITSELF when the 3D view opens and the organizer left "Start
+ * by itself" on (owner, 2026-11-25: "make it play auto"). The button shows
+ * what the room is doing (`status`, from VenueScene3D's `onShowtime`): on or
+ * off, what is playing, and — where a browser still holds the sound back
+ * until a touch — a "Tap for sound" button. The camera never moves for any
+ * of it (map-stays-still).
  *
- * `controls` is the 3D view's handle (VenueScene3D's `controlsRef`); the call
- * is made inside the click so the soundtrack may start.
+ * `controls` is the 3D view's handle (VenueScene3D's `controlsRef`); each
+ * call is made inside the click, so the browser lets sound start.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-export default function ShowtimeBar({ controls, hasSound = true, trackFailed = false, volume: startVolume = 85, className = '' }) {
-  const [on, setOn] = useState(false);
+export default function ShowtimeBar({
+  controls, status = null, hasSound = true, trackFailed = false, volume: startVolume = 85, className = '',
+}) {
   const [muted, setMuted] = useState(false);
-  const [playing, setPlaying] = useState(null);
-  const [audio, setAudio] = useState(false);
   // The listener's own volume, starting at the organizer's.
   const [volume, setVolume] = useState(startVolume);
+  const on = Boolean(status?.on);
+  const audio = on && Boolean(status?.sound);
+  const blocked = audio && Boolean(status?.blocked);
 
   const toggle = () => {
     const next = !on;
+    if (next) primeAudio();
     const result = controls.current?.showtime?.(next);
-    // The room has not drawn yet: nothing to switch.
     if (!result) return;
-    setOn(next);
-    setPlaying(next && result.sound ? result.name : null);
-    // Sound controls whenever there is sound: the music, or a video's own.
-    setAudio(next && result.sound);
-    if (next) controls.current?.volume?.(volume / 100);
-    if (next && muted) controls.current?.mute?.(true);
+    if (next) {
+      controls.current?.volume?.(volume / 100);
+      if (muted) controls.current?.mute?.(true);
+    }
   };
 
-  const changeVolume = (v) => {
-    setVolume(v);
-    controls.current?.volume?.(v / 100);
-    if (muted && v > 0) { controls.current?.mute?.(false); setMuted(false); }
+  const unlock = () => {
+    primeAudio();
+    controls.current?.unlock?.();
   };
 
   const toggleMute = () => {
@@ -53,7 +56,13 @@ export default function ShowtimeBar({ controls, hasSound = true, trackFailed = f
     setMuted(next);
   };
 
-  const name = trackFailed ? 'Eventsli music' : playing;
+  const changeVolume = (v) => {
+    setVolume(v);
+    controls.current?.volume?.(v / 100);
+    if (muted && v > 0) { controls.current?.mute?.(false); setMuted(false); }
+  };
+
+  const name = trackFailed && status?.name ? 'Eventsli music' : status?.name || null;
 
   return (
     <div className={`es-showtime ${className}`.trim()} data-on={on ? 'true' : 'false'}>
@@ -64,7 +73,12 @@ export default function ShowtimeBar({ controls, hasSound = true, trackFailed = f
         <NavIcon name={on ? 'bulb' : 'sparkle'} size={16} />
         <span>{on ? 'Lights up' : 'Showtime'}</span>
       </button>
-      {on && audio && (
+      {blocked && (
+        <button type="button" className="es-showtime__unlock" onClick={unlock}>
+          <Speaker muted={false} /> Tap for sound
+        </button>
+      )}
+      {audio && !blocked && (
         <>
           <button
             type="button" className="es-showtime__mute" aria-pressed={muted}
