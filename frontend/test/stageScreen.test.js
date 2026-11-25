@@ -296,7 +296,8 @@ describe('the painter', () => {
         painter.setContent({ screen: readScreen({ slides, style, transition, seconds: 4 }), feed: FEED, title: FEED.title });
         // Through every slide, through the middle of each transition.
         const seen = new Set();
-        for (let t = 0; t < slides.length * 4000 + 1000; t += 400) {
+        // A video that never loads (jsdom) is waited for twice a slot.
+        for (let t = 0; t < slides.length * 4000 + 12000; t += 400) {
           const r = painter.paint(t0 + t, { level: 0.5, bass: 0.6, bins: new Uint8Array(128).fill(90) });
           seen.add(r.slide.kind);
         }
@@ -322,7 +323,7 @@ describe('the painter', () => {
       const feed = { ...FEED, logoUrl: 'https://storage.test/logo.png', sponsors: [{ name: 'Acme', logoUrl: 'https://storage.test/acme.png' }] };
       // One pass asks for every image (photo, cover, logo, sponsor logo, two gallery photos)…
       painter.setContent({ screen: readScreen({ slides, seconds: 4 }), feed, title: FEED.title });
-      for (let t = 0; t < slides.length * 4000; t += 1000) painter.paint(t0 + t, null);
+      for (let t = 0; t < slides.length * 4000 + 12000; t += 1000) painter.paint(t0 + t, null);
       await vi.waitFor(() => expect(loaded).toBe(6), { timeout: 3000 });
       expect(assets).toHaveBeenCalledTimes(6);
       // …then every style paints with all of them in hand.
@@ -448,6 +449,86 @@ function fakeAudio() {
   }
   return { Ctx, log };
 }
+
+describe('a video plays whole and steady (2026-11-25: "work then not work then work")', () => {
+  /** A painter whose video elements the test can reach. */
+  const withVideos = () => {
+    const made = [];
+    const create = document.createElement.bind(document);
+    vi.spyOn(document, 'createElement').mockImplementation((tag, ...rest) => {
+      const el = create(tag, ...rest);
+      if (tag === 'video') made.push(el);
+      return el;
+    });
+    return made;
+  };
+  const clip = { path: 'v', url: 'https://storage.test/v.mp4' };
+  const loaded = (v, seconds) => {
+    Object.defineProperty(v, 'duration', { configurable: true, value: seconds });
+    Object.defineProperty(v, 'ended', { configurable: true, writable: true, value: false });
+    v.dispatchEvent(new Event('loadeddata'));
+  };
+
+  test('a video slide holds the screen until its clip ends, then the show moves on', () => {
+    const made = withVideos();
+    const painter = createScreenPainter({ width: 320 });
+    const t0 = performance.now();
+    painter.setContent({
+      screen: readScreen({ seconds: 4, slides: [{ id: 'v', kind: 'video', video: clip }, { id: 'm', kind: 'message', text: 'Next' }] }),
+      feed: null, title: 'x',
+    });
+    expect(painter.paint(t0).slide.id).toBe('v');
+    loaded(made[0], 20);
+    // Well past the 4-second slot, the 20-second clip is still on.
+    expect(painter.paint(t0 + 9000).slide.id).toBe('v');
+    expect(painter.paint(t0 + 15000).slide.id).toBe('v');
+    made[0].ended = true;
+    expect(painter.paint(t0 + 16000).slide.id).toBe('m');
+    // The message has its 4 seconds, then the video again, from the top.
+    made[0].ended = false;
+    expect(painter.paint(t0 + 19000).slide.id).toBe('m');
+    expect(painter.paint(t0 + 20100).slide.id).toBe('v');
+    painter.dispose();
+  });
+
+  test('every video lives in the page (a detached one gets paused), and leaves with the painter', () => {
+    const made = withVideos();
+    const painter = createScreenPainter({ width: 320 });
+    painter.setContent({ screen: readScreen({ slides: [{ id: 'v', kind: 'video', video: clip }] }), feed: null, title: 'x' });
+    painter.paint(performance.now());
+    expect(made[0].isConnected).toBe(true);
+    painter.dispose();
+    expect(made[0].isConnected).toBe(false);
+  });
+
+  test('a show of one video loops it; with other slides it plays once', () => {
+    const made = withVideos();
+    const painter = createScreenPainter({ width: 320 });
+    const t0 = performance.now();
+    painter.setContent({ screen: readScreen({ slides: [{ id: 'v', kind: 'video', video: clip }] }), feed: null, title: 'x' });
+    painter.paint(t0);
+    expect(made[0].loop).toBe(true);
+    painter.setContent({
+      screen: readScreen({ slides: [{ id: 'v', kind: 'video', video: clip }, { id: 't', kind: 'title' }] }), feed: null, title: 'x',
+    });
+    painter.paint(t0 + 10);
+    expect(made[0].loop).toBe(false);
+    painter.dispose();
+  });
+
+  test('a video that fails to load takes an ordinary slot, never stalls the show', () => {
+    const made = withVideos();
+    const painter = createScreenPainter({ width: 320 });
+    const t0 = performance.now();
+    painter.setContent({
+      screen: readScreen({ seconds: 4, slides: [{ id: 'v', kind: 'video', video: clip }, { id: 't', kind: 'title' }] }), feed: null, title: 'x',
+    });
+    painter.paint(t0);
+    made[0].dispatchEvent(new Event('error'));
+    expect(painter.paint(t0 + 4100).slide.id).toBe('t');
+    painter.dispose();
+  });
+});
 
 describe('a video’s own sound (2026-11-25: "the sound of the video does not work")', () => {
   test('a video slide plays its sound unless the organizer turns it off', () => {

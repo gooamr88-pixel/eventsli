@@ -1,9 +1,10 @@
 import {
-  playableSlides, slideAt, SCREEN_ASPECT, DEFAULT_SCREEN,
+  playableSlides, SCREEN_ASPECT, DEFAULT_SCREEN, TRANSITION_MS,
 } from './screenModel';
 import {
   W, H, ease, clamp01, rgba, seeded, slideDrawers,
 } from './screenSlides';
+import { createVideoShelf, createRunningOrder } from './screenVideos';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -102,35 +103,9 @@ export function createScreenPainter({ width = 1280, onAsset = null } = {}) {
     return e.ok ? e.im : null;
   };
 
-  // VIDEOS (2026-11-25): muted, looping, inline, so every browser lets them
-  // play without a tap. A video plays only while its slide is on the screen
-  // (`onScreen`, filled per frame) and is paused the rest of the time.
-  const videos = new Map();
-  const onScreen = new Set();
-  // The video whose SOUND belongs on the screen this frame: the current
-  // slide's, drawn last, when the organizer left its sound on.
-  let audible = null;
-  /** The video at `url` once it has a frame to show, else null (and it is fetched). */
-  const vid = (url, { sound = false } = {}) => {
-    if (!url) return null;
-    let e = videos.get(url);
-    if (!e) {
-      const v = document.createElement('video');
-      v.crossOrigin = 'anonymous';
-      v.muted = true;
-      v.loop = true;
-      v.playsInline = true;
-      v.setAttribute('playsinline', '');
-      v.preload = 'auto';
-      e = { v, ok: false };
-      v.addEventListener('loadeddata', () => { e.ok = true; onAsset?.(); });
-      v.src = url;
-      videos.set(url, e);
-    }
-    onScreen.add(e);
-    audible = sound && e.ok ? e.v : null;
-    return e.ok ? e.v : null;
-  };
+  // VIDEOS: kept steady and playing by the shelf (screenVideos.js).
+  const shelf = createVideoShelf({ onAsset });
+  const { vid } = shelf;
   const sizeOf = (im) => ({ w: im.videoWidth || im.naturalWidth || im.width, h: im.videoHeight || im.naturalHeight || im.height });
 
   let pixelPattern = null;
@@ -147,10 +122,15 @@ export function createScreenPainter({ width = 1280, onAsset = null } = {}) {
     return pixelPattern;
   };
 
-  const state = {
-    screen: DEFAULT_SCREEN, feed: null, title: '', still: false,
-    start: typeof performance !== 'undefined' ? performance.now() : 0, shift: 0,
-  };
+  const state = { screen: DEFAULT_SCREEN, feed: null, title: '', still: false };
+
+  // Each slide holds the screen for its own length; a video, its whole clip.
+  const order = createRunningOrder({
+    lengthOf: (slide) => shelf.lengthOf(slide, state.screen.seconds * 1000),
+    ended: (slide) => shelf.ended(slide),
+    rewind: (slide) => shelf.rewind(slide),
+  });
+  const { show } = order;
 
   // ── drawing helpers ────────────────────────────────────────────────────────
   const font = (g, weight, px, family, italic = false) => { g.font = `${italic ? 'italic ' : ''}${weight} ${Math.round(px)}px ${family}`; };
@@ -403,8 +383,6 @@ export function createScreenPainter({ width = 1280, onAsset = null } = {}) {
     g.restore();
   }
 
-  const elapsed = (now) => now - state.start + state.shift;
-
   return {
     canvas,
 
@@ -419,9 +397,9 @@ export function createScreenPainter({ width = 1280, onAsset = null } = {}) {
 
     /** Straight to the next slide (a tap on the screen). */
     skip(now = performance.now()) {
-      const dur = state.screen.seconds * 1000;
-      const into = elapsed(now) % dur;
-      state.shift += dur - into;
+      const list = playableSlides(state.screen.slides, state.feed, Date.now());
+      const i = order.place(list, now);
+      if (list.length > 1) order.advance(list, i, now);
     },
 
     /**
@@ -429,32 +407,34 @@ export function createScreenPainter({ width = 1280, onAsset = null } = {}) {
      * `{ level, bass, bins }` from the soundtrack, or null.
      */
     paint(now = performance.now(), audio = null) {
-      onScreen.clear();
-      audible = null;
+      shelf.beginFrame();
       const wall = Date.now();
       const list = playableSlides(state.screen.slides, state.feed, wall);
-      const at = slideAt(list.length, state.screen.seconds, elapsed(now));
+      const index = order.place(list, now);
+      const current = list[index];
+      const into = now - show.start;
+      const progress = Math.min(1, into / shelf.lengthOf(current, state.screen.seconds * 1000));
+      const previous = show.prev && now - show.prevAt < TRANSITION_MS ? show.prev : null;
       const t = state.still ? 0 : now / 1000;
       const pal = paletteFor(state.screen.style, state.screen.accent);
       const base = { feed: state.feed, title: state.title, pal, t, now: wall, audio, still: state.still };
-      const current = list[at.index];
-      const mix = ease(at.mix);
-      const blend = at.previous !== null && !state.still && state.screen.transition !== 'cut';
+      const mix = ease(previous ? (now - show.prevAt) / TRANSITION_MS : 1);
+      const blend = previous !== null && !state.still && state.screen.transition !== 'cut';
 
       if (!blend) {
-        drawSlide(ctx, current, { ...base, p: at.progress });
+        drawSlide(ctx, current, { ...base, p: progress });
       } else if (state.screen.transition === 'slide') {
         ctx.save();
         ctx.translate(-canvas.width * mix, 0);
-        drawSlide(ctx, list[at.previous], { ...base, p: 1 });
+        drawSlide(ctx, previous, { ...base, p: 1 });
         ctx.restore();
         ctx.save();
         ctx.translate(canvas.width * (1 - mix), 0);
-        drawSlide(ctx, current, { ...base, p: at.progress });
+        drawSlide(ctx, current, { ...base, p: progress });
         ctx.restore();
       } else {
-        drawSlide(ctx, list[at.previous], { ...base, p: 1 });
-        drawSlide(bctx, current, { ...base, p: at.progress });
+        drawSlide(ctx, previous, { ...base, p: 1 });
+        drawSlide(bctx, current, { ...base, p: progress });
         ctx.save();
         ctx.globalAlpha = mix;
         ctx.drawImage(buffer, 0, 0);
@@ -465,11 +445,10 @@ export function createScreenPainter({ width = 1280, onAsset = null } = {}) {
       ctx.setTransform(canvas.width / W, 0, 0, canvas.height / H, 0, 0);
       finish(ctx, base);
       ctx.restore();
-      // Play what this frame showed; pause every other video.
-      for (const e of videos.values()) {
-        if (onScreen.has(e)) { if (e.v.paused) e.v.play?.()?.catch?.(() => {}); } else if (!e.v.paused) e.v.pause?.();
-      }
-      return { slide: current, index: at.index, count: list.length };
+      // Play what this frame showed; pause every other video. A show of one
+      // video loops it; otherwise it plays once and the show moves on.
+      shelf.endFrame(now, list.length === 1);
+      return { slide: current, index, count: list.length };
     },
 
     /** The frame's average colour, 0–1 per channel: what the screen throws on the room. */
@@ -487,10 +466,10 @@ export function createScreenPainter({ width = 1280, onAsset = null } = {}) {
     },
 
     /** A video is on the screen: the caller should repaint at full rate. */
-    get moving() { return onScreen.size > 0; },
+    get moving() { return shelf.moving; },
 
     /** The video element whose sound belongs on the stage now, or null. */
-    get audibleVideo() { return audible; },
+    get audibleVideo() { return shelf.audible; },
 
     /**
      * New elements for every video. A media element can join one audio graph
@@ -498,13 +477,11 @@ export function createScreenPainter({ width = 1280, onAsset = null } = {}) {
      * could no longer be heard, so they are swapped for fresh ones.
      */
     resetVideos() {
-      for (const e of videos.values()) { e.v.pause?.(); e.v.removeAttribute('src'); e.v.load?.(); }
-      videos.clear();
+      shelf.reset();
     },
 
     dispose() {
-      for (const e of videos.values()) { e.v.pause?.(); e.v.removeAttribute('src'); e.v.load?.(); }
-      videos.clear();
+      shelf.dispose();
       images.clear();
       canvas.width = 0;
       buffer.width = 0;
