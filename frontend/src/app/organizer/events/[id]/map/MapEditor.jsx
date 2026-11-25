@@ -489,7 +489,7 @@ export default function MapEditor({ eventId = null, templateId = null }) {
       <div id="studio-panel" role="tabpanel" aria-labelledby={`studio-tab-${workspace}`} className="fx-stack">
       <StudioWorkspace
         workspace={workspace} eventId={eventId} tables={tables} zones={zones} layout={previewLayout}
-        world={world} onResizeWorld={draft.resizeWorld}
+        world={world} onResizeWorld={draft.resizeWorld} onZone={draft.updateZone}
         sections={sections} tiers={tiers} eventTitle={eventTitle} eventInfo={eventInfo} draft={studioDraft}
         categories={categories} look={draft.look}
       />

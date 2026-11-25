@@ -11,6 +11,8 @@ import { RangeField, Toggle, Segmented } from '../../../../../components/inspect
 import NavIcon from '../../../../../components/shell/NavIcon';
 import ShowtimeBar from '../../../../../components/venue/stage/ShowtimeBar';
 import { soundFor } from '../../../../../components/venue/stage/screenModel';
+import { zoneBox } from '../../../../../components/seating/venueZones';
+import { METRES_PER_UNIT } from '../../../../../components/seating/seatingGeometry';
 import { InspectorNote } from '../../../../../components/inspector/Inspector';
 import ScreenSettings from './ScreenSettings';
 
@@ -28,7 +30,7 @@ import ScreenSettings from './ScreenSettings';
  */
 export default function Studio3D({
   tables, zones, world, scene, onScene, sections, tiers, eventTitle, categories = [], look = null,
-  eventId = null, screenFeed = null,
+  eventId = null, screenFeed = null, onZone = null,
 }) {
   const [eyeSeat, setEyeSeat] = useState(null);
   const [trackFailed, setTrackFailed] = useState(false);
@@ -75,6 +77,12 @@ export default function Studio3D({
   const eye = preset === 'stage' ? stageEye(model, geo) : seat ? eyeFor(seat, model, geo) : null;
   const mode = eye ? 'eye' : 'orbit';
   const hasScreen = (scene.screens && zones.some((z) => z.kind === 'stage')) || zones.some((z) => z.kind === 'screen');
+  // The stage's size, in metres, editable here as well as on the Layout map
+  // (owner, 2026-11-25: "why I cannot raise the width of the stage").
+  const stageZone = zones.find((z) => z.kind === 'stage') || null;
+  const stageBox = stageZone ? zoneBox(stageZone, world) : null;
+  const metres = (u) => Math.round(u * METRES_PER_UNIT * 2) / 2;
+  const resizeStage = (key, m) => onZone?.(stageZone.id, { [key]: m / METRES_PER_UNIT }, { mergeKey: `stage-${key}-${stageZone.id}` });
 
   const counts = useMemo(() => {
     const m = new Map();
@@ -112,7 +120,10 @@ export default function Studio3D({
             />
           )}
           {hasScreen && (tables.length > 0 || zones.length > 0) && (
-            <ShowtimeBar controls={controls} hasSound={soundFor(scene.screen, scene.mood).kind !== 'off'} trackFailed={trackFailed} />
+            <ShowtimeBar
+              controls={controls} hasSound={soundFor(scene.screen, scene.mood).kind !== 'off'} trackFailed={trackFailed}
+              volume={scene.screen.sound.volume}
+            />
           )}
           {/* The same zoom pill as the 2D canvas, in the same corner. */}
           <div className="es-maptoolbar__group es-maptoolbar__zoom es-studio-zoom" role="group" aria-label="Zoom">
@@ -154,6 +165,19 @@ export default function Studio3D({
           label="Stage height" value={scene.stageHeight} min={0} max={3} step={0.1}
           onChange={(stageHeight) => onScene({ stageHeight })} format={(v) => `${Number(v).toFixed(1)} m`}
         />
+        {stageBox && onZone && (
+          <>
+            <RangeField
+              label="Stage width" value={metres(stageBox.w)} min={3} max={Math.max(6, Math.floor(world.width * METRES_PER_UNIT))} step={0.5}
+              onChange={(m) => resizeStage('w', m)} format={(v) => `${v} m`}
+              hint="The same stage as on the Layout map. The screen widens with it."
+            />
+            <RangeField
+              label="Stage depth" value={metres(stageBox.h)} min={2} max={Math.max(4, Math.floor(world.height * METRES_PER_UNIT))} step={0.5}
+              onChange={(m) => resizeStage('h', m)} format={(v) => `${v} m`}
+            />
+          </>
+        )}
         <Toggle label="Enclosed venue" hint="Walls and a lit rim around the room." checked={scene.roof} onChange={(roof) => onScene({ roof })} />
 
         <div className="fx-stack gap-2 border-t border-border-base pt-3">

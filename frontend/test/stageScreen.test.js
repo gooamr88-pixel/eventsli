@@ -12,7 +12,7 @@ import { readStudio } from '../src/app/components/venue/venueModel';
 import { buildSceneModel } from '../src/app/components/venue/sceneModel';
 import { buildRoom } from '../src/app/components/venue/roomBuilder';
 import { emptyReason } from '../src/app/organizer/events/[id]/map/studio/ScreenSettings';
-import { audioType } from '../src/app/organizer/events/[id]/map/studio/uploadStudioImage';
+import { audioType, videoType } from '../src/app/organizer/events/[id]/map/studio/uploadStudioImage';
 
 /**
  * THE STAGE SCREEN (2026-11-25): the 3D room's LED wall plays a show.
@@ -49,7 +49,15 @@ beforeAll(() => {
     if (!this.fake) this.fake = fakeContext(this);
     return this.fake;
   };
-  restore = () => { HTMLCanvasElement.prototype.getContext = original; };
+  // jsdom has no media playback; a video slide's play/pause must still be callable.
+  const { play, pause } = HTMLMediaElement.prototype;
+  HTMLMediaElement.prototype.play = function fakePlay() { return Promise.resolve(); };
+  HTMLMediaElement.prototype.pause = function fakePause() {};
+  restore = () => {
+    HTMLCanvasElement.prototype.getContext = original;
+    HTMLMediaElement.prototype.play = play;
+    HTMLMediaElement.prototype.pause = pause;
+  };
 });
 afterAll(() => restore());
 
@@ -66,6 +74,7 @@ const FEED = {
     { title: 'The Headliner', startsAt: '2030-06-01T20:00:00Z', endsAt: '2030-06-01T22:00:00Z', location: 'Main stage' },
   ],
   sponsors: [{ name: 'Acme', logoUrl: null, level: 'gold' }],
+  gallery: [{ url: 'https://storage.test/g1.jpg', caption: 'Last year' }, { url: 'https://storage.test/g2.jpg', caption: null }],
 };
 
 describe('the screen is always landscape', () => {
@@ -85,6 +94,12 @@ describe('the screen is always landscape', () => {
     const { w, h } = screenSize({ room: 1, maxHeight: 20 });
     expect(w).toBeGreaterThan(h);
     expect(w).toBeCloseTo(1.6, 6);
+  });
+
+  test('the stage screen can be WIDER than the stage, and is still 16:9', () => {
+    const { w, h } = screenSize({ room: 10, size: 150 });
+    expect(w).toBeCloseTo(15, 6);
+    expect(w / h).toBeCloseTo(16 / 9, 6);
   });
 
   test('the height limit wins when it is the tighter one', () => {
@@ -114,6 +129,16 @@ describe('the screen is always landscape', () => {
       expect(small.show.screens).toHaveLength(1);
       expect(ratio(small.show.screens[0])).toBeCloseTo(16 / 9, 6);
       expect(small.show.screens[0].geometry.parameters.width).toBeLessThan(full.show.screens[0].geometry.parameters.width);
+    });
+
+    test('a screen wider than the stage: still 16:9, and the truss rises to clear it', () => {
+      const model = buildSceneModel({ tables: rows, zones: [stage], scene: { rake: 0 } });
+      const room = buildRoom(THREE, model, { mood: 'concert', screens: true, stageHeight: 1.2 }, { title: 'Live', screenLayout: { size: 150, sides: false } });
+      const s = room.show.screens[0];
+      expect(s.geometry.parameters.width).toBeCloseTo(model.zones[0].w * 1.5, 6);
+      expect(ratio(s)).toBeCloseTo(16 / 9, 6);
+      const screenTop = s.parent.position.y + s.geometry.parameters.height / 2;
+      for (const b of room.show.beams) expect(b.pivot.position.y).toBeGreaterThan(screenTop);
     });
 
     test('a screen drawn TALL on the 2D map turns instead of standing on end', () => {
@@ -192,11 +217,26 @@ describe('readScreen — nothing malformed reaches the painter', () => {
       sound: { source: 'radio', preset: 'polka', volume: 400, track: { path: 'p', url: 'ftp://x' } },
     });
     expect(s.seconds).toBe(20);
-    expect(s.size).toBe(60);
+    expect(s.size).toBe(40);
+    expect(readScreen({ size: 900 }).size).toBe(150);
+    expect(readScreen({}).size).toBe(80);
     expect(s.style).toBe('bold');
     expect(s.transition).toBe('fade');
     expect(s.accent).toBeNull();
     expect(s.sound).toEqual({ source: 'preset', preset: null, track: null, volume: 100 });
+  });
+
+  test('a video slide keeps an http(s) clip and its caption; anything else is dropped', () => {
+    const s = readScreen({
+      slides: [
+        { id: 'v', kind: 'video', video: { path: 'p', url: 'https://storage.test/v.mp4' }, caption: 'Last year' },
+        { id: 'w', kind: 'video', video: { path: 'p', url: 'data:video/mp4;base64,xx' } },
+      ],
+    });
+    expect(s.slides[0].video.url).toBe('https://storage.test/v.mp4');
+    expect(s.slides[0].caption).toBe('Last year');
+    expect(s.slides[1].video).toBeNull();
+    expect(playableSlides(s.slides, null).map((x) => x.id)).toEqual(['v']);
   });
 
   test('readStudio always carries a complete screen', () => {
@@ -242,6 +282,7 @@ describe('the painter', () => {
   const slides = SLIDE_KINDS.map((k, i) => ({
     id: `s${i}`, kind: k.key, name: 'The Headliner', tagline: 'Live in concert', text: 'Welcome to the gala, everyone',
     sub: '#gala', caption: 'Doors at seven', image: { path: 'p', url: 'https://storage.test/p.jpg' }, focus: { x: 50, y: 40 },
+    video: { path: 'v', url: 'https://storage.test/v.mp4' },
   }));
 
   test('every slide, in every style and transition, paints without an error', () => {
@@ -279,11 +320,11 @@ describe('the painter', () => {
       const painter = createScreenPainter({ width: 640, onAsset: assets });
       const t0 = performance.now();
       const feed = { ...FEED, logoUrl: 'https://storage.test/logo.png', sponsors: [{ name: 'Acme', logoUrl: 'https://storage.test/acme.png' }] };
-      // One pass asks for every image (photo, cover, logo, sponsor logo)…
+      // One pass asks for every image (photo, cover, logo, sponsor logo, two gallery photos)…
       painter.setContent({ screen: readScreen({ slides, seconds: 4 }), feed, title: FEED.title });
       for (let t = 0; t < slides.length * 4000; t += 1000) painter.paint(t0 + t, null);
-      await vi.waitFor(() => expect(loaded).toBe(4), { timeout: 3000 });
-      expect(assets).toHaveBeenCalledTimes(4);
+      await vi.waitFor(() => expect(loaded).toBe(6), { timeout: 3000 });
+      expect(assets).toHaveBeenCalledTimes(6);
       // …then every style paints with all of them in hand.
       for (const style of ['bold', 'elegant', 'neon']) {
         painter.setContent({ screen: readScreen({ slides, style, seconds: 4 }), feed, title: FEED.title });
@@ -362,6 +403,13 @@ describe('the music', () => {
     expect(audioType('audio/wav', 'wav')).toBeNull();
     expect(audioType('image/png', 'png')).toBeNull();
   });
+
+  test('a video is sent as MP4 or WebM, nothing else', () => {
+    expect(videoType('video/mp4', 'mp4')).toBe('video/mp4');
+    expect(videoType('', 'webm')).toBe('video/webm');
+    expect(videoType('video/quicktime', 'mov')).toBeNull();
+    expect(videoType('image/gif', 'gif')).toBeNull();
+  });
 });
 
 describe('the settings say why a slide will not show', () => {
@@ -371,6 +419,9 @@ describe('the settings say why a slide will not show', () => {
     expect(emptyReason({ kind: 'photo' }, FEED)).toMatch(/photo/);
     expect(emptyReason({ kind: 'message', text: '' }, FEED)).toMatch(/words/);
     expect(emptyReason({ kind: 'countdown' }, {})).toMatch(/date/);
+    expect(emptyReason({ kind: 'video' }, FEED)).toMatch(/video/);
+    expect(emptyReason({ kind: 'gallery' }, {})).toMatch(/gallery/);
+    expect(emptyReason({ kind: 'gallery' }, FEED)).toBeNull();
     expect(emptyReason({ kind: 'lineup' }, FEED)).toBeNull();
     expect(emptyReason({ kind: 'title' }, null)).toBeNull();
   });

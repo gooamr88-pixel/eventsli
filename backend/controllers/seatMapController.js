@@ -91,11 +91,9 @@ async function confirmAsset(req, res, next) {
         status: 400, error: 'VALIDATION_ERROR', message: 'That file does not belong to this venue.',
       });
     }
-    // A soundtrack may be larger than an image (mediaService.MAX_AUDIO_BYTES).
-    const audio = ownPath(req.params.eventId, req.body.path, ['soundtrack']);
-    const asset = await media.attach({
-      eventId: req.params.eventId, path: req.body.path, ...(audio ? { maxBytes: media.MAX_AUDIO_BYTES } : {}),
-    });
+    // A soundtrack or a clip may be larger than an image (mediaService.maxBytesFor).
+    const kind = STUDIO_KINDS.find((k) => ownPath(req.params.eventId, req.body.path, [k]));
+    const asset = await media.attach({ eventId: req.params.eventId, path: req.body.path, maxBytes: media.maxBytesFor(kind) });
     return sendOk(res, asset);
   } catch (err) { return studioFail(res, err, next); }
 }

@@ -128,4 +128,10 @@ test('a soundtrack upload is signed only as audio, and an image kind never as au
   assert.equal(audioAsImage.status, 415);
   const imageAsAudio = await call('POST', `/events/${ids.event}/venue-map/upload`, { contentType: 'image/png', kind: 'soundtrack' }, true);
   assert.equal(imageAsAudio.status, 415);
+  const videoAsImage = await call('POST', `/events/${ids.event}/venue-map/upload`, { contentType: 'video/mp4', kind: 'screen' }, true);
+  assert.equal(videoAsImage.status, 415);
+  const imageAsVideo = await call('POST', `/events/${ids.event}/venue-map/upload`, { contentType: 'image/jpeg', kind: 'clip' }, true);
+  assert.equal(imageAsVideo.status, 415);
+  const clip = await call('POST', `/events/${ids.event}/venue-map/upload`, { contentType: 'video/webm', kind: 'clip' }, true);
+  assert.notEqual(clip.body?.error, 'VALIDATION_ERROR');
 });

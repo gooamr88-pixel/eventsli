@@ -60,6 +60,26 @@ test('the soundtrack must be an mp3 or m4a soundtrack upload of this event', () 
   }
 });
 
+test('a video slide keeps only this event\'s clip-….mp4|webm, its URL derived', () => {
+  const clip = (ext) => `events/${EVENT}/clip-0123456789abcdef.${ext}`;
+  const ok = cleanScreen(EVENT, { slides: [{ id: 'v', kind: 'video', video: { path: clip('mp4'), url: 'https://evil.test/v.mp4' }, caption: 'Hi' }] });
+  assert.equal(ok.slides[0].video.path, clip('mp4'));
+  assert.ok(ok.slides[0].video.url.endsWith(clip('mp4')));
+  assert.equal(ok.slides[0].caption, 'Hi');
+  for (const bad of [clip('mov'), shot('jpg'), song('mp3'), `events/${OTHER}/clip-0123456789abcdef.mp4`]) {
+    assert.equal(cleanScreen(EVENT, { slides: [{ id: 'v', kind: 'video', video: { path: bad } }] }).slides[0].video, null, bad);
+  }
+  assert.ok(ownPath(EVENT, clip('webm'), ['clip']));
+  assert.ok(!ownPath(EVENT, clip('webm'), ['screen']));
+});
+
+test('the gallery in the feed is images only', () => {
+  const feed = shapeFeed({ id: EVENT, title: 'x' }, [], [], [
+    { kind: 'image', url: 'https://storage.test/a.jpg', caption: 'A' }, { kind: 'video', url: 'https://youtube.test/v' }, { kind: 'image', url: null },
+  ]);
+  assert.deepEqual(feed.gallery, [{ url: 'https://storage.test/a.jpg', caption: 'A' }]);
+});
+
 test('ownPath keeps each kind to its own extensions', () => {
   assert.ok(ownPath(EVENT, song('mp3'), ['soundtrack']));
   assert.ok(!ownPath(EVENT, song('mp3'), ['screen']));
@@ -81,7 +101,7 @@ test('unknown words become defaults; numbers are clamped; slides are capped and 
   assert.deepEqual(out.slides[0], { id: 'x', kind: 'title' });
   assert.equal(out.slides[1].text.length, 80);
   assert.equal(out.seconds, 4);
-  assert.equal(out.size, 100);
+  assert.equal(out.size, 150);
   assert.equal(out.style, 'bold');
   assert.equal(out.transition, 'fade');
   assert.equal(out.accent, null);
@@ -108,7 +128,7 @@ test('the feed is what the event page already shows, cut to size', () => {
     [{ title: 'Doors', starts_at: '2030-06-01T18:00:00Z', ends_at: null, location: null }, { title: '' }, ...Array.from({ length: 20 }, () => ({ title: 'Act' }))],
     [{ name: 'Acme', logo_url: 'https://storage.test/a.png', level: 'gold' }, { name: null }],
   );
-  assert.deepEqual(Object.keys(feed).sort(), ['coverUrl', 'endsAt', 'lineup', 'logoUrl', 'sponsors', 'startsAt', 'timezone', 'title', 'venueName']);
+  assert.deepEqual(Object.keys(feed).sort(), ['coverUrl', 'endsAt', 'gallery', 'lineup', 'logoUrl', 'sponsors', 'startsAt', 'timezone', 'title', 'venueName']);
   assert.equal(feed.lineup.length, 12);
   assert.equal(feed.lineup[0].title, 'Doors');
   assert.deepEqual(feed.sponsors, [{ name: 'Acme', logoUrl: 'https://storage.test/a.png', level: 'gold' }]);

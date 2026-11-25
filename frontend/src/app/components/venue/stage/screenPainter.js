@@ -102,6 +102,33 @@ export function createScreenPainter({ width = 1280, onAsset = null } = {}) {
     return e.ok ? e.im : null;
   };
 
+  // VIDEOS (2026-11-25): muted, looping, inline, so every browser lets them
+  // play without a tap. A video plays only while its slide is on the screen
+  // (`onScreen`, filled per frame) and is paused the rest of the time.
+  const videos = new Map();
+  const onScreen = new Set();
+  /** The video at `url` once it has a frame to show, else null (and it is fetched). */
+  const vid = (url) => {
+    if (!url) return null;
+    let e = videos.get(url);
+    if (!e) {
+      const v = document.createElement('video');
+      v.crossOrigin = 'anonymous';
+      v.muted = true;
+      v.loop = true;
+      v.playsInline = true;
+      v.setAttribute('playsinline', '');
+      v.preload = 'auto';
+      e = { v, ok: false };
+      v.addEventListener('loadeddata', () => { e.ok = true; onAsset?.(); });
+      v.src = url;
+      videos.set(url, e);
+    }
+    onScreen.add(e);
+    return e.ok ? e.v : null;
+  };
+  const sizeOf = (im) => ({ w: im.videoWidth || im.naturalWidth || im.width, h: im.videoHeight || im.naturalHeight || im.height });
+
   let pixelPattern = null;
   const pixels = () => {
     if (pixelPattern) return pixelPattern;
@@ -171,9 +198,10 @@ export function createScreenPainter({ width = 1280, onAsset = null } = {}) {
 
   /** The image scaled to cover the box, its subject (`focus`, %) kept in. */
   function cover(g, im, x, y, w, h, { zoom = 1, focus = { x: 50, y: 50 }, drift = 0 } = {}) {
-    const s = Math.max(w / im.width, h / im.height) * zoom;
-    const dw = im.width * s;
-    const dh = im.height * s;
+    const { w: iw, h: ih } = sizeOf(im);
+    const s = Math.max(w / iw, h / ih) * zoom;
+    const dw = iw * s;
+    const dh = ih * s;
     const fx = clamp01(focus.x / 100);
     const fy = clamp01(focus.y / 100);
     // Spare width or height either side of the box, spent so the focus point
@@ -184,8 +212,9 @@ export function createScreenPainter({ width = 1280, onAsset = null } = {}) {
   }
 
   function contain(g, im, x, y, w, h) {
-    const s = Math.min(w / im.width, h / im.height);
-    g.drawImage(im, x + (w - im.width * s) / 2, y + (h - im.height * s) / 2, im.width * s, im.height * s);
+    const { w: iw, h: ih } = sizeOf(im);
+    const s = Math.min(w / iw, h / ih);
+    g.drawImage(im, x + (w - iw * s) / 2, y + (h - ih * s) / 2, iw * s, ih * s);
   }
 
   function glow(g, pal, on) {
@@ -334,7 +363,7 @@ export function createScreenPainter({ width = 1280, onAsset = null } = {}) {
   }
 
   const DRAW = slideDrawers({
-    state, fonts, img, font, spacing, fit, block, cover, contain, glow, backdrop, overline, headline,
+    state, fonts, img, vid, font, spacing, fit, block, cover, contain, glow, backdrop, overline, headline,
   });
 
   function finish(g, k) {
@@ -396,6 +425,7 @@ export function createScreenPainter({ width = 1280, onAsset = null } = {}) {
      * `{ level, bass, bins }` from the soundtrack, or null.
      */
     paint(now = performance.now(), audio = null) {
+      onScreen.clear();
       const wall = Date.now();
       const list = playableSlides(state.screen.slides, state.feed, wall);
       const at = slideAt(list.length, state.screen.seconds, elapsed(now));
@@ -430,6 +460,10 @@ export function createScreenPainter({ width = 1280, onAsset = null } = {}) {
       ctx.setTransform(canvas.width / W, 0, 0, canvas.height / H, 0, 0);
       finish(ctx, base);
       ctx.restore();
+      // Play what this frame showed; pause every other video.
+      for (const e of videos.values()) {
+        if (onScreen.has(e)) { if (e.v.paused) e.v.play?.()?.catch?.(() => {}); } else if (!e.v.paused) e.v.pause?.();
+      }
       return { slide: current, index: at.index, count: list.length };
     },
 
@@ -447,7 +481,12 @@ export function createScreenPainter({ width = 1280, onAsset = null } = {}) {
       }
     },
 
+    /** A video is on the screen: the caller should repaint at full rate. */
+    get moving() { return onScreen.size > 0; },
+
     dispose() {
+      for (const e of videos.values()) { e.v.pause?.(); e.v.removeAttribute('src'); e.v.load?.(); }
+      videos.clear();
       images.clear();
       canvas.width = 0;
       buffer.width = 0;

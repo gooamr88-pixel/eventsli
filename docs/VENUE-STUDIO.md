@@ -291,3 +291,10 @@ The sound is placed at the screen with an HRTF panner, and the listener is the c
 **Uploads.** Slide photos are kind `screen` (images). The soundtrack is kind `soundtrack` (`audio/mpeg`, `audio/mp4`; `mediaService.AUDIO_EXTENSION_FOR`, 8 MB). `ownPath` keeps each kind to its own extensions. **Migration `20261221090000`** lets the `event-media` bucket take those two audio types up to 8 MB. Images are still held to 5 MB in `attach`. Until it runs, track uploads fail and everything else works.
 
 Tests: `frontend/test/stageScreen.test.js` (the 16:9 rule through the real room builder, every slide, style and transition painted, the loops, the clock) and `backend/test/stageScreen.test.js` (paths, extensions, clamping, the feed).
+
+**Second pass (2026-11-25, owner: "the sound is very low", "why can I not upload images and videos", "why can I not raise the width of the stage"):**
+
+- Louder sound. The loops get +10 dB of make-up gain, a limiter sits in front of the speakers, the distance fall-off is gentle (`refDistance` ≈ 0.9 × room radius, rolloff 0.45), and the default volume is 85. Showtime has its own volume slider.
+- Uploads. "Add photos" (several at once) and "Add a video" at the top of On the screen make one slide per file. New **Video** slide: MP4/WebM up to 40 MB, kind `clip`, played muted and looping, cropped 16:9 around a focus point. New **Event photos** slide: the event page gallery (`event_media` images, `screenFeed.gallery`) as a photo wall. The migration now also allows `video/mp4` and `video/webm`, with the bucket ceiling at 40 MB (images 5 MB, tracks 8 MB, clips 40 MB, each checked in `attach`).
+- Width. The screen width is a % of the stage (40–150%, default 80), no longer capped by the truss: the truss rises to clear it. Stage width and depth sliders in the 3D settings edit the stage zone itself (`useMapDraft.updateZone`, one undo step per drag).
+- Uploads never work on a local stack: `supabase/config.toml` has `[storage] enabled = false`, so there is no storage container. They work against real storage.

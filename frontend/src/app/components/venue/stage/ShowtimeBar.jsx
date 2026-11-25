@@ -20,10 +20,12 @@ import NavIcon from '../../shell/NavIcon';
  * is made inside the click so the soundtrack may start.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-export default function ShowtimeBar({ controls, hasSound = true, trackFailed = false, className = '' }) {
+export default function ShowtimeBar({ controls, hasSound = true, trackFailed = false, volume: startVolume = 85, className = '' }) {
   const [on, setOn] = useState(false);
   const [muted, setMuted] = useState(false);
   const [playing, setPlaying] = useState(null);
+  // The listener's own volume, starting at the organizer's.
+  const [volume, setVolume] = useState(startVolume);
 
   const toggle = () => {
     const next = !on;
@@ -32,7 +34,14 @@ export default function ShowtimeBar({ controls, hasSound = true, trackFailed = f
     if (!result) return;
     setOn(next);
     setPlaying(next && result.sound ? result.name : null);
+    if (next) controls.current?.volume?.(volume / 100);
     if (next && muted) controls.current?.mute?.(true);
+  };
+
+  const changeVolume = (v) => {
+    setVolume(v);
+    controls.current?.volume?.(v / 100);
+    if (muted && v > 0) { controls.current?.mute?.(false); setMuted(false); }
   };
 
   const toggleMute = () => {
@@ -61,6 +70,10 @@ export default function ShowtimeBar({ controls, hasSound = true, trackFailed = f
           >
             <Speaker muted={muted} />
           </button>
+          <input
+            type="range" className="es-showtime__vol" min={0} max={100} step={5} value={muted ? 0 : volume}
+            onChange={(e) => changeVolume(Number(e.target.value))} aria-label="Music volume"
+          />
           <span className="es-showtime__now" aria-live="polite">
             {!muted && <span className="es-showtime__eq" aria-hidden="true"><i /><i /><i /></span>}
             <span className="fx-truncate">{name}</span>

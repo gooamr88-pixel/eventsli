@@ -21271,6 +21271,8 @@ button.es-vb-doc__tile:focus-visible { outline: 3px solid var(--es-accent); outl
     border: 0; border-radius: var(--es-radius-full); background: transparent; color: #fff; cursor: pointer;
   }
   .es-showtime__mute:hover { background: rgba(255, 255, 255, 0.12); }
+  .es-showtime__vol { width: 4.5rem; flex: none; accent-color: var(--es-highlight); cursor: pointer; }
+  .es-screenset__quick { margin-bottom: 0.75rem; }
   .es-showtime__now {
     display: inline-flex; align-items: center; gap: 0.45rem; min-width: 0;
     padding-inline-end: 0.75rem; font-size: var(--es-text-xs); color: rgba(255, 255, 255, 0.85);

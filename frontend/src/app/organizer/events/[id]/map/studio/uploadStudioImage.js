@@ -1,5 +1,5 @@
 import { post } from '../../../../../utils/apiClient';
-import { MAX_TRACK_BYTES } from '../../../../../components/venue/stage/screenModel';
+import { MAX_TRACK_BYTES, MAX_CLIP_BYTES } from '../../../../../components/venue/stage/screenModel';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -89,6 +89,36 @@ export async function uploadStudioAudio(eventId, file) {
   }
   const asset = await post(`/events/${eventId}/venue-map/assets`, { path: signed.path }, { noRedirect: true });
   return { ...asset, name: file.name.replace(/\.[^.]+$/, '').slice(0, 80) };
+}
+
+/**
+ * A stage-screen video: MP4 or WebM, up to 40 MB, uploaded as it is (a
+ * browser cannot re-encode video). It plays muted on the screen, looping.
+ */
+export async function uploadStudioVideo(eventId, file) {
+  const ext = (file.name.split('.').pop() || '').toLowerCase();
+  const type = videoType(file.type, ext);
+  if (!type) {
+    throw Object.assign(new Error('Choose an MP4 or WebM video.'), { code: 'VALIDATION_ERROR' });
+  }
+  if (file.size > MAX_CLIP_BYTES) {
+    throw Object.assign(new Error(
+      `That video is ${(file.size / 1048576).toFixed(1)} MB. The limit is 40 MB: try a shorter clip, or export it at 1080p.`,
+    ), { code: 'VALIDATION_ERROR' });
+  }
+  const signed = await post(`/events/${eventId}/venue-map/upload`, { contentType: type, kind: 'clip' }, { noRedirect: true });
+  const uploaded = await fetch(signed.uploadUrl, { method: 'PUT', headers: { 'Content-Type': type }, body: file });
+  if (!uploaded.ok) {
+    throw Object.assign(new Error('The video did not upload. Try again.'), { code: 'CONFLICT' });
+  }
+  return post(`/events/${eventId}/venue-map/assets`, { path: signed.path }, { noRedirect: true });
+}
+
+/** The content type the server signs a video as, or null. */
+export function videoType(mime, ext) {
+  if (mime === 'video/mp4' || (!mime && ext === 'mp4')) return 'video/mp4';
+  if (mime === 'video/webm' || (!mime && ext === 'webm')) return 'video/webm';
+  return null;
 }
 
 /** The content type the server signs a track as, or null. */

@@ -6,13 +6,14 @@ const logger = require('../utils/logger');
  * WHAT THE STAGE SCREEN SHOWS BY ITSELF (2026-11-25).
  *
  * The 3D room's LED wall plays the organizer's slides (venueStudio.js,
- * `scene.screen`). Four of them fill themselves from the event, so an
+ * `scene.screen`). Five of them fill themselves from the event, so an
  * organizer who never opens the screen settings still gets a show:
  *
  *   title      the event's name, date and venue, over its cover image
  *   countdown  the time to `starts_at`, then "Live now" until `ends_at`
  *   lineup     the running order (`event_schedule`), times in the event's zone
  *   sponsors   the logos on the event page (`event_sponsors`)
+ *   gallery    the photos in the event page's gallery (`event_media` images)
  *
  * All of it is already public on the event page, and the seat map that
  * carries it is behind the same password a private event's page is. Nothing
@@ -27,7 +28,7 @@ const EVENT_COLUMNS = 'id, title, starts_at, ends_at, timezone, venue_name, cove
 const MAX_ROWS = 12;
 
 /** Pure: the event row and its rows, as the screen reads them. */
-function shapeFeed(event, schedule = [], sponsors = []) {
+function shapeFeed(event, schedule = [], sponsors = [], gallery = []) {
   return {
     title: event.title || '',
     startsAt: event.starts_at || null,
@@ -47,6 +48,10 @@ function shapeFeed(event, schedule = [], sponsors = []) {
       logoUrl: r.logo_url || null,
       level: r.level || 'partner',
     })),
+    gallery: (gallery || []).filter((r) => r && r.url && (!r.kind || r.kind === 'image')).slice(0, MAX_ROWS).map((r) => ({
+      url: r.url,
+      caption: r.caption ? String(r.caption).slice(0, 200) : null,
+    })),
   };
 }
 
@@ -61,7 +66,7 @@ async function rowsOf(what, eventId, query) {
 
 /** The feed for an event row that carries EVENT_COLUMNS. */
 async function screenFeed(event) {
-  const [schedule, sponsors] = await Promise.all([
+  const [schedule, sponsors, gallery] = await Promise.all([
     rowsOf('lineup', event.id, supabase.from('event_schedule')
       .select('title, starts_at, ends_at, location')
       .eq('event_id', event.id)
@@ -74,8 +79,15 @@ async function screenFeed(event) {
       .order('level')
       .order('sort_order')
       .limit(MAX_ROWS)),
+    rowsOf('gallery', event.id, supabase.from('event_media')
+      .select('kind, url, caption')
+      .eq('event_id', event.id)
+      .eq('kind', 'image')
+      .order('sort_order')
+      .order('created_at')
+      .limit(MAX_ROWS)),
   ]);
-  return shapeFeed(event, schedule, sponsors);
+  return shapeFeed(event, schedule, sponsors, gallery);
 }
 
 /** The feed by event id, for the organizer's editor. Null when it cannot be read. */

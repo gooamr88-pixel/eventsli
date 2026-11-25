@@ -5,7 +5,7 @@ import { buildRoom, disposeTree, MOOD_STYLE } from './roomBuilder';
 import ViewerProblem from './ViewerProblem';
 import { createScreenPainter } from './stage/screenPainter';
 import { createStageSound, idleBeat } from './stage/stageSound';
-import { DEFAULT_SCREEN, soundFor } from './stage/screenModel';
+import { DEFAULT_SCREEN, SCREEN_WIDTH, soundFor } from './stage/screenModel';
 
 /** Past this with nothing drawn, the 3D code is not coming: say so. */
 const LOAD_TIMEOUT_MS = 25_000;
@@ -79,7 +79,7 @@ export default function VenueScene3D({
   // Bumped by "Try again": the renderer effect runs from scratch.
   const [attempt, setAttempt] = useState(0);
   const retry = () => { setProblem(null); setReady(false); setAttempt((a) => a + 1); };
-  const screenLayout = { size: screen?.size ?? 100, sides: screen?.sides !== false };
+  const screenLayout = { size: screen?.size ?? SCREEN_WIDTH.default, sides: screen?.sides !== false };
 
   // Latest callbacks, read by handlers bound once. Written in an effect, never
   // during render.
@@ -415,6 +415,7 @@ export default function VenueScene3D({
             return { name: sh.sound?.name || null, sound: Boolean(sh.sound) };
           },
           mute: (muted) => st.show.sound?.setMuted(muted),
+          volume: (v) => st.show.sound?.setVolume(v),
           nextSlide: () => { st.show.painter.skip(); st.show.due = 0; st.invalidate(); },
         };
       }
@@ -594,7 +595,8 @@ function stepShow(st, t, screen) {
   if (sh.k !== before) changed = true;
 
   if (room.screens.length && sh.visible && now >= sh.due) {
-    sh.due = now + 1000 / sh.fps(sh.k > 0.01);
+    // A video on the screen gets the full rate, as Showtime does.
+    sh.due = now + 1000 / sh.fps(sh.k > 0.01 || sh.painter.moving);
     sh.audio = sh.sound?.playing ? sh.sound.read() : sh.k > 0.01 ? idleBeat(t) : null;
     sh.painter.paint(now, sh.audio);
     sh.texture.needsUpdate = true;

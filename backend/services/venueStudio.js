@@ -59,7 +59,11 @@ const num = (v, lo, hi, fallback) => {
  * the stage screen's soundtrack is audio, everything else an image.
  */
 const AUDIO_KINDS = Object.freeze(['soundtrack']);
-const extensionsFor = (kind) => (AUDIO_KINDS.includes(kind) ? 'mp3|m4a' : 'jpg|png|webp');
+const extensionsFor = (kind) => {
+  if (AUDIO_KINDS.includes(kind)) return 'mp3|m4a';
+  if (kind === 'clip') return 'mp4|webm';
+  return 'jpg|png|webp';
+};
 
 /** True when `path` is an object the studio's upload step signs for THIS event. */
 function ownPath(eventId, path, kinds) {
@@ -167,7 +171,7 @@ function cleanScene(eventId, raw) {
  * and the soundtrack (`soundtrack-….mp3|m4a`), each URL derived here.
  * The screen's SHAPE is never stored: it is always 16:9.
  */
-const SLIDE_KINDS = Object.freeze(['title', 'countdown', 'artist', 'lineup', 'photo', 'sponsors', 'message', 'visualizer']);
+const SLIDE_KINDS = Object.freeze(['title', 'countdown', 'artist', 'lineup', 'photo', 'video', 'gallery', 'sponsors', 'message', 'visualizer']);
 const MAX_SLIDES = 12;
 const SCREEN_STYLES = Object.freeze(['bold', 'elegant', 'neon']);
 const SCREEN_TRANSITIONS = Object.freeze(['fade', 'slide', 'cut']);
@@ -192,6 +196,11 @@ function cleanSlide(eventId, raw) {
     } else {
       slide.caption = text(raw.caption, 100);
     }
+  } else if (raw.kind === 'video') {
+    // A clip this event uploaded (`clip-<hex>.mp4|webm`), its URL derived here.
+    slide.video = image(eventId, raw.video, ['clip']);
+    slide.focus = focus(raw.focus);
+    slide.caption = text(raw.caption, 100);
   } else if (raw.kind === 'message') {
     slide.text = text(raw.text, 80);
     slide.sub = text(raw.sub, 80);
@@ -219,13 +228,14 @@ function cleanScreen(eventId, raw) {
     style: SCREEN_STYLES.includes(raw.style) ? raw.style : 'bold',
     accent: hex(raw.accent) || null,
     pixels: raw.pixels !== false,
-    size: Math.round(num(raw.size, 60, 100, 100)),
+    // The main screen's width as a % of the stage's (screenModel.SCREEN_WIDTH).
+    size: Math.round(num(raw.size, 40, 150, 80)),
     sides: raw.sides !== false,
     sound: {
       source: SOUND_SOURCES.includes(sound.source) ? sound.source : 'preset',
       preset: SOUND_PRESETS.includes(sound.preset) ? sound.preset : null,
       track: track ? { ...track, name: text(sound.track?.name, 80) } : null,
-      volume: Math.round(num(sound.volume, 0, 100, 70)),
+      volume: Math.round(num(sound.volume, 0, 100, 85)),
     },
     react: raw.react !== false,
   };
@@ -358,5 +368,5 @@ function sanitizeLayout(eventId, layout) {
 
 module.exports = {
   sanitizeLayout, publicLayout, cleanLook, ownPath, MAX_LAYOUT_BYTES, MAX_VIEWS, VIEW_KINDS, ACCESS_FEATURES, VENUE_TYPES,
-  DEFAULT_WORLD, MAX_WORLD, cleanScreen, SLIDE_KINDS, MAX_SLIDES, STUDIO_KINDS: Object.freeze(['venue', 'panorama', 'screen', 'soundtrack']),
+  DEFAULT_WORLD, MAX_WORLD, cleanScreen, SLIDE_KINDS, MAX_SLIDES, STUDIO_KINDS: Object.freeze(['venue', 'panorama', 'screen', 'clip', 'soundtrack']),
 };

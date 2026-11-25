@@ -52,7 +52,29 @@ const AUDIO_EXTENSION_FOR = Object.freeze({
 });
 const AUDIO_KINDS = Object.freeze(['soundtrack']);
 const MAX_AUDIO_BYTES = 8 * 1024 * 1024;
-const maxBytesFor = (kind) => (AUDIO_KINDS.includes(kind) ? MAX_AUDIO_BYTES : MAX_BYTES);
+
+/**
+ * THE ONE VIDEO KIND (2026-11-25): a clip for a stage-screen slide, played
+ * muted on the 3D room's screen. MP4 and WebM; up to 40 MB, a minute or so
+ * of 1080p. The bucket must allow these too (migration 20261221090000).
+ */
+const VIDEO_EXTENSION_FOR = Object.freeze({
+  'video/mp4': 'mp4',
+  'video/webm': 'webm',
+});
+const VIDEO_KINDS = Object.freeze(['clip']);
+const MAX_VIDEO_BYTES = 40 * 1024 * 1024;
+
+const typesFor = (kind) => {
+  if (AUDIO_KINDS.includes(kind)) return AUDIO_EXTENSION_FOR;
+  if (VIDEO_KINDS.includes(kind)) return VIDEO_EXTENSION_FOR;
+  return EXTENSION_FOR;
+};
+const maxBytesFor = (kind) => {
+  if (AUDIO_KINDS.includes(kind)) return MAX_AUDIO_BYTES;
+  if (VIDEO_KINDS.includes(kind)) return MAX_VIDEO_BYTES;
+  return MAX_BYTES;
+};
 
 /**
  * The images an event can hold, and the only values that may reach a storage
@@ -63,7 +85,7 @@ const maxBytesFor = (kind) => (AUDIO_KINDS.includes(kind) ? MAX_AUDIO_BYTES : MA
  * 360° view) belong to the Venue Studio; see services/venueStudio.js. `tier`
  * is a ticket type's details photo; see services/ticketDetails.js.
  */
-const KINDS = Object.freeze(['cover', 'logo', 'gallery', 'sponsor', 'venue', 'panorama', 'tier', 'addon', 'vendor', 'screen', 'soundtrack']);
+const KINDS = Object.freeze(['cover', 'logo', 'gallery', 'sponsor', 'venue', 'panorama', 'tier', 'addon', 'vendor', 'screen', 'clip', 'soundtrack']);
 
 /** The signed URL's lifetime. Long enough for a slow phone on hotel wifi. */
 const UPLOAD_TTL_SECONDS = 600;
@@ -99,13 +121,11 @@ function storageUnavailable(err) {
  * watches the wrong one keep appearing in shares for days.
  */
 async function signUpload({ eventId, contentType, kind = 'cover', folder = null }) {
-  const audio = AUDIO_KINDS.includes(kind);
-  const ext = (audio ? AUDIO_EXTENSION_FOR : EXTENSION_FOR)[contentType];
+  const ext = typesFor(kind)[contentType];
   if (!ext) {
-    throw new MediaError(
-      'UNSUPPORTED_MEDIA_TYPE',
-      audio ? 'Upload an MP3 or M4A file.' : 'Upload a JPEG, PNG or WebP image.',
-    );
+    const wanted = AUDIO_KINDS.includes(kind) ? 'an MP3 or M4A file'
+      : VIDEO_KINDS.includes(kind) ? 'an MP4 or WebM video' : 'a JPEG, PNG or WebP image';
+    throw new MediaError('UNSUPPORTED_MEDIA_TYPE', `Upload ${wanted}.`);
   }
 
   /**
@@ -253,6 +273,9 @@ module.exports = {
   publicUrl,
   MAX_BYTES,
   MAX_AUDIO_BYTES,
+  MAX_VIDEO_BYTES,
+  VIDEO_EXTENSION_FOR,
+  maxBytesFor,
   EXTENSION_FOR,
   AUDIO_EXTENSION_FOR,
   KINDS,

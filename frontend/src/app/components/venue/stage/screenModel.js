@@ -34,6 +34,8 @@ export const SLIDE_KINDS = Object.freeze([
   { key: 'artist', label: 'Headliner', icon: 'mic', hint: 'A performer’s photo and name, full screen.' },
   { key: 'lineup', label: 'Lineup', icon: 'list', hint: 'The running order from your event’s schedule.' },
   { key: 'photo', label: 'Photo', icon: 'image', hint: 'A poster, a promo or an ad, with a caption.' },
+  { key: 'video', label: 'Video', icon: 'film', hint: 'A clip (MP4 or WebM), playing silently on the screen.' },
+  { key: 'gallery', label: 'Event photos', icon: 'grid', hint: 'The photos from your event page’s gallery, as a photo wall.' },
   { key: 'sponsors', label: 'Sponsors', icon: 'handshake', hint: 'Your event’s sponsors’ logos.' },
   { key: 'message', label: 'Message', icon: 'chat', hint: 'Your words, big: a welcome, a hashtag, a dress code.' },
   { key: 'visualizer', label: 'Music visualizer', icon: 'music', hint: 'Light that moves to the soundtrack.' },
@@ -72,6 +74,10 @@ export const PRESET_FOR_MOOD = Object.freeze({ concert: 'arena', gala: 'lounge',
 
 /** Seconds of an organizer's track the bucket takes: 8 MB, about 4 minutes of MP3. */
 export const MAX_TRACK_BYTES = 8 * 1024 * 1024;
+/** A screen video: 40 MB, a minute or so of 1080p. */
+export const MAX_CLIP_BYTES = 40 * 1024 * 1024;
+/** The main screen's width as a % of the stage's: wider than the stage is allowed, as real LED walls are. */
+export const SCREEN_WIDTH = Object.freeze({ min: 40, max: 150, default: 80 });
 
 export const DEFAULT_SCREEN = Object.freeze({
   slides: Object.freeze([
@@ -85,10 +91,10 @@ export const DEFAULT_SCREEN = Object.freeze({
   style: 'bold',
   accent: null,
   pixels: true,
-  // The main screen's width, as a share of the largest that fits the stage.
-  size: 100,
+  // The main screen's width, as a % of the stage's width (SCREEN_WIDTH).
+  size: SCREEN_WIDTH.default,
   sides: true,
-  sound: Object.freeze({ source: 'preset', preset: null, track: null, volume: 70 }),
+  sound: Object.freeze({ source: 'preset', preset: null, track: null, volume: 85 }),
   // Stage lights, the rim and the screen's glow pulse with the music.
   react: true,
 });
@@ -127,6 +133,10 @@ function readSlide(raw) {
     slide.caption = text(raw.caption, 100);
     slide.image = readFile(raw.image);
     slide.focus = readFocus(raw.focus);
+  } else if (raw.kind === 'video') {
+    slide.caption = text(raw.caption, 100);
+    slide.video = readFile(raw.video);
+    slide.focus = readFocus(raw.focus);
   } else if (raw.kind === 'message') {
     slide.text = text(raw.text, 80);
     slide.sub = text(raw.sub, 80);
@@ -158,13 +168,13 @@ export function readScreen(raw) {
     style: oneOf(SCREEN_STYLES, s.style, DEFAULT_SCREEN.style),
     accent: typeof s.accent === 'string' && HEX.test(s.accent) ? s.accent.toLowerCase() : null,
     pixels: s.pixels !== false,
-    size: Math.round(num(s.size, 60, 100, 100)),
+    size: Math.round(num(s.size, SCREEN_WIDTH.min, SCREEN_WIDTH.max, SCREEN_WIDTH.default)),
     sides: s.sides !== false,
     sound: {
       source: oneOf(SOUND_SOURCES, sound.source, 'preset'),
       preset: PRESET_KEYS.includes(sound.preset) ? sound.preset : null,
       track: track ? { ...track, name: text(sound.track?.name, 80) } : null,
-      volume: Math.round(num(sound.volume, 0, 100, 70)),
+      volume: Math.round(num(sound.volume, 0, 100, 85)),
     },
     react: s.react !== false,
   };
@@ -185,7 +195,7 @@ export function writeScreen(screen) {
  */
 export function screenSize({ room, maxHeight = Infinity, size = 100, minWidth = 1.6 }) {
   const fit = Math.min(Math.max(0, room), Math.max(0, maxHeight) * SCREEN_ASPECT);
-  const w = Math.max(minWidth, fit * (num(size, 10, 100, 100) / 100));
+  const w = Math.max(minWidth, fit * (num(size, 10, 200, 100) / 100));
   return { w, h: w / SCREEN_ASPECT };
 }
 
@@ -237,6 +247,8 @@ export function playableSlides(slides, feed, now = Date.now()) {
       case 'lineup': return (feed?.lineup?.length || 0) > 0;
       case 'sponsors': return (feed?.sponsors?.length || 0) > 0;
       case 'photo': return Boolean(s.image?.url);
+      case 'video': return Boolean(s.video?.url);
+      case 'gallery': return (feed?.gallery?.length || 0) > 0;
       case 'artist': return Boolean(s.image?.url || s.name);
       case 'message': return Boolean(s.text);
       case 'countdown': {

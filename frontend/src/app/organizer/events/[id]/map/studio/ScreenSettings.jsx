@@ -1,18 +1,19 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import NavIcon from '../../../../../components/shell/NavIcon';
 import { messageFor } from '../../../../../utils/errors';
 import { studioId } from '../../../../../components/venue/venueModel';
 import {
   SLIDE_KINDS, SCREEN_STYLES, TRANSITIONS, SOUND_PRESETS, SOUND_SOURCES, SLIDE_SECONDS, MAX_SLIDES, PRESET_FOR_MOOD,
+  SCREEN_WIDTH,
 } from '../../../../../components/venue/stage/screenModel';
 import ScreenPreview from '../../../../../components/venue/stage/ScreenPreview';
 import {
   TextField, RangeField, Toggle, Segmented, ColourField, SelectField,
 } from '../../../../../components/inspector/fields';
 import { InspectorSection, InspectorNote } from '../../../../../components/inspector/Inspector';
-import { uploadStudioImage, uploadStudioAudio } from './uploadStudioImage';
+import { uploadStudioImage, uploadStudioAudio, uploadStudioVideo } from './uploadStudioImage';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -35,6 +36,10 @@ import { uploadStudioImage, uploadStudioAudio } from './uploadStudioImage';
 export default function ScreenSettings({ eventId, screen, mood, feed, title, onChange }) {
   const [open, setOpen] = useState(null);
   const [adding, setAdding] = useState('');
+  // The settings as they are NOW, for an upload that finishes after more
+  // edits were made: its new slides join the current list, not a stale one.
+  const latest = useRef(screen);
+  useEffect(() => { latest.current = screen; }, [screen]);
   const set = (patch) => onChange({ ...screen, ...patch });
   const setSlides = (slides) => set({ slides });
   const setSlide = (id, patch) => setSlides(screen.slides.map((s) => (s.id === id ? { ...s, ...patch } : s)));
@@ -50,8 +55,15 @@ export default function ScreenSettings({ eventId, screen, mood, feed, title, onC
     const slide = { id: studioId('sl'), kind };
     if (kind === 'artist' || kind === 'photo') slide.focus = { x: 50, y: 40 };
     setSlides([...screen.slides, slide]);
-    if (['artist', 'photo', 'message'].includes(kind)) setOpen(slide.id);
+    if (EDITABLE.includes(kind)) setOpen(slide.id);
     setAdding('');
+  };
+  /** New slides from uploaded files, straight onto the end of the list. */
+  const addUploaded = (slides) => {
+    const now = latest.current;
+    const room = MAX_SLIDES - now.slides.length;
+    if (room <= 0 || !slides.length) return;
+    onChange({ ...now, slides: [...now.slides, ...slides.slice(0, room)] });
   };
 
   const autoPreset = SOUND_PRESETS.find((p) => p.key === PRESET_FOR_MOOD[mood])?.label || 'Arena';
@@ -64,10 +76,11 @@ export default function ScreenSettings({ eventId, screen, mood, feed, title, onC
       </div>
 
       <InspectorSection id="screen-slides" title="On the screen" summary={`${screen.slides.length} slides`}>
+        <QuickAdd eventId={eventId} full={screen.slides.length >= MAX_SLIDES} onSlides={addUploaded} />
         <ol className="es-screenset__slides">
           {screen.slides.map((s, i) => {
             const kind = SLIDE_KINDS.find((k) => k.key === s.kind);
-            const editable = ['artist', 'photo', 'message'].includes(s.kind);
+            const editable = EDITABLE.includes(s.kind);
             const empty = emptyReason(s, feed);
             const isOpen = open === s.id;
             return (
@@ -124,8 +137,9 @@ export default function ScreenSettings({ eventId, screen, mood, feed, title, onC
         />
         <Toggle label="LED finish" hint="A fine pixel grid, like a real stage wall." checked={screen.pixels} onChange={(pixels) => set({ pixels })} />
         <RangeField
-          label="Screen size" value={screen.size} min={60} max={100} step={5}
-          onChange={(size) => set({ size })} format={(v) => `${v}%`} hint="Of the largest screen that fits over your stage."
+          label="Screen width" value={screen.size} min={SCREEN_WIDTH.min} max={SCREEN_WIDTH.max} step={5}
+          onChange={(size) => set({ size })} format={(v) => `${v}% of the stage`}
+          hint="Past 100% the screen is wider than the stage, like a festival LED wall. It stays 16:9."
         />
         <Toggle label="Side screens" hint="Two smaller screens either side, for the seats far round." checked={screen.sides} onChange={(sides) => set({ sides })} />
       </InspectorSection>
@@ -162,10 +176,70 @@ export default function ScreenSettings({ eventId, screen, mood, feed, title, onC
   );
 }
 
+const EDITABLE = Object.freeze(['artist', 'photo', 'video', 'message']);
+
+/**
+ * THE QUICK WAY IN (2026-11-25, "why I cannot upload images and videos"):
+ * pick photos (several at once) or a video, and each becomes a slide at the
+ * end of the list. No "add a slide, then edit it, then upload".
+ */
+function QuickAdd({ eventId, full, onSlides }) {
+  const [busy, setBusy] = useState(null);
+  const [error, setError] = useState(null);
+  const photos = useRef(null);
+  const video = useRef(null);
+  const run = async (what, files, make) => {
+    if (!files?.length) return;
+    setBusy(what);
+    setError(null);
+    const made = [];
+    try {
+      for (const file of files) made.push(await make(file));
+    } catch (err) {
+      setError(err);
+    } finally {
+      onSlides(made);
+      setBusy(null);
+      if (photos.current) photos.current.value = '';
+      if (video.current) video.current.value = '';
+    }
+  };
+  const photoSlide = async (file) => {
+    const a = await uploadStudioImage(eventId, file, 'screen');
+    return { id: studioId('sl'), kind: 'photo', image: { path: a.path, url: a.url }, focus: { x: 50, y: 40 }, caption: '' };
+  };
+  const videoSlide = async (file) => {
+    const a = await uploadStudioVideo(eventId, file);
+    return { id: studioId('sl'), kind: 'video', video: { path: a.path, url: a.url }, focus: { x: 50, y: 50 }, caption: '' };
+  };
+  return (
+    <div className="fx-stack gap-2 es-screenset__quick">
+      <div className="fx-row gap-2">
+        <button type="button" className="es-btn es-btn--secondary es-btn--sm" disabled={full || !!busy} onClick={() => photos.current?.click()}>
+          <NavIcon name="image" size={15} /> {busy === 'photos' ? 'Uploading…' : 'Add photos'}
+        </button>
+        <button type="button" className="es-btn es-btn--secondary es-btn--sm" disabled={full || !!busy} onClick={() => video.current?.click()}>
+          <NavIcon name="film" size={15} /> {busy === 'video' ? 'Uploading…' : 'Add a video'}
+        </button>
+      </div>
+      <input
+        ref={photos} type="file" multiple accept="image/jpeg,image/png,image/webp" className="sr-only" aria-label="Photos for the screen"
+        onChange={(e) => run('photos', [...(e.target.files || [])], photoSlide)}
+      />
+      <input
+        ref={video} type="file" accept="video/mp4,video/webm" className="sr-only" aria-label="Video for the screen"
+        onChange={(e) => run('video', [...(e.target.files || [])].slice(0, 1), videoSlide)}
+      />
+      <p className="es-field__hint">Photos: JPEG, PNG or WebP, any shape. Video: MP4 or WebM up to 40 MB, played without sound. Each becomes a slide.</p>
+      {error && <p role="alert" className="text-sm text-danger">{messageFor(error)}</p>}
+    </div>
+  );
+}
+
 function slideName(s, kind) {
   if (s.kind === 'artist' && s.name) return `${kind.label}: ${s.name}`;
   if (s.kind === 'message' && s.text) return `“${s.text}”`;
-  if (s.kind === 'photo' && s.caption) return `${kind.label}: ${s.caption}`;
+  if ((s.kind === 'photo' || s.kind === 'video') && s.caption) return `${kind.label}: ${s.caption}`;
   return kind.label;
 }
 
@@ -174,6 +248,8 @@ export function emptyReason(s, feed) {
   if (s.kind === 'lineup' && !feed?.lineup?.length) return 'Skipped until the event has a schedule';
   if (s.kind === 'sponsors' && !feed?.sponsors?.length) return 'Skipped until the event has sponsors';
   if (s.kind === 'photo' && !s.image) return 'Skipped until it has a photo';
+  if (s.kind === 'video' && !s.video) return 'Skipped until it has a video';
+  if (s.kind === 'gallery' && !feed?.gallery?.length) return 'Skipped until your event page has gallery photos';
   if (s.kind === 'artist' && !s.image && !s.name) return 'Add a name or a photo';
   if (s.kind === 'message' && !s.text) return 'Skipped until it has words';
   if (s.kind === 'countdown' && !feed?.startsAt) return 'Skipped until the event has a date';
@@ -186,6 +262,14 @@ function SlideFields({ eventId, slide, onChange }) {
       <>
         <TextField label="Message" value={slide.text || ''} maxLength={80} onChange={(text) => onChange({ text })} placeholder="Welcome to the Winter Gala" />
         <TextField label="Small line" value={slide.sub || ''} maxLength={80} onChange={(sub) => onChange({ sub })} placeholder="#WinterGala · Black tie" />
+      </>
+    );
+  }
+  if (slide.kind === 'video') {
+    return (
+      <>
+        <VideoField eventId={eventId} slide={slide} onChange={onChange} />
+        <TextField label="Caption" value={slide.caption || ''} maxLength={100} onChange={(caption) => onChange({ caption })} placeholder="Last year’s show" />
       </>
     );
   }
@@ -237,6 +321,46 @@ function PhotoField({ eventId, slide, onChange }) {
       {slide.image && (
         <>
           <p className="es-field__hint">Any shape works: the screen shows it 16:9, around the point you keep in view.</p>
+          <RangeField label="Keep in view, across" value={focus.x} min={0} max={100} onChange={(x) => onChange({ focus: { ...focus, x } })} format={(v) => `${v}%`} />
+          <RangeField label="Keep in view, down" value={focus.y} min={0} max={100} onChange={(y) => onChange({ focus: { ...focus, y } })} format={(v) => `${v}%`} />
+        </>
+      )}
+      {error && <p role="alert" className="text-sm text-danger">{messageFor(error)}</p>}
+    </div>
+  );
+}
+
+function VideoField({ eventId, slide, onChange }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const ref = useRef(null);
+  const onFile = async (file) => {
+    if (!file) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const asset = await uploadStudioVideo(eventId, file);
+      onChange({ video: { path: asset.path, url: asset.url }, focus: slide.focus || { x: 50, y: 50 } });
+    } catch (err) {
+      setError(err);
+    } finally {
+      setBusy(false);
+      if (ref.current) ref.current.value = '';
+    }
+  };
+  const focus = slide.focus || { x: 50, y: 50 };
+  return (
+    <div className="fx-stack gap-2">
+      <div className="fx-row gap-2">
+        <button type="button" className="es-btn es-btn--secondary es-btn--sm" onClick={() => ref.current?.click()} disabled={busy}>
+          <NavIcon name="film" size={15} /> {busy ? 'Uploading…' : slide.video ? 'Replace video' : 'Add a video'}
+        </button>
+        {slide.video && <button type="button" className="es-btn es-btn--ghost es-btn--sm" onClick={() => onChange({ video: null })}>Remove</button>}
+      </div>
+      <input ref={ref} type="file" accept="video/mp4,video/webm" className="sr-only" aria-label="Slide video" onChange={(e) => onFile(e.target.files?.[0])} />
+      {slide.video && (
+        <>
+          <p className="es-field__hint">A vertical (phone) video is shown 16:9, cropped around the point you keep in view.</p>
           <RangeField label="Keep in view, across" value={focus.x} min={0} max={100} onChange={(x) => onChange({ focus: { ...focus, x } })} format={(v) => `${v}%`} />
           <RangeField label="Keep in view, down" value={focus.y} min={0} max={100} onChange={(y) => onChange({ focus: { ...focus, y } })} format={(v) => `${v}%`} />
         </>

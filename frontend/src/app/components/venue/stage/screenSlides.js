@@ -43,7 +43,7 @@ export function seeded(i) {
 
 export function slideDrawers(kit) {
   const {
-    state, fonts, img, font, spacing, fit, block, cover, contain, glow, backdrop, overline, headline,
+    state, fonts, img, vid, font, spacing, fit, block, cover, contain, glow, backdrop, overline, headline,
   } = kit;
   function drawTitle(g, slide, k) {
     const { feed, p, pal } = k;
@@ -234,27 +234,77 @@ export function slideDrawers(kit) {
     g.fillStyle = pal.bg;
     g.fillRect(0, 0, W, H);
     if (photo) cover(g, photo, 0, 0, W, H, { zoom: 1.02 + (k.still ? 0 : p * 0.06), focus: slide.focus });
-    if (slide.caption) {
-      // A lower third, as on a broadcast: an accent block and a dark bar.
-      const a = enter(p, 0.05, 0.1);
-      font(g, 700, 36, fonts.display);
-      const tw = Math.min(W - 260, g.measureText(slide.caption).width);
-      const bw = (tw + 80) * a;
-      g.fillStyle = 'rgba(8,8,12,0.78)';
-      g.fillRect(96, H - 150, bw, 76);
-      g.fillStyle = pal.a;
-      g.fillRect(84, H - 150, 12, 76);
-      g.save();
-      g.beginPath(); g.rect(96, H - 150, bw, 76); g.clip();
-      g.fillStyle = '#ffffff';
-      g.textAlign = 'left';
-      g.textBaseline = 'middle';
-      let cap = slide.caption;
-      while (cap.length > 1 && g.measureText(cap).width > W - 260) cap = cap.slice(0, -1);
-      g.fillText(cap === slide.caption ? cap : `${cap}…`, 132, H - 111);
-      g.textBaseline = 'alphabetic';
-      g.restore();
+    lowerThird(g, slide.caption, k);
+  }
+
+  /** A lower third, as on a broadcast: an accent block and a dark bar. */
+  function lowerThird(g, text, k) {
+    if (!text) return;
+    const a = enter(k.p, 0.05, 0.1);
+    font(g, 700, 36, fonts.display);
+    const tw = Math.min(W - 260, g.measureText(text).width);
+    const bw = (tw + 80) * a;
+    g.fillStyle = 'rgba(8,8,12,0.78)';
+    g.fillRect(96, H - 150, bw, 76);
+    g.fillStyle = k.pal.a;
+    g.fillRect(84, H - 150, 12, 76);
+    g.save();
+    g.beginPath(); g.rect(96, H - 150, bw, 76); g.clip();
+    g.fillStyle = '#ffffff';
+    g.textAlign = 'left';
+    g.textBaseline = 'middle';
+    let cap = text;
+    while (cap.length > 1 && g.measureText(cap).width > W - 260) cap = cap.slice(0, -1);
+    g.fillText(cap === text ? cap : `${cap}…`, 132, H - 111);
+    g.textBaseline = 'alphabetic';
+    g.restore();
+  }
+
+  /** A clip, full screen and cropped to 16:9 around its focus; silent, looping. */
+  function drawVideo(g, slide, k) {
+    const clip = vid(slide.video?.url);
+    if (clip) {
+      g.fillStyle = k.pal.bg;
+      g.fillRect(0, 0, W, H);
+      cover(g, clip, 0, 0, W, H, { focus: slide.focus });
+    } else {
+      // Still loading: the backdrop and a play mark, never a black frame.
+      backdrop(g, k);
+      g.fillStyle = 'rgba(255,255,255,0.85)';
+      g.beginPath(); g.moveTo(W / 2 - 34, H / 2 - 44); g.lineTo(W / 2 + 50, H / 2); g.lineTo(W / 2 - 34, H / 2 + 44); g.closePath(); g.fill();
     }
+    lowerThird(g, slide.caption, k);
+  }
+
+  /**
+   * The event page's gallery as a photo wall: one large photo and two beside
+   * it, each drifting slowly. A different three each time round.
+   */
+  function drawGallery(g, slide, k) {
+    const { feed, p, pal } = k;
+    const list = (feed?.gallery || []).filter((x) => x?.url);
+    g.fillStyle = pal.bg;
+    g.fillRect(0, 0, W, H);
+    if (!list.length) { backdrop(g, k); return; }
+    const start = Math.floor(k.now / 30000) % list.length;
+    const pick = [0, 1, 2].map((i) => list[(start + i) % list.length]).slice(0, Math.min(3, list.length));
+    const gap = 12;
+    const boxes = pick.length === 1
+      ? [[0, 0, W, H]]
+      : pick.length === 2
+        ? [[0, 0, W / 2 - gap / 2, H], [W / 2 + gap / 2, 0, W / 2 - gap / 2, H]]
+        : [[0, 0, W * 0.62, H], [W * 0.62 + gap, 0, W * 0.38 - gap, H / 2 - gap / 2], [W * 0.62 + gap, H / 2 + gap / 2, W * 0.38 - gap, H / 2 - gap / 2]];
+    boxes.forEach(([x, y, w, h], i) => {
+      const a = enter(p, i * 0.04, 0.1);
+      const photo = img(pick[i].url);
+      g.save();
+      g.globalAlpha = a;
+      g.beginPath(); g.rect(x, y, w, h); g.clip();
+      if (photo) cover(g, photo, x, y, w, h, { zoom: 1.02 + (k.still ? 0 : p * (0.05 + i * 0.02)), focus: { x: 50, y: 40 } });
+      else { g.fillStyle = 'rgba(255,255,255,0.06)'; g.fillRect(x, y, w, h); }
+      g.restore();
+    });
+    lowerThird(g, pick[0].caption || k.title, k);
   }
 
   function drawSponsors(g, slide, k) {
@@ -383,5 +433,6 @@ export function slideDrawers(kit) {
   return {
     title: drawTitle, countdown: drawCountdown, artist: drawArtist, lineup: drawLineup,
     photo: drawPhoto, sponsors: drawSponsors, message: drawMessage, visualizer: drawVisualizer,
+    video: drawVideo, gallery: drawGallery,
   };
 }

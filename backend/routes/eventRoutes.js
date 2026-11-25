@@ -10,7 +10,7 @@ const seatMap = require('../controllers/seatMapController');
 const scan = require('../controllers/scanController');
 const cover = require('../controllers/mediaController');
 const categoryService = require('../services/categoryService');
-const { EXTENSION_FOR, AUDIO_EXTENSION_FOR } = require('../services/mediaService');
+const { EXTENSION_FOR, AUDIO_EXTENSION_FOR, VIDEO_EXTENSION_FOR } = require('../services/mediaService');
 
 const router = express.Router();
 
@@ -366,9 +366,9 @@ router.put(
 router.post(
   '/:eventId/venue-map/upload',
   verifyEventOwner, requireEditableEvent,
-  body('contentType').isIn([...Object.keys(EXTENSION_FOR), ...Object.keys(AUDIO_EXTENSION_FOR)])
-    .withMessage('Upload a JPEG, PNG or WebP image, or an MP3 or M4A track.'),
-  body('kind').isIn(['venue', 'panorama', 'screen', 'soundtrack']).withMessage('Unknown file type.'),
+  body('contentType').isIn([...Object.keys(EXTENSION_FOR), ...Object.keys(AUDIO_EXTENSION_FOR), ...Object.keys(VIDEO_EXTENSION_FOR)])
+    .withMessage('Upload a JPEG, PNG or WebP image, an MP4 or WebM video, or an MP3 or M4A track.'),
+  body('kind').isIn(['venue', 'panorama', 'screen', 'clip', 'soundtrack']).withMessage('Unknown file type.'),
   validate,
   seatMap.signAssetUpload,
 );

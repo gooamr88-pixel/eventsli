@@ -1,5 +1,5 @@
 import { zoneMeta } from '../seating/venueZones';
-import { screenSize } from './stage/screenModel';
+import { screenSize, SCREEN_WIDTH } from './stage/screenModel';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -187,7 +187,7 @@ export function buildRoom(THREE, model, scene, {
   // the light the screen throws, and where the music comes from.
   const show = {
     screens: [], house: [], pulse: [], beams: [], glow: null, anchor: null,
-    texture: showTexture, layout: { size: 100, sides: true, ...(screenLayout || {}) },
+    texture: showTexture, layout: { size: SCREEN_WIDTH.default, sides: true, ...(screenLayout || {}) },
   };
   const R = model.radius;
 
@@ -391,7 +391,12 @@ function addZone(THREE, group, z, scene, style, title, animated, zoneLabels, sho
       new THREE.MeshStandardMaterial({ color: 0x142226, roughness: 0.22, metalness: 0.55 }),
     );
     group.add(placeFlat(THREE, deck, z, h / 2));
-    addTruss(THREE, group, z, h, style);
+    // ALWAYS 16:9 (screenModel.screenSize), as wide as the organizer sets it
+    // against the stage's width — wider than the stage is allowed, as real
+    // LED walls are. The truss rises to clear it rather than capping it.
+    const screenDims = scene.screens ? screenSize({ room: z.w, size: show.layout.size }) : null;
+    const truss = Math.max(h + Math.max(6, z.w * 0.35), screenDims ? h + 1.2 + screenDims.h + 0.8 : 0);
+    addTruss(THREE, group, z, h, style, truss);
 
     // The back of the stage is the side away from the room's centre.
     const away = Math.hypot(z.x, z.z) || 1;
@@ -406,11 +411,8 @@ function addZone(THREE, group, z, scene, style, title, animated, zoneLabels, sho
     edge.rotation.y = facing;
     group.add(edge);
 
-    const truss = h + Math.max(6, z.w * 0.35);
-    if (scene.screens) {
-      // ALWAYS 16:9 (screenModel.screenSize): as wide as the stage allows
-      // and low enough to hang under the truss, scaled by the organizer.
-      const { w: sw, h: sh } = screenSize({ room: z.w * 0.8, maxHeight: truss - h - 1.7, size: show.layout.size });
+    if (screenDims) {
+      const { w: sw, h: sh } = screenDims;
       const screen = makeScreen(THREE, show, title, sw, sh);
       screen.position.set(z.x + bx * (z.d / 2 + 0.2), h + sh / 2 + 1.2, z.z + bz * (z.d / 2 + 0.2));
       // A plane's front faces +z; turned by `facing` it faces the room.
@@ -536,9 +538,9 @@ export function disposeTree(object) {
  * A lighting truss over the stage: four posts and a frame, with lamp heads
  * along the front beam. What makes a box on the floor read as a stage.
  */
-function addTruss(THREE, group, z, h, style) {
+function addTruss(THREE, group, z, h, style, trussTop = null) {
   const metal = new THREE.MeshStandardMaterial({ color: 0x2a3236, roughness: 0.4, metalness: 0.85 });
-  const top = h + Math.max(6, z.w * 0.35);
+  const top = trussTop ?? h + Math.max(6, z.w * 0.35);
   const frame = new THREE.Group();
   frame.position.set(z.x, 0, z.z);
   frame.rotation.y = z.rot;

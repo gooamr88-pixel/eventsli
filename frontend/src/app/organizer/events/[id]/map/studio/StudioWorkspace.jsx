@@ -12,6 +12,8 @@ import StudioPreview from './StudioPreview';
  */
 export default function StudioWorkspace({
   workspace, eventId, tables, zones, world, onResizeWorld, layout, sections, tiers, eventTitle, eventInfo, draft,
+  // Edits a zone on the map (useMapDraft.updateZone): the 3D settings' stage size.
+  onZone = null,
   // The table categories and the map look: the 3D and 360° views paint
   // tables as the 2D map does (mapStyle.js, THE MAP'S COLOUR RULES).
   categories = [], look = null,
@@ -30,7 +32,7 @@ export default function StudioWorkspace({
       <Studio3D
         tables={tables} zones={zones} world={world} scene={studio.scene} onScene={(patch) => edit('scene', patch)}
         sections={sections} tiers={tiers} eventTitle={eventTitle} categories={categories} look={look}
-        eventId={eventId} screenFeed={eventInfo.screenFeed || null}
+        eventId={eventId} screenFeed={eventInfo.screenFeed || null} onZone={onZone}
       />
     );
   }

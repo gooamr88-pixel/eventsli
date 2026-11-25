@@ -428,6 +428,7 @@ export default function VenueExperience({
               controls={controls}
               hasSound={soundFor(studio.scene.screen, studio.scene.mood).kind !== 'off'}
               trackFailed={trackFailed}
+              volume={studio.scene.screen.sound.volume}
             />
           )}
 
