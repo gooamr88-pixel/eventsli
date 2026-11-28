@@ -4,12 +4,13 @@ import { StyleSheet, View, type ViewStyle } from 'react-native';
 import { eventBySlug } from '../api/endpoints';
 import type { EventCard as Event } from '../api/types';
 import { useSession } from '../auth/session';
-import { eventDate, eventDay, eventTime, price } from '../lib/format';
+import { eventDate, price } from '../lib/format';
 import { queryClient } from '../lib/queryClient';
-import { Badge, Heart, HeartIcon, type Tone } from './bits';
+import { Badge, type Tone } from './bits';
 import { Cover } from './Cover';
 import { Icon } from './Icon';
 import { Pressy } from './motion';
+import { ListCard, SiteCard } from './SiteCard';
 import { Text } from './Text';
 import { colors, radius, space } from './theme';
 
@@ -77,90 +78,34 @@ export function EventTile({ event, height = 200, badge, style }: {
   );
 }
 
-/** A photo card for grids (tablets) and the Home carousel: picture, name, date. */
+/** What a card says about the price: "From $100", "Free" — never the bare "Listing". */
+export function cardPrice(e: Event): string {
+  const p = priceLine(e);
+  return p === 'Listing' ? '' : p;
+}
+
+/**
+ * The event card — the WEBSITE's card (2026-11-28, owner: "as website"):
+ * see ui/SiteCard.tsx. Kept under this name so every list in the app follows.
+ */
 export function EventPoster({ event, saved, onHeart, width, style, distance }: {
   event: Event; saved: boolean; onHeart: () => void; width?: number; style?: ViewStyle;
   /** "2.3 km away" — on Home's Near You row. */
   distance?: string;
 }) {
-  const tag = tagFor(event);
-  return (
-    <Pressy
-      accessibilityRole="button"
-      accessibilityLabel={`${event.title}, ${eventDay(event.startsAt, event.timezone)}`}
-      onPress={() => openEvent(event)}
-      style={[width ? { width } : null, style]}
-      scale={0.97}
-    >
-      <Cover uri={event.coverUrl} title={event.title} blurred={event.blurredCover} style={styles.posterCover} size={width ?? 280}>
-        <View style={styles.posterTop}>
-          {tag ? <Badge label={tag.label} tone={tag.tone} /> : null}
-          <View style={{ flex: 1 }} />
-          {!event.isPrivate ? <Heart saved={saved} onPress={onHeart} onDark size={34} /> : null}
-        </View>
-      </Cover>
-      <View style={styles.posterBody}>
-        <Text variant="label" weight="bold" numberOfLines={1}>{event.title}</Text>
-        <Text variant="small" color={colors.muted} numberOfLines={1}>
-          {eventDate(event.startsAt, event.timezone)}{!distance && (event.venue || event.city) ? ` • ${event.venue || event.city}` : ''}
-        </Text>
-        {distance ? (
-          <View style={styles.away}>
-            <Icon name="pin" size={13} color={colors.accent} strokeWidth={2.2} />
-            <Text variant="caption" weight="bold" color={colors.accent}>{distance}</Text>
-          </View>
-        ) : null}
-      </View>
-    </Pressy>
-  );
+  return <SiteCard event={event} saved={saved} onHeart={onHeart} onPress={() => openEvent(event)} width={width} style={style} distance={distance} />;
 }
 
 /**
- * The mockup's list row (Saved Events): a rounded square photo, the name in
- * bold, the date under it, and the heart on the right. No box around it.
+ * An event as a row — the website's /events list card (ui/SiteCard.tsx).
+ * The 'big' prop is kept for callers; the list card is one size.
  */
-export function EventRow({ event, saved, onHeart, distance }: { event: Event; saved: boolean; onHeart: () => void; distance?: string }) {
-  const tag = tagFor(event);
-  const where = [distance, event.venue || event.city].filter(Boolean).join(' · ');
-  return (
-    <Pressy
-      accessibilityRole="button"
-      accessibilityLabel={`${event.title}, ${eventDate(event.startsAt, event.timezone)}${where ? `, ${where}` : ''}`}
-      onPress={() => openEvent(event)}
-      style={styles.row}
-      scale={0.98}
-    >
-      <Cover uri={event.coverUrl} title={event.title} blurred={event.blurredCover} style={styles.thumb} />
-      <View style={styles.rowBody}>
-        <Text variant="label" weight="bold" numberOfLines={1}>{event.title}</Text>
-        <Text variant="small" color={colors.text} numberOfLines={1}>
-          {eventDate(event.startsAt, event.timezone)} • {eventTime(event.startsAt, event.timezone)}
-        </Text>
-        {tag ? <Text variant="caption" weight="bold" color={tag.tone === 'accent' ? colors.accent : colors.muted}>{tag.label}</Text>
-          : where ? <Text variant="caption" color={colors.muted} numberOfLines={1}>{where}</Text> : null}
-      </View>
-      {!event.isPrivate ? (
-        <Pressy accessibilityRole="button" accessibilityLabel={saved ? 'Remove from saved' : 'Save event'} accessibilityState={{ selected: saved }}
-          onPress={onHeart} hitSlop={12} scale={0.8} style={styles.save}>
-          <HeartIcon saved={saved} size={22} />
-        </Pressy>
-      ) : null}
-    </Pressy>
-  );
+export function EventRow({ event, saved, onHeart, distance }: { event: Event; saved: boolean; onHeart: () => void; distance?: string; big?: boolean }) {
+  return <ListCard event={event} saved={saved} onHeart={onHeart} onPress={() => openEvent(event)} distance={distance} />;
 }
 
 const styles = StyleSheet.create({
   tile: { borderRadius: radius.lg, overflow: 'hidden', backgroundColor: colors.night },
   tileBottom: { position: 'absolute', left: space.lg, right: space.lg, bottom: space.lg, flexDirection: 'row', alignItems: 'flex-end', gap: space.md },
   go: { width: 38, height: 38, borderRadius: 19, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' },
-
-  posterCover: { height: 150, borderRadius: 14 },
-  posterTop: { flexDirection: 'row', alignItems: 'flex-start', padding: space.sm },
-  posterBody: { paddingTop: space.sm, gap: 2 },
-  away: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-
-  row: { flexDirection: 'row', alignItems: 'center', gap: space.lg, paddingVertical: space.sm },
-  thumb: { width: 72, height: 72, borderRadius: 12 },
-  rowBody: { flex: 1, gap: 3 },
-  save: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
 });

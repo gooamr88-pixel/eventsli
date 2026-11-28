@@ -5,6 +5,7 @@ import NavIcon from '../components/shell/NavIcon';
 import { priceBlock, saleTag, ctaLabel } from '../components/EventCard';
 import { isDateOnly, formatDateOnly } from '../lib/dateOnly';
 import PrivateCardCover from '../components/PrivateCardCover';
+import EventPartners from './EventPartners';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -57,7 +58,8 @@ const TAG_LABEL = {
   'sold-out': 'Sold out',
   info: 'Info only',
   soon: 'Coming soon',
-  past: 'Past event',
+  // "Completed" (owner, 2026-11-28): finished events stay listed, marked.
+  past: 'Completed',
   private: 'Private event',
 };
 
@@ -81,6 +83,15 @@ export default function EventGridCard({ event, priority = false }) {
   return (
     <Link href={`/e/${event.slug}`} className={`es-evx-card ${event.isPast ? 'es-evx-card--past' : ''}`}>
       <div className="es-evx-card__media">
+        {/* COMPLETED (owner, 2026-11-28): finished events stay on the page,
+            marked over the poster. The poster goes grey; the badge, which
+            is not inside the greyed image, stays crisp. */}
+        {event.isPast && (
+          <span className="es-evx-done">
+            <span className="es-evx-done__mark" aria-hidden="true"><NavIcon name="tick" size={12} /></span>
+            Completed
+          </span>
+        )}
         {event.isPrivate ? (
           /* Listed, blurred (owner, 2026-11-23): name, organizer, date only. */
           <PrivateCardCover event={event} />
@@ -134,6 +145,9 @@ export default function EventGridCard({ event, priority = false }) {
           {gridCta(event)}
         </span>
       </div>
+
+      {/* Its sponsors and vendors, at the foot of the card (2026-11-28). */}
+      <EventPartners partners={event.partners} />
     </Link>
   );
 }

@@ -4,8 +4,10 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useSession } from '@/auth/session';
+import { useTickets } from '@/hooks/useTickets';
 import { IconButton, ListGroup, ListRow } from '@/ui/bits';
 import { Button } from '@/ui/Button';
+import { Icon } from '@/ui/Icon';
 import { Container } from '@/ui/layout';
 import { Logo } from '@/ui/Logo';
 import { Text } from '@/ui/Text';
@@ -18,12 +20,17 @@ const SITE = 'https://eventsli.com';
  * name and email, then My Tickets, Saved Events, Notifications, Preferences,
  * Help & Support, About Eventsli.
  *
- * The mockup's "Premium Member" badge is left out: Eventsli has no membership
- * tier, and a badge for one would be a promise the product does not keep.
+ * The mockup's yellow "Premium Member" pill is kept, with true words in it:
+ * Eventsli has no membership tier (2026-11-28, owner's choice), so it says
+ * how many tickets this account has booked, or "Eventsli Member" before the
+ * first one.
  */
 export default function Profile() {
   const insets = useSafeAreaInsets();
   const user = useSession((s) => s.account?.user);
+  const tickets = useTickets();
+  const booked = (tickets.data ?? []).reduce((n, o) => n + o.tickets.filter((t) => !t.transferredAway).length, 0);
+  const badge = booked ? `${booked} ${booked === 1 ? 'ticket' : 'tickets'} booked` : 'Eventsli Member';
   const initials = (user?.fullName || user?.email || '?').split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
 
   return (
@@ -38,6 +45,10 @@ export default function Profile() {
             <View style={styles.avatar}><Text style={styles.initials} color={colors.onHighlight}>{initials}</Text></View>
             <Text variant="heading" align="center">{user.fullName || 'Your account'}</Text>
             <Text variant="body" color={colors.muted} align="center">{user.email}</Text>
+            <View style={styles.badge}>
+              <Icon name="star" size={15} color={colors.onHighlight} strokeWidth={2.2} />
+              <Text variant="small" weight="bold" color={colors.onHighlight}>{badge}</Text>
+            </View>
           </View>
         ) : (
           <View style={styles.who}>
@@ -68,4 +79,5 @@ const styles = StyleSheet.create({
   avatar: { width: 108, height: 108, borderRadius: 54, backgroundColor: colors.highlight, alignItems: 'center', justifyContent: 'center', marginBottom: space.md },
   initials: { fontFamily: 'DMSans_700Bold', fontSize: 38, lineHeight: 44 },
   cta: { alignSelf: 'stretch', marginTop: space.lg },
+  badge: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: space.sm, paddingHorizontal: space.lg, paddingVertical: 6, borderRadius: 10, backgroundColor: colors.highlight },
 });

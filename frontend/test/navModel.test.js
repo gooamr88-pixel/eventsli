@@ -57,7 +57,8 @@ describe('organizer destinations', () => {
     const keys = groups.flatMap((g) => g.items).map((i) => i.key);
     // 'sms': the organizer's text campaigns (organizer/sms), an account-level destination.
     // 'templates': event templates (organizer/templates, 2026-11-19), account-level too.
-    expect(keys).toEqual(['dashboard', 'events', 'templates', 'payments', 'sms', 'profile']);
+    // 'vip': VIP Services (organizer/vip, 2026-11-28), account-level too.
+    expect(keys).toEqual(['dashboard', 'events', 'templates', 'vip', 'payments', 'sms', 'profile']);
     expect(groups.find((g) => g.id === 'event').note).toMatch(/open an event/i);
   });
 

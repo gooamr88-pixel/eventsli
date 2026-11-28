@@ -1,0 +1,518 @@
+<title>جاهزية تطبيق Eventsli</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one right-to-left reading column. The status first, then what comes from outside, then the work in the order it happens. */
+:root {
+  --bg: #ffffff;
+  --surface: #faf8f6;
+  --ink: #111018;
+  --muted: #55545f;
+  --line: #ebe7e3;
+  --coral: #d61f2c;
+  --sun: #ffcc00;
+  --sun-wash: #fff7d6;
+  --pass: #166534;
+  --pass-bg: #e7f6ec;
+  --fail: #b5121e;
+  --fail-bg: #ffe7e9;
+  --todo: #5b5a66;
+  --todo-bg: #efeef2;
+  --code-bg: #15141c;
+  --code-ink: #f4f3f7;
+  --display: 'Cairo', 'Segoe UI', Tahoma, sans-serif;
+  --body: 'IBM Plex Sans Arabic', 'Segoe UI', Tahoma, sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121118; --surface: #1b1a23; --ink: #f2f1f6; --muted: #b3b2bf; --line: #2e2d39;
+    --coral: #ff6b73; --sun: #ffd94d; --sun-wash: #2e2812;
+    --pass: #6fd49a; --pass-bg: #163222; --fail: #ff8a91; --fail-bg: #3a1a1f; --todo: #c9c8d6; --todo-bg: #262531;
+    --code-bg: #0a0a0f; --code-ink: #ecebf2; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121118; --surface: #1b1a23; --ink: #f2f1f6; --muted: #b3b2bf; --line: #2e2d39;
+  --coral: #ff6b73; --sun: #ffd94d; --sun-wash: #2e2812;
+  --pass: #6fd49a; --pass-bg: #163222; --fail: #ff8a91; --fail-bg: #3a1a1f; --todo: #c9c8d6; --todo-bg: #262531;
+  --code-bg: #0a0a0f; --code-ink: #ecebf2; color-scheme: dark;
+}
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.8; }
+.page { max-width: 880px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 2rem 4rem; display: grid; gap: 2.75rem; }
+h1, h2, h3 { font-family: var(--display); line-height: 1.4; text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(1.9rem, 1.4rem + 2vw, 2.6rem); font-weight: 800; }
+h2 { font-size: 1.5rem; font-weight: 800; display: flex; align-items: center; gap: .6rem; }
+h2::before { content: ""; width: 6px; height: 1.3em; border-radius: 3px; background: var(--sun); flex: none; }
+h3 { font-size: 1.15rem; font-weight: 700; }
+p { margin: 0; }
+.lede { color: var(--muted); max-width: 64ch; }
+.kicker { font-family: var(--display); font-weight: 700; color: var(--coral); font-size: .9rem; }
+.stack { display: grid; gap: 1rem; }
+.summary { display: flex; flex-wrap: wrap; gap: .6rem; }
+.chip { display: inline-flex; align-items: center; gap: .4rem; padding: .2rem .75rem; border-radius: 999px; font-family: var(--display); font-weight: 700; font-size: .85rem; white-space: nowrap; }
+.pass { background: var(--pass-bg); color: var(--pass); }
+.fail { background: var(--fail-bg); color: var(--fail); }
+.todo { background: var(--todo-bg); color: var(--todo); }
+.tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; }
+table { width: 100%; border-collapse: collapse; font-size: .93rem; min-width: 600px; }
+th, td { text-align: start; padding: .7rem .85rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-family: var(--display); font-weight: 700; background: var(--surface); font-size: .9rem; }
+tr:last-child td { border-bottom: 0; }
+td.n { font-variant-numeric: tabular-nums; font-family: var(--display); font-weight: 700; width: 2.2rem; }
+.phase { display: grid; gap: 1.4rem; }
+.step { display: grid; gap: .8rem; padding: 1.25rem 1.3rem; background: var(--surface); border-radius: 16px; border: 1px solid var(--line); }
+.step > header { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; justify-content: space-between; }
+.meta { display: flex; flex-wrap: wrap; gap: .4rem 1.2rem; font-size: .92rem; color: var(--muted); }
+.meta b { color: var(--ink); font-weight: 600; }
+ol, ul { margin: 0; padding-inline-start: 1.4rem; display: grid; gap: .35rem; }
+li::marker { color: var(--coral); font-family: var(--display); font-weight: 700; }
+.label { font-family: var(--display); font-weight: 700; font-size: 1rem; }
+.note { padding: .8rem 1rem; border-radius: 12px; background: var(--sun-wash); border-inline-start: 4px solid var(--sun); }
+.warn { padding: .8rem 1rem; border-radius: 12px; background: var(--fail-bg); border-inline-start: 4px solid var(--coral); }
+.send { padding: .8rem 1rem; border-radius: 12px; border: 1.5px dashed var(--coral); }
+code { font-family: var(--mono); font-size: .86em; direction: ltr; unicode-bidi: isolate; background: var(--surface); border: 1px solid var(--line); padding: .05em .35em; border-radius: 6px; overflow-wrap: anywhere; }
+.code { position: relative; direction: ltr; text-align: left; }
+.code pre { margin: 0; padding: .9rem 1rem; padding-right: 4.8rem; background: var(--code-bg); color: var(--code-ink); border-radius: 12px; overflow-x: auto; font-family: var(--mono); font-size: .84rem; line-height: 1.6; }
+.copy { position: absolute; top: .55rem; right: .55rem; font-family: var(--display); font-size: .78rem; font-weight: 700; padding: .2rem .7rem; border-radius: 999px; border: 0; background: var(--sun); color: #111018; cursor: pointer; }
+.copy:focus-visible, a:focus-visible { outline: 3px solid var(--coral); outline-offset: 2px; }
+a { color: var(--coral); }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; }
+.grid2 > * { min-width: 0; }
+.rule { height: 1px; background: var(--line); }
+.toc { display: flex; flex-wrap: wrap; gap: .5rem; }
+.toc a { text-decoration: none; padding: .25rem .8rem; border-radius: 999px; border: 1px solid var(--line); color: var(--ink); font-size: .92rem; font-weight: 600; }
+footer { color: var(--muted); font-size: .9rem; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="page" dir="rtl" lang="ar">
+
+  <header class="stack">
+    <span class="kicker">تطبيق الحضور · قبل النشر في المتاجر</span>
+    <h1>جاهزية تطبيق Eventsli</h1>
+    <p class="lede">كل ما يلزم قبل اعتبار تطبيق Eventsli جاهزًا للنشر، وكيف يُنفَّذ كل جزء خطوة بخطوة. الحالة كما في ٢٨ نوفمبر ٢٠٢٦. ردّ المسارات دون تسجيل دخول لا يُحسب دليلًا على أي شيء.</p>
+    <div class="summary" aria-label="ملخص الحالة">
+      <span class="chip pass">✓ نجح: ١</span>
+      <span class="chip fail">✕ فشل: ٢</span>
+      <span class="chip todo">○ لم يُختبر: ٨</span>
+    </div>
+    <nav class="toc" aria-label="الأقسام">
+      <a href="#ledger">الحالة</a>
+      <a href="#external">الخدمات الخارجية</a>
+      <a href="#handoff">ما ترسله لي</a>
+      <a href="#phase1">التجهيز</a>
+      <a href="#phase2">اختبارات الجهاز</a>
+      <a href="#tpl">نموذج النتائج</a>
+    </nav>
+  </header>
+
+  <section class="stack">
+    <h2 id="ledger">الحالة</h2>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>#</th><th>البند</th><th>الحالة</th><th>الدليل حتى الآن</th><th>العائق</th></tr></thead>
+        <tbody>
+          <tr><td class="n">١</td><td>ترحيل قاعدة البيانات للتطبيق على الإنتاج</td><td><span class="chip pass">نجح</span></td><td>نفّذتَ استعلام القراءة فقط: الجداول <code>saved_events</code> و <code>user_notifications</code> و <code>push_devices</code> موجودة، وتسجيل الدخول من التطبيق مسموح.</td><td>لا شيء</td></tr>
+          <tr><td class="n">٢</td><td>تسجيل الدخول على هاتف أندرويد حقيقي</td><td><span class="chip todo">لم يُختبر</span></td><td>اختبارات آلية للشاشة فقط (بخادم وهمي).</td><td>لا يوجد جهاز؛ أحدث نسخة مبنية من ٢٤ نوفمبر ولا تحتوي أيًّا من العمل الأخير</td></tr>
+          <tr><td class="n">٣</td><td>حفظ الفعاليات وإلغاء حفظها، وبقاؤها بعد إعادة التشغيل</td><td><span class="chip todo">لم يُختبر</span></td><td>—</td><td>جهاز، ونسخة جديدة، وحساب اختبار</td></tr>
+          <tr><td class="n">٤</td><td>صندوق الإشعارات</td><td><span class="chip todo">لم يُختبر</span></td><td>—</td><td>جهاز، وحدث يولّد إشعارًا</td></tr>
+          <tr><td class="n">٥</td><td>تذاكري، نقل التذكرة، إعادة الإرسال</td><td><span class="chip todo">لم يُختبر</span></td><td>—</td><td>طلب حقيقي؛ النقل وإعادة الإرسال يغيّران بيانات الإنتاج</td></tr>
+          <tr><td class="n">٦</td><td>إصدار تذكرة مجانية</td><td><span class="chip todo">لم يُختبر</span></td><td>—</td><td>لا توجد فعالية مجانية على الإنتاج</td></tr>
+          <tr><td class="n">٧</td><td>الدفع على أندرويد، والعودة من Stripe، وتأكيد الحجز على الخادم</td><td><span class="chip todo">لم يُختبر</span></td><td>اختبار آلي لمنطق العودة فقط.</td><td>Stripe حقيقي (دفع فعلي ثم استرداد)؛ إصلاح أندرويد غير موجود في أي نسخة مبنية بعد</td></tr>
+          <tr><td class="n">٨</td><td>بيانات اعتماد APNs و FCM في EAS</td><td><span class="chip fail">فشل</span></td><td>أندرويد: لا مفتاح FCM V1 ولا المفتاح القديم. iOS: لا توجد أي بيانات اعتماد.</td><td>إعداد Firebase و Apple</td></tr>
+          <tr><td class="n">٩</td><td>إشعارات شاشة القفل على أندرويد و iOS</td><td><span class="chip todo">لم يُختبر</span></td><td>سيفشل اليوم بسبب البند ٨.</td><td>البند ٨، ونسخة جديدة، وأجهزة</td></tr>
+          <tr><td class="n">١٠</td><td>بقاء الجلسة وانتهاؤها، ومعالجة الأخطاء، والروابط العميقة</td><td><span class="chip fail">فشل جزئي</span></td><td>روابط eventsli.com لا تفتح التطبيق (غير مُعدّة). الباقي: اختبارات آلية فقط.</td><td>Apple Team ID، وبصمة SHA-256 لأندرويد، وجهاز</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="rule"></div>
+
+  <section class="phase">
+    <div class="stack">
+      <span class="kicker">من خارج المشروع</span>
+      <h2 id="external">الخدمات الخارجية</h2>
+      <p class="lede">فقط ما يجب أن يأتي من خدمات شركات أخرى. كل بطاقة تذكر سبب الحاجة، والتكلفة، والخطوات، والحالة الحالية. Supabase والبريد و Stripe لا تحتاج شيئًا جديدًا (البطاقة الأخيرة).</p>
+    </div>
+
+    <article class="step">
+      <header><h3>برنامج Apple Developer</h3><span class="chip fail">غير موجود</span></header>
+      <div class="meta"><span><b>مطلوب لـ:</b> أي نسخة iOS، و App Store، و TestFlight، وإشعارات iOS</span><span><b>التكلفة:</b> ٩٩ دولارًا سنويًا</span><span><b>المسؤول:</b> أنت (صاحب الحساب)</span></div>
+      <ol>
+        <li>ادخل إلى <a href="https://developer.apple.com/programs/enroll/" target="_blank" rel="noopener">developer.apple.com/programs/enroll</a> بحساب Apple ID مفعّل فيه التحقق بخطوتين.</li>
+        <li>اختر <b>فرد (Individual)</b> أو <b>منظمة (Organization)</b>. المنظمة تحتاج رقم D-U-N-S، والاسم القانوني للشركة، وموقعًا إلكترونيًا. الموافقة تستغرق عادة يومًا أو يومين، وأطول للمنظمات.</li>
+        <li>ادفع الرسوم السنوية وانتظر رسالة الترحيب.</li>
+        <li>اعثر على <b>Team ID</b>: <a href="https://developer.apple.com/account" target="_blank" rel="noopener">developer.apple.com/account</a> ← Membership details ← Team ID (١٠ أحرف).</li>
+      </ol>
+      <p class="send"><b>أرسل لي:</b> الـ Team ID. ليس سرًّا، وأحتاجه لتفتح روابط eventsli.com التطبيق.</p>
+    </article>
+
+    <article class="step">
+      <header><h3>App Store Connect</h3><span class="chip fail">غير موجود</span></header>
+      <div class="meta"><span><b>مطلوب لـ:</b> صفحة المتجر، و TestFlight، ومراجعة Apple</span><span><b>التكلفة:</b> ضمن الاشتراك</span><span><b>المسؤول:</b> أنت</span></div>
+      <ol>
+        <li>افتح <a href="https://appstoreconnect.apple.com" target="_blank" rel="noopener">appstoreconnect.apple.com</a> ← Apps ← <b>+</b> ← New App ← iOS.</li>
+        <li>الاسم <code>Eventsli</code> (اختر بديلًا إن كان محجوزًا)، واللغة الأساسية، ومعرّف الحزمة <code>com.eventsli.app</code>، و SKU <code>eventsli-ios</code>. إن لم يظهر المعرّف في القائمة بعد، يسجّله EAS في خطوة بيانات الاعتماد.</li>
+        <li><b>App Privacy</b>: صرّح بالبريد، والاسم، وسجل المشتريات (مرتبطة بالشخص، لوظائف التطبيق)، والموقع التقريبي وسجل البحث (غير مرتبطين). لا تتبّع. هذا يطابق ما يصرّح به التطبيق أصلًا في <code>app.json</code>.</li>
+        <li>الروابط: سياسة الخصوصية <code>https://eventsli.com/privacy</code>، والدعم <code>https://eventsli.com/contact</code>.</li>
+        <li>استبيان التصنيف العمري، ولقطات الشاشة (آيفون ٦٫٧ و ٦٫٥ إنش، وآيباد لأن التطبيق يدعم الأجهزة اللوحية)، والوصف والكلمات المفتاحية.</li>
+        <li><b>معلومات مراجعة التطبيق</b>: حساب تجريبي. السكربت <code>review-account.js</code> ينشئه مع فعاليات وتذاكر (انظر خطوة التجهيز «و»).</li>
+      </ol>
+      <p class="note">بيع تذاكر الفعاليات لا يتطلب الشراء داخل التطبيق من Apple: التذاكر لفعاليات تحدث خارج التطبيق، لذلك الدفع عبر Stripe مسموح.</p>
+    </article>
+
+    <article class="step">
+      <header><h3>مفتاح إشعارات Apple (APNs) والتوقيع</h3><span class="chip fail">غير موجود</span></header>
+      <div class="meta"><span><b>مطلوب لـ:</b> بناء نسخ iOS وإشعارات iOS</span><span><b>التكلفة:</b> ضمن الاشتراك</span><span><b>المسؤول:</b> أنت، نحو ٥ دقائق</span></div>
+      <ol>
+        <li>بعد تفعيل عضوية Apple، شغّل الأمر التالي وسجّل الدخول بنفس حساب Apple عندما يُطلب:</li>
+      </ol>
+      <div class="code"><button class="copy" type="button">نسخ</button><pre>cd D:\Projects\eventsli\attendee
+npx eas credentials -p ios</pre></div>
+      <ol start="2">
+        <li>اترك EAS ينشئ شهادة التوزيع وملف التعريف (provisioning profile).</li>
+        <li>عندما يعرض إعداد <b>Push Notifications</b>، وافق. ينشئ EAS مفتاح APNs ويحفظه.</li>
+        <li>لتثبيت النسخ التجريبية على آيفونك، سجّله أولًا (افتح الرابط الذي يظهر على الآيفون نفسه):</li>
+      </ol>
+      <div class="code"><button class="copy" type="button">نسخ</button><pre>npx eas device:create</pre></div>
+      <p class="note">لم تُبنَ أي نسخة iOS لهذا المشروع من قبل، لذلك كل هذا إعداد لأول مرة.</p>
+    </article>
+
+    <article class="step">
+      <header><h3>Google Play Console</h3><span class="chip todo">غير معروف</span></header>
+      <div class="meta"><span><b>مطلوب لـ:</b> النشر على Google Play</span><span><b>التكلفة:</b> ٢٥ دولارًا مرة واحدة</span><span><b>المسؤول:</b> أنت</span></div>
+      <ol>
+        <li>سجّل في <a href="https://play.google.com/console/signup" target="_blank" rel="noopener">play.google.com/console/signup</a>. اختر حسابًا شخصيًا أو لمنظمة (المنظمة تحتاج رقم D-U-N-S). تتحقق Google من هويتك.</li>
+        <li><b>مهم للحسابات الشخصية المنشأة بعد نوفمبر ٢٠٢٣:</b> قبل النشر للجميع تشترط Google <b>اختبارًا مغلقًا مع ١٢ مختبرًا على الأقل لمدة ١٤ يومًا متواصلة</b>. خطّط لهذين الأسبوعين. حسابات المنظمات معفاة من هذا الشرط.</li>
+        <li>Create app ← الاسم <code>Eventsli</code> ← App ← Free ← وافق على الإقرارات.</li>
+        <li><b>صفحة المتجر</b>: وصف قصير (حتى ٨٠ حرفًا)، ووصف كامل، وأيقونة ٥١٢×٥١٢، وصورة مميزة ١٠٢٤×٥٠٠، ولقطتا شاشة للهاتف على الأقل.</li>
+        <li><b>محتوى التطبيق</b>: رابط سياسة الخصوصية؛ نموذج <b>Data safety</b> (الموقع التقريبي؛ الاسم والبريد؛ سجل المشتريات؛ البيانات مشفّرة أثناء النقل؛ كيف يطلب الشخص حذف بياناته)؛ استبيان تصنيف المحتوى؛ الفئة المستهدفة؛ لا إعلانات.</li>
+        <li><b>App integrity</b> ← فعّل Play App Signing. تظهر عندها <b>بصمة SHA-256 لمفتاح توقيع التطبيق</b>.</li>
+      </ol>
+      <p class="send"><b>أرسل لي:</b> بصمة SHA-256 من Play App Signing، وبصمة EAS (تظهر في <code>npx eas credentials -p android</code>). ليستا سرًّا، وكلتاهما لازمتان لتفتح روابط eventsli.com تطبيق أندرويد.</p>
+    </article>
+
+    <article class="step">
+      <header><h3>Firebase (إشعارات أندرويد)</h3><span class="chip fail">غير موجود</span></header>
+      <div class="meta"><span><b>مطلوب لـ:</b> إشعارات أندرويد (يوصلها Expo عبر Firebase)</span><span><b>التكلفة:</b> مجاني (خطة Spark)</span><span><b>المسؤول:</b> أنت، نحو ١٠ دقائق</span></div>
+      <ol>
+        <li>افتح <a href="https://console.firebase.google.com" target="_blank" rel="noopener">console.firebase.google.com</a> ← Add project ← <code>Eventsli</code>. يمكنك <b>إيقاف</b> Google Analytics؛ التطبيق لا يحتاجه، وإيقافه يبسّط إجابات الخصوصية.</li>
+        <li>Add app ← Android ← اسم الحزمة بالضبط <code>com.eventsli.app</code> ← نزّل <code>google-services.json</code>.</li>
+        <li>ضع الملف في <code>D:\Projects\eventsli\attendee\google-services.json</code>. أخبرني، وأضيف أنا <code>"googleServicesFile": "./google-services.json"</code> إلى <code>app.json</code>.</li>
+        <li>Project settings ← Service accounts ← <b>Generate new private key</b>. ينزل ملف JSON سرّي. احفظه <b>خارج</b> مجلد المشروع ولا ترفعه إلى git أبدًا.</li>
+        <li>ارفع هذا المفتاح إلى EAS:</li>
+      </ol>
+      <div class="code"><button class="copy" type="button">نسخ</button><pre>cd D:\Projects\eventsli\attendee
+npx eas credentials -p android</pre></div>
+      <ol start="6">
+        <li>اختر ملف البناء (<code>preview</code>، ثم كرّر لـ <code>production</code>) ← Google Service Account ← Manage your Google Service Account Key for Push Notifications (FCM V1) ← Set up ← اختر ملف JSON.</li>
+      </ol>
+      <p class="send"><b>أخبرني عند الانتهاء</b>، وأعيد فحص EAS (قراءة فقط، دون إظهار أي سرّ).</p>
+    </article>
+
+    <article class="step">
+      <header><h3>Expo / EAS</h3><span class="chip pass">الحساب جاهز</span></header>
+      <div class="meta"><span><b>مطلوب لـ:</b> بناء التطبيق وإرسال الإشعارات</span><span><b>التكلفة:</b> الخطة المجانية للبداية</span><span><b>الحالة:</b> مسجّل الدخول باسم <code>yousef424</code></span></div>
+      <ul>
+        <li><b>موجود:</b> الحساب (مالك)، والمشروع <code>eventsli</code> بمعرّفه.</li>
+        <li><b>عمليات البناء:</b> الخطة المجانية لها حد شهري وطابور أبطأ. إن كثرت عمليات البناء، تسرّع خطة مدفوعة ذلك.</li>
+        <li><b>بيانات اعتماد الإشعارات:</b> تُملأ بخطوات Apple و Firebase أعلاه.</li>
+        <li><b>اختياري، الرفع الآلي إلى المتاجر</b> (<code>eas submit</code>). بدونها ترفع الملفات بنفسك.
+          <ul>
+            <li>Apple: App Store Connect ← Users and Access ← Integrations ← App Store Connect API ← أنشئ مفتاحًا بدور App Manager. احفظ Issuer ID و Key ID، ونزّل ملف <code>.p8</code>. يُنزَّل مرة واحدة فقط وهو سرّي.</li>
+            <li>Google: حساب خدمة في Google Cloud تدعوه في Play Console ← Users and permissions (بصلاحية Release manager)، مع مفتاح JSON. وهو سرّي أيضًا.</li>
+          </ul>
+        </li>
+      </ul>
+    </article>
+
+    <article class="step">
+      <header><h3>لا يلزم شيء جديد</h3><span class="chip pass">جاهز</span></header>
+      <div class="grid2">
+        <div class="stack"><p class="label">Stripe</p><p>التطبيق يفتح صفحة الدفع نفسها التي يستخدمها الموقع، وهي تعمل على الإنتاج. Apple Pay و Google Pay يعملان داخل تلك الصفحة دون إعداد إضافي. الدفع بالبطاقة يبقى للمنظمين في كندا والولايات المتحدة فقط، وكل منظم يجب أن يكمل ربط حسابه في Stripe.</p></div>
+        <div class="stack"><p class="label">Supabase</p><p>ترحيل التطبيق مطبّق (البند ١ نجح).</p></div>
+        <div class="stack"><p class="label">البريد</p><p>رموز التحقق وبريد التذاكر تعمل أصلًا من خدمة البريد التي يستخدمها الموقع.</p></div>
+        <div class="stack"><p class="label">الخرائط والموقع</p><p>التطبيق يستخدم تطبيق الخرائط في الهاتف والموقع التقريبي. لا مفاتيح API.</p></div>
+      </div>
+    </article>
+  </section>
+
+  <section class="stack">
+    <h2 id="handoff">ما ترسله لي</h2>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>البند</th><th>من أين</th><th>سرّي؟</th><th>ماذا أفعل به</th></tr></thead>
+        <tbody>
+          <tr><td>Apple Team ID</td><td>Apple Developer ← Membership</td><td>لا</td><td>إعداد روابط eventsli.com لتفتح تطبيق الآيفون</td></tr>
+          <tr><td>بصمات SHA-256 (من Play App Signing ومن EAS)</td><td>Play Console ← App integrity؛ والأمر <code>eas credentials</code></td><td>لا</td><td>إعداد روابط eventsli.com لتفتح تطبيق أندرويد</td></tr>
+          <tr><td>وضع <code>google-services.json</code> في مجلد <code>attendee/</code></td><td>Firebase</td><td>لا (يُحفظ في المشروع عادةً)</td><td>ربطه في <code>app.json</code></td></tr>
+          <tr><td>«تم رفع مفتاح FCM» و«تم إنشاء مفتاح APNs»</td><td>خطواتك في EAS</td><td>المفاتيح تبقى معك؛ فقط أخبرني</td><td>إعادة فحص EAS (قراءة فقط)، ثم يمكن أن ينجح البند ٨</td></tr>
+          <tr><td>الموافقة على البناء واختبارات الإنتاج</td><td>أنت</td><td>—</td><td>تنفيذ عمليات البناء والاختبارات أدناه</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="warn">لا تلصق أبدًا المفاتيح الخاصة (<code>.p8</code>، وملف JSON لحساب خدمة Firebase، ومفاتيح Stripe السرية) في المحادثة. ارفعها بنفسك إلى EAS مباشرة.</p>
+  </section>
+
+  <section class="stack">
+    <h2>قواعد العمل</h2>
+    <ul>
+      <li>لا ميزات جديدة. نختبر ما هو موجود.</li>
+      <li>لا تغيير على بيانات الإنتاج أو إعداداته إلا بموافقتك، خطوة بخطوة.</li>
+      <li>لا commit ولا نشر (deploy) دون موافقتك.</li>
+      <li>كل نتيجة تُسجَّل: نجح / فشل / لم يُختبر، مع الدليل، والجهاز ونسخة النظام، والعائق المتبقي إن وُجد.</li>
+      <li>الدليل يعني: لقطة شاشة من الجهاز، أو نتيجة استعلام SQL للقراءة فقط، أو سجل في Stripe.</li>
+    </ul>
+  </section>
+
+  <div class="rule"></div>
+
+  <section class="phase">
+    <div class="stack">
+      <span class="kicker">المرحلة الأولى</span>
+      <h2 id="phase1">التجهيز، بهذا الترتيب</h2>
+      <p class="lede">بدون هذه الخطوات لا معنى لاختبارات الجهاز: التطبيق على هاتفك من ٢٤ نوفمبر ولا يحتوي أي عمل منذ ذلك الحين.</p>
+    </div>
+
+    <article class="step">
+      <header><h3>أ. حفظ عمل التطبيق في git (مستحسن)</h3><span class="chip todo">يحتاج موافقتك</span></header>
+      <p>كل تعديلات التطبيق موجودة على جهازك فقط. البناء على EAS يشمل الملفات غير المحفوظة، لكن الحفظ يجعل كل نسخة قابلة للتتبّع. احفظ مجلد التطبيق وحده، دون عمل VIP/WhatsApp غير المكتمل في الـ backend.</p>
+      <div class="code"><button class="copy" type="button">نسخ</button><pre>cd D:\Projects\eventsli
+git add attendee/
+git commit -m "Attendee app: owner Home design, website cards, fixes"</pre></div>
+    </article>
+
+    <article class="step">
+      <header><h3>ب. حماية التحديثات الهوائية (مستحسن)</h3><span class="chip todo">تعديل سطر واحد</span></header>
+      <p>في <code>attendee/app.json</code> غيّر <code>runtimeVersion</code> من <code>appVersion</code> إلى <code>fingerprint</code>، حتى لا يصل تحديث أبدًا إلى نسخة لا يطابقها كودها الأصلي.</p>
+      <div class="code"><button class="copy" type="button">نسخ</button><pre>"runtimeVersion": { "policy": "fingerprint" }</pre></div>
+    </article>
+
+    <article class="step">
+      <header><h3>ج. بيانات اعتماد الإشعارات</h3><span class="chip fail">مطلوب للبندين ٨ و ٩</span></header>
+      <p>اتبع بطاقتي Firebase ومفتاح إشعارات Apple في قسم <a href="#external">الخدمات الخارجية</a>.</p>
+    </article>
+
+    <article class="step">
+      <header><h3>د. البناء والتثبيت</h3><span class="chip todo">يستهلك رصيد بناء EAS، ولا يمسّ الإنتاج</span></header>
+      <p class="label">أندرويد (ملف APK للتثبيت المباشر)</p>
+      <div class="code"><button class="copy" type="button">نسخ</button><pre>cd D:\Projects\eventsli\attendee
+npx eas build --profile preview --platform android</pre></div>
+      <p class="label">iOS (بعد خطوات Apple)</p>
+      <div class="code"><button class="copy" type="button">نسخ</button><pre>npx eas build --profile preview --platform ios</pre></div>
+      <ol>
+        <li>عند انتهاء البناء يُظهر EAS رابطًا ورمز QR. افتحه على الهاتف وثبّت التطبيق. على أندرويد اسمح بالتثبيت من مصادر غير معروفة عندما يُطلب ذلك.</li>
+        <li>احذف النسخة القديمة أولًا إن تعارض التثبيت.</li>
+        <li>سجّل طراز الهاتف ونسخة النظام (الإعدادات ← حول الهاتف) لكل اختبار.</li>
+      </ol>
+    </article>
+
+    <article class="step">
+      <header><h3>هـ. حسابات الاختبار</h3><span class="chip todo">يحتاج موافقتك</span></header>
+      <ul>
+        <li>استخدم بريدك أنت لحساب الاختبار الرئيسي. إنشاء الحساب وتسجيل الدخول يكتبان صفوفًا في جدولي الحسابات والجلسات على الإنتاج.</li>
+        <li>جهّز بريدًا ثانيًا تملكه، لاختبار نقل التذكرة.</li>
+      </ul>
+    </article>
+
+    <article class="step">
+      <header><h3>و. فعاليات اختبار مجانية (على الخادم)</h3><span class="chip todo">يحتاج موافقتك</span></header>
+      <p>السكربت <code>review-account.js</code> ينشئ حساب مراجعة مخفيًا وست فعاليات تذاكرها مجانية (الرئيسية اسمها «Annual Gala Night»)، ويحذفها كلها بأمر واحد. يعمل على قاعدة البيانات التي يحددها ملف <code>.env</code> على الخادم، أي الإنتاج.</p>
+      <div class="code"><button class="copy" type="button">نسخ</button><pre>cd backend
+node scripts/review-account.js check      # shows what it would do, writes nothing
+node scripts/review-account.js create --days 14
+# after testing:
+node scripts/review-account.js remove</pre></div>
+    </article>
+
+    <article class="step">
+      <header><h3>ز. عملية دفع حقيقية واحدة</h3><span class="chip todo">قرارك</span></header>
+      <p>Stripe على الإنتاج حقيقي. أرخص تذكرة حاليًا فئة BRONZE بسعر ٨٠ دولارًا في فعالية Adel OglA (منظم أمريكي، لذا الدفع بالبطاقة مفعّل). ادفع مرة واحدة، ثم استرد المبلغ من صفحة الطلبات في Eventsli حتى تُلغى التذكرة أيضًا.</p>
+    </article>
+  </section>
+
+  <div class="rule"></div>
+
+  <section class="phase">
+    <div class="stack">
+      <span class="kicker">المرحلة الثانية</span>
+      <h2 id="phase2">الاختبارات على الجهاز</h2>
+      <p class="lede">لكل اختبار: الخطوات، والنتيجة المتوقعة، والدليل الذي تحتفظ به. كل استعلامات SQL للقراءة فقط: شغّلها في محرر SQL في Supabase على مشروع الإنتاج، واستبدل <code>YOUR_EMAIL</code> ببريد حساب الاختبار.</p>
+    </div>
+
+    <article class="step">
+      <header><h3>٢. تسجيل الدخول على أندرويد</h3><span class="chip todo">لم يُختبر</span></header>
+      <ol>
+        <li>افتح التطبيق: شاشة البداية، ثم شاشة الترحيب. اضغط Sign In.</li>
+        <li>جرّب كلمة مرور خاطئة أولًا: تظهر رسالة خطأ وتبقى في شاشة الدخول.</li>
+        <li>سجّل الدخول بالبيانات الصحيحة: تُغلق الشاشة وتحيّيك الرئيسية باسمك.</li>
+        <li>للحساب الجديد: Create account ← الرمز المكوّن من ٦ أرقام من بريدك ← تدخل تلقائيًا.</li>
+      </ol>
+      <div class="code"><button class="copy" type="button">نسخ</button><pre>select s.client, s.issued_at, s.expires_at, s.revoked_at
+from sessions s join profiles p on p.id = s.user_id
+where p.email = 'YOUR_EMAIL'
+order by s.issued_at desc limit 5;</pre></div>
+      <p><b>المتوقع:</b> صف حديث فيه <code>client = attendee_app</code>.</p>
+    </article>
+
+    <article class="step">
+      <header><h3>٣. حفظ الفعاليات وإلغاء حفظها</h3><span class="chip todo">لم يُختبر</span></header>
+      <ol>
+        <li>اضغط القلب على فعالية في الرئيسية. يتحول إلى الأحمر.</li>
+        <li>افتح تبويب Saved: الفعالية موجودة.</li>
+        <li>أغلق التطبيق تمامًا (اسحبه من التطبيقات الأخيرة) وافتحه: ما زالت محفوظة.</li>
+        <li>اضغط القلب مرة أخرى لإلغاء الحفظ، وأعد فتح التطبيق: اختفت.</li>
+      </ol>
+      <div class="code"><button class="copy" type="button">نسخ</button><pre>select e.title, s.created_at
+from saved_events s
+join events e on e.id = s.event_id
+join profiles p on p.id = s.user_id
+where p.email = 'YOUR_EMAIL';</pre></div>
+      <p><b>المتوقع:</b> الصف موجود بعد الحفظ، ويختفي بعد الإلغاء.</p>
+    </article>
+
+    <article class="step">
+      <header><h3>٤. صندوق الإشعارات</h3><span class="chip todo">لم يُختبر</span></header>
+      <ol>
+        <li>أنشئ إشعارًا حقيقيًا: أسهل طريقة هي الحصول على تذكرة مجانية (الاختبار ٦). يكتب الخادم إشعار «tickets issued».</li>
+        <li>اضغط الجرس في الرئيسية: يظهر الإشعار مع نقطة «غير مقروء».</li>
+        <li>افتحه: يُعلَّم مقروءًا وتختفي النقطة.</li>
+      </ol>
+      <div class="code"><button class="copy" type="button">نسخ</button><pre>select n.kind, n.title, n.read_at, n.created_at
+from user_notifications n join profiles p on p.id = n.user_id
+where p.email = 'YOUR_EMAIL'
+order by n.created_at desc limit 10;</pre></div>
+      <p><b>المتوقع:</b> صف <code>tickets_issued</code> تمتلئ فيه <code>read_at</code> بعد فتحه.</p>
+    </article>
+
+    <article class="step">
+      <header><h3>٥. تذاكري، نقل التذكرة، إعادة الإرسال</h3><span class="chip todo">لم يُختبر</span></header>
+      <p class="label">تذاكري</p>
+      <ol>
+        <li>بعد الحصول على تذكرة، يعرضها تبويب Tickets مع رمز QR.</li>
+        <li>شغّل وضع الطيران، وأغلق التطبيق تمامًا، ثم افتحه: <b>تظهر التذكرة ورمز QR دون اتصال.</b></li>
+      </ol>
+      <p class="label">نقل التذكرة (مسموح مرة واحدة لكل تذكرة)</p>
+      <ol>
+        <li>افتح التذكرة ← Give to someone ← بريدك الثاني.</li>
+        <li><b>المتوقع:</b> التذكرة الأصلية تظهر «منقولة» بلا QR، وتظهر للبريد الثاني بعد تسجيل الدخول به.</li>
+      </ol>
+      <div class="code"><button class="copy" type="button">نسخ</button><pre>select t.id, t.status, t.transfer_count, t.transferred_at,
+       t.transferred_from, t.attendee_email
+from tickets t
+where t.order_id = 'ORDER_ID';</pre></div>
+      <p><b>المتوقع:</b> <code>transfer_count = 1</code>، و <code>transferred_from</code> هو بريدك الأول.</p>
+      <p class="label">إعادة الإرسال</p>
+      <ol>
+        <li>الإعدادات ← Resend my tickets ← البريد الذي اشتريت به.</li>
+        <li><b>المتوقع:</b> يصل بريد التذاكر إلى عنوان الطلب نفسه (وليس إلى أي عنوان يُكتب). سجّل وقت الوصول.</li>
+      </ol>
+      <p class="warn">النقل وإعادة الإرسال يغيّران بيانات الإنتاج ويرسلان بريدًا حقيقيًا. فقط بعد موافقتك.</p>
+    </article>
+
+    <article class="step">
+      <header><h3>٦. تذكرة مجانية</h3><span class="chip todo">لم يُختبر</span></header>
+      <ol>
+        <li>بعد خطوة التجهيز «و»، افتح «Annual Gala Night» من رابطها.</li>
+        <li>اختر General Admission ← Get My Tickets.</li>
+        <li><b>المتوقع:</b> لا صفحة دفع، ثم «Booking Confirmed!»، والتذكرة في Tickets، ويصل إشعار.</li>
+      </ol>
+      <div class="code"><button class="copy" type="button">نسخ</button><pre>select o.id, o.status, o.buyer_total_cents, o.created_at
+from orders o join profiles p on p.id = o.user_id
+where p.email = 'YOUR_EMAIL'
+order by o.created_at desc limit 5;</pre></div>
+    </article>
+
+    <article class="step">
+      <header><h3>٧. الدفع على أندرويد</h3><span class="chip todo">لم يُختبر</span></header>
+      <ol>
+        <li>افتح Adel OglA ← Choose your seats ← مقعد BRONZE واحد ← Continue.</li>
+        <li>في صفحة الدفع: اكتب اسمك، ووافق على الشروط ← Pay Now. تفتح صفحة Stripe داخل التطبيق.</li>
+        <li><b>مسار الإلغاء أولًا:</b> أغلق صفحة Stripe دون دفع. المتوقع: «Payment was not completed»، وتبقى المقاعد محجوزة، ولا تظهر رسالة فشل وأنت ما زلت في صفحة الدفع.</li>
+        <li><b>ثم الدفع الحقيقي:</b> Pay Now مرة أخرى ← ادفع بالبطاقة ← أغلق الصفحة بعد النجاح.</li>
+        <li><b>المتوقع:</b> «Confirming payment…» ثم «Booking Confirmed!»، والتذكرة في Tickets.</li>
+        <li>تحقّق من الخادم باستعلام الاختبار ٦ (طلب جديد بالمبلغ الصحيح)، ومن لوحة Stripe (دفعة ناجحة).</li>
+        <li>استرد المبلغ من صفحة الطلبات في Eventsli حتى تُلغى التذكرة أيضًا. إن استرددته من Stripe فقط، فألغِ التذكرة يدويًا.</li>
+      </ol>
+      <p class="warn">هذا دفع حقيقي بالبطاقة. فقط بقرار منك.</p>
+    </article>
+
+    <article class="step">
+      <header><h3>٨. بيانات اعتماد APNs و FCM</h3><span class="chip fail">يفشل اليوم</span></header>
+      <ol>
+        <li>بعد خطوات Firebase و Apple، شغّل الأمرين واقرأ الشاشة فقط. لا تنسخ أي مفتاح.</li>
+      </ol>
+      <div class="code"><button class="copy" type="button">نسخ</button><pre>npx eas credentials -p android
+npx eas credentials -p ios</pre></div>
+      <p><b>المتوقع:</b> أندرويد يُظهر مفتاح حساب خدمة FCM V1، و iOS يُظهر Push Key. أو اطلب مني إعادة الفحص عبر واجهة Expo (قراءة فقط).</p>
+    </article>
+
+    <article class="step">
+      <header><h3>٩. إشعارات شاشة القفل</h3><span class="chip todo">لم يُختبر</span></header>
+      <ol>
+        <li>ثبّت النسخة الجديدة، وسجّل الدخول، واسمح بالإشعارات عند السؤال.</li>
+        <li>تحقّق من تسجيل الهاتف:</li>
+      </ol>
+      <div class="code"><button class="copy" type="button">نسخ</button><pre>select d.platform, d.created_at, d.last_seen_at, d.disabled_at
+from push_devices d join profiles p on p.id = d.user_id
+where p.email = 'YOUR_EMAIL';</pre></div>
+      <ol start="3">
+        <li>اقفل الهاتف، ثم احصل على تذكرة مجانية من الموقع بنفس الحساب: يجب أن يظهر إشعار على شاشة القفل.</li>
+        <li>اضغطه والتطبيق مغلق تمامًا: يجب أن يفتح على Tickets.</li>
+        <li>كرّر على آيفون إن توفّر.</li>
+      </ol>
+    </article>
+
+    <article class="step">
+      <header><h3>١٠. الجلسة والأخطاء والروابط</h3><span class="chip fail">فشل جزئي</span></header>
+      <div class="grid2">
+        <div class="stack"><p class="label">بقاء الجلسة</p><p>أغلق التطبيق تمامًا وافتحه، ثم أعد تشغيل الهاتف: تبقى مسجّل الدخول.</p></div>
+        <div class="stack"><p class="label">انتهاء الجلسة</p><p>أنهِ الجلسة من الموقع (تسجيل الخروج من الأجهزة الأخرى إن وُجد). المتوقع في التطبيق: «You were signed out»، وتُحذف التذاكر المحفوظة على الهاتف. إن لم يوجد زر لذلك في الموقع، فالبديل تعديل SQL على الإنتاج، ويحتاج موافقتك.</p></div>
+        <div class="stack"><p class="label">الأخطاء</p><p>وضع الطيران، ثم افتح الرئيسية: «No connection» مع زر إعادة المحاولة، والتذاكر تبقى ظاهرة.</p></div>
+        <div class="stack"><p class="label">الروابط العميقة</p><p>الرابط <code>eventsli://event/adel-ogla-houston</code> عند الضغط عليه في ملاحظة أو رسالة يجب أن يفتح صفحة الفعالية. روابط <code>eventsli.com/e/…</code> <b>لن تفتح التطبيق</b> حتى أحصل على Apple Team ID وبصمات SHA-256 لأندرويد.</p></div>
+      </div>
+    </article>
+  </section>
+
+  <div class="rule"></div>
+
+  <section class="stack">
+    <h2 id="tpl">نموذج النتائج</h2>
+    <p class="lede">املأ صفًا لكل اختبار وأرسله لي، وأحدّث الحالة.</p>
+    <div class="code"><button class="copy" type="button">نسخ</button><pre>| # | Test | PASS/FAIL/NOT TESTED | Evidence (screenshot / SQL / Stripe) | Device + OS | Blocker |
+|---|------|----------------------|--------------------------------------|-------------|---------|
+| 2 | Sign-in, Android          |  |  |  |  |
+| 3 | Save / unsave + restart   |  |  |  |  |
+| 4 | Notifications inbox       |  |  |  |  |
+| 5 | Tickets, transfer, resend |  |  |  |  |
+| 6 | Free ticket               |  |  |  |  |
+| 7 | Paid checkout, Android    |  |  |  |  |
+| 8 | APNs / FCM in EAS         |  |  |  |  |
+| 9 | Lock-screen push          |  |  |  |  |
+| 10 | Session, errors, links   |  |  |  |  |</pre></div>
+  </section>
+
+  <footer>آخر تحديث: ٢٨ نوفمبر ٢٠٢٦. المصادر: فحوصات للقراءة فقط على eventsli.com وواجهة Expo، واستعلام قاعدة البيانات الذي نفّذتَه. الأسعار وشروط المتاجر كما تنشرها Apple و Google؛ تأكّد منها عند التسجيل.</footer>
+</div>
+
+<script>
+document.querySelectorAll('.copy').forEach(function (btn) {
+  btn.addEventListener('click', function () {
+    var pre = btn.parentElement.querySelector('pre');
+    var text = pre.innerText;
+    function done() { btn.textContent = 'تم النسخ'; setTimeout(function () { btn.textContent = 'نسخ'; }, 1600); }
+    function selectIt() {
+      var r = document.createRange(); r.selectNodeContents(pre);
+      var s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+      btn.textContent = 'اضغط Ctrl+C';
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, selectIt);
+    } else { selectIt(); }
+  });
+});
+</script>

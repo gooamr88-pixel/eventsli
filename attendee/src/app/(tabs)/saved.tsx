@@ -51,11 +51,11 @@ export default function Saved() {
           keyExtractor={(e) => e.id}
           contentContainerStyle={[styles.list, { paddingHorizontal: gutter }]}
           columnWrapperStyle={n > 1 ? { gap: space.lg } : undefined}
-          ItemSeparatorComponent={() => <View style={{ height: n > 1 ? space.lg : space.sm }} />}
+          ItemSeparatorComponent={() => <View style={{ height: n > 1 ? space.lg : space.md }} />}
           refreshControl={<RefreshControl tintColor={colors.accent} refreshing={q.isRefetching} onRefresh={() => { void q.refetch(); }} />}
           renderItem={({ item }) => (n > 1
             ? <View style={{ width: w }}><EventPoster event={item} saved={isSaved(item.id)} onHeart={() => flip(item.id)} /></View>
-            : <EventRow event={item} saved={isSaved(item.id)} onHeart={() => flip(item.id)} />)}
+            : <EventRow big event={item} saved={isSaved(item.id)} onHeart={() => flip(item.id)} />)}
           ListEmptyComponent={<Empty icon="heart" title="Nothing saved yet" body="Tap the heart on an event to keep it here." action="Explore Events" onAction={() => router.push('/(tabs)/explore')} />}
         />
       )}

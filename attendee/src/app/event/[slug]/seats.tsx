@@ -1,12 +1,12 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { AccessibilityInfo, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { AccessibilityInfo, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { messageFor } from '@/api/client';
-import { hold, seatMap } from '@/api/endpoints';
+import { eventBySlug, hold, seatMap } from '@/api/endpoints';
 import type { EventDetail } from '@/api/types';
 import { useToken } from '@/auth/session';
 import { money } from '@/lib/format';
@@ -49,6 +49,8 @@ export default function Seats() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
+    // A browser's answer is not a screen reader's (react-native-web), so the web keeps the map.
+    if (Platform.OS === 'web') return;
     AccessibilityInfo.isScreenReaderEnabled().then((on) => { if (on) setMode('list'); }).catch(() => undefined);
   }, []);
 
@@ -60,7 +62,10 @@ export default function Seats() {
   const model = useMemo(() => (m ? buildModel(m) : null), [m]);
   const focusTiers = useMemo(() => (focus ? new Set([focus]) : null), [focus]);
   const pickedSet = useMemo(() => new Set(picked), [picked]);
-  const venue = qc.getQueryData<EventDetail>(['event', slug])?.venue;
+  // The venue for the row above the map, as drawn (Cairo International
+  // Stadium). Usually already here from the event page; fetched if not.
+  const ev = useQuery({ queryKey: ['event', slug], queryFn: () => eventBySlug(slug, token), staleTime: 60_000, initialData: () => qc.getQueryData<EventDetail>(['event', slug]) });
+  const venue = ev.data?.venue;
 
   if (q.isLoading) {
     return (
@@ -155,8 +160,8 @@ export default function Seats() {
 
       <Container style={{ flex: 1 }}>
         <View style={styles.venue}>
-          <Icon name="pin" size={18} color={colors.muted} />
-          <Text variant="label" weight="semibold" numberOfLines={1} style={{ flex: 1 }} align="center">{venue || data.event.title}</Text>
+          <Icon name="pin" size={18} color={colors.accent} />
+          <Text variant="title" numberOfLines={1} style={{ flexShrink: 1 }}>{venue || data.event.title}</Text>
         </View>
 
         {mode === 'map' ? (
@@ -215,11 +220,11 @@ export default function Seats() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
-  venue: { flexDirection: 'row', alignItems: 'center', gap: space.sm, minHeight: 44, paddingHorizontal: space.lg, borderRadius: 12, backgroundColor: colors.bgSunken, marginTop: space.xs, marginBottom: space.sm },
+  venue: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space.sm, minHeight: 44, marginBottom: space.xs },
   map: { flex: 1, borderRadius: 16, backgroundColor: colors.white },
   legend: { flexGrow: 1, justifyContent: 'center', gap: space.xl, paddingVertical: space.md },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 7, minHeight: 30 },
   legendDot: { width: 13, height: 13, borderRadius: 7 },
-  bar: { backgroundColor: colors.surface, paddingTop: space.md, borderTopWidth: StyleSheet.hairlineWidth * 2, borderTopColor: colors.border },
+  bar: { backgroundColor: colors.surface, paddingTop: space.lg, borderTopLeftRadius: 26, borderTopRightRadius: 26, shadowColor: '#111018', shadowOpacity: 0.1, shadowRadius: 18, shadowOffset: { width: 0, height: -4 }, elevation: 12 },
   sumRow: { flexDirection: 'row', alignItems: 'center', gap: space.md },
 });

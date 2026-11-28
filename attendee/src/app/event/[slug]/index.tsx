@@ -5,7 +5,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { FlatList, Linking, Modal, Platform, Pressable, ScrollView, Share, StyleSheet, View } from 'react-native';
 import Animated, {
-  FadeInDown, interpolate, useAnimatedScrollHandler, useAnimatedStyle, useReducedMotion, useSharedValue,
+  FadeInDown, useAnimatedScrollHandler, useSharedValue,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -15,15 +15,15 @@ import type { EventCard as EventCardType, EventDetail, Tier } from '@/api/types'
 import { useSession, useToken } from '@/auth/session';
 import { useSaved } from '@/hooks/useSaved';
 import { countdownParts, useNow } from '@/lib/countdown';
-import { eventDate, eventTime, price } from '@/lib/format';
+import { eventDate, eventTime, listedTime, price } from '@/lib/format';
 import { imageUrl } from '@/lib/images';
+import { splitAbout } from '@/lib/about';
 import { useRecent } from '@/lib/recent';
 import { buildModel } from '@/seating/model';
 import { SeatMapView } from '@/seating/SeatMapView';
 import { Empty, Failed, Header, Heart, IconButton, Section } from '@/ui/bits';
 import { BottomBar } from '@/ui/BottomBar';
 import { Button } from '@/ui/Button';
-import { Cover } from '@/ui/Cover';
 import { priceLine } from '@/ui/EventCard';
 import { EventRail } from '@/ui/EventRail';
 import { Field } from '@/ui/Field';
@@ -31,8 +31,9 @@ import { Icon, type IconName } from '@/ui/Icon';
 import { Container, useLayout } from '@/ui/layout';
 import { haptic, Skeleton } from '@/ui/motion';
 import { Sheet } from '@/ui/Sheet';
+import { PosterArt, priceBlock, SaleTag } from '@/ui/SiteCard';
 import { Text } from '@/ui/Text';
-import { colors, shadow, space } from '@/ui/theme';
+import { colors, fonts, shadow, space } from '@/ui/theme';
 
 const SITE = 'https://eventsli.com';
 
@@ -57,7 +58,6 @@ export default function EventScreen() {
   const { isSaved, flip } = useSaved();
   const { tablet, width } = useLayout();
   const qc = useQueryClient();
-  const reduce = useReducedMotion();
   const [more, setMore] = useState(false);
   const [notifyOpen, setNotifyOpen] = useState(false);
   const [viewer, setViewer] = useState<number | null>(null);
@@ -86,16 +86,6 @@ export default function EventScreen() {
   const heroH = tablet ? 400 : 330;
   const scrollY = useSharedValue(0);
   const onScroll = useAnimatedScrollHandler((ev) => { scrollY.set(ev.contentOffset.y); });
-  const parallax = useAnimatedStyle(() => {
-    if (reduce) return {};
-    const y = scrollY.get();
-    return {
-      transform: [
-        { translateY: y > 0 ? y * 0.45 : y },
-        { scale: y < 0 ? interpolate(y, [-200, 0], [1.5, 1]) : 1 },
-      ],
-    };
-  });
 
   if (q.isLoading) {
     return (
@@ -137,62 +127,62 @@ export default function EventScreen() {
   const tiers = (e.tiers ?? []).filter((t) => !t.hidden);
   const photos = (e.gallery ?? []).filter((m) => m.kind !== 'video' && m.url);
   const cost = priceLine(e);
+  const about = splitAbout(e.description);
+  // The page carries ticket types, not the listing's from-price: the lowest on sale.
+  const lowest = tiers.filter((t) => t.onSale && !t.soldOut).reduce<number | null>((m, t) => (m === null || t.priceCents < m ? t.priceCents : m), null);
+  const fromPrice = priceBlock({ ...e, fromPriceCents: e.fromPriceCents ?? lowest });
   const others = (similar.data ?? []).filter((x) => x.id !== e.id).slice(0, 10);
 
   return (
     <View style={styles.root}>
+      <Header right={<IconButton icon="share" label="Share event" size={22} onPress={share} />} />
       <Animated.ScrollView onScroll={onScroll} scrollEventThrottle={16} contentContainerStyle={{ paddingBottom: 120 + insets.bottom }} showsVerticalScrollIndicator={false}>
-        <View style={{ height: heroH, overflow: 'hidden' }}>
-          <Animated.View style={[StyleSheet.absoluteFill, parallax]}>
-            <Cover uri={e.coverUrl} title={e.title} blurred={e.blurredCover} size={width} style={{ height: heroH }} />
-          </Animated.View>
-        </View>
+        {/* ── AS THE WEBSITE (2026-11-28): the flyer whole in a rounded card ── */}
+        <Container style={{ paddingTop: space.xs }}>
+          <View style={styles.posterWrap}>
+            <PosterArt uri={e.coverUrl} blurred={e.blurredCover} size={width} style={styles.poster}>
+              {!e.isPrivate ? <View style={styles.posterHeart}><Heart saved={isSaved(e.id)} onPress={() => flip(e.id)} size={40} /></View> : null}
+              <SaleTag e={e} style={styles.posterTag} />
+            </PosterArt>
+          </View>
+        </Container>
 
-        <View style={styles.sheet}>
+        <View>
           <Container style={tablet ? [styles.body, styles.bodyTablet] : styles.body}>
-            {/* ── The mockup's part ── */}
-            <Animated.View entering={FadeInDown.duration(300)} style={styles.titleRow}>
-              <View style={{ flex: 1, gap: 4 }}>
-                <Text variant={tablet ? 'display' : 'heading'} accessibilityRole="header">{e.title}</Text>
-                {e.organizer ? (
-                  <Pressable disabled={!e.organizerProfile} accessibilityRole={e.organizerProfile ? 'link' : undefined}
-                    onPress={() => e.organizerProfile && router.push({ pathname: '/organizer/[slug]', params: { slug: e.organizerProfile.slug } })}>
-                    <Text variant="body" color={colors.muted}>by <Text variant="body" weight="semibold" color={e.organizerProfile ? colors.accent : colors.muted}>{e.organizer.name}</Text></Text>
-                  </Pressable>
-                ) : e.categoryLabel ? <Text variant="body" color={colors.muted}>{e.categoryLabel}</Text> : null}
-              </View>
-              {!e.isPrivate ? <Heart saved={isSaved(e.id)} onPress={() => flip(e.id)} size={44} /> : null}
+            {/* The name, the organizer's own line in coral, and the story — one soft panel, as on the site. */}
+            <Animated.View entering={FadeInDown.duration(300)} style={styles.panel}>
+              <Text variant={tablet ? 'display' : 'heading'} accessibilityRole="header">{e.title}</Text>
+              {about.tagline ? <Text style={styles.tagline}>{about.tagline}</Text>
+                : e.categoryLabel ? <Text style={styles.tagline}>{e.categoryLabel}</Text> : null}
+              {preview ? (
+                <View style={{ gap: space.sm }}>
+                  <Skeleton height={14} />
+                  <Skeleton height={14} width="80%" />
+                </View>
+              ) : about.body ? (
+                <View style={{ gap: space.xs }}>
+                  <Text variant="body" color={colors.text} style={styles.story} numberOfLines={more ? undefined : 4}>{about.body}</Text>
+                  {about.body.length > 160 ? (
+                    <Pressable accessibilityRole="button" onPress={() => setMore((v) => !v)} hitSlop={8} style={styles.more}>
+                      <Text variant="label" weight="bold" color={colors.accent}>{more ? 'See less' : 'See more'}</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+              ) : null}
             </Animated.View>
 
-            <View style={styles.facts}>
-              <Fact icon="calendar" lines={[eventDate(e.startsAt, e.timezone), eventTime(e.startsAt, e.timezone)]} />
-              {e.venue || e.city ? (
-                <Pressable style={{ flex: 1 }} accessibilityRole="button" accessibilityHint="Opens the venue in Maps" onPress={() => openMaps(e)}>
-                  <Fact icon="pin" lines={[e.venue || e.city || '', e.venue ? e.city || '' : '']} />
-                </Pressable>
+            {/* The site's details list: when, where, who, what it costs. */}
+            <View style={styles.panel}>
+              <Detail icon="clock" text={`Event starts at ${eventDate(e.startsAt, e.timezone)}${listedTime(e.startsAt, e.timezone) ? `, ${listedTime(e.startsAt, e.timezone)}` : ''}`} />
+              {e.endsAt ? <Detail icon="clock" text={`Ends at ${eventDate(e.endsAt, e.timezone)}${listedTime(e.endsAt, e.timezone) ? `, ${listedTime(e.endsAt, e.timezone)}` : ''}`} /> : null}
+              {e.venue || e.city ? <Detail icon="pin" text={e.venue || e.city || ''} onPress={() => openMaps(e)} /> : null}
+              {e.venueAddressFull && e.venueAddressFull !== e.venue ? <Detail icon="building" text={e.venueAddressFull} onPress={() => openMaps(e)} /> : null}
+              {e.organizer ? (
+                <Detail icon="tag" text="Presented by " link={e.organizer.name}
+                  onPress={e.organizerProfile ? () => router.push({ pathname: '/organizer/[slug]', params: { slug: e.organizerProfile!.slug } }) : undefined} />
               ) : null}
+              {cost ? <Detail icon="ticket" text={cost === 'Listing' ? 'Tickets are sold by the organizer' : cost} /> : null}
             </View>
-
-            {!e.isPast && !e.comingSoon ? <Countdown startsAt={e.startsAt} /> : null}
-
-            {preview ? (
-              <View style={{ gap: space.sm }}>
-                <Skeleton height={20} width="45%" />
-                <Skeleton height={14} />
-                <Skeleton height={14} width="80%" />
-              </View>
-            ) : e.description ? (
-              <View style={{ gap: space.sm }}>
-                <Text variant="title" accessibilityRole="header">About the Event</Text>
-                <Text variant="body" color={colors.muted} numberOfLines={more ? undefined : 3}>{e.description}</Text>
-                {e.description.length > 140 ? (
-                  <Pressable accessibilityRole="button" onPress={() => setMore((v) => !v)} hitSlop={8} style={styles.more}>
-                    <Text variant="small" weight="semibold" color={colors.accent}>{more ? 'Show Less' : 'Read More'}</Text>
-                    <Icon name={more ? 'chevronUp' : 'chevronDown'} size={16} color={colors.accent} />
-                  </Pressable>
-                ) : null}
-              </View>
-            ) : null}
 
             {photos.length ? (
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space.sm }}>
@@ -205,6 +195,8 @@ export default function EventScreen() {
             ) : null}
 
             {/* ── More, under the mockup's part ── */}
+            {!e.isPast && !e.comingSoon ? <Countdown startsAt={e.startsAt} /> : null}
+
             {tiers.length ? (
               <Block title="Tickets">
                 {tiers.map((t, i) => <TierRow key={t.id} t={t} currency={e.currency} last={i === tiers.length - 1} />)}
@@ -277,21 +269,20 @@ export default function EventScreen() {
         </View>
       </Animated.ScrollView>
 
-      <Header transparent right={<IconButton icon="share" label="Share event" variant="outline" size={18} onPress={share} />} />
-
       <BottomBar>
         {preview ? <Skeleton height={52} round={14} />
           : e.comingSoon ? <Button label="Notify Me" icon="bell" onPress={() => setNotifyOpen(true)} />
             : blocker ? <View style={styles.blocker}><Text variant="small" weight="semibold" color={colors.muted} align="center">{blocker}</Text></View>
+              // As the website: FROM and the price on the left, the coral pill on the right.
               : (
                 <View style={styles.barRow}>
-                  {cost ? (
+                  {fromPrice ? (
                     <View>
-                      <Text variant="caption" color={colors.muted}>{cost.startsWith('From') ? 'From' : 'Price'}</Text>
-                      <Text variant="title">{cost.replace(/^From /, '')}</Text>
+                      <Text style={styles.fromLabel}>{fromPrice.label.toUpperCase()}</Text>
+                      <Text style={styles.fromValue}>{fromPrice.value}</Text>
                     </View>
                   ) : null}
-                  <Button label="Select Tickets" onPress={next} style={{ flex: 1 }} />
+                  <Button label={e.admissionType === 'general' ? 'Get your tickets' : 'Choose your seats'} iconRight="arrow" onPress={next} style={styles.pill} />
                 </View>
               )}
       </BottomBar>
@@ -300,6 +291,19 @@ export default function EventScreen() {
       <NotifySheet visible={notifyOpen} onClose={() => setNotifyOpen(false)} slug={e.slug} title={e.title} />
     </View>
   );
+}
+
+/** One line of the website's details list: an icon, the words, and maybe a coral link. */
+function Detail({ icon, text, link, onPress }: { icon: IconName; text: string; link?: string; onPress?: () => void }) {
+  const body = (
+    <View style={styles.detail}>
+      <Icon name={icon} size={20} color={colors.muted} />
+      <Text variant="body" color={colors.text} style={{ flex: 1 }}>
+        {text}{link ? <Text variant="body" weight="semibold" color={colors.accent} style={styles.link}>{link}</Text> : null}
+      </Text>
+    </View>
+  );
+  return onPress ? <Pressable accessibilityRole={link ? 'link' : 'button'} onPress={onPress}>{body}</Pressable> : body;
 }
 
 function whyNot(e: EventDetail): string | null {
@@ -317,19 +321,6 @@ function Block({ title, action, onAction, children }: { title: string; action?: 
       <Section title={title} action={action} onAction={onAction} />
       {children}
     </Animated.View>
-  );
-}
-
-function Fact({ icon, lines }: { icon: IconName; lines: string[] }) {
-  const [a, b] = lines;
-  return (
-    <View style={styles.fact}>
-      <Icon name={icon} size={22} />
-      <View style={{ flex: 1 }}>
-        <Text variant="body" weight="medium" numberOfLines={2}>{a}</Text>
-        {b ? <Text variant="body" weight="medium" numberOfLines={1}>{b}</Text> : null}
-      </View>
-    </View>
   );
 }
 
@@ -513,6 +504,19 @@ function NotifySheet({ visible, onClose, slug, title }: { visible: boolean; onCl
 const hairline = StyleSheet.hairlineWidth * 2;
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
+  posterWrap: { padding: 10, borderRadius: 28, backgroundColor: colors.bgSunken },
+  poster: { width: '100%', aspectRatio: 4 / 5, borderRadius: 20 },
+  posterHeart: { position: 'absolute', right: 12, top: 12 },
+  posterTag: { position: 'absolute', left: 12, bottom: 12 },
+  panel: { gap: space.md, padding: space.lg, borderRadius: 22, backgroundColor: '#f8f7f8' },
+  tagline: { fontFamily: fonts.display, fontSize: 19, lineHeight: 24, color: colors.accent },
+  story: { fontSize: 16, lineHeight: 25 },
+  detail: { flexDirection: 'row', alignItems: 'flex-start', gap: space.md },
+  link: { textDecorationLine: 'underline' },
+  fromLabel: { fontFamily: fonts.bold, fontSize: 12, letterSpacing: 1, color: colors.accent },
+  fromValue: { fontFamily: fonts.display, fontSize: 22, lineHeight: 26, color: colors.text },
+  pill: { flex: 1, borderRadius: 999 },
+  barRow: { flexDirection: 'row', alignItems: 'center', gap: space.lg },
   sheet: { marginTop: -24, borderTopLeftRadius: 24, borderTopRightRadius: 24, backgroundColor: colors.bg },
   body: { paddingTop: space.xl, gap: space.xl },
   bodyTablet: { maxWidth: 760 },
@@ -548,7 +552,7 @@ const styles = StyleSheet.create({
   policy: { gap: space.sm, paddingVertical: space.md },
   policyHead: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   blocker: { minHeight: 52, borderRadius: 14, backgroundColor: colors.bgSunken, alignItems: 'center', justifyContent: 'center', paddingHorizontal: space.lg },
-  barRow: { flexDirection: 'row', alignItems: 'center', gap: space.lg },
+  rateRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: -space.xs },
   viewer: { flex: 1, backgroundColor: '#000000' },
   viewerClose: { position: 'absolute', right: space.lg },
 });

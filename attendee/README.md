@@ -22,7 +22,8 @@ board, 18 frames).
 
 | Route | Screen | API |
 |---|---|---|
-| `welcome` | Your City. Your Experiences. Get Started / Sign In (first launch only) | — |
+| (launch) | The mockup's first frame on every cold start: the stacked logo, "Discover. Experience. Be There.", a drawn crowd; fades after 1.3 s (`src/ui/LaunchSplash.tsx`) | — |
+| `welcome` | Your City. Your Experiences. Get Started / Sign In (first launch only) | `/public/vip-events` (the photo) |
 | `(tabs)/index` | Home: logo + inbox bell, city, search, Trending carousel, categories, upcoming (posters to swipe, then a list; a grid on a tablet) | `/public/vip-events`, `/public/event-categories`, `/public/events` |
 | `(tabs)/explore` | Explore: search, category chips and tiles, When (today / weekend / week / month), Near me | `/public/events` (`from`/`to`), `/public/events/near` |
 | `(tabs)/saved` | Saved Events | `/me/saved-events` |
@@ -42,7 +43,24 @@ board, 18 frames).
 **Every screen size.** `src/ui/layout.tsx` sets a centred content column and
 grids whose column count follows the width. A wide screen (tablet sideways, a
 browser) gets the tab bar as a left rail (`src/ui/TabBar.tsx`) and two-column
-event, seat-map and checkout pages.
+event, seat-map and checkout pages. Tablets turn freely; phones are locked
+upright at launch (`src/lib/orientation.ts`, with `orientation: "default"` in
+`app.json`).
+
+**Matching the mockup.** The screens are compared with the board by rendering
+the web build at phone size. A development web build accepts `?demo=signedin`
+(an account and a hold) or `?demo=fresh` (first launch) in the URL, so the
+signed-in frames can be drawn (`src/dev/renderDemo.ts`; never in a store
+build). The extra sections (Near You, This Weekend, the countdown, lineup…)
+sit below the part each frame shows. Where the board shows data Eventsli does
+not have, the same spot carries real data: the price and organizer instead of
+a star rating, "N tickets booked" instead of "Premium Member", and real event
+covers on the category tiles.
+
+**Tests.** `npm test` covers the helpers and, against a mocked API, the
+checkout and sign-in screens and the session store (`test/*.screen.test.tsx`,
+`test/session.test.ts`). Reanimated's own Jest mock does not load here; screen
+tests use `test/mocks/reanimated.tsx`.
 
 **The seat map never moves by itself** (owner, 2026-11-19): it opens fitted,
 moves only under the person's fingers or the zoom buttons, and keeps their zoom
@@ -89,18 +107,29 @@ The server writes the inbox whatever the phone allows
 "coming up" a day before, cancelled, rescheduled, and a welcome. When the phone
 has granted permission it also receives them as pushes through Expo.
 
-Push needs an EAS project id, which this app does not have yet:
+Push needs the EAS project id, which is in `app.json` (`extra.eas.projectId`).
+A build without one still works, minus the lock-screen push; the inbox still
+fills. A tap on a notification opens its screen whether the app was running or
+closed (`openLaunchNotification` in `src/lib/push.ts`).
 
-```bash
-npx eas init          # writes extra.eas.projectId into app.json
-```
+## Offline, sessions and holds
 
-Until then everything works except the lock-screen push itself; the inbox
-still fills.
+- **My Tickets survives a cold start with no signal.** The last list `/tickets`
+  returned is kept in the app's documents folder, stamped with the account
+  (`src/lib/ticketCache.ts`), seeded into the query at launch, and deleted on
+  sign-out.
+- **A session the server refuses signs the phone out.** A 401 on a request that
+  carried the current session (revoked from the web, expired) clears the
+  account and says so (`onAuthLost` in `src/api/client.ts`).
+- **Leaving checkout gives the seats back** at once, unless a Stripe session
+  was already started for the hold (it may still be paid).
+- **Android payment return.** `openBrowserAsync` resolves when the Custom Tab
+  opens on Android, so checkout waits for the app to come back to the
+  foreground before asking how the payment ended (`src/lib/browserReturn.ts`).
 
 ## Before the first store build
 
-1. `npx eas init` (above), then `npx eas build --profile preview`.
+1. `npx eas build --profile preview`.
 2. Apply `supabase/migrations/20261213090000_attendee_app.sql` **before**
    deploying the backend that comes with this app — sign-in from the app writes
    `sessions.client = 'attendee_app'`, which the old constraint refuses.

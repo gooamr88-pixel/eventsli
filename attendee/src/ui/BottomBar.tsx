@@ -22,8 +22,16 @@ export function BottomBar({ children, style }: { children: ReactNode; style?: Vi
 const styles = StyleSheet.create({
   bar: {
     position: 'absolute', left: 0, right: 0, bottom: 0,
-    paddingTop: space.md,
+    paddingTop: space.lg,
     backgroundColor: colors.surface,
+    // A soft sheet, as the owner's Home cards (2026-11-28).
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+    shadowColor: '#111018',
+    shadowOpacity: 0.1,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: -4 },
+    elevation: 12,
   },
   inner: { gap: space.md },
 });

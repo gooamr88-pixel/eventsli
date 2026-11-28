@@ -16,7 +16,7 @@ describe('money', () => {
   });
 
   it('prints the amount the minor units mean', () => {
-    expect(money(320000, 'EGP')).toMatch(/3,200/);
+    expect(money(320000, 'EGP')).toBe('EGP 3,200');
     expect(money(4050, 'USD')).toBe('$40.50');
     expect(money(3000, 'JPY')).toMatch(/3,000/);
     expect(money(12500, 'KWD')).toMatch(/12\.5/);

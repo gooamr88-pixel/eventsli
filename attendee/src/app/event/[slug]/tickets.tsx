@@ -10,7 +10,7 @@ import type { Tier } from '@/api/types';
 import { useToken } from '@/auth/session';
 import { eventWhen, money, price } from '@/lib/format';
 import { useReservation } from '@/lib/reservation';
-import { Failed, Header, Stepper } from '@/ui/bits';
+import { Card, Failed, Header, Section, Stepper } from '@/ui/bits';
 import { Button } from '@/ui/Button';
 import { Cover } from '@/ui/Cover';
 import { Container } from '@/ui/layout';
@@ -70,7 +70,8 @@ export default function SelectTickets() {
     <View style={styles.root}>
       <Header title="Select Tickets" />
       <ScrollView contentContainerStyle={{ paddingBottom: space.xl }}>
-        <Container>
+        <Container style={{ gap: space.lg, paddingTop: space.xs }}>
+          <Card>
           <View style={styles.event}>
             <Cover uri={e.coverUrl} title={e.title} style={styles.thumb} />
             <View style={{ flex: 1, gap: 2 }}>
@@ -78,8 +79,12 @@ export default function SelectTickets() {
               <Text variant="small">{eventWhen(e.startsAt, e.timezone)}</Text>
             </View>
           </View>
+          </Card>
 
-          {tiers.map((t) => {
+          <View>
+          <Section bar title="Tickets" />
+          <Card style={{ paddingVertical: space.xs }}>
+          {tiers.map((t, i) => {
             const n = qty[t.id] ?? 0;
             const others = count - n;
             const off = !t.onSale || t.soldOut;
@@ -87,7 +92,7 @@ export default function SelectTickets() {
             const note = t.soldOut ? 'Sold out' : t.notYetOnSale ? 'Not on sale yet' : t.salesEnded ? 'Sales ended'
               : t.remaining !== null && t.remaining <= 10 ? `Only ${t.remaining} left` : null;
             return (
-              <View key={t.id} style={styles.tier}>
+              <View key={t.id} style={[styles.tier, i < tiers.length - 1 && styles.tierRule]}>
                 <View style={{ flex: 1, gap: 2 }}>
                   <Text variant="label" weight="bold" color={off ? colors.subtle : colors.text}>{t.name}</Text>
                   <Text variant="small" color={colors.muted}>{price(t.priceCents, e.currency)}{note ? ` · ${note}` : ''}</Text>
@@ -99,6 +104,8 @@ export default function SelectTickets() {
               </View>
             );
           })}
+          </Card>
+          </View>
           {error ? <Text variant="small" color={colors.accent} style={{ marginTop: space.md }} accessibilityLiveRegion="polite">{error}</Text> : null}
         </Container>
       </ScrollView>
@@ -118,9 +125,10 @@ export default function SelectTickets() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
-  event: { flexDirection: 'row', alignItems: 'center', gap: space.lg, paddingVertical: space.lg },
+  event: { flexDirection: 'row', alignItems: 'center', gap: space.lg },
   thumb: { width: 68, height: 68, borderRadius: 12 },
   tier: { flexDirection: 'row', alignItems: 'center', gap: space.lg, paddingVertical: space.lg },
-  bar: { backgroundColor: colors.surface, paddingTop: space.lg, borderTopWidth: StyleSheet.hairlineWidth * 2, borderTopColor: colors.border },
+  tierRule: { borderBottomWidth: 1, borderBottomColor: colors.border },
+  bar: { backgroundColor: colors.surface, paddingTop: space.lg, borderTopLeftRadius: 26, borderTopRightRadius: 26, shadowColor: '#111018', shadowOpacity: 0.1, shadowRadius: 18, shadowOffset: { width: 0, height: -4 }, elevation: 12 },
   total: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
 });

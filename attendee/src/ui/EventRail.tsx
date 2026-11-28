@@ -43,7 +43,7 @@ export function EventRail({ title, events, loading = false, action, onAction, is
         <View style={{ flexDirection: 'row', gap: space.md, paddingHorizontal: gutter }}>
           {[0, 1].map((i) => (
             <View key={i} style={{ width, gap: 8 }}>
-              <Skeleton height={150} round={14} />
+              <Skeleton height={Math.round(width * 1.25)} round={14} />
               <Skeleton height={14} width="80%" />
               <Skeleton height={12} width="55%" />
             </View>

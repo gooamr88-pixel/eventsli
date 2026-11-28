@@ -1,4 +1,4 @@
-import { ApiError, NetworkError, PRODUCTION_API_URL, request, resolveApiUrl, withQuery } from '../src/api/client';
+import { ApiError, NetworkError, onAuthLost, PRODUCTION_API_URL, request, resolveApiUrl, withQuery } from '../src/api/client';
 
 /**
  * The client's two promises: a hold's token and the session travel TOGETHER
@@ -45,4 +45,28 @@ it('never lets a store build talk plain HTTP', () => {
 
 it('drops empty query values and encodes the rest', () => {
   expect(withQuery('/e', { q: 'rock & roll', city: '', page: 2, x: null })).toBe('/e?q=rock%20%26%20roll&page=2');
+});
+
+it('reports a refused session only when one was sent (onAuthLost)', async () => {
+  const lost = jest.fn();
+  onAuthLost(lost);
+  try {
+    // A wrong password at sign-in: 401, but no session was sent.
+    answer(401, { success: false, error: 'UNAUTHENTICATED', message: 'Wrong email or password.' });
+    await expect(request('/auth/app/login', { method: 'POST', body: {} })).rejects.toBeInstanceOf(ApiError);
+    expect(lost).not.toHaveBeenCalled();
+
+    // A revoked session on a personal call.
+    answer(401, { success: false, error: 'SESSION_REVOKED', message: 'Signed out.' });
+    await expect(request('/tickets', { token: 'OLD' })).rejects.toMatchObject({ status: 401 });
+    expect(lost).toHaveBeenCalledWith('OLD');
+
+    // Any other refusal is not a sign-out.
+    lost.mockClear();
+    answer(403, { success: false, error: 'FORBIDDEN', message: 'No.' });
+    await expect(request('/tickets', { token: 'OLD' })).rejects.toMatchObject({ status: 403 });
+    expect(lost).not.toHaveBeenCalled();
+  } finally {
+    onAuthLost(null);
+  }
 });

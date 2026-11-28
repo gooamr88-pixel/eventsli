@@ -31,7 +31,9 @@ function from(table) {
     chain[m] = (...args) => { calls.push({ table, m, args }); return chain; };
   }
   chain.range = () => Promise.resolve({ data: table === 'events' ? rows : [], error: null, count: rows.length });
-  chain.then = (ok, bad) => Promise.resolve({ data: [], error: null }).then(ok, bad);
+  // A price filter finds one cheap ticket type, so the listing goes on to build
+  // its events query (the filters are applied when the query is built).
+  chain.then = (ok, bad) => Promise.resolve({ data: table === 'ticket_tiers' ? [{ event_id: 'open-1' }] : [], error: null }).then(ok, bad);
   return chain;
 }
 stub('config/supabase.js', {

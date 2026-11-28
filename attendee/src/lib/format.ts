@@ -88,14 +88,16 @@ export function money(minor: number | null | undefined, currency: string | null 
   const digits = minorDigits(currency);
   const amount = minor / 10 ** digits;
   const whole = Number.isInteger(amount);
+  const fraction = { minimumFractionDigits: whole ? 0 : digits, maximumFractionDigits: digits };
   return safe(
-    () => new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency,
-      currencyDisplay: 'narrowSymbol',
-      minimumFractionDigits: whole ? 0 : digits,
-      maximumFractionDigits: digits,
-    }).format(amount),
+    () => {
+      const symbol = new Intl.NumberFormat('en-US', { style: 'currency', currency, currencyDisplay: 'narrowSymbol', ...fraction });
+      // A symbol made of letters ("E£" for EGP) reads as a typo; the mockup
+      // writes "EGP 1,600". A plain sign — $, €, £, ¥ — stays a sign.
+      const sign = symbol.formatToParts(amount).find((p) => p.type === 'currency')?.value ?? '';
+      if (/[A-Za-z]/.test(sign)) return `${currency.toUpperCase()} ${new Intl.NumberFormat('en-US', fraction).format(amount)}`;
+      return symbol.format(amount);
+    },
     `${currency} ${amount}`,
   );
 }
@@ -133,4 +135,29 @@ export function eventSpanText(
   const part = (iso: string, opts: Intl.DateTimeFormatOptions) => safe(() => new Date(iso).toLocaleDateString('en-US', { ...opts, ...zone(timeZone) }));
   const short = (iso: string) => `${part(iso, { month: 'short', day: 'numeric' })}, ${eventTime(iso, timeZone)}`;
   return { date: `${part(startsAt, { month: 'short', day: 'numeric' })} – ${end}`, time: `${short(startsAt)} – ${short(endsAt)}` };
+}
+
+/**
+ * "EG" → "Egypt", for the Settings row the mockup writes as "Cairo, Egypt".
+ * Intl.DisplayNames is missing on some engines; the code is then shown as is.
+ */
+export function countryName(code: string | null | undefined): string {
+  if (!code) return '';
+  try {
+    const Names = (Intl as unknown as { DisplayNames?: new (l: string[], o: { type: 'region' }) => { of: (c: string) => string | undefined } }).DisplayNames;
+    return (Names ? new Names(['en'], { type: 'region' }).of(code.toUpperCase()) : null) ?? code;
+  } catch {
+    return code;
+  }
+}
+
+/**
+ * The time of day, unless it is exactly midnight where the event is — which on
+ * production means "no time was entered" (organizers set the date only; every
+ * listed event read "12:00 AM", 2026-11-28). Lists leave it out rather than
+ * print a door time nobody chose.
+ */
+export function listedTime(iso: string | null | undefined, timeZone?: string | null): string {
+  const t = eventTime(iso, timeZone);
+  return t === '12:00 AM' ? '' : t;
 }

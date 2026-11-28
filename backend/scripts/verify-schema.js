@@ -32,6 +32,8 @@ const TABLES = [
   'sms_settings', 'sms_providers', 'sms_countries', 'sms_routes', 'sms_senders', 'sms_categories',
   'sms_messages', 'sms_attempts', 'sms_receipts', 'sms_inbound', 'sms_consents', 'sms_consent_log',
   'sms_suppressions', 'sms_segments', 'sms_campaigns', 'sms_organizer_access', 'sms_provider_credentials',
+  // VIP Services with WhatsApp (20261222090000).
+  'vip_service_requests', 'vip_service_messages',
 ];
 
 // Business rules that live in the database. If one of these is absent, the rule

@@ -35,9 +35,9 @@ export const colors = {
   // boxed cards and borders read as "crowded" and "cheap"). Soft grey only
   // fills the quiet controls — the search box, an unchosen chip, a stepper.
   bg: '#ffffff',
-  bgSunken: '#f4f4f6',
+  bgSunken: '#f5f5f5',
   surface: '#ffffff',
-  border: '#efeff2',
+  border: '#eaeaea',
   field: '#f4f4f6',
   fieldBorder: '#f4f4f6',
   // The pale coral behind an accent icon or chip (was the mint wash).
@@ -58,6 +58,8 @@ export const colors = {
   successSoft: '#e7f6ec',
   successStrong: '#22a35a',
   warning: '#92400e',
+  // The mockup's orange rating figure, deepened to pass as text on white (5.0:1).
+  amber: '#b45309',
   warningSoft: '#fdf3e2',
   warningStrong: '#d97706',
   danger: '#b91c1c',
@@ -81,10 +83,12 @@ export const colors = {
 /** As on the site: DM Sans to read, Urbanist for titles (2026-11-15).
  *  Names match the loaded font assets. */
 export const fonts = {
-  // DM Sans Bold for every title (2026-11-24, to the app mockup); Urbanist
-  // Black was far heavier than anything on it. The logo keeps Urbanist as paths.
-  display: 'DMSans_700Bold',
-  displayBold: 'DMSans_700Bold',
+  // AS THE WEBSITE (2026-11-28, owner: "as website"): headings in Urbanist
+  // ExtraBold (800), the face the logo is drawn in — the site's
+  // --es-font-display at 800 for section and page headings. DM Sans for reading.
+  display: 'Urbanist_800ExtraBold',
+  displayBold: 'Urbanist_800ExtraBold',
+  displayBlack: 'Urbanist_900Black',
   regular: 'DMSans_400Regular',
   medium: 'DMSans_500Medium',
   semibold: 'DMSans_600SemiBold',
@@ -96,10 +100,10 @@ export const space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32 } as const;
 export const radius = { sm: 8, md: 12, lg: 16, xl: 20, pill: 999 } as const;
 
 /**
- * The type scale, measured off the app mockup at phone size. Every title is
- * DM SANS BOLD, as the mockup sets it — Urbanist Black (900) was far heavier
- * than any word on the board and was the first thing the owner called out
- * ("fonts", 2026-11-24). Urbanist stays only in the logo, which is paths.
+ * The type scale. Titles and headings are URBANIST EXTRABOLD (800), as the
+ * website sets them (2026-11-28, owner: "as website"). On 2026-11-24 the
+ * complaint was Urbanist BLACK (900), far heavier; 800 is the site's own
+ * heading weight. Body text stays DM Sans.
  */
 export const type = {
   caption: { fontFamily: fonts.regular, fontSize: 12, lineHeight: 16 },
@@ -107,14 +111,15 @@ export const type = {
   body: { fontFamily: fonts.regular, fontSize: 15, lineHeight: 22 },
   label: { fontFamily: fonts.semibold, fontSize: 15, lineHeight: 21 },
   // A section ("Explore Categories", "About the Event") and a centred header.
-  title: { fontFamily: fonts.bold, fontSize: 18, lineHeight: 24 },
+  title: { fontFamily: fonts.display, fontSize: 19, lineHeight: 24, letterSpacing: -0.2 },
   // An event's name on its page and on the Trending banner.
-  heading: { fontFamily: fonts.bold, fontSize: 22, lineHeight: 28 },
-  overline: { fontFamily: fonts.bold, fontSize: 11, lineHeight: 14, letterSpacing: 1 },
+  heading: { fontFamily: fonts.display, fontSize: 24, lineHeight: 29, letterSpacing: -0.3 },
+  // The website's kicker over a section ("— NEAR YOU"), coral, spaced capitals.
+  overline: { fontFamily: fonts.bold, fontSize: 12, lineHeight: 15, letterSpacing: 1.6 },
   // A tab's own title: Explore.
-  screenTitle: { fontFamily: fonts.bold, fontSize: 26, lineHeight: 32 },
-  display: { fontFamily: fonts.bold, fontSize: 28, lineHeight: 34 },
-  hero: { fontFamily: fonts.bold, fontSize: 32, lineHeight: 38 },
+  screenTitle: { fontFamily: fonts.display, fontSize: 28, lineHeight: 33, letterSpacing: -0.4 },
+  display: { fontFamily: fonts.display, fontSize: 30, lineHeight: 35, letterSpacing: -0.5 },
+  hero: { fontFamily: fonts.display, fontSize: 34, lineHeight: 39, letterSpacing: -0.6 },
 } as const;
 
 /**

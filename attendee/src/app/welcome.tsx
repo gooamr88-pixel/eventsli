@@ -1,34 +1,49 @@
+import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Path } from 'react-native-svg';
 
+import { trending } from '@/api/endpoints';
 import { useSession } from '@/auth/session';
 import { Button } from '@/ui/Button';
-import { Logo } from '@/ui/Logo';
+import { Cover } from '@/ui/Cover';
 import { Text } from '@/ui/Text';
 import { colors, fonts, space } from '@/ui/theme';
 
 /**
- * The mockup's second frame: a night-time crowd under stage light, "Your
- * City. Your Experiences.", Get Started and Sign In. Drawn, not photographed —
- * a stock crowd would be somebody else's event — in the brand's coral and
- * sunshine on near-black.
+ * The mockup's second frame: a night-time crowd under stage light across the
+ * top, fading into black; "Your City. Your Experiences.", Get Started and
+ * Sign In beneath.
+ *
+ * The photo is a REAL Eventsli event — the first Trending cover — never a
+ * stock crowd, which would be somebody else's event (2026-11-28). With no
+ * signal yet, or no cover, the drawn stage light stands in, in the brand's
+ * coral and sunshine on near-black.
  *
  * Get Started marks the welcome as seen and the guard sends the phone Home.
  * Sign In leaves it unseen: signing in marks it, and both guards drop together.
  */
 export default function Welcome() {
   const insets = useSafeAreaInsets();
+  const { height } = useWindowDimensions();
+  const hot = useQuery({ queryKey: ['trending'], queryFn: trending });
+  const photo = hot.data?.events.find((e) => e.coverUrl && !e.blurredCover && !e.isPrivate)?.coverUrl ?? null;
+  const photoH = Math.round(height * 0.62);
   return (
     <View style={styles.root}>
       <LinearGradient colors={[colors.night, '#2a0c1c', '#5c1020']} style={StyleSheet.absoluteFill} />
-      <StageLight />
-      <View style={[styles.top, { paddingTop: insets.top + space.xl }]}>
-        <Logo height={30} onDark />
-      </View>
-      <View style={[styles.bottom, { paddingBottom: insets.bottom + space.xl }]}>
+      {photo ? (
+        <View style={[styles.photo, { height: photoH }]} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+          <Cover uri={photo} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 0 }} size={600} />
+          <LinearGradient colors={['rgba(17,16,24,0)', 'rgba(17,16,24,0.55)', colors.night]} locations={[0.45, 0.75, 1]} style={StyleSheet.absoluteFill} />
+        </View>
+      ) : (
+        <StageLight />
+      )}
+      {photo ? <View style={[styles.fill, { top: photoH }]} /> : null}
+      <View style={[styles.bottom, { paddingBottom: insets.bottom + space.lg }]}>
         <Text style={styles.headline} color={colors.white} accessibilityRole="header">
           Your City.{'\n'}Your Experiences.
         </Text>
@@ -70,7 +85,8 @@ function StageLight() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.night },
-  top: { paddingHorizontal: space.xl },
+  photo: { position: 'absolute', top: 0, left: 0, right: 0, overflow: 'hidden' },
+  fill: { position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: colors.night },
   bottom: { flex: 1, justifyContent: 'flex-end', paddingHorizontal: space.xl, gap: space.lg },
   headline: { fontFamily: fonts.display, fontSize: 36, lineHeight: 42, fontStyle: 'italic' },
   dots: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginVertical: space.md },

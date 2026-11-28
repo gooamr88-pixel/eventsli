@@ -61,7 +61,7 @@ export function TabBar({ state, descriptors, emitter, navigateToTab, insets }: B
             onPress={it.onPress}
             style={({ pressed }) => [styles.railItem, it.focused && styles.railItemOn, pressed && !it.focused && styles.railPressed]}
           >
-            <Icon name={it.icon} size={22} color={it.focused ? colors.accent : colors.muted} fill={it.focused && it.icon === 'heart' ? colors.accent : undefined} />
+            <Icon name={it.icon} size={22} color={it.focused ? colors.accent : colors.muted} />
             <Text variant="label" weight={it.focused ? 'bold' : 'medium'} color={it.focused ? colors.accent : colors.text}>{it.label}</Text>
             {it.badge ? <View style={styles.railBadge}><Text variant="caption" weight="bold" color={colors.white}>{String(it.badge)}</Text></View> : null}
           </Pressable>
@@ -83,12 +83,14 @@ export function TabBar({ state, descriptors, emitter, navigateToTab, insets }: B
           hitSlop={4}
         >
           <View style={styles.pill}>
-            <Icon name={it.icon} size={24} color={it.focused ? colors.accent : colors.subtle} fill={it.focused && it.icon === 'heart' ? colors.accent : undefined} strokeWidth={it.focused ? 2.3 : 1.7} />
+            <Icon name={it.icon} size={25} color={it.focused ? colors.accent : colors.text} strokeWidth={it.focused ? 2.1 : 1.7} />
             {it.badge ? <View style={styles.dot} /> : null}
           </View>
-          <Text variant="caption" weight={it.focused ? 'bold' : 'medium'} color={it.focused ? colors.accent : colors.subtle} style={styles.label} numberOfLines={1}>
+          <Text variant="caption" weight={it.focused ? 'bold' : 'medium'} color={it.focused ? colors.accent : colors.text} style={styles.label} numberOfLines={1}>
             {it.label}
           </Text>
+          {/* The owner's design (2026-11-28): a red underline under the current tab. */}
+          <View style={[styles.under, it.focused && styles.underOn]} />
         </Pressable>
       ))}
     </View>
@@ -108,7 +110,9 @@ const styles = StyleSheet.create({
   item: { flex: 1, alignItems: 'center', gap: 2, minHeight: 48 },
   pill: { width: 48, height: 28, alignItems: 'center', justifyContent: 'center' },
   dot: { position: 'absolute', top: 4, right: 14, width: 8, height: 8, borderRadius: 4, backgroundColor: colors.coral500, borderWidth: 1.5, borderColor: colors.surface },
-  label: { fontSize: 11 },
+  label: { fontSize: 12 },
+  under: { width: 44, height: 3, borderRadius: 2, marginTop: 3 },
+  underOn: { backgroundColor: colors.accent },
   rail: {
     width: 220,
     backgroundColor: colors.surface,

@@ -8,6 +8,7 @@ import { Alert, Linking, Pressable, ScrollView, StyleSheet, Switch, View } from 
 import { messageFor } from '@/api/client';
 import { resendTickets } from '@/api/endpoints';
 import { useSession } from '@/auth/session';
+import { countryName } from '@/lib/format';
 import { registerForPush } from '@/lib/push';
 import { Header, ListGroup, ListRow } from '@/ui/bits';
 import { Button } from '@/ui/Button';
@@ -83,7 +84,7 @@ export default function Settings() {
                 />
               )}
             />
-            <ListRow icon="pin" label="Location" detail={city ? `${city.city}, ${city.country}` : 'Everywhere'} onPress={() => router.push('/city')} />
+            <ListRow icon="pin" label="Location" detail={city ? `${city.city}, ${countryName(city.country)}` : 'Everywhere'} onPress={() => router.push('/city')} />
             <ListRow icon="globe" label="Language" detail="English" />
             <ListRow icon="mail" label="Resend my tickets" onPress={() => setResendOpen(true)} />
             <ListRow icon="lock" label="Privacy & Security" onPress={() => { void WebBrowser.openBrowserAsync(`${SITE}/privacy`); }} />

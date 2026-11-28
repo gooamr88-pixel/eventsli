@@ -1,9 +1,14 @@
 import * as SecureStore from 'expo-secure-store';
 import { create } from 'zustand';
 
+import { Alert } from 'react-native';
+
+import { onAuthLost } from '../api/client';
+import { renderDemoSession } from '../dev/renderDemo';
 import { logout as logoutCall, removePushDevice } from '../api/endpoints';
 import type { AppSession } from '../api/types';
 import { queryClient } from '../lib/queryClient';
+import { clearTickets, loadTickets } from '../lib/ticketCache';
 
 /**
  * Who this phone is signed in as, and the few preferences that must survive a
@@ -45,9 +50,15 @@ type State = {
   setPushToken: (t: string | null) => Promise<void>;
   setCity: (c: CityChoice) => Promise<void>;
   finishOnboarding: () => Promise<void>;
-  /** Revoke on the server (best effort), unregister the phone, forget everything personal. */
-  signOut: () => Promise<void>;
+  /**
+   * Revoke on the server (best effort), unregister the phone, forget
+   * everything personal. `remote: false` when the server already ended the
+   * session: there is nothing left to revoke, and calling would 401 again.
+   */
+  signOut: (opts?: { remote?: boolean }) => Promise<void>;
 };
+
+let signingOut = false;
 
 async function read<T>(key: string): Promise<T | null> {
   try {
@@ -85,8 +96,19 @@ export const useSession = create<State>((set, get) => ({
     ]);
     // A session past its expiry is gone on the server too; do not pretend.
     const live = expired(account) ? null : account;
-    if (account && !live) await write(KEYS.account, null);
-    set({ account: live, pushToken, city, onboarded: onboarded === true, hydrated: true });
+    if (account && !live) await Promise.all([write(KEYS.account, null), clearTickets()]);
+    // My Tickets from the last time it loaded, so the codes open with no
+    // signal (lib/ticketCache.ts). Marked with when it was saved, so the query
+    // still refreshes it as soon as there is a connection.
+    if (live) {
+      const saved = await loadTickets(live.user.id);
+      if (saved && !queryClient.getQueryData(['tickets'])) {
+        queryClient.setQueryData(['tickets'], saved.orders, { updatedAt: saved.savedAt });
+      }
+    }
+    // A development web render stands in for the Keychain (dev/renderDemo.ts).
+    const demo = renderDemoSession();
+    set({ account: live, pushToken, city, onboarded: onboarded === true, ...demo, hydrated: true });
   },
 
   async signIn(account) {
@@ -110,22 +132,44 @@ export const useSession = create<State>((set, get) => ({
     set({ onboarded: true });
   },
 
-  async signOut() {
-    const { account, pushToken } = get();
-    if (account) {
-      // Best effort, in this order: the phone stops receiving this account's
-      // pushes, then the session ends. A phone with no signal must still be
-      // able to sign out; the session then expires, or is ended from the web.
-      if (pushToken) await removePushDevice(account.token, pushToken).catch(() => undefined);
-      logoutCall(account.token).catch(() => undefined);
+  async signOut({ remote = true } = {}) {
+    if (signingOut) return;
+    signingOut = true;
+    try {
+      const { account, pushToken } = get();
+      if (account && remote) {
+        // Best effort, in this order: the phone stops receiving this account's
+        // pushes, then the session ends. A phone with no signal must still be
+        // able to sign out; the session then expires, or is ended from the web.
+        if (pushToken) await removePushDevice(account.token, pushToken).catch(() => undefined);
+        logoutCall(account.token).catch(() => undefined);
+      }
+      await Promise.all([write(KEYS.account, null), write(KEYS.pushToken, null), clearTickets()]);
+      // Tickets, saved events and the inbox were fetched with that session and
+      // are not the next person's to see.
+      queryClient.clear();
+      set({ account: null, pushToken: null });
+    } finally {
+      signingOut = false;
     }
-    await Promise.all([write(KEYS.account, null), write(KEYS.pushToken, null)]);
-    // Tickets, saved events and the inbox were fetched with that session and
-    // are not the next person's to see.
-    queryClient.clear();
-    set({ account: null, pushToken: null });
   },
 }));
+
+/**
+ * THE SERVER ENDED THE SESSION (2026-11-27). Expiry used to be checked only
+ * at launch, so a session revoked from the web, or one that ran out while the
+ * app was open, left the phone looking signed in with every personal screen
+ * failing. A 401 on a request that carried the CURRENT session now signs the
+ * phone out; one carrying an older token (a request that left before a new
+ * sign-in) is ignored.
+ */
+onAuthLost((token) => {
+  const { account } = useSession.getState();
+  if (!account || account.token !== token || signingOut) return;
+  void useSession.getState().signOut({ remote: false }).then(() => {
+    Alert.alert('You were signed out', 'Your session ended. Sign in again to see your tickets.');
+  });
+});
 
 /** The session token, or null — for queries that are personal. */
 export const useToken = () => useSession((s) => s.account?.token ?? null);

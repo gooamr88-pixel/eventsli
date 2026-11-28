@@ -11,10 +11,11 @@ import {
 } from '@/api/endpoints';
 import type { Breakdown, Quote } from '@/api/types';
 import { useSession, useToken } from '@/auth/session';
+import { watchForReturn } from '@/lib/browserReturn';
 import { useNow } from '@/lib/countdown';
 import { countdown, eventWhen, money, price } from '@/lib/format';
-import { useReservation } from '@/lib/reservation';
-import { Empty, Failed, Header, Stepper } from '@/ui/bits';
+import { resultPolling, useReservation } from '@/lib/reservation';
+import { Card, Empty, Failed, Header, Section, Stepper } from '@/ui/bits';
 import { Button } from '@/ui/Button';
 import { Cover } from '@/ui/Cover';
 import { Field } from '@/ui/Field';
@@ -26,8 +27,6 @@ import { Text } from '@/ui/Text';
 import { colors, fonts, space } from '@/ui/theme';
 
 const SITE = 'https://eventsli.com';
-const RESULT_POLLS = 10;
-const RESULT_GAP_MS = 2000;
 const DISCOUNT = /^Discount \((.+)\)$/;
 
 /**
@@ -60,7 +59,7 @@ export default function Checkout() {
   const [guestOf, setGuestOf] = useState<string | null>(null);
   const [agreed, setAgreed] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [stage, setStage] = useState<'idle' | 'paying' | 'confirming'>('idle');
+  const [stage, setStage] = useState<'idle' | 'paying' | 'confirming' | 'paid'>('idle');
   const [addonQty, setAddonQty] = useState<Record<string, number> | null>(null);
   const [addonBusy, setAddonBusy] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -72,6 +71,31 @@ export default function Checkout() {
     setAddonQty(Object.fromEntries((q.data.addons ?? []).map((a) => [a.addonId, a.quantity])));
   }
   useEffect(() => () => { if (saveTimer.current) clearTimeout(saveTimer.current); }, []);
+
+  // Leaving checkout gives the seats back now, not 35 minutes from now
+  // (lib/reservation.ts). Not once a Stripe session exists for the hold: that
+  // session can still be paid, and the money must find its seats.
+  useEffect(() => () => {
+    const r = useReservation.getState();
+    if (r.current?.reservationId === reservationId && !r.sessionId) r.abandon();
+  }, [reservationId]);
+
+  if (stage === 'paid') {
+    return (
+      <View style={styles.root}>
+        <Header title="Checkout" />
+        <Empty
+          icon="tick"
+          title="Payment received"
+          body={token
+            ? 'Your tickets are being issued. They will appear in My Tickets and your email in a minute or two. Please do not pay again.'
+            : 'Your tickets are being issued and will arrive by email in a minute or two. Please do not pay again.'}
+          action={token ? 'Go to My Tickets' : 'Back to Home'}
+          onAction={() => { useReservation.getState().clear(); router.replace(token ? '/(tabs)/tickets' : '/(tabs)'); }}
+        />
+      </View>
+    );
+  }
 
   if (!mine) {
     return (
@@ -165,7 +189,15 @@ export default function Checkout() {
       }
       const session = await startCheckout(reservationId, hold.reservationToken, b, token);
       useReservation.getState().setSession(session.sessionId);
-      await WebBrowser.openBrowserAsync(session.checkoutUrl, { dismissButtonStyle: 'close', readerMode: false, controlsColor: colors.accent });
+      // Android resolves openBrowserAsync when the tab OPENS, not when it
+      // closes (lib/browserReturn.ts); wait for the person to come back.
+      const watch = Platform.OS === 'android' ? watchForReturn() : null;
+      try {
+        await WebBrowser.openBrowserAsync(session.checkoutUrl, { dismissButtonStyle: 'close', readerMode: false, controlsColor: colors.accent });
+        if (watch) await watch.back;
+      } finally {
+        watch?.cancel();
+      }
       setStage('confirming');
       await confirm(session.sessionId);
     } catch (err) {
@@ -176,15 +208,25 @@ export default function Checkout() {
   }
 
   async function confirm(sessionId: string) {
-    for (let i = 0; i < RESULT_POLLS; i += 1) {
+    let paid = false;
+    for (let i = 0; i < resultPolling.tries; i += 1) {
       const r = await checkoutResult(sessionId).catch(() => null);
       if (r?.order) {
         useReservation.getState().clear();
         router.replace({ pathname: '/checkout/confirmed', params: { orderId: r.order.id, title: qd.event.title } });
         return;
       }
+      // Stripe says the session is finished (or paid) but no order yet: a
+      // delayed payment method, or a webhook still on its way (T-036).
+      if (r?.status === 'paid' || r?.sessionStatus === 'complete') paid = true;
       if (r && r.status === 'unpaid' && r.sessionStatus === 'open') break;
-      await new Promise((res) => setTimeout(res, RESULT_GAP_MS));
+      await new Promise((res) => setTimeout(res, resultPolling.gapMs));
+    }
+    if (paid) {
+      // The money arrived but the order is still being written. Paying again
+      // would charge twice; the tickets follow by email (and My Tickets).
+      setStage('paid');
+      return;
     }
     setStage('idle');
     setError('Payment was not completed. Your seats are still held — you can try again.');
@@ -197,15 +239,10 @@ export default function Checkout() {
       <Header title="Checkout" />
       <ScrollView contentContainerStyle={{ paddingBottom: space.xl }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <Container style={{ gap: space.xl }}>
-          <View style={styles.timer} accessibilityLiveRegion="polite">
-            <Icon name="clock" size={16} color={low ? colors.accent : colors.muted} />
-            <Text variant="small" weight="semibold" color={low ? colors.accent : colors.muted}>
-              {left > 0 ? `Your seats are held for ${countdown(left)}` : 'Your hold has ended'}
-            </Text>
-          </View>
-
+          {/* The owner's Home style (2026-11-28): a yellow-bar heading, the content in a soft white card. */}
           <View>
-            <Text variant="title" accessibilityRole="header">Order Summary</Text>
+            <Section bar title="Order Summary" />
+            <Card style={{ paddingVertical: space.sm }}>
             <View style={styles.event}>
               <Cover uri={qd.event.coverUrl} title={qd.event.title} style={styles.thumb} />
               <View style={{ flex: 1, gap: 2 }}>
@@ -215,7 +252,7 @@ export default function Checkout() {
             </View>
             {seatsText ? (
               <View style={[styles.row, styles.rule]}>
-                <Text variant="label" weight="bold" style={styles.rowKey}>{qd.admits > 1 ? 'Tickets' : 'Ticket'}</Text>
+                <Text variant="label" weight="bold" style={styles.rowKey}>{hold.tableLabel ? 'Table' : seatsText.includes('Row') || seatsText.includes('Seat') ? 'Seats' : qd.admits > 1 ? 'Tickets' : 'Ticket'}</Text>
                 <Text variant="small" style={{ flex: 1 }}>{seatsText}{qd.admits > 1 ? `\n(${qd.admits} tickets)` : ''}</Text>
               </View>
             ) : null}
@@ -229,12 +266,23 @@ export default function Checkout() {
               <Text variant="title" style={{ flex: 1 }}>Total</Text>
               <Text variant="title">{free ? 'Free' : money(qd.totalCents, qd.currency)}</Text>
             </View>
-            {!free || promoCode ? <Promo code={promoCode} reservationId={reservationId} reservationToken={hold.reservationToken} onQuote={merge} /> : null}
+            </Card>
           </View>
+
+          {/* As drawn: Payment Method straight after the totals. */}
+          {!free ? (
+            <View>
+              <Section bar title="Payment Method" />
+              <Card><PayMarks /></Card>
+            </View>
+          ) : null}
+
+          {!free || promoCode ? <Promo code={promoCode} reservationId={reservationId} reservationToken={hold.reservationToken} onQuote={merge} /> : null}
 
           {qd.addonsOffered?.length ? (
             <View>
-              <Text variant="title" accessibilityRole="header">Extras{addonBusy ? <Text variant="small" color={colors.muted}>  updating…</Text> : null}</Text>
+              <Section bar title={addonBusy ? 'Extras · updating…' : 'Extras'} />
+              <Card style={{ paddingVertical: space.xs }}>
               {qd.addonsOffered.map((a, i) => {
                 const n = addonQty?.[a.id] ?? 0;
                 const cap = Math.max(n, Math.min(qd.admits, a.remaining ?? qd.admits));
@@ -248,20 +296,23 @@ export default function Checkout() {
                   </View>
                 );
               })}
+              </Card>
             </View>
           ) : null}
 
-          <View style={{ gap: space.md }}>
-            <Text variant="title" accessibilityRole="header">Your Details</Text>
+          <View>
+            <Section bar title="Your Details" />
+            <Card style={{ gap: space.md }}>
             <Field label={free ? 'First name' : 'Full name'} value={name} onChangeText={setName} autoComplete="name" textContentType="name" />
             {!token ? <Field label={free ? 'Email (optional)' : 'Email for your tickets'} value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" autoComplete="email" /> : null}
             <Field label="Phone (optional)" value={phone} onChangeText={setPhone} keyboardType="phone-pad" autoComplete="tel" textContentType="telephoneNumber" />
+            </Card>
           </View>
 
           {slots.length ? (
             <View style={{ gap: space.md }}>
               <View style={{ gap: 2 }}>
-                <Text variant="title" accessibilityRole="header">Ticket Holders</Text>
+                <Section bar title="Ticket Holders" style={{ marginBottom: 2 }} />
                 <Text variant="small" color={colors.muted}>{holderFull ? 'First and last name for every ticket.' : holderRequired ? 'A first name for every ticket.' : 'Optional — printed on each ticket.'}</Text>
               </View>
               {slots.map((s, i) => {
@@ -303,13 +354,6 @@ export default function Checkout() {
             </View>
           ) : null}
 
-          {!free ? (
-            <View style={{ gap: space.md }}>
-              <Text variant="title" accessibilityRole="header">Payment Method</Text>
-              <PayMarks />
-            </View>
-          ) : null}
-
           <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: agreed }} onPress={() => { haptic.select(); setAgreed((v) => !v); }} style={styles.agree}>
             <View style={[styles.box, agreed && styles.boxOn]}>{agreed ? <Icon name="tick" size={15} color={colors.white} strokeWidth={2.8} /> : null}</View>
             <Text variant="small" style={{ flex: 1 }}>
@@ -324,7 +368,14 @@ export default function Checkout() {
       </ScrollView>
 
       <View style={[styles.bar, { paddingBottom: insets.bottom + space.md }]}>
-        <Container>
+        <Container style={{ gap: space.sm }}>
+          {/* The hold's clock, next to the button it is a deadline for. */}
+          <View style={styles.timer} accessibilityLiveRegion="polite">
+            <Icon name="clock" size={15} color={low ? colors.accent : colors.muted} />
+            <Text variant="caption" weight="semibold" color={low ? colors.accent : colors.muted}>
+              {left > 0 ? `Seats held for ${countdown(left)}` : 'Your hold has ended'}
+            </Text>
+          </View>
           <Button
             label={stage === 'confirming' ? 'Confirming payment…' : free ? 'Get My Tickets' : 'Pay Now'}
             onPress={() => { void pay(); }}
@@ -428,7 +479,7 @@ function Policy({ title, body }: { title: string; body: string }) {
 const hair = StyleSheet.hairlineWidth * 2;
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
-  timer: { flexDirection: 'row', alignItems: 'center', gap: 6, justifyContent: 'center', marginTop: space.xs },
+  timer: { flexDirection: 'row', alignItems: 'center', gap: 6, justifyContent: 'center' },
   event: { flexDirection: 'row', alignItems: 'center', gap: space.lg, paddingVertical: space.lg },
   thumb: { width: 76, height: 76, borderRadius: 12 },
   row: { flexDirection: 'row', alignItems: 'center', gap: space.md, paddingVertical: space.md },
@@ -446,5 +497,5 @@ const styles = StyleSheet.create({
   promoLine: { flexDirection: 'row', alignItems: 'center', gap: space.sm, minHeight: 40 },
   promoRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   promoInput: { flex: 1, minHeight: 44, paddingHorizontal: space.lg, borderRadius: 12, backgroundColor: colors.bgSunken, fontFamily: fonts.semibold, fontSize: 15, letterSpacing: 1, color: colors.text },
-  bar: { backgroundColor: colors.surface, paddingTop: space.md, borderTopWidth: hair, borderTopColor: colors.border },
+  bar: { backgroundColor: colors.surface, paddingTop: space.lg, borderTopLeftRadius: 26, borderTopRightRadius: 26, shadowColor: '#111018', shadowOpacity: 0.1, shadowRadius: 18, shadowOffset: { width: 0, height: -4 }, elevation: 12 },
 });

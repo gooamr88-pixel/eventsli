@@ -72,10 +72,27 @@ async function listEvents(req, res, next, { phraseSearch = false } = {}) {
     // table. Flipped here unless the caller asked for an order explicitly.
     const ascending = req.query.order ? p.order === 'asc' : true;
 
-    let query = supabase
-      .from('events')
-      .select(SELECT, { count: 'exact' })
-      .eq('status', 'published');
+    /**
+     * The filters are STEPS, applied by `build` to a fresh query, so one
+     * listing can run as two queries with the same filters: upcoming, then
+     * completed (`?withPast=true`, the /events page since 2026-11-28).
+     */
+    const steps = [];
+    const step = (fn) => { steps.push(fn); };
+    const build = (opts = {}) => steps.reduce(
+      (q, fn) => fn(q),
+      supabase.from('events').select(SELECT, opts).eq('status', 'published'),
+    );
+    /**
+     * COMPLETED EVENTS STAY ON /events (owner, 2026-11-28): "keep completed
+     * events visible instead of hiding them". Upcoming first, soonest first;
+     * then the completed ones, most recently finished first — never a
+     * three-year-old event above tonight's. Not with "Tickets on sale" (a
+     * finished event sells nothing) nor for saved slugs (they say
+     * `includePast` themselves).
+     */
+    const pastToo = req.query.withPast === 'true' && req.query.includePast !== 'true'
+      && req.query.onSale !== 'true' && !req.query.slugs;
 
     /**
      * PRIVATE EVENTS ON THE LISTINGS, BLURRED (owner, 2026-11-23): "the point
@@ -99,12 +116,13 @@ async function listEvents(req, res, next, { phraseSearch = false } = {}) {
     const withPrivate = req.query.withPrivate === 'true'
       && !PRIVATE_REVEALING_FILTERS.some((key) => req.query[key] !== undefined && req.query[key] !== '');
     // Asked for, and safe to: public and private alike. Otherwise public only.
-    if (!withPrivate) query = query.eq('is_private', false);
+    if (!withPrivate) step((q) => q.eq('is_private', false));
 
-    if (req.query.includePast !== 'true') {
+    if (req.query.includePast !== 'true' && !pastToo) {
       // Measured on the END, not the start: an event that began an hour ago is
       // still happening and should still be findable.
-      query = query.gte('ends_at', new Date().toISOString());
+      const now = new Date().toISOString();
+      step((q) => q.gte('ends_at', now));
     }
     /**
      * SAVED EVENTS — the slugs a browser is holding, resolved in one request.
@@ -136,7 +154,7 @@ async function listEvents(req, res, next, { phraseSearch = false } = {}) {
       // `buildMeta` rather than a hand-written object, so an empty answer has
       // the same envelope as a full one and no client needs a special case.
       if (slugs.length === 0) return sendOk(res, [], { pagination: buildMeta(p, 0) });
-      query = query.in('slug', slugs);
+      step((q) => q.in('slug', slugs));
     }
 
     /**
@@ -147,9 +165,9 @@ async function listEvents(req, res, next, { phraseSearch = false } = {}) {
      * card already says "Sold out" on its own.
      */
     // A "coming soon" teaser is not on sale yet either (owner, 2026-11-17).
-    if (req.query.onSale === 'true') query = query.eq('listing_type', 'ticketed').eq('coming_soon', false);
+    if (req.query.onSale === 'true') step((q) => q.eq('listing_type', 'ticketed').eq('coming_soon', false));
 
-    if (req.query.country) query = query.eq('country', String(req.query.country).toUpperCase());
+    if (req.query.country) step((q) => q.eq('country', String(req.query.country).toUpperCase()));
     /**
      * City, case-insensitively and exactly.
      *
@@ -167,15 +185,15 @@ async function listEvents(req, res, next, { phraseSearch = false } = {}) {
       // "City and address" (owner, 2026-11-19): the same exact city match, OR
       // a street address containing the words, so "Polson St" finds the venue.
       // A teaser's address is not public yet, so it matches by city only.
-      if (safeCity) query = query.or(`city.ilike.${safeCity},and(coming_soon.eq.false,venue_address.ilike.%${safeCity}%)`);
+      if (safeCity) step((q) => q.or(`city.ilike.${safeCity},and(coming_soon.eq.false,venue_address.ilike.%${safeCity}%)`));
     }
-    if (req.query.from) query = query.gte('starts_at', new Date(req.query.from).toISOString());
-    if (req.query.to) query = query.lte('starts_at', new Date(req.query.to).toISOString());
+    if (req.query.from) step((q) => q.gte('starts_at', new Date(req.query.from).toISOString()));
+    if (req.query.to) step((q) => q.lte('starts_at', new Date(req.query.to).toISOString()));
 
     // Validated in publicRoutes against the same list the enum was built from,
     // so an unknown value is a 400 naming the categories rather than a Postgres
     // cast error surfacing as a 500 on a public endpoint.
-    if (req.query.category) query = query.eq('category', req.query.category);
+    if (req.query.category) step((q) => q.eq('category', req.query.category));
 
     /**
      * `?maxPrice=` (cents): events with at least one ticket type a buyer can
@@ -196,7 +214,7 @@ async function listEvents(req, res, next, { phraseSearch = false } = {}) {
       const ids = [...new Set((cheap || []).map((t) => t.event_id))];
       if (ids.length === 0) return sendOk(res, [], { pagination: buildMeta(p, 0) });
       // A teaser has no announced price, so it answers no price question.
-      query = query.in('id', ids).eq('coming_soon', false);
+      step((q) => q.in('id', ids).eq('coming_soon', false));
     }
 
     if (p.q) {
@@ -218,7 +236,7 @@ async function listEvents(req, res, next, { phraseSearch = false } = {}) {
         const filter = phraseSearch
           ? `title.ilike.%${safe}%,venue_name.ilike.%${safe}%${byCategory}`
           : textFilter(safe, matched);
-        if (filter) query = query.or(filter);
+        if (filter) step((q) => q.or(filter));
       }
     }
 
@@ -230,12 +248,12 @@ async function listEvents(req, res, next, { phraseSearch = false } = {}) {
      * 'ticketed' sorts after 'display_only', hence descending.
      */
     if (req.query.ticketedFirst === 'true') {
-      query = query.order('listing_type', { ascending: false }).order('coming_soon', { ascending: true });
+      step((q) => q.order('listing_type', { ascending: false }).order('coming_soon', { ascending: true }));
     }
 
-    const { data, error, count } = await query
-      .order(p.sort, { ascending })
-      .range(p.from, p.to);
+    const { data, error, count } = pastToo
+      ? await upcomingThenCompleted(build, p)
+      : await build({ count: 'exact' }).order(p.sort, { ascending }).range(p.from, p.to);
     if (error && p.q && !phraseSearch) {
       // The word-by-word filter nests and/or; should the database API ever
       // refuse that form, search falls back to the old whole-phrase match
@@ -248,16 +266,113 @@ async function listEvents(req, res, next, { phraseSearch = false } = {}) {
     const rows = data || [];
     // A private row's prices and seats are details behind its password.
     const open = rows.filter((e) => e.is_private !== true);
-    const [fromPrices, avail] = await Promise.all([lowestTierPrices(open), listingAvailability(open)]);
+    const [fromPrices, avail, partners] = await Promise.all([
+      lowestTierPrices(open),
+      listingAvailability(open),
+      // The sponsors and vendors under each /events card (2026-11-28). Asked
+      // for by that page only: the homepage's cards have no room for them.
+      req.query.withPartners === 'true' ? listingPartners(open) : null,
+    ]);
 
     return sendOk(
       res,
       rows.map((e) => (e.is_private === true
         ? lockedListing(e)
-        : { ...shape(e), fromPriceCents: fromPrices.get(e.id) ?? null, availability: avail.get(e.id) ?? null })),
+        : {
+          ...shape(e),
+          fromPriceCents: fromPrices.get(e.id) ?? null,
+          availability: avail.get(e.id) ?? null,
+          ...(partners ? { partners: partners.get(e.id) || EMPTY_PARTNERS } : {}),
+        })),
       { pagination: buildMeta(p, count) },
     );
   } catch (err) { return next(err); }
+}
+
+/**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * The sponsors and vendors of each event on a listing page (owner,
+ * 2026-11-28: "display event vendors and sponsors beneath their event
+ * cards"). Exactly what each event page already shows in public:
+ *
+ *   sponsors   event_sponsors — hand-added logos and signed sponsorship deals
+ *              (a deal publishes into this table), headline level first
+ *   vendors    vendor_applications confirmed, paid and listed by the organizer
+ *
+ * TWO queries for the whole page, not two per card. A card shows a few
+ * logos and "+N", so each event keeps its first PER_CARD and the counts.
+ * Fail-soft like the prices: a database without the vendor tables, or any
+ * error, costs the strip and never the listing. Private events are never
+ * asked about (their partners are behind the password).
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+const PER_CARD = 6;
+const EMPTY_PARTNERS = Object.freeze({ sponsors: [], sponsorCount: 0, vendors: [], vendorCount: 0 });
+
+async function listingPartners(events) {
+  const out = new Map();
+  const ids = events.map((e) => e.id);
+  if (!ids.length) return out;
+  const entry = (id) => {
+    if (!out.has(id)) out.set(id, { sponsors: [], sponsorCount: 0, vendors: [], vendorCount: 0 });
+    return out.get(id);
+  };
+  const [sponsors, vendors] = await Promise.all([
+    supabase.from('event_sponsors').select('event_id, name, logo_url, level, sort_order')
+      .in('event_id', ids).order('level').order('sort_order').limit(1500)
+      .then(({ data, error }) => (error ? [] : data || []), () => []),
+    supabase.from('vendor_applications').select('event_id, business_name, category, logo_url')
+      .in('event_id', ids).eq('stage', 'confirmed').eq('listed', true).not('paid_at', 'is', null)
+      .order('business_name').limit(1500)
+      .then(({ data, error }) => (error ? [] : data || []), () => []),
+  ]);
+  for (const r of sponsors) {
+    const e = entry(r.event_id);
+    e.sponsorCount += 1;
+    if (e.sponsors.length < PER_CARD) e.sponsors.push({ name: r.name, logoUrl: r.logo_url || null, level: r.level || 'partner' });
+  }
+  for (const r of vendors) {
+    const e = entry(r.event_id);
+    e.vendorCount += 1;
+    if (e.vendors.length < PER_CARD) e.vendors.push({ name: r.business_name, logoUrl: r.logo_url || null, category: r.category || null });
+  }
+  return out;
+}
+
+/**
+ * One page of "upcoming, then completed" (2026-11-28). Both halves are
+ * counted first, so a page is cut from the right half — or straddles the
+ * seam — and the total covers both. A range past the end of a half is never
+ * asked for (PostgREST answers that with an error, not an empty page).
+ */
+async function upcomingThenCompleted(build, p) {
+  const now = new Date().toISOString();
+  const [up, done] = await Promise.all([
+    build({ count: 'exact', head: true }).gte('ends_at', now),
+    build({ count: 'exact', head: true }).lt('ends_at', now),
+  ]);
+  if (up.error) return up;
+  if (done.error) return done;
+  const upCount = up.count || 0;
+  const doneCount = done.count || 0;
+  const size = p.to - p.from + 1;
+  const rows = [];
+
+  if (p.from < upCount) {
+    const r = await build().gte('ends_at', now).order('starts_at', { ascending: true })
+      .range(p.from, Math.min(p.to, upCount - 1));
+    if (r.error) return r;
+    rows.push(...(r.data || []));
+  }
+  const need = size - rows.length;
+  const from = Math.max(0, p.from - upCount);
+  if (need > 0 && from < doneCount) {
+    const r = await build().lt('ends_at', now).order('ends_at', { ascending: false })
+      .range(from, Math.min(from + need - 1, doneCount - 1));
+    if (r.error) return r;
+    rows.push(...(r.data || []));
+  }
+  return { data: rows, error: null, count: upCount + doneCount };
 }
 
 /**
@@ -700,4 +815,6 @@ function shape(e) {
 
 // SELECT, shape and lowestTierPrices are shared with "near you"
 // (landingController.eventsNear), so a nearby card is the same card as a listed one.
-module.exports = { listEvents, eventBySlug, SELECT, shape, lockedListing, lowestTierPrices, listingAvailability };
+module.exports = {
+  listEvents, eventBySlug, SELECT, shape, lockedListing, lowestTierPrices, listingAvailability, listingPartners, upcomingThenCompleted,
+};

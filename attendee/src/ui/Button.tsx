@@ -72,17 +72,17 @@ const PALETTE: Record<Variant, { bg: string; fg: string; border: string }> = {
   soft: { bg: colors.bgSunken, fg: colors.text, border: colors.bgSunken },
 };
 
-/** Rounded rectangles, as on the mockup — not pills. */
+/** PILLS, as the owner's Home draws its buttons ("Get Tickets", 2026-11-28). */
 const styles = StyleSheet.create({
   base: {
     minHeight: 52,
-    borderRadius: 14,
+    borderRadius: 999,
     borderWidth: 1.5,
     paddingHorizontal: space.xl,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  small: { minHeight: 42, borderRadius: 12, paddingHorizontal: space.lg },
+  small: { minHeight: 42, borderRadius: 999, paddingHorizontal: space.lg },
   off: { opacity: 0.45 },
   row: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
 });

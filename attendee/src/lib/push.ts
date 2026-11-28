@@ -74,15 +74,41 @@ function open(data: PushData) {
   router.push('/notifications');
 }
 
+/**
+ * Each tap is acted on once: the launch check below and the live listener
+ * can both see the tap that started the app.
+ */
+const handled = new Set<string>();
+function openOnce(response: Notifications.NotificationResponse) {
+  const id = response.notification.request.identifier;
+  if (handled.has(id)) return;
+  handled.add(id);
+  open((response.notification.request.content.data || {}) as PushData);
+}
+
+/**
+ * A tap that STARTED the app (2026-11-27). The listener below only hears taps
+ * while the app is running, so a tap on "Your tickets are ready" with the app
+ * closed used to open Home. Call once the navigator is on screen.
+ */
+export function openLaunchNotification() {
+  try {
+    const last = Notifications.getLastNotificationResponse();
+    if (!last) return;
+    Notifications.clearLastNotificationResponse();
+    openOnce(last);
+  } catch {
+    // A build without the notifications module: nothing to open.
+  }
+}
+
 /** Call once from the root layout. Returns the cleanup. */
 export function listenForPush(): () => void {
   const received = Notifications.addNotificationReceivedListener(() => {
     void queryClient.invalidateQueries({ queryKey: ['notifications'] });
     void queryClient.invalidateQueries({ queryKey: ['tickets'] });
   });
-  const tapped = Notifications.addNotificationResponseReceivedListener((response) => {
-    open((response.notification.request.content.data || {}) as PushData);
-  });
+  const tapped = Notifications.addNotificationResponseReceivedListener(openOnce);
   return () => {
     received.remove();
     tapped.remove();

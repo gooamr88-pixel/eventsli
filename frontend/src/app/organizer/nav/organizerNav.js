@@ -124,6 +124,9 @@ export function organizerNavGroups({
       { key: 'events', label: 'Your events', icon: 'calendar', href: '/organizer/events' },
       // Event templates (2026-11-19): theirs and Eventsli's.
       { key: 'templates', label: 'Templates', icon: 'copy', href: '/organizer/templates' },
+      // VIP Services (2026-11-28): the Eventsli team runs part of the event,
+      // planned with the organizer on WhatsApp.
+      { key: 'vip', label: 'VIP Services', icon: 'crown', href: '/organizer/vip' },
       /**
        * ─────────────────────────────────────────────────────────────────────
        * "CREATE EVENT" IS NOT HERE, AND THIS IS WHERE IT WAS.

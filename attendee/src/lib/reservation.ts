@@ -13,6 +13,12 @@ import type { Hold } from '../api/types';
  */
 type Current = Hold & { slug: string; eventTitle: string };
 
+/**
+ * How long checkout waits for the order after Stripe: 10 checks, 2 s apart
+ * (the webhook is usually seconds behind). A setting, so tests can shorten it.
+ */
+export const resultPolling = { tries: 10, gapMs: 2000 };
+
 type State = {
   current: Current | null;
   /** The checkout session started for it, to read the result after Stripe. */

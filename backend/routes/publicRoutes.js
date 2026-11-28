@@ -60,6 +60,9 @@ router.get(
   query('from').optional().isISO8601(),
   query('to').optional().isISO8601(),
   query('includePast').optional().isIn(['true', 'false']),
+  // /events (2026-11-28): completed events after upcoming ones; sponsors and vendors per card.
+  query('withPast').optional().isIn(['true', 'false']),
+  query('withPartners').optional().isIn(['true', 'false']),
   // "Tickets on sale" (owner, 2026-11-15): only events sold here, never a
   // display-only listing.
   query('onSale').optional().isIn(['true', 'false']),

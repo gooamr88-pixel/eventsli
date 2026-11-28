@@ -103,6 +103,7 @@ if (process.env.NODE_ENV !== 'production' && stripeIntended) {
 
 // SMS configuration that would quietly misbehave in production. Warned, never fatal.
 for (const w of require('./services/sms/bootCheck').bootWarnings()) logger.warn(`SMS: ${w}`);
+for (const w of require('./services/whatsapp/config').bootWarnings()) logger.warn(w);
 
 const app = express();
 
@@ -145,7 +146,9 @@ app.use(cookieParser());
 app.use(express.json({
   limit: '2mb',
   verify: (req, res, buf) => {
-    if (req.originalUrl && req.originalUrl.startsWith('/api/v1/payments/webhook')) {
+    if (req.originalUrl && (req.originalUrl.startsWith('/api/v1/payments/webhook')
+      // Meta signs the raw bytes of a WhatsApp webhook the same way.
+      || req.originalUrl.startsWith('/api/v1/webhooks/whatsapp'))) {
       req.rawBody = buf;
     }
   },
@@ -200,7 +203,9 @@ const isStripeWebhook = (req) => (req.originalUrl || '').startsWith('/api/v1/pay
 // SMS provider callbacks: authenticated per request (signature or per-message
 // token), and a busy campaign produces one receipt per message from a handful
 // of provider IPs. See routes/smsRoutes.js.
-const isSmsWebhook = (req) => (req.originalUrl || '').startsWith('/api/v1/sms/webhooks/');
+const isSmsWebhook = (req) => (req.originalUrl || '').startsWith('/api/v1/sms/webhooks/')
+  // WhatsApp (2026-11-28): signed by Meta, one call per message and receipt.
+  || (req.originalUrl || '').startsWith('/api/v1/webhooks/whatsapp');
 
 // The door's scans are device-authenticated and share one venue IP. They get a
 // per-device limit in routes/scanRoutes.js instead — see utils/gateRoutes.js.
@@ -228,6 +233,11 @@ app.use('/api/v1', require('./routes/healthRoutes'));
 app.use('/api/v1/auth', require('./routes/authRoutes'));
 // Organizer SMS campaigns: mounted before the organizer router so its paths win.
 app.use('/api/v1/organizer/sms', require('./routes/organizerSmsRoutes'));
+// VIP Services with WhatsApp (2026-11-28): the organizer's requests, and
+// Meta's signed webhook — routes/vipRoutes.js.
+const vipRoutes = require('./routes/vipRoutes');
+app.use('/api/v1/organizer/vip', vipRoutes.organizer);
+app.use('/api/v1/webhooks', vipRoutes.webhooks);
 app.use('/api/v1/organizer', require('./routes/organizerRoutes'));
 // Sponsorships (2026-11-20): the organizer's pipeline, the sponsor portal and
 // the public "Become a sponsor" page — routes/sponsorshipRoutes.js.

@@ -3,22 +3,27 @@ import { DMSans_500Medium } from '@expo-google-fonts/dm-sans/500Medium';
 import { DMSans_600SemiBold } from '@expo-google-fonts/dm-sans/600SemiBold';
 import { DMSans_700Bold } from '@expo-google-fonts/dm-sans/700Bold';
 import { Urbanist_700Bold } from '@expo-google-fonts/urbanist/700Bold';
+import { Urbanist_800ExtraBold } from '@expo-google-fonts/urbanist/800ExtraBold';
 import { Urbanist_900Black } from '@expo-google-fonts/urbanist/900Black';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { useFonts } from 'expo-font';
 import { Stack, type ErrorBoundaryProps } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { useSession } from '@/auth/session';
+import { renderDemoHold, renderDemoMode } from '@/dev/renderDemo';
+import { useReservation } from '@/lib/reservation';
 import { lockLeftToRight } from '@/lib/ltr';
-import { listenForPush, registerForPush } from '@/lib/push';
+import { lockPhonesToPortrait } from '@/lib/orientation';
+import { listenForPush, openLaunchNotification, registerForPush } from '@/lib/push';
 import { queryClient } from '@/lib/queryClient';
 import { Button } from '@/ui/Button';
+import { LaunchSplash } from '@/ui/LaunchSplash';
 import { Logo } from '@/ui/Logo';
 import { Text } from '@/ui/Text';
 import { colors, space } from '@/ui/theme';
@@ -26,6 +31,8 @@ import { colors, space } from '@/ui/theme';
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
 // English, left to right, even on an Arabic phone (lib/ltr.ts).
 lockLeftToRight();
+// Phones upright, tablets free to turn (lib/orientation.ts).
+lockPhonesToPortrait();
 
 /**
  * The app's frame: fonts, the stored session, push, and the routes each state
@@ -44,21 +51,31 @@ lockLeftToRight();
  */
 export default function RootLayout() {
   const [fontsReady, fontError] = useFonts({
-    DMSans_400Regular, DMSans_500Medium, DMSans_600SemiBold, DMSans_700Bold, Urbanist_700Bold, Urbanist_900Black,
+    DMSans_400Regular, DMSans_500Medium, DMSans_600SemiBold, DMSans_700Bold, Urbanist_700Bold, Urbanist_800ExtraBold, Urbanist_900Black,
   });
   const fontsLoaded = fontsReady || Boolean(fontError);
   const hydrated = useSession((s) => s.hydrated);
   const account = useSession((s) => s.account);
   const onboarded = useSession((s) => s.onboarded);
+  // The mockup's launch frame, once per launch, over the first screen (ui/LaunchSplash.tsx).
+  const [splash, setSplash] = useState(true);
+  const endSplash = useCallback(() => setSplash(false), []);
 
   useEffect(() => {
     void useSession.getState().hydrate();
+    // The Checkout frame's hold, in a development web render only (dev/renderDemo.ts).
+    const demoHold = renderDemoHold();
+    if (demoHold) useReservation.getState().start(demoHold);
     return listenForPush();
   }, []);
 
+  const ready = fontsLoaded && hydrated;
   useEffect(() => {
-    if (fontsLoaded && hydrated) SplashScreen.hideAsync().catch(() => undefined);
-  }, [fontsLoaded, hydrated]);
+    if (!ready) return;
+    SplashScreen.hideAsync().catch(() => undefined);
+    // The stack is on screen now, so a tap that launched the app can navigate.
+    openLaunchNotification();
+  }, [ready]);
 
   // Ask for push once there is an account to send it to.
   const token = account?.token;
@@ -95,6 +112,7 @@ export default function RootLayout() {
             <Stack.Screen name="settings" />
             <Stack.Screen name="city" options={{ presentation: 'modal' }} />
           </Stack>
+          {splash ? <LaunchSplash onDone={endSplash} hold={renderDemoMode() === 'splash'} /> : null}
         </SafeAreaProvider>
       </QueryClientProvider>
     </GestureHandlerRootView>

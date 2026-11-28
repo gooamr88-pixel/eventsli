@@ -36,6 +36,8 @@ export function adminNavGroups() {
       label: 'Sales',
       items: [
         { key: 'demo', label: 'Demo bookings', icon: 'calendarPlus', href: '/admin/demo' },
+        // VIP Services with WhatsApp (2026-11-28): requests, the inbox, settings.
+        { key: 'vip', label: 'VIP Services', icon: 'crown', href: '/admin/vip' },
       ],
     },
     {

@@ -51,7 +51,10 @@ export default function TierDetailsDialog({
   const ranged = rangeKnown && priceRange.min !== priceRange.max;
   const price = rangeKnown && !ranged ? Number(priceRange.min) : Number(tier.priceCents ?? 0);
   const free = !ranged && price === 0;
-  const badge = KIND_BADGE[tier.kind] || null;
+  // No chip that only repeats the name: a type called "VIP" read "VIP / VIP".
+  const kindBadge = KIND_BADGE[tier.kind] || null;
+  const badge = kindBadge && kindBadge[1].toLowerCase() !== String(tier.name || '').trim().toLowerCase() ? kindBadge : null;
+  const photo = Boolean(d.image?.url);
   const canBuy = !unavailable && max > 0;
   const total = free ? 'Free' : ranged ? null : formatMoney(price * qty, currency);
   const titleId = `tdx-title-${tier.id}`;
@@ -63,8 +66,11 @@ export default function TierDetailsDialog({
   return createPortal(
     <div className="es-backdrop" role="presentation" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={titleId} className="es-tdx" tabIndex={-1}>
-        <header className={`es-tdx__hero ${d.image?.url ? 'has-photo' : ''}`}>
-          {d.image?.url && (
+        {/* With a photo, a short banner. Without one, a plain title row: the
+            tall red block said nothing but the name, twice, and pushed what
+            is included half-way down the card (owner, 2026-11-28). */}
+        <header className={`es-tdx__hero ${photo ? 'has-photo' : 'is-plain'}`}>
+          {photo && (
             // A plain <img>: the URL is the organizer's storage object, already
             // sized at upload, and next/image would need its host configured.
             // eslint-disable-next-line @next/next/no-img-element

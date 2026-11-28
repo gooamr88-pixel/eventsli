@@ -78,6 +78,16 @@ export function withQuery(path: string, query?: Query): string {
   return qs ? `${path}${path.includes('?') ? '&' : '?'}${qs}` : path;
 }
 
+/**
+ * Who hears that the server refused a session (auth/session.ts signs the
+ * phone out). A setter, not an import, so this module stays free of the
+ * session store that imports it.
+ */
+let authLost: ((token: string) => void) | null = null;
+export function onAuthLost(fn: ((token: string) => void) | null) {
+  authLost = fn;
+}
+
 /** The whole envelope, for calls that read `pagination` or `meta`. */
 export async function request<T>(path: string, opts: RequestOptions = {}): Promise<Envelope<T>> {
   const { method = 'GET', body, token, reservationToken, query, timeoutMs = 15000 } = opts;
@@ -115,6 +125,10 @@ export async function request<T>(path: string, opts: RequestOptions = {}): Promi
   }
 
   if (!res.ok || !json || json.success !== true) {
+    // A session the server no longer accepts (revoked from the web, expired,
+    // account gone). Only when a session was SENT: a wrong password at
+    // sign-in is a 401 too, and that is not "you were signed out".
+    if (res.status === 401 && token) authLost?.(token);
     throw new ApiError(
       res.status,
       json?.error || (res.status >= 500 ? 'SERVER_ERROR' : 'ERROR'),

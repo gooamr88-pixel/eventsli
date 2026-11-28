@@ -49,8 +49,8 @@ export function Header({ title, subtitle, back = true, backIcon = 'back', right,
               icon={backIcon === 'close' ? 'close' : 'chevronLeft'}
               label={backIcon === 'close' ? 'Close' : 'Back'}
               onPress={goBack}
-              size={26}
-              variant={transparent ? 'glass' : 'plain'}
+              size={24}
+              variant={transparent ? 'glass' : 'float'}
             />
           ) : null}
         </View>
@@ -80,8 +80,8 @@ type IconButtonProps = {
   onPress: () => void;
   color?: string;
   filled?: string;
-  /** plain: bare; soft: a grey disc; glass: a dark disc over a photo; outline: a white disc. */
-  variant?: 'plain' | 'soft' | 'glass' | 'outline';
+  /** plain: bare; soft: a grey disc; glass: a dark disc over a photo; outline: a white disc; float: a white disc with a soft shadow (the owner's Home bell). */
+  variant?: 'plain' | 'soft' | 'glass' | 'outline' | 'float';
   size?: number;
   disabled?: boolean;
 };
@@ -101,6 +101,7 @@ export function IconButton({ icon, label, onPress, color, filled, variant = 'pla
         variant === 'soft' && styles.iconSoft,
         variant === 'glass' && styles.iconGlass,
         variant === 'outline' && styles.iconOutline,
+        variant === 'float' && styles.iconFloat,
         pressed && (variant === 'glass' ? styles.iconGlassPressed : styles.iconPressed),
         disabled && styles.off,
       ]}
@@ -113,36 +114,61 @@ export function IconButton({ icon, label, onPress, color, filled, variant = 'pla
 // ─── Section title ──────────────────────────────────────────────────────────
 
 /** "Explore Categories          See all →" */
-export function Section({ title, action, onAction, style }: { title: string; action?: string; onAction?: () => void; style?: ViewStyle }) {
+/**
+ * A section's heading. As the website (2026-11-28): with a 'kicker', the
+ * coral "— NEAR YOU" line above a big Urbanist heading; with 'bar', a coral
+ * bar before the heading ("| Popular Events Near You"). The action is coral.
+ */
+export function Section({ title, action, onAction, style, kicker, bar = false }: {
+  title: string; action?: string; onAction?: () => void; style?: ViewStyle; kicker?: string; bar?: boolean;
+}) {
   return (
-    <View style={[styles.section, style]}>
-      <Text variant="title" accessibilityRole="header" style={{ flex: 1 }} numberOfLines={1}>{title}</Text>
-      {action && onAction ? (
-        <Pressable accessibilityRole="link" onPress={onAction} hitSlop={10} style={styles.sectionAction}>
-          <Text variant="small" weight="bold">{action}</Text>
-          <Icon name="arrow" size={16} strokeWidth={2.2} />
-        </Pressable>
+    <View style={[styles.sectionWrap, style]}>
+      {kicker ? (
+        <View style={styles.kicker}>
+          <View style={styles.kickerDash} />
+          <Text variant="overline" color={colors.accent}>{kicker.toUpperCase()}</Text>
+        </View>
       ) : null}
+      <View style={styles.section}>
+        {bar ? <View style={styles.sectionBar} /> : null}
+        <Text variant={kicker || bar ? 'heading' : 'title'} accessibilityRole="header" style={{ flex: 1 }} numberOfLines={2}>{title}</Text>
+        {action && onAction ? (
+          <Pressable accessibilityRole="link" onPress={onAction} hitSlop={10} style={styles.sectionAction}>
+            <Text variant="small" weight="bold" color={colors.accent}>{action}</Text>
+            <Icon name="arrow" size={16} color={colors.accent} strokeWidth={2.2} />
+          </Pressable>
+        ) : null}
+      </View>
     </View>
   );
 }
 
 // ─── Chip ───────────────────────────────────────────────────────────────────
 
-/** The mockup's filter chips: coral when chosen, soft grey when not — no outline. */
-export function Chip({ label, active, onPress, icon, dot }: {
+/**
+ * The website's chips (2026-11-28): white with a hairline when not chosen;
+ * chosen, coral — or yellow with dark words (tone 'highlight', the site's
+ * "All Events"). 'outline' is the coral-outlined "Near me"; 'count' is the
+ * grey number pill ("Mississauga 2").
+ */
+export function Chip({ label, active, onPress, icon, dot, tone = 'accent', outline = false, count }: {
   label: string; active: boolean; onPress: () => void; icon?: IconName; dot?: string;
+  tone?: 'accent' | 'highlight'; outline?: boolean; count?: number;
 }) {
+  const on = tone === 'highlight' ? styles.chipOnHighlight : styles.chipOn;
+  const ink = active ? (tone === 'highlight' ? colors.onHighlight : colors.onAccent) : outline ? colors.accent : colors.text;
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityState={{ selected: active }}
       onPress={() => { haptic.select(); onPress(); }}
-      style={({ pressed }) => [styles.chip, active ? styles.chipOn : styles.chipOff, pressed && !active && { opacity: 0.7 }]}
+      style={({ pressed }) => [styles.chip, active ? on : outline ? styles.chipOutline : styles.chipOff, pressed && !active && { opacity: 0.7 }]}
     >
       {dot ? <View style={[styles.chipDot, { backgroundColor: dot }]} /> : null}
-      {icon ? <Icon name={icon} size={15} color={active ? colors.onAccent : colors.text} /> : null}
-      <Text variant="small" weight="semibold" color={active ? colors.onAccent : colors.text}>{label}</Text>
+      {icon ? <Icon name={icon} size={15} color={ink} /> : null}
+      <Text variant="small" weight="semibold" color={ink}>{label}</Text>
+      {count !== undefined ? <View style={styles.chipCount}><Text variant="caption" weight="semibold" color={colors.muted}>{count}</Text></View> : null}
     </Pressable>
   );
 }
@@ -238,7 +264,7 @@ export function Segmented<T extends string>({ options, value, onChange, style }:
 
 // ─── Lists of rows (Settings, Profile) ──────────────────────────────────────
 
-/** Rows separated by hairlines, on white — no box around them. */
+/** Rows on white with air between them, as the mockup's Profile and Settings: no box, no lines (2026-11-28). */
 export function ListGroup({ children, title, style }: { children: ReactNode; title?: string; style?: ViewStyle }) {
   const rows = Children.toArray(children).filter(isValidElement);
   return (
@@ -246,7 +272,6 @@ export function ListGroup({ children, title, style }: { children: ReactNode; tit
       {title ? <Text variant="overline" color={colors.muted} style={styles.groupTitle}>{title.toUpperCase()}</Text> : null}
       {rows.map((row, i) => (
         <Fragment key={row.key ?? i}>
-          {i > 0 ? <View style={styles.rule} /> : null}
           {row}
         </Fragment>
       ))}
@@ -261,9 +286,9 @@ export function ListRow({ icon, label, detail, sub, onPress, right, danger = fal
   const ink = danger ? colors.accent : colors.text;
   const body = (
     <>
-      <Icon name={icon} size={22} color={ink} />
+      <Icon name={icon} size={24} color={ink} />
       <View style={{ flex: 1 }}>
-        <Text variant="label" weight="medium" color={ink} numberOfLines={1}>{label}</Text>
+        <Text variant="label" weight="semibold" color={ink} numberOfLines={1} style={styles.rowLabel}>{label}</Text>
         {sub ? <Text variant="caption" color={colors.muted} numberOfLines={1}>{sub}</Text> : null}
       </View>
       {detail ? <Text variant="small" color={colors.muted} numberOfLines={1} style={styles.rowDetail}>{detail}</Text> : null}
@@ -341,7 +366,7 @@ export function Empty({ icon, title, body, action, onAction, secondary, onSecond
 
 // ─── Card ───────────────────────────────────────────────────────────────────
 
-/** A soft grey panel, used sparingly (the checkout's summary). */
+/** A soft white card with a gentle shadow — the owner's Home ("Never Miss an Event!", 2026-11-28). */
 export function Card({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
   return <View style={[styles.card, style]}>{children}</View>;
 }
@@ -356,7 +381,9 @@ const styles = StyleSheet.create({
   headerSolid: { backgroundColor: colors.surface },
   headerClear: { position: 'absolute', left: 0, right: 0, top: 0 },
   headerBorder: { borderBottomWidth: 1, borderBottomColor: colors.border },
-  headerRow: { flexDirection: 'row', alignItems: 'center', minHeight: 48 },
+  headerRow: { flexDirection: 'row', alignItems: 'center', minHeight: 56 },
+  iconFloat: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.white, shadowColor: '#111018', shadowOpacity: 0.1, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 3 },
+  card: { padding: space.lg, borderRadius: 22, backgroundColor: colors.white, shadowColor: '#111018', shadowOpacity: 0.07, shadowRadius: 14, shadowOffset: { width: 0, height: 4 }, elevation: 3 },
   headerTitle: { flex: 1, alignItems: 'center', paddingHorizontal: space.xs },
   side: { width: 72, flexDirection: 'row', alignItems: 'center' },
   sideRight: { justifyContent: 'flex-end', gap: 2 },
@@ -369,12 +396,20 @@ const styles = StyleSheet.create({
   iconPressed: { backgroundColor: colors.bgSunken },
   iconGlassPressed: { backgroundColor: 'rgba(17,16,24,0.6)' },
 
-  section: { flexDirection: 'row', alignItems: 'center', gap: space.md, marginBottom: space.md },
+  sectionWrap: { marginBottom: space.md, gap: 6 },
+  section: { flexDirection: 'row', alignItems: 'center', gap: space.md },
+  // The owner's Home (2026-11-28): a yellow bar before a section's heading.
+  sectionBar: { width: 5, alignSelf: 'stretch', borderRadius: 3, backgroundColor: colors.highlight },
+  kicker: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  kickerDash: { width: 16, height: 2, borderRadius: 1, backgroundColor: colors.accent },
   sectionAction: { flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 32 },
 
   chip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: space.lg, minHeight: 36, borderRadius: radius.pill },
   chipOn: { backgroundColor: colors.accent },
-  chipOff: { backgroundColor: colors.bgSunken },
+  chipOff: { backgroundColor: colors.white, borderWidth: 1, borderColor: colors.border },
+  chipOnHighlight: { backgroundColor: colors.highlight },
+  chipOutline: { backgroundColor: colors.white, borderWidth: 1.5, borderColor: colors.accent },
+  chipCount: { minWidth: 22, paddingHorizontal: 6, paddingVertical: 1, borderRadius: 999, backgroundColor: colors.bgSunken, alignItems: 'center' },
   chipDot: { width: 10, height: 10, borderRadius: 5 },
 
   heart: { alignItems: 'center', justifyContent: 'center' },
@@ -395,6 +430,7 @@ const styles = StyleSheet.create({
   rule: { height: StyleSheet.hairlineWidth * 2, backgroundColor: colors.border, marginLeft: 38 },
   row: { flexDirection: 'row', alignItems: 'center', gap: space.lg, minHeight: 58, paddingVertical: space.sm },
   rowDetail: { maxWidth: 170 },
+  rowLabel: { fontSize: 16 },
 
   badge: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill },
 
@@ -403,5 +439,4 @@ const styles = StyleSheet.create({
   stateButton: { alignSelf: 'stretch', maxWidth: 360, width: '100%', marginTop: space.sm },
   emptyIcon: { width: 76, height: 76, borderRadius: 38, backgroundColor: colors.coral50, alignItems: 'center', justifyContent: 'center', marginBottom: space.xs },
 
-  card: { backgroundColor: colors.bgSunken, borderRadius: radius.lg, padding: space.lg },
 });

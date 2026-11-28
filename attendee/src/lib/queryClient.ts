@@ -14,3 +14,8 @@ export const queryClient = new QueryClient({
     queries: { retry: 1, staleTime: 5 * 60_000, gcTime: 30 * 60_000, refetchOnWindowFocus: false },
   },
 });
+
+// My Tickets is seeded at launch from the copy on the phone (auth/session.ts)
+// before any screen watches it; a day, not half an hour, before it may be
+// dropped — the app can sit open at home long before it is needed at the door.
+queryClient.setQueryDefaults(['tickets'], { gcTime: 24 * 3_600_000 });

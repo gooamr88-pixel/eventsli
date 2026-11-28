@@ -9,14 +9,15 @@ import { messageFor } from '@/api/client';
 import { categories, eventsNear, listEvents } from '@/api/endpoints';
 import type { EventCard } from '@/api/types';
 import { useSession, useToken } from '@/auth/session';
+import { useCategoryCovers } from '@/hooks/useCategoryCovers';
 import { useSaved } from '@/hooks/useSaved';
 import { approximatePosition, distanceText, positionIfAllowed } from '@/lib/location';
 import { Chip, Empty, Failed, IconButton, ScreenTitle } from '@/ui/bits';
-import { Cover } from '@/ui/Cover';
+import { CategoryTile } from '@/ui/CategoryTile';
 import { EventPoster, EventRow } from '@/ui/EventCard';
 import { Icon } from '@/ui/Icon';
 import { Container, useLayout } from '@/ui/layout';
-import { Pressy, RowSkeleton, Skeleton } from '@/ui/motion';
+import { RowSkeleton, Skeleton } from '@/ui/motion';
 import { Text } from '@/ui/Text';
 import { colors, fonts, space } from '@/ui/theme';
 
@@ -65,6 +66,7 @@ export default function Explore() {
   }, [text]);
 
   const cats = useQuery({ queryKey: ['categories'], queryFn: categories, staleTime: 3_600_000 });
+  const covers = useCategoryCovers();
   const browsing = Boolean(category || q);
 
   const list = useInfiniteQuery({
@@ -120,24 +122,21 @@ export default function Explore() {
       </Container>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[styles.chips, { paddingHorizontal: gutter }]} style={{ flexGrow: 0 }}>
+        {/* As drawn: All, then the categories; Near me follows them. */}
         <Chip label="All" active={!near && !category} onPress={() => { setNear(null); setCategory(null); }} />
-        <Chip label="Near me" icon="locate" active={Boolean(near)} onPress={() => { void findNear(); }} />
         {(cats.data ?? []).map((c) => (
           <Chip key={c.slug} label={c.label} active={!near && category === c.slug} onPress={() => { setNear(null); setCategory(c.slug); }} />
         ))}
+        <Chip label="Near me" icon="locate" active={Boolean(near)} onPress={() => { void findNear(); }} />
       </ScrollView>
       {nearNote ? <Container><Text variant="small" color={colors.warning} style={{ marginBottom: space.sm }}>{nearNote}</Text></Container> : null}
 
       {!browsing && !near ? (
         <ScrollView contentContainerStyle={{ paddingBottom: space.xxl }} showsVerticalScrollIndicator={false}>
           <Container style={styles.tiles}>
-            {cats.isLoading ? [0, 1, 2, 3, 4, 5].map((i) => <Skeleton key={i} width={tileW} height={150} round={14} />)
-              : (cats.data ?? []).map((c) => (
-                <Pressy key={c.slug} accessibilityRole="button" accessibilityLabel={c.label} onPress={() => setCategory(c.slug)} scale={0.97} style={{ width: tileW }}>
-                  <Cover uri={c.imageUrl} title={c.label} scrim style={styles.tile} size={tileW}>
-                    <Text variant="title" color={colors.white} style={styles.tileLabel} numberOfLines={2}>{c.label}</Text>
-                  </Cover>
-                </Pressy>
+            {cats.isLoading ? [0, 1, 2, 3, 4, 5].map((i) => <Skeleton key={i} width={tileW} height={Math.round(tileW * 0.94)} round={16} />)
+              : (cats.data ?? []).map((c, i) => (
+                <CategoryTile key={c.slug} category={c} index={i} size="large" width={tileW} photo={covers.get(c.slug)} onPress={() => setCategory(c.slug)} />
               ))}
           </Container>
         </ScrollView>
@@ -183,7 +182,5 @@ const styles = StyleSheet.create({
   input: { flex: 1, fontFamily: fonts.regular, fontSize: 15, color: colors.text, paddingVertical: space.sm },
   chips: { gap: space.sm, paddingVertical: space.md },
   tiles: { flexDirection: 'row', flexWrap: 'wrap', gap: space.md, paddingTop: space.xs },
-  tile: { height: 150, borderRadius: 14 },
-  tileLabel: { position: 'absolute', left: space.md, right: space.md, bottom: space.md },
   list: { paddingBottom: space.xxl, flexGrow: 1 },
 });

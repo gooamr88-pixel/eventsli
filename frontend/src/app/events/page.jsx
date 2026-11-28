@@ -54,6 +54,10 @@ async function load(params) {
   // Blurred private events (owner, 2026-11-23). The API lists them only when
   // no filter could match a detail they hide (city, category, price, search).
   query.set('withPrivate', 'true');
+  // Completed events stay listed, after the upcoming ones (owner, 2026-11-28),
+  // and every card carries its sponsors and vendors.
+  query.set('withPast', 'true');
+  query.set('withPartners', 'true');
 
   try {
     const [body, categories] = await Promise.all([
@@ -211,6 +215,9 @@ export default async function EventsPage({ searchParams }) {
   }
 
   const filtered = Boolean(q || active || city || from || onSale);
+  // The API's own flag decides "completed" (its end has passed).
+  const upcoming = events.filter((e) => !e.isPast);
+  const completed = events.filter((e) => e.isPast);
   // The whole count when the API says it; a full page otherwise may not be everything.
   const total = Number.isFinite(pagination?.total) ? pagination.total : null;
   const count = total !== null ? String(total) : events.length >= PAGE_SIZE ? `${PAGE_SIZE}+` : String(events.length);
@@ -282,13 +289,42 @@ export default async function EventsPage({ searchParams }) {
 
           {events.length > 0 ? (
             <>
-              <ul className="es-evx__grid">
-                {events.map((event, i) => (
-                  <li key={event.id}>
-                    <EventGridCard event={event} priority={page === 1 && i < 3} />
-                  </li>
-                ))}
-              </ul>
+              {/* Upcoming first, then COMPLETED under their own heading (owner,
+                  2026-11-28): finished events stay on the page, after the
+                  ones a visitor can still go to. The API orders them so; a
+                  page may hold only one of the two. */}
+              {upcoming.length > 0 ? (
+                <ul className="es-evx__grid">
+                  {upcoming.map((event, i) => (
+                    <li key={event.id}>
+                      <EventGridCard event={event} priority={page === 1 && i < 3} />
+                    </li>
+                  ))}
+                </ul>
+              ) : page === 1 && (
+                <p className="es-evx__none-upcoming">
+                  <NavIcon name="calendar" size={18} />
+                  {filtered ? 'No upcoming events match those filters.' : 'No upcoming events just now.'} Here is what already took place.
+                </p>
+              )}
+              {completed.length > 0 && (
+                <section className="es-evx__done" aria-labelledby="evx-done-title">
+                  <div className="es-evx__done-head">
+                    <h2 id="evx-done-title" className="es-evx__done-title">
+                      <span className="es-evx__done-mark" aria-hidden="true"><NavIcon name="tick" size={14} /></span>
+                      Completed events
+                    </h2>
+                    <p className="es-evx__done-lede">They already took place, with the sponsors and vendors who made them happen.</p>
+                  </div>
+                  <ul className="es-evx__grid">
+                    {completed.map((event, i) => (
+                      <li key={event.id}>
+                        <EventGridCard event={event} priority={page === 1 && upcoming.length === 0 && i < 3} />
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              )}
               {(page > 1 || hasNext) && (
                 <nav className="es-evx__pager" aria-label="More events">
                   {page > 1 ? (

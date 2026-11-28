@@ -1,3 +1,4 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import { StyleSheet, View } from 'react-native';
 
 import type { Category } from '../api/types';
@@ -6,46 +7,51 @@ import { Cover } from './Cover';
 import { Icon } from './Icon';
 import { Pressy } from './motion';
 import { Text } from './Text';
-import { colors, space } from './theme';
+import { colors, fonts, space } from './theme';
 
 /**
- * A category to tap. With a photo (an admin can set one) it is the mockup's
- * photo tile with the name on it; without one — every category today — it is
- * the category's icon on its own soft colour, the name beside or under it.
+ * A category to tap — the mockup's PHOTO TILE: a rounded picture with the
+ * name in white across its foot (Home's row of four, Explore's grid of two).
  *
- *   small  Home's row: a square, the name under it.
- *   large  Explore's grid: a wide tile, the icon top-left, the name bottom-left.
+ * The picture is the category's own (an admin can set one), else the cover of
+ * a real upcoming event in it (hooks/useCategoryCovers.ts). With neither, the
+ * same tile in the brand's night-to-coral with the category's icon, so a row
+ * never mixes two styles.
+ *
+ *   small  Home: a near-square tile, about a quarter of the row.
+ *   large  Explore: half the width, a little taller than wide.
  */
-export function CategoryTile({ category, index, size, width, onPress }: {
-  category: Category; index: number; size: 'small' | 'large'; width?: number; onPress: () => void;
+export function CategoryTile({ category, index, size, width, photo, onPress }: {
+  category: Category; index: number; size: 'small' | 'large'; width: number; photo?: string | null; onPress: () => void;
 }) {
   const look = categoryLook(category.slug, index);
-
-  if (size === 'small') {
-    return (
-      <Pressy accessibilityRole="button" accessibilityLabel={category.label} onPress={onPress} scale={0.94} style={styles.small}>
-        {category.imageUrl ? (
-          <Cover uri={category.imageUrl} style={styles.smallBox} size={80} />
-        ) : (
-          <View style={[styles.smallBox, { backgroundColor: look.bg }]}>
-            <Icon name={look.icon} size={30} color={look.ink} strokeWidth={2} />
-          </View>
-        )}
-        <Text variant="caption" weight="semibold" align="center" numberOfLines={2} style={styles.smallLabel}>{category.label}</Text>
-      </Pressy>
-    );
-  }
+  const uri = category.imageUrl || photo || null;
+  const small = size === 'small';
+  const height = Math.round(width * (small ? 1.1 : 0.94));
+  const label = (
+    <Text
+      color={colors.white}
+      style={[styles.label, small ? styles.labelSmall : styles.labelLarge]}
+      numberOfLines={2}
+      maxFontSizeMultiplier={1.3}
+    >
+      {category.label}
+    </Text>
+  );
 
   return (
-    <Pressy accessibilityRole="button" accessibilityLabel={category.label} onPress={onPress} scale={0.97} style={{ width }}>
-      {category.imageUrl ? (
-        <Cover uri={category.imageUrl} scrim style={styles.large} size={width}>
-          <Text variant="title" color={colors.white} style={styles.largeLabel} numberOfLines={2}>{category.label}</Text>
+    <Pressy accessibilityRole="button" accessibilityLabel={category.label} onPress={onPress} scale={small ? 0.94 : 0.97} style={{ width }}>
+      {uri ? (
+        <Cover uri={uri} scrim style={{ ...styles.tile, height, borderRadius: small ? 14 : 16 }} size={width}>
+          {label}
         </Cover>
       ) : (
-        <View style={[styles.large, { backgroundColor: look.bg }]}>
-          <View style={styles.largeIcon}><Icon name={look.icon} size={24} color={look.ink} strokeWidth={2} /></View>
-          <Text variant="label" weight="bold" color={look.ink} style={styles.largeLabel} numberOfLines={2}>{category.label}</Text>
+        <View style={[styles.tile, { height, borderRadius: small ? 14 : 16 }]}>
+          <LinearGradient colors={[colors.night800, '#4a0d1c', colors.coral700]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+          <View style={[styles.icon, small && styles.iconSmall]}>
+            <Icon name={look.icon} size={small ? 22 : 30} color={colors.white} strokeWidth={1.8} />
+          </View>
+          {label}
         </View>
       )}
     </Pressy>
@@ -53,10 +59,10 @@ export function CategoryTile({ category, index, size, width, onPress }: {
 }
 
 const styles = StyleSheet.create({
-  small: { width: 80, alignItems: 'center', gap: 6 },
-  smallBox: { width: 72, height: 72, borderRadius: 20, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
-  smallLabel: { lineHeight: 15 },
-  large: { height: 112, borderRadius: 16, overflow: 'hidden', padding: space.md },
-  largeIcon: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.85)', alignItems: 'center', justifyContent: 'center' },
-  largeLabel: { position: 'absolute', left: space.md, right: space.md, bottom: space.md },
+  tile: { overflow: 'hidden', backgroundColor: colors.night },
+  label: { position: 'absolute', fontFamily: fonts.bold },
+  labelSmall: { left: 6, right: 6, bottom: 8, fontSize: 14, lineHeight: 17, textAlign: 'center' },
+  labelLarge: { left: space.md, right: space.md, bottom: space.md, fontSize: 18, lineHeight: 22 },
+  icon: { position: 'absolute', top: space.md, left: space.md, opacity: 0.9 },
+  iconSmall: { top: 0, left: 0, right: 0, bottom: 22, alignItems: 'center', justifyContent: 'center' },
 });

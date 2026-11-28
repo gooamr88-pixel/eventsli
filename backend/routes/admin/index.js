@@ -24,5 +24,6 @@ router.use(require('./smsRoutes'));
 router.use(require('./templateRoutes'));
 router.use(require('./venueMapRoutes'));
 router.use(require('./demoRoutes'));
+router.use(require('./vipRoutes'));
 
 module.exports = router;

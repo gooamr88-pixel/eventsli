@@ -81,5 +81,6 @@ const styles = StyleSheet.create({
   tick: { width: 110, height: 110, borderRadius: 55, backgroundColor: colors.successStrong, alignItems: 'center', justifyContent: 'center' },
   words: { gap: space.md, marginTop: space.xl, width: '100%', maxWidth: 420 },
   order: { flexDirection: 'row', alignItems: 'center', gap: space.sm, padding: space.md, borderRadius: radius.md, backgroundColor: colors.bg, marginTop: space.sm },
-  actions: { flex: 1, justifyContent: 'flex-end', gap: space.md, width: '100%', maxWidth: 420 },
+  // As drawn: the buttons follow the message, not pinned to the foot.
+  actions: { gap: space.md, width: '100%', maxWidth: 420, marginTop: space.xxl + space.lg },
 });
