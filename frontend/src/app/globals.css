@@ -21368,38 +21368,71 @@ button.es-vb-doc__tile:focus-visible { outline: 3px solid var(--es-accent); outl
   .es-wabtn--lg { min-height: 3.25rem; padding: 0 1.5rem; font-size: var(--es-text-md); }
   .es-wabtn--block { display: flex; width: 100%; white-space: normal; text-align: center; }
 
-  /* Front door: the hero */
+  /* Front door: the hero, in the brand (owner, 2026-11-28: "make it the
+     brand and identity of Eventsli"). White warming to the sun-50 cream, a
+     sunshine glow and a coral glow. Ink
+     headline with the yellow highlighter under "on your event." (yellow is
+     a fill, never text), a coral eyebrow, and a white contact card. */
   .es-viphero {
-    position: relative; display: grid; gap: 1.5rem; overflow: hidden;
-    padding: 1.75rem 1.25rem; border-radius: var(--es-radius-xl);
+    position: relative; display: grid; gap: 1.5rem; overflow: hidden; isolation: isolate;
+    padding: 1.75rem 1.25rem; border: 1px solid color-mix(in srgb, var(--es-sun-400) 35%, var(--es-border));
+    border-radius: var(--es-radius-xl);
     background:
-      radial-gradient(90% 120% at 100% 0%, color-mix(in srgb, var(--es-brand-coral) 50%, transparent), transparent 60%),
-      radial-gradient(60% 80% at 0% 100%, rgb(255 201 40 / 0.16), transparent 70%),
-      #111018;
-    color: #fff;
+      radial-gradient(55% 90% at 100% 0%, color-mix(in srgb, var(--es-sun-300) 55%, transparent), transparent 70%),
+      radial-gradient(45% 70% at 0% 100%, color-mix(in srgb, var(--es-brand-coral) 16%, transparent), transparent 70%),
+      linear-gradient(135deg, #ffffff 0%, var(--es-sun-50) 100%);
+    color: var(--es-text);
+    box-shadow: 0 18px 40px -28px rgb(214 31 44 / 0.35);
   }
   @media (width >= theme(--breakpoint-md)) { .es-viphero { padding: 2.5rem; } }
-  @media (width >= theme(--breakpoint-lg)) { .es-viphero { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); align-items: end; gap: 2.5rem; padding: 3rem; } }
+  @media (width >= theme(--breakpoint-lg)) { .es-viphero { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); align-items: center; gap: 2.5rem; padding: 3rem; } }
   .es-viphero__main { display: flex; flex-direction: column; align-items: flex-start; gap: 1rem; min-width: 0; }
   .es-viphero__eyebrow {
     display: inline-flex; align-items: center; gap: 0.375rem; margin: 0;
-    padding: 0.3rem 0.75rem; border: 1px solid rgb(255 201 40 / 0.55); border-radius: var(--es-radius-full);
-    color: #ffd75e; font-size: var(--es-text-xs); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 0.3rem 0.75rem; border: 1px solid var(--es-accent-edge); border-radius: var(--es-radius-full);
+    background: var(--es-accent-wash); color: var(--es-accent);
+    font-size: var(--es-text-xs); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
   }
-  .es-viphero__title { margin: 0; font-family: var(--es-font-display); font-size: clamp(1.875rem, 1.4rem + 2.2vw, 3rem); font-weight: 800; line-height: 1.08; letter-spacing: -0.02em; text-wrap: balance; color: #fff; }
-  .es-viphero__title span { color: #ffd75e; }
-  .es-viphero__lede { max-width: 38rem; margin: 0; font-size: var(--es-text-md); line-height: 1.55; color: rgb(255 255 255 / 0.82); }
+  .es-viphero__title { margin: 0; font-family: var(--es-font-display); font-size: clamp(1.875rem, 1.4rem + 2.2vw, 3rem); font-weight: 800; line-height: 1.1; letter-spacing: -0.02em; text-wrap: balance; color: var(--es-text); }
+  .es-viphero__title span {
+    padding: 0 0.15em; color: var(--es-text-on-highlight);
+    background: linear-gradient(transparent 55%, var(--es-highlight) 55%, var(--es-highlight) 92%, transparent 92%);
+    -webkit-box-decoration-break: clone; box-decoration-break: clone;
+  }
+  .es-viphero__lede { max-width: 38rem; margin: 0; font-size: var(--es-text-md); line-height: 1.55; color: var(--es-text-muted); }
   .es-viphero__ctas { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 0.5rem; }
-  .es-viphero__paused { margin: 0; padding: 0.75rem 1rem; border-radius: var(--es-radius-md); background: rgb(255 255 255 / 0.08); font-size: var(--es-text-sm); }
+  .es-viphero__paused { margin: 0; padding: 0.75rem 1rem; border-radius: var(--es-radius-md); background: var(--es-surface); border: 1px solid var(--es-border); font-size: var(--es-text-sm); }
   .es-viphero__contact {
     display: grid; gap: 0.875rem; margin: 0; padding: 1.25rem;
-    border: 1px solid rgb(255 255 255 / 0.14); border-radius: var(--es-radius-lg); background: rgb(255 255 255 / 0.06);
+    border: 1px solid var(--es-border); border-top: 4px solid var(--es-brand-coral); border-radius: var(--es-radius-lg);
+    background: var(--es-surface); box-shadow: var(--es-shadow-md);
   }
-  .es-viphero__contact dt { font-size: var(--es-text-xs); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: rgb(255 255 255 / 0.66); }
+  .es-viphero__contact dt { font-size: var(--es-text-xs); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--es-text-subtle); }
   .es-viphero__contact dd { margin: 0.125rem 0 0; font-size: var(--es-text-lg); font-weight: 700; overflow-wrap: anywhere; }
-  .es-viphero__contact a { color: #fff; }
-  .es-viphero__contact a:hover { color: #ffd75e; }
-  .es-viphero__promise { display: flex; align-items: center; gap: 0.5rem; margin: 0; padding-top: 0.875rem; border-top: 1px solid rgb(255 255 255 / 0.14); font-size: var(--es-text-sm); color: rgb(255 255 255 / 0.82); }
+  .es-viphero__contact a { color: var(--es-text); }
+  .es-viphero__contact a:hover { color: var(--es-accent); }
+  .es-viphero__promise { display: flex; align-items: center; gap: 0.5rem; margin: 0; padding-top: 0.875rem; border-top: 1px solid var(--es-border); font-size: var(--es-text-sm); color: var(--es-text-muted); }
+  .es-viphero__promise svg { flex: none; color: var(--es-accent); }
+
+  /* Dark theme: the same layout on the dark surface, the glows kept soft. */
+  :root[data-theme="dark"] .es-viphero {
+    border-color: var(--es-border);
+    background:
+      radial-gradient(55% 90% at 100% 0%, rgb(255 204 0 / 0.14), transparent 70%),
+      radial-gradient(45% 70% at 0% 100%, rgb(255 65 75 / 0.12), transparent 70%),
+      var(--es-surface);
+    box-shadow: none;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .es-viphero {
+      border-color: var(--es-border);
+      background:
+        radial-gradient(55% 90% at 100% 0%, rgb(255 204 0 / 0.14), transparent 70%),
+        radial-gradient(45% 70% at 0% 100%, rgb(255 65 75 / 0.12), transparent 70%),
+        var(--es-surface);
+      box-shadow: none;
+    }
+  }
 
   /* Front door: services and how it works */
   .es-vipservices { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr)); gap: 0.875rem; margin: 0; padding: 0; list-style: none; }
@@ -21750,5 +21783,73 @@ button.es-vb-doc__tile:focus-visible { outline: 3px solid var(--es-accent); outl
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) .es-evx-partners__row--sponsor .es-evx-partners__label { color: #f1d48c; }
     :root:not([data-theme="light"]) .es-evx-partners { background: linear-gradient(180deg, rgb(255 215 94 / 0.06), var(--es-surface)); }
+  }
+}
+
+/* VIP Services for every visitor (2026-11-28): the public /vip page. The
+   form sits under the shared front door; the hero's "Start a request" jumps
+   to it, clearing the sticky site header. */
+@layer components {
+  .es-vippublic__form { margin-top: 2.5rem; scroll-margin-top: 6rem; }
+  .es-vippublic__form .es-vipform { margin-inline: auto; }
+  .es-vippublic__form .es-vipsent { margin-top: 0; }
+  .es-vippublic__down {
+    display: flex; align-items: center; gap: 0.5rem; margin: 0;
+    padding: 0.9rem 1.1rem; border: 1px solid var(--es-border); border-radius: var(--es-radius-md);
+    background: var(--es-surface); color: var(--es-text-muted);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   "BECOME A SPONSOR" · "BECOME A VENDOR" UNDER EVENT CARDS (owner, 2026-11-28)
+   components/OpenCalls.jsx, on the homepage cards (EventCard) and the /events
+   grid (EventGridCard). Two pill badges under the card: sponsor in the brand's
+   gold, vendor in its coral, each with an icon coin and an arrow. They wrap
+   onto two lines on a narrow card rather than squeezing the words.
+   ═══════════════════════════════════════════════════════════════════════════ */
+@layer components {
+  /* The card keeps filling its grid cell; the badges sit under it. */
+  .es-evcard-wrap:has(> .es-opencalls) { display: flex; flex-direction: column; }
+  .es-evcard-wrap:has(> .es-opencalls) > .es-evcard { flex: 1 1 auto; height: auto; }
+  .es-evx-cardwrap { display: flex; flex-direction: column; height: 100%; }
+  .es-evx-cardwrap > .es-evx-card { flex: 1 1 auto; height: auto; }
+
+  .es-opencalls { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.6rem; }
+  .es-opencall {
+    display: inline-flex; flex: 1 1 10rem; align-items: center; gap: 0.5rem; min-width: 0; min-height: 2.5rem;
+    padding: 0.3rem 0.75rem 0.3rem 0.3rem;
+    border: 1px solid; border-radius: var(--es-radius-full);
+    font-size: 0.8125rem; font-weight: 700; line-height: 1.2; letter-spacing: 0.01em;
+    transition: transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease;
+  }
+  .es-opencall:hover { transform: translateY(-1px); box-shadow: 0 6px 16px -8px rgb(17 16 24 / 0.35); }
+  .es-opencall:focus-visible { outline: 2px solid var(--es-focus-ring-color); outline-offset: 2px; }
+  .es-opencall__coin { display: grid; flex: none; place-items: center; width: 1.9rem; height: 1.9rem; border-radius: 50%; }
+  .es-opencall__label { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .es-opencall__go { flex: none; margin-left: auto; opacity: 0.7; transition: transform 150ms ease, opacity 150ms ease; }
+  .es-opencall:hover .es-opencall__go { opacity: 1; transform: translate(1px, -1px); }
+
+  .es-opencall--sponsor {
+    border-color: color-mix(in srgb, var(--es-sun-600) 45%, transparent);
+    background: linear-gradient(135deg, var(--es-sun-50), var(--es-sun-100));
+    color: var(--es-text-on-highlight);
+  }
+  .es-opencall--sponsor .es-opencall__coin { background: linear-gradient(135deg, #ffe07a, #e3a92b); color: #1a1405; box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.45); }
+  .es-opencall--sponsor:hover { border-color: var(--es-sun-600); }
+
+  .es-opencall--vendor {
+    border-color: var(--es-coral-200);
+    background: var(--es-coral-50);
+    color: var(--es-coral-700);
+  }
+  .es-opencall--vendor .es-opencall__coin { background: var(--es-coral-600); color: #fff; }
+  .es-opencall--vendor:hover { border-color: var(--es-coral-400); }
+
+  /* Dark theme: the same two colours, glowing on the dark ground. */
+  :root[data-theme="dark"] .es-opencall--sponsor { border-color: rgb(255 204 0 / 0.4); background: rgb(255 204 0 / 0.1); color: #ffe58a; }
+  :root[data-theme="dark"] .es-opencall--vendor { border-color: rgb(255 107 115 / 0.45); background: rgb(255 65 75 / 0.12); color: #ffc2c6; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .es-opencall--sponsor { border-color: rgb(255 204 0 / 0.4); background: rgb(255 204 0 / 0.1); color: #ffe58a; }
+    :root:not([data-theme="light"]) .es-opencall--vendor { border-color: rgb(255 107 115 / 0.45); background: rgb(255 65 75 / 0.12); color: #ffc2c6; }
   }
 }

@@ -105,6 +105,8 @@ function shapeForEmail(row) {
     id: row.id,
     reference: row.reference,
     status: row.status,
+    source: row.source || 'organizer',
+    company: row.company || null,
     contactName: row.contact_name,
     contactEmail: row.contact_email,
     whatsappNumber: row.whatsapp_e164,

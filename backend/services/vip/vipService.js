@@ -5,6 +5,7 @@ const emails = require('./vipEmails');
 const { deliver, shapeForEmail } = require('./vipWhatsApp');
 const { publicView } = require('./vipSettings');
 const { canSend } = require('../whatsapp/config');
+const links = require('./vipLinks');
 const {
   newReference, normalisePhone, waLink, openingMessage, generalOpening, BUDGETS, STATUS, OPEN_STATUSES,
 } = require('./vipText');
@@ -51,6 +52,33 @@ async function options({ organizerId, user }) {
   };
 }
 
+/**
+ * The public /vip page (2026-11-28): the same offer and form for any visitor.
+ * No events to pick (they may have none), empty contact details unless they
+ * are signed in, and a WhatsApp link with a general opening line.
+ */
+async function publicOptions({ user = null } = {}) {
+  const settings = await store.getSettings();
+  const { data: profile } = user
+    ? await supabase.from('profiles').select('full_name, email, phone').eq('id', user.id).maybeSingle()
+    : { data: null };
+  const view = publicView(settings);
+  return {
+    settings: view,
+    chatUrl: waLink(view.whatsappNumber, generalOpening({ contactName: profile?.full_name || null })),
+    events: [],
+    contact: {
+      name: profile?.full_name || '',
+      email: profile?.email || '',
+      phone: normalisePhone(profile?.phone) || '',
+    },
+    // A signed-in organizer is pointed at their dashboard, where the request
+    // can name one of their events.
+    isOrganizer: Boolean(user?.access?.organizerId),
+    budgets: Object.entries(BUDGETS).map(([value, label]) => ({ value, label })),
+  };
+}
+
 function eventLabelOf(row, event) {
   return event?.title || row.event_name || null;
 }
@@ -65,7 +93,13 @@ function chatUrlFor(settings, row, event) {
   }));
 }
 
-async function create({ organizerId, user, input }) {
+/**
+ * A new request. `organizerId` null: a VISITOR's, from the public /vip page
+ * (2026-11-28) — no event of theirs to pick, the organization they typed,
+ * and a signed link to follow it (`manageUrl`) instead of a dashboard.
+ */
+async function create({ organizerId = null, user = null, input, ipHash = null }) {
+  const visitor = !organizerId;
   const settings = await store.getSettings();
   if (!settings.enabled) return refuse('FEATURE_DISABLED', 'VIP Services are not taking new requests just now. Email us instead.');
 
@@ -74,7 +108,7 @@ async function create({ organizerId, user, input }) {
   if (!services.length) return refuse('VALIDATION_ERROR', 'Choose at least one service.');
 
   let event = null;
-  if (input.eventId) {
+  if (input.eventId && !visitor) {
     event = await store.eventRow(input.eventId);
     if (!event || event.organizer_id !== organizerId) return refuse('EVENT_NOT_FOUND', 'That event does not exist.');
   }
@@ -86,7 +120,10 @@ async function create({ organizerId, user, input }) {
   const now = new Date().toISOString();
   const base = {
     organizer_id: organizerId,
-    requested_by: user.id,
+    source: visitor ? 'visitor' : 'organizer',
+    requested_by: user?.id || null,
+    company: visitor ? (input.company || '').trim().slice(0, 160) || null : null,
+    ip_hash: ipHash,
     event_id: event?.id || null,
     services,
     event_name: event ? null : (input.eventName || '').trim() || null,
@@ -118,13 +155,14 @@ async function create({ organizerId, user, input }) {
     body: `Request sent: ${(row.services || []).map((k) => settings.services.find((s) => s.key === k)?.title || k).join(', ')}.`,
   });
 
-  const organizer = await organizerRow(organizerId);
+  const organizer = visitor ? null : await organizerRow(organizerId);
   const serviceTitles = (row.services || []).map((k) => settings.services.find((s) => s.key === k)?.title || k);
   const eventLabel = eventLabelOf(row, event);
   const email = shapeForEmail(row);
   await safely('received email', emails.sendReceived({ request: email, settings, serviceTitles, eventLabel }));
   await safely('team email', store.teamRecipients(settings).then((to) => emails.sendToTeam({
-    to, kind: 'new', request: email, serviceTitles, eventLabel, organization: organizer?.display_name,
+    to, kind: 'new', request: email, serviceTitles, eventLabel,
+    organization: organizer?.display_name || (row.company ? `${row.company} (visitor)` : 'Visitor, no account'),
   })));
   // They said yes to WhatsApp: the confirmation goes there too, as the
   // approved template (nobody has written yet, so the window is closed).
@@ -137,6 +175,7 @@ async function create({ organizerId, user, input }) {
   return {
     request: store.shapeRequest(row, { settings, event }),
     chatUrl: chatUrlFor(settings, row, event),
+    ...(visitor ? { manageUrl: links.manageUrl(row.id), token: links.tokenFor(row.id) } : {}),
   };
 }
 
@@ -158,8 +197,20 @@ async function ownRow(organizerId, id) {
   return row && row.organizer_id === organizerId ? row : null;
 }
 
-async function get({ organizerId, id }) {
-  const row = await ownRow(organizerId, id);
+/**
+ * The request behind a call: an organizer's own (by organizer id), or a
+ * visitor's (by the signed token in their link). Anything else is "not
+ * found", the same answer whether or not the id exists.
+ */
+async function rowFor({ organizerId = null, token = null, id }) {
+  if (organizerId) return ownRow(organizerId, id);
+  if (!token || !links.tokenMatches(id, token)) return null;
+  const row = await store.requestRow(id);
+  return row && row.source === 'visitor' ? row : null;
+}
+
+async function get({ organizerId = null, token = null, id }) {
+  const row = await rowFor({ organizerId, token, id });
   if (!row) return refuse('NOT_FOUND', 'That request does not exist.');
   const settings = await store.getSettings();
   const [event, rows, win] = await Promise.all([store.eventRow(row.event_id), store.messagesFor(row.id), store.windowFor(row.whatsapp_e164)]);
@@ -179,13 +230,13 @@ async function get({ organizerId, id }) {
   };
 }
 
-async function message({ organizerId, user, id, text }) {
-  const row = await ownRow(organizerId, id);
+async function message({ organizerId = null, token = null, user = null, id, text }) {
+  const row = await rowFor({ organizerId, token, id });
   if (!row) return refuse('NOT_FOUND', 'That request does not exist.');
   if (row.status === 'cancelled') return refuse('VALIDATION_ERROR', 'This request is cancelled. Start a new one, or message us on WhatsApp.');
   const now = new Date().toISOString();
   const stored = await store.insertMessage({
-    request_id: row.id, direction: 'in', channel: 'dashboard', author_kind: 'organizer', author_id: user.id, body: text,
+    request_id: row.id, direction: 'in', channel: 'dashboard', author_kind: 'organizer', author_id: user?.id || null, body: text,
   });
   await store.touchRequest(row.id, { last_organizer_message_at: now, organizer_seen_at: now });
   const settings = await store.getSettings();
@@ -195,8 +246,8 @@ async function message({ organizerId, user, id, text }) {
   return { message: store.shapeMessage(stored) };
 }
 
-async function updateContact({ organizerId, id, input }) {
-  const row = await ownRow(organizerId, id);
+async function updateContact({ organizerId = null, token = null, id, input }) {
+  const row = await rowFor({ organizerId, token, id });
   if (!row) return refuse('NOT_FOUND', 'That request does not exist.');
   const patch = {};
   if (input.whatsappNumber !== undefined) {
@@ -212,24 +263,24 @@ async function updateContact({ organizerId, id, input }) {
   }
   if (input.preferredChannel !== undefined) patch.preferred_channel = input.preferredChannel === 'whatsapp' && number ? 'whatsapp' : 'email';
   await store.touchRequest(row.id, patch);
-  return get({ organizerId, id });
+  return get({ organizerId, token, id });
 }
 
-async function cancel({ organizerId, id, reason }) {
-  const row = await ownRow(organizerId, id);
+async function cancel({ organizerId = null, token = null, id, reason }) {
+  const row = await rowFor({ organizerId, token, id });
   if (!row) return refuse('NOT_FOUND', 'That request does not exist.');
   if (!OPEN_STATUSES.includes(row.status)) return refuse('VALIDATION_ERROR', 'This request is already closed.');
   const now = new Date().toISOString();
   await store.touchRequest(row.id, { status: 'cancelled', cancel_reason: reason || null, closed_at: now, last_organizer_message_at: now });
   await store.insertMessage({
     request_id: row.id, direction: 'in', channel: 'system', author_kind: 'system',
-    body: `Cancelled by the organizer${reason ? `: ${reason}` : '.'}`,
+    body: `Cancelled by ${row.source === 'visitor' ? 'them' : 'the organizer'}${reason ? `: ${reason}` : '.'}`,
   });
   const settings = await store.getSettings();
   await safely('team cancel email', store.teamRecipients(settings).then((to) => emails.sendToTeam({
     to, kind: 'cancelled', request: shapeForEmail(row), text: reason || null,
   })));
-  return get({ organizerId, id });
+  return get({ organizerId, token, id });
 }
 
-module.exports = { options, create, list, get, message, updateContact, cancel, ownRow };
+module.exports = { options, publicOptions, create, list, get, message, updateContact, cancel, ownRow, rowFor };

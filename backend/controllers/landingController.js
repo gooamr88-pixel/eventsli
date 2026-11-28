@@ -340,11 +340,15 @@ async function eventsNear(req, res, next) {
       || new Date(a.row.starts_at) - new Date(b.row.starts_at));
     const nearby = placed.slice(0, limit);
     const rows = nearby.map((p) => p.row);
-    const [fromPrices, avail] = await Promise.all([discovery.lowestTierPrices(rows), discovery.listingAvailability(rows)]);
+    const [fromPrices, avail, calls] = await Promise.all([
+      discovery.lowestTierPrices(rows), discovery.listingAvailability(rows), discovery.listingOpenCalls(rows),
+    ]);
     const events = nearby.map(({ row, distance, precise }) => ({
       ...discovery.shape(row),
       fromPriceCents: fromPrices.get(row.id) ?? null,
       availability: avail.get(row.id) ?? null,
+      // "Become a sponsor / vendor" badges, as on every listing (2026-11-28).
+      openCalls: calls.get(row.id) || discovery.NO_CALLS,
       // One decimal under 10 km, where the difference is a walk; whole
       // kilometres beyond.
       distanceKm: distance < 10 ? Math.round(distance * 10) / 10 : Math.round(distance),

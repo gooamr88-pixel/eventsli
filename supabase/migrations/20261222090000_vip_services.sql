@@ -29,7 +29,15 @@ CREATE TABLE IF NOT EXISTS vip_service_requests (
   -- "VIP-7KQ2MX": what the organizer quotes on WhatsApp, and what ties their
   -- first WhatsApp message to this request.
   reference             TEXT NOT NULL UNIQUE CHECK (reference ~ '^VIP-[0-9A-Z]{6}$'),
-  organizer_id          UUID NOT NULL REFERENCES organizers(id) ON DELETE CASCADE,
+  -- NULL for a VISITOR's request from the public /vip page (2026-11-28,
+  -- owner: "make this available for all visitors"): no account behind it;
+  -- they follow it through a signed link (backend/services/vip/vipLinks.js).
+  organizer_id          UUID REFERENCES organizers(id) ON DELETE CASCADE,
+  source                TEXT NOT NULL DEFAULT 'organizer' CHECK (source IN ('organizer', 'visitor')),
+  -- The organization a visitor names (an organizer's is their profile).
+  company               TEXT CHECK (company IS NULL OR char_length(company) <= 160),
+  -- Hashed, for rate limits and abuse review; never the address itself.
+  ip_hash               TEXT CHECK (ip_hash IS NULL OR char_length(ip_hash) <= 128),
   requested_by          UUID REFERENCES profiles(id) ON DELETE SET NULL,
   event_id              UUID REFERENCES events(id) ON DELETE SET NULL,
   services              TEXT[] NOT NULL CHECK (cardinality(services) BETWEEN 1 AND 12),
@@ -61,7 +69,9 @@ CREATE TABLE IF NOT EXISTS vip_service_requests (
   team_seen_at          TIMESTAMPTZ,
   closed_at             TIMESTAMPTZ,
   created_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at            TIMESTAMPTZ NOT NULL DEFAULT now()
+  updated_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
+
+  CONSTRAINT vip_request_owner CHECK ((source = 'organizer') = (organizer_id IS NOT NULL))
 );
 
 CREATE INDEX IF NOT EXISTS vip_requests_organizer_idx ON vip_service_requests (organizer_id, created_at DESC);

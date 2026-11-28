@@ -11,7 +11,7 @@ const { windowOpenUntil, BUDGETS, STATUS } = require('./vipText');
  */
 
 const KEY = 'vip_services';
-const REQUEST_COLS = 'id, reference, organizer_id, requested_by, event_id, services, event_name, event_date, guest_count, budget, details, '
+const REQUEST_COLS = 'id, reference, organizer_id, source, company, requested_by, event_id, services, event_name, event_date, guest_count, budget, details, '
   + 'contact_name, contact_email, whatsapp_e164, whatsapp_opt_in, whatsapp_opt_in_at, preferred_channel, status, assigned_to, team_notes, '
   + 'cancel_reason, last_organizer_message_at, last_team_message_at, organizer_seen_at, team_seen_at, closed_at, created_at, updated_at';
 const MESSAGE_COLS = 'id, request_id, direction, channel, author_kind, author_id, body, media, wa_message_id, wa_contact, wa_contact_name, '
@@ -42,6 +42,9 @@ function shapeRequest(row, { forTeam = false, settings = null, event = null, org
     id: row.id,
     reference: row.reference,
     status: row.status,
+    // 'visitor': from the public /vip page, no account (2026-11-28).
+    source: row.source || 'organizer',
+    company: row.company || null,
     statusLabel: STATUS[row.status]?.label || row.status,
     services: row.services || [],
     serviceTitles: (row.services || []).map((k) => titles.get(k) || k),

@@ -31,14 +31,20 @@ import { displayPhone } from '../../../components/vip/vipStatus';
 
 const NEW_EVENT = '__new__';
 
-export default function VipRequestForm() {
-  const { data, error, loading, reload } = useApi('/organizer/vip/options');
+/**
+ * `mode`: 'organizer' (the dashboard: their events to pick, their details
+ * filled in) or 'visitor' (the public /vip page, 2026-11-28: no account, an
+ * optional organization, a private link to follow the request).
+ */
+export default function VipRequestForm({ mode = 'organizer' }) {
+  const { data, error, loading, reload } = useApi(mode === 'visitor' ? '/public/vip' : '/organizer/vip/options');
   if (loading) return <Loading variant="card" label="Loading the form" />;
   if (error) return <ErrorNotice error={error} onRetry={reload} />;
-  return <Form key="form" options={data} />;
+  return <Form key="form" options={data} mode={mode} />;
 }
 
-function Form({ options }) {
+function Form({ options, mode }) {
+  const visitor = mode === 'visitor';
   const s = options.settings;
   const formRef = useRef(null);
   const [attempt, setAttempt] = useState(0);
@@ -54,6 +60,9 @@ function Form({ options }) {
   const [name, setName] = useState(options.contact.name);
   const [email, setEmail] = useState(options.contact.email);
   const [phone, setPhone] = useState(options.contact.phone);
+  const [company, setCompany] = useState('');
+  // The hidden field only bots fill (visitor form). Never shown to people.
+  const [website, setWebsite] = useState('');
   const [optIn, setOptIn] = useState(false);
   const [prefer, setPrefer] = useState('whatsapp');
   const [errors, setErrors] = useState({});
@@ -68,7 +77,7 @@ function Form({ options }) {
       </Notice>
     );
   }
-  if (done) return <Sent done={done} settings={s} />;
+  if (done) return <Sent done={done} settings={s} visitor={visitor} />;
 
   const toggle = (key) => setServices((cur) => (cur.includes(key) ? cur.filter((k) => k !== key) : [...cur, key]));
   const isNew = eventId === NEW_EVENT;
@@ -92,7 +101,7 @@ function Form({ options }) {
     if (Object.keys(e).length) { setAttempt((n) => n + 1); return; }
     setBusy(true);
     try {
-      const res = await post('/organizer/vip', {
+      const res = await post(visitor ? '/public/vip/requests' : '/organizer/vip', {
         services,
         eventId: isNew ? undefined : eventId,
         eventName: isNew ? eventName.trim() : undefined,
@@ -105,9 +114,11 @@ function Form({ options }) {
         whatsappNumber: phone || undefined,
         whatsappOptIn: Boolean(phone && optIn),
         preferredChannel: phone ? prefer : 'email',
+        ...(visitor ? { company: company.trim() || undefined, website: website || undefined } : {}),
       });
       setDone(res);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      if (visitor) document.getElementById('request')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      else window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
       setFailure({ title: describeError(err).title, message: messageFor(err) });
     } finally {
@@ -118,10 +129,21 @@ function Form({ options }) {
   return (
     <form ref={formRef} className="es-vipform" onSubmit={submit} noValidate>
       <div className="es-vipform__head">
-        <Link href="/organizer/vip" className="es-vip__back"><NavIcon name="chevronLeft" size={16} /> VIP Services</Link>
-        <h1 className="es-vipform__title">Start a VIP request</h1>
+        {visitor ? (
+          <h2 className="es-vipform__title">Start a VIP request</h2>
+        ) : (
+          <>
+            <Link href="/organizer/vip" className="es-vip__back"><NavIcon name="chevronLeft" size={16} /> VIP Services</Link>
+            <h1 className="es-vipform__title">Start a VIP request</h1>
+          </>
+        )}
         <p className="es-vipform__lede">Tell us what you need. Our team replies on WhatsApp or by email{s.responseTime ? ` — ${s.responseTime.charAt(0).toLowerCase()}${s.responseTime.slice(1)}` : '.'}</p>
       </div>
+      {visitor && options.isOrganizer && (
+        <Notice tone="info" title="You have an organizer account.">
+          <p>Ask from your <Link href="/organizer/vip/new">dashboard</Link> instead to link the request to one of your events.</p>
+        </Notice>
+      )}
 
       <fieldset className="es-vipform__step">
         <legend><span className="es-vipform__n">1</span> What do you need?</legend>
@@ -147,15 +169,17 @@ function Form({ options }) {
       <fieldset className="es-vipform__step">
         <legend><span className="es-vipform__n">2</span> Which event?</legend>
         <div className="es-vipform__grid">
-          <SelectField
-            label="Event"
-            value={eventId}
-            onChange={(e) => setEventId(e.target.value)}
-            options={[
-              ...options.events.map((e) => [e.id, `${e.title}${e.startsAt ? ` — ${new Date(e.startsAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: e.timezone || 'UTC' })}` : ''}`]),
-              [NEW_EVENT, 'An event not on Eventsli yet'],
-            ]}
-          />
+          {options.events.length > 0 && (
+            <SelectField
+              label="Event"
+              value={eventId}
+              onChange={(e) => setEventId(e.target.value)}
+              options={[
+                ...options.events.map((e) => [e.id, `${e.title}${e.startsAt ? ` — ${new Date(e.startsAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: e.timezone || 'UTC' })}` : ''}`]),
+                [NEW_EVENT, 'An event not on Eventsli yet'],
+              ]}
+            />
+          )}
           {isNew && (
             <>
               <Field label="Event name" required value={eventName} onChange={(e) => setEventName(e.target.value)} maxLength={160} error={errors.eventName} placeholder="New Year's Eve Gala" />
@@ -187,7 +211,16 @@ function Form({ options }) {
         <div className="es-vipform__grid">
           <Field label="Your name" required autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} maxLength={120} error={errors.name} />
           <Field label="Email" type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} maxLength={254} error={errors.email} />
+          {visitor && (
+            <Field label="Company or organization" optional autoComplete="organization" value={company} onChange={(e) => setCompany(e.target.value)} maxLength={160} />
+          )}
         </div>
+        {visitor && (
+          <div className="sr-only" aria-hidden="true">
+            <label htmlFor="vip-website">Leave this empty</label>
+            <input id="vip-website" type="text" tabIndex={-1} autoComplete="off" value={website} onChange={(e) => setWebsite(e.target.value)} />
+          </div>
+        )}
         <PhoneField label="WhatsApp number" optional={prefer === 'email'} value={phone} onChange={setPhone} error={errors.phone}
           hint="The number you use WhatsApp on, so our replies reach you there." />
         <div className="fx-stack fx-stack--sm">
@@ -226,13 +259,16 @@ function Form({ options }) {
   );
 }
 
-function Sent({ done, settings }) {
+function Sent({ done, settings, visitor = false }) {
   const r = done.request;
+  // A bot that filled the hidden field gets this screen with no request.
+  if (!r) return <Notice tone="success" title="Thank you.">We have your request.</Notice>;
+  const Heading = visitor ? 'h2' : 'h1';
   return (
     <section className="es-vipsent" aria-labelledby="vip-sent-title">
       <span className="es-vipsent__mark" aria-hidden="true"><NavIcon name="check" size={34} /></span>
       <p className="es-vipsent__ref es-nums">{r.reference}</p>
-      <h1 id="vip-sent-title" className="es-vipsent__title">Your request is with our team</h1>
+      <Heading id="vip-sent-title" className="es-vipsent__title">Your request is with our team</Heading>
       <p className="es-vipsent__lede">
         We have emailed you a copy. {settings.responseTime}
       </p>
@@ -244,8 +280,17 @@ function Sent({ done, settings }) {
         </p>
       </div>
       <div className="es-vipsent__links">
-        <Link href={`/organizer/vip/${r.id}`} className="es-btn es-btn--secondary">Open your request</Link>
-        <Link href="/organizer/vip" className="es-btn es-btn--ghost">Back to VIP Services</Link>
+        {visitor ? (
+          <>
+            <Link href={`/vip/request/${r.id}?t=${done.token}`} className="es-btn es-btn--secondary">Open your request</Link>
+            <p className="es-vipsent__small">We emailed you this private link too, to follow your request and write to us.</p>
+          </>
+        ) : (
+          <>
+            <Link href={`/organizer/vip/${r.id}`} className="es-btn es-btn--secondary">Open your request</Link>
+            <Link href="/organizer/vip" className="es-btn es-btn--ghost">Back to VIP Services</Link>
+          </>
+        )}
       </div>
     </section>
   );

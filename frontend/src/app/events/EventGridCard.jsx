@@ -6,6 +6,7 @@ import { priceBlock, saleTag, ctaLabel } from '../components/EventCard';
 import { isDateOnly, formatDateOnly } from '../lib/dateOnly';
 import PrivateCardCover from '../components/PrivateCardCover';
 import EventPartners from './EventPartners';
+import OpenCalls, { openCallLinks } from '../components/OpenCalls';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -80,7 +81,7 @@ export default function EventGridCard({ event, priority = false }) {
   const tag = saleTag(event);
   const muted = event.isPast || tag?.kind === 'sold-out';
 
-  return (
+  const card = (
     <Link href={`/e/${event.slug}`} className={`es-evx-card ${event.isPast ? 'es-evx-card--past' : ''}`}>
       <div className="es-evx-card__media">
         {/* COMPLETED (owner, 2026-11-28): finished events stay on the page,
@@ -149,5 +150,15 @@ export default function EventGridCard({ event, priority = false }) {
       {/* Its sponsors and vendors, at the foot of the card (2026-11-28). */}
       <EventPartners partners={event.partners} />
     </Link>
+  );
+
+  // "Become a sponsor / vendor" badges (2026-11-28) sit under the card,
+  // beside its link rather than inside it.
+  if (!openCallLinks(event).length) return card;
+  return (
+    <div className="es-evx-cardwrap">
+      {card}
+      <OpenCalls event={event} />
+    </div>
   );
 }

@@ -72,7 +72,7 @@ function Body({ data, hosts, reload }) {
           <h1><span className="es-nums">{r.reference}</span> · {r.contactName}</h1>
           <span className={`es-pill ${STATUS[r.status]?.pill || ''}`}>{STATUS[r.status]?.label}</span>
         </div>
-        <p className="es-vipreq__sub">{r.organizer?.name || 'Organizer'} · {r.serviceTitles.join(' · ')} · asked {when(r.createdAt, now)}</p>
+        <p className="es-vipreq__sub">{r.source === 'visitor' ? `Visitor${r.company ? ` · ${r.company}` : ''}` : (r.organizer?.name || 'Organizer')} · {r.serviceTitles.join(' · ')} · asked {when(r.createdAt, now)}</p>
       </div>
 
       <VipSteps status={r.status} />
@@ -101,8 +101,15 @@ function Body({ data, hosts, reload }) {
               </div>
               <div><dt>WhatsApp updates</dt><dd>{r.whatsappOptIn ? 'Agreed' : 'Not agreed'} · prefers {r.preferredChannel === 'email' ? 'email' : 'WhatsApp'}</dd></div>
               {r.organizer && <div><dt>Organizer</dt><dd>{r.organizer.name} ({r.organizer.country})</dd></div>}
+              {r.source === 'visitor' && <div><dt>From</dt><dd>The public VIP Services page, no account{r.company ? ` · ${r.company}` : ''}</dd></div>}
             </dl>
             {data.links.chat && <WhatsAppButton href={data.links.chat} size="sm" block>Open their chat in WhatsApp</WhatsAppButton>}
+            {data.links.visitorPage && (
+              <button type="button" className="es-btn es-btn--ghost es-btn--sm"
+                onClick={() => navigator.clipboard?.writeText(data.links.visitorPage).then(() => toast.success('Their private request link is copied.'))}>
+                <NavIcon name="link" size={16} /> Copy their request link
+              </button>
+            )}
           </section>
 
           <section className="es-card es-vipreq__card" aria-labelledby="vip-what-title">

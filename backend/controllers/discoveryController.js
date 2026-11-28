@@ -266,12 +266,13 @@ async function listEvents(req, res, next, { phraseSearch = false } = {}) {
     const rows = data || [];
     // A private row's prices and seats are details behind its password.
     const open = rows.filter((e) => e.is_private !== true);
-    const [fromPrices, avail, partners] = await Promise.all([
+    const [fromPrices, avail, partners, calls] = await Promise.all([
       lowestTierPrices(open),
       listingAvailability(open),
       // The sponsors and vendors under each /events card (2026-11-28). Asked
       // for by that page only: the homepage's cards have no room for them.
       req.query.withPartners === 'true' ? listingPartners(open) : null,
+      listingOpenCalls(open),
     ]);
 
     return sendOk(
@@ -283,6 +284,7 @@ async function listEvents(req, res, next, { phraseSearch = false } = {}) {
           fromPriceCents: fromPrices.get(e.id) ?? null,
           availability: avail.get(e.id) ?? null,
           ...(partners ? { partners: partners.get(e.id) || EMPTY_PARTNERS } : {}),
+          openCalls: calls.get(e.id) || NO_CALLS,
         })),
       { pagination: buildMeta(p, count) },
     );
@@ -335,6 +337,32 @@ async function listingPartners(events) {
     const e = entry(r.event_id);
     e.vendorCount += 1;
     if (e.vendors.length < PER_CARD) e.vendors.push({ name: r.business_name, logoUrl: r.logo_url || null, category: r.category || null });
+  }
+  return out;
+}
+
+/**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * "Become a sponsor" / "Become a vendor" under a card (owner, 2026-11-28:
+ * "if the organizer enables visitors to become vendors or sponsors, show
+ * professional badges with links under the card"). True exactly when the
+ * event page itself offers it: the organizer's sponsorship programme or
+ * vendor programme is OPEN — the same switches publicBundle reads. Never on
+ * a finished event (nobody can join it), never on a private one (it is not
+ * asked about). Two queries for the whole page; any error is "not open".
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+const NO_CALLS = Object.freeze({ sponsors: false, vendors: false });
+
+async function listingOpenCalls(events) {
+  const out = new Map();
+  const ids = events.filter((e) => e.is_private !== true && !isPastRow(e)).map((e) => e.id);
+  if (!ids.length) return out;
+  const openIds = (table) => supabase.from(table).select('event_id').in('event_id', ids).eq('is_open', true)
+    .then(({ data, error }) => new Set(error ? [] : (data || []).map((r) => r.event_id)), () => new Set());
+  const [sponsors, vendors] = await Promise.all([openIds('sponsorship_programs'), openIds('vendor_programs')]);
+  for (const id of ids) {
+    if (sponsors.has(id) || vendors.has(id)) out.set(id, { sponsors: sponsors.has(id), vendors: vendors.has(id) });
   }
   return out;
 }
@@ -817,4 +845,5 @@ function shape(e) {
 // (landingController.eventsNear), so a nearby card is the same card as a listed one.
 module.exports = {
   listEvents, eventBySlug, SELECT, shape, lockedListing, lowestTierPrices, listingAvailability, listingPartners, upcomingThenCompleted,
+  listingOpenCalls, NO_CALLS,
 };

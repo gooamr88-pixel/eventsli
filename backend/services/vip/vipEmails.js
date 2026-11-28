@@ -1,6 +1,7 @@
 const T = require('../emailTemplates');
 const { send } = require('../emailService');
 const { STATUS, BUDGETS, displayPhone, waLink } = require('./vipText');
+const { manageUrl } = require('./vipLinks');
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -16,7 +17,8 @@ const { STATUS, BUDGETS, displayPhone, waLink } = require('./vipText');
 const esc = T.escapeHtml;
 const REASON = 'You are receiving this email because you asked the Eventsli team for VIP Services.';
 
-const requestUrl = (r) => `${T.siteUrl()}/organizer/vip/${r.id}`;
+// A visitor has no dashboard: their private link instead (vipLinks.js).
+const requestUrl = (r) => (r.source === 'visitor' ? manageUrl(r.id) : `${T.siteUrl()}/organizer/vip/${r.id}`);
 const consoleUrl = (r) => `${T.siteUrl()}/admin/vip/${r.id}`;
 
 function chatButton(settings, r) {
@@ -67,7 +69,7 @@ async function sendTeamMessage({ request: r, settings, text, author }) {
       body: `
         ${T.p(`Hi ${esc(r.contactName)}, ${author ? `${esc(author)} from the Eventsli team` : 'the Eventsli team'} wrote about <strong>${esc(r.reference)}</strong>:`)}
         ${T.quote(esc(text))}
-        ${T.button(requestUrl(r), 'Reply in your dashboard')}
+        ${T.button(requestUrl(r), r.source === 'visitor' ? 'Open your request' : 'Reply in your dashboard')}
         ${chatButton(settings, r)}`,
     }),
   });

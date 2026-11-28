@@ -86,7 +86,8 @@ describe('saved events — outside when signed out, inside when signed in', () =
 describe('what the bar offers while the session is unknown', () => {
   test('nothing that depends on who is asking', () => {
     const links = navLinks({ signedIn: false, loading: true, pathname: '/' });
-    expect(hrefs(links)).toEqual(['/events', '/how-it-works', '/why-us']);
+    // '/vip': VIP Services, for every visitor (2026-11-28).
+    expect(hrefs(links)).toEqual(['/events', '/how-it-works', '/why-us', '/vip']);
     // A CTA that says one thing and then another moves under the pointer of
     // somebody already reaching for it.
     expect(navCta({ signedIn: false, loading: true })).toBeNull();
@@ -94,7 +95,7 @@ describe('what the bar offers while the session is unknown', () => {
 
   test('the browse links are the same set for everybody once it resolves', () => {
     for (const links of [guest(), member(BUYER), member(ORGANIZER)]) {
-      expect(hrefs(links).slice(0, 3)).toEqual(['/events', '/how-it-works', '/why-us']);
+      expect(hrefs(links).slice(0, 4)).toEqual(['/events', '/how-it-works', '/why-us', '/vip']);
     }
   });
 });

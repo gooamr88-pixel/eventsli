@@ -1,5 +1,6 @@
 const { sendOk, sendFail, ERROR_STATUS } = require('../utils/responseEnvelope');
 const { writeAudit } = require('../services/auditService');
+const { hashIp } = require('../utils/crypto');
 const logger = require('../utils/logger');
 const svc = require('../services/vip/vipService');
 const admin = require('../services/vip/vipAdmin');
@@ -91,6 +92,57 @@ function sendMedia(res, file) {
 const organizerMedia = wrap(async (req, res) => {
   if (needOrganizer(req, res)) return undefined;
   const file = await admin.media(req.params.messageId, { organizerId: organizerOf(req) });
+  if (file.code) return refuse(res, file);
+  return sendMedia(res, file);
+});
+
+// ── Visitors: the public /vip page (2026-11-28) ─────────────────────────
+// No account. Their own routes carry the token from their link (t); a
+// wrong token is "not found", the same as a wrong id.
+
+const NOT_FOUND_LINK = { code: 'NOT_FOUND', message: 'This request link is not valid.' };
+
+const publicOptions = wrap(async (req, res) => sendOk(res, await svc.publicOptions({ user: req.user || null })));
+
+const publicCreate = wrap(async (req, res) => {
+  // The hidden "website" field: people never see it, form-filling bots do.
+  // They get a believable answer; nothing is stored or sent.
+  if (req.body.website) return sendOk(res, { request: null, chatUrl: null, manageUrl: null }, { status: 201 });
+  const result = await svc.create({ organizerId: null, user: req.user || null, input: req.body, ipHash: req.ip ? hashIp(req.ip) : null });
+  if (result.code) return refuse(res, result);
+  return sendOk(res, result, { status: 201 });
+});
+
+const tokenOf = (req) => (typeof req.query.t === 'string' ? req.query.t : req.body?.t);
+
+const publicGet = wrap(async (req, res) => {
+  const result = await svc.get({ token: tokenOf(req), id: req.params.id });
+  if (result.code) return refuse(res, result.code === 'NOT_FOUND' ? NOT_FOUND_LINK : result);
+  return sendOk(res, result);
+});
+
+const publicMessage = wrap(async (req, res) => {
+  const result = await svc.message({ token: tokenOf(req), user: req.user || null, id: req.params.id, text: req.body.text.trim() });
+  if (result.code) return refuse(res, result.code === 'NOT_FOUND' ? NOT_FOUND_LINK : result);
+  return sendOk(res, result, { status: 201 });
+});
+
+const publicContact = wrap(async (req, res) => {
+  const result = await svc.updateContact({ token: tokenOf(req), id: req.params.id, input: req.body });
+  if (result.code) return refuse(res, result.code === 'NOT_FOUND' ? NOT_FOUND_LINK : result);
+  return sendOk(res, result);
+});
+
+const publicCancel = wrap(async (req, res) => {
+  const result = await svc.cancel({ token: tokenOf(req), id: req.params.id, reason: (req.body.reason || '').trim() || null });
+  if (result.code) return refuse(res, result.code === 'NOT_FOUND' ? NOT_FOUND_LINK : result);
+  return sendOk(res, result);
+});
+
+const publicMedia = wrap(async (req, res) => {
+  const row = await svc.rowFor({ token: tokenOf(req), id: req.params.id });
+  if (!row) return refuse(res, NOT_FOUND_LINK);
+  const file = await admin.media(req.params.messageId, { requestId: row.id });
   if (file.code) return refuse(res, file);
   return sendMedia(res, file);
 });
@@ -205,6 +257,7 @@ const webhookReceive = wrap(async (req, res) => {
 
 module.exports = {
   options, create, list, get, message, updateContact, cancel, organizerMedia,
+  publicOptions, publicCreate, publicGet, publicMessage, publicContact, publicCancel, publicMedia,
   adminSettings, adminSaveSettings, adminConnection, adminList, adminHosts, adminGet, adminUpdate, adminReply,
   adminUnmatched, adminLink, adminReplyContact, adminDismiss, adminMedia,
   webhookVerify, webhookReceive,

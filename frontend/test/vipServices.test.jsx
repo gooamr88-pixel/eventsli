@@ -172,3 +172,68 @@ describe('the request form', () => {
     expect(screen.getByText(/\+1 \(619\) 666-6620/)).toBeInTheDocument();
   });
 });
+
+describe('for every visitor (2026-11-28)', () => {
+  const offer = {
+    settings: {
+      enabled: true, whatsappNumber: '+16196666620', email: 'info@eventsli.com', responseTime: 'We reply within a few hours.',
+      services: [{ key: 'hospitality', icon: 'crown', title: 'VIP guest hospitality', blurb: 'Hosts and arrivals.' }],
+    },
+    chatUrl: 'https://wa.me/16196666620?text=Hi',
+    events: [],
+    contact: { name: '', email: '', phone: '' },
+    isOrganizer: false,
+    budgets: [],
+  };
+
+  beforeEach(() => {
+    api.get.mockReset().mockResolvedValue(offer);
+    api.post.mockReset();
+    window.scrollTo = vi.fn();
+    Element.prototype.scrollIntoView = vi.fn();
+  });
+
+  test('no events to pick: the event name directly, an organization field, and the public endpoint', async () => {
+    api.post.mockResolvedValue({
+      request: { id: 'v1', reference: 'VIP-HARBQR' }, chatUrl: 'https://wa.me/16196666620?text=x',
+      manageUrl: 'https://eventsli.com/vip/request/v1?t=tok', token: 'tok',
+    });
+    const user = userEvent.setup();
+    render(<VipRequestForm mode="visitor" />);
+    await screen.findByText('Start a VIP request');
+    expect(api.get).toHaveBeenCalledWith('/public/vip', expect.anything());
+    expect(screen.queryByLabelText(/^Event$/)).toBeNull();
+    await user.click(screen.getByText('VIP guest hospitality'));
+    await user.type(screen.getByLabelText(/Event name/), 'Harbour Wedding');
+    await user.type(screen.getByLabelText(/What do you have in mind/), 'Hosts for 180 guests, please.');
+    await user.type(screen.getByLabelText(/Your name/), 'Mona');
+    await user.type(screen.getByRole('textbox', { name: /^Email/ }), 'mona@example.com');
+    await user.type(screen.getByLabelText(/Company or organization/), 'Harbour Co');
+    await user.click(screen.getByRole('radio', { name: /Email/ }));
+    await user.click(screen.getByRole('button', { name: /Send request/ }));
+
+    expect(api.post).toHaveBeenCalledWith('/public/vip/requests', expect.objectContaining({
+      services: ['hospitality'], eventName: 'Harbour Wedding', company: 'Harbour Co', contactName: 'Mona', preferredChannel: 'email',
+    }));
+    expect(api.post.mock.calls[0][1].website).toBeUndefined();
+    expect(api.post.mock.calls[0][1].eventId).toBeUndefined();
+    expect(await screen.findByRole('link', { name: 'Open your request' })).toHaveAttribute('href', '/vip/request/v1?t=tok');
+    expect(screen.queryByRole('link', { name: 'Back to VIP Services' })).toBeNull();
+  });
+
+  test('a signed-in organizer is pointed at their dashboard form', async () => {
+    api.get.mockResolvedValue({ ...offer, isOrganizer: true });
+    render(<VipRequestForm mode="visitor" />);
+    expect(await screen.findByText('You have an organizer account.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'dashboard' })).toHaveAttribute('href', '/organizer/vip/new');
+  });
+
+  test('the request page talks to the organizer paths, or to the token paths with a visitor link', async () => {
+    const { requestApi } = await import('../src/app/organizer/vip/[id]/VipRequest');
+    expect(requestApi('r1')).toMatchObject({ get: '/organizer/vip/r1', base: '/organizer/vip/r1', extra: {}, back: '/organizer/vip', visitor: false });
+    expect(requestApi('r1', 'a+b')).toMatchObject({
+      get: '/public/vip/requests/r1?t=a%2Bb', base: '/public/vip/requests/r1', extra: { t: 'a+b' },
+      mediaBase: '/public/vip/requests/r1/media', mediaQuery: '?t=a%2Bb', back: '/vip', visitor: true,
+    });
+  });
+});

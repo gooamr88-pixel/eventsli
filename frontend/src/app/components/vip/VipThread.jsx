@@ -41,7 +41,7 @@ function Ticks({ status }) {
   );
 }
 
-function Media({ message, mediaBase }) {
+function Media({ message, mediaBase, mediaQuery = '' }) {
   const [state, setState] = useState({ url: null, loading: false, error: null });
   const m = message.media;
   useEffect(() => () => { if (state.url) URL.revokeObjectURL(state.url); }, [state.url]);
@@ -53,7 +53,7 @@ function Media({ message, mediaBase }) {
   async function load() {
     setState({ url: null, loading: true, error: null });
     try {
-      const blob = await get(`${mediaBase}/${message.id}`, { noRedirect: true });
+      const blob = await get(`${mediaBase}/${message.id}${mediaQuery}`, { noRedirect: true });
       const url = URL.createObjectURL(blob);
       if (m.type === 'document') {
         const a = document.createElement('a');
@@ -95,7 +95,7 @@ export function whoWrote(m, viewer) {
   return named ? `${m.authorName} · Eventsli` : 'Eventsli team';
 }
 
-export default function VipThread({ messages, viewer = 'organizer', mediaBase = null, emptyText = 'No messages yet.' }) {
+export default function VipThread({ messages, viewer = 'organizer', mediaBase = null, mediaQuery = '', emptyText = 'No messages yet.' }) {
   const now = useNowMinute();
   const box = useRef(null);
   const count = messages.length;
@@ -124,7 +124,7 @@ export default function VipThread({ messages, viewer = 'organizer', mediaBase = 
           <li key={m.id} className={`es-vipmsg ${side}${m.status === 'failed' ? ' is-failed' : ''}`}>
             <div className="es-vipmsg__bubble">
               <p className="es-vipmsg__who">{who}</p>
-              {m.media && <Media message={m} mediaBase={mediaBase} />}
+              {m.media && <Media message={m} mediaBase={mediaBase} mediaQuery={mediaQuery} />}
               {m.body && <p className="es-vipmsg__text">{m.body}</p>}
               <p className="es-vipmsg__meta">
                 <span className={`es-vipmsg__ch is-${m.channel}`}>

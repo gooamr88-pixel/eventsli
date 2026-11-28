@@ -27,15 +27,32 @@ import { STATUS, OPEN, displayPhone, windowLeft } from '../../../components/vip/
  * asked for, and cancelling.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-export default function VipRequest({ id }) {
-  const { data, error, loading, reload } = useApi(`/organizer/vip/${id}`);
+/**
+ * Where this page talks to: an organizer's own request, or (with `token`) a
+ * VISITOR's, through the signed link from their email (/vip/request/<id>,
+ * 2026-11-28). The same page either way; only the paths differ.
+ */
+export function requestApi(id, token = null) {
+  if (token) {
+    const t = encodeURIComponent(token);
+    return {
+      get: `/public/vip/requests/${id}?t=${t}`, base: `/public/vip/requests/${id}`, extra: { t: token },
+      mediaBase: `/public/vip/requests/${id}/media`, mediaQuery: `?t=${t}`, back: '/vip', visitor: true,
+    };
+  }
+  return { get: `/organizer/vip/${id}`, base: `/organizer/vip/${id}`, extra: {}, mediaBase: '/organizer/vip/media', mediaQuery: '', back: '/organizer/vip', visitor: false };
+}
+
+export default function VipRequest({ id, token = null }) {
+  const api = requestApi(id, token);
+  const { data, error, loading, reload } = useApi(api.get);
   usePolling(reload);
   if (loading) return <Loading variant="card" label="Loading the request" />;
   if (error) return <ErrorNotice error={error} onRetry={reload} />;
-  return <Body data={data} reload={reload} />;
+  return <Body data={data} reload={reload} api={api} />;
 }
 
-function Body({ data, reload }) {
+function Body({ data, reload, api }) {
   const toast = useToast();
   const confirm = useConfirm();
   const now = useNowMinute();
@@ -46,7 +63,7 @@ function Body({ data, reload }) {
 
   async function send(text) {
     try {
-      await post(`/organizer/vip/${r.id}/messages`, { text });
+      await post(`${api.base}/messages`, { ...api.extra, text });
       reload();
       return true;
     } catch (err) {
@@ -65,7 +82,7 @@ function Body({ data, reload }) {
     });
     if (!ok) return;
     try {
-      await post(`/organizer/vip/${r.id}/cancel`, {});
+      await post(`${api.base}/cancel`, { ...api.extra });
       toast.success('Cancelled.');
       reload();
     } catch (err) {
@@ -76,7 +93,7 @@ function Body({ data, reload }) {
   return (
     <div className="fx-stack">
       <div className="es-vipreq__head">
-        <Link href="/organizer/vip" className="es-vip__back"><NavIcon name="chevronLeft" size={16} /> VIP Services</Link>
+        <Link href={api.back} className="es-vip__back"><NavIcon name="chevronLeft" size={16} /> VIP Services</Link>
         <div className="es-vipreq__title">
           <h1><span className="es-nums">{r.reference}</span></h1>
           <span className={`es-pill ${STATUS[r.status]?.pill || ''}`}>{STATUS[r.status]?.label}</span>
@@ -92,19 +109,19 @@ function Body({ data, reload }) {
             <h2 id="vip-chat-title">Conversation</h2>
             {live && <span className="es-vipreq__live"><span aria-hidden="true" /> Chatting on WhatsApp</span>}
           </div>
-          <VipThread messages={data.messages} viewer="organizer" mediaBase="/organizer/vip/media"
+          <VipThread messages={data.messages} viewer="organizer" mediaBase={api.mediaBase} mediaQuery={api.mediaQuery}
             emptyText="Nothing yet. Write below, or continue on WhatsApp." />
           {r.status !== 'cancelled' && (
             <VipComposer
               onSend={send}
               placeholder="Write to the Eventsli team…"
-              hint="Our team sees this here and gets an email. For the fastest reply, use WhatsApp."
+              hint={api.visitor ? 'Our team gets this straight away. Bookmark this page to come back to your request.' : 'Our team sees this here and gets an email. For the fastest reply, use WhatsApp.'}
             />
           )}
         </section>
 
         <aside className="fx-stack es-vipreq__side">
-          <WhatsAppCard r={r} wa={wa} live={live} reload={reload} />
+          <WhatsAppCard r={r} wa={wa} live={live} reload={reload} api={api} />
 
           <section className="es-card es-vipreq__card" aria-labelledby="vip-what-title">
             <h2 id="vip-what-title">What you asked for</h2>
@@ -133,7 +150,7 @@ function Body({ data, reload }) {
   );
 }
 
-function WhatsAppCard({ r, wa, live, reload }) {
+function WhatsAppCard({ r, wa, live, reload, api }) {
   const toast = useToast();
   const [editing, setEditing] = useState(false);
   const [phone, setPhone] = useState(r.whatsappNumber || '');
@@ -142,7 +159,7 @@ function WhatsAppCard({ r, wa, live, reload }) {
   async function save(body, done) {
     setBusy(true);
     try {
-      await patch(`/organizer/vip/${r.id}/contact`, body);
+      await patch(`${api.base}/contact`, { ...api.extra, ...body });
       toast.success(done);
       setEditing(false);
       reload();

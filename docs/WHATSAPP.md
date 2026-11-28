@@ -8,6 +8,7 @@ Organizers ask the Eventsli team to run part of their event for them. The reques
 |---|---|
 | Organizer › **VIP Services** (`/organizer/vip`) | The offer (services, how it works), the team's WhatsApp and email, and the organizer's requests, with a dot when the team has written |
 | `/organizer/vip/new` | The request form: services, event (theirs, or one not on Eventsli yet), guests, budget, details, and how to reach them (WhatsApp number, WhatsApp opt-in, preferred channel). After sending, **Continue on WhatsApp** opens a chat with the reference already typed in |
+| **`/vip` (public, every visitor)** | The same front door for anyone, no account. It is in the site header and footer. The request form sits under the hero, with an optional organization field. A visitor's request comes back with a **private link** (`/vip/request/<id>?t=…`, an HMAC of the id signed with `VIP_LINK_SECRET` or derived from `JWT_SECRET`). That link is also emailed, and from it they follow the request, write, change their WhatsApp settings or cancel. The form is limited to 5 requests per hour per address and has a hidden honeypot field for bots. Search engines are kept away from the private link |
 | `/organizer/vip/<id>` | Progress steps, the conversation (WhatsApp, dashboard and email in one thread, refreshed every 20 s), the WhatsApp card (continue the chat, change the number, opt in or out) and cancelling |
 | Admin › Sales › **VIP Services** (`/admin/vip`) | **Requests** (counts, filters, search) · **WhatsApp inbox** (chats not tied to a request: reply, link, dismiss) · **Settings** (connection check, the values to paste into Meta, the number, email and services organizers see, and who is emailed) |
 | `/admin/vip/<id>` | The thread with a reply box that says before sending where the reply will go (and why), status changes (emailed, plus WhatsApp when that is how the organizer is reached), assignee, private team notes, and an **Open their chat in WhatsApp** link |
@@ -75,7 +76,8 @@ Only the owner can do these steps, because they need the Meta Business login and
 
 ## 4. Deploying
 
-* **Migration first:** `supabase/migrations/20261222090000_vip_services.sql` (two new tables; nothing else reads them). Apply it before the API that uses it.
+* **Migration first:** `supabase/migrations/20261222090000_vip_services.sql` (two new tables, which nothing else reads; visitor requests have no organizer, `source = 'visitor'`).
+* Optional: set `VIP_LINK_SECRET` to a random value so visitor links do not depend on `JWT_SECRET`. Apply it before the API that uses it.
 * The API and the frontend ship together (the sidebar entries and the new pages call the new endpoints).
 * `scripts/verify-schema.js` now checks for both tables.
 * Without the four `WHATSAPP_*` values, the API logs nothing and the feature runs in click-to-chat mode. A partial configuration is logged at boot as a warning.

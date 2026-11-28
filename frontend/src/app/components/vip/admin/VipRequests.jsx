@@ -66,7 +66,7 @@ export default function VipRequests() {
                       {r.reference}
                     </span>
                     <span className="es-viplist__what fx-min0">
-                      <b className="fx-truncate">{r.contactName}{r.organizer ? ` · ${r.organizer.name}` : ''}</b>
+                      <b className="fx-truncate">{r.contactName}{r.organizer ? ` · ${r.organizer.name}` : r.source === 'visitor' ? ` · ${r.company || 'Visitor'}` : ''}</b>
                       <span className="fx-truncate">{r.serviceTitles.join(', ')} · {r.event?.title || r.eventName || 'No event'} · {when(r.updatedAt, now)}</span>
                     </span>
                     {r.whatsappNumber && (

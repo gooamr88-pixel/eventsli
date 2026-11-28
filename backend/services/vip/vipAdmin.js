@@ -3,6 +3,7 @@ const logger = require('../../utils/logger');
 const wa = require('../whatsapp/cloudApi');
 const waConfig = require('../whatsapp/config');
 const store = require('./vipStore');
+const links = require('./vipLinks');
 const emails = require('./vipEmails');
 const { deliver, shapeForEmail } = require('./vipWhatsApp');
 const { decideChannel, waLink, STATUS, OPEN_STATUSES, normalisePhone } = require('./vipText');
@@ -32,13 +33,13 @@ async function list({ view = 'open', q = '', page = 1 }) {
   const term = q.trim();
   if (term) {
     const t = escapeLike(term);
-    query = query.or(`reference.ilike.%${t}%,contact_name.ilike.%${t}%,contact_email.ilike.%${t}%,event_name.ilike.%${t}%`);
+    query = query.or(`reference.ilike.%${t}%,contact_name.ilike.%${t}%,contact_email.ilike.%${t}%,event_name.ilike.%${t}%,company.ilike.%${t}%`);
   }
   const from = (page - 1) * PAGE;
   const { data, error, count } = await query.order('updated_at', { ascending: false }).range(from, from + PAGE - 1);
   if (error) throw new Error(`vip admin list failed: ${error.message}`);
 
-  const orgIds = [...new Set((data || []).map((r) => r.organizer_id))];
+  const orgIds = [...new Set((data || []).map((r) => r.organizer_id).filter(Boolean))];
   const eventIds = [...new Set((data || []).map((r) => r.event_id).filter(Boolean))];
   const [{ data: orgs }, { data: events }, counts] = await Promise.all([
     orgIds.length ? supabase.from('organizers').select('id, display_name, country').in('id', orgIds) : { data: [] },
@@ -85,7 +86,7 @@ async function get(id) {
     store.eventRow(row.event_id),
     store.messagesFor(row.id),
     store.windowFor(row.whatsapp_e164),
-    supabase.from('organizers').select('id, display_name, country').eq('id', row.organizer_id).maybeSingle(),
+    row.organizer_id ? supabase.from('organizers').select('id, display_name, country').eq('id', row.organizer_id).maybeSingle() : { data: null },
   ]);
   const names = await store.authorNames(rows);
   const now = new Date().toISOString();
@@ -107,7 +108,9 @@ async function get(id) {
     delivery: { ...next, windowOpenUntil: win.openUntil, template: waConfig.config().updateTemplate },
     links: {
       chat: row.whatsapp_e164 ? waLink(row.whatsapp_e164) : null,
-      organizerPage: `/organizer/vip/${row.id}`,
+      organizerPage: row.source === 'visitor' ? null : `/organizer/vip/${row.id}`,
+      // A visitor's private page, to copy for them if they lost the email.
+      visitorPage: row.source === 'visitor' ? links.manageUrl(row.id) : null,
     },
   };
 }
@@ -239,9 +242,11 @@ async function dismiss({ contact }) {
  * A WhatsApp photo or file, fetched from Meta for the page that shows it.
  * `organizerId`: an organizer may open files on their own requests only.
  */
-async function media(messageId, { organizerId = null } = {}) {
+async function media(messageId, { organizerId = null, requestId = null } = {}) {
   const { data: m } = await supabase.from('vip_service_messages').select('id, request_id, media').eq('id', messageId).maybeSingle();
   if (!m?.media?.id) return refuse('NOT_FOUND', 'That file does not exist.');
+  // A visitor's link: files on that one request only.
+  if (requestId && m.request_id !== requestId) return refuse('NOT_FOUND', 'That file does not exist.');
   if (organizerId) {
     if (!m.request_id) return refuse('NOT_FOUND', 'That file does not exist.');
     const row = await store.requestRow(m.request_id);

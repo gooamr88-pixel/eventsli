@@ -93,3 +93,40 @@ describe('the card', () => {
     expect(container.querySelector('.es-evx-partners')).toBeNull();
   });
 });
+
+describe('"Become a sponsor / vendor" under the cards (2026-11-28)', async () => {
+  const { default: EventCard } = await import('../src/app/components/EventCard');
+  const { openCallLinks } = await import('../src/app/components/OpenCalls');
+
+  it('a badge for each programme the organizer opened, sponsors first, to that event\'s pages', () => {
+    expect(openCallLinks(event({ openCalls: { sponsors: true, vendors: true } })).map((l) => [l.label, l.href]))
+      .toEqual([['Become a sponsor', '/e/gala/sponsor'], ['Become a vendor', '/e/gala/vendors']]);
+    expect(openCallLinks(event({ openCalls: { sponsors: false, vendors: true } })).map((l) => l.kind)).toEqual(['vendor']);
+    expect(openCallLinks(event({ openCalls: { sponsors: false, vendors: false } }))).toEqual([]);
+    expect(openCallLinks(event())).toEqual([], 'an older API sends no flags');
+    expect(openCallLinks(event({ isPast: true, openCalls: { sponsors: true, vendors: true } }))).toEqual([], 'nobody joins a finished event');
+  });
+
+  it('on the /events card: under it, as their own links, never inside the card\'s link', () => {
+    const { container } = render(<EventGridCard event={event({ openCalls: { sponsors: true, vendors: true } })} />);
+    const nav = screen.getByRole('navigation', { name: 'Partner with Gala Night' });
+    expect(within(nav).getByRole('link', { name: /Become a sponsor/ })).toHaveAttribute('href', '/e/gala/sponsor');
+    expect(within(nav).getByRole('link', { name: /Become a vendor/ })).toHaveAttribute('href', '/e/gala/vendors');
+    expect(nav.closest('.es-evx-card')).toBeNull();
+    expect(container.querySelector('.es-evx-cardwrap')).not.toBeNull();
+    container.querySelectorAll('a a').forEach(() => { throw new Error('a link inside a link'); });
+  });
+
+  it('on the homepage card too; and no badges, no extra wrapper on /events', () => {
+    const { container, unmount } = render(<EventCard event={event({ openCalls: { sponsors: false, vendors: true } })} />);
+    const badge = screen.getByRole('link', { name: /Become a vendor/ });
+    expect(badge.closest('.es-evcard')).toBeNull();
+    expect(badge.closest('.es-evcard-wrap')).not.toBeNull();
+    expect(screen.queryByRole('link', { name: /Become a sponsor/ })).toBeNull();
+    expect(container.querySelectorAll('a a')).toHaveLength(0);
+    unmount();
+    const plain = render(<EventGridCard event={event({ openCalls: { sponsors: false, vendors: false } })} />);
+    expect(plain.container.querySelector('.es-evx-cardwrap')).toBeNull();
+    expect(plain.container.querySelector('.es-opencalls')).toBeNull();
+  });
+});

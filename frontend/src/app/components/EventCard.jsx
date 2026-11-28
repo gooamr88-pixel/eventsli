@@ -5,6 +5,7 @@ import NavIcon from './shell/NavIcon';
 import SaveEventButton from './SaveEventButton';
 import { isDateOnly, formatDateOnly } from '../lib/dateOnly';
 import PrivateCardCover from './PrivateCardCover';
+import OpenCalls from './OpenCalls';
 
 /**
  * One event in a listing. Used by the homepage and by /events, so the two can
@@ -264,6 +265,8 @@ export default function EventCard({ event, priority = false, headingLevel = 3, a
       title={event.title}
       className="es-evcard__save"
     />
+    {/* "Become a sponsor / vendor" when the organizer opened it (2026-11-28). */}
+    <OpenCalls event={event} />
     </div>
   );
 }

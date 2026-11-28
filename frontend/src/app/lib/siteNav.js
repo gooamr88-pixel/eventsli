@@ -52,6 +52,8 @@ export function navLinks({ signedIn, loading, user, pathname, savedCount = 0 }) 
     { href: '/events', label: 'Events' },
     { href: '/how-it-works', label: 'How it works' },
     { href: '/why-us', label: 'For organizers' },
+    // VIP Services (owner, 2026-11-28): "available for all visitors".
+    { href: '/vip', label: 'VIP Services' },
   ];
   // While the answer is in flight, only what everybody gets. Guessing
   // "signed out" and correcting a moment later is a flicker that every

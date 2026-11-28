@@ -150,6 +150,7 @@ before(async () => {
 after(async () => {
   globalThis.fetch = realFetch;
   for (const id of organizers) await supabase.from('vip_service_requests').delete().eq('organizer_id', id);
+  await supabase.from('vip_service_requests').delete().eq('source', 'visitor').like('contact_email', `%-${stamp}@eventsli-test.invalid`);
   await supabase.from('vip_service_messages').delete().in('wa_contact', [ORG_PHONE, STRANGER]).is('request_id', null);
   if (eventId) await supabase.from('events').delete().eq('id', eventId);
   if (hadSettings) await supabase.from('platform_settings').upsert({ key: 'vip_services', value: originalSettings });
@@ -387,6 +388,101 @@ test('no number given: the team\'s replies go by email; the organizer writes on 
   const c = await call('POST', `/organizer/vip/${second.id}/cancel`, { cookie: orgCookie, body: { reason: 'Changed plans' } });
   assert.equal(c.body.data.request.status, 'cancelled');
   assert.equal((await call('POST', `/organizer/vip/${second.id}/messages`, { cookie: orgCookie, body: { text: 'hello?' } })).status, 400);
+});
+
+// ── Every visitor (2026-11-28) ───────────────────────────────────────────
+
+let visit; // { request, manageUrl, token }
+
+test('a visitor with no account sees the offer and asks; the answer carries their private link', async () => {
+  const opts = await call('GET', '/public/vip');
+  assert.equal(opts.status, 200, JSON.stringify(opts.body));
+  assert.equal(opts.body.data.settings.whatsappNumber, '+16196666620');
+  assert.deepEqual(opts.body.data.events, []);
+  assert.equal(opts.body.data.settings.notifyEmails, undefined);
+
+  const r = await call('POST', '/public/vip', {});
+  assert.equal(r.status, 404, 'requests go to /requests');
+  const made = await call('POST', '/public/vip/requests', {
+    body: {
+      services: ['hospitality'], eventName: 'Harbour Wedding', eventDate: '2027-06-12', guestCount: 180,
+      details: 'A wedding for 180 with VIP arrivals and a host at every table.',
+      contactName: 'Mona Visitor', contactEmail: `mona-${stamp}@eventsli-test.invalid`, company: 'Harbour Weddings Co',
+    },
+  });
+  assert.equal(made.status, 201, JSON.stringify(made.body));
+  visit = made.body.data;
+  assert.equal(visit.request.source, 'visitor');
+  assert.equal(visit.request.company, 'Harbour Weddings Co');
+  assert.equal(visit.request.preferredChannel, 'email');
+  assert.match(visit.manageUrl, new RegExp(`/vip/request/${visit.request.id}\\?t=${visit.token}$`));
+  assert.ok(decodeURIComponent(visit.chatUrl).includes(visit.request.reference));
+  const { data } = await supabase.from('vip_service_requests').select('organizer_id, ip_hash').eq('id', visit.request.id).single();
+  assert.equal(data.organizer_id, null);
+  assert.ok(data.ip_hash, 'the address is kept hashed for abuse review');
+});
+
+test('a bot filling the hidden field gets a believable answer and nothing is stored', async () => {
+  const r = await call('POST', '/public/vip/requests', {
+    body: { services: ['other'], details: 'Buy cheap followers now!!!', contactName: 'Bot', contactEmail: `bot-${stamp}@eventsli-test.invalid`, website: 'http://spam.example' },
+  });
+  assert.equal(r.status, 201);
+  assert.equal(r.body.data.request, null);
+  const { count } = await supabase.from('vip_service_requests').select('id', { count: 'exact', head: true }).eq('contact_email', `bot-${stamp}@eventsli-test.invalid`);
+  assert.equal(count, 0);
+});
+
+test('their link opens it and they can write; without the right token it does not exist', async () => {
+  const id = visit.request.id;
+  const ok = await call('GET', `/public/vip/requests/${id}?t=${visit.token}`);
+  assert.equal(ok.status, 200);
+  assert.equal(ok.body.data.request.reference, visit.request.reference);
+  const wrong = await call('GET', `/public/vip/requests/${id}?t=${'x'.repeat(32)}`);
+  assert.equal(wrong.status, 404);
+  assert.equal((await call('GET', `/public/vip/requests/${id}`)).status, 400);
+
+  const msg = await call('POST', `/public/vip/requests/${id}/messages`, { body: { t: visit.token, text: 'Can you also do the flowers?' } });
+  assert.equal(msg.status, 201);
+  assert.equal((await call('POST', `/public/vip/requests/${id}/messages`, { body: { t: 'y'.repeat(32), text: 'forged' } })).status, 404);
+
+  // An organizer's request is never reachable through a visitor link.
+  const { tokenFor } = require('../../services/vip/vipLinks');
+  assert.equal((await call('GET', `/public/vip/requests/${req.id}?t=${tokenFor(req.id)}`)).status, 404);
+  // …and no organizer sees the visitor's request.
+  const theirs = await call('GET', '/organizer/vip', { cookie: orgCookie });
+  assert.ok(!theirs.body.data.requests.some((x) => x.id === id));
+});
+
+test('the team sees it as a visitor\'s, replies by email, and has their link to hand', async () => {
+  const id = visit.request.id;
+  const list = await call('GET', '/admin/vip/requests?view=open&q=Harbour', { cookie: adminCookie });
+  const row = list.body.data.requests.find((x) => x.id === id);
+  assert.ok(row, 'found by the organization name they typed');
+  assert.equal(row.source, 'visitor');
+  assert.equal(row.organizer, null);
+  assert.equal(row.unread, true);
+
+  const got = await call('GET', `/admin/vip/requests/${id}`, { cookie: adminCookie });
+  assert.equal(got.body.data.links.organizerPage, null);
+  assert.match(got.body.data.links.visitorPage, new RegExp(`/vip/request/${id}\\?t=`));
+  const reply = await call('POST', `/admin/vip/requests/${id}/reply`, { cookie: adminCookie, body: { text: 'Flowers too, yes.' } });
+  assert.equal(reply.body.data.delivery.via, 'email');
+
+  const mine = await call('GET', `/public/vip/requests/${id}?t=${visit.token}`);
+  assert.ok(mine.body.data.messages.some((m) => m.body === 'Flowers too, yes.' && m.author === 'team'));
+});
+
+test('they write on WhatsApp quoting the reference: it lands on their request and the number is adopted', async () => {
+  const number = `+3368812${tail}`;
+  assert.equal(await hook(inbound(number, `wamid.in.${stamp}.visitor`, `Hello, about ${visit.request.reference}`)), 200);
+  const { data } = await supabase.from('vip_service_requests').select('whatsapp_e164').eq('id', visit.request.id).single();
+  assert.equal(data.whatsapp_e164, number);
+  const mine = await call('GET', `/public/vip/requests/${visit.request.id}?t=${visit.token}`);
+  assert.ok(mine.body.data.whatsapp.activeUntil);
+
+  const cancelled = await call('POST', `/public/vip/requests/${visit.request.id}/cancel`, { body: { t: visit.token, reason: 'Found a planner' } });
+  assert.equal(cancelled.body.data.request.status, 'cancelled');
+  assert.ok(cancelled.body.data.messages.some((m) => m.body === 'Cancelled by them: Found a planner'));
 });
 
 test('settings: every admin reads them, only a super admin changes them; switched off, nothing new', async () => {

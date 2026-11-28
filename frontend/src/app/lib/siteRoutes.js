@@ -32,6 +32,8 @@ export const PUBLIC_PAGES = [
   { path: '/contact', changeFrequency: 'yearly', priority: 0.5 },
   // Book a demo (2026-11-19): for organizers weighing the platform.
   { path: '/demo', changeFrequency: 'monthly', priority: 0.6 },
+  // VIP Services (2026-11-28): the Eventsli team runs part of an event, for any visitor.
+  { path: '/vip', changeFrequency: 'monthly', priority: 0.7 },
   { path: '/tickets/find', changeFrequency: 'yearly', priority: 0.4 },
   { path: '/terms', changeFrequency: 'yearly', priority: 0.3 },
   { path: '/terms/organizer', changeFrequency: 'yearly', priority: 0.3 },
@@ -94,6 +96,9 @@ export const PRIVATE_PREFIXES = [
   // A booked demo's "change or cancel" page: the URL carries the booker's
   // link token, a bearer credential like a ticket's (2026-11-19).
   '/demo/booking',
+  // A visitor's VIP request (2026-11-28): the URL carries their private link
+  // token, a bearer credential like a booked demo's.
+  '/vip/request',
   // A host's own guest list (2026-11-23): the URL carries their private,
   // signed link — one person's view, and a credential like a ticket's.
   '/guests',
@@ -127,6 +132,7 @@ export const FOOTER_GROUPS = [
       { path: '/why-us', label: 'Why Eventsli' },
       { path: '/how-it-works', label: 'Selling with us' },
       { path: '/demo', label: 'Book a demo' },
+      { path: '/vip', label: 'VIP Services' },
       { path: '/trust', label: 'Security and trust' },
     ],
   },

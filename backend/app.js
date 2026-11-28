@@ -265,6 +265,8 @@ app.use('/api/v1/places', require('./routes/placesRoutes'));
 app.use('/api/v1/ai', require('./routes/aiRoutes'));
 // Book a demo (2026-11-19): its own router, ahead of the general public one.
 app.use('/api/v1/public/demo', require('./routes/demoRoutes'));
+// VIP Services for every visitor (2026-11-28): routes/vipPublicRoutes.js.
+app.use('/api/v1/public/vip', require('./routes/vipPublicRoutes'));
 app.use('/api/v1/public', require('./routes/publicRoutes'));
 app.use('/api/v1/tickets', require('./routes/ticketRoutes'));
 // The attendee app's saved events, inbox and push devices (2026-11-24).

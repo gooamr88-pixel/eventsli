@@ -138,3 +138,30 @@ test('the flags are validated', async () => {
   assert.equal((await list('withPast=yes')).status, 400);
   assert.equal((await list('withPartners=1')).status, 400);
 });
+
+test('"Become a sponsor / vendor": open exactly when the organizer opened it, never on a finished event', async () => {
+  const { error } = await supabase.from('sponsorship_programs').insert([
+    { event_id: ids.soon, is_open: true },
+    { event_id: ids.later, is_open: false },
+    { event_id: ids.lastWeek, is_open: true },
+  ]);
+  if (error) throw new Error(`programs: ${error.message}`);
+  const { error: vErr } = await supabase.from('vendor_programs').insert([
+    { event_id: ids.soon, is_open: true },
+    { event_id: ids.later, is_open: true },
+  ]);
+  if (vErr) throw new Error(`vendor programs: ${vErr.message}`);
+  try {
+    // Its own query: the public listing is micro-cached for 30 s, and the
+    // earlier tests asked the plain one before these programmes existed.
+    const r = await list('withPast=true&limit=23');
+    const calls = Object.fromEntries(r.body.data.map((e) => [e.id, e.openCalls]));
+    assert.deepEqual(calls[ids.soon], { sponsors: true, vendors: true });
+    assert.deepEqual(calls[ids.later], { sponsors: false, vendors: true });
+    assert.deepEqual(calls[ids.lastWeek], { sponsors: false, vendors: false }, 'finished: nobody can join it');
+    assert.deepEqual(calls[ids.lastYear], { sponsors: false, vendors: false });
+  } finally {
+    await supabase.from('sponsorship_programs').delete().in('event_id', ids.events);
+    await supabase.from('vendor_programs').delete().in('event_id', ids.events);
+  }
+});
